@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
+import { registerSchemas } from "./schemas/index.js";
 import { healthRoutes } from "./routes/health.js";
 import { userRoutes } from "./routes/users.js";
 
@@ -48,6 +49,9 @@ async function main() {
   await fastify.register(swaggerUi, {
     routePrefix: "/docs",
   });
+
+  // Register shared schemas
+  registerSchemas(fastify);
 
   // Register routes
   await fastify.register(healthRoutes);

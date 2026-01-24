@@ -34,9 +34,9 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
             properties: {
               data: {
                 type: "array",
-                items: { $ref: "#/components/schemas/User" },
+                items: { $ref: "User#" },
               },
-              pagination: { $ref: "#/components/schemas/Pagination" },
+              pagination: { $ref: "Pagination#" },
             },
           },
         },
@@ -70,7 +70,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
           200: {
             type: "object",
             properties: {
-              data: { $ref: "#/components/schemas/User" },
+              data: { $ref: "User#" },
             },
           },
           404: {
@@ -120,7 +120,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
           201: {
             type: "object",
             properties: {
-              data: { $ref: "#/components/schemas/User" },
+              data: { $ref: "User#" },
             },
           },
         },
@@ -161,7 +161,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
           200: {
             type: "object",
             properties: {
-              data: { $ref: "#/components/schemas/User" },
+              data: { $ref: "User#" },
             },
           },
         },
@@ -223,7 +223,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
           200: {
             type: "object",
             properties: {
-              data: { $ref: "#/components/schemas/User" },
+              data: { $ref: "User#" },
             },
           },
           401: {
