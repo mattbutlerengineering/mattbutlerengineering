@@ -1,0 +1,19 @@
+{
+  "name": "@mbe/types",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./api": "./src/api.ts",
+    "./user": "./src/user.ts"
+  },
+  "scripts": {
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@mbe/config": "workspace:*",
+    "typescript": "^5.7.3"
+  }
+}

@@ -1,0 +1,33 @@
+# Dynamic Traefik configuration
+# This file is watched and can be updated without restarting Traefik
+
+http:
+  # Middlewares
+  middlewares:
+    # Strip /api/v1/users prefix before forwarding to service
+    strip-users-prefix:
+      stripPrefix:
+        prefixes:
+          - "/api/v1/users"
+
+    # Security headers
+    security-headers:
+      headers:
+        browserXssFilter: true
+        contentTypeNosniff: true
+        frameDeny: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 31536000
+
+    # Rate limiting
+    rate-limit:
+      rateLimit:
+        average: 100
+        burst: 50
+
+  # Routers (defined here or via Docker labels)
+  routers: {}
+
+  # Services (defined here or via Docker labels)
+  services: {}
