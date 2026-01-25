@@ -11,4 +11,6 @@ config:
   cloudflare:apiToken:
     secure: v1:hyUVXVjBemYAw2jm:DnAAiZOpt4V5+ls6f7keMYfQAtBqsFde1Z4hLeJRL8pxqkI01Y/S2tCmXgwazaIUkILQC+LQq78=
   mbe-infrastructure:cloudflareZoneId: dfed09378e547f95a3bd645c55ef777d
+  mbe-infrastructure:databaseUrl:
+    secure: v1:1gTSbvkYfliiHrQE:FLdofNAn9L7N1vf83XJRYwbl4efSpUKR8f2Hd61KxNkBJVQyQMY0A5bzok3+zGNKTJ4xbFWGS+BQFvVv7yrSlFpE8df5cqhc5WTQaVx7tHCuC/271A/u5aCINruI1qqlKTju94HWaBnRXQ8DfnecS8SPfeLI4I7p/64HrGPwPZEkyE9j
 encryptionsalt: v1:mJxX5QhUvT4=:v1:Uhf1OKllU+a17pOh:FyVoS0r/JdFmAbbr0f4zfEvad/KpMg==

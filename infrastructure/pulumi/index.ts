@@ -9,6 +9,9 @@ const domain = config.require("domain");
 const environment = config.get("environment") || "production";
 const cloudflareZoneId = config.require("cloudflareZoneId");
 
+// Database (Neon - managed externally, connection string in config)
+const databaseUrl = config.requireSecret("databaseUrl");
+
 // Auth0 exports
 export const auth0ApiIdentifier = auth0Outputs.apiIdentifier;
 export const auth0ClientId = auth0Outputs.dashboardClientId;
@@ -26,7 +29,7 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
       },
     ],
 
-    // Ingress routing (new approach)
+    // Ingress routing
     ingress: {
       rules: [
         {
@@ -160,6 +163,11 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
           {
             key: "AUTH0_AUDIENCE",
             value: `https://api.${domain}`,
+          },
+          {
+            key: "DATABASE_URL",
+            value: databaseUrl,
+            type: "SECRET",
           },
         ],
         healthCheck: {

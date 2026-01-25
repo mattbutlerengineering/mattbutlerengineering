@@ -74,6 +74,10 @@ flowchart TB
         DNS[DNS + CDN Proxy<br/>mattbutlerengineering.com]
     end
 
+    subgraph Neon[Neon]
+        DB[(PostgreSQL<br/>Serverless)]
+    end
+
     subgraph DO[DigitalOcean App Platform]
         Ingress[Ingress Router]
 
@@ -91,6 +95,8 @@ flowchart TB
     Ingress -->|"/dashboard/*"| Dashboard
     Ingress -->|"/api/*"| UsersAPI
 
+    UsersAPI -->|Prisma| DB
+
     Browser <-->|OAuth 2.0 / OIDC| SPA
     Dashboard <-->|Get Tokens| SPA
     UsersAPI <-->|Validate JWT| API_RS
@@ -98,6 +104,7 @@ flowchart TB
     style Auth0 fill:#eb5424,color:#fff
     style Cloudflare fill:#f38020,color:#fff
     style DO fill:#0080ff,color:#fff
+    style Neon fill:#00e599,color:#000
 ```
 
 ## Component Details
@@ -117,12 +124,13 @@ flowchart TB
 
 ### Infrastructure
 
-| Component | Provider | Purpose |
-|-----------|----------|---------|
-| App Platform | DigitalOcean | Hosting (static sites + Docker services) |
-| DNS + CDN | Cloudflare | Domain routing, SSL, caching |
-| Authentication | Auth0 | OAuth 2.0 / OIDC identity provider |
-| IaC | Pulumi (TypeScript) | Infrastructure as Code |
+| Component | Provider | Cost | Purpose |
+|-----------|----------|------|---------|
+| App Platform | DigitalOcean | ~$5/mo | Hosting (static sites + Docker services) |
+| Database | Neon | Free | Serverless PostgreSQL |
+| DNS + CDN | Cloudflare | Free | Domain routing, SSL, caching |
+| Authentication | Auth0 | Free | OAuth 2.0 / OIDC identity provider |
+| IaC | Pulumi (TypeScript) | Free | Infrastructure as Code |
 
 ### Monorepo Structure
 
@@ -175,3 +183,4 @@ sequenceDiagram
 | API | https://mattbutlerengineering.com/api |
 | DO Direct | https://mattbutlerengineering-8ryim.ondigitalocean.app |
 | Auth0 | https://dev-ytbgmz5ls3wh4xdx.us.auth0.com |
+| Neon Console | https://console.neon.tech (project: mattbutlerengineering) |
