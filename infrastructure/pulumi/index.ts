@@ -26,6 +26,44 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
       },
     ],
 
+    // Ingress routing (new approach)
+    ingress: {
+      rules: [
+        {
+          match: {
+            path: {
+              prefix: "/api",
+            },
+          },
+          component: {
+            name: "users-api",
+            preservePathPrefix: false,
+          },
+        },
+        {
+          match: {
+            path: {
+              prefix: "/dashboard",
+            },
+          },
+          component: {
+            name: "dashboard",
+            preservePathPrefix: true,
+          },
+        },
+        {
+          match: {
+            path: {
+              prefix: "/",
+            },
+          },
+          component: {
+            name: "web",
+          },
+        },
+      ],
+    },
+
     // Main website (static React app)
     staticSites: [
       {
@@ -36,14 +74,8 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
           deployOnPush: true,
         },
         sourceDir: "/",
-        buildCommand: "npm install -g pnpm && pnpm install && pnpm build --filter=@mbe/web",
+        buildCommand: "pnpm build --filter=@mbe/web",
         outputDir: "apps/web/dist",
-        routes: [
-          {
-            path: "/",
-            preservePathPrefix: false,
-          },
-        ],
         envs: [
           {
             key: "VITE_AUTH_AUTHORITY",
@@ -71,14 +103,8 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
           deployOnPush: true,
         },
         sourceDir: "/",
-        buildCommand: "npm install -g pnpm && pnpm install && pnpm build --filter=@mbe/dashboard",
+        buildCommand: "pnpm build --filter=@mbe/dashboard",
         outputDir: "apps/dashboard/dist",
-        routes: [
-          {
-            path: "/dashboard",
-            preservePathPrefix: true,
-          },
-        ],
         envs: [
           {
             key: "VITE_AUTH_AUTHORITY",
@@ -118,12 +144,6 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
         instanceCount: 1,
         instanceSizeSlug: "apps-s-1vcpu-0.5gb",
         httpPort: 3001,
-        routes: [
-          {
-            path: "/api",
-            preservePathPrefix: false,
-          },
-        ],
         envs: [
           {
             key: "NODE_ENV",

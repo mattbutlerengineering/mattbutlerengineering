@@ -26,9 +26,7 @@ COPY services/users ./services/users
 # Generate Prisma client
 RUN pnpm --filter @mbe/users-service db:generate
 
-# Build all packages
-RUN pnpm --filter @mbe/types build
-RUN pnpm --filter @mbe/auth build
+# Build users service (types and auth are TypeScript-only, no build needed)
 RUN pnpm --filter @mbe/users-service build
 
 # Production stage
@@ -55,9 +53,11 @@ COPY services/users/package.json ./services/users/
 # Install production dependencies only
 RUN pnpm install --frozen-lockfile --prod
 
-# Copy built files from builder
-COPY --from=builder /app/packages/types/dist ./packages/types/dist
-COPY --from=builder /app/packages/auth/dist ./packages/auth/dist
+# Copy source files for TypeScript packages (no build step needed)
+COPY --from=builder /app/packages/types/src ./packages/types/src
+COPY --from=builder /app/packages/auth/src ./packages/auth/src
+
+# Copy built users service
 COPY --from=builder /app/services/users/dist ./services/users/dist
 COPY --from=builder /app/services/users/node_modules/.prisma ./services/users/node_modules/.prisma
 
