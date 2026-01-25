@@ -51,8 +51,8 @@ COPY services/users/package.json ./services/users/
 # Copy Prisma schema first (needed for generate)
 COPY services/users/prisma ./services/users/prisma
 
-# Install production dependencies
-RUN pnpm install --frozen-lockfile --prod
+# Install all dependencies (including devDeps for prisma CLI)
+RUN pnpm install --frozen-lockfile
 
 # Generate Prisma client in production node_modules
 RUN pnpm --filter @mbe/users-service db:generate
