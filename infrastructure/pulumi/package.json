@@ -1,0 +1,23 @@
+{
+  "name": "@mbe/infrastructure",
+  "version": "0.0.1",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "up": "pulumi up",
+    "preview": "pulumi preview",
+    "destroy": "pulumi destroy",
+    "refresh": "pulumi refresh"
+  },
+  "dependencies": {
+    "@pulumi/auth0": "^3.11.0",
+    "@pulumi/cloudflare": "^5.49.0",
+    "@pulumi/digitalocean": "^4.35.0",
+    "@pulumi/pulumi": "^3.145.0",
+    "@pulumi/random": "^4.16.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.7",
+    "typescript": "^5.7.3"
+  }
+}

@@ -21,6 +21,7 @@ async function main() {
     origin: process.env.CORS_ORIGIN ?? true,
   });
 
+
   await fastify.register(swagger, {
     openapi: {
       info: {

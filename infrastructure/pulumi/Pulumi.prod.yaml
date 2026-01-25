@@ -1,0 +1,9 @@
+config:
+  mbe-infrastructure:domain: mattbutlerengineering.com
+  mbe-infrastructure:environment: production
+  auth0:domain: dev-ytbgmz5ls3wh4xdx.us.auth0.com
+  auth0:clientId:
+    secure: v1:qeS/BdZpc/WDDjkZ:GuE03lyJ+twKTz4Syeu12cgWbuN3VHnCDqMakNw7WQo3s1g6UopZ5DsQZlTzZIff
+  auth0:clientSecret:
+    secure: v1:2wz0mD69IK4yEfNJ:WRIhTwq1582BmzJwf95Me1nW0s/Q2j8IvWXoOOq+lENBXOyOyLCLFkaymnBH1CIf0RxXu0zaO1baoI2Qg3pNiZiXosJ5vkGdhdaDt/4/+LM=
+encryptionsalt: v1:mJxX5QhUvT4=:v1:Uhf1OKllU+a17pOh:FyVoS0r/JdFmAbbr0f4zfEvad/KpMg==

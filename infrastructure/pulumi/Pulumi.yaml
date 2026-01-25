@@ -1,0 +1,6 @@
+name: mbe-infrastructure
+runtime:
+  name: nodejs
+  options:
+    typescript: true
+description: Infrastructure for mattbutlerengineering.com

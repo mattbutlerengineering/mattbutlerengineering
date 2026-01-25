@@ -1,6 +1,6 @@
 # Next Steps
 
-**Last updated:** 2026-01-23
+**Last updated:** 2026-01-24
 
 ## Current Status
 
@@ -20,6 +20,11 @@
 - [x] infrastructure/traefik config
 - [x] .github/workflows/ci.yml
 - [x] Local development verified working
+- [x] Domain purchased (mattbutlerengineering.com via Cloudflare)
+- [x] infrastructure/pulumi (TypeScript IaC with Pulumi)
+- [x] services/users/Dockerfile (production Docker build)
+- [x] .dockerignore (excludes dev files from builds)
+- [x] Auth0 authentication (local dev working)
 
 ### Local Dev Commands
 ```bash
@@ -42,41 +47,60 @@ pnpm --filter @mbe/web --filter @mbe/users-service dev
 
 ## Remaining Tasks
 
-### 1. Auth0 Setup (Required for auth to work)
-- [ ] Create Auth0 tenant at https://auth0.com
-- [ ] Create Application (Single Page Application type)
-- [ ] Configure allowed callback URLs:
-  - `http://localhost:3000/callback` (dev)
-  - `http://localhost:3002/dashboard/callback` (dev dashboard)
-  - `https://mattbutlerengineering.com/callback` (prod)
-  - `https://mattbutlerengineering.com/dashboard/callback` (prod)
-- [ ] Configure allowed logout URLs (same origins)
-- [ ] Create API in Auth0 dashboard with identifier (audience)
-- [ ] Copy credentials to `.env` files:
-  ```
-  AUTH_AUTHORITY=https://your-tenant.auth0.com
-  AUTH_CLIENT_ID=your_client_id
-  AUTH_AUDIENCE=https://api.mattbutlerengineering.com
-  ```
+### 1. Auth0 Setup
+- [x] Create Auth0 tenant (dev-ytbgmz5ls3wh4xdx.us.auth0.com)
+- [x] Create Application (mattbutlerengineering-app, SPA type)
+- [x] Configure callback URLs (http://localhost:3002/dashboard/callback)
+- [x] Create API (https://api.mattbutlerengineering.com)
+- [x] Authorize app to access API
+- [x] Configure `.env` files with credentials
+- [x] JWT validation working on /users/me endpoint
+
+**For production, add these callback URLs in Auth0:**
+- `https://mattbutlerengineering.com/callback`
+- `https://mattbutlerengineering.com/dashboard/callback`
 
 ### 2. Domain Setup (Cloudflare)
-- [ ] Purchase/transfer domain on Cloudflare
-- [ ] Configure DNS records (once hosting is set up)
-- [ ] Enable SSL/TLS (automatic with Cloudflare)
+- [x] Purchase/transfer domain on Cloudflare
+- [x] Enable SSL/TLS (automatic with Cloudflare)
+- [ ] Configure DNS records (managed by Pulumi - deploy to create)
 
-### 3. Hosting Setup
-Options to evaluate:
-- **Railway** - easy Docker deploys, managed Postgres
-- **Fly.io** - Docker-based, global edge
-- **DigitalOcean App Platform** - simple, predictable pricing
-- **Self-hosted VPS** - most control, use docker-compose.prod.yml
+### 3. Hosting Setup (DigitalOcean + Pulumi)
+**Chosen:** DigitalOcean App Platform with TypeScript IaC (Pulumi)
 
-Tasks:
-- [ ] Choose hosting provider
-- [ ] Set up production database (managed Postgres recommended)
-- [ ] Configure environment variables in hosting
-- [ ] Deploy services
-- [ ] Configure Cloudflare DNS to point to hosting
+**What's ready:**
+- [x] Pulumi project (`infrastructure/pulumi/`)
+- [x] DigitalOcean App Platform spec (web, dashboard, users-api)
+- [x] Managed PostgreSQL 16 database config
+- [x] Cloudflare DNS records (root + www)
+- [x] Users service Dockerfile
+
+**What gets deployed:**
+| Resource | Description |
+|----------|-------------|
+| PostgreSQL | Managed DB (1 vCPU, 1GB, NYC1) |
+| users-api | Fastify service via Docker |
+| web | Static landing page |
+| dashboard | Static dashboard app |
+| DNS | CNAME records via Cloudflare |
+
+**To deploy:**
+```bash
+cd infrastructure/pulumi
+pnpm install
+pulumi login --local
+pulumi stack init prod
+pulumi config set digitalocean:token YOUR_TOKEN --secret
+pulumi config set cloudflare:apiToken YOUR_TOKEN --secret
+pnpm up
+```
+
+**Remaining steps:**
+- [ ] Create DigitalOcean account → get API token
+- [ ] Get Cloudflare API token (API Tokens → Create Token → Edit zone DNS)
+- [ ] Connect GitHub repo to DigitalOcean (happens on first deploy)
+- [ ] Run `pulumi up` to deploy
+- [ ] Verify deployment at https://mattbutlerengineering.com
 
 ### 4. CI/CD Enhancements
 - [ ] Add Docker build step to CI (currently commented out)
@@ -104,7 +128,9 @@ Tasks:
 | What | Where |
 |------|-------|
 | Platform design doc | `docs/plans/2026-01-22-platform-design.md` |
-| Docker configs | `infrastructure/` |
+| Docker configs (local) | `infrastructure/docker-compose*.yml` |
+| Pulumi IaC | `infrastructure/pulumi/` |
+| Users Dockerfile | `services/users/Dockerfile` |
 | Environment example | `infrastructure/.env.example` |
 | CI workflow | `.github/workflows/ci.yml` |
 | Users service env | `services/users/.env.example` |

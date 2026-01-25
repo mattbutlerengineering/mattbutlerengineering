@@ -7,10 +7,10 @@
     "mbe": "./dist/index.js"
   },
   "scripts": {
-    "dev": "tsx src/index.ts",
     "build": "tsc",
     "lint": "eslint src/",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "start": "tsx src/index.ts"
   },
   "dependencies": {
     "@mbe/types": "workspace:*",
