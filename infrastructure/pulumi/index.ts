@@ -179,12 +179,15 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
 export const appDefaultDomain = app.defaultIngress;
 export const appLiveUrl = app.liveUrl;
 
+// Extract hostname from the full URL (remove https://)
+const appHostname = app.defaultIngress.apply(url => url.replace("https://", ""));
+
 // Cloudflare DNS - Point domain to DigitalOcean App Platform
 const dnsRecord = new cloudflare.Record("mattbutlerengineering-dns", {
   zoneId: cloudflareZoneId,
   name: "@",
   type: "CNAME",
-  content: app.defaultIngress,
+  content: appHostname,
   proxied: true,
   ttl: 1, // Auto TTL when proxied
 });
