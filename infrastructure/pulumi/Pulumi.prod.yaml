@@ -6,4 +6,9 @@ config:
     secure: v1:qeS/BdZpc/WDDjkZ:GuE03lyJ+twKTz4Syeu12cgWbuN3VHnCDqMakNw7WQo3s1g6UopZ5DsQZlTzZIff
   auth0:clientSecret:
     secure: v1:2wz0mD69IK4yEfNJ:WRIhTwq1582BmzJwf95Me1nW0s/Q2j8IvWXoOOq+lENBXOyOyLCLFkaymnBH1CIf0RxXu0zaO1baoI2Qg3pNiZiXosJ5vkGdhdaDt/4/+LM=
+  digitalocean:token:
+    secure: v1:AZTjB6Mpn8oemEdT:ndyJo/lgo9wfKA3gKA/WJYQh2UhvtdAm3K1+2sh/qHEPtUv8C03CERZAJhpiL69z1c8/+QjXoP340jP72HLZJUiy5LHIgbf1ZP/OdEJm9/fFu6mebhq9
+  cloudflare:apiToken:
+    secure: v1:hyUVXVjBemYAw2jm:DnAAiZOpt4V5+ls6f7keMYfQAtBqsFde1Z4hLeJRL8pxqkI01Y/S2tCmXgwazaIUkILQC+LQq78=
+  mbe-infrastructure:cloudflareZoneId: dfed09378e547f95a3bd645c55ef777d
 encryptionsalt: v1:mJxX5QhUvT4=:v1:Uhf1OKllU+a17pOh:FyVoS0r/JdFmAbbr0f4zfEvad/KpMg==
