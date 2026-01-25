@@ -34,8 +34,6 @@ RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
 WORKDIR /app
 
-ENV NODE_ENV=production
-
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 app
@@ -51,11 +49,14 @@ COPY services/users/package.json ./services/users/
 # Copy Prisma schema first (needed for generate)
 COPY services/users/prisma ./services/users/prisma
 
-# Install all dependencies (including devDeps for prisma CLI)
+# Install all dependencies (NODE_ENV unset to include devDeps for prisma CLI)
 RUN pnpm install --frozen-lockfile
 
-# Generate Prisma client in production node_modules
+# Generate Prisma client
 RUN pnpm --filter @mbe/users-service db:generate
+
+# Now set NODE_ENV for runtime
+ENV NODE_ENV=production
 
 # Copy source files for TypeScript packages (no build step needed)
 COPY --from=builder /app/packages/types/src ./packages/types/src
