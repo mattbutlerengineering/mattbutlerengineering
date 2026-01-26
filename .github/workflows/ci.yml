@@ -93,4 +93,3 @@ jobs:
 
       - name: Run tests
         run: pnpm test
-        continue-on-error: true # Remove when tests are added
