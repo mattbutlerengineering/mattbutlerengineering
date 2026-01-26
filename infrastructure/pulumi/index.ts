@@ -79,6 +79,7 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
         sourceDir: "/",
         buildCommand: "pnpm build --filter=@mbe/web",
         outputDir: "apps/web/dist",
+        catchallDocument: "index.html",
         envs: [
           {
             key: "VITE_AUTH_AUTHORITY",
@@ -108,6 +109,7 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
         sourceDir: "/",
         buildCommand: "pnpm build --filter=@mbe/dashboard",
         outputDir: "apps/dashboard/dist",
+        catchallDocument: "index.html",
         envs: [
           {
             key: "VITE_AUTH_AUTHORITY",
