@@ -2,17 +2,17 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
-    branches: [main, develop]
+    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  lint-and-test:
-    name: Lint & Test
+  lint-typecheck:
+    name: Lint & Typecheck
     runs-on: ubuntu-latest
 
     steps:
@@ -21,6 +21,8 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
+        with:
+          version: 9
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -40,14 +42,10 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Test
-        run: pnpm test
-        continue-on-error: true
-
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: lint-and-test
+    needs: lint-typecheck
 
     steps:
       - name: Checkout
@@ -55,6 +53,8 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
+        with:
+          version: 9
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -68,5 +68,35 @@ jobs:
       - name: Generate Prisma client
         run: pnpm --filter @mbe/users-service db:generate
 
-      - name: Build
+      - name: Build all packages
         run: pnpm build
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: lint-typecheck
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @mbe/users-service db:generate
+
+      - name: Run tests
+        run: pnpm test
+        continue-on-error: true # Remove when tests are added
