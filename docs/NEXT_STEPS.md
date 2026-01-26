@@ -1,6 +1,6 @@
 # Next Steps
 
-**Last updated:** 2026-01-24
+**Last updated:** 2026-01-25
 
 ## Current Status
 
@@ -18,13 +18,28 @@
 - [x] tools/cli (Commander.js with auth commands)
 - [x] infrastructure/docker-compose (dev, prod)
 - [x] infrastructure/traefik config
-- [x] .github/workflows/ci.yml
 - [x] Local development verified working
 - [x] Domain purchased (mattbutlerengineering.com via Cloudflare)
 - [x] infrastructure/pulumi (TypeScript IaC with Pulumi)
 - [x] services/users/Dockerfile (production Docker build)
 - [x] .dockerignore (excludes dev files from builds)
-- [x] Auth0 authentication (local dev working)
+- [x] Auth0 authentication (local + production)
+- [x] DigitalOcean App Platform deployment
+- [x] Cloudflare DNS configured
+- [x] Neon PostgreSQL database
+- [x] CI/CD pipelines (lint, typecheck, build, test)
+- [x] Pulumi preview on PRs
+- [x] Pulumi deploy on merge to main
+- [x] Architecture documentation
+
+### Production URLs
+| Service | URL |
+|---------|-----|
+| Website | https://mattbutlerengineering.com |
+| Dashboard | https://mattbutlerengineering.com/dashboard |
+| API | https://mattbutlerengineering.com/api |
+| Health Check | https://mattbutlerengineering.com/api/health |
+| API Docs | https://mattbutlerengineering.com/api/docs |
 
 ### Local Dev Commands
 ```bash
@@ -45,81 +60,53 @@ pnpm --filter @mbe/web --filter @mbe/users-service dev
 
 ---
 
-## Remaining Tasks
+## Infrastructure Overview
 
-### 1. Auth0 Setup
-- [x] Create Auth0 tenant (dev-ytbgmz5ls3wh4xdx.us.auth0.com)
-- [x] Create Application (mattbutlerengineering-app, SPA type)
-- [x] Configure callback URLs (http://localhost:3002/dashboard/callback)
-- [x] Create API (https://api.mattbutlerengineering.com)
-- [x] Authorize app to access API
-- [x] Configure `.env` files with credentials
-- [x] JWT validation working on /users/me endpoint
+```
+User → Cloudflare (DNS/CDN) → DigitalOcean App Platform
+                                    ├── web (React static)
+                                    ├── dashboard (React static)
+                                    └── users-api (Fastify Docker) → Neon PostgreSQL
 
-**For production, add these callback URLs in Auth0:**
-- `https://mattbutlerengineering.com/callback`
-- `https://mattbutlerengineering.com/dashboard/callback`
-
-### 2. Domain Setup (Cloudflare)
-- [x] Purchase/transfer domain on Cloudflare
-- [x] Enable SSL/TLS (automatic with Cloudflare)
-- [ ] Configure DNS records (managed by Pulumi - deploy to create)
-
-### 3. Hosting Setup (DigitalOcean + Pulumi)
-**Chosen:** DigitalOcean App Platform with TypeScript IaC (Pulumi)
-
-**What's ready:**
-- [x] Pulumi project (`infrastructure/pulumi/`)
-- [x] DigitalOcean App Platform spec (web, dashboard, users-api)
-- [x] Managed PostgreSQL 16 database config
-- [x] Cloudflare DNS records (root + www)
-- [x] Users service Dockerfile
-
-**What gets deployed:**
-| Resource | Description |
-|----------|-------------|
-| PostgreSQL | Managed DB (1 vCPU, 1GB, NYC1) |
-| users-api | Fastify service via Docker |
-| web | Static landing page |
-| dashboard | Static dashboard app |
-| DNS | CNAME records via Cloudflare |
-
-**To deploy:**
-```bash
-cd infrastructure/pulumi
-pnpm install
-pulumi login --local
-pulumi stack init prod
-pulumi config set digitalocean:token YOUR_TOKEN --secret
-pulumi config set cloudflare:apiToken YOUR_TOKEN --secret
-pnpm up
+Auth0 handles OAuth 2.0 / OIDC authentication
 ```
 
-**Remaining steps:**
-- [ ] Create DigitalOcean account → get API token
-- [ ] Get Cloudflare API token (API Tokens → Create Token → Edit zone DNS)
-- [ ] Connect GitHub repo to DigitalOcean (happens on first deploy)
-- [ ] Run `pulumi up` to deploy
-- [ ] Verify deployment at https://mattbutlerengineering.com
+See `docs/ARCHITECTURE.md` for detailed diagrams.
 
-### 4. CI/CD Enhancements
-- [ ] Add Docker build step to CI (currently commented out)
-- [ ] Set up GitHub Container Registry or other registry
-- [ ] Add deployment workflow for staging/production
-- [ ] Add Dependabot for dependency updates
+---
 
-### 5. Testing
+## Remaining Tasks
+
+### 1. Testing
 - [ ] Add Vitest to packages
 - [ ] Write tests for users service
 - [ ] Write tests for auth utilities
 - [ ] Add test coverage reporting to CI
+- [ ] Remove `continue-on-error: true` from test job
 
-### 6. Optional Enhancements
+### 2. Feature Development
+- [ ] User profile page in dashboard
+- [ ] User settings/preferences
+- [ ] Admin panel for user management
+
+### 3. Optional Enhancements
 - [ ] apps/docs - documentation site (Astro or Docusaurus)
 - [ ] Email service integration (Resend or SendGrid)
 - [ ] Error tracking (Sentry)
 - [ ] Analytics (Plausible)
-- [ ] Database backups (cron + pg_dump)
+- [ ] Dependabot for dependency updates
+
+---
+
+## CI/CD Workflows
+
+| Workflow | Trigger | Action |
+|----------|---------|--------|
+| CI | Push/PR to main | Lint, typecheck, build, test |
+| Pulumi Preview | PR touching `infrastructure/pulumi/**` | Preview infra changes, comment on PR |
+| Pulumi Deploy | Push to main touching `infrastructure/pulumi/**` | Deploy infrastructure |
+
+DigitalOcean App Platform auto-deploys on push to main (configured in DO).
 
 ---
 
@@ -127,13 +114,13 @@ pnpm up
 
 | What | Where |
 |------|-------|
+| Architecture docs | `docs/ARCHITECTURE.md` |
 | Platform design doc | `docs/plans/2026-01-22-platform-design.md` |
-| Docker configs (local) | `infrastructure/docker-compose*.yml` |
 | Pulumi IaC | `infrastructure/pulumi/` |
 | Users Dockerfile | `services/users/Dockerfile` |
-| Environment example | `infrastructure/.env.example` |
 | CI workflow | `.github/workflows/ci.yml` |
-| Users service env | `services/users/.env.example` |
+| Pulumi preview | `.github/workflows/pulumi-preview.yml` |
+| Pulumi deploy | `.github/workflows/pulumi-up.yml` |
 
 ---
 
@@ -146,9 +133,40 @@ pnpm typecheck
 # Full lint
 pnpm lint
 
+# Build all
+pnpm build
+
+# Run tests
+pnpm test
+
 # Stop dev servers
 lsof -ti:3000,3001 | xargs kill
 
 # View Prisma Studio (database GUI)
 cd services/users && pnpm db:studio
+
+# Pulumi commands (from infrastructure/pulumi/)
+pulumi preview    # See what would change
+pulumi up         # Deploy changes
+pulumi stack output  # View outputs
 ```
+
+---
+
+## Secrets Management
+
+**GitHub Actions Secrets** (configured):
+- `DIGITALOCEAN_TOKEN`
+- `CLOUDFLARE_API_TOKEN`
+- `AUTH0_DOMAIN`
+- `AUTH0_CLIENT_ID`
+- `AUTH0_CLIENT_SECRET`
+- `PULUMI_ACCESS_TOKEN`
+- `PULUMI_CONFIG_PASSPHRASE`
+
+**Pulumi Secrets** (in `Pulumi.prod.yaml`):
+- `auth0:clientId`
+- `auth0:clientSecret`
+- `digitalocean:token`
+- `cloudflare:apiToken`
+- `mbe-infrastructure:databaseUrl`
