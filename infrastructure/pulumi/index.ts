@@ -84,18 +84,22 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
           {
             key: "VITE_AUTH_AUTHORITY",
             value: "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com",
+            scope: "BUILD_TIME",
           },
           {
             key: "VITE_AUTH_CLIENT_ID",
             value: auth0Outputs.dashboardClientId,
+            scope: "BUILD_TIME",
           },
           {
             key: "VITE_AUTH_AUDIENCE",
             value: `https://api.${domain}`,
+            scope: "BUILD_TIME",
           },
           {
             key: "VITE_AUTH_REDIRECT_URI",
             value: `https://${domain}/callback`,
+            scope: "BUILD_TIME",
           },
         ],
       },
@@ -114,22 +118,27 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
           {
             key: "VITE_AUTH_AUTHORITY",
             value: "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com",
+            scope: "BUILD_TIME",
           },
           {
             key: "VITE_AUTH_CLIENT_ID",
             value: auth0Outputs.dashboardClientId,
+            scope: "BUILD_TIME",
           },
           {
             key: "VITE_AUTH_AUDIENCE",
             value: `https://api.${domain}`,
+            scope: "BUILD_TIME",
           },
           {
             key: "VITE_AUTH_REDIRECT_URI",
             value: `https://${domain}/dashboard/callback`,
+            scope: "BUILD_TIME",
           },
           {
             key: "VITE_API_URL",
             value: `https://${domain}/api`,
+            scope: "BUILD_TIME",
           },
         ],
       },
