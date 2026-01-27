@@ -10,6 +10,9 @@ export default defineConfig({
     },
   },
   base: "/dashboard",
+  build: {
+    outDir: "dist/dashboard",
+  },
   server: {
     port: 3002,
     proxy: {
