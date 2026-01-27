@@ -9,7 +9,7 @@ export default defineConfig({
       "@": resolve(__dirname, "./src"),
     },
   },
-  base: "./",
+  base: "/dashboard/",
   server: {
     port: 3002,
     proxy: {
