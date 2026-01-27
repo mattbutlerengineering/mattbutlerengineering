@@ -16,12 +16,12 @@ const prodCallbacks = [
 ];
 const callbackUrls = [...localCallbacks, ...prodCallbacks];
 
-const localLogoutUrls = ["http://localhost:3000", "http://localhost:3002"];
-const prodLogoutUrls = [`https://${domain}`];
+const localLogoutUrls = ["http://localhost:3000", "http://localhost:3002", "http://localhost:3002/dashboard"];
+const prodLogoutUrls = [`https://${domain}`, `https://${domain}/dashboard`];
 const logoutUrls = [...localLogoutUrls, ...prodLogoutUrls];
 
 const localWebOrigins = ["http://localhost:3000", "http://localhost:3002"];
-const prodWebOrigins = [`https://${domain}`];
+const prodWebOrigins = [`https://${domain}`, `https://${domain}/dashboard`];
 const webOrigins = [...localWebOrigins, ...prodWebOrigins];
 
 // Auth0 API (Resource Server)
