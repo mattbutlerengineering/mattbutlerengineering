@@ -51,7 +51,7 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
           },
           component: {
             name: "dashboard",
-            preservePathPrefix: true,
+            preservePathPrefix: false,
           },
         },
         {
