@@ -91,5 +91,12 @@ jobs:
       - name: Generate Prisma client
         run: pnpm --filter @mbe/users-service db:generate
 
-      - name: Run tests
-        run: pnpm test
+      - name: Run tests with coverage
+        run: pnpm turbo test:coverage
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./packages/auth/coverage/coverage-final.json,./services/users/coverage/coverage-final.json
+          fail_ci_if_error: false
+          verbose: true

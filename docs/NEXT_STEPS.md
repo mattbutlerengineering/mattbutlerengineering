@@ -1,6 +1,6 @@
 # Next Steps
 
-**Last updated:** 2026-01-25
+**Last updated:** 2026-01-27
 
 ## Current Status
 
@@ -78,11 +78,11 @@ See `docs/ARCHITECTURE.md` for detailed diagrams.
 ## Remaining Tasks
 
 ### 1. Testing
-- [ ] Add Vitest to packages
-- [ ] Write tests for users service
-- [ ] Write tests for auth utilities
-- [ ] Add test coverage reporting to CI
-- [ ] Remove `continue-on-error: true` from test job
+- [x] Add Vitest to packages
+- [x] Write tests for users service (15 tests)
+- [x] Write tests for auth utilities (13 tests)
+- [x] Add test coverage reporting to CI (Codecov integration)
+- [x] Remove `continue-on-error: true` from test job
 
 ### 2. Feature Development
 - [ ] User profile page in dashboard
