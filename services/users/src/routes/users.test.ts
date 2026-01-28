@@ -21,7 +21,14 @@ vi.mock("../services/database.js", () => ({
   },
 }));
 
+// Mock jose library for JWT verification
+vi.mock("jose", () => ({
+  createRemoteJWKSet: vi.fn(() => "mock-jwks"),
+  jwtVerify: vi.fn(),
+}));
+
 import { userService } from "../services/user.js";
+import { jwtVerify } from "jose";
 
 const mockUser = {
   id: "user-123",
@@ -205,5 +212,116 @@ describe("User Routes", () => {
       expect(response.statusCode).toBe(204);
       expect(userService.delete).toHaveBeenCalledWith("user-123");
     });
+  });
+});
+
+const mockJWTPayload = {
+  sub: "auth0|user-123",
+  iss: "https://test.auth0.com/",
+  aud: "https://api.example.com",
+  exp: Math.floor(Date.now() / 1000) + 3600,
+  iat: Math.floor(Date.now() / 1000),
+  email: "test@example.com",
+  email_verified: true,
+  name: "Test User",
+  picture: "https://example.com/pic.jpg",
+};
+
+describe("GET /api/v1/users/me", () => {
+  let app: FastifyInstance;
+  const originalEnv = process.env;
+
+  beforeEach(async () => {
+    process.env = {
+      ...originalEnv,
+      AUTH_AUTHORITY: "https://test.auth0.com",
+      AUTH_AUDIENCE: "https://api.example.com",
+    };
+    app = await buildApp({ logger: false });
+    await app.ready();
+  });
+
+  afterEach(async () => {
+    await app.close();
+    vi.clearAllMocks();
+    process.env = originalEnv;
+  });
+
+  it("returns user data for valid token with existing user", async () => {
+    vi.mocked(jwtVerify).mockResolvedValueOnce({
+      payload: mockJWTPayload,
+      protectedHeader: { alg: "RS256" },
+    } as never);
+
+    vi.mocked(userService.getByEmail).mockResolvedValueOnce(mockUser);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/users/me",
+      headers: {
+        authorization: "Bearer valid-token",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body);
+    expect(body.data.email).toBe("test@example.com");
+    expect(userService.getByEmail).toHaveBeenCalledWith("test@example.com");
+    expect(userService.create).not.toHaveBeenCalled();
+  });
+
+  it("creates user and returns data for valid token with new user", async () => {
+    vi.mocked(jwtVerify).mockResolvedValueOnce({
+      payload: mockJWTPayload,
+      protectedHeader: { alg: "RS256" },
+    } as never);
+
+    vi.mocked(userService.getByEmail).mockResolvedValueOnce(null);
+    vi.mocked(userService.create).mockResolvedValueOnce(mockUser);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/users/me",
+      headers: {
+        authorization: "Bearer valid-token",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body);
+    expect(body.data.email).toBe("test@example.com");
+    expect(userService.getByEmail).toHaveBeenCalledWith("test@example.com");
+    expect(userService.create).toHaveBeenCalledWith({
+      email: "test@example.com",
+      name: "Test User",
+      picture: "https://example.com/pic.jpg",
+    });
+  });
+
+  it("returns 401 for missing token", async () => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/users/me",
+    });
+
+    expect(response.statusCode).toBe(401);
+    const body = JSON.parse(response.body);
+    expect(body.message).toBe("Missing or invalid authorization header");
+  });
+
+  it("returns 401 for invalid token", async () => {
+    vi.mocked(jwtVerify).mockRejectedValueOnce(new Error("Invalid token"));
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/users/me",
+      headers: {
+        authorization: "Bearer invalid-token",
+      },
+    });
+
+    expect(response.statusCode).toBe(401);
+    const body = JSON.parse(response.body);
+    expect(body.message).toBe("Invalid token");
   });
 });

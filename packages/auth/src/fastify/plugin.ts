@@ -1,4 +1,5 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
+import fp from "fastify-plugin";
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import type { JWTPayload, AuthUser } from "../types/index.js";
 
@@ -20,8 +21,9 @@ export interface AuthPluginOptions {
 /**
  * Fastify plugin for JWT validation using OIDC provider's JWKS
  * Uses jose library for standard JWT/JWKS handling (not Auth0-specific)
+ * Wrapped with fastify-plugin to break encapsulation - hooks apply to parent context
  */
-export async function authPlugin(
+async function authPluginImpl(
   fastify: FastifyInstance,
   options: AuthPluginOptions
 ) {
@@ -68,6 +70,11 @@ export async function authPlugin(
     }
   });
 }
+
+export const authPlugin = fp(authPluginImpl, {
+  name: "@mbe/auth",
+  fastify: "5.x",
+});
 
 /**
  * Require authentication for a specific route
