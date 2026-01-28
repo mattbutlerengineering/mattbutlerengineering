@@ -85,7 +85,7 @@ See `docs/ARCHITECTURE.md` for detailed diagrams.
 - [x] Remove `continue-on-error: true` from test job
 
 ### 2. Feature Development
-- [ ] User profile page in dashboard
+- [x] User profile page in dashboard
 - [ ] User settings/preferences
 - [ ] Admin panel for user management
 

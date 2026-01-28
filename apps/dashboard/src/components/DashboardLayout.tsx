@@ -6,6 +6,7 @@ const sidebarSections: SidebarSection[] = [
   {
     items: [
       { label: "Home", href: "/" },
+      { label: "Profile", href: "/profile" },
       { label: "Settings", href: "/settings" },
     ],
   },

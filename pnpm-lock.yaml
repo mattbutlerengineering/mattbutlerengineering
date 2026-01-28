@@ -14,12 +14,18 @@ importers:
 
   apps/dashboard:
     dependencies:
+      '@mbe/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
       '@mbe/auth':
         specifier: workspace:*
         version: link:../../packages/auth
       '@mbe/shared-layout':
         specifier: workspace:*
         version: link:../../packages/shared-layout
+      '@mbe/types':
+        specifier: workspace:*
+        version: link:../../packages/types
       '@mbe/ui':
         specifier: workspace:*
         version: link:../../packages/ui

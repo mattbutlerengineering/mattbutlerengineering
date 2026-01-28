@@ -11,8 +11,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@mbe/api-client": "workspace:*",
     "@mbe/auth": "workspace:*",
     "@mbe/shared-layout": "workspace:*",
+    "@mbe/types": "workspace:*",
     "@mbe/ui": "workspace:*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
