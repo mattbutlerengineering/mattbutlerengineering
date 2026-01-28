@@ -86,7 +86,7 @@ See `docs/ARCHITECTURE.md` for detailed diagrams.
 
 ### 2. Feature Development
 - [x] User profile page in dashboard
-- [ ] User settings/preferences
+- [x] User settings/preferences (theme, notifications)
 - [ ] Admin panel for user management
 
 ### 3. Optional Enhancements

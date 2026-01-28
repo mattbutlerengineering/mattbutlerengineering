@@ -1,4 +1,13 @@
 /**
+ * User preferences
+ */
+export interface UserPreferences {
+  theme?: "light" | "dark" | "system";
+  emailNotifications?: boolean;
+  marketingEmails?: boolean;
+}
+
+/**
  * User entity
  */
 export interface User {
@@ -7,6 +16,7 @@ export interface User {
   name: string | null;
   picture: string | null;
   emailVerified: boolean;
+  preferences: UserPreferences;
   createdAt: string;
   updatedAt: string;
 }
@@ -35,4 +45,13 @@ export interface CreateUserRequest {
 export interface UpdateUserRequest {
   name?: string;
   picture?: string;
+}
+
+/**
+ * Update user preferences request
+ */
+export interface UpdatePreferencesRequest {
+  theme?: "light" | "dark" | "system";
+  emailNotifications?: boolean;
+  marketingEmails?: boolean;
 }

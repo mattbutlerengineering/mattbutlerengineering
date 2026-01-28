@@ -1,4 +1,11 @@
-import type { User, CreateUserRequest, UpdateUserRequest, PaginatedResponse } from "@mbe/types";
+import type {
+  User,
+  UserPreferences,
+  CreateUserRequest,
+  UpdateUserRequest,
+  UpdatePreferencesRequest,
+  PaginatedResponse,
+} from "@mbe/types";
 import { prisma } from "./database.js";
 
 function mapPrismaUser(user: {
@@ -7,6 +14,7 @@ function mapPrismaUser(user: {
   name: string | null;
   picture: string | null;
   emailVerified: boolean;
+  preferences: unknown;
   createdAt: Date;
   updatedAt: Date;
 }): User {
@@ -16,6 +24,7 @@ function mapPrismaUser(user: {
     name: user.name,
     picture: user.picture,
     emailVerified: user.emailVerified,
+    preferences: (user.preferences as UserPreferences) ?? {},
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
   };
@@ -90,6 +99,27 @@ export const userService = {
       await prisma.user.delete({ where: { id } });
     } catch {
       // User not found, no-op
+    }
+  },
+
+  async updatePreferences(
+    id: string,
+    preferences: UpdatePreferencesRequest
+  ): Promise<User | null> {
+    try {
+      const user = await prisma.user.findUnique({ where: { id } });
+      if (!user) return null;
+
+      const currentPrefs = (user.preferences as UserPreferences) ?? {};
+      const newPrefs = { ...currentPrefs, ...preferences };
+
+      const updated = await prisma.user.update({
+        where: { id },
+        data: { preferences: newPrefs },
+      });
+      return mapPrismaUser(updated);
+    } catch {
+      return null;
     }
   },
 };

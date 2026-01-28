@@ -13,6 +13,8 @@ export type {
 export type {
   User,
   UserProfile,
+  UserPreferences,
   CreateUserRequest,
   UpdateUserRequest,
+  UpdatePreferencesRequest,
 } from "./user.js";

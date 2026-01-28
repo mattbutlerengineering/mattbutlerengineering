@@ -36,6 +36,7 @@ const mockUser = {
   name: "Test User",
   picture: "https://example.com/pic.jpg",
   emailVerified: true,
+  preferences: {},
   createdAt: "2026-01-25T00:00:00.000Z",
   updatedAt: "2026-01-25T00:00:00.000Z",
 };

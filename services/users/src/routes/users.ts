@@ -1,5 +1,13 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
-import type { User, CreateUserRequest, UpdateUserRequest, ApiResponse, ApiError, PaginatedResponse } from "@mbe/types";
+import type {
+  User,
+  CreateUserRequest,
+  UpdateUserRequest,
+  UpdatePreferencesRequest,
+  ApiResponse,
+  ApiError,
+  PaginatedResponse,
+} from "@mbe/types";
 import type { AuthUser, JWTPayload } from "@mbe/auth/types";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { userService } from "../services/user.js";
@@ -306,6 +314,78 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
           email: authUser.email,
           name: authUser.name,
           picture: authUser.picture,
+        });
+      }
+      return { data: user };
+    }
+  );
+
+  // Update current user's preferences
+  fastify.patch<{
+    Body: UpdatePreferencesRequest;
+    Reply: ApiResponse<User> | ApiError;
+  }>(
+    "/me/preferences",
+    {
+      preHandler: verifyAuth,
+      schema: {
+        description: "Update the current user's preferences",
+        tags: ["Users"],
+        security: [{ bearerAuth: [] }],
+        body: {
+          type: "object",
+          properties: {
+            theme: { type: "string", enum: ["light", "dark", "system"] },
+            emailNotifications: { type: "boolean" },
+            marketingEmails: { type: "boolean" },
+          },
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              data: { $ref: "User#" },
+            },
+          },
+          401: {
+            type: "object",
+            properties: {
+              error: { type: "string" },
+              message: { type: "string" },
+              statusCode: { type: "number" },
+            },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const authUser = request.user;
+      if (!authUser || !authUser.email) {
+        return reply.code(401).send({
+          error: "Unauthorized",
+          message: "Authentication required",
+          statusCode: 401,
+        });
+      }
+
+      const existingUser = await userService.getByEmail(authUser.email);
+      if (!existingUser) {
+        return reply.code(404).send({
+          error: "Not Found",
+          message: "User not found",
+          statusCode: 404,
+        });
+      }
+
+      const user = await userService.updatePreferences(
+        existingUser.id,
+        request.body
+      );
+      if (!user) {
+        return reply.code(500).send({
+          error: "Internal Server Error",
+          message: "Failed to update preferences",
+          statusCode: 500,
         });
       }
       return { data: user };

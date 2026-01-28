@@ -4,6 +4,7 @@ import type {
   User,
   CreateUserRequest,
   UpdateUserRequest,
+  UpdatePreferencesRequest,
 } from "@mbe/types";
 import type { ApiClient } from "./client.js";
 
@@ -59,5 +60,16 @@ export class UsersClient {
    */
   async delete(id: string): Promise<void> {
     await this.client.delete(`/api/v1/users/${id}`);
+  }
+
+  /**
+   * Update current user's preferences
+   */
+  async updatePreferences(preferences: UpdatePreferencesRequest): Promise<User> {
+    const response = await this.client.patch<ApiResponse<User>>(
+      "/api/v1/users/me/preferences",
+      preferences
+    );
+    return response.data;
   }
 }
