@@ -10,9 +10,9 @@ export function Layout() {
             Matt Butler Engineering
           </Link>
           <div className="flex items-center gap-4">
-            <Link to="/dashboard" className="text-sm hover:underline">
+            <a href="/dashboard" className="text-sm hover:underline">
               Dashboard
-            </Link>
+            </a>
             <Button size="sm">Sign In</Button>
           </div>
         </nav>
