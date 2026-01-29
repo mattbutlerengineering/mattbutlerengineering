@@ -87,7 +87,7 @@ See `docs/ARCHITECTURE.md` for detailed diagrams.
 ### 2. Feature Development
 - [x] User profile page in dashboard
 - [x] User settings/preferences (theme, notifications)
-- [ ] Admin panel for user management
+- [x] Admin panel for user management
 
 ### 3. Optional Enhancements
 - [ ] apps/docs - documentation site (Astro or Docusaurus)

@@ -10,6 +10,12 @@ const sidebarSections: SidebarSection[] = [
       { label: "Settings", href: "/settings" },
     ],
   },
+  {
+    title: "Admin",
+    items: [
+      { label: "Users", href: "/admin" },
+    ],
+  },
 ];
 
 export function DashboardLayout() {
