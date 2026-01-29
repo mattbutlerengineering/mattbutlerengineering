@@ -1,7 +1,7 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
 import swagger from "@fastify/swagger";
-import swaggerUi from "@fastify/swagger-ui";
+import ScalarApiReference from "@scalar/fastify-api-reference";
 import { registerSchemas } from "./schemas/index.js";
 import { healthRoutes } from "./routes/health.js";
 import { userRoutes } from "./routes/users.js";
@@ -26,13 +26,28 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
     openapi: {
       info: {
         title: "Users Service API",
-        description: "User management service",
+        description:
+          "RESTful API for user management including authentication, profile management, and user preferences.",
         version: "1.0.0",
+        contact: {
+          name: "API Support",
+          email: "support@example.com",
+        },
       },
       servers: [
         {
           url: `http://localhost:${process.env.PORT ?? 3001}`,
           description: "Local development",
+        },
+      ],
+      tags: [
+        {
+          name: "Health",
+          description: "Service health and status endpoints",
+        },
+        {
+          name: "Users",
+          description: "User CRUD operations and authentication",
         },
       ],
       components: {
@@ -41,14 +56,19 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
             type: "http",
             scheme: "bearer",
             bearerFormat: "JWT",
+            description: "JWT token obtained from the authentication provider",
           },
         },
       },
     },
   });
 
-  await fastify.register(swaggerUi, {
+  await fastify.register(ScalarApiReference, {
     routePrefix: "/docs",
+    configuration: {
+      title: "Users Service API",
+      theme: "deepSpace",
+    },
   });
 
   // Register shared schemas

@@ -78,17 +78,29 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
     "/",
     {
       schema: {
-        description: "List all users with pagination",
+        summary: "List all users",
+        operationId: "listUsers",
+        description:
+          "Retrieve a paginated list of all users in the system. Results are ordered by creation date (newest first).",
         tags: ["Users"],
         querystring: {
           type: "object",
           properties: {
-            page: { type: "string", default: "1" },
-            limit: { type: "string", default: "10" },
+            page: {
+              type: "string",
+              default: "1",
+              description: "Page number (1-indexed)",
+            },
+            limit: {
+              type: "string",
+              default: "10",
+              description: "Number of users per page (max 100)",
+            },
           },
         },
         response: {
           200: {
+            description: "Successful response with paginated user list",
             type: "object",
             properties: {
               data: {
@@ -97,6 +109,10 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
               },
               pagination: { $ref: "Pagination#" },
             },
+          },
+          500: {
+            description: "Internal server error",
+            $ref: "Error#",
           },
         },
       },
@@ -116,29 +132,35 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
     "/:id",
     {
       schema: {
-        description: "Get a user by ID",
+        summary: "Get user by ID",
+        operationId: "getUserById",
+        description: "Retrieve a single user by their unique identifier.",
         tags: ["Users"],
         params: {
           type: "object",
           properties: {
-            id: { type: "string" },
+            id: {
+              type: "string",
+              description: "Unique user identifier",
+            },
           },
           required: ["id"],
         },
         response: {
           200: {
+            description: "User found",
             type: "object",
             properties: {
               data: { $ref: "User#" },
             },
           },
           404: {
-            type: "object",
-            properties: {
-              error: { type: "string" },
-              message: { type: "string" },
-              statusCode: { type: "number" },
-            },
+            description: "User not found",
+            $ref: "Error#",
+          },
+          500: {
+            description: "Internal server error",
+            $ref: "Error#",
           },
         },
       },
@@ -164,23 +186,47 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
     "/",
     {
       schema: {
-        description: "Create a new user",
+        summary: "Create a new user",
+        operationId: "createUser",
+        description:
+          "Create a new user account. Email must be unique across the system.",
         tags: ["Users"],
         body: {
           type: "object",
+          description: "User creation payload",
           properties: {
-            email: { type: "string", format: "email" },
-            name: { type: "string" },
-            picture: { type: "string", format: "uri" },
+            email: {
+              type: "string",
+              format: "email",
+              description: "User's email address (must be unique)",
+            },
+            name: {
+              type: "string",
+              description: "User's display name",
+            },
+            picture: {
+              type: "string",
+              format: "uri",
+              description: "URL to user's profile picture",
+            },
           },
           required: ["email"],
         },
         response: {
           201: {
+            description: "User created successfully",
             type: "object",
             properties: {
               data: { $ref: "User#" },
             },
+          },
+          400: {
+            description: "Invalid request body or email already exists",
+            $ref: "Error#",
+          },
+          500: {
+            description: "Internal server error",
+            $ref: "Error#",
           },
         },
       },
@@ -200,28 +246,51 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
     "/:id",
     {
       schema: {
-        description: "Update a user",
+        summary: "Update a user",
+        operationId: "updateUser",
+        description:
+          "Update an existing user's profile information. Only provided fields will be updated.",
         tags: ["Users"],
         params: {
           type: "object",
           properties: {
-            id: { type: "string" },
+            id: {
+              type: "string",
+              description: "Unique user identifier",
+            },
           },
           required: ["id"],
         },
         body: {
           type: "object",
+          description: "Fields to update",
           properties: {
-            name: { type: "string" },
-            picture: { type: "string" },
+            name: {
+              type: "string",
+              description: "New display name",
+            },
+            picture: {
+              type: "string",
+              format: "uri",
+              description: "New profile picture URL",
+            },
           },
         },
         response: {
           200: {
+            description: "User updated successfully",
             type: "object",
             properties: {
               data: { $ref: "User#" },
             },
+          },
+          404: {
+            description: "User not found",
+            $ref: "Error#",
+          },
+          500: {
+            description: "Internal server error",
+            $ref: "Error#",
           },
         },
       },
@@ -246,18 +315,33 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
     "/:id",
     {
       schema: {
-        description: "Delete a user",
+        summary: "Delete a user",
+        operationId: "deleteUser",
+        description:
+          "Permanently delete a user account. This action cannot be undone.",
         tags: ["Users"],
         params: {
           type: "object",
           properties: {
-            id: { type: "string" },
+            id: {
+              type: "string",
+              description: "Unique user identifier",
+            },
           },
           required: ["id"],
         },
         response: {
           204: {
+            description: "User deleted successfully",
             type: "null",
+          },
+          404: {
+            description: "User not found",
+            $ref: "Error#",
+          },
+          500: {
+            description: "Internal server error",
+            $ref: "Error#",
           },
         },
       },
@@ -276,23 +360,27 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
     {
       preHandler: verifyAuth,
       schema: {
-        description: "Get the currently authenticated user",
+        summary: "Get current authenticated user",
+        operationId: "getCurrentUser",
+        description:
+          "Retrieve the profile of the currently authenticated user. If the user doesn't exist in the database, they will be automatically created.",
         tags: ["Users"],
         security: [{ bearerAuth: [] }],
         response: {
           200: {
+            description: "Current user profile",
             type: "object",
             properties: {
               data: { $ref: "User#" },
             },
           },
           401: {
-            type: "object",
-            properties: {
-              error: { type: "string" },
-              message: { type: "string" },
-              statusCode: { type: "number" },
-            },
+            description: "Authentication required or token invalid",
+            $ref: "Error#",
+          },
+          500: {
+            description: "Internal server error",
+            $ref: "Error#",
           },
         },
       },
@@ -329,31 +417,50 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
     {
       preHandler: verifyAuth,
       schema: {
-        description: "Update the current user's preferences",
+        summary: "Update current user's preferences",
+        operationId: "updateCurrentUserPreferences",
+        description:
+          "Update preference settings for the currently authenticated user. Only provided fields will be updated.",
         tags: ["Users"],
         security: [{ bearerAuth: [] }],
         body: {
           type: "object",
+          description: "Preference fields to update",
           properties: {
-            theme: { type: "string", enum: ["light", "dark", "system"] },
-            emailNotifications: { type: "boolean" },
-            marketingEmails: { type: "boolean" },
+            theme: {
+              type: "string",
+              enum: ["light", "dark", "system"],
+              description: "UI theme preference",
+            },
+            emailNotifications: {
+              type: "boolean",
+              description: "Enable or disable email notifications",
+            },
+            marketingEmails: {
+              type: "boolean",
+              description: "Enable or disable marketing emails",
+            },
           },
         },
         response: {
           200: {
+            description: "Preferences updated successfully",
             type: "object",
             properties: {
               data: { $ref: "User#" },
             },
           },
           401: {
-            type: "object",
-            properties: {
-              error: { type: "string" },
-              message: { type: "string" },
-              statusCode: { type: "number" },
-            },
+            description: "Authentication required or token invalid",
+            $ref: "Error#",
+          },
+          404: {
+            description: "User not found",
+            $ref: "Error#",
+          },
+          500: {
+            description: "Internal server error",
+            $ref: "Error#",
           },
         },
       },
