@@ -144,6 +144,29 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
       },
     ],
 
+    // Database migration job (runs before service deployment)
+    jobs: [
+      {
+        name: "db-migrate",
+        kind: "PRE_DEPLOY",
+        github: {
+          repo: "mattbutlerengineering/mattbutlerengineering",
+          branch: "main",
+          deployOnPush: true,
+        },
+        sourceDir: "/",
+        dockerfilePath: "services/users/Dockerfile",
+        envs: [
+          {
+            key: "DATABASE_URL",
+            value: databaseUrl,
+            type: "SECRET",
+          },
+        ],
+        runCommand: "npx prisma migrate deploy",
+      },
+    ],
+
     // Users API service
     services: [
       {
