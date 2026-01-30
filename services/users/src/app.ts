@@ -35,6 +35,14 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
         },
       },
       servers: [
+        ...(process.env.API_BASE_URL
+          ? [
+              {
+                url: process.env.API_BASE_URL,
+                description: "Production",
+              },
+            ]
+          : []),
         {
           url: `http://localhost:${process.env.PORT ?? 3001}`,
           description: "Local development",

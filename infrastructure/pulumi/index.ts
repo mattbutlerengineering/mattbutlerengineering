@@ -168,6 +168,10 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
             value: "3001",
           },
           {
+            key: "API_BASE_URL",
+            value: `https://${domain}/api`,
+          },
+          {
             key: "AUTH0_DOMAIN",
             value: "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com",
           },
