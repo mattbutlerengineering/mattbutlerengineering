@@ -84,7 +84,8 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
 
   // Register routes
   await fastify.register(healthRoutes);
-  await fastify.register(userRoutes, { prefix: "/api/v1/users" });
+  // Routes are prefixed with /v1/users since the /api prefix is handled by the ingress/proxy
+  await fastify.register(userRoutes, { prefix: "/v1/users" });
 
   return fastify;
 }
