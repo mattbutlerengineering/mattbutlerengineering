@@ -65,11 +65,10 @@ pnpm test:coverage          # Run with coverage report
 # Database operations
 pnpm db:generate            # Generate Prisma client
 pnpm db:push                # Push schema (dev only, no migration history)
-pnpm db:migrate             # Run database migrations (recommended)
+pnpm db:migrate             # Create and apply migrations (development)
+pnpm db:migrate:deploy      # Apply pending migrations (production/CI)
+pnpm db:migrate:status      # Check migration status
 pnpm db:studio              # Open Prisma Studio
-
-# Creating new migrations (development)
-npx prisma migrate dev --name descriptive_name
 
 # Linting and type checking
 pnpm lint                   # ESLint
