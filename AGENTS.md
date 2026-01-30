@@ -64,9 +64,12 @@ pnpm test:coverage          # Run with coverage report
 
 # Database operations
 pnpm db:generate            # Generate Prisma client
-pnpm db:push                # Push schema to database
-pnpm db:migrate             # Run database migrations
+pnpm db:push                # Push schema (dev only, no migration history)
+pnpm db:migrate             # Run database migrations (recommended)
 pnpm db:studio              # Open Prisma Studio
+
+# Creating new migrations (development)
+npx prisma migrate dev --name descriptive_name
 
 # Linting and type checking
 pnpm lint                   # ESLint
@@ -312,6 +315,42 @@ response: {
 ### Database
 - **DATABASE_URL**: Prisma database connection string
 
+## Database Migrations
+
+Use Prisma Migrate for database schema changes. See `.claude/skills/prisma-migrations/` for detailed workflows.
+
+### Quick Reference
+
+| Environment | Command | Purpose |
+|-------------|---------|---------|
+| Development | `npx prisma migrate dev` | Create and apply migrations |
+| Production | `npx prisma migrate deploy` | Apply existing migrations only |
+| Prototyping | `npx prisma db push` | Quick schema sync (no history) |
+
+### Critical Rules
+
+1. **Never run `migrate dev` in production** - It can reset data
+2. **Always commit migrations** - Migration files in `prisma/migrations/` must be version controlled
+3. **Deploy migrations before code** - Database schema must exist before code that uses it
+
+### Creating Migrations
+
+```bash
+cd services/users
+
+# Make changes to schema.prisma, then:
+npx prisma migrate dev --name add_feature_name
+
+# This creates prisma/migrations/<timestamp>_add_feature_name/migration.sql
+```
+
+### CI/CD Deployment
+
+```bash
+# In production/CI, only use:
+npx prisma migrate deploy
+```
+
 ## Local Development
 
 ```bash
@@ -333,7 +372,7 @@ pnpm dev
 ## Local Development Workflow
 
 1. **Start database**: `cd infrastructure && docker compose up postgres -d`
-2. **Push schema**: `cd services/users && pnpm db:push`
+2. **Apply schema**: `cd services/users && pnpm db:migrate` (or `pnpm db:push` for quick prototyping)
 3. **Start dev servers**: `pnpm dev`
 4. **Access points**:
    - Web: http://localhost:3000
