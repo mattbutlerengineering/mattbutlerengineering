@@ -23,6 +23,16 @@ This file contains project-specific guidelines, commands, and conventions for AI
 - API Identifier: `https://api.mattbutlerengineering.com`
 - Managed via Pulumi IaC
 
+## Work Tracking
+
+When the user mentions work they want to do but we don't address immediately, create a GitHub issue to track it:
+
+```bash
+gh issue create --title "Brief description" --body "Details from conversation"
+```
+
+This ensures ideas and tasks don't get lost between sessions.
+
 ## Build/Lint/Test Commands
 
 ### Root Level Commands
