@@ -295,6 +295,58 @@ importers:
         specifier: ^5.7.3
         version: 5.9.3
 
+  services/reservations:
+    dependencies:
+      '@fastify/cors':
+        specifier: ^10.0.0
+        version: 10.1.0
+      '@fastify/swagger':
+        specifier: ^9.0.0
+        version: 9.6.1
+      '@mbe/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
+      '@mbe/types':
+        specifier: workspace:*
+        version: link:../../packages/types
+      '@prisma/client':
+        specifier: ^6.0.0
+        version: 6.19.2(prisma@6.19.2(magicast@0.3.5)(typescript@5.9.3))(typescript@5.9.3)
+      '@scalar/fastify-api-reference':
+        specifier: ^1.44.1
+        version: 1.44.1
+      fastify:
+        specifier: ^5.0.0
+        version: 5.7.1
+      jose:
+        specifier: ^5.2.0
+        version: 5.10.0
+      zod:
+        specifier: ^3.23.0
+        version: 3.25.76
+    devDependencies:
+      '@mbe/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.7
+      '@vitest/coverage-v8':
+        specifier: ^4.0.18
+        version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@22.19.7)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+      prisma:
+        specifier: ^6.0.0
+        version: 6.19.2(magicast@0.3.5)(typescript@5.9.3)
+      tsx:
+        specifier: ^4.19.0
+        version: 4.21.0
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.18
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@22.19.7)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+
   services/users:
     dependencies:
       '@fastify/cors':

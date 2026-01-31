@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+model Table {
+  id           String        @id @default(cuid())
+  name         String        @unique
+  capacity     Int
+  location     String?
+  isActive     Boolean       @default(true) @map("is_active")
+  venueId      String?       @map("venue_id")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  reservations Reservation[]
+
+  @@index([venueId])
+  @@map("tables")
+}
+
+model Reservation {
+  id         String            @id @default(cuid())
+  date       DateTime          @db.Date
+  startTime  DateTime          @map("start_time")
+  endTime    DateTime          @map("end_time")
+  partySize  Int               @map("party_size")
+  status     ReservationStatus @default(PENDING)
+  notes      String?
+  guestName  String?           @map("guest_name")
+  guestEmail String?           @map("guest_email")
+  guestPhone String?           @map("guest_phone")
+  userId     String?           @map("user_id")
+  tableId    String            @map("table_id")
+  table      Table             @relation(fields: [tableId], references: [id])
+  venueId    String?           @map("venue_id")
+  createdAt  DateTime          @default(now()) @map("created_at")
+  updatedAt  DateTime          @updatedAt @map("updated_at")
+
+  @@index([date, status])
+  @@index([tableId, date])
+  @@index([userId])
+  @@index([venueId, date])
+  @@map("reservations")
+}

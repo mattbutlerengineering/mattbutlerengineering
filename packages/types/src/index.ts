@@ -18,3 +18,14 @@ export type {
   UpdateUserRequest,
   UpdatePreferencesRequest,
 } from "./user.js";
+
+// Reservation types
+export type {
+  ReservationStatus,
+  Table,
+  Reservation,
+  CreateReservationRequest,
+  UpdateReservationRequest,
+  CreateTableRequest,
+  UpdateTableRequest,
+} from "./reservation.js";
