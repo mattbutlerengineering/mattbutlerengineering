@@ -27,6 +27,7 @@ export interface Reservation {
   guestName: string | null;
   guestEmail: string | null;
   guestPhone: string | null;
+  guestId: string | null;
   userId: string | null;
   tableId: string;
   table?: Table;
@@ -45,6 +46,7 @@ export interface CreateReservationRequest {
   guestName?: string;
   guestEmail?: string;
   guestPhone?: string;
+  guestId?: string;
   venueId?: string;
 }
 

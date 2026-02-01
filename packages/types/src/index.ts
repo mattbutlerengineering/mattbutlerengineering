@@ -42,3 +42,12 @@ export type {
   CreateVenueRequest,
   UpdateVenueRequest,
 } from "./venue.js";
+
+// Guest types
+export type {
+  Guest,
+  CreateGuestRequest,
+  UpdateGuestRequest,
+  GuestSearchParams,
+  GuestSegment,
+} from "./guest.js";

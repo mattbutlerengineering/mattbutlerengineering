@@ -38,6 +38,7 @@ model Venue {
   settings       Json?
   tables         Table[]
   reservations   Reservation[]
+  guests         Guest[]
   createdAt      DateTime     @default(now()) @map("created_at")
   updatedAt      DateTime     @updatedAt @map("updated_at")
 
@@ -60,6 +61,29 @@ model Table {
   @@map("tables")
 }
 
+model Guest {
+  id            String        @id @default(cuid())
+  venueId       String        @map("venue_id")
+  venue         Venue         @relation(fields: [venueId], references: [id])
+  email         String?
+  phone         String?
+  name          String
+  notes         String?
+  visitCount    Int           @default(0) @map("visit_count")
+  lifetimeSpend Decimal?      @map("lifetime_spend") @db.Decimal(10, 2)
+  lastVisit     DateTime?     @map("last_visit")
+  tags          Json?
+  reservations  Reservation[]
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  @@unique([venueId, email])
+  @@unique([venueId, phone])
+  @@index([venueId])
+  @@index([venueId, lastVisit])
+  @@map("guests")
+}
+
 model Reservation {
   id         String            @id @default(cuid())
   date       DateTime          @db.Date
@@ -71,6 +95,8 @@ model Reservation {
   guestName  String?           @map("guest_name")
   guestEmail String?           @map("guest_email")
   guestPhone String?           @map("guest_phone")
+  guestId    String?           @map("guest_id")
+  guest      Guest?            @relation(fields: [guestId], references: [id])
   userId     String?           @map("user_id")
   tableId    String            @map("table_id")
   table      Table             @relation(fields: [tableId], references: [id])
@@ -83,5 +109,6 @@ model Reservation {
   @@index([tableId, date])
   @@index([userId])
   @@index([venueId, date])
+  @@index([guestId])
   @@map("reservations")
 }

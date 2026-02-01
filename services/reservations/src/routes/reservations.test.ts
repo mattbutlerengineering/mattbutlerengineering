@@ -63,6 +63,7 @@ const mockReservation = {
   guestName: "John Doe",
   guestEmail: "john@example.com",
   guestPhone: null,
+  guestId: null,
   userId: null,
   tableId: "table-123",
   table: mockTable,

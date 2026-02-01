@@ -24,6 +24,7 @@ function mapPrismaReservation(reservation: PrismaReservationWithTable): Reservat
     guestName: reservation.guestName,
     guestEmail: reservation.guestEmail,
     guestPhone: reservation.guestPhone,
+    guestId: reservation.guestId,
     userId: reservation.userId,
     tableId: reservation.tableId,
     table: reservation.table

@@ -45,14 +45,14 @@ Phased roadmap to evolve the reservations service into a full hospitality manage
 - [ ] Create venue onboarding flow
 
 ### Phase 2: Guest CRM (1-2 weeks)
-- [ ] Create Guest model
-- [ ] Identity resolution (match by email/phone)
-- [ ] Guest service with visit tracking
-- [ ] Guest routes (CRUD, search)
-- [ ] Link reservations to guests
-- [ ] Add tags/notes functionality
-- [ ] Basic segments (hasn't visited in X days)
-- [ ] Write tests
+- [x] Create Guest model
+- [x] Identity resolution (match by email/phone)
+- [x] Guest service with visit tracking
+- [x] Guest routes (CRUD, search)
+- [x] Link reservations to guests
+- [x] Add tags/notes functionality
+- [x] Basic segments (hasn't visited in X days)
+- [x] Write tests
 
 ### Phase 3: Floor Plans & Canvas Editor (3-4 weeks)
 - [ ] Create FloorPlan model

@@ -7,6 +7,7 @@ import { healthRoutes } from "./routes/health.js";
 import { tableRoutes } from "./routes/tables.js";
 import { reservationRoutes } from "./routes/reservations.js";
 import { venueRoutes } from "./routes/venues.js";
+import { guestRoutes } from "./routes/guests.js";
 
 export interface AppOptions {
   logger?: boolean | object;
@@ -64,6 +65,10 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
           description: "Venue management endpoints",
         },
         {
+          name: "Guests",
+          description: "Guest CRM endpoints",
+        },
+        {
           name: "Tables",
           description: "Table management endpoints",
         },
@@ -99,6 +104,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   // Register routes
   await fastify.register(healthRoutes);
   await fastify.register(venueRoutes, { prefix: "/v1/venues" });
+  await fastify.register(guestRoutes, { prefix: "/v1/guests" });
   await fastify.register(tableRoutes, { prefix: "/v1/tables" });
   await fastify.register(reservationRoutes, { prefix: "/v1/reservations" });
 

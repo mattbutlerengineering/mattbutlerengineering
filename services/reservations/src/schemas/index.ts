@@ -345,6 +345,110 @@ export const VenueSchema = {
   },
 } as const;
 
+export const GuestSchema = {
+  $id: "Guest",
+  type: "object",
+  description: "A guest who makes reservations at a venue",
+  required: ["id", "venueId", "name", "visitCount", "createdAt", "updatedAt"],
+  properties: {
+    id: {
+      type: "string",
+      description: "Unique identifier for the guest",
+      example: "clx1234567890abcdef",
+    },
+    venueId: {
+      type: "string",
+      description: "ID of the venue this guest belongs to",
+      example: "venue-123",
+    },
+    email: {
+      type: "string",
+      format: "email",
+      nullable: true,
+      description: "Guest email address",
+      example: "john@example.com",
+    },
+    phone: {
+      type: "string",
+      nullable: true,
+      description: "Guest phone number",
+      example: "+1-555-123-4567",
+    },
+    name: {
+      type: "string",
+      description: "Guest name",
+      example: "John Doe",
+    },
+    notes: {
+      type: "string",
+      nullable: true,
+      description: "Internal notes about the guest",
+      example: "Prefers window seating, allergic to shellfish",
+    },
+    visitCount: {
+      type: "integer",
+      description: "Number of completed visits",
+      example: 5,
+    },
+    lifetimeSpend: {
+      type: "string",
+      nullable: true,
+      description: "Total amount spent (as decimal string)",
+      example: "1250.00",
+    },
+    lastVisit: {
+      type: "string",
+      format: "date-time",
+      nullable: true,
+      description: "Date of last completed visit",
+      example: "2024-01-15T19:00:00.000Z",
+    },
+    tags: {
+      type: "array",
+      items: { type: "string" },
+      nullable: true,
+      description: "Tags for categorization",
+      example: ["VIP", "Birthday Club"],
+    },
+    createdAt: {
+      type: "string",
+      format: "date-time",
+      description: "Timestamp when the guest was created",
+      example: "2024-01-15T10:30:00.000Z",
+    },
+    updatedAt: {
+      type: "string",
+      format: "date-time",
+      description: "Timestamp when the guest was last updated",
+      example: "2024-01-20T14:45:00.000Z",
+    },
+  },
+} as const;
+
+export const GuestSegmentSchema = {
+  $id: "GuestSegment",
+  type: "object",
+  description: "A segment of guests based on behavior",
+  required: ["name", "description", "count"],
+  properties: {
+    name: {
+      type: "string",
+      description: "Segment name",
+      example: "VIP",
+    },
+    description: {
+      type: "string",
+      description: "What defines this segment",
+      example: "Guests with 5+ visits",
+    },
+    count: {
+      type: "integer",
+      description: "Number of guests in this segment",
+      example: 42,
+    },
+  },
+} as const;
+
 export function registerSchemas(fastify: FastifyInstance) {
   fastify.addSchema(TableSchema);
   fastify.addSchema(ReservationSchema);
@@ -352,4 +456,6 @@ export function registerSchemas(fastify: FastifyInstance) {
   fastify.addSchema(ErrorSchema);
   fastify.addSchema(VenueGroupSchema);
   fastify.addSchema(VenueSchema);
+  fastify.addSchema(GuestSchema);
+  fastify.addSchema(GuestSegmentSchema);
 }
