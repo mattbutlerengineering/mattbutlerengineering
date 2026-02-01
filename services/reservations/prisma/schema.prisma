@@ -15,6 +15,35 @@ enum ReservationStatus {
   NO_SHOW
 }
 
+model VenueGroup {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  settings  Json?
+  venues    Venue[]
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("venue_groups")
+}
+
+model Venue {
+  id             String       @id @default(cuid())
+  venueGroupId   String?      @map("venue_group_id")
+  venueGroup     VenueGroup?  @relation(fields: [venueGroupId], references: [id])
+  name           String
+  slug           String       @unique
+  ianaTimezone   String       @map("iana_timezone")
+  currencyCode   String       @default("USD") @map("currency_code")
+  operatingHours Json?        @map("operating_hours")
+  settings       Json?
+  tables         Table[]
+  reservations   Reservation[]
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  @@map("venues")
+}
+
 model Table {
   id           String        @id @default(cuid())
   name         String        @unique
@@ -22,6 +51,7 @@ model Table {
   location     String?
   isActive     Boolean       @default(true) @map("is_active")
   venueId      String?       @map("venue_id")
+  venue        Venue?        @relation(fields: [venueId], references: [id])
   createdAt    DateTime      @default(now()) @map("created_at")
   updatedAt    DateTime      @updatedAt @map("updated_at")
   reservations Reservation[]
@@ -45,6 +75,7 @@ model Reservation {
   tableId    String            @map("table_id")
   table      Table             @relation(fields: [tableId], references: [id])
   venueId    String?           @map("venue_id")
+  venue      Venue?            @relation(fields: [venueId], references: [id])
   createdAt  DateTime          @default(now()) @map("created_at")
   updatedAt  DateTime          @updatedAt @map("updated_at")
 

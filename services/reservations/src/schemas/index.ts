@@ -227,9 +227,129 @@ export const ErrorSchema = {
   },
 } as const;
 
+export const VenueGroupSchema = {
+  $id: "VenueGroup",
+  type: "object",
+  description: "A group of venues under common ownership/management",
+  required: ["id", "name", "slug", "createdAt"],
+  properties: {
+    id: {
+      type: "string",
+      description: "Unique identifier for the venue group",
+      example: "clx1234567890abcdef",
+    },
+    name: {
+      type: "string",
+      description: "Venue group name",
+      example: "Downtown Restaurant Group",
+    },
+    slug: {
+      type: "string",
+      description: "URL-friendly identifier",
+      example: "downtown-restaurant-group",
+    },
+    settings: {
+      type: "object",
+      nullable: true,
+      description: "Shared settings for all venues in the group",
+    },
+    createdAt: {
+      type: "string",
+      format: "date-time",
+      description: "Timestamp when the venue group was created",
+      example: "2024-01-15T10:30:00.000Z",
+    },
+  },
+} as const;
+
+export const VenueSchema = {
+  $id: "Venue",
+  type: "object",
+  description: "A venue (restaurant, bar, etc.) that accepts reservations",
+  required: ["id", "name", "slug", "ianaTimezone", "currencyCode", "createdAt", "updatedAt"],
+  properties: {
+    id: {
+      type: "string",
+      description: "Unique identifier for the venue",
+      example: "clx1234567890abcdef",
+    },
+    venueGroupId: {
+      type: "string",
+      nullable: true,
+      description: "ID of the venue group this venue belongs to",
+      example: "clx9876543210fedcba",
+    },
+    venueGroup: {
+      $ref: "VenueGroup#",
+      description: "The venue group (included when fetching venues)",
+    },
+    name: {
+      type: "string",
+      description: "Venue name",
+      example: "Chez Panisse",
+    },
+    slug: {
+      type: "string",
+      description: "URL-friendly identifier for public booking URLs",
+      example: "chez-panisse",
+    },
+    ianaTimezone: {
+      type: "string",
+      description: "IANA timezone identifier",
+      example: "America/Los_Angeles",
+    },
+    currencyCode: {
+      type: "string",
+      description: "ISO 4217 currency code",
+      example: "USD",
+    },
+    operatingHours: {
+      type: "object",
+      nullable: true,
+      description: "Weekly operating schedule",
+      properties: {
+        monday: { $ref: "#/properties/daySchedule" },
+        tuesday: { $ref: "#/properties/daySchedule" },
+        wednesday: { $ref: "#/properties/daySchedule" },
+        thursday: { $ref: "#/properties/daySchedule" },
+        friday: { $ref: "#/properties/daySchedule" },
+        saturday: { $ref: "#/properties/daySchedule" },
+        sunday: { $ref: "#/properties/daySchedule" },
+      },
+    },
+    daySchedule: {
+      type: "object",
+      properties: {
+        open: { type: "string", example: "09:00" },
+        close: { type: "string", example: "22:00" },
+        closed: { type: "boolean" },
+      },
+    },
+    settings: {
+      type: "object",
+      nullable: true,
+      description: "Venue-specific settings and feature flags",
+    },
+    createdAt: {
+      type: "string",
+      format: "date-time",
+      description: "Timestamp when the venue was created",
+      example: "2024-01-15T10:30:00.000Z",
+    },
+    updatedAt: {
+      type: "string",
+      format: "date-time",
+      description: "Timestamp when the venue was last updated",
+      example: "2024-01-20T14:45:00.000Z",
+    },
+  },
+} as const;
+
 export function registerSchemas(fastify: FastifyInstance) {
   fastify.addSchema(TableSchema);
   fastify.addSchema(ReservationSchema);
   fastify.addSchema(PaginationSchema);
   fastify.addSchema(ErrorSchema);
+  fastify.addSchema(VenueGroupSchema);
+  fastify.addSchema(VenueSchema);
 }

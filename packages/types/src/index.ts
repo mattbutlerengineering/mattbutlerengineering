@@ -29,3 +29,16 @@ export type {
   CreateTableRequest,
   UpdateTableRequest,
 } from "./reservation.js";
+
+// Venue types
+export type {
+  VenueGroup,
+  Venue,
+  OperatingHours,
+  DaySchedule,
+  VenueSettings,
+  CreateVenueGroupRequest,
+  UpdateVenueGroupRequest,
+  CreateVenueRequest,
+  UpdateVenueRequest,
+} from "./venue.js";
