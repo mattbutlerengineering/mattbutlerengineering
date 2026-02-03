@@ -55,15 +55,17 @@ Phased roadmap to evolve the reservations service into a full hospitality manage
 - [x] Write tests
 
 ### Phase 3: Floor Plans & Canvas Editor (3-4 weeks)
-- [ ] Create FloorPlan model
-- [ ] Enhance Table model (min/max covers, coordinates)
-- [ ] Set up Konva.js + react-konva
-- [ ] Canvas editor component
-- [ ] Drag-and-drop table placement
-- [ ] Table status colors
-- [ ] Timeline/Gantt view
+- [x] Create FloorPlan model
+- [x] Enhance Table model (min/max covers, coordinates, shapeMetadata)
+- [x] Create FloorPlan service (CRUD, activate, bulk position updates)
+- [x] Create FloorPlan routes and OpenAPI schemas
+- [x] Write tests (20 new tests, 81 total)
+- [ ] Set up Konva.js + react-konva (frontend)
+- [ ] Canvas editor component (frontend)
+- [ ] Drag-and-drop table placement (frontend)
+- [ ] Table status colors (frontend)
+- [ ] Timeline/Gantt view (frontend)
 - [ ] WebSocket for real-time sync
-- [ ] Write tests
 
 ### PWA Track (Parallel)
 **Phase A - Basic PWA (with Phase 1-2)**

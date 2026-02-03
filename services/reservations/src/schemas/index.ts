@@ -1,10 +1,48 @@
 import type { FastifyInstance } from "fastify";
 
+export const TableShapeMetadataSchema = {
+  $id: "TableShapeMetadata",
+  type: "object",
+  description: "Position and shape metadata for a table on a floor plan canvas",
+  required: ["x", "y", "width", "height", "shape"],
+  properties: {
+    x: {
+      type: "number",
+      description: "X coordinate on the canvas",
+    },
+    y: {
+      type: "number",
+      description: "Y coordinate on the canvas",
+    },
+    width: {
+      type: "number",
+      description: "Width of the table shape",
+    },
+    height: {
+      type: "number",
+      description: "Height of the table shape",
+    },
+    rotation: {
+      type: "number",
+      description: "Rotation angle in degrees",
+    },
+    shape: {
+      type: "string",
+      enum: ["rectangle", "circle", "square"],
+      description: "Shape of the table",
+    },
+    color: {
+      type: "string",
+      description: "Color of the table on the floor plan",
+    },
+  },
+} as const;
+
 export const TableSchema = {
   $id: "Table",
   type: "object",
   description: "A table available for reservations",
-  required: ["id", "name", "capacity", "isActive", "createdAt", "updatedAt"],
+  required: ["id", "name", "capacity", "minCovers", "isActive", "priority", "createdAt", "updatedAt"],
   properties: {
     id: {
       type: "string",
@@ -16,10 +54,27 @@ export const TableSchema = {
       description: "Table name or number",
       example: "Table 1",
     },
+    tableNumber: {
+      type: "string",
+      nullable: true,
+      description: "Human-readable table number (e.g., '41', '42B')",
+      example: "41",
+    },
     capacity: {
       type: "integer",
       description: "Maximum number of guests the table can seat",
       example: 4,
+    },
+    minCovers: {
+      type: "integer",
+      description: "Minimum party size for this table",
+      example: 1,
+    },
+    maxCovers: {
+      type: "integer",
+      nullable: true,
+      description: "Maximum party size (null means same as capacity)",
+      example: 6,
     },
     location: {
       type: "string",
@@ -32,11 +87,26 @@ export const TableSchema = {
       description: "Whether the table is active and available for reservations",
       example: true,
     },
+    priority: {
+      type: "integer",
+      description: "Priority for auto-assignment (higher = preferred)",
+      example: 0,
+    },
     venueId: {
       type: "string",
       nullable: true,
       description: "ID of the venue this table belongs to",
       example: "venue-123",
+    },
+    floorPlanId: {
+      type: "string",
+      nullable: true,
+      description: "ID of the floor plan this table is placed on",
+      example: "floor-plan-123",
+    },
+    shapeMetadata: {
+      oneOf: [{ $ref: "TableShapeMetadata#" }, { type: "null" }],
+      description: "Position and shape on the floor plan canvas",
     },
     createdAt: {
       type: "string",
@@ -449,7 +519,87 @@ export const GuestSegmentSchema = {
   },
 } as const;
 
+export const FloorPlanLayoutSchema = {
+  $id: "FloorPlanLayout",
+  type: "object",
+  description: "Layout configuration for a floor plan canvas",
+  required: ["width", "height"],
+  properties: {
+    width: {
+      type: "number",
+      description: "Canvas width in pixels",
+    },
+    height: {
+      type: "number",
+      description: "Canvas height in pixels",
+    },
+    backgroundImage: {
+      type: "string",
+      description: "URL of the background image (e.g., architectural drawing)",
+    },
+    gridSize: {
+      type: "number",
+      description: "Grid size for snapping in pixels",
+    },
+    showGrid: {
+      type: "boolean",
+      description: "Whether to display the grid",
+    },
+  },
+} as const;
+
+export const FloorPlanSchema = {
+  $id: "FloorPlan",
+  type: "object",
+  description: "A floor plan representing a physical layout of tables",
+  required: ["id", "venueId", "name", "isActive", "layoutJson", "createdAt", "updatedAt"],
+  properties: {
+    id: {
+      type: "string",
+      description: "Unique identifier for the floor plan",
+      example: "clx1234567890abcdef",
+    },
+    venueId: {
+      type: "string",
+      description: "ID of the venue this floor plan belongs to",
+      example: "venue-123",
+    },
+    name: {
+      type: "string",
+      description: "Floor plan name (e.g., 'Main Dining', 'Patio')",
+      example: "Main Dining",
+    },
+    isActive: {
+      type: "boolean",
+      description: "Whether this is the active floor plan for the venue",
+      example: true,
+    },
+    layoutJson: {
+      $ref: "FloorPlanLayout#",
+      description: "Canvas layout configuration",
+    },
+    tables: {
+      type: "array",
+      items: { $ref: "Table#" },
+      description: "Tables placed on this floor plan",
+    },
+    createdAt: {
+      type: "string",
+      format: "date-time",
+      description: "Timestamp when the floor plan was created",
+      example: "2024-01-15T10:30:00.000Z",
+    },
+    updatedAt: {
+      type: "string",
+      format: "date-time",
+      description: "Timestamp when the floor plan was last updated",
+      example: "2024-01-20T14:45:00.000Z",
+    },
+  },
+} as const;
+
 export function registerSchemas(fastify: FastifyInstance) {
+  fastify.addSchema(TableShapeMetadataSchema);
   fastify.addSchema(TableSchema);
   fastify.addSchema(ReservationSchema);
   fastify.addSchema(PaginationSchema);
@@ -458,4 +608,6 @@ export function registerSchemas(fastify: FastifyInstance) {
   fastify.addSchema(VenueSchema);
   fastify.addSchema(GuestSchema);
   fastify.addSchema(GuestSegmentSchema);
+  fastify.addSchema(FloorPlanLayoutSchema);
+  fastify.addSchema(FloorPlanSchema);
 }

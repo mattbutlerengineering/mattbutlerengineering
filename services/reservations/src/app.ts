@@ -8,6 +8,7 @@ import { tableRoutes } from "./routes/tables.js";
 import { reservationRoutes } from "./routes/reservations.js";
 import { venueRoutes } from "./routes/venues.js";
 import { guestRoutes } from "./routes/guests.js";
+import { floorPlanRoutes } from "./routes/floor-plans.js";
 
 export interface AppOptions {
   logger?: boolean | object;
@@ -73,6 +74,10 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
           description: "Table management endpoints",
         },
         {
+          name: "Floor Plans",
+          description: "Floor plan and table positioning endpoints",
+        },
+        {
           name: "Reservations",
           description: "Reservation CRUD operations",
         },
@@ -106,6 +111,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   await fastify.register(venueRoutes, { prefix: "/v1/venues" });
   await fastify.register(guestRoutes, { prefix: "/v1/guests" });
   await fastify.register(tableRoutes, { prefix: "/v1/tables" });
+  await fastify.register(floorPlanRoutes, { prefix: "/v1/floor-plans" });
   await fastify.register(reservationRoutes, { prefix: "/v1/reservations" });
 
   return fastify;

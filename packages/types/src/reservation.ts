@@ -5,13 +5,21 @@ export type ReservationStatus =
   | "COMPLETED"
   | "NO_SHOW";
 
+import type { TableShapeMetadata } from "./floor-plan.js";
+
 export interface Table {
   id: string;
   name: string;
+  tableNumber: string | null;
   capacity: number;
+  minCovers: number;
+  maxCovers: number | null;
   location: string | null;
   isActive: boolean;
+  priority: number;
   venueId: string | null;
+  floorPlanId: string | null;
+  shapeMetadata: TableShapeMetadata | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -62,14 +70,26 @@ export interface UpdateReservationRequest {
 
 export interface CreateTableRequest {
   name: string;
+  tableNumber?: string;
   capacity: number;
+  minCovers?: number;
+  maxCovers?: number;
   location?: string;
+  priority?: number;
   venueId?: string;
+  floorPlanId?: string;
+  shapeMetadata?: TableShapeMetadata;
 }
 
 export interface UpdateTableRequest {
   name?: string;
+  tableNumber?: string;
   capacity?: number;
+  minCovers?: number;
+  maxCovers?: number;
   location?: string;
   isActive?: boolean;
+  priority?: number;
+  floorPlanId?: string | null;
+  shapeMetadata?: TableShapeMetadata | null;
 }

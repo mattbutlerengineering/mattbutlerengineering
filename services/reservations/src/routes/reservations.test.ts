@@ -25,6 +25,57 @@ vi.mock("../services/table.js", () => ({
   },
 }));
 
+// Mock the venue service (needed for app registration)
+vi.mock("../services/venue.js", () => ({
+  venueService: {
+    list: vi.fn(),
+    getById: vi.fn(),
+    getBySlug: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  },
+  venueGroupService: {
+    list: vi.fn(),
+    getById: vi.fn(),
+    getBySlug: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  },
+}));
+
+// Mock the guest service (needed for app registration)
+vi.mock("../services/guest.js", () => ({
+  guestService: {
+    list: vi.fn(),
+    getById: vi.fn(),
+    search: vi.fn(),
+    findOrCreate: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    getSegments: vi.fn(),
+  },
+}));
+
+// Mock the floor plan service (needed for app registration)
+vi.mock("../services/floor-plan.js", () => ({
+  floorPlanService: {
+    list: vi.fn(),
+    getById: vi.fn(),
+    getActiveByVenueId: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    setActive: vi.fn(),
+    updateTablePosition: vi.fn(),
+    bulkUpdateTablePositions: vi.fn(),
+    assignTableToFloorPlan: vi.fn(),
+    removeTableFromFloorPlan: vi.fn(),
+  },
+}));
+
 // Mock the database (needed for health check registration)
 vi.mock("../services/database.js", () => ({
   prisma: {
@@ -44,10 +95,16 @@ import { jwtVerify } from "jose";
 const mockTable = {
   id: "table-123",
   name: "Table 1",
+  tableNumber: "1",
   capacity: 4,
+  minCovers: 1,
+  maxCovers: null,
   location: "Main Floor",
   isActive: true,
+  priority: 0,
   venueId: null,
+  floorPlanId: null,
+  shapeMetadata: null,
   createdAt: "2026-01-25T00:00:00.000Z",
   updatedAt: "2026-01-25T00:00:00.000Z",
 };

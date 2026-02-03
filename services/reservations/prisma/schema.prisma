@@ -39,25 +39,50 @@ model Venue {
   tables         Table[]
   reservations   Reservation[]
   guests         Guest[]
+  floorPlans     FloorPlan[]
   createdAt      DateTime     @default(now()) @map("created_at")
   updatedAt      DateTime     @updatedAt @map("updated_at")
 
   @@map("venues")
 }
 
-model Table {
-  id           String        @id @default(cuid())
-  name         String        @unique
-  capacity     Int
-  location     String?
-  isActive     Boolean       @default(true) @map("is_active")
-  venueId      String?       @map("venue_id")
-  venue        Venue?        @relation(fields: [venueId], references: [id])
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
-  reservations Reservation[]
+model FloorPlan {
+  id         String   @id @default(cuid())
+  venueId    String   @map("venue_id")
+  venue      Venue    @relation(fields: [venueId], references: [id])
+  name       String
+  isActive   Boolean  @default(false) @map("is_active")
+  layoutJson Json     @map("layout_json")
+  tables     Table[]
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
   @@index([venueId])
+  @@index([venueId, isActive])
+  @@map("floor_plans")
+}
+
+model Table {
+  id            String        @id @default(cuid())
+  name          String        @unique
+  tableNumber   String?       @map("table_number")
+  capacity      Int
+  minCovers     Int           @default(1) @map("min_covers")
+  maxCovers     Int?          @map("max_covers")
+  location      String?
+  isActive      Boolean       @default(true) @map("is_active")
+  priority      Int           @default(0)
+  venueId       String?       @map("venue_id")
+  venue         Venue?        @relation(fields: [venueId], references: [id])
+  floorPlanId   String?       @map("floor_plan_id")
+  floorPlan     FloorPlan?    @relation(fields: [floorPlanId], references: [id])
+  shapeMetadata Json?         @map("shape_metadata")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  reservations  Reservation[]
+
+  @@index([venueId])
+  @@index([floorPlanId])
   @@map("tables")
 }
 

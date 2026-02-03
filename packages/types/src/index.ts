@@ -51,3 +51,14 @@ export type {
   GuestSearchParams,
   GuestSegment,
 } from "./guest.js";
+
+// Floor plan types
+export type {
+  FloorPlan,
+  FloorPlanLayout,
+  TableShapeMetadata,
+  CreateFloorPlanRequest,
+  UpdateFloorPlanRequest,
+  UpdateTablePositionRequest,
+  BulkUpdateTablePositionsRequest,
+} from "./floor-plan.js";

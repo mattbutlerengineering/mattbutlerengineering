@@ -24,6 +24,54 @@ vi.mock("../services/reservation.js", () => ({
   },
 }));
 
+vi.mock("../services/venue.js", () => ({
+  venueService: {
+    list: vi.fn(),
+    getById: vi.fn(),
+    getBySlug: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  },
+  venueGroupService: {
+    list: vi.fn(),
+    getById: vi.fn(),
+    getBySlug: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  },
+}));
+
+vi.mock("../services/guest.js", () => ({
+  guestService: {
+    list: vi.fn(),
+    getById: vi.fn(),
+    search: vi.fn(),
+    findOrCreate: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    getSegments: vi.fn(),
+  },
+}));
+
+vi.mock("../services/floor-plan.js", () => ({
+  floorPlanService: {
+    list: vi.fn(),
+    getById: vi.fn(),
+    getActiveByVenueId: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    setActive: vi.fn(),
+    updateTablePosition: vi.fn(),
+    bulkUpdateTablePositions: vi.fn(),
+    assignTableToFloorPlan: vi.fn(),
+    removeTableFromFloorPlan: vi.fn(),
+  },
+}));
+
 vi.mock("../services/database.js", () => ({
   prisma: {
     $queryRaw: vi.fn(),

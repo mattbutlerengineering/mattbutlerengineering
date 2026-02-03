@@ -62,6 +62,23 @@ vi.mock("../services/reservation.js", () => ({
   },
 }));
 
+// Mock the floor plan service (needed for app registration)
+vi.mock("../services/floor-plan.js", () => ({
+  floorPlanService: {
+    list: vi.fn(),
+    getById: vi.fn(),
+    getActiveByVenueId: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    setActive: vi.fn(),
+    updateTablePosition: vi.fn(),
+    bulkUpdateTablePositions: vi.fn(),
+    assignTableToFloorPlan: vi.fn(),
+    removeTableFromFloorPlan: vi.fn(),
+  },
+}));
+
 // Mock the database (needed for health check registration)
 vi.mock("../services/database.js", () => ({
   prisma: {
