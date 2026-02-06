@@ -37,11 +37,27 @@ export type {
   OperatingHours,
   DaySchedule,
   VenueSettings,
+  PacingRule,
+  DurationRule,
   CreateVenueGroupRequest,
   UpdateVenueGroupRequest,
   CreateVenueRequest,
   UpdateVenueRequest,
 } from "./venue.js";
+
+// Availability types
+export type {
+  TimeSlot,
+  AvailableTable,
+  DateAvailability,
+  AvailabilityQuery,
+  DateRangeQuery,
+  ReservationHold,
+  CreateHoldRequest,
+  ConfirmHoldRequest,
+  ConflictCheckResult,
+  PacingCheckResult,
+} from "./availability.js";
 
 // Guest types
 export type {

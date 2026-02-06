@@ -311,7 +311,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   // Create reservation
   fastify.post<{
     Body: CreateReservationRequest;
-    Reply: ApiResponse<Reservation>;
+    Reply: ApiResponse<Reservation> | ApiError;
   }>(
     "/",
     {
@@ -383,7 +383,11 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
             },
           },
           400: {
-            description: "Invalid request body",
+            description: "Invalid request body or pacing limit exceeded",
+            $ref: "Error#",
+          },
+          409: {
+            description: "Conflict with existing reservation or hold",
             $ref: "Error#",
           },
           500: {
@@ -395,8 +399,21 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request, reply) => {
       const userId = request.user?.id;
-      const reservation = await reservationService.create(request.body, userId);
-      return reply.code(201).send({ data: reservation });
+      const result = await reservationService.createWithConflictCheck(
+        request.body,
+        userId
+      );
+
+      if (!result.success) {
+        const statusCode = result.conflict?.hasConflict ? 409 : 400;
+        return reply.code(statusCode).send({
+          error: statusCode === 409 ? "Conflict" : "Bad Request",
+          message: result.error ?? "Failed to create reservation",
+          statusCode,
+        });
+      }
+
+      return reply.code(201).send({ data: result.reservation! });
     }
   );
 
@@ -471,8 +488,16 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
               data: { $ref: "Reservation#" },
             },
           },
+          400: {
+            description: "Invalid request",
+            $ref: "Error#",
+          },
           404: {
             description: "Reservation not found",
+            $ref: "Error#",
+          },
+          409: {
+            description: "Conflict with existing reservation or hold",
             $ref: "Error#",
           },
           500: {
@@ -483,18 +508,36 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const reservation = await reservationService.update(
+      const result = await reservationService.updateWithConflictCheck(
         request.params.id,
         request.body
       );
-      if (!reservation) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "Reservation not found",
-          statusCode: 404,
+
+      if (!result.success) {
+        if (result.error === "Reservation not found") {
+          return reply.code(404).send({
+            error: "Not Found",
+            message: "Reservation not found",
+            statusCode: 404,
+          });
+        }
+
+        if (result.conflict?.hasConflict) {
+          return reply.code(409).send({
+            error: "Conflict",
+            message: result.error ?? "Time slot has a conflict",
+            statusCode: 409,
+          });
+        }
+
+        return reply.code(400).send({
+          error: "Bad Request",
+          message: result.error ?? "Failed to update reservation",
+          statusCode: 400,
         });
       }
-      return { data: reservation };
+
+      return { data: result.reservation! };
     }
   );
 

@@ -4,9 +4,12 @@ import type {
   CreateReservationRequest,
   UpdateReservationRequest,
   PaginatedResponse,
+  ConflictCheckResult,
+  PacingCheckResult,
 } from "@mbe/types";
 import type { Reservation as PrismaReservation, Table as PrismaTable } from "@prisma/client";
 import { prisma } from "./database.js";
+import { availabilityService } from "./availability.js";
 
 type PrismaReservationWithTable = PrismaReservation & {
   table?: PrismaTable;
@@ -31,10 +34,16 @@ function mapPrismaReservation(reservation: PrismaReservationWithTable): Reservat
       ? {
           id: reservation.table.id,
           name: reservation.table.name,
+          tableNumber: reservation.table.tableNumber,
           capacity: reservation.table.capacity,
+          minCovers: reservation.table.minCovers,
+          maxCovers: reservation.table.maxCovers,
           location: reservation.table.location,
           isActive: reservation.table.isActive,
+          priority: reservation.table.priority,
           venueId: reservation.table.venueId,
+          floorPlanId: reservation.table.floorPlanId,
+          shapeMetadata: reservation.table.shapeMetadata as import("@mbe/types").TableShapeMetadata | null,
           createdAt: reservation.table.createdAt.toISOString(),
           updatedAt: reservation.table.updatedAt.toISOString(),
         }
@@ -52,6 +61,21 @@ export interface ListReservationsOptions {
   status?: ReservationStatus;
   tableId?: string;
   venueId?: string;
+}
+
+export interface CreateReservationResult {
+  success: boolean;
+  reservation?: Reservation;
+  error?: string;
+  conflict?: ConflictCheckResult;
+  pacing?: PacingCheckResult;
+}
+
+export interface UpdateReservationResult {
+  success: boolean;
+  reservation?: Reservation;
+  error?: string;
+  conflict?: ConflictCheckResult;
 }
 
 export const reservationService = {
@@ -155,12 +179,70 @@ export const reservationService = {
         guestName: data.guestName ?? null,
         guestEmail: data.guestEmail ?? null,
         guestPhone: data.guestPhone ?? null,
+        guestId: data.guestId ?? null,
         userId: userId ?? null,
         venueId: data.venueId ?? null,
       },
       include: { table: true },
     });
     return mapPrismaReservation(reservation);
+  },
+
+  /**
+   * Creates a reservation with conflict and pacing checks.
+   * Used for staff direct booking (bypassing hold flow).
+   */
+  async createWithConflictCheck(
+    data: CreateReservationRequest,
+    userId?: string
+  ): Promise<CreateReservationResult> {
+    const startTime = new Date(data.startTime);
+    const endTime = new Date(data.endTime);
+
+    // Check for conflicts
+    const conflict = await availabilityService.checkConflict(
+      data.tableId,
+      data.date,
+      startTime,
+      endTime
+    );
+
+    if (conflict.hasConflict) {
+      return {
+        success: false,
+        error: "Time slot has a conflict with an existing reservation or hold",
+        conflict,
+      };
+    }
+
+    // Check pacing limits if venue is specified
+    if (data.venueId) {
+      const venue = await prisma.venue.findUnique({
+        where: { id: data.venueId },
+      });
+
+      if (venue) {
+        const settings = venue.settings as import("@mbe/types").VenueSettings | null;
+        const pacing = await availabilityService.checkPacing(
+          data.venueId,
+          startTime,
+          data.partySize,
+          settings
+        );
+
+        if (!pacing.withinLimit) {
+          return {
+            success: false,
+            error: `Pacing limit exceeded. Maximum ${pacing.maxCovers} covers allowed per time window.`,
+            pacing,
+          };
+        }
+      }
+    }
+
+    // Create the reservation
+    const reservation = await this.create(data, userId);
+    return { success: true, reservation };
   },
 
   async update(
@@ -187,6 +269,66 @@ export const reservationService = {
     } catch {
       return null;
     }
+  },
+
+  /**
+   * Updates a reservation with conflict checking.
+   * Checks for conflicts when time or table is changed.
+   */
+  async updateWithConflictCheck(
+    id: string,
+    data: UpdateReservationRequest
+  ): Promise<UpdateReservationResult> {
+    // Get the existing reservation
+    const existing = await prisma.reservation.findUnique({
+      where: { id },
+    });
+
+    if (!existing) {
+      return { success: false, error: "Reservation not found" };
+    }
+
+    // Determine if we need to check for conflicts
+    const timeOrTableChanged =
+      data.date !== undefined ||
+      data.startTime !== undefined ||
+      data.endTime !== undefined ||
+      data.tableId !== undefined;
+
+    if (timeOrTableChanged) {
+      // Build the final values for conflict check
+      const date = data.date ?? existing.date.toISOString().split("T")[0];
+      const startTime = data.startTime
+        ? new Date(data.startTime)
+        : existing.startTime;
+      const endTime = data.endTime ? new Date(data.endTime) : existing.endTime;
+      const tableId = data.tableId ?? existing.tableId;
+
+      // Check for conflicts, excluding the current reservation
+      const conflict = await availabilityService.checkConflict(
+        tableId,
+        date,
+        startTime,
+        endTime,
+        id // Exclude this reservation from conflict check
+      );
+
+      if (conflict.hasConflict) {
+        return {
+          success: false,
+          error: "Time slot has a conflict with an existing reservation or hold",
+          conflict,
+        };
+      }
+    }
+
+    // Perform the update
+    const reservation = await this.update(id, data);
+    if (!reservation) {
+      return { success: false, error: "Failed to update reservation" };
+    }
+
+    return { success: true, reservation };
   },
 
   async cancel(id: string): Promise<Reservation | null> {

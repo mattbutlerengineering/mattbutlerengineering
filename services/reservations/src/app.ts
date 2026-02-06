@@ -9,6 +9,8 @@ import { reservationRoutes } from "./routes/reservations.js";
 import { venueRoutes } from "./routes/venues.js";
 import { guestRoutes } from "./routes/guests.js";
 import { floorPlanRoutes } from "./routes/floor-plans.js";
+import { availabilityRoutes } from "./routes/availability.js";
+import { holdRoutes } from "./routes/holds.js";
 
 export interface AppOptions {
   logger?: boolean | object;
@@ -81,6 +83,14 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
           name: "Reservations",
           description: "Reservation CRUD operations",
         },
+        {
+          name: "Availability",
+          description: "Availability checking and time slot generation",
+        },
+        {
+          name: "Holds",
+          description: "Reservation hold management for the booking flow",
+        },
       ],
       components: {
         securitySchemes: {
@@ -113,6 +123,8 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   await fastify.register(tableRoutes, { prefix: "/v1/tables" });
   await fastify.register(floorPlanRoutes, { prefix: "/v1/floor-plans" });
   await fastify.register(reservationRoutes, { prefix: "/v1/reservations" });
+  await fastify.register(availabilityRoutes, { prefix: "/v1/availability" });
+  await fastify.register(holdRoutes, { prefix: "/v1/holds" });
 
   return fastify;
 }

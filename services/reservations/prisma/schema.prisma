@@ -27,21 +27,22 @@ model VenueGroup {
 }
 
 model Venue {
-  id             String       @id @default(cuid())
-  venueGroupId   String?      @map("venue_group_id")
-  venueGroup     VenueGroup?  @relation(fields: [venueGroupId], references: [id])
+  id             String            @id @default(cuid())
+  venueGroupId   String?           @map("venue_group_id")
+  venueGroup     VenueGroup?       @relation(fields: [venueGroupId], references: [id])
   name           String
-  slug           String       @unique
-  ianaTimezone   String       @map("iana_timezone")
-  currencyCode   String       @default("USD") @map("currency_code")
-  operatingHours Json?        @map("operating_hours")
+  slug           String            @unique
+  ianaTimezone   String            @map("iana_timezone")
+  currencyCode   String            @default("USD") @map("currency_code")
+  operatingHours Json?             @map("operating_hours")
   settings       Json?
   tables         Table[]
   reservations   Reservation[]
   guests         Guest[]
   floorPlans     FloorPlan[]
-  createdAt      DateTime     @default(now()) @map("created_at")
-  updatedAt      DateTime     @updatedAt @map("updated_at")
+  holds          ReservationHold[]
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
 
   @@map("venues")
 }
@@ -63,23 +64,24 @@ model FloorPlan {
 }
 
 model Table {
-  id            String        @id @default(cuid())
-  name          String        @unique
-  tableNumber   String?       @map("table_number")
+  id            String            @id @default(cuid())
+  name          String            @unique
+  tableNumber   String?           @map("table_number")
   capacity      Int
-  minCovers     Int           @default(1) @map("min_covers")
-  maxCovers     Int?          @map("max_covers")
+  minCovers     Int               @default(1) @map("min_covers")
+  maxCovers     Int?              @map("max_covers")
   location      String?
-  isActive      Boolean       @default(true) @map("is_active")
-  priority      Int           @default(0)
-  venueId       String?       @map("venue_id")
-  venue         Venue?        @relation(fields: [venueId], references: [id])
-  floorPlanId   String?       @map("floor_plan_id")
-  floorPlan     FloorPlan?    @relation(fields: [floorPlanId], references: [id])
-  shapeMetadata Json?         @map("shape_metadata")
-  createdAt     DateTime      @default(now()) @map("created_at")
-  updatedAt     DateTime      @updatedAt @map("updated_at")
+  isActive      Boolean           @default(true) @map("is_active")
+  priority      Int               @default(0)
+  venueId       String?           @map("venue_id")
+  venue         Venue?            @relation(fields: [venueId], references: [id])
+  floorPlanId   String?           @map("floor_plan_id")
+  floorPlan     FloorPlan?        @relation(fields: [floorPlanId], references: [id])
+  shapeMetadata Json?             @map("shape_metadata")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
   reservations  Reservation[]
+  holds         ReservationHold[]
 
   @@index([venueId])
   @@index([floorPlanId])
@@ -136,4 +138,25 @@ model Reservation {
   @@index([venueId, date])
   @@index([guestId])
   @@map("reservations")
+}
+
+model ReservationHold {
+  id        String   @id @default(cuid())
+  venueId   String   @map("venue_id")
+  venue     Venue    @relation(fields: [venueId], references: [id])
+  tableId   String   @map("table_id")
+  table     Table    @relation(fields: [tableId], references: [id])
+  date      DateTime @db.Date
+  startTime DateTime @map("start_time")
+  endTime   DateTime @map("end_time")
+  partySize Int      @map("party_size")
+  sessionId String   @map("session_id")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([venueId, date])
+  @@index([tableId, date])
+  @@index([expiresAt])
+  @@index([sessionId])
+  @@map("reservation_holds")
 }

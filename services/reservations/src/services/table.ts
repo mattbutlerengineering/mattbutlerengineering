@@ -5,7 +5,7 @@ import type {
   UpdateTableRequest,
   PaginatedResponse,
 } from "@mbe/types";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { prisma } from "./database.js";
 
 function mapPrismaTable(table: {
@@ -94,8 +94,8 @@ export const tableService = {
         venueId: data.venueId ?? null,
         floorPlanId: data.floorPlanId ?? null,
         shapeMetadata: data.shapeMetadata
-          ? (data.shapeMetadata as Prisma.InputJsonValue)
-          : null,
+          ? (data.shapeMetadata as unknown as Prisma.InputJsonValue)
+          : Prisma.DbNull,
       },
     });
     return mapPrismaTable(table);
@@ -119,8 +119,8 @@ export const tableService = {
       }
       if (data.shapeMetadata !== undefined) {
         updateData.shapeMetadata = data.shapeMetadata
-          ? (data.shapeMetadata as Prisma.InputJsonValue)
-          : null;
+          ? (data.shapeMetadata as unknown as Prisma.InputJsonValue)
+          : Prisma.DbNull;
       }
 
       const table = await prisma.table.update({

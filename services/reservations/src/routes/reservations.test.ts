@@ -9,7 +9,9 @@ vi.mock("../services/reservation.js", () => ({
     listByUserId: vi.fn(),
     getById: vi.fn(),
     create: vi.fn(),
+    createWithConflictCheck: vi.fn(),
     update: vi.fn(),
+    updateWithConflictCheck: vi.fn(),
     cancel: vi.fn(),
   },
 }));
@@ -296,9 +298,10 @@ describe("Reservation Routes", () => {
 
   describe("POST /v1/reservations", () => {
     it("creates a guest reservation without auth", async () => {
-      vi.mocked(reservationService.create).mockResolvedValueOnce(
-        mockReservation
-      );
+      vi.mocked(reservationService.createWithConflictCheck).mockResolvedValueOnce({
+        success: true,
+        reservation: mockReservation,
+      });
 
       const response = await app.inject({
         method: "POST",
@@ -317,7 +320,7 @@ describe("Reservation Routes", () => {
       expect(response.statusCode).toBe(201);
       const body = JSON.parse(response.body);
       expect(body.data.guestName).toBe("John Doe");
-      expect(reservationService.create).toHaveBeenCalledWith(
+      expect(reservationService.createWithConflictCheck).toHaveBeenCalledWith(
         expect.objectContaining({
           guestName: "John Doe",
         }),
@@ -332,9 +335,10 @@ describe("Reservation Routes", () => {
       } as never);
 
       const userReservation = { ...mockReservation, userId: "auth0|user-123" };
-      vi.mocked(reservationService.create).mockResolvedValueOnce(
-        userReservation
-      );
+      vi.mocked(reservationService.createWithConflictCheck).mockResolvedValueOnce({
+        success: true,
+        reservation: userReservation,
+      });
 
       const response = await app.inject({
         method: "POST",
@@ -352,19 +356,44 @@ describe("Reservation Routes", () => {
       });
 
       expect(response.statusCode).toBe(201);
-      expect(reservationService.create).toHaveBeenCalledWith(
+      expect(reservationService.createWithConflictCheck).toHaveBeenCalledWith(
         expect.any(Object),
         "auth0|user-123"
       );
+    });
+
+    it("returns 409 when conflict exists", async () => {
+      vi.mocked(reservationService.createWithConflictCheck).mockResolvedValueOnce({
+        success: false,
+        error: "Time slot has a conflict with an existing reservation or hold",
+        conflict: { hasConflict: true, conflictingReservationIds: ["res-456"] },
+      });
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/v1/reservations",
+        payload: {
+          date: "2026-02-15",
+          startTime: "2026-02-15T18:00:00.000Z",
+          endTime: "2026-02-15T20:00:00.000Z",
+          partySize: 4,
+          tableId: "table-123",
+        },
+      });
+
+      expect(response.statusCode).toBe(409);
+      const body = JSON.parse(response.body);
+      expect(body.error).toBe("Conflict");
     });
   });
 
   describe("PATCH /v1/reservations/:id", () => {
     it("updates reservation", async () => {
       const updatedReservation = { ...mockReservation, partySize: 6 };
-      vi.mocked(reservationService.update).mockResolvedValueOnce(
-        updatedReservation
-      );
+      vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
+        success: true,
+        reservation: updatedReservation,
+      });
 
       const response = await app.inject({
         method: "PATCH",
@@ -380,7 +409,10 @@ describe("Reservation Routes", () => {
     });
 
     it("returns 404 when updating nonexistent reservation", async () => {
-      vi.mocked(reservationService.update).mockResolvedValueOnce(null);
+      vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
+        success: false,
+        error: "Reservation not found",
+      });
 
       const response = await app.inject({
         method: "PATCH",
@@ -391,6 +423,26 @@ describe("Reservation Routes", () => {
       });
 
       expect(response.statusCode).toBe(404);
+    });
+
+    it("returns 409 when update has conflict", async () => {
+      vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
+        success: false,
+        error: "Time slot has a conflict with an existing reservation or hold",
+        conflict: { hasConflict: true, conflictingReservationIds: ["res-456"] },
+      });
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: "/v1/reservations/res-123",
+        payload: {
+          startTime: "2026-02-15T19:00:00.000Z",
+        },
+      });
+
+      expect(response.statusCode).toBe(409);
+      const body = JSON.parse(response.body);
+      expect(body.error).toBe("Conflict");
     });
   });
 

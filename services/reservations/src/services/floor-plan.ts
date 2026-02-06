@@ -8,7 +8,7 @@ import type {
   UpdateTablePositionRequest,
   PaginatedResponse,
 } from "@mbe/types";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { prisma } from "./database.js";
 
 type PrismaFloorPlan = {
@@ -128,7 +128,7 @@ export const floorPlanService = {
         venueId: data.venueId,
         name: data.name,
         isActive: data.isActive ?? false,
-        layoutJson: data.layoutJson as Prisma.InputJsonValue,
+        layoutJson: data.layoutJson as unknown as Prisma.InputJsonValue,
       },
       include: { tables: true },
     });
@@ -141,7 +141,7 @@ export const floorPlanService = {
       if (data.name !== undefined) updateData.name = data.name;
       if (data.isActive !== undefined) updateData.isActive = data.isActive;
       if (data.layoutJson !== undefined) {
-        updateData.layoutJson = data.layoutJson as Prisma.InputJsonValue;
+        updateData.layoutJson = data.layoutJson as unknown as Prisma.InputJsonValue;
       }
 
       const floorPlan = await prisma.floorPlan.update({
@@ -160,7 +160,7 @@ export const floorPlanService = {
       // First unlink any tables from this floor plan
       await prisma.table.updateMany({
         where: { floorPlanId: id },
-        data: { floorPlanId: null, shapeMetadata: null },
+        data: { floorPlanId: null, shapeMetadata: Prisma.DbNull },
       });
       await prisma.floorPlan.delete({ where: { id } });
       return true;
@@ -196,7 +196,7 @@ export const floorPlanService = {
     try {
       const table = await prisma.table.update({
         where: { id: tableId },
-        data: { shapeMetadata: shapeMetadata as Prisma.InputJsonValue },
+        data: { shapeMetadata: shapeMetadata as unknown as Prisma.InputJsonValue },
       });
       return mapPrismaTable(table);
     } catch {
@@ -213,7 +213,7 @@ export const floorPlanService = {
         where: { id: pos.tableId },
         data: {
           floorPlanId,
-          shapeMetadata: pos.shapeMetadata as Prisma.InputJsonValue,
+          shapeMetadata: pos.shapeMetadata as unknown as Prisma.InputJsonValue,
         },
       })
     );
@@ -233,7 +233,7 @@ export const floorPlanService = {
         data: {
           floorPlanId,
           shapeMetadata: shapeMetadata
-            ? (shapeMetadata as Prisma.InputJsonValue)
+            ? (shapeMetadata as unknown as Prisma.InputJsonValue)
             : undefined,
         },
       });
@@ -249,7 +249,7 @@ export const floorPlanService = {
         where: { id: tableId },
         data: {
           floorPlanId: null,
-          shapeMetadata: null,
+          shapeMetadata: Prisma.DbNull,
         },
       });
       return mapPrismaTable(table);

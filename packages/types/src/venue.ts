@@ -36,6 +36,17 @@ export interface DaySchedule {
   closed?: boolean;
 }
 
+export interface PacingRule {
+  maxCoversPerSlot: number;
+  timeWindowMinutes?: number; // override slot interval
+}
+
+export interface DurationRule {
+  minPartySize: number;
+  maxPartySize: number;
+  durationMinutes: number;
+}
+
 export interface VenueSettings {
   defaultReservationDuration?: number; // minutes
   maxPartySize?: number;
@@ -45,6 +56,12 @@ export interface VenueSettings {
   requireEmail?: boolean;
   confirmationEmailEnabled?: boolean;
   reminderEmailEnabled?: boolean;
+  // Availability settings
+  slotIntervalMinutes?: number; // default 15
+  lastSeatingBuffer?: number; // minutes before close, default 90
+  holdDurationMinutes?: number; // default 10
+  pacingRules?: PacingRule[];
+  durationRules?: DurationRule[];
 }
 
 export interface CreateVenueGroupRequest {
