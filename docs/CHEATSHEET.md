@@ -151,3 +151,91 @@ CLOSED ──(failures exceed threshold)──> OPEN
 - **Timeout protection**: Slow responses count as failures, preventing thread exhaustion
 
 ---
+
+## Circuit Breaker with Retry
+
+Combines circuit breaker with exponential backoff retry. Retries transient failures before tripping the circuit.
+
+### Implementation
+
+```typescript
+import CircuitBreaker from 'opossum';
+import retry from 'async-retry';
+
+async function callExternalService(data: any) {
+  // Your actual API/DB call logic
+  // e.g., await axios.post('https://api.example.com/v1/data', data);
+}
+
+const breakerOptions = {
+  timeout: 5000,
+  errorThresholdPercentage: 50,
+  resetTimeout: 30000
+};
+
+// We wrap the function to include retry logic
+const functionWithRetry = async (data: any) => {
+  return await retry(
+    async (bail) => {
+      try {
+        return await callExternalService(data);
+      } catch (error: any) {
+        // If it's a 401 or 404, don't bother retrying (bail out)
+        if (error.status === 401 || error.status === 404) {
+          bail(error);
+          return;
+        }
+        // Otherwise, throw and let it retry
+        throw error;
+      }
+    },
+    {
+      retries: 3, // Try 3 times total
+      minTimeout: 1000, // Wait 1s, then 2s, then 4s...
+      onRetry: (error, attempt) => {
+        console.warn(`Retry attempt ${attempt} failed: ${error.message}`);
+      }
+    }
+  );
+};
+
+const breaker = new CircuitBreaker(functionWithRetry, breakerOptions);
+
+// Usage in route:
+// await breaker.fire(payload);
+```
+
+### Request Flow
+
+```
+Request
+   │
+   ▼
+┌─────────────────┐
+│ Circuit Breaker │──(OPEN)──> 503 Service Unavailable
+└────────┬────────┘
+         │ (CLOSED/HALF-OPEN)
+         ▼
+┌─────────────────┐
+│  Retry Logic    │
+│  (3 attempts)   │
+│  1s → 2s → 4s   │
+└────────┬────────┘
+         │
+    ┌────┴────┐
+    ▼         ▼
+ Success    Failure
+    │         │
+    ▼         ▼
+  200 OK   Circuit counts failure
+           (may trip to OPEN)
+```
+
+### Key Points
+
+- **Retry first, then circuit**: Retries handle transient blips; circuit handles sustained outages
+- **Bail on permanent errors**: 401/404 skip retries (no point retrying auth failures)
+- **Exponential backoff**: `minTimeout` doubles each retry (1s, 2s, 4s)
+- **Combined timeout**: Circuit's 5s timeout applies to entire retry sequence
+
+---
