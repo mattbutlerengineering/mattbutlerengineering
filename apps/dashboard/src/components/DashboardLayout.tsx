@@ -6,6 +6,14 @@ const sidebarSections: SidebarSection[] = [
   {
     items: [
       { label: "Home", href: "/" },
+      { label: "Reservations", href: "/reservations" },
+      { label: "Guests", href: "/guests" },
+      { label: "Floor Plans", href: "/floor-plans" },
+    ],
+  },
+  {
+    title: "Account",
+    items: [
       { label: "Profile", href: "/profile" },
       { label: "Settings", href: "/settings" },
     ],

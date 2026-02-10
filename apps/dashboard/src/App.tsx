@@ -6,6 +6,9 @@ import { ProfilePage } from "./pages/ProfilePage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { AdminPage } from "./pages/AdminPage";
 import { LoadingPage } from "./pages/LoadingPage";
+import { ReservationsPage } from "./pages/ReservationsPage";
+import { GuestsPage } from "./pages/GuestsPage";
+import { FloorPlansPage } from "./pages/FloorPlansPage";
 
 export function App() {
   const { isLoading, isAuthenticated } = useAuth();
@@ -22,6 +25,9 @@ export function App() {
     <Routes>
       <Route element={<DashboardLayout />}>
         <Route index element={<HomePage />} />
+        <Route path="reservations" element={<ReservationsPage />} />
+        <Route path="guests" element={<GuestsPage />} />
+        <Route path="floor-plans" element={<FloorPlansPage />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="admin" element={<AdminPage />} />
