@@ -76,3 +76,78 @@ app.get('/api/blog', (req, res) => {
 - **Per-IP limiting**: Uses `req.ip` as the key; can be changed to user ID for authenticated routes
 
 ---
+
+## Circuit Breaker with Opossum
+
+Prevents cascading failures by stopping calls to failing services. Uses the [opossum](https://github.com/nodeshift/opossum) library.
+
+### Implementation
+
+```typescript
+import CircuitBreaker from 'opossum';
+
+// 1. The "Protected" Function
+// This represents your call to a service or a slow DB query
+async function callExternalService(data: any) {
+  // Logic that might fail (e.g., axios.post(...) or sequelize.query(...))
+  if (Math.random() > 0.8) throw new Error("Service Failure");
+  return "Success";
+}
+
+// 2. Circuit Breaker Options
+const options = {
+  timeout: 3000, // If the function takes > 3s, count it as a failure
+  errorThresholdPercentage: 50, // Trip if 50% of requests fail
+  resetTimeout: 30000 // Wait 30s before trying again (Half-Open state)
+};
+
+// 3. Initialize the Breaker
+const breaker = new CircuitBreaker(callExternalService, options);
+
+// 4. Usage in Express Middleware/Route
+export const protectedRoute = async (req: Request, res: Response) => {
+  try {
+    // Instead of calling the function directly, we use breaker.fire()
+    const result = await breaker.fire(req.body);
+    res.json({ result });
+  } catch (error) {
+    // If the circuit is OPEN, this triggers immediately
+    if (breaker.opened) {
+      return res.status(503).json({
+        error: "Service temporarily unavailable. Circuit is Open.",
+        hint: "We stopped trying to hit the failing service to save resources."
+      });
+    }
+
+    res.status(500).json({ error: "Standard server error" });
+  }
+};
+
+// 5. Monitoring (Crucial for Operational Excellence)
+breaker.on('open', () => console.warn('ALERT: Circuit to ExternalService is OPEN!'));
+breaker.on('halfOpen', () => console.info('Circuit is checking for recovery...'));
+breaker.on('close', () => console.info('Circuit is CLOSED. Normal operations resumed.'));
+```
+
+### Circuit States
+
+```
+CLOSED ──(failures exceed threshold)──> OPEN
+   ↑                                      │
+   │                                      │ (resetTimeout expires)
+   │                                      ↓
+   └───────(test request succeeds)─── HALF-OPEN
+                                          │
+                                          │ (test request fails)
+                                          ↓
+                                        OPEN
+```
+
+### Key Points
+
+- **Fail fast**: When circuit is OPEN, requests fail immediately without hitting the service
+- **Self-healing**: After `resetTimeout`, circuit enters HALF-OPEN and tests if service recovered
+- **Threshold-based**: Opens only after `errorThresholdPercentage` failures (not on first error)
+- **Timeout protection**: Slow responses count as failures, preventing thread exhaustion
+
+---
