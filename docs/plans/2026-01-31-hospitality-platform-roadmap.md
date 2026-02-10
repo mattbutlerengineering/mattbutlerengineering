@@ -83,15 +83,18 @@ Phased roadmap to evolve the reservations service into a full hospitality manage
 - [ ] Offline mutation queue
 - [ ] Conflict resolution (LWW)
 
-### Phase 4: Availability & Booking Widget (2-3 weeks)
-- [ ] Time slot generation
-- [ ] Pacing limits
-- [ ] Table-party matching algorithm
-- [ ] Duration estimation
-- [ ] Hold mechanism (10-min checkout)
-- [ ] Embeddable booking widget
+### Phase 4: Availability & Booking Engine (2-3 weeks)
+- [x] Time slot generation
+- [x] Pacing limits
+- [x] Table-party matching algorithm (best-fit: priority DESC, capacity ASC)
+- [x] Duration estimation (by party size)
+- [x] Hold mechanism (10-min checkout with opportunistic cleanup)
+- [x] Conflict detection (prevents double-booking)
+- [x] Availability routes (GET /:venueId, GET /:venueId/dates)
+- [x] Hold routes (POST, GET, DELETE, confirm)
+- [x] Write tests (106 total)
+- [ ] Embeddable booking widget (frontend)
 - [ ] Stripe integration for no-show fees
-- [ ] Write tests
 
 ### Phase 5+: Future (As Needed)
 - [ ] Event sourcing (reservation_events)
@@ -188,6 +191,41 @@ model Table {
 }
 ```
 
+### Phase 4: Reservation Hold
+
+```prisma
+model ReservationHold {
+  id        String   @id @default(cuid())
+  venueId   String
+  venue     Venue    @relation(...)
+  tableId   String
+  table     Table    @relation(...)
+  date      DateTime @db.Date
+  startTime DateTime
+  endTime   DateTime
+  partySize Int
+  sessionId String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([venueId, date])
+  @@index([tableId, date])
+  @@index([expiresAt])
+  @@index([sessionId])
+}
+```
+
+**VenueSettings additions:**
+```typescript
+interface VenueSettings {
+  slotIntervalMinutes?: number;      // default 15
+  lastSeatingBuffer?: number;        // minutes before close, default 90
+  holdDurationMinutes?: number;      // default 10
+  pacingRules?: PacingRule[];
+  durationRules?: DurationRule[];
+}
+```
+
 ---
 
 ## When to Add Redis
@@ -206,10 +244,10 @@ Refactoring cost: ~1-2 days
 | Phase | Feature | Effort | Target |
 |-------|---------|--------|--------|
 | 0 | venueId prep | - | ✅ Done |
-| 1 | Venues | 1-2 weeks | TBD |
-| 2 | Guest CRM | 1-2 weeks | TBD |
-| 3 | Floor Plans | 3-4 weeks | TBD |
+| 1 | Venues | 1-2 weeks | ✅ Done |
+| 2 | Guest CRM | 1-2 weeks | ✅ Done |
+| 3 | Floor Plans | 3-4 weeks | ✅ Backend Done |
 | PWA | Parallel | Incremental | TBD |
-| 4 | Availability | 2-3 weeks | TBD |
+| 4 | Availability | 2-3 weeks | ✅ Backend Done |
 
 **Total MVP:** ~8-11 weeks
