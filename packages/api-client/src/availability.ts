@@ -5,6 +5,7 @@ import type {
   ReservationHold,
   CreateHoldRequest,
   ConfirmHoldRequest,
+  Reservation,
 } from "@mbe/types";
 import type { ApiClient } from "./client.js";
 
@@ -128,12 +129,12 @@ export class HoldsClient {
   /**
    * Confirm a hold and create a reservation
    */
-  async confirm(id: string, details: ConfirmHoldRequest): Promise<ReservationHold> {
+  async confirm(id: string, details: ConfirmHoldRequest): Promise<Reservation> {
     if (!this.sessionId) {
       throw new Error("Session ID required to confirm hold");
     }
 
-    const response = await this.client.request<ApiResponse<ReservationHold>>(
+    const response = await this.client.request<ApiResponse<Reservation>>(
       `/api/v1/holds/${id}/confirm`,
       {
         method: "POST",

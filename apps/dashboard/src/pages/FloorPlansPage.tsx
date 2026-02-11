@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
 import type { FloorPlan } from "@mbe/types";
 
 export function FloorPlansPage() {
+  const navigate = useNavigate();
   const { accessToken } = useAuth();
   const [floorPlans, setFloorPlans] = useState<FloorPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -69,6 +71,7 @@ export function FloorPlansPage() {
           {floorPlans.map((floorPlan) => (
             <div
               key={floorPlan.id}
+              onClick={() => navigate(`/floor-plans/${floorPlan.id}`)}
               className="bg-white rounded-lg shadow overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
             >
               {/* Placeholder for floor plan preview */}

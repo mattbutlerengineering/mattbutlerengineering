@@ -60,17 +60,17 @@ Phased roadmap to evolve the reservations service into a full hospitality manage
 - [x] Create FloorPlan service (CRUD, activate, bulk position updates)
 - [x] Create FloorPlan routes and OpenAPI schemas
 - [x] Write tests (20 new tests, 81 total)
-- [ ] Set up Konva.js + react-konva (frontend)
-- [ ] Canvas editor component (frontend)
-- [ ] Drag-and-drop table placement (frontend)
-- [ ] Table status colors (frontend)
+- [x] Set up Konva.js + react-konva (frontend)
+- [x] Canvas editor component (frontend)
+- [x] Drag-and-drop table placement (frontend)
+- [ ] Table status colors (frontend) - basic colors done, real-time status pending
 - [ ] Timeline/Gantt view (frontend)
 - [ ] WebSocket for real-time sync
 
 ### PWA Track (Parallel)
 **Phase A - Basic PWA (with Phase 1-2)**
-- [ ] PWA manifest
-- [ ] Service Worker for static assets
+- [x] PWA manifest
+- [x] Service Worker for static assets (vite-plugin-pwa)
 - [ ] Basic offline shell
 
 **Phase B - Read Cache (with Phase 3)**
@@ -93,7 +93,7 @@ Phased roadmap to evolve the reservations service into a full hospitality manage
 - [x] Availability routes (GET /:venueId, GET /:venueId/dates)
 - [x] Hold routes (POST, GET, DELETE, confirm)
 - [x] Write tests (106 total)
-- [ ] Embeddable booking widget (frontend)
+- [x] Embeddable booking widget (frontend)
 - [ ] Stripe integration for no-show fees
 
 ### Phase 5+: Future (As Needed)

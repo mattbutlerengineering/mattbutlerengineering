@@ -16,8 +16,10 @@
     "@mbe/shared-layout": "workspace:*",
     "@mbe/types": "workspace:*",
     "@mbe/ui": "workspace:*",
+    "konva": "^9.3.22",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-konva": "^18.2.14",
     "react-router-dom": "^7.1.0"
   },
   "devDependencies": {

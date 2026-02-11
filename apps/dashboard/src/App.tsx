@@ -9,6 +9,8 @@ import { LoadingPage } from "./pages/LoadingPage";
 import { ReservationsPage } from "./pages/ReservationsPage";
 import { GuestsPage } from "./pages/GuestsPage";
 import { FloorPlansPage } from "./pages/FloorPlansPage";
+import { FloorPlanEditorPage } from "./pages/FloorPlanEditorPage";
+import { BookingWidgetDemoPage } from "./pages/BookingWidgetDemoPage";
 
 export function App() {
   const { isLoading, isAuthenticated } = useAuth();
@@ -28,6 +30,8 @@ export function App() {
         <Route path="reservations" element={<ReservationsPage />} />
         <Route path="guests" element={<GuestsPage />} />
         <Route path="floor-plans" element={<FloorPlansPage />} />
+        <Route path="floor-plans/:id" element={<FloorPlanEditorPage />} />
+        <Route path="booking-widget" element={<BookingWidgetDemoPage />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="admin" element={<AdminPage />} />
