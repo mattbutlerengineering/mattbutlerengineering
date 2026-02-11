@@ -366,7 +366,7 @@ describe("Reservation Routes", () => {
       vi.mocked(reservationService.createWithConflictCheck).mockResolvedValueOnce({
         success: false,
         error: "Time slot has a conflict with an existing reservation or hold",
-        conflict: { hasConflict: true, conflictingReservationIds: ["res-456"] },
+        conflict: { hasConflict: true, conflictingReservationId: "res-456" },
       });
 
       const response = await app.inject({
@@ -429,7 +429,7 @@ describe("Reservation Routes", () => {
       vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
         success: false,
         error: "Time slot has a conflict with an existing reservation or hold",
-        conflict: { hasConflict: true, conflictingReservationIds: ["res-456"] },
+        conflict: { hasConflict: true, conflictingReservationId: "res-456" },
       });
 
       const response = await app.inject({

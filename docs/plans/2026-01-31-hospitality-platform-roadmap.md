@@ -65,7 +65,7 @@ Phased roadmap to evolve the reservations service into a full hospitality manage
 - [x] Drag-and-drop table placement (frontend)
 - [ ] Table status colors (frontend) - basic colors done, real-time status pending
 - [x] Timeline/Gantt view (frontend)
-- [ ] WebSocket for real-time sync
+- [x] Server-Sent Events for real-time sync
 
 ### PWA Track (Parallel)
 **Phase A - Basic PWA (with Phase 1-2)**

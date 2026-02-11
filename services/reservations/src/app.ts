@@ -11,6 +11,7 @@ import { guestRoutes } from "./routes/guests.js";
 import { floorPlanRoutes } from "./routes/floor-plans.js";
 import { availabilityRoutes } from "./routes/availability.js";
 import { holdRoutes } from "./routes/holds.js";
+import { eventRoutes } from "./routes/events.js";
 
 export interface AppOptions {
   logger?: boolean | object;
@@ -91,6 +92,10 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
           name: "Holds",
           description: "Reservation hold management for the booking flow",
         },
+        {
+          name: "Events",
+          description: "Server-Sent Events for real-time updates",
+        },
       ],
       components: {
         securitySchemes: {
@@ -125,6 +130,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   await fastify.register(reservationRoutes, { prefix: "/v1/reservations" });
   await fastify.register(availabilityRoutes, { prefix: "/v1/availability" });
   await fastify.register(holdRoutes, { prefix: "/v1/holds" });
+  await fastify.register(eventRoutes, { prefix: "/v1/events" });
 
   return fastify;
 }

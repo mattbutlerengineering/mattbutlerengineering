@@ -3,6 +3,7 @@ import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
 import type { Reservation, Table, Venue } from "@mbe/types";
 import { TimelineGrid } from "../components/timeline";
+import { useReservationEvents } from "../hooks/useReservationEvents";
 
 export function TimelinePage() {
   const { accessToken } = useAuth();
@@ -26,6 +27,33 @@ export function TimelinePage() {
       }),
     [accessToken]
   );
+
+  // Real-time updates via SSE
+  const { isConnected } = useReservationEvents({
+    venueId: selectedVenueId ?? undefined,
+    enabled: !!selectedVenueId,
+    onReservationCreated: useCallback((reservation: Reservation) => {
+      // Only add if it matches our current date
+      if (reservation.date === selectedDate) {
+        setReservations((prev) => [...prev, reservation]);
+      }
+    }, [selectedDate]),
+    onReservationUpdated: useCallback((reservation: Reservation) => {
+      setReservations((prev) =>
+        prev.map((r) => (r.id === reservation.id ? reservation : r))
+      );
+    }, []),
+    onReservationCancelled: useCallback((reservation: Reservation) => {
+      setReservations((prev) =>
+        prev.map((r) => (r.id === reservation.id ? reservation : r))
+      );
+    }, []),
+    onHoldConfirmed: useCallback((reservation: Reservation) => {
+      if (reservation.date === selectedDate) {
+        setReservations((prev) => [...prev, reservation]);
+      }
+    }, [selectedDate]),
+  });
 
   // Fetch venues on mount
   useEffect(() => {
@@ -176,6 +204,17 @@ export function TimelinePage() {
 
           {/* Stats */}
           <div className="flex items-center gap-6 text-sm">
+            {/* Live indicator */}
+            <div className="flex items-center gap-1.5">
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  isConnected ? "bg-green-500 animate-pulse" : "bg-gray-300"
+                }`}
+              />
+              <span className={isConnected ? "text-green-600" : "text-gray-400"}>
+                {isConnected ? "Live" : "Offline"}
+              </span>
+            </div>
             <div>
               <span className="text-gray-500">Reservations:</span>{" "}
               <span className="font-medium">{stats.total}</span>
