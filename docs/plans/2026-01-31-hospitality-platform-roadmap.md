@@ -64,7 +64,7 @@ Phased roadmap to evolve the reservations service into a full hospitality manage
 - [x] Canvas editor component (frontend)
 - [x] Drag-and-drop table placement (frontend)
 - [ ] Table status colors (frontend) - basic colors done, real-time status pending
-- [ ] Timeline/Gantt view (frontend)
+- [x] Timeline/Gantt view (frontend)
 - [ ] WebSocket for real-time sync
 
 ### PWA Track (Parallel)

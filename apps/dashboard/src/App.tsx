@@ -11,6 +11,7 @@ import { GuestsPage } from "./pages/GuestsPage";
 import { FloorPlansPage } from "./pages/FloorPlansPage";
 import { FloorPlanEditorPage } from "./pages/FloorPlanEditorPage";
 import { BookingWidgetDemoPage } from "./pages/BookingWidgetDemoPage";
+import { TimelinePage } from "./pages/TimelinePage";
 
 export function App() {
   const { isLoading, isAuthenticated } = useAuth();
@@ -28,6 +29,7 @@ export function App() {
       <Route element={<DashboardLayout />}>
         <Route index element={<HomePage />} />
         <Route path="reservations" element={<ReservationsPage />} />
+        <Route path="timeline" element={<TimelinePage />} />
         <Route path="guests" element={<GuestsPage />} />
         <Route path="floor-plans" element={<FloorPlansPage />} />
         <Route path="floor-plans/:id" element={<FloorPlanEditorPage />} />
