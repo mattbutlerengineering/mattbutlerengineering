@@ -1,7 +1,7 @@
 {
   "ci": {
     "collect": {
-      "startServerCommand": "pnpm --filter @mbe/showcase exec vite preview --port 9222",
+      "startServerCommand": "pnpm --filter @mbe/rialto-web exec vite preview --port 9222",
       "startServerReadyPattern": "Local:",
       "url": ["http://localhost:9222/rialto/"],
       "numberOfRuns": 3,

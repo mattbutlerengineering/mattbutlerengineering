@@ -46,7 +46,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
-    "manifest": "npx tsx ../../scripts/generate-manifest.ts"
+    "manifest": "npx tsx scripts/generate-manifest.ts"
   },
   "peerDependencies": {
     "framer-motion": "^12.0.0",

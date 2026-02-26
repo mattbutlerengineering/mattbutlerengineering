@@ -33,7 +33,7 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'pnpm --filter @mbe/showcase dev -- --port 5173 --strictPort',
+    command: 'pnpm --filter @mbe/rialto-web dev -- --port 5173 --strictPort',
     url: 'http://localhost:5173/rialto/',
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,

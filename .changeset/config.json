@@ -2,7 +2,7 @@
   "$schema": "https://unpkg.com/@changesets/config@3.1.2/schema.json",
   "changelog": [
     "@changesets/changelog-github",
-    { "repo": "mattbutlerengineering/rialto" }
+    { "repo": "mattbutlerengineering/mattbutlerengineering" }
   ],
   "commit": false,
   "fixed": [],
