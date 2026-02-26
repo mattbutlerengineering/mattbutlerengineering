@@ -1654,7 +1654,7 @@ export function App() {
                     }}
                   >
                     Twin-turbocharged V6 hybrid producing 1,200 PS. The most
-                    powerful road car we've ever built.
+                    powerful road car we&apos;ve ever built.
                   </p>
                 ),
               },
@@ -3588,7 +3588,7 @@ export function App() {
                     margin: 0,
                   }}
                 >
-                  Short content that doesn't scroll — the scrollbar only appears
+                  Short content that doesn&apos;t scroll — the scrollbar only appears
                   when needed.
                 </p>
               </ScrollArea>
