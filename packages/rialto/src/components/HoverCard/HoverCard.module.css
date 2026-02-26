@@ -1,0 +1,40 @@
+/* ── Wrapper ─────────────────────────────────── */
+.wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+/* ── Panel ───────────────────────────────────── */
+.panel {
+  composes: glass from "../../styles/surfaces.module.css";
+
+  position: absolute;
+  z-index: 50;
+  min-width: 15rem;
+  max-width: 20rem;
+  padding: var(--rialto-space-md);
+  border-radius: var(--rialto-radius-soft);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+  line-height: var(--rialto-leading-relaxed);
+}
+
+:global([data-theme="dark"]) .panel {
+  background: var(--rialto-surface-elevated);
+}
+
+/* ── Placement ───────────────────────────────── */
+.top {
+  bottom: calc(100% + 8px);
+  inset-inline-start: 50%;
+  translate: -50% 0;
+  transform-origin: center bottom;
+}
+
+.bottom {
+  top: calc(100% + 8px);
+  inset-inline-start: 50%;
+  translate: -50% 0;
+  transform-origin: center top;
+}

@@ -1,0 +1,118 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+}
+
+.labelRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.label {
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-medium);
+  letter-spacing: var(--rialto-tracking-wide);
+  color: var(--rialto-text-secondary);
+}
+
+.value {
+  font-size: var(--rialto-text-xs);
+  font-family: var(--rialto-font-mono);
+  color: var(--rialto-text-tertiary);
+}
+
+/* ── Track ───────────────────────────────────── */
+.trackArea {
+  position: relative;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.trackArea[aria-disabled="true"] {
+  filter: saturate(0.6) brightness(0.95);
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.lockIcon {
+  opacity: 0.5;
+}
+
+.track {
+  composes: recessed from "../../styles/surfaces.module.css";
+
+  position: relative;
+  width: 100%;
+  height: 6px;
+  border-radius: var(--rialto-radius-round);
+  overflow: hidden;
+}
+
+/* ── Fill (gold accent) ──────────────────────── */
+.fill {
+  position: absolute;
+  top: 0;
+  inset-inline-start: 0;
+  height: 100%;
+  background: linear-gradient(90deg, var(--rialto-accent) 0%, var(--rialto-accent-hover) 100%);
+  border-radius: var(--rialto-radius-round);
+  pointer-events: none;
+}
+
+/* ── Knob ────────────────────────────────────── */
+.knob {
+  position: absolute;
+  top: 50%;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--rialto-radius-round);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--rialto-surface-elevated) 70%, white) 0%,
+    var(--rialto-surface-elevated) 100%
+  );
+  border: 1px solid var(--rialto-border-strong);
+  box-shadow:
+    0 1px 3px rgb(26 25 24 / 0.15),
+    0 0 1px rgb(26 25 24 / 0.1);
+  transform: translate(-50%, -50%);
+  cursor: grab;
+  z-index: 1;
+}
+
+.knob:hover {
+  border-color: var(--rialto-accent);
+  box-shadow:
+    0 1px 3px rgb(26 25 24 / 0.15),
+    0 0 0 3px var(--rialto-accent-muted);
+}
+
+.knob:active,
+.knob[data-dragging="true"] {
+  cursor: grabbing;
+  border-color: var(--rialto-accent);
+  box-shadow: var(--rialto-shadow-focus);
+}
+
+/* Hidden input for accessibility */
+.input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.input:focus-visible ~ .knob {
+  border-color: var(--rialto-accent);
+  box-shadow: var(--rialto-shadow-focus);
+}

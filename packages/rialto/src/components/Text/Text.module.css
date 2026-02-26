@@ -1,0 +1,100 @@
+/* ── Text ─────────────────────────────────────
+   Typography primitive. Variants map to common
+   patterns; individual overrides via data-attrs.
+   ──────────────────────────────────────────── */
+
+.text {
+  font-family: var(--rialto-font-sans);
+  margin: 0;
+}
+
+/* ── Variants ─────────────────────────────── */
+
+.body {
+  font-size: var(--rialto-text-base);
+  font-weight: var(--rialto-weight-regular);
+  line-height: var(--rialto-leading-relaxed);
+  letter-spacing: var(--rialto-tracking-normal);
+  color: var(--rialto-text-primary);
+}
+
+.caption {
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-regular);
+  line-height: var(--rialto-leading-normal);
+  letter-spacing: var(--rialto-tracking-normal);
+  color: var(--rialto-text-secondary);
+}
+
+.detail {
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-regular);
+  line-height: var(--rialto-leading-normal);
+  letter-spacing: var(--rialto-tracking-normal);
+  color: var(--rialto-text-tertiary);
+}
+
+.label {
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-medium);
+  line-height: var(--rialto-leading-normal);
+  letter-spacing: var(--rialto-tracking-wide);
+  text-transform: uppercase;
+  color: var(--rialto-text-tertiary);
+}
+
+.display {
+  font-size: var(--rialto-text-xl);
+  font-weight: var(--rialto-weight-light);
+  line-height: var(--rialto-leading-tight);
+  letter-spacing: var(--rialto-tracking-tight);
+  color: var(--rialto-text-primary);
+}
+
+/* ── Color overrides ──────────────────────── */
+
+.colorPrimary {
+  color: var(--rialto-text-primary);
+}
+.colorSecondary {
+  color: var(--rialto-text-secondary);
+}
+.colorTertiary {
+  color: var(--rialto-text-tertiary);
+}
+.colorAccent {
+  color: var(--rialto-accent);
+}
+.colorSuccess {
+  color: var(--rialto-success);
+}
+.colorError {
+  color: var(--rialto-error);
+}
+.colorOnAccent {
+  color: var(--rialto-text-on-accent);
+}
+
+/* ── Alignment ────────────────────────────── */
+
+.alignLeft {
+  text-align: start;
+}
+.alignCenter {
+  text-align: center;
+}
+.alignRight {
+  text-align: end;
+}
+
+/* ── Modifiers ────────────────────────────── */
+
+.mono {
+  font-family: var(--rialto-font-mono);
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

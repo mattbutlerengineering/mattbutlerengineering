@@ -1,0 +1,62 @@
+/* ── Tab list container ──────────────────────── */
+.tabList {
+  display: flex;
+  gap: var(--rialto-space-2xs);
+  position: relative;
+  border-bottom: 1px solid var(--rialto-border);
+}
+
+/* ── Individual tab trigger ──────────────────── */
+.tab {
+  composes: focusRing from "../../styles/surfaces.module.css";
+
+  position: relative;
+  padding: var(--rialto-space-xs) var(--rialto-space-md);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-regular);
+  letter-spacing: var(--rialto-tracking-normal);
+  color: var(--rialto-text-tertiary);
+  background: none;
+  border: none;
+  border-radius: var(--rialto-radius-default) var(--rialto-radius-default) 0 0;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition:
+    color 0.15s cubic-bezier(0.2, 0, 0, 1),
+    background 0.15s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.tab:hover {
+  color: var(--rialto-text-secondary);
+  background: var(--rialto-accent-muted);
+}
+
+.tabActive {
+  color: var(--rialto-text-primary);
+  font-weight: var(--rialto-weight-medium);
+}
+
+.tabActive:hover {
+  background: none;
+}
+
+.tab[aria-disabled="true"] {
+  filter: saturate(0.6) brightness(0.95);
+  cursor: not-allowed;
+}
+
+/* ── Sliding gold indicator ──────────────────── */
+.indicator {
+  position: absolute;
+  bottom: -1px;
+  height: 2px;
+  background: var(--rialto-accent);
+  border-radius: var(--rialto-radius-round) var(--rialto-radius-round) 0 0;
+}
+
+/* ── Panel ───────────────────────────────────── */
+.panel {
+  padding: var(--rialto-space-lg) 0;
+}

@@ -1,0 +1,93 @@
+:root {
+  /* ── Surfaces ─────────────────────────────── */
+  /* Page backgrounds, default component backgrounds */
+  --rialto-surface: #f8f6f3;
+  /* Cards, popovers, elevated containers */
+  --rialto-surface-elevated: #fdfcfa;
+  /* Input fields, slider tracks, recessed channels */
+  --rialto-surface-recessed: #edeae5;
+  /* Disabled button fills, subtle divider backgrounds */
+  --rialto-surface-matte: #d8d4cd;
+  /* Heavy separators, decorative dark accents */
+  --rialto-surface-deep: #a8a49d;
+
+  /* ── Text ──────────────────────────────────── */
+  /* Headings, body text, primary labels */
+  --rialto-text-primary: #1a1918;
+  /* Descriptions, helper text, secondary labels */
+  --rialto-text-secondary: #6b6660;
+  /* Placeholders, disabled text, timestamps */
+  --rialto-text-tertiary: #9e9890;
+  /* Text on accent-filled backgrounds (primary buttons, badges) */
+  --rialto-text-on-accent: #fdfcfa;
+
+  /* ── Borders ───────────────────────────────── */
+  /* Default borders for cards, inputs, dividers */
+  --rialto-border: #d8d4cd;
+  /* Emphasized borders, active input outlines */
+  --rialto-border-strong: #b8b4ad;
+
+  /* ── Accent (amber gold — surgical use only) ─ */
+  /* Primary buttons, focus rings, active/selected states only */
+  --rialto-accent: #c4922a;
+  /* Primary button hover state */
+  --rialto-accent-hover: #d4a23a;
+  /* Subtle accent backgrounds (selected rows, active tabs) */
+  --rialto-accent-muted: rgb(196 146 42 / 0.12);
+  /* Focus ring outer glow (used in --rialto-shadow-focus) */
+  --rialto-accent-glow: rgb(196 146 42 / 0.35);
+
+  /* ── Semantic ──────────────────────────────── */
+  /* Error text, destructive button fills, invalid borders */
+  --rialto-error: #b84a3c;
+  /* Error alert backgrounds, error badge tints */
+  --rialto-error-muted: rgb(184 74 60 / 0.1);
+  /* Success text, confirmation icons */
+  --rialto-success: #7a8a3c;
+  /* Success alert backgrounds, success badge tints */
+  --rialto-success-muted: rgb(122 138 60 / 0.1);
+
+  /* ── Overlay ───────────────────────────────── */
+  /* Modal/drawer backdrop, scrim behind overlays */
+  --rialto-overlay: rgb(26 25 24 / 0.4);
+}
+
+/* ── Dark Theme ──────────────────────────────── */
+/* Warm charcoal palette — maintains material honesty
+   and "warmth over coldness" principle. No pure black,
+   no blue-grays. Surfaces use subtle warm undertones. */
+[data-theme="dark"] {
+  /* ── Surfaces ─────────────────────────────── */
+  --rialto-surface: #1e1c1a;
+  --rialto-surface-elevated: #2a2725;
+  --rialto-surface-recessed: #141312;
+  --rialto-surface-matte: #3a3633;
+  --rialto-surface-deep: #4a4643;
+
+  /* ── Text ──────────────────────────────────── */
+  --rialto-text-primary: rgb(253 252 250 / 0.92);
+  --rialto-text-secondary: rgb(253 252 250 / 0.6);
+  --rialto-text-tertiary: rgb(253 252 250 / 0.38);
+  --rialto-text-on-accent: #1a1918;
+
+  /* ── Borders ───────────────────────────────── */
+  --rialto-border: rgb(255 255 255 / 0.1);
+  --rialto-border-strong: rgb(255 255 255 / 0.2);
+
+  /* ── Accent (same gold, slightly brighter for dark bg) */
+  --rialto-accent: #d4a23a;
+  --rialto-accent-hover: #e0b04a;
+  --rialto-accent-muted: rgb(212 162 58 / 0.15);
+  --rialto-accent-glow: rgb(212 162 58 / 0.4);
+
+  /* ── Semantic ──────────────────────────────── */
+  --rialto-error: #e06050;
+  --rialto-error-muted: rgb(224 96 80 / 0.15);
+  --rialto-success: #9aaa4c;
+  --rialto-success-muted: rgb(154 170 76 / 0.15);
+
+  /* ── Overlay ───────────────────────────────── */
+  --rialto-overlay: rgb(0 0 0 / 0.6);
+
+  color-scheme: dark;
+}

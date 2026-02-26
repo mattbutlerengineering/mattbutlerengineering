@@ -1,0 +1,113 @@
+.button {
+  composes: focusRing from "../../styles/surfaces.module.css";
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--rialto-space-xs);
+  padding: var(--rialto-space-xs) var(--rialto-space-md);
+  border-radius: var(--rialto-radius-default);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  letter-spacing: var(--rialto-tracking-wide);
+  line-height: var(--rialto-leading-tight);
+  white-space: nowrap;
+  user-select: none;
+  cursor: pointer;
+  position: relative;
+  transition: box-shadow 0.15s cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* ── Secondary (aluminum — the default) ──────── */
+.secondary {
+  composes: aluminum from "../../styles/surfaces.module.css";
+  color: var(--rialto-text-primary);
+  box-shadow:
+    0 1px 2px rgb(26 25 24 / 0.06),
+    0 2px 6px rgb(26 25 24 / 0.06);
+}
+
+.secondary:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 2px 4px rgb(26 25 24 / 0.08),
+    0 4px 12px rgb(26 25 24 / 0.08),
+    0 0 0 0.5px var(--rialto-accent-glow);
+}
+
+/* ── Primary (gold accent fill) ──────────────── */
+.primary {
+  background: linear-gradient(180deg, var(--rialto-accent-hover) 0%, var(--rialto-accent) 100%);
+  border: 1px solid var(--rialto-accent);
+  color: var(--rialto-text-on-accent);
+  box-shadow:
+    0 1px 2px rgb(26 25 24 / 0.1),
+    0 2px 6px rgb(196 146 42 / 0.2);
+}
+
+.primary:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 2px 4px rgb(26 25 24 / 0.12),
+    0 4px 12px rgb(196 146 42 / 0.25),
+    0 0 16px rgb(196 146 42 / 0.15);
+}
+
+/* ── Ghost (transparent) ─────────────────────── */
+.ghost {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--rialto-text-secondary);
+}
+
+.ghost:hover {
+  background: var(--rialto-accent-muted);
+  color: var(--rialto-text-primary);
+  border-color: var(--rialto-border);
+}
+
+/* ── Pressed state (all variants) ────────────── */
+.secondary:active {
+  transform: translateY(1px);
+  box-shadow:
+    var(--rialto-shadow-pressed),
+    0 0 0 0.5px var(--rialto-border);
+  background: linear-gradient(
+    180deg,
+    var(--rialto-surface-recessed) 0%,
+    var(--rialto-surface-recessed) 100%
+  );
+}
+
+.primary:active {
+  transform: translateY(1px);
+  box-shadow:
+    inset 0 2px 4px rgb(26 25 24 / 0.25),
+    inset 0 0 2px rgb(26 25 24 / 0.15);
+  background: linear-gradient(180deg, var(--rialto-accent) 0%, #b5860f 100%);
+}
+
+.ghost:active {
+  background: rgb(196 146 42 / 0.18);
+}
+
+/* ── Disabled ────────────────────────────────── */
+.button:disabled {
+  filter: saturate(0.6) brightness(0.95);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+/* ── Sizes ───────────────────────────────────── */
+.sm {
+  padding: var(--rialto-space-2xs) var(--rialto-space-sm);
+  font-size: var(--rialto-text-xs);
+}
+
+.lg {
+  padding: var(--rialto-space-sm) var(--rialto-space-lg);
+  font-size: var(--rialto-text-base);
+}

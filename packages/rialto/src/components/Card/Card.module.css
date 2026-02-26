@@ -1,0 +1,70 @@
+.card {
+  composes: aluminumPolished from "../../styles/surfaces.module.css";
+
+  border-radius: var(--rialto-radius-soft);
+  padding: var(--rialto-space-lg);
+  transition: box-shadow 0.15s cubic-bezier(0.2, 0, 0, 1);
+  position: relative;
+}
+
+/* ── Glass variant ───────────────────────────── */
+.glass {
+  composes: glass from "../../styles/surfaces.module.css";
+  border-radius: var(--rialto-radius-soft);
+  padding: var(--rialto-space-lg);
+}
+
+/* ── Subtle variant (minimal elevation) ──────── */
+.flat {
+  background: var(--rialto-surface-elevated);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-soft);
+  padding: var(--rialto-space-lg);
+  position: relative;
+}
+
+/* ── Card header ─────────────────────────────── */
+.header {
+  margin-bottom: var(--rialto-space-md);
+}
+
+.title {
+  font-size: var(--rialto-text-md);
+  font-weight: var(--rialto-weight-medium);
+  letter-spacing: var(--rialto-tracking-tight);
+  color: var(--rialto-text-primary);
+}
+
+.subtitle {
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+  margin-top: var(--rialto-space-2xs);
+}
+
+/* ── 3D tilt — overflow clip ─────────────────── */
+.card[data-tilt],
+.flat[data-tilt] {
+  overflow: hidden;
+}
+
+/* ── 3D tilt specular highlight ─────────────── */
+.card[data-tilt]::after,
+.flat[data-tilt]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    circle 600px at var(--tilt-glow-x, 50%) var(--tilt-glow-y, 50%),
+    rgb(255 255 255 / 0.08) 0%,
+    transparent 70%
+  );
+  transition: opacity 0.15s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.card[data-tilt]:hover::after,
+.flat[data-tilt]:hover::after {
+  opacity: 1;
+}

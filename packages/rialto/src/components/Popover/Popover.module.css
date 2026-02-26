@@ -1,0 +1,109 @@
+/* ── Wrapper ─────────────────────────────────── */
+.wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+/* ── Panel ───────────────────────────────────── */
+.panel {
+  composes: glass from "../../styles/surfaces.module.css";
+
+  position: absolute;
+  z-index: 100;
+  min-width: 200px;
+  max-width: 320px;
+  padding: var(--rialto-space-md);
+  border-radius: var(--rialto-radius-soft);
+}
+
+:global([data-theme="dark"]) .panel {
+  background: var(--rialto-surface-elevated);
+}
+
+/* ── Placement ───────────────────────────────── */
+.top {
+  bottom: calc(100% + 8px);
+  inset-inline-start: 50%;
+  translate: -50% 0;
+  transform-origin: bottom center;
+}
+
+.bottom {
+  top: calc(100% + 8px);
+  inset-inline-start: 50%;
+  translate: -50% 0;
+  transform-origin: top center;
+}
+
+.left {
+  inset-inline-end: calc(100% + 8px);
+  top: 50%;
+  translate: 0 -50%;
+  transform-origin: center right;
+}
+
+.right {
+  inset-inline-start: calc(100% + 8px);
+  top: 50%;
+  translate: 0 -50%;
+  transform-origin: center left;
+}
+
+[dir="rtl"] .left {
+  transform-origin: center left;
+}
+
+[dir="rtl"] .right {
+  transform-origin: center right;
+}
+
+/* ── Header ──────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--rialto-space-sm);
+  margin-bottom: var(--rialto-space-sm);
+}
+
+.title {
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-primary);
+}
+
+/* ── Close button ────────────────────────────── */
+.close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--rialto-radius-sharp);
+  color: var(--rialto-text-tertiary);
+  cursor: pointer;
+  border: none;
+  background: none;
+  flex-shrink: 0;
+  transition:
+    background 0.1s cubic-bezier(0.2, 0, 0, 1),
+    color 0.1s cubic-bezier(0.2, 0, 0, 1),
+    box-shadow 0.1s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.close:hover {
+  background: var(--rialto-surface-recessed);
+  color: var(--rialto-text-primary);
+}
+
+.close:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+}
+
+/* ── Body ────────────────────────────────────── */
+.body {
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+  line-height: var(--rialto-leading-relaxed);
+}

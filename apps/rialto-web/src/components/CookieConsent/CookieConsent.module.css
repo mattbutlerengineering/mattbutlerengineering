@@ -1,0 +1,47 @@
+/* ── Cookie consent banner container ────────── */
+.bannerContainer {
+  position: fixed;
+  bottom: 0;
+  inset-inline-start: 0;
+  inset-inline-end: 0;
+  z-index: 9980;
+  padding: var(--rialto-space-md);
+}
+
+/* ── Preference category rows ───────────────── */
+.categoryRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--rialto-space-md);
+  padding: var(--rialto-space-sm) 0;
+}
+
+.categoryInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.categoryName {
+  font-size: var(--rialto-text-sm);
+  font-weight: 500;
+  color: var(--rialto-text-primary);
+}
+
+.categoryDescription {
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-secondary);
+  margin-block-start: var(--rialto-space-2xs);
+}
+
+/* ── Privacy policy link ────────────────────── */
+.privacyLink {
+  color: var(--rialto-text-tertiary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.15s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.privacyLink:hover {
+  color: var(--rialto-accent);
+}

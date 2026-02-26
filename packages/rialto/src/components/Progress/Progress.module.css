@@ -1,0 +1,178 @@
+/* ── Track (recessed aluminum channel) ───────── */
+.track {
+  composes: recessed from "../../styles/surfaces.module.css";
+
+  position: relative;
+  height: 6px;
+  border-radius: var(--rialto-radius-round);
+  overflow: hidden;
+}
+
+.trackSm {
+  height: 4px;
+}
+
+.trackLg {
+  height: 10px;
+}
+
+/* ── Determinate fill ────────────────────────── */
+.fill {
+  height: 100%;
+  border-radius: var(--rialto-radius-round);
+  background: linear-gradient(90deg, var(--rialto-accent) 0%, var(--rialto-accent-hover) 100%);
+  transform-origin: left;
+}
+
+[dir="rtl"] .fill {
+  transform-origin: right;
+}
+
+/* ── Indeterminate shimmer ───────────────────── */
+.indeterminate {
+  height: 100%;
+  border-radius: var(--rialto-radius-round);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--rialto-accent) 40%,
+    var(--rialto-accent-hover) 60%,
+    transparent 100%
+  );
+  width: 40%;
+  position: absolute;
+  top: 0;
+  inset-inline-start: 0;
+  animation: shimmer 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(350%);
+  }
+}
+
+@keyframes shimmer-rtl {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-350%);
+  }
+}
+
+[dir="rtl"] .indeterminate {
+  animation-name: shimmer-rtl;
+}
+
+/* ── Wrapper ─────────────────────────────────── */
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+}
+
+.labelRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.label {
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-medium);
+  letter-spacing: var(--rialto-tracking-wide);
+  color: var(--rialto-text-secondary);
+}
+
+.value {
+  font-size: var(--rialto-text-xs);
+  font-family: var(--rialto-font-mono);
+  color: var(--rialto-text-tertiary);
+}
+
+/* ── Light Trace loader ──────────────────────── */
+/*   Pure SVG — one element, no alignment issues.  */
+/*   The aluminum ring, glow, and light point are  */
+/*   all drawn in the same coordinate space.       */
+/* ─────────────────────────────────────────────── */
+.trace {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.traceSm {
+  width: 16px;
+  height: 16px;
+}
+.traceMd {
+  width: 24px;
+  height: 24px;
+}
+.traceLg {
+  width: 36px;
+  height: 36px;
+}
+
+.traceSvg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* The aluminum ring — machined channel */
+.traceRing {
+  fill: none;
+  stroke: var(--rialto-border);
+  stroke-width: 3;
+}
+
+/* The glow — soft gold halo behind the light */
+.traceGlow {
+  fill: none;
+  stroke: var(--rialto-accent-glow);
+  stroke-width: 8;
+  stroke-linecap: round;
+  stroke-dasharray: 10 90;
+  filter: blur(3px);
+  animation: trace 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* The light point — sharp gold trace */
+.tracePath {
+  fill: none;
+  stroke: url(#rialto-trace-gradient);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 15 85;
+  animation: trace 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes trace {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -100;
+  }
+}
+
+/* ── Reduced motion ──────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .indeterminate {
+    animation: none;
+    width: 100%;
+    opacity: 0.5;
+  }
+
+  .tracePath,
+  .traceGlow {
+    animation: none;
+    stroke-dashoffset: 0;
+    opacity: 0.7;
+  }
+}

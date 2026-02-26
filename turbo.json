@@ -24,6 +24,10 @@
     },
     "clean": {
       "cache": false
+    },
+    "test:visual": {
+      "cache": false,
+      "dependsOn": ["build"]
     }
   }
 }

@@ -1,0 +1,104 @@
+/* ── Wrapper ─────────────────────────────────── */
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-2xs);
+}
+
+/* ── Label ───────────────────────────────────── */
+.label {
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-secondary);
+  letter-spacing: var(--rialto-tracking-wide);
+}
+
+/* ── Cell row ────────────────────────────────── */
+.cells {
+  display: inline-flex;
+  gap: var(--rialto-space-xs);
+}
+
+/* ── Individual cell ─────────────────────────── */
+.cell {
+  composes: recessed from "../../styles/surfaces.module.css";
+  composes: focusRing from "../../styles/surfaces.module.css";
+
+  width: 48px;
+  height: 48px;
+  border-radius: var(--rialto-radius-default);
+  font-family: var(--rialto-font-mono);
+  font-size: var(--rialto-text-lg);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-primary);
+  text-align: center;
+  caret-color: var(--rialto-accent);
+  outline: none;
+  transition:
+    border-color 0.15s cubic-bezier(0.2, 0, 0, 1),
+    box-shadow 0.15s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.cell::placeholder {
+  color: var(--rialto-text-tertiary);
+}
+
+.cell:hover {
+  border-color: var(--rialto-border-strong);
+}
+
+.cell:focus-visible {
+  border-color: var(--rialto-accent);
+}
+
+/* ── Size: sm ────────────────────────────────── */
+.sm .cell {
+  width: 40px;
+  height: 40px;
+  font-size: var(--rialto-text-base);
+}
+
+/* ── Size: lg ────────────────────────────────── */
+.lg .cell {
+  width: 56px;
+  height: 56px;
+  font-size: var(--rialto-text-xl);
+}
+
+/* ── Error state ─────────────────────────────── */
+.error .cell {
+  border-color: var(--rialto-error);
+}
+
+.error .cell:focus-visible {
+  box-shadow:
+    0 0 0 2px var(--rialto-surface),
+    0 0 0 4px var(--rialto-error),
+    0 0 12px rgb(184 74 60 / 0.2);
+}
+
+/* ── Disabled state ──────────────────────────── */
+.wrapper[aria-disabled="true"] .cells {
+  filter: saturate(0.6) brightness(0.95);
+  pointer-events: none;
+}
+
+.wrapper[aria-disabled="true"] .cell {
+  cursor: not-allowed;
+}
+
+.lockIcon {
+  opacity: 0.5;
+  margin-inline-start: var(--rialto-space-2xs);
+  vertical-align: middle;
+}
+
+/* ── Hint ────────────────────────────────────── */
+.hint {
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-tertiary);
+}
+
+.error .hint {
+  color: var(--rialto-error);
+}

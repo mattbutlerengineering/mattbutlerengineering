@@ -1,0 +1,17 @@
+.accordion {
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-soft);
+  overflow: hidden;
+}
+
+/* ── Item ────────────────────────────────────── */
+/* Override Collapsible's own border + radius when used inside Accordion */
+.item {
+  border: none;
+  border-radius: 0;
+  border-top: 1px solid var(--rialto-border);
+}
+
+.item:first-child {
+  border-top: none;
+}

@@ -1,0 +1,75 @@
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--rialto-surface-recessed);
+  border-radius: var(--rialto-radius-default);
+}
+
+/* ── Gold-tinted shimmer sweep ───────────────── */
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgb(196 146 42 / 0.06) 40%,
+    rgb(196 146 42 / 0.1) 50%,
+    rgb(196 146 42 / 0.06) 60%,
+    transparent 100%
+  );
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes shimmer-rtl {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+[dir="rtl"] .skeleton::after {
+  animation-name: shimmer-rtl;
+}
+
+/* ── Shape variants ──────────────────────────── */
+.text {
+  height: 14px;
+  border-radius: var(--rialto-radius-sharp);
+}
+
+.heading {
+  height: 22px;
+  border-radius: var(--rialto-radius-sharp);
+}
+
+.circle {
+  border-radius: var(--rialto-radius-round);
+}
+
+.rect {
+  border-radius: var(--rialto-radius-default);
+}
+
+.card {
+  border-radius: var(--rialto-radius-soft);
+}
+
+/* ── Reduced motion ──────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    animation: none;
+    opacity: 0.5;
+  }
+}

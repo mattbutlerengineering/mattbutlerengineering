@@ -1,0 +1,130 @@
+.sidebar {
+  composes: aluminum from "../../styles/surfaces.module.css";
+
+  display: flex;
+  flex-direction: column;
+  border-inline-end: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-soft);
+  overflow: hidden;
+}
+
+.content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-2xs);
+  padding: var(--rialto-space-sm);
+  overflow: hidden;
+}
+
+/* ── Section ────────────────────────────────── */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-2xs);
+}
+
+.section + .section {
+  margin-top: var(--rialto-space-sm);
+  padding-top: var(--rialto-space-sm);
+  border-top: 1px solid var(--rialto-border);
+}
+
+.sectionLabel {
+  padding: var(--rialto-space-2xs) var(--rialto-space-xs);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-medium);
+  letter-spacing: var(--rialto-tracking-wide);
+  text-transform: uppercase;
+  color: var(--rialto-text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* ── Item ───────────────────────────────────── */
+
+.item {
+  composes: focusRing from "../../styles/surfaces.module.css";
+
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+  padding: var(--rialto-space-xs);
+  border-radius: var(--rialto-radius-default);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+  text-decoration: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  width: 100%;
+  text-align: start;
+  transition:
+    background 0.15s cubic-bezier(0.2, 0, 0, 1),
+    color 0.15s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.item:hover {
+  background: var(--rialto-surface-recessed);
+  color: var(--rialto-text-primary);
+}
+
+.itemActive {
+  background: var(--rialto-accent-muted);
+  color: var(--rialto-accent);
+}
+
+.itemActive:hover {
+  background: var(--rialto-accent-muted);
+  color: var(--rialto-accent);
+}
+
+.itemDisabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.itemIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.itemLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Collapse Toggle ────────────────────────── */
+
+.collapseToggle {
+  composes: focusRing from "../../styles/surfaces.module.css";
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--rialto-space-xs);
+  margin: var(--rialto-space-xs);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-surface-elevated);
+  color: var(--rialto-text-tertiary);
+  cursor: pointer;
+  transition:
+    background 0.15s cubic-bezier(0.2, 0, 0, 1),
+    color 0.15s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.collapseToggle:hover {
+  background: var(--rialto-surface-recessed);
+  color: var(--rialto-text-primary);
+}

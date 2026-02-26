@@ -1,0 +1,59 @@
+/* ── Floating controls bar ──────────────────── */
+.floatingControls {
+  position: fixed;
+  top: var(--rialto-space-md);
+  inset-inline-start: var(--rialto-space-md);
+  z-index: 9990;
+  display: flex;
+  gap: var(--rialto-space-xs);
+}
+
+.controlButton {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--rialto-surface-elevated);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  color: var(--rialto-text-secondary);
+  cursor: pointer;
+  transition:
+    border-color 0.15s cubic-bezier(0.2, 0, 0, 1),
+    color 0.15s cubic-bezier(0.2, 0, 0, 1),
+    box-shadow 0.15s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.controlButton:hover {
+  border-color: var(--rialto-accent);
+  color: var(--rialto-accent);
+  box-shadow: 0 2px 8px var(--rialto-accent-muted);
+}
+
+.vibeSelect {
+  height: 36px;
+  padding: 0 var(--rialto-space-xl) 0 var(--rialto-space-sm);
+  appearance: none;
+  background: var(--rialto-surface-elevated)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239e9890' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")
+    no-repeat right var(--rialto-space-sm) center;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  color: var(--rialto-text-secondary);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-xs);
+  cursor: pointer;
+  transition:
+    border-color 0.15s cubic-bezier(0.2, 0, 0, 1),
+    color 0.15s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.vibeSelect:hover {
+  border-color: var(--rialto-accent);
+  color: var(--rialto-accent);
+}

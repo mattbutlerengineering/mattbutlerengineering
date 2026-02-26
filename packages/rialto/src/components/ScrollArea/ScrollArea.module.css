@@ -1,0 +1,27 @@
+.root {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--rialto-surface-matte) transparent;
+}
+
+.root::-webkit-scrollbar {
+  width: 6px;
+}
+
+.root::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.root::-webkit-scrollbar-thumb {
+  background: var(--rialto-surface-matte);
+  border-radius: var(--rialto-radius-round);
+}
+
+.root::-webkit-scrollbar-thumb:hover {
+  background: var(--rialto-border-strong);
+}
+
+.root:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+}

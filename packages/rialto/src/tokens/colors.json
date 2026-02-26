@@ -1,0 +1,118 @@
+{
+  "color": {
+    "surface": {
+      "default": {
+        "$value": "#f8f6f3",
+        "$type": "color",
+        "$description": "Page backgrounds, default component backgrounds"
+      },
+      "elevated": {
+        "$value": "#fdfcfa",
+        "$type": "color",
+        "$description": "Cards, popovers, elevated containers"
+      },
+      "recessed": {
+        "$value": "#edeae5",
+        "$type": "color",
+        "$description": "Input fields, slider tracks, recessed channels"
+      },
+      "matte": {
+        "$value": "#d8d4cd",
+        "$type": "color",
+        "$description": "Disabled button fills, subtle divider backgrounds"
+      },
+      "deep": {
+        "$value": "#a8a49d",
+        "$type": "color",
+        "$description": "Heavy separators, decorative dark accents"
+      }
+    },
+    "text": {
+      "primary": {
+        "$value": "#1a1918",
+        "$type": "color",
+        "$description": "Headings, body text, primary labels"
+      },
+      "secondary": {
+        "$value": "#6b6660",
+        "$type": "color",
+        "$description": "Descriptions, helper text, secondary labels"
+      },
+      "tertiary": {
+        "$value": "#9e9890",
+        "$type": "color",
+        "$description": "Placeholders, disabled text, timestamps"
+      },
+      "on-accent": {
+        "$value": "#fdfcfa",
+        "$type": "color",
+        "$description": "Text on accent-filled backgrounds"
+      }
+    },
+    "border": {
+      "default": {
+        "$value": "#d8d4cd",
+        "$type": "color",
+        "$description": "Default borders for cards, inputs, dividers"
+      },
+      "strong": {
+        "$value": "#b8b4ad",
+        "$type": "color",
+        "$description": "Emphasized borders, active input outlines"
+      }
+    },
+    "accent": {
+      "default": {
+        "$value": "#c4922a",
+        "$type": "color",
+        "$description": "Primary buttons, focus rings, active/selected states"
+      },
+      "hover": {
+        "$value": "#d4a23a",
+        "$type": "color",
+        "$description": "Primary button hover state"
+      },
+      "muted": {
+        "$value": "rgb(196 146 42 / 0.12)",
+        "$type": "color",
+        "$description": "Subtle accent backgrounds"
+      },
+      "glow": {
+        "$value": "rgb(196 146 42 / 0.35)",
+        "$type": "color",
+        "$description": "Focus ring outer glow"
+      }
+    },
+    "semantic": {
+      "error": {
+        "default": {
+          "$value": "#b84a3c",
+          "$type": "color",
+          "$description": "Error text, destructive button fills"
+        },
+        "muted": {
+          "$value": "rgb(184 74 60 / 0.1)",
+          "$type": "color",
+          "$description": "Error alert backgrounds"
+        }
+      },
+      "success": {
+        "default": {
+          "$value": "#7a8a3c",
+          "$type": "color",
+          "$description": "Success text, confirmation icons"
+        },
+        "muted": {
+          "$value": "rgb(122 138 60 / 0.1)",
+          "$type": "color",
+          "$description": "Success alert backgrounds"
+        }
+      }
+    },
+    "overlay": {
+      "$value": "rgb(26 25 24 / 0.4)",
+      "$type": "color",
+      "$description": "Modal/drawer backdrop"
+    }
+  }
+}

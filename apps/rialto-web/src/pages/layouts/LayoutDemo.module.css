@@ -1,0 +1,86 @@
+/* ── Layout Demo ──────────────────────────────
+   Showcases Footer, Hero, and PageHeader together.
+   ──────────────────────────────────────────────── */
+
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--rialto-surface);
+  color: var(--rialto-text-primary);
+}
+
+.content {
+  flex: 1;
+  max-width: 960px;
+  margin-inline: auto;
+  padding: var(--rialto-space-2xl) var(--rialto-space-lg);
+  width: 100%;
+}
+
+.sectionTitle {
+  font-size: var(--rialto-text-lg);
+  font-weight: 400;
+  color: var(--rialto-text-primary);
+  margin: 0 0 var(--rialto-space-md);
+}
+
+.sectionDesc {
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+  margin: 0 0 var(--rialto-space-lg);
+  max-width: 600px;
+  line-height: 1.6;
+}
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--rialto-space-lg);
+  margin-block-end: var(--rialto-space-3xl);
+}
+
+.cardLabel {
+  font-size: var(--rialto-text-xs);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--rialto-text-tertiary);
+  margin-block-end: var(--rialto-space-xs);
+}
+
+.cardBody {
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+  line-height: 1.6;
+}
+
+.minimalFooterDemo {
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-soft);
+  overflow: hidden;
+  margin-block-end: var(--rialto-space-lg);
+}
+
+.footerLink {
+  color: var(--rialto-text-tertiary);
+  text-decoration: none;
+  font-size: var(--rialto-text-sm);
+  transition: color 0.15s ease;
+}
+
+.footerLink:hover {
+  color: var(--rialto-accent);
+}
+
+.footerText {
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-tertiary);
+}
+
+.divider {
+  height: 1px;
+  background: var(--rialto-border);
+  border: none;
+  margin-block: var(--rialto-space-2xl);
+}

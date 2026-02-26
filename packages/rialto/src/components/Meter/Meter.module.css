@@ -1,0 +1,77 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+}
+
+.labelRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.label {
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-medium);
+  letter-spacing: var(--rialto-tracking-wide);
+  color: var(--rialto-text-secondary);
+}
+
+.value {
+  font-size: var(--rialto-text-xs);
+  font-family: var(--rialto-font-mono);
+  color: var(--rialto-text-tertiary);
+}
+
+/* ── Track ──────────────────────────────────── */
+
+.track {
+  composes: recessed from "../../styles/surfaces.module.css";
+
+  position: relative;
+  height: 6px;
+  border-radius: var(--rialto-radius-round);
+  overflow: hidden;
+}
+
+.trackSm {
+  height: 4px;
+}
+
+/* ── Fill ───────────────────────────────────── */
+
+.fill {
+  height: 100%;
+  border-radius: var(--rialto-radius-round);
+  transform-origin: left;
+}
+
+[dir="rtl"] .fill {
+  transform-origin: right;
+}
+
+.default {
+  background: linear-gradient(
+    90deg,
+    var(--rialto-surface-matte) 0%,
+    var(--rialto-border-strong) 100%
+  );
+}
+
+.accent {
+  background: linear-gradient(90deg, var(--rialto-accent) 0%, var(--rialto-accent-hover) 100%);
+}
+
+.success {
+  background: var(--rialto-success);
+}
+
+.error {
+  background: var(--rialto-error);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fill {
+    transition: none;
+  }
+}

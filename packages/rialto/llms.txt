@@ -1,0 +1,562 @@
+# Rialto Design System — AI Reference
+
+> Package: `rialto@0.1.0`
+> Peer deps: `react`, `react-dom`, `framer-motion`
+> Import: `import { Button, Input, ... } from "rialto"`
+> CSS: `import "rialto/tokens"` (loads design tokens)
+> Showcase: https://mattbutlerengineering.github.io/rialto/
+
+---
+
+## Component Catalog
+
+### Form Inputs
+
+| Component        | Description                              | Key Props                                      |
+| ---------------- | ---------------------------------------- | ---------------------------------------------- |
+| Input            | Single-line text field with label/hint   | `label`, `hint`, `error`, `type`               |
+| TextArea         | Multi-line text with optional auto-grow  | `label`, `rows`, `autoResize`, `maxLength`     |
+| NumberInput      | Numeric value with stepper buttons       | `label`, `min`, `max`, `step`, `size`          |
+| Checkbox         | Multi-select checkbox                    | `label`, `checked`, `indeterminate`            |
+| Radio            | Single radio option (use inside RadioGroup) | `value`, `label`                            |
+| RadioGroup       | Single-select from visible options       | `label`, `value`, `onChange`                   |
+| Toggle           | Binary on/off switch                     | `label`, `checked`, `disabled`                 |
+| Select           | Dropdown for one choice from a list      | `label`, `options`, `placeholder`              |
+| SegmentedControl | Pill-style mutually exclusive toggle     | `segments`, `value`, `onChange`, `size`         |
+| Slider           | Continuous value range selector          | `min`, `max`, `step`, `value`, `onChange`       |
+| PinInput         | Fixed-length code entry (OTP, PINs)      | `label`, `length`, `mask`, `type`              |
+
+### Navigation
+
+| Component      | Description                       | Key Props                              |
+| -------------- | --------------------------------- | -------------------------------------- |
+| Button         | Action trigger with press physics | `variant`, `size`, `disabled`          |
+| Breadcrumb     | Navigation trail                  | `items`, `maxItems`                    |
+| Tabs           | Switch between content panels     | `tabs`, `activeId`                     |
+| Steps          | Multi-step progress indicator     | `steps`, `currentStep`, `orientation`  |
+| Pagination     | Page-by-page navigation           | `page`, `totalPages`, `onChange`        |
+| NavigationMenu | Horizontal nav with dropdowns     | `items`                                |
+| Sidebar        | Vertical app navigation           | `items`, `collapsed`, `onCollapse`     |
+| Navbar         | Top navigation bar with logo/user | `links`, `logo`, `user`, `search`      |
+
+### Data Display
+
+| Component | Description                        | Key Props                                     |
+| --------- | ---------------------------------- | --------------------------------------------- |
+| Card      | Content container with surfaces    | `variant`, `title`, `subtitle`                |
+| Table     | Generic `<Table<T>>` with sorting  | `columns`, `data`, `rowKey`, `striped`         |
+| Badge     | Small status indicator             | `variant`, `size`, `dot`                       |
+| Tag       | Selectable/dismissible label       | `variant`, `selected`, `dismissible`           |
+| AnimatedTag | Tag with enter/exit animation    | same as Tag                                    |
+| TagGroup  | Layout wrapper for multiple Tags   | `children`                                     |
+| Avatar    | User image with fallback initials  | `src`, `name`, `size`, `status`                |
+| AvatarGroup | Stacked avatars with overflow    | `avatars`, `max`                               |
+| Stat      | Metric display with trend          | `value`, `label`, `delta`, `trend`, `size`     |
+| DataList  | Key-value pairs                    | `items`, `orientation`, `striped`              |
+| Meter     | Gauge for bounded values           | `value`, `min`, `max`, `label`, `variant`      |
+| Timeline  | Chronological event sequence       | `items`                                        |
+| Tree      | Recursive expandable hierarchy     | `data`, `defaultExpanded`, `selectedId`        |
+
+### Layout & Typography
+
+| Component   | Description                        | Key Props                               |
+| ----------- | ---------------------------------- | --------------------------------------- |
+| Stack       | Flexbox layout helper              | `direction`, `gap`, `align`, `justify`  |
+| Text        | Typography with semantic variants  | `variant`, `color`, `align`, `as`       |
+| Divider     | Visual separator line              | `label`, `spacing`                      |
+| Collapsible | Single expand/collapse section     | `open`, `onOpenChange`, `label`         |
+| Accordion   | Grouped collapsible panels         | `items`, `allowMultiple`                |
+| AspectRatio | Responsive proportional container  | `ratio`                                 |
+| ScrollArea  | Custom-styled scroll container     | `width`, `height`                       |
+| Kbd         | Keyboard key display               | `children`                              |
+
+### Feedback
+
+| Component     | Description                        | Key Props                                  |
+| ------------- | ---------------------------------- | ------------------------------------------ |
+| Toast         | Transient notification (Provider!) | See Toast pattern below                    |
+| Alert         | Inline contextual message          | `variant`, `title`, `dismissible`          |
+| Banner        | Full-width page-level message      | `variant`, `title`, `action`, `dismissible`|
+| Progress      | Determinate/indeterminate bar      | `value`, `max`, `indeterminate`, `variant` |
+| Spinner       | Loading indicator (unknown duration)| `size`, `label`                           |
+| Skeleton      | Loading content placeholder        | `variant`, `width`, `height`               |
+| SkeletonGroup | Groups multiple skeletons          | `children`                                 |
+| EmptyState    | No-content display with CTA        | `title`, `description`, `action`, `icon`   |
+
+### Overlays
+
+| Component      | Description                       | Key Props                                  |
+| -------------- | --------------------------------- | ------------------------------------------ |
+| Dialog         | Modal dialog with focus trap      | `open`, `onOpenChange`, `title`            |
+| ConfirmDialog  | Pre-built confirmation modal      | `open`, `onOpenChange`, `title`, `variant` |
+| Drawer         | Slide-out edge panel              | `open`, `onOpenChange`, `placement`        |
+| Popover        | Positioned floating content       | `open`, `onOpenChange`, `content`, `placement` |
+| Tooltip        | Short hover text                  | `content`, `placement`, `delay`            |
+| HoverCard      | Rich hover preview                | `content`                                  |
+| CommandPalette | Keyboard command interface (Cmd+K)| `open`, `onOpenChange`, `items`            |
+| DropdownMenu   | Action menu triggered by click    | `trigger`, `items`, `align`                |
+| ContextMenu    | Right-click action menu           | `items`                                    |
+
+---
+
+## Component Selection Guide
+
+> **Full decision tree**: See `docs/quick-reference/master-decision-tree.md` for a unified guide covering all components by use case, including cross-cutting patterns for loading, errors, and search flows.
+
+### Which form input?
+
+| Need                        | Use                            |
+| --------------------------- | ------------------------------ |
+| Single text value           | Input                          |
+| Multi-line text             | TextArea                       |
+| Number with +/- controls    | NumberInput                    |
+| One choice (2–5 options)    | RadioGroup or SegmentedControl |
+| One choice (5+ options)     | Select                         |
+| Multiple choices            | Checkbox                       |
+| On/off toggle               | Toggle                         |
+| Fixed-length code entry     | PinInput                       |
+| Continuous range            | Slider                         |
+
+### Which overlay?
+
+| Need                  | Use            |
+| --------------------- | -------------- |
+| Form in a modal       | Dialog         |
+| Yes/no confirmation   | ConfirmDialog  |
+| Settings/detail panel | Drawer         |
+| Positioned content    | Popover        |
+| Short help text       | Tooltip        |
+| Rich preview on hover | HoverCard      |
+| Quick actions (Cmd+K) | CommandPalette |
+| Click-triggered menu  | DropdownMenu   |
+| Right-click menu      | ContextMenu    |
+
+### Which feedback?
+
+| Need                    | Use        |
+| ----------------------- | ---------- |
+| Temporary notification  | Toast      |
+| Inline message          | Alert      |
+| Page-wide message       | Banner     |
+| Known progress          | Progress   |
+| Unknown loading         | Spinner    |
+| Content placeholder     | Skeleton   |
+| Nothing to show         | EmptyState |
+
+### Which feedback priority?
+
+Route by urgency — stop at the first match:
+
+| Priority | Condition                    | Component       |
+| -------- | ---------------------------- | --------------- |
+| P1       | Destructive / irreversible   | ConfirmDialog   |
+| P2       | Must act before continuing   | Dialog / Drawer |
+| P3       | Page-wide notice             | Banner          |
+| P4       | Tied to a specific element   | Alert           |
+| P5       | Brief notification           | Toast           |
+| P6       | Supplemental hover info      | Tooltip / HoverCard |
+
+> Full routing matrix with comparison table: `docs/quick-reference/feedback-routing.md`
+
+### Which navigation?
+
+| Need               | Use              |
+| ------------------ | ---------------- |
+| Switch panels      | Tabs             |
+| Path trail         | Breadcrumb       |
+| Wizard/step flow   | Steps            |
+| Paginated content  | Pagination       |
+| View mode toggle   | SegmentedControl |
+| Top-bar dropdowns  | NavigationMenu   |
+| App sidebar        | Sidebar          |
+| Top nav bar        | Navbar           |
+
+---
+
+## Token Quick Reference
+
+### Surfaces
+
+| Token                        | Value     | When to use                              |
+| ---------------------------- | --------- | ---------------------------------------- |
+| `--rialto-surface`           | `#f8f6f3` | Page backgrounds, default component bg   |
+| `--rialto-surface-elevated`  | `#fdfcfa` | Cards, popovers, elevated containers     |
+| `--rialto-surface-recessed`  | `#edeae5` | Input fields, slider tracks, channels    |
+| `--rialto-surface-matte`     | `#d8d4cd` | Disabled fills, subtle divider bg        |
+| `--rialto-surface-deep`      | `#a8a49d` | Heavy separators, decorative accents     |
+
+### Text
+
+| Token                      | Value     | When to use                            |
+| -------------------------- | --------- | -------------------------------------- |
+| `--rialto-text-primary`    | `#1a1918` | Headings, body text, primary labels    |
+| `--rialto-text-secondary`  | `#6b6660` | Descriptions, helper text              |
+| `--rialto-text-tertiary`   | `#9e9890` | Placeholders, disabled, timestamps     |
+| `--rialto-text-on-accent`  | `#fdfcfa` | Text on accent-filled backgrounds      |
+
+### Borders
+
+| Token                    | Value     | When to use                          |
+| ------------------------ | --------- | ------------------------------------ |
+| `--rialto-border`        | `#d8d4cd` | Default borders (cards, inputs)      |
+| `--rialto-border-strong` | `#b8b4ad` | Emphasized borders, active outlines  |
+
+### Accent (gold — surgical use only)
+
+| Token                    | Value                      | When to use                          |
+| ------------------------ | -------------------------- | ------------------------------------ |
+| `--rialto-accent`        | `#c4922a`                  | Primary buttons, focus rings, active |
+| `--rialto-accent-hover`  | `#d4a23a`                  | Primary button hover                 |
+| `--rialto-accent-muted`  | `rgb(196 146 42 / 0.12)`  | Selected rows, active tab bg         |
+| `--rialto-accent-glow`   | `rgb(196 146 42 / 0.35)`  | Focus ring outer glow                |
+
+### Semantic
+
+| Token                    | Value                      | When to use                     |
+| ------------------------ | -------------------------- | ------------------------------- |
+| `--rialto-error`         | `#b84a3c`                  | Error text, destructive actions |
+| `--rialto-error-muted`   | `rgb(184 74 60 / 0.1)`    | Error alert/badge backgrounds   |
+| `--rialto-success`       | `#7a8a3c`                  | Success text, confirmation      |
+| `--rialto-success-muted` | `rgb(122 138 60 / 0.1)`   | Success alert/badge backgrounds |
+
+### Shadows
+
+| Token                      | When to use                                    |
+| -------------------------- | ---------------------------------------------- |
+| `--rialto-shadow-elevated` | Cards, dropdowns, popovers                     |
+| `--rialto-shadow-pressed`  | Recessed inputs, slider tracks, active press   |
+| `--rialto-shadow-focus`    | Focus-visible ring on all interactive elements |
+| `--rialto-shadow-glass`    | Floating glass panels, command palette         |
+
+### Radius (hierarchy-based)
+
+| Token                    | Value    | When to use                       |
+| ------------------------ | -------- | --------------------------------- |
+| `--rialto-radius-none`   | `0`      | No rounding                       |
+| `--rialto-radius-sharp`  | `2px`    | Chips, badges, small elements     |
+| `--rialto-radius-default`| `6px`    | Buttons, inputs, interactive      |
+| `--rialto-radius-soft`   | `10px`   | Cards, dialogs, containers        |
+| `--rialto-radius-round`  | `9999px` | Pills, avatars, full-round        |
+
+### Spacing (4px base)
+
+| Token                 | Value  | When to use                          |
+| --------------------- | ------ | ------------------------------------ |
+| `--rialto-space-2xs`  | `4px`  | Icon padding, tight chip internals   |
+| `--rialto-space-xs`   | `8px`  | Badge padding, tight gaps            |
+| `--rialto-space-sm`   | `12px` | Button padding, input spacing        |
+| `--rialto-space-md`   | `16px` | Default component padding            |
+| `--rialto-space-lg`   | `24px` | Card padding, form gaps              |
+| `--rialto-space-xl`   | `32px` | Between card groups, dialog body     |
+| `--rialto-space-2xl`  | `48px` | Section spacing                      |
+| `--rialto-space-3xl`  | `64px` | Major page sections                  |
+| `--rialto-space-4xl`  | `96px` | Hero spacing, full-page gaps         |
+
+---
+
+## Motion Reference
+
+Import from `"rialto/tokens/motion"` (or `src/tokens/motion.ts`).
+
+| Preset         | Type      | When to use                                          |
+| -------------- | --------- | ---------------------------------------------------- |
+| `precision`    | Duration  | Standard UI transitions, hover, small movements      |
+| `spring`       | Spring    | Toggles, sliders, detent-feel interactions           |
+| `springGentle` | Spring    | Dialogs, drawers, card expansions, larger movements  |
+| `reduced`      | Duration  | Fallback when `useReducedMotion()` returns true      |
+
+Always check `useReducedMotion()` from Framer Motion and skip animation when true.
+
+---
+
+## Character Limits
+
+Maximum character counts per prop to prevent AI-generated content from breaking layouts. Full list in `dist/manifest.json` under `characterLimits`.
+
+### Short (≤30 chars) — single-line labels
+
+| Component        | Prop              | Max |
+| ---------------- | ----------------- | --- |
+| Badge            | children          | 20  |
+| Kbd              | children          | 10  |
+| Tag              | children          | 30  |
+| Button           | children          | 30  |
+| Tabs             | tabs[].label      | 20  |
+| Breadcrumb       | items[].label     | 25  |
+| SegmentedControl | segments[].label  | 15  |
+| Stat             | label / value     | 25 / 15 |
+| Toggle / Checkbox / Radio | label   | 30  |
+
+### Medium (31–120 chars) — titles, hints, descriptions
+
+| Component        | Prop              | Max |
+| ---------------- | ----------------- | --- |
+| Input / Select   | label             | 40  |
+| Input            | hint / error      | 80  |
+| Toast            | title / description | 50 / 120 |
+| Alert / Banner   | title             | 60  |
+| Dialog / Drawer  | title             | 60  |
+| Card             | title / subtitle  | 60 / 80 |
+| Tooltip          | content           | 80  |
+
+### Long (121–500 chars) — body content
+
+| Component  | Prop        | Max |
+| ---------- | ----------- | --- |
+| Alert      | children    | 500 |
+| EmptyState | description | 300 |
+| Timeline   | items[].description | 200 |
+
+**Unrestricted**: Dialog.Body, Drawer content, HoverCard content, Card children (ReactNode slots).
+
+---
+
+## Icon Vocabulary
+
+Rialto maps UI concepts to [Lucide React](https://lucide.dev) icons. Every concept has exactly one canonical icon — use these instead of choosing ad-hoc.
+
+### Usage
+
+```tsx
+// Direct import (tree-shakes to just the icons you use)
+import { Save, Trash2, Plus } from "lucide-react";
+<Button><Save size={16} /> Save</Button>
+
+// Lookup by concept name (useful for dynamic/data-driven UIs)
+import { getIcon } from "rialto";
+const Icon = getIcon("save"); // → Save component
+if (Icon) <Icon size={16} />;
+```
+
+### Sizing conventions
+
+| Context            | Size  |
+| ------------------ | ----- |
+| Small buttons (sm) | 14px  |
+| Medium buttons     | 16px  |
+| Standalone icons   | 20px  |
+| Hero / empty state | 32–48px |
+
+### Concept → Icon mapping
+
+| Category | concept → Lucide |
+|----------|-----------------|
+| navigation | `home`→Home, `back`→ArrowLeft, `forward`→ArrowRight, `menu`→Menu, `search`→Search, `external-link`→ExternalLink, `expand`→ChevronDown, `collapse`→ChevronRight, `more-actions`→MoreHorizontal |
+| actions | `save`→Save, `delete`→Trash2, `edit`→SquarePen, `add`→Plus, `copy`→Copy, `share`→Share, `download`→Download, `upload`→Upload, `refresh`→RefreshCw, `undo`→Undo, `redo`→Redo |
+| communication | `email`→Mail, `message`→MessageCircle, `notification`→Bell, `send`→Send, `phone`→Phone |
+| status | `success`→CircleCheck, `error`→CircleX, `warning`→AlertTriangle, `info`→Info, `loading`→Loader |
+| content | `file`→File, `file-text`→FileText, `folder`→Folder, `folder-open`→FolderOpen, `image`→Image, `link`→Link2, `clipboard`→Clipboard |
+| user | `user`→User, `users`→Users, `user-add`→UserPlus, `settings`→Settings, `logout`→LogOut |
+| data | `filter`→Filter, `sort`→ArrowUpDown, `chart`→BarChart3, `trending-up`→TrendingUp, `trending-down`→TrendingDown, `checklist`→ListChecks |
+| media | `play`→Play, `pause`→Pause, `camera`→Camera, `video`→Video |
+| commerce | `cart`→ShoppingCart, `credit-card`→CreditCard, `dollar`→DollarSign, `package`→Package, `tag`→Tag |
+
+### Helpers
+
+| Export | Description |
+| ------ | ----------- |
+| `iconVocabulary` | Full `readonly IconEntry[]` array (57 entries) |
+| `getIcon(concept)` | Returns `LucideIcon \| undefined` for a concept string |
+| `getIconsByCategory(cat)` | Returns `readonly IconEntry[]` filtered by category |
+| `iconCategories` | Ordered `readonly IconCategory[]` (9 categories) |
+
+---
+
+## Composition Patterns
+
+### Login form
+
+```tsx
+<Card title="Sign in">
+  <Stack direction="column" gap="md">
+    <Input label="Email" type="email" placeholder="you@example.com" />
+    <Input label="Password" type="password" />
+    <Stack direction="row" gap="sm" align="center" justify="between">
+      <Checkbox label="Remember me" />
+      <Button variant="ghost" size="sm">Forgot password?</Button>
+    </Stack>
+    <Button variant="primary">Sign in</Button>
+  </Stack>
+</Card>
+```
+
+### Settings panel
+
+```tsx
+<Drawer open={isOpen} onOpenChange={setOpen} title="Settings" placement="right">
+  <Stack direction="column" gap="lg">
+    <Toggle label="Dark mode" checked={dark} onCheckedChange={setDark} />
+    <Toggle label="Notifications" checked={notifs} onCheckedChange={setNotifs} />
+    <Divider />
+    <Select
+      label="Language"
+      options={[
+        { value: "en", label: "English" },
+        { value: "fr", label: "French" },
+      ]}
+    />
+    <Divider />
+    <Button variant="primary">Save changes</Button>
+  </Stack>
+</Drawer>
+```
+
+### Confirmation flow
+
+```tsx
+<ConfirmDialog
+  open={showConfirm}
+  onOpenChange={setShowConfirm}
+  title="Delete project?"
+  description="This action cannot be undone. All data will be permanently removed."
+  confirmLabel="Delete"
+  variant="danger"
+/>
+```
+
+### Data table page
+
+```tsx
+<Stack direction="column" gap="lg">
+  <Table
+    columns={[
+      { key: "name", header: "Name", sortable: true },
+      { key: "role", header: "Role" },
+      { key: "status", header: "Status", render: (row) => (
+        <Badge variant={row.active ? "success" : "neutral"}>
+          {row.active ? "Active" : "Inactive"}
+        </Badge>
+      )},
+    ]}
+    data={users}
+    rowKey={(u) => u.id}
+    striped
+    emptyMessage="No users found"
+  />
+  <Pagination page={page} totalPages={totalPages} onChange={setPage} />
+</Stack>
+```
+
+### Toast notifications
+
+```tsx
+// 1. Wrap your app with the provider (once, at the root):
+<ToastProvider>
+  <App />
+</ToastProvider>
+
+// 2. Use the hook anywhere inside the provider:
+function SaveButton() {
+  const { toast } = useToast();
+  return (
+    <Button onClick={() => toast({ title: "Saved!", variant: "success" })}>
+      Save
+    </Button>
+  );
+}
+```
+
+---
+
+## Common Mistakes
+
+**Do:**
+- Use `var(--rialto-*)` tokens for all colors, spacing, and radii
+- Use gold accent (`--rialto-accent`) only for focus rings, active/selected states, primary buttons
+- Use Framer Motion for interactive animations
+- Check `useReducedMotion()` before animating
+- Wrap app with `<ToastProvider>` before using `useToast()`
+- Import from `"rialto"` (barrel export)
+
+**Don't:**
+- Hardcode color values — always use tokens
+- Use gold accent for decorative purposes, backgrounds, or body text
+- Use CSS transitions for interactive animations (use Framer Motion)
+- Use `--luce-*` prefix — the correct prefix is `--rialto-*`
+- Import from subpaths like `"rialto/components/Button"` — use the barrel
+- Call `useToast()` without a `<ToastProvider>` ancestor
+- Skip `forwardRef` when authoring new components
+- Use more than 3 font weights (300, 400, 500)
+- Call `useUIEnvironment()` without a `<RialtoProvider>` ancestor
+
+---
+
+## Adaptive UI Environment
+
+### RialtoProvider
+
+Wraps your app to provide device context, theming, and vibe token overrides.
+
+```tsx
+import { RialtoProvider } from "rialto";
+
+<RialtoProvider vibe="transacting" theme="dark">
+  <App />
+</RialtoProvider>
+```
+
+| Prop           | Type                              | Default     | Description                                    |
+| -------------- | --------------------------------- | ----------- | ---------------------------------------------- |
+| vibe           | `"default" \| "transacting" \| "presenting"` | `"default"` | Vibe preset that adjusts spacing/radius/weight |
+| vibeOverrides  | `Record<string, string>`          | —           | Additional CSS custom property overrides        |
+| theme          | `"light" \| "dark" \| "system"`   | `"system"`  | Theme mode. `"system"` follows OS preference   |
+
+### Vibes
+
+Vibes shift CSS custom properties on a container div — child components adapt automatically via the CSS cascade (zero runtime cost for children).
+
+- **default** — no overrides, standard Rialto tokens
+- **transacting** — tighter spacing, sharper radii, bolder weight for urgency (checkout, payments)
+- **presenting** — more whitespace, larger type, softer radii for presentation (dashboards, demos)
+
+### useDeviceContext
+
+Standalone hook (no provider needed) detecting device environment via `matchMedia`:
+
+```tsx
+import { useDeviceContext } from "rialto";
+
+const { pointer, viewport, reducedMotion, colorScheme, saveData } = useDeviceContext();
+```
+
+Returns: `{ pointer: "fine" | "coarse", viewport: "mobile" | "tablet" | "desktop", reducedMotion: boolean, colorScheme: "light" | "dark", saveData: boolean }`
+
+### useUIEnvironment
+
+Consumer hook providing device context, active vibe, and resolved theme. Requires `<RialtoProvider>`.
+
+```tsx
+import { useUIEnvironment } from "rialto";
+
+const { device, vibe, theme } = useUIEnvironment();
+```
+
+### Component Manifest
+
+Run `pnpm manifest` (from packages/rialto) to generate `dist/manifest.json` — a build-time metadata file listing all components, their props (with types, descriptions, defaults), and slots. Use this to guide LLM code generation.
+
+---
+
+## Development
+
+### Commands
+
+| Command                      | Description                                 |
+| ---------------------------- | ------------------------------------------- |
+| `pnpm dev`                   | Start Vite dev server                       |
+| `pnpm test`                  | Run 144 unit tests (Vitest)                 |
+| `pnpm test:visual`           | Run 41 visual regression tests (Playwright) |
+| `pnpm test:visual:update`    | Regenerate baseline screenshots             |
+| `pnpm build`                 | Build library then showcase                 |
+| `pnpm build:lib`             | Build library for publishing                |
+| `pnpm lint`                  | ESLint with accessibility rules             |
+| `pnpm size`                  | Check bundle sizes                          |
+
+### Visual Test Harness
+
+The `/visual-test` route in the showcase app renders 30+ components in static, deterministic states for screenshot comparison. Each section has a `data-testid` attribute used by Playwright to locate and screenshot it.
+
+- Baselines live in `e2e/screenshots/` (committed to git)
+- Tests run in `e2e/visual.spec.ts` using `toHaveScreenshot()`
+- Reduced motion is forced before navigation to prevent animation flicker
+- Baselines must be generated on Linux to match CI (use Docker or the CI itself)

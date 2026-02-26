@@ -1,0 +1,104 @@
+.banner {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+  width: 100%;
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-primary);
+  background: var(--rialto-surface-elevated);
+  border: 1px solid var(--rialto-border);
+  border-inline-start: 3px solid var(--rialto-border-strong);
+  border-radius: var(--rialto-radius-default);
+  overflow: hidden;
+}
+
+/* ── Variants ───────────────────────────────── */
+
+.info {
+  border-inline-start-color: var(--rialto-accent);
+  background: linear-gradient(90deg, rgb(196 146 42 / 0.03) 0%, var(--rialto-surface-elevated) 40%);
+}
+
+.warning {
+  border-inline-start-color: #c49a2a;
+  background: linear-gradient(90deg, rgb(196 154 42 / 0.04) 0%, var(--rialto-surface-elevated) 40%);
+}
+
+.error {
+  border-inline-start-color: var(--rialto-error);
+  background: linear-gradient(90deg, rgb(180 60 50 / 0.03) 0%, var(--rialto-surface-elevated) 40%);
+}
+
+.accent {
+  border-inline-start-color: var(--rialto-accent);
+  background: linear-gradient(90deg, rgb(196 146 42 / 0.05) 0%, var(--rialto-surface-elevated) 40%);
+}
+
+/* ── Icon ───────────────────────────────────── */
+
+.icon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.info .icon {
+  color: var(--rialto-accent);
+}
+.warning .icon {
+  color: #c49a2a;
+}
+.error .icon {
+  color: var(--rialto-error);
+}
+.accent .icon {
+  color: var(--rialto-accent);
+}
+
+/* ── Body + Action ──────────────────────────── */
+
+.body {
+  flex: 1;
+  min-width: 0;
+  line-height: var(--rialto-leading-relaxed);
+  color: var(--rialto-text-secondary);
+}
+
+.action {
+  flex-shrink: 0;
+}
+
+/* ── Close ──────────────────────────────────── */
+
+.close {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--rialto-radius-sharp);
+  color: var(--rialto-text-tertiary);
+  cursor: pointer;
+  border: none;
+  background: none;
+  transition:
+    background 0.1s cubic-bezier(0.2, 0, 0, 1),
+    color 0.1s cubic-bezier(0.2, 0, 0, 1),
+    box-shadow 0.1s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.close:hover {
+  background: var(--rialto-surface-recessed);
+  color: var(--rialto-text-primary);
+}
+
+.close:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+}

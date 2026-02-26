@@ -1,0 +1,21 @@
+:root {
+  /* ── Spacing scale (4px base) ──────────────── */
+  /* Icon padding, tight chip internals */
+  --rialto-space-2xs: 4px; /*  4 */
+  /* Badge padding, tight gaps between related items */
+  --rialto-space-xs: 8px; /*  8 */
+  /* Button padding, input internal spacing */
+  --rialto-space-sm: 12px; /* 12 */
+  /* Default component padding, Stack gaps */
+  --rialto-space-md: 16px; /* 16 */
+  /* Card padding, between components in a form */
+  --rialto-space-lg: 24px; /* 24 */
+  /* Between card groups, dialog body padding */
+  --rialto-space-xl: 32px; /* 32 */
+  /* Section spacing within a page */
+  --rialto-space-2xl: 48px; /* 48 */
+  /* Major page sections */
+  --rialto-space-3xl: 64px; /* 64 */
+  /* Hero spacing, full-page layout gaps */
+  --rialto-space-4xl: 96px; /* 96 */
+}

@@ -76,7 +76,7 @@ export function FloorPlanCanvas({
   );
 
   const handleStageClick = useCallback(
-    (e: KonvaEventObject<MouseEvent>) => {
+    (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
       // Deselect when clicking empty area
       if (e.target === e.target.getStage()) {
         onTableSelect(null);

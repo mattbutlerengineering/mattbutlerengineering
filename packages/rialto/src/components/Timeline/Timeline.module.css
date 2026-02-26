@@ -1,0 +1,173 @@
+/* ── Timeline container ─────────────────────── */
+.timeline {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* ── Item ────────────────────────────────────── */
+.item {
+  display: grid;
+  grid-template-columns: 64px auto 1fr;
+  gap: 0;
+  position: relative;
+  padding-bottom: var(--rialto-space-lg);
+}
+
+.item:last-child {
+  padding-bottom: 0;
+}
+
+/* ── Connector line ─────────────────────────── */
+.item:not(:last-child) .track::after {
+  content: "";
+  position: absolute;
+  top: 28px;
+  inset-inline-start: 50%;
+  bottom: -2px;
+  width: 2px;
+  transform: translateX(-50%);
+  background: var(--rialto-border);
+  transition: background 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.item.completed:not(:last-child) .track::after {
+  background: var(--rialto-accent);
+}
+
+/* ── Timestamp ──────────────────────────────── */
+.timestamp {
+  font-family: var(--rialto-font-mono);
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-tertiary);
+  text-align: end;
+  padding-top: 5px;
+  padding-inline-end: var(--rialto-space-sm);
+  white-space: nowrap;
+}
+
+.active .timestamp {
+  color: var(--rialto-accent);
+}
+
+/* ── Track (node column) ────────────────────── */
+.track {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  width: 28px;
+}
+
+/* ── Node ────────────────────────────────────── */
+.node {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--rialto-radius-round);
+  border: 2px solid var(--rialto-border);
+  background: var(--rialto-surface);
+  flex-shrink: 0;
+  margin-top: 5px;
+  position: relative;
+  z-index: 1;
+  transition:
+    border-color 0.3s cubic-bezier(0.2, 0, 0, 1),
+    background 0.3s cubic-bezier(0.2, 0, 0, 1),
+    box-shadow 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Completed: gold filled */
+.completed .node {
+  border-color: var(--rialto-accent);
+  background: var(--rialto-accent);
+}
+
+/* Active: gold ring with glow */
+.active .node {
+  width: 14px;
+  height: 14px;
+  margin-top: 4px;
+  border-color: var(--rialto-accent);
+  background: var(--rialto-surface);
+  box-shadow:
+    0 0 0 3px var(--rialto-surface),
+    0 0 0 5px rgb(196 146 42 / 0.3),
+    0 0 10px rgb(196 146 42 / 0.12);
+}
+
+/* Error: red */
+.error .node {
+  border-color: var(--rialto-error);
+  background: var(--rialto-error);
+}
+
+/* ── Content ─────────────────────────────────── */
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-inline-start: var(--rialto-space-sm);
+  padding-top: 1px;
+}
+
+.title {
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-tertiary);
+  line-height: var(--rialto-leading-tight);
+  transition: color 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.completed .title {
+  color: var(--rialto-text-primary);
+}
+
+.active .title {
+  color: var(--rialto-accent);
+}
+
+.error .title {
+  color: var(--rialto-error);
+}
+
+.description {
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-tertiary);
+  line-height: var(--rialto-leading-relaxed);
+  max-width: 320px;
+}
+
+/* ── Compact variant ─────────────────────────── */
+.compact .item {
+  grid-template-columns: 48px auto 1fr;
+  padding-bottom: var(--rialto-space-md);
+}
+
+.compact .node {
+  width: 10px;
+  height: 10px;
+}
+
+.compact .active .node {
+  width: 12px;
+  height: 12px;
+}
+
+.compact .track {
+  width: 22px;
+}
+
+.compact .item:not(:last-child) .track::after {
+  top: 22px;
+}
+
+.compact .timestamp {
+  font-size: 10px;
+}
+
+.compact .title {
+  font-size: var(--rialto-text-xs);
+}
+
+.compact .description {
+  display: none;
+}

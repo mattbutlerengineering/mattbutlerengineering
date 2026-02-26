@@ -1,0 +1,76 @@
+.wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+  cursor: pointer;
+}
+
+.wrapper[aria-disabled="true"] {
+  filter: saturate(0.6) brightness(0.95);
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.lockIcon {
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.track {
+  composes: focusRing from "../../styles/surfaces.module.css";
+
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: var(--rialto-radius-round);
+  background: var(--rialto-surface-recessed);
+  border: 1px solid var(--rialto-border);
+  box-shadow: var(--rialto-shadow-pressed);
+  padding: 2px;
+  flex-shrink: 0;
+}
+
+.track[data-checked="true"] {
+  background: var(--rialto-accent);
+  border-color: var(--rialto-accent);
+  box-shadow: none;
+}
+
+.knob {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--rialto-radius-round);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--rialto-surface-elevated) 70%, white) 0%,
+    var(--rialto-surface-elevated) 100%
+  );
+  box-shadow:
+    0 1px 3px rgb(26 25 24 / 0.15),
+    0 0 1px rgb(26 25 24 / 0.1);
+}
+
+.label {
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-regular);
+  color: var(--rialto-text-secondary);
+  user-select: none;
+}
+
+/* ── Hidden input for accessibility ──────────── */
+.input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.input:focus-visible + .track {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+}

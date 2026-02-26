@@ -1,0 +1,12 @@
+{
+  "extends": "@mbe/config/typescript/react",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "noUncheckedIndexedAccess": true,
+    "useDefineForClassFields": true,
+    "moduleDetection": "force",
+    "allowImportingTsExtensions": true
+  },
+  "include": ["src"]
+}
