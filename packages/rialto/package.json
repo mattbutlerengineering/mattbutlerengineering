@@ -74,5 +74,22 @@
     "vite-plugin-dts": "^4.5.4",
     "vitest": "^4.0.18",
     "vitest-axe": "^0.1.0"
-  }
+  },
+  "size-limit": [
+    {
+      "name": "JS (all components)",
+      "path": "dist/lib/rialto.js",
+      "limit": "150 kB"
+    },
+    {
+      "name": "CSS (all styles)",
+      "path": "dist/lib/styles.css",
+      "limit": "120 kB"
+    },
+    {
+      "name": "Motion tokens",
+      "path": "dist/lib/motion.js",
+      "limit": "1 kB"
+    }
+  ]
 }

@@ -8,9 +8,22 @@
     "test": "turbo run test",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
-    "clean": "turbo run clean && rm -rf node_modules"
+    "clean": "turbo run clean && rm -rf node_modules",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "pnpm --filter @mbe/rialto build && changeset publish",
+    "test:visual": "playwright test --config apps/rialto-web/playwright.config.ts",
+    "lighthouse": "lhci autorun",
+    "size": "pnpm --filter @mbe/rialto exec size-limit",
+    "size:check": "pnpm --filter @mbe/rialto exec size-limit --limit"
   },
   "devDependencies": {
+    "@changesets/changelog-github": "^0.5.2",
+    "@changesets/cli": "^2.29.8",
+    "@lhci/cli": "^0.15.1",
+    "@playwright/test": "^1.58.2",
+    "@size-limit/file": "^12.0.0",
+    "size-limit": "^12.0.0",
     "turbo": "^2.3.3"
   },
   "pnpm": {
