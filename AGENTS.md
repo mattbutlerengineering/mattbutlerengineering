@@ -93,6 +93,29 @@ npx vitest run --reporter=verbose src/routes/     # Run with detailed output
 npx vitest --grep "GET /api/v1/users"             # Run tests matching pattern
 ```
 
+### Rialto Design System
+```bash
+cd packages/rialto
+
+# Build library (Vite lib mode + types)
+pnpm build
+
+# Testing
+pnpm test                    # Run component tests
+pnpm test:watch             # Run tests in watch mode
+
+# Linting and type checking
+pnpm lint                   # ESLint
+pnpm typecheck              # TypeScript type checking
+
+# From root:
+pnpm size                   # Check bundle size
+pnpm size:check             # Enforce bundle size limits
+pnpm test:visual            # Run Playwright visual regression tests
+pnpm lighthouse             # Run Lighthouse CI performance audit
+pnpm changeset              # Create a changeset for versioning
+```
+
 ## Project Architecture
 
 ### Monorepo Structure
@@ -106,13 +129,15 @@ npx vitest --grep "GET /api/v1/users"             # Run tests matching pattern
 mattbutlerengineering/
 ├── apps/                    # Frontend applications
 │   ├── web/                # Public marketing site (React + Vite)
-│   └── dashboard/          # Authenticated dashboard (React + Vite)
+│   ├── dashboard/          # Authenticated dashboard (React + Vite)
+│   └── rialto-web/         # Design system showcase (React + Vite)
 ├── services/                # Backend services
 │   └── users/              # Users API (Fastify + Prisma)
 ├── packages/               # Shared packages
+│   ├── rialto/            # Rialto design system (React component library)
 │   ├── types/             # Shared TypeScript types
 │   ├── auth/              # Auth utilities (React + Fastify)
-│   ├── ui/                # Shared UI components
+│   ├── ui/                # Shared UI components (being replaced by rialto)
 │   └── config/            # ESLint/TypeScript/Prettier configs
 └── infrastructure/         # Infrastructure as Code
     └── pulumi/            # Pulumi (TypeScript)
