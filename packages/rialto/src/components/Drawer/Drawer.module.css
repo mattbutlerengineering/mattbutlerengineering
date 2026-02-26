@@ -1,0 +1,172 @@
+/* ── Overlay ──────────────────────────────────── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: var(--rialto-overlay);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* ── Panel base ──────────────────────────────── */
+.panel {
+  composes: glass from '../../styles/surfaces.module.css';
+
+  position: fixed;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+:global([data-theme='dark']) .panel {
+  background: var(--rialto-surface-elevated);
+}
+
+/* ── Side: right ─────────────────────────────── */
+.right {
+  top: 0;
+  inset-inline-end: 0;
+  bottom: 0;
+  width: min(400px, calc(100vw - 48px));
+  border-inline-start: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-soft) 0 0 var(--rialto-radius-soft);
+  box-shadow:
+    -16px 0 48px rgb(0 0 0 / 0.15),
+    -4px 0 12px rgb(0 0 0 / 0.08);
+}
+
+/* ── Side: left ──────────────────────────────── */
+.left {
+  top: 0;
+  inset-inline-start: 0;
+  bottom: 0;
+  width: min(400px, calc(100vw - 48px));
+  border-inline-end: 1px solid var(--rialto-border);
+  border-radius: 0 var(--rialto-radius-soft) var(--rialto-radius-soft) 0;
+  box-shadow:
+    16px 0 48px rgb(0 0 0 / 0.15),
+    4px 0 12px rgb(0 0 0 / 0.08);
+}
+
+/* ── Side: bottom ────────────────────────────── */
+.bottom {
+  inset-inline-start: 0;
+  inset-inline-end: 0;
+  bottom: 0;
+  height: min(50vh, 480px);
+  border-top: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-soft) var(--rialto-radius-soft) 0 0;
+  box-shadow:
+    0 -16px 48px rgb(0 0 0 / 0.15),
+    0 -4px 12px rgb(0 0 0 / 0.08);
+}
+
+/* ── Size: wide ──────────────────────────────── */
+.wide.right,
+.wide.left {
+  width: min(560px, calc(100vw - 48px));
+}
+
+.wide.bottom {
+  height: min(65vh, 640px);
+}
+
+/* ── Size: full ──────────────────────────────── */
+.full.right,
+.full.left {
+  width: 100vw;
+  border-radius: 0;
+}
+
+.full.bottom {
+  height: 100vh;
+  border-radius: 0;
+}
+
+/* ── Header ──────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--rialto-space-md);
+  padding: var(--rialto-space-md) var(--rialto-space-lg);
+  border-bottom: 1px solid var(--rialto-border);
+  flex-shrink: 0;
+}
+
+.headerContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-2xs);
+}
+
+.title {
+  font-size: var(--rialto-text-lg);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-primary);
+  letter-spacing: var(--rialto-tracking-tight);
+  line-height: 1.3;
+}
+
+.description {
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-tertiary);
+  line-height: var(--rialto-leading-relaxed);
+}
+
+/* ── Close button ────────────────────────────── */
+.close {
+  composes: aluminum from '../../styles/surfaces.module.css';
+
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  color: var(--rialto-text-tertiary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    border-color 0.12s cubic-bezier(0.2, 0, 0, 1),
+    color 0.12s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.close:hover {
+  border-color: var(--rialto-border-strong);
+  color: var(--rialto-text-primary);
+}
+
+.close:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+}
+
+.closeIcon {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  fill: none;
+}
+
+/* ── Body ─────────────────────────────────────── */
+.body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--rialto-space-lg);
+}
+
+/* ── Footer ──────────────────────────────────── */
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--rialto-space-sm);
+  padding: var(--rialto-space-md) var(--rialto-space-lg);
+  border-top: 1px solid var(--rialto-border);
+  flex-shrink: 0;
+}

@@ -1,0 +1,42 @@
+/* ── Key cap ─────────────────────────────────── */
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 var(--rialto-space-2xs);
+  font-family: var(--rialto-font-mono);
+  font-size: 11px;
+  font-weight: var(--rialto-weight-medium);
+  line-height: 1;
+  color: var(--rialto-text-secondary);
+  background: linear-gradient(
+    180deg,
+    var(--rialto-surface-elevated) 0%,
+    var(--rialto-surface) 100%
+  );
+  border: 1px solid var(--rialto-border);
+  border-bottom-width: 2px;
+  border-bottom-color: var(--rialto-border-strong);
+  border-radius: var(--rialto-radius-sharp);
+  box-shadow:
+    0 1px 0 rgb(26 25 24 / 0.04),
+    inset 0 1px 0 rgb(255 255 255 / 0.15);
+  white-space: nowrap;
+  user-select: none;
+  vertical-align: baseline;
+}
+
+/* ── Shortcut group ──────────────────────────── */
+.shortcut {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.separator {
+  font-size: 10px;
+  color: var(--rialto-text-tertiary);
+  font-family: var(--rialto-font-mono);
+}

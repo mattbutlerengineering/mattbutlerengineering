@@ -1,0 +1,82 @@
+/* ── Container ───────────────────────────────── */
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-2xs);
+  isolation: isolate;
+}
+
+/* ── Shared button base ──────────────────────── */
+.page,
+.arrow {
+  position: relative;
+  z-index: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 var(--rialto-space-xs);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-surface-elevated);
+  font: inherit;
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+  cursor: pointer;
+  transition:
+    background 0.1s cubic-bezier(0.2, 0, 0, 1),
+    border-color 0.1s cubic-bezier(0.2, 0, 0, 1),
+    color 0.1s cubic-bezier(0.2, 0, 0, 1),
+    box-shadow 0.1s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.page:hover,
+.arrow:hover:not(:disabled) {
+  z-index: 1;
+  background: var(--rialto-surface-recessed);
+  color: var(--rialto-text-primary);
+}
+
+.page:focus-visible,
+.arrow:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--rialto-accent-glow);
+}
+
+/* ── Active page ─────────────────────────────── */
+.active {
+  background: var(--rialto-accent);
+  border-color: var(--rialto-accent);
+  color: white;
+  font-weight: var(--rialto-weight-medium);
+}
+
+.active:hover {
+  background: var(--rialto-accent-hover);
+  border-color: var(--rialto-accent-hover);
+  color: white;
+}
+
+/* ── Arrow buttons ───────────────────────────── */
+.arrow:disabled {
+  filter: saturate(0.6) brightness(0.95);
+  cursor: not-allowed;
+}
+
+[dir='rtl'] .arrow svg {
+  transform: scaleX(-1);
+}
+
+/* ── Ellipsis ────────────────────────────────── */
+.ellipsis {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-tertiary);
+  letter-spacing: 0.1em;
+  cursor: default;
+}

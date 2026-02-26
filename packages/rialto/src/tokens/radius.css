@@ -1,0 +1,13 @@
+:root {
+  /* ── Radius (hierarchy-based) ──────────────── */
+  /* Square corners, no rounding */
+  --rialto-radius-none: 0;
+  /* Chips, badges, small inline elements */
+  --rialto-radius-sharp: 2px;
+  /* Buttons, inputs, standard interactive elements */
+  --rialto-radius-default: 6px;
+  /* Cards, dialogs, containers */
+  --rialto-radius-soft: 10px;
+  /* Pills, avatars, full-round elements */
+  --rialto-radius-round: 9999px;
+}

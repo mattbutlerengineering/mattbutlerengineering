@@ -1,0 +1,75 @@
+/* ── Nav wrapper ─────────────────────────────── */
+.nav {
+  display: flex;
+  align-items: center;
+}
+
+/* ── Ordered list ────────────────────────────── */
+.list {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-2xs);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Item ────────────────────────────────────── */
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-2xs);
+}
+
+/* ── Link ────────────────────────────────────── */
+.link {
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+  text-decoration: none;
+  border-radius: var(--rialto-radius-sharp);
+  padding: 4px 4px;
+  margin: -4px -4px;
+  cursor: pointer;
+  transition:
+    color 0.1s cubic-bezier(0.2, 0, 0, 1),
+    background 0.1s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.link:hover {
+  color: var(--rialto-accent);
+  background: var(--rialto-accent-muted);
+}
+
+.link:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--rialto-accent-glow);
+}
+
+/* ── Current page (non-interactive) ──────────── */
+.current {
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-primary);
+  padding: 2px 0;
+}
+
+/* ── Separator chevron ───────────────────────── */
+.separator {
+  display: flex;
+  align-items: center;
+  color: var(--rialto-text-tertiary);
+  flex-shrink: 0;
+}
+
+[dir='rtl'] .separator svg {
+  transform: scaleX(-1);
+}
+
+/* ── Ellipsis (collapsed items) ──────────────── */
+.ellipsis {
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-tertiary);
+  padding: 2px 2px;
+  cursor: default;
+  letter-spacing: 0.1em;
+}

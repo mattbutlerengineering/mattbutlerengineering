@@ -1,0 +1,64 @@
+.collapsible {
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-soft);
+  overflow: hidden;
+}
+
+.trigger {
+  composes: focusRing from '../../styles/surfaces.module.css';
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--rialto-space-md);
+  width: 100%;
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-primary);
+  text-align: start;
+  background: var(--rialto-surface-elevated);
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.trigger:hover {
+  background: var(--rialto-surface);
+}
+
+.trigger[data-open='true'] {
+  color: var(--rialto-accent);
+}
+
+.trigger[aria-disabled='true'] {
+  filter: saturate(0.6) brightness(0.95);
+  cursor: not-allowed;
+}
+
+.triggerLabel {
+  flex: 1;
+  min-width: 0;
+}
+
+.chevron {
+  flex-shrink: 0;
+  color: var(--rialto-text-tertiary);
+  transition: color 0.15s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.trigger[data-open='true'] .chevron {
+  color: var(--rialto-accent);
+}
+
+.content {
+  overflow: hidden;
+}
+
+.contentInner {
+  padding: 0 var(--rialto-space-md) var(--rialto-space-md);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+  line-height: var(--rialto-leading-relaxed);
+}

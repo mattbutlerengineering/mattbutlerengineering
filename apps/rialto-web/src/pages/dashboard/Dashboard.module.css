@@ -1,0 +1,96 @@
+/* ── Dashboard ────────────────────────────────
+   Pit wall telemetry view — PageHeader component
+   followed by standard surface content area.
+   ──────────────────────────────────────────── */
+
+.page {
+  min-height: 100vh;
+  background: var(--rialto-surface);
+}
+
+/* ── Content ──────────────────────────────── */
+.content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--rialto-space-xl);
+}
+
+/* ── Stat cards row ───────────────────────── */
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--rialto-space-md);
+}
+
+/* ── Main grid ────────────────────────────── */
+.mainGrid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--rialto-space-md);
+  margin-top: var(--rialto-space-md);
+}
+
+/* ── Tab panel spacing ────────────────────── */
+.tabPanel {
+  padding-top: var(--rialto-space-sm);
+}
+
+/* ── Footer ───────────────────────────────── */
+.footer {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--rialto-space-xl) var(--rialto-space-xl) var(--rialto-space-2xl);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.footerLink {
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-tertiary);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.footerLink:hover {
+  color: var(--rialto-accent-hover);
+}
+
+.footerLink:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+  border-radius: var(--rialto-radius-sharp);
+}
+
+/* ── Responsive ───────────────────────────── */
+
+/* Tablet: 768–1024px */
+@media (max-width: 1024px) {
+  .statGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .mainGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Mobile: <768px */
+@media (max-width: 767px) {
+  .content {
+    padding: var(--rialto-space-md);
+  }
+
+  .statGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .footer {
+    flex-direction: column;
+    gap: var(--rialto-space-sm);
+    text-align: center;
+    padding: var(--rialto-space-lg) var(--rialto-space-md)
+      var(--rialto-space-xl);
+  }
+}

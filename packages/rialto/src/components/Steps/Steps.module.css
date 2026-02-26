@@ -1,0 +1,223 @@
+/* ── Horizontal layout ───────────────────────── */
+.horizontal {
+  display: flex;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.horizontal .step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+/* Connector line — horizontal */
+.horizontal .step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 14px;
+  inset-inline-start: calc(50% + 18px);
+  inset-inline-end: calc(-50% + 18px);
+  height: 2px;
+  background: var(--rialto-border);
+  transition: background 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.horizontal .step.completed:not(:last-child)::after {
+  background: var(--rialto-accent);
+}
+
+/* ── Vertical layout ────────────────────────── */
+.vertical {
+  display: flex;
+  flex-direction: column;
+}
+
+.vertical .step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--rialto-space-md);
+  position: relative;
+  padding-bottom: var(--rialto-space-lg);
+}
+
+/* Connector line — vertical */
+.vertical .step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 32px;
+  inset-inline-start: 13px;
+  bottom: 0;
+  width: 2px;
+  background: var(--rialto-border);
+  transition: background 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.vertical .step.completed:not(:last-child)::after {
+  background: var(--rialto-accent);
+}
+
+/* ── Node (the circle) ───────────────────────── */
+.node {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--rialto-radius-round);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 2px solid var(--rialto-border);
+  background: var(--rialto-surface);
+  color: var(--rialto-text-tertiary);
+  font-family: var(--rialto-font-mono);
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-medium);
+  transition:
+    border-color 0.3s cubic-bezier(0.2, 0, 0, 1),
+    background 0.3s cubic-bezier(0.2, 0, 0, 1),
+    color 0.3s cubic-bezier(0.2, 0, 0, 1),
+    box-shadow 0.3s cubic-bezier(0.2, 0, 0, 1);
+  position: relative;
+  z-index: 1;
+}
+
+/* Completed: gold filled */
+.completed .node {
+  border-color: var(--rialto-accent);
+  background: var(--rialto-accent);
+  color: white;
+}
+
+/* Current: gold ring with glow */
+.current .node {
+  border-color: var(--rialto-accent);
+  color: var(--rialto-accent);
+  box-shadow:
+    0 0 0 3px var(--rialto-surface),
+    0 0 0 5px rgb(196 146 42 / 0.3),
+    0 0 12px rgb(196 146 42 / 0.15);
+}
+
+/* Check mark icon */
+.checkIcon {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+/* ── Content (label + description) ───────────── */
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.horizontal .content {
+  align-items: center;
+  margin-top: var(--rialto-space-xs);
+}
+
+.vertical .content {
+  padding-top: 3px;
+}
+
+.stepLabel {
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-tertiary);
+  transition: color 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.completed .stepLabel,
+.current .stepLabel {
+  color: var(--rialto-text-primary);
+}
+
+.current .stepLabel {
+  color: var(--rialto-accent);
+}
+
+.stepDescription {
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-tertiary);
+  max-width: 160px;
+}
+
+.horizontal .stepDescription {
+  text-align: center;
+}
+
+/* ── Clickable steps ─────────────────────────── */
+.stepButton {
+  all: unset;
+  display: contents;
+  cursor: pointer;
+}
+
+.clickable {
+  cursor: pointer;
+}
+
+.clickable .node:hover {
+  border-color: var(--rialto-accent-hover);
+}
+
+.clickable.completed .node:hover {
+  background: var(--rialto-accent-hover);
+}
+
+/* ── Compact size ────────────────────────────── */
+.compact .node {
+  width: 24px;
+  height: 24px;
+  font-size: 10px;
+}
+
+.compact .checkIcon {
+  width: 11px;
+  height: 11px;
+}
+
+.compact .stepLabel {
+  font-size: var(--rialto-text-xs);
+}
+
+.compact .stepDescription {
+  display: none;
+}
+
+.horizontal.compact .step:not(:last-child)::after {
+  top: 11px;
+  inset-inline-start: calc(50% + 15px);
+  inset-inline-end: calc(-50% + 15px);
+}
+
+.vertical.compact .step:not(:last-child)::after {
+  top: 26px;
+  inset-inline-start: 10px;
+}
+
+/* ── Responsive: horizontal → stacked on mobile ─ */
+@media (max-width: 640px) {
+  .horizontal .stepDescription {
+    display: none;
+  }
+
+  .horizontal .content {
+    margin-top: var(--rialto-space-2xs);
+  }
+
+  .horizontal .stepLabel {
+    font-size: var(--rialto-text-xs);
+  }
+}
+
+.vertical.compact .step {
+  padding-bottom: var(--rialto-space-md);
+}

@@ -1,0 +1,77 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--rialto-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--rialto-space-lg);
+  z-index: 100;
+}
+
+.panel {
+  composes: glass from '../../styles/surfaces.module.css';
+
+  width: 100%;
+  max-width: 480px;
+  border-radius: var(--rialto-radius-soft);
+  padding: var(--rialto-space-lg);
+  position: relative;
+  max-height: calc(100dvh - var(--rialto-space-4xl));
+  overflow-y: auto;
+}
+
+:global([data-theme='dark']) .panel {
+  background: var(--rialto-surface-elevated);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--rialto-space-md);
+  margin-bottom: var(--rialto-space-md);
+}
+
+.title {
+  font-size: var(--rialto-text-md);
+  font-weight: var(--rialto-weight-medium);
+  letter-spacing: var(--rialto-tracking-tight);
+  color: var(--rialto-text-primary);
+}
+
+.description {
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+  line-height: var(--rialto-leading-relaxed);
+  margin-bottom: var(--rialto-space-lg);
+}
+
+.close {
+  composes: focusRing from '../../styles/surfaces.module.css';
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--rialto-radius-default);
+  color: var(--rialto-text-tertiary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background 0.15s cubic-bezier(0.2, 0, 0, 1),
+    color 0.15s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.close:hover {
+  background: var(--rialto-surface-recessed);
+  color: var(--rialto-text-primary);
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--rialto-space-xs);
+  margin-top: var(--rialto-space-lg);
+}

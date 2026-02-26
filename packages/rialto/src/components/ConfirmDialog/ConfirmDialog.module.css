@@ -1,0 +1,46 @@
+.button {
+  composes: focusRing from '../../styles/surfaces.module.css';
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--rialto-space-xs) var(--rialto-space-md);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  border-radius: var(--rialto-radius-default);
+  cursor: pointer;
+  border: none;
+  transition:
+    background 0.15s cubic-bezier(0.2, 0, 0, 1),
+    color 0.15s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.cancel {
+  background: var(--rialto-surface-recessed);
+  color: var(--rialto-text-secondary);
+  border: 1px solid var(--rialto-border);
+}
+
+.cancel:hover {
+  background: var(--rialto-surface);
+  color: var(--rialto-text-primary);
+}
+
+.confirm.default {
+  background: var(--rialto-accent);
+  color: var(--rialto-text-on-accent);
+}
+
+.confirm.default:hover {
+  background: var(--rialto-accent-hover);
+}
+
+.confirm.destructive {
+  background: var(--rialto-error);
+  color: var(--rialto-text-on-accent);
+}
+
+.confirm.destructive:hover {
+  filter: brightness(1.1);
+}

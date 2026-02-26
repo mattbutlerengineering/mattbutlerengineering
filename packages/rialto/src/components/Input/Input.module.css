@@ -1,0 +1,119 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-2xs);
+}
+
+.label {
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-secondary);
+  letter-spacing: var(--rialto-tracking-wide);
+}
+
+.input {
+  composes: recessed from '../../styles/surfaces.module.css';
+  composes: focusRing from '../../styles/surfaces.module.css';
+
+  width: 100%;
+  padding: var(--rialto-space-xs) var(--rialto-space-sm);
+  border-radius: var(--rialto-radius-default);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-base);
+  font-weight: var(--rialto-weight-regular);
+  color: var(--rialto-text-primary);
+  transition:
+    border-color 0.15s cubic-bezier(0.2, 0, 0, 1),
+    box-shadow 0.15s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.input::placeholder {
+  color: var(--rialto-text-tertiary);
+}
+
+.input:hover {
+  border-color: var(--rialto-border-strong);
+}
+
+.input:focus-visible {
+  border-color: var(--rialto-accent);
+}
+
+.input[aria-disabled='true'] {
+  filter: saturate(0.6) brightness(0.95);
+  cursor: not-allowed;
+}
+
+.inputContainer {
+  position: relative;
+}
+
+/* ── Icon slots ──────────────────────────────── */
+.startIcon,
+.endIcon {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--rialto-text-tertiary);
+  pointer-events: none;
+}
+
+.startIcon {
+  inset-inline-start: var(--rialto-space-sm);
+}
+
+.endIcon {
+  inset-inline-end: var(--rialto-space-sm);
+}
+
+.inputWithStartIcon {
+  padding-inline-start: 36px;
+}
+
+.inputWithEndIcon {
+  padding-inline-end: 36px;
+}
+
+.lockIcon {
+  position: absolute;
+  inset-inline-end: var(--rialto-space-xs);
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* ── Error state ─────────────────────────────── */
+.error .input {
+  border-color: var(--rialto-error);
+}
+
+.error .input:focus-visible {
+  box-shadow:
+    0 0 0 2px var(--rialto-surface),
+    0 0 0 4px var(--rialto-error),
+    0 0 12px rgb(184 74 60 / 0.2);
+}
+
+.hint {
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-tertiary);
+}
+
+.error .hint {
+  color: var(--rialto-error);
+}
+
+/* ── Required / optional indicators ──────────── */
+.required {
+  color: var(--rialto-error);
+}
+
+.optional {
+  color: var(--rialto-text-tertiary);
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-regular);
+}

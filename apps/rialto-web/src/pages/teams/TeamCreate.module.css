@@ -1,0 +1,78 @@
+/* ── Wizard layout ──────────────────────────── */
+.wizardCard {
+  max-width: 640px;
+}
+
+.steps {
+  max-width: 640px;
+  margin-bottom: var(--rialto-space-lg);
+}
+
+/* ── Form layout (mirrors DriverForm) ───────── */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+}
+
+.fieldRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--rialto-space-md);
+}
+
+.formActions {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+  padding-top: var(--rialto-space-sm);
+  border-top: 1px solid var(--rialto-border);
+}
+
+.formActions > :last-child {
+  margin-inline-start: auto;
+}
+
+/* ── Review step ────────────────────────────── */
+.reviewGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+}
+
+.reviewHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.reviewTitle {
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-primary);
+  letter-spacing: var(--rialto-tracking-wide);
+}
+
+.reviewRow {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--rialto-space-2xs) 0;
+  border-bottom: 1px solid var(--rialto-border);
+  font-size: var(--rialto-text-sm);
+}
+
+.reviewLabel {
+  color: var(--rialto-text-tertiary);
+}
+
+.reviewValue {
+  color: var(--rialto-text-primary);
+  font-weight: var(--rialto-weight-medium);
+}
+
+/* ── Responsive ─────────────────────────────── */
+@media (max-width: 640px) {
+  .fieldRow {
+    grid-template-columns: 1fr;
+  }
+}

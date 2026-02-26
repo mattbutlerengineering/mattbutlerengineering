@@ -1,0 +1,49 @@
+{
+  "spacing": {
+    "2xs": {
+      "$value": "4px",
+      "$type": "dimension",
+      "$description": "Icon padding, tight chip internals"
+    },
+    "xs": {
+      "$value": "8px",
+      "$type": "dimension",
+      "$description": "Badge padding, tight gaps"
+    },
+    "sm": {
+      "$value": "12px",
+      "$type": "dimension",
+      "$description": "Button padding"
+    },
+    "md": {
+      "$value": "16px",
+      "$type": "dimension",
+      "$description": "Default component padding"
+    },
+    "lg": {
+      "$value": "24px",
+      "$type": "dimension",
+      "$description": "Card padding, between components"
+    },
+    "xl": {
+      "$value": "32px",
+      "$type": "dimension",
+      "$description": "Between card groups"
+    },
+    "2xl": {
+      "$value": "48px",
+      "$type": "dimension",
+      "$description": "Section spacing"
+    },
+    "3xl": {
+      "$value": "64px",
+      "$type": "dimension",
+      "$description": "Major page sections"
+    },
+    "4xl": {
+      "$value": "96px",
+      "$type": "dimension",
+      "$description": "Hero spacing"
+    }
+  }
+}

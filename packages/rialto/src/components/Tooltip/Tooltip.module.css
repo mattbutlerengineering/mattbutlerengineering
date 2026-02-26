@@ -1,0 +1,58 @@
+.wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.tooltip {
+  composes: glass from '../../styles/surfaces.module.css';
+
+  position: absolute;
+  z-index: 50;
+  padding: var(--rialto-space-2xs) var(--rialto-space-xs);
+  border-radius: var(--rialto-radius-default);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-primary);
+  white-space: nowrap;
+  pointer-events: none;
+  width: max-content;
+  max-width: 240px;
+}
+
+:global([data-theme='dark']) .tooltip {
+  background: var(--rialto-surface-elevated);
+}
+
+/* ── Placement ───────────────────────────────── */
+.top {
+  bottom: calc(100% + 6px);
+  inset-inline-start: 50%;
+  transform-origin: center bottom;
+}
+
+.bottom {
+  top: calc(100% + 6px);
+  inset-inline-start: 50%;
+  transform-origin: center top;
+}
+
+.left {
+  inset-inline-end: calc(100% + 6px);
+  top: 50%;
+  transform-origin: right center;
+}
+
+.right {
+  inset-inline-start: calc(100% + 6px);
+  top: 50%;
+  transform-origin: left center;
+}
+
+[dir='rtl'] .left {
+  transform-origin: left center;
+}
+
+[dir='rtl'] .right {
+  transform-origin: right center;
+}

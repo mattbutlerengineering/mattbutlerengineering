@@ -1,0 +1,123 @@
+/* ── Scroll wrapper ──────────────────────────── */
+.wrapper {
+  overflow-x: auto;
+  border-radius: var(--rialto-radius-soft);
+  border: 1px solid var(--rialto-border);
+}
+
+/* ── Table ───────────────────────────────────── */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--rialto-text-sm);
+  text-align: start;
+}
+
+/* ── Header ──────────────────────────────────── */
+.thead {
+  background: linear-gradient(
+    180deg,
+    var(--rialto-surface-elevated) 0%,
+    var(--rialto-surface) 100%
+  );
+}
+
+.th {
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-tertiary);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--rialto-border);
+  user-select: none;
+}
+
+/* ── Sortable header ─────────────────────────── */
+.sortable {
+  cursor: pointer;
+  transition: color 0.1s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.sortable:hover {
+  color: var(--rialto-text-secondary);
+}
+
+.sortable:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--rialto-accent-glow);
+}
+
+.sortActive {
+  color: var(--rialto-accent);
+}
+
+.sortActive:hover {
+  color: var(--rialto-accent-hover);
+}
+
+.sortIcon {
+  display: inline-flex;
+  align-items: center;
+  margin-inline-start: var(--rialto-space-2xs);
+  vertical-align: middle;
+}
+
+/* ── Body ────────────────────────────────────── */
+.td {
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  color: var(--rialto-text-primary);
+  border-bottom: 1px solid var(--rialto-border);
+}
+
+.tr:last-child .td {
+  border-bottom: none;
+}
+
+/* ── Row hover ───────────────────────────────── */
+.tr {
+  transition: background 0.1s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.tr:hover {
+  background: rgb(196 146 42 / 0.02);
+}
+
+/* ── Striped rows ────────────────────────────── */
+.striped .tr:nth-child(even) {
+  background: var(--rialto-surface-recessed);
+}
+
+.striped .tr:nth-child(even):hover {
+  background: rgb(196 146 42 / 0.04);
+}
+
+/* ── Density ─────────────────────────────────── */
+.compact .th,
+.compact .td {
+  padding: var(--rialto-space-2xs) var(--rialto-space-sm);
+  font-size: var(--rialto-text-xs);
+}
+
+.spacious .th,
+.spacious .td {
+  padding: var(--rialto-space-md) var(--rialto-space-md);
+}
+
+/* ── Alignment helpers ───────────────────────── */
+.alignRight {
+  text-align: end;
+}
+
+.alignCenter {
+  text-align: center;
+}
+
+/* ── Empty state ─────────────────────────────── */
+.empty {
+  padding: var(--rialto-space-xl) var(--rialto-space-md);
+  text-align: center;
+  color: var(--rialto-text-tertiary);
+  font-size: var(--rialto-text-sm);
+}

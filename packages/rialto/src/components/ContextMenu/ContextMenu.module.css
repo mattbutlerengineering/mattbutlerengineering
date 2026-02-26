@@ -1,0 +1,96 @@
+.menu {
+  composes: glass from '../../styles/surfaces.module.css';
+
+  position: fixed;
+  z-index: 200;
+  min-width: 180px;
+  padding: var(--rialto-space-2xs) 0;
+  border-radius: var(--rialto-radius-soft);
+  transform-origin: top left;
+}
+
+[dir='rtl'] .menu {
+  transform-origin: top right;
+}
+
+:global([data-theme='dark']) .menu {
+  background: var(--rialto-surface-elevated);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+  width: 100%;
+  padding: var(--rialto-space-xs) var(--rialto-space-md);
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-primary);
+  text-align: start;
+  cursor: pointer;
+  transition:
+    background 0.1s cubic-bezier(0.2, 0, 0, 1),
+    color 0.1s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.item:hover,
+.item:focus-visible {
+  background: var(--rialto-surface-recessed);
+  outline: none;
+}
+
+.item[data-active='true'] {
+  background: var(--rialto-surface-recessed);
+}
+
+.item:disabled {
+  color: var(--rialto-text-tertiary);
+  cursor: not-allowed;
+}
+
+.destructive {
+  color: var(--rialto-error);
+}
+
+.destructive:hover,
+.destructive:focus-visible,
+.destructive[data-active='true'] {
+  background: rgb(180 60 50 / 0.08);
+  color: var(--rialto-error);
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--rialto-text-tertiary);
+}
+
+.shortcut {
+  margin-inline-start: auto;
+  font-size: var(--rialto-text-xs);
+  font-family: var(--rialto-font-mono);
+  color: var(--rialto-text-tertiary);
+  letter-spacing: 0.02em;
+}
+
+.label {
+  padding: var(--rialto-space-xs) var(--rialto-space-md);
+  padding-top: var(--rialto-space-sm);
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-tertiary);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.divider {
+  height: 1px;
+  margin: var(--rialto-space-2xs) 0;
+  background: var(--rialto-border);
+}

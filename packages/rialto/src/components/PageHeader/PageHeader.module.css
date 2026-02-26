@@ -1,0 +1,79 @@
+/* ── PageHeader ───────────────────────────────
+   Dark header band with breadcrumbs, title, and
+   action buttons. Uses darkSurface token override
+   so child components adapt automatically.
+   ──────────────────────────────────────────────── */
+
+.header {
+  composes: darkSurface from '../../styles/surfaces.module.css';
+  padding: var(--rialto-space-xl) var(--rialto-space-lg);
+}
+
+.atmosphere {
+  composes: atmosphere from '../../styles/surfaces.module.css';
+}
+
+.grain {
+  composes: grain from '../../styles/surfaces.module.css';
+}
+
+.inner {
+  position: relative;
+  z-index: 1;
+  max-width: 1200px;
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+}
+
+/* ── Title row ──────────────────────────────── */
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-md);
+  flex-wrap: wrap;
+}
+
+.title {
+  font-size: var(--rialto-text-2xl);
+  font-weight: 300;
+  letter-spacing: var(--rialto-tracking-tight);
+  color: var(--rialto-text-primary);
+  margin: 0;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+}
+
+.actions {
+  margin-inline-start: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+}
+
+/* ── Extra content ──────────────────────────── */
+.extra {
+  margin-block-start: var(--rialto-space-xs);
+}
+
+/* ── Responsive ─────────────────────────────── */
+@media (max-width: 768px) {
+  .title {
+    font-size: var(--rialto-text-xl);
+  }
+
+  .actions {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .header {
+    padding: var(--rialto-space-lg) var(--rialto-space-md);
+  }
+}

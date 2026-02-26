@@ -1,0 +1,116 @@
+/* ── Tag ─────────────────────────────────────── */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--rialto-space-2xs);
+  height: 26px;
+  padding: 0 var(--rialto-space-sm);
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-secondary);
+  background: var(--rialto-surface-recessed);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-sharp);
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* ── Variants ────────────────────────────────── */
+.accent {
+  background: var(--rialto-accent-muted);
+  border-color: rgb(196 146 42 / 0.2);
+  color: var(--rialto-accent);
+}
+
+.success {
+  background: rgb(76 140 74 / 0.08);
+  border-color: rgb(76 140 74 / 0.2);
+  color: var(--rialto-success);
+}
+
+.error {
+  background: rgb(180 60 50 / 0.08);
+  border-color: rgb(180 60 50 / 0.2);
+  color: var(--rialto-error);
+}
+
+/* ── Interactive (clickable) ─────────────────── */
+.interactive {
+  cursor: pointer;
+  transition:
+    background 0.1s cubic-bezier(0.2, 0, 0, 1),
+    border-color 0.1s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.interactive:hover {
+  background: var(--rialto-surface-matte);
+  border-color: var(--rialto-border-strong);
+}
+
+.interactive.accent:hover {
+  background: rgb(196 146 42 / 0.15);
+}
+
+.interactive:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--rialto-accent-glow);
+}
+
+/* ── Selected state ──────────────────────────── */
+.selected {
+  background: var(--rialto-accent);
+  border-color: var(--rialto-accent);
+  color: white;
+}
+
+.selected:hover {
+  background: var(--rialto-accent-hover);
+  border-color: var(--rialto-accent-hover);
+}
+
+/* ── Dismiss button ──────────────────────────── */
+.dismiss {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-inline-end: calc(-1 * var(--rialto-space-xs));
+  border: none;
+  background: none;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+  border-radius: var(--rialto-radius-sharp);
+  transition:
+    opacity 0.1s cubic-bezier(0.2, 0, 0, 1),
+    box-shadow 0.1s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.dismiss:hover {
+  opacity: 1;
+}
+
+.dismiss:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+  opacity: 1;
+}
+
+/* ── Icon slot ───────────────────────────────── */
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  margin-inline-start: calc(-1 * var(--rialto-space-2xs));
+  flex-shrink: 0;
+}
+
+/* ── Tag group ───────────────────────────────── */
+.group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-2xs);
+}

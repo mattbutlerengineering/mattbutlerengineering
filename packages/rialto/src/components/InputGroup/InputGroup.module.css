@@ -1,0 +1,32 @@
+.group {
+  display: inline-flex;
+  align-items: stretch;
+}
+
+/* Strip border-radius from all children */
+.group > * {
+  border-radius: 0;
+}
+
+/* Restore start-radius on first child */
+.group > *:first-child {
+  border-start-start-radius: var(--rialto-radius-default);
+  border-end-start-radius: var(--rialto-radius-default);
+}
+
+/* Restore end-radius on last child */
+.group > *:last-child {
+  border-start-end-radius: var(--rialto-radius-default);
+  border-end-end-radius: var(--rialto-radius-default);
+}
+
+/* Collapse double borders between siblings */
+.group > * + * {
+  margin-inline-start: -1px;
+}
+
+/* Focused child renders on top */
+.group > *:focus-within {
+  z-index: 1;
+  position: relative;
+}

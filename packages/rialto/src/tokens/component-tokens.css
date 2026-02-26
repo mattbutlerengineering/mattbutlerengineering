@@ -1,0 +1,240 @@
+/**
+ * Rialto Component Tokens
+ * 
+ * Tier 3: Component-scoped tokens
+ * These tokens are scoped to specific components and reference semantic tokens.
+ * Use these for component-specific styling to maintain consistency.
+ * 
+ * Tier Reference:
+ * - Tier 1 (Primitive): src/tokens/colors.css - Raw values like #fdfcfa
+ * - Tier 2 (Semantic): src/tokens/colors.css - Context like --rialto-surface-elevated
+ * - Tier 3 (Component): This file - Component-specific like --rialto-button-primary-bg
+ */
+
+:root {
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * BUTTON
+   * ═══════════════════════════════════════════════════════════════════════════ */
+
+  /* Primary Button */
+  --rialto-button-primary-bg: var(--rialto-accent);
+  --rialto-button-primary-bg-hover: var(--rialto-accent-hover);
+  --rialto-button-primary-text: var(--rialto-text-on-accent);
+  --rialto-button-primary-border: transparent;
+
+  /* Secondary Button */
+  --rialto-button-secondary-bg: var(--rialto-surface-elevated);
+  --rialto-button-secondary-bg-hover: var(--rialto-surface-recessed);
+  --rialto-button-secondary-text: var(--rialto-text-primary);
+  --rialto-button-secondary-border: var(--rialto-border);
+
+  /* Ghost Button */
+  --rialto-button-ghost-bg: transparent;
+  --rialto-button-ghost-bg-hover: var(--rialto-surface-recessed);
+  --rialto-button-ghost-text: var(--rialto-text-secondary);
+  --rialto-button-ghost-border: transparent;
+
+  /* Destructive Button */
+  --rialto-button-destructive-bg: var(--rialto-error);
+  --rialto-button-destructive-bg-hover: #c85a50;
+  --rialto-button-destructive-text: var(--rialto-text-on-accent);
+  --rialto-button-destructive-border: transparent;
+
+  /* Button Sizes */
+  --rialto-button-sm-height: 32px;
+  --rialto-button-md-height: 40px;
+  --rialto-button-lg-height: 48px;
+  --rialto-button-sm-padding-x: var(--rialto-space-sm);
+  --rialto-button-md-padding-x: var(--rialto-space-md);
+  --rialto-button-lg-padding-x: var(--rialto-space-lg);
+  --rialto-button-radius: var(--rialto-radius-default);
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * INPUT
+   * ═══════════════════════════════════════════════════════════════════════════ */
+
+  /* Input Field */
+  --rialto-input-bg: var(--rialto-surface-recessed);
+  --rialto-input-bg-hover: var(--rialto-surface-recessed);
+  --rialto-input-bg-focus: var(--rialto-surface-elevated);
+  --rialto-input-border: var(--rialto-border);
+  --rialto-input-border-hover: var(--rialto-border-strong);
+  --rialto-input-border-focus: var(--rialto-accent);
+  --rialto-input-text: var(--rialto-text-primary);
+  --rialto-input-placeholder: var(--rialto-text-tertiary);
+  --rialto-input-radius: var(--rialto-radius-default);
+
+  /* Input Sizes */
+  --rialto-input-sm-height: 32px;
+  --rialto-input-md-height: 40px;
+  --rialto-input-lg-height: 48px;
+  --rialto-input-sm-padding-x: var(--rialto-space-sm);
+  --rialto-input-md-padding-x: var(--rialto-space-sm);
+  --rialto-input-lg-padding-x: var(--rialto-space-md);
+
+  /* Input Error State */
+  --rialto-input-error-bg: var(--rialto-error-muted);
+  --rialto-input-error-border: var(--rialto-error);
+  --rialto-input-error-text: var(--rialto-error);
+
+  /* Input Label */
+  --rialto-input-label-text: var(--rialto-text-secondary);
+  --rialto-input-label-size: var(--rialto-text-sm);
+  --rialto-input-hint-text: var(--rialto-text-tertiary);
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * TOGGLE / SWITCH
+   * ═══════════════════════════════════════════════════════════════════════════ */
+
+  /* Track */
+  --rialto-toggle-track-width: 44px;
+  --rialto-toggle-track-height: 24px;
+  --rialto-toggle-track-radius: 12px;
+  --rialto-toggle-track-off-bg: var(--rialto-surface-recessed);
+  --rialto-toggle-track-on-bg: var(--rialto-accent);
+
+  /* Knob */
+  --rialto-toggle-knob-size: 20px;
+  --rialto-toggle-knob-off-bg: var(--rialto-surface-elevated);
+  --rialto-toggle-knob-on-bg: var(--rialto-text-on-accent);
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * CHECKBOX & RADIO
+   * ═══════════════════════════════════════════════════════════════════════════ */
+
+  /* Checkbox */
+  --rialto-checkbox-size: 18px;
+  --rialto-checkbox-radius: var(--rialto-radius-sharp);
+  --rialto-checkbox-border: var(--rialto-border-strong);
+  --rialto-checkbox-bg: var(--rialto-surface-elevated);
+  --rialto-checkbox-check-color: var(--rialto-accent);
+  --rialto-checkbox-check-width: 5px;
+
+  /* Radio */
+  --rialto-radio-size: 18px;
+  --rialto-radio-border: var(--rialto-border-strong);
+  --rialto-radio-bg: var(--rialto-surface-elevated);
+  --rialto-radio-selected-bg: var(--rialto-accent);
+  --rialto-radio-selected-size: 10px;
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * CARD
+   * ═══════════════════════════════════════════════════════════════════════════ */
+
+  /* Elevated (default) */
+  --rialto-card-elevated-bg: var(--rialto-surface-elevated);
+  --rialto-card-elevated-border: var(--rialto-border);
+  --rialto-card-elevated-shadow: var(--rialto-shadow-elevated);
+
+  /* Glass */
+  --rialto-card-glass-bg: rgb(253 252 250 / 0.7);
+  --rialto-card-glass-border: rgb(255 255 255 / 0.15);
+  --rialto-card-glass-backdrop: blur(20px);
+
+  /* Flat */
+  --rialto-card-flat-bg: var(--rialto-surface);
+  --rialto-card-flat-border: transparent;
+  --rialto-card-flat-shadow: none;
+
+  /* Card Sizes */
+  --rialto-card-padding: var(--rialto-space-lg);
+  --rialto-card-radius: var(--rialto-radius-soft);
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * DIALOG / MODAL
+   * ═══════════════════════════════════════════════════════════════════════════ */
+
+  --rialto-dialog-bg: var(--rialto-surface-elevated);
+  --rialto-dialog-border: var(--rialto-border);
+  --rialto-dialog-overlay: var(--rialto-overlay);
+  --rialto-dialog-max-width: 480px;
+  --rialto-dialog-padding: var(--rialto-space-lg);
+  --rialto-dialog-radius: var(--rialto-radius-soft);
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * BADGE
+   * ═══════════════════════════════════════════════════════════════════════════ */
+
+  /* Sizes */
+  --rialto-badge-sm-padding-x: 6px;
+  --rialto-badge-sm-padding-y: 2px;
+  --rialto-badge-sm-font-size: 11px;
+  --rialto-badge-md-padding-x: 8px;
+  --rialto-badge-md-padding-y: 2px;
+  --rialto-badge-md-font-size: 12px;
+  --rialto-badge-radius: var(--rialto-radius-sharp);
+
+  /* Variants */
+  --rialto-badge-neutral-bg: var(--rialto-surface-matte);
+  --rialto-badge-neutral-text: var(--rialto-text-secondary);
+  --rialto-badge-accent-bg: var(--rialto-accent);
+  --rialto-badge-accent-text: var(--rialto-text-on-accent);
+  --rialto-badge-success-bg: var(--rialto-success);
+  --rialto-badge-success-text: var(--rialto-text-on-accent);
+  --rialto-badge-error-bg: var(--rialto-error);
+  --rialto-badge-error-text: var(--rialto-text-on-accent);
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * TOAST / NOTIFICATION
+   * ═══════════════════════════════════════════════════════════════════════════ */
+
+  --rialto-toast-default-border: var(--rialto-border-strong);
+  --rialto-toast-success-border: var(--rialto-success);
+  --rialto-toast-success-bg: rgb(122 138 60 / 0.08);
+  --rialto-toast-error-border: var(--rialto-error);
+  --rialto-toast-error-bg: var(--rialto-error-muted);
+  --rialto-toast-accent-border: var(--rialto-accent);
+  --rialto-toast-accent-bg: var(--rialto-accent-muted);
+  --rialto-toast-padding: var(--rialto-space-sm) var(--rialto-space-md);
+  --rialto-toast-radius: var(--rialto-radius-soft);
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * TABS
+   * ═══════════════════════════════════════════════════════════════════════════ */
+
+  --rialto-tabs-indicator-height: 2px;
+  --rialto-tabs-indicator-color: var(--rialto-accent);
+  --rialto-tabs-padding-x: var(--rialto-space-sm);
+  --rialto-tabs-padding-y: var(--rialto-space-xs);
+  --rialto-tabs-text-active: var(--rialto-text-primary);
+  --rialto-tabs-text-inactive: var(--rialto-text-secondary);
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * SEGMENTED CONTROL
+   * ═══════════════════════════════════════════════════════════════════════════ */
+
+  --rialto-segmented-height-sm: 32px;
+  --rialto-segmented-height-md: 40px;
+  --rialto-segmented-indicator-bg: var(--rialto-accent);
+  --rialto-segmented-indicator-radius: var(--rialto-radius-round);
+  --rialto-segmented-text-active: var(--rialto-text-on-accent);
+  --rialto-segmented-text-inactive: var(--rialto-text-secondary);
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * AVATAR
+   * ═══════════════════════════════════════════════════════════════════════════ */
+
+  --rialto-avatar-sm-size: 32px;
+  --rialto-avatar-md-size: 40px;
+  --rialto-avatar-lg-size: 48px;
+  --rialto-avatar-xl-size: 64px;
+  --rialto-avatar-radius: 50%;
+  --rialto-avatar-status-size: 10px;
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * LINK / ANCHOR
+   * ═══════════════════════════════════════════════════════════════════════════ */
+
+  --rialto-link-color: var(--rialto-accent);
+  --rialto-link-color-hover: var(--rialto-accent-hover);
+  --rialto-link-text-decoration: none;
+  --rialto-link-text-decoration-hover: underline;
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * FOCUS RING (shared across components)
+   * ═══════════════════════════════════════════════════════════════════════════ */
+
+  --rialto-focus-ring-width: 2px;
+  --rialto-focus-ring-color: var(--rialto-accent-glow);
+  --rialto-focus-ring-offset: 2px;
+}

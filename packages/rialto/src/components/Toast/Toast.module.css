@@ -1,0 +1,158 @@
+/* ── Toast container (viewport-anchored) ─────── */
+.container {
+  position: fixed;
+  bottom: var(--rialto-space-lg);
+  inset-inline-end: var(--rialto-space-lg);
+  z-index: 200;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--rialto-space-xs);
+  pointer-events: none;
+  max-width: 380px;
+  width: 100%;
+}
+
+/* ── Individual toast ────────────────────────── */
+.toast {
+  composes: glass from '../../styles/surfaces.module.css';
+
+  position: relative;
+  border-radius: var(--rialto-radius-soft);
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  padding-inline-end: var(--rialto-space-xl);
+  padding-inline-start: calc(var(--rialto-space-sm) + 26px);
+  pointer-events: auto;
+  overflow: hidden;
+}
+
+:global([data-theme='dark']) .toast {
+  background: var(--rialto-surface-elevated);
+}
+
+/* ── Icon ───────────────────────────────────── */
+.icon {
+  position: absolute;
+  inset-inline-start: var(--rialto-space-sm);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* ── Content ─────────────────────────────────── */
+.title {
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-primary);
+  margin-bottom: 2px;
+}
+
+.description {
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-secondary);
+  line-height: var(--rialto-leading-relaxed);
+}
+
+/* ── Variants ───────────────────────────────── */
+.default {
+  border-inline-start: 3px solid var(--rialto-text-tertiary);
+}
+
+.default .countdown {
+  background: var(--rialto-text-tertiary);
+}
+
+.success {
+  border-inline-start: 3px solid var(--rialto-success);
+  background: var(--rialto-success-muted);
+}
+
+.success .countdown {
+  background: var(--rialto-success);
+}
+
+.success .icon {
+  color: var(--rialto-success);
+}
+
+.error {
+  border-inline-start: 3px solid var(--rialto-error);
+  background: var(--rialto-error-muted);
+}
+
+.error .countdown {
+  background: var(--rialto-error);
+}
+
+.error .icon {
+  color: var(--rialto-error);
+}
+
+.accent {
+  border-inline-start: 3px solid var(--rialto-accent);
+  background: var(--rialto-accent-muted);
+}
+
+.accent .countdown {
+  background: var(--rialto-accent);
+}
+
+.accent .icon {
+  color: var(--rialto-accent);
+}
+
+/* ── Close button ────────────────────────────── */
+.close {
+  position: absolute;
+  top: var(--rialto-space-xs);
+  inset-inline-end: var(--rialto-space-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--rialto-radius-sharp);
+  color: var(--rialto-text-tertiary);
+  cursor: pointer;
+  border: none;
+  background: none;
+  transition:
+    background 0.1s cubic-bezier(0.2, 0, 0, 1),
+    color 0.1s cubic-bezier(0.2, 0, 0, 1),
+    box-shadow 0.1s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.close:hover {
+  background: var(--rialto-surface-recessed);
+  color: var(--rialto-text-primary);
+}
+
+.close:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+}
+
+/* ── Countdown bar ───────────────────────────── */
+.countdown {
+  position: absolute;
+  bottom: 0;
+  inset-inline-start: 0;
+  height: 2px;
+  background: var(--rialto-accent);
+  border-radius: 0 var(--rialto-radius-round) var(--rialto-radius-round) 0;
+  transform-origin: left;
+}
+
+[dir='rtl'] .timerBar {
+  transform-origin: right;
+}
+
+@media (max-width: 480px) {
+  .container {
+    inset-inline-start: var(--rialto-space-sm);
+    inset-inline-end: var(--rialto-space-sm);
+    bottom: var(--rialto-space-sm);
+    max-width: none;
+  }
+}

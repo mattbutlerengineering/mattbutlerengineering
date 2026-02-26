@@ -1,0 +1,47 @@
+.page {
+  padding: var(--rialto-space-lg);
+  background: var(--rialto-surface);
+  font-family: var(--rialto-font-sans);
+}
+
+.section {
+  margin-bottom: var(--rialto-space-2xl);
+}
+
+.sectionTitle {
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-medium);
+  letter-spacing: var(--rialto-tracking-wide);
+  text-transform: uppercase;
+  color: var(--rialto-text-tertiary);
+  margin-bottom: var(--rialto-space-sm);
+}
+
+.card {
+  padding: var(--rialto-space-lg);
+  background: var(--rialto-surface-elevated);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-soft);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-md);
+  align-items: flex-start;
+}
+
+.cardColumn {
+  composes: card;
+  flex-direction: column;
+}
+
+.dark {
+  composes: card;
+}
+
+.darkColumn {
+  composes: cardColumn;
+}
+
+:global([data-theme='dark']) .dark,
+:global([data-theme='dark']) .darkColumn {
+  /* inherits dark tokens automatically */
+}

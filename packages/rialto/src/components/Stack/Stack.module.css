@@ -1,0 +1,81 @@
+/* ── Stack ────────────────────────────────────
+   Flex layout primitive. Vertical by default,
+   with token-mapped gap values.
+   ──────────────────────────────────────────── */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Direction ────────────────────────────── */
+
+.row {
+  flex-direction: row;
+}
+
+/* ── Gap ──────────────────────────────────── */
+
+.gap2xs {
+  gap: var(--rialto-space-2xs);
+}
+.gapXs {
+  gap: var(--rialto-space-xs);
+}
+.gapSm {
+  gap: var(--rialto-space-sm);
+}
+.gapMd {
+  gap: var(--rialto-space-md);
+}
+.gapLg {
+  gap: var(--rialto-space-lg);
+}
+.gapXl {
+  gap: var(--rialto-space-xl);
+}
+.gap2xl {
+  gap: var(--rialto-space-2xl);
+}
+.gap3xl {
+  gap: var(--rialto-space-3xl);
+}
+
+/* ── Align (cross-axis) ──────────────────── */
+
+.alignStart {
+  align-items: flex-start;
+}
+.alignCenter {
+  align-items: center;
+}
+.alignEnd {
+  align-items: flex-end;
+}
+.alignStretch {
+  align-items: stretch;
+}
+.alignBaseline {
+  align-items: baseline;
+}
+
+/* ── Justify (main-axis) ─────────────────── */
+
+.justifyStart {
+  justify-content: flex-start;
+}
+.justifyCenter {
+  justify-content: center;
+}
+.justifyEnd {
+  justify-content: flex-end;
+}
+.justifyBetween {
+  justify-content: space-between;
+}
+
+/* ── Wrap ─────────────────────────────────── */
+
+.wrap {
+  flex-wrap: wrap;
+}

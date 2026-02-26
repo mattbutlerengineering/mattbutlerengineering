@@ -1,0 +1,227 @@
+/* ── Overlay ──────────────────────────────────── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: min(20vh, 160px);
+  background: var(--rialto-overlay);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* ── Panel ────────────────────────────────────── */
+.panel {
+  composes: glass from '../../styles/surfaces.module.css';
+
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(420px, 60vh);
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--rialto-radius-soft);
+  overflow: hidden;
+  box-shadow:
+    0 24px 80px rgb(0 0 0 / 0.25),
+    0 8px 24px rgb(0 0 0 / 0.15),
+    0 0 1px rgb(0 0 0 / 0.2);
+}
+
+:global([data-theme='dark']) .panel {
+  background: var(--rialto-surface-elevated);
+}
+
+/* ── Search input area ───────────────────────── */
+.searchWrap {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  border-bottom: 1px solid var(--rialto-border);
+}
+
+.searchIcon {
+  width: 18px;
+  height: 18px;
+  stroke: var(--rialto-text-tertiary);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  flex-shrink: 0;
+}
+
+.searchInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-base);
+  font-weight: var(--rialto-weight-regular);
+  color: var(--rialto-text-primary);
+  caret-color: var(--rialto-accent);
+}
+
+.searchInput:focus-visible {
+  outline: none;
+  box-shadow: inset 0 -2px 0 var(--rialto-accent);
+}
+
+.searchInput::placeholder {
+  color: var(--rialto-text-tertiary);
+}
+
+/* ── Results list ────────────────────────────── */
+.results {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--rialto-space-xs) 0;
+  scroll-behavior: smooth;
+  scroll-padding: var(--rialto-space-sm);
+}
+
+/* ── Group label ─────────────────────────────── */
+.groupLabel {
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-tertiary);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: var(--rialto-space-sm) var(--rialto-space-md) var(--rialto-space-2xs);
+}
+
+/* ── Item ─────────────────────────────────────── */
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+  padding: var(--rialto-space-xs) var(--rialto-space-md);
+  margin: 0 var(--rialto-space-xs);
+  border-radius: var(--rialto-radius-default);
+  cursor: pointer;
+  transition:
+    background 0.1s cubic-bezier(0.2, 0, 0, 1),
+    color 0.1s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.item:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+}
+
+.item:hover {
+  background: rgb(196 146 42 / 0.06);
+}
+
+.item[data-active='true'] {
+  background: rgb(196 146 42 / 0.12);
+}
+
+.item[data-active='true'] .itemLabel {
+  color: var(--rialto-text-primary);
+}
+
+.item[data-active='true'] .itemShortcut kbd {
+  border-color: var(--rialto-accent);
+  color: var(--rialto-accent);
+}
+
+/* ── Item icon ───────────────────────────────── */
+.itemIcon {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--rialto-text-tertiary);
+  flex-shrink: 0;
+}
+
+.item[data-active='true'] .itemIcon {
+  color: var(--rialto-accent);
+}
+
+/* ── Item label ──────────────────────────────── */
+.itemLabel {
+  flex: 1;
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-regular);
+  color: var(--rialto-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Item shortcut ───────────────────────────── */
+.itemShortcut {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.itemShortcut kbd {
+  font-family: var(--rialto-font-mono);
+  font-size: 11px;
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-tertiary);
+  padding: 1px 5px;
+  border: 1px solid var(--rialto-border);
+  border-radius: 3px;
+  line-height: 1.4;
+}
+
+/* ── Empty state ─────────────────────────────── */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+  padding: var(--rialto-space-xl) var(--rialto-space-md);
+  color: var(--rialto-text-tertiary);
+}
+
+.emptyIcon {
+  width: 32px;
+  height: 32px;
+  stroke: var(--rialto-text-tertiary);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  opacity: 0.5;
+}
+
+.emptyText {
+  font-size: var(--rialto-text-sm);
+}
+
+/* ── Footer ──────────────────────────────────── */
+.footer {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-md);
+  padding: var(--rialto-space-xs) var(--rialto-space-md);
+  border-top: 1px solid var(--rialto-border);
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-tertiary);
+}
+
+.footerHint {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-2xs);
+}
+
+.footerHint kbd {
+  font-family: var(--rialto-font-mono);
+  font-size: 10px;
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-tertiary);
+  padding: 0 4px;
+  border: 1px solid var(--rialto-border);
+  border-radius: 3px;
+  line-height: 1.6;
+}

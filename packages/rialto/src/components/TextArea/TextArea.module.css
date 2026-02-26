@@ -1,0 +1,120 @@
+/* ── Wrapper ─────────────────────────────────── */
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-2xs);
+}
+
+/* ── Label ───────────────────────────────────── */
+.label {
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-secondary);
+  letter-spacing: var(--rialto-tracking-wide);
+}
+
+/* ── Textarea ────────────────────────────────── */
+.textarea {
+  composes: recessed from '../../styles/surfaces.module.css';
+  composes: focusRing from '../../styles/surfaces.module.css';
+
+  padding: var(--rialto-space-xs) var(--rialto-space-sm);
+  border-radius: var(--rialto-radius-default);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-base);
+  font-weight: var(--rialto-weight-regular);
+  color: var(--rialto-text-primary);
+  line-height: var(--rialto-leading-relaxed);
+  resize: vertical;
+  min-height: 80px;
+  transition:
+    border-color 0.15s cubic-bezier(0.2, 0, 0, 1),
+    box-shadow 0.15s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.textarea::placeholder {
+  color: var(--rialto-text-tertiary);
+}
+
+.textarea:hover {
+  border-color: var(--rialto-border-strong);
+}
+
+.textarea:focus-visible {
+  border-color: var(--rialto-accent);
+}
+
+.textarea[aria-disabled='true'] {
+  filter: saturate(0.6) brightness(0.95);
+  cursor: not-allowed;
+  resize: none;
+}
+
+.textareaContainer {
+  position: relative;
+}
+
+.lockIcon {
+  position: absolute;
+  top: var(--rialto-space-xs);
+  inset-inline-end: var(--rialto-space-xs);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* ── Auto-resize disables manual resize ──────── */
+.autoResize {
+  resize: none;
+  overflow: hidden;
+}
+
+/* ── Error state ─────────────────────────────── */
+.error .textarea {
+  border-color: var(--rialto-error);
+}
+
+.error .textarea:focus-visible {
+  box-shadow:
+    0 0 0 2px var(--rialto-surface),
+    0 0 0 4px var(--rialto-error),
+    0 0 12px rgb(184 74 60 / 0.2);
+}
+
+/* ── Footer (hint + counter) ─────────────────── */
+.footer {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--rialto-space-sm);
+}
+
+.hint {
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-tertiary);
+}
+
+.error .hint {
+  color: var(--rialto-error);
+}
+
+.counter {
+  font-size: var(--rialto-text-xs);
+  font-family: var(--rialto-font-mono);
+  color: var(--rialto-text-tertiary);
+  margin-inline-start: auto;
+  flex-shrink: 0;
+}
+
+.counterOver {
+  color: var(--rialto-error);
+}
+
+/* ── Required / optional indicators ──────────── */
+.required {
+  color: var(--rialto-error);
+}
+
+.optional {
+  color: var(--rialto-text-tertiary);
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-regular);
+}

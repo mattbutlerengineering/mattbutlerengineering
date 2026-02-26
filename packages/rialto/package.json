@@ -1,0 +1,77 @@
+{
+  "name": "@mbe/rialto",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./src/lib-entry.ts",
+  "types": "./src/lib-entry.ts",
+  "exports": {
+    ".": {
+      "types": "./src/lib-entry.ts",
+      "import": "./src/lib-entry.ts"
+    },
+    "./motion": {
+      "types": "./src/tokens/motion.ts",
+      "import": "./src/tokens/motion.ts"
+    },
+    "./styles": "./src/styles-entry.css",
+    "./manifest": "./dist/manifest.json"
+  },
+  "publishConfig": {
+    "main": "./dist/lib/rialto.js",
+    "module": "./dist/lib/rialto.js",
+    "types": "./dist/lib/lib-entry.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/lib/lib-entry.d.ts",
+        "import": "./dist/lib/rialto.js"
+      },
+      "./motion": {
+        "types": "./dist/lib/tokens/motion.d.ts",
+        "import": "./dist/lib/motion.js"
+      },
+      "./styles": "./dist/lib/styles.css",
+      "./manifest": "./dist/manifest.json"
+    }
+  },
+  "files": [
+    "dist/lib",
+    "dist/manifest.json"
+  ],
+  "sideEffects": [
+    "*.css"
+  ],
+  "scripts": {
+    "build": "vite build --config vite.config.lib.ts && pnpm manifest",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "manifest": "npx tsx ../../scripts/generate-manifest.ts"
+  },
+  "peerDependencies": {
+    "framer-motion": "^12.0.0",
+    "lucide-react": ">=0.400.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^25.3.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.4",
+    "axe-core": "^4.11.1",
+    "framer-motion": "^12.34.0",
+    "jsdom": "^28.1.0",
+    "lucide-react": "^0.575.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1",
+    "vite-plugin-dts": "^4.5.4",
+    "vitest": "^4.0.18",
+    "vitest-axe": "^0.1.0"
+  }
+}
