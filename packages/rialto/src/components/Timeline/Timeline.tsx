@@ -1,5 +1,5 @@
-import { forwardRef } from 'react';
-import styles from './Timeline.module.css';
+import { forwardRef } from "react";
+import styles from "./Timeline.module.css";
 
 /* ── Types ───────────────────────────────────── */
 /**
@@ -16,7 +16,7 @@ export interface TimelineEvent {
   title: string;
   description?: string;
   timestamp?: string;
-  status?: 'completed' | 'active' | 'upcoming' | 'error';
+  status?: "completed" | "active" | "upcoming" | "error";
 }
 
 /**
@@ -41,46 +41,35 @@ interface TimelineProps {
 
 /* ── Component ──────────────────────────────── */
 export const Timeline = forwardRef<HTMLDivElement, TimelineProps>(
-  ({ events, compact = false, className = '' }, ref) => {
-    const containerClass = [
-      styles.timeline,
-      compact ? styles.compact : '',
-      className,
-    ]
+  ({ events, compact = false, className = "" }, ref) => {
+    const containerClass = [styles.timeline, compact ? styles.compact : "", className]
       .filter(Boolean)
-      .join(' ');
+      .join(" ");
 
     return (
-      <div
-        ref={ref}
-        className={containerClass}
-        role="list"
-        aria-label="Timeline"
-      >
+      <div ref={ref} className={containerClass} role="list" aria-label="Timeline">
         {events.map((event, i) => {
-          const status = event.status ?? 'upcoming';
+          const status = event.status ?? "upcoming";
 
           const itemClass = [
             styles.item,
-            status === 'completed' ? styles.completed : '',
-            status === 'active' ? styles.active : '',
-            status === 'error' ? styles.error : '',
+            status === "completed" ? styles.completed : "",
+            status === "active" ? styles.active : "",
+            status === "error" ? styles.error : "",
           ]
             .filter(Boolean)
-            .join(' ');
+            .join(" ");
 
           return (
             <div key={i} className={itemClass} role="listitem">
-              <span className={styles.timestamp}>{event.timestamp ?? ''}</span>
+              <span className={styles.timestamp}>{event.timestamp ?? ""}</span>
               <div className={styles.track}>
                 <span className={styles.node} />
               </div>
               <div className={styles.content}>
                 <span className={styles.title}>{event.title}</span>
                 {event.description && (
-                  <span className={styles.description}>
-                    {event.description}
-                  </span>
+                  <span className={styles.description}>{event.description}</span>
                 )}
               </div>
             </div>
@@ -90,4 +79,4 @@ export const Timeline = forwardRef<HTMLDivElement, TimelineProps>(
     );
   }
 );
-Timeline.displayName = 'Timeline';
+Timeline.displayName = "Timeline";

@@ -1,5 +1,5 @@
 .button {
-  composes: focusRing from '../../styles/surfaces.module.css';
+  composes: focusRing from "../../styles/surfaces.module.css";
 
   display: inline-flex;
   align-items: center;

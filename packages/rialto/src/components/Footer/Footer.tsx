@@ -1,5 +1,5 @@
-import { forwardRef, type HTMLAttributes, type ReactNode } from 'react';
-import styles from './Footer.module.css';
+import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
+import styles from "./Footer.module.css";
 
 /* ── Types ───────────────────────────────────── */
 
@@ -34,7 +34,7 @@ export interface FooterColumn {
  * />
  */
 export interface FooterProps extends HTMLAttributes<HTMLElement> {
-  variant?: 'minimal' | 'rich';
+  variant?: "minimal" | "rich";
   /** Logo element for the rich variant. Defaults to "Rialto" text. */
   logo?: ReactNode;
   /** Multi-column link groups (rich variant). */
@@ -48,27 +48,12 @@ export interface FooterProps extends HTMLAttributes<HTMLElement> {
 /* ── Component ───────────────────────────────── */
 
 export const Footer = forwardRef<HTMLElement, FooterProps>(
-  (
-    {
-      variant = 'minimal',
-      logo,
-      columns,
-      copyright,
-      children,
-      className,
-      ...props
-    },
-    ref
-  ) => {
-    const classes = [
-      styles.footer,
-      variant === 'rich' ? styles.rich : styles.minimal,
-      className,
-    ]
+  ({ variant = "minimal", logo, columns, copyright, children, className, ...props }, ref) => {
+    const classes = [styles.footer, variant === "rich" ? styles.rich : styles.minimal, className]
       .filter(Boolean)
-      .join(' ');
+      .join(" ");
 
-    if (variant === 'rich') {
+    if (variant === "rich") {
       return (
         <footer ref={ref} className={classes} {...props}>
           <div className={styles.logo}>
@@ -111,4 +96,4 @@ export const Footer = forwardRef<HTMLElement, FooterProps>(
   }
 );
 
-Footer.displayName = 'Footer';
+Footer.displayName = "Footer";

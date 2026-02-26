@@ -1,4 +1,4 @@
-import { createContext, useContext } from 'react';
+import { createContext, useContext } from "react";
 
 export interface Driver {
   id: string;
@@ -6,7 +6,7 @@ export interface Driver {
   number: number;
   team: string;
   nationality: string;
-  status: 'active' | 'reserve' | 'retired';
+  status: "active" | "reserve" | "retired";
   points: number;
   wins: number;
   podiums: number;
@@ -15,8 +15,8 @@ export interface Driver {
 interface DriverContextValue {
   drivers: Driver[];
   getDriver: (id: string) => Driver | undefined;
-  addDriver: (driver: Omit<Driver, 'id'>) => Driver;
-  updateDriver: (id: string, updates: Partial<Omit<Driver, 'id'>>) => void;
+  addDriver: (driver: Omit<Driver, "id">) => Driver;
+  updateDriver: (id: string, updates: Partial<Omit<Driver, "id">>) => void;
   deleteDriver: (id: string) => void;
   restoreDriver: (driver: Driver) => void;
 }
@@ -25,6 +25,6 @@ export const DriverContext = createContext<DriverContextValue | null>(null);
 
 export function useDrivers() {
   const ctx = useContext(DriverContext);
-  if (!ctx) throw new Error('useDrivers must be used within DriverProvider');
+  if (!ctx) throw new Error("useDrivers must be used within DriverProvider");
   return ctx;
 }

@@ -1,5 +1,5 @@
-import { renderHook } from '@testing-library/react';
-import { useDeviceContext, type DeviceContext } from '../useDeviceContext';
+import { renderHook } from "@testing-library/react";
+import { useDeviceContext, type DeviceContext } from "../useDeviceContext";
 
 /* ── Helpers ─────────────────────────────────── */
 
@@ -52,87 +52,87 @@ beforeEach(() => {
 
 /* ── Tests ───────────────────────────────────── */
 
-describe('useDeviceContext', () => {
-  it('returns SSR-safe defaults', () => {
+describe("useDeviceContext", () => {
+  it("returns SSR-safe defaults", () => {
     const { result } = renderHook(() => useDeviceContext());
 
     expect(result.current).toEqual<DeviceContext>({
-      pointer: 'fine',
-      viewport: 'desktop',
+      pointer: "fine",
+      viewport: "desktop",
       reducedMotion: false,
-      colorScheme: 'light',
+      colorScheme: "light",
       saveData: false,
     });
   });
 
-  it('detects coarse pointer', async () => {
+  it("detects coarse pointer", async () => {
     const { mock, setMatch } = createMatchMediaMock();
-    setMatch('(pointer: coarse)', true);
-    Object.defineProperty(window, 'matchMedia', {
+    setMatch("(pointer: coarse)", true);
+    Object.defineProperty(window, "matchMedia", {
       value: mock,
       writable: true,
     });
 
     // Re-import to get a fresh module with the new matchMedia
-    const { useDeviceContext: freshHook } = await import('../useDeviceContext');
+    const { useDeviceContext: freshHook } = await import("../useDeviceContext");
     const { result } = renderHook(() => freshHook());
 
-    expect(result.current.pointer).toBe('coarse');
+    expect(result.current.pointer).toBe("coarse");
   });
 
-  it('detects dark color scheme', async () => {
+  it("detects dark color scheme", async () => {
     const { mock, setMatch } = createMatchMediaMock();
-    setMatch('(prefers-color-scheme: dark)', true);
-    Object.defineProperty(window, 'matchMedia', {
+    setMatch("(prefers-color-scheme: dark)", true);
+    Object.defineProperty(window, "matchMedia", {
       value: mock,
       writable: true,
     });
 
-    const { useDeviceContext: freshHook } = await import('../useDeviceContext');
+    const { useDeviceContext: freshHook } = await import("../useDeviceContext");
     const { result } = renderHook(() => freshHook());
 
-    expect(result.current.colorScheme).toBe('dark');
+    expect(result.current.colorScheme).toBe("dark");
   });
 
-  it('detects reduced motion', async () => {
+  it("detects reduced motion", async () => {
     const { mock, setMatch } = createMatchMediaMock();
-    setMatch('(prefers-reduced-motion: reduce)', true);
-    Object.defineProperty(window, 'matchMedia', {
+    setMatch("(prefers-reduced-motion: reduce)", true);
+    Object.defineProperty(window, "matchMedia", {
       value: mock,
       writable: true,
     });
 
-    const { useDeviceContext: freshHook } = await import('../useDeviceContext');
+    const { useDeviceContext: freshHook } = await import("../useDeviceContext");
     const { result } = renderHook(() => freshHook());
 
     expect(result.current.reducedMotion).toBe(true);
   });
 
-  it('detects mobile viewport', async () => {
+  it("detects mobile viewport", async () => {
     const { mock, setMatch } = createMatchMediaMock();
-    setMatch('(max-width: 479px)', true);
-    Object.defineProperty(window, 'matchMedia', {
+    setMatch("(max-width: 479px)", true);
+    Object.defineProperty(window, "matchMedia", {
       value: mock,
       writable: true,
     });
 
-    const { useDeviceContext: freshHook } = await import('../useDeviceContext');
+    const { useDeviceContext: freshHook } = await import("../useDeviceContext");
     const { result } = renderHook(() => freshHook());
 
-    expect(result.current.viewport).toBe('mobile');
+    expect(result.current.viewport).toBe("mobile");
   });
 
-  it('detects tablet viewport', async () => {
+  it("detects tablet viewport", async () => {
     const { mock, setMatch } = createMatchMediaMock();
-    setMatch('(min-width: 480px) and (max-width: 767px)', true);
-    Object.defineProperty(window, 'matchMedia', {
+    setMatch("(min-width: 480px) and (max-width: 767px)", true);
+    Object.defineProperty(window, "matchMedia", {
       value: mock,
       writable: true,
     });
 
-    const { useDeviceContext: freshHook } = await import('../useDeviceContext');
+    const { useDeviceContext: freshHook } = await import("../useDeviceContext");
     const { result } = renderHook(() => freshHook());
 
-    expect(result.current.viewport).toBe('tablet');
+    expect(result.current.viewport).toBe("tablet");
   });
 });

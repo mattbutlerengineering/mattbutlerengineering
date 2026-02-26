@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import {
   Alert,
   AvatarGroup,
@@ -23,130 +23,130 @@ import {
   Timeline,
   Toggle,
   Tooltip,
-} from '@mbe/rialto';
-import styles from './Dashboard.module.css';
+} from "@mbe/rialto";
+import styles from "./Dashboard.module.css";
 
 /* ── Mock data ──────────────────────────────── */
 
 const SPEED_DATA = [
-  { id: 1, zone: 'Pit Exit', speed: 82, best: 84, delta: -2 },
-  { id: 2, zone: 'Turn 1 Entry', speed: 264, best: 268, delta: -4 },
-  { id: 3, zone: 'Turn 1 Apex', speed: 142, best: 139, delta: +3 },
-  { id: 4, zone: 'Back Straight', speed: 312, best: 315, delta: -3 },
-  { id: 5, zone: 'Chicane Entry', speed: 198, best: 195, delta: +3 },
-  { id: 6, zone: 'Chicane Exit', speed: 167, best: 171, delta: -4 },
-  { id: 7, zone: 'Turn 7 Apex', speed: 108, best: 106, delta: +2 },
-  { id: 8, zone: 'Main Straight', speed: 328, best: 331, delta: -3 },
+  { id: 1, zone: "Pit Exit", speed: 82, best: 84, delta: -2 },
+  { id: 2, zone: "Turn 1 Entry", speed: 264, best: 268, delta: -4 },
+  { id: 3, zone: "Turn 1 Apex", speed: 142, best: 139, delta: +3 },
+  { id: 4, zone: "Back Straight", speed: 312, best: 315, delta: -3 },
+  { id: 5, zone: "Chicane Entry", speed: 198, best: 195, delta: +3 },
+  { id: 6, zone: "Chicane Exit", speed: 167, best: 171, delta: -4 },
+  { id: 7, zone: "Turn 7 Apex", speed: 108, best: 106, delta: +2 },
+  { id: 8, zone: "Main Straight", speed: 328, best: 331, delta: -3 },
 ];
 
 const ALL_LAP_DATA = [
   {
     id: 1,
     lap: 1,
-    time: '1:28.341',
-    sector1: '29.112',
-    sector2: '36.001',
-    sector3: '23.228',
-    tires: 'Soft',
+    time: "1:28.341",
+    sector1: "29.112",
+    sector2: "36.001",
+    sector3: "23.228",
+    tires: "Soft",
   },
   {
     id: 2,
     lap: 2,
-    time: '1:26.892',
-    sector1: '28.741',
-    sector2: '35.420',
-    sector3: '22.731',
-    tires: 'Soft',
+    time: "1:26.892",
+    sector1: "28.741",
+    sector2: "35.420",
+    sector3: "22.731",
+    tires: "Soft",
   },
   {
     id: 3,
     lap: 3,
-    time: '1:25.671',
-    sector1: '28.510',
-    sector2: '34.980',
-    sector3: '22.181',
-    tires: 'Soft',
+    time: "1:25.671",
+    sector1: "28.510",
+    sector2: "34.980",
+    sector3: "22.181",
+    tires: "Soft",
   },
   {
     id: 4,
     lap: 4,
-    time: '1:25.203',
-    sector1: '28.401',
-    sector2: '34.812',
-    sector3: '21.990',
-    tires: 'Soft',
+    time: "1:25.203",
+    sector1: "28.401",
+    sector2: "34.812",
+    sector3: "21.990",
+    tires: "Soft",
   },
   {
     id: 5,
     lap: 5,
-    time: '1:24.892',
-    sector1: '28.312',
-    sector2: '34.641',
-    sector3: '21.939',
-    tires: 'Soft',
+    time: "1:24.892",
+    sector1: "28.312",
+    sector2: "34.641",
+    sector3: "21.939",
+    tires: "Soft",
   },
   {
     id: 6,
     lap: 6,
-    time: '1:25.044',
-    sector1: '28.380',
-    sector2: '34.720',
-    sector3: '21.944',
-    tires: 'Soft',
+    time: "1:25.044",
+    sector1: "28.380",
+    sector2: "34.720",
+    sector3: "21.944",
+    tires: "Soft",
   },
   {
     id: 7,
     lap: 7,
-    time: '1:25.310',
-    sector1: '28.490',
-    sector2: '34.810',
-    sector3: '22.010',
-    tires: 'Medium',
+    time: "1:25.310",
+    sector1: "28.490",
+    sector2: "34.810",
+    sector3: "22.010",
+    tires: "Medium",
   },
   {
     id: 8,
     lap: 8,
-    time: '1:25.781',
-    sector1: '28.620',
-    sector2: '35.001',
-    sector3: '22.160',
-    tires: 'Medium',
+    time: "1:25.781",
+    sector1: "28.620",
+    sector2: "35.001",
+    sector3: "22.160",
+    tires: "Medium",
   },
   {
     id: 9,
     lap: 9,
-    time: '1:25.520',
-    sector1: '28.550',
-    sector2: '34.890',
-    sector3: '22.080',
-    tires: 'Medium',
+    time: "1:25.520",
+    sector1: "28.550",
+    sector2: "34.890",
+    sector3: "22.080",
+    tires: "Medium",
   },
   {
     id: 10,
     lap: 10,
-    time: '1:25.901',
-    sector1: '28.710',
-    sector2: '35.110',
-    sector3: '22.081',
-    tires: 'Medium',
+    time: "1:25.901",
+    sector1: "28.710",
+    sector2: "35.110",
+    sector3: "22.081",
+    tires: "Medium",
   },
   {
     id: 11,
     lap: 11,
-    time: '1:26.203',
-    sector1: '28.840',
-    sector2: '35.221',
-    sector3: '22.142',
-    tires: 'Medium',
+    time: "1:26.203",
+    sector1: "28.840",
+    sector2: "35.221",
+    sector3: "22.142",
+    tires: "Medium",
   },
   {
     id: 12,
     lap: 12,
-    time: '1:25.412',
-    sector1: '28.510',
-    sector2: '34.850',
-    sector3: '22.052',
-    tires: 'Medium',
+    time: "1:25.412",
+    sector1: "28.510",
+    sector2: "34.850",
+    sector3: "22.052",
+    tires: "Medium",
   },
 ];
 
@@ -157,12 +157,10 @@ const LAPS_PER_PAGE = 5;
 export function Dashboard() {
   /* Interactive state */
   const [drsEnabled, setDrsEnabled] = useState(false);
-  const [engineMode, setEngineMode] = useState('mode2');
+  const [engineMode, setEngineMode] = useState("mode2");
   const [brakeBias, setBrakeBias] = useState(56);
   const [lapPage, setLapPage] = useState(1);
-  const [channels, setChannels] = useState<Set<string>>(
-    new Set(['Track', 'Box', 'Strategy'])
-  );
+  const [channels, setChannels] = useState<Set<string>>(new Set(["Track", "Box", "Strategy"]));
   const [loading, setLoading] = useState(true);
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
@@ -174,10 +172,7 @@ export function Dashboard() {
 
   /* Derived data */
   const totalLapPages = Math.ceil(ALL_LAP_DATA.length / LAPS_PER_PAGE);
-  const pagedLaps = ALL_LAP_DATA.slice(
-    (lapPage - 1) * LAPS_PER_PAGE,
-    lapPage * LAPS_PER_PAGE
-  );
+  const pagedLaps = ALL_LAP_DATA.slice((lapPage - 1) * LAPS_PER_PAGE, lapPage * LAPS_PER_PAGE);
 
   function toggleChannel(ch: string) {
     setChannels((prev) => {
@@ -196,9 +191,9 @@ export function Dashboard() {
       {/* ── Dark header ─────────────────────── */}
       <PageHeader
         breadcrumbs={[
-          { label: 'Home', href: '/' },
-          { label: 'Telemetry', href: '#' },
-          { label: 'Dashboard' },
+          { label: "Home", href: "/" },
+          { label: "Telemetry", href: "#" },
+          { label: "Dashboard" },
         ]}
         title="Pit Wall"
         meta={
@@ -211,11 +206,11 @@ export function Dashboard() {
             size="sm"
             max={4}
             avatars={[
-              { name: 'Charles Leclerc', status: 'online' },
-              { name: 'Lewis Hamilton', status: 'online' },
-              { name: 'Race Engineer', status: 'online' },
-              { name: 'Strategist', status: 'away' },
-              { name: 'Team Principal' },
+              { name: "Charles Leclerc", status: "online" },
+              { name: "Lewis Hamilton", status: "online" },
+              { name: "Race Engineer", status: "online" },
+              { name: "Strategist", status: "away" },
+              { name: "Team Principal" },
             ]}
           />
         }
@@ -294,10 +289,7 @@ export function Dashboard() {
                     FR 101°
                   </Badge>
                 </Tooltip>
-                <Tooltip
-                  content="Rear Left: 112°C — above optimal"
-                  placement="bottom"
-                >
+                <Tooltip content="Rear Left: 112°C — above optimal" placement="bottom">
                   <Badge variant="error" size="sm">
                     RL 112°
                   </Badge>
@@ -331,41 +323,41 @@ export function Dashboard() {
               <Tabs
                 tabs={[
                   {
-                    id: 'speed',
-                    label: 'Speed Data',
+                    id: "speed",
+                    label: "Speed Data",
                     content: (
                       <div className={styles.tabPanel}>
                         <Table
                           columns={[
-                            { key: 'zone', header: 'Zone', sortable: true },
+                            { key: "zone", header: "Zone", sortable: true },
                             {
-                              key: 'speed',
-                              header: 'Speed (km/h)',
+                              key: "speed",
+                              header: "Speed (km/h)",
                               sortable: true,
-                              align: 'right',
+                              align: "right",
                             },
                             {
-                              key: 'best',
-                              header: 'Best',
+                              key: "best",
+                              header: "Best",
                               sortable: true,
-                              align: 'right',
+                              align: "right",
                             },
                             {
-                              key: 'delta',
-                              header: 'Delta',
+                              key: "delta",
+                              header: "Delta",
                               sortable: true,
-                              align: 'right',
+                              align: "right",
                               render: (row) => {
                                 const d = row.delta as number;
                                 const color =
                                   d > 0
-                                    ? 'var(--rialto-success)'
+                                    ? "var(--rialto-success)"
                                     : d < 0
-                                      ? 'var(--rialto-error)'
-                                      : 'var(--rialto-text-tertiary)';
+                                      ? "var(--rialto-error)"
+                                      : "var(--rialto-text-tertiary)";
                                 return (
                                   <span style={{ color, fontWeight: 500 }}>
-                                    {d > 0 ? '+' : ''}
+                                    {d > 0 ? "+" : ""}
                                     {d}
                                   </span>
                                 );
@@ -380,31 +372,29 @@ export function Dashboard() {
                     ),
                   },
                   {
-                    id: 'laps',
-                    label: 'Lap Times',
+                    id: "laps",
+                    label: "Lap Times",
                     content: (
                       <div className={styles.tabPanel}>
                         <Table
                           columns={[
                             {
-                              key: 'lap',
-                              header: 'Lap',
+                              key: "lap",
+                              header: "Lap",
                               sortable: true,
-                              align: 'center',
-                              width: '60px',
+                              align: "center",
+                              width: "60px",
                             },
-                            { key: 'time', header: 'Time', sortable: true },
-                            { key: 'sector1', header: 'S1', align: 'right' },
-                            { key: 'sector2', header: 'S2', align: 'right' },
-                            { key: 'sector3', header: 'S3', align: 'right' },
+                            { key: "time", header: "Time", sortable: true },
+                            { key: "sector1", header: "S1", align: "right" },
+                            { key: "sector2", header: "S2", align: "right" },
+                            { key: "sector3", header: "S3", align: "right" },
                             {
-                              key: 'tires',
-                              header: 'Tires',
+                              key: "tires",
+                              header: "Tires",
                               render: (row) => (
                                 <Badge
-                                  variant={
-                                    row.tires === 'Soft' ? 'error' : 'neutral'
-                                  }
+                                  variant={row.tires === "Soft" ? "error" : "neutral"}
                                   size="sm"
                                 >
                                   {row.tires as string}
@@ -416,7 +406,7 @@ export function Dashboard() {
                           rowKey={(row) => row.id as number}
                           density="compact"
                         />
-                        <div style={{ marginTop: 'var(--rialto-space-sm)' }}>
+                        <div style={{ marginTop: "var(--rialto-space-sm)" }}>
                           <Pagination
                             page={lapPage}
                             totalPages={totalLapPages}
@@ -427,13 +417,10 @@ export function Dashboard() {
                     ),
                   },
                   {
-                    id: 'engine',
-                    label: 'Engine',
+                    id: "engine",
+                    label: "Engine",
                     content: (
-                      <Stack
-                        gap="lg"
-                        style={{ padding: 'var(--rialto-space-sm) 0' }}
-                      >
+                      <Stack gap="lg" style={{ padding: "var(--rialto-space-sm) 0" }}>
                         <Toggle
                           label="DRS Override"
                           checked={drsEnabled}
@@ -444,13 +431,13 @@ export function Dashboard() {
                           value={engineMode}
                           onChange={setEngineMode}
                           options={[
-                            { value: 'mode1', label: 'Mode 1 — Harvest' },
-                            { value: 'mode2', label: 'Mode 2 — Balanced' },
-                            { value: 'mode3', label: 'Mode 3 — Push' },
-                            { value: 'mode4', label: 'Mode 4 — Overtake' },
+                            { value: "mode1", label: "Mode 1 — Harvest" },
+                            { value: "mode2", label: "Mode 2 — Balanced" },
+                            { value: "mode3", label: "Mode 3 — Push" },
+                            { value: "mode4", label: "Mode 4 — Overtake" },
                             {
-                              value: 'mode5',
-                              label: 'Mode 5 — Qualifying',
+                              value: "mode5",
+                              label: "Mode 5 — Qualifying",
                               disabled: true,
                             },
                           ]}
@@ -480,26 +467,26 @@ export function Dashboard() {
                   compact
                   events={[
                     {
-                      title: 'Pit stop — box this lap',
-                      timestamp: 'L14',
-                      status: 'active',
-                      description: 'Medium → Hard, +2.4s estimated',
+                      title: "Pit stop — box this lap",
+                      timestamp: "L14",
+                      status: "active",
+                      description: "Medium → Hard, +2.4s estimated",
                     },
                     {
-                      title: 'DRS enabled',
-                      timestamp: 'L15',
-                      status: 'upcoming',
+                      title: "DRS enabled",
+                      timestamp: "L15",
+                      status: "upcoming",
                     },
                     {
-                      title: 'Fuel mixture adjust',
-                      timestamp: 'L16',
-                      status: 'upcoming',
-                      description: 'Switch to harvest mode',
+                      title: "Fuel mixture adjust",
+                      timestamp: "L16",
+                      status: "upcoming",
+                      description: "Switch to harvest mode",
                     },
                     {
-                      title: 'Final stint push',
-                      timestamp: 'L17',
-                      status: 'upcoming',
+                      title: "Final stint push",
+                      timestamp: "L17",
+                      status: "upcoming",
                     },
                   ]}
                 />
@@ -508,12 +495,12 @@ export function Dashboard() {
               {/* Active channels */}
               <Card variant="flat" title="Active Channels">
                 <Stack direction="row" gap="xs" wrap>
-                  {['Track', 'Box', 'Strategy', 'Engineer'].map((ch) => (
+                  {["Track", "Box", "Strategy", "Engineer"].map((ch) => (
                     <Tag
                       key={ch}
                       onClick={() => toggleChannel(ch)}
                       selected={channels.has(ch)}
-                      variant={channels.has(ch) ? 'accent' : 'default'}
+                      variant={channels.has(ch) ? "accent" : "default"}
                     >
                       {ch}
                     </Tag>
@@ -540,13 +527,12 @@ export function Dashboard() {
         )}
 
         {/* ── Row 3: Alerts ──────────────── */}
-        <Stack gap="sm" style={{ marginTop: 'var(--rialto-space-md)' }}>
+        <Stack gap="sm" style={{ marginTop: "var(--rialto-space-md)" }}>
           <Alert variant="info" title="Telemetry sync active">
             1,247 data points received this session. All channels nominal.
           </Alert>
           <Alert variant="warning" title="Rear left tire pressure" dismissible>
-            Pressure at 28.1 PSI — above optimal range for current compound.
-            Monitor closely.
+            Pressure at 28.1 PSI — above optimal range for current compound. Monitor closely.
           </Alert>
         </Stack>
 

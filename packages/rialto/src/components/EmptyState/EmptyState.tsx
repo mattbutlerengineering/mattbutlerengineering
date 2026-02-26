@@ -1,5 +1,5 @@
-import { forwardRef, type HTMLAttributes, type ReactNode } from 'react';
-import styles from './EmptyState.module.css';
+import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
+import styles from "./EmptyState.module.css";
 
 /* ── Default icon — empty box line-art ── */
 const DefaultIcon = (
@@ -43,49 +43,38 @@ export interface EmptyStateProps extends HTMLAttributes<HTMLDivElement> {
   /** Action slot — typically a Button */
   action?: ReactNode;
   /** Surface variant */
-  variant?: 'flat' | 'elevated';
+  variant?: "flat" | "elevated";
   /** Size — affects icon size, spacing, and typography */
-  size?: 'sm' | 'md';
+  size?: "sm" | "md";
 }
 
 /* ── Component ──────────────────────────────── */
-export const EmptyState = forwardRef<HTMLDivElement, EmptyStateProps>(
-  function EmptyState(
-    {
-      icon,
-      heading,
-      description,
-      action,
-      variant = 'flat',
-      size = 'md',
-      className = '',
-      ...rest
-    },
-    ref
-  ) {
-    const resolvedIcon = icon === undefined ? DefaultIcon : icon;
+export const EmptyState = forwardRef<HTMLDivElement, EmptyStateProps>(function EmptyState(
+  { icon, heading, description, action, variant = "flat", size = "md", className = "", ...rest },
+  ref
+) {
+  const resolvedIcon = icon === undefined ? DefaultIcon : icon;
 
-    const classes = [
-      styles.emptyState,
-      variant === 'elevated' ? styles.elevated : '',
-      size === 'sm' ? styles.sm : '',
-      className,
-    ]
-      .filter(Boolean)
-      .join(' ');
+  const classes = [
+    styles.emptyState,
+    variant === "elevated" ? styles.elevated : "",
+    size === "sm" ? styles.sm : "",
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
-    return (
-      <div ref={ref} className={classes} {...rest}>
-        {resolvedIcon && <div className={styles.icon}>{resolvedIcon}</div>}
+  return (
+    <div ref={ref} className={classes} {...rest}>
+      {resolvedIcon && <div className={styles.icon}>{resolvedIcon}</div>}
 
-        {heading && <p className={styles.heading}>{heading}</p>}
+      {heading && <p className={styles.heading}>{heading}</p>}
 
-        {description && <p className={styles.description}>{description}</p>}
+      {description && <p className={styles.description}>{description}</p>}
 
-        {action && <div className={styles.action}>{action}</div>}
-      </div>
-    );
-  }
-);
+      {action && <div className={styles.action}>{action}</div>}
+    </div>
+  );
+});
 
-EmptyState.displayName = 'EmptyState';
+EmptyState.displayName = "EmptyState";

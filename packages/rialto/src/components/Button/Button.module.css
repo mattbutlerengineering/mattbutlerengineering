@@ -1,5 +1,5 @@
 .button {
-  composes: focusRing from '../../styles/surfaces.module.css';
+  composes: focusRing from "../../styles/surfaces.module.css";
 
   display: inline-flex;
   align-items: center;
@@ -21,7 +21,7 @@
 
 /* ── Secondary (aluminum — the default) ──────── */
 .secondary {
-  composes: aluminum from '../../styles/surfaces.module.css';
+  composes: aluminum from "../../styles/surfaces.module.css";
   color: var(--rialto-text-primary);
   box-shadow:
     0 1px 2px rgb(26 25 24 / 0.06),
@@ -38,11 +38,7 @@
 
 /* ── Primary (gold accent fill) ──────────────── */
 .primary {
-  background: linear-gradient(
-    180deg,
-    var(--rialto-accent-hover) 0%,
-    var(--rialto-accent) 100%
-  );
+  background: linear-gradient(180deg, var(--rialto-accent-hover) 0%, var(--rialto-accent) 100%);
   border: 1px solid var(--rialto-accent);
   color: var(--rialto-text-on-accent);
   box-shadow:

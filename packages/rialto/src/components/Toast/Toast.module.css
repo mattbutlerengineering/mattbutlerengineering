@@ -14,7 +14,7 @@
 
 /* ── Individual toast ────────────────────────── */
 .toast {
-  composes: glass from '../../styles/surfaces.module.css';
+  composes: glass from "../../styles/surfaces.module.css";
 
   position: relative;
   border-radius: var(--rialto-radius-soft);
@@ -25,7 +25,7 @@
   overflow: hidden;
 }
 
-:global([data-theme='dark']) .toast {
+:global([data-theme="dark"]) .toast {
   background: var(--rialto-surface-elevated);
 }
 
@@ -144,7 +144,7 @@
   transform-origin: left;
 }
 
-[dir='rtl'] .timerBar {
+[dir="rtl"] .timerBar {
   transform-origin: right;
 }
 

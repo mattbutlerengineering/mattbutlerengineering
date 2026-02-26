@@ -18,11 +18,11 @@
       // SPA fallback: restore path from 404.html redirect
       (function () {
         var q = new URLSearchParams(location.search);
-        var p = q.get('p');
+        var p = q.get("p");
         if (p) {
-          q.delete('p');
+          q.delete("p");
           var qs = q.toString();
-          history.replaceState(null, '', p + (qs ? '?' + qs : ''));
+          history.replaceState(null, "", p + (qs ? "?" + qs : ""));
         }
       })();
     </script>

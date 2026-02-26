@@ -20,7 +20,7 @@
 
 /* ── Connector line ─────────────────────────── */
 .item:not(:last-child) .track::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 28px;
   inset-inline-start: 50%;

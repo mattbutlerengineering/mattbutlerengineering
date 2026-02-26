@@ -1,5 +1,5 @@
-import { forwardRef, type HTMLAttributes, type ReactNode } from 'react';
-import styles from './Stat.module.css';
+import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
+import styles from "./Stat.module.css";
 
 /**
  * A metric display showing a label, a prominent value, and an optional delta with trend arrow.
@@ -21,12 +21,12 @@ export interface StatProps extends HTMLAttributes<HTMLDivElement> {
   /** Change indicator (e.g. "-0.342") */
   delta?: string;
   /** Direction of the change */
-  trend?: 'up' | 'down' | 'neutral';
+  trend?: "up" | "down" | "neutral";
   /** Display size */
-  size?: 'sm' | 'md' | 'lg';
+  size?: "sm" | "md" | "lg";
 }
 
-function TrendArrow({ trend }: { trend: 'up' | 'down' }) {
+function TrendArrow({ trend }: { trend: "up" | "down" }) {
   return (
     <svg
       width="12"
@@ -39,56 +39,31 @@ function TrendArrow({ trend }: { trend: 'up' | 'down' }) {
       strokeLinejoin="round"
       aria-hidden
     >
-      {trend === 'up' ? (
-        <path d="M6 10V2m0 0L2 6m4-4l4 4" />
-      ) : (
-        <path d="M6 2v8m0 0l4-4m-4 4L2 6" />
-      )}
+      {trend === "up" ? <path d="M6 10V2m0 0L2 6m4-4l4 4" /> : <path d="M6 2v8m0 0l4-4m-4 4L2 6" />}
     </svg>
   );
 }
 
 export const Stat = forwardRef<HTMLDivElement, StatProps>(
-  (
-    {
-      value,
-      label,
-      delta,
-      trend = 'neutral',
-      size = 'md',
-      className,
-      ...props
-    },
-    ref
-  ) => {
+  ({ value, label, delta, trend = "neutral", size = "md", className, ...props }, ref) => {
     const classes = [
       styles.stat,
-      size === 'sm' ? styles.sm : size === 'lg' ? styles.lg : '',
+      size === "sm" ? styles.sm : size === "lg" ? styles.lg : "",
       className,
     ]
       .filter(Boolean)
-      .join(' ');
+      .join(" ");
 
     const trendClass =
-      trend === 'up'
-        ? styles.trendUp
-        : trend === 'down'
-          ? styles.trendDown
-          : styles.trendNeutral;
+      trend === "up" ? styles.trendUp : trend === "down" ? styles.trendDown : styles.trendNeutral;
 
     return (
-      <div
-        ref={ref}
-        className={classes}
-        role="group"
-        aria-label={label}
-        {...props}
-      >
+      <div ref={ref} className={classes} role="group" aria-label={label} {...props}>
         <span className={styles.label}>{label}</span>
         <span className={styles.value}>{value}</span>
         {delta && (
-          <span className={[styles.delta, trendClass].join(' ')}>
-            {trend !== 'neutral' && <TrendArrow trend={trend} />}
+          <span className={[styles.delta, trendClass].join(" ")}>
+            {trend !== "neutral" && <TrendArrow trend={trend} />}
             {delta}
           </span>
         )}
@@ -97,4 +72,4 @@ export const Stat = forwardRef<HTMLDivElement, StatProps>(
   }
 );
 
-Stat.displayName = 'Stat';
+Stat.displayName = "Stat";

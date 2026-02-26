@@ -1,7 +1,7 @@
-import { forwardRef } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
-import { boop } from '../../tokens/motion';
-import styles from './Pagination.module.css';
+import { forwardRef } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import { boop } from "../../tokens/motion";
+import styles from "./Pagination.module.css";
 
 /* ── Types ───────────────────────────────────── */
 
@@ -48,7 +48,7 @@ function buildPages(
   page: number,
   totalPages: number,
   siblingCount: number
-): (number | 'ellipsis')[] {
+): (number | "ellipsis")[] {
   // If total pages fits within the budget, show all
   const totalSlots = siblingCount * 2 + 5; // siblings + first + last + 2 ellipses + current
   if (totalPages <= totalSlots) {
@@ -64,18 +64,18 @@ function buildPages(
   if (!showLeftEllipsis && showRightEllipsis) {
     // Show expanded left, collapsed right
     const leftRange = range(1, siblingCount * 2 + 3);
-    return [...leftRange, 'ellipsis', totalPages];
+    return [...leftRange, "ellipsis", totalPages];
   }
 
   if (showLeftEllipsis && !showRightEllipsis) {
     // Show collapsed left, expanded right
     const rightRange = range(totalPages - (siblingCount * 2 + 2), totalPages);
-    return [1, 'ellipsis', ...rightRange];
+    return [1, "ellipsis", ...rightRange];
   }
 
   // Both sides collapsed
   const middleRange = range(leftSibling, rightSibling);
-  return [1, 'ellipsis', ...middleRange, 'ellipsis', totalPages];
+  return [1, "ellipsis", ...middleRange, "ellipsis", totalPages];
 }
 
 /* ── Arrow icons ─────────────────────────────── */
@@ -111,7 +111,7 @@ const ChevronRight = (
 
 /* ── Component ──────────────────────────────── */
 export const Pagination = forwardRef<HTMLElement, PaginationProps>(
-  ({ page, totalPages, onChange, siblingCount = 1, className = '' }, ref) => {
+  ({ page, totalPages, onChange, siblingCount = 1, className = "" }, ref) => {
     const pages = buildPages(page, totalPages, siblingCount);
     const shouldReduceMotion = useReducedMotion();
     const boopHover = shouldReduceMotion
@@ -119,11 +119,7 @@ export const Pagination = forwardRef<HTMLElement, PaginationProps>(
       : { scale: boop.scale, transition: boop.transition };
 
     return (
-      <nav
-        ref={ref}
-        aria-label="Pagination"
-        className={`${styles.pagination} ${className}`}
-      >
+      <nav ref={ref} aria-label="Pagination" className={`${styles.pagination} ${className}`}>
         {/* Previous */}
         <motion.button
           className={styles.arrow}
@@ -137,21 +133,17 @@ export const Pagination = forwardRef<HTMLElement, PaginationProps>(
 
         {/* Pages */}
         {pages.map((item, i) =>
-          item === 'ellipsis' ? (
-            <span
-              key={`ellipsis-${i}`}
-              className={styles.ellipsis}
-              aria-hidden="true"
-            >
+          item === "ellipsis" ? (
+            <span key={`ellipsis-${i}`} className={styles.ellipsis} aria-hidden="true">
               &hellip;
             </span>
           ) : (
             <motion.button
               key={item}
-              className={`${styles.page} ${item === page ? styles.active : ''}`}
+              className={`${styles.page} ${item === page ? styles.active : ""}`}
               onClick={() => onChange(item)}
               aria-label={`Page ${item}`}
-              aria-current={item === page ? 'page' : undefined}
+              aria-current={item === page ? "page" : undefined}
               whileHover={boopHover}
             >
               {item}
@@ -173,4 +165,4 @@ export const Pagination = forwardRef<HTMLElement, PaginationProps>(
     );
   }
 );
-Pagination.displayName = 'Pagination';
+Pagination.displayName = "Pagination";

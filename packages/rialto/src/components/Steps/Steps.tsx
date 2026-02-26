@@ -1,5 +1,5 @@
-import { forwardRef } from 'react';
-import styles from './Steps.module.css';
+import { forwardRef } from "react";
+import styles from "./Steps.module.css";
 
 /* ── Types ───────────────────────────────────── */
 
@@ -36,7 +36,7 @@ interface StepsProps {
   steps: StepItem[];
   /** Zero-indexed current step */
   currentStep: number;
-  orientation?: 'horizontal' | 'vertical';
+  orientation?: "horizontal" | "vertical";
   /** Compact node size, hides descriptions */
   compact?: boolean;
   /** Callback when a step is clicked — enables clickable navigation */
@@ -50,49 +50,39 @@ export const Steps = forwardRef<HTMLDivElement, StepsProps>(
     {
       steps,
       currentStep,
-      orientation = 'horizontal',
+      orientation = "horizontal",
       compact = false,
       onStepClick,
-      className = '',
+      className = "",
     },
     ref
   ) => {
     const containerClass = [
-      orientation === 'horizontal' ? styles.horizontal : styles.vertical,
-      compact ? styles.compact : '',
+      orientation === "horizontal" ? styles.horizontal : styles.vertical,
+      compact ? styles.compact : "",
       className,
     ]
       .filter(Boolean)
-      .join(' ');
+      .join(" ");
 
     return (
-      <div
-        ref={ref}
-        className={containerClass}
-        role="list"
-        aria-label="Progress steps"
-      >
+      <div ref={ref} className={containerClass} role="list" aria-label="Progress steps">
         {steps.map((step, i) => {
-          const state =
-            i < currentStep
-              ? 'completed'
-              : i === currentStep
-                ? 'current'
-                : 'upcoming';
+          const state = i < currentStep ? "completed" : i === currentStep ? "current" : "upcoming";
 
           const stepClass = [
             styles.step,
-            state === 'completed' ? styles.completed : '',
-            state === 'current' ? styles.current : '',
-            onStepClick ? styles.clickable : '',
+            state === "completed" ? styles.completed : "",
+            state === "current" ? styles.current : "",
+            onStepClick ? styles.clickable : "",
           ]
             .filter(Boolean)
-            .join(' ');
+            .join(" ");
 
           const inner = (
             <>
               <div className={styles.node}>
-                {state === 'completed' ? (
+                {state === "completed" ? (
                   <svg className={styles.checkIcon} viewBox="0 0 14 14">
                     <polyline points="3 7.5 6 10.5 11 4" />
                   </svg>
@@ -103,9 +93,7 @@ export const Steps = forwardRef<HTMLDivElement, StepsProps>(
               <div className={styles.content}>
                 <span className={styles.stepLabel}>{step.label}</span>
                 {step.description && (
-                  <span className={styles.stepDescription}>
-                    {step.description}
-                  </span>
+                  <span className={styles.stepDescription}>{step.description}</span>
                 )}
               </div>
             </>
@@ -116,14 +104,10 @@ export const Steps = forwardRef<HTMLDivElement, StepsProps>(
               key={i}
               className={stepClass}
               role="listitem"
-              aria-current={state === 'current' ? 'step' : undefined}
+              aria-current={state === "current" ? "step" : undefined}
             >
               {onStepClick ? (
-                <button
-                  className={styles.stepButton}
-                  onClick={() => onStepClick(i)}
-                  type="button"
-                >
+                <button className={styles.stepButton} onClick={() => onStepClick(i)} type="button">
                   {inner}
                 </button>
               ) : (
@@ -136,4 +120,4 @@ export const Steps = forwardRef<HTMLDivElement, StepsProps>(
     );
   }
 );
-Steps.displayName = 'Steps';
+Steps.displayName = "Steps";

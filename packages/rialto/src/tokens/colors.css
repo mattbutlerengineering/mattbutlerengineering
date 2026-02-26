@@ -56,7 +56,7 @@
 /* Warm charcoal palette — maintains material honesty
    and "warmth over coldness" principle. No pure black,
    no blue-grays. Surfaces use subtle warm undertones. */
-[data-theme='dark'] {
+[data-theme="dark"] {
   /* ── Surfaces ─────────────────────────────── */
   --rialto-surface: #1e1c1a;
   --rialto-surface-elevated: #2a2725;

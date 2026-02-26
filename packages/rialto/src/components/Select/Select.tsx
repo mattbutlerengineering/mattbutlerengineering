@@ -6,12 +6,12 @@ import {
   useEffect,
   useCallback,
   type KeyboardEvent,
-} from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { Lock } from 'lucide-react';
-import { springGentle } from '../../tokens/motion';
-import { DisabledTooltip } from '../DisabledTooltip/DisabledTooltip';
-import styles from './Select.module.css';
+} from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { Lock } from "lucide-react";
+import { springGentle } from "../../tokens/motion";
+import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
+import styles from "./Select.module.css";
 
 /* ── Types ───────────────────────────────────── */
 
@@ -55,7 +55,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
       options,
       value,
       onChange,
-      placeholder = 'Select\u2026',
+      placeholder = "Select\u2026",
       label,
       disabled,
       disabledReason,
@@ -71,7 +71,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
     const [focusedIndex, setFocusedIndex] = useState(-1);
     const triggerRef = useRef<HTMLButtonElement>(null);
     const listRef = useRef<HTMLDivElement>(null);
-    const typeaheadRef = useRef('');
+    const typeaheadRef = useRef("");
     const typeaheadTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
     const shouldReduceMotion = useReducedMotion();
 
@@ -82,14 +82,13 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
       if (!open) return;
       const handler = (e: MouseEvent) => {
         const wrapper =
-          (ref as React.RefObject<HTMLDivElement>)?.current ??
-          triggerRef.current?.parentElement;
+          (ref as React.RefObject<HTMLDivElement>)?.current ?? triggerRef.current?.parentElement;
         if (wrapper && !wrapper.contains(e.target as Node)) {
           setOpen(false);
         }
       };
-      document.addEventListener('mousedown', handler);
-      return () => document.removeEventListener('mousedown', handler);
+      document.addEventListener("mousedown", handler);
+      return () => document.removeEventListener("mousedown", handler);
     }, [open, ref]);
 
     // Compute the initial focused index for when the dropdown opens
@@ -113,10 +112,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
       (char: string) => {
         clearTimeout(typeaheadTimerRef.current);
         typeaheadRef.current += char.toLowerCase();
-        typeaheadTimerRef.current = setTimeout(
-          () => (typeaheadRef.current = ''),
-          500
-        );
+        typeaheadTimerRef.current = setTimeout(() => (typeaheadRef.current = ""), 500);
 
         const query = typeaheadRef.current;
         const startIndex = open ? focusedIndex + 1 : 0;
@@ -125,11 +121,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
         for (let i = 0; i < options.length; i++) {
           const idx = (startIndex + i) % options.length;
           const opt = options[idx];
-          if (
-            opt &&
-            !opt.disabled &&
-            opt.label.toLowerCase().startsWith(query)
-          ) {
+          if (opt && !opt.disabled && opt.label.toLowerCase().startsWith(query)) {
             if (open) {
               setFocusedIndex(idx);
             } else {
@@ -153,12 +145,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
       }
 
       if (!open) {
-        if (
-          e.key === 'ArrowDown' ||
-          e.key === 'ArrowUp' ||
-          e.key === 'Enter' ||
-          e.key === ' '
-        ) {
+        if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           openWithFocus();
           return;
@@ -167,7 +154,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
       }
 
       switch (e.key) {
-        case 'ArrowDown': {
+        case "ArrowDown": {
           e.preventDefault();
           setFocusedIndex((prev) => {
             let next = prev + 1;
@@ -176,7 +163,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
           });
           break;
         }
-        case 'ArrowUp': {
+        case "ArrowUp": {
           e.preventDefault();
           setFocusedIndex((prev) => {
             let next = prev - 1;
@@ -185,13 +172,13 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
           });
           break;
         }
-        case 'Home': {
+        case "Home": {
           e.preventDefault();
           const first = options.findIndex((o) => !o.disabled);
           if (first >= 0) setFocusedIndex(first);
           break;
         }
-        case 'End': {
+        case "End": {
           e.preventDefault();
           for (let i = options.length - 1; i >= 0; i--) {
             if (!options[i]?.disabled) {
@@ -201,8 +188,8 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
           }
           break;
         }
-        case 'Enter':
-        case ' ': {
+        case "Enter":
+        case " ": {
           e.preventDefault();
           const focused = options[focusedIndex];
           if (focused && !focused.disabled) {
@@ -210,10 +197,10 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
           }
           break;
         }
-        case 'Tab':
+        case "Tab":
           setOpen(false);
           break;
-        case 'Escape':
+        case "Escape":
           e.preventDefault();
           setOpen(false);
           triggerRef.current?.focus();
@@ -227,7 +214,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
       const list = listRef.current;
       if (!list) return;
       const el = list.children[focusedIndex] as HTMLElement | undefined;
-      el?.scrollIntoView({ block: 'nearest' });
+      el?.scrollIntoView({ block: "nearest" });
     }, [open, focusedIndex]);
 
     // Clean up typeahead timer
@@ -239,10 +226,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
     const focusedOption = focusedIndex >= 0 ? options[focusedIndex] : undefined;
 
     return (
-      <div
-        ref={ref}
-        className={[styles.wrapper, className].filter(Boolean).join(' ')}
-      >
+      <div ref={ref} className={[styles.wrapper, className].filter(Boolean).join(" ")}>
         {label && <span className={styles.label}>{label}</span>}
         <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>
           <button
@@ -255,20 +239,14 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
             aria-controls={listboxId}
             aria-haspopup="listbox"
             aria-label={label}
-            aria-activedescendant={
-              open && focusedOption ? optionId(focusedIndex) : undefined
-            }
+            aria-activedescendant={open && focusedOption ? optionId(focusedIndex) : undefined}
             aria-disabled={disabled || undefined}
             data-open={open}
             onClick={
-              disabled
-                ? (e) => e.preventDefault()
-                : () => (open ? setOpen(false) : openWithFocus())
+              disabled ? (e) => e.preventDefault() : () => (open ? setOpen(false) : openWithFocus())
             }
           >
-            <span
-              className={`${styles.triggerText} ${!selectedOption ? styles.placeholder : ''}`}
-            >
+            <span className={`${styles.triggerText} ${!selectedOption ? styles.placeholder : ""}`}>
               {selectedOption?.label ?? placeholder}
             </span>
             {disabled && disabledReason && (
@@ -299,17 +277,9 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
               className={styles.dropdown}
               role="listbox"
               aria-label={label}
-              initial={
-                shouldReduceMotion
-                  ? { opacity: 0 }
-                  : { opacity: 0, scaleY: 0.95, y: -4 }
-              }
+              initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scaleY: 0.95, y: -4 }}
               animate={{ opacity: 1, scaleY: 1, y: 0 }}
-              exit={
-                shouldReduceMotion
-                  ? { opacity: 0 }
-                  : { opacity: 0, scaleY: 0.95, y: -4 }
-              }
+              exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scaleY: 0.95, y: -4 }}
               transition={shouldReduceMotion ? { duration: 0 } : springGentle}
             >
               {options.map((option, index) => (
@@ -324,9 +294,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
                   data-selected={option.value === value}
                   data-focused={index === focusedIndex}
                   data-disabled={option.disabled || undefined}
-                  onClick={
-                    option.disabled ? undefined : () => select(option.value)
-                  }
+                  onClick={option.disabled ? undefined : () => select(option.value)}
                   onKeyDown={handleKeyDown}
                   onMouseEnter={() => setFocusedIndex(index)}
                 >
@@ -354,4 +322,4 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
   }
 );
 
-Select.displayName = 'Select';
+Select.displayName = "Select";

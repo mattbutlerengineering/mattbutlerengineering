@@ -1,9 +1,9 @@
-import { forwardRef, useId, type ReactNode } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
-import { Lock } from 'lucide-react';
-import { spring, boop } from '../../tokens/motion';
-import { DisabledTooltip } from '../DisabledTooltip/DisabledTooltip';
-import styles from './Checkbox.module.css';
+import { forwardRef, useId, type ReactNode } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import { Lock } from "lucide-react";
+import { spring, boop } from "../../tokens/motion";
+import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
+import styles from "./Checkbox.module.css";
 
 /* ── Checkbox ────────────────────────────────── */
 
@@ -40,7 +40,7 @@ export const Checkbox = forwardRef<HTMLDivElement, CheckboxProps>(
       disabled = false,
       disabledReason,
       description,
-      className = '',
+      className = "",
     },
     ref
   ) => {
@@ -78,9 +78,7 @@ export const Checkbox = forwardRef<HTMLDivElement, CheckboxProps>(
               <motion.span
                 className={styles.check}
                 animate={
-                  checked || indeterminate
-                    ? { scale: 1, opacity: 1 }
-                    : { scale: 0, opacity: 0 }
+                  checked || indeterminate ? { scale: 1, opacity: 1 } : { scale: 0, opacity: 0 }
                 }
                 transition={shouldReduceMotion ? { duration: 0 } : spring}
               >
@@ -114,11 +112,7 @@ export const Checkbox = forwardRef<HTMLDivElement, CheckboxProps>(
             </motion.span>
             <span className={styles.checkboxText}>
               {label}
-              {description && (
-                <span className={styles.checkboxDescription}>
-                  {description}
-                </span>
-              )}
+              {description && <span className={styles.checkboxDescription}>{description}</span>}
             </span>
             {disabled && disabledReason && (
               <Lock size={12} aria-hidden className={styles.lockIcon} />
@@ -129,7 +123,7 @@ export const Checkbox = forwardRef<HTMLDivElement, CheckboxProps>(
     );
   }
 );
-Checkbox.displayName = 'Checkbox';
+Checkbox.displayName = "Checkbox";
 
 /* ── Radio ───────────────────────────────────── */
 
@@ -167,7 +161,7 @@ export const Radio = forwardRef<HTMLDivElement, RadioProps>(
       disabled = false,
       disabledReason,
       description,
-      className = '',
+      className = "",
     },
     ref
   ) => {
@@ -202,17 +196,13 @@ export const Radio = forwardRef<HTMLDivElement, RadioProps>(
             >
               <motion.span
                 className={styles.dot}
-                animate={
-                  checked ? { scale: 1, opacity: 1 } : { scale: 0, opacity: 0 }
-                }
+                animate={checked ? { scale: 1, opacity: 1 } : { scale: 0, opacity: 0 }}
                 transition={shouldReduceMotion ? { duration: 0 } : spring}
               />
             </motion.span>
             <span className={styles.radioText}>
               {label}
-              {description && (
-                <span className={styles.radioDescription}>{description}</span>
-              )}
+              {description && <span className={styles.radioDescription}>{description}</span>}
             </span>
             {disabled && disabledReason && (
               <Lock size={12} aria-hidden className={styles.lockIcon} />
@@ -223,7 +213,7 @@ export const Radio = forwardRef<HTMLDivElement, RadioProps>(
     );
   }
 );
-Radio.displayName = 'Radio';
+Radio.displayName = "Radio";
 
 /* ── Radio Group ─────────────────────────────── */
 
@@ -250,18 +240,14 @@ interface RadioGroupProps {
 }
 
 export const RadioGroup = forwardRef<HTMLFieldSetElement, RadioGroupProps>(
-  ({ label, name, value, onChange, children, className = '' }, ref) => {
+  ({ label, name, value, onChange, children, className = "" }, ref) => {
     return (
-      <fieldset
-        ref={ref}
-        className={`${styles.radioGroup} ${className}`}
-        role="radiogroup"
-      >
+      <fieldset ref={ref} className={`${styles.radioGroup} ${className}`} role="radiogroup">
         {label && <legend className={styles.radioGroupLabel}>{label}</legend>}
         {/* Clone children to inject name/value/onChange */}
         {Array.isArray(children)
           ? children.map((child, i) => {
-              if (child && typeof child === 'object' && 'props' in child) {
+              if (child && typeof child === "object" && "props" in child) {
                 return (
                   <Radio
                     key={child.props.value ?? i}
@@ -279,4 +265,4 @@ export const RadioGroup = forwardRef<HTMLFieldSetElement, RadioGroupProps>(
     );
   }
 );
-RadioGroup.displayName = 'RadioGroup';
+RadioGroup.displayName = "RadioGroup";

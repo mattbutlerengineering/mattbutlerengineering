@@ -13,7 +13,7 @@ interface Driver {
   number: number;
   team: string;
   nationality: string;
-  status: 'active' | 'reserve' | 'retired';
+  status: "active" | "reserve" | "retired";
   points: number;
   wins: number;
   podiums: number;

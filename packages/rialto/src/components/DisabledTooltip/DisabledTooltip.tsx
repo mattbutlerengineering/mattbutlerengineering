@@ -1,5 +1,5 @@
-import { type ReactNode } from 'react';
-import { Tooltip } from '../Tooltip/Tooltip';
+import { type ReactNode } from "react";
+import { Tooltip } from "../Tooltip/Tooltip";
 
 interface DisabledTooltipProps {
   disabled?: boolean;
@@ -7,11 +7,7 @@ interface DisabledTooltipProps {
   children: ReactNode;
 }
 
-export function DisabledTooltip({
-  disabled,
-  disabledReason,
-  children,
-}: DisabledTooltipProps) {
+export function DisabledTooltip({ disabled, disabledReason, children }: DisabledTooltipProps) {
   if (disabled && disabledReason) {
     return (
       <Tooltip content={disabledReason} showOnFocus={false}>

@@ -6,10 +6,10 @@ import {
   useMemo,
   forwardRef,
   type ReactNode,
-} from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { spring } from '../../tokens/motion';
-import styles from './CommandPalette.module.css';
+} from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { spring } from "../../tokens/motion";
+import styles from "./CommandPalette.module.css";
 
 /* ── Types ───────────────────────────────────── */
 /**
@@ -79,16 +79,10 @@ function matchesQuery(label: string, query: string): boolean {
 /* ── Component ──────────────────────────────── */
 export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
   function CommandPalette(
-    {
-      open,
-      onOpenChange,
-      items,
-      placeholder = 'Search commands…',
-      groups = [],
-    },
+    { open, onOpenChange, items, placeholder = "Search commands…", groups = [] },
     ref
   ) {
-    const [query, setQuery] = useState('');
+    const [query, setQuery] = useState("");
     const [activeIndex, setActiveIndex] = useState(0);
     const inputRef = useRef<HTMLInputElement>(null);
     const listRef = useRef<HTMLDivElement>(null);
@@ -96,13 +90,13 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
     /* ── Global ⌘K / Ctrl+K shortcut ────────── */
     useEffect(() => {
       const handler = (e: KeyboardEvent) => {
-        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        if ((e.metaKey || e.ctrlKey) && e.key === "k") {
           e.preventDefault();
           onOpenChange(!open);
         }
       };
-      document.addEventListener('keydown', handler);
-      return () => document.removeEventListener('keydown', handler);
+      document.addEventListener("keydown", handler);
+      return () => document.removeEventListener("keydown", handler);
     }, [open, onOpenChange]);
 
     /* ── Filter items ────────────────────────── */
@@ -145,7 +139,7 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
     /* ── Reset on open/close ─────────────────── */
     useEffect(() => {
       if (open) {
-        setQuery('');
+        setQuery("");
         setActiveIndex(0);
         requestAnimationFrame(() => inputRef.current?.focus());
       }
@@ -153,17 +147,13 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
 
     /* ── Clamp active index when results change  */
     useEffect(() => {
-      setActiveIndex((prev) =>
-        Math.min(prev, Math.max(0, flatItems.length - 1))
-      );
+      setActiveIndex((prev) => Math.min(prev, Math.max(0, flatItems.length - 1)));
     }, [flatItems.length]);
 
     /* ── Scroll active item into view ────────── */
     useEffect(() => {
-      const el = listRef.current?.querySelector(
-        `[data-index="${activeIndex}"]`
-      );
-      el?.scrollIntoView({ block: 'nearest' });
+      const el = listRef.current?.querySelector(`[data-index="${activeIndex}"]`);
+      el?.scrollIntoView({ block: "nearest" });
     }, [activeIndex]);
 
     /* ── Select handler ──────────────────────── */
@@ -179,29 +169,27 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
     const handleKeyDown = useCallback(
       (e: React.KeyboardEvent) => {
         switch (e.key) {
-          case 'ArrowDown':
+          case "ArrowDown":
             e.preventDefault();
             setActiveIndex((i) => (i + 1) % flatItems.length);
             break;
-          case 'ArrowUp':
+          case "ArrowUp":
             e.preventDefault();
-            setActiveIndex(
-              (i) => (i - 1 + flatItems.length) % flatItems.length
-            );
+            setActiveIndex((i) => (i - 1 + flatItems.length) % flatItems.length);
             break;
-          case 'Home':
+          case "Home":
             e.preventDefault();
             setActiveIndex(0);
             break;
-          case 'End':
+          case "End":
             e.preventDefault();
             setActiveIndex(flatItems.length - 1);
             break;
-          case 'Enter':
+          case "Enter":
             e.preventDefault();
             if (flatItems[activeIndex]) selectItem(flatItems[activeIndex]);
             break;
-          case 'Escape':
+          case "Escape":
             e.preventDefault();
             onOpenChange(false);
             break;
@@ -283,16 +271,14 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
                           aria-selected={index === activeIndex}
                           onClick={() => selectItem(item)}
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
+                            if (e.key === "Enter") {
                               e.preventDefault();
                               selectItem(item);
                             }
                           }}
                           onPointerMove={() => setActiveIndex(index)}
                         >
-                          {item.icon && (
-                            <span className={styles.itemIcon}>{item.icon}</span>
-                          )}
+                          {item.icon && <span className={styles.itemIcon}>{item.icon}</span>}
                           <span className={styles.itemLabel}>{item.label}</span>
                           {item.shortcut && (
                             <span className={styles.itemShortcut}>
@@ -306,12 +292,8 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
                     });
 
                     return (
-                      <div key={section.group ?? '__ungrouped'}>
-                        {section.group && (
-                          <div className={styles.groupLabel}>
-                            {section.group}
-                          </div>
-                        )}
+                      <div key={section.group ?? "__ungrouped"}>
+                        {section.group && <div className={styles.groupLabel}>{section.group}</div>}
                         {sectionItems}
                       </div>
                     );
@@ -340,4 +322,4 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
   }
 );
 
-CommandPalette.displayName = 'CommandPalette';
+CommandPalette.displayName = "CommandPalette";

@@ -1,7 +1,7 @@
-import { forwardRef, useEffect, useRef, type ReactNode } from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { springGentle, precision } from '../../tokens/motion';
-import styles from './Dialog.module.css';
+import { forwardRef, useEffect, useRef, type ReactNode } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { springGentle, precision } from "../../tokens/motion";
+import styles from "./Dialog.module.css";
 
 /**
  * A modal dialog that renders centered over a backdrop overlay.
@@ -32,10 +32,10 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
     useEffect(() => {
       if (!open) return;
       const handler = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') onClose();
+        if (e.key === "Escape") onClose();
       };
-      document.addEventListener('keydown', handler);
-      return () => document.removeEventListener('keydown', handler);
+      document.addEventListener("keydown", handler);
+      return () => document.removeEventListener("keydown", handler);
     }, [open, onClose]);
 
     // Trap focus inside dialog when open
@@ -53,7 +53,7 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
       first?.focus();
 
       const trap = (e: KeyboardEvent) => {
-        if (e.key !== 'Tab') return;
+        if (e.key !== "Tab") return;
         if (e.shiftKey) {
           if (document.activeElement === first) {
             e.preventDefault();
@@ -67,8 +67,8 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
         }
       };
 
-      document.addEventListener('keydown', trap);
-      return () => document.removeEventListener('keydown', trap);
+      document.addEventListener("keydown", trap);
+      return () => document.removeEventListener("keydown", trap);
     }, [open]);
 
     const motionProps = shouldReduceMotion
@@ -94,10 +94,8 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
           >
             <motion.div
               ref={(node) => {
-                (
-                  panelRef as React.MutableRefObject<HTMLDivElement | null>
-                ).current = node;
-                if (typeof ref === 'function') ref(node);
+                (panelRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+                if (typeof ref === "function") ref(node);
                 else if (ref) ref.current = node;
               }}
               className={styles.panel}
@@ -109,11 +107,7 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
             >
               <div className={styles.header}>
                 {title && <h2 className={styles.title}>{title}</h2>}
-                <button
-                  className={styles.close}
-                  onClick={onClose}
-                  aria-label="Close dialog"
-                >
+                <button className={styles.close} onClick={onClose} aria-label="Close dialog">
                   <svg
                     width="14"
                     height="14"
@@ -127,9 +121,7 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
                   </svg>
                 </button>
               </div>
-              {description && (
-                <p className={styles.description}>{description}</p>
-              )}
+              {description && <p className={styles.description}>{description}</p>}
               {children}
               {footer && <div className={styles.footer}>{footer}</div>}
             </motion.div>
@@ -140,4 +132,4 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
   }
 );
 
-Dialog.displayName = 'Dialog';
+Dialog.displayName = "Dialog";

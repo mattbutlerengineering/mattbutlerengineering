@@ -39,7 +39,7 @@ Skeleton shimmer and Progress indeterminate animations use directional `translat
     transform: translateX(100%);
   }
 }
-[dir='rtl'] .skeleton::after {
+[dir="rtl"] .skeleton::after {
   animation-name: shimmer-rtl;
 }
 @keyframes shimmer-rtl {

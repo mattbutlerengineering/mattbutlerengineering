@@ -29,8 +29,8 @@ Create `pnpm-workspace.yaml`:
 
 ```yaml
 packages:
-  - 'packages/*'
-  - 'apps/*'
+  - "packages/*"
+  - "apps/*"
 ```
 
 **Step 3: Create .npmrc**
@@ -249,15 +249,15 @@ Create `apps/showcase/package.json`:
 Create `apps/showcase/vite.config.ts`:
 
 ```ts
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
 
 export default defineConfig({
-  base: '/rialto/',
+  base: "/rialto/",
   plugins: [react()],
   css: {
     modules: {
-      localsConvention: 'camelCase',
+      localsConvention: "camelCase",
     },
   },
 });
@@ -373,36 +373,30 @@ The `__dirname` paths need to point to the right places. Remove the `@` alias (n
 Write `packages/rialto/vite.config.lib.ts`:
 
 ```ts
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import dts from 'vite-plugin-dts';
-import path from 'path';
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import dts from "vite-plugin-dts";
+import path from "path";
 
 export default defineConfig({
-  plugins: [react(), dts({ tsconfigPath: './tsconfig.lib.json' })],
+  plugins: [react(), dts({ tsconfigPath: "./tsconfig.lib.json" })],
   css: {
     modules: {
-      localsConvention: 'camelCase',
+      localsConvention: "camelCase",
     },
   },
   build: {
-    outDir: 'dist/lib',
+    outDir: "dist/lib",
     lib: {
       entry: {
-        rialto: path.resolve(__dirname, 'src/lib-entry.ts'),
-        motion: path.resolve(__dirname, 'src/tokens/motion.ts'),
+        rialto: path.resolve(__dirname, "src/lib-entry.ts"),
+        motion: path.resolve(__dirname, "src/tokens/motion.ts"),
       },
-      formats: ['es'],
-      cssFileName: 'styles',
+      formats: ["es"],
+      cssFileName: "styles",
     },
     rollupOptions: {
-      external: [
-        'react',
-        'react-dom',
-        'react/jsx-runtime',
-        'framer-motion',
-        'lucide-react',
-      ],
+      external: ["react", "react-dom", "react/jsx-runtime", "framer-motion", "lucide-react"],
     },
   },
 });
@@ -462,16 +456,16 @@ In `apps/showcase/src/main.tsx`, change:
 
 ```ts
 // Old
-import './tokens/index.css';
-import './styles/reset.css';
-import './styles/global.css';
-import { ToastProvider } from './components/Toast/Toast';
-import { Spinner } from './components/Progress/Progress';
+import "./tokens/index.css";
+import "./styles/reset.css";
+import "./styles/global.css";
+import { ToastProvider } from "./components/Toast/Toast";
+import { Spinner } from "./components/Progress/Progress";
 
 // New
-import '@mbe/rialto/styles';
-import './global.css'; // move global.css to apps/showcase/src/
-import { ToastProvider, Spinner } from '@mbe/rialto';
+import "@mbe/rialto/styles";
+import "./global.css"; // move global.css to apps/showcase/src/
+import { ToastProvider, Spinner } from "@mbe/rialto";
 ```
 
 Move `src/styles/global.css` to `apps/showcase/src/global.css` (it's app-level: body font, selection colors, reduced-motion). The font `@import` URLs stay with it since they're loaded by the app.
@@ -600,10 +594,7 @@ The root tsconfig.json should be a project-references style config or just a bas
     "skipLibCheck": true,
     "noEmit": true
   },
-  "references": [
-    { "path": "./packages/rialto" },
-    { "path": "./apps/showcase" }
-  ],
+  "references": [{ "path": "./packages/rialto" }, { "path": "./apps/showcase" }],
   "include": []
 }
 ```
@@ -650,8 +641,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'pnpm'
+          node-version: "20"
+          cache: "pnpm"
 
       - run: pnpm install
 
@@ -736,8 +727,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'pnpm'
+          node-version: "20"
+          cache: "pnpm"
 
       - run: pnpm install
 
@@ -806,9 +797,9 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'pnpm'
-          registry-url: 'https://registry.npmjs.org'
+          node-version: "20"
+          cache: "pnpm"
+          registry-url: "https://registry.npmjs.org"
 
       - run: pnpm install
 
@@ -820,8 +811,8 @@ jobs:
         uses: changesets/action@v1
         with:
           version: npx changeset version
-          title: 'chore: version packages'
-          commit: 'chore: version packages'
+          title: "chore: version packages"
+          commit: "chore: version packages"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -854,9 +845,9 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'pnpm'
-          registry-url: 'https://registry.npmjs.org'
+          node-version: "20"
+          cache: "pnpm"
+          registry-url: "https://registry.npmjs.org"
 
       - run: pnpm install
 
@@ -937,7 +928,7 @@ Update ignores to include both package dist directories:
 
 ```js
 {
-  ignores: ['dist', 'packages/*/dist', 'apps/*/dist'];
+  ignores: ["dist", "packages/*/dist", "apps/*/dist"];
 }
 ```
 

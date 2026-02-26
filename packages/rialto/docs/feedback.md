@@ -36,9 +36,9 @@ Transient notification appearing briefly.
 ```tsx
 const { toast } = useToast();
 
-toast({ title: 'Saved!', variant: 'success' });
-toast({ title: 'Error', variant: 'error' });
-toast({ title: 'Copied!', variant: 'accent' });
+toast({ title: "Saved!", variant: "success" });
+toast({ title: "Error", variant: "error" });
+toast({ title: "Copied!", variant: "accent" });
 ```
 
 ### Props (toast function) {#toast-props-toast-function}

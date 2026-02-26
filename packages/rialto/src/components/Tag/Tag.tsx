@@ -1,10 +1,10 @@
-import { forwardRef, type ReactNode } from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { spring, boop } from '../../tokens/motion';
-import styles from './Tag.module.css';
+import { forwardRef, type ReactNode } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { spring, boop } from "../../tokens/motion";
+import styles from "./Tag.module.css";
 
 /* ── Types ───────────────────────────────────── */
-type TagVariant = 'default' | 'accent' | 'success' | 'error';
+type TagVariant = "default" | "accent" | "success" | "error";
 
 /**
  * A compact label for categorization, filtering, or selection.
@@ -36,28 +36,28 @@ export const Tag = forwardRef<HTMLElement, TagProps>(
   (
     {
       children,
-      variant = 'default',
+      variant = "default",
       dismissible = false,
       onDismiss,
       onClick,
       selected = false,
       icon,
-      className = '',
+      className = "",
     },
     ref
   ) => {
     const isInteractive = !!onClick;
     const shouldReduceMotion = useReducedMotion();
-    const variantClass = variant !== 'default' ? (styles[variant] ?? '') : '';
+    const variantClass = variant !== "default" ? (styles[variant] ?? "") : "";
     const classes = [
       styles.tag,
       variantClass,
-      isInteractive ? styles.interactive : '',
-      selected ? styles.selected : '',
+      isInteractive ? styles.interactive : "",
+      selected ? styles.selected : "",
       className,
     ]
       .filter(Boolean)
-      .join(' ');
+      .join(" ");
 
     if (isInteractive) {
       return (
@@ -67,9 +67,7 @@ export const Tag = forwardRef<HTMLElement, TagProps>(
           onClick={onClick}
           type="button"
           whileHover={
-            shouldReduceMotion
-              ? undefined
-              : { scale: boop.scale, transition: boop.transition }
+            shouldReduceMotion ? undefined : { scale: boop.scale, transition: boop.transition }
           }
         >
           {icon && <span className={styles.icon}>{icon}</span>}
@@ -132,7 +130,7 @@ export const Tag = forwardRef<HTMLElement, TagProps>(
     );
   }
 );
-Tag.displayName = 'Tag';
+Tag.displayName = "Tag";
 
 /* ── Animated Tag (for dismissible lists) ───── */
 /**
@@ -161,20 +159,18 @@ export const AnimatedTag = forwardRef<HTMLDivElement, AnimatedTagProps>(
       <motion.div
         ref={ref}
         layout
-        initial={
-          shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.8 }
-        }
+        initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.8 }}
         transition={shouldReduceMotion ? { duration: 0.1 } : spring}
-        style={{ display: 'inline-flex' }}
+        style={{ display: "inline-flex" }}
       >
         <Tag {...props} />
       </motion.div>
     );
   }
 );
-AnimatedTag.displayName = 'AnimatedTag';
+AnimatedTag.displayName = "AnimatedTag";
 
 /* ── Tag Group ───────────────────────────────── */
 /**
@@ -192,7 +188,7 @@ interface TagGroupProps {
 }
 
 export const TagGroup = forwardRef<HTMLDivElement, TagGroupProps>(
-  ({ children, className = '' }, ref) => {
+  ({ children, className = "" }, ref) => {
     return (
       <div ref={ref} className={`${styles.group} ${className}`}>
         <AnimatePresence>{children}</AnimatePresence>
@@ -200,4 +196,4 @@ export const TagGroup = forwardRef<HTMLDivElement, TagGroupProps>(
     );
   }
 );
-TagGroup.displayName = 'TagGroup';
+TagGroup.displayName = "TagGroup";

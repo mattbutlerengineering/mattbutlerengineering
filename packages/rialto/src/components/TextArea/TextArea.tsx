@@ -5,10 +5,10 @@ import {
   useRef,
   useCallback,
   type TextareaHTMLAttributes,
-} from 'react';
-import { Lock } from 'lucide-react';
-import { DisabledTooltip } from '../DisabledTooltip/DisabledTooltip';
-import styles from './TextArea.module.css';
+} from "react";
+import { Lock } from "lucide-react";
+import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
+import styles from "./TextArea.module.css";
 
 /* ── Types ───────────────────────────────────── */
 
@@ -23,16 +23,16 @@ import styles from './TextArea.module.css';
  */
 interface TextAreaProps extends Pick<
   TextareaHTMLAttributes<HTMLTextAreaElement>,
-  | 'placeholder'
-  | 'disabled'
-  | 'rows'
-  | 'value'
-  | 'defaultValue'
-  | 'onChange'
-  | 'onBlur'
-  | 'name'
-  | 'required'
-  | 'readOnly'
+  | "placeholder"
+  | "disabled"
+  | "rows"
+  | "value"
+  | "defaultValue"
+  | "onChange"
+  | "onBlur"
+  | "name"
+  | "required"
+  | "readOnly"
 > {
   label?: string;
   hint?: string;
@@ -60,7 +60,7 @@ export const TextArea = forwardRef<HTMLDivElement, TextAreaProps>(
       maxLength,
       disabledReason,
       showOptional,
-      className = '',
+      className = "",
       rows = 3,
       value,
       onChange,
@@ -78,7 +78,7 @@ export const TextArea = forwardRef<HTMLDivElement, TextAreaProps>(
     const handleAutoResize = useCallback(() => {
       const el = textareaRef.current;
       if (!el || !autoResize) return;
-      el.style.height = 'auto';
+      el.style.height = "auto";
       el.style.height = `${el.scrollHeight}px`;
     }, [autoResize]);
 
@@ -91,30 +91,24 @@ export const TextArea = forwardRef<HTMLDivElement, TextAreaProps>(
       [onChange, handleAutoResize]
     );
 
-    const currentLength =
-      typeof value === 'string' ? value.length : internalLength;
+    const currentLength = typeof value === "string" ? value.length : internalLength;
     const isOver = maxLength != null && currentLength > maxLength;
 
     return (
       <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>
-        <div
-          ref={ref}
-          className={`${styles.wrapper} ${error ? styles.error : ''} ${className}`}
-        >
+        <div ref={ref} className={`${styles.wrapper} ${error ? styles.error : ""} ${className}`}>
           {label && (
             <label htmlFor={id} className={styles.label}>
               {label}
               {required && <span className={styles.required}> *</span>}
-              {showOptional && !required && (
-                <span className={styles.optional}> (optional)</span>
-              )}
+              {showOptional && !required && <span className={styles.optional}> (optional)</span>}
             </label>
           )}
           <div className={styles.textareaContainer}>
             <textarea
               ref={textareaRef}
               id={id}
-              className={`${styles.textarea} ${autoResize ? styles.autoResize : ''}`}
+              className={`${styles.textarea} ${autoResize ? styles.autoResize : ""}`}
               rows={rows}
               value={value}
               onChange={handleChange}
@@ -130,9 +124,7 @@ export const TextArea = forwardRef<HTMLDivElement, TextAreaProps>(
             <div className={styles.footer}>
               {hint && <span className={styles.hint}>{hint}</span>}
               {maxLength != null && (
-                <span
-                  className={`${styles.counter} ${isOver ? styles.counterOver : ''}`}
-                >
+                <span className={`${styles.counter} ${isOver ? styles.counterOver : ""}`}>
                   {currentLength}/{maxLength}
                 </span>
               )}
@@ -143,4 +135,4 @@ export const TextArea = forwardRef<HTMLDivElement, TextAreaProps>(
     );
   }
 );
-TextArea.displayName = 'TextArea';
+TextArea.displayName = "TextArea";

@@ -7,10 +7,10 @@ import {
   type ReactNode,
   type HTMLAttributes,
   type KeyboardEvent,
-} from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
-import { spring } from '../../tokens/motion';
-import styles from './Tabs.module.css';
+} from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import { spring } from "../../tokens/motion";
+import styles from "./Tabs.module.css";
 
 /* ── Types ───────────────────────────────────── */
 
@@ -46,10 +46,7 @@ export interface Tab {
  *   onTabChange={(id) => console.log(id)}
  * />
  */
-export interface TabsProps extends Omit<
-  HTMLAttributes<HTMLDivElement>,
-  'children'
-> {
+export interface TabsProps extends Omit<HTMLAttributes<HTMLDivElement>, "children"> {
   tabs: Tab[];
   /** Tab `id` to show on first render. Defaults to the first tab. */
   defaultTab?: string;
@@ -59,7 +56,7 @@ export interface TabsProps extends Omit<
 /* ── Component ───────────────────────────────── */
 export const Tabs = forwardRef<HTMLDivElement, TabsProps>(
   ({ tabs, defaultTab, onTabChange, className, ...props }, ref) => {
-    const [activeId, setActiveId] = useState(defaultTab ?? tabs[0]?.id ?? '');
+    const [activeId, setActiveId] = useState(defaultTab ?? tabs[0]?.id ?? "");
     const [indicator, setIndicator] = useState({ left: 0, width: 0 });
     const tabRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
     const listRef = useRef<HTMLDivElement>(null);
@@ -79,8 +76,8 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(
 
     useEffect(() => {
       updateIndicator();
-      window.addEventListener('resize', updateIndicator);
-      return () => window.removeEventListener('resize', updateIndicator);
+      window.addEventListener("resize", updateIndicator);
+      return () => window.removeEventListener("resize", updateIndicator);
     }, [updateIndicator]);
 
     const selectTab = (id: string) => {
@@ -93,14 +90,13 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(
       const currentIndex = enabledTabs.findIndex((t) => t.id === activeId);
       let nextIndex: number;
 
-      if (e.key === 'ArrowRight') {
+      if (e.key === "ArrowRight") {
         nextIndex = (currentIndex + 1) % enabledTabs.length;
-      } else if (e.key === 'ArrowLeft') {
-        nextIndex =
-          (currentIndex - 1 + enabledTabs.length) % enabledTabs.length;
-      } else if (e.key === 'Home') {
+      } else if (e.key === "ArrowLeft") {
+        nextIndex = (currentIndex - 1 + enabledTabs.length) % enabledTabs.length;
+      } else if (e.key === "Home") {
         nextIndex = 0;
-      } else if (e.key === 'End') {
+      } else if (e.key === "End") {
         nextIndex = enabledTabs.length - 1;
       } else {
         return;
@@ -138,12 +134,9 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(
               aria-controls={`panel-${tab.id}`}
               tabIndex={tab.id === activeId ? 0 : -1}
               aria-disabled={tab.disabled || undefined}
-              className={[
-                styles.tab,
-                tab.id === activeId ? styles.tabActive : '',
-              ]
+              className={[styles.tab, tab.id === activeId ? styles.tabActive : ""]
                 .filter(Boolean)
-                .join(' ')}
+                .join(" ")}
               onClick={tab.disabled ? undefined : () => selectTab(tab.id)}
             >
               {tab.label}
@@ -178,4 +171,4 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(
   }
 );
 
-Tabs.displayName = 'Tabs';
+Tabs.displayName = "Tabs";

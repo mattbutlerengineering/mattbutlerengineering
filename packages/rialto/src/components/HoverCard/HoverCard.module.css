@@ -6,7 +6,7 @@
 
 /* ── Panel ───────────────────────────────────── */
 .panel {
-  composes: glass from '../../styles/surfaces.module.css';
+  composes: glass from "../../styles/surfaces.module.css";
 
   position: absolute;
   z-index: 50;
@@ -20,7 +20,7 @@
   line-height: var(--rialto-leading-relaxed);
 }
 
-:global([data-theme='dark']) .panel {
+:global([data-theme="dark"]) .panel {
   background: var(--rialto-surface-elevated);
 }
 

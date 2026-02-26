@@ -47,13 +47,7 @@ When to validate?
 ### NumberInput with range
 
 ```tsx
-<NumberInput
-  label="Car Number"
-  value={number}
-  onChange={setNumber}
-  min={1}
-  max={99}
-/>
+<NumberInput label="Car Number" value={number} onChange={setNumber} min={1} max={99} />
 ```
 
 ### Select with required
@@ -63,7 +57,7 @@ When to validate?
   label="Team"
   value={team}
   onChange={setTeam}
-  options={[{ value: '', label: 'Select team...' }, ...teams]}
+  options={[{ value: "", label: "Select team..." }, ...teams]}
 />
 ```
 
@@ -76,9 +70,9 @@ When to validate?
 ```tsx
 function validate(): string[] {
   const errors: string[] = [];
-  if (!name.trim()) errors.push('Name is required.');
-  if (number < 1 || number > 99) errors.push('Number must be 1-99.');
-  if (!team) errors.push('Team is required.');
+  if (!name.trim()) errors.push("Name is required.");
+  if (number < 1 || number > 99) errors.push("Number must be 1-99.");
+  if (!team) errors.push("Team is required.");
   return errors;
 }
 ```
@@ -89,7 +83,7 @@ function validate(): string[] {
 {
   errors.length > 0 && (
     <Alert variant="error" title="Please fix the following:">
-      <ul style={{ margin: 0, paddingLeft: 'var(--rialto-space-md)' }}>
+      <ul style={{ margin: 0, paddingLeft: "var(--rialto-space-md)" }}>
         {errors.map((err) => (
           <li key={err}>{err}</li>
         ))}
@@ -132,11 +126,7 @@ Track whether a form has unsaved changes to warn before navigation.
 
 ```tsx
 const isDirty = useMemo(() => {
-  return (
-    name !== original.name ||
-    team !== original.team ||
-    status !== original.status
-  );
+  return name !== original.name || team !== original.team || status !== original.status;
 }, [name, team, status, original]);
 
 // Warn on cancel with unsaved changes

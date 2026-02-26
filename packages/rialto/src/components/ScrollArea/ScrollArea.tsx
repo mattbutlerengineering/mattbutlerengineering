@@ -1,5 +1,5 @@
-import { forwardRef, type HTMLAttributes, type ReactNode } from 'react';
-import styles from './ScrollArea.module.css';
+import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
+import styles from "./ScrollArea.module.css";
 
 /**
  * Custom scroll container with styled scrollbars that match the Rialto surface
@@ -22,13 +22,12 @@ export interface ScrollAreaProps extends HTMLAttributes<HTMLDivElement> {
 
 export const ScrollArea = forwardRef<HTMLDivElement, ScrollAreaProps>(
   ({ maxHeight, children, className, style, ...props }, ref) => {
-    const heightStyle =
-      typeof maxHeight === 'number' ? `${maxHeight}px` : maxHeight;
+    const heightStyle = typeof maxHeight === "number" ? `${maxHeight}px` : maxHeight;
 
     return (
       <div
         ref={ref}
-        className={[styles.root, className].filter(Boolean).join(' ')}
+        className={[styles.root, className].filter(Boolean).join(" ")}
         style={{ maxHeight: heightStyle, ...style }}
         // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
         tabIndex={0}
@@ -42,4 +41,4 @@ export const ScrollArea = forwardRef<HTMLDivElement, ScrollAreaProps>(
   }
 );
 
-ScrollArea.displayName = 'ScrollArea';
+ScrollArea.displayName = "ScrollArea";

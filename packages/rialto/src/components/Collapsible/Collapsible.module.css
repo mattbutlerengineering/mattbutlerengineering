@@ -5,7 +5,7 @@
 }
 
 .trigger {
-  composes: focusRing from '../../styles/surfaces.module.css';
+  composes: focusRing from "../../styles/surfaces.module.css";
 
   display: flex;
   align-items: center;
@@ -28,11 +28,11 @@
   background: var(--rialto-surface);
 }
 
-.trigger[data-open='true'] {
+.trigger[data-open="true"] {
   color: var(--rialto-accent);
 }
 
-.trigger[aria-disabled='true'] {
+.trigger[aria-disabled="true"] {
   filter: saturate(0.6) brightness(0.95);
   cursor: not-allowed;
 }
@@ -48,7 +48,7 @@
   transition: color 0.15s cubic-bezier(0.2, 0, 0, 1);
 }
 
-.trigger[data-open='true'] .chevron {
+.trigger[data-open="true"] .chevron {
   color: var(--rialto-accent);
 }
 

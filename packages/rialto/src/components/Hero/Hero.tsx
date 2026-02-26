@@ -1,7 +1,7 @@
-import { forwardRef, type HTMLAttributes, type ReactNode } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
-import { precision } from '../../tokens/motion';
-import styles from './Hero.module.css';
+import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import { precision } from "../../tokens/motion";
+import styles from "./Hero.module.css";
 
 /* ── Types ───────────────────────────────────── */
 
@@ -20,7 +20,7 @@ import styles from './Hero.module.css';
  *   actions={<Button variant="primary">Get started</Button>}
  * />
  */
-export interface HeroProps extends Omit<HTMLAttributes<HTMLElement>, 'title'> {
+export interface HeroProps extends Omit<HTMLAttributes<HTMLElement>, "title"> {
   /** Small uppercase label above the title. */
   eyebrow?: string;
   /** Main heading — supports ReactNode for accent span wrapping. */
@@ -51,12 +51,12 @@ export const Hero = forwardRef<HTMLElement, HeroProps>(
       title,
       subtitle,
       actions,
-      minHeight = '85vh',
+      minHeight = "85vh",
       showDivider = true,
       className,
       style,
       id,
-      'aria-label': ariaLabel,
+      "aria-label": ariaLabel,
       ...rest
     },
     ref
@@ -66,7 +66,7 @@ export const Hero = forwardRef<HTMLElement, HeroProps>(
     const shouldReduceMotion = useReducedMotion();
     const transition = shouldReduceMotion ? { duration: 0 } : precision;
 
-    const classes = [styles.hero, className].filter(Boolean).join(' ');
+    const classes = [styles.hero, className].filter(Boolean).join(" ");
 
     return (
       <motion.section
@@ -81,47 +81,27 @@ export const Hero = forwardRef<HTMLElement, HeroProps>(
       >
         <div className={styles.content}>
           {eyebrow && (
-            <motion.p
-              className={styles.eyebrow}
-              variants={fadeUp}
-              transition={transition}
-            >
+            <motion.p className={styles.eyebrow} variants={fadeUp} transition={transition}>
               {eyebrow}
             </motion.p>
           )}
 
-          <motion.h1
-            className={styles.title}
-            variants={fadeUp}
-            transition={transition}
-          >
+          <motion.h1 className={styles.title} variants={fadeUp} transition={transition}>
             {title}
           </motion.h1>
 
           {subtitle && (
-            <motion.p
-              className={styles.subtitle}
-              variants={fadeUp}
-              transition={transition}
-            >
+            <motion.p className={styles.subtitle} variants={fadeUp} transition={transition}>
               {subtitle}
             </motion.p>
           )}
 
           {showDivider && (
-            <motion.hr
-              className={styles.divider}
-              variants={fadeUp}
-              transition={transition}
-            />
+            <motion.hr className={styles.divider} variants={fadeUp} transition={transition} />
           )}
 
           {actions && (
-            <motion.div
-              className={styles.actions}
-              variants={fadeUp}
-              transition={transition}
-            >
+            <motion.div className={styles.actions} variants={fadeUp} transition={transition}>
               {actions}
             </motion.div>
           )}
@@ -131,4 +111,4 @@ export const Hero = forwardRef<HTMLElement, HeroProps>(
   }
 );
 
-Hero.displayName = 'Hero';
+Hero.displayName = "Hero";

@@ -1,8 +1,8 @@
-import { useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
-import { Button, Checkbox, Input, useToast } from '@mbe/rialto';
-import { AuthLayout } from './AuthLayout';
-import styles from './AuthLayout.module.css';
+import { useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
+import { Button, Checkbox, Input, useToast } from "@mbe/rialto";
+import { AuthLayout } from "./AuthLayout";
+import styles from "./AuthLayout.module.css";
 
 export function SignUp() {
   const { toast } = useToast();
@@ -11,7 +11,7 @@ export function SignUp() {
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!agreedToTerms) return;
-    toast({ title: 'Account created successfully', variant: 'success' });
+    toast({ title: "Account created successfully", variant: "success" });
   }
 
   return (
@@ -25,24 +25,9 @@ export function SignUp() {
     >
       <form onSubmit={handleSubmit} className={styles.form}>
         <Input label="Full name" type="text" required autoComplete="name" />
-        <Input
-          label="Email address"
-          type="email"
-          required
-          autoComplete="email"
-        />
-        <Input
-          label="Password"
-          type="password"
-          required
-          autoComplete="new-password"
-        />
-        <Input
-          label="Confirm password"
-          type="password"
-          required
-          autoComplete="new-password"
-        />
+        <Input label="Email address" type="email" required autoComplete="email" />
+        <Input label="Password" type="password" required autoComplete="new-password" />
+        <Input label="Confirm password" type="password" required autoComplete="new-password" />
 
         <Checkbox
           label="I agree to the Terms of Service"

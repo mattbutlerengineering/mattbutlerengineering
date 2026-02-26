@@ -33,7 +33,7 @@
   touch-action: none;
 }
 
-.trackArea[aria-disabled='true'] {
+.trackArea[aria-disabled="true"] {
   filter: saturate(0.6) brightness(0.95);
   cursor: not-allowed;
   pointer-events: none;
@@ -44,7 +44,7 @@
 }
 
 .track {
-  composes: recessed from '../../styles/surfaces.module.css';
+  composes: recessed from "../../styles/surfaces.module.css";
 
   position: relative;
   width: 100%;
@@ -59,11 +59,7 @@
   top: 0;
   inset-inline-start: 0;
   height: 100%;
-  background: linear-gradient(
-    90deg,
-    var(--rialto-accent) 0%,
-    var(--rialto-accent-hover) 100%
-  );
+  background: linear-gradient(90deg, var(--rialto-accent) 0%, var(--rialto-accent-hover) 100%);
   border-radius: var(--rialto-radius-round);
   pointer-events: none;
 }
@@ -97,7 +93,7 @@
 }
 
 .knob:active,
-.knob[data-dragging='true'] {
+.knob[data-dragging="true"] {
   cursor: grabbing;
   border-color: var(--rialto-accent);
   box-shadow: var(--rialto-shadow-focus);

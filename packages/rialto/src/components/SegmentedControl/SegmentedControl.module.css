@@ -3,7 +3,7 @@
 }
 
 .track {
-  composes: recessed from '../../styles/surfaces.module.css';
+  composes: recessed from "../../styles/surfaces.module.css";
 
   position: relative;
   display: inline-flex;
@@ -28,7 +28,7 @@
 /* ── Segment ────────────────────────────────── */
 
 .segment {
-  composes: focusRing from '../../styles/surfaces.module.css';
+  composes: focusRing from "../../styles/surfaces.module.css";
 
   position: relative;
   z-index: 1;
@@ -46,7 +46,7 @@
   transition: color 0.15s cubic-bezier(0.2, 0, 0, 1);
 }
 
-.segment:hover:not([aria-disabled='true']) {
+.segment:hover:not([aria-disabled="true"]) {
   color: var(--rialto-text-secondary);
 }
 
@@ -55,7 +55,7 @@
   font-weight: var(--rialto-weight-medium);
 }
 
-.segment[aria-disabled='true'] {
+.segment[aria-disabled="true"] {
   filter: saturate(0.6) brightness(0.95);
   cursor: not-allowed;
 }

@@ -11,7 +11,7 @@
 /* ── Trigger ────────────────────────────────── */
 
 .trigger {
-  composes: focusRing from '../../styles/surfaces.module.css';
+  composes: focusRing from "../../styles/surfaces.module.css";
 
   display: inline-flex;
   align-items: center;
@@ -43,7 +43,7 @@
 /* ── Dropdown ───────────────────────────────── */
 
 .dropdown {
-  composes: glass from '../../styles/surfaces.module.css';
+  composes: glass from "../../styles/surfaces.module.css";
 
   position: absolute;
   top: calc(100% + 4px);
@@ -55,11 +55,11 @@
   transform-origin: top left;
 }
 
-[dir='rtl'] .dropdown {
+[dir="rtl"] .dropdown {
   transform-origin: top right;
 }
 
-:global([data-theme='dark']) .dropdown {
+:global([data-theme="dark"]) .dropdown {
   background: var(--rialto-surface-elevated);
 }
 

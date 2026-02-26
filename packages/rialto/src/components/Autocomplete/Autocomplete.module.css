@@ -18,8 +18,8 @@
 }
 
 .input {
-  composes: recessed from '../../styles/surfaces.module.css';
-  composes: focusRing from '../../styles/surfaces.module.css';
+  composes: recessed from "../../styles/surfaces.module.css";
+  composes: focusRing from "../../styles/surfaces.module.css";
 
   width: 100%;
   padding: var(--rialto-space-xs) var(--rialto-space-sm);
@@ -59,7 +59,7 @@
 
 /* ── Dropdown ────────────────────────────────── */
 .dropdown {
-  composes: glass from '../../styles/surfaces.module.css';
+  composes: glass from "../../styles/surfaces.module.css";
 
   position: absolute;
   top: 100%;

@@ -73,7 +73,7 @@
   flex-shrink: 0;
 }
 
-[dir='rtl'] .chevron {
+[dir="rtl"] .chevron {
   transform: scaleX(-1);
 }
 

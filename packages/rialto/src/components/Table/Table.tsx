@@ -1,14 +1,9 @@
-import React, {
-  forwardRef,
-  useState,
-  useCallback,
-  type ReactNode,
-} from 'react';
-import styles from './Table.module.css';
+import React, { forwardRef, useState, useCallback, type ReactNode } from "react";
+import styles from "./Table.module.css";
 
 /* ── Types ───────────────────────────────────── */
-type SortDirection = 'asc' | 'desc';
-type Alignment = 'left' | 'center' | 'right';
+type SortDirection = "asc" | "desc";
+type Alignment = "left" | "center" | "right";
 
 /**
  * Defines a single column in a `Table`, including its header, alignment, sort behavior, and optional custom renderer.
@@ -56,7 +51,7 @@ interface TableProps<T> {
   /** Unique key extractor per row */
   rowKey: (row: T) => string | number;
   /** Row density */
-  density?: 'compact' | 'default' | 'spacious';
+  density?: "compact" | "default" | "spacious";
   /** Alternating row tints */
   striped?: boolean;
   /** Message when data is empty */
@@ -94,11 +89,7 @@ function SortArrow({ direction }: { direction: SortDirection | null }) {
       strokeWidth="1.5"
       strokeLinecap="round"
     >
-      {direction === 'asc' ? (
-        <path d="M3 6L5 3L7 6" />
-      ) : (
-        <path d="M3 4L5 7L7 4" />
-      )}
+      {direction === "asc" ? <path d="M3 6L5 3L7 6" /> : <path d="M3 4L5 7L7 4" />}
     </svg>
   );
 }
@@ -109,23 +100,23 @@ function TableInner<T extends Record<string, unknown>>(
     columns,
     data,
     rowKey,
-    density = 'default',
+    density = "default",
     striped = false,
-    emptyMessage = 'No data',
-    className = '',
+    emptyMessage = "No data",
+    className = "",
   }: TableProps<T>,
   ref: React.ForwardedRef<HTMLDivElement>
 ) {
   const [sortKey, setSortKey] = useState<string | null>(null);
-  const [sortDir, setSortDir] = useState<SortDirection>('asc');
+  const [sortDir, setSortDir] = useState<SortDirection>("asc");
 
   const handleSort = useCallback(
     (key: string) => {
       if (sortKey === key) {
-        setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+        setSortDir((d) => (d === "asc" ? "desc" : "asc"));
       } else {
         setSortKey(key);
-        setSortDir('asc');
+        setSortDir("asc");
       }
     },
     [sortKey]
@@ -141,22 +132,22 @@ function TableInner<T extends Record<string, unknown>>(
         if (bVal == null) return -1;
 
         let cmp: number;
-        if (typeof aVal === 'number' && typeof bVal === 'number') {
+        if (typeof aVal === "number" && typeof bVal === "number") {
           cmp = aVal - bVal;
         } else {
           cmp = String(aVal).localeCompare(String(bVal));
         }
-        return sortDir === 'asc' ? cmp : -cmp;
+        return sortDir === "asc" ? cmp : -cmp;
       })
     : data;
 
-  const densityClass = density !== 'default' ? styles[density] : '';
-  const tbodyClass = striped ? styles.striped : '';
+  const densityClass = density !== "default" ? styles[density] : "";
+  const tbodyClass = striped ? styles.striped : "";
 
   const alignClass = (align?: Alignment) => {
-    if (align === 'right') return styles.alignRight;
-    if (align === 'center') return styles.alignCenter;
-    return '';
+    if (align === "right") return styles.alignRight;
+    if (align === "center") return styles.alignCenter;
+    return "";
   };
 
   return (
@@ -167,13 +158,13 @@ function TableInner<T extends Record<string, unknown>>(
             {columns.map((col) => (
               <th
                 key={col.key}
-                className={`${styles.th} ${col.sortable ? styles.sortable : ''} ${sortKey === col.key ? styles.sortActive : ''} ${alignClass(col.align)}`}
+                className={`${styles.th} ${col.sortable ? styles.sortable : ""} ${sortKey === col.key ? styles.sortActive : ""} ${alignClass(col.align)}`}
                 style={col.width ? { width: col.width } : undefined}
                 onClick={col.sortable ? () => handleSort(col.key) : undefined}
                 onKeyDown={
                   col.sortable
                     ? (e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
+                        if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
                           handleSort(col.key);
                         }
@@ -183,21 +174,19 @@ function TableInner<T extends Record<string, unknown>>(
                 tabIndex={col.sortable ? 0 : undefined}
                 aria-sort={
                   sortKey === col.key
-                    ? sortDir === 'asc'
-                      ? 'ascending'
-                      : 'descending'
+                    ? sortDir === "asc"
+                      ? "ascending"
+                      : "descending"
                     : col.sortable
-                      ? 'none'
+                      ? "none"
                       : undefined
                 }
-                role={col.sortable ? 'columnheader' : undefined}
+                role={col.sortable ? "columnheader" : undefined}
               >
                 {col.header}
                 {col.sortable && (
                   <span className={styles.sortIcon}>
-                    <SortArrow
-                      direction={sortKey === col.key ? sortDir : null}
-                    />
+                    <SortArrow direction={sortKey === col.key ? sortDir : null} />
                   </span>
                 )}
               </th>
@@ -215,10 +204,7 @@ function TableInner<T extends Record<string, unknown>>(
             sortedData.map((row) => (
               <tr key={rowKey(row)} className={styles.tr}>
                 {columns.map((col) => (
-                  <td
-                    key={col.key}
-                    className={`${styles.td} ${alignClass(col.align)}`}
-                  >
+                  <td key={col.key} className={`${styles.td} ${alignClass(col.align)}`}>
                     {col.render ? col.render(row) : (row[col.key] as ReactNode)}
                   </td>
                 ))}
@@ -231,9 +217,7 @@ function TableInner<T extends Record<string, unknown>>(
   );
 }
 
-export const Table = forwardRef(TableInner) as <
-  T extends Record<string, unknown>,
->(
+export const Table = forwardRef(TableInner) as <T extends Record<string, unknown>>(
   props: TableProps<T> & { ref?: React.Ref<HTMLDivElement> }
 ) => React.ReactElement | null;
-(Table as { displayName?: string }).displayName = 'Table';
+(Table as { displayName?: string }).displayName = "Table";

@@ -21,13 +21,8 @@
 **Step 1: Create the hook file**
 
 ```ts
-import { useCallback, useRef } from 'react';
-import {
-  useMotionValue,
-  useSpring,
-  useReducedMotion,
-  type MotionStyle,
-} from 'framer-motion';
+import { useCallback, useRef } from "react";
+import { useMotionValue, useSpring, useReducedMotion, type MotionStyle } from "framer-motion";
 
 const SPRING = { stiffness: 300, damping: 20, mass: 0.5 };
 
@@ -73,8 +68,8 @@ export function useTilt(
       // Set CSS vars for glow position (as percentages)
       const glowX = ((e.clientX - rect.left) / rect.width) * 100;
       const glowY = ((e.clientY - rect.top) / rect.height) * 100;
-      el.style.setProperty('--tilt-glow-x', `${glowX}%`);
-      el.style.setProperty('--tilt-glow-y', `${glowY}%`);
+      el.style.setProperty("--tilt-glow-x", `${glowX}%`);
+      el.style.setProperty("--tilt-glow-y", `${glowY}%`);
     },
     [rotateX, rotateY, maxTilt]
   );
@@ -84,8 +79,8 @@ export function useTilt(
     rotateY.set(0);
     const el = elRef.current;
     if (el) {
-      el.style.removeProperty('--tilt-glow-x');
-      el.style.removeProperty('--tilt-glow-y');
+      el.style.removeProperty("--tilt-glow-x");
+      el.style.removeProperty("--tilt-glow-y");
     }
   }, [rotateX, rotateY]);
 
@@ -154,7 +149,7 @@ Append to the end of `Card.module.css`:
 /* ── 3D tilt specular highlight ─────────────── */
 .card[data-tilt]::after,
 .flat[data-tilt]::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
@@ -209,15 +204,10 @@ The current Card component (`src/components/Card/Card.tsx`) is a simple `forward
 Replace the full contents of `src/components/Card/Card.tsx` with:
 
 ```tsx
-import {
-  forwardRef,
-  useCallback,
-  type HTMLAttributes,
-  type ReactNode,
-} from 'react';
-import { motion, type HTMLMotionProps } from 'framer-motion';
-import { useTilt } from './useTilt';
-import styles from './Card.module.css';
+import { forwardRef, useCallback, type HTMLAttributes, type ReactNode } from "react";
+import { motion, type HTMLMotionProps } from "framer-motion";
+import { useTilt } from "./useTilt";
+import styles from "./Card.module.css";
 
 /**
  * A content container with elevated, glass, or flat surface treatments.
@@ -235,7 +225,7 @@ import styles from './Card.module.css';
  */
 export interface CardProps extends HTMLAttributes<HTMLDivElement> {
   /** Surface treatment: `"elevated"` (shadow), `"glass"` (translucent blur), or `"flat"` (no shadow) */
-  variant?: 'elevated' | 'glass' | 'flat';
+  variant?: "elevated" | "glass" | "flat";
   /** Enable subtle cursor-tracking 3D tilt on hover. Disabled for `glass` variant. */
   tilt?: boolean;
   title?: string;
@@ -245,30 +235,17 @@ export interface CardProps extends HTMLAttributes<HTMLDivElement> {
 
 export const Card = forwardRef<HTMLDivElement, CardProps>(
   (
-    {
-      variant = 'elevated',
-      tilt = false,
-      title,
-      subtitle,
-      className,
-      children,
-      ...props
-    },
+    { variant = "elevated", tilt = false, title, subtitle, className, children, ...props },
     forwardedRef
   ) => {
-    const tiltEnabled = tilt && variant !== 'glass';
-    const {
-      ref: tiltRef,
-      style,
-      onMouseMove,
-      onMouseLeave,
-    } = useTilt(tiltEnabled);
+    const tiltEnabled = tilt && variant !== "glass";
+    const { ref: tiltRef, style, onMouseMove, onMouseLeave } = useTilt(tiltEnabled);
 
     // Merge forwarded ref and tilt callback ref
     const mergedRef = useCallback(
       (el: HTMLDivElement | null) => {
         tiltRef(el);
-        if (typeof forwardedRef === 'function') {
+        if (typeof forwardedRef === "function") {
           forwardedRef(el);
         } else if (forwardedRef) {
           forwardedRef.current = el;
@@ -278,13 +255,9 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
     );
 
     const variantClass =
-      variant === 'glass'
-        ? styles.glass
-        : variant === 'flat'
-          ? styles.flat
-          : styles.card;
+      variant === "glass" ? styles.glass : variant === "flat" ? styles.flat : styles.card;
 
-    const classes = [variantClass, className].filter(Boolean).join(' ');
+    const classes = [variantClass, className].filter(Boolean).join(" ");
 
     return (
       <motion.div
@@ -294,7 +267,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
         onMouseMove={onMouseMove}
         onMouseLeave={onMouseLeave}
         data-tilt={tiltEnabled || undefined}
-        {...(props as HTMLMotionProps<'div'>)}
+        {...(props as HTMLMotionProps<"div">)}
       >
         {(title || subtitle) && (
           <div className={styles.header}>
@@ -308,7 +281,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
   }
 );
 
-Card.displayName = 'Card';
+Card.displayName = "Card";
 ```
 
 **Step 2: Run typecheck**
@@ -343,13 +316,13 @@ git commit -m "feat(Card): integrate useTilt hook with tilt prop"
 In `src/components/components.test.tsx`, find the existing Card smoke test (line 129-132). Add a new test after it:
 
 ```tsx
-it('Card with tilt', () => {
+it("Card with tilt", () => {
   render(
     <Card tilt title="Tilt">
       Tilt content
     </Card>
   );
-  expect(screen.getByText('Tilt content')).toBeInTheDocument();
+  expect(screen.getByText("Tilt content")).toBeInTheDocument();
 });
 ```
 
@@ -358,31 +331,31 @@ it('Card with tilt', () => {
 In `src/components/interactions.test.tsx`, add import for `Card` at the top alongside existing component imports:
 
 ```tsx
-import { Card } from './Card/Card';
+import { Card } from "./Card/Card";
 ```
 
 Then add tests at the end of the `describe('Interaction tests', ...)` block:
 
 ```tsx
-it('Card with tilt applies data-tilt attribute', () => {
+it("Card with tilt applies data-tilt attribute", () => {
   render(
     <Card tilt title="Tilt">
       Content
     </Card>
   );
-  const card = screen.getByText('Content').closest('[data-tilt]');
+  const card = screen.getByText("Content").closest("[data-tilt]");
   expect(card).toBeInTheDocument();
-  expect(card).toHaveAttribute('data-tilt');
+  expect(card).toHaveAttribute("data-tilt");
 });
 
-it('Card with tilt on glass variant does not apply data-tilt', () => {
+it("Card with tilt on glass variant does not apply data-tilt", () => {
   render(
     <Card tilt variant="glass" title="Glass">
       Content
     </Card>
   );
-  const card = screen.getByText('Content').parentElement;
-  expect(card).not.toHaveAttribute('data-tilt');
+  const card = screen.getByText("Content").parentElement;
+  expect(card).not.toHaveAttribute("data-tilt");
 });
 ```
 
@@ -391,7 +364,7 @@ it('Card with tilt on glass variant does not apply data-tilt', () => {
 In `src/components/accessibility.test.tsx`, find the existing Card accessibility test. Add a new test after it:
 
 ```tsx
-it('Card with tilt has no violations', async () => {
+it("Card with tilt has no violations", async () => {
   const { container } = render(
     <Card tilt title="Tilt Card">
       <p>Content</p>
@@ -430,12 +403,11 @@ In `src/showcase/App.tsx`, find the Card section (line 1240). The existing secti
 <Card tilt title="3D Tilt" subtitle="Hover to interact">
   <p
     style={{
-      fontSize: 'var(--rialto-text-sm)',
-      color: 'var(--rialto-text-secondary)',
+      fontSize: "var(--rialto-text-sm)",
+      color: "var(--rialto-text-secondary)",
     }}
   >
-    Cursor-tracking tilt with specular highlight. Move your mouse across the
-    card surface.
+    Cursor-tracking tilt with specular highlight. Move your mouse across the card surface.
   </p>
 </Card>
 ```

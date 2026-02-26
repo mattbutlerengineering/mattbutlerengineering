@@ -1,9 +1,9 @@
-import { useRef, useEffect, forwardRef } from 'react';
-import { Dialog } from '../Dialog/Dialog';
-import styles from './ConfirmDialog.module.css';
+import { useRef, useEffect, forwardRef } from "react";
+import { Dialog } from "../Dialog/Dialog";
+import styles from "./ConfirmDialog.module.css";
 
-function ConfirmIcon({ variant }: { variant: 'default' | 'destructive' }) {
-  if (variant === 'destructive') {
+function ConfirmIcon({ variant }: { variant: "default" | "destructive" }) {
+  if (variant === "destructive") {
     return (
       <svg
         width="48"
@@ -61,84 +61,78 @@ export interface ConfirmDialogProps {
   /** Label for the cancel button */
   cancelLabel?: string;
   /** "destructive" renders a red confirm button and focuses cancel by default */
-  variant?: 'default' | 'destructive';
+  variant?: "default" | "destructive";
   className?: string;
 }
 
-export const ConfirmDialog = forwardRef<HTMLDivElement, ConfirmDialogProps>(
-  function ConfirmDialog(
-    {
-      open,
-      onConfirm,
-      onCancel,
-      title,
-      description,
-      confirmLabel = 'Confirm',
-      cancelLabel = 'Cancel',
-      variant = 'default',
-    },
-    ref
-  ) {
-    const confirmRef = useRef<HTMLButtonElement>(null);
-    const cancelRef = useRef<HTMLButtonElement>(null);
+export const ConfirmDialog = forwardRef<HTMLDivElement, ConfirmDialogProps>(function ConfirmDialog(
+  {
+    open,
+    onConfirm,
+    onCancel,
+    title,
+    description,
+    confirmLabel = "Confirm",
+    cancelLabel = "Cancel",
+    variant = "default",
+  },
+  ref
+) {
+  const confirmRef = useRef<HTMLButtonElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
 
-    // Auto-focus: destructive → cancel, default → confirm
-    useEffect(() => {
-      if (!open) return;
-      const timer = setTimeout(() => {
-        if (variant === 'destructive') {
-          cancelRef.current?.focus();
-        } else {
-          confirmRef.current?.focus();
-        }
-      }, 50);
-      return () => clearTimeout(timer);
-    }, [open, variant]);
+  // Auto-focus: destructive → cancel, default → confirm
+  useEffect(() => {
+    if (!open) return;
+    const timer = setTimeout(() => {
+      if (variant === "destructive") {
+        cancelRef.current?.focus();
+      } else {
+        confirmRef.current?.focus();
+      }
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [open, variant]);
 
-    const confirmClass = [
-      styles.button,
-      styles.confirm,
-      variant === 'destructive' ? styles.destructive : styles.default,
-    ].join(' ');
+  const confirmClass = [
+    styles.button,
+    styles.confirm,
+    variant === "destructive" ? styles.destructive : styles.default,
+  ].join(" ");
 
-    return (
-      <Dialog
-        ref={ref}
-        open={open}
-        onClose={onCancel}
-        title={title}
-        description={description}
-        footer={
-          <>
-            <button
-              ref={cancelRef}
-              className={[styles.button, styles.cancel].join(' ')}
-              onClick={onCancel}
-            >
-              {cancelLabel}
-            </button>
-            <button
-              ref={confirmRef}
-              className={confirmClass}
-              onClick={onConfirm}
-            >
-              {confirmLabel}
-            </button>
-          </>
-        }
+  return (
+    <Dialog
+      ref={ref}
+      open={open}
+      onClose={onCancel}
+      title={title}
+      description={description}
+      footer={
+        <>
+          <button
+            ref={cancelRef}
+            className={[styles.button, styles.cancel].join(" ")}
+            onClick={onCancel}
+          >
+            {cancelLabel}
+          </button>
+          <button ref={confirmRef} className={confirmClass} onClick={onConfirm}>
+            {confirmLabel}
+          </button>
+        </>
+      }
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          marginBottom: "var(--rialto-space-md)",
+        }}
       >
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'center',
-            marginBottom: 'var(--rialto-space-md)',
-          }}
-        >
-          <ConfirmIcon variant={variant} />
-        </div>
-      </Dialog>
-    );
-  }
-);
+        <ConfirmIcon variant={variant} />
+      </div>
+    </Dialog>
+  );
+});
 
-ConfirmDialog.displayName = 'ConfirmDialog';
+ConfirmDialog.displayName = "ConfirmDialog";

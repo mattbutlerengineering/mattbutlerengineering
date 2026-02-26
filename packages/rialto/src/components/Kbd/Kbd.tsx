@@ -1,5 +1,5 @@
-import { forwardRef } from 'react';
-import styles from './Kbd.module.css';
+import { forwardRef } from "react";
+import styles from "./Kbd.module.css";
 
 /* ── Single key cap ─────────────────────────── */
 
@@ -16,16 +16,14 @@ interface KbdProps {
   className?: string;
 }
 
-export const Kbd = forwardRef<HTMLElement, KbdProps>(
-  ({ children, className = '' }, ref) => {
-    return (
-      <kbd ref={ref} className={`${styles.kbd} ${className}`}>
-        {children}
-      </kbd>
-    );
-  }
-);
-Kbd.displayName = 'Kbd';
+export const Kbd = forwardRef<HTMLElement, KbdProps>(({ children, className = "" }, ref) => {
+  return (
+    <kbd ref={ref} className={`${styles.kbd} ${className}`}>
+      {children}
+    </kbd>
+  );
+});
+Kbd.displayName = "Kbd";
 
 /* ── Shortcut combo (e.g. ⌘ + K) ───────────── */
 
@@ -44,7 +42,7 @@ interface ShortcutProps {
 }
 
 export const Shortcut = forwardRef<HTMLSpanElement, ShortcutProps>(
-  ({ keys, className = '' }, ref) => {
+  ({ keys, className = "" }, ref) => {
     return (
       <span ref={ref} className={`${styles.shortcut} ${className}`}>
         {keys.map((key, i) => (
@@ -57,4 +55,4 @@ export const Shortcut = forwardRef<HTMLSpanElement, ShortcutProps>(
     );
   }
 );
-Shortcut.displayName = 'Shortcut';
+Shortcut.displayName = "Shortcut";

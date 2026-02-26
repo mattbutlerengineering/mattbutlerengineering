@@ -1,5 +1,5 @@
-import { forwardRef, type ReactNode } from 'react';
-import styles from './Breadcrumb.module.css';
+import { forwardRef, type ReactNode } from "react";
+import styles from "./Breadcrumb.module.css";
 
 /* ── Types ───────────────────────────────────── */
 
@@ -67,26 +67,22 @@ const ChevronSeparator = (
 
 /* ── Component ──────────────────────────────── */
 export const Breadcrumb = forwardRef<HTMLElement, BreadcrumbProps>(
-  ({ items, maxItems = 0, separator, className = '' }, ref) => {
+  ({ items, maxItems = 0, separator, className = "" }, ref) => {
     const sep = separator ?? ChevronSeparator;
 
     // Determine which items to display
-    let displayItems: (BreadcrumbItem | 'ellipsis')[];
+    let displayItems: (BreadcrumbItem | "ellipsis")[];
 
     if (maxItems > 0 && items.length > maxItems) {
       // Show first item, ellipsis, then last (maxItems - 1) items
       const tail = maxItems - 1;
-      displayItems = [items[0]!, 'ellipsis' as const, ...items.slice(-tail)];
+      displayItems = [items[0]!, "ellipsis" as const, ...items.slice(-tail)];
     } else {
       displayItems = [...items];
     }
 
     return (
-      <nav
-        ref={ref}
-        aria-label="Breadcrumb"
-        className={`${styles.nav} ${className}`}
-      >
+      <nav ref={ref} aria-label="Breadcrumb" className={`${styles.nav} ${className}`}>
         <ol className={styles.list}>
           {displayItems.map((item, i) => {
             const isLast = i === displayItems.length - 1;
@@ -101,7 +97,7 @@ export const Breadcrumb = forwardRef<HTMLElement, BreadcrumbProps>(
                 )}
 
                 {/* Ellipsis */}
-                {item === 'ellipsis' ? (
+                {item === "ellipsis" ? (
                   <span className={styles.ellipsis} aria-hidden="true">
                     &hellip;
                   </span>
@@ -113,21 +109,13 @@ export const Breadcrumb = forwardRef<HTMLElement, BreadcrumbProps>(
                   </span>
                 ) : item.href ? (
                   /* Link */
-                  <a
-                    href={item.href}
-                    className={styles.link}
-                    onClick={item.onClick}
-                  >
+                  <a href={item.href} className={styles.link} onClick={item.onClick}>
                     {item.icon && <>{item.icon} </>}
                     {item.label}
                   </a>
                 ) : (
                   /* Button-style link (no href) */
-                  <button
-                    type="button"
-                    className={styles.link}
-                    onClick={item.onClick}
-                  >
+                  <button type="button" className={styles.link} onClick={item.onClick}>
                     {item.icon && <>{item.icon} </>}
                     {item.label}
                   </button>
@@ -140,4 +128,4 @@ export const Breadcrumb = forwardRef<HTMLElement, BreadcrumbProps>(
     );
   }
 );
-Breadcrumb.displayName = 'Breadcrumb';
+Breadcrumb.displayName = "Breadcrumb";

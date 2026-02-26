@@ -1,5 +1,5 @@
-import { forwardRef, type HTMLAttributes, type ReactNode } from 'react';
-import styles from './AspectRatio.module.css';
+import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
+import styles from "./AspectRatio.module.css";
 
 /**
  * Constrains its children to a fixed width-to-height aspect ratio using a
@@ -24,8 +24,8 @@ export const AspectRatio = forwardRef<HTMLDivElement, AspectRatioProps>(
     return (
       <div
         ref={ref}
-        className={[styles.root, className].filter(Boolean).join(' ')}
-        style={{ '--ratio': ratio, ...style } as React.CSSProperties}
+        className={[styles.root, className].filter(Boolean).join(" ")}
+        style={{ "--ratio": ratio, ...style } as React.CSSProperties}
         {...props}
       >
         <div className={styles.inner}>{children}</div>
@@ -34,4 +34,4 @@ export const AspectRatio = forwardRef<HTMLDivElement, AspectRatioProps>(
   }
 );
 
-AspectRatio.displayName = 'AspectRatio';
+AspectRatio.displayName = "AspectRatio";

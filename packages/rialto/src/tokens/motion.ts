@@ -14,7 +14,7 @@ export const precision = {
 
 /** Spring physics — toggles, AI elements, high-interaction components */
 export const spring = {
-  type: 'spring' as const,
+  type: "spring" as const,
   stiffness: 400,
   damping: 28,
   mass: 0.8,
@@ -22,7 +22,7 @@ export const spring = {
 
 /** Gentle spring — larger movements, dialog entrances, card expansions */
 export const springGentle = {
-  type: 'spring' as const,
+  type: "spring" as const,
   stiffness: 200,
   damping: 24,
   mass: 1,
@@ -39,7 +39,7 @@ export const springTilt = {
 export const boop = {
   scale: 1.03,
   transition: {
-    type: 'spring' as const,
+    type: "spring" as const,
     stiffness: 400,
     damping: 15,
     mass: 0.5,

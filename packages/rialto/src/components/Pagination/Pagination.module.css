@@ -64,7 +64,7 @@
   cursor: not-allowed;
 }
 
-[dir='rtl'] .arrow svg {
+[dir="rtl"] .arrow svg {
   transform: scaleX(-1);
 }
 

@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Link } from 'react-router-dom';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { precision, spring, springGentle } from '@mbe/rialto/motion';
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { Link } from "react-router-dom";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { precision, spring, springGentle } from "@mbe/rialto/motion";
 import {
   Accordion,
   Alert,
@@ -65,9 +65,9 @@ import {
   type CommandItem,
   type VibeName,
   useToast,
-} from '@mbe/rialto';
-import { FloatingControls } from '../layouts/DemoLayout';
-import styles from './App.module.css';
+} from "@mbe/rialto";
+import { FloatingControls } from "../layouts/DemoLayout";
+import styles from "./App.module.css";
 
 /* ── Animation helpers ───────────────────────── */
 const fadeUp = {
@@ -96,11 +96,11 @@ function Section({
 
   return (
     <motion.section
-      id={title.toLowerCase().replace(/[\s&/]+/g, '-')}
+      id={title.toLowerCase().replace(/[\s&/]+/g, "-")}
       className={styles.section}
-      initial={shouldReduceMotion ? undefined : 'hidden'}
+      initial={shouldReduceMotion ? undefined : "hidden"}
       whileInView="visible"
-      viewport={{ once: true, margin: '-80px' }}
+      viewport={{ once: true, margin: "-80px" }}
       variants={stagger}
     >
       <div className={styles.sectionInner}>
@@ -109,9 +109,7 @@ function Section({
             <span className={styles.sectionNumber}>{number}</span>
             <h2 className={styles.sectionTitle}>{title}</h2>
           </div>
-          {description && (
-            <p className={styles.sectionDescription}>{description}</p>
-          )}
+          {description && <p className={styles.sectionDescription}>{description}</p>}
         </motion.div>
         <motion.div variants={fadeUp} transition={springGentle}>
           {children}
@@ -123,135 +121,135 @@ function Section({
 
 /* ── Data ────────────────────────────────────── */
 const SURFACES = [
-  { name: 'surface', color: 'var(--rialto-surface)' },
-  { name: 'elevated', color: 'var(--rialto-surface-elevated)' },
-  { name: 'recessed', color: 'var(--rialto-surface-recessed)' },
-  { name: 'matte', color: 'var(--rialto-surface-matte)' },
-  { name: 'deep', color: 'var(--rialto-surface-deep)' },
+  { name: "surface", color: "var(--rialto-surface)" },
+  { name: "elevated", color: "var(--rialto-surface-elevated)" },
+  { name: "recessed", color: "var(--rialto-surface-recessed)" },
+  { name: "matte", color: "var(--rialto-surface-matte)" },
+  { name: "deep", color: "var(--rialto-surface-deep)" },
 ];
 
 const COLOR_PALETTE = [
   {
-    group: 'Text',
+    group: "Text",
     tokens: [
-      { name: 'text-primary', value: '#1a1918' },
-      { name: 'text-secondary', value: '#6b6660' },
-      { name: 'text-tertiary', value: '#9e9890' },
-      { name: 'text-on-accent', value: '#fdfcfa' },
+      { name: "text-primary", value: "#1a1918" },
+      { name: "text-secondary", value: "#6b6660" },
+      { name: "text-tertiary", value: "#9e9890" },
+      { name: "text-on-accent", value: "#fdfcfa" },
     ],
   },
   {
-    group: 'Borders',
+    group: "Borders",
     tokens: [
-      { name: 'border', value: '#d8d4cd' },
-      { name: 'border-strong', value: '#b8b4ad' },
+      { name: "border", value: "#d8d4cd" },
+      { name: "border-strong", value: "#b8b4ad" },
     ],
   },
   {
-    group: 'Accent',
+    group: "Accent",
     tokens: [
-      { name: 'accent', value: '#c4922a' },
-      { name: 'accent-hover', value: '#d4a23a' },
-      { name: 'accent-muted', value: '12% α' },
-      { name: 'accent-glow', value: '35% α' },
+      { name: "accent", value: "#c4922a" },
+      { name: "accent-hover", value: "#d4a23a" },
+      { name: "accent-muted", value: "12% α" },
+      { name: "accent-glow", value: "35% α" },
     ],
   },
   {
-    group: 'Semantic',
+    group: "Semantic",
     tokens: [
-      { name: 'error', value: '#b84a3c' },
-      { name: 'error-muted', value: '10% α' },
-      { name: 'success', value: '#7a8a3c' },
-      { name: 'success-muted', value: '10% α' },
+      { name: "error", value: "#b84a3c" },
+      { name: "error-muted", value: "10% α" },
+      { name: "success", value: "#7a8a3c" },
+      { name: "success-muted", value: "10% α" },
     ],
   },
-  { group: 'Overlay', tokens: [{ name: 'overlay', value: '40% α' }] },
+  { group: "Overlay", tokens: [{ name: "overlay", value: "40% α" }] },
 ];
 
 const TYPE_SCALE = [
   {
-    token: '--rialto-text-3xl',
-    label: '3xl · Display',
-    text: 'Precision',
+    token: "--rialto-text-3xl",
+    label: "3xl · Display",
+    text: "Precision",
     weight: 300,
-    tracking: '-0.04em',
+    tracking: "-0.04em",
   },
   {
-    token: '--rialto-text-2xl',
-    label: '2xl · Hero',
-    text: 'Material honesty',
+    token: "--rialto-text-2xl",
+    label: "2xl · Hero",
+    text: "Material honesty",
     weight: 300,
-    tracking: '-0.03em',
+    tracking: "-0.03em",
   },
   {
-    token: '--rialto-text-xl',
-    label: 'xl · Title',
-    text: 'Restrained luxury',
+    token: "--rialto-text-xl",
+    label: "xl · Title",
+    text: "Restrained luxury",
     weight: 300,
-    tracking: '-0.02em',
+    tracking: "-0.02em",
   },
   {
-    token: '--rialto-text-lg',
-    label: 'lg · Heading',
-    text: 'Tactile contrast',
+    token: "--rialto-text-lg",
+    label: "lg · Heading",
+    text: "Tactile contrast",
     weight: 400,
-    tracking: '-0.02em',
+    tracking: "-0.02em",
   },
   {
-    token: '--rialto-text-md',
-    label: 'md · Subhead',
-    text: 'Surfaces that feel machined',
+    token: "--rialto-text-md",
+    label: "md · Subhead",
+    text: "Surfaces that feel machined",
     weight: 400,
-    tracking: '0',
+    tracking: "0",
   },
   {
-    token: '--rialto-text-base',
-    label: 'base · Body',
-    text: 'The digital translation of anodized aluminum, Gorilla Glass, and precision-milled controls.',
+    token: "--rialto-text-base",
+    label: "base · Body",
+    text: "The digital translation of anodized aluminum, Gorilla Glass, and precision-milled controls.",
     weight: 400,
-    tracking: '0',
+    tracking: "0",
   },
   {
-    token: '--rialto-text-sm',
-    label: 'sm · Caption',
-    text: 'Interactions that feel physical, color used surgically, restraint as a feature.',
+    token: "--rialto-text-sm",
+    label: "sm · Caption",
+    text: "Interactions that feel physical, color used surgically, restraint as a feature.",
     weight: 400,
-    tracking: '0',
+    tracking: "0",
   },
   {
-    token: '--rialto-text-xs',
-    label: 'xs · Label',
-    text: 'ANODIZED ALUMINUM · GORILLA GLASS · PHYSICAL CONTROLS',
+    token: "--rialto-text-xs",
+    label: "xs · Label",
+    text: "ANODIZED ALUMINUM · GORILLA GLASS · PHYSICAL CONTROLS",
     weight: 500,
-    tracking: '0.04em',
+    tracking: "0.04em",
   },
 ];
 
 const SPACING_SCALE = [
-  { token: '2xs', value: '4px' },
-  { token: 'xs', value: '8px' },
-  { token: 'sm', value: '12px' },
-  { token: 'md', value: '16px' },
-  { token: 'lg', value: '24px' },
-  { token: 'xl', value: '32px' },
-  { token: '2xl', value: '48px' },
-  { token: '3xl', value: '64px' },
-  { token: '4xl', value: '96px' },
+  { token: "2xs", value: "4px" },
+  { token: "xs", value: "8px" },
+  { token: "sm", value: "12px" },
+  { token: "md", value: "16px" },
+  { token: "lg", value: "24px" },
+  { token: "xl", value: "32px" },
+  { token: "2xl", value: "48px" },
+  { token: "3xl", value: "64px" },
+  { token: "4xl", value: "96px" },
 ];
 
 const RADIUS_SCALE = [
-  { token: 'none', value: '0', usage: 'No rounding' },
-  { token: 'sharp', value: '2px', usage: 'Chips, badges' },
-  { token: 'default', value: '6px', usage: 'Buttons, inputs' },
-  { token: 'soft', value: '10px', usage: 'Cards, containers' },
-  { token: 'round', value: '9999px', usage: 'Pills, avatars' },
+  { token: "none", value: "0", usage: "No rounding" },
+  { token: "sharp", value: "2px", usage: "Chips, badges" },
+  { token: "default", value: "6px", usage: "Buttons, inputs" },
+  { token: "soft", value: "10px", usage: "Cards, containers" },
+  { token: "round", value: "9999px", usage: "Pills, avatars" },
 ];
 
 const SHADOW_TOKENS = [
-  { token: 'elevated', description: 'Standard elevation for raised elements' },
-  { token: 'pressed', description: 'Tactile inset for pressed states' },
-  { token: 'focus', description: 'Gold glow ring for focus-visible' },
-  { token: 'glass', description: 'Depth layer for glass panels' },
+  { token: "elevated", description: "Standard elevation for raised elements" },
+  { token: "pressed", description: "Tactile inset for pressed states" },
+  { token: "focus", description: "Gold glow ring for focus-visible" },
+  { token: "glass", description: "Depth layer for glass panels" },
 ];
 
 const MATERIAL_SWATCHES: {
@@ -261,87 +259,87 @@ const MATERIAL_SWATCHES: {
   style: string;
 }[] = [
   {
-    name: 'aluminum',
-    label: 'Aluminum',
-    description: 'Default interactive surface',
-    style: 'materialAluminum',
+    name: "aluminum",
+    label: "Aluminum",
+    description: "Default interactive surface",
+    style: "materialAluminum",
   },
   {
-    name: 'polished',
-    label: 'Polished',
-    description: 'Elevated interactive elements',
-    style: 'materialPolished',
+    name: "polished",
+    label: "Polished",
+    description: "Elevated interactive elements",
+    style: "materialPolished",
   },
   {
-    name: 'glass',
-    label: 'Glass',
-    description: 'Overlays, dialogs, floating panels',
-    style: 'materialGlass',
+    name: "glass",
+    label: "Glass",
+    description: "Overlays, dialogs, floating panels",
+    style: "materialGlass",
   },
   {
-    name: 'recessed',
-    label: 'Recessed',
-    description: 'Inputs, tracks, channels',
-    style: 'materialRecessed',
+    name: "recessed",
+    label: "Recessed",
+    description: "Inputs, tracks, channels",
+    style: "materialRecessed",
   },
   {
-    name: 'dark',
-    label: 'Dark Surface',
-    description: 'Full-page backgrounds, headers',
-    style: 'materialDark',
+    name: "dark",
+    label: "Dark Surface",
+    description: "Full-page backgrounds, headers",
+    style: "materialDark",
   },
 ];
 
 const LAP_DATA = [
   {
     id: 1,
-    driver: 'Charles Leclerc',
+    driver: "Charles Leclerc",
     lap: 14,
-    sector1: '28.412',
-    sector2: '34.891',
-    sector3: '22.107',
-    total: '1:25.410',
-    delta: '-0.342',
+    sector1: "28.412",
+    sector2: "34.891",
+    sector3: "22.107",
+    total: "1:25.410",
+    delta: "-0.342",
   },
   {
     id: 2,
-    driver: 'Lewis Hamilton',
+    driver: "Lewis Hamilton",
     lap: 14,
-    sector1: '28.673',
-    sector2: '34.752',
-    sector3: '22.331',
-    total: '1:25.756',
-    delta: '+0.004',
+    sector1: "28.673",
+    sector2: "34.752",
+    sector3: "22.331",
+    total: "1:25.756",
+    delta: "+0.004",
   },
   {
     id: 3,
-    driver: 'Marc Newson',
+    driver: "Marc Newson",
     lap: 12,
-    sector1: '29.101',
-    sector2: '35.244',
-    sector3: '22.890',
-    total: '1:27.235',
-    delta: '+1.483',
+    sector1: "29.101",
+    sector2: "35.244",
+    sector3: "22.890",
+    total: "1:27.235",
+    delta: "+1.483",
   },
   {
     id: 4,
-    driver: 'Adrian Newey',
+    driver: "Adrian Newey",
     lap: 11,
-    sector1: '29.445',
-    sector2: '35.601',
-    sector3: '23.112',
-    total: '1:28.158',
-    delta: '+2.406',
+    sector1: "29.445",
+    sector2: "35.601",
+    sector3: "23.112",
+    total: "1:28.158",
+    delta: "+2.406",
   },
   {
     id: 5,
-    driver: 'Adrian Newey',
+    driver: "Adrian Newey",
     lap: 14,
-    sector1: '28.890',
-    sector2: '35.112',
-    sector3: '22.550',
-    total: '1:26.552',
-    delta: '+0.800',
+    sector1: "28.890",
+    sector2: "35.112",
+    sector3: "22.550",
+    total: "1:26.552",
+    delta: "+0.800",
   },
 ];
 
@@ -350,7 +348,7 @@ export function App() {
   const [toggleA, setToggleA] = useState(false);
   const [toggleB, setToggleB] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [drivingMode, setDrivingMode] = useState('');
+  const [drivingMode, setDrivingMode] = useState("");
   const [throttle, setThrottle] = useState(72);
   const [downforce, setDownforce] = useState(650);
   const { toast } = useToast();
@@ -361,20 +359,12 @@ export function App() {
   const [checkA, setCheckA] = useState(true);
   const [checkB, setCheckB] = useState(false);
   const [checkC, setCheckC] = useState(false);
-  const [radioValue, setRadioValue] = useState('sport');
+  const [radioValue, setRadioValue] = useState("sport");
   const [pageA, setPageA] = useState(1);
   const [pageB, setPageB] = useState(7);
-  const [tags, setTags] = useState([
-    'Fiorano',
-    'Monza',
-    'Mugello',
-    'Imola',
-    'Spa',
-  ]);
-  const [notes, setNotes] = useState('');
-  const [selectedFilters, setSelectedFilters] = useState<Set<string>>(
-    new Set(['V6'])
-  );
+  const [tags, setTags] = useState(["Fiorano", "Monza", "Mugello", "Imola", "Spa"]);
+  const [notes, setNotes] = useState("");
+  const [selectedFilters, setSelectedFilters] = useState<Set<string>>(new Set(["V6"]));
   const [lapCount, setLapCount] = useState(5);
   const [fuelMix, setFuelMix] = useState(3);
   const [brakeBias, setBrakeBias] = useState(56);
@@ -386,30 +376,30 @@ export function App() {
   const [drawerBottom, setDrawerBottom] = useState(false);
   const [wizardStep, setWizardStep] = useState(2);
   const [navOpen, setNavOpen] = useState(false);
-  const [pin, setPin] = useState('');
-  const [segmentedView, setSegmentedView] = useState('grid');
+  const [pin, setPin] = useState("");
+  const [segmentedView, setSegmentedView] = useState("grid");
   const [collapsibleOpen, setCollapsibleOpen] = useState(false);
-  const [activeVibe, setActiveVibe] = useState<VibeName>('default');
+  const [activeVibe, setActiveVibe] = useState<VibeName>("default");
   const [darkMode, setDarkMode] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    const saved = localStorage.getItem('rialto-theme');
-    if (saved) return saved === 'dark';
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (typeof window === "undefined") return false;
+    const saved = localStorage.getItem("rialto-theme");
+    if (saved) return saved === "dark";
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
   });
   const [rtl, setRtl] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return localStorage.getItem('rialto-dir') === 'rtl';
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("rialto-dir") === "rtl";
   });
   const shouldReduceMotion = useReducedMotion();
 
   /* ── Persist dark mode preference ────────────── */
   useEffect(() => {
-    localStorage.setItem('rialto-theme', darkMode ? 'dark' : 'light');
+    localStorage.setItem("rialto-theme", darkMode ? "dark" : "light");
   }, [darkMode]);
 
   /* ── Persist RTL preference ────────────────── */
   useEffect(() => {
-    localStorage.setItem('rialto-dir', rtl ? 'rtl' : 'ltr');
+    localStorage.setItem("rialto-dir", rtl ? "rtl" : "ltr");
   }, [rtl]);
 
   /* ── Auto-looping motion demos ────────────── */
@@ -429,57 +419,55 @@ export function App() {
   const cmdItems: CommandItem[] = useMemo(
     () => [
       {
-        id: 'toggle-mode',
-        label: 'Toggle Driving Mode',
-        group: 'Actions',
-        shortcut: ['⌘', 'D'],
-        onSelect: () => toast({ title: 'Driving mode toggled' }),
+        id: "toggle-mode",
+        label: "Toggle Driving Mode",
+        group: "Actions",
+        shortcut: ["⌘", "D"],
+        onSelect: () => toast({ title: "Driving mode toggled" }),
       },
       {
-        id: 'save-config',
-        label: 'Save Configuration',
-        group: 'Actions',
-        shortcut: ['⌘', 'S'],
-        onSelect: () =>
-          toast({ title: 'Configuration saved', variant: 'success' }),
+        id: "save-config",
+        label: "Save Configuration",
+        group: "Actions",
+        shortcut: ["⌘", "S"],
+        onSelect: () => toast({ title: "Configuration saved", variant: "success" }),
       },
       {
-        id: 'launch-control',
-        label: 'Arm Launch Control',
-        group: 'Actions',
-        onSelect: () =>
-          toast({ title: 'Launch control armed', variant: 'accent' }),
+        id: "launch-control",
+        label: "Arm Launch Control",
+        group: "Actions",
+        onSelect: () => toast({ title: "Launch control armed", variant: "accent" }),
       },
       {
-        id: 'reset-telemetry',
-        label: 'Reset Telemetry',
-        group: 'Actions',
-        onSelect: () => toast({ title: 'Telemetry reset' }),
+        id: "reset-telemetry",
+        label: "Reset Telemetry",
+        group: "Actions",
+        onSelect: () => toast({ title: "Telemetry reset" }),
       },
       {
-        id: 'lap-data',
-        label: 'View Lap Data',
-        group: 'Navigation',
-        shortcut: ['⌘', 'L'],
+        id: "lap-data",
+        label: "View Lap Data",
+        group: "Navigation",
+        shortcut: ["⌘", "L"],
       },
       {
-        id: 'settings',
-        label: 'Open Settings',
-        group: 'Navigation',
-        shortcut: ['⌘', ','],
+        id: "settings",
+        label: "Open Settings",
+        group: "Navigation",
+        shortcut: ["⌘", ","],
       },
-      { id: 'pit-wall', label: 'Pit Wall Dashboard', group: 'Navigation' },
-      { id: 'garage', label: 'Garage View', group: 'Navigation' },
+      { id: "pit-wall", label: "Pit Wall Dashboard", group: "Navigation" },
+      { id: "garage", label: "Garage View", group: "Navigation" },
       {
-        id: 'theme-light',
-        label: 'Switch to Light Theme',
-        group: 'Preferences',
+        id: "theme-light",
+        label: "Switch to Light Theme",
+        group: "Preferences",
       },
-      { id: 'theme-dark', label: 'Switch to Dark Theme', group: 'Preferences' },
+      { id: "theme-dark", label: "Switch to Dark Theme", group: "Preferences" },
       {
-        id: 'reduce-motion',
-        label: 'Toggle Reduced Motion',
-        group: 'Preferences',
+        id: "reduce-motion",
+        label: "Toggle Reduced Motion",
+        group: "Preferences",
       },
     ],
     [toast]
@@ -487,122 +475,105 @@ export function App() {
 
   const NAV_CATEGORIES = [
     {
-      label: 'Form',
+      label: "Form",
       items: [
-        'Button',
-        'Input',
-        'TextArea',
-        'Number Input',
-        'Checkbox & Radio',
-        'Toggle',
-        'Slider',
-        'Select',
-        'Pin Input',
+        "Button",
+        "Input",
+        "TextArea",
+        "Number Input",
+        "Checkbox & Radio",
+        "Toggle",
+        "Slider",
+        "Select",
+        "Pin Input",
       ],
     },
     {
-      label: 'Data',
+      label: "Data",
+      items: ["Card", "Table", "Badge", "Tag", "Avatar", "Stat", "Data List", "Meter", "Kbd"],
+    },
+    {
+      label: "Navigation",
       items: [
-        'Card',
-        'Table',
-        'Badge',
-        'Tag',
-        'Avatar',
-        'Stat',
-        'Data List',
-        'Meter',
-        'Kbd',
+        "Tabs",
+        "Breadcrumb",
+        "Steps",
+        "Pagination",
+        "Segmented Control",
+        "Navigation Menu",
+        "Tree",
+        "Navbar",
       ],
     },
     {
-      label: 'Navigation',
+      label: "Feedback",
+      items: ["Toast", "Alert", "Banner", "Progress", "Skeleton", "Empty State"],
+    },
+    {
+      label: "Overlays",
       items: [
-        'Tabs',
-        'Breadcrumb',
-        'Steps',
-        'Pagination',
-        'Segmented Control',
-        'Navigation Menu',
-        'Tree',
-        'Navbar',
+        "Dialog",
+        "Confirm Dialog",
+        "Drawer",
+        "Command Palette",
+        "Tooltip",
+        "Popover",
+        "Hover Card",
+        "Dropdown Menu",
+        "Context Menu",
       ],
     },
     {
-      label: 'Feedback',
+      label: "Layout",
       items: [
-        'Toast',
-        'Alert',
-        'Banner',
-        'Progress',
-        'Skeleton',
-        'Empty State',
+        "Divider",
+        "Text",
+        "Stack",
+        "Collapsible",
+        "Accordion",
+        "Aspect Ratio",
+        "Scroll Area",
+        "Timeline",
       ],
     },
     {
-      label: 'Overlays',
+      label: "Tokens",
       items: [
-        'Dialog',
-        'Confirm Dialog',
-        'Drawer',
-        'Command Palette',
-        'Tooltip',
-        'Popover',
-        'Hover Card',
-        'Dropdown Menu',
-        'Context Menu',
+        "Motion",
+        "Typography",
+        "Color",
+        "Spacing",
+        "Radius",
+        "Shadows",
+        "Surfaces",
+        "Icon Vocabulary",
       ],
     },
     {
-      label: 'Layout',
-      items: [
-        'Divider',
-        'Text',
-        'Stack',
-        'Collapsible',
-        'Accordion',
-        'Aspect Ratio',
-        'Scroll Area',
-        'Timeline',
-      ],
-    },
-    {
-      label: 'Tokens',
-      items: [
-        'Motion',
-        'Typography',
-        'Color',
-        'Spacing',
-        'Radius',
-        'Shadows',
-        'Surfaces',
-        'Icon Vocabulary',
-      ],
-    },
-    {
-      label: 'Demo Pages',
-      items: ['Full-Page Demos'],
+      label: "Demo Pages",
+      items: ["Full-Page Demos"],
     },
   ];
 
   const DEMO_PAGES = [
-    { label: 'Sign In', path: '/login' },
-    { label: 'Sign Up', path: '/signup' },
-    { label: 'Dashboard', path: '/dashboard' },
-    { label: 'List', path: '/drivers' },
-    { label: 'Create', path: '/drivers/new' },
-    { label: 'Read', path: '/drivers/1' },
-    { label: 'Update', path: '/drivers/1/edit' },
+    { label: "Sign In", path: "/login" },
+    { label: "Sign Up", path: "/signup" },
+    { label: "Dashboard", path: "/dashboard" },
+    { label: "List", path: "/drivers" },
+    { label: "Create", path: "/drivers/new" },
+    { label: "Read", path: "/drivers/1" },
+    { label: "Update", path: "/drivers/1/edit" },
   ];
 
   const scrollToSection = useCallback((title: string) => {
-    const id = title.toLowerCase().replace(/[\s&/]+/g, '-');
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+    const id = title.toLowerCase().replace(/[\s&/]+/g, "-");
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
     setNavOpen(false);
   }, []);
 
   return (
-    <RialtoProvider vibe={activeVibe} theme={darkMode ? 'dark' : 'light'}>
-      <div className={styles.app} dir={rtl ? 'rtl' : undefined}>
+    <RialtoProvider vibe={activeVibe} theme={darkMode ? "dark" : "light"}>
+      <div className={styles.app} dir={rtl ? "rtl" : undefined}>
         {/* ── Floating controls ──────────────────── */}
         <div className={styles.floatingControls}>
           <button
@@ -668,20 +639,16 @@ export function App() {
               {NAV_CATEGORIES.map((cat) => (
                 <div key={cat.label}>
                   <div className={styles.navCategoryLabel}>{cat.label}</div>
-                  {cat.label === 'Demo Pages' ? (
+                  {cat.label === "Demo Pages" ? (
                     <>
                       <button
                         className={styles.sectionNavItem}
-                        onClick={() => scrollToSection('Full-Page Demos')}
+                        onClick={() => scrollToSection("Full-Page Demos")}
                       >
                         Overview
                       </button>
                       {DEMO_PAGES.map((page) => (
-                        <Link
-                          key={page.path}
-                          to={page.path}
-                          className={styles.sectionNavItem}
-                        >
+                        <Link key={page.path} to={page.path} className={styles.sectionNavItem}>
                           {page.label}
                         </Link>
                       ))}
@@ -729,8 +696,8 @@ export function App() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ ...springGentle, delay: 0.35 }}
           >
-            A component library with material honesty, precision surfaces, and
-            interactions that feel physical.
+            A component library with material honesty, precision surfaces, and interactions that
+            feel physical.
           </motion.p>
 
           <motion.div
@@ -833,12 +800,7 @@ export function App() {
           </div>
           <div className={styles.row}>
             <span className={styles.rowLabel}>State</span>
-            <Input
-              label="Error"
-              placeholder="Required"
-              error
-              hint="This field is required"
-            />
+            <Input label="Error" placeholder="Required" error hint="This field is required" />
             <Input label="Disabled" placeholder="Not editable" disabled />
             <Input label="Read-only" value="SF-24" disabled />
             <Input
@@ -889,11 +851,7 @@ export function App() {
               error
               hint="Session notes are required before sign-off"
             />
-            <TextArea
-              label="Disabled"
-              placeholder="Locked after submission"
-              disabled
-            />
+            <TextArea label="Disabled" placeholder="Locked after submission" disabled />
           </div>
         </Section>
 
@@ -933,18 +891,8 @@ export function App() {
           </div>
           <div className={styles.row}>
             <span className={styles.rowLabel}>Size</span>
-            <NumberInput
-              label="Small"
-              value={7}
-              onChange={() => {}}
-              size="small"
-            />
-            <NumberInput
-              label="Large"
-              value={42}
-              onChange={() => {}}
-              size="large"
-            />
+            <NumberInput label="Small" value={7} onChange={() => {}} size="small" />
+            <NumberInput label="Large" value={42} onChange={() => {}} size="large" />
           </div>
           <div className={styles.row}>
             <span className={styles.rowLabel}>State</span>
@@ -955,12 +903,7 @@ export function App() {
               error
               hint="Out of valid range"
             />
-            <NumberInput
-              label="Disabled"
-              value={42}
-              onChange={() => {}}
-              disabled
-            />
+            <NumberInput label="Disabled" value={42} onChange={() => {}} disabled />
           </div>
         </Section>
 
@@ -970,14 +913,10 @@ export function App() {
           title="Checkbox & Radio"
           description="Gold check marks and radio dots with spring animation — the same detent-snap physics as Toggle. Indeterminate state for partial selections. Radio groups with fieldset semantics."
         >
-          <div className={styles.row} style={{ alignItems: 'flex-start' }}>
+          <div className={styles.row} style={{ alignItems: "flex-start" }}>
             <div className={styles.stack} style={{ flex: 1 }}>
               <span className={styles.rowLabel}>Checkbox</span>
-              <Checkbox
-                label="Traction control"
-                checked={checkA}
-                onCheckedChange={setCheckA}
-              />
+              <Checkbox label="Traction control" checked={checkA} onCheckedChange={setCheckA} />
               <Checkbox
                 label="ABS intervention"
                 checked={checkB}
@@ -987,9 +926,7 @@ export function App() {
               <Checkbox
                 label="Select all"
                 checked={checkA && checkB && checkC}
-                indeterminate={
-                  (checkA || checkB || checkC) && !(checkA && checkB && checkC)
-                }
+                indeterminate={(checkA || checkB || checkC) && !(checkA && checkB && checkC)}
                 onCheckedChange={(v) => {
                   setCheckA(v);
                   setCheckB(v);
@@ -1024,32 +961,20 @@ export function App() {
           title="Toggle"
           description="Spring physics on the knob. The click-detent feel comes from high stiffness with controlled damping — like a physical rocker switch snapping into position."
         >
-          <div className={styles.row} style={{ alignItems: 'flex-start' }}>
+          <div className={styles.row} style={{ alignItems: "flex-start" }}>
             <span className={styles.rowLabel}>Interactive</span>
             <div className={styles.stack}>
-              <Toggle
-                label="Launch control"
-                checked={toggleA}
-                onCheckedChange={setToggleA}
-              />
-              <Toggle
-                label="Active aerodynamics"
-                checked={toggleB}
-                onCheckedChange={setToggleB}
-              />
+              <Toggle label="Launch control" checked={toggleA} onCheckedChange={setToggleA} />
+              <Toggle label="Active aerodynamics" checked={toggleB} onCheckedChange={setToggleB} />
             </div>
           </div>
-          <div className={styles.row} style={{ alignItems: 'flex-start' }}>
+          <div className={styles.row} style={{ alignItems: "flex-start" }}>
             <span className={styles.rowLabel}>State</span>
             <div className={styles.stack}>
               <Toggle label="Default off" />
               <Toggle label="Disabled off" disabled />
               <Toggle label="Disabled on" disabled checked />
-              <Toggle
-                label="Locked"
-                disabled
-                disabledReason="Feature requires enterprise plan"
-              />
+              <Toggle label="Locked" disabled disabledReason="Feature requires enterprise plan" />
             </div>
           </div>
         </Section>
@@ -1060,7 +985,7 @@ export function App() {
           title="Slider"
           description="Gold knob on a recessed aluminum track. Drag for immediate response — release and the knob settles with spring physics. The continuous-value counterpart to Toggle."
         >
-          <div className={styles.row} style={{ alignItems: 'flex-start' }}>
+          <div className={styles.row} style={{ alignItems: "flex-start" }}>
             <span className={styles.rowLabel}>Interactive</span>
             <div className={styles.stack} style={{ flex: 1 }}>
               <Slider
@@ -1082,7 +1007,7 @@ export function App() {
               />
             </div>
           </div>
-          <div className={styles.row} style={{ alignItems: 'flex-start' }}>
+          <div className={styles.row} style={{ alignItems: "flex-start" }}>
             <span className={styles.rowLabel}>State</span>
             <div className={styles.stack} style={{ flex: 1 }}>
               <Slider label="Default" defaultValue={30} />
@@ -1105,22 +1030,22 @@ export function App() {
               value={drivingMode}
               onChange={setDrivingMode}
               options={[
-                { value: 'comfort', label: 'Comfort' },
-                { value: 'sport', label: 'Sport' },
-                { value: 'race', label: 'Race' },
-                { value: 'wet', label: 'Wet' },
-                { value: 'esc-off', label: 'ESC Off', disabled: true },
+                { value: "comfort", label: "Comfort" },
+                { value: "sport", label: "Sport" },
+                { value: "race", label: "Race" },
+                { value: "wet", label: "Wet" },
+                { value: "esc-off", label: "ESC Off", disabled: true },
               ]}
             />
             <Select
               label="Tyre Compound"
               placeholder="Select compound\u2026"
               options={[
-                { value: 'soft', label: 'Soft (C5)' },
-                { value: 'medium', label: 'Medium (C3)' },
-                { value: 'hard', label: 'Hard (C1)' },
-                { value: 'inter', label: 'Intermediate' },
-                { value: 'wet', label: 'Full Wet' },
+                { value: "soft", label: "Soft (C5)" },
+                { value: "medium", label: "Medium (C3)" },
+                { value: "hard", label: "Hard (C1)" },
+                { value: "inter", label: "Intermediate" },
+                { value: "wet", label: "Full Wet" },
               ]}
             />
           </div>
@@ -1130,16 +1055,16 @@ export function App() {
               label="With value"
               value="sport"
               options={[
-                { value: 'comfort', label: 'Comfort' },
-                { value: 'sport', label: 'Sport' },
-                { value: 'race', label: 'Race' },
+                { value: "comfort", label: "Comfort" },
+                { value: "sport", label: "Sport" },
+                { value: "race", label: "Race" },
               ]}
             />
             <Select
               label="Disabled"
               placeholder="Not available"
               disabled
-              options={[{ value: 'x', label: 'x' }]}
+              options={[{ value: "x", label: "x" }]}
             />
           </div>
         </Section>
@@ -1158,12 +1083,12 @@ export function App() {
               value={pin}
               onChange={setPin}
               onComplete={(v) => {
-                if (v === '1234') {
-                  toast({ title: 'Code verified!', variant: 'success' });
-                  setPin('');
+                if (v === "1234") {
+                  toast({ title: "Code verified!", variant: "success" });
+                  setPin("");
                 } else {
-                  toast({ title: 'Invalid code — try 1234', variant: 'error' });
-                  setPin('');
+                  toast({ title: "Invalid code — try 1234", variant: "error" });
+                  setPin("");
                 }
               }}
             />
@@ -1176,11 +1101,7 @@ export function App() {
           <div className={styles.row}>
             <span className={styles.rowLabel}>Type</span>
             <PinInput label="Numeric" hint="Digits only" />
-            <PinInput
-              label="Alphanumeric"
-              type="alphanumeric"
-              hint="Letters or digits"
-            />
+            <PinInput label="Alphanumeric" type="alphanumeric" hint="Letters or digits" />
             <PinInput label="Masked" mask hint="Hidden input" />
           </div>
           <div className={styles.row}>
@@ -1213,49 +1134,42 @@ export function App() {
             <Card title="Elevated" subtitle="Polished aluminum">
               <p
                 style={{
-                  fontSize: 'var(--rialto-text-sm)',
-                  color: 'var(--rialto-text-secondary)',
+                  fontSize: "var(--rialto-text-sm)",
+                  color: "var(--rialto-text-secondary)",
                 }}
               >
-                Subtle lift with precision border. The default content
-                container.
+                Subtle lift with precision border. The default content container.
               </p>
             </Card>
-            <Card
-              variant="glass"
-              title="Glass"
-              subtitle="Frosted Gorilla Glass"
-            >
+            <Card variant="glass" title="Glass" subtitle="Frosted Gorilla Glass">
               <p
                 style={{
-                  fontSize: 'var(--rialto-text-sm)',
-                  color: 'var(--rialto-text-secondary)',
+                  fontSize: "var(--rialto-text-sm)",
+                  color: "var(--rialto-text-secondary)",
                 }}
               >
-                The Rialto effect — backdrop blur with warm translucency. For
-                floating panels.
+                The Rialto effect — backdrop blur with warm translucency. For floating panels.
               </p>
             </Card>
             <Card variant="flat" title="Flat" subtitle="Brushed matte">
               <p
                 style={{
-                  fontSize: 'var(--rialto-text-sm)',
-                  color: 'var(--rialto-text-secondary)',
+                  fontSize: "var(--rialto-text-sm)",
+                  color: "var(--rialto-text-secondary)",
                 }}
               >
-                Quiet presence. No shadow. For secondary groupings and nested
-                content.
+                Quiet presence. No shadow. For secondary groupings and nested content.
               </p>
             </Card>
             <Card tilt title="3D Tilt" subtitle="Hover to interact">
               <p
                 style={{
-                  fontSize: 'var(--rialto-text-sm)',
-                  color: 'var(--rialto-text-secondary)',
+                  fontSize: "var(--rialto-text-sm)",
+                  color: "var(--rialto-text-secondary)",
                 }}
               >
-                Cursor-tracking tilt with specular highlight. Move your mouse
-                across the card surface.
+                Cursor-tracking tilt with specular highlight. Move your mouse across the card
+                surface.
               </p>
             </Card>
           </div>
@@ -1269,29 +1183,29 @@ export function App() {
         >
           <Table
             columns={[
-              { key: 'driver', header: 'Driver', sortable: true },
+              { key: "driver", header: "Driver", sortable: true },
               {
-                key: 'lap',
-                header: 'Lap',
+                key: "lap",
+                header: "Lap",
                 sortable: true,
-                align: 'center',
-                width: '60px',
+                align: "center",
+                width: "60px",
               },
-              { key: 'sector1', header: 'S1', align: 'right' },
-              { key: 'sector2', header: 'S2', align: 'right' },
-              { key: 'sector3', header: 'S3', align: 'right' },
-              { key: 'total', header: 'Total', sortable: true, align: 'right' },
+              { key: "sector1", header: "S1", align: "right" },
+              { key: "sector2", header: "S2", align: "right" },
+              { key: "sector3", header: "S3", align: "right" },
+              { key: "total", header: "Total", sortable: true, align: "right" },
               {
-                key: 'delta',
-                header: 'Delta',
+                key: "delta",
+                header: "Delta",
                 sortable: true,
-                align: 'right',
+                align: "right",
                 render: (row) => (
                   <span
                     style={{
-                      color: String(row.delta).startsWith('-')
-                        ? 'var(--rialto-success)'
-                        : 'var(--rialto-text-tertiary)',
+                      color: String(row.delta).startsWith("-")
+                        ? "var(--rialto-success)"
+                        : "var(--rialto-text-tertiary)",
                     }}
                   >
                     {row.delta as string}
@@ -1350,28 +1264,28 @@ export function App() {
             <span className={styles.rowLabel}>In context</span>
             <span
               style={{
-                fontSize: 'var(--rialto-text-sm)',
-                color: 'var(--rialto-text-secondary)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--rialto-space-xs)',
+                fontSize: "var(--rialto-text-sm)",
+                color: "var(--rialto-text-secondary)",
+                display: "flex",
+                alignItems: "center",
+                gap: "var(--rialto-space-xs)",
               }}
             >
-              Telemetry{' '}
+              Telemetry{" "}
               <Badge variant="success" dot>
                 Live
               </Badge>
             </span>
             <span
               style={{
-                fontSize: 'var(--rialto-text-sm)',
-                color: 'var(--rialto-text-secondary)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--rialto-space-xs)',
+                fontSize: "var(--rialto-text-sm)",
+                color: "var(--rialto-text-secondary)",
+                display: "flex",
+                alignItems: "center",
+                gap: "var(--rialto-space-xs)",
               }}
             >
-              Notifications{' '}
+              Notifications{" "}
               <Badge variant="error" size="sm">
                 12
               </Badge>
@@ -1394,7 +1308,7 @@ export function App() {
           </div>
           <div className={styles.row}>
             <span className={styles.rowLabel}>Filters</span>
-            {['V6', 'V8', 'V12', 'Hybrid', 'Turbo'].map((f) => (
+            {["V6", "V8", "V12", "Hybrid", "Turbo"].map((f) => (
               <Tag
                 key={f}
                 onClick={() =>
@@ -1418,8 +1332,8 @@ export function App() {
             <span
               className={styles.rowLabel}
               style={{
-                display: 'block',
-                marginBottom: 'var(--rialto-space-xs)',
+                display: "block",
+                marginBottom: "var(--rialto-space-xs)",
               }}
             >
               Dismissible
@@ -1431,22 +1345,18 @@ export function App() {
                   id={t}
                   variant="accent"
                   dismissible
-                  onDismiss={() =>
-                    setTags((prev) => prev.filter((x) => x !== t))
-                  }
+                  onDismiss={() => setTags((prev) => prev.filter((x) => x !== t))}
                 >
                   {t}
                 </AnimatedTag>
               ))}
             </TagGroup>
             {tags.length === 0 && (
-              <div style={{ marginTop: 'var(--rialto-space-xs)' }}>
+              <div style={{ marginTop: "var(--rialto-space-xs)" }}>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() =>
-                    setTags(['Fiorano', 'Monza', 'Mugello', 'Imola', 'Spa'])
-                  }
+                  onClick={() => setTags(["Fiorano", "Monza", "Mugello", "Imola", "Spa"])}
                 >
                   Reset tags
                 </Button>
@@ -1487,11 +1397,11 @@ export function App() {
               size="md"
               max={3}
               avatars={[
-                { name: 'Charles Leclerc', status: 'online' },
-                { name: 'Lewis Hamilton', status: 'online' },
-                { name: 'Marc Newson', status: 'away' },
-                { name: 'Adrian Newey', status: 'busy' },
-                { name: 'Adrian Newey' },
+                { name: "Charles Leclerc", status: "online" },
+                { name: "Lewis Hamilton", status: "online" },
+                { name: "Marc Newson", status: "away" },
+                { name: "Adrian Newey", status: "busy" },
+                { name: "Adrian Newey" },
               ]}
             />
           </div>
@@ -1509,10 +1419,7 @@ export function App() {
             <Stat value="47%" label="Fuel" delta="-8%" trend="down" />
             <Stat value="23%" label="Brake Wear" delta="0.0%" trend="neutral" />
           </div>
-          <div
-            className={styles.row}
-            style={{ marginTop: 'var(--rialto-space-md)' }}
-          >
+          <div className={styles.row} style={{ marginTop: "var(--rialto-space-md)" }}>
             <span className={styles.rowLabel}>Sizes</span>
             <Stat value="1:25" label="SM" size="sm" />
             <Stat value="1:25.410" label="MD" />
@@ -1526,29 +1433,26 @@ export function App() {
           title="Data List"
           description="Semantic key-value pairs using native dl/dt/dd elements. Horizontal or vertical layout with optional striped rows for dense data."
         >
-          <div
-            className={styles.stack}
-            style={{ gap: 'var(--rialto-space-lg)' }}
-          >
+          <div className={styles.stack} style={{ gap: "var(--rialto-space-lg)" }}>
             <DataList
               items={[
-                { label: 'Engine', value: 'Twin-turbo 3.0L V6 Hybrid' },
-                { label: 'Power', value: '1,200 PS' },
-                { label: 'Torque', value: '900 Nm' },
-                { label: 'Weight', value: '1,250 kg' },
-                { label: '0–100 km/h', value: '2.15s' },
-                { label: 'Top Speed', value: '350 km/h' },
+                { label: "Engine", value: "Twin-turbo 3.0L V6 Hybrid" },
+                { label: "Power", value: "1,200 PS" },
+                { label: "Torque", value: "900 Nm" },
+                { label: "Weight", value: "1,250 kg" },
+                { label: "0–100 km/h", value: "2.15s" },
+                { label: "Top Speed", value: "350 km/h" },
               ]}
             />
             <DataList
               orientation="horizontal"
               striped
               items={[
-                { label: 'Session', value: 'FP1 — Fiorano' },
-                { label: 'Ambient Temp', value: '22°C' },
-                { label: 'Track Temp', value: '38°C' },
-                { label: 'Humidity', value: '45%' },
-                { label: 'Wind', value: '12 km/h NNW' },
+                { label: "Session", value: "FP1 — Fiorano" },
+                { label: "Ambient Temp", value: "22°C" },
+                { label: "Track Temp", value: "38°C" },
+                { label: "Humidity", value: "45%" },
+                { label: "Wind", value: "12 km/h NNW" },
               ]}
             />
           </div>
@@ -1562,33 +1466,14 @@ export function App() {
         >
           <div className={styles.stack}>
             <Meter value={72} label="Fuel Level" showValue variant="accent" />
-            <Meter
-              value={88}
-              label="Brake Temperature"
-              showValue
-              variant="error"
-            />
-            <Meter
-              value={32}
-              label="Tire Pressure"
-              showValue
-              variant="success"
-            />
+            <Meter value={88} label="Brake Temperature" showValue variant="error" />
+            <Meter value={32} label="Tire Pressure" showValue variant="success" />
             <Meter value={56} label="Engine Load" showValue variant="default" />
           </div>
-          <div
-            className={styles.row}
-            style={{ marginTop: 'var(--rialto-space-md)' }}
-          >
+          <div className={styles.row} style={{ marginTop: "var(--rialto-space-md)" }}>
             <span className={styles.rowLabel}>Small</span>
             <div style={{ flex: 1 }}>
-              <Meter
-                value={65}
-                label="Throttle"
-                showValue
-                size="sm"
-                variant="accent"
-              />
+              <Meter value={65} label="Throttle" showValue size="sm" variant="accent" />
             </div>
           </div>
         </Section>
@@ -1611,20 +1496,20 @@ export function App() {
           </div>
           <div className={styles.row}>
             <span className={styles.rowLabel}>Combos</span>
-            <Shortcut keys={['⌘', 'K']} />
-            <Shortcut keys={['⌘', 'Shift', 'P']} />
-            <Shortcut keys={['Ctrl', 'C']} />
-            <Shortcut keys={['Alt', 'F4']} />
+            <Shortcut keys={["⌘", "K"]} />
+            <Shortcut keys={["⌘", "Shift", "P"]} />
+            <Shortcut keys={["Ctrl", "C"]} />
+            <Shortcut keys={["Alt", "F4"]} />
           </div>
           <div className={styles.row}>
             <span className={styles.rowLabel}>In context</span>
             <span
               style={{
-                fontSize: 'var(--rialto-text-sm)',
-                color: 'var(--rialto-text-secondary)',
+                fontSize: "var(--rialto-text-sm)",
+                color: "var(--rialto-text-secondary)",
               }}
             >
-              Press <Shortcut keys={['⌘', 'K']} /> to open command palette
+              Press <Shortcut keys={["⌘", "K"]} /> to open command palette
             </span>
           </div>
         </Section>
@@ -1643,56 +1528,56 @@ export function App() {
           <Tabs
             tabs={[
               {
-                id: 'performance',
-                label: 'Performance',
+                id: "performance",
+                label: "Performance",
                 content: (
                   <p
                     style={{
-                      fontSize: 'var(--rialto-text-sm)',
-                      color: 'var(--rialto-text-secondary)',
-                      lineHeight: 'var(--rialto-leading-relaxed)',
+                      fontSize: "var(--rialto-text-sm)",
+                      color: "var(--rialto-text-secondary)",
+                      lineHeight: "var(--rialto-leading-relaxed)",
                     }}
                   >
-                    Twin-turbocharged V6 hybrid producing 1,200 PS. The most
-                    powerful road car we&apos;ve ever built.
+                    Twin-turbocharged V6 hybrid producing 1,200 PS. The most powerful road car
+                    we&apos;ve ever built.
                   </p>
                 ),
               },
               {
-                id: 'chassis',
-                label: 'Chassis',
+                id: "chassis",
+                label: "Chassis",
                 content: (
                   <p
                     style={{
-                      fontSize: 'var(--rialto-text-sm)',
-                      color: 'var(--rialto-text-secondary)',
-                      lineHeight: 'var(--rialto-leading-relaxed)',
+                      fontSize: "var(--rialto-text-sm)",
+                      color: "var(--rialto-text-secondary)",
+                      lineHeight: "var(--rialto-leading-relaxed)",
                     }}
                   >
-                    Carbon fiber monocoque with aluminum subframes. Active
-                    aerodynamics with adjustable downforce.
+                    Carbon fiber monocoque with aluminum subframes. Active aerodynamics with
+                    adjustable downforce.
                   </p>
                 ),
               },
               {
-                id: 'interior',
-                label: 'Interior',
+                id: "interior",
+                label: "Interior",
                 content: (
                   <p
                     style={{
-                      fontSize: 'var(--rialto-text-sm)',
-                      color: 'var(--rialto-text-secondary)',
-                      lineHeight: 'var(--rialto-leading-relaxed)',
+                      fontSize: "var(--rialto-text-sm)",
+                      color: "var(--rialto-text-secondary)",
+                      lineHeight: "var(--rialto-leading-relaxed)",
                     }}
                   >
-                    Anodized aluminum surfaces, Gorilla Glass instrument panel,
-                    physical controls with tactile feedback.
+                    Anodized aluminum surfaces, Gorilla Glass instrument panel, physical controls
+                    with tactile feedback.
                   </p>
                 ),
               },
               {
-                id: 'limited',
-                label: 'Availability',
+                id: "limited",
+                label: "Availability",
                 disabled: true,
                 content: null,
               },
@@ -1711,17 +1596,17 @@ export function App() {
               <span
                 className={styles.rowLabel}
                 style={{
-                  display: 'block',
-                  marginBottom: 'var(--rialto-space-xs)',
+                  display: "block",
+                  marginBottom: "var(--rialto-space-xs)",
                 }}
               >
                 Short path
               </span>
               <Breadcrumb
                 items={[
-                  { label: 'Home', href: '#' },
-                  { label: 'Vehicles', href: '#' },
-                  { label: 'F80' },
+                  { label: "Home", href: "#" },
+                  { label: "Vehicles", href: "#" },
+                  { label: "F80" },
                 ]}
               />
             </div>
@@ -1729,19 +1614,19 @@ export function App() {
               <span
                 className={styles.rowLabel}
                 style={{
-                  display: 'block',
-                  marginBottom: 'var(--rialto-space-xs)',
+                  display: "block",
+                  marginBottom: "var(--rialto-space-xs)",
                 }}
               >
                 Deep path
               </span>
               <Breadcrumb
                 items={[
-                  { label: 'Home', href: '#' },
-                  { label: 'Telemetry', href: '#' },
-                  { label: 'Sessions', href: '#' },
-                  { label: 'Fiorano', href: '#' },
-                  { label: 'Lap 14' },
+                  { label: "Home", href: "#" },
+                  { label: "Telemetry", href: "#" },
+                  { label: "Sessions", href: "#" },
+                  { label: "Fiorano", href: "#" },
+                  { label: "Lap 14" },
                 ]}
               />
             </div>
@@ -1749,20 +1634,20 @@ export function App() {
               <span
                 className={styles.rowLabel}
                 style={{
-                  display: 'block',
-                  marginBottom: 'var(--rialto-space-xs)',
+                  display: "block",
+                  marginBottom: "var(--rialto-space-xs)",
                 }}
               >
                 Collapsed (maxItems=3)
               </span>
               <Breadcrumb
                 items={[
-                  { label: 'Home', href: '#' },
-                  { label: 'Telemetry', href: '#' },
-                  { label: 'Sessions', href: '#' },
-                  { label: 'Fiorano', href: '#' },
-                  { label: 'Sector Analysis', href: '#' },
-                  { label: 'Lap 14' },
+                  { label: "Home", href: "#" },
+                  { label: "Telemetry", href: "#" },
+                  { label: "Sessions", href: "#" },
+                  { label: "Fiorano", href: "#" },
+                  { label: "Sector Analysis", href: "#" },
+                  { label: "Lap 14" },
                 ]}
                 maxItems={3}
               />
@@ -1776,16 +1661,13 @@ export function App() {
           title="Steps"
           description="Multi-step progress with connected nodes — gold fill for completed, glowing ring for current. Click any step to navigate. Horizontal and vertical orientations."
         >
-          <div
-            className={styles.stack}
-            style={{ gap: 'var(--rialto-space-xl)' }}
-          >
+          <div className={styles.stack} style={{ gap: "var(--rialto-space-xl)" }}>
             <div>
               <span
                 className={styles.rowLabel}
                 style={{
-                  display: 'block',
-                  marginBottom: 'var(--rialto-space-sm)',
+                  display: "block",
+                  marginBottom: "var(--rialto-space-sm)",
                 }}
               >
                 Interactive
@@ -1793,24 +1675,21 @@ export function App() {
               <Steps
                 steps={[
                   {
-                    label: 'Scrutineering',
-                    description: 'Technical inspection',
+                    label: "Scrutineering",
+                    description: "Technical inspection",
                   },
                   {
-                    label: 'Free Practice',
-                    description: 'Setup & data collection',
+                    label: "Free Practice",
+                    description: "Setup & data collection",
                   },
-                  { label: 'Qualifying', description: 'Grid position' },
-                  { label: 'Warm-up', description: 'Final checks' },
-                  { label: 'Race', description: 'Lights out' },
+                  { label: "Qualifying", description: "Grid position" },
+                  { label: "Warm-up", description: "Final checks" },
+                  { label: "Race", description: "Lights out" },
                 ]}
                 currentStep={wizardStep}
                 onStepClick={setWizardStep}
               />
-              <div
-                className={styles.row}
-                style={{ marginTop: 'var(--rialto-space-sm)' }}
-              >
+              <div className={styles.row} style={{ marginTop: "var(--rialto-space-sm)" }}>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1833,20 +1712,20 @@ export function App() {
               <span
                 className={styles.rowLabel}
                 style={{
-                  display: 'block',
-                  marginBottom: 'var(--rialto-space-sm)',
+                  display: "block",
+                  marginBottom: "var(--rialto-space-sm)",
                 }}
               >
                 Vertical orientation
               </span>
-              <div className={styles.row} style={{ alignItems: 'flex-start' }}>
+              <div className={styles.row} style={{ alignItems: "flex-start" }}>
                 <Steps
                   orientation="vertical"
                   steps={[
-                    { label: 'Pre-season testing' },
-                    { label: 'Race weekend' },
-                    { label: 'Post-race debrief' },
-                    { label: 'Development cycle' },
+                    { label: "Pre-season testing" },
+                    { label: "Race weekend" },
+                    { label: "Post-race debrief" },
+                    { label: "Development cycle" },
                   ]}
                   currentStep={1}
                 />
@@ -1854,10 +1733,10 @@ export function App() {
                   orientation="vertical"
                   compact
                   steps={[
-                    { label: 'Upload telemetry' },
-                    { label: 'Run analysis' },
-                    { label: 'Generate report' },
-                    { label: 'Share with team' },
+                    { label: "Upload telemetry" },
+                    { label: "Run analysis" },
+                    { label: "Generate report" },
+                    { label: "Share with team" },
                   ]}
                   currentStep={2}
                 />
@@ -1877,8 +1756,8 @@ export function App() {
               <span
                 className={styles.rowLabel}
                 style={{
-                  display: 'block',
-                  marginBottom: 'var(--rialto-space-xs)',
+                  display: "block",
+                  marginBottom: "var(--rialto-space-xs)",
                 }}
               >
                 Small range (5 pages)
@@ -1889,8 +1768,8 @@ export function App() {
               <span
                 className={styles.rowLabel}
                 style={{
-                  display: 'block',
-                  marginBottom: 'var(--rialto-space-xs)',
+                  display: "block",
+                  marginBottom: "var(--rialto-space-xs)",
                 }}
               >
                 Large range with ellipsis (20 pages)
@@ -1911,9 +1790,9 @@ export function App() {
               <span className={styles.rowLabel}>Interactive</span>
               <SegmentedControl
                 segments={[
-                  { id: 'grid', label: 'Grid' },
-                  { id: 'list', label: 'List' },
-                  { id: 'table', label: 'Table' },
+                  { id: "grid", label: "Grid" },
+                  { id: "list", label: "List" },
+                  { id: "table", label: "Table" },
                 ]}
                 value={segmentedView}
                 onChange={setSegmentedView}
@@ -1923,10 +1802,10 @@ export function App() {
               <span className={styles.rowLabel}>Disabled segment</span>
               <SegmentedControl
                 segments={[
-                  { id: 'comfort', label: 'Comfort' },
-                  { id: 'sport', label: 'Sport' },
-                  { id: 'race', label: 'Race' },
-                  { id: 'wet', label: 'Wet', disabled: true },
+                  { id: "comfort", label: "Comfort" },
+                  { id: "sport", label: "Sport" },
+                  { id: "race", label: "Race" },
+                  { id: "wet", label: "Wet", disabled: true },
                 ]}
                 value="sport"
                 onChange={() => {}}
@@ -1936,8 +1815,8 @@ export function App() {
               <span className={styles.rowLabel}>Small</span>
               <SegmentedControl
                 segments={[
-                  { id: 'a', label: 'Alpha' },
-                  { id: 'b', label: 'Beta' },
+                  { id: "a", label: "Alpha" },
+                  { id: "b", label: "Beta" },
                 ]}
                 value="a"
                 onChange={() => {}}
@@ -1955,24 +1834,16 @@ export function App() {
         >
           <NavigationMenu
             items={[
-              { label: 'Dashboard', href: '#' },
+              { label: "Dashboard", href: "#" },
               {
-                label: 'Telemetry',
-                children: [
-                  { label: 'Live Data' },
-                  { label: 'Historical' },
-                  { label: 'Exports' },
-                ],
+                label: "Telemetry",
+                children: [{ label: "Live Data" }, { label: "Historical" }, { label: "Exports" }],
               },
               {
-                label: 'Configuration',
-                children: [
-                  { label: 'Driving Mode' },
-                  { label: 'Suspension' },
-                  { label: 'Aero' },
-                ],
+                label: "Configuration",
+                children: [{ label: "Driving Mode" }, { label: "Suspension" }, { label: "Aero" }],
               },
-              { label: 'About', href: '#' },
+              { label: "About", href: "#" },
             ]}
           />
         </Section>
@@ -1986,42 +1857,42 @@ export function App() {
           <Tree
             data={[
               {
-                id: 'src',
-                label: 'src',
+                id: "src",
+                label: "src",
                 children: [
                   {
-                    id: 'components',
-                    label: 'components',
+                    id: "components",
+                    label: "components",
                     children: [
-                      { id: 'button', label: 'Button.tsx' },
-                      { id: 'input', label: 'Input.tsx' },
-                      { id: 'select', label: 'Select.tsx' },
+                      { id: "button", label: "Button.tsx" },
+                      { id: "input", label: "Input.tsx" },
+                      { id: "select", label: "Select.tsx" },
                     ],
                   },
                   {
-                    id: 'utils',
-                    label: 'utils',
+                    id: "utils",
+                    label: "utils",
                     children: [
-                      { id: 'helpers', label: 'helpers.ts' },
-                      { id: 'format', label: 'format.ts' },
+                      { id: "helpers", label: "helpers.ts" },
+                      { id: "format", label: "format.ts" },
                     ],
                   },
-                  { id: 'app', label: 'App.tsx' },
-                  { id: 'main', label: 'main.tsx' },
+                  { id: "app", label: "App.tsx" },
+                  { id: "main", label: "main.tsx" },
                 ],
               },
               {
-                id: 'public',
-                label: 'public',
+                id: "public",
+                label: "public",
                 children: [
-                  { id: 'index', label: 'index.html' },
-                  { id: 'favicon', label: 'favicon.ico' },
+                  { id: "index", label: "index.html" },
+                  { id: "favicon", label: "favicon.ico" },
                 ],
               },
-              { id: 'package', label: 'package.json' },
-              { id: 'tsconfig', label: 'tsconfig.json' },
+              { id: "package", label: "package.json" },
+              { id: "tsconfig", label: "tsconfig.json" },
             ]}
-            defaultExpanded={['src']}
+            defaultExpanded={["src"]}
           />
         </Section>
 
@@ -2031,20 +1902,18 @@ export function App() {
           title="Navbar"
           description="Full-featured left navbar with header, search, user section, and navigation links. Supports nested links with expand/collapse. Best for app layouts requiring persistent navigation with user context."
         >
-          <div
-            style={{ height: 400, overflow: 'hidden', position: 'relative' }}
-          >
+          <div style={{ height: 400, overflow: "hidden", position: "relative" }}>
             <Navbar
               logo={<span>Rialto</span>}
-              search={{ placeholder: 'Search...' }}
+              search={{ placeholder: "Search..." }}
               user={{
-                name: 'Alex Morgan',
-                email: 'alex@company.com',
+                name: "Alex Morgan",
+                email: "alex@company.com",
               }}
               links={[
                 {
-                  id: 'dashboard',
-                  label: 'Dashboard',
+                  id: "dashboard",
+                  label: "Dashboard",
                   icon: (
                     <svg
                       width="16"
@@ -2062,8 +1931,8 @@ export function App() {
                   ),
                 },
                 {
-                  id: 'analytics',
-                  label: 'Analytics',
+                  id: "analytics",
+                  label: "Analytics",
                   icon: (
                     <svg
                       width="16"
@@ -2078,8 +1947,8 @@ export function App() {
                   ),
                 },
                 {
-                  id: 'customers',
-                  label: 'Customers',
+                  id: "customers",
+                  label: "Customers",
                   badge: 12,
                   icon: (
                     <svg
@@ -2096,8 +1965,8 @@ export function App() {
                   ),
                 },
                 {
-                  id: 'settings',
-                  label: 'Settings',
+                  id: "settings",
+                  label: "Settings",
                   icon: (
                     <svg
                       width="16"
@@ -2112,9 +1981,9 @@ export function App() {
                     </svg>
                   ),
                   children: [
-                    { id: 'profile', label: 'Profile', href: '#' },
-                    { id: 'account', label: 'Account', href: '#' },
-                    { id: 'security', label: 'Security', href: '#' },
+                    { id: "profile", label: "Profile", href: "#" },
+                    { id: "account", label: "Account", href: "#" },
+                    { id: "security", label: "Security", href: "#" },
                   ],
                 },
               ]}
@@ -2145,9 +2014,9 @@ export function App() {
               size="sm"
               onClick={() =>
                 toast({
-                  title: 'Configuration saved',
-                  description: 'Driving mode updated to Sport.',
-                  variant: 'default',
+                  title: "Configuration saved",
+                  description: "Driving mode updated to Sport.",
+                  variant: "default",
                 })
               }
             >
@@ -2158,9 +2027,9 @@ export function App() {
               size="sm"
               onClick={() =>
                 toast({
-                  title: 'Telemetry uploaded',
-                  description: 'All systems nominal.',
-                  variant: 'success',
+                  title: "Telemetry uploaded",
+                  description: "All systems nominal.",
+                  variant: "success",
                 })
               }
             >
@@ -2171,9 +2040,9 @@ export function App() {
               size="sm"
               onClick={() =>
                 toast({
-                  title: 'Sensor fault detected',
-                  description: 'Rear left tire pressure below threshold.',
-                  variant: 'error',
+                  title: "Sensor fault detected",
+                  description: "Rear left tire pressure below threshold.",
+                  variant: "error",
                 })
               }
             >
@@ -2184,8 +2053,8 @@ export function App() {
               size="sm"
               onClick={() =>
                 toast({
-                  title: 'Launch control armed',
-                  variant: 'accent',
+                  title: "Launch control armed",
+                  variant: "accent",
                   duration: 6000,
                 })
               }
@@ -2205,8 +2074,8 @@ export function App() {
             <span
               className={styles.rowLabel}
               style={{
-                display: 'block',
-                marginBottom: 'var(--rialto-space-sm)',
+                display: "block",
+                marginBottom: "var(--rialto-space-sm)",
               }}
             >
               Variants
@@ -2222,17 +2091,17 @@ export function App() {
                 Rear left tire is at 28 PSI — recommended minimum is 32 PSI.
               </Alert>
               <Alert variant="error" title="Sensor fault">
-                Front brake temperature sensor is not responding. Service
-                required before next session.
+                Front brake temperature sensor is not responding. Service required before next
+                session.
               </Alert>
             </div>
           </div>
-          <div style={{ marginTop: 'var(--rialto-space-lg)' }}>
+          <div style={{ marginTop: "var(--rialto-space-lg)" }}>
             <span
               className={styles.rowLabel}
               style={{
-                display: 'block',
-                marginBottom: 'var(--rialto-space-sm)',
+                display: "block",
+                marginBottom: "var(--rialto-space-sm)",
               }}
             >
               Features
@@ -2250,8 +2119,7 @@ export function App() {
                   </Button>
                 }
               >
-                Adaptive suspension calibration may need adjustment for current
-                track conditions.
+                Adaptive suspension calibration may need adjustment for current track conditions.
               </Alert>
             </div>
           </div>
@@ -2267,31 +2135,28 @@ export function App() {
             <span
               className={styles.rowLabel}
               style={{
-                display: 'block',
-                marginBottom: 'var(--rialto-space-sm)',
+                display: "block",
+                marginBottom: "var(--rialto-space-sm)",
               }}
             >
               Variants
             </span>
             <div className={styles.stack}>
-              <Banner variant="info">
-                Firmware v4.2.1 is available. No downtime required.
-              </Banner>
+              <Banner variant="info">Firmware v4.2.1 is available. No downtime required.</Banner>
               <Banner variant="error" dismissible>
-                Front brake temperature sensor is not responding. Service
-                required.
+                Front brake temperature sensor is not responding. Service required.
               </Banner>
               <Banner variant="accent">
                 Launch control armed — standing start sequence initiated.
               </Banner>
             </div>
           </div>
-          <div style={{ marginTop: 'var(--rialto-space-lg)' }}>
+          <div style={{ marginTop: "var(--rialto-space-lg)" }}>
             <span
               className={styles.rowLabel}
               style={{
-                display: 'block',
-                marginBottom: 'var(--rialto-space-sm)',
+                display: "block",
+                marginBottom: "var(--rialto-space-sm)",
               }}
             >
               With action
@@ -2321,10 +2186,7 @@ export function App() {
             <Progress label="Processing" />
             <Progress value={100} label="Complete" showValue />
           </div>
-          <div
-            className={styles.row}
-            style={{ marginTop: 'var(--rialto-space-lg)' }}
-          >
+          <div className={styles.row} style={{ marginTop: "var(--rialto-space-lg)" }}>
             <span className={styles.rowLabel}>Spinner</span>
             <Spinner size="sm" />
             <Spinner size="md" />
@@ -2357,10 +2219,10 @@ export function App() {
               <Card style={{ width: 320 }}>
                 <div
                   style={{
-                    display: 'flex',
-                    gap: 'var(--rialto-space-sm)',
-                    alignItems: 'center',
-                    marginBottom: 'var(--rialto-space-sm)',
+                    display: "flex",
+                    gap: "var(--rialto-space-sm)",
+                    alignItems: "center",
+                    marginBottom: "var(--rialto-space-sm)",
                   }}
                 >
                   <Skeleton variant="circle" width={36} />
@@ -2384,16 +2246,13 @@ export function App() {
           title="Empty State"
           description="A centered composition for 'no data' moments — empty tables, blank dashboards, post-deletion confirmations. Icon + heading + description + optional action in a vertical stack."
         >
-          <div
-            className={styles.stack}
-            style={{ gap: 'var(--rialto-space-lg)' }}
-          >
+          <div className={styles.stack} style={{ gap: "var(--rialto-space-lg)" }}>
             <div>
               <span
                 className={styles.rowLabel}
                 style={{
-                  display: 'block',
-                  marginBottom: 'var(--rialto-space-sm)',
+                  display: "block",
+                  marginBottom: "var(--rialto-space-sm)",
                 }}
               >
                 Default with action
@@ -2413,8 +2272,8 @@ export function App() {
               <span
                 className={styles.rowLabel}
                 style={{
-                  display: 'block',
-                  marginBottom: 'var(--rialto-space-sm)',
+                  display: "block",
+                  marginBottom: "var(--rialto-space-sm)",
                 }}
               >
                 Elevated variant
@@ -2435,8 +2294,8 @@ export function App() {
               <span
                 className={styles.rowLabel}
                 style={{
-                  display: 'block',
-                  marginBottom: 'var(--rialto-space-sm)',
+                  display: "block",
+                  marginBottom: "var(--rialto-space-sm)",
                 }}
               >
                 Small
@@ -2452,8 +2311,8 @@ export function App() {
               <span
                 className={styles.rowLabel}
                 style={{
-                  display: 'block',
-                  marginBottom: 'var(--rialto-space-sm)',
+                  display: "block",
+                  marginBottom: "var(--rialto-space-sm)",
                 }}
               >
                 Custom icon
@@ -2486,8 +2345,8 @@ export function App() {
               <span
                 className={styles.rowLabel}
                 style={{
-                  display: 'block',
-                  marginBottom: 'var(--rialto-space-sm)',
+                  display: "block",
+                  marginBottom: "var(--rialto-space-sm)",
                 }}
               >
                 Minimal
@@ -2535,16 +2394,13 @@ export function App() {
           description="A focused wrapper around Dialog for confirm/cancel patterns. Default variant auto-focuses the confirm button; destructive auto-focuses cancel to prevent accidental clicks."
         >
           <div className={styles.row}>
-            <Button
-              variant="secondary"
-              onClick={() => setConfirmResetOpen(true)}
-            >
+            <Button variant="secondary" onClick={() => setConfirmResetOpen(true)}>
               Confirm Configuration
             </Button>
             <ConfirmDialog
               open={confirmResetOpen}
               onConfirm={() => {
-                toast({ title: 'Configuration applied', variant: 'success' });
+                toast({ title: "Configuration applied", variant: "success" });
                 setConfirmResetOpen(false);
               }}
               onCancel={() => setConfirmResetOpen(false)}
@@ -2557,7 +2413,7 @@ export function App() {
             <ConfirmDialog
               open={confirmDeleteOpen}
               onConfirm={() => {
-                toast({ title: 'Session deleted', variant: 'error' });
+                toast({ title: "Session deleted", variant: "error" });
                 setConfirmDeleteOpen(false);
               }}
               onCancel={() => setConfirmDeleteOpen(false)}
@@ -2578,25 +2434,13 @@ export function App() {
         >
           <div className={styles.row}>
             <span className={styles.rowLabel}>Side</span>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setDrawerRight(true)}
-            >
+            <Button variant="secondary" size="sm" onClick={() => setDrawerRight(true)}>
               Right (default)
             </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setDrawerLeft(true)}
-            >
+            <Button variant="secondary" size="sm" onClick={() => setDrawerLeft(true)}>
               Left
             </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setDrawerBottom(true)}
-            >
+            <Button variant="secondary" size="sm" onClick={() => setDrawerBottom(true)}>
               Bottom
             </Button>
           </div>
@@ -2625,9 +2469,9 @@ export function App() {
                 value=""
                 onChange={() => {}}
                 options={[
-                  { value: 'soft', label: 'Soft (C5)' },
-                  { value: 'medium', label: 'Medium (C3)' },
-                  { value: 'hard', label: 'Hard (C1)' },
+                  { value: "soft", label: "Soft (C5)" },
+                  { value: "medium", label: "Medium (C3)" },
+                  { value: "hard", label: "Hard (C1)" },
                 ]}
               />
               <Toggle
@@ -2646,36 +2490,32 @@ export function App() {
           >
             <nav className={styles.stack}>
               {[
-                { label: 'Dashboard', active: true },
-                { label: 'Telemetry' },
-                { label: 'Lap Analysis' },
-                { label: 'Setup Sheets' },
-                { label: 'Tire Strategy' },
+                { label: "Dashboard", active: true },
+                { label: "Telemetry" },
+                { label: "Lap Analysis" },
+                { label: "Setup Sheets" },
+                { label: "Tire Strategy" },
               ].map((item) => (
                 <button
                   key={item.label}
                   type="button"
                   onClick={() => setDrawerLeft(false)}
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 'var(--rialto-space-sm)',
-                    padding: 'var(--rialto-space-xs) var(--rialto-space-sm)',
-                    borderRadius: 'var(--rialto-radius-default)',
-                    border: 'none',
-                    background: item.active
-                      ? 'var(--rialto-accent-muted)'
-                      : 'transparent',
-                    color: item.active
-                      ? 'var(--rialto-accent)'
-                      : 'var(--rialto-text-secondary)',
-                    fontSize: 'var(--rialto-text-sm)',
-                    fontFamily: 'var(--rialto-font-sans)',
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "var(--rialto-space-sm)",
+                    padding: "var(--rialto-space-xs) var(--rialto-space-sm)",
+                    borderRadius: "var(--rialto-radius-default)",
+                    border: "none",
+                    background: item.active ? "var(--rialto-accent-muted)" : "transparent",
+                    color: item.active ? "var(--rialto-accent)" : "var(--rialto-text-secondary)",
+                    fontSize: "var(--rialto-text-sm)",
+                    fontFamily: "var(--rialto-font-sans)",
                     fontWeight: item.active
-                      ? 'var(--rialto-weight-medium)'
-                      : 'var(--rialto-weight-regular)',
-                    cursor: 'pointer',
-                    textAlign: 'left',
+                      ? "var(--rialto-weight-medium)"
+                      : "var(--rialto-weight-regular)",
+                    cursor: "pointer",
+                    textAlign: "left",
                   }}
                 >
                   {item.label}
@@ -2686,16 +2526,16 @@ export function App() {
                 type="button"
                 onClick={() => setDrawerLeft(false)}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: 'var(--rialto-space-xs) var(--rialto-space-sm)',
-                  border: 'none',
-                  background: 'transparent',
-                  color: 'var(--rialto-text-tertiary)',
-                  fontSize: 'var(--rialto-text-xs)',
-                  fontFamily: 'var(--rialto-font-sans)',
-                  cursor: 'pointer',
-                  textAlign: 'left',
+                  display: "flex",
+                  alignItems: "center",
+                  padding: "var(--rialto-space-xs) var(--rialto-space-sm)",
+                  border: "none",
+                  background: "transparent",
+                  color: "var(--rialto-text-tertiary)",
+                  fontSize: "var(--rialto-text-xs)",
+                  fontFamily: "var(--rialto-font-sans)",
+                  cursor: "pointer",
+                  textAlign: "left",
                 }}
               >
                 Settings
@@ -2710,33 +2550,17 @@ export function App() {
             title="Quick Actions"
             description="Bottom sheets are ideal for mobile-first interactions and contextual toolbars."
           >
-            <div className={styles.row} style={{ flexWrap: 'wrap' }}>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setDrawerBottom(false)}
-              >
+            <div className={styles.row} style={{ flexWrap: "wrap" }}>
+              <Button variant="secondary" size="sm" onClick={() => setDrawerBottom(false)}>
                 Share
               </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setDrawerBottom(false)}
-              >
+              <Button variant="secondary" size="sm" onClick={() => setDrawerBottom(false)}>
                 Export
               </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setDrawerBottom(false)}
-              >
+              <Button variant="secondary" size="sm" onClick={() => setDrawerBottom(false)}>
                 Duplicate
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setDrawerBottom(false)}
-              >
+              <Button variant="ghost" size="sm" onClick={() => setDrawerBottom(false)}>
                 Cancel
               </Button>
             </div>
@@ -2749,16 +2573,14 @@ export function App() {
           title="Command Palette"
           description="⌘K-style action launcher — glass panel, fuzzy search, full keyboard navigation. Grouped commands with shortcut hints. The power-user pattern, built for AI-ready interfaces."
         >
-          <Button onClick={() => setCmdPaletteOpen(true)}>
-            Open Command Palette
-          </Button>
+          <Button onClick={() => setCmdPaletteOpen(true)}>Open Command Palette</Button>
 
           <CommandPalette
             open={cmdPaletteOpen}
             onOpenChange={setCmdPaletteOpen}
             items={cmdItems}
             placeholder="Search commands…"
-            groups={['Actions', 'Navigation', 'Preferences']}
+            groups={["Actions", "Navigation", "Preferences"]}
           />
         </Section>
 
@@ -2791,15 +2613,9 @@ export function App() {
               </Button>
             </Tooltip>
           </div>
-          <div
-            className={styles.row}
-            style={{ marginTop: 'var(--rialto-space-sm)' }}
-          >
+          <div className={styles.row} style={{ marginTop: "var(--rialto-space-sm)" }}>
             <span className={styles.rowLabel}>Long content</span>
-            <Tooltip
-              content="Confirm configuration and apply driving mode"
-              placement="top"
-            >
+            <Tooltip content="Confirm configuration and apply driving mode" placement="top">
               <Button variant="primary" size="sm">
                 Hover for details
               </Button>
@@ -2823,8 +2639,7 @@ export function App() {
               title="Telemetry Info"
             >
               <p>
-                Current session: Fiorano, Lap 14. Ambient temperature 22°C,
-                track temperature 38°C.
+                Current session: Fiorano, Lap 14. Ambient temperature 22°C, track temperature 38°C.
               </p>
             </Popover>
             <Popover
@@ -2836,7 +2651,7 @@ export function App() {
               title="Tire Pressure"
               placement="top"
             >
-              <p style={{ marginBottom: 'var(--rialto-space-xs)' }}>
+              <p style={{ marginBottom: "var(--rialto-space-xs)" }}>
                 FL: 32.1 PSI &middot; FR: 31.8 PSI
               </p>
               <p>RL: 28.4 PSI &middot; RR: 31.2 PSI</p>
@@ -2849,10 +2664,10 @@ export function App() {
               }
               title="Session Export"
             >
-              <p style={{ marginBottom: 'var(--rialto-space-sm)' }}>
+              <p style={{ marginBottom: "var(--rialto-space-sm)" }}>
                 Export the current telemetry session data for offline analysis.
               </p>
-              <div style={{ display: 'flex', gap: 'var(--rialto-space-xs)' }}>
+              <div style={{ display: "flex", gap: "var(--rialto-space-xs)" }}>
                 <Button variant="primary" size="sm">
                   Export CSV
                 </Button>
@@ -2875,18 +2690,18 @@ export function App() {
               content={
                 <div
                   style={{
-                    display: 'flex',
-                    gap: 'var(--rialto-space-sm)',
-                    alignItems: 'flex-start',
+                    display: "flex",
+                    gap: "var(--rialto-space-sm)",
+                    alignItems: "flex-start",
                   }}
                 >
                   <Avatar name="Charles Leclerc" size="lg" status="online" />
                   <div>
                     <p
                       style={{
-                        fontSize: 'var(--rialto-text-sm)',
-                        fontWeight: 'var(--rialto-weight-medium)',
-                        color: 'var(--rialto-text-primary)',
+                        fontSize: "var(--rialto-text-sm)",
+                        fontWeight: "var(--rialto-weight-medium)",
+                        color: "var(--rialto-text-primary)",
                         margin: 0,
                       }}
                     >
@@ -2894,16 +2709,14 @@ export function App() {
                     </p>
                     <p
                       style={{
-                        fontSize: 'var(--rialto-text-xs)',
-                        color: 'var(--rialto-text-tertiary)',
-                        margin: '2px 0 var(--rialto-space-xs)',
+                        fontSize: "var(--rialto-text-xs)",
+                        color: "var(--rialto-text-tertiary)",
+                        margin: "2px 0 var(--rialto-space-xs)",
                       }}
                     >
                       Lead Driver &middot; Racing Team
                     </p>
-                    <div
-                      style={{ display: 'flex', gap: 'var(--rialto-space-sm)' }}
-                    >
+                    <div style={{ display: "flex", gap: "var(--rialto-space-sm)" }}>
                       <Badge variant="success" dot>
                         Active
                       </Badge>
@@ -2915,10 +2728,10 @@ export function App() {
             >
               <span
                 style={{
-                  fontSize: 'var(--rialto-text-sm)',
-                  color: 'var(--rialto-accent)',
-                  cursor: 'pointer',
-                  borderBottom: '1px dashed var(--rialto-accent-muted)',
+                  fontSize: "var(--rialto-text-sm)",
+                  color: "var(--rialto-accent)",
+                  cursor: "pointer",
+                  borderBottom: "1px dashed var(--rialto-accent-muted)",
                   paddingBottom: 1,
                 }}
               >
@@ -2931,58 +2744,52 @@ export function App() {
                 <div>
                   <p
                     style={{
-                      fontSize: 'var(--rialto-text-xs)',
-                      fontWeight: 'var(--rialto-weight-medium)',
-                      color: 'var(--rialto-text-primary)',
-                      margin: '0 0 var(--rialto-space-xs)',
+                      fontSize: "var(--rialto-text-xs)",
+                      fontWeight: "var(--rialto-weight-medium)",
+                      color: "var(--rialto-text-primary)",
+                      margin: "0 0 var(--rialto-space-xs)",
                     }}
                   >
                     Lap 14 — Sector Breakdown
                   </p>
                   <div
                     style={{
-                      display: 'flex',
-                      gap: 'var(--rialto-space-md)',
-                      fontSize: 'var(--rialto-text-xs)',
+                      display: "flex",
+                      gap: "var(--rialto-space-md)",
+                      fontSize: "var(--rialto-text-xs)",
                     }}
                   >
                     <div>
-                      <span style={{ color: 'var(--rialto-text-tertiary)' }}>
-                        S1
-                      </span>
+                      <span style={{ color: "var(--rialto-text-tertiary)" }}>S1</span>
                       <p
                         style={{
-                          margin: '2px 0 0',
-                          fontFamily: 'var(--rialto-font-mono)',
-                          color: 'var(--rialto-text-primary)',
+                          margin: "2px 0 0",
+                          fontFamily: "var(--rialto-font-mono)",
+                          color: "var(--rialto-text-primary)",
                         }}
                       >
                         28.412
                       </p>
                     </div>
                     <div>
-                      <span style={{ color: 'var(--rialto-text-tertiary)' }}>
-                        S2
-                      </span>
+                      <span style={{ color: "var(--rialto-text-tertiary)" }}>S2</span>
                       <p
                         style={{
-                          margin: '2px 0 0',
-                          fontFamily: 'var(--rialto-font-mono)',
-                          color: 'var(--rialto-text-primary)',
+                          margin: "2px 0 0",
+                          fontFamily: "var(--rialto-font-mono)",
+                          color: "var(--rialto-text-primary)",
                         }}
                       >
                         34.891
                       </p>
                     </div>
                     <div>
-                      <span style={{ color: 'var(--rialto-text-tertiary)' }}>
-                        S3
-                      </span>
+                      <span style={{ color: "var(--rialto-text-tertiary)" }}>S3</span>
                       <p
                         style={{
-                          margin: '2px 0 0',
-                          fontFamily: 'var(--rialto-font-mono)',
-                          color: 'var(--rialto-success)',
+                          margin: "2px 0 0",
+                          fontFamily: "var(--rialto-font-mono)",
+                          color: "var(--rialto-success)",
                         }}
                       >
                         22.107
@@ -2991,27 +2798,24 @@ export function App() {
                   </div>
                   <p
                     style={{
-                      margin: 'var(--rialto-space-xs) 0 0',
-                      fontFamily: 'var(--rialto-font-mono)',
-                      fontSize: 'var(--rialto-text-sm)',
-                      color: 'var(--rialto-text-primary)',
+                      margin: "var(--rialto-space-xs) 0 0",
+                      fontFamily: "var(--rialto-font-mono)",
+                      fontSize: "var(--rialto-text-sm)",
+                      color: "var(--rialto-text-primary)",
                     }}
                   >
-                    1:25.410{' '}
-                    <span style={{ color: 'var(--rialto-success)' }}>
-                      −0.342
-                    </span>
+                    1:25.410 <span style={{ color: "var(--rialto-success)" }}>−0.342</span>
                   </p>
                 </div>
               }
             >
               <span
                 style={{
-                  fontSize: 'var(--rialto-text-sm)',
-                  fontFamily: 'var(--rialto-font-mono)',
-                  color: 'var(--rialto-text-secondary)',
-                  cursor: 'pointer',
-                  borderBottom: '1px dashed var(--rialto-border-strong)',
+                  fontSize: "var(--rialto-text-sm)",
+                  fontFamily: "var(--rialto-font-mono)",
+                  color: "var(--rialto-text-secondary)",
+                  cursor: "pointer",
+                  borderBottom: "1px dashed var(--rialto-border-strong)",
                   paddingBottom: 1,
                 }}
               >
@@ -3026,18 +2830,18 @@ export function App() {
               content={
                 <div
                   style={{
-                    display: 'flex',
-                    gap: 'var(--rialto-space-sm)',
-                    alignItems: 'flex-start',
+                    display: "flex",
+                    gap: "var(--rialto-space-sm)",
+                    alignItems: "flex-start",
                   }}
                 >
                   <Avatar name="Marc Newson" size="lg" status="away" />
                   <div>
                     <p
                       style={{
-                        fontSize: 'var(--rialto-text-sm)',
-                        fontWeight: 'var(--rialto-weight-medium)',
-                        color: 'var(--rialto-text-primary)',
+                        fontSize: "var(--rialto-text-sm)",
+                        fontWeight: "var(--rialto-weight-medium)",
+                        color: "var(--rialto-text-primary)",
                         margin: 0,
                       }}
                     >
@@ -3045,9 +2849,9 @@ export function App() {
                     </p>
                     <p
                       style={{
-                        fontSize: 'var(--rialto-text-xs)',
-                        color: 'var(--rialto-text-tertiary)',
-                        margin: '2px 0 var(--rialto-space-xs)',
+                        fontSize: "var(--rialto-text-xs)",
+                        color: "var(--rialto-text-tertiary)",
+                        margin: "2px 0 var(--rialto-space-xs)",
                       }}
                     >
                       Industrial Designer
@@ -3068,8 +2872,8 @@ export function App() {
               openDelay={200}
               content={
                 <p style={{ margin: 0 }}>
-                  Eager preview — 200ms open delay instead of the default 400ms.
-                  Useful when the preview is expected and frequently accessed.
+                  Eager preview — 200ms open delay instead of the default 400ms. Useful when the
+                  preview is expected and frequently accessed.
                 </p>
               }
             >
@@ -3095,41 +2899,36 @@ export function App() {
               }
               items={[
                 {
-                  id: 'copy',
-                  label: 'Copy',
-                  shortcut: '\u2318C',
-                  onSelect: () =>
-                    toast({ title: 'Copied to clipboard', variant: 'default' }),
+                  id: "copy",
+                  label: "Copy",
+                  shortcut: "\u2318C",
+                  onSelect: () => toast({ title: "Copied to clipboard", variant: "default" }),
                 },
                 {
-                  id: 'paste',
-                  label: 'Paste',
-                  shortcut: '\u2318V',
-                  onSelect: () =>
-                    toast({ title: 'Pasted', variant: 'default' }),
+                  id: "paste",
+                  label: "Paste",
+                  shortcut: "\u2318V",
+                  onSelect: () => toast({ title: "Pasted", variant: "default" }),
                 },
-                { type: 'divider' },
-                { type: 'label', label: 'Telemetry' },
+                { type: "divider" },
+                { type: "label", label: "Telemetry" },
                 {
-                  id: 'export',
-                  label: 'Export Data',
-                  onSelect: () =>
-                    toast({ title: 'Exporting\u2026', variant: 'accent' }),
+                  id: "export",
+                  label: "Export Data",
+                  onSelect: () => toast({ title: "Exporting\u2026", variant: "accent" }),
                 },
                 {
-                  id: 'share',
-                  label: 'Share Report',
-                  onSelect: () =>
-                    toast({ title: 'Link copied', variant: 'success' }),
+                  id: "share",
+                  label: "Share Report",
+                  onSelect: () => toast({ title: "Link copied", variant: "success" }),
                 },
-                { id: 'archive', label: 'Archive', disabled: true },
-                { type: 'divider' },
+                { id: "archive", label: "Archive", disabled: true },
+                { type: "divider" },
                 {
-                  id: 'reset',
-                  label: 'Reset to Factory',
+                  id: "reset",
+                  label: "Reset to Factory",
                   destructive: true,
-                  onSelect: () =>
-                    toast({ title: 'Configuration reset', variant: 'error' }),
+                  onSelect: () => toast({ title: "Configuration reset", variant: "error" }),
                 },
               ]}
             />
@@ -3141,10 +2940,10 @@ export function App() {
               }
               align="right"
               items={[
-                { id: 'settings', label: 'Settings', shortcut: '\u2318,' },
-                { id: 'preferences', label: 'Preferences' },
-                { type: 'divider' },
-                { id: 'logout', label: 'Sign Out', destructive: true },
+                { id: "settings", label: "Settings", shortcut: "\u2318," },
+                { id: "preferences", label: "Preferences" },
+                { type: "divider" },
+                { id: "logout", label: "Sign Out", destructive: true },
               ]}
             />
           </div>
@@ -3158,19 +2957,17 @@ export function App() {
         >
           <ContextMenu
             items={[
-              { id: 'copy', label: 'Copy', shortcut: '\u2318C' },
-              { id: 'paste', label: 'Paste', shortcut: '\u2318V' },
-              { type: 'divider' },
-              { type: 'label', label: 'Telemetry' },
-              { id: 'export', label: 'Export' },
-              { id: 'share', label: 'Share' },
-              { type: 'divider' },
-              { id: 'delete', label: 'Delete', destructive: true },
+              { id: "copy", label: "Copy", shortcut: "\u2318C" },
+              { id: "paste", label: "Paste", shortcut: "\u2318V" },
+              { type: "divider" },
+              { type: "label", label: "Telemetry" },
+              { id: "export", label: "Export" },
+              { id: "share", label: "Share" },
+              { type: "divider" },
+              { id: "delete", label: "Delete", destructive: true },
             ]}
           >
-            <Card
-              style={{ padding: 'var(--rialto-space-xl)', textAlign: 'center' }}
-            >
+            <Card style={{ padding: "var(--rialto-space-xl)", textAlign: "center" }}>
               <Text variant="caption" color="tertiary">
                 Right-click this area
               </Text>
@@ -3195,15 +2992,12 @@ export function App() {
             <Divider accent />
             <Divider accent label="Telemetry" />
           </div>
-          <div
-            className={styles.row}
-            style={{ height: 60, marginTop: 'var(--rialto-space-md)' }}
-          >
+          <div className={styles.row} style={{ height: 60, marginTop: "var(--rialto-space-md)" }}>
             <span className={styles.rowLabel}>Vertical</span>
             <span
               style={{
-                fontSize: 'var(--rialto-text-sm)',
-                color: 'var(--rialto-text-secondary)',
+                fontSize: "var(--rialto-text-sm)",
+                color: "var(--rialto-text-secondary)",
               }}
             >
               Left
@@ -3211,8 +3005,8 @@ export function App() {
             <Divider orientation="vertical" />
             <span
               style={{
-                fontSize: 'var(--rialto-text-sm)',
-                color: 'var(--rialto-text-secondary)',
+                fontSize: "var(--rialto-text-sm)",
+                color: "var(--rialto-text-secondary)",
               }}
             >
               Center
@@ -3220,8 +3014,8 @@ export function App() {
             <Divider orientation="vertical" accent />
             <span
               style={{
-                fontSize: 'var(--rialto-text-sm)',
-                color: 'var(--rialto-text-secondary)',
+                fontSize: "var(--rialto-text-sm)",
+                color: "var(--rialto-text-secondary)",
               }}
             >
               Right
@@ -3238,23 +3032,19 @@ export function App() {
           <div className={styles.stack}>
             <Text variant="display">1:24.892</Text>
             <Text variant="body">
-              The default body text. Regular weight, primary color, relaxed line
-              height for comfortable reading.
+              The default body text. Regular weight, primary color, relaxed line height for
+              comfortable reading.
             </Text>
             <Text variant="caption">
-              Caption text — smaller, secondary color. Ideal for supplementary
-              information beneath a heading.
+              Caption text — smaller, secondary color. Ideal for supplementary information beneath a
+              heading.
             </Text>
             <Text variant="detail">
-              Detail text — the smallest size, tertiary color. Timestamps,
-              metadata, footnotes.
+              Detail text — the smallest size, tertiary color. Timestamps, metadata, footnotes.
             </Text>
             <Text variant="label">Telemetry active</Text>
           </div>
-          <div
-            className={styles.row}
-            style={{ marginTop: 'var(--rialto-space-md)' }}
-          >
+          <div className={styles.row} style={{ marginTop: "var(--rialto-space-md)" }}>
             <span className={styles.rowLabel}>Color</span>
             <Text variant="caption" color="primary" as="span">
               Primary
@@ -3275,10 +3065,7 @@ export function App() {
               Error
             </Text>
           </div>
-          <div
-            className={styles.row}
-            style={{ marginTop: 'var(--rialto-space-md)' }}
-          >
+          <div className={styles.row} style={{ marginTop: "var(--rialto-space-md)" }}>
             <span className={styles.rowLabel}>Mono</span>
             <Text variant="caption" mono as="span">
               28.412s
@@ -3287,19 +3074,19 @@ export function App() {
               0x1A2B3C
             </Text>
           </div>
-          <div style={{ maxWidth: 240, marginTop: 'var(--rialto-space-md)' }}>
+          <div style={{ maxWidth: 240, marginTop: "var(--rialto-space-md)" }}>
             <span
               className={styles.rowLabel}
               style={{
-                display: 'block',
-                marginBottom: 'var(--rialto-space-xs)',
+                display: "block",
+                marginBottom: "var(--rialto-space-xs)",
               }}
             >
               Truncate
             </span>
             <Text variant="caption" truncate>
-              This is a very long line of text that should be truncated with an
-              ellipsis when it overflows its container width.
+              This is a very long line of text that should be truncated with an ellipsis when it
+              overflows its container width.
             </Text>
           </div>
         </Section>
@@ -3313,7 +3100,7 @@ export function App() {
           <Stack gap="md">
             <div>
               <Text variant="label">Vertical (default)</Text>
-              <Stack gap="xs" style={{ marginTop: 'var(--rialto-space-xs)' }}>
+              <Stack gap="xs" style={{ marginTop: "var(--rialto-space-xs)" }}>
                 <Badge variant="neutral">First</Badge>
                 <Badge variant="neutral">Second</Badge>
                 <Badge variant="neutral">Third</Badge>
@@ -3325,7 +3112,7 @@ export function App() {
                 direction="row"
                 gap="xs"
                 align="center"
-                style={{ marginTop: 'var(--rialto-space-xs)' }}
+                style={{ marginTop: "var(--rialto-space-xs)" }}
               >
                 <Badge variant="accent">Speed</Badge>
                 <Badge variant="success">Nominal</Badge>
@@ -3337,21 +3124,16 @@ export function App() {
             </div>
             <div>
               <Text variant="label">Row with wrap</Text>
-              <Stack
-                direction="row"
-                gap="xs"
-                wrap
-                style={{ marginTop: 'var(--rialto-space-xs)' }}
-              >
+              <Stack direction="row" gap="xs" wrap style={{ marginTop: "var(--rialto-space-xs)" }}>
                 {[
-                  'Fiorano',
-                  'Monza',
-                  'Mugello',
-                  'Imola',
-                  'Spa',
-                  'Silverstone',
-                  'Suzuka',
-                  'Monaco',
+                  "Fiorano",
+                  "Monza",
+                  "Mugello",
+                  "Imola",
+                  "Spa",
+                  "Silverstone",
+                  "Suzuka",
+                  "Monaco",
                 ].map((t) => (
                   <Tag key={t}>{t}</Tag>
                 ))}
@@ -3364,7 +3146,7 @@ export function App() {
                 gap="sm"
                 align="center"
                 justify="between"
-                style={{ marginTop: 'var(--rialto-space-xs)' }}
+                style={{ marginTop: "var(--rialto-space-xs)" }}
               >
                 <Text variant="caption" as="span">
                   Telemetry v4.2.1
@@ -3385,13 +3167,12 @@ export function App() {
         >
           <div className={styles.stack}>
             <Collapsible trigger="Powertrain Specifications" defaultOpen>
-              Twin-turbocharged 3.0L V6 paired with three electric motors.
-              Combined output of 1,200 PS with instant torque delivery from the
-              hybrid system.
+              Twin-turbocharged 3.0L V6 paired with three electric motors. Combined output of 1,200
+              PS with instant torque delivery from the hybrid system.
             </Collapsible>
             <Collapsible trigger="Active Aerodynamics">
-              Adaptive front splitter, active rear wing, and underbody venturi
-              tunnels. Over 1,000 kg of downforce at 250 km/h.
+              Adaptive front splitter, active rear wing, and underbody venturi tunnels. Over 1,000
+              kg of downforce at 250 km/h.
             </Collapsible>
             <Collapsible
               trigger="Controlled toggle"
@@ -3401,12 +3182,8 @@ export function App() {
               This section is controlled externally.
             </Collapsible>
             <div className={styles.row}>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setCollapsibleOpen((v) => !v)}
-              >
-                {collapsibleOpen ? 'Close' : 'Open'} externally
+              <Button variant="ghost" size="sm" onClick={() => setCollapsibleOpen((v) => !v)}>
+                {collapsibleOpen ? "Close" : "Open"} externally
               </Button>
             </div>
             <Collapsible trigger="Disabled section" disabled>
@@ -3424,31 +3201,31 @@ export function App() {
           <Accordion
             items={[
               {
-                id: 'powertrain',
-                title: 'Powertrain',
+                id: "powertrain",
+                title: "Powertrain",
                 content:
-                  'Twin-turbocharged 3.0L V6 paired with three electric motors. Combined output of 1,200 PS with instant torque delivery from the hybrid system.',
+                  "Twin-turbocharged 3.0L V6 paired with three electric motors. Combined output of 1,200 PS with instant torque delivery from the hybrid system.",
               },
               {
-                id: 'aero',
-                title: 'Active Aerodynamics',
+                id: "aero",
+                title: "Active Aerodynamics",
                 content:
-                  'Adaptive front splitter, active rear wing, and underbody venturi tunnels. The system generates over 1,000kg of downforce at 250 km/h while maintaining a drag coefficient of 0.32.',
+                  "Adaptive front splitter, active rear wing, and underbody venturi tunnels. The system generates over 1,000kg of downforce at 250 km/h while maintaining a drag coefficient of 0.32.",
               },
               {
-                id: 'interior',
-                title: 'Interior',
+                id: "interior",
+                title: "Interior",
                 content:
-                  'Anodized aluminum surfaces replace traditional leather and plastic. A single piece of Gorilla Glass spans the instrument panel. Every physical control has been designed with distinct tactile feedback — rotary dials click with precision, buttons have deliberate resistance.',
+                  "Anodized aluminum surfaces replace traditional leather and plastic. A single piece of Gorilla Glass spans the instrument panel. Every physical control has been designed with distinct tactile feedback — rotary dials click with precision, buttons have deliberate resistance.",
               },
               {
-                id: 'production',
-                title: 'Production',
+                id: "production",
+                title: "Production",
                 disabled: true,
                 content: null,
               },
             ]}
-            defaultOpen={['powertrain']}
+            defaultOpen={["powertrain"]}
           />
         </Section>
 
@@ -3464,14 +3241,14 @@ export function App() {
               <AspectRatio ratio={16 / 9}>
                 <div
                   style={{
-                    background: 'var(--rialto-surface-matte)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderRadius: 'var(--rialto-radius-soft)',
-                    fontFamily: 'var(--rialto-font-mono)',
-                    fontSize: 'var(--rialto-text-xs)',
-                    color: 'var(--rialto-text-tertiary)',
+                    background: "var(--rialto-surface-matte)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: "var(--rialto-radius-soft)",
+                    fontFamily: "var(--rialto-font-mono)",
+                    fontSize: "var(--rialto-text-xs)",
+                    color: "var(--rialto-text-tertiary)",
                   }}
                 >
                   16:9
@@ -3482,14 +3259,14 @@ export function App() {
               <AspectRatio ratio={4 / 3}>
                 <div
                   style={{
-                    background: 'var(--rialto-surface-matte)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderRadius: 'var(--rialto-radius-soft)',
-                    fontFamily: 'var(--rialto-font-mono)',
-                    fontSize: 'var(--rialto-text-xs)',
-                    color: 'var(--rialto-text-tertiary)',
+                    background: "var(--rialto-surface-matte)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: "var(--rialto-radius-soft)",
+                    fontFamily: "var(--rialto-font-mono)",
+                    fontSize: "var(--rialto-text-xs)",
+                    color: "var(--rialto-text-tertiary)",
                   }}
                 >
                   4:3
@@ -3500,14 +3277,14 @@ export function App() {
               <AspectRatio ratio={1}>
                 <div
                   style={{
-                    background: 'var(--rialto-surface-matte)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderRadius: 'var(--rialto-radius-soft)',
-                    fontFamily: 'var(--rialto-font-mono)',
-                    fontSize: 'var(--rialto-text-xs)',
-                    color: 'var(--rialto-text-tertiary)',
+                    background: "var(--rialto-surface-matte)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: "var(--rialto-radius-soft)",
+                    fontFamily: "var(--rialto-font-mono)",
+                    fontSize: "var(--rialto-text-xs)",
+                    color: "var(--rialto-text-tertiary)",
                   }}
                 >
                   1:1
@@ -3518,14 +3295,14 @@ export function App() {
               <AspectRatio ratio={21 / 9}>
                 <div
                   style={{
-                    background: 'var(--rialto-surface-matte)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderRadius: 'var(--rialto-radius-soft)',
-                    fontFamily: 'var(--rialto-font-mono)',
-                    fontSize: 'var(--rialto-text-xs)',
-                    color: 'var(--rialto-text-tertiary)',
+                    background: "var(--rialto-surface-matte)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: "var(--rialto-radius-soft)",
+                    fontFamily: "var(--rialto-font-mono)",
+                    fontSize: "var(--rialto-text-xs)",
+                    color: "var(--rialto-text-tertiary)",
                   }}
                 >
                   21:9
@@ -3541,37 +3318,37 @@ export function App() {
           title="Scroll Area"
           description="Custom-styled scrollbar container. Thin 6px thumb on transparent track, matching the aluminum surface palette. Keyboard-scrollable with focus ring."
         >
-          <div className={styles.row} style={{ alignItems: 'flex-start' }}>
+          <div className={styles.row} style={{ alignItems: "flex-start" }}>
             <Card style={{ flex: 1 }}>
               <ScrollArea maxHeight={200}>
                 {Array.from({ length: 15 }, (_, i) => (
                   <div
                     key={i}
                     style={{
-                      padding: 'var(--rialto-space-xs) var(--rialto-space-sm)',
-                      borderBottom: '1px solid var(--rialto-border)',
-                      fontSize: 'var(--rialto-text-sm)',
-                      color: 'var(--rialto-text-secondary)',
+                      padding: "var(--rialto-space-xs) var(--rialto-space-sm)",
+                      borderBottom: "1px solid var(--rialto-border)",
+                      fontSize: "var(--rialto-text-sm)",
+                      color: "var(--rialto-text-secondary)",
                     }}
                   >
-                    Telemetry channel {i + 1} —{' '}
+                    Telemetry channel {i + 1} —{" "}
                     {
                       [
-                        'Speed',
-                        'RPM',
-                        'Throttle',
-                        'Brake',
-                        'Steering',
-                        'G-Force Lat',
-                        'G-Force Long',
-                        'Oil Temp',
-                        'Water Temp',
-                        'Tire Temp FL',
-                        'Tire Temp FR',
-                        'Tire Temp RL',
-                        'Tire Temp RR',
-                        'Fuel Flow',
-                        'ERS Deploy',
+                        "Speed",
+                        "RPM",
+                        "Throttle",
+                        "Brake",
+                        "Steering",
+                        "G-Force Lat",
+                        "G-Force Long",
+                        "Oil Temp",
+                        "Water Temp",
+                        "Tire Temp FL",
+                        "Tire Temp FR",
+                        "Tire Temp RL",
+                        "Tire Temp RR",
+                        "Fuel Flow",
+                        "ERS Deploy",
                       ][i]
                     }
                   </div>
@@ -3582,14 +3359,13 @@ export function App() {
               <ScrollArea maxHeight={200}>
                 <p
                   style={{
-                    padding: 'var(--rialto-space-sm)',
-                    fontSize: 'var(--rialto-text-sm)',
-                    color: 'var(--rialto-text-secondary)',
+                    padding: "var(--rialto-space-sm)",
+                    fontSize: "var(--rialto-text-sm)",
+                    color: "var(--rialto-text-secondary)",
                     margin: 0,
                   }}
                 >
-                  Short content that doesn&apos;t scroll — the scrollbar only appears
-                  when needed.
+                  Short content that doesn&apos;t scroll — the scrollbar only appears when needed.
                 </p>
               </ScrollArea>
             </Card>
@@ -3602,13 +3378,13 @@ export function App() {
           title="Timeline"
           description="Vertical event log with connected nodes. Gold fills for completed events, glowing ring for the active moment, and muted upcoming items. Mono-spaced timestamps on the left channel."
         >
-          <div className={styles.row} style={{ alignItems: 'flex-start' }}>
+          <div className={styles.row} style={{ alignItems: "flex-start" }}>
             <div style={{ flex: 1 }}>
               <span
                 className={styles.rowLabel}
                 style={{
-                  display: 'block',
-                  marginBottom: 'var(--rialto-space-sm)',
+                  display: "block",
+                  marginBottom: "var(--rialto-space-sm)",
                 }}
               >
                 Full
@@ -3616,31 +3392,30 @@ export function App() {
               <Timeline
                 events={[
                   {
-                    title: 'Session initialized',
-                    timestamp: '14:02',
-                    status: 'completed',
-                    description: 'Telemetry link established with pit wall',
+                    title: "Session initialized",
+                    timestamp: "14:02",
+                    status: "completed",
+                    description: "Telemetry link established with pit wall",
                   },
                   {
-                    title: 'Systems check passed',
-                    timestamp: '14:04',
-                    status: 'completed',
+                    title: "Systems check passed",
+                    timestamp: "14:04",
+                    status: "completed",
                   },
                   {
-                    title: 'Warm-up lap',
-                    timestamp: '14:06',
-                    status: 'completed',
-                    description:
-                      'Tyre pressures nominal — 21.4 PSI front, 19.8 PSI rear',
+                    title: "Warm-up lap",
+                    timestamp: "14:06",
+                    status: "completed",
+                    description: "Tyre pressures nominal — 21.4 PSI front, 19.8 PSI rear",
                   },
                   {
-                    title: 'Qualifying — hot lap',
-                    timestamp: '14:08',
-                    status: 'active',
-                    description: 'Sector 1 purple, sector 2 in progress',
+                    title: "Qualifying — hot lap",
+                    timestamp: "14:08",
+                    status: "active",
+                    description: "Sector 1 purple, sector 2 in progress",
                   },
-                  { title: 'Cool-down lap', status: 'upcoming' },
-                  { title: 'Debrief', status: 'upcoming' },
+                  { title: "Cool-down lap", status: "upcoming" },
+                  { title: "Debrief", status: "upcoming" },
                 ]}
               />
             </div>
@@ -3648,8 +3423,8 @@ export function App() {
               <span
                 className={styles.rowLabel}
                 style={{
-                  display: 'block',
-                  marginBottom: 'var(--rialto-space-sm)',
+                  display: "block",
+                  marginBottom: "var(--rialto-space-sm)",
                 }}
               >
                 Compact
@@ -3658,22 +3433,22 @@ export function App() {
                 compact
                 events={[
                   {
-                    title: 'Build started',
-                    timestamp: '09:31',
-                    status: 'completed',
+                    title: "Build started",
+                    timestamp: "09:31",
+                    status: "completed",
                   },
                   {
-                    title: 'Tests passed',
-                    timestamp: '09:33',
-                    status: 'completed',
+                    title: "Tests passed",
+                    timestamp: "09:33",
+                    status: "completed",
                   },
                   {
-                    title: 'Deploy to staging',
-                    timestamp: '09:34',
-                    status: 'completed',
+                    title: "Deploy to staging",
+                    timestamp: "09:34",
+                    status: "completed",
                   },
-                  { title: 'Smoke tests', timestamp: '09:35', status: 'error' },
-                  { title: 'Rollback', status: 'upcoming' },
+                  { title: "Smoke tests", timestamp: "09:35", status: "error" },
+                  { title: "Rollback", status: "upcoming" },
                 ]}
               />
             </div>
@@ -3698,24 +3473,24 @@ export function App() {
               className={styles.motionCard}
               onClick={() => setMotionPrecisionActive((v) => !v)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
+                if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
                   setMotionPrecisionActive((v) => !v);
                 }
               }}
-              style={{ cursor: 'pointer' }}
+              style={{ cursor: "pointer" }}
             >
               <span className={styles.motionLabel}>Precision</span>
               <div className={styles.motionTrack}>
                 <motion.div
                   className={styles.motionDot}
                   style={{
-                    background: 'var(--rialto-surface-matte)',
-                    border: '1px solid var(--rialto-border-strong)',
-                    boxShadow: '0 1px 3px rgb(26 25 24 / 0.15)',
+                    background: "var(--rialto-surface-matte)",
+                    border: "1px solid var(--rialto-border-strong)",
+                    boxShadow: "0 1px 3px rgb(26 25 24 / 0.15)",
                   }}
                   animate={{
-                    left: motionPrecisionActive ? 'calc(100% - 24px)' : 0,
+                    left: motionPrecisionActive ? "calc(100% - 24px)" : 0,
                   }}
                   transition={precision}
                 />
@@ -3731,24 +3506,24 @@ export function App() {
               className={styles.motionCard}
               onClick={() => setMotionSpringActive((v) => !v)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
+                if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
                   setMotionSpringActive((v) => !v);
                 }
               }}
-              style={{ cursor: 'pointer' }}
+              style={{ cursor: "pointer" }}
             >
               <span className={styles.motionLabel}>Spring</span>
               <div className={styles.motionTrack}>
                 <motion.div
                   className={styles.motionDot}
                   style={{
-                    background: 'var(--rialto-accent)',
-                    border: '1px solid var(--rialto-accent)',
-                    boxShadow: '0 1px 3px rgb(196 146 42 / 0.3)',
+                    background: "var(--rialto-accent)",
+                    border: "1px solid var(--rialto-accent)",
+                    boxShadow: "0 1px 3px rgb(196 146 42 / 0.3)",
                   }}
                   animate={{
-                    left: motionSpringActive ? 'calc(100% - 24px)' : 0,
+                    left: motionSpringActive ? "calc(100% - 24px)" : 0,
                   }}
                   transition={spring}
                 />
@@ -3777,8 +3552,7 @@ export function App() {
                 ))}
               </div>
               <p className={styles.motionDescription}>
-                Precision stagger — sequential 60ms delay, crisp easing on each
-                bar
+                Precision stagger — sequential 60ms delay, crisp easing on each bar
               </p>
             </div>
 
@@ -3787,7 +3561,7 @@ export function App() {
               <div className={styles.springSettleTrack}>
                 <motion.div
                   className={styles.springSettleDot}
-                  animate={{ left: springLoop ? 'calc(100% - 20px)' : '0px' }}
+                  animate={{ left: springLoop ? "calc(100% - 20px)" : "0px" }}
                   transition={spring}
                   onAnimationComplete={() => setSpringLoop((v) => !v)}
                 />
@@ -3812,7 +3586,7 @@ export function App() {
                   fontSize: `var(${token})`,
                   fontWeight: weight,
                   letterSpacing: tracking,
-                  lineHeight: 'var(--rialto-leading-tight)',
+                  lineHeight: "var(--rialto-leading-tight)",
                 }}
               >
                 {text}
@@ -3831,11 +3605,7 @@ export function App() {
           {/* Surface palette — continuous strip */}
           <div className={styles.surfacePalette}>
             {SURFACES.map(({ name, color }) => (
-              <div
-                key={name}
-                className={styles.surfaceStrip}
-                style={{ background: color }}
-              >
+              <div key={name} className={styles.surfaceStrip} style={{ background: color }}>
                 <span className={styles.surfaceStripLabel}>{name}</span>
               </div>
             ))}
@@ -3869,9 +3639,7 @@ export function App() {
         >
           {SPACING_SCALE.map(({ token, value }) => (
             <div key={token} className={styles.spacingRow}>
-              <span className={styles.spacingLabel}>
-                --rialto-space-{token}
-              </span>
+              <span className={styles.spacingLabel}>--rialto-space-{token}</span>
               <div
                 className={styles.spacingBar}
                 style={{ width: `var(--rialto-space-${token})` }}
@@ -3916,9 +3684,7 @@ export function App() {
                 className={styles.shadowCard}
                 style={{ boxShadow: `var(--rialto-shadow-${token})` }}
               >
-                <span className={styles.shadowName}>
-                  --rialto-shadow-{token}
-                </span>
+                <span className={styles.shadowName}>--rialto-shadow-{token}</span>
                 <span className={styles.shadowDescription}>{description}</span>
               </div>
             ))}
@@ -3938,25 +3704,20 @@ export function App() {
                 className={`${styles.materialSwatch} ${styles[style as keyof typeof styles]}`}
               >
                 <span className={styles.materialName}>{label}</span>
-                <span className={styles.materialDescription}>
-                  {description}
-                </span>
+                <span className={styles.materialDescription}>{description}</span>
               </div>
             ))}
           </div>
 
           <div className={styles.borderDemo}>
             <div className={styles.borderLine}>
-              <div
-                className={styles.borderSample}
-                style={{ background: 'var(--rialto-border)' }}
-              />
+              <div className={styles.borderSample} style={{ background: "var(--rialto-border)" }} />
               <span className={styles.borderLabel}>--rialto-border</span>
             </div>
             <div className={styles.borderLine}>
               <div
                 className={styles.borderSample}
-                style={{ background: 'var(--rialto-border-strong)' }}
+                style={{ background: "var(--rialto-border-strong)" }}
               />
               <span className={styles.borderLabel}>--rialto-border-strong</span>
             </div>
@@ -3971,22 +3732,17 @@ export function App() {
         >
           {iconCategories.map((category) => (
             <div key={category}>
-              <div
-                className={styles.rowLabel}
-                style={{ marginBottom: 'var(--rialto-space-xs)' }}
-              >
+              <div className={styles.rowLabel} style={{ marginBottom: "var(--rialto-space-xs)" }}>
                 {category}
               </div>
               <div className={styles.iconGrid}>
-                {getIconsByCategory(category).map(
-                  ({ concept, label, icon: Icon }) => (
-                    <div key={concept} className={styles.iconCell}>
-                      <Icon size={20} className={styles.iconPreview} />
-                      <span className={styles.iconLabel}>{label}</span>
-                      <span className={styles.iconConcept}>{concept}</span>
-                    </div>
-                  )
-                )}
+                {getIconsByCategory(category).map(({ concept, label, icon: Icon }) => (
+                  <div key={concept} className={styles.iconCell}>
+                    <Icon size={20} className={styles.iconPreview} />
+                    <span className={styles.iconLabel}>{label}</span>
+                    <span className={styles.iconConcept}>{concept}</span>
+                  </div>
+                ))}
               </div>
             </div>
           ))}
@@ -4021,8 +3777,7 @@ export function App() {
               </div>
               <span className={styles.demoPageTitle}>Sign In</span>
               <span className={styles.demoPageDescription}>
-                Authentication form with validation, error states, and social
-                login
+                Authentication form with validation, error states, and social login
               </span>
             </Link>
 
@@ -4046,8 +3801,7 @@ export function App() {
               </div>
               <span className={styles.demoPageTitle}>Sign Up</span>
               <span className={styles.demoPageDescription}>
-                Registration flow with multi-field form and password
-                requirements
+                Registration flow with multi-field form and password requirements
               </span>
             </Link>
 
@@ -4071,8 +3825,7 @@ export function App() {
               </div>
               <span className={styles.demoPageTitle}>Dashboard</span>
               <span className={styles.demoPageDescription}>
-                Stats, charts, and data overview with cards and layout
-                composition
+                Stats, charts, and data overview with cards and layout composition
               </span>
             </Link>
 
@@ -4115,8 +3868,7 @@ export function App() {
               </div>
               <span className={styles.demoPageTitle}>Create</span>
               <span className={styles.demoPageDescription}>
-                Multi-field form with validation, radio groups, and submit
-                feedback
+                Multi-field form with validation, radio groups, and submit feedback
               </span>
             </Link>
 
@@ -4160,8 +3912,7 @@ export function App() {
               </div>
               <span className={styles.demoPageTitle}>Update</span>
               <span className={styles.demoPageDescription}>
-                Edit form with dirty state tracking, discard dialog, and
-                optimistic save
+                Edit form with dirty state tracking, discard dialog, and optimistic save
               </span>
             </Link>
 
@@ -4183,8 +3934,7 @@ export function App() {
               </div>
               <span className={styles.demoPageTitle}>Wizard</span>
               <span className={styles.demoPageDescription}>
-                Multi-step form with Steps navigation, per-step validation, and
-                review summary
+                Multi-step form with Steps navigation, per-step validation, and review summary
               </span>
             </Link>
 

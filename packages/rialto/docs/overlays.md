@@ -353,11 +353,7 @@ Positioned floating content.
 ### Example {#popover-example}
 
 ```tsx
-<Popover
-  open={isOpen}
-  onOpenChange={setOpen}
-  content={<div>Popover content</div>}
->
+<Popover open={isOpen} onOpenChange={setOpen} content={<div>Popover content</div>}>
   <Button>Open</Button>
 </Popover>
 ```
@@ -600,8 +596,8 @@ interface CommandItem {
   open={isOpen}
   onOpenChange={setOpen}
   items={[
-    { id: 'save', label: 'Save', shortcut: ['⌘', 'S'], onSelect: save },
-    { id: 'export', label: 'Export', group: 'Actions' },
+    { id: "save", label: "Save", shortcut: ["⌘", "S"], onSelect: save },
+    { id: "export", label: "Export", group: "Actions" },
   ]}
 />
 ```
@@ -696,8 +692,8 @@ interface MenuItem {
 <DropdownMenu
   trigger={<Button>Actions</Button>}
   items={[
-    { id: 'edit', label: 'Edit', icon: <EditIcon /> },
-    { id: 'delete', label: 'Delete', destructive: true },
+    { id: "edit", label: "Edit", icon: <EditIcon /> },
+    { id: "delete", label: "Delete", destructive: true },
   ]}
 />
 ```
@@ -768,8 +764,8 @@ Right-click menu.
 ```tsx
 <ContextMenu
   items={[
-    { id: 'copy', label: 'Copy' },
-    { id: 'paste', label: 'Paste' },
+    { id: "copy", label: "Copy" },
+    { id: "paste", label: "Paste" },
   ]}
 />
 ```

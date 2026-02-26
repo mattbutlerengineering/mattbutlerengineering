@@ -1,7 +1,7 @@
-import { forwardRef, type HTMLAttributes } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
-import { precision } from '../../tokens/motion';
-import styles from './Meter.module.css';
+import { forwardRef, type HTMLAttributes } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import { precision } from "../../tokens/motion";
+import styles from "./Meter.module.css";
 
 /**
  * A horizontal gauge bar that visualizes a value within a min/max range.
@@ -16,10 +16,7 @@ import styles from './Meter.module.css';
  *   showValue
  * />
  */
-export interface MeterProps extends Omit<
-  HTMLAttributes<HTMLDivElement>,
-  'role'
-> {
+export interface MeterProps extends Omit<HTMLAttributes<HTMLDivElement>, "role"> {
   /** Current value */
   value: number;
   /** Minimum value */
@@ -29,11 +26,11 @@ export interface MeterProps extends Omit<
   /** Accessible label */
   label?: string;
   /** Fill color variant */
-  variant?: 'default' | 'accent' | 'success' | 'error';
+  variant?: "default" | "accent" | "success" | "error";
   /** Show numeric value */
   showValue?: boolean;
   /** Track thickness */
-  size?: 'sm' | 'md';
+  size?: "sm" | "md";
 }
 
 export const Meter = forwardRef<HTMLDivElement, MeterProps>(
@@ -43,9 +40,9 @@ export const Meter = forwardRef<HTMLDivElement, MeterProps>(
       min = 0,
       max = 100,
       label,
-      variant = 'default',
+      variant = "default",
       showValue = false,
-      size = 'md',
+      size = "md",
       className,
       ...props
     },
@@ -53,22 +50,17 @@ export const Meter = forwardRef<HTMLDivElement, MeterProps>(
   ) => {
     const shouldReduceMotion = useReducedMotion();
     const range = max - min;
-    const fraction =
-      range > 0 ? Math.min(1, Math.max(0, (value - min) / range)) : 0;
+    const fraction = range > 0 ? Math.min(1, Math.max(0, (value - min) / range)) : 0;
     const percent = Math.round(fraction * 100);
 
-    const trackClass = [styles.track, size === 'sm' ? styles.trackSm : '']
+    const trackClass = [styles.track, size === "sm" ? styles.trackSm : ""]
       .filter(Boolean)
-      .join(' ');
+      .join(" ");
 
-    const fillClass = [styles.fill, styles[variant]].filter(Boolean).join(' ');
+    const fillClass = [styles.fill, styles[variant]].filter(Boolean).join(" ");
 
     return (
-      <div
-        ref={ref}
-        className={[styles.wrapper, className].filter(Boolean).join(' ')}
-        {...props}
-      >
+      <div ref={ref} className={[styles.wrapper, className].filter(Boolean).join(" ")} {...props}>
         {(label || showValue) && (
           <div className={styles.labelRow}>
             {label && <span className={styles.label}>{label}</span>}
@@ -95,4 +87,4 @@ export const Meter = forwardRef<HTMLDivElement, MeterProps>(
   }
 );
 
-Meter.displayName = 'Meter';
+Meter.displayName = "Meter";

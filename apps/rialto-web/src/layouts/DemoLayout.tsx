@@ -1,12 +1,9 @@
-import { useState, useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
-import { RialtoProvider, type VibeName } from '@mbe/rialto';
-import { useCookieConsent } from '../components/CookieConsent/useCookieConsent';
-import {
-  CookieBanner,
-  CookiePreferencesDialog,
-} from '../components/CookieConsent/CookieConsent';
-import styles from './DemoLayout.module.css';
+import { useState, useEffect } from "react";
+import { Outlet } from "react-router-dom";
+import { RialtoProvider, type VibeName } from "@mbe/rialto";
+import { useCookieConsent } from "../components/CookieConsent/useCookieConsent";
+import { CookieBanner, CookiePreferencesDialog } from "../components/CookieConsent/CookieConsent";
+import styles from "./DemoLayout.module.css";
 
 export interface FloatingControlsProps {
   darkMode: boolean;
@@ -32,7 +29,7 @@ export function FloatingControls({
       <button
         className={styles.controlButton}
         onClick={() => onDarkModeChange(!darkMode)}
-        aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+        aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
       >
         <svg
           width="16"
@@ -65,7 +62,7 @@ export function FloatingControls({
       <button
         className={styles.controlButton}
         onClick={() => onRtlChange(!rtl)}
-        aria-label={rtl ? 'Switch to LTR' : 'Switch to RTL'}
+        aria-label={rtl ? "Switch to LTR" : "Switch to RTL"}
       >
         <svg
           width="16"
@@ -114,13 +111,7 @@ export function FloatingControls({
             <circle cx="9" cy="5" r="0.75" fill="currentColor" stroke="none" />
             <circle cx="10.5" cy="8" r="1" fill="currentColor" stroke="none" />
             <circle cx="6" cy="10" r="0.75" fill="currentColor" stroke="none" />
-            <circle
-              cx="8.5"
-              cy="11"
-              r="0.5"
-              fill="currentColor"
-              stroke="none"
-            />
+            <circle cx="8.5" cy="11" r="0.5" fill="currentColor" stroke="none" />
           </svg>
         </button>
       )}
@@ -140,16 +131,16 @@ export function FloatingControls({
 }
 
 export function DemoLayout() {
-  const [activeVibe, setActiveVibe] = useState<VibeName>('default');
+  const [activeVibe, setActiveVibe] = useState<VibeName>("default");
   const [darkMode, setDarkMode] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    const saved = localStorage.getItem('rialto-theme');
-    if (saved) return saved === 'dark';
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (typeof window === "undefined") return false;
+    const saved = localStorage.getItem("rialto-theme");
+    if (saved) return saved === "dark";
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
   });
   const [rtl, setRtl] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return localStorage.getItem('rialto-dir') === 'rtl';
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("rialto-dir") === "rtl";
   });
   const [prefsOpen, setPrefsOpen] = useState(false);
   const [prefsKey, setPrefsKey] = useState(0);
@@ -161,16 +152,16 @@ export function DemoLayout() {
   };
 
   useEffect(() => {
-    localStorage.setItem('rialto-theme', darkMode ? 'dark' : 'light');
+    localStorage.setItem("rialto-theme", darkMode ? "dark" : "light");
   }, [darkMode]);
 
   useEffect(() => {
-    localStorage.setItem('rialto-dir', rtl ? 'rtl' : 'ltr');
+    localStorage.setItem("rialto-dir", rtl ? "rtl" : "ltr");
   }, [rtl]);
 
   return (
-    <RialtoProvider vibe={activeVibe} theme={darkMode ? 'dark' : 'light'}>
-      <div dir={rtl ? 'rtl' : undefined}>
+    <RialtoProvider vibe={activeVibe} theme={darkMode ? "dark" : "light"}>
+      <div dir={rtl ? "rtl" : undefined}>
         <div className={styles.floatingControls}>
           <FloatingControls
             darkMode={darkMode}
@@ -202,4 +193,4 @@ export function DemoLayout() {
   );
 }
 
-DemoLayout.displayName = 'DemoLayout';
+DemoLayout.displayName = "DemoLayout";

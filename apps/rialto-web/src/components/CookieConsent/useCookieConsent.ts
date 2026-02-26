@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback } from "react";
 
 /* ── Types ───────────────────────────────────── */
 
@@ -14,7 +14,7 @@ interface ConsentState {
   readonly preferences: CookiePreferences;
 }
 
-const STORAGE_KEY = 'rialto-cookie-consent';
+const STORAGE_KEY = "rialto-cookie-consent";
 
 export const DEFAULT_PREFERENCES: CookiePreferences = {
   essential: true,
@@ -33,7 +33,7 @@ const ALL_ACCEPTED: CookiePreferences = {
 /* ── Helpers ─────────────────────────────────── */
 
 function readStoredConsent(): ConsentState {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     return { consented: false, preferences: DEFAULT_PREFERENCES };
   }
   const stored = localStorage.getItem(STORAGE_KEY);
@@ -79,17 +79,14 @@ export function useCookieConsent() {
     setState(next);
   }, []);
 
-  const savePreferences = useCallback(
-    (prefs: Omit<CookiePreferences, 'essential'>) => {
-      const next: ConsentState = {
-        consented: true,
-        preferences: { ...prefs, essential: true },
-      };
-      persistConsent(next);
-      setState(next);
-    },
-    []
-  );
+  const savePreferences = useCallback((prefs: Omit<CookiePreferences, "essential">) => {
+    const next: ConsentState = {
+      consented: true,
+      preferences: { ...prefs, essential: true },
+    };
+    persistConsent(next);
+    setState(next);
+  }, []);
 
   const reset = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY);

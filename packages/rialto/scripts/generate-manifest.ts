@@ -9,10 +9,10 @@
  * Usage: npx tsx scripts/generate-manifest.ts
  */
 
-import * as ts from 'typescript';
-import * as path from 'path';
-import * as fs from 'fs';
-import { characterLimits } from './character-limits.js';
+import * as ts from "typescript";
+import * as path from "path";
+import * as fs from "fs";
+import { characterLimits } from "./character-limits.js";
 
 /* ── Types ───────────────────────────────────── */
 
@@ -52,7 +52,7 @@ function getJsDocComment(symbol: ts.Symbol): string | undefined {
   return (
     docs
       .map((d) => d.text)
-      .join('\n')
+      .join("\n")
       .trim() || undefined
   );
 }
@@ -74,10 +74,7 @@ function getDefaultFromInitializer(symbol: ts.Symbol): string | undefined {
 
 /* ── Component extraction ────────────────────── */
 
-function extractComponents(
-  program: ts.Program,
-  entryFile: string
-): ComponentInfo[] {
+function extractComponents(program: ts.Program, entryFile: string): ComponentInfo[] {
   const checker = program.getTypeChecker();
   const sourceFile = program.getSourceFile(entryFile);
   if (!sourceFile) {
@@ -95,12 +92,11 @@ function extractComponents(
     const name = exp.getName();
 
     // Skip non-component exports (types, hooks, constants)
-    if (name.startsWith('use') || name[0] !== name[0].toUpperCase()) continue;
-    if (name.endsWith('Props') || name.endsWith('Context')) continue;
+    if (name.startsWith("use") || name[0] !== name[0].toUpperCase()) continue;
+    if (name.endsWith("Props") || name.endsWith("Context")) continue;
 
     // Resolve aliased symbols
-    const resolved =
-      exp.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(exp) : exp;
+    const resolved = exp.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(exp) : exp;
 
     // Find the Props interface by convention: ComponentNameProps
     const propsTypeName = `${name}Props`;
@@ -124,8 +120,8 @@ function extractComponents(
         const propTypeStr = typeToString(propType, checker);
 
         // Detect slots (ReactNode children)
-        if (propName === 'children' && propTypeStr.includes('ReactNode')) {
-          slots.push('children');
+        if (propName === "children" && propTypeStr.includes("ReactNode")) {
+          slots.push("children");
           continue;
         }
 
@@ -178,17 +174,13 @@ function extractComponents(
 
 function main() {
   const rootDir = process.cwd();
-  const entryFile = path.join(rootDir, 'src/components/index.ts');
-  const tsconfigPath = path.join(rootDir, 'tsconfig.json');
-  const outPath = path.join(rootDir, 'dist/manifest.json');
+  const entryFile = path.join(rootDir, "src/components/index.ts");
+  const tsconfigPath = path.join(rootDir, "tsconfig.json");
+  const outPath = path.join(rootDir, "dist/manifest.json");
 
   // Read tsconfig
   const configFile = ts.readConfigFile(tsconfigPath, ts.sys.readFile);
-  const parsedConfig = ts.parseJsonConfigFileContent(
-    configFile.config,
-    ts.sys,
-    rootDir
-  );
+  const parsedConfig = ts.parseJsonConfigFileContent(configFile.config, ts.sys, rootDir);
 
   const program = ts.createProgram([entryFile], parsedConfig.options);
 
@@ -196,9 +188,7 @@ function main() {
 
   // Merge character limits into component data
   for (const component of components) {
-    const limits = characterLimits.filter(
-      (l) => l.component === component.name
-    );
+    const limits = characterLimits.filter((l) => l.component === component.name);
     if (limits.length > 0) {
       component.characterLimits = limits.map(({ prop, max, reason }) => ({
         prop,
@@ -209,9 +199,7 @@ function main() {
   }
 
   // Read version from package.json
-  const pkg = JSON.parse(
-    fs.readFileSync(path.join(rootDir, 'package.json'), 'utf-8')
-  );
+  const pkg = JSON.parse(fs.readFileSync(path.join(rootDir, "package.json"), "utf-8"));
 
   const manifest: Manifest = {
     version: pkg.version,
@@ -221,11 +209,9 @@ function main() {
 
   // Ensure output directory exists
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
-  fs.writeFileSync(outPath, JSON.stringify(manifest, null, 2) + '\n');
+  fs.writeFileSync(outPath, JSON.stringify(manifest, null, 2) + "\n");
 
-  console.log(
-    `Generated manifest: ${components.length} components → ${outPath}`
-  );
+  console.log(`Generated manifest: ${components.length} components → ${outPath}`);
 }
 
 main();

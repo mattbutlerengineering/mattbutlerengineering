@@ -23,10 +23,10 @@ Replace the `Breadcrumb` import with `PageHeader`:
 
 ```tsx
 // Remove this line:
-import { Breadcrumb } from '../../components/Breadcrumb/Breadcrumb';
+import { Breadcrumb } from "../../components/Breadcrumb/Breadcrumb";
 
 // Add this line:
-import { PageHeader } from '../../components/PageHeader/PageHeader';
+import { PageHeader } from "../../components/PageHeader/PageHeader";
 ```
 
 **Step 2: Replace inline header JSX (lines 184–223) with PageHeader**
@@ -39,9 +39,9 @@ Replace the entire `{/* ── Dark header */}` block with:
 }
 <PageHeader
   breadcrumbs={[
-    { label: 'Home', href: '/' },
-    { label: 'Telemetry', href: '#' },
-    { label: 'Dashboard' },
+    { label: "Home", href: "/" },
+    { label: "Telemetry", href: "#" },
+    { label: "Dashboard" },
   ]}
   title="Pit Wall"
   meta={
@@ -54,11 +54,11 @@ Replace the entire `{/* ── Dark header */}` block with:
       size="sm"
       max={4}
       avatars={[
-        { name: 'Charles Leclerc', status: 'online' },
-        { name: 'Lewis Hamilton', status: 'online' },
-        { name: 'Race Engineer', status: 'online' },
-        { name: 'Strategist', status: 'away' },
-        { name: 'Team Principal' },
+        { name: "Charles Leclerc", status: "online" },
+        { name: "Lewis Hamilton", status: "online" },
+        { name: "Race Engineer", status: "online" },
+        { name: "Strategist", status: "away" },
+        { name: "Team Principal" },
       ]}
     />
   }

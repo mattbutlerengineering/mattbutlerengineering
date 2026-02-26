@@ -21,8 +21,8 @@
 
 /* ── Individual cell ─────────────────────────── */
 .cell {
-  composes: recessed from '../../styles/surfaces.module.css';
-  composes: focusRing from '../../styles/surfaces.module.css';
+  composes: recessed from "../../styles/surfaces.module.css";
+  composes: focusRing from "../../styles/surfaces.module.css";
 
   width: 48px;
   height: 48px;
@@ -78,12 +78,12 @@
 }
 
 /* ── Disabled state ──────────────────────────── */
-.wrapper[aria-disabled='true'] .cells {
+.wrapper[aria-disabled="true"] .cells {
   filter: saturate(0.6) brightness(0.95);
   pointer-events: none;
 }
 
-.wrapper[aria-disabled='true'] .cell {
+.wrapper[aria-disabled="true"] .cell {
   cursor: not-allowed;
 }
 

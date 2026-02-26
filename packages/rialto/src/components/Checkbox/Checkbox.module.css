@@ -34,16 +34,16 @@
 }
 
 .checkboxItem:has(input:checked),
-.checkboxItem:has(input[data-indeterminate='true']) {
+.checkboxItem:has(input[data-indeterminate="true"]) {
   background: var(--rialto-accent-muted);
 }
 
-.checkboxItem[aria-disabled='true'] {
+.checkboxItem[aria-disabled="true"] {
   filter: saturate(0.6) brightness(0.95);
   cursor: not-allowed;
 }
 
-.checkboxItem[aria-disabled='true'] .label {
+.checkboxItem[aria-disabled="true"] .label {
   pointer-events: none;
 }
 
@@ -103,14 +103,14 @@
 }
 
 .input:checked + .box,
-.input[data-indeterminate='true'] + .box {
+.input[data-indeterminate="true"] + .box {
   border-color: var(--rialto-accent);
   background: var(--rialto-accent);
   box-shadow: none;
 }
 
 .input:checked:focus-visible + .box,
-.input[data-indeterminate='true']:focus-visible + .box {
+.input[data-indeterminate="true"]:focus-visible + .box {
   box-shadow: 0 0 0 3px var(--rialto-accent-glow);
 }
 
@@ -207,12 +207,12 @@
   background: var(--rialto-accent-muted);
 }
 
-.radioItem[aria-disabled='true'] {
+.radioItem[aria-disabled="true"] {
   filter: saturate(0.6) brightness(0.95);
   cursor: not-allowed;
 }
 
-.radioItem[aria-disabled='true'] .label {
+.radioItem[aria-disabled="true"] .label {
   pointer-events: none;
 }
 

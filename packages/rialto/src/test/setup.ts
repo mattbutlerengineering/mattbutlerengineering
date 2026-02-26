@@ -1,12 +1,12 @@
-import '@testing-library/jest-dom/vitest';
-import * as matchers from 'vitest-axe/matchers';
+import "@testing-library/jest-dom/vitest";
+import * as matchers from "vitest-axe/matchers";
 expect.extend(matchers);
 
 // Mock framer-motion to avoid animation issues in tests
-vi.mock('framer-motion', async () => {
+vi.mock("framer-motion", async () => {
   const actual =
     // eslint-disable-next-line @typescript-eslint/consistent-type-imports -- typeof import() required for vi.importActual generic
-    await vi.importActual<typeof import('framer-motion')>('framer-motion');
+    await vi.importActual<typeof import("framer-motion")>("framer-motion");
   return {
     ...actual,
     useReducedMotion: () => true,
@@ -18,7 +18,7 @@ HTMLCanvasElement.prototype.getContext = (() =>
   null) as typeof HTMLCanvasElement.prototype.getContext;
 
 // Mock matchMedia for jsdom
-Object.defineProperty(window, 'matchMedia', {
+Object.defineProperty(window, "matchMedia", {
   writable: true,
   value: vi.fn().mockImplementation((query: string) => ({
     matches: false,

@@ -1,5 +1,5 @@
-import { forwardRef, type HTMLAttributes, type ReactNode } from 'react';
-import styles from './Badge.module.css';
+import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
+import styles from "./Badge.module.css";
 
 /**
  * A small status indicator label for counts, states, or categories.
@@ -11,27 +11,19 @@ import styles from './Badge.module.css';
  * </Badge>
  */
 export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
-  variant?: 'neutral' | 'accent' | 'success' | 'error';
+  variant?: "neutral" | "accent" | "success" | "error";
   /** Compact or default size */
-  size?: 'sm' | 'md';
+  size?: "sm" | "md";
   /** Show a status dot before the label */
   dot?: boolean;
   children: ReactNode;
 }
 
 export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
-  (
-    { variant = 'neutral', size = 'md', dot, className, children, ...props },
-    ref
-  ) => {
-    const classes = [
-      styles.badge,
-      styles[variant],
-      size === 'sm' ? styles.sm : '',
-      className,
-    ]
+  ({ variant = "neutral", size = "md", dot, className, children, ...props }, ref) => {
+    const classes = [styles.badge, styles[variant], size === "sm" ? styles.sm : "", className]
       .filter(Boolean)
-      .join(' ');
+      .join(" ");
 
     return (
       <span ref={ref} className={classes} {...props}>
@@ -42,4 +34,4 @@ export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
   }
 );
 
-Badge.displayName = 'Badge';
+Badge.displayName = "Badge";

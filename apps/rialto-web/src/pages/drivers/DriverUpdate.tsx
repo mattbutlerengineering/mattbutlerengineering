@@ -1,7 +1,7 @@
-import { useState, useMemo, useCallback, type FormEvent } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { useDrivers } from './DriverContext';
-import { DriverLayout } from './DriverLayout';
+import { useState, useMemo, useCallback, type FormEvent } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useDrivers } from "./DriverContext";
+import { DriverLayout } from "./DriverLayout";
 import {
   Alert,
   Autocomplete,
@@ -15,42 +15,42 @@ import {
   SegmentedControl,
   TextArea,
   useToast,
-} from '@mbe/rialto';
-import styles from './DriverForm.module.css';
+} from "@mbe/rialto";
+import styles from "./DriverForm.module.css";
 
 const TEAM_OPTIONS = [
-  { value: 'Ferrari', label: 'Ferrari' },
-  { value: 'Red Bull Racing', label: 'Red Bull Racing' },
-  { value: 'McLaren', label: 'McLaren' },
-  { value: 'Mercedes', label: 'Mercedes' },
-  { value: 'Williams', label: 'Williams' },
-  { value: 'Alpine', label: 'Alpine' },
-  { value: 'Aston Martin', label: 'Aston Martin' },
-  { value: 'Haas', label: 'Haas' },
-  { value: 'RB', label: 'RB' },
-  { value: 'Sauber', label: 'Sauber' },
+  { value: "Ferrari", label: "Ferrari" },
+  { value: "Red Bull Racing", label: "Red Bull Racing" },
+  { value: "McLaren", label: "McLaren" },
+  { value: "Mercedes", label: "Mercedes" },
+  { value: "Williams", label: "Williams" },
+  { value: "Alpine", label: "Alpine" },
+  { value: "Aston Martin", label: "Aston Martin" },
+  { value: "Haas", label: "Haas" },
+  { value: "RB", label: "RB" },
+  { value: "Sauber", label: "Sauber" },
 ];
 
 const STATUS_SEGMENTS = [
-  { id: 'active', label: 'Active' },
-  { id: 'reserve', label: 'Reserve' },
-  { id: 'retired', label: 'Retired' },
+  { id: "active", label: "Active" },
+  { id: "reserve", label: "Reserve" },
+  { id: "retired", label: "Retired" },
 ];
 
 type FieldErrors = Record<string, string>;
 
 function validateField(field: string, value: unknown): string | undefined {
   switch (field) {
-    case 'name':
-      return !(value as string).trim() ? 'Name is required.' : undefined;
-    case 'number':
+    case "name":
+      return !(value as string).trim() ? "Name is required." : undefined;
+    case "number":
       return (value as number) < 1 || (value as number) > 99
-        ? 'Must be between 1 and 99.'
+        ? "Must be between 1 and 99."
         : undefined;
-    case 'team':
-      return !(value as string) ? 'Team is required.' : undefined;
-    case 'nationality':
-      return !(value as string).trim() ? 'Nationality is required.' : undefined;
+    case "team":
+      return !(value as string) ? "Team is required." : undefined;
+    case "nationality":
+      return !(value as string).trim() ? "Nationality is required." : undefined;
     default:
       return undefined;
   }
@@ -62,19 +62,19 @@ export function DriverUpdate() {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const driver = getDriver(id ?? '');
+  const driver = getDriver(id ?? "");
 
-  const [name, setName] = useState(driver?.name ?? '');
+  const [name, setName] = useState(driver?.name ?? "");
   const [number, setNumber] = useState(driver?.number ?? 0);
-  const [team, setTeam] = useState(driver?.team ?? '');
-  const [nationality, setNationality] = useState(driver?.nationality ?? '');
-  const [status, setStatus] = useState<'active' | 'reserve' | 'retired'>(
-    driver?.status ?? 'active'
+  const [team, setTeam] = useState(driver?.team ?? "");
+  const [nationality, setNationality] = useState(driver?.nationality ?? "");
+  const [status, setStatus] = useState<"active" | "reserve" | "retired">(
+    driver?.status ?? "active"
   );
-  const [bio, setBio] = useState('');
-  const [dob, setDob] = useState('');
+  const [bio, setBio] = useState("");
+  const [dob, setDob] = useState("");
   const [errors, setErrors] = useState<FieldErrors>({});
-  const [submitError, setSubmitError] = useState('');
+  const [submitError, setSubmitError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [discardDialog, setDiscardDialog] = useState(false);
 
@@ -86,8 +86,8 @@ export function DriverUpdate() {
       team !== driver.team ||
       nationality !== driver.nationality ||
       status !== driver.status ||
-      bio !== '' ||
-      dob !== ''
+      bio !== "" ||
+      dob !== ""
     );
   }, [driver, name, number, team, nationality, status, bio, dob]);
 
@@ -106,20 +106,16 @@ export function DriverUpdate() {
       <DriverLayout
         title="Driver Not Found"
         breadcrumbs={[
-          { label: 'Home', href: '/' },
-          { label: 'Drivers', href: '/drivers' },
-          { label: 'Not Found' },
+          { label: "Home", href: "/" },
+          { label: "Drivers", href: "/drivers" },
+          { label: "Not Found" },
         ]}
       >
         <EmptyState
           title="Driver not found"
           description="This driver may have been removed or the link is invalid."
           action={
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => navigate('/drivers')}
-            >
+            <Button variant="primary" size="sm" onClick={() => navigate("/drivers")}>
               View All Drivers
             </Button>
           }
@@ -131,10 +127,10 @@ export function DriverUpdate() {
   function validateAll(): FieldErrors {
     const errs: FieldErrors = {};
     const fields: [string, unknown][] = [
-      ['name', name],
-      ['number', number],
-      ['team', team],
-      ['nationality', nationality],
+      ["name", name],
+      ["number", number],
+      ["team", team],
+      ["nationality", nationality],
     ];
     for (const [field, value] of fields) {
       const msg = validateField(field, value);
@@ -152,7 +148,7 @@ export function DriverUpdate() {
     }
 
     setSubmitting(true);
-    setSubmitError('');
+    setSubmitError("");
     setErrors({});
 
     setTimeout(() => {
@@ -164,7 +160,7 @@ export function DriverUpdate() {
         status,
       });
 
-      toast({ title: `${name.trim()} updated`, variant: 'success' });
+      toast({ title: `${name.trim()} updated`, variant: "success" });
       navigate(`/drivers/${driver.id}`);
     }, 400);
   };
@@ -181,10 +177,10 @@ export function DriverUpdate() {
     <DriverLayout
       title={`Edit ${driver.name}`}
       breadcrumbs={[
-        { label: 'Home', href: '/' },
-        { label: 'Drivers', href: '/drivers' },
+        { label: "Home", href: "/" },
+        { label: "Drivers", href: "/drivers" },
         { label: driver.name, href: `/drivers/${driver.id}` },
-        { label: 'Edit' },
+        { label: "Edit" },
       ]}
     >
       <Card variant="elevated" className={styles.formCard}>
@@ -206,18 +202,12 @@ export function DriverUpdate() {
               label="Full Name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              onBlur={() => handleBlur('name', name)}
+              onBlur={() => handleBlur("name", name)}
               error={!!errors.name}
               hint={errors.name}
               required
             />
-            <NumberInput
-              label="Car Number"
-              value={number}
-              onChange={setNumber}
-              min={1}
-              max={99}
-            />
+            <NumberInput label="Car Number" value={number} onChange={setNumber} min={1} max={99} />
           </div>
 
           <div className={styles.fieldRow}>
@@ -233,7 +223,7 @@ export function DriverUpdate() {
               label="Nationality"
               value={nationality}
               onChange={(e) => setNationality(e.target.value)}
-              onBlur={() => handleBlur('nationality', nationality)}
+              onBlur={() => handleBlur("nationality", nationality)}
               error={!!errors.nationality}
               hint={errors.nationality}
               required
@@ -243,7 +233,7 @@ export function DriverUpdate() {
           <SegmentedControl
             segments={STATUS_SEGMENTS}
             value={status}
-            onChange={(v) => setStatus(v as 'active' | 'reserve' | 'retired')}
+            onChange={(v) => setStatus(v as "active" | "reserve" | "retired")}
           />
 
           <Collapsible trigger="Additional Details" defaultOpen={false}>
@@ -270,12 +260,8 @@ export function DriverUpdate() {
             <Button variant="secondary" type="button" onClick={handleCancel}>
               Cancel
             </Button>
-            <Button
-              variant="primary"
-              type="submit"
-              disabled={!isDirty || submitting}
-            >
-              {submitting ? 'Saving...' : 'Save Changes'}
+            <Button variant="primary" type="submit" disabled={!isDirty || submitting}>
+              {submitting ? "Saving..." : "Save Changes"}
             </Button>
           </div>
         </form>

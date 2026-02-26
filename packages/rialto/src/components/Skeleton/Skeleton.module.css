@@ -7,7 +7,7 @@
 
 /* ── Gold-tinted shimmer sweep ───────────────── */
 .skeleton::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   background: linear-gradient(
@@ -39,7 +39,7 @@
   }
 }
 
-[dir='rtl'] .skeleton::after {
+[dir="rtl"] .skeleton::after {
   animation-name: shimmer-rtl;
 }
 

@@ -4,7 +4,7 @@
 }
 
 .tooltip {
-  composes: glass from '../../styles/surfaces.module.css';
+  composes: glass from "../../styles/surfaces.module.css";
 
   position: absolute;
   z-index: 50;
@@ -20,7 +20,7 @@
   max-width: 240px;
 }
 
-:global([data-theme='dark']) .tooltip {
+:global([data-theme="dark"]) .tooltip {
   background: var(--rialto-surface-elevated);
 }
 
@@ -49,10 +49,10 @@
   transform-origin: left center;
 }
 
-[dir='rtl'] .left {
+[dir="rtl"] .left {
   transform-origin: left center;
 }
 
-[dir='rtl'] .right {
+[dir="rtl"] .right {
   transform-origin: right center;
 }

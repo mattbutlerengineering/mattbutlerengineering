@@ -1,7 +1,7 @@
-import { type ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Breadcrumb } from '@mbe/rialto';
-import styles from './DriverLayout.module.css';
+import { type ReactNode } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Breadcrumb } from "@mbe/rialto";
+import styles from "./DriverLayout.module.css";
 
 interface BreadcrumbEntry {
   label: string;
@@ -15,18 +15,11 @@ interface DriverLayoutProps {
   children: ReactNode;
 }
 
-export function DriverLayout({
-  title,
-  breadcrumbs,
-  actions,
-  children,
-}: DriverLayoutProps) {
+export function DriverLayout({ title, breadcrumbs, actions, children }: DriverLayoutProps) {
   const navigate = useNavigate();
 
   const items = breadcrumbs.map((b) =>
-    b.href
-      ? { label: b.label, onClick: () => navigate(b.href!) }
-      : { label: b.label }
+    b.href ? { label: b.label, onClick: () => navigate(b.href!) } : { label: b.label }
   );
 
   return (

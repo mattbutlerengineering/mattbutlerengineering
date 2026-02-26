@@ -229,7 +229,7 @@
   box-shadow: var(--rialto-shadow-focus);
 }
 
-[dir='rtl'] .chevronButton {
+[dir="rtl"] .chevronButton {
   transform: scaleX(-1);
 }
 

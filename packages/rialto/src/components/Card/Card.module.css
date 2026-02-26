@@ -1,5 +1,5 @@
 .card {
-  composes: aluminumPolished from '../../styles/surfaces.module.css';
+  composes: aluminumPolished from "../../styles/surfaces.module.css";
 
   border-radius: var(--rialto-radius-soft);
   padding: var(--rialto-space-lg);
@@ -9,7 +9,7 @@
 
 /* ── Glass variant ───────────────────────────── */
 .glass {
-  composes: glass from '../../styles/surfaces.module.css';
+  composes: glass from "../../styles/surfaces.module.css";
   border-radius: var(--rialto-radius-soft);
   padding: var(--rialto-space-lg);
 }
@@ -50,7 +50,7 @@
 /* ── 3D tilt specular highlight ─────────────── */
 .card[data-tilt]::after,
 .flat[data-tilt]::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;

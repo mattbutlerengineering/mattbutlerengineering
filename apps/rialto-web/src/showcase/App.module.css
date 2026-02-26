@@ -19,7 +19,7 @@
 
 /* Subtle radial gradient behind hero — warm aluminum glow */
 .hero::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   background: radial-gradient(
@@ -32,7 +32,7 @@
 
 /* Fine horizontal line — machined edge */
 .hero::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: 0;
   inset-inline-start: 10%;
@@ -156,8 +156,7 @@
 .section {
   max-width: 960px;
   margin: 0 auto;
-  padding: var(--rialto-space-3xl) var(--rialto-space-lg)
-    var(--rialto-space-2xl);
+  padding: var(--rialto-space-3xl) var(--rialto-space-lg) var(--rialto-space-2xl);
 }
 
 .sectionInner {
@@ -420,11 +419,7 @@
 .staggerBar {
   flex: 1;
   height: 100%;
-  background: linear-gradient(
-    to top,
-    var(--rialto-border-strong),
-    var(--rialto-surface-matte)
-  );
+  background: linear-gradient(to top, var(--rialto-border-strong), var(--rialto-surface-matte));
   border-radius: 2px 2px 0 0;
   transform-origin: bottom;
 }
@@ -646,13 +641,12 @@
 /* ── Footer ──────────────────────────────────── */
 .footer {
   text-align: center;
-  padding: var(--rialto-space-4xl) var(--rialto-space-lg)
-    var(--rialto-space-3xl);
+  padding: var(--rialto-space-4xl) var(--rialto-space-lg) var(--rialto-space-3xl);
   position: relative;
 }
 
 .footer::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   inset-inline-start: 10%;
@@ -881,7 +875,7 @@
 
 .categoryDivider::before,
 .categoryDivider::after {
-  content: '';
+  content: "";
   flex: 1;
   height: 1px;
   background: linear-gradient(
@@ -1023,8 +1017,7 @@
 /* Tablet */
 @media (max-width: 768px) {
   .section {
-    padding: var(--rialto-space-2xl) var(--rialto-space-md)
-      var(--rialto-space-xl);
+    padding: var(--rialto-space-2xl) var(--rialto-space-md) var(--rialto-space-xl);
   }
 
   .motionDemo {
@@ -1060,8 +1053,7 @@
   }
 
   .section {
-    padding: var(--rialto-space-xl) var(--rialto-space-sm)
-      var(--rialto-space-lg);
+    padding: var(--rialto-space-xl) var(--rialto-space-sm) var(--rialto-space-lg);
   }
 
   .sectionHeader {
@@ -1132,7 +1124,6 @@
   }
 
   .footer {
-    padding: var(--rialto-space-2xl) var(--rialto-space-md)
-      var(--rialto-space-xl);
+    padding: var(--rialto-space-2xl) var(--rialto-space-md) var(--rialto-space-xl);
   }
 }

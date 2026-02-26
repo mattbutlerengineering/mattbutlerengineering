@@ -343,7 +343,7 @@ After each selector that uses `transform-origin: left` or `transform-origin: rig
 }
 
 /* Add after */
-[dir='rtl'] .trigger {
+[dir="rtl"] .trigger {
   transform-origin: top right;
 }
 ```
@@ -389,7 +389,7 @@ Check `Skeleton.module.css` and `Progress.module.css` for directional `translate
   }
 }
 
-[dir='rtl'] .skeleton::after {
+[dir="rtl"] .skeleton::after {
   animation-name: shimmer-rtl;
 }
 ```
@@ -407,7 +407,7 @@ Check `Skeleton.module.css` and `Progress.module.css` for directional `translate
   }
 }
 
-[dir='rtl'] .indeterminate .bar {
+[dir="rtl"] .indeterminate .bar {
   animation-name: indeterminate-rtl;
 }
 ```
@@ -462,9 +462,9 @@ Add toggle button in the floating controls (near the dark mode button):
   className={styles.themeToggle}
   onClick={() => setRtl((v) => !v)}
   aria-label="Toggle text direction"
-  title={rtl ? 'Switch to LTR' : 'Switch to RTL'}
+  title={rtl ? "Switch to LTR" : "Switch to RTL"}
 >
-  {rtl ? '⇄' : '⇆'}
+  {rtl ? "⇄" : "⇆"}
 </button>
 ```
 

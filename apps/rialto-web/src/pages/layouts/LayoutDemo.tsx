@@ -1,39 +1,31 @@
-import {
-  Badge,
-  Button,
-  Card,
-  Footer,
-  Hero,
-  Kbd,
-  PageHeader,
-} from '@mbe/rialto';
-import styles from './LayoutDemo.module.css';
+import { Badge, Button, Card, Footer, Hero, Kbd, PageHeader } from "@mbe/rialto";
+import styles from "./LayoutDemo.module.css";
 
 /* ── Demo data ───────────────────────────────── */
 
 const footerColumns = [
   {
-    title: 'Product',
+    title: "Product",
     links: [
-      { label: 'Components', href: '#components' },
-      { label: 'Tokens', href: '#tokens' },
-      { label: 'Changelog', href: '#changelog' },
+      { label: "Components", href: "#components" },
+      { label: "Tokens", href: "#tokens" },
+      { label: "Changelog", href: "#changelog" },
     ],
   },
   {
-    title: 'Resources',
+    title: "Resources",
     links: [
-      { label: 'Documentation', href: '#docs' },
-      { label: 'Figma Kit', href: '#figma' },
-      { label: 'GitHub', href: '#github' },
+      { label: "Documentation", href: "#docs" },
+      { label: "Figma Kit", href: "#figma" },
+      { label: "GitHub", href: "#github" },
     ],
   },
   {
-    title: 'Community',
+    title: "Community",
     links: [
-      { label: 'Discord', href: '#discord' },
-      { label: 'Contributing', href: '#contributing' },
-      { label: 'License', href: '#license' },
+      { label: "Discord", href: "#discord" },
+      { label: "Contributing", href: "#contributing" },
+      { label: "License", href: "#license" },
     ],
   },
 ];
@@ -45,10 +37,7 @@ export function LayoutDemo() {
     <div className={styles.page}>
       {/* ── PageHeader ──────────────────────────── */}
       <PageHeader
-        breadcrumbs={[
-          { label: 'Home', href: '/rialto/' },
-          { label: 'Layouts' },
-        ]}
+        breadcrumbs={[{ label: "Home", href: "/rialto/" }, { label: "Layouts" }]}
         title="Layout Components"
         meta={<Badge variant="accent">New</Badge>}
         actions={<Button size="sm">View source</Button>}
@@ -76,39 +65,35 @@ export function LayoutDemo() {
       <div className={styles.content}>
         <h2 className={styles.sectionTitle}>Components</h2>
         <p className={styles.sectionDesc}>
-          Three layout primitives that compose together for complete page
-          scaffolding. Each uses design tokens and logical properties for
-          automatic dark mode and RTL support.
+          Three layout primitives that compose together for complete page scaffolding. Each uses
+          design tokens and logical properties for automatic dark mode and RTL support.
         </p>
 
         <div className={styles.cardGrid}>
           <Card>
-            <div style={{ padding: 'var(--rialto-space-lg)' }}>
+            <div style={{ padding: "var(--rialto-space-lg)" }}>
               <p className={styles.cardLabel}>PageHeader</p>
               <p className={styles.cardBody}>
-                Dark header band with breadcrumbs, title, and action buttons.
-                Uses <code>darkSurface</code> token override so child components
-                adapt automatically.
+                Dark header band with breadcrumbs, title, and action buttons. Uses{" "}
+                <code>darkSurface</code> token override so child components adapt automatically.
               </p>
             </div>
           </Card>
           <Card>
-            <div style={{ padding: 'var(--rialto-space-lg)' }}>
+            <div style={{ padding: "var(--rialto-space-lg)" }}>
               <p className={styles.cardLabel}>Hero</p>
               <p className={styles.cardBody}>
-                Full-viewport centered splash with eyebrow, title, subtitle, and
-                CTA actions. Entrance animation respects reduced-motion
-                preferences.
+                Full-viewport centered splash with eyebrow, title, subtitle, and CTA actions.
+                Entrance animation respects reduced-motion preferences.
               </p>
             </div>
           </Card>
           <Card>
-            <div style={{ padding: 'var(--rialto-space-lg)' }}>
+            <div style={{ padding: "var(--rialto-space-lg)" }}>
               <p className={styles.cardLabel}>Footer</p>
               <p className={styles.cardBody}>
-                Two variants — <code>minimal</code> for utility bars and{' '}
-                <code>rich</code> for marketing footers with multi-column link
-                groups.
+                Two variants — <code>minimal</code> for utility bars and <code>rich</code> for
+                marketing footers with multi-column link groups.
               </p>
             </div>
           </Card>
@@ -118,20 +103,17 @@ export function LayoutDemo() {
         <hr className={styles.divider} />
         <h2 className={styles.sectionTitle}>Minimal Footer</h2>
         <p className={styles.sectionDesc}>
-          A simple horizontal bar for utility links, keyboard hints, and
-          copyright text.
+          A simple horizontal bar for utility links, keyboard hints, and copyright text.
         </p>
 
         <div className={styles.minimalFooterDemo}>
           <Footer>
-            <span className={styles.footerText}>
-              &copy; 2026 Rialto Design System
-            </span>
+            <span className={styles.footerText}>&copy; 2026 Rialto Design System</span>
             <span
               style={{
-                display: 'flex',
-                gap: 'var(--rialto-space-sm)',
-                alignItems: 'center',
+                display: "flex",
+                gap: "var(--rialto-space-sm)",
+                alignItems: "center",
               }}
             >
               <a href="#privacy" className={styles.footerLink}>

@@ -15,7 +15,7 @@
 
 /* Connector line — horizontal */
 .horizontal .step:not(:last-child)::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 14px;
   inset-inline-start: calc(50% + 18px);
@@ -45,7 +45,7 @@
 
 /* Connector line — vertical */
 .vertical .step:not(:last-child)::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 32px;
   inset-inline-start: 13px;

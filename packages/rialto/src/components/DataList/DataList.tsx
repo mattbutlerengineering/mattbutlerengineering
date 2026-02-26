@@ -1,5 +1,5 @@
-import { forwardRef, type HTMLAttributes, type ReactNode } from 'react';
-import styles from './DataList.module.css';
+import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
+import styles from "./DataList.module.css";
 
 /**
  * A single key-value entry rendered inside a `DataList`.
@@ -29,24 +29,21 @@ export interface DataListItem {
 export interface DataListProps extends HTMLAttributes<HTMLDListElement> {
   items: DataListItem[];
   /** Layout direction for label/value pairs */
-  orientation?: 'vertical' | 'horizontal';
+  orientation?: "vertical" | "horizontal";
   /** Alternate row backgrounds */
   striped?: boolean;
 }
 
 export const DataList = forwardRef<HTMLDListElement, DataListProps>(
-  (
-    { items, orientation = 'horizontal', striped = false, className, ...props },
-    ref
-  ) => {
+  ({ items, orientation = "horizontal", striped = false, className, ...props }, ref) => {
     const classes = [
       styles.list,
-      orientation === 'vertical' ? styles.vertical : styles.horizontal,
-      striped ? styles.striped : '',
+      orientation === "vertical" ? styles.vertical : styles.horizontal,
+      striped ? styles.striped : "",
       className,
     ]
       .filter(Boolean)
-      .join(' ');
+      .join(" ");
 
     return (
       <dl ref={ref} className={classes} {...props}>
@@ -61,4 +58,4 @@ export const DataList = forwardRef<HTMLDListElement, DataListProps>(
   }
 );
 
-DataList.displayName = 'DataList';
+DataList.displayName = "DataList";

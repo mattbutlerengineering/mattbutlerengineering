@@ -1,7 +1,7 @@
-import { useMemo, type ReactNode } from 'react';
-import { useDeviceContext } from './useDeviceContext';
-import { vibes, type VibeName, type VibeOverrides } from './vibes';
-import { UIEnvironmentContext, type UIEnvironment } from './useUIEnvironment';
+import { useMemo, type ReactNode } from "react";
+import { useDeviceContext } from "./useDeviceContext";
+import { vibes, type VibeName, type VibeOverrides } from "./vibes";
+import { UIEnvironmentContext, type UIEnvironment } from "./useUIEnvironment";
 
 /* ── Props ───────────────────────────────────── */
 
@@ -11,7 +11,7 @@ export interface RialtoProviderProps {
   /** Additional CSS custom property overrides merged on top of the vibe preset. */
   vibeOverrides?: VibeOverrides;
   /** Theme mode. `'system'` follows the OS color scheme. Defaults to `'system'`. */
-  theme?: 'light' | 'dark' | 'system';
+  theme?: "light" | "dark" | "system";
   children: ReactNode;
 }
 
@@ -27,15 +27,15 @@ export interface RialtoProviderProps {
  * Also provides React context with device signals, active vibe, and resolved theme.
  */
 export function RialtoProvider({
-  vibe = 'default',
+  vibe = "default",
   vibeOverrides,
-  theme = 'system',
+  theme = "system",
   children,
 }: RialtoProviderProps) {
   const device = useDeviceContext();
 
   // Resolve theme: 'system' defers to OS preference
-  const resolvedTheme = theme === 'system' ? device.colorScheme : theme;
+  const resolvedTheme = theme === "system" ? device.colorScheme : theme;
 
   // Merge vibe preset + custom overrides into inline styles
   const style = useMemo(() => {
@@ -59,4 +59,4 @@ export function RialtoProvider({
   );
 }
 
-RialtoProvider.displayName = 'RialtoProvider';
+RialtoProvider.displayName = "RialtoProvider";

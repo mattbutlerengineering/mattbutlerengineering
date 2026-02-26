@@ -1,7 +1,7 @@
-import { forwardRef, type HTMLAttributes, type ReactNode } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
-import { spring, precision } from '../../tokens/motion';
-import styles from './Sidebar.module.css';
+import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import { spring, precision } from "../../tokens/motion";
+import styles from "./Sidebar.module.css";
 
 /**
  * A single navigation link inside the sidebar.
@@ -42,10 +42,8 @@ export interface SidebarSection {
   items: SidebarItem[];
 }
 
-function isSidebarSection(
-  entry: SidebarItem | SidebarSection
-): entry is SidebarSection {
-  return 'items' in entry;
+function isSidebarSection(entry: SidebarItem | SidebarSection): entry is SidebarSection {
+  return "items" in entry;
 }
 
 /**
@@ -92,28 +90,22 @@ function CollapseIcon({ collapsed }: { collapsed: boolean }) {
   );
 }
 
-function ItemElement({
-  item,
-  collapsed,
-}: {
-  item: SidebarItem;
-  collapsed: boolean;
-}) {
+function ItemElement({ item, collapsed }: { item: SidebarItem; collapsed: boolean }) {
   const shouldReduceMotion = useReducedMotion();
   const classes = [
     styles.item,
-    item.active ? styles.itemActive : '',
-    item.disabled ? styles.itemDisabled : '',
+    item.active ? styles.itemActive : "",
+    item.disabled ? styles.itemDisabled : "",
   ]
     .filter(Boolean)
-    .join(' ');
+    .join(" ");
 
   const content = (
     <>
       {item.icon && <span className={styles.itemIcon}>{item.icon}</span>}
       <motion.span
         className={styles.itemLabel}
-        animate={{ opacity: collapsed ? 0 : 1, width: collapsed ? 0 : 'auto' }}
+        animate={{ opacity: collapsed ? 0 : 1, width: collapsed ? 0 : "auto" }}
         transition={shouldReduceMotion ? { duration: 0 } : precision}
       >
         {item.label}
@@ -126,7 +118,7 @@ function ItemElement({
       <a
         className={classes}
         href={item.href}
-        aria-current={item.active ? 'page' : undefined}
+        aria-current={item.active ? "page" : undefined}
         aria-disabled={item.disabled || undefined}
         tabIndex={item.disabled ? -1 : undefined}
       >
@@ -140,7 +132,7 @@ function ItemElement({
       className={classes}
       onClick={item.onClick}
       disabled={item.disabled}
-      aria-current={item.active ? 'page' : undefined}
+      aria-current={item.active ? "page" : undefined}
     >
       {content}
     </button>
@@ -152,14 +144,12 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
     const shouldReduceMotion = useReducedMotion();
 
     const renderItems = (list: SidebarItem[]) =>
-      list.map((item) => (
-        <ItemElement key={item.id} item={item} collapsed={collapsed} />
-      ));
+      list.map((item) => <ItemElement key={item.id} item={item} collapsed={collapsed} />);
 
     return (
       <motion.nav
         ref={ref}
-        className={[styles.sidebar, className].filter(Boolean).join(' ')}
+        className={[styles.sidebar, className].filter(Boolean).join(" ")}
         aria-label="Sidebar navigation"
         animate={{ width: collapsed ? 56 : 240 }}
         transition={shouldReduceMotion ? { duration: 0 } : spring}
@@ -177,9 +167,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
                 </div>
               );
             }
-            return (
-              <ItemElement key={entry.id} item={entry} collapsed={collapsed} />
-            );
+            return <ItemElement key={entry.id} item={entry} collapsed={collapsed} />;
           })}
         </div>
 
@@ -187,7 +175,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
           <button
             className={styles.collapseToggle}
             onClick={() => onCollapse(!collapsed)}
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             <CollapseIcon collapsed={collapsed} />
           </button>
@@ -197,4 +185,4 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
   }
 );
 
-Sidebar.displayName = 'Sidebar';
+Sidebar.displayName = "Sidebar";

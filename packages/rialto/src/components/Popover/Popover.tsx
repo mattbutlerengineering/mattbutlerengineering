@@ -7,13 +7,13 @@ import {
   type ForwardedRef,
   type ReactNode,
   type ReactElement,
-} from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { springGentle } from '../../tokens/motion';
-import styles from './Popover.module.css';
+} from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { springGentle } from "../../tokens/motion";
+import styles from "./Popover.module.css";
 
 /* ── Types ───────────────────────────────────── */
-type Placement = 'top' | 'bottom' | 'left' | 'right';
+type Placement = "top" | "bottom" | "left" | "right";
 
 /**
  * A click-triggered floating panel positioned relative to its trigger element.
@@ -38,10 +38,7 @@ interface PopoverProps {
 }
 
 /* ── Motion origins per placement ────────────── */
-const motionOrigin: Record<
-  Placement,
-  { y?: number; x?: number; scale: number }
-> = {
+const motionOrigin: Record<Placement, { y?: number; x?: number; scale: number }> = {
   top: { y: 6, scale: 0.96 },
   bottom: { y: -6, scale: 0.96 },
   left: { x: 6, scale: 0.96 },
@@ -49,14 +46,12 @@ const motionOrigin: Record<
 };
 
 /* ── Ref merge helper ────────────────────────── */
-function mergeRefs<T>(
-  ...refs: (ForwardedRef<T> | React.RefObject<T | null>)[]
-) {
+function mergeRefs<T>(...refs: (ForwardedRef<T> | React.RefObject<T | null>)[]) {
   return (node: T | null) => {
     for (const ref of refs) {
-      if (typeof ref === 'function') {
+      if (typeof ref === "function") {
         ref(node);
-      } else if (ref && typeof ref === 'object') {
+      } else if (ref && typeof ref === "object") {
         (ref as React.MutableRefObject<T | null>).current = node;
       }
     }
@@ -64,130 +59,114 @@ function mergeRefs<T>(
 }
 
 /* ── Component ──────────────────────────────── */
-export const Popover = forwardRef<HTMLDivElement, PopoverProps>(
-  function Popover(
-    { trigger, title, children, placement = 'bottom', className = '' },
-    ref
-  ) {
-    const [open, setOpen] = useState(false);
-    const wrapperRef = useRef<HTMLDivElement>(null);
-    const panelRef = useRef<HTMLDivElement>(null);
-    const shouldReduceMotion = useReducedMotion();
+export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover(
+  { trigger, title, children, placement = "bottom", className = "" },
+  ref
+) {
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const shouldReduceMotion = useReducedMotion();
 
-    const close = useCallback(() => setOpen(false), []);
+  const close = useCallback(() => setOpen(false), []);
 
-    // Click outside
-    useEffect(() => {
-      if (!open) return;
+  // Click outside
+  useEffect(() => {
+    if (!open) return;
 
-      function handleClick(e: MouseEvent) {
-        if (
-          wrapperRef.current &&
-          !wrapperRef.current.contains(e.target as Node)
-        ) {
-          close();
-        }
+    function handleClick(e: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        close();
       }
+    }
 
-      document.addEventListener('mousedown', handleClick);
-      return () => document.removeEventListener('mousedown', handleClick);
-    }, [open, close]);
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open, close]);
 
-    // Escape key
-    useEffect(() => {
-      if (!open) return;
+  // Escape key
+  useEffect(() => {
+    if (!open) return;
 
-      function handleKey(e: KeyboardEvent) {
-        if (e.key === 'Escape') close();
-      }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") close();
+    }
 
-      document.addEventListener('keydown', handleKey);
-      return () => document.removeEventListener('keydown', handleKey);
-    }, [open, close]);
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [open, close]);
 
-    // Focus first focusable element on open
-    useEffect(() => {
-      if (!open) return;
+  // Focus first focusable element on open
+  useEffect(() => {
+    if (!open) return;
 
-      requestAnimationFrame(() => {
-        const panel = panelRef.current;
-        if (!panel) return;
-        const focusable = panel.querySelector<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        );
-        focusable?.focus();
-      });
-    }, [open]);
+    requestAnimationFrame(() => {
+      const panel = panelRef.current;
+      if (!panel) return;
+      const focusable = panel.querySelector<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      focusable?.focus();
+    });
+  }, [open]);
 
-    const origin = motionOrigin[placement];
+  const origin = motionOrigin[placement];
 
-    return (
+  return (
+    <div ref={mergeRefs(ref, wrapperRef)} className={`${styles.wrapper} ${className}`}>
+      {/* Trigger */}
       <div
-        ref={mergeRefs(ref, wrapperRef)}
-        className={`${styles.wrapper} ${className}`}
+        role="button"
+        tabIndex={0}
+        onClick={() => setOpen((v) => !v)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setOpen((v) => !v);
+          }
+        }}
+        aria-haspopup="dialog"
+        aria-expanded={open}
       >
-        {/* Trigger */}
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => setOpen((v) => !v)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              setOpen((v) => !v);
-            }
-          }}
-          aria-haspopup="dialog"
-          aria-expanded={open}
-        >
-          {trigger}
-        </div>
-
-        {/* Panel */}
-        <AnimatePresence>
-          {open && (
-            <motion.div
-              ref={panelRef}
-              className={`${styles.panel} ${styles[placement]}`}
-              role="dialog"
-              initial={
-                shouldReduceMotion ? { opacity: 0 } : { opacity: 0, ...origin }
-              }
-              animate={{ opacity: 1, y: 0, x: 0, scale: 1 }}
-              exit={
-                shouldReduceMotion ? { opacity: 0 } : { opacity: 0, ...origin }
-              }
-              transition={shouldReduceMotion ? { duration: 0.1 } : springGentle}
-            >
-              {title && (
-                <div className={styles.header}>
-                  <span className={styles.title}>{title}</span>
-                  <button
-                    className={styles.close}
-                    onClick={close}
-                    aria-label="Close"
-                  >
-                    <svg
-                      width="10"
-                      height="10"
-                      viewBox="0 0 10 10"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                    >
-                      <path d="M1 1l8 8M9 1l-8 8" />
-                    </svg>
-                  </button>
-                </div>
-              )}
-              <div className={styles.body}>{children}</div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {trigger}
       </div>
-    );
-  }
-);
 
-Popover.displayName = 'Popover';
+      {/* Panel */}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            ref={panelRef}
+            className={`${styles.panel} ${styles[placement]}`}
+            role="dialog"
+            initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, ...origin }}
+            animate={{ opacity: 1, y: 0, x: 0, scale: 1 }}
+            exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, ...origin }}
+            transition={shouldReduceMotion ? { duration: 0.1 } : springGentle}
+          >
+            {title && (
+              <div className={styles.header}>
+                <span className={styles.title}>{title}</span>
+                <button className={styles.close} onClick={close} aria-label="Close">
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 10 10"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  >
+                    <path d="M1 1l8 8M9 1l-8 8" />
+                  </svg>
+                </button>
+              </div>
+            )}
+            <div className={styles.body}>{children}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+});
+
+Popover.displayName = "Popover";

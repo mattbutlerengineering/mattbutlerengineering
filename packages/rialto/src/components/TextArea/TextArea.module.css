@@ -15,8 +15,8 @@
 
 /* ── Textarea ────────────────────────────────── */
 .textarea {
-  composes: recessed from '../../styles/surfaces.module.css';
-  composes: focusRing from '../../styles/surfaces.module.css';
+  composes: recessed from "../../styles/surfaces.module.css";
+  composes: focusRing from "../../styles/surfaces.module.css";
 
   padding: var(--rialto-space-xs) var(--rialto-space-sm);
   border-radius: var(--rialto-radius-default);
@@ -44,7 +44,7 @@
   border-color: var(--rialto-accent);
 }
 
-.textarea[aria-disabled='true'] {
+.textarea[aria-disabled="true"] {
   filter: saturate(0.6) brightness(0.95);
   cursor: not-allowed;
   resize: none;

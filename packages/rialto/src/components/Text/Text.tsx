@@ -1,23 +1,18 @@
-import {
-  forwardRef,
-  type ElementType,
-  type HTMLAttributes,
-  type ReactNode,
-} from 'react';
-import styles from './Text.module.css';
+import { forwardRef, type ElementType, type HTMLAttributes, type ReactNode } from "react";
+import styles from "./Text.module.css";
 
 /* ── Types ───────────────────────────────────── */
 
-type TextVariant = 'body' | 'caption' | 'detail' | 'label' | 'display';
+type TextVariant = "body" | "caption" | "detail" | "label" | "display";
 type TextColor =
-  | 'primary'
-  | 'secondary'
-  | 'tertiary'
-  | 'accent'
-  | 'success'
-  | 'error'
-  | 'on-accent';
-type TextAlign = 'left' | 'center' | 'right';
+  | "primary"
+  | "secondary"
+  | "tertiary"
+  | "accent"
+  | "success"
+  | "error"
+  | "on-accent";
+type TextAlign = "left" | "center" | "right";
 
 /**
  * Typography component that maps semantic variants to the Rialto type scale.
@@ -50,29 +45,29 @@ export interface TextProps extends HTMLAttributes<HTMLElement> {
 /* ── Default elements per variant ────────────── */
 
 const DEFAULT_ELEMENT: Record<TextVariant, ElementType> = {
-  body: 'p',
-  caption: 'p',
-  detail: 'span',
-  label: 'span',
-  display: 'p',
+  body: "p",
+  caption: "p",
+  detail: "span",
+  label: "span",
+  display: "p",
 };
 
 /* ── Class helpers ───────────────────────────── */
 
 const colorClass: Record<TextColor, string> = {
-  primary: 'colorPrimary',
-  secondary: 'colorSecondary',
-  tertiary: 'colorTertiary',
-  accent: 'colorAccent',
-  success: 'colorSuccess',
-  error: 'colorError',
-  'on-accent': 'colorOnAccent',
+  primary: "colorPrimary",
+  secondary: "colorSecondary",
+  tertiary: "colorTertiary",
+  accent: "colorAccent",
+  success: "colorSuccess",
+  error: "colorError",
+  "on-accent": "colorOnAccent",
 };
 
 const alignClass: Record<TextAlign, string> = {
-  left: 'alignLeft',
-  center: 'alignCenter',
-  right: 'alignRight',
+  left: "alignLeft",
+  center: "alignCenter",
+  right: "alignRight",
 };
 
 /* ── Component ──────────────────────────────── */
@@ -80,7 +75,7 @@ const alignClass: Record<TextAlign, string> = {
 export const Text = forwardRef<HTMLElement, TextProps>(
   (
     {
-      variant = 'body',
+      variant = "body",
       color,
       align,
       as,
@@ -97,14 +92,14 @@ export const Text = forwardRef<HTMLElement, TextProps>(
     const classes = [
       styles.text,
       styles[variant],
-      color ? styles[colorClass[color]] : '',
-      align ? styles[alignClass[align]] : '',
-      mono ? styles.mono : '',
-      truncate ? styles.truncate : '',
+      color ? styles[colorClass[color]] : "",
+      align ? styles[alignClass[align]] : "",
+      mono ? styles.mono : "",
+      truncate ? styles.truncate : "",
       className,
     ]
       .filter(Boolean)
-      .join(' ');
+      .join(" ");
 
     return (
       <Tag ref={ref} className={classes} {...props}>
@@ -114,4 +109,4 @@ export const Text = forwardRef<HTMLElement, TextProps>(
   }
 );
 
-Text.displayName = 'Text';
+Text.displayName = "Text";

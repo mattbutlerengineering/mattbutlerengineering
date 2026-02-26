@@ -14,8 +14,8 @@
 
 /* ── Trigger ─────────────────────────────────── */
 .trigger {
-  composes: aluminum from '../../styles/surfaces.module.css';
-  composes: focusRing from '../../styles/surfaces.module.css';
+  composes: aluminum from "../../styles/surfaces.module.css";
+  composes: focusRing from "../../styles/surfaces.module.css";
 
   display: flex;
   align-items: center;
@@ -43,12 +43,12 @@
     0 4px 12px rgb(26 25 24 / 0.08);
 }
 
-.trigger[data-open='true'] {
+.trigger[data-open="true"] {
   border-color: var(--rialto-accent);
   box-shadow: var(--rialto-shadow-focus);
 }
 
-.trigger[aria-disabled='true'] {
+.trigger[aria-disabled="true"] {
   filter: saturate(0.6) brightness(0.95);
   cursor: not-allowed;
 }
@@ -76,13 +76,13 @@
   transition: color 0.15s cubic-bezier(0.2, 0, 0, 1);
 }
 
-.trigger[data-open='true'] .chevron {
+.trigger[data-open="true"] .chevron {
   color: var(--rialto-accent);
 }
 
 /* ── Dropdown panel ──────────────────────────── */
 .dropdown {
-  composes: glass from '../../styles/surfaces.module.css';
+  composes: glass from "../../styles/surfaces.module.css";
 
   position: absolute;
   top: calc(100% + 4px);
@@ -97,7 +97,7 @@
   transform-origin: top center;
 }
 
-:global([data-theme='dark']) .dropdown {
+:global([data-theme="dark"]) .dropdown {
   background: var(--rialto-surface-elevated);
 }
 
@@ -122,11 +122,11 @@
 }
 
 .option:hover,
-.option[data-focused='true'] {
+.option[data-focused="true"] {
   background: var(--rialto-accent-muted);
 }
 
-.option[data-selected='true'] {
+.option[data-selected="true"] {
   color: var(--rialto-accent);
   font-weight: var(--rialto-weight-medium);
 }
@@ -145,6 +145,6 @@
   opacity: 0;
 }
 
-.option[data-selected='true'] .check {
+.option[data-selected="true"] .check {
   opacity: 1;
 }

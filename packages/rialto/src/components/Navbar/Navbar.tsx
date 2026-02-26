@@ -1,12 +1,7 @@
-import {
-  forwardRef,
-  useState,
-  type HTMLAttributes,
-  type ReactNode,
-} from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
-import { springGentle } from '../../tokens/motion';
-import styles from './Navbar.module.css';
+import { forwardRef, useState, type HTMLAttributes, type ReactNode } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import { springGentle } from "../../tokens/motion";
+import styles from "./Navbar.module.css";
 
 /**
  * A navigation link inside the Navbar, optionally nested to create expandable sub-menus.
@@ -82,15 +77,13 @@ function NavbarLinkItem({ link, level }: NavbarLinkItemProps) {
   return (
     <div className={styles.linkWrapper}>
       <a
-        href={link.href || '#'}
+        href={link.href || "#"}
         className={styles.link}
         style={{ paddingInlineStart: `${level * 16 + 12}px` }}
       >
         {link.icon && <span className={styles.linkIcon}>{link.icon}</span>}
         <span className={styles.linkLabel}>{link.label}</span>
-        {link.badge !== undefined && (
-          <span className={styles.linkBadge}>{link.badge}</span>
-        )}
+        {link.badge !== undefined && <span className={styles.linkBadge}>{link.badge}</span>}
         {hasChildren && (
           <motion.button
             className={styles.chevronButton}
@@ -132,7 +125,7 @@ function NavbarLinkItem({ link, level }: NavbarLinkItemProps) {
 
 export const Navbar = forwardRef<HTMLElement, NavbarProps>(
   ({ logo, user, search, links, footer, className, ...props }, ref) => {
-    const [searchValue, setSearchValue] = useState('');
+    const [searchValue, setSearchValue] = useState("");
 
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       setSearchValue(e.target.value);
@@ -140,11 +133,7 @@ export const Navbar = forwardRef<HTMLElement, NavbarProps>(
     };
 
     return (
-      <nav
-        ref={ref}
-        className={[styles.navbar, className].filter(Boolean).join(' ')}
-        {...props}
-      >
+      <nav ref={ref} className={[styles.navbar, className].filter(Boolean).join(" ")} {...props}>
         {/* Section 1: Header */}
         <div className={styles.header}>
           {logo && <div className={styles.logo}>{logo}</div>}
@@ -167,7 +156,7 @@ export const Navbar = forwardRef<HTMLElement, NavbarProps>(
               <input
                 type="text"
                 className={styles.searchInput}
-                placeholder={search.placeholder || 'Search...'}
+                placeholder={search.placeholder || "Search..."}
                 value={searchValue}
                 onChange={handleSearchChange}
               />
@@ -180,15 +169,11 @@ export const Navbar = forwardRef<HTMLElement, NavbarProps>(
               {user.avatar ? (
                 <div className={styles.userAvatar}>{user.avatar}</div>
               ) : (
-                <div className={styles.userAvatar}>
-                  {user.name.charAt(0).toUpperCase()}
-                </div>
+                <div className={styles.userAvatar}>{user.name.charAt(0).toUpperCase()}</div>
               )}
               <div className={styles.userInfo}>
                 <span className={styles.userName}>{user.name}</span>
-                {user.email && (
-                  <span className={styles.userEmail}>{user.email}</span>
-                )}
+                {user.email && <span className={styles.userEmail}>{user.email}</span>}
               </div>
             </div>
           )}
@@ -208,4 +193,4 @@ export const Navbar = forwardRef<HTMLElement, NavbarProps>(
   }
 );
 
-Navbar.displayName = 'Navbar';
+Navbar.displayName = "Navbar";

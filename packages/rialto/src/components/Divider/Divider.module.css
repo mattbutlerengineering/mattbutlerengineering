@@ -8,7 +8,7 @@
 
 .horizontal::before,
 .horizontal::after {
-  content: '';
+  content: "";
   flex: 1;
   height: 1px;
   background: linear-gradient(
@@ -36,7 +36,7 @@
 
 .vertical::before,
 .vertical::after {
-  content: '';
+  content: "";
   flex: 1;
   width: 1px;
   background: linear-gradient(
@@ -65,22 +65,12 @@
 /* ── Accent variant ──────────────────────────── */
 .accent::before,
 .accent::after {
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgb(196 146 42 / 0.3) 50%,
-    transparent 100%
-  );
+  background: linear-gradient(90deg, transparent 0%, rgb(196 146 42 / 0.3) 50%, transparent 100%);
 }
 
 .accent.vertical::before,
 .accent.vertical::after {
-  background: linear-gradient(
-    180deg,
-    transparent 0%,
-    rgb(196 146 42 / 0.3) 50%,
-    transparent 100%
-  );
+  background: linear-gradient(180deg, transparent 0%, rgb(196 146 42 / 0.3) 50%, transparent 100%);
 }
 
 .accent .label {

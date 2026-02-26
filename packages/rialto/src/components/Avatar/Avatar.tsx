@@ -1,5 +1,5 @@
-import { forwardRef, useState } from 'react';
-import styles from './Avatar.module.css';
+import { forwardRef, useState } from "react";
+import styles from "./Avatar.module.css";
 
 /* ── Avatar ──────────────────────────────────── */
 /**
@@ -18,8 +18,8 @@ export interface AvatarProps {
   src?: string;
   alt?: string;
   name?: string;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
-  status?: 'online' | 'offline' | 'busy' | 'away';
+  size?: "sm" | "md" | "lg" | "xl";
+  status?: "online" | "offline" | "busy" | "away";
   className?: string;
 }
 
@@ -28,12 +28,12 @@ function getInitials(name: string): string {
     .split(/\s+/)
     .slice(0, 2)
     .map((w) => w[0])
-    .join('')
+    .join("")
     .toUpperCase();
 }
 
 export const Avatar = forwardRef<HTMLDivElement, AvatarProps>(
-  ({ src, alt, name, size = 'md', status, className }, ref) => {
+  ({ src, alt, name, size = "md", status, className }, ref) => {
     const [imgFailed, setImgFailed] = useState(false);
     const showImage = src && !imgFailed;
     const initials = name ? getInitials(name) : undefined;
@@ -41,16 +41,14 @@ export const Avatar = forwardRef<HTMLDivElement, AvatarProps>(
     return (
       <div
         ref={ref}
-        className={[styles.avatar, styles[size], className]
-          .filter(Boolean)
-          .join(' ')}
+        className={[styles.avatar, styles[size], className].filter(Boolean).join(" ")}
         aria-label={alt ?? name}
       >
         {showImage ? (
           <img
             className={styles.image}
             src={src}
-            alt={alt ?? name ?? ''}
+            alt={alt ?? name ?? ""}
             onError={() => setImgFailed(true)}
           />
         ) : initials ? (
@@ -64,25 +62,21 @@ export const Avatar = forwardRef<HTMLDivElement, AvatarProps>(
             stroke="currentColor"
             strokeWidth="1.2"
             strokeLinecap="round"
-            style={{ color: 'var(--rialto-text-tertiary)' }}
+            style={{ color: "var(--rialto-text-tertiary)" }}
           >
             <circle cx="8" cy="6" r="2.5" />
             <path d="M3 14c0-2.8 2.2-5 5-5s5 2.2 5 5" />
           </svg>
         )}
         {status && (
-          <span
-            className={`${styles.status} ${styles[status]}`}
-            role="img"
-            aria-label={status}
-          />
+          <span className={`${styles.status} ${styles[status]}`} role="img" aria-label={status} />
         )}
       </div>
     );
   }
 );
 
-Avatar.displayName = 'Avatar';
+Avatar.displayName = "Avatar";
 
 /* ── Avatar Group ────────────────────────────── */
 /**
@@ -103,20 +97,17 @@ export interface AvatarGroupProps {
   avatars: AvatarProps[];
   /** Maximum visible avatars before showing a "+N" overflow counter */
   max?: number;
-  size?: AvatarProps['size'];
+  size?: AvatarProps["size"];
   className?: string;
 }
 
 export const AvatarGroup = forwardRef<HTMLDivElement, AvatarGroupProps>(
-  ({ avatars, max = 4, size = 'md', className }, ref) => {
+  ({ avatars, max = 4, size = "md", className }, ref) => {
     const visible = avatars.slice(0, max);
     const overflow = avatars.length - max;
 
     return (
-      <div
-        ref={ref}
-        className={[styles.group, className].filter(Boolean).join(' ')}
-      >
+      <div ref={ref} className={[styles.group, className].filter(Boolean).join(" ")}>
         {overflow > 0 && (
           <div className={`${styles.overflow} ${styles[size]}`}>
             <span className={styles.overflowText}>+{overflow}</span>
@@ -130,4 +121,4 @@ export const AvatarGroup = forwardRef<HTMLDivElement, AvatarGroupProps>(
   }
 );
 
-AvatarGroup.displayName = 'AvatarGroup';
+AvatarGroup.displayName = "AvatarGroup";

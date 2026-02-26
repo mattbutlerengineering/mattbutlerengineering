@@ -86,8 +86,8 @@ Private package. Depends on `@mbe/rialto` via `"workspace:*"`. Owns its own vite
 
 ```yaml
 packages:
-  - 'packages/*'
-  - 'apps/*'
+  - "packages/*"
+  - "apps/*"
 ```
 
 ## Showcase Import Migration
@@ -96,13 +96,13 @@ All relative imports from showcase code into library code become package imports
 
 ```tsx
 // Before
-import { Button } from '../components/Button/Button';
-import { precision } from '../tokens/motion';
-import styles from '../styles/surfaces.module.css';
+import { Button } from "../components/Button/Button";
+import { precision } from "../tokens/motion";
+import styles from "../styles/surfaces.module.css";
 
 // After
-import { Button } from '@mbe/rialto';
-import { precision } from '@mbe/rialto/motion';
+import { Button } from "@mbe/rialto";
+import { precision } from "@mbe/rialto/motion";
 ```
 
 CSS module `composes` from surfaces won't work cross-package. Showcase components that compose surfaces will need to use className props or local styles instead.

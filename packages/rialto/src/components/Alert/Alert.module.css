@@ -13,38 +13,22 @@
 /* ── Variants (left accent + tint) ───────────── */
 .info {
   border-inline-start-color: var(--rialto-accent);
-  background: linear-gradient(
-    90deg,
-    rgb(196 146 42 / 0.03) 0%,
-    var(--rialto-surface-elevated) 40%
-  );
+  background: linear-gradient(90deg, rgb(196 146 42 / 0.03) 0%, var(--rialto-surface-elevated) 40%);
 }
 
 .success {
   border-inline-start-color: var(--rialto-success);
-  background: linear-gradient(
-    90deg,
-    rgb(76 140 74 / 0.03) 0%,
-    var(--rialto-surface-elevated) 40%
-  );
+  background: linear-gradient(90deg, rgb(76 140 74 / 0.03) 0%, var(--rialto-surface-elevated) 40%);
 }
 
 .warning {
   border-inline-start-color: #c49a2a;
-  background: linear-gradient(
-    90deg,
-    rgb(196 154 42 / 0.04) 0%,
-    var(--rialto-surface-elevated) 40%
-  );
+  background: linear-gradient(90deg, rgb(196 154 42 / 0.04) 0%, var(--rialto-surface-elevated) 40%);
 }
 
 .error {
   border-inline-start-color: var(--rialto-error);
-  background: linear-gradient(
-    90deg,
-    rgb(180 60 50 / 0.03) 0%,
-    var(--rialto-surface-elevated) 40%
-  );
+  background: linear-gradient(90deg, rgb(180 60 50 / 0.03) 0%, var(--rialto-surface-elevated) 40%);
 }
 
 /* ── Icon ────────────────────────────────────── */

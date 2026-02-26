@@ -1,5 +1,5 @@
-import { forwardRef, type HTMLAttributes } from 'react';
-import styles from './InputGroup.module.css';
+import { forwardRef, type HTMLAttributes } from "react";
+import styles from "./InputGroup.module.css";
 
 /**
  * Visually connects adjacent form controls (Input, Button, Select) into a
@@ -18,7 +18,7 @@ export const InputGroup = forwardRef<HTMLDivElement, InputGroupProps>(
     return (
       <div
         ref={ref}
-        className={[styles.group, className].filter(Boolean).join(' ')}
+        className={[styles.group, className].filter(Boolean).join(" ")}
         role="group"
         {...props}
       >
@@ -28,4 +28,4 @@ export const InputGroup = forwardRef<HTMLDivElement, InputGroupProps>(
   }
 );
 
-InputGroup.displayName = 'InputGroup';
+InputGroup.displayName = "InputGroup";

@@ -102,8 +102,8 @@ Switch between related panels of content.
 ```tsx
 <Tabs
   tabs={[
-    { id: 'profile', label: 'Profile', content: <ProfilePanel /> },
-    { id: 'settings', label: 'Settings', content: <SettingsPanel /> },
+    { id: "profile", label: "Profile", content: <ProfilePanel /> },
+    { id: "settings", label: "Settings", content: <SettingsPanel /> },
   ]}
 />
 ```
@@ -189,9 +189,9 @@ Navigation trail showing the current location.
 ```tsx
 <Breadcrumb
   items={[
-    { label: 'Home', href: '/' },
-    { label: 'Products', href: '/products' },
-    { label: 'Current Page' },
+    { label: "Home", href: "/" },
+    { label: "Products", href: "/products" },
+    { label: "Current Page" },
   ]}
 />
 ```
@@ -280,9 +280,9 @@ Multi-step progress indicator.
 ```tsx
 <Steps
   steps={[
-    { label: 'Step 1', description: 'Details' },
-    { label: 'Step 2', description: 'Confirm' },
-    { label: 'Step 3', description: 'Complete' },
+    { label: "Step 1", description: "Details" },
+    { label: "Step 2", description: "Confirm" },
+    { label: "Step 3", description: "Complete" },
   ]}
   currentStep={1}
 />
@@ -431,8 +431,8 @@ Pill-style toggle for view/mode switching.
 ```tsx
 <SegmentedControl
   segments={[
-    { id: 'grid', label: 'Grid' },
-    { id: 'list', label: 'List' },
+    { id: "grid", label: "Grid" },
+    { id: "list", label: "List" },
   ]}
   value={view}
   onChange={setView}
@@ -533,10 +533,10 @@ interface NavItem {
 ```tsx
 <NavigationMenu
   items={[
-    { label: 'Home', href: '/' },
+    { label: "Home", href: "/" },
     {
-      label: 'Products',
-      children: [{ label: 'All Products' }, { label: 'Categories' }],
+      label: "Products",
+      children: [{ label: "All Products" }, { label: "Categories" }],
     },
   ]}
 />
@@ -643,8 +643,8 @@ interface SidebarItem {
 ```tsx
 <Sidebar
   items={[
-    { label: 'Dashboard', icon: <DashboardIcon />, active: true },
-    { label: 'Settings', icon: <SettingsIcon /> },
+    { label: "Dashboard", icon: <DashboardIcon />, active: true },
+    { label: "Settings", icon: <SettingsIcon /> },
   ]}
   collapsed={collapsed}
   onCollapse={setCollapsed}
@@ -751,14 +751,14 @@ interface TreeNode {
 <Tree
   data={[
     {
-      id: 'src',
-      label: 'src',
+      id: "src",
+      label: "src",
       children: [
-        { id: 'components', label: 'components' },
-        { id: 'utils', label: 'utils' },
+        { id: "components", label: "components" },
+        { id: "utils", label: "utils" },
       ],
     },
   ]}
-  defaultExpanded={['src']}
+  defaultExpanded={["src"]}
 />
 ```

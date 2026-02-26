@@ -6,7 +6,7 @@
 
 /* ── Panel ───────────────────────────────────── */
 .panel {
-  composes: glass from '../../styles/surfaces.module.css';
+  composes: glass from "../../styles/surfaces.module.css";
 
   position: absolute;
   z-index: 100;
@@ -16,7 +16,7 @@
   border-radius: var(--rialto-radius-soft);
 }
 
-:global([data-theme='dark']) .panel {
+:global([data-theme="dark"]) .panel {
   background: var(--rialto-surface-elevated);
 }
 
@@ -49,11 +49,11 @@
   transform-origin: center left;
 }
 
-[dir='rtl'] .left {
+[dir="rtl"] .left {
   transform-origin: center left;
 }
 
-[dir='rtl'] .right {
+[dir="rtl"] .right {
   transform-origin: center right;
 }
 

@@ -1,12 +1,7 @@
-import {
-  forwardRef,
-  useState,
-  type HTMLAttributes,
-  type ReactNode,
-} from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { precision } from '../../tokens/motion';
-import styles from './Banner.module.css';
+import { forwardRef, useState, type HTMLAttributes, type ReactNode } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { precision } from "../../tokens/motion";
+import styles from "./Banner.module.css";
 
 /**
  * Props for the Banner component, a full-width page-level message displayed at the top
@@ -21,7 +16,7 @@ import styles from './Banner.module.css';
  */
 export interface BannerProps extends HTMLAttributes<HTMLDivElement> {
   /** Visual and semantic variant */
-  variant?: 'info' | 'warning' | 'error' | 'accent';
+  variant?: "info" | "warning" | "error" | "accent";
   /** Allow the user to dismiss */
   dismissible?: boolean;
   /** Callback when dismissed */
@@ -97,15 +92,7 @@ const variantIcons: Record<string, ReactNode> = {
 
 export const Banner = forwardRef<HTMLDivElement, BannerProps>(
   (
-    {
-      variant = 'info',
-      dismissible = false,
-      onDismiss,
-      action,
-      children,
-      className,
-      ...props
-    },
+    { variant = "info", dismissible = false, onDismiss, action, children, className, ...props },
     ref
   ) => {
     const [visible, setVisible] = useState(true);
@@ -116,17 +103,14 @@ export const Banner = forwardRef<HTMLDivElement, BannerProps>(
       onDismiss?.();
     };
 
-    const role =
-      variant === 'error' || variant === 'warning' ? 'alert' : 'status';
+    const role = variant === "error" || variant === "warning" ? "alert" : "status";
 
     return (
       <AnimatePresence>
         {visible && (
           <motion.div
             ref={ref}
-            className={[styles.banner, styles[variant], className]
-              .filter(Boolean)
-              .join(' ')}
+            className={[styles.banner, styles[variant], className].filter(Boolean).join(" ")}
             role={role}
             initial={shouldReduceMotion ? undefined : { opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -142,11 +126,7 @@ export const Banner = forwardRef<HTMLDivElement, BannerProps>(
             <span className={styles.body}>{children}</span>
             {action && <span className={styles.action}>{action}</span>}
             {dismissible && (
-              <button
-                className={styles.close}
-                onClick={handleDismiss}
-                aria-label="Dismiss"
-              >
+              <button className={styles.close} onClick={handleDismiss} aria-label="Dismiss">
                 <svg
                   width="12"
                   height="12"
@@ -167,4 +147,4 @@ export const Banner = forwardRef<HTMLDivElement, BannerProps>(
   }
 );
 
-Banner.displayName = 'Banner';
+Banner.displayName = "Banner";

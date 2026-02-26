@@ -1,5 +1,5 @@
 .sidebar {
-  composes: aluminum from '../../styles/surfaces.module.css';
+  composes: aluminum from "../../styles/surfaces.module.css";
 
   display: flex;
   flex-direction: column;
@@ -46,7 +46,7 @@
 /* ── Item ───────────────────────────────────── */
 
 .item {
-  composes: focusRing from '../../styles/surfaces.module.css';
+  composes: focusRing from "../../styles/surfaces.module.css";
 
   display: flex;
   align-items: center;
@@ -107,7 +107,7 @@
 /* ── Collapse Toggle ────────────────────────── */
 
 .collapseToggle {
-  composes: focusRing from '../../styles/surfaces.module.css';
+  composes: focusRing from "../../styles/surfaces.module.css";
 
   display: flex;
   align-items: center;

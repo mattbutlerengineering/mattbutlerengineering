@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { Banner, Button, Dialog, Toggle, Stack, Divider } from '@mbe/rialto';
-import { precision } from '@mbe/rialto/motion';
-import type { CookiePreferences } from './useCookieConsent';
-import styles from './CookieConsent.module.css';
+import { useState } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { Banner, Button, Dialog, Toggle, Stack, Divider } from "@mbe/rialto";
+import { precision } from "@mbe/rialto/motion";
+import type { CookiePreferences } from "./useCookieConsent";
+import styles from "./CookieConsent.module.css";
 
 /* ── Banner ──────────────────────────────────── */
 
@@ -48,8 +48,8 @@ export function CookieBanner({
               </Stack>
             }
           >
-            We use cookies to enhance your browsing experience, analyze site
-            traffic, and personalize content.{' '}
+            We use cookies to enhance your browsing experience, analyze site traffic, and
+            personalize content.{" "}
             <a href="#privacy" className={styles.privacyLink}>
               Privacy Policy
             </a>
@@ -60,7 +60,7 @@ export function CookieBanner({
   );
 }
 
-CookieBanner.displayName = 'CookieBanner';
+CookieBanner.displayName = "CookieBanner";
 
 /* ── Preferences Dialog ──────────────────────── */
 
@@ -74,26 +74,26 @@ interface CategoryDef {
 
 const CATEGORIES: readonly CategoryDef[] = [
   {
-    key: 'essential',
-    label: 'Essential',
-    description: 'Required for the website to function properly.',
+    key: "essential",
+    label: "Essential",
+    description: "Required for the website to function properly.",
     disabled: true,
-    disabledReason: 'Required for the site to function',
+    disabledReason: "Required for the site to function",
   },
   {
-    key: 'analytics',
-    label: 'Analytics',
-    description: 'Help us understand how visitors interact with the site.',
+    key: "analytics",
+    label: "Analytics",
+    description: "Help us understand how visitors interact with the site.",
   },
   {
-    key: 'functional',
-    label: 'Functional',
-    description: 'Remember your preferences and settings.',
+    key: "functional",
+    label: "Functional",
+    description: "Remember your preferences and settings.",
   },
   {
-    key: 'marketing',
-    label: 'Marketing',
-    description: 'Used to deliver personalized advertisements.',
+    key: "marketing",
+    label: "Marketing",
+    description: "Used to deliver personalized advertisements.",
   },
 ];
 
@@ -101,7 +101,7 @@ interface CookiePreferencesDialogProps {
   open: boolean;
   onClose: () => void;
   preferences: CookiePreferences;
-  onSave: (prefs: Omit<CookiePreferences, 'essential'>) => void;
+  onSave: (prefs: Omit<CookiePreferences, "essential">) => void;
   onRejectAll: () => void;
 }
 
@@ -114,7 +114,7 @@ export function CookiePreferencesDialog({
 }: CookiePreferencesDialogProps) {
   const [draft, setDraft] = useState<CookiePreferences>(preferences);
 
-  const handleToggle = (key: keyof Omit<CookiePreferences, 'essential'>) => {
+  const handleToggle = (key: keyof Omit<CookiePreferences, "essential">) => {
     setDraft((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
@@ -156,20 +156,15 @@ export function CookiePreferencesDialog({
             <div className={styles.categoryRow}>
               <div className={styles.categoryInfo}>
                 <div className={styles.categoryName}>{cat.label}</div>
-                <div className={styles.categoryDescription}>
-                  {cat.description}
-                </div>
+                <div className={styles.categoryDescription}>{cat.description}</div>
               </div>
               <Toggle
                 label=""
-                checked={cat.key === 'essential' ? true : draft[cat.key]}
+                checked={cat.key === "essential" ? true : draft[cat.key]}
                 onCheckedChange={
-                  cat.key === 'essential'
+                  cat.key === "essential"
                     ? undefined
-                    : () =>
-                        handleToggle(
-                          cat.key as keyof Omit<CookiePreferences, 'essential'>
-                        )
+                    : () => handleToggle(cat.key as keyof Omit<CookiePreferences, "essential">)
                 }
                 disabled={cat.disabled}
                 disabledReason={cat.disabledReason}
@@ -183,4 +178,4 @@ export function CookiePreferencesDialog({
   );
 }
 
-CookiePreferencesDialog.displayName = 'CookiePreferencesDialog';
+CookiePreferencesDialog.displayName = "CookiePreferencesDialog";

@@ -28,10 +28,7 @@ declare module "vitest" {
     toHaveRole(role: string): void;
     toHaveSelection(): void;
     toHaveStyle(css: string | Record<string, unknown>): void;
-    toHaveTextContent(
-      text: string | RegExp,
-      options?: { normalizeWhitespace: boolean },
-    ): void;
+    toHaveTextContent(text: string | RegExp, options?: { normalizeWhitespace: boolean }): void;
     toHaveValue(value: string | string[] | number | null): void;
   }
 }

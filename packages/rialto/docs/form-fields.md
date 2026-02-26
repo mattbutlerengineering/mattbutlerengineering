@@ -366,8 +366,8 @@ Dropdown selection for one option from a list.
   label="Country"
   placeholder="Choose..."
   options={[
-    { value: 'us', label: 'United States' },
-    { value: 'uk', label: 'United Kingdom' },
+    { value: "us", label: "United States" },
+    { value: "uk", label: "United Kingdom" },
   ]}
 />
 ```
@@ -542,9 +542,9 @@ Pill-style toggle for mutually exclusive options.
 ```tsx
 <SegmentedControl
   segments={[
-    { id: 'day', label: 'Day' },
-    { id: 'week', label: 'Week' },
-    { id: 'month', label: 'Month' },
+    { id: "day", label: "Day" },
+    { id: "week", label: "Week" },
+    { id: "month", label: "Month" },
   ]}
   value={view}
   onChange={setView}

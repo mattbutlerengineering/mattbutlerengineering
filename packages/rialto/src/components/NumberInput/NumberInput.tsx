@@ -1,14 +1,7 @@
-import {
-  forwardRef,
-  useId,
-  useRef,
-  useCallback,
-  useEffect,
-  type InputHTMLAttributes,
-} from 'react';
-import { Lock } from 'lucide-react';
-import { DisabledTooltip } from '../DisabledTooltip/DisabledTooltip';
-import styles from './NumberInput.module.css';
+import { forwardRef, useId, useRef, useCallback, useEffect, type InputHTMLAttributes } from "react";
+import { Lock } from "lucide-react";
+import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
+import styles from "./NumberInput.module.css";
 
 /* ── Types ───────────────────────────────────── */
 
@@ -23,7 +16,7 @@ import styles from './NumberInput.module.css';
  */
 interface NumberInputProps extends Pick<
   InputHTMLAttributes<HTMLInputElement>,
-  'name' | 'required' | 'readOnly'
+  "name" | "required" | "readOnly"
 > {
   value: number;
   /** Called with the clamped numeric value on every change */
@@ -40,7 +33,7 @@ interface NumberInputProps extends Pick<
   disabledReason?: string;
   /** When true and not required, shows "(optional)" after the label */
   showOptional?: boolean;
-  size?: 'small' | 'default' | 'large';
+  size?: "small" | "default" | "large";
   className?: string;
 }
 
@@ -63,8 +56,8 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
       disabled = false,
       disabledReason,
       showOptional,
-      size = 'default',
-      className = '',
+      size = "default",
+      className = "",
       ...rest
     },
     ref
@@ -112,7 +105,7 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
     const handleInputChange = useCallback(
       (e: React.ChangeEvent<HTMLInputElement>) => {
         const raw = e.target.value;
-        if (raw === '' || raw === '-') return;
+        if (raw === "" || raw === "-") return;
         const parsed = parseFloat(raw);
         if (!Number.isNaN(parsed)) onChange(clamp(parsed));
       },
@@ -121,10 +114,10 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
 
     const handleKeyDown = useCallback(
       (e: React.KeyboardEvent) => {
-        if (e.key === 'ArrowUp') {
+        if (e.key === "ArrowUp") {
           e.preventDefault();
           increment();
-        } else if (e.key === 'ArrowDown') {
+        } else if (e.key === "ArrowDown") {
           e.preventDefault();
           decrement();
         }
@@ -137,20 +130,16 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
 
     const wrapperClasses = [
       styles.wrapper,
-      size !== 'default' ? styles[size] : '',
-      error ? styles.error : '',
+      size !== "default" ? styles[size] : "",
+      error ? styles.error : "",
       className,
     ]
       .filter(Boolean)
-      .join(' ');
+      .join(" ");
 
     return (
       <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>
-        <div
-          ref={ref}
-          className={wrapperClasses}
-          aria-disabled={disabled || undefined}
-        >
+        <div ref={ref} className={wrapperClasses} aria-disabled={disabled || undefined}>
           {label && (
             <label htmlFor={id} className={styles.label}>
               {label}
@@ -214,4 +203,4 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
     );
   }
 );
-NumberInput.displayName = 'NumberInput';
+NumberInput.displayName = "NumberInput";

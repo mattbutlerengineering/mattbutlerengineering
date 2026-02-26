@@ -85,17 +85,17 @@ interface TreeNode {
 <Tree
   data={[
     {
-      id: 'src',
-      label: 'src',
+      id: "src",
+      label: "src",
       children: [
-        { id: 'components', label: 'components' },
-        { id: 'utils', label: 'utils' },
-        { id: 'App.tsx', label: 'App.tsx' },
+        { id: "components", label: "components" },
+        { id: "utils", label: "utils" },
+        { id: "App.tsx", label: "App.tsx" },
       ],
     },
-    { id: 'package.json', label: 'package.json' },
+    { id: "package.json", label: "package.json" },
   ]}
-  defaultExpanded={['src']}
+  defaultExpanded={["src"]}
   onSelect={(node) => console.log(node.label)}
 />
 ```
@@ -106,10 +106,10 @@ interface TreeNode {
 <Tree
   data={[
     {
-      id: 'folder',
-      label: 'Documents',
+      id: "folder",
+      label: "Documents",
       icon: <FolderIcon />,
-      children: [{ id: 'file1', label: 'Report.pdf', icon: <PDFIcon /> }],
+      children: [{ id: "file1", label: "Report.pdf", icon: <PDFIcon /> }],
     },
   ]}
 />
@@ -118,7 +118,7 @@ interface TreeNode {
 ### Controlled Mode {#tree-controlled-mode}
 
 ```tsx
-const [expanded, setExpanded] = useState(['root']);
+const [expanded, setExpanded] = useState(["root"]);
 const [selected, setSelected] = useState<string | null>(null);
 
 <Tree

@@ -41,7 +41,7 @@
   composes: cardColumn;
 }
 
-:global([data-theme='dark']) .dark,
-:global([data-theme='dark']) .darkColumn {
+:global([data-theme="dark"]) .dark,
+:global([data-theme="dark"]) .darkColumn {
   /* inherits dark tokens automatically */
 }

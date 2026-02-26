@@ -1,23 +1,12 @@
-import {
-  useCallback,
-  useRef,
-  useState,
-  useEffect,
-  type ReactNode,
-} from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { spring } from '../../tokens/motion';
-import {
-  ToastContext,
-  type ToastData,
-  type ToastVariant,
-  type ToastInput,
-} from './ToastContext';
-import styles from './Toast.module.css';
+import { useCallback, useRef, useState, useEffect, type ReactNode } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { spring } from "../../tokens/motion";
+import { ToastContext, type ToastData, type ToastVariant, type ToastInput } from "./ToastContext";
+import styles from "./Toast.module.css";
 
 /* ── Single toast ────────────────────────────── */
 function ToastIcon({ variant }: { variant: ToastVariant }) {
-  if (variant === 'success') {
+  if (variant === "success") {
     return (
       <svg
         className={styles.icon}
@@ -33,7 +22,7 @@ function ToastIcon({ variant }: { variant: ToastVariant }) {
       </svg>
     );
   }
-  if (variant === 'error') {
+  if (variant === "error") {
     return (
       <svg
         className={styles.icon}
@@ -48,7 +37,7 @@ function ToastIcon({ variant }: { variant: ToastVariant }) {
       </svg>
     );
   }
-  if (variant === 'accent') {
+  if (variant === "accent") {
     return (
       <svg
         className={styles.icon}
@@ -67,38 +56,24 @@ function ToastIcon({ variant }: { variant: ToastVariant }) {
   return null;
 }
 
-function ToastItem({
-  toast: t,
-  onDismiss,
-}: {
-  toast: ToastData;
-  onDismiss: (id: string) => void;
-}) {
+function ToastItem({ toast: t, onDismiss }: { toast: ToastData; onDismiss: (id: string) => void }) {
   const shouldReduceMotion = useReducedMotion();
   const duration = t.duration ?? 4000;
 
   return (
     <motion.div
       layout
-      className={`${styles.toast} ${styles[t.variant ?? 'default']}`}
-      initial={
-        shouldReduceMotion ? { opacity: 0 } : { opacity: 0, x: 80, scale: 0.95 }
-      }
+      className={`${styles.toast} ${styles[t.variant ?? "default"]}`}
+      initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, x: 80, scale: 0.95 }}
       animate={{ opacity: 1, x: 0, scale: 1 }}
-      exit={
-        shouldReduceMotion ? { opacity: 0 } : { opacity: 0, x: 40, scale: 0.95 }
-      }
+      exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, x: 40, scale: 0.95 }}
       transition={shouldReduceMotion ? { duration: 0.1 } : spring}
     >
-      <ToastIcon variant={t.variant ?? 'default'} />
+      <ToastIcon variant={t.variant ?? "default"} />
       {t.title && <p className={styles.title}>{t.title}</p>}
       {t.description && <p className={styles.description}>{t.description}</p>}
 
-      <button
-        className={styles.close}
-        onClick={() => onDismiss(t.id)}
-        aria-label="Dismiss"
-      >
+      <button className={styles.close} onClick={() => onDismiss(t.id)} aria-label="Dismiss">
         <svg
           width="10"
           height="10"
@@ -117,7 +92,7 @@ function ToastItem({
           className={styles.countdown}
           initial={{ scaleX: 1 }}
           animate={{ scaleX: 0 }}
-          transition={{ duration: duration / 1000, ease: 'linear' }}
+          transition={{ duration: duration / 1000, ease: "linear" }}
         />
       )}
     </motion.div>
@@ -166,12 +141,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={{ toast, dismiss }}>
       {children}
-      <div
-        className={styles.container}
-        role="region"
-        aria-live="polite"
-        aria-label="Notifications"
-      >
+      <div className={styles.container} role="region" aria-live="polite" aria-label="Notifications">
         <AnimatePresence mode="popLayout">
           {toasts.map((t) => (
             <ToastItem key={t.id} toast={t} onDismiss={dismiss} />

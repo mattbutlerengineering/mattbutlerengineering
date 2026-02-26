@@ -1,6 +1,6 @@
-import { forwardRef, type HTMLAttributes, type ReactNode } from 'react';
-import { Breadcrumb, type BreadcrumbItem } from '../Breadcrumb/Breadcrumb';
-import styles from './PageHeader.module.css';
+import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
+import { Breadcrumb, type BreadcrumbItem } from "../Breadcrumb/Breadcrumb";
+import styles from "./PageHeader.module.css";
 
 /* ── Types ───────────────────────────────────── */
 
@@ -35,11 +35,8 @@ export type { BreadcrumbItem };
 /* ── Component ───────────────────────────────── */
 
 export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(
-  (
-    { title, breadcrumbs, actions, meta, children, className, ...props },
-    ref
-  ) => {
-    const classes = [styles.header, className].filter(Boolean).join(' ');
+  ({ title, breadcrumbs, actions, meta, children, className, ...props }, ref) => {
+    const classes = [styles.header, className].filter(Boolean).join(" ");
 
     return (
       <header ref={ref} className={classes} {...props}>
@@ -47,9 +44,7 @@ export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(
         <div className={styles.grain} />
 
         <div className={styles.inner}>
-          {breadcrumbs && breadcrumbs.length > 0 && (
-            <Breadcrumb items={breadcrumbs} />
-          )}
+          {breadcrumbs && breadcrumbs.length > 0 && <Breadcrumb items={breadcrumbs} />}
 
           <div className={styles.titleRow}>
             <h1 className={styles.title}>{title}</h1>
@@ -64,4 +59,4 @@ export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(
   }
 );
 
-PageHeader.displayName = 'PageHeader';
+PageHeader.displayName = "PageHeader";

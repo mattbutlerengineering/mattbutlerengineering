@@ -1,11 +1,6 @@
-import { useCallback, useRef } from 'react';
-import {
-  useMotionValue,
-  useSpring,
-  useReducedMotion,
-  type MotionStyle,
-} from 'framer-motion';
-import { springTilt } from '../tokens/motion';
+import { useCallback, useRef } from "react";
+import { useMotionValue, useSpring, useReducedMotion, type MotionStyle } from "framer-motion";
+import { springTilt } from "../tokens/motion";
 
 const NOOP_STYLE: MotionStyle = {};
 const noop = () => {};
@@ -46,8 +41,8 @@ export function useTilt(
 
       const glowX = ((e.clientX - rect.left) / rect.width) * 100;
       const glowY = ((e.clientY - rect.top) / rect.height) * 100;
-      el.style.setProperty('--tilt-glow-x', `${glowX}%`);
-      el.style.setProperty('--tilt-glow-y', `${glowY}%`);
+      el.style.setProperty("--tilt-glow-x", `${glowX}%`);
+      el.style.setProperty("--tilt-glow-y", `${glowY}%`);
     },
     [rotateX, rotateY, maxTilt]
   );
@@ -57,8 +52,8 @@ export function useTilt(
     rotateY.set(0);
     const el = elRef.current;
     if (el) {
-      el.style.removeProperty('--tilt-glow-x');
-      el.style.removeProperty('--tilt-glow-y');
+      el.style.removeProperty("--tilt-glow-x");
+      el.style.removeProperty("--tilt-glow-y");
     }
   }, [rotateX, rotateY]);
 

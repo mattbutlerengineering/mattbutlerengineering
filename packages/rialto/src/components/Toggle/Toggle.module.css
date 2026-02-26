@@ -5,7 +5,7 @@
   cursor: pointer;
 }
 
-.wrapper[aria-disabled='true'] {
+.wrapper[aria-disabled="true"] {
   filter: saturate(0.6) brightness(0.95);
   cursor: not-allowed;
   pointer-events: none;
@@ -17,7 +17,7 @@
 }
 
 .track {
-  composes: focusRing from '../../styles/surfaces.module.css';
+  composes: focusRing from "../../styles/surfaces.module.css";
 
   position: relative;
   width: 44px;
@@ -30,7 +30,7 @@
   flex-shrink: 0;
 }
 
-.track[data-checked='true'] {
+.track[data-checked="true"] {
   background: var(--rialto-accent);
   border-color: var(--rialto-accent);
   box-shadow: none;

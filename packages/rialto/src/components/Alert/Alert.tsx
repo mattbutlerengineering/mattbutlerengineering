@@ -1,10 +1,10 @@
-import { forwardRef, useState, type ReactNode } from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { precision } from '../../tokens/motion';
-import styles from './Alert.module.css';
+import { forwardRef, useState, type ReactNode } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { precision } from "../../tokens/motion";
+import styles from "./Alert.module.css";
 
 /* ── Types ───────────────────────────────────── */
-type AlertVariant = 'info' | 'success' | 'warning' | 'error';
+type AlertVariant = "info" | "success" | "warning" | "error";
 
 /**
  * Props for the Alert component, an inline feedback message used to communicate
@@ -92,15 +92,7 @@ const icons: Record<AlertVariant, ReactNode> = {
 /* ── Component ──────────────────────────────── */
 export const Alert = forwardRef<HTMLDivElement, AlertProps>(
   (
-    {
-      variant = 'info',
-      title,
-      children,
-      dismissible = false,
-      onDismiss,
-      actions,
-      className = '',
-    },
+    { variant = "info", title, children, dismissible = false, onDismiss, actions, className = "" },
     ref
   ) => {
     const [visible, setVisible] = useState(true);
@@ -111,8 +103,7 @@ export const Alert = forwardRef<HTMLDivElement, AlertProps>(
       onDismiss?.();
     }
 
-    const role =
-      variant === 'error' || variant === 'warning' ? 'alert' : 'status';
+    const role = variant === "error" || variant === "warning" ? "alert" : "status";
 
     return (
       <AnimatePresence>
@@ -131,7 +122,7 @@ export const Alert = forwardRef<HTMLDivElement, AlertProps>(
                     height: 0,
                     marginBottom: 0,
                     padding: 0,
-                    overflow: 'hidden',
+                    overflow: "hidden",
                   }
             }
             transition={shouldReduceMotion ? { duration: 0.1 } : precision}
@@ -145,11 +136,7 @@ export const Alert = forwardRef<HTMLDivElement, AlertProps>(
             </div>
 
             {dismissible && (
-              <button
-                className={styles.close}
-                onClick={handleDismiss}
-                aria-label="Dismiss"
-              >
+              <button className={styles.close} onClick={handleDismiss} aria-label="Dismiss">
                 <svg
                   width="10"
                   height="10"
@@ -169,4 +156,4 @@ export const Alert = forwardRef<HTMLDivElement, AlertProps>(
     );
   }
 );
-Alert.displayName = 'Alert';
+Alert.displayName = "Alert";

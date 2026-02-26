@@ -10,7 +10,7 @@
  * - `presenting` — more whitespace, larger type, softer radii for presentation
  */
 
-export type VibeName = 'default' | 'transacting' | 'presenting';
+export type VibeName = "default" | "transacting" | "presenting";
 
 export type VibeOverrides = Record<string, string>;
 
@@ -18,18 +18,18 @@ export const vibes: Record<VibeName, VibeOverrides> = {
   default: {},
 
   transacting: {
-    '--rialto-space-sm': '10px',
-    '--rialto-space-md': '14px',
-    '--rialto-radius-default': '4px',
-    '--rialto-radius-soft': '8px',
-    '--rialto-weight-medium': '600',
+    "--rialto-space-sm": "10px",
+    "--rialto-space-md": "14px",
+    "--rialto-radius-default": "4px",
+    "--rialto-radius-soft": "8px",
+    "--rialto-weight-medium": "600",
   },
 
   presenting: {
-    '--rialto-space-md': '20px',
-    '--rialto-space-lg': '32px',
-    '--rialto-text-sm': '0.9375rem',
-    '--rialto-radius-soft': '14px',
-    '--rialto-radius-default': '8px',
+    "--rialto-space-md": "20px",
+    "--rialto-space-lg": "32px",
+    "--rialto-text-sm": "0.9375rem",
+    "--rialto-radius-soft": "14px",
+    "--rialto-radius-default": "8px",
   },
 };

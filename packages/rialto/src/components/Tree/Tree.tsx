@@ -6,10 +6,10 @@ import {
   useRef,
   type HTMLAttributes,
   type ReactNode,
-} from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
-import { springGentle } from '../../tokens/motion';
-import styles from './Tree.module.css';
+} from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import { springGentle } from "../../tokens/motion";
+import styles from "./Tree.module.css";
 
 /**
  * A recursive node in a `Tree` hierarchy. Each node may contain nested `children` to form an expandable tree structure.
@@ -47,10 +47,7 @@ export interface TreeNode {
  *   onSelect={(node) => console.log(node.id)}
  * />
  */
-export interface TreeProps extends Omit<
-  HTMLAttributes<HTMLDivElement>,
-  'onSelect'
-> {
+export interface TreeProps extends Omit<HTMLAttributes<HTMLDivElement>, "onSelect"> {
   data: TreeNode[];
   /** Node IDs to expand on first render (uncontrolled mode) */
   defaultExpanded?: string[];
@@ -60,7 +57,7 @@ export interface TreeProps extends Omit<
   selectedId?: string | null;
   onSelect?: (node: TreeNode) => void;
   /** Set to `"none"` to disable selection entirely */
-  selectionMode?: 'single' | 'none';
+  selectionMode?: "single" | "none";
   /** Pixels of left padding added per nesting level (default 20) */
   indent?: number;
 }
@@ -173,7 +170,7 @@ function TreeItem({
           (isDisabled || node.disabled) && styles.disabled,
         ]
           .filter(Boolean)
-          .join(' ')}
+          .join(" ")}
         style={{ paddingInlineStart: `${level * indent + 8}px` }}
         onClick={handleClick}
         onFocus={handleFocus}
@@ -186,9 +183,7 @@ function TreeItem({
       >
         <span
           role="presentation"
-          className={[styles.toggle, hasChildren && styles.toggleVisible]
-            .filter(Boolean)
-            .join(' ')}
+          className={[styles.toggle, hasChildren && styles.toggleVisible].filter(Boolean).join(" ")}
           onClick={handleToggle}
         >
           {hasChildren && <TreeChevron open={isExpanded} />}
@@ -233,7 +228,7 @@ export const Tree = forwardRef<HTMLDivElement, TreeProps>(
       onExpandedChange,
       selectedId: controlledSelectedId,
       onSelect,
-      selectionMode = 'single',
+      selectionMode = "single",
       indent = 20,
       className,
       ...props
@@ -241,34 +236,20 @@ export const Tree = forwardRef<HTMLDivElement, TreeProps>(
     ref
   ) => {
     const treeRef = useRef<HTMLDivElement | null>(null);
-    const [internalExpanded, setInternalExpanded] = useState<Set<string>>(
-      new Set(defaultExpanded)
-    );
-    const [internalSelectedId, setInternalSelectedId] = useState<string | null>(
-      null
-    );
+    const [internalExpanded, setInternalExpanded] = useState<Set<string>>(new Set(defaultExpanded));
+    const [internalSelectedId, setInternalSelectedId] = useState<string | null>(null);
     const [focusedId, setFocusedId] = useState<string | null>(null);
-    const typeAheadRef = useRef('');
-    const typeAheadTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
-      undefined
-    );
+    const typeAheadRef = useRef("");
+    const typeAheadTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
     const expanded = useMemo(
-      () =>
-        controlledExpanded !== undefined
-          ? new Set(controlledExpanded)
-          : internalExpanded,
+      () => (controlledExpanded !== undefined ? new Set(controlledExpanded) : internalExpanded),
       [controlledExpanded, internalExpanded]
     );
     const selectedId =
-      controlledSelectedId !== undefined
-        ? controlledSelectedId
-        : internalSelectedId;
+      controlledSelectedId !== undefined ? controlledSelectedId : internalSelectedId;
 
-    const visibleNodes = useMemo(
-      () => flattenVisible(data, expanded),
-      [data, expanded]
-    );
+    const visibleNodes = useMemo(() => flattenVisible(data, expanded), [data, expanded]);
 
     const handleToggle = useCallback(
       (id: string) => {
@@ -289,7 +270,7 @@ export const Tree = forwardRef<HTMLDivElement, TreeProps>(
 
     const handleSelect = useCallback(
       (node: TreeNode) => {
-        if (selectionMode === 'none') return;
+        if (selectionMode === "none") return;
 
         if (controlledSelectedId === undefined) {
           setInternalSelectedId(node.id);
@@ -313,29 +294,27 @@ export const Tree = forwardRef<HTMLDivElement, TreeProps>(
         const activeId = focusedId ?? visibleNodes[0]?.node.id ?? null;
         if (!activeId) return;
 
-        const currentIndex = visibleNodes.findIndex(
-          (v) => v.node.id === activeId
-        );
+        const currentIndex = visibleNodes.findIndex((v) => v.node.id === activeId);
         if (currentIndex === -1) return;
 
         const current = visibleNodes[currentIndex]!;
 
         switch (e.key) {
-          case 'ArrowDown': {
+          case "ArrowDown": {
             e.preventDefault();
             const next = visibleNodes[currentIndex + 1];
             if (next) focusNode(next.node.id);
             break;
           }
 
-          case 'ArrowUp': {
+          case "ArrowUp": {
             e.preventDefault();
             const prev = visibleNodes[currentIndex - 1];
             if (prev) focusNode(prev.node.id);
             break;
           }
 
-          case 'ArrowRight': {
+          case "ArrowRight": {
             e.preventDefault();
             const { node } = current;
             const firstChild = node.children?.[0];
@@ -349,7 +328,7 @@ export const Tree = forwardRef<HTMLDivElement, TreeProps>(
             break;
           }
 
-          case 'ArrowLeft': {
+          case "ArrowLeft": {
             e.preventDefault();
             const { node } = current;
             if (node.children?.length && expanded.has(node.id)) {
@@ -360,22 +339,22 @@ export const Tree = forwardRef<HTMLDivElement, TreeProps>(
             break;
           }
 
-          case 'Home': {
+          case "Home": {
             e.preventDefault();
             const first = visibleNodes[0];
             if (first) focusNode(first.node.id);
             break;
           }
 
-          case 'End': {
+          case "End": {
             e.preventDefault();
             const last = visibleNodes[visibleNodes.length - 1];
             if (last) focusNode(last.node.id);
             break;
           }
 
-          case 'Enter':
-          case ' ': {
+          case "Enter":
+          case " ": {
             e.preventDefault();
             if (!current.node.disabled) {
               handleSelect(current.node);
@@ -394,8 +373,7 @@ export const Tree = forwardRef<HTMLDivElement, TreeProps>(
               typeAheadRef.current += e.key.toLowerCase();
 
               const search = typeAheadRef.current;
-              const startIdx =
-                search.length === 1 ? currentIndex + 1 : currentIndex;
+              const startIdx = search.length === 1 ? currentIndex + 1 : currentIndex;
               const len = visibleNodes.length;
 
               for (let offset = 0; offset < len; offset++) {
@@ -409,7 +387,7 @@ export const Tree = forwardRef<HTMLDivElement, TreeProps>(
               }
 
               typeAheadTimerRef.current = setTimeout(() => {
-                typeAheadRef.current = '';
+                typeAheadRef.current = "";
               }, 500);
             }
             return;
@@ -433,17 +411,16 @@ export const Tree = forwardRef<HTMLDivElement, TreeProps>(
 
     // Determine the item that should be tabbable (roving tabindex).
     // If nothing is focused yet, the selected item or first item gets tabIndex=0.
-    const effectiveFocusedId =
-      focusedId ?? selectedId ?? visibleNodes[0]?.node.id ?? null;
+    const effectiveFocusedId = focusedId ?? selectedId ?? visibleNodes[0]?.node.id ?? null;
 
     return (
       <div
         ref={(node) => {
           treeRef.current = node;
-          if (typeof ref === 'function') ref(node);
+          if (typeof ref === "function") ref(node);
           else if (ref) ref.current = node;
         }}
-        className={[styles.tree, className].filter(Boolean).join(' ')}
+        className={[styles.tree, className].filter(Boolean).join(" ")}
         role="tree"
         tabIndex={-1}
         onKeyDown={handleKeyDown}
@@ -469,4 +446,4 @@ export const Tree = forwardRef<HTMLDivElement, TreeProps>(
   }
 );
 
-Tree.displayName = 'Tree';
+Tree.displayName = "Tree";

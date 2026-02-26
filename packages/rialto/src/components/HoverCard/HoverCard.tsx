@@ -5,13 +5,13 @@ import {
   useCallback,
   type ReactNode,
   type ReactElement,
-} from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { springGentle } from '../../tokens/motion';
-import styles from './HoverCard.module.css';
+} from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { springGentle } from "../../tokens/motion";
+import styles from "./HoverCard.module.css";
 
 /* ── Types ───────────────────────────────────── */
-type Placement = 'top' | 'bottom';
+type Placement = "top" | "bottom";
 
 /**
  * A rich hover preview card that appears when the user hovers or focuses the trigger.
@@ -50,7 +50,7 @@ export const HoverCard = forwardRef<HTMLDivElement, HoverCardProps>(
     {
       children,
       content,
-      placement = 'bottom',
+      placement = "bottom",
       openDelay = 400,
       closeDelay: closeDelayMs = 200,
       className,
@@ -81,7 +81,7 @@ export const HoverCard = forwardRef<HTMLDivElement, HoverCardProps>(
     return (
       <div
         ref={ref}
-        className={[styles.wrapper, className].filter(Boolean).join(' ')}
+        className={[styles.wrapper, className].filter(Boolean).join(" ")}
         onMouseEnter={scheduleOpen}
         onMouseLeave={scheduleClose}
         onFocus={scheduleOpen}
@@ -95,13 +95,9 @@ export const HoverCard = forwardRef<HTMLDivElement, HoverCardProps>(
               role="dialog"
               onMouseEnter={cancelClose}
               onMouseLeave={scheduleClose}
-              initial={
-                shouldReduceMotion ? { opacity: 0 } : { opacity: 0, ...origin }
-              }
+              initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, ...origin }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={
-                shouldReduceMotion ? { opacity: 0 } : { opacity: 0, ...origin }
-              }
+              exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, ...origin }}
               transition={shouldReduceMotion ? { duration: 0.1 } : springGentle}
             >
               {content}
@@ -112,4 +108,4 @@ export const HoverCard = forwardRef<HTMLDivElement, HoverCardProps>(
     );
   }
 );
-HoverCard.displayName = 'HoverCard';
+HoverCard.displayName = "HoverCard";

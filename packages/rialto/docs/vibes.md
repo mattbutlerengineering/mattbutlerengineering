@@ -61,7 +61,7 @@ RialtoProvider (vibe="transacting")
 ### Basic — Apply a vibe preset
 
 ```tsx
-import { RialtoProvider } from 'rialto';
+import { RialtoProvider } from "rialto";
 
 <RialtoProvider vibe="transacting">
   <CheckoutPage />
@@ -74,8 +74,8 @@ import { RialtoProvider } from 'rialto';
 <RialtoProvider
   vibe="presenting"
   vibeOverrides={{
-    '--rialto-space-lg': '40px',
-    '--rialto-radius-soft': '16px',
+    "--rialto-space-lg": "40px",
+    "--rialto-radius-soft": "16px",
   }}
 >
   <MarketingPage />
@@ -95,7 +95,7 @@ Overrides merge on top of the vibe preset. You can override any `--rialto-*` tok
 ### Reading the environment — `useUIEnvironment`
 
 ```tsx
-import { useUIEnvironment } from 'rialto';
+import { useUIEnvironment } from "rialto";
 
 function MyComponent() {
   const { device, vibe, theme } = useUIEnvironment();
@@ -129,11 +129,11 @@ Vibes are just `Record<string, string>` maps of CSS custom property overrides. Y
 
 ```tsx
 const compactVibe = {
-  '--rialto-space-xs': '6px',
-  '--rialto-space-sm': '8px',
-  '--rialto-space-md': '12px',
-  '--rialto-radius-default': '3px',
-  '--rialto-radius-soft': '6px',
+  "--rialto-space-xs": "6px",
+  "--rialto-space-sm": "8px",
+  "--rialto-space-md": "12px",
+  "--rialto-radius-default": "3px",
+  "--rialto-radius-soft": "6px",
 };
 
 <RialtoProvider vibeOverrides={compactVibe}>

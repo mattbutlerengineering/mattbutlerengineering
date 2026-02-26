@@ -1,6 +1,6 @@
 /* ── Track (recessed aluminum channel) ───────── */
 .track {
-  composes: recessed from '../../styles/surfaces.module.css';
+  composes: recessed from "../../styles/surfaces.module.css";
 
   position: relative;
   height: 6px;
@@ -20,15 +20,11 @@
 .fill {
   height: 100%;
   border-radius: var(--rialto-radius-round);
-  background: linear-gradient(
-    90deg,
-    var(--rialto-accent) 0%,
-    var(--rialto-accent-hover) 100%
-  );
+  background: linear-gradient(90deg, var(--rialto-accent) 0%, var(--rialto-accent-hover) 100%);
   transform-origin: left;
 }
 
-[dir='rtl'] .fill {
+[dir="rtl"] .fill {
   transform-origin: right;
 }
 
@@ -68,7 +64,7 @@
   }
 }
 
-[dir='rtl'] .indeterminate {
+[dir="rtl"] .indeterminate {
   animation-name: shimmer-rtl;
 }
 

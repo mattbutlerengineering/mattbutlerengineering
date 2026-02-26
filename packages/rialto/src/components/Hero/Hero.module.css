@@ -15,7 +15,7 @@
 
 /* Subtle warm gold radial glow */
 .hero::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
@@ -28,7 +28,7 @@
 
 /* Machined edge line at bottom */
 .hero::after {
-  content: '';
+  content: "";
   position: absolute;
   inset-inline-start: 10%;
   inset-inline-end: 10%;

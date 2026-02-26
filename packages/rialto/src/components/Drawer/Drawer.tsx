@@ -1,14 +1,8 @@
-import {
-  useEffect,
-  useCallback,
-  useRef,
-  forwardRef,
-  type ReactNode,
-} from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { spring } from '../../tokens/motion';
-import { useDirection } from '../../hooks/useDirection';
-import styles from './Drawer.module.css';
+import { useEffect, useCallback, useRef, forwardRef, type ReactNode } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { spring } from "../../tokens/motion";
+import { useDirection } from "../../hooks/useDirection";
+import styles from "./Drawer.module.css";
 
 /* ── Types ───────────────────────────────────── */
 /**
@@ -30,20 +24,20 @@ interface DrawerProps {
   /** Content rendered below the body in a fixed footer area */
   footer?: ReactNode;
   /** Which edge the drawer slides from */
-  side?: 'right' | 'left' | 'bottom';
+  side?: "right" | "left" | "bottom";
   /** Panel width/height */
-  size?: 'default' | 'wide' | 'full';
+  size?: "default" | "wide" | "full";
 }
 
 /* ── Slide direction helpers ──────────────────── */
-function getSlideVariants(side: 'right' | 'left' | 'bottom', isRtl: boolean) {
+function getSlideVariants(side: "right" | "left" | "bottom", isRtl: boolean) {
   // In RTL, inline-end (right) is physically left and vice versa,
   // so the slide direction must flip for left/right sides.
   const flipX = isRtl;
   const variants = {
-    right: { x: flipX ? '-100%' : '100%' },
-    left: { x: flipX ? '100%' : '-100%' },
-    bottom: { y: '100%' },
+    right: { x: flipX ? "-100%" : "100%" },
+    left: { x: flipX ? "100%" : "-100%" },
+    bottom: { y: "100%" },
   } as const;
   return variants[side];
 }
@@ -56,16 +50,7 @@ const slideOpen = {
 
 /* ── Component ──────────────────────────────── */
 export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(function Drawer(
-  {
-    open,
-    onClose,
-    title,
-    description,
-    children,
-    footer,
-    side = 'right',
-    size = 'default',
-  },
+  { open, onClose, title, description, children, footer, side = "right", size = "default" },
   ref
 ) {
   const anchorRef = useRef<HTMLDivElement>(null);
@@ -73,35 +58,31 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(function Drawer(
   /* ── Escape key ──────────────────────────── */
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === "Escape") onClose();
     },
     [onClose]
   );
 
   useEffect(() => {
     if (!open) return;
-    document.addEventListener('keydown', handleKeyDown);
-    document.body.style.overflow = 'hidden';
+    document.addEventListener("keydown", handleKeyDown);
+    document.body.style.overflow = "hidden";
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = '';
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
     };
   }, [open, handleKeyDown]);
 
-  const panelClasses = [
-    styles.panel,
-    styles[side],
-    size !== 'default' ? styles[size] : '',
-  ]
+  const panelClasses = [styles.panel, styles[side], size !== "default" ? styles[size] : ""]
     .filter(Boolean)
-    .join(' ');
+    .join(" ");
 
-  const slideHidden = getSlideVariants(side, dir === 'rtl');
+  const slideHidden = getSlideVariants(side, dir === "rtl");
 
   return (
     <>
       {/* Hidden anchor for direction detection (always in DOM) */}
-      <div ref={anchorRef} style={{ display: 'none' }} />
+      <div ref={anchorRef} style={{ display: "none" }} />
       <AnimatePresence>
         {open && (
           <>
@@ -132,9 +113,7 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(function Drawer(
                 <div className={styles.header}>
                   <div className={styles.headerContent}>
                     {title && <h2 className={styles.title}>{title}</h2>}
-                    {description && (
-                      <p className={styles.description}>{description}</p>
-                    )}
+                    {description && <p className={styles.description}>{description}</p>}
                   </div>
                   <button
                     type="button"
@@ -163,4 +142,4 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(function Drawer(
   );
 });
 
-Drawer.displayName = 'Drawer';
+Drawer.displayName = "Drawer";

@@ -1,7 +1,7 @@
-import { createContext, useContext } from 'react';
+import { createContext, useContext } from "react";
 
 /* ── Types ───────────────────────────────────── */
-export type ToastVariant = 'default' | 'success' | 'error' | 'accent';
+export type ToastVariant = "default" | "success" | "error" | "accent";
 
 /**
  * Internal data shape for a single toast notification, including its unique `id` assigned
@@ -24,7 +24,7 @@ export interface ToastData {
  * const { toast } = useToast();
  * toast({ title: "Saved", variant: "success" });
  */
-export type ToastInput = Omit<ToastData, 'id'>;
+export type ToastInput = Omit<ToastData, "id">;
 
 /**
  * Value provided by the Toast context. Consumed via the `useToast()` hook.
@@ -42,6 +42,6 @@ export const ToastContext = createContext<ToastContextValue | null>(null);
 
 export function useToast(): ToastContextValue {
   const ctx = useContext(ToastContext);
-  if (!ctx) throw new Error('useToast must be used within <ToastProvider>');
+  if (!ctx) throw new Error("useToast must be used within <ToastProvider>");
   return ctx;
 }

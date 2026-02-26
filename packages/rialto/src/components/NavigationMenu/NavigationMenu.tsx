@@ -1,14 +1,7 @@
-import {
-  forwardRef,
-  useState,
-  useRef,
-  useEffect,
-  useCallback,
-  type HTMLAttributes,
-} from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { springGentle } from '../../tokens/motion';
-import styles from './NavigationMenu.module.css';
+import { forwardRef, useState, useRef, useEffect, useCallback, type HTMLAttributes } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { springGentle } from "../../tokens/motion";
+import styles from "./NavigationMenu.module.css";
 
 /**
  * A single navigation link or a parent that contains nested child links.
@@ -86,12 +79,8 @@ function NavTrigger({
   onClose: () => void;
 }) {
   const shouldReduceMotion = useReducedMotion();
-  const openTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined
-  );
-  const closeTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined
-  );
+  const openTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const closeTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const panelRef = useRef<HTMLDivElement>(null);
   const isOpen = openId === item.label;
 
@@ -123,24 +112,22 @@ function NavTrigger({
     (e: React.KeyboardEvent) => {
       const panel = panelRef.current;
       if (!panel) return;
-      const items = Array.from(
-        panel.querySelectorAll<HTMLElement>("[role='menuitem']")
-      );
+      const items = Array.from(panel.querySelectorAll<HTMLElement>("[role='menuitem']"));
       const idx = items.indexOf(document.activeElement as HTMLElement);
 
-      if (e.key === 'ArrowDown') {
+      if (e.key === "ArrowDown") {
         e.preventDefault();
         items[(idx + 1) % items.length]?.focus();
-      } else if (e.key === 'ArrowUp') {
+      } else if (e.key === "ArrowUp") {
         e.preventDefault();
         items[(idx - 1 + items.length) % items.length]?.focus();
-      } else if (e.key === 'Home') {
+      } else if (e.key === "Home") {
         e.preventDefault();
         items[0]?.focus();
-      } else if (e.key === 'End') {
+      } else if (e.key === "End") {
         e.preventDefault();
         items[items.length - 1]?.focus();
-      } else if (e.key === 'Escape') {
+      } else if (e.key === "Escape") {
         e.preventDefault();
         onClose();
       }
@@ -157,11 +144,7 @@ function NavTrigger({
   }
 
   return (
-    <div
-      className={styles.triggerWrapper}
-      onMouseEnter={startOpen}
-      onMouseLeave={startClose}
-    >
+    <div className={styles.triggerWrapper} onMouseEnter={startOpen} onMouseLeave={startClose}>
       <button
         className={styles.trigger}
         aria-haspopup
@@ -179,17 +162,9 @@ function NavTrigger({
             ref={panelRef}
             className={styles.dropdown}
             role="menu"
-            initial={
-              shouldReduceMotion
-                ? undefined
-                : { opacity: 0, scale: 0.95, y: -4 }
-            }
+            initial={shouldReduceMotion ? undefined : { opacity: 0, scale: 0.95, y: -4 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={
-              shouldReduceMotion
-                ? undefined
-                : { opacity: 0, scale: 0.95, y: -4 }
-            }
+            exit={shouldReduceMotion ? undefined : { opacity: 0, scale: 0.95, y: -4 }}
             transition={shouldReduceMotion ? { duration: 0 } : springGentle}
             onMouseEnter={cancelClose}
             onMouseLeave={startClose}
@@ -226,18 +201,18 @@ export const NavigationMenu = forwardRef<HTMLElement, NavigationMenuProps>(
           setOpenId(null);
         }
       };
-      document.addEventListener('mousedown', handler);
-      return () => document.removeEventListener('mousedown', handler);
+      document.addEventListener("mousedown", handler);
+      return () => document.removeEventListener("mousedown", handler);
     }, [openId]);
 
     return (
       <nav
         ref={(node) => {
           (navRef as React.MutableRefObject<HTMLElement | null>).current = node;
-          if (typeof ref === 'function') ref(node);
+          if (typeof ref === "function") ref(node);
           else if (ref) ref.current = node;
         }}
-        className={[styles.nav, className].filter(Boolean).join(' ')}
+        className={[styles.nav, className].filter(Boolean).join(" ")}
         aria-label="Main navigation"
         {...props}
       >
@@ -255,4 +230,4 @@ export const NavigationMenu = forwardRef<HTMLElement, NavigationMenuProps>(
   }
 );
 
-NavigationMenu.displayName = 'NavigationMenu';
+NavigationMenu.displayName = "NavigationMenu";

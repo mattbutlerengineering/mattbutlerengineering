@@ -41,8 +41,8 @@ import {
   TextArea,
   Toggle,
   Tooltip,
-} from '@mbe/rialto';
-import styles from './VisualTest.module.css';
+} from "@mbe/rialto";
+import styles from "./VisualTest.module.css";
 
 /* ── Helpers ─────────────────────────────────── */
 
@@ -66,21 +66,21 @@ function Section({
 /* ── Sample data ─────────────────────────────── */
 
 const selectOptions = [
-  { value: 'apple', label: 'Apple' },
-  { value: 'banana', label: 'Banana' },
-  { value: 'cherry', label: 'Cherry' },
+  { value: "apple", label: "Apple" },
+  { value: "banana", label: "Banana" },
+  { value: "cherry", label: "Cherry" },
 ];
 
 const tableColumns = [
-  { key: 'name' as const, header: 'Name', sortable: true },
-  { key: 'role' as const, header: 'Role' },
-  { key: 'status' as const, header: 'Status' },
+  { key: "name" as const, header: "Name", sortable: true },
+  { key: "role" as const, header: "Role" },
+  { key: "status" as const, header: "Status" },
 ];
 
 const tableData = [
-  { id: '1', name: 'Alice', role: 'Engineer', status: 'Active' },
-  { id: '2', name: 'Bob', role: 'Designer', status: 'Away' },
-  { id: '3', name: 'Carol', role: 'Manager', status: 'Active' },
+  { id: "1", name: "Alice", role: "Engineer", status: "Active" },
+  { id: "2", name: "Bob", role: "Designer", status: "Away" },
+  { id: "3", name: "Carol", role: "Manager", status: "Active" },
 ];
 
 /* ── Component ───────────────────────────────── */
@@ -145,30 +145,15 @@ export function VisualTest() {
       {/* ── NumberInput ──────────────────────── */}
       <Section id="numberinput-states" title="NumberInput — States">
         <div className={styles.cardColumn}>
-          <NumberInput
-            label="Quantity"
-            value={5}
-            onChange={() => {}}
-            min={0}
-            max={99}
-          />
-          <NumberInput
-            label="Disabled"
-            value={10}
-            onChange={() => {}}
-            disabled
-          />
+          <NumberInput label="Quantity" value={5} onChange={() => {}} min={0} max={99} />
+          <NumberInput label="Disabled" value={10} onChange={() => {}} disabled />
         </div>
       </Section>
 
       {/* ── Select ─────────────────────────── */}
       <Section id="select-states" title="Select — States">
         <div className={styles.cardColumn}>
-          <Select
-            label="Default"
-            placeholder="Choose a fruit"
-            options={selectOptions}
-          />
+          <Select label="Default" placeholder="Choose a fruit" options={selectOptions} />
           <Select label="Disabled" options={selectOptions} disabled />
         </div>
       </Section>
@@ -198,9 +183,9 @@ export function VisualTest() {
         <div className={styles.card}>
           <SegmentedControl
             segments={[
-              { id: 'day', label: 'Day' },
-              { id: 'week', label: 'Week' },
-              { id: 'month', label: 'Month' },
+              { id: "day", label: "Day" },
+              { id: "week", label: "Week" },
+              { id: "month", label: "Month" },
             ]}
             value="week"
             onChange={() => {}}
@@ -222,18 +207,18 @@ export function VisualTest() {
           <Tabs
             tabs={[
               {
-                id: 'tab1',
-                label: 'Overview',
+                id: "tab1",
+                label: "Overview",
                 content: <Text>Overview content</Text>,
               },
               {
-                id: 'tab2',
-                label: 'Details',
+                id: "tab2",
+                label: "Details",
                 content: <Text>Details content</Text>,
               },
               {
-                id: 'tab3',
-                label: 'Settings',
+                id: "tab3",
+                label: "Settings",
                 content: <Text>Settings content</Text>,
               },
             ]}
@@ -247,23 +232,23 @@ export function VisualTest() {
           <Accordion
             items={[
               {
-                id: 'a',
-                title: 'Section A',
+                id: "a",
+                title: "Section A",
                 content: <Text>Content for section A.</Text>,
               },
               {
-                id: 'b',
-                title: 'Section B',
+                id: "b",
+                title: "Section B",
                 content: <Text>Content for section B.</Text>,
               },
               {
-                id: 'c',
-                title: 'Section C (Disabled)',
+                id: "c",
+                title: "Section C (Disabled)",
                 content: <Text>Hidden.</Text>,
                 disabled: true,
               },
             ]}
-            defaultOpen={['a']}
+            defaultOpen={["a"]}
           />
         </div>
       </Section>
@@ -293,9 +278,7 @@ export function VisualTest() {
       {/* ── Banner ─────────────────────────── */}
       <Section id="banner-variants" title="Banner — Variants">
         <div className={styles.cardColumn}>
-          <Banner variant="info">
-            System maintenance scheduled for tonight.
-          </Banner>
+          <Banner variant="info">System maintenance scheduled for tonight.</Banner>
           <Banner variant="warning">Your trial expires in 3 days.</Banner>
           <Banner variant="error">Payment method declined.</Banner>
           <Banner variant="accent">New feature available!</Banner>
@@ -342,11 +325,11 @@ export function VisualTest() {
         <div className={styles.card}>
           <AvatarGroup
             avatars={[
-              { name: 'Alice' },
-              { name: 'Bob' },
-              { name: 'Carol' },
-              { name: 'David' },
-              { name: 'Eve' },
+              { name: "Alice" },
+              { name: "Bob" },
+              { name: "Carol" },
+              { name: "David" },
+              { name: "Eve" },
             ]}
             max={3}
           />
@@ -356,12 +339,7 @@ export function VisualTest() {
       {/* ── Table ──────────────────────────── */}
       <Section id="table-default" title="Table — With Data">
         <div className={styles.cardColumn}>
-          <Table
-            columns={tableColumns}
-            data={tableData}
-            rowKey={(r) => r.id}
-            striped
-          />
+          <Table columns={tableColumns} data={tableData} rowKey={(r) => r.id} striped />
         </div>
       </Section>
 
@@ -381,10 +359,10 @@ export function VisualTest() {
         <div className={styles.cardColumn}>
           <DataList
             items={[
-              { label: 'Name', value: 'Max Verstappen' },
-              { label: 'Team', value: 'Red Bull Racing' },
-              { label: 'Number', value: '1' },
-              { label: 'Nationality', value: 'Dutch' },
+              { label: "Name", value: "Max Verstappen" },
+              { label: "Team", value: "Red Bull Racing" },
+              { label: "Number", value: "1" },
+              { label: "Nationality", value: "Dutch" },
             ]}
             striped
           />
@@ -425,10 +403,10 @@ export function VisualTest() {
         <div className={styles.cardColumn}>
           <Steps
             steps={[
-              { label: 'Cart', description: 'Review items' },
-              { label: 'Shipping', description: 'Enter address' },
-              { label: 'Payment', description: 'Add billing' },
-              { label: 'Confirm', description: 'Place order' },
+              { label: "Cart", description: "Review items" },
+              { label: "Shipping", description: "Enter address" },
+              { label: "Payment", description: "Add billing" },
+              { label: "Confirm", description: "Place order" },
             ]}
             currentStep={1}
           />
@@ -440,10 +418,10 @@ export function VisualTest() {
         <div className={styles.card}>
           <Breadcrumb
             items={[
-              { label: 'Home', href: '#' },
-              { label: 'Products', href: '#' },
-              { label: 'Electronics', href: '#' },
-              { label: 'Headphones' },
+              { label: "Home", href: "#" },
+              { label: "Products", href: "#" },
+              { label: "Electronics", href: "#" },
+              { label: "Headphones" },
             ]}
           />
         </div>
@@ -487,10 +465,7 @@ export function VisualTest() {
 
       {/* ── Dialog ─────────────────────────── */}
       <Section id="dialog-open" title="Dialog — Open">
-        <div
-          className={styles.cardColumn}
-          style={{ position: 'relative', minHeight: 200 }}
-        >
+        <div className={styles.cardColumn} style={{ position: "relative", minHeight: 200 }}>
           <Dialog
             open
             onClose={() => {}}
@@ -504,16 +479,8 @@ export function VisualTest() {
 
       {/* ── Drawer ─────────────────────────── */}
       <Section id="drawer-open" title="Drawer — Open">
-        <div
-          className={styles.cardColumn}
-          style={{ position: 'relative', minHeight: 200 }}
-        >
-          <Drawer
-            open
-            onClose={() => {}}
-            title="Settings"
-            description="Manage your preferences"
-          >
+        <div className={styles.cardColumn} style={{ position: "relative", minHeight: 200 }}>
+          <Drawer open onClose={() => {}} title="Settings" description="Manage your preferences">
             <Text>Drawer content goes here.</Text>
           </Drawer>
         </div>
@@ -526,8 +493,8 @@ export function VisualTest() {
         <div
           className={styles.page}
           style={{
-            background: '#1a1918',
-            borderRadius: 'var(--rialto-radius-soft)',
+            background: "#1a1918",
+            borderRadius: "var(--rialto-radius-soft)",
           }}
         >
           <Section id="dark-buttons" title="Dark — Buttons">
@@ -600,4 +567,4 @@ export function VisualTest() {
   );
 }
 
-VisualTest.displayName = 'VisualTest';
+VisualTest.displayName = "VisualTest";

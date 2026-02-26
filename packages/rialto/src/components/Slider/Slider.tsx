@@ -1,16 +1,9 @@
-import {
-  forwardRef,
-  useState,
-  useRef,
-  useCallback,
-  useEffect,
-  useId,
-} from 'react';
-import { motion, useMotionValue, useReducedMotion } from 'framer-motion';
-import { Lock } from 'lucide-react';
-import { spring } from '../../tokens/motion';
-import { DisabledTooltip } from '../DisabledTooltip/DisabledTooltip';
-import styles from './Slider.module.css';
+import { forwardRef, useState, useRef, useCallback, useEffect, useId } from "react";
+import { motion, useMotionValue, useReducedMotion } from "framer-motion";
+import { Lock } from "lucide-react";
+import { spring } from "../../tokens/motion";
+import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
+import styles from "./Slider.module.css";
 
 /**
  * Continuous range slider with a spring-animated knob, pointer drag, and keyboard support.
@@ -37,7 +30,7 @@ export interface SliderProps {
   /** Explains why the slider is disabled. Shown in a tooltip; requires `disabled` to be true. */
   disabledReason?: string;
   className?: string;
-  'aria-label'?: string;
+  "aria-label"?: string;
 }
 
 function clamp(val: number, min: number, max: number) {
@@ -63,7 +56,7 @@ export const Slider = forwardRef<HTMLDivElement, SliderProps>(
       disabled,
       disabledReason,
       className,
-      'aria-label': ariaLabel,
+      "aria-label": ariaLabel,
     },
     ref
   ) => {
@@ -133,21 +126,21 @@ export const Slider = forwardRef<HTMLDivElement, SliderProps>(
       (e: React.KeyboardEvent) => {
         let newVal: number;
         switch (e.key) {
-          case 'ArrowRight':
-          case 'ArrowUp':
+          case "ArrowRight":
+          case "ArrowUp":
             e.preventDefault();
             newVal = currentValue + step;
             break;
-          case 'ArrowLeft':
-          case 'ArrowDown':
+          case "ArrowLeft":
+          case "ArrowDown":
             e.preventDefault();
             newVal = currentValue - step;
             break;
-          case 'Home':
+          case "Home":
             e.preventDefault();
             newVal = min;
             break;
-          case 'End':
+          case "End":
             e.preventDefault();
             newVal = max;
             break;
@@ -161,21 +154,14 @@ export const Slider = forwardRef<HTMLDivElement, SliderProps>(
 
     return (
       <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>
-        <div
-          ref={ref}
-          className={[styles.wrapper, className].filter(Boolean).join(' ')}
-        >
+        <div ref={ref} className={[styles.wrapper, className].filter(Boolean).join(" ")}>
           {(label || showValue) && (
             <div className={styles.labelRow}>
               {label && <span className={styles.label}>{label}</span>}
               {disabled && disabledReason && (
                 <Lock size={12} aria-hidden className={styles.lockIcon} />
               )}
-              {showValue && (
-                <span className={styles.value}>
-                  {formatValue(currentValue)}
-                </span>
-              )}
+              {showValue && <span className={styles.value}>{formatValue(currentValue)}</span>}
             </div>
           )}
           <div
@@ -215,9 +201,7 @@ export const Slider = forwardRef<HTMLDivElement, SliderProps>(
               style={{ left: knobX }}
               data-dragging={dragging || undefined}
               animate={dragging ? undefined : { left: `${percent}%` }}
-              transition={
-                shouldReduceMotion || dragging ? { duration: 0 } : spring
-              }
+              transition={shouldReduceMotion || dragging ? { duration: 0 } : spring}
             />
           </div>
         </div>
@@ -226,4 +210,4 @@ export const Slider = forwardRef<HTMLDivElement, SliderProps>(
   }
 );
 
-Slider.displayName = 'Slider';
+Slider.displayName = "Slider";

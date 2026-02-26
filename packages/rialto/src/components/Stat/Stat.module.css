@@ -1,5 +1,5 @@
 .stat {
-  composes: aluminum from '../../styles/surfaces.module.css';
+  composes: aluminum from "../../styles/surfaces.module.css";
 
   display: flex;
   flex-direction: column;

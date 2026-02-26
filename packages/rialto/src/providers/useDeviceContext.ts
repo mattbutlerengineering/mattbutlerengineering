@@ -1,22 +1,22 @@
-import { useSyncExternalStore } from 'react';
+import { useSyncExternalStore } from "react";
 
 /* ── Types ───────────────────────────────────── */
 
 export interface DeviceContext {
-  pointer: 'fine' | 'coarse';
-  viewport: 'mobile' | 'tablet' | 'desktop';
+  pointer: "fine" | "coarse";
+  viewport: "mobile" | "tablet" | "desktop";
   reducedMotion: boolean;
-  colorScheme: 'light' | 'dark';
+  colorScheme: "light" | "dark";
   saveData: boolean;
 }
 
 /* ── SSR-safe defaults ───────────────────────── */
 
 const SSR_DEFAULTS: DeviceContext = {
-  pointer: 'fine',
-  viewport: 'desktop',
+  pointer: "fine",
+  viewport: "desktop",
   reducedMotion: false,
-  colorScheme: 'light',
+  colorScheme: "light",
   saveData: false,
 };
 
@@ -31,38 +31,38 @@ interface MediaEntry {
 
 const QUERIES: MediaEntry[] = [
   {
-    query: '(pointer: coarse)',
-    key: 'pointer',
-    matchValue: 'coarse',
-    noMatchValue: 'fine',
+    query: "(pointer: coarse)",
+    key: "pointer",
+    matchValue: "coarse",
+    noMatchValue: "fine",
   },
   {
-    query: '(max-width: 479px)',
-    key: 'viewport',
-    matchValue: 'mobile',
-    noMatchValue: 'desktop', // refined below
+    query: "(max-width: 479px)",
+    key: "viewport",
+    matchValue: "mobile",
+    noMatchValue: "desktop", // refined below
   },
   {
-    query: '(min-width: 480px) and (max-width: 767px)',
-    key: 'viewport',
-    matchValue: 'tablet',
-    noMatchValue: 'desktop', // only matters if neither mobile nor tablet matches
+    query: "(min-width: 480px) and (max-width: 767px)",
+    key: "viewport",
+    matchValue: "tablet",
+    noMatchValue: "desktop", // only matters if neither mobile nor tablet matches
   },
   {
-    query: '(prefers-reduced-motion: reduce)',
-    key: 'reducedMotion',
+    query: "(prefers-reduced-motion: reduce)",
+    key: "reducedMotion",
     matchValue: true,
     noMatchValue: false,
   },
   {
-    query: '(prefers-color-scheme: dark)',
-    key: 'colorScheme',
-    matchValue: 'dark',
-    noMatchValue: 'light',
+    query: "(prefers-color-scheme: dark)",
+    key: "colorScheme",
+    matchValue: "dark",
+    noMatchValue: "light",
   },
   {
-    query: '(prefers-reduced-data: reduce)',
-    key: 'saveData',
+    query: "(prefers-reduced-data: reduce)",
+    key: "saveData",
     matchValue: true,
     noMatchValue: false,
   },
@@ -95,15 +95,15 @@ function computeSnapshot(): DeviceContext {
   if (!mqls) return SSR_DEFAULTS;
   const [mPointer, mMobile, mTablet, mMotion, mScheme, mData] = mqls;
 
-  const pointer = mPointer.matches ? 'coarse' : 'fine';
+  const pointer = mPointer.matches ? "coarse" : "fine";
 
   // Viewport: check mobile first, then tablet, else desktop
-  let viewport: DeviceContext['viewport'] = 'desktop';
-  if (mMobile.matches) viewport = 'mobile';
-  else if (mTablet.matches) viewport = 'tablet';
+  let viewport: DeviceContext["viewport"] = "desktop";
+  if (mMobile.matches) viewport = "mobile";
+  else if (mTablet.matches) viewport = "tablet";
 
   const reducedMotion = mMotion.matches;
-  const colorScheme = mScheme.matches ? 'dark' : 'light';
+  const colorScheme = mScheme.matches ? "dark" : "light";
   const saveData = mData.matches;
 
   return { pointer, viewport, reducedMotion, colorScheme, saveData };
@@ -127,11 +127,11 @@ function handleChange() {
 
 function ensureListeners() {
   if (mqls) return;
-  if (typeof window === 'undefined') return;
+  if (typeof window === "undefined") return;
 
   mqls = QUERIES.map((entry) => window.matchMedia(entry.query)) as MqlTuple;
   snapshot = computeSnapshot();
-  mqls.forEach((mql) => mql.addEventListener('change', handleChange));
+  mqls.forEach((mql) => mql.addEventListener("change", handleChange));
 }
 
 function subscribe(callback: () => void): () => void {

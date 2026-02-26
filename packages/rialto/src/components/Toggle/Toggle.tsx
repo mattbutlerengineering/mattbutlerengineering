@@ -1,10 +1,10 @@
-import { forwardRef, useId, useRef, type InputHTMLAttributes } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
-import { Lock } from 'lucide-react';
-import { spring, boop } from '../../tokens/motion';
-import { useDirection } from '../../hooks/useDirection';
-import { DisabledTooltip } from '../DisabledTooltip/DisabledTooltip';
-import styles from './Toggle.module.css';
+import { forwardRef, useId, useRef, type InputHTMLAttributes } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import { Lock } from "lucide-react";
+import { spring, boop } from "../../tokens/motion";
+import { useDirection } from "../../hooks/useDirection";
+import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
+import styles from "./Toggle.module.css";
 
 /**
  * Binary on/off switch with a spring-animated sliding knob.
@@ -15,10 +15,7 @@ import styles from './Toggle.module.css';
  * <Toggle label="Notifications" />
  * <Toggle label="Maintenance" disabled />
  */
-export interface ToggleProps extends Omit<
-  InputHTMLAttributes<HTMLInputElement>,
-  'type' | 'size'
-> {
+export interface ToggleProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "size"> {
   label?: string;
   checked?: boolean;
   onCheckedChange?: (checked: boolean) => void;
@@ -28,15 +25,7 @@ export interface ToggleProps extends Omit<
 
 export const Toggle = forwardRef<HTMLInputElement, ToggleProps>(
   (
-    {
-      label,
-      checked = false,
-      onCheckedChange,
-      disabled,
-      disabledReason,
-      className,
-      ...props
-    },
+    { label, checked = false, onCheckedChange, disabled, disabledReason, className, ...props },
     ref
   ) => {
     const autoId = useId();
@@ -49,7 +38,7 @@ export const Toggle = forwardRef<HTMLInputElement, ToggleProps>(
       <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>
         <div
           ref={wrapperRef}
-          className={[styles.wrapper, className].filter(Boolean).join(' ')}
+          className={[styles.wrapper, className].filter(Boolean).join(" ")}
           aria-disabled={disabled || undefined}
         >
           <input
@@ -65,15 +54,10 @@ export const Toggle = forwardRef<HTMLInputElement, ToggleProps>(
             {...props}
           />
           {/* eslint-disable-next-line jsx-a11y/label-has-associated-control -- visual track label, hidden from AT */}
-          <label
-            htmlFor={id}
-            className={styles.track}
-            data-checked={checked}
-            aria-hidden="true"
-          >
+          <label htmlFor={id} className={styles.track} data-checked={checked} aria-hidden="true">
             <motion.div
               className={styles.knob}
-              animate={{ x: checked ? (dir === 'rtl' ? -20 : 20) : 0 }}
+              animate={{ x: checked ? (dir === "rtl" ? -20 : 20) : 0 }}
               whileHover={
                 disabled || shouldReduceMotion
                   ? undefined
@@ -87,13 +71,11 @@ export const Toggle = forwardRef<HTMLInputElement, ToggleProps>(
               {label}
             </label>
           )}
-          {disabled && disabledReason && (
-            <Lock size={12} aria-hidden className={styles.lockIcon} />
-          )}
+          {disabled && disabledReason && <Lock size={12} aria-hidden className={styles.lockIcon} />}
         </div>
       </DisabledTooltip>
     );
   }
 );
 
-Toggle.displayName = 'Toggle';
+Toggle.displayName = "Toggle";

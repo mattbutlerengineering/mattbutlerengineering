@@ -10,7 +10,7 @@
 }
 
 .panel {
-  composes: glass from '../../styles/surfaces.module.css';
+  composes: glass from "../../styles/surfaces.module.css";
 
   width: 100%;
   max-width: 480px;
@@ -21,7 +21,7 @@
   overflow-y: auto;
 }
 
-:global([data-theme='dark']) .panel {
+:global([data-theme="dark"]) .panel {
   background: var(--rialto-surface-elevated);
 }
 
@@ -48,7 +48,7 @@
 }
 
 .close {
-  composes: focusRing from '../../styles/surfaces.module.css';
+  composes: focusRing from "../../styles/surfaces.module.css";
 
   display: flex;
   align-items: center;

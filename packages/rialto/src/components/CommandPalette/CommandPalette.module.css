@@ -14,7 +14,7 @@
 
 /* ── Panel ────────────────────────────────────── */
 .panel {
-  composes: glass from '../../styles/surfaces.module.css';
+  composes: glass from "../../styles/surfaces.module.css";
 
   width: min(560px, calc(100vw - 32px));
   max-height: min(420px, 60vh);
@@ -28,7 +28,7 @@
     0 0 1px rgb(0 0 0 / 0.2);
 }
 
-:global([data-theme='dark']) .panel {
+:global([data-theme="dark"]) .panel {
   background: var(--rialto-surface-elevated);
 }
 
@@ -115,15 +115,15 @@
   background: rgb(196 146 42 / 0.06);
 }
 
-.item[data-active='true'] {
+.item[data-active="true"] {
   background: rgb(196 146 42 / 0.12);
 }
 
-.item[data-active='true'] .itemLabel {
+.item[data-active="true"] .itemLabel {
   color: var(--rialto-text-primary);
 }
 
-.item[data-active='true'] .itemShortcut kbd {
+.item[data-active="true"] .itemShortcut kbd {
   border-color: var(--rialto-accent);
   color: var(--rialto-accent);
 }
@@ -139,7 +139,7 @@
   flex-shrink: 0;
 }
 
-.item[data-active='true'] .itemIcon {
+.item[data-active="true"] .itemIcon {
   color: var(--rialto-accent);
 }
 

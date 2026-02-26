@@ -1,5 +1,5 @@
 .menu {
-  composes: glass from '../../styles/surfaces.module.css';
+  composes: glass from "../../styles/surfaces.module.css";
 
   position: fixed;
   z-index: 200;
@@ -9,11 +9,11 @@
   transform-origin: top left;
 }
 
-[dir='rtl'] .menu {
+[dir="rtl"] .menu {
   transform-origin: top right;
 }
 
-:global([data-theme='dark']) .menu {
+:global([data-theme="dark"]) .menu {
   background: var(--rialto-surface-elevated);
 }
 
@@ -41,7 +41,7 @@
   outline: none;
 }
 
-.item[data-active='true'] {
+.item[data-active="true"] {
   background: var(--rialto-surface-recessed);
 }
 
@@ -56,7 +56,7 @@
 
 .destructive:hover,
 .destructive:focus-visible,
-.destructive[data-active='true'] {
+.destructive[data-active="true"] {
   background: rgb(180 60 50 / 0.08);
   color: var(--rialto-error);
 }

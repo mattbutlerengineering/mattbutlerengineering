@@ -30,7 +30,7 @@
 
 /* ── Stepper buttons ─────────────────────────── */
 .stepper {
-  composes: aluminum from '../../styles/surfaces.module.css';
+  composes: aluminum from "../../styles/surfaces.module.css";
 
   display: flex;
   align-items: center;
@@ -95,7 +95,7 @@
 
 /* ── Input field ─────────────────────────────── */
 .input {
-  composes: recessed from '../../styles/surfaces.module.css';
+  composes: recessed from "../../styles/surfaces.module.css";
 
   width: 72px;
   padding: var(--rialto-space-xs) var(--rialto-space-sm);
@@ -162,7 +162,7 @@
 }
 
 /* ── Disabled state ──────────────────────────── */
-.wrapper[aria-disabled='true'] .control {
+.wrapper[aria-disabled="true"] .control {
   filter: saturate(0.6) brightness(0.95);
   cursor: not-allowed;
 }

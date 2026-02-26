@@ -1,13 +1,11 @@
 :root {
   /* ── Elevation ─────────────────────────────── */
   /* Cards, dropdowns, popovers, elevated buttons */
-  --rialto-shadow-elevated:
-    0 1px 2px rgb(26 25 24 / 0.06), 0 4px 12px rgb(26 25 24 / 0.08);
+  --rialto-shadow-elevated: 0 1px 2px rgb(26 25 24 / 0.06), 0 4px 12px rgb(26 25 24 / 0.08);
 
   /* ── Pressed (tactile inset) ───────────────── */
   /* Recessed inputs, slider tracks, toggle tracks, active button press */
-  --rialto-shadow-pressed:
-    inset 0 1px 3px rgb(26 25 24 / 0.15), inset 0 0 1px rgb(26 25 24 / 0.1);
+  --rialto-shadow-pressed: inset 0 1px 3px rgb(26 25 24 / 0.15), inset 0 0 1px rgb(26 25 24 / 0.1);
 
   /* ── Focus (gold glow ring) ────────────────── */
   /* Focus-visible state for all interactive elements */
@@ -23,12 +21,10 @@
 }
 
 /* ── Dark Theme Shadows ──────────────────────── */
-[data-theme='dark'] {
-  --rialto-shadow-elevated:
-    0 1px 2px rgb(0 0 0 / 0.2), 0 4px 12px rgb(0 0 0 / 0.3);
+[data-theme="dark"] {
+  --rialto-shadow-elevated: 0 1px 2px rgb(0 0 0 / 0.2), 0 4px 12px rgb(0 0 0 / 0.3);
 
-  --rialto-shadow-pressed:
-    inset 0 1px 3px rgb(0 0 0 / 0.4), inset 0 0 1px rgb(0 0 0 / 0.3);
+  --rialto-shadow-pressed: inset 0 1px 3px rgb(0 0 0 / 0.4), inset 0 0 1px rgb(0 0 0 / 0.3);
 
   --rialto-shadow-focus:
     0 0 0 2px var(--rialto-surface), 0 0 0 4px var(--rialto-accent),

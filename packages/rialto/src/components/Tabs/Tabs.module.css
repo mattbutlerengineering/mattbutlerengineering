@@ -8,7 +8,7 @@
 
 /* ── Individual tab trigger ──────────────────── */
 .tab {
-  composes: focusRing from '../../styles/surfaces.module.css';
+  composes: focusRing from "../../styles/surfaces.module.css";
 
   position: relative;
   padding: var(--rialto-space-xs) var(--rialto-space-md);
@@ -42,7 +42,7 @@
   background: none;
 }
 
-.tab[aria-disabled='true'] {
+.tab[aria-disabled="true"] {
   filter: saturate(0.6) brightness(0.95);
   cursor: not-allowed;
 }

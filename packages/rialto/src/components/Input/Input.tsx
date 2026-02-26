@@ -1,12 +1,7 @@
-import {
-  forwardRef,
-  useId,
-  type InputHTMLAttributes,
-  type ReactNode,
-} from 'react';
-import { Lock } from 'lucide-react';
-import { DisabledTooltip } from '../DisabledTooltip/DisabledTooltip';
-import styles from './Input.module.css';
+import { forwardRef, useId, type InputHTMLAttributes, type ReactNode } from "react";
+import { Lock } from "lucide-react";
+import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
+import styles from "./Input.module.css";
 
 /**
  * Single-line text field with optional label, hint text, and error state.
@@ -18,10 +13,7 @@ import styles from './Input.module.css';
  * <Input label="Code" error hint="Invalid code" />
  * <Input label="Search" startIcon={<Search size={16} />} placeholder="Search..." />
  */
-export interface InputProps extends Omit<
-  InputHTMLAttributes<HTMLInputElement>,
-  'size'
-> {
+export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "size"> {
   label?: string;
   /** Helper text rendered below the input */
   hint?: string;
@@ -60,14 +52,14 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     const inputId = id ?? autoId;
     const wrapperClass = [styles.wrapper, error && styles.error, className]
       .filter(Boolean)
-      .join(' ');
+      .join(" ");
     const inputClass = [
       styles.input,
       startIcon && styles.inputWithStartIcon,
       endIcon && styles.inputWithEndIcon,
     ]
       .filter(Boolean)
-      .join(' ');
+      .join(" ");
 
     return (
       <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>
@@ -76,9 +68,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             <label htmlFor={inputId} className={styles.label}>
               {label}
               {required && <span className={styles.required}> *</span>}
-              {showOptional && !required && (
-                <span className={styles.optional}> (optional)</span>
-              )}
+              {showOptional && !required && <span className={styles.optional}> (optional)</span>}
             </label>
           )}
           <div className={styles.inputContainer}>
@@ -118,4 +108,4 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
   }
 );
 
-Input.displayName = 'Input';
+Input.displayName = "Input";

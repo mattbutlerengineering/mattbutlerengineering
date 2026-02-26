@@ -1,5 +1,5 @@
-import { forwardRef } from 'react';
-import styles from './Divider.module.css';
+import { forwardRef } from "react";
+import styles from "./Divider.module.css";
 
 /* ── Types ───────────────────────────────────── */
 /**
@@ -15,47 +15,36 @@ import styles from './Divider.module.css';
  */
 interface DividerProps {
   /** Orientation */
-  orientation?: 'horizontal' | 'vertical';
+  orientation?: "horizontal" | "vertical";
   /** Optional centered label */
   label?: string;
   /** Gold accent gradient instead of neutral */
   accent?: boolean;
   /** Spacing: compact (xs), default (md), spacious (lg) */
-  spacing?: 'compact' | 'default' | 'spacious';
+  spacing?: "compact" | "default" | "spacious";
   className?: string;
 }
 
 /* ── Component ──────────────────────────────── */
 export const Divider = forwardRef<HTMLDivElement, DividerProps>(
   (
-    {
-      orientation = 'horizontal',
-      label,
-      accent = false,
-      spacing = 'default',
-      className = '',
-    },
+    { orientation = "horizontal", label, accent = false, spacing = "default", className = "" },
     ref
   ) => {
     const classes = [
-      orientation === 'horizontal' ? styles.horizontal : styles.vertical,
-      accent ? styles.accent : '',
-      spacing !== 'default' ? styles[spacing] : '',
+      orientation === "horizontal" ? styles.horizontal : styles.vertical,
+      accent ? styles.accent : "",
+      spacing !== "default" ? styles[spacing] : "",
       className,
     ]
       .filter(Boolean)
-      .join(' ');
+      .join(" ");
 
     return (
-      <div
-        ref={ref}
-        className={classes}
-        role="separator"
-        aria-orientation={orientation}
-      >
+      <div ref={ref} className={classes} role="separator" aria-orientation={orientation}>
         {label && <span className={styles.label}>{label}</span>}
       </div>
     );
   }
 );
-Divider.displayName = 'Divider';
+Divider.displayName = "Divider";

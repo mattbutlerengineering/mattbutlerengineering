@@ -1,7 +1,7 @@
-import { forwardRef, useState, useId, type ReactNode } from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { springGentle } from '../../tokens/motion';
-import styles from './Collapsible.module.css';
+import { forwardRef, useState, useId, type ReactNode } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { springGentle } from "../../tokens/motion";
+import styles from "./Collapsible.module.css";
 
 /**
  * Single expand/collapse section with an animated content region.
@@ -80,10 +80,7 @@ export const Collapsible = forwardRef<HTMLDivElement, CollapsibleProps>(
     };
 
     return (
-      <div
-        ref={ref}
-        className={[styles.collapsible, className].filter(Boolean).join(' ')}
-      >
+      <div ref={ref} className={[styles.collapsible, className].filter(Boolean).join(" ")}>
         <button
           id={triggerId}
           className={styles.trigger}
@@ -104,12 +101,8 @@ export const Collapsible = forwardRef<HTMLDivElement, CollapsibleProps>(
               id={contentId}
               role="region"
               aria-labelledby={triggerId}
-              initial={
-                shouldReduceMotion
-                  ? { height: 'auto' }
-                  : { height: 0, opacity: 0 }
-              }
-              animate={{ height: 'auto', opacity: 1 }}
+              initial={shouldReduceMotion ? { height: "auto" } : { height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
               exit={shouldReduceMotion ? undefined : { height: 0, opacity: 0 }}
               transition={shouldReduceMotion ? { duration: 0 } : springGentle}
             >
@@ -122,4 +115,4 @@ export const Collapsible = forwardRef<HTMLDivElement, CollapsibleProps>(
   }
 );
 
-Collapsible.displayName = 'Collapsible';
+Collapsible.displayName = "Collapsible";

@@ -55,7 +55,7 @@ function useTilt(
 
 ```css
 .card[data-tilt]::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;

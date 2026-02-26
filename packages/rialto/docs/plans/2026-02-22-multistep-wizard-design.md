@@ -73,18 +73,17 @@ Per-step validation function. Returns `string[]` of error messages. Errors shown
 function validateStep(step: number, data: TeamFormData): string[] {
   if (step === 0) {
     const errs: string[] = [];
-    if (!data.name.trim()) errs.push('Team name is required.');
-    if (!data.baseCity.trim()) errs.push('Base city is required.');
-    if (!data.principal.trim()) errs.push('Team principal is required.');
-    if (data.founded < 1950 || data.founded > 2026)
-      errs.push('Founded year must be 1950–2026.');
+    if (!data.name.trim()) errs.push("Team name is required.");
+    if (!data.baseCity.trim()) errs.push("Base city is required.");
+    if (!data.principal.trim()) errs.push("Team principal is required.");
+    if (data.founded < 1950 || data.founded > 2026) errs.push("Founded year must be 1950–2026.");
     return errs;
   }
   if (step === 1) {
     const errs: string[] = [];
-    if (!data.chassis.trim()) errs.push('Chassis designation is required.');
-    if (!data.engine) errs.push('Engine supplier is required.');
-    if (!data.liveryColor) errs.push('Livery color is required.');
+    if (!data.chassis.trim()) errs.push("Chassis designation is required.");
+    if (!data.engine) errs.push("Engine supplier is required.");
+    if (!data.liveryColor) errs.push("Livery color is required.");
     return errs;
   }
   return [];

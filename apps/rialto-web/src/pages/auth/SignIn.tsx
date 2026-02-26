@@ -1,8 +1,8 @@
-import { useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
-import { Button, Checkbox, Divider, Input, useToast } from '@mbe/rialto';
-import { AuthLayout } from './AuthLayout';
-import styles from './AuthLayout.module.css';
+import { useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
+import { Button, Checkbox, Divider, Input, useToast } from "@mbe/rialto";
+import { AuthLayout } from "./AuthLayout";
+import styles from "./AuthLayout.module.css";
 
 export function SignIn() {
   const { toast } = useToast();
@@ -10,7 +10,7 @@ export function SignIn() {
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    toast({ title: 'Signed in successfully', variant: 'success' });
+    toast({ title: "Signed in successfully", variant: "success" });
   }
 
   return (
@@ -23,25 +23,11 @@ export function SignIn() {
       }
     >
       <form onSubmit={handleSubmit} className={styles.form}>
-        <Input
-          label="Email address"
-          type="email"
-          required
-          autoComplete="email"
-        />
-        <Input
-          label="Password"
-          type="password"
-          required
-          autoComplete="current-password"
-        />
+        <Input label="Email address" type="email" required autoComplete="email" />
+        <Input label="Password" type="password" required autoComplete="current-password" />
 
         <div className={styles.forgotRow}>
-          <Checkbox
-            label="Remember me"
-            checked={rememberMe}
-            onCheckedChange={setRememberMe}
-          />
+          <Checkbox label="Remember me" checked={rememberMe} onCheckedChange={setRememberMe} />
           <Link to="#" className={styles.forgotLink}>
             Forgot password?
           </Link>
@@ -54,18 +40,10 @@ export function SignIn() {
         <Divider label="or" spacing="compact" />
 
         <div className={styles.socialRow}>
-          <Button
-            variant="secondary"
-            type="button"
-            className={styles.socialButton}
-          >
+          <Button variant="secondary" type="button" className={styles.socialButton}>
             Google
           </Button>
-          <Button
-            variant="secondary"
-            type="button"
-            className={styles.socialButton}
-          >
+          <Button variant="secondary" type="button" className={styles.socialButton}>
             GitHub
           </Button>
         </div>

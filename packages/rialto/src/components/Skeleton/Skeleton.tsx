@@ -1,8 +1,8 @@
-import { forwardRef, type CSSProperties } from 'react';
-import styles from './Skeleton.module.css';
+import { forwardRef, type CSSProperties } from "react";
+import styles from "./Skeleton.module.css";
 
 /* ── Types ───────────────────────────────────── */
-type SkeletonVariant = 'text' | 'heading' | 'circle' | 'rect' | 'card';
+type SkeletonVariant = "text" | "heading" | "circle" | "rect" | "card";
 
 /**
  * Props for the Skeleton component, a pulsing placeholder shape that communicates loading
@@ -32,29 +32,26 @@ interface SkeletonProps {
 
 /* ── Component ──────────────────────────────── */
 export const Skeleton = forwardRef<HTMLDivElement, SkeletonProps>(
-  (
-    { variant = 'rect', width, height, lines = 1, gap = 8, className = '' },
-    ref
-  ) => {
+  ({ variant = "rect", width, height, lines = 1, gap = 8, className = "" }, ref) => {
     const style: CSSProperties = {
-      width: typeof width === 'number' ? `${width}px` : width,
-      height: typeof height === 'number' ? `${height}px` : height,
-      ...(variant === 'circle' && !height && width
-        ? { height: typeof width === 'number' ? `${width}px` : width }
+      width: typeof width === "number" ? `${width}px` : width,
+      height: typeof height === "number" ? `${height}px` : height,
+      ...(variant === "circle" && !height && width
+        ? { height: typeof width === "number" ? `${width}px` : width }
         : {}),
     };
 
-    const variantClass = styles[variant] ?? '';
+    const variantClass = styles[variant] ?? "";
 
-    if (lines > 1 && (variant === 'text' || variant === 'heading')) {
+    if (lines > 1 && (variant === "text" || variant === "heading")) {
       return (
         <div
           ref={ref}
           className={className}
           style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: typeof gap === 'number' ? `${gap}px` : gap,
+            display: "flex",
+            flexDirection: "column",
+            gap: typeof gap === "number" ? `${gap}px` : gap,
           }}
           role="status"
           aria-label="Loading"
@@ -66,7 +63,7 @@ export const Skeleton = forwardRef<HTMLDivElement, SkeletonProps>(
               style={{
                 ...style,
                 // Last line is shorter for a natural paragraph look
-                width: i === lines - 1 ? '60%' : style.width,
+                width: i === lines - 1 ? "60%" : style.width,
               }}
             />
           ))}
@@ -85,7 +82,7 @@ export const Skeleton = forwardRef<HTMLDivElement, SkeletonProps>(
     );
   }
 );
-Skeleton.displayName = 'Skeleton';
+Skeleton.displayName = "Skeleton";
 
 /* ── Skeleton Group (compose a loading card) ── */
 /**
@@ -106,7 +103,7 @@ interface SkeletonGroupProps {
 }
 
 export const SkeletonGroup = forwardRef<HTMLDivElement, SkeletonGroupProps>(
-  ({ children, className = '' }, ref) => {
+  ({ children, className = "" }, ref) => {
     return (
       <div
         ref={ref}
@@ -120,4 +117,4 @@ export const SkeletonGroup = forwardRef<HTMLDivElement, SkeletonGroupProps>(
     );
   }
 );
-SkeletonGroup.displayName = 'SkeletonGroup';
+SkeletonGroup.displayName = "SkeletonGroup";

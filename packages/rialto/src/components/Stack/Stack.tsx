@@ -1,11 +1,11 @@
-import { forwardRef, type HTMLAttributes, type ElementType } from 'react';
-import styles from './Stack.module.css';
+import { forwardRef, type HTMLAttributes, type ElementType } from "react";
+import styles from "./Stack.module.css";
 
 /* ── Types ───────────────────────────────────── */
 
-type StackGap = '2xs' | 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl';
-type StackAlign = 'start' | 'center' | 'end' | 'stretch' | 'baseline';
-type StackJustify = 'start' | 'center' | 'end' | 'between';
+type StackGap = "2xs" | "xs" | "sm" | "md" | "lg" | "xl" | "2xl" | "3xl";
+type StackAlign = "start" | "center" | "end" | "stretch" | "baseline";
+type StackJustify = "start" | "center" | "end" | "between";
 
 /**
  * Flexbox layout primitive for stacking children vertically or horizontally with
@@ -21,7 +21,7 @@ type StackJustify = 'start' | 'center' | 'end' | 'between';
  */
 export interface StackProps extends HTMLAttributes<HTMLElement> {
   /** Stack direction */
-  direction?: 'column' | 'row';
+  direction?: "column" | "row";
   /** Gap between children — maps to --rialto-space-* tokens */
   gap?: StackGap;
   /** Cross-axis alignment */
@@ -37,29 +37,29 @@ export interface StackProps extends HTMLAttributes<HTMLElement> {
 /* ── Class maps ──────────────────────────────── */
 
 const gapClass: Record<StackGap, string> = {
-  '2xs': 'gap2xs',
-  xs: 'gapXs',
-  sm: 'gapSm',
-  md: 'gapMd',
-  lg: 'gapLg',
-  xl: 'gapXl',
-  '2xl': 'gap2xl',
-  '3xl': 'gap3xl',
+  "2xs": "gap2xs",
+  xs: "gapXs",
+  sm: "gapSm",
+  md: "gapMd",
+  lg: "gapLg",
+  xl: "gapXl",
+  "2xl": "gap2xl",
+  "3xl": "gap3xl",
 };
 
 const alignClass: Record<StackAlign, string> = {
-  start: 'alignStart',
-  center: 'alignCenter',
-  end: 'alignEnd',
-  stretch: 'alignStretch',
-  baseline: 'alignBaseline',
+  start: "alignStart",
+  center: "alignCenter",
+  end: "alignEnd",
+  stretch: "alignStretch",
+  baseline: "alignBaseline",
 };
 
 const justifyClass: Record<StackJustify, string> = {
-  start: 'justifyStart',
-  center: 'justifyCenter',
-  end: 'justifyEnd',
-  between: 'justifyBetween',
+  start: "justifyStart",
+  center: "justifyCenter",
+  end: "justifyEnd",
+  between: "justifyBetween",
 };
 
 /* ── Component ──────────────────────────────── */
@@ -67,12 +67,12 @@ const justifyClass: Record<StackJustify, string> = {
 export const Stack = forwardRef<HTMLElement, StackProps>(
   (
     {
-      direction = 'column',
+      direction = "column",
       gap,
       align,
       justify,
       wrap = false,
-      as: Tag = 'div',
+      as: Tag = "div",
       className,
       children,
       ...props
@@ -81,15 +81,15 @@ export const Stack = forwardRef<HTMLElement, StackProps>(
   ) => {
     const classes = [
       styles.stack,
-      direction === 'row' ? styles.row : '',
-      gap ? styles[gapClass[gap]] : '',
-      align ? styles[alignClass[align]] : '',
-      justify ? styles[justifyClass[justify]] : '',
-      wrap ? styles.wrap : '',
+      direction === "row" ? styles.row : "",
+      gap ? styles[gapClass[gap]] : "",
+      align ? styles[alignClass[align]] : "",
+      justify ? styles[justifyClass[justify]] : "",
+      wrap ? styles.wrap : "",
       className,
     ]
       .filter(Boolean)
-      .join(' ');
+      .join(" ");
 
     return (
       <Tag ref={ref} className={classes} {...props}>
@@ -99,4 +99,4 @@ export const Stack = forwardRef<HTMLElement, StackProps>(
   }
 );
 
-Stack.displayName = 'Stack';
+Stack.displayName = "Stack";

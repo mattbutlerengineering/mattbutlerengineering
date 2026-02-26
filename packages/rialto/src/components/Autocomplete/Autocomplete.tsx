@@ -6,10 +6,10 @@ import {
   useId,
   useEffect,
   type InputHTMLAttributes,
-} from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { precision } from '../../tokens/motion';
-import styles from './Autocomplete.module.css';
+} from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { precision } from "../../tokens/motion";
+import styles from "./Autocomplete.module.css";
 
 export interface AutocompleteOption {
   value: string;
@@ -18,7 +18,7 @@ export interface AutocompleteOption {
 
 export interface AutocompleteProps extends Omit<
   InputHTMLAttributes<HTMLInputElement>,
-  'size' | 'onChange' | 'onSelect'
+  "size" | "onChange" | "onSelect"
 > {
   label?: string;
   hint?: string;
@@ -40,7 +40,7 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
       value: controlledValue,
       onChange,
       onSelect,
-      emptyText = 'No results',
+      emptyText = "No results",
       showOptional,
       className,
       id,
@@ -55,7 +55,7 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
     const listboxId = `${inputId}-listbox`;
     const shouldReduceMotion = useReducedMotion();
 
-    const [internalValue, setInternalValue] = useState('');
+    const [internalValue, setInternalValue] = useState("");
     const inputValue = controlledValue ?? internalValue;
 
     const [isOpen, setIsOpen] = useState(false);
@@ -98,7 +98,7 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
 
     const handleKeyDown = useCallback(
       (e: React.KeyboardEvent) => {
-        if (!isOpen && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+        if (!isOpen && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
           e.preventDefault();
           setIsOpen(true);
           return;
@@ -107,21 +107,21 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
         if (!isOpen) return;
 
         switch (e.key) {
-          case 'ArrowDown':
+          case "ArrowDown":
             e.preventDefault();
             setActiveIndex((i) => (i < filtered.length - 1 ? i + 1 : 0));
             break;
-          case 'ArrowUp':
+          case "ArrowUp":
             e.preventDefault();
             setActiveIndex((i) => (i > 0 ? i - 1 : filtered.length - 1));
             break;
-          case 'Enter':
+          case "Enter":
             e.preventDefault();
             if (activeIndex >= 0 && filtered[activeIndex]) {
               handleSelect(filtered[activeIndex]);
             }
             break;
-          case 'Escape':
+          case "Escape":
             e.preventDefault();
             setIsOpen(false);
             setActiveIndex(-1);
@@ -134,42 +134,31 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
     // Close on outside click
     useEffect(() => {
       function handleClick(e: MouseEvent) {
-        if (
-          wrapperRef.current &&
-          !wrapperRef.current.contains(e.target as Node)
-        ) {
+        if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
           setIsOpen(false);
           setActiveIndex(-1);
         }
       }
-      document.addEventListener('mousedown', handleClick);
-      return () => document.removeEventListener('mousedown', handleClick);
+      document.addEventListener("mousedown", handleClick);
+      return () => document.removeEventListener("mousedown", handleClick);
     }, []);
 
     // Scroll active option into view
     useEffect(() => {
       if (activeIndex < 0) return;
-      const activeEl = wrapperRef.current?.querySelector(
-        `[data-option-index="${activeIndex}"]`
-      );
-      activeEl?.scrollIntoView({ block: 'nearest' });
+      const activeEl = wrapperRef.current?.querySelector(`[data-option-index="${activeIndex}"]`);
+      activeEl?.scrollIntoView({ block: "nearest" });
     }, [activeIndex]);
 
-    const activeOptionId =
-      activeIndex >= 0 ? `${inputId}-option-${activeIndex}` : undefined;
+    const activeOptionId = activeIndex >= 0 ? `${inputId}-option-${activeIndex}` : undefined;
 
     return (
-      <div
-        ref={wrapperRef}
-        className={[styles.wrapper, className].filter(Boolean).join(' ')}
-      >
+      <div ref={wrapperRef} className={[styles.wrapper, className].filter(Boolean).join(" ")}>
         {label && (
           <label htmlFor={inputId} className={styles.label}>
             {label}
             {required && <span className={styles.required}> *</span>}
-            {showOptional && !required && (
-              <span className={styles.optional}> (optional)</span>
-            )}
+            {showOptional && !required && <span className={styles.optional}> (optional)</span>}
           </label>
         )}
 
@@ -191,7 +180,7 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
           <input
             ref={(node) => {
               inputRef.current = node;
-              if (typeof ref === 'function') ref(node);
+              if (typeof ref === "function") ref(node);
               else if (ref) ref.current = node;
             }}
             id={inputId}
@@ -224,12 +213,7 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
               transition={precision}
             >
               {filtered.length === 0 ? (
-                <li
-                  className={styles.empty}
-                  role="option"
-                  aria-selected={false}
-                  aria-disabled
-                >
+                <li className={styles.empty} role="option" aria-selected={false} aria-disabled>
                   {emptyText}
                 </li>
               ) : (
@@ -240,12 +224,9 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
                     role="option"
                     aria-selected={activeIndex === index}
                     data-option-index={index}
-                    className={[
-                      styles.option,
-                      activeIndex === index && styles.optionActive,
-                    ]
+                    className={[styles.option, activeIndex === index && styles.optionActive]
                       .filter(Boolean)
-                      .join(' ')}
+                      .join(" ")}
                     onMouseDown={(e) => {
                       e.preventDefault(); // keep focus on input
                       handleSelect(option);
@@ -266,4 +247,4 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
   }
 );
 
-Autocomplete.displayName = 'Autocomplete';
+Autocomplete.displayName = "Autocomplete";

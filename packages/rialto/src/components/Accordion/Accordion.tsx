@@ -1,6 +1,6 @@
-import { forwardRef, useState, type ReactNode } from 'react';
-import { Collapsible } from '../Collapsible/Collapsible';
-import styles from './Accordion.module.css';
+import { forwardRef, useState, type ReactNode } from "react";
+import { Collapsible } from "../Collapsible/Collapsible";
+import styles from "./Accordion.module.css";
 
 /* ── Types ───────────────────────────────────── */
 /**
@@ -61,10 +61,7 @@ export const Accordion = forwardRef<HTMLDivElement, AccordionProps>(
     };
 
     return (
-      <div
-        ref={ref}
-        className={[styles.accordion, className].filter(Boolean).join(' ')}
-      >
+      <div ref={ref} className={[styles.accordion, className].filter(Boolean).join(" ")}>
         {items.map((item) => (
           <Collapsible
             key={item.id}
@@ -82,4 +79,4 @@ export const Accordion = forwardRef<HTMLDivElement, AccordionProps>(
   }
 );
 
-Accordion.displayName = 'Accordion';
+Accordion.displayName = "Accordion";

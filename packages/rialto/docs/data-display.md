@@ -185,8 +185,8 @@ Structured data in rows and columns.
 ```tsx
 <Table
   columns={[
-    { key: 'name', header: 'Name', sortable: true },
-    { key: 'email', header: 'Email' },
+    { key: "name", header: "Name", sortable: true },
+    { key: "email", header: "Email" },
   ]}
   data={users}
   rowKey={(u) => u.id}
@@ -592,8 +592,8 @@ Key-value pairs display.
 ```tsx
 <DataList
   items={[
-    { label: 'Engine', value: 'V8 Twin-Turbo' },
-    { label: 'Power', value: '1,200 PS' },
+    { label: "Engine", value: "V8 Twin-Turbo" },
+    { label: "Power", value: "1,200 PS" },
   ]}
 />
 ```
@@ -713,7 +713,7 @@ interface TimelineItem {
   title: string;
   description?: string;
   timestamp?: string;
-  variant?: 'default' | 'accent' | 'success' | 'error';
+  variant?: "default" | "accent" | "success" | "error";
 }
 ```
 
@@ -769,9 +769,9 @@ interface TimelineItem {
 ```tsx
 <Timeline
   items={[
-    { title: 'Started', timestamp: '9:00 AM' },
-    { title: 'In Progress', timestamp: '9:30 AM', variant: 'accent' },
-    { title: 'Completed', timestamp: '10:00 AM', variant: 'success' },
+    { title: "Started", timestamp: "9:00 AM" },
+    { title: "In Progress", timestamp: "9:30 AM", variant: "accent" },
+    { title: "Completed", timestamp: "10:00 AM", variant: "success" },
   ]}
 />
 ```

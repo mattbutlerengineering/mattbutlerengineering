@@ -61,7 +61,7 @@
   flex-shrink: 0;
 }
 
-[dir='rtl'] .separator svg {
+[dir="rtl"] .separator svg {
   transform: scaleX(-1);
 }
 

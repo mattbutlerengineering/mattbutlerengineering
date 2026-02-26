@@ -227,11 +227,7 @@ Expand/collapse container.
 ### Example {#collapsible-example}
 
 ```tsx
-<Collapsible
-  open={isOpen}
-  onOpenChange={setOpen}
-  label={<Button>Toggle content</Button>}
->
+<Collapsible open={isOpen} onOpenChange={setOpen} label={<Button>Toggle content</Button>}>
   <p>Hidden content here</p>
 </Collapsible>
 ```
@@ -322,8 +318,8 @@ interface AccordionItem {
 ```tsx
 <Accordion
   items={[
-    { id: 'faq1', title: 'What is this?', content: <p>Answer...</p> },
-    { id: 'faq2', title: 'How do I use it?', content: <p>Answer...</p> },
+    { id: "faq1", title: "What is this?", content: <p>Answer...</p> },
+    { id: "faq2", title: "How do I use it?", content: <p>Answer...</p> },
   ]}
 />
 ```
@@ -730,7 +726,7 @@ Dark header band with breadcrumbs, title, and action buttons.
 
 ```tsx
 <PageHeader
-  breadcrumbs={[{ label: 'Home', href: '/' }, { label: 'Settings' }]}
+  breadcrumbs={[{ label: "Home", href: "/" }, { label: "Settings" }]}
   title="Account Settings"
   meta={<Badge variant="accent">Pro</Badge>}
   actions={<Button size="sm">Save changes</Button>}
