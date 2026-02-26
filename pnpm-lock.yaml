@@ -281,6 +281,9 @@ importers:
 
   packages/rialto:
     devDependencies:
+      '@mbe/config':
+        specifier: workspace:*
+        version: link:../config
       '@testing-library/jest-dom':
         specifier: ^6.9.1
         version: 6.9.1
