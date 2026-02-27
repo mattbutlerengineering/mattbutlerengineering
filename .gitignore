@@ -37,6 +37,9 @@ coverage/
 # Docker
 .docker/
 
+# Git worktrees
+.worktrees/
+
 # Misc
 *.tsbuildinfo
 
