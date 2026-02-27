@@ -1,0 +1,188 @@
+import { resolve } from "node:path";
+import {
+  runSession,
+  DEFAULT_SESSION_CONFIG,
+  type SessionConfig,
+  type SessionEvent,
+} from "@mbe/agent-core";
+import type { AgentSession } from "@mbe/types";
+import { sessionService } from "./session.js";
+
+/** Map of session ID → AbortController for cancellation support. */
+const activeControllers = new Map<string, AbortController>();
+
+const MAX_CONCURRENT = parseInt(process.env.MAX_CONCURRENT_SESSIONS ?? "5", 10);
+
+// ── Event enrichment helpers ──────────────────────────────────────────
+
+function truncate(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text;
+  return text.slice(0, maxLen - 1) + "…";
+}
+
+function extractText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .filter((block: Record<string, unknown>) => block.type === "text" && typeof block.text === "string")
+    .map((block: Record<string, unknown>) => block.text as string)
+    .join("\n");
+}
+
+function summarizeToolInput(input: unknown): Record<string, unknown> {
+  if (!input || typeof input !== "object") return {};
+  const obj = input as Record<string, unknown>;
+  const summary: Record<string, unknown> = {};
+
+  // File operations: capture file_path
+  if (typeof obj.file_path === "string") {
+    summary.file_path = obj.file_path;
+  }
+
+  // Bash: capture command (truncated)
+  if (typeof obj.command === "string") {
+    summary.command = truncate(obj.command, 200);
+  }
+
+  // Glob/Grep: capture pattern
+  if (typeof obj.pattern === "string") {
+    summary.pattern = obj.pattern;
+  }
+
+  // Grep: capture path
+  if (typeof obj.path === "string" && !("file_path" in summary)) {
+    summary.path = obj.path;
+  }
+
+  return summary;
+}
+
+// ── Core functions ────────────────────────────────────────────────────
+
+function getRepoPath(): string {
+  return resolve(process.env.REPO_PATH ?? process.cwd());
+}
+
+export function getActiveSessionCount(): number {
+  return activeControllers.size;
+}
+
+export async function executeSession(session: AgentSession): Promise<void> {
+  if (activeControllers.size >= MAX_CONCURRENT) {
+    await sessionService.updateStatus(session.id, "FAILED", {
+      errors: [`Max concurrent sessions (${MAX_CONCURRENT}) reached`],
+    });
+    return;
+  }
+
+  const controller = new AbortController();
+  activeControllers.set(session.id, controller);
+
+  try {
+    await sessionService.updateStatus(session.id, "RUNNING");
+    await sessionService.addEvent(session.id, "session:start", {
+      message: "Session execution started",
+    });
+
+    const config: SessionConfig = {
+      taskDescription: session.taskDescription,
+      repoPath: getRepoPath(),
+      baseBranch: session.baseBranch,
+      model: session.model,
+      maxTurns: session.maxTurns,
+      maxBudgetUsd: session.maxBudgetUsd,
+      allowedTools: [...DEFAULT_SESSION_CONFIG.allowedTools],
+      createPr: session.maxBudgetUsd > 0, // respect the session config
+    };
+
+    const onEvent = async (event: SessionEvent) => {
+      try {
+        let eventType = event.type;
+        let eventData: Record<string, unknown>;
+
+        if ("message" in event.data) {
+          eventData = { message: (event.data as { message: string }).message };
+        } else {
+          const sdkMsg = event.data as Record<string, unknown>;
+          eventData = {
+            messageType: (sdkMsg.type as string) ?? "unknown",
+          };
+
+          // Capture tool use details
+          if (event.type === "session:tool_use" && sdkMsg.tool_name) {
+            eventData.toolName = sdkMsg.tool_name;
+            eventData.toolInput = summarizeToolInput(sdkMsg.input);
+          }
+
+          // Capture assistant text preview
+          if (sdkMsg.type === "assistant" && sdkMsg.content) {
+            eventType = "session:assistant";
+            eventData.textPreview = truncate(extractText(sdkMsg.content), 200);
+          }
+        }
+
+        await sessionService.addEvent(session.id, eventType, eventData);
+      } catch {
+        // Event logging is best-effort
+      }
+    };
+
+    const result = await runSession(config, onEvent);
+
+    const finalStatus = result.status === "succeeded" ? "SUCCEEDED" : "FAILED";
+
+    await sessionService.updateStatus(session.id, finalStatus, {
+      branchName: result.branchName,
+      prUrl: result.prUrl ?? undefined,
+      resultText: result.resultText,
+      costUsd: result.costUsd,
+      inputTokens: result.tokenUsage.inputTokens,
+      outputTokens: result.tokenUsage.outputTokens,
+      numTurns: result.numTurns,
+      durationMs: result.durationMs,
+      errors: [...result.errors],
+      sdkSessionId: result.sessionId,
+    });
+
+    await sessionService.addEvent(session.id, "session:complete", {
+      status: finalStatus,
+      costUsd: result.costUsd,
+      prUrl: result.prUrl,
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    await sessionService.updateStatus(session.id, "FAILED", {
+      errors: [errorMessage],
+    });
+
+    await sessionService.addEvent(session.id, "session:error", {
+      message: errorMessage,
+    });
+  } finally {
+    activeControllers.delete(session.id);
+  }
+}
+
+export async function cancelSession(sessionId: string): Promise<boolean> {
+  const controller = activeControllers.get(sessionId);
+  if (!controller) {
+    return false;
+  }
+
+  controller.abort();
+  activeControllers.delete(sessionId);
+
+  await sessionService.updateStatus(sessionId, "CANCELLED", {
+    errors: ["Cancelled by user"],
+  });
+
+  await sessionService.addEvent(sessionId, "session:cancelled", {
+    message: "Session cancelled by user",
+  });
+
+  return true;
+}
+
+// Exported for testing
+export const _testHelpers = { truncate, extractText, summarizeToolInput };

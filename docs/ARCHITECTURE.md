@@ -121,6 +121,14 @@ flowchart TB
 | Service | Technology | Path | Description |
 |---------|------------|------|-------------|
 | `users-api` | Fastify + Prisma | `/api` | User management API |
+| `agent` | Fastify + Prisma | `:3003` | Agent session API (sessions, orchestration, webhooks) |
+
+### Developer Tooling
+
+| Package | Technology | Description |
+|---------|------------|-------------|
+| `@mbe/agent-core` | Claude Agent SDK | Agentic workflow engine — worktrees, sessions, PR creation |
+| `@mbe/cli` | Commander.js | CLI (`mbe agent run`, `mbe users`, etc.) |
 
 ### Infrastructure
 
@@ -138,13 +146,19 @@ flowchart TB
 mattbutlerengineering/
 ├── apps/
 │   ├── web/              # Public website
-│   └── dashboard/        # Authenticated dashboard
+│   ├── dashboard/        # Authenticated dashboard
+│   └── rialto-web/       # Design system showcase
 ├── services/
-│   └── users/            # Users API (Fastify)
+│   ├── users/            # Users API (Fastify)
+│   └── agent/            # Agent session API (Fastify)
 ├── packages/
+│   ├── agent-core/       # Agentic workflow engine
+│   ├── rialto/           # Design system (React components)
 │   ├── types/            # Shared TypeScript types
 │   ├── auth/             # Auth utilities (React + Fastify)
 │   └── config/           # Shared ESLint/TypeScript config
+├── tools/
+│   └── cli/              # CLI tool (mbe)
 └── infrastructure/
     └── pulumi/           # IaC definitions
 ```
@@ -173,6 +187,145 @@ sequenceDiagram
     API->>Dashboard: Return user data
     Dashboard->>User: Show dashboard
 ```
+
+## Agentic Workflows
+
+An autonomous coding agent system that accepts tasks, executes them in isolated git worktrees via the Claude Agent SDK, and delivers pull requests.
+
+### Architecture Layers
+
+```mermaid
+flowchart TB
+    subgraph Clients["Phase 4 — Client Integrations ✅"]
+        CLI["CLI<br/><code>mbe agent run/start/orchestrate</code>"]
+        GH["GitHub Webhooks<br/>Issues / PR comments"]
+        GHA["GitHub Action<br/>workflow_dispatch"]
+        CI["CI/CD Auto-Retry<br/>agent/ branch failures"]
+    end
+
+    subgraph Orchestrator["Phase 3 — Orchestrator ✅"]
+        Decomposer["Task Decomposer<br/>Breaks big tasks into sub-tasks"]
+        Coordinator["Coordinator Agent<br/>MCP tools → Session API"]
+    end
+
+    subgraph SessionAPI["Phase 2 — Session API ✅"]
+        API["Fastify REST API<br/>:3003"]
+        DB[(PostgreSQL<br/>Sessions + Events)]
+        SSE["SSE Stream<br/>Real-time events"]
+    end
+
+    subgraph Core["Phase 1 — @mbe/agent-core ✅"]
+        Runner["Session Runner<br/>SDK query() orchestration"]
+        Worktree["Worktree Manager<br/>Git isolation per session"]
+        Permissions["Tool Permissions<br/>Security boundary"]
+        PR["PR Creator<br/>gh CLI + zod validation"]
+        Cost["Cost Tracker<br/>Budget enforcement"]
+    end
+
+    subgraph SDK["Claude Agent SDK"]
+        Query["query()<br/>Async generator"]
+        Tools["Built-in Tools<br/>Read, Write, Edit, Bash, Glob, Grep"]
+    end
+
+    CLI --> Runner
+    GH --> API
+    GHA --> API
+    CI --> API
+
+    Decomposer --> Coordinator
+    Coordinator --> API
+
+    API --> Runner
+    API --> DB
+    API --> SSE
+
+    Runner --> Query
+    Runner --> Worktree
+    Runner --> Permissions
+    Runner --> PR
+    Runner --> Cost
+
+    Query --> Tools
+
+    style Core fill:#22c55e,color:#000
+    style SessionAPI fill:#3b82f6,color:#fff
+    style Orchestrator fill:#a855f7,color:#fff
+    style Clients fill:#f59e0b,color:#000
+    style SDK fill:#6b7280,color:#fff
+```
+
+### Session Lifecycle
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant CLI as mbe CLI
+    participant Core as @mbe/agent-core
+    participant Git as Git Worktree
+    participant SDK as Claude Agent SDK
+    participant GH as GitHub
+
+    User->>CLI: mbe agent run "Fix the bug"
+    CLI->>Core: runSession(config)
+    Core->>Git: Create worktree + branch
+    Git-->>Core: agent/fix-the-bug-a1b2c3
+
+    Core->>SDK: query(task, options)
+    loop Agent turns
+        SDK->>SDK: Read files, edit code, run tests
+        SDK-->>Core: Stream SDKMessage events
+    end
+    SDK-->>Core: SDKResultMessage (success/fail)
+
+    Core->>Git: git add + commit
+    Core->>Git: git push -u origin branch
+    Core->>GH: gh pr create --json
+    GH-->>Core: PR URL + number
+
+    Core->>Git: Remove worktree (cleanup)
+    Core-->>CLI: SessionResult
+    CLI-->>User: Status, PR URL, cost, tokens
+```
+
+### Security Model
+
+```mermaid
+flowchart LR
+    subgraph Allowed["✅ Allowed"]
+        Read["Read"]
+        Write["Write<br/>(worktree only)"]
+        Edit["Edit<br/>(worktree only)"]
+        Bash["Bash<br/>(safe commands)"]
+        Glob["Glob"]
+        Grep["Grep"]
+    end
+
+    subgraph Blocked["🚫 Blocked"]
+        Web["WebSearch / WebFetch"]
+        Ask["AskUserQuestion"]
+        Push["git push<br/>(orchestrator handles)"]
+        Sudo["sudo / rm -rf"]
+        Publish["npm/pnpm publish"]
+        Escape["Path traversal<br/>(../ resolved)"]
+    end
+
+    Agent["Agent Session"] --> Allowed
+    Agent -.-x Blocked
+
+    style Allowed fill:#dcfce7,color:#000
+    style Blocked fill:#fecaca,color:#000
+```
+
+### Implementation Status
+
+| Phase | Description | Status |
+|-------|-------------|--------|
+| **Phase 1** | `@mbe/agent-core` + CLI (`mbe agent run`) | ✅ Complete (84 tests) |
+| **Phase 2** | Session API (Fastify + Prisma + SSE) | ✅ Complete (29 tests) |
+| **Phase 3** | Orchestrator (task decomposition, parallel sessions) | ✅ Complete |
+| **Phase 4** | GitHub webhooks, GitHub Action, CI auto-retry | ✅ Complete |
+
+See [`docs/plans/2026-02-27-agentic-workflows.md`](plans/2026-02-27-agentic-workflows.md) for the full implementation plan.
 
 ## URLs
 

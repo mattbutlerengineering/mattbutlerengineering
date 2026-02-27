@@ -1,0 +1,99 @@
+name: Agent Task
+
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: "Task description for the coding agent"
+        required: true
+        type: string
+      model:
+        description: "Claude model to use"
+        required: false
+        default: "claude-sonnet-4-6"
+        type: choice
+        options:
+          - claude-sonnet-4-6
+          - claude-haiku-4-5
+          - claude-opus-4-6
+      max_budget:
+        description: "Maximum budget in USD"
+        required: false
+        default: "1.00"
+        type: string
+      orchestrate:
+        description: "Use orchestrator for task decomposition"
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  run-agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Create agent session
+        id: create
+        env:
+          AGENT_API_URL: ${{ secrets.AGENT_API_URL }}
+          INPUT_TASK: ${{ inputs.task }}
+          INPUT_MODEL: ${{ inputs.model }}
+          INPUT_MAX_BUDGET: ${{ inputs.max_budget }}
+          INPUT_ORCHESTRATE: ${{ inputs.orchestrate }}
+        run: |
+          if [ "$INPUT_ORCHESTRATE" = "true" ]; then
+            ENDPOINT="/v1/orchestrate"
+            PAYLOAD=$(jq -n \
+              --arg task "$INPUT_TASK" \
+              --arg model "$INPUT_MODEL" \
+              --argjson budget "$INPUT_MAX_BUDGET" \
+              '{taskDescription: $task, model: $model, maxBudgetPerSession: $budget}')
+          else
+            ENDPOINT="/v1/sessions"
+            PAYLOAD=$(jq -n \
+              --arg task "$INPUT_TASK" \
+              --arg model "$INPUT_MODEL" \
+              --argjson budget "$INPUT_MAX_BUDGET" \
+              '{taskDescription: $task, model: $model, maxBudgetUsd: $budget}')
+          fi
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            -X POST "${AGENT_API_URL}${ENDPOINT}" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "HTTP Status: $HTTP_CODE"
+          echo "$BODY" | jq .
+
+          if [ "$HTTP_CODE" -ge 400 ]; then
+            echo "::error::Agent API returned HTTP $HTTP_CODE"
+            exit 1
+          fi
+
+          if [ "$INPUT_ORCHESTRATE" = "true" ]; then
+            SESSION_ID=$(echo "$BODY" | jq -r '.data.parentSessionId')
+          else
+            SESSION_ID=$(echo "$BODY" | jq -r '.data.id')
+          fi
+
+          echo "session_id=$SESSION_ID" >> "$GITHUB_OUTPUT"
+          echo "::notice::Agent session created: $SESSION_ID"
+
+      - name: Summary
+        env:
+          INPUT_TASK: ${{ inputs.task }}
+          INPUT_MODEL: ${{ inputs.model }}
+          INPUT_MAX_BUDGET: ${{ inputs.max_budget }}
+          INPUT_ORCHESTRATE: ${{ inputs.orchestrate }}
+        run: |
+          {
+            echo "## Agent Task"
+            echo ""
+            echo "- **Task**: $INPUT_TASK"
+            echo "- **Model**: $INPUT_MODEL"
+            echo "- **Budget**: \$$INPUT_MAX_BUDGET"
+            echo "- **Orchestrate**: $INPUT_ORCHESTRATE"
+          } >> "$GITHUB_STEP_SUMMARY"

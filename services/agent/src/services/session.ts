@@ -1,0 +1,200 @@
+import type { Prisma, Session, SessionEvent, SessionStatus } from "@prisma/client";
+import type { AgentSession, AgentSessionEvent, Pagination } from "@mbe/types";
+import { prisma } from "./database.js";
+
+function mapPrismaSession(session: Session): AgentSession {
+  return {
+    id: session.id,
+    status: session.status.toLowerCase() as AgentSession["status"],
+    taskDescription: session.taskDescription,
+    branchName: session.branchName,
+    baseBranch: session.baseBranch,
+    model: session.model,
+    maxTurns: session.maxTurns,
+    maxBudgetUsd: session.maxBudgetUsd,
+    prUrl: session.prUrl,
+    prNumber: session.prNumber,
+    resultText: session.resultText,
+    costUsd: session.costUsd,
+    inputTokens: session.inputTokens,
+    outputTokens: session.outputTokens,
+    numTurns: session.numTurns,
+    durationMs: session.durationMs,
+    parentId: session.parentId,
+    errors: (session.errors as string[]) ?? [],
+    startedAt: session.startedAt?.toISOString() ?? null,
+    completedAt: session.completedAt?.toISOString() ?? null,
+    createdAt: session.createdAt.toISOString(),
+    updatedAt: session.updatedAt.toISOString(),
+  };
+}
+
+function mapPrismaEvent(event: SessionEvent): AgentSessionEvent {
+  return {
+    id: event.id,
+    sessionId: event.sessionId,
+    type: event.type,
+    data: (event.data as Record<string, unknown>) ?? {},
+    createdAt: event.createdAt.toISOString(),
+  };
+}
+
+interface ListOptions {
+  readonly page: number;
+  readonly limit: number;
+  readonly status?: SessionStatus;
+}
+
+export const sessionService = {
+  async list(
+    options: ListOptions
+  ): Promise<{ data: AgentSession[]; pagination: Pagination }> {
+    const { page, limit, status } = options;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.SessionWhereInput = status ? { status } : {};
+
+    const [sessions, total] = await Promise.all([
+      prisma.session.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.session.count({ where }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data: sessions.map(mapPrismaSession),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1,
+      },
+    };
+  },
+
+  async getById(id: string): Promise<AgentSession | null> {
+    const session = await prisma.session.findUnique({ where: { id } });
+    return session ? mapPrismaSession(session) : null;
+  },
+
+  async create(data: {
+    taskDescription: string;
+    model?: string;
+    maxTurns?: number;
+    maxBudgetUsd?: number;
+    baseBranch?: string;
+    createPr?: boolean;
+    parentId?: string;
+  }): Promise<AgentSession> {
+    const session = await prisma.session.create({
+      data: {
+        taskDescription: data.taskDescription,
+        ...(data.model !== undefined && { model: data.model }),
+        ...(data.maxTurns !== undefined && { maxTurns: data.maxTurns }),
+        ...(data.maxBudgetUsd !== undefined && { maxBudgetUsd: data.maxBudgetUsd }),
+        ...(data.baseBranch !== undefined && { baseBranch: data.baseBranch }),
+        ...(data.createPr !== undefined && { createPr: data.createPr }),
+        ...(data.parentId !== undefined && { parentId: data.parentId }),
+      },
+    });
+    return mapPrismaSession(session);
+  },
+
+  async updateStatus(
+    id: string,
+    status: SessionStatus,
+    result?: {
+      branchName?: string;
+      prUrl?: string;
+      prNumber?: number;
+      resultText?: string;
+      costUsd?: number;
+      inputTokens?: number;
+      outputTokens?: number;
+      numTurns?: number;
+      durationMs?: number;
+      errors?: string[];
+      sdkSessionId?: string;
+    }
+  ): Promise<AgentSession | null> {
+    try {
+      const now = new Date();
+      const session = await prisma.session.update({
+        where: { id },
+        data: {
+          status,
+          ...(status === "RUNNING" && { startedAt: now }),
+          ...(["SUCCEEDED", "FAILED", "CANCELLED"].includes(status) && {
+            completedAt: now,
+          }),
+          ...(result?.branchName !== undefined && { branchName: result.branchName }),
+          ...(result?.prUrl !== undefined && { prUrl: result.prUrl }),
+          ...(result?.prNumber !== undefined && { prNumber: result.prNumber }),
+          ...(result?.resultText !== undefined && { resultText: result.resultText }),
+          ...(result?.costUsd !== undefined && { costUsd: result.costUsd }),
+          ...(result?.inputTokens !== undefined && { inputTokens: result.inputTokens }),
+          ...(result?.outputTokens !== undefined && { outputTokens: result.outputTokens }),
+          ...(result?.numTurns !== undefined && { numTurns: result.numTurns }),
+          ...(result?.durationMs !== undefined && { durationMs: result.durationMs }),
+          ...(result?.errors !== undefined && { errors: result.errors }),
+          ...(result?.sdkSessionId !== undefined && { sdkSessionId: result.sdkSessionId }),
+        },
+      });
+      return mapPrismaSession(session);
+    } catch {
+      return null;
+    }
+  },
+
+  async delete(id: string): Promise<boolean> {
+    try {
+      await prisma.session.delete({ where: { id } });
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  async addEvent(
+    sessionId: string,
+    type: string,
+    data: Record<string, unknown> = {}
+  ): Promise<AgentSessionEvent> {
+    const event = await prisma.sessionEvent.create({
+      data: { sessionId, type, data: data as Prisma.InputJsonValue },
+    });
+    return mapPrismaEvent(event);
+  },
+
+  async listEvents(
+    sessionId: string,
+    afterId?: string
+  ): Promise<AgentSessionEvent[]> {
+    const where: Prisma.SessionEventWhereInput = { sessionId };
+
+    if (afterId) {
+      const cursor = await prisma.sessionEvent.findUnique({
+        where: { id: afterId },
+        select: { createdAt: true },
+      });
+      if (cursor) {
+        where.createdAt = { gt: cursor.createdAt };
+      }
+    }
+
+    const events = await prisma.sessionEvent.findMany({
+      where,
+      orderBy: { createdAt: "asc" },
+      take: 100,
+    });
+
+    return events.map(mapPrismaEvent);
+  },
+};

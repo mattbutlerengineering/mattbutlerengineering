@@ -57,9 +57,11 @@ pnpm clean
 ```
 
 ### Service-Specific Commands
-Navigate to specific service directories first:
+
+Both backend services (`services/users` and `services/agent`) share the same command structure:
+
 ```bash
-cd services/users
+cd services/users   # or: cd services/agent
 
 # Development (with hot reload)
 pnpm dev
@@ -87,10 +89,30 @@ pnpm typecheck              # TypeScript type checking
 
 ### Running Single Tests
 ```bash
-# In services/users directory
+# In any service directory
 npx vitest run src/routes/users.test.ts           # Run specific test file
 npx vitest run --reporter=verbose src/routes/     # Run with detailed output
 npx vitest --grep "GET /api/v1/users"             # Run tests matching pattern
+```
+
+### CLI Commands (`mbe`)
+```bash
+# Agent — local (runs directly via @mbe/agent-core)
+mbe agent run "Fix the login bug"                 # Run agent → get PR
+  --model <model>                                 # default: claude-sonnet-4-6
+  --max-budget <usd>                              # default: 1.00
+  --max-turns <n>                                 # default: 50
+  --no-pr                                         # skip PR, keep worktree
+  -v, --verbose                                   # stream agent events
+
+# Agent — API-backed (requires agent service running on :3003)
+mbe agent start "Fix the login bug"               # Create session via API
+mbe agent list                                    # List all sessions
+mbe agent status <id>                             # Get session details
+mbe agent logs <id>                               # Stream SSE events
+mbe agent cancel <id>                             # Cancel running session
+mbe agent delete <id>                             # Delete session + cleanup
+mbe agent orchestrate "Big task"                  # Decompose → parallel sessions → PRs
 ```
 
 ### Rialto Design System
@@ -132,13 +154,17 @@ mattbutlerengineering/
 │   ├── dashboard/          # Authenticated dashboard (React + Vite)
 │   └── rialto-web/         # Design system showcase (React + Vite)
 ├── services/                # Backend services
-│   └── users/              # Users API (Fastify + Prisma)
+│   ├── users/              # Users API (Fastify + Prisma) — port 3001
+│   └── agent/              # Agent Session API (Fastify + Prisma) — port 3003
 ├── packages/               # Shared packages
+│   ├── agent-core/        # Agent session runner, worktree mgmt, tool permissions
 │   ├── rialto/            # Rialto design system (React component library)
-│   ├── types/             # Shared TypeScript types
+│   ├── types/             # Shared TypeScript types (incl. agent types)
 │   ├── auth/              # Auth utilities (React + Fastify)
 │   ├── ui/                # Shared UI components (being replaced by rialto)
 │   └── config/            # ESLint/TypeScript/Prettier configs
+├── tools/                   # Developer tooling
+│   └── cli/               # `mbe` CLI (users, auth, agent commands)
 └── infrastructure/         # Infrastructure as Code
     └── pulumi/            # Pulumi (TypeScript)
 ```
@@ -339,15 +365,23 @@ response: {
 
 ## Environment Variables
 
-### Service Configuration
+### Users Service (`services/users`)
 - **PORT**: Service port (default: 3001)
 - **LOG_LEVEL**: Logging level (default: "info")
 - **CORS_ORIGIN**: CORS origin configuration
 - **AUTH_AUTHORITY**: Auth0 authority URL
 - **AUTH_AUDIENCE**: Auth0 API identifier
-
-### Database
 - **DATABASE_URL**: Prisma database connection string
+
+### Agent Service (`services/agent`)
+- **PORT**: Service port (default: 3003)
+- **LOG_LEVEL**: Logging level (default: "info")
+- **DATABASE_URL**: Prisma database connection string (separate DB from users)
+- **ANTHROPIC_API_KEY**: Claude API key (required for agent sessions)
+- **DEFAULT_MODEL**: Default Claude model (default: "claude-sonnet-4-6")
+- **MAX_CONCURRENT_SESSIONS**: Rate limit (default: 5)
+- **GITHUB_WEBHOOK_SECRET**: HMAC secret for GitHub webhook signature verification
+- **AGENT_API_URL**: Base URL for agent API (used by CLI, default: "http://localhost:3003")
 
 ## Database Migrations
 
@@ -370,7 +404,7 @@ Use Prisma Migrate for database schema changes. See `.claude/skills/prisma-migra
 ### Creating Migrations
 
 ```bash
-cd services/users
+cd services/users   # or: cd services/agent
 
 # Make changes to schema.prisma, then:
 npx prisma migrate dev --name add_feature_name
@@ -388,13 +422,17 @@ npx prisma migrate deploy
 ## Local Development Workflow
 
 1. **Start database**: `cd infrastructure && docker compose up postgres -d`
-2. **Apply schema**: `cd services/users && pnpm db:migrate` (or `pnpm db:push` for quick prototyping)
+2. **Apply schemas**:
+   - `cd services/users && pnpm db:migrate` (or `pnpm db:push` for quick prototyping)
+   - `cd services/agent && pnpm db:migrate` (or `pnpm db:push`)
 3. **Start dev servers**: `pnpm dev`
 4. **Access points**:
    - Web: http://localhost:3000
    - Dashboard: http://localhost:3002/dashboard
-   - API: http://localhost:3001
-   - API Docs: http://localhost:3001/docs
+   - Users API: http://localhost:3001
+   - Users API Docs: http://localhost:3001/docs
+   - Agent API: http://localhost:3003
+   - Agent API Docs: http://localhost:3003/docs
 
 ## Before Committing
 

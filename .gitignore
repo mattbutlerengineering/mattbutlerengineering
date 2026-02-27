@@ -39,6 +39,7 @@ coverage/
 
 # Git worktrees
 .worktrees/
+.agent-worktrees/
 
 # Misc
 *.tsbuildinfo
@@ -48,6 +49,7 @@ coverage/
 
 # Playwright
 e2e/test-results/
+.playwright-cli/
 
 # Lighthouse CI
 .lighthouseci/

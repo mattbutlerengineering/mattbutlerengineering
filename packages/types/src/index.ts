@@ -68,6 +68,14 @@ export type {
   GuestSegment,
 } from "./guest.js";
 
+// Agent types
+export type {
+  AgentSessionStatus,
+  AgentSession,
+  CreateAgentSessionRequest,
+  AgentSessionEvent,
+} from "./agent.js";
+
 // Floor plan types
 export type {
   FloorPlan,
