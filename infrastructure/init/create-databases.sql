@@ -1,0 +1,2 @@
+CREATE DATABASE mbe_agent;
+GRANT ALL PRIVILEGES ON DATABASE mbe_agent TO mbe;

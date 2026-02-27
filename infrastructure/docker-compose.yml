@@ -7,8 +7,11 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-mbe}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mbe_dev_password}
       POSTGRES_DB: ${POSTGRES_DB:-mbe}
+    ports:
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mbe}"]
       interval: 10s

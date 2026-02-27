@@ -37,7 +37,10 @@ This ensures ideas and tasks don't get lost between sessions.
 
 ### Root Level Commands
 ```bash
-# Start all development servers
+# Start everything (Postgres + schema sync + dev servers)
+pnpm dev:local
+
+# Start all development servers (assumes Postgres is already running)
 pnpm dev
 
 # Build all packages/apps
@@ -421,12 +424,20 @@ npx prisma migrate deploy
 
 ## Local Development Workflow
 
+**Quick start (recommended):**
+```bash
+pnpm dev:local
+```
+Starts Postgres (Docker), syncs all database schemas, and launches all dev servers.
+
+**Manual steps** (if you need more control):
 1. **Start database**: `cd infrastructure && docker compose up postgres -d`
 2. **Apply schemas**:
    - `cd services/users && pnpm db:migrate` (or `pnpm db:push` for quick prototyping)
    - `cd services/agent && pnpm db:migrate` (or `pnpm db:push`)
 3. **Start dev servers**: `pnpm dev`
-4. **Access points**:
+
+**Access points**:
    - Web: http://localhost:3000
    - Dashboard: http://localhost:3002/dashboard
    - Users API: http://localhost:3001
