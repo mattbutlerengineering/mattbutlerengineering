@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
 import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
-import { Sidebar, Footer, type SidebarSection } from "@mbe/rialto";
+import { Footer } from "@mbe/rialto";
+import { ShowcaseSidebar } from "../components/ShowcaseSidebar";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { NAV_SECTIONS, DEMO_PAGES } from "../data/nav-sections";
 import styles from "./ShowcaseLayout.module.css";
@@ -26,59 +26,18 @@ export interface ShowcaseLayoutProps {
   onThemeToggle: () => void;
 }
 
-const SIDEBAR_COLLAPSED_KEY = "rialto-sidebar-collapsed";
-
 /**
  * App shell for the Rialto showcase.
  *
  * Structure:
  * - Top header bar with logo, ThemeToggle, and GitHub link
- * - Left sidebar with all component categories + demos section
- * - Main content area (Outlet)
- * - Footer with cross-links
+ * - Left sidebar with all component categories + demos section (fixed, not scrolling with content)
+ * - Main content area (Outlet) — only this scrolls
+ * - Footer at bottom of content scroll area
  */
 export function ShowcaseLayout({ theme, onThemeToggle }: ShowcaseLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
-
-  const [collapsed, setCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
-    if (saved !== null) return saved === "true";
-    // Collapse by default on small screens
-    return window.innerWidth < 768;
-  });
-
-  // Persist sidebar collapsed state
-  useEffect(() => {
-    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsed));
-  }, [collapsed]);
-
-  // Build sidebar items from NAV_SECTIONS
-  const sidebarItems: SidebarSection[] = [
-    ...NAV_SECTIONS.map((section) => ({
-      label: section.label,
-      items: section.items.map((item) => ({
-        id: item.id,
-        label: item.label,
-        active:
-          location.pathname === item.path ||
-          location.pathname.startsWith(item.path + "/"),
-        onClick: () => navigate(item.path),
-        // NO href — prevents full page reloads inside BrowserRouter
-      })),
-    })),
-    // Demos section at the bottom
-    {
-      label: "Demos",
-      items: DEMO_PAGES.map((demo) => ({
-        id: demo.id,
-        label: demo.label,
-        active: location.pathname === demo.path,
-        onClick: () => navigate(demo.path),
-      })),
-    },
-  ];
 
   return (
     <div className={styles.root}>
@@ -106,44 +65,46 @@ export function ShowcaseLayout({ theme, onThemeToggle }: ShowcaseLayoutProps) {
 
       {/* ── Body (sidebar + content) ────────────── */}
       <div className={styles.body}>
-        <Sidebar
-          items={sidebarItems}
-          collapsed={collapsed}
-          onCollapse={setCollapsed}
-          className={styles.sidebar}
+        <ShowcaseSidebar
+          sections={NAV_SECTIONS}
+          demoPages={DEMO_PAGES}
+          activePath={location.pathname}
+          onNavigate={navigate}
         />
 
         <main className={styles.content}>
           <Outlet />
+
+          {/* Footer lives inside the scroll area — visible at end of content */}
+          <div className={styles.contentFooter}>
+            <Footer
+              variant="rich"
+              logo={
+                <>
+                  Ri<span style={{ color: "var(--rialto-accent)" }}>a</span>lto
+                </>
+              }
+              columns={[
+                {
+                  title: "Platform",
+                  links: [
+                    { label: "mattbutlerengineering.com", href: "https://mattbutlerengineering.com" },
+                    { label: "Dashboard", href: "https://mattbutlerengineering.com/dashboard" },
+                  ],
+                },
+                {
+                  title: "Design System",
+                  links: [
+                    { label: "GitHub", href: "https://github.com/mattbutler/mattbutlerengineering" },
+                    { label: "Overview", href: "/rialto/" },
+                  ],
+                },
+              ]}
+              copyright={`\u00A9 ${new Date().getFullYear()} Matt Butler Engineering. All rights reserved.`}
+            />
+          </div>
         </main>
       </div>
-
-      {/* ── Footer ─────────────────────────────── */}
-      <Footer
-        variant="rich"
-        logo={
-          <>
-            Ri<span style={{ color: "var(--rialto-accent)" }}>a</span>lto
-          </>
-        }
-        columns={[
-          {
-            title: "Platform",
-            links: [
-              { label: "mattbutlerengineering.com", href: "https://mattbutlerengineering.com" },
-              { label: "Dashboard", href: "https://mattbutlerengineering.com/dashboard" },
-            ],
-          },
-          {
-            title: "Design System",
-            links: [
-              { label: "GitHub", href: "https://github.com/mattbutler/mattbutlerengineering" },
-              { label: "Overview", href: "/rialto/" },
-            ],
-          },
-        ]}
-        copyright={`\u00A9 ${new Date().getFullYear()} Matt Butler Engineering. All rights reserved.`}
-      />
     </div>
   );
 }
