@@ -10,8 +10,8 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Rialto-Web Showcase
 
 - [ ] **RIALTO-01**: All 55 Rialto components are visible with interactive states in the showcase app
-- [ ] **RIALTO-02**: RialtoProvider wraps the app with theme context
-- [ ] **RIALTO-03**: Theme/vibe switcher allows toggling between themes
+- [x] **RIALTO-02**: RialtoProvider wraps the app with theme context
+- [x] **RIALTO-03**: Theme/vibe switcher allows toggling between themes
 - [ ] **RIALTO-04**: All Tailwind CSS removed — Rialto-only styling throughout
 - [ ] **RIALTO-05**: App served at mattbutlerengineering.com/rialto with working client-side routing
 
@@ -88,8 +88,8 @@ Deferred to future release. Tracked but not in current roadmap.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | RIALTO-01 | Phase 1 | Pending |
-| RIALTO-02 | Phase 1 | Pending |
-| RIALTO-03 | Phase 1 | Pending |
+| RIALTO-02 | Phase 1 | Complete (01-01) |
+| RIALTO-03 | Phase 1 | Complete (01-01) |
 | RIALTO-04 | Phase 1 | Pending |
 | RIALTO-05 | Phase 1 | Pending |
 | PORT-01 | Phase 3 | Pending |

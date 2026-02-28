@@ -31,7 +31,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans:** 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — App shell: RialtoProvider at root, theme toggle, ShowcaseLayout with Sidebar, OverviewPage
+- [x] 01-01-PLAN.md — App shell: RialtoProvider at root, theme toggle, ShowcaseLayout with Sidebar, OverviewPage
 - [ ] 01-02-PLAN.md — All 55+ per-component showcase pages with variants, playground, props table, accessibility
 - [ ] 01-03-PLAN.md — Tailwind removal, Pulumi ingress rule for /rialto, build verification, human sign-off
 
@@ -91,7 +91,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Rialto-Web Migration | 0/3 | Planned | - |
+| 1. Rialto-Web Migration | 1/3 | In progress | - |
 | 2. Dashboard Rename | 0/2 | Not started | - |
 | 3. Marketing Portfolio | 0/2 | Not started | - |
 | 4. Hospitality Migration + Full Hosting | 0/4 | Not started | - |
