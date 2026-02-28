@@ -60,11 +60,11 @@ Plans:
   3. Links to the rialto-web showcase and hospitality app are live and navigable
   4. No Tailwind CSS classes remain in apps/marketing source — grep returns zero matches
   5. Navigating to mattbutlerengineering.com/ loads the portfolio without error
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: Build portfolio content sections using Rialto components
-- [ ] 03-02: Remove Tailwind dependencies and verify routing at /
+- [ ] 03-01-PLAN.md — Build portfolio page: RialtoProvider shell, Hero, Projects (5 cards), About, Contact sections using Rialto components
+- [ ] 03-02-PLAN.md — Remove Tailwind/PostCSS/@mbe/ui dependencies, delete config files, verify build/typecheck/lint, visual sign-off
 
 ### Phase 4: Hospitality Migration + Full Hosting
 **Goal**: The hospitality app runs entirely on Rialto, @mbe/ui is gone from the monorepo, and all three apps are verified in production
