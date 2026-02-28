@@ -87,40 +87,40 @@ Deferred to future release. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| RIALTO-01 | TBD | Pending |
-| RIALTO-02 | TBD | Pending |
-| RIALTO-03 | TBD | Pending |
-| RIALTO-04 | TBD | Pending |
-| RIALTO-05 | TBD | Pending |
-| PORT-01 | TBD | Pending |
-| PORT-02 | TBD | Pending |
-| PORT-03 | TBD | Pending |
-| PORT-04 | TBD | Pending |
-| PORT-05 | TBD | Pending |
-| PORT-06 | TBD | Pending |
-| PORT-07 | TBD | Pending |
-| PORT-08 | TBD | Pending |
-| HOSP-01 | TBD | Pending |
-| HOSP-02 | TBD | Pending |
-| HOSP-03 | TBD | Pending |
-| HOSP-04 | TBD | Pending |
-| HOSP-05 | TBD | Pending |
-| HOSP-06 | TBD | Pending |
-| HOSP-07 | TBD | Pending |
-| HOSP-08 | TBD | Pending |
-| INFRA-01 | TBD | Pending |
-| INFRA-02 | TBD | Pending |
-| INFRA-03 | TBD | Pending |
-| INFRA-04 | TBD | Pending |
-| CLEAN-01 | TBD | Pending |
-| CLEAN-02 | TBD | Pending |
-| CLEAN-03 | TBD | Pending |
+| RIALTO-01 | Phase 1 | Pending |
+| RIALTO-02 | Phase 1 | Pending |
+| RIALTO-03 | Phase 1 | Pending |
+| RIALTO-04 | Phase 1 | Pending |
+| RIALTO-05 | Phase 1 | Pending |
+| PORT-01 | Phase 3 | Pending |
+| PORT-02 | Phase 3 | Pending |
+| PORT-03 | Phase 3 | Pending |
+| PORT-04 | Phase 3 | Pending |
+| PORT-05 | Phase 3 | Pending |
+| PORT-06 | Phase 3 | Pending |
+| PORT-07 | Phase 3 | Pending |
+| PORT-08 | Phase 3 | Pending |
+| HOSP-01 | Phase 2 | Pending |
+| HOSP-02 | Phase 2 | Pending |
+| HOSP-03 | Phase 2 | Pending |
+| HOSP-04 | Phase 2 | Pending |
+| HOSP-05 | Phase 4 | Pending |
+| HOSP-06 | Phase 4 | Pending |
+| HOSP-07 | Phase 4 | Pending |
+| HOSP-08 | Phase 4 | Pending |
+| INFRA-01 | Phase 2 | Pending |
+| INFRA-02 | Phase 2 | Pending |
+| INFRA-03 | Phase 2 | Pending |
+| INFRA-04 | Phase 4 | Pending |
+| CLEAN-01 | Phase 4 | Pending |
+| CLEAN-02 | Phase 4 | Pending |
+| CLEAN-03 | Phase 4 | Pending |
 
 **Coverage:**
 - v1 requirements: 28 total
-- Mapped to phases: 0
-- Unmapped: 28 (pending roadmap creation)
+- Mapped to phases: 28
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-27*
-*Last updated: 2026-02-27 after initial definition*
+*Last updated: 2026-02-27 after roadmap creation*
