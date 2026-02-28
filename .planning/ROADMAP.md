@@ -44,11 +44,11 @@ Plans:
   2. Logging in via Auth0 redirects to /hospitality/callback without error
   3. Navigating directly to mattbutlerengineering.com/hospitality/any-sub-path returns the app, not a 404
   4. No references to /dashboard or @mbe/dashboard remain in Vite config, React Router, or Pulumi IaC
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: Rename directory, package name, Vite base, and React Router basename
-- [ ] 02-02: Update Pulumi IaC — ingress rules, static site name, Auth0 callback URL
+- [ ] 02-01-PLAN.md — Rename directory, package name, Vite config, React Router, Auth0 IaC, Pulumi ingress, cross-app links
+- [ ] 02-02-PLAN.md — Documentation sweep: CLAUDE.md, evaluations, plans, codebase docs, skill files
 
 ### Phase 3: Marketing Portfolio
 **Goal**: The marketing site is a complete engineering portfolio built entirely with Rialto, served at the root path
