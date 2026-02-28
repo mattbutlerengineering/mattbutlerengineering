@@ -1,0 +1,216 @@
+import { useState } from "react";
+import { Button, Card, Checkbox, DataList, Input, Select, Stack, Text } from "@mbe/rialto";
+import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
+import { PropsTable } from "../components/PropsTable";
+import styles from "../components/ComponentPageLayout.module.css";
+
+// ---------------------------------------------------------------------------
+// Playground
+// ---------------------------------------------------------------------------
+
+type InputType = "text" | "email" | "password" | "number";
+
+function InputPlayground() {
+  const [label, setLabel] = useState("Driver Name");
+  const [hint, setHint] = useState("");
+  const [error, setError] = useState(false);
+  const [disabled, setDisabled] = useState(false);
+  const [type, setType] = useState<InputType>("text");
+
+  return (
+    <Stack gap="lg">
+      <Card variant="flat" style={{ padding: "var(--rialto-space-xl)" }}>
+        <Input
+          label={label}
+          placeholder="Enter value..."
+          hint={hint || undefined}
+          error={error}
+          disabled={disabled}
+          type={type}
+        />
+      </Card>
+      <div className={styles.row} style={{ flexWrap: "wrap" }}>
+        <Select
+          label="Type"
+          value={type}
+          onChange={(v) => setType(v as InputType)}
+          options={[
+            { value: "text", label: "text" },
+            { value: "email", label: "email" },
+            { value: "password", label: "password" },
+            { value: "number", label: "number" },
+          ]}
+        />
+        <Checkbox label="Error state" checked={error} onCheckedChange={setError} />
+        <Checkbox label="Disabled" checked={disabled} onCheckedChange={setDisabled} />
+      </div>
+      <div className={styles.row} style={{ flexWrap: "wrap" }}>
+        <Input
+          label="Label text"
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          hint="Controls the label shown above"
+        />
+        <Input
+          label="Hint text"
+          value={hint}
+          onChange={(e) => setHint(e.target.value)}
+          hint="Optional helper text below the field"
+        />
+      </div>
+    </Stack>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
+
+export function InputPage() {
+  return (
+    <ComponentPageLayout
+      name="Input"
+      description="Machined recessed channels. The inner shadow suggests a physical groove carved into the aluminum surface. Focus brings the gold glow."
+    >
+      {/* ── Variants ──────────────────────────────────────────────── */}
+      <Section title="Variants">
+        <div className={styles.row} style={{ flexWrap: "wrap", alignItems: "flex-end" }}>
+          <Input label="Default" placeholder="e.g. Charles Leclerc" />
+          <Input
+            label="With hint"
+            placeholder="F80-001"
+            hint="Alphanumeric, 6+ characters"
+          />
+        </div>
+      </Section>
+
+      {/* ── Types ─────────────────────────────────────────────────── */}
+      <Section title="Input Types">
+        <div className={styles.row} style={{ flexWrap: "wrap", alignItems: "flex-end" }}>
+          <Input label="Text" placeholder="Driver name" type="text" />
+          <Input label="Email" placeholder="driver@team.com" type="email" />
+          <Input label="Password" placeholder="••••••••" type="password" />
+          <Input label="Number" placeholder="42" type="number" />
+        </div>
+      </Section>
+
+      {/* ── States ────────────────────────────────────────────────── */}
+      <Section title="States">
+        <div className={styles.row} style={{ flexWrap: "wrap", alignItems: "flex-end" }}>
+          <Input label="Default" placeholder="Enabled" />
+          <Input label="Error" placeholder="Required" error hint="This field is required" />
+          <Input label="Disabled" placeholder="Not editable" disabled />
+          <Input label="Read-only" value="SF-24" disabled />
+          <Input
+            label="Locked"
+            placeholder="Requires upgrade"
+            disabled
+            disabledReason="Upgrade to Pro to edit this field"
+          />
+        </div>
+      </Section>
+
+      {/* ── Usage Example ─────────────────────────────────────────── */}
+      <Section title="Usage Example">
+        <Card variant="elevated" style={{ padding: "var(--rialto-space-lg)" }}>
+          <Stack gap="md">
+            <Text variant="label" color="primary">
+              Driver Profile
+            </Text>
+            <div className={styles.row} style={{ flexWrap: "wrap", alignItems: "flex-end" }}>
+              <Input label="First Name" placeholder="Charles" />
+              <Input label="Last Name" placeholder="Leclerc" />
+            </div>
+            <Input label="Team" placeholder="Scuderia Ferrari" />
+            <Input label="Email" placeholder="charles@ferrari.com" type="email" />
+            <div className={styles.row} style={{ justifyContent: "flex-end" }}>
+              <Button variant="ghost" size="sm">
+                Cancel
+              </Button>
+              <Button variant="primary" size="sm">
+                Save Profile
+              </Button>
+            </div>
+          </Stack>
+        </Card>
+      </Section>
+
+      {/* ── Playground ────────────────────────────────────────────── */}
+      <Section title="Interactive Playground">
+        <InputPlayground />
+      </Section>
+
+      {/* ── Props Table ───────────────────────────────────────────── */}
+      <Section title="Props">
+        <PropsTable
+          props={[
+            {
+              name: "label",
+              type: "string",
+              description: "Visible label text displayed above the field.",
+            },
+            {
+              name: "placeholder",
+              type: "string",
+              description: "Placeholder text shown when the field is empty.",
+            },
+            {
+              name: "hint",
+              type: "string",
+              description: "Helper text displayed below the field.",
+            },
+            {
+              name: "error",
+              type: "boolean",
+              default: "false",
+              description: "Shows error styling and red border.",
+            },
+            {
+              name: "disabled",
+              type: "boolean",
+              default: "false",
+              description: "Disables the input.",
+            },
+            {
+              name: "disabledReason",
+              type: "string",
+              description: "Tooltip shown on hover when the field is disabled.",
+            },
+            {
+              name: "type",
+              type: '"text" | "email" | "password" | "number" | "search"',
+              default: '"text"',
+              description: "HTML input type.",
+            },
+            {
+              name: "value",
+              type: "string",
+              description: "Controlled value.",
+            },
+            {
+              name: "onChange",
+              type: "React.ChangeEventHandler<HTMLInputElement>",
+              description: "Change handler.",
+            },
+          ]}
+        />
+      </Section>
+
+      {/* ── Accessibility ─────────────────────────────────────────── */}
+      <Section title="Accessibility">
+        <DataList
+          items={[
+            { label: "Element", value: "Native <input> with associated <label>" },
+            { label: "Association", value: "label[for] linked to input[id]" },
+            { label: "Error", value: "aria-invalid=true when error prop is set" },
+            { label: "Hint", value: "aria-describedby links to hint/error text" },
+            { label: "Focus", value: "Gold glow focus ring via box-shadow" },
+            { label: "Keyboard", value: "Tab to focus, standard text editing" },
+          ]}
+        />
+      </Section>
+    </ComponentPageLayout>
+  );
+}
+
+InputPage.displayName = "InputPage";
