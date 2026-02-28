@@ -17,12 +17,12 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Marketing / Portfolio
 
-- [ ] **PORT-01**: Hero section with name, role, and brief tagline
-- [ ] **PORT-02**: About section with 3-5 sentences on focus and background
-- [ ] **PORT-03**: Projects showcase with 3-5 curated project cards (title, tech stack, description, link)
-- [ ] **PORT-04**: Social and contact links (GitHub, LinkedIn, email)
-- [ ] **PORT-05**: "This site IS the project" narrative — callout explaining the monorepo, design system, and IaC as engineering proof
-- [ ] **PORT-06**: Live links to rialto-web showcase and hospitality app
+- [x] **PORT-01**: Hero section with name, role, and brief tagline
+- [x] **PORT-02**: About section with 3-5 sentences on focus and background
+- [x] **PORT-03**: Projects showcase with 3-5 curated project cards (title, tech stack, description, link)
+- [x] **PORT-04**: Social and contact links (GitHub, LinkedIn, email)
+- [x] **PORT-05**: "This site IS the project" narrative — callout explaining the monorepo, design system, and IaC as engineering proof
+- [x] **PORT-06**: Live links to rialto-web showcase and hospitality app
 - [ ] **PORT-07**: All styling uses Rialto components exclusively — no Tailwind, no @mbe/ui
 - [ ] **PORT-08**: App served at mattbutlerengineering.com/ with working client-side routing
 
@@ -92,12 +92,12 @@ Deferred to future release. Tracked but not in current roadmap.
 | RIALTO-03 | Phase 1 | Complete (01-01) |
 | RIALTO-04 | Phase 1 | Pending |
 | RIALTO-05 | Phase 1 | Pending |
-| PORT-01 | Phase 3 | Pending |
-| PORT-02 | Phase 3 | Pending |
-| PORT-03 | Phase 3 | Pending |
-| PORT-04 | Phase 3 | Pending |
-| PORT-05 | Phase 3 | Pending |
-| PORT-06 | Phase 3 | Pending |
+| PORT-01 | Phase 3 | Complete |
+| PORT-02 | Phase 3 | Complete |
+| PORT-03 | Phase 3 | Complete |
+| PORT-04 | Phase 3 | Complete |
+| PORT-05 | Phase 3 | Complete |
+| PORT-06 | Phase 3 | Complete |
 | PORT-07 | Phase 3 | Pending |
 | PORT-08 | Phase 3 | Pending |
 | HOSP-01 | Phase 2 | Complete |

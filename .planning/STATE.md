@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: unknown
-last_updated: "2026-02-28T20:16:54.747Z"
+status: in_progress
+last_updated: "2026-02-28T21:02:30Z"
 progress:
-  total_phases: 2
+  total_phases: 4
   completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 6
+  completed_plans: 6
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-27)
 
 **Core value:** Every web app uses Rialto as the single design system and is accessible at mattbutlerengineering.com
-**Current focus:** Phase 2 — Dashboard Rename (complete)
+**Current focus:** Phase 3 — Marketing Portfolio (plan 1 of N complete)
 
 ## Current Position
 
-Phase: 2 of 4 (Dashboard Rename)
-Plan: 2 of 2 in current phase
-Status: Phase complete — both plans complete
-Last activity: 2026-02-28 — 02-02 complete (documentation updated for rename)
+Phase: 3 of 4 (Marketing Portfolio)
+Plan: 1 of N in current phase
+Status: Plan 03-01 complete — portfolio app shell and content sections built
+Last activity: 2026-02-28 — 03-01 complete (marketing portfolio built with Rialto components)
 
-Progress: [████████░░] 50%
+Progress: [████████░░] 63%
 
 ## Performance Metrics
 
@@ -42,10 +42,11 @@ Progress: [████████░░] 50%
 |-------|-------|-------|----------|
 | 01-rialto-web-migration | 3 | 116 min | 39 min |
 | 02-dashboard-rename | 2 of 2 | 7 min | 3.5 min |
+| 03-marketing-portfolio | 1 of N | 3 min | 3 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-02 (95 min), 01-03 (15 min), 02-01 (3 min), 02-02 (4 min)
-- Trend: Very fast — pure documentation rename, no code changes
+- Last 5 plans: 01-02 (95 min), 01-03 (15 min), 02-01 (3 min), 02-02 (4 min), 03-01 (3 min)
+- Trend: Very fast — well-researched plan with clear component APIs
 
 *Updated after each plan completion*
 
@@ -73,6 +74,10 @@ Recent decisions affecting current work:
 - [02-01]: Auth0 Pulumi resource rename will delete+recreate client generating new client_id — local .env needs manual update after pulumi up
 - [02-01]: Pulumi ingress rename pattern: add 301 redirect for old path before new component rule (order: /api, /old redirect, /new component, /rialto, / catch-all)
 - [Phase 02-dashboard-rename]: [02-02]: Auth skill redirectUri uses port 3002 (actual dev port) not 5173 — updated to http://localhost:3002/hospitality/callback
+- [03-01]: Text component has variants body/caption/detail/label/display — not heading/subheading as plan assumed; used native h2 + CSS module for section headings
+- [03-01]: Cross-app links (/rialto, /hospitality) are data-driven via PROJECTS array, rendered as plain <a href> in ProjectCard
+- [03-01]: @mbe/rialto was missing from marketing package.json — added as workspace dependency
+- [03-01]: vite-env.d.ts was missing in marketing app — required for CSS module type declarations
 
 ### Pending Todos
 
@@ -86,5 +91,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-28
-Stopped at: Completed 02-02-PLAN.md (documentation updated for dashboard→hospitality rename)
+Stopped at: Completed 03-01-PLAN.md (marketing portfolio built with Rialto components)
 Resume file: none

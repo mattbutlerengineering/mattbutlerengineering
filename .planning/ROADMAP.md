@@ -63,7 +63,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Build portfolio page: RialtoProvider shell, Hero, Projects (5 cards), About, Contact sections using Rialto components
+- [x] 03-01-PLAN.md — Build portfolio page: RialtoProvider shell, Hero, Projects (5 cards), About, Contact sections using Rialto components
 - [ ] 03-02-PLAN.md — Remove Tailwind/PostCSS/@mbe/ui dependencies, delete config files, verify build/typecheck/lint, visual sign-off
 
 ### Phase 4: Hospitality Migration + Full Hosting
@@ -93,5 +93,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Rialto-Web Migration | 3/3 | Complete   | 2026-02-28 |
 | 2. Dashboard Rename | 2/2 | Complete   | 2026-02-28 |
-| 3. Marketing Portfolio | 0/2 | Not started | - |
+| 3. Marketing Portfolio | 1/2 | In progress | - |
 | 4. Hospitality Migration + Full Hosting | 0/4 | Not started | - |
