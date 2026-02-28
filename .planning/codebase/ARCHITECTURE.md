@@ -17,7 +17,7 @@
 
 **Presentation Layer (Frontend):**
 - Purpose: User interface and interactions via browser
-- Location: `apps/marketing`, `apps/dashboard`, `apps/agent-viz`, `apps/rialto-web`
+- Location: `apps/marketing`, `apps/hospitality`, `apps/agent-viz`, `apps/rialto-web`
 - Contains: React components, pages, layouts, hooks, styling
 - Depends on: @mbe/auth, @mbe/types, @mbe/api-client, @mbe/shared-layout, @mbe/rialto
 - Used by: Web browsers
@@ -79,7 +79,7 @@
 
 **Reservation Booking Flow:**
 
-1. Frontend (BookingWidget in dashboard) calls availabilityService to get time slots
+1. Frontend (BookingWidget in hospitality app) calls availabilityService to get time slots
 2. Reservations service queries availability rules, pacing rules, existing reservations
 3. User selects time slot and fills guest details
 4. Frontend submits CreateReservationRequest to reservations service
@@ -146,10 +146,10 @@
 - Triggers: Browser navigation to localhost:3000
 - Responsibilities: Renders marketing homepage, static content, redirects to dashboard/API docs
 
-**Dashboard Application:**
-- Location: `apps/dashboard/src/main.tsx`
-- Triggers: Browser navigation to dashboard.localhost:3002
-- Responsibilities: Authenticated dashboard with reservations, timeline, floor plans, guest management
+**Hospitality Application:**
+- Location: `apps/hospitality/src/main.tsx`
+- Triggers: Browser navigation to localhost:3002/hospitality
+- Responsibilities: Authenticated hospitality app with reservations, timeline, floor plans, guest management
 
 **Users Service:**
 - Location: `services/users/src/index.ts`

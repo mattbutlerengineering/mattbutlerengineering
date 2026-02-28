@@ -76,7 +76,7 @@ mattbutlerengineering/
 
 ### Applications (Paths)
 - `/` → Landing/marketing site (apps/marketing)
-- `/dashboard` → Dashboard app (apps/dashboard)
+- `/hospitality` → Hospitality app (apps/hospitality)
 - `/docs` → Documentation (apps/docs)
 
 ### APIs (Versioned Paths)
@@ -166,7 +166,7 @@ services/users/
 
 **Single app development (fastest):**
 ```bash
-cd apps/dashboard
+cd apps/hospitality
 pnpm dev              # Vite dev server with hot reload
 ```
 
@@ -335,7 +335,7 @@ jobs:
 - [ ] Deploy to staging environment
 
 ### Phase 4: Expand
-- [x] Create apps/dashboard
+- [x] Create apps/hospitality
 - [x] Create packages/shared-layout
 - [x] Create tools/cli
 - [x] Create packages/api-client

@@ -32,9 +32,9 @@
   - @scalar/fastify-api-reference 1.44.1 - Interactive API docs UI
 
 **Frontend:**
-- React 19.0.0 - UI library (apps/marketing, apps/dashboard, packages/rialto)
+- React 19.0.0 - UI library (apps/marketing, apps/hospitality, packages/rialto)
 - Vite 7.0.0 - Build tool and dev server
-- React Router DOM 7.1.0 - Client-side routing (apps/marketing, apps/dashboard)
+- React Router DOM 7.1.0 - Client-side routing (apps/marketing, apps/hospitality)
 
 **Design System:**
 - Rialto (internal @mbe/rialto) - Component library with motion, tokens, and styles
@@ -93,7 +93,7 @@
 **Infrastructure:**
 - zod 3.23.0 - Input validation; prevents invalid data in APIs
 - jose 5.2.0 - JWT parsing; required for Auth0 token validation
-- konva 9.3.22 - Canvas rendering library (dashboard visualization)
+- konva 9.3.22 - Canvas rendering library (hospitality app floor plan visualization)
 - react-konva 19.0.0 - React bindings for Konva
 
 **Development:**

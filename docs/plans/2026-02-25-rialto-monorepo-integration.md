@@ -244,15 +244,15 @@ git commit -m "feat(config): upgrade to ESLint 10, add jsx-a11y and react-refres
 ### Task 4: Upgrade All Apps — React 19, Vite 7, TypeScript 5.9
 
 **Files:**
-- Modify: `apps/dashboard/package.json`
+- Modify: `apps/hospitality/package.json`
 - Modify: `apps/marketing/package.json`
-- Modify: `apps/dashboard/vite.config.ts` (if Vite 7 API changes)
+- Modify: `apps/hospitality/vite.config.ts` (if Vite 7 API changes)
 - Modify: `apps/marketing/vite.config.ts` (if Vite 7 API changes)
 - Modify: `packages/auth/package.json` (if it has React peer dep)
 - Modify: `packages/ui/package.json` (if it has React peer dep)
 - Modify: `packages/shared-layout/package.json` (if it has React peer dep)
 
-**Step 1: Update apps/dashboard/package.json dependencies**
+**Step 1: Update apps/hospitality/package.json dependencies**
 
 ```json
 {
@@ -692,13 +692,13 @@ Expected: All tests pass, including rialto's unit tests.
 
 ```bash
 pnpm --filter @mbe/rialto-web dev &
-pnpm --filter @mbe/dashboard dev &
+pnpm --filter @mbe/hospitality dev &
 pnpm --filter @mbe/marketing dev &
 ```
 
 Verify each starts without errors:
 - rialto-web: `http://localhost:5173/rialto/`
-- dashboard: `http://localhost:3002/dashboard`
+- hospitality: `http://localhost:3002/hospitality`
 - web: `http://localhost:3000`
 
 **Step 7: Fix any remaining issues**

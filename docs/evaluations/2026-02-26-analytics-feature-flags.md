@@ -92,7 +92,7 @@ PostHog provides both product analytics and feature flags in a single platform w
 | Step | Action | Effort |
 |------|--------|--------|
 | 1 | Create PostHog account (cloud) | 5 min |
-| 2 | Add `posthog-js` to dashboard app | 30 min |
+| 2 | Add `posthog-js` to hospitality app | 30 min |
 | 3 | Add `posthog-node` to Fastify services (server-side feature flags) | 1 hour |
 | 4 | Define initial feature flags | 30 min |
 | 5 | Add custom events for key user actions | 2-4 hours |

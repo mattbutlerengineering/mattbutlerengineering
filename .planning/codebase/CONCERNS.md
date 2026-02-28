@@ -23,8 +23,8 @@
 - Fix approach: Write integration tests for all service functions. Target: 80%+ coverage of critical paths (availability slots, conflict detection, duration estimation).
 
 **Frontend Missing Venue Context:**
-- Issue: `apps/dashboard/src/pages/GuestsPage.tsx` line 13 has hardcoded empty `venueId` with TODO comment
-- Files: `apps/dashboard/src/pages/GuestsPage.tsx`
+- Issue: `apps/hospitality/src/pages/GuestsPage.tsx` line 13 has hardcoded empty `venueId` with TODO comment
+- Files: `apps/hospitality/src/pages/GuestsPage.tsx`
 - Impact: GuestsPage is non-functional until venue selection is implemented. Feature is blocked.
 - Fix approach: Implement venue context provider or URL parameter routing to pass venueId from parent component or route.
 
@@ -32,7 +32,7 @@
 
 **GuestsPage Blocked Functionality:**
 - Symptoms: GuestsPage always shows "Please select a venue to view guests" message
-- Files: `apps/dashboard/src/pages/GuestsPage.tsx` (line 13-18)
+- Files: `apps/hospitality/src/pages/GuestsPage.tsx` (line 13-18)
 - Trigger: Page loads with empty venueId
 - Workaround: Implement venue context or URL-based routing to supply venueId
 
@@ -164,7 +164,7 @@
 - Priority: Medium - Catches cross-service issues early
 
 **Frontend Component Tests Absent:**
-- What's not tested: React components in `apps/dashboard/` and `apps/marketing/`
+- What's not tested: React components in `apps/hospitality/` and `apps/marketing/`
 - Files: Dashboard pages and web components
 - Risk: UI regressions and accessibility issues not caught
 - Priority: Medium - Protects user experience

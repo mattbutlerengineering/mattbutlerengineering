@@ -36,7 +36,7 @@
 The auth integration is **purely OIDC/JWT** with no Auth0-specific libraries:
 
 - **`packages/auth/`**: Types (`OIDCConfig`, `JWTPayload`, `AuthUser`), React hooks (`useAuth()`, `useAccessToken()`, `useRequireAuth()`), Fastify plugin (JWKS-based JWT verification). All use `react-oidc-context` + `jose`.
-- **`apps/dashboard/src/main.tsx`**: `AuthProvider` with 4 config values. Any OIDC provider works.
+- **`apps/hospitality/src/main.tsx`**: `AuthProvider` with 4 config values. Any OIDC provider works.
 - **`services/users/src/routes/users.ts`**: Inline JWT verification via `jose` + JWKS. Auto-creates user on first login (upsert).
 - **`infrastructure/pulumi/auth0.ts`**: Resource Server (RS256, 24hr token), SPA Client (authorization_code + refresh_token, rotating), Client Grant.
 

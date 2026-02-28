@@ -8,7 +8,7 @@
 mattbutlerengineering/
 ├── apps/                           # Frontend applications
 │   ├── agent-viz/                  # Agent workflow visualizer (React + Vite)
-│   ├── dashboard/                  # Authenticated dashboard (React + Vite)
+│   ├── hospitality/                # Hospitality app (React + Vite)
 │   ├── rialto-web/                 # Design system showcase (React + Vite)
 │   └── marketing/                  # Public marketing site (React + Vite)
 ├── services/                       # Backend microservices
@@ -77,7 +77,7 @@ mattbutlerengineering/
 
 Frontend apps:
 - Marketing: `apps/marketing/src/main.tsx` - React app entry, renders homepage
-- Dashboard: `apps/dashboard/src/main.tsx` - React app entry, renders authenticated dashboard
+- Hospitality: `apps/hospitality/src/main.tsx` - React app entry, renders hospitality app
 - Agent Viz: `apps/agent-viz/src/main.tsx` - Agent workflow visualization
 - Rialto Showcase: `apps/rialto-web/src/main.tsx` - Design system component showcase
 

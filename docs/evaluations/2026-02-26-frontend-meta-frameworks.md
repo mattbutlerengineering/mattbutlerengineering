@@ -18,14 +18,14 @@
 | App | Purpose | Deps | Routing | Styling | Auth | Routes |
 |-----|---------|------|---------|---------|------|--------|
 | `apps/marketing/` | Public marketing site | React 19, Vite 7, RR v7 | `BrowserRouter` | Tailwind v3 + `@mbe/ui` | None | 1 |
-| `apps/dashboard/` | Hospitality mgmt PWA | React 19, Vite 7, RR v7, Konva | `BrowserRouter` (base `/dashboard`) | Tailwind v3 + `@mbe/ui` | `@mbe/auth` (OIDC) | 10 |
+| `apps/hospitality/` | Hospitality mgmt PWA | React 19, Vite 7, RR v7, Konva | `BrowserRouter` (base `/hospitality`) | Tailwind v3 + `@mbe/ui` | `@mbe/auth` (OIDC) | 10 |
 | `apps/rialto-web/` | Design system showcase | React 19, Vite 7, RR v7 | `BrowserRouter` (base `/rialto`) | CSS Modules + `@mbe/rialto` | None | 12 |
 
 ### Architecture
 
 ```
 ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│apps/marketing│     │apps/dashboard│     │apps/rialto-web│
+│apps/marketing│     │apps/hospitality│    │apps/rialto-web│
 │  React SPA   │     │  React SPA   │     │  React SPA   │
 │  1 route     │     │  10 routes   │     │  12 routes   │
 │  No auth     │     │  OIDC auth   │     │  No auth     │
@@ -44,7 +44,7 @@
 - **Zero SEO on marketing site** — Client-side SPA means crawlers see an empty `<div id="root">`. No server-rendered `<meta>` tags, no Open Graph tags for social sharing, no structured data in initial HTML.
 - **No preview deployments** — DO App Platform does not provide automatic per-PR preview URLs. No staging environment for frontend changes.
 - **No server-side data fetching** — All data fetching is client-side `useEffect` + fetch. No loaders, no server functions, no streaming.
-- **Dashboard loads everything upfront** — Code splitting limited to manual `React.lazy` (rialto-web uses it; dashboard does not).
+- **Hospitality app loads everything upfront** — Code splitting limited to manual `React.lazy` (rialto-web uses it; hospitality does not).
 
 ---
 
@@ -84,7 +84,7 @@ Not all apps need a meta-framework. Each app has different requirements:
 
 This is the only app where the current SPA architecture is actively harmful. A marketing site exists to be found and shared — client-side rendering defeats both purposes.
 
-### `apps/dashboard/` — Hospitality Management PWA
+### `apps/hospitality/` — Hospitality Management PWA
 
 **Verdict: SPA is the correct architecture. No meta-framework needed.**
 
@@ -484,7 +484,7 @@ The central finding of this evaluation is that different apps need different sol
 | App | Recommendation | Rationale |
 |-----|---------------|-----------|
 | `apps/marketing/` | **Astro** (migrate) | Marketing site needs SEO. Astro ships zero JS, scores Lighthouse 98-100, has content collections for marketing copy. Existing React components work as islands. |
-| `apps/dashboard/` | **Vite SPA** (stay) | Authenticated PWA with Konva canvas. SPA is the correct architecture. Add `React.lazy` code splitting for route-level chunks. |
+| `apps/hospitality/` | **Vite SPA** (stay) | Authenticated PWA with Konva canvas. SPA is the correct architecture. Add `React.lazy` code splitting for route-level chunks. |
 | `apps/rialto-web/` | **Vite SPA** (stay) | Internal component showcase. Already uses `React.lazy` well. No SEO need. SPA is correct. |
 
 ### #1 Astro — For the Marketing Site (Recommended)

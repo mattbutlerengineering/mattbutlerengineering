@@ -249,7 +249,7 @@ interface JWTPayload {
 ```bash
 VITE_AUTH_AUTHORITY=https://dev-ytbgmz5ls3wh4xdx.us.auth0.com
 VITE_AUTH_CLIENT_ID=<Auth0 App Client ID>
-VITE_AUTH_REDIRECT_URI=http://localhost:5173/dashboard/callback
+VITE_AUTH_REDIRECT_URI=http://localhost:3002/hospitality/callback
 VITE_AUTH_AUDIENCE=https://api.mattbutlerengineering.com
 ```
 

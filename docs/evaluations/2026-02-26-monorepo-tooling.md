@@ -36,7 +36,7 @@
 │  │  @mbe/shared-layout              @mbe/rialto-web              │  │
 │  │       ▲                                                       │  │
 │  │       │                                                       │  │
-│  │  @mbe/dashboard   @mbe/marketing   @mbe/users-service              │  │
+│  │  @mbe/hospitality @mbe/marketing   @mbe/users-service              │  │
 │  │                               @mbe/reservations-service       │  │
 │  │                               @mbe/cli                        │  │
 │  └───────────────────────────────────────────────────────────────┘  │
