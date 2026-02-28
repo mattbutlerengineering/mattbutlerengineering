@@ -23,6 +23,24 @@
 - API Identifier: `https://api.mattbutlerengineering.com`
 - Managed via Pulumi IaC
 
+## URL Convention
+
+All apps are served under `mattbutlerengineering.com` using path-prefix routing:
+
+| Path | App | Directory |
+|------|-----|-----------|
+| `/` | Marketing site (catch-all) | `apps/marketing` |
+| `/dashboard` | Authenticated dashboard | `apps/dashboard` |
+| `/rialto` | Design system showcase | `apps/rialto-web` |
+| `/api` | Users API | `services/users` |
+
+**Convention for new apps:**
+- Frontend apps get a path prefix matching their directory name: `apps/foo` → `/foo`
+- The marketing site is the sole exception — it owns the root `/` path
+- Each app sets `base: "/<name>/"` in `vite.config.ts` (except marketing, which stays at root)
+- Pulumi ingress rules are ordered most-specific-first, with `/` as the catch-all last
+- Dev ports are assigned sequentially: 3000 (marketing), 3001 (users-api), 3002 (dashboard), 3003 (agent-api), 3004+ (future apps)
+
 ## Work Tracking
 
 When the user mentions work they want to do but we don't address immediately, create a GitHub issue to track it:
@@ -153,7 +171,7 @@ pnpm changeset              # Create a changeset for versioning
 ```
 mattbutlerengineering/
 ├── apps/                    # Frontend applications
-│   ├── web/                # Public marketing site (React + Vite)
+│   ├── marketing/          # Public marketing site (React + Vite)
 │   ├── dashboard/          # Authenticated dashboard (React + Vite)
 │   └── rialto-web/         # Design system showcase (React + Vite)
 ├── services/                # Backend services
@@ -438,7 +456,7 @@ Starts Postgres (Docker), syncs all database schemas, and launches all dev serve
 3. **Start dev servers**: `pnpm dev`
 
 **Access points**:
-   - Web: http://localhost:3000
+   - Marketing: http://localhost:3000
    - Dashboard: http://localhost:3002/dashboard
    - Users API: http://localhost:3001
    - Users API Docs: http://localhost:3001/docs
