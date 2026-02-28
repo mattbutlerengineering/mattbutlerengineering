@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-02-27)
 ## Current Position
 
 Phase: 1 of 4 (Rialto-Web Migration)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-02-28 — Completed 01-01 (showcase app shell)
+Last activity: 2026-02-28 — Completed 01-02 (all 43 component showcase pages)
 
-Progress: [█░░░░░░░░░] 8%
+Progress: [██░░░░░░░░] 17%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
-- Average duration: 6 min
-- Total execution time: 0.1 hours
+- Total plans completed: 2
+- Average duration: 51 min
+- Total execution time: 1.7 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01-rialto-web-migration | 1 | 6 min | 6 min |
+| 01-rialto-web-migration | 2 | 101 min | 51 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (6 min)
-- Trend: Establishing baseline
+- Last 5 plans: 01-01 (6 min), 01-02 (95 min)
+- Trend: Largest plan complete (43 pages); remaining plans should be faster
 
 *Updated after each plan completion*
 
@@ -49,6 +49,9 @@ Recent decisions affecting current work:
 - [01-01]: RialtoProvider wraps BrowserRouter at root — ensures CSS token cascade applies to all routes
 - [01-01]: Demo pages moved to /demos/* prefix — avoids route conflicts with new /components/* routes
 - [01-01]: NAV_SECTIONS as source-of-truth — import into sidebar and routes.tsx for automatic route generation
+- [01-02]: TimelinePage lives in pages/data/ but routes.tsx maps /components/timeline (Layout nav section) to it — file location and nav section need not match
+- [01-02]: SpinnerPage is standalone even though ProgressPage also demos Spinner — one nav route per page
+- [01-02]: Token pages deferred as inline stubs — full token reference pages for a future plan
 
 ### Pending Todos
 
@@ -62,5 +65,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-28
-Stopped at: Completed 01-01-PLAN.md (showcase app shell with ShowcaseLayout, ThemeToggle, routes, OverviewPage)
+Stopped at: Completed 01-02-PLAN.md (43 component showcase pages, routes.tsx wired, App.tsx deleted)
 Resume file: None
