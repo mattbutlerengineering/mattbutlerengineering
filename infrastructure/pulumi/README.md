@@ -49,8 +49,9 @@ pulumi stack output
 | `DatabaseDb` | Application database |
 | `App` | DigitalOcean App Platform app |
 | └─ `users-api` | Fastify API service |
-| └─ `web` | Landing page static site |
-| └─ `dashboard` | Dashboard static site |
+| └─ `marketing` | Landing page static site |
+| └─ `rialto-web` | Rialto design system showcase |
+| └─ `hospitality` | Hospitality static site |
 | `DnsRecord` (root) | CNAME pointing to DO App |
 | `DnsRecord` (www) | CNAME redirecting to apex |
 

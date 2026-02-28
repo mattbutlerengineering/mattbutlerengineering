@@ -14,7 +14,7 @@ const databaseUrl = config.requireSecret("databaseUrl");
 
 // Auth0 exports
 export const auth0ApiIdentifier = auth0Outputs.apiIdentifier;
-export const auth0ClientId = auth0Outputs.dashboardClientId;
+export const auth0ClientId = auth0Outputs.hospitalityClientId;
 
 // DigitalOcean App Platform
 const app = new digitalocean.App("mattbutlerengineering-app", {
@@ -43,14 +43,27 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
             preservePathPrefix: false,
           },
         },
+        // 301 redirect from old /dashboard path
         {
           match: {
             path: {
               prefix: "/dashboard",
             },
           },
+          redirect: {
+            uri: "/hospitality",
+            redirectCode: 301,
+          },
+        },
+        // Hospitality app (renamed from dashboard)
+        {
+          match: {
+            path: {
+              prefix: "/hospitality",
+            },
+          },
           component: {
-            name: "dashboard",
+            name: "hospitality",
             preservePathPrefix: false,
           },
         },
@@ -99,7 +112,7 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
           },
           {
             key: "VITE_AUTH_CLIENT_ID",
-            value: auth0Outputs.dashboardClientId,
+            value: auth0Outputs.hospitalityClientId,
             scope: "BUILD_TIME",
           },
           {
@@ -127,15 +140,15 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
         catchallDocument: "index.html",
       },
       {
-        name: "dashboard",
+        name: "hospitality",
         github: {
           repo: "mattbutlerengineering/mattbutlerengineering",
           branch: "main",
           deployOnPush: true,
         },
         sourceDir: "/",
-        buildCommand: "pnpm build --filter=@mbe/dashboard",
-        outputDir: "apps/dashboard/dist",
+        buildCommand: "pnpm build --filter=@mbe/hospitality",
+        outputDir: "apps/hospitality/dist",
         catchallDocument: "index.html",
         envs: [
           {
@@ -145,7 +158,7 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
           },
           {
             key: "VITE_AUTH_CLIENT_ID",
-            value: auth0Outputs.dashboardClientId,
+            value: auth0Outputs.hospitalityClientId,
             scope: "BUILD_TIME",
           },
           {
@@ -155,7 +168,7 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
           },
           {
             key: "VITE_AUTH_REDIRECT_URI",
-            value: `https://${domain}/dashboard/callback`,
+            value: `https://${domain}/hospitality/callback`,
             scope: "BUILD_TIME",
           },
           {
@@ -274,5 +287,5 @@ const wwwRecord = new cloudflare.Record("mattbutlerengineering-www-dns", {
 // Exports
 export const appUrl = pulumi.interpolate`https://${domain}`;
 export const apiUrl = pulumi.interpolate`https://${domain}/api`;
-export const dashboardUrl = pulumi.interpolate`https://${domain}/dashboard`;
+export const hospitalityUrl = pulumi.interpolate`https://${domain}/hospitality`;
 export const rialtoUrl = pulumi.interpolate`https://${domain}/rialto`;
