@@ -23,8 +23,8 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **PORT-04**: Social and contact links (GitHub, LinkedIn, email)
 - [x] **PORT-05**: "This site IS the project" narrative — callout explaining the monorepo, design system, and IaC as engineering proof
 - [x] **PORT-06**: Live links to rialto-web showcase and hospitality app
-- [ ] **PORT-07**: All styling uses Rialto components exclusively — no Tailwind, no @mbe/ui
-- [ ] **PORT-08**: App served at mattbutlerengineering.com/ with working client-side routing
+- [x] **PORT-07**: All styling uses Rialto components exclusively — no Tailwind, no @mbe/ui
+- [x] **PORT-08**: App served at mattbutlerengineering.com/ with working client-side routing
 
 ### Hospitality App
 
@@ -98,8 +98,8 @@ Deferred to future release. Tracked but not in current roadmap.
 | PORT-04 | Phase 3 | Complete |
 | PORT-05 | Phase 3 | Complete |
 | PORT-06 | Phase 3 | Complete |
-| PORT-07 | Phase 3 | Pending |
-| PORT-08 | Phase 3 | Pending |
+| PORT-07 | Phase 3 | Complete |
+| PORT-08 | Phase 3 | Complete |
 | HOSP-01 | Phase 2 | Complete |
 | HOSP-02 | Phase 2 | Complete |
 | HOSP-03 | Phase 2 | Complete |
