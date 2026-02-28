@@ -48,7 +48,7 @@ export function LayoutDemo() {
         eyebrow="Design System"
         title={
           <>
-            Build pages with <span className="accent">precision</span>
+            Build pages with <span style={{ color: "var(--rialto-accent)" }}>precision</span>
           </>
         }
         subtitle="Footer, Hero, and PageHeader — the scaffolding toolkit for complete page layouts. Composable, responsive, and dark-mode aware."

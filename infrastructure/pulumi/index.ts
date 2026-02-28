@@ -57,11 +57,22 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
         {
           match: {
             path: {
+              prefix: "/rialto",
+            },
+          },
+          component: {
+            name: "rialto-web",
+            preservePathPrefix: false,
+          },
+        },
+        {
+          match: {
+            path: {
               prefix: "/",
             },
           },
           component: {
-            name: "web",
+            name: "marketing",
           },
         },
       ],
@@ -70,15 +81,15 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
     // Main website (static React app)
     staticSites: [
       {
-        name: "web",
+        name: "marketing",
         github: {
           repo: "mattbutlerengineering/mattbutlerengineering",
           branch: "main",
           deployOnPush: true,
         },
         sourceDir: "/",
-        buildCommand: "pnpm build --filter=@mbe/web",
-        outputDir: "apps/web/dist",
+        buildCommand: "pnpm build --filter=@mbe/marketing",
+        outputDir: "apps/marketing/dist",
         catchallDocument: "index.html",
         envs: [
           {
@@ -102,6 +113,18 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
             scope: "BUILD_TIME",
           },
         ],
+      },
+      {
+        name: "rialto-web",
+        github: {
+          repo: "mattbutlerengineering/mattbutlerengineering",
+          branch: "main",
+          deployOnPush: true,
+        },
+        sourceDir: "/",
+        buildCommand: "pnpm build --filter=@mbe/rialto-web",
+        outputDir: "apps/rialto-web/dist",
+        catchallDocument: "index.html",
       },
       {
         name: "dashboard",
@@ -252,3 +275,4 @@ const wwwRecord = new cloudflare.Record("mattbutlerengineering-www-dns", {
 export const appUrl = pulumi.interpolate`https://${domain}`;
 export const apiUrl = pulumi.interpolate`https://${domain}/api`;
 export const dashboardUrl = pulumi.interpolate`https://${domain}/dashboard`;
+export const rialtoUrl = pulumi.interpolate`https://${domain}/rialto`;
