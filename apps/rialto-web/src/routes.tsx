@@ -74,6 +74,12 @@ const PinInputPage = lazy(() =>
 const SegmentedControlPage = lazy(() =>
   import("./pages/forms/SegmentedControlPage").then((m) => ({ default: m.SegmentedControlPage }))
 );
+const AutocompletePage = lazy(() =>
+  import("./pages/forms/AutocompletePage").then((m) => ({ default: m.AutocompletePage }))
+);
+const InputGroupPage = lazy(() =>
+  import("./pages/forms/InputGroupPage").then((m) => ({ default: m.InputGroupPage }))
+);
 
 /* ── Data Display ────────────────────────────── */
 const CardPage = lazy(() =>
@@ -177,6 +183,9 @@ const DropdownMenuPage = lazy(() =>
 const ContextMenuPage = lazy(() =>
   import("./pages/overlays/ContextMenuPage").then((m) => ({ default: m.ContextMenuPage }))
 );
+const DisabledTooltipPage = lazy(() =>
+  import("./pages/overlays/DisabledTooltipPage").then((m) => ({ default: m.DisabledTooltipPage }))
+);
 
 /* ── Layout ──────────────────────────────────── */
 const DividerPage = lazy(() =>
@@ -203,6 +212,15 @@ const ScrollAreaPage = lazy(() =>
 // Timeline is in pages/data/ but the nav route is under Layout section
 const TimelinePage = lazy(() =>
   import("./pages/data/TimelinePage").then((m) => ({ default: m.TimelinePage }))
+);
+const HeroPage = lazy(() =>
+  import("./pages/layout/HeroPage").then((m) => ({ default: m.HeroPage }))
+);
+const FooterPage = lazy(() =>
+  import("./pages/layout/FooterPage").then((m) => ({ default: m.FooterPage }))
+);
+const PageHeaderPage = lazy(() =>
+  import("./pages/layout/PageHeaderPage").then((m) => ({ default: m.PageHeaderPage }))
 );
 
 /* ── Shared loading fallback ─────────────────── */
@@ -253,6 +271,8 @@ export function ShowcaseRouter({ theme, onThemeToggle }: ShowcaseRouterProps) {
           <Route path="/components/select" element={<SelectPage />} />
           <Route path="/components/pin-input" element={<PinInputPage />} />
           <Route path="/components/segmented-control" element={<SegmentedControlPage />} />
+          <Route path="/components/autocomplete" element={<AutocompletePage />} />
+          <Route path="/components/input-group" element={<InputGroupPage />} />
 
           {/* ── Data Display ──────────────────── */}
           <Route path="/components/card" element={<CardPage />} />
@@ -294,6 +314,7 @@ export function ShowcaseRouter({ theme, onThemeToggle }: ShowcaseRouterProps) {
           <Route path="/components/hover-card" element={<HoverCardPage />} />
           <Route path="/components/dropdown-menu" element={<DropdownMenuPage />} />
           <Route path="/components/context-menu" element={<ContextMenuPage />} />
+          <Route path="/components/disabled-tooltip" element={<DisabledTooltipPage />} />
 
           {/* ── Layout ────────────────────────── */}
           <Route path="/components/divider" element={<DividerPage />} />
@@ -304,6 +325,9 @@ export function ShowcaseRouter({ theme, onThemeToggle }: ShowcaseRouterProps) {
           <Route path="/components/aspect-ratio" element={<AspectRatioPage />} />
           <Route path="/components/scroll-area" element={<ScrollAreaPage />} />
           <Route path="/components/timeline" element={<TimelinePage />} />
+          <Route path="/components/hero" element={<HeroPage />} />
+          <Route path="/components/footer" element={<FooterPage />} />
+          <Route path="/components/page-header" element={<PageHeaderPage />} />
 
           {/* ── Token pages (kept as future work) ── */}
           <Route

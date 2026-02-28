@@ -34,6 +34,8 @@ const FORMS: NavSection = {
     { id: "select", label: "Select", path: "/components/select" },
     { id: "pin-input", label: "Pin Input", path: "/components/pin-input" },
     { id: "segmented-control", label: "Segmented Control", path: "/components/segmented-control" },
+    { id: "autocomplete", label: "Autocomplete", path: "/components/autocomplete" },
+    { id: "input-group", label: "Input Group", path: "/components/input-group" },
   ],
 };
 
@@ -103,6 +105,7 @@ const OVERLAYS: NavSection = {
     { id: "hover-card", label: "Hover Card", path: "/components/hover-card" },
     { id: "dropdown-menu", label: "Dropdown Menu", path: "/components/dropdown-menu" },
     { id: "context-menu", label: "Context Menu", path: "/components/context-menu" },
+    { id: "disabled-tooltip", label: "Disabled Tooltip", path: "/components/disabled-tooltip" },
   ],
 };
 
@@ -120,6 +123,9 @@ const LAYOUT: NavSection = {
     { id: "aspect-ratio", label: "Aspect Ratio", path: "/components/aspect-ratio" },
     { id: "scroll-area", label: "Scroll Area", path: "/components/scroll-area" },
     { id: "timeline", label: "Timeline", path: "/components/timeline" },
+    { id: "hero", label: "Hero", path: "/components/hero" },
+    { id: "footer", label: "Footer", path: "/components/footer" },
+    { id: "page-header", label: "Page Header", path: "/components/page-header" },
   ],
 };
 

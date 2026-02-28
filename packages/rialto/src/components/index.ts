@@ -41,6 +41,7 @@ export * from "./PageHeader";
 
 // ── New components ──────────────────────────────
 export * from "./AspectRatio";
+export * from "./DisabledTooltip";
 export * from "./Autocomplete";
 export * from "./InputGroup";
 export * from "./Banner";
