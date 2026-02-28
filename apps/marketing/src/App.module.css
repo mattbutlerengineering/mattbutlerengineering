@@ -1,0 +1,16 @@
+.layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.main {
+  flex: 1;
+}
+
+.footer {
+  border-top: 1px solid var(--rialto-border);
+  padding-inline: var(--rialto-space-lg);
+  padding-block: var(--rialto-space-md);
+  color: var(--rialto-text-secondary);
+}

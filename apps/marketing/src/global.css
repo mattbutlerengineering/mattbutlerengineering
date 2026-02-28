@@ -1,0 +1,30 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300;1,9..40,400&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400&display=swap");
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-base);
+  font-weight: var(--rialto-weight-regular);
+  line-height: var(--rialto-leading-normal);
+  color: var(--rialto-text-primary);
+  background-color: var(--rialto-surface);
+}
+
+::selection {
+  background-color: var(--rialto-accent-muted);
+  color: var(--rialto-text-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
