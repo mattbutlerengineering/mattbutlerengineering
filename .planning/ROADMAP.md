@@ -12,7 +12,7 @@ Four sequential app migrations that converge on a single outcome: every web app 
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Rialto-Web Migration** - Migrate rialto-web to Rialto-only, establishing the migration pattern
+- [x] **Phase 1: Rialto-Web Migration** - Migrate rialto-web to Rialto-only, establishing the migration pattern (completed 2026-02-28)
 - [ ] **Phase 2: Dashboard Rename** - Rename dashboard to hospitality and update all auth/routing config atomically
 - [ ] **Phase 3: Marketing Portfolio** - Migrate marketing to Rialto-only and build out portfolio content
 - [ ] **Phase 4: Hospitality Migration + Full Hosting** - Migrate hospitality to Rialto-only, remove @mbe/ui, verify all three apps in production
@@ -28,7 +28,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. Theme and vibe switcher changes the visual appearance of all components on the page
   3. No Tailwind CSS classes remain in apps/rialto-web source — grep returns zero matches
   4. Navigating directly to mattbutlerengineering.com/rialto/any-sub-path returns the app, not a 404
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 01-01-PLAN.md — App shell: RialtoProvider at root, theme toggle, ShowcaseLayout with Sidebar, OverviewPage
@@ -91,7 +91,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Rialto-Web Migration | 2/3 | In progress | - |
+| 1. Rialto-Web Migration | 3/3 | Complete   | 2026-02-28 |
 | 2. Dashboard Rename | 0/2 | Not started | - |
 | 3. Marketing Portfolio | 0/2 | Not started | - |
 | 4. Hospitality Migration + Full Hosting | 0/4 | Not started | - |
