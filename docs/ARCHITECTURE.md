@@ -39,19 +39,19 @@ Matt Butler Engineering is a monorepo-based web platform with a React frontend, 
                                     │  │                    Ingress Router                    │  │
                                     │  │                                                      │  │
                                     │  │   /api/*  ──────►  users-api                        │  │
-                                    │  │   /dashboard/* ──► dashboard                        │  │
+                                    │  │   /hospitality/* ─► hospitality                    │  │
                                     │  │   /* ──────────►   web                              │  │
                                     │  │                                                      │  │
                                     │  └──────────┬─────────────────┬─────────────────┬──────┘  │
                                     │             │                 │                 │         │
                                     │             ▼                 ▼                 ▼         │
                                     │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐    │
-                                    │  │   users-api  │  │  dashboard   │  │     web      │    │
+                                    │  │   users-api  │  │ hospitality  │  │     web      │    │
                                     │  │              │  │              │  │              │    │
                                     │  │   Fastify    │  │    React     │  │    React     │    │
                                     │  │   Docker     │  │  Static Site │  │ Static Site  │    │
                                     │  │   Port 3001  │  │              │  │              │    │
-                                    │  │              │  │  /dashboard  │  │      /       │    │
+                                    │  │              │  │ /hospitality │  │      /       │    │
                                     │  └──────────────┘  └──────────────┘  └──────────────┘    │
                                     │                                                            │
                                     └────────────────────────────────────────────────────────────┘
@@ -83,7 +83,7 @@ flowchart TB
 
         subgraph Components[App Components]
             Web[web<br/>React Static Site<br/>Path: /]
-            Dashboard[dashboard<br/>React Static Site<br/>Path: /dashboard]
+            Hospitality[hospitality<br/>React Static Site<br/>Path: /hospitality]
             UsersAPI[users-api<br/>Fastify Docker<br/>Path: /api]
         end
     end
@@ -92,13 +92,13 @@ flowchart TB
     DNS -->|CNAME| Ingress
 
     Ingress -->|"/*"| Web
-    Ingress -->|"/dashboard/*"| Dashboard
+    Ingress -->|"/hospitality/*"| Hospitality
     Ingress -->|"/api/*"| UsersAPI
 
     UsersAPI -->|Prisma| DB
 
     Browser <-->|OAuth 2.0 / OIDC| SPA
-    Dashboard <-->|Get Tokens| SPA
+    Hospitality <-->|Get Tokens| SPA
     UsersAPI <-->|Validate JWT| API_RS
 
     style Auth0 fill:#eb5424,color:#fff
@@ -114,7 +114,7 @@ flowchart TB
 | App | Technology | Path | Description |
 |-----|------------|------|-------------|
 | `web` | React + Vite | `/` | Public marketing site |
-| `dashboard` | React + Vite | `/dashboard` | Authenticated user dashboard |
+| `hospitality` | React + Vite | `/hospitality` | Authenticated hospitality app |
 
 ### Backend Services
 
@@ -146,7 +146,7 @@ flowchart TB
 mattbutlerengineering/
 ├── apps/
 │   ├── web/              # Public website
-│   ├── dashboard/        # Authenticated dashboard
+│   ├── hospitality/      # Hospitality app
 │   └── rialto-web/       # Design system showcase
 ├── services/
 │   ├── users/            # Users API (Fastify)
@@ -170,22 +170,22 @@ mattbutlerengineering/
 ```mermaid
 sequenceDiagram
     participant User
-    participant Dashboard
+    participant Hospitality
     participant Auth0
     participant API
 
-    User->>Dashboard: Visit /dashboard
-    Dashboard->>Auth0: Redirect to login
+    User->>Hospitality: Visit /hospitality
+    Hospitality->>Auth0: Redirect to login
     Auth0->>User: Show login form
     User->>Auth0: Enter credentials
-    Auth0->>Dashboard: Return with auth code
-    Dashboard->>Auth0: Exchange code for tokens
-    Auth0->>Dashboard: ID token + Access token
-    Dashboard->>API: Request with Bearer token
+    Auth0->>Hospitality: Return with auth code
+    Hospitality->>Auth0: Exchange code for tokens
+    Auth0->>Hospitality: ID token + Access token
+    Hospitality->>API: Request with Bearer token
     API->>Auth0: Validate JWT (JWKS)
     Auth0->>API: Token valid
-    API->>Dashboard: Return user data
-    Dashboard->>User: Show dashboard
+    API->>Hospitality: Return user data
+    Hospitality->>User: Show hospitality app
 ```
 
 ## Agentic Workflows
@@ -332,7 +332,7 @@ See [`docs/plans/2026-02-27-agentic-workflows.md`](plans/2026-02-27-agentic-work
 | Environment | URL |
 |-------------|-----|
 | Production | https://mattbutlerengineering.com |
-| Dashboard | https://mattbutlerengineering.com/dashboard |
+| Hospitality | https://mattbutlerengineering.com/hospitality |
 | API | https://mattbutlerengineering.com/api |
 | DO Direct | https://mattbutlerengineering-8ryim.ondigitalocean.app |
 | Auth0 | https://dev-ytbgmz5ls3wh4xdx.us.auth0.com |

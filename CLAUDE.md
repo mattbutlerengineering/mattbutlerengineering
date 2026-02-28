@@ -30,7 +30,7 @@ All apps are served under `mattbutlerengineering.com` using path-prefix routing:
 | Path | App | Directory |
 |------|-----|-----------|
 | `/` | Marketing site (catch-all) | `apps/marketing` |
-| `/dashboard` | Authenticated dashboard | `apps/dashboard` |
+| `/hospitality` | Hospitality app | `apps/hospitality` |
 | `/rialto` | Design system showcase | `apps/rialto-web` |
 | `/api` | Users API | `services/users` |
 
@@ -39,7 +39,7 @@ All apps are served under `mattbutlerengineering.com` using path-prefix routing:
 - The marketing site is the sole exception — it owns the root `/` path
 - Each app sets `base: "/<name>/"` in `vite.config.ts` (except marketing, which stays at root)
 - Pulumi ingress rules are ordered most-specific-first, with `/` as the catch-all last
-- Dev ports are assigned sequentially: 3000 (marketing), 3001 (users-api), 3002 (dashboard), 3003 (agent-api), 3004+ (future apps)
+- Dev ports are assigned sequentially: 3000 (marketing), 3001 (users-api), 3002 (hospitality), 3003 (agent-api), 3004+ (future apps)
 
 ## Work Tracking
 
@@ -172,7 +172,7 @@ pnpm changeset              # Create a changeset for versioning
 mattbutlerengineering/
 ├── apps/                    # Frontend applications
 │   ├── marketing/          # Public marketing site (React + Vite)
-│   ├── dashboard/          # Authenticated dashboard (React + Vite)
+│   ├── hospitality/        # Hospitality app (React + Vite)
 │   └── rialto-web/         # Design system showcase (React + Vite)
 ├── services/                # Backend services
 │   ├── users/              # Users API (Fastify + Prisma) — port 3001
@@ -457,7 +457,7 @@ Starts Postgres (Docker), syncs all database schemas, and launches all dev serve
 
 **Access points**:
    - Marketing: http://localhost:3000
-   - Dashboard: http://localhost:3002/dashboard
+   - Hospitality: http://localhost:3002/hospitality
    - Users API: http://localhost:3001
    - Users API Docs: http://localhost:3001/docs
    - Agent API: http://localhost:3003

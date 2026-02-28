@@ -13,7 +13,7 @@
 - [x] packages/shared-layout (Header, Footer, Sidebar, AppLayout)
 - [x] packages/api-client (typed API client)
 - [x] apps/marketing (landing page)
-- [x] apps/dashboard (authenticated dashboard)
+- [x] apps/hospitality (hospitality app)
 - [x] services/users (Fastify + Prisma, CRUD, health, OpenAPI)
 - [x] tools/cli (Commander.js with auth commands)
 - [x] infrastructure/docker-compose (dev, prod)
@@ -36,7 +36,7 @@
 | Service | URL |
 |---------|-----|
 | Website | https://mattbutlerengineering.com |
-| Dashboard | https://mattbutlerengineering.com/dashboard |
+| Hospitality | https://mattbutlerengineering.com/hospitality |
 | API | https://mattbutlerengineering.com/api |
 | Health Check | https://mattbutlerengineering.com/api/health |
 | API Docs | https://mattbutlerengineering.com/api/docs |
@@ -65,7 +65,7 @@ pnpm --filter @mbe/marketing --filter @mbe/users-service dev
 ```
 User → Cloudflare (DNS/CDN) → DigitalOcean App Platform
                                     ├── marketing (React static)
-                                    ├── dashboard (React static)
+                                    ├── hospitality (React static)
                                     └── users-api (Fastify Docker) → Neon PostgreSQL
 
 Auth0 handles OAuth 2.0 / OIDC authentication
@@ -85,7 +85,7 @@ See `docs/ARCHITECTURE.md` for detailed diagrams.
 - [x] Remove `continue-on-error: true` from test job
 
 ### 2. Feature Development
-- [x] User profile page in dashboard
+- [x] User profile page in hospitality app
 - [x] User settings/preferences (theme, notifications)
 - [x] Admin panel for user management
 
