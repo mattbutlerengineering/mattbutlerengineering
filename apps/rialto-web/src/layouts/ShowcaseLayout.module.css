@@ -1,0 +1,115 @@
+/* ── Root layout ──────────────────────────────── */
+.root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--rialto-surface);
+  color: var(--rialto-text-primary);
+}
+
+/* ── Header bar ───────────────────────────────── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  padding-inline: var(--rialto-space-md);
+  background: var(--rialto-surface-elevated);
+  border-block-end: 1px solid var(--rialto-border);
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.headerStart {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-md);
+}
+
+.headerEnd {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+}
+
+/* ── Logo ─────────────────────────────────────── */
+.logo {
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-lg);
+  font-weight: 500;
+  letter-spacing: var(--rialto-tracking-tight);
+  color: var(--rialto-text-primary);
+  text-decoration: none;
+  transition: opacity 0.15s ease;
+}
+
+.logo:hover {
+  opacity: 0.8;
+}
+
+.logo:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+  border-radius: var(--rialto-radius-sharp);
+}
+
+.logoAccent {
+  color: var(--rialto-accent);
+}
+
+/* ── GitHub link ──────────────────────────────── */
+.githubLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  color: var(--rialto-text-secondary);
+  border-radius: var(--rialto-radius-default);
+  transition: color 0.15s ease, background-color 0.15s ease;
+  text-decoration: none;
+}
+
+.githubLink:hover {
+  color: var(--rialto-text-primary);
+  background: var(--rialto-surface);
+}
+
+.githubLink:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+}
+
+/* ── Body (sidebar + main) ────────────────────── */
+.body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── Sidebar ──────────────────────────────────── */
+.sidebar {
+  flex-shrink: 0;
+  height: calc(100vh - 56px);
+  position: sticky;
+  top: 56px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* ── Main content ─────────────────────────────── */
+.content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: var(--rialto-space-xl);
+}
+
+/* ── Responsive: mobile sidebar collapse ─────── */
+@media (max-width: 767px) {
+  .content {
+    padding: var(--rialto-space-md);
+  }
+}

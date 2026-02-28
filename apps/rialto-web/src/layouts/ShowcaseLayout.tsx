@@ -1,11 +1,151 @@
-// Stub — will be fully implemented in Task 2
+import { useState, useEffect } from "react";
+import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
+import { Sidebar, Footer, type SidebarSection } from "@mbe/rialto";
+import { ThemeToggle } from "../components/ThemeToggle";
+import { NAV_SECTIONS, DEMO_PAGES } from "../data/nav-sections";
+import styles from "./ShowcaseLayout.module.css";
+
+/* ── GitHub icon ─────────────────────────────── */
+function GitHubIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+    </svg>
+  );
+}
+
+/* ── Props ───────────────────────────────────── */
 export interface ShowcaseLayoutProps {
   theme: "light" | "dark";
   onThemeToggle: () => void;
 }
 
-export function ShowcaseLayout(_props: ShowcaseLayoutProps) {
-  return null;
+const SIDEBAR_COLLAPSED_KEY = "rialto-sidebar-collapsed";
+
+/**
+ * App shell for the Rialto showcase.
+ *
+ * Structure:
+ * - Top header bar with logo, ThemeToggle, and GitHub link
+ * - Left sidebar with all component categories + demos section
+ * - Main content area (Outlet)
+ * - Footer with cross-links
+ */
+export function ShowcaseLayout({ theme, onThemeToggle }: ShowcaseLayoutProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+    if (saved !== null) return saved === "true";
+    // Collapse by default on small screens
+    return window.innerWidth < 768;
+  });
+
+  // Persist sidebar collapsed state
+  useEffect(() => {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsed));
+  }, [collapsed]);
+
+  // Build sidebar items from NAV_SECTIONS
+  const sidebarItems: SidebarSection[] = [
+    ...NAV_SECTIONS.map((section) => ({
+      label: section.label,
+      items: section.items.map((item) => ({
+        id: item.id,
+        label: item.label,
+        active:
+          location.pathname === item.path ||
+          location.pathname.startsWith(item.path + "/"),
+        onClick: () => navigate(item.path),
+        // NO href — prevents full page reloads inside BrowserRouter
+      })),
+    })),
+    // Demos section at the bottom
+    {
+      label: "Demos",
+      items: DEMO_PAGES.map((demo) => ({
+        id: demo.id,
+        label: demo.label,
+        active: location.pathname === demo.path,
+        onClick: () => navigate(demo.path),
+      })),
+    },
+  ];
+
+  return (
+    <div className={styles.root}>
+      {/* ── Top header bar ─────────────────────── */}
+      <header className={styles.header}>
+        <div className={styles.headerStart}>
+          <Link to="/" className={styles.logo} aria-label="Rialto home">
+            Ri<span className={styles.logoAccent}>a</span>lto
+          </Link>
+        </div>
+
+        <div className={styles.headerEnd}>
+          <ThemeToggle theme={theme} onToggle={onThemeToggle} />
+          <a
+            href="https://github.com/mattbutler/mattbutlerengineering"
+            className={styles.githubLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="View on GitHub"
+          >
+            <GitHubIcon />
+          </a>
+        </div>
+      </header>
+
+      {/* ── Body (sidebar + content) ────────────── */}
+      <div className={styles.body}>
+        <Sidebar
+          items={sidebarItems}
+          collapsed={collapsed}
+          onCollapse={setCollapsed}
+          className={styles.sidebar}
+        />
+
+        <main className={styles.content}>
+          <Outlet />
+        </main>
+      </div>
+
+      {/* ── Footer ─────────────────────────────── */}
+      <Footer
+        variant="rich"
+        logo={
+          <>
+            Ri<span style={{ color: "var(--rialto-accent)" }}>a</span>lto
+          </>
+        }
+        columns={[
+          {
+            title: "Platform",
+            links: [
+              { label: "mattbutlerengineering.com", href: "https://mattbutlerengineering.com" },
+              { label: "Dashboard", href: "https://mattbutlerengineering.com/dashboard" },
+            ],
+          },
+          {
+            title: "Design System",
+            links: [
+              { label: "GitHub", href: "https://github.com/mattbutler/mattbutlerengineering" },
+              { label: "Overview", href: "/rialto/" },
+            ],
+          },
+        ]}
+        copyright={`\u00A9 ${new Date().getFullYear()} Matt Butler Engineering. All rights reserved.`}
+      />
+    </div>
+  );
 }
 
 ShowcaseLayout.displayName = "ShowcaseLayout";
