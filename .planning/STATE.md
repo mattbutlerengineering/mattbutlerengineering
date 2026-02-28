@@ -10,28 +10,29 @@ See: .planning/PROJECT.md (updated 2026-02-27)
 ## Current Position
 
 Phase: 2 of 4 (Dashboard Rename)
-Plan: 0 of 2 in current phase
-Status: Planned — ready for execution
-Last activity: 2026-02-28 — Phase 2 plans created and verified
+Plan: 1 of 2 in current phase
+Status: In progress — plan 1 complete
+Last activity: 2026-02-28 — 02-01 complete (dashboard renamed to hospitality)
 
-Progress: [███░░░░░░░] 25%
+Progress: [████░░░░░░] 37%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3 (01-03 Tasks 1-2 done, Task 3 pending checkpoint)
-- Average duration: 40 min
-- Total execution time: 1.95 hours
+- Total plans completed: 4
+- Average duration: 31 min
+- Total execution time: 1.97 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-rialto-web-migration | 3 | 116 min | 39 min |
+| 02-dashboard-rename | 1 of 2 | 3 min | 3 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (6 min), 01-02 (95 min), 01-03 (15 min)
-- Trend: Fast plan — only 2 files changed, verification passed cleanly
+- Last 5 plans: 01-01 (6 min), 01-02 (95 min), 01-03 (15 min), 02-01 (3 min)
+- Trend: Very fast — pure rename operation, no new code
 
 *Updated after each plan completion*
 
@@ -55,6 +56,9 @@ Recent decisions affecting current work:
 - [01-03]: className="accent" replaced with inline style var(--rialto-accent) — no Tailwind processing in rialto-web
 - [01-03]: rialto-web static site entry has no envs — pure client-side showcase, no backend or auth needed
 - [01-03]: preservePathPrefix: false on /rialto — strips prefix before serving static files, matching Vite base and BrowserRouter basename
+- [02-01]: 301 redirect rule in Pulumi ingress preserves backward compat for /dashboard bookmarks
+- [02-01]: Auth0 Pulumi resource rename will delete+recreate client generating new client_id — local .env needs manual update after pulumi up
+- [02-01]: Pulumi ingress rename pattern: add 301 redirect for old path before new component rule (order: /api, /old redirect, /new component, /rialto, / catch-all)
 
 ### Pending Todos
 
@@ -68,5 +72,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-28
-Stopped at: Phase 2 planned and verified — ready for execution
+Stopped at: Completed 02-01-PLAN.md (dashboard renamed to hospitality, IaC updated)
 Resume file: none

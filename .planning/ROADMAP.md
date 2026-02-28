@@ -92,6 +92,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Rialto-Web Migration | 3/3 | Complete   | 2026-02-28 |
-| 2. Dashboard Rename | 0/2 | Not started | - |
+| 2. Dashboard Rename | 1/2 | In Progress|  |
 | 3. Marketing Portfolio | 0/2 | Not started | - |
 | 4. Hospitality Migration + Full Hosting | 0/4 | Not started | - |

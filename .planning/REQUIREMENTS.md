@@ -28,10 +28,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Hospitality App
 
-- [ ] **HOSP-01**: Directory renamed from `apps/dashboard` to `apps/hospitality`
-- [ ] **HOSP-02**: Package name updated from `@mbe/dashboard` to `@mbe/hospitality`
-- [ ] **HOSP-03**: URL path changed from `/dashboard` to `/hospitality` (Vite base, React Router basename)
-- [ ] **HOSP-04**: Auth0 callback URL updated to `/hospitality/callback` in Pulumi IaC
+- [x] **HOSP-01**: Directory renamed from `apps/dashboard` to `apps/hospitality`
+- [x] **HOSP-02**: Package name updated from `@mbe/dashboard` to `@mbe/hospitality`
+- [x] **HOSP-03**: URL path changed from `/dashboard` to `/hospitality` (Vite base, React Router basename)
+- [x] **HOSP-04**: Auth0 callback URL updated to `/hospitality/callback` in Pulumi IaC
 - [ ] **HOSP-05**: All Tailwind CSS classes replaced with Rialto components
 - [ ] **HOSP-06**: All @mbe/ui imports replaced with @mbe/rialto equivalents
 - [ ] **HOSP-07**: All existing features preserved (reservations, timeline, floor plans, guest management)
@@ -39,9 +39,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Infrastructure & Hosting
 
-- [ ] **INFRA-01**: Pulumi ingress rules for `/rialto`, `/hospitality`, and `/` (catch-all last)
-- [ ] **INFRA-02**: SPA fallback (catchallDocument) configured per app
-- [ ] **INFRA-03**: Vite `base`, React Router `basename`, and Pulumi ingress in sync per app
+- [x] **INFRA-01**: Pulumi ingress rules for `/rialto`, `/hospitality`, and `/` (catch-all last)
+- [x] **INFRA-02**: SPA fallback (catchallDocument) configured per app
+- [x] **INFRA-03**: Vite `base`, React Router `basename`, and Pulumi ingress in sync per app
 - [ ] **INFRA-04**: All three apps accessible at mattbutlerengineering.com with correct path-prefix routing
 
 ### Cleanup
@@ -100,17 +100,17 @@ Deferred to future release. Tracked but not in current roadmap.
 | PORT-06 | Phase 3 | Pending |
 | PORT-07 | Phase 3 | Pending |
 | PORT-08 | Phase 3 | Pending |
-| HOSP-01 | Phase 2 | Pending |
-| HOSP-02 | Phase 2 | Pending |
-| HOSP-03 | Phase 2 | Pending |
-| HOSP-04 | Phase 2 | Pending |
+| HOSP-01 | Phase 2 | Complete |
+| HOSP-02 | Phase 2 | Complete |
+| HOSP-03 | Phase 2 | Complete |
+| HOSP-04 | Phase 2 | Complete |
 | HOSP-05 | Phase 4 | Pending |
 | HOSP-06 | Phase 4 | Pending |
 | HOSP-07 | Phase 4 | Pending |
 | HOSP-08 | Phase 4 | Pending |
-| INFRA-01 | Phase 2 | Pending |
-| INFRA-02 | Phase 2 | Pending |
-| INFRA-03 | Phase 2 | Pending |
+| INFRA-01 | Phase 2 | Complete |
+| INFRA-02 | Phase 2 | Complete |
+| INFRA-03 | Phase 2 | Complete |
 | INFRA-04 | Phase 4 | Pending |
 | CLEAN-01 | Phase 4 | Pending |
 | CLEAN-02 | Phase 4 | Pending |
