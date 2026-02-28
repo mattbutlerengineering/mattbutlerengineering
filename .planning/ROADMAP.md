@@ -28,12 +28,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. Theme and vibe switcher changes the visual appearance of all components on the page
   3. No Tailwind CSS classes remain in apps/rialto-web source — grep returns zero matches
   4. Navigating directly to mattbutlerengineering.com/rialto/any-sub-path returns the app, not a 404
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 01-01: RialtoProvider setup and Rialto global styles import
-- [ ] 01-02: Replace all Tailwind and raw CSS with Rialto components
-- [ ] 01-03: Remove Tailwind dependencies, verify build and routing
+- [ ] 01-01-PLAN.md — App shell: RialtoProvider at root, theme toggle, ShowcaseLayout with Sidebar, OverviewPage
+- [ ] 01-02-PLAN.md — All 55+ per-component showcase pages with variants, playground, props table, accessibility
+- [ ] 01-03-PLAN.md — Tailwind removal, Pulumi ingress rule for /rialto, build verification, human sign-off
 
 ### Phase 2: Dashboard Rename
 **Goal**: The dashboard app is renamed to hospitality with all routing, auth, and infrastructure config updated atomically
@@ -91,7 +91,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Rialto-Web Migration | 0/3 | Not started | - |
+| 1. Rialto-Web Migration | 0/3 | Planned | - |
 | 2. Dashboard Rename | 0/2 | Not started | - |
 | 3. Marketing Portfolio | 0/2 | Not started | - |
 | 4. Hospitality Migration + Full Hosting | 0/4 | Not started | - |
