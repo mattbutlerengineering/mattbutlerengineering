@@ -10,14 +10,14 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.svg", "robots.txt"],
       manifest: {
-        name: "MBE Dashboard",
-        short_name: "Dashboard",
-        description: "Hospitality management dashboard for reservations, guests, and floor plans",
+        name: "MBE Hospitality",
+        short_name: "Hospitality",
+        description: "Hospitality management — reservations, guests, and floor plans",
         theme_color: "#2563eb",
         background_color: "#f9fafb",
         display: "standalone",
-        scope: "/dashboard/",
-        start_url: "/dashboard/",
+        scope: "/hospitality/",
+        start_url: "/hospitality/",
         icons: [
           {
             src: "pwa-192x192.svg",
@@ -77,7 +77,7 @@ export default defineConfig({
       "@": resolve(__dirname, "./src"),
     },
   },
-  base: "/dashboard/",
+  base: "/hospitality/",
   server: {
     port: 3002,
     proxy: {

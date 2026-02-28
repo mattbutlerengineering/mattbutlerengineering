@@ -125,7 +125,7 @@ export function SettingsPage() {
                   <option value="dark">Dark</option>
                 </select>
                 <p className="mt-1 text-sm text-gray-500">
-                  Choose how the dashboard looks to you
+                  Choose how the app looks to you
                 </p>
               </div>
             </div>

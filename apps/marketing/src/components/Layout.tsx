@@ -10,7 +10,7 @@ export function Layout() {
             Matt Butler Engineering
           </Link>
           <div className="flex items-center gap-4">
-            <a href="/dashboard">
+            <a href="/hospitality">
               <Button size="sm">Sign In</Button>
             </a>
           </div>

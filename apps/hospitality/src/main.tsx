@@ -9,13 +9,13 @@ import "./index.css";
 const authConfig = {
   authority: import.meta.env.VITE_AUTH_AUTHORITY ?? "",
   clientId: import.meta.env.VITE_AUTH_CLIENT_ID ?? "",
-  redirectUri: import.meta.env.VITE_AUTH_REDIRECT_URI ?? window.location.origin + "/dashboard/callback",
+  redirectUri: import.meta.env.VITE_AUTH_REDIRECT_URI ?? window.location.origin + "/hospitality/callback",
   audience: import.meta.env.VITE_AUTH_AUDIENCE,
 };
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <BrowserRouter basename="/dashboard">
+    <BrowserRouter basename="/hospitality">
       <AuthProvider config={authConfig}>
         <App />
       </AuthProvider>

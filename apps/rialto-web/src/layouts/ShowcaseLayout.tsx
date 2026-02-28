@@ -89,7 +89,7 @@ export function ShowcaseLayout({ theme, onThemeToggle }: ShowcaseLayoutProps) {
                   title: "Platform",
                   links: [
                     { label: "mattbutlerengineering.com", href: "https://mattbutlerengineering.com" },
-                    { label: "Dashboard", href: "https://mattbutlerengineering.com/dashboard" },
+                    { label: "Hospitality", href: "https://mattbutlerengineering.com/hospitality" },
                   ],
                 },
                 {
