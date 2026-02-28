@@ -12,7 +12,7 @@
 - [x] packages/types (shared TypeScript types)
 - [x] packages/shared-layout (Header, Footer, Sidebar, AppLayout)
 - [x] packages/api-client (typed API client)
-- [x] apps/web (landing page)
+- [x] apps/marketing (landing page)
 - [x] apps/dashboard (authenticated dashboard)
 - [x] services/users (Fastify + Prisma, CRUD, health, OpenAPI)
 - [x] tools/cli (Commander.js with auth commands)
@@ -50,10 +50,10 @@ cd infrastructure && docker compose -f docker-compose.yml -f docker-compose.dev.
 cd services/users && pnpm db:push
 
 # Start services
-pnpm --filter @mbe/web --filter @mbe/users-service dev
+pnpm --filter @mbe/marketing --filter @mbe/users-service dev
 
 # URLs
-# - Web: http://localhost:3000
+# - Marketing: http://localhost:3000
 # - Users API: http://localhost:3001
 # - API Docs: http://localhost:3001/docs
 ```
@@ -64,7 +64,7 @@ pnpm --filter @mbe/web --filter @mbe/users-service dev
 
 ```
 User → Cloudflare (DNS/CDN) → DigitalOcean App Platform
-                                    ├── web (React static)
+                                    ├── marketing (React static)
                                     ├── dashboard (React static)
                                     └── users-api (Fastify Docker) → Neon PostgreSQL
 

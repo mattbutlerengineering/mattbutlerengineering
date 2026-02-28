@@ -9,7 +9,7 @@
 **Key Characteristics:**
 - Multiple independent backend services (users, agent, reservations) each with isolated database
 - Shared type definitions and utilities across all applications
-- Frontend apps (web, dashboard, design system) consume backend APIs via client library
+- Frontend apps (marketing, dashboard, design system) consume backend APIs via client library
 - Agent execution engine (@mbe/agent-core) runs autonomous coding sessions with safety constraints
 - Async/event-driven architecture for long-running agent tasks
 
@@ -17,7 +17,7 @@
 
 **Presentation Layer (Frontend):**
 - Purpose: User interface and interactions via browser
-- Location: `apps/web`, `apps/dashboard`, `apps/agent-viz`, `apps/rialto-web`
+- Location: `apps/marketing`, `apps/dashboard`, `apps/agent-viz`, `apps/rialto-web`
 - Contains: React components, pages, layouts, hooks, styling
 - Depends on: @mbe/auth, @mbe/types, @mbe/api-client, @mbe/shared-layout, @mbe/rialto
 - Used by: Web browsers
@@ -141,9 +141,9 @@
 
 ## Entry Points
 
-**Web Application:**
-- Location: `apps/web/src/main.tsx`
-- Triggers: Browser navigation to web.localhost:3000
+**Marketing Application:**
+- Location: `apps/marketing/src/main.tsx`
+- Triggers: Browser navigation to localhost:3000
 - Responsibilities: Renders marketing homepage, static content, redirects to dashboard/API docs
 
 **Dashboard Application:**

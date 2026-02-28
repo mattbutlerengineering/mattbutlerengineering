@@ -164,7 +164,7 @@
 - Priority: Medium - Catches cross-service issues early
 
 **Frontend Component Tests Absent:**
-- What's not tested: React components in `apps/dashboard/` and `apps/web/`
+- What's not tested: React components in `apps/dashboard/` and `apps/marketing/`
 - Files: Dashboard pages and web components
 - Risk: UI regressions and accessibility issues not caught
 - Priority: Medium - Protects user experience

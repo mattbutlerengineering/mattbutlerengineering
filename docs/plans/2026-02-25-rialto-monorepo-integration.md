@@ -245,9 +245,9 @@ git commit -m "feat(config): upgrade to ESLint 10, add jsx-a11y and react-refres
 
 **Files:**
 - Modify: `apps/dashboard/package.json`
-- Modify: `apps/web/package.json`
+- Modify: `apps/marketing/package.json`
 - Modify: `apps/dashboard/vite.config.ts` (if Vite 7 API changes)
-- Modify: `apps/web/vite.config.ts` (if Vite 7 API changes)
+- Modify: `apps/marketing/vite.config.ts` (if Vite 7 API changes)
 - Modify: `packages/auth/package.json` (if it has React peer dep)
 - Modify: `packages/ui/package.json` (if it has React peer dep)
 - Modify: `packages/shared-layout/package.json` (if it has React peer dep)
@@ -272,7 +272,7 @@ git commit -m "feat(config): upgrade to ESLint 10, add jsx-a11y and react-refres
 
 Note: `react-konva` may need a React 19-compatible version. Check and update as needed. If `react-konva` doesn't support React 19, it may need `--legacy-peer-deps` or a version bump.
 
-**Step 2: Update apps/web/package.json dependencies**
+**Step 2: Update apps/marketing/package.json dependencies**
 
 Same React/Vite/TS upgrades as dashboard.
 
@@ -693,7 +693,7 @@ Expected: All tests pass, including rialto's unit tests.
 ```bash
 pnpm --filter @mbe/rialto-web dev &
 pnpm --filter @mbe/dashboard dev &
-pnpm --filter @mbe/web dev &
+pnpm --filter @mbe/marketing dev &
 ```
 
 Verify each starts without errors:

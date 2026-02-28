@@ -32,9 +32,9 @@
   - @scalar/fastify-api-reference 1.44.1 - Interactive API docs UI
 
 **Frontend:**
-- React 19.0.0 - UI library (apps/web, apps/dashboard, packages/rialto)
+- React 19.0.0 - UI library (apps/marketing, apps/dashboard, packages/rialto)
 - Vite 7.0.0 - Build tool and dev server
-- React Router DOM 7.1.0 - Client-side routing (apps/web, apps/dashboard)
+- React Router DOM 7.1.0 - Client-side routing (apps/marketing, apps/dashboard)
 
 **Design System:**
 - Rialto (internal @mbe/rialto) - Component library with motion, tokens, and styles

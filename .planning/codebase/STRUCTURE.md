@@ -10,7 +10,7 @@ mattbutlerengineering/
 │   ├── agent-viz/                  # Agent workflow visualizer (React + Vite)
 │   ├── dashboard/                  # Authenticated dashboard (React + Vite)
 │   ├── rialto-web/                 # Design system showcase (React + Vite)
-│   └── web/                        # Public marketing site (React + Vite)
+│   └── marketing/                  # Public marketing site (React + Vite)
 ├── services/                       # Backend microservices
 │   ├── agent/                      # Agent session management API (Fastify)
 │   ├── reservations/               # Reservation & venue management API (Fastify)
@@ -76,7 +76,7 @@ mattbutlerengineering/
 **Entry Points:**
 
 Frontend apps:
-- Web: `apps/web/src/main.tsx` - React app entry, renders homepage
+- Marketing: `apps/marketing/src/main.tsx` - React app entry, renders homepage
 - Dashboard: `apps/dashboard/src/main.tsx` - React app entry, renders authenticated dashboard
 - Agent Viz: `apps/agent-viz/src/main.tsx` - Agent workflow visualization
 - Rialto Showcase: `apps/rialto-web/src/main.tsx` - Design system component showcase

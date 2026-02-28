@@ -17,7 +17,7 @@
 
 | App | Purpose | Deps | Routing | Styling | Auth | Routes |
 |-----|---------|------|---------|---------|------|--------|
-| `apps/web/` | Public marketing site | React 19, Vite 7, RR v7 | `BrowserRouter` | Tailwind v3 + `@mbe/ui` | None | 1 |
+| `apps/marketing/` | Public marketing site | React 19, Vite 7, RR v7 | `BrowserRouter` | Tailwind v3 + `@mbe/ui` | None | 1 |
 | `apps/dashboard/` | Hospitality mgmt PWA | React 19, Vite 7, RR v7, Konva | `BrowserRouter` (base `/dashboard`) | Tailwind v3 + `@mbe/ui` | `@mbe/auth` (OIDC) | 10 |
 | `apps/rialto-web/` | Design system showcase | React 19, Vite 7, RR v7 | `BrowserRouter` (base `/rialto`) | CSS Modules + `@mbe/rialto` | None | 12 |
 
@@ -25,7 +25,7 @@
 
 ```
 ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│  apps/web    │     │apps/dashboard│     │apps/rialto-web│
+│apps/marketing│     │apps/dashboard│     │apps/rialto-web│
 │  React SPA   │     │  React SPA   │     │  React SPA   │
 │  1 route     │     │  10 routes   │     │  12 routes   │
 │  No auth     │     │  OIDC auth   │     │  No auth     │
@@ -71,7 +71,7 @@
 
 Not all apps need a meta-framework. Each app has different requirements:
 
-### `apps/web/` — Marketing Site
+### `apps/marketing/` — Marketing Site
 
 **Verdict: NEEDS a meta-framework (or at minimum SSG).**
 
@@ -483,13 +483,13 @@ The central finding of this evaluation is that different apps need different sol
 
 | App | Recommendation | Rationale |
 |-----|---------------|-----------|
-| `apps/web/` | **Astro** (migrate) | Marketing site needs SEO. Astro ships zero JS, scores Lighthouse 98-100, has content collections for marketing copy. Existing React components work as islands. |
+| `apps/marketing/` | **Astro** (migrate) | Marketing site needs SEO. Astro ships zero JS, scores Lighthouse 98-100, has content collections for marketing copy. Existing React components work as islands. |
 | `apps/dashboard/` | **Vite SPA** (stay) | Authenticated PWA with Konva canvas. SPA is the correct architecture. Add `React.lazy` code splitting for route-level chunks. |
 | `apps/rialto-web/` | **Vite SPA** (stay) | Internal component showcase. Already uses `React.lazy` well. No SEO need. SPA is correct. |
 
 ### #1 Astro — For the Marketing Site (Recommended)
 
-Astro is the ideal fit for `apps/web/` because:
+Astro is the ideal fit for `apps/marketing/` because:
 
 1. **Zero JS by default** — Static HTML ships instantly. Lighthouse 98-100 without optimization effort.
 2. **SEO-first** — Server-rendered HTML with meta tags, sitemaps, RSS feeds. Solves the primary pain point.
@@ -526,7 +526,7 @@ If the per-app approach (Astro + Vite SPA) feels like too much tooling diversity
 
 1. **Already installed** — All 3 apps use React Router v7. Migration is incremental.
 2. **SPA mode** — `ssr: false` keeps dashboard and rialto-web as SPAs while gaining file-based routing and code splitting.
-3. **SSR for marketing** — Enable `ssr: true` or `prerender` for `apps/web` only.
+3. **SSR for marketing** — Enable `ssr: true` or `prerender` for `apps/marketing` only.
 4. **Same patterns everywhere** — Loaders, actions, and route modules work identically in SSR and SPA mode.
 
 **When to choose this over Astro + Vite SPA:**
@@ -545,10 +545,10 @@ If the per-app approach (Astro + Vite SPA) feels like too much tooling diversity
 
 ### Path A: Astro for Marketing Site (Recommended)
 
-**Scope:** Only `apps/web/` — the simplest app (1 route, no auth, no complex state).
+**Scope:** Only `apps/marketing/` — the simplest app (1 route, no auth, no complex state).
 
 **Phase 1 — Setup (1-2 hours)**
-1. Create new Astro project in `apps/web/` (or alongside as `apps/web-astro/`)
+1. Create new Astro project in `apps/marketing/` (or alongside as `apps/marketing-astro/`)
 2. Add `@astrojs/react` integration for React island support
 3. Configure Turborepo pipeline for the new Astro build
 
@@ -569,10 +569,10 @@ If the per-app approach (Astro + Vite SPA) feels like too much tooling diversity
 
 ### Path B: React Router v7 Framework Mode (Alternative)
 
-**Scope:** All 3 apps (but primarily `apps/web/` for SSR).
+**Scope:** All 3 apps (but primarily `apps/marketing/` for SSR).
 
 **Phase 1 — Marketing Site (4-8 hours)**
-1. Add `@react-router/dev` Vite plugin to `apps/web/`
+1. Add `@react-router/dev` Vite plugin to `apps/marketing/`
 2. Create `react-router.config.ts` with `prerender: true` for SSG
 3. Convert `App.tsx` routes to file-based route modules
 4. Add loaders for any data fetching, `meta` exports for SEO
@@ -606,7 +606,7 @@ If the per-app approach (Astro + Vite SPA) feels like too much tooling diversity
 
 | Scenario | Recommended Action |
 |----------|-------------------|
-| **Current state** (3 SPAs, marketing site needs SEO) | Migrate `apps/web/` to **Astro**; keep dashboard and rialto-web as Vite SPAs |
+| **Current state** (3 SPAs, marketing site needs SEO) | Migrate `apps/marketing/` to **Astro**; keep dashboard and rialto-web as Vite SPAs |
 | Marketing site grows (blog, case studies, many pages) | **Astro** — content collections are purpose-built for this |
 | Dashboard needs server-side data fetching | **RR v7 Framework Mode** — add loaders incrementally while keeping SPA mode |
 | Want unified tooling across all apps | **RR v7 Framework Mode** — same framework, different rendering strategies per app |

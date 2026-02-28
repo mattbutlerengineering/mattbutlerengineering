@@ -75,7 +75,7 @@ mattbutlerengineering/
 - `mattbutlerengineering.com` → Production
 
 ### Applications (Paths)
-- `/` → Landing/marketing site (apps/web)
+- `/` → Landing/marketing site (apps/marketing)
 - `/dashboard` → Dashboard app (apps/dashboard)
 - `/docs` → Documentation (apps/docs)
 
@@ -322,7 +322,7 @@ jobs:
 - [x] Create packages/types for shared TypeScript types
 
 ### Phase 2: First App + Service
-- [x] Create apps/web (landing page)
+- [x] Create apps/marketing (landing page)
 - [x] Create services/users with Fastify
 - [x] Set up PostgreSQL + Prisma
 - [ ] Configure Auth0 tenant
