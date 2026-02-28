@@ -13,7 +13,7 @@ Four sequential app migrations that converge on a single outcome: every web app 
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Rialto-Web Migration** - Migrate rialto-web to Rialto-only, establishing the migration pattern (completed 2026-02-28)
-- [ ] **Phase 2: Dashboard Rename** - Rename dashboard to hospitality and update all auth/routing config atomically
+- [x] **Phase 2: Dashboard Rename** - Rename dashboard to hospitality and update all auth/routing config atomically (completed 2026-02-28)
 - [ ] **Phase 3: Marketing Portfolio** - Migrate marketing to Rialto-only and build out portfolio content
 - [ ] **Phase 4: Hospitality Migration + Full Hosting** - Migrate hospitality to Rialto-only, remove @mbe/ui, verify all three apps in production
 
@@ -92,6 +92,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Rialto-Web Migration | 3/3 | Complete   | 2026-02-28 |
-| 2. Dashboard Rename | 1/2 | In Progress|  |
+| 2. Dashboard Rename | 2/2 | Complete   | 2026-02-28 |
 | 3. Marketing Portfolio | 0/2 | Not started | - |
 | 4. Hospitality Migration + Full Hosting | 0/4 | Not started | - |

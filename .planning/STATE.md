@@ -1,3 +1,16 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: unknown
+last_updated: "2026-02-28T18:21:15.664Z"
+progress:
+  total_phases: 2
+  completed_phases: 2
+  total_plans: 5
+  completed_plans: 5
+---
+
 # Project State
 
 ## Project Reference
@@ -5,34 +18,34 @@
 See: .planning/PROJECT.md (updated 2026-02-27)
 
 **Core value:** Every web app uses Rialto as the single design system and is accessible at mattbutlerengineering.com
-**Current focus:** Phase 2 — Dashboard Rename
+**Current focus:** Phase 2 — Dashboard Rename (complete)
 
 ## Current Position
 
 Phase: 2 of 4 (Dashboard Rename)
-Plan: 1 of 2 in current phase
-Status: In progress — plan 1 complete
-Last activity: 2026-02-28 — 02-01 complete (dashboard renamed to hospitality)
+Plan: 2 of 2 in current phase
+Status: Phase complete — both plans complete
+Last activity: 2026-02-28 — 02-02 complete (documentation updated for rename)
 
-Progress: [████░░░░░░] 37%
+Progress: [████████░░] 50%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
-- Average duration: 31 min
-- Total execution time: 1.97 hours
+- Total plans completed: 5
+- Average duration: 15 min
+- Total execution time: 2.04 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-rialto-web-migration | 3 | 116 min | 39 min |
-| 02-dashboard-rename | 1 of 2 | 3 min | 3 min |
+| 02-dashboard-rename | 2 of 2 | 7 min | 3.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (6 min), 01-02 (95 min), 01-03 (15 min), 02-01 (3 min)
-- Trend: Very fast — pure rename operation, no new code
+- Last 5 plans: 01-02 (95 min), 01-03 (15 min), 02-01 (3 min), 02-02 (4 min)
+- Trend: Very fast — pure documentation rename, no code changes
 
 *Updated after each plan completion*
 
@@ -59,6 +72,7 @@ Recent decisions affecting current work:
 - [02-01]: 301 redirect rule in Pulumi ingress preserves backward compat for /dashboard bookmarks
 - [02-01]: Auth0 Pulumi resource rename will delete+recreate client generating new client_id — local .env needs manual update after pulumi up
 - [02-01]: Pulumi ingress rename pattern: add 301 redirect for old path before new component rule (order: /api, /old redirect, /new component, /rialto, / catch-all)
+- [Phase 02-dashboard-rename]: [02-02]: Auth skill redirectUri uses port 3002 (actual dev port) not 5173 — updated to http://localhost:3002/hospitality/callback
 
 ### Pending Todos
 
@@ -72,5 +86,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-28
-Stopped at: Completed 02-01-PLAN.md (dashboard renamed to hospitality, IaC updated)
+Stopped at: Completed 02-02-PLAN.md (documentation updated for dashboard→hospitality rename)
 Resume file: none
