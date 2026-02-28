@@ -1,0 +1,27 @@
+.card {
+  padding: var(--rialto-space-lg);
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+}
+
+.title {
+  font-size: var(--rialto-text-lg);
+  font-weight: var(--rialto-weight-medium);
+  line-height: var(--rialto-leading-tight);
+  margin: 0;
+}
+
+.description {
+  flex: 1;
+}
+
+.actions {
+  margin-block-start: auto;
+  padding-block-start: var(--rialto-space-xs);
+}
+
+.link {
+  text-decoration: none;
+  display: inline-block;
+}
