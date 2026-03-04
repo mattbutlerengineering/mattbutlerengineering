@@ -35,14 +35,14 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **HOSP-05**: All Tailwind CSS classes replaced with Rialto components
 - [x] **HOSP-06**: All @mbe/ui imports replaced with @mbe/rialto equivalents
 - [x] **HOSP-07**: All existing features preserved (reservations, timeline, floor plans, guest management)
-- [ ] **HOSP-08**: App served at mattbutlerengineering.com/hospitality with working client-side routing
+- [x] **HOSP-08**: App served at mattbutlerengineering.com/hospitality with working client-side routing
 
 ### Infrastructure & Hosting
 
 - [x] **INFRA-01**: Pulumi ingress rules for `/rialto`, `/hospitality`, and `/` (catch-all last)
 - [x] **INFRA-02**: SPA fallback (catchallDocument) configured per app
 - [x] **INFRA-03**: Vite `base`, React Router `basename`, and Pulumi ingress in sync per app
-- [ ] **INFRA-04**: All three apps accessible at mattbutlerengineering.com with correct path-prefix routing
+- [x] **INFRA-04**: All three apps accessible at mattbutlerengineering.com with correct path-prefix routing
 
 ### Cleanup
 
@@ -107,11 +107,11 @@ Deferred to future release. Tracked but not in current roadmap.
 | HOSP-05 | Phase 4 | Complete |
 | HOSP-06 | Phase 4 | Complete |
 | HOSP-07 | Phase 4 | Complete |
-| HOSP-08 | Phase 4 | Pending |
+| HOSP-08 | Phase 4 | Complete |
 | INFRA-01 | Phase 2 | Complete |
 | INFRA-02 | Phase 2 | Complete |
 | INFRA-03 | Phase 2 | Complete |
-| INFRA-04 | Phase 4 | Pending |
+| INFRA-04 | Phase 4 | Complete |
 | CLEAN-01 | Phase 4 | Complete |
 | CLEAN-02 | Phase 4 | Complete |
 | CLEAN-03 | Phase 4 | Complete |
