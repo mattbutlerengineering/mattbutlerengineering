@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
+import { Stack, Text, Button } from "@mbe/rialto";
 import { DashboardLayout } from "./components/DashboardLayout";
 import { HomePage } from "./pages/HomePage";
 import { ProfilePage } from "./pages/ProfilePage";
@@ -12,6 +13,7 @@ import { FloorPlansPage } from "./pages/FloorPlansPage";
 import { FloorPlanEditorPage } from "./pages/FloorPlanEditorPage";
 import { BookingWidgetDemoPage } from "./pages/BookingWidgetDemoPage";
 import { TimelinePage } from "./pages/TimelinePage";
+import styles from "./App.module.css";
 
 export function App() {
   const { isLoading, isAuthenticated } = useAuth();
@@ -47,17 +49,18 @@ function LoginPrompt() {
   const { signIn } = useAuth();
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold mb-4">Dashboard</h1>
-        <p className="text-gray-600 mb-6">Please sign in to continue</p>
-        <button
-          onClick={() => signIn()}
-          className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-        >
+    <div className={styles.loginContainer}>
+      <Stack gap="md" align="center">
+        <Text as="h1" variant="display" color="primary">
+          Hospitality
+        </Text>
+        <Text variant="body" color="secondary">
+          Please sign in to continue
+        </Text>
+        <Button variant="primary" onClick={() => signIn()}>
           Sign In
-        </button>
-      </div>
+        </Button>
+      </Stack>
     </div>
   );
 }

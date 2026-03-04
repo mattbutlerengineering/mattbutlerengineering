@@ -1,9 +1,11 @@
+import "@mbe/rialto/styles";
+import "./index.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
+import { RialtoProvider } from "@mbe/rialto";
 import { AuthProvider } from "@mbe/auth/react";
 import { App } from "./App";
-import "./index.css";
 
 // Auth config from environment
 const authConfig = {
@@ -15,10 +17,12 @@ const authConfig = {
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <BrowserRouter basename="/hospitality">
-      <AuthProvider config={authConfig}>
-        <App />
-      </AuthProvider>
-    </BrowserRouter>
+    <RialtoProvider theme="light">
+      <BrowserRouter basename="/hospitality">
+        <AuthProvider config={authConfig}>
+          <App />
+        </AuthProvider>
+      </BrowserRouter>
+    </RialtoProvider>
   </StrictMode>
 );

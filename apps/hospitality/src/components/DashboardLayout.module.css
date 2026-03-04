@@ -1,0 +1,32 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  padding-inline: var(--rialto-space-lg);
+  padding-block: var(--rialto-space-sm);
+  border-block-end: 1px solid var(--rialto-border);
+  background: var(--rialto-surface);
+}
+
+.logo {
+  font-size: var(--rialto-text-lg);
+  font-weight: var(--rialto-weight-semibold);
+  color: var(--rialto-text-primary);
+}
+
+.body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--rialto-space-lg);
+}

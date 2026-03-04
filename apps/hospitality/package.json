@@ -13,6 +13,7 @@
   "dependencies": {
     "@mbe/api-client": "workspace:*",
     "@mbe/auth": "workspace:*",
+    "@mbe/rialto": "workspace:*",
     "@mbe/shared-layout": "workspace:*",
     "@mbe/types": "workspace:*",
     "@mbe/ui": "workspace:*",
