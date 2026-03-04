@@ -109,5 +109,21 @@ None — no external service configuration required.
 - All 28 v1 requirements are formally verified and checked — v1.0 milestone audit gaps are closed except for the Pulumi code cleanup in 05-02
 
 ---
+## Self-Check: PASSED
+
+All files verified to exist on disk:
+- FOUND: .planning/phases/01-rialto-web-migration/01-VERIFICATION.md
+- FOUND: .planning/phases/03-marketing-portfolio/03-VERIFICATION.md
+- FOUND: .planning/phases/05-retroactive-verification-gap-closure/05-01-SUMMARY.md
+- FOUND: .planning/REQUIREMENTS.md
+- FOUND: .planning/ROADMAP.md
+- FOUND: .planning/phases/04-hospitality-migration-full-hosting/04-01-SUMMARY.md
+
+Commits verified in git log:
+- FOUND: 5a2ffb3 (Task 1: retroactive VERIFICATION.md files)
+- FOUND: e90200b (Task 2: stale documentation state fixes)
+- FOUND: 4c24678 (Final metadata commit)
+
+---
 *Phase: 05-retroactive-verification-gap-closure*
 *Completed: 2026-03-04*
