@@ -182,7 +182,6 @@ mattbutlerengineering/
 │   ├── rialto/            # Rialto design system (React component library)
 │   ├── types/             # Shared TypeScript types (incl. agent types)
 │   ├── auth/              # Auth utilities (React + Fastify)
-│   ├── ui/                # Shared UI components (being replaced by rialto)
 │   └── config/            # ESLint/TypeScript/Prettier configs
 ├── tools/                   # Developer tooling
 │   └── cli/               # `mbe` CLI (users, auth, agent commands)
