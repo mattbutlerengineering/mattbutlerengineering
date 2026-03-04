@@ -100,7 +100,7 @@ Plans:
 
 Plans:
 - [x] 05-01-PLAN.md — Retroactive VERIFICATION.md files for phases 01 and 03, documentation state fixes
-- [ ] 05-02-PLAN.md — Pulumi integration cleanup (stale Auth0 callback, orphaned marketing env vars)
+- [x] 05-02-PLAN.md — Pulumi integration cleanup (stale Auth0 callback, orphaned marketing env vars)
 
 ## Progress
 
