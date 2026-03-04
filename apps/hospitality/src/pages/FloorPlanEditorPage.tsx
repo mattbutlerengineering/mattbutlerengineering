@@ -4,6 +4,7 @@ import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
 import type { FloorPlan, Table } from "@mbe/types";
 import { FloorPlanCanvas } from "../components/floor-plan";
+import styles from "./FloorPlanEditorPage.module.css";
 
 export function FloorPlanEditorPage() {
   const { id } = useParams<{ id: string }>();
@@ -124,22 +125,17 @@ export function FloorPlanEditorPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+      <div className={styles.loadingWrapper}>
+        <div className={styles.spinner} />
       </div>
     );
   }
 
   if (error || !floorPlan) {
     return (
-      <div className="p-6">
-        <div className="bg-red-50 text-red-600 p-4 rounded-md">
-          {error ?? "Floor plan not found"}
-        </div>
-        <button
-          onClick={() => navigate("/floor-plans")}
-          className="mt-4 text-blue-600 hover:underline"
-        >
+      <div className={styles.errorContainer}>
+        <div className={styles.errorBox}>{error ?? "Floor plan not found"}</div>
+        <button onClick={() => navigate("/floor-plans")} className={styles.backLink}>
           Back to Floor Plans
         </button>
       </div>
@@ -147,43 +143,33 @@ export function FloorPlanEditorPage() {
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className={styles.root}>
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b bg-white">
-        <div className="flex items-center gap-4">
+      <div className={styles.header}>
+        <div className={styles.headerLeft}>
           <button
             onClick={() => navigate("/floor-plans")}
-            className="text-gray-500 hover:text-gray-700"
+            className={styles.backButton}
+            aria-label="Back to floor plans"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className={styles.backIcon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <h1 className="text-xl font-bold">{floorPlan.name}</h1>
-          {floorPlan.isActive && (
-            <span className="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 rounded-full">
-              Active
-            </span>
-          )}
+          <h1 className={styles.floorPlanTitle}>{floorPlan.name}</h1>
+          {floorPlan.isActive && <span className={styles.activeBadge}>Active</span>}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className={styles.headerRight}>
           {!floorPlan.isActive && (
-            <button
-              onClick={handleActivate}
-              className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
-            >
+            <button onClick={handleActivate} className={styles.activateButton}>
               Set as Active
             </button>
           )}
           <button
             onClick={handleSave}
             disabled={!hasChanges || isSaving}
-            className={`px-4 py-1.5 text-sm rounded-md ${
-              hasChanges
-                ? "bg-blue-600 text-white hover:bg-blue-700"
-                : "bg-gray-100 text-gray-400 cursor-not-allowed"
-            }`}
+            className={`${styles.saveButton} ${hasChanges ? styles.saveButtonActive : styles.saveButtonDisabled}`}
           >
             {isSaving ? "Saving..." : hasChanges ? "Save Changes" : "Saved"}
           </button>
@@ -191,9 +177,9 @@ export function FloorPlanEditorPage() {
       </div>
 
       {/* Main content */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className={styles.content}>
         {/* Canvas */}
-        <div className="flex-1 p-4 overflow-auto">
+        <div className={styles.canvasArea}>
           <FloorPlanCanvas
             floorPlan={floorPlan}
             tables={tables}
@@ -204,60 +190,62 @@ export function FloorPlanEditorPage() {
         </div>
 
         {/* Sidebar - Table details */}
-        <div className="w-64 border-l bg-white p-4 overflow-auto">
-          <h2 className="font-medium text-gray-900 mb-4">Table Details</h2>
+        <div className={styles.sidebar}>
+          <h2 className={styles.sidebarTitle}>Table Details</h2>
 
           {selectedTable ? (
-            <div className="space-y-4">
+            <div className={styles.detailsStack}>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Name</label>
-                <div className="font-medium">{selectedTable.name}</div>
+                <label className={styles.detailLabel}>Name</label>
+                <div className={styles.detailValue}>{selectedTable.name}</div>
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Table Number</label>
-                <div className="font-medium">{selectedTable.tableNumber}</div>
+                <label className={styles.detailLabel}>Table Number</label>
+                <div className={styles.detailValue}>{selectedTable.tableNumber}</div>
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Capacity</label>
-                <div className="font-medium">
-                  {selectedTable.minCovers} - {selectedTable.maxCovers ?? selectedTable.capacity} guests
+                <label className={styles.detailLabel}>Capacity</label>
+                <div className={styles.detailValue}>
+                  {selectedTable.minCovers} - {selectedTable.maxCovers ?? selectedTable.capacity}{" "}
+                  guests
                 </div>
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Location</label>
-                <div className="font-medium">{selectedTable.location ?? "Not set"}</div>
+                <label className={styles.detailLabel}>Location</label>
+                <div className={styles.detailValue}>{selectedTable.location ?? "Not set"}</div>
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Status</label>
-                <div className={`font-medium ${selectedTable.isActive ? "text-green-600" : "text-gray-400"}`}>
+                <label className={styles.detailLabel}>Status</label>
+                <div
+                  className={
+                    selectedTable.isActive ? styles.detailValueActive : styles.detailValueInactive
+                  }
+                >
                   {selectedTable.isActive ? "Active" : "Inactive"}
                 </div>
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Position</label>
-                <div className="font-mono text-sm">
-                  x: {selectedTable.shapeMetadata?.x ?? 0}, y: {selectedTable.shapeMetadata?.y ?? 0}
+                <label className={styles.detailLabel}>Position</label>
+                <div className={styles.detailValueMono}>
+                  x: {selectedTable.shapeMetadata?.x ?? 0}, y:{" "}
+                  {selectedTable.shapeMetadata?.y ?? 0}
                 </div>
               </div>
             </div>
           ) : (
-            <div className="text-gray-400 text-sm">
-              Select a table to view details
-            </div>
+            <div className={styles.noSelection}>Select a table to view details</div>
           )}
 
           {/* Table list */}
-          <div className="mt-8">
-            <h3 className="font-medium text-gray-900 mb-2">All Tables ({tables.length})</h3>
-            <div className="space-y-1">
+          <div className={styles.tableListSection}>
+            <h3 className={styles.tableListTitle}>All Tables ({tables.length})</h3>
+            <div className={styles.tableListStack}>
               {tables.map((table) => (
                 <button
                   key={table.id}
                   onClick={() => setSelectedTableId(table.id)}
-                  className={`w-full text-left px-2 py-1.5 rounded text-sm ${
-                    table.id === selectedTableId
-                      ? "bg-blue-50 text-blue-700"
-                      : "hover:bg-gray-50"
+                  className={`${styles.tableListButton} ${
+                    table.id === selectedTableId ? styles.tableListButtonSelected : ""
                   }`}
                 >
                   {table.tableNumber || table.name}

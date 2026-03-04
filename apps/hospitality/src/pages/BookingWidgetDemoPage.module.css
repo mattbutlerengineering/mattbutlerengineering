@@ -1,0 +1,175 @@
+.container {
+  padding: var(--rialto-space-lg);
+  max-width: 56rem;
+  margin-inline: auto;
+}
+
+/* Page intro */
+.intro {
+  margin-block-end: var(--rialto-space-2xl);
+}
+
+.title {
+  font-size: var(--rialto-text-2xl);
+  font-weight: var(--rialto-weight-bold);
+  color: var(--rialto-text-primary);
+  margin-block-end: var(--rialto-space-xs);
+}
+
+.subtitle {
+  font-size: var(--rialto-text-base);
+  color: var(--rialto-text-secondary);
+}
+
+/* Venue ID input section */
+.venueSection {
+  margin-block-end: var(--rialto-space-2xl);
+  padding: var(--rialto-space-md);
+  background: var(--rialto-surface-recessed);
+  border-radius: var(--rialto-radius-soft);
+}
+
+.venueLabel {
+  display: block;
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-primary);
+  margin-block-end: var(--rialto-space-xs);
+}
+
+.venueInput {
+  width: 100%;
+  max-width: 28rem;
+  padding-inline: var(--rialto-space-sm);
+  padding-block: var(--rialto-space-xs);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-primary);
+  background: var(--rialto-surface);
+}
+
+.venueInputHint {
+  margin-block-start: var(--rialto-space-xs);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+}
+
+/* Widget preview grid */
+.previewGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+  gap: var(--rialto-space-2xl);
+}
+
+.previewSectionTitle {
+  font-size: var(--rialto-text-lg);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-primary);
+  margin-block-end: var(--rialto-space-md);
+}
+
+.widgetFrame {
+  border: 1px dashed var(--rialto-border);
+  border-radius: var(--rialto-radius-soft);
+  padding: var(--rialto-space-md);
+  background: var(--rialto-surface-recessed);
+}
+
+.widgetPlaceholder {
+  text-align: center;
+  padding-block: var(--rialto-space-2xl);
+  color: var(--rialto-text-tertiary);
+  font-size: var(--rialto-text-sm);
+}
+
+/* Code block */
+.codeBlock {
+  background: #111827;
+  border-radius: var(--rialto-radius-soft);
+  padding: var(--rialto-space-md);
+  overflow-x: auto;
+}
+
+.codeBlockPre {
+  margin: 0;
+  font-size: var(--rialto-text-sm);
+  color: #d1d5db;
+  font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, monospace;
+  line-height: 1.6;
+}
+
+.embedHint {
+  margin-block-start: var(--rialto-space-md);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+}
+
+/* Features grid */
+.featuresSection {
+  margin-block-start: var(--rialto-space-2xl);
+}
+
+.featuresGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: var(--rialto-space-lg);
+}
+
+.featureCard {
+  padding: var(--rialto-space-md);
+  background: var(--rialto-surface);
+  border-radius: var(--rialto-radius-soft);
+  border: 1px solid var(--rialto-border);
+}
+
+.featureIconWrapper {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--rialto-radius-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-block-end: var(--rialto-space-sm);
+}
+
+.featureIconBlue {
+  background: #dbeafe;
+}
+
+.featureIconGreen {
+  background: #dcfce7;
+}
+
+.featureIconPurple {
+  background: #f3e8ff;
+}
+
+.featureIcon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.featureIconColorBlue {
+  color: #2563eb;
+}
+
+.featureIconColorGreen {
+  color: #16a34a;
+}
+
+.featureIconColorPurple {
+  color: #9333ea;
+}
+
+.featureTitle {
+  font-size: var(--rialto-text-base);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-primary);
+  margin-block-end: var(--rialto-space-2xs);
+}
+
+.featureDescription {
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+}
