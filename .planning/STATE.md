@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-04T05:09:38.633Z"
+last_updated: "2026-03-03T05:10:00.000Z"
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 12
-  completed_plans: 9
+  completed_plans: 10
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-27)
 
 **Core value:** Every web app uses Rialto as the single design system and is accessible at mattbutlerengineering.com
-**Current focus:** Phase 4 — Hospitality Migration + Full Hosting (plan 3 of 5 complete)
+**Current focus:** Phase 4 — Hospitality Migration + Full Hosting (plans 01, 02, 03 of 5 complete)
 
 ## Current Position
 
 Phase: 4 of 4 (Hospitality Migration + Full Hosting) — IN PROGRESS
-Plan: 3 of 5 in current phase — 04-03 complete
-Status: Plan 04-03 complete — booking-widget, floor-plan, and timeline domain components migrated to CSS Modules; zero Tailwind className strings remain in domain component layer
-Last activity: 2026-03-04 — 04-03 complete (9 components migrated, TableShape confirmed clean, TypeScript zero errors)
+Plan: 3 of 5 in current phase — 04-01, 04-02, 04-03 complete
+Status: Plan 04-02 complete — all 6 Tailwind-only hospitality pages migrated to CSS Modules with Rialto tokens; zero Tailwind className strings remain in page layer
+Last activity: 2026-03-03 — 04-02 complete (6 page files, 6 CSS Module files created, TypeScript zero errors)
 
-Progress: [█████████░] 78%
+Progress: [█████████░] 83%
 
 ## Performance Metrics
 
@@ -51,6 +51,7 @@ Progress: [█████████░] 78%
 *Updated after each plan completion*
 | Phase 04 P01 | 4 min | 2 tasks | 18 files |
 | Phase 04-hospitality-migration-full-hosting P03 | 4 | 2 tasks | 16 files |
+| Phase 04-hospitality-migration-full-hosting P02 | 5 | 2 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -87,6 +88,9 @@ Recent decisions affecting current work:
 - [Phase 04-03]: TableShape.tsx left unchanged — pure react-konva canvas, zero Tailwind classes confirmed
 - [Phase 04-03]: ReservationBlock STATUS_COLORS refactored to STATUS_CLASS record mapping status to CSS Module class names
 - [Phase 04-03]: Dynamic pixel positioning (left/width/height) kept as inline styles — only static Tailwind converted to CSS Modules
+- [Phase 04-02]: CSS logical properties used throughout all 6 page files for i18n/RTL readiness (padding-inline, margin-block-end, border-inline-start)
+- [Phase 04-02]: Status badges use opaque hex values — Rialto has no semantic status color tokens (PENDING/CONFIRMED/CANCELLED)
+- [Phase 04-02]: h-full flex layouts preserved exactly in FloorPlanEditorPage and TimelinePage via .root { height:100%; display:flex; flex-direction:column }
 
 ### Pending Todos
 
@@ -99,6 +103,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-04
-Stopped at: Completed 04-03-PLAN.md (booking-widget, floor-plan, timeline domain components migrated to CSS Modules)
+Last session: 2026-03-03
+Stopped at: Completed 04-02-PLAN.md (all 6 Tailwind-only hospitality pages migrated to CSS Modules, zero Tailwind strings remaining)
 Resume file: none
