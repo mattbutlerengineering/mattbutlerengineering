@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-04T18:49:45.987Z"
+last_updated: "2026-03-04T18:52:58.268Z"
 progress:
   total_phases: 5
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 14
-  completed_plans: 13
+  completed_plans: 14
 ---
 
 # Project State
@@ -55,6 +55,7 @@ Progress: [██████████] 100%
 | Phase 04-hospitality-migration-full-hosting P04 | 8 | 2 tasks | 10 files |
 | Phase 04-hospitality-migration-full-hosting P05 | 5 | 2 tasks | 0 files |
 | Phase 05-retroactive-verification-gap-closure P02 | 5 | 1 tasks | 2 files |
+| Phase 05-retroactive-verification-gap-closure P01 | 4 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -101,6 +102,9 @@ Recent decisions affecting current work:
 - [Phase 05-02]: Auth0 localCallbacks cleanup: localhost:3000/callback removed — marketing has no auth route handler; hospitality callback preserved
 - [Phase 05-02]: Marketing Pulumi envs removed: VITE_AUTH_* vars were injected into marketing build but never consumed; removed to eliminate confusion
 - [Phase 05-02]: prodCallbacks left untouched: stale production callbacks are harmless per research Pitfall 3 guidance — risk of accidental breakage outweighs cleanup benefit
+- [Phase 05-01]: Retroactive VERIFICATION.md files reference existing codebase evidence — no re-running automated checks needed since Phase 04 gate already confirmed all apps pass
+- [Phase 05-01]: HOSP-06 attributed to 04-01-SUMMARY.md — the 04-01 plan claimed HOSP-06 and covered the primary @mbe/ui to @mbe/rialto migration
+- [Phase 05-01]: All 14 orphaned requirement checkboxes marked complete — audit confirmed all are functionally wired; gap was process-only (no VERIFICATION.md), not functional
 
 ### Pending Todos
 

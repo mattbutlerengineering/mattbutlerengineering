@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Dashboard Rename** - Rename dashboard to hospitality and update all auth/routing config atomically (completed 2026-02-28)
 - [x] **Phase 3: Marketing Portfolio** - Migrate marketing to Rialto-only and build out portfolio content (completed 2026-02-28)
 - [x] **Phase 4: Hospitality Migration + Full Hosting** - Migrate hospitality to Rialto-only, remove @mbe/ui, verify all three apps in production (completed 2026-03-04)
-- [ ] **Phase 5: Retroactive Verification & Gap Closure** - Close audit gaps: create Phase 01/03 VERIFICATION.md, fix documentation state, resolve integration issues
+- [x] **Phase 5: Retroactive Verification & Gap Closure** - Close audit gaps: create Phase 01/03 VERIFICATION.md, fix documentation state, resolve integration issues (completed 2026-03-04)
 
 ## Phase Details
 
@@ -96,7 +96,7 @@ Plans:
   2. Phase 03 VERIFICATION.md exists confirming PORT-01–08 pass against codebase
   3. HOSP-06 listed in SUMMARY frontmatter, all REQUIREMENTS.md checkboxes accurate
   4. No stale Auth0 callback URL in auth0.ts; no orphaned VITE_AUTH_* env vars in marketing Pulumi config
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 05-01-PLAN.md — Retroactive VERIFICATION.md files for phases 01 and 03, documentation state fixes
@@ -113,4 +113,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Dashboard Rename | 2/2 | Complete   | 2026-02-28 |
 | 3. Marketing Portfolio | 2/2 | Complete   | 2026-02-28 |
 | 4. Hospitality Migration + Full Hosting | 5/5 | Complete   | 2026-03-04 |
-| 5. Retroactive Verification & Gap Closure | 1/2 | In Progress |  |
+| 5. Retroactive Verification & Gap Closure | 2/2 | Complete   | 2026-03-04 |
