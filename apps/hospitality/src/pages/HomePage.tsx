@@ -1,6 +1,7 @@
 import { useAuth } from "@mbe/auth/react";
-import { PageHeader } from "@mbe/shared-layout";
-import { Card, CardHeader, CardTitle, CardContent } from "@mbe/ui";
+import { Card, Text, Stack } from "@mbe/rialto";
+import { PageHeader } from "../components/PageHeader";
+import styles from "./HomePage.module.css";
 
 export function HomePage() {
   const { user } = useAuth();
@@ -12,36 +13,29 @@ export function HomePage() {
         description={`Welcome back${user?.name ? `, ${user.name}` : ""}`}
       />
 
-      <div className="p-6">
-        <div className="grid md:grid-cols-3 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Quick Stats</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">0</p>
-              <p className="text-sm text-gray-500">Active projects</p>
-            </CardContent>
-          </Card>
+      <div className={styles.grid}>
+        <Card title="Quick Stats">
+          <Stack gap="xs">
+            <Text as="p" variant="display" color="primary">
+              0
+            </Text>
+            <Text variant="caption" color="secondary">
+              Active projects
+            </Text>
+          </Stack>
+        </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-500 text-sm">No recent activity</p>
-            </CardContent>
-          </Card>
+        <Card title="Recent Activity">
+          <Text variant="body" color="secondary">
+            No recent activity
+          </Text>
+        </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Notifications</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-500 text-sm">No new notifications</p>
-            </CardContent>
-          </Card>
-        </div>
+        <Card title="Notifications">
+          <Text variant="body" color="secondary">
+            No new notifications
+          </Text>
+        </Card>
       </div>
     </div>
   );

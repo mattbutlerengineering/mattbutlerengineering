@@ -1,0 +1,116 @@
+.loadingWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+}
+
+.skeletonRow {
+  height: 3rem;
+  background: var(--rialto-surface-recessed);
+  border-radius: var(--rialto-radius-default);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-block-end: var(--rialto-space-md);
+}
+
+.tableWrapper {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.th {
+  padding-inline: var(--rialto-space-md);
+  padding-block: var(--rialto-space-sm);
+  text-align: start;
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-block-end: 1px solid var(--rialto-border);
+}
+
+.row {
+  border-block-end: 1px solid var(--rialto-border);
+}
+
+.row:hover {
+  background: var(--rialto-surface-elevated);
+}
+
+.td {
+  padding-inline: var(--rialto-space-md);
+  padding-block: var(--rialto-space-md);
+  white-space: nowrap;
+}
+
+.userCell {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+}
+
+.avatar {
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--rialto-radius-round);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.avatarFallback {
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--rialto-radius-round);
+  background: var(--rialto-surface-recessed);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.badgeVerified {
+  display: inline-flex;
+  align-items: center;
+  padding-inline: var(--rialto-space-sm);
+  padding-block: 2px;
+  border-radius: var(--rialto-radius-sharp);
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-medium);
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.badgeUnverified {
+  display: inline-flex;
+  align-items: center;
+  padding-inline: var(--rialto-space-sm);
+  padding-block: 2px;
+  border-radius: var(--rialto-radius-sharp);
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-medium);
+  background-color: var(--rialto-surface-recessed);
+  color: var(--rialto-text-secondary);
+}
+
+.emptyState {
+  padding-block: var(--rialto-space-2xl);
+  text-align: center;
+}
+
+.paginationRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-block-start: var(--rialto-space-md);
+  padding-block-start: var(--rialto-space-md);
+  border-block-start: 1px solid var(--rialto-border);
+}

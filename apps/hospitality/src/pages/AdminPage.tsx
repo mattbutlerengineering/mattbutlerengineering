@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@mbe/auth/react";
-import { PageHeader } from "@mbe/shared-layout";
-import { Card, CardHeader, CardTitle, CardContent, Button } from "@mbe/ui";
+import { Card, Button, Text, Stack } from "@mbe/rialto";
 import { ApiClient, UsersClient } from "@mbe/api-client";
 import type { User, Pagination } from "@mbe/types";
+import { PageHeader } from "../components/PageHeader";
+import styles from "./AdminPage.module.css";
 
 export function AdminPage() {
   const { accessToken } = useAuth();
@@ -42,12 +43,10 @@ export function AdminPage() {
     return (
       <div>
         <PageHeader title="Admin" description="Loading users..." />
-        <div className="p-6">
-          <div className="animate-pulse space-y-4">
-            <div className="h-12 bg-gray-200 rounded-lg" />
-            <div className="h-12 bg-gray-200 rounded-lg" />
-            <div className="h-12 bg-gray-200 rounded-lg" />
-          </div>
+        <div className={styles.loadingWrapper}>
+          <div className={styles.skeletonRow} />
+          <div className={styles.skeletonRow} />
+          <div className={styles.skeletonRow} />
         </div>
       </div>
     );
@@ -57,134 +56,124 @@ export function AdminPage() {
     return (
       <div>
         <PageHeader title="Admin" description="User management" />
-        <div className="p-6">
-          <Card>
-            <CardContent className="py-8">
-              <p className="text-red-600 text-center">{error}</p>
-              <div className="mt-4 text-center">
-                <Button onClick={() => window.location.reload()}>Retry</Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <Card>
+          <Stack gap="md" align="center">
+            <Text variant="body" color="error">
+              {error}
+            </Text>
+            <Button variant="secondary" onClick={() => window.location.reload()}>
+              Retry
+            </Button>
+          </Stack>
+        </Card>
       </div>
     );
   }
 
   return (
     <div>
-      <PageHeader
-        title="Admin"
-        description="Manage users and system settings"
-      />
+      <PageHeader title="Admin" description="Manage users and system settings" />
 
-      <div className="p-6 space-y-6">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Users</CardTitle>
-              <span className="text-sm text-gray-500">
-                {pagination?.total ?? 0} total users
-              </span>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead>
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      User
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Email
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Joined
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {users.map((user) => (
-                    <tr key={user.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-3">
-                          {user.picture ? (
-                            <img
-                              src={user.picture}
-                              alt={user.name ?? "User"}
-                              className="w-8 h-8 rounded-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-                              <span className="text-sm text-gray-500">
-                                {(user.name ?? user.email).charAt(0).toUpperCase()}
-                              </span>
-                            </div>
-                          )}
-                          <span className="font-medium">
-                            {user.name ?? "—"}
-                          </span>
+      <Card>
+        <div className={styles.cardHeader}>
+          <Text variant="label" color="primary">
+            Users
+          </Text>
+          <Text variant="caption" color="secondary">
+            {pagination?.total ?? 0} total users
+          </Text>
+        </div>
+
+        <div className={styles.tableWrapper}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th className={styles.th}>User</th>
+                <th className={styles.th}>Email</th>
+                <th className={styles.th}>Status</th>
+                <th className={styles.th}>Joined</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((user) => (
+                <tr key={user.id} className={styles.row}>
+                  <td className={styles.td}>
+                    <div className={styles.userCell}>
+                      {user.picture ? (
+                        <img
+                          src={user.picture}
+                          alt={user.name ?? "User"}
+                          className={styles.avatar}
+                        />
+                      ) : (
+                        <div className={styles.avatarFallback}>
+                          <Text variant="caption" color="secondary">
+                            {(user.name ?? user.email).charAt(0).toUpperCase()}
+                          </Text>
                         </div>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {user.email}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        {user.emailVerified ? (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            Verified
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                            Unverified
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(user.createdAt).toLocaleDateString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      )}
+                      <Text variant="body" color="primary">
+                        {user.name ?? "—"}
+                      </Text>
+                    </div>
+                  </td>
+                  <td className={styles.td}>
+                    <Text variant="body" color="secondary">
+                      {user.email}
+                    </Text>
+                  </td>
+                  <td className={styles.td}>
+                    <span
+                      className={
+                        user.emailVerified ? styles.badgeVerified : styles.badgeUnverified
+                      }
+                    >
+                      {user.emailVerified ? "Verified" : "Unverified"}
+                    </span>
+                  </td>
+                  <td className={styles.td}>
+                    <Text variant="detail" color="secondary">
+                      {new Date(user.createdAt).toLocaleDateString()}
+                    </Text>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-            {users.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                No users found
-              </div>
-            )}
+        {users.length === 0 && (
+          <div className={styles.emptyState}>
+            <Text variant="body" color="secondary">
+              No users found
+            </Text>
+          </div>
+        )}
 
-            {pagination && pagination.totalPages > 1 && (
-              <div className="mt-4 flex items-center justify-between border-t pt-4">
-                <div className="text-sm text-gray-500">
-                  Page {pagination.page} of {pagination.totalPages}
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setCurrentPage((p) => p - 1)}
-                    disabled={!pagination.hasPrev}
-                  >
-                    Previous
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setCurrentPage((p) => p + 1)}
-                    disabled={!pagination.hasNext}
-                  >
-                    Next
-                  </Button>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+        {pagination && pagination.totalPages > 1 && (
+          <div className={styles.paginationRow}>
+            <Text variant="caption" color="secondary">
+              Page {pagination.page} of {pagination.totalPages}
+            </Text>
+            <Stack gap="sm" direction="row">
+              <Button
+                variant="secondary"
+                onClick={() => setCurrentPage((p) => p - 1)}
+                disabled={!pagination.hasPrev}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => setCurrentPage((p) => p + 1)}
+                disabled={!pagination.hasNext}
+              >
+                Next
+              </Button>
+            </Stack>
+          </div>
+        )}
+      </Card>
     </div>
   );
 }

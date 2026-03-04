@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@mbe/auth/react";
-import { PageHeader } from "@mbe/shared-layout";
-import { Card, CardHeader, CardTitle, CardContent, Button } from "@mbe/ui";
+import { Card, Button, Text, Stack } from "@mbe/rialto";
 import { ApiClient, UsersClient } from "@mbe/api-client";
 import type { User, UserPreferences } from "@mbe/types";
+import { PageHeader } from "../components/PageHeader";
+import styles from "./SettingsPage.module.css";
 
 export function SettingsPage() {
   const { accessToken, signOut } = useAuth();
@@ -67,11 +68,9 @@ export function SettingsPage() {
     return (
       <div>
         <PageHeader title="Settings" description="Loading settings..." />
-        <div className="p-6">
-          <div className="animate-pulse space-y-4">
-            <div className="h-32 bg-gray-200 rounded-lg" />
-            <div className="h-32 bg-gray-200 rounded-lg" />
-          </div>
+        <div className={styles.loadingWrapper}>
+          <div className={styles.skeletonBlock} />
+          <div className={styles.skeletonBlock} />
         </div>
       </div>
     );
@@ -81,120 +80,100 @@ export function SettingsPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Settings"
-        description="Manage your account settings and preferences"
-      />
+      <PageHeader title="Settings" description="Manage your account settings and preferences" />
 
-      <div className="p-6 space-y-6">
+      <Stack gap="lg">
         {error && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-600">{error}</p>
+          <div className={styles.errorBanner}>
+            <Text variant="body" color="error">
+              {error}
+            </Text>
           </div>
         )}
 
         {successMessage && (
-          <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-            <p className="text-green-600">{successMessage}</p>
+          <div className={styles.successBanner}>
+            <Text variant="body" color="success">
+              {successMessage}
+            </Text>
           </div>
         )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Appearance</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
+        <Card title="Appearance">
+          <div className={styles.fieldGroup}>
+            <label className={styles.label}>Theme</label>
+            <select
+              value={preferences.theme ?? "system"}
+              onChange={(e) =>
+                updatePreference("theme", e.target.value as "light" | "dark" | "system")
+              }
+              disabled={isSaving}
+              className={styles.select}
+            >
+              <option value="system">System</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+            <Text variant="caption" color="secondary">
+              Choose how the app looks to you
+            </Text>
+          </div>
+        </Card>
+
+        <Card title="Notifications">
+          <Stack gap="md">
+            <label className={styles.checkboxLabel}>
+              <input
+                type="checkbox"
+                checked={preferences.emailNotifications ?? true}
+                onChange={(e) => updatePreference("emailNotifications", e.target.checked)}
+                disabled={isSaving}
+                className={styles.checkbox}
+              />
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Theme
-                </label>
-                <select
-                  value={preferences.theme ?? "system"}
-                  onChange={(e) =>
-                    updatePreference(
-                      "theme",
-                      e.target.value as "light" | "dark" | "system"
-                    )
-                  }
-                  disabled={isSaving}
-                  className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="system">System</option>
-                  <option value="light">Light</option>
-                  <option value="dark">Dark</option>
-                </select>
-                <p className="mt-1 text-sm text-gray-500">
-                  Choose how the app looks to you
-                </p>
+                <Text variant="body" color="primary">
+                  Email notifications
+                </Text>
+                <Text variant="caption" color="secondary">
+                  Receive important updates and alerts via email
+                </Text>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </label>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Notifications</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <label className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={preferences.emailNotifications ?? true}
-                  onChange={(e) =>
-                    updatePreference("emailNotifications", e.target.checked)
-                  }
-                  disabled={isSaving}
-                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                />
-                <div>
-                  <span className="font-medium">Email notifications</span>
-                  <p className="text-sm text-gray-500">
-                    Receive important updates and alerts via email
-                  </p>
-                </div>
-              </label>
-
-              <label className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={preferences.marketingEmails ?? false}
-                  onChange={(e) =>
-                    updatePreference("marketingEmails", e.target.checked)
-                  }
-                  disabled={isSaving}
-                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                />
-                <div>
-                  <span className="font-medium">Marketing emails</span>
-                  <p className="text-sm text-gray-500">
-                    Receive news, updates, and promotional content
-                  </p>
-                </div>
-              </label>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Account</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
+            <label className={styles.checkboxLabel}>
+              <input
+                type="checkbox"
+                checked={preferences.marketingEmails ?? false}
+                onChange={(e) => updatePreference("marketingEmails", e.target.checked)}
+                disabled={isSaving}
+                className={styles.checkbox}
+              />
               <div>
-                <p className="text-sm text-gray-500 mb-2">
-                  Signed in as <span className="font-medium">{user?.email}</span>
-                </p>
-                <Button variant="outline" onClick={() => signOut()}>
-                  Sign Out
-                </Button>
+                <Text variant="body" color="primary">
+                  Marketing emails
+                </Text>
+                <Text variant="caption" color="secondary">
+                  Receive news, updates, and promotional content
+                </Text>
               </div>
-            </div>
-          </CardContent>
+            </label>
+          </Stack>
         </Card>
-      </div>
+
+        <Card title="Account">
+          <Stack gap="sm">
+            <Text variant="caption" color="secondary">
+              Signed in as{" "}
+              <Text as="span" variant="caption" color="primary">
+                {user?.email}
+              </Text>
+            </Text>
+            <Button variant="secondary" onClick={() => signOut()}>
+              Sign Out
+            </Button>
+          </Stack>
+        </Card>
+      </Stack>
     </div>
   );
 }
