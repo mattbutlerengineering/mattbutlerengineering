@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-04T14:44:48.173Z"
+last_updated: "2026-03-04T18:49:45.987Z"
 progress:
-  total_phases: 4
+  total_phases: 5
   completed_phases: 4
-  total_plans: 12
-  completed_plans: 12
+  total_plans: 14
+  completed_plans: 13
 ---
 
 # Project State
@@ -22,10 +22,10 @@ See: .planning/PROJECT.md (updated 2026-02-27)
 
 ## Current Position
 
-Phase: 4 of 4 (Hospitality Migration + Full Hosting) — COMPLETE
-Plan: 5 of 5 in current phase — 04-01, 04-02, 04-03, 04-04, 04-05 all complete
-Status: Plan 04-05 complete — final verification gate passed (automated checks + visual approval), Phase 4 done
-Last activity: 2026-03-04 — 04-05 complete (all checks pass, human visual verification approved)
+Phase: 5 of 5 (Retroactive Verification Gap Closure) — In Progress
+Plan: 2 of 2 in current phase — 05-01 complete, 05-02 complete
+Status: Plan 05-02 complete — stale Auth0 callbacks and orphaned marketing Pulumi env vars removed; TypeScript compiles clean
+Last activity: 2026-03-04 — 05-02 complete (IaC cleanup done, all checks pass)
 
 Progress: [██████████] 100%
 
@@ -54,6 +54,7 @@ Progress: [██████████] 100%
 | Phase 04-hospitality-migration-full-hosting P02 | 5 | 2 tasks | 12 files |
 | Phase 04-hospitality-migration-full-hosting P04 | 8 | 2 tasks | 10 files |
 | Phase 04-hospitality-migration-full-hosting P05 | 5 | 2 tasks | 0 files |
+| Phase 05-retroactive-verification-gap-closure P02 | 5 | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -97,6 +98,9 @@ Recent decisions affecting current work:
 - [Phase 04-04]: @mbe/ui and @mbe/shared-layout packages fully deleted — Rialto is now the sole design system in the monorepo
 - [Phase 04-05]: Phase 04 verification: all automated checks (build, typecheck, lint, test, Tailwind grep, @mbe/ui grep) pass — zero errors, zero regressions
 - [Phase 04-05]: Visual approval: marketing, hospitality, and rialto-web all render correctly in local dev — human-verified. Phase 4 complete.
+- [Phase 05-02]: Auth0 localCallbacks cleanup: localhost:3000/callback removed — marketing has no auth route handler; hospitality callback preserved
+- [Phase 05-02]: Marketing Pulumi envs removed: VITE_AUTH_* vars were injected into marketing build but never consumed; removed to eliminate confusion
+- [Phase 05-02]: prodCallbacks left untouched: stale production callbacks are harmless per research Pitfall 3 guidance — risk of accidental breakage outweighs cleanup benefit
 
 ### Pending Todos
 
@@ -110,5 +114,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-04
-Stopped at: Completed 04-05-PLAN.md (final verification — all automated checks pass, visual approval received, Phase 4 fully complete)
+Stopped at: Completed 05-02-PLAN.md (stale Auth0 callbacks and orphaned marketing Pulumi env vars removed; TypeScript compiles clean)
 Resume file: none

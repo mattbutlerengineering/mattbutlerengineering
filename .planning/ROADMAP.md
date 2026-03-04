@@ -96,7 +96,7 @@ Plans:
   2. Phase 03 VERIFICATION.md exists confirming PORT-01–08 pass against codebase
   3. HOSP-06 listed in SUMMARY frontmatter, all REQUIREMENTS.md checkboxes accurate
   4. No stale Auth0 callback URL in auth0.ts; no orphaned VITE_AUTH_* env vars in marketing Pulumi config
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 05-01-PLAN.md — Retroactive VERIFICATION.md files for phases 01 and 03, documentation state fixes
@@ -113,4 +113,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Dashboard Rename | 2/2 | Complete   | 2026-02-28 |
 | 3. Marketing Portfolio | 2/2 | Complete   | 2026-02-28 |
 | 4. Hospitality Migration + Full Hosting | 5/5 | Complete   | 2026-03-04 |
-| 5. Retroactive Verification & Gap Closure | 0/2 | In Progress |  |
+| 5. Retroactive Verification & Gap Closure | 1/2 | In Progress|  |

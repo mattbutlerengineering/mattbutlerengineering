@@ -13,7 +13,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **RIALTO-02**: RialtoProvider wraps the app with theme context
 - [ ] **RIALTO-03**: Theme/vibe switcher allows toggling between themes
 - [ ] **RIALTO-04**: All Tailwind CSS removed — Rialto-only styling throughout
-- [ ] **RIALTO-05**: App served at mattbutlerengineering.com/rialto with working client-side routing
+- [x] **RIALTO-05**: App served at mattbutlerengineering.com/rialto with working client-side routing
 
 ### Marketing / Portfolio
 
@@ -24,7 +24,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **PORT-05**: "This site IS the project" narrative — callout explaining the monorepo, design system, and IaC as engineering proof
 - [ ] **PORT-06**: Live links to rialto-web showcase and hospitality app
 - [ ] **PORT-07**: All styling uses Rialto components exclusively — no Tailwind, no @mbe/ui
-- [ ] **PORT-08**: App served at mattbutlerengineering.com/ with working client-side routing
+- [x] **PORT-08**: App served at mattbutlerengineering.com/ with working client-side routing
 
 ### Hospitality App
 
@@ -91,7 +91,7 @@ Deferred to future release. Tracked but not in current roadmap.
 | RIALTO-02 | Phase 5 | Pending |
 | RIALTO-03 | Phase 5 | Pending |
 | RIALTO-04 | Phase 5 | Pending |
-| RIALTO-05 | Phase 5 | Pending |
+| RIALTO-05 | Phase 5 | Complete |
 | PORT-01 | Phase 5 | Pending |
 | PORT-02 | Phase 5 | Pending |
 | PORT-03 | Phase 5 | Pending |
@@ -99,7 +99,7 @@ Deferred to future release. Tracked but not in current roadmap.
 | PORT-05 | Phase 5 | Pending |
 | PORT-06 | Phase 5 | Pending |
 | PORT-07 | Phase 5 | Pending |
-| PORT-08 | Phase 5 | Pending |
+| PORT-08 | Phase 5 | Complete |
 | HOSP-01 | Phase 2 | Complete |
 | HOSP-02 | Phase 2 | Complete |
 | HOSP-03 | Phase 2 | Complete |
