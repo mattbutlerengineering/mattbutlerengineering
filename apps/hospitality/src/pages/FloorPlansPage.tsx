@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
 import type { FloorPlan } from "@mbe/types";
+import styles from "./FloorPlansPage.module.css";
 
 export function FloorPlansPage() {
   const navigate = useNavigate();
@@ -39,45 +40,41 @@ export function FloorPlansPage() {
   };
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Floor Plans</h1>
-        <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-          New Floor Plan
-        </button>
+    <div className={styles.container}>
+      <div className={styles.header}>
+        <h1 className={styles.title}>Floor Plans</h1>
+        <button className={styles.newButton}>New Floor Plan</button>
       </div>
 
       {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+        <div className={styles.loadingWrapper}>
+          <div className={styles.spinner} />
         </div>
       )}
 
-      {error && (
-        <div className="bg-red-50 text-red-600 p-4 rounded-md mb-4">{error}</div>
-      )}
+      {error && <div className={styles.errorBox}>{error}</div>}
 
       {!isLoading && !error && floorPlans.length === 0 && (
-        <div className="text-center py-12 text-gray-500">
-          <p className="mb-4">No floor plans yet</p>
-          <p className="text-sm">
+        <div className={styles.emptyState}>
+          <p className={styles.emptyStateText}>No floor plans yet</p>
+          <p className={styles.emptyStateHint}>
             Create a floor plan to start arranging tables for your venue.
           </p>
         </div>
       )}
 
       {!isLoading && !error && floorPlans.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className={styles.grid}>
           {floorPlans.map((floorPlan) => (
             <div
               key={floorPlan.id}
               onClick={() => navigate(`/floor-plans/${floorPlan.id}`)}
-              className="bg-white rounded-lg shadow overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
+              className={styles.card}
             >
               {/* Placeholder for floor plan preview */}
-              <div className="h-40 bg-gray-100 flex items-center justify-center">
+              <div className={styles.cardPreview}>
                 <svg
-                  className="w-16 h-16 text-gray-300"
+                  className={styles.cardPreviewIcon}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -90,16 +87,14 @@ export function FloorPlansPage() {
                   />
                 </svg>
               </div>
-              <div className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-lg font-medium text-gray-900">{floorPlan.name}</h3>
+              <div className={styles.cardBody}>
+                <div className={styles.cardMeta}>
+                  <h3 className={styles.cardName}>{floorPlan.name}</h3>
                   {floorPlan.isActive && (
-                    <span className="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 rounded-full">
-                      Active
-                    </span>
+                    <span className={styles.activeBadge}>Active</span>
                   )}
                 </div>
-                <div className="text-sm text-gray-500">
+                <div className={styles.cardDetails}>
                   <p>{floorPlan.tables?.length ?? 0} tables</p>
                   <p>Updated {formatDate(floorPlan.updatedAt)}</p>
                 </div>

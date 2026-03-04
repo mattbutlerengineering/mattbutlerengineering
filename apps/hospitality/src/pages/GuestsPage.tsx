@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
 import type { Guest, GuestSegment } from "@mbe/types";
+import styles from "./GuestsPage.module.css";
 
 export function GuestsPage() {
   const { accessToken } = useAuth();
@@ -54,113 +55,87 @@ export function GuestsPage() {
 
   if (!venueId) {
     return (
-      <div className="p-6">
-        <h1 className="text-2xl font-bold mb-6">Guests</h1>
-        <div className="bg-yellow-50 text-yellow-700 p-4 rounded-md">
-          Please select a venue to view guests.
-        </div>
+      <div className={styles.container}>
+        <h1 className={styles.title}>Guests</h1>
+        <div className={styles.noVenueNotice}>Please select a venue to view guests.</div>
       </div>
     );
   }
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Guests</h1>
+    <div className={styles.container}>
+      <div className={styles.header}>
+        <h1 className={styles.title}>Guests</h1>
         <input
           type="text"
           placeholder="Search guests..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+          className={styles.searchInput}
         />
       </div>
 
       {/* Segments Overview */}
       {segments.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className={styles.segmentsGrid}>
           {segments.map((segment) => (
-            <div
-              key={segment.name}
-              className="bg-white p-4 rounded-lg shadow border-l-4 border-blue-500"
-            >
-              <div className="text-2xl font-bold text-gray-900">{segment.count}</div>
-              <div className="text-sm text-gray-500">{segment.name}</div>
+            <div key={segment.name} className={styles.segmentCard}>
+              <div className={styles.segmentCount}>{segment.count}</div>
+              <div className={styles.segmentName}>{segment.name}</div>
             </div>
           ))}
         </div>
       )}
 
       {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+        <div className={styles.loadingWrapper}>
+          <div className={styles.spinner} />
         </div>
       )}
 
-      {error && (
-        <div className="bg-red-50 text-red-600 p-4 rounded-md mb-4">{error}</div>
-      )}
+      {error && <div className={styles.errorBox}>{error}</div>}
 
       {!isLoading && !error && guests.length === 0 && (
-        <div className="text-center py-12 text-gray-500">
+        <div className={styles.emptyState}>
           {searchQuery ? "No guests found matching your search" : "No guests yet"}
         </div>
       )}
 
       {!isLoading && !error && guests.length > 0 && (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+        <div className={styles.tableWrapper}>
+          <table className={styles.table}>
+            <thead className={styles.thead}>
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Guest
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Contact
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Visits
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Last Visit
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Tags
-                </th>
+                <th className={styles.th}>Guest</th>
+                <th className={styles.th}>Contact</th>
+                <th className={styles.th}>Visits</th>
+                <th className={styles.th}>Last Visit</th>
+                <th className={styles.th}>Tags</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className={styles.tbody}>
               {guests.map((guest) => (
-                <tr key={guest.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{guest.name}</div>
+                <tr key={guest.id}>
+                  <td className={styles.td}>
+                    <div className={styles.guestName}>{guest.name}</div>
                     {guest.notes && (
-                      <div className="text-sm text-gray-500 truncate max-w-xs">
-                        {guest.notes}
-                      </div>
+                      <div className={styles.guestNotes}>{guest.notes}</div>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className={styles.td}>
                     {guest.email && (
-                      <div className="text-sm text-gray-900">{guest.email}</div>
+                      <div className={styles.contactPrimary}>{guest.email}</div>
                     )}
                     {guest.phone && (
-                      <div className="text-sm text-gray-500">{guest.phone}</div>
+                      <div className={styles.contactSecondary}>{guest.phone}</div>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {guest.visitCount}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDate(guest.lastVisit)}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex flex-wrap gap-1">
+                  <td className={styles.td}>{guest.visitCount}</td>
+                  <td className={styles.tdMuted}>{formatDate(guest.lastVisit)}</td>
+                  <td className={styles.tdTags}>
+                    <div className={styles.tagList}>
                       {guest.tags?.map((tag) => (
-                        <span
-                          key={tag}
-                          className="px-2 py-0.5 text-xs bg-gray-100 text-gray-700 rounded-full"
-                        >
+                        <span key={tag} className={styles.tag}>
                           {tag}
                         </span>
                       ))}
