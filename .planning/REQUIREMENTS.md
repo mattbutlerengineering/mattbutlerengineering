@@ -46,9 +46,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Cleanup
 
-- [ ] **CLEAN-01**: @mbe/ui package removed from monorepo
-- [ ] **CLEAN-02**: Tailwind CSS, PostCSS, and autoprefixer removed from all migrated app devDependencies
-- [ ] **CLEAN-03**: No remaining Tailwind className references in any migrated app
+- [x] **CLEAN-01**: @mbe/ui package removed from monorepo
+- [x] **CLEAN-02**: Tailwind CSS, PostCSS, and autoprefixer removed from all migrated app devDependencies
+- [x] **CLEAN-03**: No remaining Tailwind className references in any migrated app
 
 ## v2 Requirements
 
@@ -112,9 +112,9 @@ Deferred to future release. Tracked but not in current roadmap.
 | INFRA-02 | Phase 2 | Complete |
 | INFRA-03 | Phase 2 | Complete |
 | INFRA-04 | Phase 4 | Pending |
-| CLEAN-01 | Phase 4 | Pending |
-| CLEAN-02 | Phase 4 | Pending |
-| CLEAN-03 | Phase 4 | Pending |
+| CLEAN-01 | Phase 4 | Complete |
+| CLEAN-02 | Phase 4 | Complete |
+| CLEAN-03 | Phase 4 | Complete |
 
 **Coverage:**
 - v1 requirements: 28 total
