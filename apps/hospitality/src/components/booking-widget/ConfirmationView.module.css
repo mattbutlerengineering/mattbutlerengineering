@@ -1,0 +1,109 @@
+.container {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-lg);
+}
+
+/* Success icon */
+.iconWrapper {
+  inline-size: 4rem;
+  block-size: 4rem;
+  background: #dcfce7;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-inline: auto;
+}
+
+.icon {
+  inline-size: 2rem;
+  block-size: 2rem;
+  color: #16a34a;
+}
+
+/* Heading area */
+.heading {
+  font-size: var(--rialto-text-2xl);
+  font-weight: var(--rialto-weight-bold);
+  color: var(--rialto-text-primary);
+  margin: 0 0 var(--rialto-space-xs);
+}
+
+.subheading {
+  color: var(--rialto-text-secondary);
+  margin: 0;
+}
+
+/* Details card */
+.detailsCard {
+  background: var(--rialto-surface-recessed);
+  padding: var(--rialto-space-lg);
+  border-radius: var(--rialto-radius-soft);
+  text-align: start;
+}
+
+.detailsTitle {
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-primary);
+  margin-block-end: var(--rialto-space-md);
+}
+
+.detailsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+  margin: 0;
+  padding: 0;
+  font-size: var(--rialto-text-sm);
+}
+
+.detailRow {
+  display: flex;
+  justify-content: space-between;
+}
+
+.detailLabel {
+  color: var(--rialto-text-secondary);
+}
+
+.detailValue {
+  color: var(--rialto-text-primary);
+  font-family: monospace;
+}
+
+.detailValueNormal {
+  color: var(--rialto-text-primary);
+}
+
+/* Contact note */
+.contactNote {
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+}
+
+/* Actions */
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+}
+
+.secondaryButton {
+  inline-size: 100%;
+  padding-block: var(--rialto-space-sm);
+  padding-inline: var(--rialto-space-md);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-primary);
+  background: var(--rialto-surface);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.secondaryButton:hover {
+  background: var(--rialto-surface-recessed);
+}

@@ -5,6 +5,7 @@ import { DatePartySelector } from "./DatePartySelector";
 import { TimeSlotPicker } from "./TimeSlotPicker";
 import { GuestDetailsForm, type GuestDetails } from "./GuestDetailsForm";
 import { ConfirmationView } from "./ConfirmationView";
+import styles from "./BookingWidget.module.css";
 
 type BookingStep = "date-party" | "time-slot" | "guest-details" | "confirmation";
 
@@ -14,6 +15,8 @@ export interface BookingWidgetProps {
   maxPartySize?: number;
   className?: string;
 }
+
+const STEPS: BookingStep[] = ["date-party", "time-slot", "guest-details"];
 
 export function BookingWidget({
   venueId,
@@ -199,13 +202,15 @@ export function BookingWidget({
     return () => clearInterval(interval);
   }, [hold, fetchSlots]);
 
+  const currentStepIndex = STEPS.indexOf(step as (typeof STEPS)[number]);
+
   return (
-    <div className={`bg-white rounded-lg shadow-lg p-6 max-w-md mx-auto ${className}`}>
+    <div className={[styles.widget, className].filter(Boolean).join(" ")}>
       {/* Header */}
-      <div className="text-center mb-6">
-        <h2 className="text-xl font-bold text-gray-900">Make a Reservation</h2>
+      <div className={styles.header}>
+        <h2 className={styles.title}>Make a Reservation</h2>
         {step !== "confirmation" && (
-          <p className="text-sm text-gray-500 mt-1">
+          <p className={styles.subtitle}>
             {step === "date-party" && "Select your date and party size"}
             {step === "time-slot" && "Choose an available time"}
             {step === "guest-details" && "Enter your details to confirm"}
@@ -215,20 +220,21 @@ export function BookingWidget({
 
       {/* Step indicator */}
       {step !== "confirmation" && (
-        <div className="flex items-center justify-center mb-6">
-          {["date-party", "time-slot", "guest-details"].map((s, i) => (
-            <div key={s} className="flex items-center">
+        <div className={styles.stepIndicator}>
+          {STEPS.map((s, i) => (
+            <div key={s} className={styles.stepItem}>
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                className={[
+                  styles.stepCircle,
                   step === s
-                    ? "bg-blue-600 text-white"
-                    : ["date-party", "time-slot", "guest-details"].indexOf(step) > i
-                    ? "bg-green-100 text-green-600"
-                    : "bg-gray-100 text-gray-400"
-                }`}
+                    ? styles.stepCurrent
+                    : currentStepIndex > i
+                      ? styles.stepCompleted
+                      : styles.stepPending,
+                ].join(" ")}
               >
-                {["date-party", "time-slot", "guest-details"].indexOf(step) > i ? (
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                {currentStepIndex > i ? (
+                  <svg className={styles.stepIcon} fill="currentColor" viewBox="0 0 20 20">
                     <path
                       fillRule="evenodd"
                       d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
@@ -241,11 +247,12 @@ export function BookingWidget({
               </div>
               {i < 2 && (
                 <div
-                  className={`w-12 h-0.5 ${
-                    ["date-party", "time-slot", "guest-details"].indexOf(step) > i
-                      ? "bg-green-200"
-                      : "bg-gray-200"
-                  }`}
+                  className={[
+                    styles.stepConnector,
+                    currentStepIndex > i
+                      ? styles.stepConnectorCompleted
+                      : styles.stepConnectorPending,
+                  ].join(" ")}
                 />
               )}
             </div>
@@ -292,10 +299,7 @@ export function BookingWidget({
       )}
 
       {step === "confirmation" && reservation && (
-        <ConfirmationView
-          reservation={reservation}
-          onNewBooking={handleNewBooking}
-        />
+        <ConfirmationView reservation={reservation} onNewBooking={handleNewBooking} />
       )}
     </div>
   );

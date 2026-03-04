@@ -1,0 +1,151 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-lg);
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.backLink {
+  font-size: var(--rialto-text-sm);
+  color: #1d4ed8;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: none;
+}
+
+.backLink:hover {
+  text-decoration: underline;
+}
+
+.holdTimer {
+  font-size: var(--rialto-text-sm);
+  color: #d97706;
+  font-weight: var(--rialto-weight-medium);
+}
+
+/* Reservation summary card */
+.summaryCard {
+  background: var(--rialto-surface-recessed);
+  padding: var(--rialto-space-md);
+  border-radius: var(--rialto-radius-default);
+}
+
+.summaryTitle {
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-primary);
+  margin-block-end: var(--rialto-space-xs);
+}
+
+.summaryDetails {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-2xs);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+}
+
+/* Error banner */
+.errorBanner {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: var(--rialto-space-md);
+  border-radius: var(--rialto-radius-default);
+  font-size: var(--rialto-text-sm);
+}
+
+/* Form */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+}
+
+.label {
+  display: block;
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-primary);
+  margin-block-end: var(--rialto-space-2xs);
+}
+
+.required {
+  color: #dc2626;
+}
+
+.input {
+  inline-size: 100%;
+  padding-inline: var(--rialto-space-sm);
+  padding-block: var(--rialto-space-xs);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  box-shadow: var(--rialto-shadow-sm);
+  font-size: var(--rialto-text-base);
+  color: var(--rialto-text-primary);
+  background: var(--rialto-surface);
+}
+
+.input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+}
+
+.textarea {
+  inline-size: 100%;
+  padding-inline: var(--rialto-space-sm);
+  padding-block: var(--rialto-space-xs);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  box-shadow: var(--rialto-shadow-sm);
+  font-size: var(--rialto-text-base);
+  color: var(--rialto-text-primary);
+  background: var(--rialto-surface);
+  resize: vertical;
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+}
+
+.hint {
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-secondary);
+}
+
+.submitButton {
+  inline-size: 100%;
+  padding-block: var(--rialto-space-sm);
+  padding-inline: var(--rialto-space-md);
+  border-radius: var(--rialto-radius-default);
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  background: #1d4ed8;
+  color: #ffffff;
+}
+
+.submitButton:hover:not(:disabled) {
+  background: #1e40af;
+}
+
+.submitButton:disabled {
+  background: var(--rialto-surface-recessed);
+  color: var(--rialto-text-tertiary);
+  cursor: not-allowed;
+}

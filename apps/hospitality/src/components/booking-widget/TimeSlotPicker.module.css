@@ -1,0 +1,157 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-lg);
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.backLink {
+  font-size: var(--rialto-text-sm);
+  color: #1d4ed8;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: none;
+}
+
+.backLink:hover {
+  text-decoration: underline;
+}
+
+.summaryRight {
+  text-align: end;
+}
+
+.summaryDate {
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-primary);
+}
+
+.summaryParty {
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+}
+
+/* Loading state */
+.loadingContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-block: var(--rialto-space-3xl);
+}
+
+.spinner {
+  inline-size: 2rem;
+  block-size: 2rem;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-block-end-color: #1d4ed8;
+  animation: spin 0.75s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Error state */
+.errorContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+}
+
+.errorMessage {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: var(--rialto-space-md);
+  border-radius: var(--rialto-radius-default);
+}
+
+/* Empty state */
+.emptyState {
+  text-align: center;
+  padding-block: var(--rialto-space-2xl);
+  color: var(--rialto-text-secondary);
+}
+
+.emptyStateNote {
+  font-size: var(--rialto-text-sm);
+  margin-block-start: var(--rialto-space-xs);
+}
+
+/* Period groups */
+.periods {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-lg);
+}
+
+.periodLabel {
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-secondary);
+  margin-block-end: var(--rialto-space-xs);
+}
+
+.slotGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--rialto-space-xs);
+}
+
+@media (min-width: 640px) {
+  .slotGrid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.slot {
+  padding-block: var(--rialto-space-xs);
+  padding-inline: var(--rialto-space-sm);
+  border-radius: var(--rialto-radius-default);
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  background: var(--rialto-surface-recessed);
+  color: var(--rialto-text-primary);
+}
+
+.slot:hover {
+  background: var(--rialto-surface-elevated);
+}
+
+.slotSelected {
+  background: #1d4ed8;
+  color: #ffffff;
+}
+
+.slotSelected:hover {
+  background: #1e40af;
+}
+
+/* Selected slot summary */
+.selectedSummary {
+  margin-block-start: var(--rialto-space-md);
+  padding: var(--rialto-space-sm);
+  background: #dbeafe;
+  border-radius: var(--rialto-radius-default);
+}
+
+.selectedSummaryText {
+  font-size: var(--rialto-text-sm);
+  color: #1e40af;
+}
+
+.selectedSummaryNote {
+  color: #1d4ed8;
+}

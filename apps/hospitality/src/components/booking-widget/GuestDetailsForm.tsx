@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { TimeSlot, ReservationHold } from "@mbe/types";
+import styles from "./GuestDetailsForm.module.css";
 
 export interface GuestDetails {
   name: string;
@@ -67,41 +68,34 @@ export function GuestDetailsForm({
   const isValid = name.trim().length > 0 && (email.trim().length > 0 || phone.trim().length > 0);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <button
-          onClick={onBack}
-          className="text-blue-600 hover:underline text-sm"
-        >
+    <div className={styles.container}>
+      <div className={styles.topBar}>
+        <button onClick={onBack} className={styles.backLink}>
           &larr; Back
         </button>
         {hold && (
-          <div className="text-sm text-orange-600 font-medium">
-            Hold expires in: {getHoldTimeRemaining()}
-          </div>
+          <div className={styles.holdTimer}>Hold expires in: {getHoldTimeRemaining()}</div>
         )}
       </div>
 
       {/* Reservation summary */}
-      <div className="bg-gray-50 p-4 rounded-md">
-        <h3 className="font-medium text-gray-900 mb-2">Reservation Details</h3>
-        <div className="text-sm text-gray-600 space-y-1">
+      <div className={styles.summaryCard}>
+        <h3 className={styles.summaryTitle}>Reservation Details</h3>
+        <div className={styles.summaryDetails}>
           <p>{formattedDate}</p>
           <p>{formattedTime}</p>
-          <p>{partySize} {partySize === 1 ? "guest" : "guests"}</p>
+          <p>
+            {partySize} {partySize === 1 ? "guest" : "guests"}
+          </p>
         </div>
       </div>
 
-      {error && (
-        <div className="bg-red-50 text-red-600 p-4 rounded-md text-sm">
-          {error}
-        </div>
-      )}
+      {error && <div className={styles.errorBanner}>{error}</div>}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-            Name <span className="text-red-500">*</span>
+      <form onSubmit={handleSubmit} className={styles.form}>
+        <div className={styles.field}>
+          <label htmlFor="name" className={styles.label}>
+            Name <span className={styles.required}>*</span>
           </label>
           <input
             type="text"
@@ -109,13 +103,13 @@ export function GuestDetailsForm({
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className={styles.input}
             placeholder="John Smith"
           />
         </div>
 
-        <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+        <div className={styles.field}>
+          <label htmlFor="email" className={styles.label}>
             Email
           </label>
           <input
@@ -123,13 +117,13 @@ export function GuestDetailsForm({
             id="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className={styles.input}
             placeholder="john@example.com"
           />
         </div>
 
-        <div>
-          <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+        <div className={styles.field}>
+          <label htmlFor="phone" className={styles.label}>
             Phone
           </label>
           <input
@@ -137,17 +131,15 @@ export function GuestDetailsForm({
             id="phone"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className={styles.input}
             placeholder="(555) 123-4567"
           />
         </div>
 
-        <p className="text-xs text-gray-500">
-          Please provide either email or phone for confirmation.
-        </p>
+        <p className={styles.hint}>Please provide either email or phone for confirmation.</p>
 
-        <div>
-          <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
+        <div className={styles.field}>
+          <label htmlFor="notes" className={styles.label}>
             Special Requests
           </label>
           <textarea
@@ -155,20 +147,12 @@ export function GuestDetailsForm({
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className={styles.textarea}
             placeholder="Allergies, celebrations, seating preferences..."
           />
         </div>
 
-        <button
-          type="submit"
-          disabled={!isValid || isLoading}
-          className={`w-full py-3 px-4 rounded-md text-sm font-medium transition-colors ${
-            isValid && !isLoading
-              ? "bg-blue-600 text-white hover:bg-blue-700"
-              : "bg-gray-100 text-gray-400 cursor-not-allowed"
-          }`}
-        >
+        <button type="submit" disabled={!isValid || isLoading} className={styles.submitButton}>
           {isLoading ? "Confirming..." : "Complete Reservation"}
         </button>
       </form>
