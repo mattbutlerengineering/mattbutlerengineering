@@ -54,6 +54,7 @@ metrics:
   tasks_completed: 2
   files_modified: 9
   files_created: 9
+requirements-completed: [HOSP-06]
 ---
 
 # Phase 4 Plan 1: Hospitality App Shell and Pages — Rialto Migration Summary

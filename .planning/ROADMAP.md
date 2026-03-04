@@ -34,7 +34,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 Plans:
 - [x] 01-01-PLAN.md — App shell: RialtoProvider at root, theme toggle, ShowcaseLayout with Sidebar, OverviewPage
 - [x] 01-02-PLAN.md — All 43 per-component showcase pages with variants, playground, props table, accessibility
-- [ ] 01-03-PLAN.md — Tailwind removal, Pulumi ingress rule for /rialto, build verification, human sign-off
+- [x] 01-03-PLAN.md — Tailwind removal, Pulumi ingress rule for /rialto, build verification, human sign-off
 
 ### Phase 2: Dashboard Rename
 **Goal**: The dashboard app is renamed to hospitality with all routing, auth, and infrastructure config updated atomically
@@ -48,8 +48,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Rename directory, package name, Vite config, React Router, Auth0 IaC, Pulumi ingress, cross-app links
-- [ ] 02-02-PLAN.md — Documentation sweep: CLAUDE.md, evaluations, plans, codebase docs, skill files
+- [x] 02-01-PLAN.md — Rename directory, package name, Vite config, React Router, Auth0 IaC, Pulumi ingress, cross-app links
+- [x] 02-02-PLAN.md — Documentation sweep: CLAUDE.md, evaluations, plans, codebase docs, skill files
 
 ### Phase 3: Marketing Portfolio
 **Goal**: The marketing site is a complete engineering portfolio built entirely with Rialto, served at the root path
@@ -65,7 +65,7 @@ Plans:
 
 Plans:
 - [x] 03-01-PLAN.md — Build portfolio page: RialtoProvider shell, Hero, Projects (5 cards), About, Contact sections using Rialto components
-- [ ] 03-02-PLAN.md — Remove Tailwind/PostCSS/@mbe/ui dependencies, delete config files, verify build/typecheck/lint, visual sign-off
+- [x] 03-02-PLAN.md — Remove Tailwind/PostCSS/@mbe/ui dependencies, delete config files, verify build/typecheck/lint, visual sign-off
 
 ### Phase 4: Hospitality Migration + Full Hosting
 **Goal**: The hospitality app runs entirely on Rialto, @mbe/ui is gone from the monorepo, and all three apps are verified in production
@@ -80,11 +80,11 @@ Plans:
 **Plans**: 5 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — App shell + @mbe/ui pages: RialtoProvider, Sidebar, PageHeader, Card/Button migration (Home, Profile, Settings, Admin)
-- [ ] 04-02-PLAN.md — Pure Tailwind pages to CSS Modules (Reservations, Guests, FloorPlans, FloorPlanEditor, BookingWidgetDemo, Timeline)
-- [ ] 04-03-PLAN.md — Domain components to CSS Modules (booking-widget, floor-plan, timeline)
-- [ ] 04-04-PLAN.md — Cleanup: remove Tailwind deps, fix ESLint ajv, delete @mbe/ui + @mbe/shared-layout, update docs
-- [ ] 04-05-PLAN.md — Verification: build/typecheck/lint/test + visual checkpoint for all three apps
+- [x] 04-01-PLAN.md — App shell + @mbe/ui pages: RialtoProvider, Sidebar, PageHeader, Card/Button migration (Home, Profile, Settings, Admin)
+- [x] 04-02-PLAN.md — Pure Tailwind pages to CSS Modules (Reservations, Guests, FloorPlans, FloorPlanEditor, BookingWidgetDemo, Timeline)
+- [x] 04-03-PLAN.md — Domain components to CSS Modules (booking-widget, floor-plan, timeline)
+- [x] 04-04-PLAN.md — Cleanup: remove Tailwind deps, fix ESLint ajv, delete @mbe/ui + @mbe/shared-layout, update docs
+- [x] 04-05-PLAN.md — Verification: build/typecheck/lint/test + visual checkpoint for all three apps
 
 ### Phase 5: Retroactive Verification & Gap Closure
 **Goal**: Close all audit gaps by creating retroactive verification for phases 01 and 03, fixing documentation state, and resolving integration issues
@@ -96,10 +96,10 @@ Plans:
   2. Phase 03 VERIFICATION.md exists confirming PORT-01–08 pass against codebase
   3. HOSP-06 listed in SUMMARY frontmatter, all REQUIREMENTS.md checkboxes accurate
   4. No stale Auth0 callback URL in auth0.ts; no orphaned VITE_AUTH_* env vars in marketing Pulumi config
-**Plans:** 1/2 plans executed
+**Plans:** 2 plans
 
 Plans:
-- [ ] 05-01-PLAN.md — Retroactive VERIFICATION.md files for phases 01 and 03, documentation state fixes
+- [x] 05-01-PLAN.md — Retroactive VERIFICATION.md files for phases 01 and 03, documentation state fixes
 - [ ] 05-02-PLAN.md — Pulumi integration cleanup (stale Auth0 callback, orphaned marketing env vars)
 
 ## Progress
@@ -113,4 +113,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Dashboard Rename | 2/2 | Complete   | 2026-02-28 |
 | 3. Marketing Portfolio | 2/2 | Complete   | 2026-02-28 |
 | 4. Hospitality Migration + Full Hosting | 5/5 | Complete   | 2026-03-04 |
-| 5. Retroactive Verification & Gap Closure | 1/2 | In Progress|  |
+| 5. Retroactive Verification & Gap Closure | 1/2 | In Progress |  |
