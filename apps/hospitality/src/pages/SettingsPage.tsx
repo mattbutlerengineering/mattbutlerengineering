@@ -101,8 +101,9 @@ export function SettingsPage() {
 
         <Card title="Appearance">
           <div className={styles.fieldGroup}>
-            <label className={styles.label}>Theme</label>
+            <label htmlFor="settings-theme" className={styles.label}>Theme</label>
             <select
+              id="settings-theme"
               value={preferences.theme ?? "system"}
               onChange={(e) =>
                 updatePreference("theme", e.target.value as "light" | "dark" | "system")
@@ -125,6 +126,7 @@ export function SettingsPage() {
             <label className={styles.checkboxLabel}>
               <input
                 type="checkbox"
+                aria-label="Email notifications"
                 checked={preferences.emailNotifications ?? true}
                 onChange={(e) => updatePreference("emailNotifications", e.target.checked)}
                 disabled={isSaving}
@@ -143,6 +145,7 @@ export function SettingsPage() {
             <label className={styles.checkboxLabel}>
               <input
                 type="checkbox"
+                aria-label="Marketing emails"
                 checked={preferences.marketingEmails ?? false}
                 onChange={(e) => updatePreference("marketingEmails", e.target.checked)}
                 disabled={isSaving}

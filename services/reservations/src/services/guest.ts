@@ -6,7 +6,7 @@ import type {
   GuestSegment,
   PaginatedResponse,
 } from "@mbe/types";
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 
 function mapPrismaGuest(guest: {

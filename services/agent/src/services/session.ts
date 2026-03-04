@@ -1,4 +1,4 @@
-import type { Prisma, Session, SessionEvent, SessionStatus } from "@prisma/client";
+import type { Prisma, Session, SessionEvent, SessionStatus } from "../generated/prisma/index.js";
 import type { AgentSession, AgentSessionEvent, Pagination } from "@mbe/types";
 import { prisma } from "./database.js";
 

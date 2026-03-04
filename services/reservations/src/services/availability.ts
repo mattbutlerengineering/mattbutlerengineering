@@ -9,7 +9,7 @@ import type {
   DaySchedule,
   DurationRule,
 } from "@mbe/types";
-import type { Table } from "@prisma/client";
+import type { Table } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 
 // Default duration rules based on party size

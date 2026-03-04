@@ -39,8 +39,9 @@ export function DatePartySelector({
   return (
     <div className={styles.container}>
       <div className={styles.field}>
-        <label className={styles.label}>Date</label>
+        <label htmlFor="booking-date" className={styles.label}>Date</label>
         <input
+          id="booking-date"
           type="date"
           value={selectedDate ?? ""}
           onChange={(e) => onDateChange(e.target.value)}
@@ -51,7 +52,7 @@ export function DatePartySelector({
       </div>
 
       <div className={styles.field}>
-        <label className={styles.label}>Party Size</label>
+        <span className={styles.label}>Party Size</span>
         <div className={styles.partyGrid}>
           {partySizes.map((size) => (
             <button

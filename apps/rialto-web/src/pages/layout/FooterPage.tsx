@@ -66,13 +66,13 @@ function FooterPlayground() {
             </Text>
             <Stack direction="row" gap="md">
               <a
-                href="#"
+                href="/"
                 style={{ fontSize: "var(--rialto-text-sm)", color: "var(--rialto-text-secondary)" }}
               >
                 Privacy
               </a>
               <a
-                href="#"
+                href="/"
                 style={{ fontSize: "var(--rialto-text-sm)", color: "var(--rialto-text-secondary)" }}
               >
                 Terms
@@ -142,7 +142,7 @@ export function FooterPage() {
               </Text>
               <Stack direction="row" gap="md">
                 <a
-                  href="#"
+                  href="/"
                   style={{
                     fontSize: "var(--rialto-text-sm)",
                     color: "var(--rialto-text-secondary)",
@@ -151,7 +151,7 @@ export function FooterPage() {
                   Privacy
                 </a>
                 <a
-                  href="#"
+                  href="/"
                   style={{
                     fontSize: "var(--rialto-text-sm)",
                     color: "var(--rialto-text-secondary)",
@@ -160,7 +160,7 @@ export function FooterPage() {
                   Terms
                 </a>
                 <a
-                  href="#"
+                  href="/"
                   style={{
                     fontSize: "var(--rialto-text-sm)",
                     color: "var(--rialto-text-secondary)",
@@ -194,7 +194,7 @@ export function FooterPage() {
             />
           </div>
           <Text variant="caption" color="secondary">
-            Centered column layout with a logo (defaults to "Rialto" wordmark), link groups, and
+            Centered column layout with a logo (defaults to &quot;Rialto&quot; wordmark), link groups, and
             copyright.
           </Text>
         </Stack>

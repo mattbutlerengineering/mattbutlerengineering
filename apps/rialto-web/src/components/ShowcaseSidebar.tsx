@@ -168,7 +168,7 @@ export function ShowcaseSidebar({
       {/* ── Sections ───────────────────────── */}
       <div className={styles.sections}>
         {visibleSections.length === 0 && (
-          <div className={styles.emptyState}>No components match "{filter}"</div>
+          <div className={styles.emptyState}>No components match &quot;{filter}&quot;</div>
         )}
 
         {visibleSections.map((section) => {
@@ -192,7 +192,7 @@ export function ShowcaseSidebar({
               </button>
 
               {isExpanded && (
-                <ul className={styles.sectionItems} role="list">
+                <ul className={styles.sectionItems}>
                   {section.items.map((item) => {
                     const isActive =
                       activePath === item.path ||

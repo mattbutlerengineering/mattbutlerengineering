@@ -66,10 +66,12 @@ export function FloorPlansPage() {
       {!isLoading && !error && floorPlans.length > 0 && (
         <div className={styles.grid}>
           {floorPlans.map((floorPlan) => (
-            <div
+            <button
               key={floorPlan.id}
               onClick={() => navigate(`/floor-plans/${floorPlan.id}`)}
               className={styles.card}
+              type="button"
+              aria-label={`Open floor plan: ${floorPlan.name}`}
             >
               {/* Placeholder for floor plan preview */}
               <div className={styles.cardPreview}>
@@ -99,7 +101,7 @@ export function FloorPlansPage() {
                   <p>Updated {formatDate(floorPlan.updatedAt)}</p>
                 </div>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       )}

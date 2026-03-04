@@ -4,8 +4,9 @@ import type {
   ConfirmHoldRequest,
   Reservation,
   VenueSettings,
+  TableShapeMetadata,
 } from "@mbe/types";
-import type { ReservationHold as PrismaHold } from "@prisma/client";
+import type { ReservationHold as PrismaHold } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { availabilityService } from "./availability.js";
 
@@ -281,7 +282,7 @@ export const holdService = {
               priority: result.table.priority,
               venueId: result.table.venueId,
               floorPlanId: result.table.floorPlanId,
-              shapeMetadata: result.table.shapeMetadata as import("@mbe/types").TableShapeMetadata | null,
+              shapeMetadata: result.table.shapeMetadata as TableShapeMetadata | null,
               createdAt: result.table.createdAt.toISOString(),
               updatedAt: result.table.updatedAt.toISOString(),
             }

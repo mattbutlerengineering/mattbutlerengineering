@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components -- route module, not a fast-refresh module */
 import { lazy, Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
 import { Spinner } from "@mbe/rialto";

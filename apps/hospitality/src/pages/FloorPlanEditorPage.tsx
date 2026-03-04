@@ -196,26 +196,26 @@ export function FloorPlanEditorPage() {
           {selectedTable ? (
             <div className={styles.detailsStack}>
               <div>
-                <label className={styles.detailLabel}>Name</label>
+                <span className={styles.detailLabel}>Name</span>
                 <div className={styles.detailValue}>{selectedTable.name}</div>
               </div>
               <div>
-                <label className={styles.detailLabel}>Table Number</label>
+                <span className={styles.detailLabel}>Table Number</span>
                 <div className={styles.detailValue}>{selectedTable.tableNumber}</div>
               </div>
               <div>
-                <label className={styles.detailLabel}>Capacity</label>
+                <span className={styles.detailLabel}>Capacity</span>
                 <div className={styles.detailValue}>
                   {selectedTable.minCovers} - {selectedTable.maxCovers ?? selectedTable.capacity}{" "}
                   guests
                 </div>
               </div>
               <div>
-                <label className={styles.detailLabel}>Location</label>
+                <span className={styles.detailLabel}>Location</span>
                 <div className={styles.detailValue}>{selectedTable.location ?? "Not set"}</div>
               </div>
               <div>
-                <label className={styles.detailLabel}>Status</label>
+                <span className={styles.detailLabel}>Status</span>
                 <div
                   className={
                     selectedTable.isActive ? styles.detailValueActive : styles.detailValueInactive
@@ -225,7 +225,7 @@ export function FloorPlanEditorPage() {
                 </div>
               </div>
               <div>
-                <label className={styles.detailLabel}>Position</label>
+                <span className={styles.detailLabel}>Position</span>
                 <div className={styles.detailValueMono}>
                   x: {selectedTable.shapeMetadata?.x ?? 0}, y:{" "}
                   {selectedTable.shapeMetadata?.y ?? 0}

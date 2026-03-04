@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useCallback, useRef, useState } from "react";
 import type { Reservation, Table, ReservationHold } from "@mbe/types";
 
 export type ReservationEventType =
@@ -57,6 +57,7 @@ export function useReservationEvents(
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttempts = useRef(0);
+  const connectRef = useRef<(() => void) | null>(null);
 
   // Store callbacks in refs to avoid reconnecting on callback changes
   const callbacksRef = useRef({
@@ -115,7 +116,7 @@ export function useReservationEvents(
       reconnectAttempts.current += 1;
 
       reconnectTimeoutRef.current = setTimeout(() => {
-        connect();
+        connectRef.current?.();
       }, delay);
     };
 
@@ -160,7 +161,12 @@ export function useReservationEvents(
     });
   }, [venueId]);
 
-  const disconnect = useCallback(() => {
+  // Keep connectRef in sync so the reconnect timeout can call the latest connect
+  useLayoutEffect(() => {
+    connectRef.current = connect;
+  });
+
+  const closeConnection = useCallback(() => {
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
@@ -169,8 +175,12 @@ export function useReservationEvents(
       eventSourceRef.current.close();
       eventSourceRef.current = null;
     }
-    setIsConnected(false);
   }, []);
+
+  const disconnect = useCallback(() => {
+    closeConnection();
+    setIsConnected(false);
+  }, [closeConnection]);
 
   const reconnect = useCallback(() => {
     disconnect();
@@ -180,16 +190,13 @@ export function useReservationEvents(
 
   // Connect/disconnect based on enabled flag
   useEffect(() => {
-    if (enabled) {
-      connect();
-    } else {
-      disconnect();
+    if (!enabled) {
+      return closeConnection;
     }
 
-    return () => {
-      disconnect();
-    };
-  }, [enabled, connect, disconnect]);
+    connect();
+    return closeConnection;
+  }, [enabled, connect, closeConnection]);
 
   return {
     isConnected,

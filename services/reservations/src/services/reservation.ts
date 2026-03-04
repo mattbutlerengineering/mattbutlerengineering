@@ -6,8 +6,10 @@ import type {
   PaginatedResponse,
   ConflictCheckResult,
   PacingCheckResult,
+  TableShapeMetadata,
+  VenueSettings,
 } from "@mbe/types";
-import type { Reservation as PrismaReservation, Table as PrismaTable } from "@prisma/client";
+import type { Reservation as PrismaReservation, Table as PrismaTable } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { availabilityService } from "./availability.js";
 
@@ -43,7 +45,7 @@ function mapPrismaReservation(reservation: PrismaReservationWithTable): Reservat
           priority: reservation.table.priority,
           venueId: reservation.table.venueId,
           floorPlanId: reservation.table.floorPlanId,
-          shapeMetadata: reservation.table.shapeMetadata as import("@mbe/types").TableShapeMetadata | null,
+          shapeMetadata: reservation.table.shapeMetadata as TableShapeMetadata | null,
           createdAt: reservation.table.createdAt.toISOString(),
           updatedAt: reservation.table.updatedAt.toISOString(),
         }
@@ -222,7 +224,7 @@ export const reservationService = {
       });
 
       if (venue) {
-        const settings = venue.settings as import("@mbe/types").VenueSettings | null;
+        const settings = venue.settings as VenueSettings | null;
         const pacing = await availabilityService.checkPacing(
           data.venueId,
           startTime,

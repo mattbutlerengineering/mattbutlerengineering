@@ -141,8 +141,9 @@ export function ProfilePage() {
             {isEditing ? (
               <div className={styles.formFields}>
                 <div className={styles.fieldGroup}>
-                  <label className={styles.label}>Name</label>
+                  <label htmlFor="profile-name" className={styles.label}>Name</label>
                   <input
+                    id="profile-name"
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -151,8 +152,9 @@ export function ProfilePage() {
                   />
                 </div>
                 <div className={styles.fieldGroup}>
-                  <label className={styles.label}>Picture URL</label>
+                  <label htmlFor="profile-picture" className={styles.label}>Picture URL</label>
                   <input
+                    id="profile-picture"
                     type="url"
                     value={formData.picture}
                     onChange={(e) => setFormData({ ...formData, picture: e.target.value })}

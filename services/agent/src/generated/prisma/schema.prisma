@@ -1,0 +1,74 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SessionStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+model Session {
+  id              String        @id @default(cuid())
+  status          SessionStatus @default(PENDING)
+  taskDescription String        @map("task_description")
+  branchName      String?       @map("branch_name")
+  baseBranch      String        @default("main") @map("base_branch")
+  model           String        @default("claude-sonnet-4-6")
+  maxTurns        Int           @default(50) @map("max_turns")
+  maxBudgetUsd    Float         @default(1.00) @map("max_budget_usd")
+  createPr        Boolean       @default(true) @map("create_pr")
+
+  // Results
+  prUrl        String? @map("pr_url")
+  prNumber     Int?    @map("pr_number")
+  resultText   String? @map("result_text")
+  costUsd      Float?  @map("cost_usd")
+  inputTokens  Int?    @map("input_tokens")
+  outputTokens Int?    @map("output_tokens")
+  numTurns     Int?    @map("num_turns")
+  durationMs   Int?    @map("duration_ms")
+  errors       Json    @default("[]")
+
+  // SDK session tracking
+  sdkSessionId String? @map("sdk_session_id")
+
+  // Timestamps
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Parent/child relationship for orchestrator (Phase 3)
+  parentId String?   @map("parent_id")
+  parent   Session?  @relation("SessionHierarchy", fields: [parentId], references: [id])
+  children Session[] @relation("SessionHierarchy")
+
+  // Events
+  events SessionEvent[]
+
+  @@index([status])
+  @@index([parentId])
+  @@map("sessions")
+}
+
+model SessionEvent {
+  id        String   @id @default(cuid())
+  sessionId String   @map("session_id")
+  type      String
+  data      Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+  @@map("session_events")
+}

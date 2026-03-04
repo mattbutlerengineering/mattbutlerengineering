@@ -8,7 +8,7 @@ import type {
   UpdateTablePositionRequest,
   PaginatedResponse,
 } from "@mbe/types";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 
 type PrismaFloorPlan = {

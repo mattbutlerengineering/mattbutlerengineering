@@ -33,6 +33,7 @@ function SpinnerPlayground() {
         />
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--rialto-space-xs)" }}>
           <label
+            htmlFor="spinner-label-input"
             style={{
               fontSize: "var(--rialto-text-sm)",
               color: "var(--rialto-text-secondary)",
@@ -42,6 +43,7 @@ function SpinnerPlayground() {
             Label text
           </label>
           <input
+            id="spinner-label-input"
             type="text"
             value={label}
             onChange={(e) => setLabel(e.target.value)}

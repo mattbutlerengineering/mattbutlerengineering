@@ -328,7 +328,7 @@ export function TimelinePage() {
 
             <div className={styles.detailsStack}>
               <div>
-                <label className={styles.detailLabel}>Guest</label>
+                <span className={styles.detailLabel}>Guest</span>
                 <div className={styles.detailValue}>
                   {selectedReservation.guestName || "Guest"}
                 </div>
@@ -336,7 +336,7 @@ export function TimelinePage() {
 
               {selectedReservation.guestEmail && (
                 <div>
-                  <label className={styles.detailLabel}>Email</label>
+                  <span className={styles.detailLabel}>Email</span>
                   <div className={styles.detailValueSecondary}>
                     {selectedReservation.guestEmail}
                   </div>
@@ -345,7 +345,7 @@ export function TimelinePage() {
 
               {selectedReservation.guestPhone && (
                 <div>
-                  <label className={styles.detailLabel}>Phone</label>
+                  <span className={styles.detailLabel}>Phone</span>
                   <div className={styles.detailValueSecondary}>
                     {selectedReservation.guestPhone}
                   </div>
@@ -353,7 +353,7 @@ export function TimelinePage() {
               )}
 
               <div>
-                <label className={styles.detailLabel}>Time</label>
+                <span className={styles.detailLabel}>Time</span>
                 <div className={styles.detailValue}>
                   {new Date(selectedReservation.startTime).toLocaleTimeString("en-US", {
                     hour: "numeric",
@@ -370,7 +370,7 @@ export function TimelinePage() {
               </div>
 
               <div>
-                <label className={styles.detailLabel}>Party Size</label>
+                <span className={styles.detailLabel}>Party Size</span>
                 <div className={styles.detailValue}>
                   {selectedReservation.partySize}{" "}
                   {selectedReservation.partySize === 1 ? "guest" : "guests"}
@@ -378,7 +378,7 @@ export function TimelinePage() {
               </div>
 
               <div>
-                <label className={styles.detailLabel}>Table</label>
+                <span className={styles.detailLabel}>Table</span>
                 <div className={styles.detailValue}>
                   {selectedReservation.table?.tableNumber ||
                     selectedReservation.table?.name ||
@@ -387,7 +387,7 @@ export function TimelinePage() {
               </div>
 
               <div>
-                <label className={styles.detailLabel}>Status</label>
+                <span className={styles.detailLabel}>Status</span>
                 <span
                   className={`${styles.statusBadge} ${getStatusBadgeClass(selectedReservation.status)}`}
                 >
@@ -397,7 +397,7 @@ export function TimelinePage() {
 
               {selectedReservation.notes && (
                 <div>
-                  <label className={styles.detailLabel}>Notes</label>
+                  <span className={styles.detailLabel}>Notes</span>
                   <div className={styles.notesValue}>{selectedReservation.notes}</div>
                 </div>
               )}

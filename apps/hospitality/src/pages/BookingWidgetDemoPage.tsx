@@ -16,8 +16,9 @@ export function BookingWidgetDemoPage() {
 
       {/* Venue ID input for testing */}
       <div className={styles.venueSection}>
-        <label className={styles.venueLabel}>Venue ID (for testing)</label>
+        <label htmlFor="venue-id-input" className={styles.venueLabel}>Venue ID (for testing)</label>
         <input
+          id="venue-id-input"
           type="text"
           value={venueId}
           onChange={(e) => setVenueId(e.target.value)}
