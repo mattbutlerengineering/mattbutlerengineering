@@ -10,21 +10,21 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Rialto-Web Showcase
 
 - [ ] **RIALTO-01**: All 55 Rialto components are visible with interactive states in the showcase app
-- [x] **RIALTO-02**: RialtoProvider wraps the app with theme context
-- [x] **RIALTO-03**: Theme/vibe switcher allows toggling between themes
+- [ ] **RIALTO-02**: RialtoProvider wraps the app with theme context
+- [ ] **RIALTO-03**: Theme/vibe switcher allows toggling between themes
 - [ ] **RIALTO-04**: All Tailwind CSS removed — Rialto-only styling throughout
 - [ ] **RIALTO-05**: App served at mattbutlerengineering.com/rialto with working client-side routing
 
 ### Marketing / Portfolio
 
-- [x] **PORT-01**: Hero section with name, role, and brief tagline
-- [x] **PORT-02**: About section with 3-5 sentences on focus and background
-- [x] **PORT-03**: Projects showcase with 3-5 curated project cards (title, tech stack, description, link)
-- [x] **PORT-04**: Social and contact links (GitHub, LinkedIn, email)
-- [x] **PORT-05**: "This site IS the project" narrative — callout explaining the monorepo, design system, and IaC as engineering proof
-- [x] **PORT-06**: Live links to rialto-web showcase and hospitality app
-- [x] **PORT-07**: All styling uses Rialto components exclusively — no Tailwind, no @mbe/ui
-- [x] **PORT-08**: App served at mattbutlerengineering.com/ with working client-side routing
+- [ ] **PORT-01**: Hero section with name, role, and brief tagline
+- [ ] **PORT-02**: About section with 3-5 sentences on focus and background
+- [ ] **PORT-03**: Projects showcase with 3-5 curated project cards (title, tech stack, description, link)
+- [ ] **PORT-04**: Social and contact links (GitHub, LinkedIn, email)
+- [ ] **PORT-05**: "This site IS the project" narrative — callout explaining the monorepo, design system, and IaC as engineering proof
+- [ ] **PORT-06**: Live links to rialto-web showcase and hospitality app
+- [ ] **PORT-07**: All styling uses Rialto components exclusively — no Tailwind, no @mbe/ui
+- [ ] **PORT-08**: App served at mattbutlerengineering.com/ with working client-side routing
 
 ### Hospitality App
 
@@ -33,7 +33,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **HOSP-03**: URL path changed from `/dashboard` to `/hospitality` (Vite base, React Router basename)
 - [x] **HOSP-04**: Auth0 callback URL updated to `/hospitality/callback` in Pulumi IaC
 - [x] **HOSP-05**: All Tailwind CSS classes replaced with Rialto components
-- [x] **HOSP-06**: All @mbe/ui imports replaced with @mbe/rialto equivalents
+- [ ] **HOSP-06**: All @mbe/ui imports replaced with @mbe/rialto equivalents
 - [x] **HOSP-07**: All existing features preserved (reservations, timeline, floor plans, guest management)
 - [x] **HOSP-08**: App served at mattbutlerengineering.com/hospitality with working client-side routing
 
@@ -87,25 +87,25 @@ Deferred to future release. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| RIALTO-01 | Phase 1 | Pending |
-| RIALTO-02 | Phase 1 | Complete (01-01) |
-| RIALTO-03 | Phase 1 | Complete (01-01) |
-| RIALTO-04 | Phase 1 | Pending |
-| RIALTO-05 | Phase 1 | Pending |
-| PORT-01 | Phase 3 | Complete |
-| PORT-02 | Phase 3 | Complete |
-| PORT-03 | Phase 3 | Complete |
-| PORT-04 | Phase 3 | Complete |
-| PORT-05 | Phase 3 | Complete |
-| PORT-06 | Phase 3 | Complete |
-| PORT-07 | Phase 3 | Complete |
-| PORT-08 | Phase 3 | Complete |
+| RIALTO-01 | Phase 5 | Pending |
+| RIALTO-02 | Phase 5 | Pending |
+| RIALTO-03 | Phase 5 | Pending |
+| RIALTO-04 | Phase 5 | Pending |
+| RIALTO-05 | Phase 5 | Pending |
+| PORT-01 | Phase 5 | Pending |
+| PORT-02 | Phase 5 | Pending |
+| PORT-03 | Phase 5 | Pending |
+| PORT-04 | Phase 5 | Pending |
+| PORT-05 | Phase 5 | Pending |
+| PORT-06 | Phase 5 | Pending |
+| PORT-07 | Phase 5 | Pending |
+| PORT-08 | Phase 5 | Pending |
 | HOSP-01 | Phase 2 | Complete |
 | HOSP-02 | Phase 2 | Complete |
 | HOSP-03 | Phase 2 | Complete |
 | HOSP-04 | Phase 2 | Complete |
 | HOSP-05 | Phase 4 | Complete |
-| HOSP-06 | Phase 4 | Complete |
+| HOSP-06 | Phase 5 | Pending |
 | HOSP-07 | Phase 4 | Complete |
 | HOSP-08 | Phase 4 | Complete |
 | INFRA-01 | Phase 2 | Complete |
@@ -120,7 +120,9 @@ Deferred to future release. Tracked but not in current roadmap.
 - v1 requirements: 28 total
 - Mapped to phases: 28
 - Unmapped: 0
+- Satisfied: 14
+- Pending (gap closure): 14
 
 ---
 *Requirements defined: 2026-02-27*
-*Last updated: 2026-02-27 after roadmap creation*
+*Last updated: 2026-03-04 after gap closure phase creation*

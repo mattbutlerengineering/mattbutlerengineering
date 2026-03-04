@@ -15,7 +15,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Rialto-Web Migration** - Migrate rialto-web to Rialto-only, establishing the migration pattern (completed 2026-02-28)
 - [x] **Phase 2: Dashboard Rename** - Rename dashboard to hospitality and update all auth/routing config atomically (completed 2026-02-28)
 - [x] **Phase 3: Marketing Portfolio** - Migrate marketing to Rialto-only and build out portfolio content (completed 2026-02-28)
-- [ ] **Phase 4: Hospitality Migration + Full Hosting** - Migrate hospitality to Rialto-only, remove @mbe/ui, verify all three apps in production
+- [x] **Phase 4: Hospitality Migration + Full Hosting** - Migrate hospitality to Rialto-only, remove @mbe/ui, verify all three apps in production (completed 2026-03-04)
+- [ ] **Phase 5: Retroactive Verification & Gap Closure** - Close audit gaps: create Phase 01/03 VERIFICATION.md, fix documentation state, resolve integration issues
 
 ## Phase Details
 
@@ -85,6 +86,18 @@ Plans:
 - [ ] 04-04-PLAN.md — Cleanup: remove Tailwind deps, fix ESLint ajv, delete @mbe/ui + @mbe/shared-layout, update docs
 - [ ] 04-05-PLAN.md — Verification: build/typecheck/lint/test + visual checkpoint for all three apps
 
+### Phase 5: Retroactive Verification & Gap Closure
+**Goal**: Close all audit gaps by creating retroactive verification for phases 01 and 03, fixing documentation state, and resolving integration issues
+**Depends on**: Phase 4
+**Requirements**: RIALTO-01, RIALTO-02, RIALTO-03, RIALTO-04, RIALTO-05, PORT-01, PORT-02, PORT-03, PORT-04, PORT-05, PORT-06, PORT-07, PORT-08, HOSP-06
+**Gap Closure:** Closes gaps from v1.0 milestone audit
+**Success Criteria** (what must be TRUE):
+  1. Phase 01 VERIFICATION.md exists confirming RIALTO-01–05 pass against codebase
+  2. Phase 03 VERIFICATION.md exists confirming PORT-01–08 pass against codebase
+  3. HOSP-06 listed in SUMMARY frontmatter, all REQUIREMENTS.md checkboxes accurate
+  4. No stale Auth0 callback URL in auth0.ts; no orphaned VITE_AUTH_* env vars in marketing Pulumi config
+**Plans:** 0/0 plans
+
 ## Progress
 
 **Execution Order:**
@@ -95,4 +108,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. Rialto-Web Migration | 3/3 | Complete   | 2026-02-28 |
 | 2. Dashboard Rename | 2/2 | Complete   | 2026-02-28 |
 | 3. Marketing Portfolio | 2/2 | Complete   | 2026-02-28 |
-| 4. Hospitality Migration + Full Hosting | 4/5 | In Progress|  |
+| 4. Hospitality Migration + Full Hosting | 5/5 | Complete   | 2026-03-04 |
+| 5. Retroactive Verification & Gap Closure | 0/0 | Pending    |  |
