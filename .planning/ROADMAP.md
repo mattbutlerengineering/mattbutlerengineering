@@ -76,13 +76,14 @@ Plans:
   3. No @mbe/ui imports remain anywhere in the monorepo — pnpm typecheck passes with zero @mbe/ui errors
   4. All three apps load at their correct paths: / (marketing), /rialto (showcase), /hospitality (reservation app)
   5. Deep links to all three apps return 200 with the correct app, not a 404
-**Plans**: TBD
+**Plans**: 5 plans
 
 Plans:
-- [ ] 04-01: Replace all Tailwind and @mbe/ui in hospitality with Rialto components
-- [ ] 04-02: Remove Tailwind dependencies from hospitality
-- [ ] 04-03: Delete @mbe/ui package, verify full monorepo typecheck passes
-- [ ] 04-04: End-to-end verification of all three apps in production
+- [ ] 04-01-PLAN.md — App shell + @mbe/ui pages: RialtoProvider, Sidebar, PageHeader, Card/Button migration (Home, Profile, Settings, Admin)
+- [ ] 04-02-PLAN.md — Pure Tailwind pages to CSS Modules (Reservations, Guests, FloorPlans, FloorPlanEditor, BookingWidgetDemo, Timeline)
+- [ ] 04-03-PLAN.md — Domain components to CSS Modules (booking-widget, floor-plan, timeline)
+- [ ] 04-04-PLAN.md — Cleanup: remove Tailwind deps, fix ESLint ajv, delete @mbe/ui + @mbe/shared-layout, update docs
+- [ ] 04-05-PLAN.md — Verification: build/typecheck/lint/test + visual checkpoint for all three apps
 
 ## Progress
 
@@ -94,4 +95,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. Rialto-Web Migration | 3/3 | Complete   | 2026-02-28 |
 | 2. Dashboard Rename | 2/2 | Complete   | 2026-02-28 |
 | 3. Marketing Portfolio | 2/2 | Complete   | 2026-02-28 |
-| 4. Hospitality Migration + Full Hosting | 0/4 | Not started | - |
+| 4. Hospitality Migration + Full Hosting | 0/5 | Not started | - |
