@@ -1,0 +1,79 @@
+.block {
+  position: absolute;
+  inset-block-start: 4px;
+  inset-block-end: 4px;
+  border-radius: var(--rialto-radius-default);
+  border-inline-start-width: 4px;
+  border-inline-start-style: solid;
+  padding-inline: var(--rialto-space-xs);
+  padding-block: var(--rialto-space-2xs);
+  overflow: hidden;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease;
+  border-top: none;
+  border-right: none;
+  border-bottom: none;
+}
+
+.block:hover {
+  box-shadow: var(--rialto-shadow-md);
+}
+
+.blockSelected {
+  outline: 2px solid #3b82f6;
+  outline-offset: 1px;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  justify-content: center;
+}
+
+.guestName {
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.details {
+  font-size: var(--rialto-text-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.75;
+}
+
+/* Status-specific colors (hex — no Rialto tokens for semantic status colors) */
+.statusPending {
+  background: #fef3c7;
+  border-inline-start-color: #d97706;
+  color: #92400e;
+}
+
+.statusConfirmed {
+  background: #dbeafe;
+  border-inline-start-color: #2563eb;
+  color: #1e40af;
+}
+
+.statusCancelled {
+  background: #f3f4f6;
+  border-inline-start-color: #9ca3af;
+  color: #6b7280;
+}
+
+.statusCompleted {
+  background: #dcfce7;
+  border-inline-start-color: #16a34a;
+  color: #166534;
+}
+
+.statusNoShow {
+  background: #fee2e2;
+  border-inline-start-color: #dc2626;
+  color: #991b1b;
+}

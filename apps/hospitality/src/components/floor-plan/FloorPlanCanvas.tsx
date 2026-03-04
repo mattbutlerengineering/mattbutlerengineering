@@ -3,6 +3,7 @@ import { Stage, Layer } from "react-konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type { Table, FloorPlan } from "@mbe/types";
 import { TableShape } from "./TableShape";
+import styles from "./FloorPlanCanvas.module.css";
 
 export interface FloorPlanCanvasProps {
   floorPlan: FloorPlan;
@@ -49,10 +50,13 @@ export function FloorPlanCanvas({
     return () => window.removeEventListener("resize", updateDimensions);
   }, []);
 
-  const handleDragStart = useCallback((tableId: string) => {
-    if (readOnly) return;
-    setDraggingTableId(tableId);
-  }, [readOnly]);
+  const handleDragStart = useCallback(
+    (tableId: string) => {
+      if (readOnly) return;
+      setDraggingTableId(tableId);
+    },
+    [readOnly]
+  );
 
   const handleDragEnd = useCallback(
     (tableId: string, x: number, y: number) => {
@@ -96,24 +100,20 @@ export function FloorPlanCanvas({
   return (
     <div
       ref={containerRef}
-      className="relative bg-gray-50 rounded-lg overflow-hidden border border-gray-200"
+      className={styles.canvasWrapper}
       style={{
         backgroundImage: `url("${gridPatternUrl}")`,
         backgroundSize: `${GRID_SIZE * scale}px ${GRID_SIZE * scale}px`,
       }}
     >
       {/* Floor plan name overlay */}
-      <div className="absolute top-2 left-2 bg-white/80 px-2 py-1 rounded text-sm font-medium text-gray-700 z-10">
+      <div className={styles.nameOverlay}>
         {floorPlan.name}
-        {floorPlan.isActive && (
-          <span className="ml-2 text-xs text-green-600">(Active)</span>
-        )}
+        {floorPlan.isActive && <span className={styles.activeLabel}>(Active)</span>}
       </div>
 
       {/* Zoom indicator */}
-      <div className="absolute top-2 right-2 bg-white/80 px-2 py-1 rounded text-xs text-gray-500 z-10">
-        {Math.round(scale * 100)}%
-      </div>
+      <div className={styles.zoomOverlay}>{Math.round(scale * 100)}%</div>
 
       <Stage
         width={dimensions.width}
@@ -140,10 +140,10 @@ export function FloorPlanCanvas({
 
       {/* Empty state */}
       {tables.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-center text-gray-400">
-            <p className="text-lg">No tables on this floor plan</p>
-            <p className="text-sm mt-1">Add tables from the sidebar</p>
+        <div className={styles.emptyState}>
+          <div className={styles.emptyStateContent}>
+            <p className={styles.emptyStateTitle}>No tables on this floor plan</p>
+            <p className={styles.emptyStateNote}>Add tables from the sidebar</p>
           </div>
         </div>
       )}

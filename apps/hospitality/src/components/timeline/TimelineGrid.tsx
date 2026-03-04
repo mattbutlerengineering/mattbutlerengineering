@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import type { Reservation, Table } from "@mbe/types";
 import { ReservationBlock } from "./ReservationBlock";
+import styles from "./TimelineGrid.module.css";
 
 export interface TimelineGridProps {
   tables: Table[];
@@ -86,16 +87,13 @@ export function TimelineGrid({
   const totalHeight = HEADER_HEIGHT + tables.length * ROW_HEIGHT;
 
   return (
-    <div className="relative overflow-auto border rounded-lg bg-white">
+    <div className={styles.gridWrapper}>
       <div style={{ width: totalWidth, height: totalHeight }}>
         {/* Header row with hours */}
-        <div
-          className="sticky top-0 z-20 flex bg-gray-50 border-b"
-          style={{ height: HEADER_HEIGHT }}
-        >
+        <div className={styles.headerRow} style={{ height: HEADER_HEIGHT }}>
           {/* Table column header */}
           <div
-            className="sticky left-0 z-30 flex items-center px-3 bg-gray-50 border-r font-medium text-gray-700"
+            className={styles.tableColumnHeader}
             style={{ width: TABLE_COLUMN_WIDTH, minWidth: TABLE_COLUMN_WIDTH }}
           >
             Tables
@@ -104,7 +102,7 @@ export function TimelineGrid({
           {hours.map((hour) => (
             <div
               key={hour}
-              className="flex items-center justify-center border-r text-sm text-gray-500"
+              className={styles.hourHeader}
               style={{ width: HOUR_WIDTH, minWidth: HOUR_WIDTH }}
             >
               {formatHour(hour)}
@@ -114,34 +112,28 @@ export function TimelineGrid({
 
         {/* Table rows */}
         {tables.map((table) => (
-          <div
-            key={table.id}
-            className="flex"
-            style={{ height: ROW_HEIGHT }}
-          >
+          <div key={table.id} className={styles.tableRow} style={{ height: ROW_HEIGHT }}>
             {/* Table name column */}
             <div
-              className="sticky left-0 z-10 flex items-center px-3 bg-white border-r border-b"
+              className={styles.tableNameCell}
               style={{ width: TABLE_COLUMN_WIDTH, minWidth: TABLE_COLUMN_WIDTH }}
             >
               <div>
-                <div className="font-medium text-gray-900">
-                  {table.tableNumber || table.name}
-                </div>
-                <div className="text-xs text-gray-500">
+                <div className={styles.tableName}>{table.tableNumber || table.name}</div>
+                <div className={styles.tableCapacity}>
                   {table.minCovers}-{table.maxCovers ?? table.capacity} guests
                 </div>
               </div>
             </div>
 
             {/* Time slots with reservations */}
-            <div className="relative flex-1 border-b">
+            <div className={styles.reservationArea}>
               {/* Hour grid lines */}
-              <div className="absolute inset-0 flex">
+              <div className={styles.hourGrid}>
                 {hours.map((hour) => (
                   <div
                     key={hour}
-                    className="border-r border-gray-100"
+                    className={styles.hourGridLine}
                     style={{ width: HOUR_WIDTH }}
                   />
                 ))}
@@ -149,12 +141,12 @@ export function TimelineGrid({
 
               {/* Reservation blocks */}
               {getTableReservations(table.id).map((reservation) => {
-                const style = getReservationStyle(reservation);
+                const blockStyle = getReservationStyle(reservation);
                 return (
                   <ReservationBlock
                     key={reservation.id}
                     reservation={reservation}
-                    style={style}
+                    style={blockStyle}
                     isSelected={reservation.id === selectedReservationId}
                     onClick={() => onReservationClick?.(reservation)}
                   />
@@ -167,10 +159,10 @@ export function TimelineGrid({
         {/* Current time indicator */}
         {currentTimeOffset !== null && (
           <div
-            className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-30 pointer-events-none"
+            className={styles.currentTimeIndicator}
             style={{ left: TABLE_COLUMN_WIDTH + currentTimeOffset }}
           >
-            <div className="absolute -top-1 -left-1.5 w-3 h-3 bg-red-500 rounded-full" />
+            <div className={styles.currentTimeDot} />
           </div>
         )}
       </div>

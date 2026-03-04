@@ -1,0 +1,112 @@
+.gridWrapper {
+  position: relative;
+  overflow: auto;
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-soft);
+  background: var(--rialto-surface);
+}
+
+/* Sticky header row */
+.headerRow {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 20;
+  display: flex;
+  background: var(--rialto-surface-recessed);
+  border-block-end: 1px solid var(--rialto-border);
+}
+
+/* Sticky table-name column header */
+.tableColumnHeader {
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  padding-inline: var(--rialto-space-sm);
+  background: var(--rialto-surface-recessed);
+  border-inline-end: 1px solid var(--rialto-border);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-primary);
+  flex-shrink: 0;
+}
+
+/* Hour header cells */
+.hourHeader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-inline-end: 1px solid var(--rialto-border);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+  flex-shrink: 0;
+}
+
+/* Table rows */
+.tableRow {
+  display: flex;
+}
+
+/* Sticky table name cell */
+.tableNameCell {
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  padding-inline: var(--rialto-space-sm);
+  background: var(--rialto-surface);
+  border-inline-end: 1px solid var(--rialto-border);
+  border-block-end: 1px solid var(--rialto-border);
+  flex-shrink: 0;
+}
+
+.tableName {
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-primary);
+}
+
+.tableCapacity {
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-secondary);
+}
+
+/* Scrollable reservation area per row */
+.reservationArea {
+  position: relative;
+  flex: 1;
+  border-block-end: 1px solid var(--rialto-border);
+}
+
+/* Hour grid lines within reservation area */
+.hourGrid {
+  position: absolute;
+  inset: 0;
+  display: flex;
+}
+
+.hourGridLine {
+  border-inline-end: 1px solid var(--rialto-border);
+  flex-shrink: 0;
+}
+
+/* Current time indicator */
+.currentTimeIndicator {
+  position: absolute;
+  inset-block-start: 0;
+  inset-block-end: 0;
+  inline-size: 2px;
+  background: #ef4444;
+  z-index: 30;
+  pointer-events: none;
+}
+
+.currentTimeDot {
+  position: absolute;
+  inset-block-start: -4px;
+  inset-inline-start: -4px;
+  inline-size: 10px;
+  block-size: 10px;
+  background: #ef4444;
+  border-radius: 50%;
+}
