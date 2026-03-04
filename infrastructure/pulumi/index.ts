@@ -104,28 +104,6 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
         buildCommand: "pnpm build --filter=@mbe/marketing",
         outputDir: "apps/marketing/dist",
         catchallDocument: "index.html",
-        envs: [
-          {
-            key: "VITE_AUTH_AUTHORITY",
-            value: "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com",
-            scope: "BUILD_TIME",
-          },
-          {
-            key: "VITE_AUTH_CLIENT_ID",
-            value: auth0Outputs.hospitalityClientId,
-            scope: "BUILD_TIME",
-          },
-          {
-            key: "VITE_AUTH_AUDIENCE",
-            value: `https://api.${domain}`,
-            scope: "BUILD_TIME",
-          },
-          {
-            key: "VITE_AUTH_REDIRECT_URI",
-            value: `https://${domain}/callback`,
-            scope: "BUILD_TIME",
-          },
-        ],
       },
       {
         name: "rialto-web",

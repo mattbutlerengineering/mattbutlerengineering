@@ -7,7 +7,6 @@ const environment = config.get("environment") || "production";
 
 // Determine callback URLs based on environment
 const localCallbacks = [
-  "http://localhost:3000/callback",
   "http://localhost:3002/hospitality/callback",
 ];
 const prodCallbacks = [
@@ -16,11 +15,11 @@ const prodCallbacks = [
 ];
 const callbackUrls = [...localCallbacks, ...prodCallbacks];
 
-const localLogoutUrls = ["http://localhost:3000", "http://localhost:3002", "http://localhost:3002/hospitality"];
+const localLogoutUrls = ["http://localhost:3002", "http://localhost:3002/hospitality"];
 const prodLogoutUrls = [`https://${domain}`, `https://${domain}/hospitality`];
 const logoutUrls = [...localLogoutUrls, ...prodLogoutUrls];
 
-const localWebOrigins = ["http://localhost:3000", "http://localhost:3002"];
+const localWebOrigins = ["http://localhost:3002"];
 const prodWebOrigins = [`https://${domain}`, `https://${domain}/hospitality`];
 const webOrigins = [...localWebOrigins, ...prodWebOrigins];
 
