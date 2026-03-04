@@ -32,9 +32,9 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **HOSP-02**: Package name updated from `@mbe/dashboard` to `@mbe/hospitality`
 - [x] **HOSP-03**: URL path changed from `/dashboard` to `/hospitality` (Vite base, React Router basename)
 - [x] **HOSP-04**: Auth0 callback URL updated to `/hospitality/callback` in Pulumi IaC
-- [ ] **HOSP-05**: All Tailwind CSS classes replaced with Rialto components
-- [ ] **HOSP-06**: All @mbe/ui imports replaced with @mbe/rialto equivalents
-- [ ] **HOSP-07**: All existing features preserved (reservations, timeline, floor plans, guest management)
+- [x] **HOSP-05**: All Tailwind CSS classes replaced with Rialto components
+- [x] **HOSP-06**: All @mbe/ui imports replaced with @mbe/rialto equivalents
+- [x] **HOSP-07**: All existing features preserved (reservations, timeline, floor plans, guest management)
 - [ ] **HOSP-08**: App served at mattbutlerengineering.com/hospitality with working client-side routing
 
 ### Infrastructure & Hosting
@@ -104,9 +104,9 @@ Deferred to future release. Tracked but not in current roadmap.
 | HOSP-02 | Phase 2 | Complete |
 | HOSP-03 | Phase 2 | Complete |
 | HOSP-04 | Phase 2 | Complete |
-| HOSP-05 | Phase 4 | Pending |
-| HOSP-06 | Phase 4 | Pending |
-| HOSP-07 | Phase 4 | Pending |
+| HOSP-05 | Phase 4 | Complete |
+| HOSP-06 | Phase 4 | Complete |
+| HOSP-07 | Phase 4 | Complete |
 | HOSP-08 | Phase 4 | Pending |
 | INFRA-01 | Phase 2 | Complete |
 | INFRA-02 | Phase 2 | Complete |
