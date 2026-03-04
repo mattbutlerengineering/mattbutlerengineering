@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-02-28T21:21:04.210Z"
+last_updated: "2026-03-04T05:09:38.633Z"
 progress:
-  total_phases: 3
+  total_phases: 4
   completed_phases: 3
-  total_plans: 7
-  completed_plans: 7
+  total_plans: 12
+  completed_plans: 9
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-27)
 
 **Core value:** Every web app uses Rialto as the single design system and is accessible at mattbutlerengineering.com
-**Current focus:** Phase 3 — Marketing Portfolio (plan 2 of 2 complete — phase done)
+**Current focus:** Phase 4 — Hospitality Migration + Full Hosting (plan 3 of 5 complete)
 
 ## Current Position
 
-Phase: 3 of 4 (Marketing Portfolio) — COMPLETE
-Plan: 2 of 2 in current phase
-Status: Plan 03-02 complete — Tailwind/PostCSS/@mbe/ui removed; marketing app uses Rialto only
-Last activity: 2026-02-28 — 03-02 complete (dependency cleanup verified visually)
+Phase: 4 of 4 (Hospitality Migration + Full Hosting) — IN PROGRESS
+Plan: 3 of 5 in current phase — 04-03 complete
+Status: Plan 04-03 complete — booking-widget, floor-plan, and timeline domain components migrated to CSS Modules; zero Tailwind className strings remain in domain component layer
+Last activity: 2026-03-04 — 04-03 complete (9 components migrated, TableShape confirmed clean, TypeScript zero errors)
 
-Progress: [█████████░] 75%
+Progress: [█████████░] 78%
 
 ## Performance Metrics
 
@@ -49,6 +49,8 @@ Progress: [█████████░] 75%
 - Trend: Very fast — well-scoped cleanup plan with human checkpoint
 
 *Updated after each plan completion*
+| Phase 04 P01 | 4 min | 2 tasks | 18 files |
+| Phase 04-hospitality-migration-full-hosting P03 | 4 | 2 tasks | 16 files |
 
 ## Accumulated Context
 
@@ -79,6 +81,12 @@ Recent decisions affecting current work:
 - [03-01]: @mbe/rialto was missing from marketing package.json — added as workspace dependency
 - [03-01]: vite-env.d.ts was missing in marketing app — required for CSS module type declarations
 - [Phase 03-02]: Pre-existing ESLint ajv error affects all packages monorepo-wide — out of scope for plan 03-02, deferred to deferred-items.md
+- [Phase 04]: RialtoProvider wraps BrowserRouter at root in hospitality app — CSS token cascade applies to all routes
+- [Phase 04]: @mbe/rialto added as workspace dependency to hospitality package.json
+- [Phase 04]: Local PageHeader component created in hospitality components/ — wraps Rialto Text+Stack, not from @mbe/shared-layout
+- [Phase 04-03]: TableShape.tsx left unchanged — pure react-konva canvas, zero Tailwind classes confirmed
+- [Phase 04-03]: ReservationBlock STATUS_COLORS refactored to STATUS_CLASS record mapping status to CSS Module class names
+- [Phase 04-03]: Dynamic pixel positioning (left/width/height) kept as inline styles — only static Tailwind converted to CSS Modules
 
 ### Pending Todos
 
@@ -91,6 +99,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-28
-Stopped at: Completed 03-02-PLAN.md (Tailwind/PostCSS/@mbe/ui deps removed from marketing; visual verification approved)
+Last session: 2026-03-04
+Stopped at: Completed 04-03-PLAN.md (booking-widget, floor-plan, timeline domain components migrated to CSS Modules)
 Resume file: none
