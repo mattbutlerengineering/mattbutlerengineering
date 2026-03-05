@@ -54,7 +54,7 @@ describe("User Routes", () => {
     vi.clearAllMocks();
   });
 
-  describe("GET /v1/users", () => {
+  describe("GET /api/v1/users", () => {
     it("returns paginated list of users", async () => {
       vi.mocked(userService.list).mockResolvedValueOnce({
         data: [mockUser],
@@ -70,7 +70,7 @@ describe("User Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/users",
+        url: "/api/v1/users",
       });
 
       expect(response.statusCode).toBe(200);
@@ -95,20 +95,20 @@ describe("User Routes", () => {
 
       await app.inject({
         method: "GET",
-        url: "/v1/users?page=2&limit=5",
+        url: "/api/v1/users?page=2&limit=5",
       });
 
       expect(userService.list).toHaveBeenCalledWith(2, 5);
     });
   });
 
-  describe("GET /v1/users/:id", () => {
+  describe("GET /api/v1/users/:id", () => {
     it("returns user by ID", async () => {
       vi.mocked(userService.getById).mockResolvedValueOnce(mockUser);
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/users/user-123",
+        url: "/api/v1/users/user-123",
       });
 
       expect(response.statusCode).toBe(200);
@@ -122,7 +122,7 @@ describe("User Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/users/nonexistent",
+        url: "/api/v1/users/nonexistent",
       });
 
       expect(response.statusCode).toBe(404);
@@ -131,13 +131,13 @@ describe("User Routes", () => {
     });
   });
 
-  describe("POST /v1/users", () => {
+  describe("POST /api/v1/users", () => {
     it("creates a new user", async () => {
       vi.mocked(userService.create).mockResolvedValueOnce(mockUser);
 
       const response = await app.inject({
         method: "POST",
-        url: "/v1/users",
+        url: "/api/v1/users",
         payload: {
           email: "test@example.com",
           name: "Test User",
@@ -155,7 +155,7 @@ describe("User Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/v1/users",
+        url: "/api/v1/users",
         payload: {
           email: "minimal@example.com",
         },
@@ -168,14 +168,14 @@ describe("User Routes", () => {
     });
   });
 
-  describe("PATCH /v1/users/:id", () => {
+  describe("PATCH /api/v1/users/:id", () => {
     it("updates user", async () => {
       const updatedUser = { ...mockUser, name: "Updated Name" };
       vi.mocked(userService.update).mockResolvedValueOnce(updatedUser);
 
       const response = await app.inject({
         method: "PATCH",
-        url: "/v1/users/user-123",
+        url: "/api/v1/users/user-123",
         payload: {
           name: "Updated Name",
         },
@@ -191,7 +191,7 @@ describe("User Routes", () => {
 
       const response = await app.inject({
         method: "PATCH",
-        url: "/v1/users/nonexistent",
+        url: "/api/v1/users/nonexistent",
         payload: {
           name: "New Name",
         },
@@ -201,13 +201,13 @@ describe("User Routes", () => {
     });
   });
 
-  describe("DELETE /v1/users/:id", () => {
+  describe("DELETE /api/v1/users/:id", () => {
     it("deletes user and returns 204", async () => {
       vi.mocked(userService.delete).mockResolvedValueOnce(undefined);
 
       const response = await app.inject({
         method: "DELETE",
-        url: "/v1/users/user-123",
+        url: "/api/v1/users/user-123",
       });
 
       expect(response.statusCode).toBe(204);
@@ -228,7 +228,7 @@ const mockJWTPayload = {
   picture: "https://example.com/pic.jpg",
 };
 
-describe("GET /v1/users/me", () => {
+describe("GET /api/v1/users/me", () => {
   let app: FastifyInstance;
   const originalEnv = process.env;
 
@@ -258,7 +258,7 @@ describe("GET /v1/users/me", () => {
 
     const response = await app.inject({
       method: "GET",
-      url: "/v1/users/me",
+      url: "/api/v1/users/me",
       headers: {
         authorization: "Bearer valid-token",
       },
@@ -282,7 +282,7 @@ describe("GET /v1/users/me", () => {
 
     const response = await app.inject({
       method: "GET",
-      url: "/v1/users/me",
+      url: "/api/v1/users/me",
       headers: {
         authorization: "Bearer valid-token",
       },
@@ -302,7 +302,7 @@ describe("GET /v1/users/me", () => {
   it("returns 401 for missing token", async () => {
     const response = await app.inject({
       method: "GET",
-      url: "/v1/users/me",
+      url: "/api/v1/users/me",
     });
 
     expect(response.statusCode).toBe(401);
@@ -315,7 +315,7 @@ describe("GET /v1/users/me", () => {
 
     const response = await app.inject({
       method: "GET",
-      url: "/v1/users/me",
+      url: "/api/v1/users/me",
       headers: {
         authorization: "Bearer invalid-token",
       },

@@ -29,9 +29,22 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
       },
     ],
 
-    // Ingress routing
+    // Ingress routing (most-specific-first)
     ingress: {
       rules: [
+        // Users API — specific prefix, path preserved (service registers at /api/v1/users)
+        {
+          match: {
+            path: {
+              prefix: "/api/v1/users",
+            },
+          },
+          component: {
+            name: "users-api",
+            preservePathPrefix: true,
+          },
+        },
+        // Reservations API — catch-all for /api, prefix stripped (service registers at /v1/...)
         {
           match: {
             path: {
@@ -39,7 +52,7 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
             },
           },
           component: {
-            name: "users-api",
+            name: "reservations-api",
             preservePathPrefix: false,
           },
         },
@@ -158,10 +171,10 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
       },
     ],
 
-    // Database migration job (runs before service deployment)
+    // Database migration jobs (run before service deployment)
     jobs: [
       {
-        name: "db-migrate",
+        name: "db-migrate-users",
         kind: "PRE_DEPLOY",
         github: {
           repo: "mattbutlerengineering/mattbutlerengineering",
@@ -179,9 +192,28 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
         ],
         runCommand: "npx prisma migrate deploy",
       },
+      {
+        name: "db-migrate-reservations",
+        kind: "PRE_DEPLOY",
+        github: {
+          repo: "mattbutlerengineering/mattbutlerengineering",
+          branch: "main",
+          deployOnPush: true,
+        },
+        sourceDir: "/",
+        dockerfilePath: "services/reservations/Dockerfile",
+        envs: [
+          {
+            key: "DATABASE_URL",
+            value: databaseUrl,
+            type: "SECRET",
+          },
+        ],
+        runCommand: "npx prisma migrate deploy",
+      },
     ],
 
-    // Users API service
+    // API services
     services: [
       {
         name: "users-api",
@@ -214,6 +246,54 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
           },
           {
             key: "AUTH0_AUDIENCE",
+            value: `https://api.${domain}`,
+          },
+          {
+            key: "DATABASE_URL",
+            value: databaseUrl,
+            type: "SECRET",
+          },
+        ],
+        healthCheck: {
+          httpPath: "/health",
+          initialDelaySeconds: 10,
+          periodSeconds: 10,
+          timeoutSeconds: 5,
+          successThreshold: 1,
+          failureThreshold: 3,
+        },
+      },
+      {
+        name: "reservations-api",
+        github: {
+          repo: "mattbutlerengineering/mattbutlerengineering",
+          branch: "main",
+          deployOnPush: true,
+        },
+        sourceDir: "/",
+        dockerfilePath: "services/reservations/Dockerfile",
+        instanceCount: 1,
+        instanceSizeSlug: "apps-s-1vcpu-0.5gb",
+        httpPort: 3002,
+        envs: [
+          {
+            key: "NODE_ENV",
+            value: "production",
+          },
+          {
+            key: "PORT",
+            value: "3002",
+          },
+          {
+            key: "API_BASE_URL",
+            value: `https://${domain}/api`,
+          },
+          {
+            key: "AUTH_AUTHORITY",
+            value: "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com",
+          },
+          {
+            key: "AUTH_AUDIENCE",
             value: `https://api.${domain}`,
           },
           {
