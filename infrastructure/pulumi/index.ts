@@ -164,7 +164,7 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
           },
           {
             key: "VITE_API_URL",
-            value: `https://${domain}/api`,
+            value: `https://${domain}`,
             scope: "BUILD_TIME",
           },
         ],
