@@ -64,6 +64,8 @@ COPY --from=builder /app/packages/auth/src ./packages/auth/src
 
 # Copy built reservations service
 COPY --from=builder /app/services/reservations/dist ./services/reservations/dist
+# Copy generated Prisma client (tsc doesn't copy .js files from src/ to dist/)
+COPY --from=builder /app/services/reservations/src/generated/prisma ./services/reservations/dist/generated/prisma
 
 USER app
 

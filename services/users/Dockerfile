@@ -64,6 +64,8 @@ COPY --from=builder /app/packages/auth/src ./packages/auth/src
 
 # Copy built users service
 COPY --from=builder /app/services/users/dist ./services/users/dist
+# Copy generated Prisma client (tsc doesn't copy .js files from src/ to dist/)
+COPY --from=builder /app/services/users/src/generated/prisma ./services/users/dist/generated/prisma
 
 USER app
 
