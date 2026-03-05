@@ -158,7 +158,7 @@ describe("Table Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/tables",
+        url: "/api/v1/tables",
       });
 
       expect(response.statusCode).toBe(200);
@@ -183,7 +183,7 @@ describe("Table Routes", () => {
 
       await app.inject({
         method: "GET",
-        url: "/v1/tables?page=2&limit=5&activeOnly=true",
+        url: "/api/v1/tables?page=2&limit=5&activeOnly=true",
       });
 
       expect(tableService.list).toHaveBeenCalledWith(2, 5, true);
@@ -196,7 +196,7 @@ describe("Table Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/tables/table-123",
+        url: "/api/v1/tables/table-123",
       });
 
       expect(response.statusCode).toBe(200);
@@ -210,7 +210,7 @@ describe("Table Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/tables/nonexistent",
+        url: "/api/v1/tables/nonexistent",
       });
 
       expect(response.statusCode).toBe(404);
@@ -229,7 +229,7 @@ describe("Table Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/v1/tables",
+        url: "/api/v1/tables",
         headers: {
           authorization: "Bearer valid-token",
         },
@@ -248,7 +248,7 @@ describe("Table Routes", () => {
     it("returns 401 without auth", async () => {
       const response = await app.inject({
         method: "POST",
-        url: "/v1/tables",
+        url: "/api/v1/tables",
         payload: {
           name: "Table 1",
           capacity: 4,
@@ -270,7 +270,7 @@ describe("Table Routes", () => {
 
       const response = await app.inject({
         method: "PATCH",
-        url: "/v1/tables/table-123",
+        url: "/api/v1/tables/table-123",
         headers: {
           authorization: "Bearer valid-token",
         },
@@ -293,7 +293,7 @@ describe("Table Routes", () => {
 
       const response = await app.inject({
         method: "PATCH",
-        url: "/v1/tables/nonexistent",
+        url: "/api/v1/tables/nonexistent",
         headers: {
           authorization: "Bearer valid-token",
         },
@@ -316,7 +316,7 @@ describe("Table Routes", () => {
 
       const response = await app.inject({
         method: "DELETE",
-        url: "/v1/tables/table-123",
+        url: "/api/v1/tables/table-123",
         headers: {
           authorization: "Bearer valid-token",
         },
@@ -335,7 +335,7 @@ describe("Table Routes", () => {
 
       const response = await app.inject({
         method: "DELETE",
-        url: "/v1/tables/nonexistent",
+        url: "/api/v1/tables/nonexistent",
         headers: {
           authorization: "Bearer valid-token",
         },

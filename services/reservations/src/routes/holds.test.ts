@@ -173,7 +173,7 @@ describe("Hold Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/v1/holds",
+        url: "/api/v1/holds",
         headers: {
           "x-session-id": "session-abc",
         },
@@ -207,7 +207,7 @@ describe("Hold Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/v1/holds",
+        url: "/api/v1/holds",
         payload: {
           venueId: "venue-123",
           date: "2024-02-15",
@@ -228,7 +228,7 @@ describe("Hold Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/v1/holds",
+        url: "/api/v1/holds",
         headers: {
           "x-session-id": "session-abc",
         },
@@ -253,7 +253,7 @@ describe("Hold Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/v1/holds",
+        url: "/api/v1/holds",
         headers: {
           "x-session-id": "session-abc",
         },
@@ -277,7 +277,7 @@ describe("Hold Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/holds/hold-123",
+        url: "/api/v1/holds/hold-123",
       });
 
       expect(response.statusCode).toBe(200);
@@ -290,7 +290,7 @@ describe("Hold Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/holds/non-existent",
+        url: "/api/v1/holds/non-existent",
       });
 
       expect(response.statusCode).toBe(404);
@@ -305,7 +305,7 @@ describe("Hold Routes", () => {
 
       const response = await app.inject({
         method: "DELETE",
-        url: "/v1/holds/hold-123",
+        url: "/api/v1/holds/hold-123",
         headers: {
           "x-session-id": "session-abc",
         },
@@ -320,7 +320,7 @@ describe("Hold Routes", () => {
     it("should return 400 without session ID", async () => {
       const response = await app.inject({
         method: "DELETE",
-        url: "/v1/holds/hold-123",
+        url: "/api/v1/holds/hold-123",
       });
 
       // Fastify schema validation returns 400 for missing required header
@@ -332,7 +332,7 @@ describe("Hold Routes", () => {
 
       const response = await app.inject({
         method: "DELETE",
-        url: "/v1/holds/hold-123",
+        url: "/api/v1/holds/hold-123",
         headers: {
           "x-session-id": "wrong-session",
         },
@@ -351,7 +351,7 @@ describe("Hold Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/v1/holds/hold-123/confirm",
+        url: "/api/v1/holds/hold-123/confirm",
         headers: {
           "x-session-id": "session-abc",
         },
@@ -379,7 +379,7 @@ describe("Hold Routes", () => {
     it("should return 400 without session ID", async () => {
       const response = await app.inject({
         method: "POST",
-        url: "/v1/holds/hold-123/confirm",
+        url: "/api/v1/holds/hold-123/confirm",
         payload: {
           guestName: "John Doe",
         },
@@ -397,7 +397,7 @@ describe("Hold Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/v1/holds/hold-123/confirm",
+        url: "/api/v1/holds/hold-123/confirm",
         headers: {
           "x-session-id": "session-abc",
         },
@@ -419,7 +419,7 @@ describe("Hold Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/v1/holds/hold-123/confirm",
+        url: "/api/v1/holds/hold-123/confirm",
         headers: {
           "x-session-id": "session-abc",
         },

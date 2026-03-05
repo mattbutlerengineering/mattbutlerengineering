@@ -123,14 +123,14 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
 
   // Register routes
   await fastify.register(healthRoutes);
-  await fastify.register(venueRoutes, { prefix: "/v1/venues" });
-  await fastify.register(guestRoutes, { prefix: "/v1/guests" });
-  await fastify.register(tableRoutes, { prefix: "/v1/tables" });
-  await fastify.register(floorPlanRoutes, { prefix: "/v1/floor-plans" });
-  await fastify.register(reservationRoutes, { prefix: "/v1/reservations" });
-  await fastify.register(availabilityRoutes, { prefix: "/v1/availability" });
-  await fastify.register(holdRoutes, { prefix: "/v1/holds" });
-  await fastify.register(eventRoutes, { prefix: "/v1/events" });
+  await fastify.register(venueRoutes, { prefix: "/api/v1/venues" });
+  await fastify.register(guestRoutes, { prefix: "/api/v1/guests" });
+  await fastify.register(tableRoutes, { prefix: "/api/v1/tables" });
+  await fastify.register(floorPlanRoutes, { prefix: "/api/v1/floor-plans" });
+  await fastify.register(reservationRoutes, { prefix: "/api/v1/reservations" });
+  await fastify.register(availabilityRoutes, { prefix: "/api/v1/availability" });
+  await fastify.register(holdRoutes, { prefix: "/api/v1/holds" });
+  await fastify.register(eventRoutes, { prefix: "/api/v1/events" });
 
   return fastify;
 }

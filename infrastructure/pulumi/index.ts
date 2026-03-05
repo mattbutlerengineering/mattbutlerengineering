@@ -44,7 +44,7 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
             preservePathPrefix: true,
           },
         },
-        // Reservations API — catch-all for /api, prefix stripped (service registers at /v1/...)
+        // Reservations API — catch-all for /api, path preserved (service registers at /api/v1/...)
         {
           match: {
             path: {
@@ -53,7 +53,7 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
           },
           component: {
             name: "reservations-api",
-            preservePathPrefix: false,
+            preservePathPrefix: true,
           },
         },
         // 301 redirect from old /dashboard path

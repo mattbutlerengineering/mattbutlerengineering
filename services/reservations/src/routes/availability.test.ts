@@ -183,7 +183,7 @@ describe("Availability Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/availability/venue-123?date=2024-02-15&partySize=4",
+        url: "/api/v1/availability/venue-123?date=2024-02-15&partySize=4",
       });
 
       expect(response.statusCode).toBe(200);
@@ -203,7 +203,7 @@ describe("Availability Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/availability/venue-123?date=2024-02-15&partySize=4&duration=120",
+        url: "/api/v1/availability/venue-123?date=2024-02-15&partySize=4&duration=120",
       });
 
       expect(response.statusCode).toBe(200);
@@ -220,7 +220,7 @@ describe("Availability Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/availability/non-existent?date=2024-02-15&partySize=4",
+        url: "/api/v1/availability/non-existent?date=2024-02-15&partySize=4",
       });
 
       expect(response.statusCode).toBe(404);
@@ -233,7 +233,7 @@ describe("Availability Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/availability/venue-123?date=02-15-2024&partySize=4",
+        url: "/api/v1/availability/venue-123?date=02-15-2024&partySize=4",
       });
 
       expect(response.statusCode).toBe(400);
@@ -247,7 +247,7 @@ describe("Availability Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/availability/venue-123?date=2024-02-15&partySize=0",
+        url: "/api/v1/availability/venue-123?date=2024-02-15&partySize=0",
       });
 
       expect(response.statusCode).toBe(400);
@@ -260,7 +260,7 @@ describe("Availability Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/availability/venue-123?date=2024-02-15&partySize=4&duration=10",
+        url: "/api/v1/availability/venue-123?date=2024-02-15&partySize=4&duration=10",
       });
 
       expect(response.statusCode).toBe(400);
@@ -276,7 +276,7 @@ describe("Availability Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/availability/venue-123/dates?startDate=2024-02-15&endDate=2024-02-17&partySize=4",
+        url: "/api/v1/availability/venue-123/dates?startDate=2024-02-15&endDate=2024-02-17&partySize=4",
       });
 
       expect(response.statusCode).toBe(200);
@@ -296,7 +296,7 @@ describe("Availability Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/availability/non-existent/dates?startDate=2024-02-15&endDate=2024-02-17&partySize=4",
+        url: "/api/v1/availability/non-existent/dates?startDate=2024-02-15&endDate=2024-02-17&partySize=4",
       });
 
       expect(response.statusCode).toBe(404);
@@ -310,7 +310,7 @@ describe("Availability Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/availability/venue-123/dates?startDate=2024-02-20&endDate=2024-02-15&partySize=4",
+        url: "/api/v1/availability/venue-123/dates?startDate=2024-02-20&endDate=2024-02-15&partySize=4",
       });
 
       expect(response.statusCode).toBe(400);
@@ -324,7 +324,7 @@ describe("Availability Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/availability/venue-123/dates?startDate=2024-02-15&endDate=2024-02-17&partySize=-1",
+        url: "/api/v1/availability/venue-123/dates?startDate=2024-02-15&endDate=2024-02-17&partySize=-1",
       });
 
       expect(response.statusCode).toBe(400);

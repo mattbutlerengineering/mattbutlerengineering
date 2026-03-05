@@ -179,7 +179,7 @@ describe("Reservation Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/reservations",
+        url: "/api/v1/reservations",
       });
 
       expect(response.statusCode).toBe(200);
@@ -204,7 +204,7 @@ describe("Reservation Routes", () => {
 
       await app.inject({
         method: "GET",
-        url: "/v1/reservations?date=2026-02-15&status=CONFIRMED&tableId=table-123",
+        url: "/api/v1/reservations?date=2026-02-15&status=CONFIRMED&tableId=table-123",
       });
 
       expect(reservationService.list).toHaveBeenCalledWith({
@@ -239,7 +239,7 @@ describe("Reservation Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/reservations/me",
+        url: "/api/v1/reservations/me",
         headers: {
           authorization: "Bearer valid-token",
         },
@@ -258,7 +258,7 @@ describe("Reservation Routes", () => {
     it("returns 401 without auth", async () => {
       const response = await app.inject({
         method: "GET",
-        url: "/v1/reservations/me",
+        url: "/api/v1/reservations/me",
       });
 
       expect(response.statusCode).toBe(401);
@@ -273,7 +273,7 @@ describe("Reservation Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/reservations/res-123",
+        url: "/api/v1/reservations/res-123",
       });
 
       expect(response.statusCode).toBe(200);
@@ -287,7 +287,7 @@ describe("Reservation Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/reservations/nonexistent",
+        url: "/api/v1/reservations/nonexistent",
       });
 
       expect(response.statusCode).toBe(404);
@@ -305,7 +305,7 @@ describe("Reservation Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/v1/reservations",
+        url: "/api/v1/reservations",
         payload: {
           date: "2026-02-15",
           startTime: "2026-02-15T18:00:00.000Z",
@@ -342,7 +342,7 @@ describe("Reservation Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/v1/reservations",
+        url: "/api/v1/reservations",
         headers: {
           authorization: "Bearer valid-token",
         },
@@ -371,7 +371,7 @@ describe("Reservation Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/v1/reservations",
+        url: "/api/v1/reservations",
         payload: {
           date: "2026-02-15",
           startTime: "2026-02-15T18:00:00.000Z",
@@ -397,7 +397,7 @@ describe("Reservation Routes", () => {
 
       const response = await app.inject({
         method: "PATCH",
-        url: "/v1/reservations/res-123",
+        url: "/api/v1/reservations/res-123",
         payload: {
           partySize: 6,
         },
@@ -416,7 +416,7 @@ describe("Reservation Routes", () => {
 
       const response = await app.inject({
         method: "PATCH",
-        url: "/v1/reservations/nonexistent",
+        url: "/api/v1/reservations/nonexistent",
         payload: {
           partySize: 6,
         },
@@ -434,7 +434,7 @@ describe("Reservation Routes", () => {
 
       const response = await app.inject({
         method: "PATCH",
-        url: "/v1/reservations/res-123",
+        url: "/api/v1/reservations/res-123",
         payload: {
           startTime: "2026-02-15T19:00:00.000Z",
         },
@@ -458,7 +458,7 @@ describe("Reservation Routes", () => {
 
       const response = await app.inject({
         method: "DELETE",
-        url: "/v1/reservations/res-123",
+        url: "/api/v1/reservations/res-123",
       });
 
       expect(response.statusCode).toBe(200);
@@ -472,7 +472,7 @@ describe("Reservation Routes", () => {
 
       const response = await app.inject({
         method: "DELETE",
-        url: "/v1/reservations/nonexistent",
+        url: "/api/v1/reservations/nonexistent",
       });
 
       expect(response.statusCode).toBe(404);

@@ -163,7 +163,7 @@ describe("Venue Routes", () => {
 
         const response = await app.inject({
           method: "GET",
-          url: "/v1/venues/groups",
+          url: "/api/v1/venues/groups",
         });
 
         expect(response.statusCode).toBe(200);
@@ -180,7 +180,7 @@ describe("Venue Routes", () => {
 
         const response = await app.inject({
           method: "GET",
-          url: "/v1/venues/groups/group-123",
+          url: "/api/v1/venues/groups/group-123",
         });
 
         expect(response.statusCode).toBe(200);
@@ -194,7 +194,7 @@ describe("Venue Routes", () => {
 
         const response = await app.inject({
           method: "GET",
-          url: "/v1/venues/groups/nonexistent",
+          url: "/api/v1/venues/groups/nonexistent",
         });
 
         expect(response.statusCode).toBe(404);
@@ -213,7 +213,7 @@ describe("Venue Routes", () => {
 
         const response = await app.inject({
           method: "POST",
-          url: "/v1/venues/groups",
+          url: "/api/v1/venues/groups",
           headers: {
             authorization: "Bearer valid-token",
           },
@@ -231,7 +231,7 @@ describe("Venue Routes", () => {
       it("returns 401 without auth", async () => {
         const response = await app.inject({
           method: "POST",
-          url: "/v1/venues/groups",
+          url: "/api/v1/venues/groups",
           payload: {
             name: "Downtown Restaurant Group",
             slug: "downtown-restaurant-group",
@@ -253,7 +253,7 @@ describe("Venue Routes", () => {
 
         const response = await app.inject({
           method: "PATCH",
-          url: "/v1/venues/groups/group-123",
+          url: "/api/v1/venues/groups/group-123",
           headers: {
             authorization: "Bearer valid-token",
           },
@@ -276,7 +276,7 @@ describe("Venue Routes", () => {
 
         const response = await app.inject({
           method: "PATCH",
-          url: "/v1/venues/groups/nonexistent",
+          url: "/api/v1/venues/groups/nonexistent",
           headers: {
             authorization: "Bearer valid-token",
           },
@@ -299,7 +299,7 @@ describe("Venue Routes", () => {
 
         const response = await app.inject({
           method: "DELETE",
-          url: "/v1/venues/groups/group-123",
+          url: "/api/v1/venues/groups/group-123",
           headers: {
             authorization: "Bearer valid-token",
           },
@@ -318,7 +318,7 @@ describe("Venue Routes", () => {
 
         const response = await app.inject({
           method: "DELETE",
-          url: "/v1/venues/groups/nonexistent",
+          url: "/api/v1/venues/groups/nonexistent",
           headers: {
             authorization: "Bearer valid-token",
           },
@@ -346,7 +346,7 @@ describe("Venue Routes", () => {
 
         const response = await app.inject({
           method: "GET",
-          url: "/v1/venues",
+          url: "/api/v1/venues",
         });
 
         expect(response.statusCode).toBe(200);
@@ -371,7 +371,7 @@ describe("Venue Routes", () => {
 
         await app.inject({
           method: "GET",
-          url: "/v1/venues?venueGroupId=group-123",
+          url: "/api/v1/venues?venueGroupId=group-123",
         });
 
         expect(venueService.list).toHaveBeenCalledWith(1, 10, "group-123");
@@ -384,7 +384,7 @@ describe("Venue Routes", () => {
 
         const response = await app.inject({
           method: "GET",
-          url: "/v1/venues/venue-123",
+          url: "/api/v1/venues/venue-123",
         });
 
         expect(response.statusCode).toBe(200);
@@ -398,7 +398,7 @@ describe("Venue Routes", () => {
 
         const response = await app.inject({
           method: "GET",
-          url: "/v1/venues/nonexistent",
+          url: "/api/v1/venues/nonexistent",
         });
 
         expect(response.statusCode).toBe(404);
@@ -413,7 +413,7 @@ describe("Venue Routes", () => {
 
         const response = await app.inject({
           method: "GET",
-          url: "/v1/venues/by-slug/chez-panisse",
+          url: "/api/v1/venues/by-slug/chez-panisse",
         });
 
         expect(response.statusCode).toBe(200);
@@ -426,7 +426,7 @@ describe("Venue Routes", () => {
 
         const response = await app.inject({
           method: "GET",
-          url: "/v1/venues/by-slug/nonexistent",
+          url: "/api/v1/venues/by-slug/nonexistent",
         });
 
         expect(response.statusCode).toBe(404);
@@ -443,7 +443,7 @@ describe("Venue Routes", () => {
 
         const response = await app.inject({
           method: "POST",
-          url: "/v1/venues",
+          url: "/api/v1/venues",
           headers: {
             authorization: "Bearer valid-token",
           },
@@ -463,7 +463,7 @@ describe("Venue Routes", () => {
       it("returns 401 without auth", async () => {
         const response = await app.inject({
           method: "POST",
-          url: "/v1/venues",
+          url: "/api/v1/venues",
           payload: {
             name: "Chez Panisse",
             slug: "chez-panisse",
@@ -486,7 +486,7 @@ describe("Venue Routes", () => {
 
         const response = await app.inject({
           method: "PATCH",
-          url: "/v1/venues/venue-123",
+          url: "/api/v1/venues/venue-123",
           headers: {
             authorization: "Bearer valid-token",
           },
@@ -509,7 +509,7 @@ describe("Venue Routes", () => {
 
         const response = await app.inject({
           method: "PATCH",
-          url: "/v1/venues/nonexistent",
+          url: "/api/v1/venues/nonexistent",
           headers: {
             authorization: "Bearer valid-token",
           },
@@ -532,7 +532,7 @@ describe("Venue Routes", () => {
 
         const response = await app.inject({
           method: "DELETE",
-          url: "/v1/venues/venue-123",
+          url: "/api/v1/venues/venue-123",
           headers: {
             authorization: "Bearer valid-token",
           },
@@ -551,7 +551,7 @@ describe("Venue Routes", () => {
 
         const response = await app.inject({
           method: "DELETE",
-          url: "/v1/venues/nonexistent",
+          url: "/api/v1/venues/nonexistent",
           headers: {
             authorization: "Bearer valid-token",
           },

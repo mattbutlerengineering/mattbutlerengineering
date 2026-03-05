@@ -171,7 +171,7 @@ describe("Guest Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/guests?venueId=venue-123",
+        url: "/api/v1/guests?venueId=venue-123",
         headers: { authorization: "Bearer valid-token" },
       });
 
@@ -189,7 +189,7 @@ describe("Guest Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/guests",
+        url: "/api/v1/guests",
         headers: { authorization: "Bearer valid-token" },
       });
 
@@ -199,7 +199,7 @@ describe("Guest Routes", () => {
     it("returns 401 without auth", async () => {
       const response = await app.inject({
         method: "GET",
-        url: "/v1/guests?venueId=venue-123",
+        url: "/api/v1/guests?venueId=venue-123",
       });
 
       expect(response.statusCode).toBe(401);
@@ -226,7 +226,7 @@ describe("Guest Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/guests/search?venueId=venue-123&query=john",
+        url: "/api/v1/guests/search?venueId=venue-123&query=john",
         headers: { authorization: "Bearer valid-token" },
       });
 
@@ -258,7 +258,7 @@ describe("Guest Routes", () => {
 
       await app.inject({
         method: "GET",
-        url: "/v1/guests/search?venueId=venue-123&hasNotVisitedInDays=30",
+        url: "/api/v1/guests/search?venueId=venue-123&hasNotVisitedInDays=30",
         headers: { authorization: "Bearer valid-token" },
       });
 
@@ -281,7 +281,7 @@ describe("Guest Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/guests/segments?venueId=venue-123",
+        url: "/api/v1/guests/segments?venueId=venue-123",
         headers: { authorization: "Bearer valid-token" },
       });
 
@@ -303,7 +303,7 @@ describe("Guest Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/guests/guest-123",
+        url: "/api/v1/guests/guest-123",
         headers: { authorization: "Bearer valid-token" },
       });
 
@@ -322,7 +322,7 @@ describe("Guest Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/guests/nonexistent",
+        url: "/api/v1/guests/nonexistent",
         headers: { authorization: "Bearer valid-token" },
       });
 
@@ -340,7 +340,7 @@ describe("Guest Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/v1/guests",
+        url: "/api/v1/guests",
         headers: { authorization: "Bearer valid-token" },
         payload: {
           venueId: "venue-123",
@@ -366,7 +366,7 @@ describe("Guest Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/v1/guests",
+        url: "/api/v1/guests",
         headers: { authorization: "Bearer valid-token" },
         payload: {
           venueId: "venue-123",
@@ -391,7 +391,7 @@ describe("Guest Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/v1/guests/find-or-create",
+        url: "/api/v1/guests/find-or-create",
         headers: { authorization: "Bearer valid-token" },
         payload: {
           venueId: "venue-123",
@@ -413,7 +413,7 @@ describe("Guest Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/v1/guests/find-or-create",
+        url: "/api/v1/guests/find-or-create",
         headers: { authorization: "Bearer valid-token" },
         payload: {
           venueId: "venue-123",
@@ -438,7 +438,7 @@ describe("Guest Routes", () => {
 
       const response = await app.inject({
         method: "PATCH",
-        url: "/v1/guests/guest-123",
+        url: "/api/v1/guests/guest-123",
         headers: { authorization: "Bearer valid-token" },
         payload: { name: "Jane Doe" },
       });
@@ -457,7 +457,7 @@ describe("Guest Routes", () => {
 
       const response = await app.inject({
         method: "PATCH",
-        url: "/v1/guests/nonexistent",
+        url: "/api/v1/guests/nonexistent",
         headers: { authorization: "Bearer valid-token" },
         payload: { name: "Jane Doe" },
       });
@@ -476,7 +476,7 @@ describe("Guest Routes", () => {
 
       const response = await app.inject({
         method: "DELETE",
-        url: "/v1/guests/guest-123",
+        url: "/api/v1/guests/guest-123",
         headers: { authorization: "Bearer valid-token" },
       });
 
@@ -493,7 +493,7 @@ describe("Guest Routes", () => {
 
       const response = await app.inject({
         method: "DELETE",
-        url: "/v1/guests/nonexistent",
+        url: "/api/v1/guests/nonexistent",
         headers: { authorization: "Bearer valid-token" },
       });
 

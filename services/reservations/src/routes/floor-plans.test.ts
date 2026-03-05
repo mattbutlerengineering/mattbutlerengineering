@@ -180,7 +180,7 @@ describe("Floor Plan Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/floor-plans",
+        url: "/api/v1/floor-plans",
       });
 
       expect(response.statusCode).toBe(200);
@@ -205,7 +205,7 @@ describe("Floor Plan Routes", () => {
 
       await app.inject({
         method: "GET",
-        url: "/v1/floor-plans?venueId=venue-123",
+        url: "/api/v1/floor-plans?venueId=venue-123",
       });
 
       expect(floorPlanService.list).toHaveBeenCalledWith(1, 10, "venue-123");
@@ -218,7 +218,7 @@ describe("Floor Plan Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/floor-plans/floor-plan-123",
+        url: "/api/v1/floor-plans/floor-plan-123",
       });
 
       expect(response.statusCode).toBe(200);
@@ -233,7 +233,7 @@ describe("Floor Plan Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/floor-plans/nonexistent",
+        url: "/api/v1/floor-plans/nonexistent",
       });
 
       expect(response.statusCode).toBe(404);
@@ -248,7 +248,7 @@ describe("Floor Plan Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/floor-plans/venue/venue-123/active",
+        url: "/api/v1/floor-plans/venue/venue-123/active",
       });
 
       expect(response.statusCode).toBe(200);
@@ -261,7 +261,7 @@ describe("Floor Plan Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/floor-plans/venue/venue-123/active",
+        url: "/api/v1/floor-plans/venue/venue-123/active",
       });
 
       expect(response.statusCode).toBe(404);
@@ -278,7 +278,7 @@ describe("Floor Plan Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/v1/floor-plans",
+        url: "/api/v1/floor-plans",
         headers: {
           authorization: "Bearer valid-token",
         },
@@ -300,7 +300,7 @@ describe("Floor Plan Routes", () => {
     it("returns 401 without auth", async () => {
       const response = await app.inject({
         method: "POST",
-        url: "/v1/floor-plans",
+        url: "/api/v1/floor-plans",
         payload: {
           venueId: "venue-123",
           name: "Main Dining",
@@ -326,7 +326,7 @@ describe("Floor Plan Routes", () => {
 
       const response = await app.inject({
         method: "PATCH",
-        url: "/v1/floor-plans/floor-plan-123",
+        url: "/api/v1/floor-plans/floor-plan-123",
         headers: {
           authorization: "Bearer valid-token",
         },
@@ -349,7 +349,7 @@ describe("Floor Plan Routes", () => {
 
       const response = await app.inject({
         method: "PATCH",
-        url: "/v1/floor-plans/nonexistent",
+        url: "/api/v1/floor-plans/nonexistent",
         headers: {
           authorization: "Bearer valid-token",
         },
@@ -372,7 +372,7 @@ describe("Floor Plan Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/v1/floor-plans/floor-plan-123/activate",
+        url: "/api/v1/floor-plans/floor-plan-123/activate",
         headers: {
           authorization: "Bearer valid-token",
         },
@@ -397,7 +397,7 @@ describe("Floor Plan Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/v1/floor-plans/nonexistent/activate",
+        url: "/api/v1/floor-plans/nonexistent/activate",
         headers: {
           authorization: "Bearer valid-token",
         },
@@ -420,7 +420,7 @@ describe("Floor Plan Routes", () => {
 
       const response = await app.inject({
         method: "DELETE",
-        url: "/v1/floor-plans/floor-plan-123",
+        url: "/api/v1/floor-plans/floor-plan-123",
         headers: {
           authorization: "Bearer valid-token",
         },
@@ -439,7 +439,7 @@ describe("Floor Plan Routes", () => {
 
       const response = await app.inject({
         method: "DELETE",
-        url: "/v1/floor-plans/nonexistent",
+        url: "/api/v1/floor-plans/nonexistent",
         headers: {
           authorization: "Bearer valid-token",
         },
@@ -461,7 +461,7 @@ describe("Floor Plan Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/v1/floor-plans/tables/positions",
+        url: "/api/v1/floor-plans/tables/positions",
         headers: {
           authorization: "Bearer valid-token",
         },
@@ -490,7 +490,7 @@ describe("Floor Plan Routes", () => {
     it("returns 401 without auth", async () => {
       const response = await app.inject({
         method: "POST",
-        url: "/v1/floor-plans/tables/positions",
+        url: "/api/v1/floor-plans/tables/positions",
         payload: {
           floorPlanId: "floor-plan-123",
           positions: [],
@@ -513,7 +513,7 @@ describe("Floor Plan Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/v1/floor-plans/tables/table-123/assign",
+        url: "/api/v1/floor-plans/tables/table-123/assign",
         headers: {
           authorization: "Bearer valid-token",
         },
@@ -543,7 +543,7 @@ describe("Floor Plan Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/v1/floor-plans/tables/nonexistent/assign",
+        url: "/api/v1/floor-plans/tables/nonexistent/assign",
         headers: {
           authorization: "Bearer valid-token",
         },
@@ -569,7 +569,7 @@ describe("Floor Plan Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/v1/floor-plans/tables/table-123/remove",
+        url: "/api/v1/floor-plans/tables/table-123/remove",
         headers: {
           authorization: "Bearer valid-token",
         },
@@ -589,7 +589,7 @@ describe("Floor Plan Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/v1/floor-plans/tables/nonexistent/remove",
+        url: "/api/v1/floor-plans/tables/nonexistent/remove",
         headers: {
           authorization: "Bearer valid-token",
         },
