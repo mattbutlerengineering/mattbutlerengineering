@@ -69,6 +69,6 @@ USER app
 
 WORKDIR /app/services/reservations
 
-EXPOSE 3002
+EXPOSE 3004
 
 CMD ["node", "dist/index.js"]

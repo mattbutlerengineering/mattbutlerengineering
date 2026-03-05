@@ -32,14 +32,15 @@ All apps are served under `mattbutlerengineering.com` using path-prefix routing:
 | `/` | Marketing site (catch-all) | `apps/marketing` |
 | `/hospitality` | Hospitality app | `apps/hospitality` |
 | `/rialto` | Design system showcase | `apps/rialto-web` |
-| `/api` | Users API | `services/users` |
+| `/api/v1/users` | Users API | `services/users` |
+| `/api` | Reservations API (catch-all) | `services/reservations` |
 
 **Convention for new apps:**
 - Frontend apps get a path prefix matching their directory name: `apps/foo` → `/foo`
 - The marketing site is the sole exception — it owns the root `/` path
 - Each app sets `base: "/<name>/"` in `vite.config.ts` (except marketing, which stays at root)
 - Pulumi ingress rules are ordered most-specific-first, with `/` as the catch-all last
-- Dev ports are assigned sequentially: 3000 (marketing), 3001 (users-api), 3002 (hospitality), 3003 (agent-api), 3004+ (future apps)
+- Dev ports are assigned sequentially: 3000 (marketing), 3001 (users-api), 3002 (hospitality), 3003 (agent-api), 3004 (reservations-api), 3005+ (future apps)
 
 ## Work Tracking
 
@@ -79,10 +80,10 @@ pnpm clean
 
 ### Service-Specific Commands
 
-Both backend services (`services/users` and `services/agent`) share the same command structure:
+All backend services (`services/users`, `services/agent`, and `services/reservations`) share the same command structure:
 
 ```bash
-cd services/users   # or: cd services/agent
+cd services/users   # or: cd services/agent, cd services/reservations
 
 # Development (with hot reload)
 pnpm dev
@@ -176,7 +177,8 @@ mattbutlerengineering/
 │   └── rialto-web/         # Design system showcase (React + Vite)
 ├── services/                # Backend services
 │   ├── users/              # Users API (Fastify + Prisma) — port 3001
-│   └── agent/              # Agent Session API (Fastify + Prisma) — port 3003
+│   ├── agent/              # Agent Session API (Fastify + Prisma) — port 3003
+│   └── reservations/       # Reservations API (Fastify + Prisma) — port 3004
 ├── packages/               # Shared packages
 │   ├── agent-core/        # Agent session runner, worktree mgmt, tool permissions
 │   ├── rialto/            # Rialto design system (React component library)
@@ -452,6 +454,7 @@ Starts Postgres (Docker), syncs all database schemas, and launches all dev serve
 2. **Apply schemas**:
    - `cd services/users && pnpm db:migrate` (or `pnpm db:push` for quick prototyping)
    - `cd services/agent && pnpm db:migrate` (or `pnpm db:push`)
+   - `cd services/reservations && pnpm db:migrate` (or `pnpm db:push`)
 3. **Start dev servers**: `pnpm dev`
 
 **Access points**:
@@ -461,6 +464,8 @@ Starts Postgres (Docker), syncs all database schemas, and launches all dev serve
    - Users API Docs: http://localhost:3001/docs
    - Agent API: http://localhost:3003
    - Agent API Docs: http://localhost:3003/docs
+   - Reservations API: http://localhost:3004
+   - Reservations API Docs: http://localhost:3004/docs
 
 ## Before Committing
 

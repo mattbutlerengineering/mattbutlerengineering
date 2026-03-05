@@ -51,7 +51,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
             ]
           : []),
         {
-          url: `http://localhost:${process.env.PORT ?? 3002}`,
+          url: `http://localhost:${process.env.PORT ?? 3004}`,
           description: "Local development",
         },
       ],

@@ -274,7 +274,7 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
         dockerfilePath: "services/reservations/Dockerfile",
         instanceCount: 1,
         instanceSizeSlug: "apps-s-1vcpu-0.5gb",
-        httpPort: 3002,
+        httpPort: 3004,
         envs: [
           {
             key: "NODE_ENV",
@@ -282,7 +282,7 @@ const app = new digitalocean.App("mattbutlerengineering-app", {
           },
           {
             key: "PORT",
-            value: "3002",
+            value: "3004",
           },
           {
             key: "API_BASE_URL",
