@@ -72,12 +72,11 @@ jobs:
 
       - run: pnpm build --filter=@mbe/marketing
 
-      - uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          packageManager: npm
-          command: pages deploy apps/marketing/dist --project-name=mattbutlerengineering-marketing
+      - name: Deploy to CF Pages
+        run: npx wrangler@3 pages deploy apps/marketing/dist --project-name=mattbutlerengineering-marketing
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
   deploy-hospitality:
     name: Deploy Hospitality
@@ -105,12 +104,11 @@ jobs:
           VITE_AUTH_REDIRECT_URI: https://mattbutlerengineering.com/hospitality/callback
           VITE_API_URL: https://mattbutlerengineering.com
 
-      - uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          packageManager: npm
-          command: pages deploy apps/hospitality/dist --project-name=mattbutlerengineering-hospitality
+      - name: Deploy to CF Pages
+        run: npx wrangler@3 pages deploy apps/hospitality/dist --project-name=mattbutlerengineering-hospitality
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
   deploy-rialto-web:
     name: Deploy Rialto Web
@@ -131,9 +129,8 @@ jobs:
 
       - run: pnpm build --filter=@mbe/rialto-web
 
-      - uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          packageManager: npm
-          command: pages deploy apps/rialto-web/dist --project-name=mattbutlerengineering-rialto-web
+      - name: Deploy to CF Pages
+        run: npx wrangler@3 pages deploy apps/rialto-web/dist --project-name=mattbutlerengineering-rialto-web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
