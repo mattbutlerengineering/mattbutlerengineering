@@ -1,0 +1,136 @@
+name: Deploy Static Sites
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/marketing/**"
+      - "apps/hospitality/**"
+      - "apps/rialto-web/**"
+      - "packages/rialto/**"
+      - "packages/auth/**"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-static-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      marketing: ${{ steps.result.outputs.marketing }}
+      hospitality: ${{ steps.result.outputs.hospitality }}
+      rialto-web: ${{ steps.result.outputs.rialto-web }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        if: github.event_name == 'push'
+        with:
+          filters: |
+            marketing:
+              - 'apps/marketing/**'
+              - 'packages/rialto/**'
+            hospitality:
+              - 'apps/hospitality/**'
+              - 'packages/rialto/**'
+              - 'packages/auth/**'
+            rialto-web:
+              - 'apps/rialto-web/**'
+              - 'packages/rialto/**'
+      - name: Set outputs
+        id: result
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "marketing=true" >> "$GITHUB_OUTPUT"
+            echo "hospitality=true" >> "$GITHUB_OUTPUT"
+            echo "rialto-web=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "marketing=${{ steps.filter.outputs.marketing }}" >> "$GITHUB_OUTPUT"
+            echo "hospitality=${{ steps.filter.outputs.hospitality }}" >> "$GITHUB_OUTPUT"
+            echo "rialto-web=${{ steps.filter.outputs.rialto-web }}" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy-marketing:
+    name: Deploy Marketing
+    needs: detect-changes
+    if: needs.detect-changes.outputs.marketing == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build --filter=@mbe/marketing
+
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy apps/marketing/dist --project-name=mattbutlerengineering-marketing
+
+  deploy-hospitality:
+    name: Deploy Hospitality
+    needs: detect-changes
+    if: needs.detect-changes.outputs.hospitality == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build hospitality
+        run: pnpm build --filter=@mbe/hospitality
+        env:
+          VITE_AUTH_AUTHORITY: https://dev-ytbgmz5ls3wh4xdx.us.auth0.com
+          VITE_AUTH_CLIENT_ID: ${{ secrets.AUTH0_HOSPITALITY_CLIENT_ID }}
+          VITE_AUTH_AUDIENCE: https://api.mattbutlerengineering.com
+          VITE_AUTH_REDIRECT_URI: https://mattbutlerengineering.com/hospitality/callback
+          VITE_API_URL: https://mattbutlerengineering.com
+
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy apps/hospitality/dist --project-name=mattbutlerengineering-hospitality
+
+  deploy-rialto-web:
+    name: Deploy Rialto Web
+    needs: detect-changes
+    if: needs.detect-changes.outputs.rialto-web == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build --filter=@mbe/rialto-web
+
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy apps/rialto-web/dist --project-name=mattbutlerengineering-rialto-web
