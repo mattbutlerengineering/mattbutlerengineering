@@ -1,4 +1,4 @@
-import { Button } from "@mbe/rialto";
+import { Toggle } from "@mbe/rialto";
 import styles from "./Navbar.module.css";
 
 interface NavbarProps {
@@ -11,14 +11,12 @@ export function Navbar({ theme, onThemeToggle }: NavbarProps) {
     <header className={styles.navbar}>
       <div className={styles.inner}>
         <span className={styles.brand}>Matt Butler</span>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onThemeToggle}
+        <Toggle
+          label={theme === "dark" ? "☀" : "☽"}
+          checked={theme === "dark"}
+          onCheckedChange={onThemeToggle}
           aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-        >
-          {theme === "dark" ? "☀" : "☽"}
-        </Button>
+        />
       </div>
     </header>
   );

@@ -78,6 +78,11 @@
   font-style: italic;
 }
 
+/* Gold on light surfaces fails WCAG at weight 300 — darken for readability */
+:root .title :global(.accent) {
+  color: color-mix(in oklch, var(--rialto-accent) 100%, black 35%);
+}
+
 .subtitle {
   font-size: var(--rialto-text-md);
   color: var(--rialto-text-secondary);
