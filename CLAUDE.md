@@ -27,20 +27,56 @@
 
 All apps are served under `mattbutlerengineering.com` using path-prefix routing:
 
-| Path | App | Directory |
+| Path | App | Hosted On |
 |------|-----|-----------|
-| `/` | Marketing site (catch-all) | `apps/marketing` |
-| `/hospitality` | Hospitality app | `apps/hospitality` |
-| `/rialto` | Design system showcase | `apps/rialto-web` |
-| `/api/v1/users` | Users API | `services/users` |
-| `/api` | Reservations API (catch-all) | `services/reservations` |
+| `/` | Marketing site (catch-all) | CF Pages (`mattbutlerengineering-marketing`) |
+| `/hospitality` | Hospitality app | CF Pages (`mattbutlerengineering-hospitality`) |
+| `/rialto` | Design system showcase | CF Pages (`mattbutlerengineering-rialto-web`) |
+| `/api/v1/users` | Users API | DO App Platform (`mattbutlerengineering-api`) |
+| `/api` | Reservations API (catch-all) | DO App Platform (`mattbutlerengineering-api`) |
 
 **Convention for new apps:**
 - Frontend apps get a path prefix matching their directory name: `apps/foo` → `/foo`
 - The marketing site is the sole exception — it owns the root `/` path
 - Each app sets `base: "/<name>/"` in `vite.config.ts` (except marketing, which stays at root)
-- Pulumi ingress rules are ordered most-specific-first, with `/` as the catch-all last
 - Dev ports are assigned sequentially: 3000 (marketing), 3001 (users-api), 3002 (hospitality), 3003 (agent-api), 3004 (reservations-api), 3005+ (future apps)
+
+## Deployment Architecture
+
+Split deployment with independent deploy pipelines:
+
+```
+Client → mattbutlerengineering.com (Cloudflare Worker "edge-router")
+  /hospitality*  → CF Pages (hospitality project, prefix stripped)
+  /rialto*       → CF Pages (rialto-web project, prefix stripped)
+  /api/*         → api.mattbutlerengineering.com (DO App Platform)
+  /*             → CF Pages (marketing project)
+```
+
+**Key components:**
+- **Edge Router** (`infrastructure/worker/edge-router.js`): CF Worker that routes traffic by path prefix
+- **Static Sites**: 3 CF Pages projects, deployed via `wrangler pages deploy` from CI
+- **API Services**: DO App Platform at `api.mattbutlerengineering.com` with `deployOnPush: false` (CI triggers deploys via `doctl`)
+- **Infrastructure**: Pulumi (TypeScript) in `infrastructure/pulumi/`
+
+**Deploy pipelines (all independent):**
+
+| Change | Workflow | Speed |
+|--------|----------|-------|
+| Static site (`apps/*`) | `deploy-static.yml` → CF Pages | ~30-60 sec |
+| Service (`services/*`) | `deploy-services.yml` → DO App Platform | ~3-5 min |
+| Infrastructure (`infrastructure/*`) | `pulumi-up.yml` → Pulumi | ~2 min |
+
+**Required GitHub Secrets:**
+- `CLOUDFLARE_ACCOUNT_ID` — CF account ID (for Pages deploys + Worker)
+- `CLOUDFLARE_API_TOKEN` — CF API token (Pulumi + wrangler)
+- `DIGITALOCEAN_TOKEN` — DO API token (Pulumi + doctl)
+- `AUTH0_HOSPITALITY_CLIENT_ID` — Auth0 client ID (hospitality build env)
+- `PULUMI_ACCESS_TOKEN`, `PULUMI_CONFIG_PASSPHRASE` — Pulumi state
+- `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET` — Auth0 provider
+
+**Required Pulumi Config:**
+- `mbe-infrastructure:cloudflareAccountId` — Cloudflare account ID
 
 ## Work Tracking
 
