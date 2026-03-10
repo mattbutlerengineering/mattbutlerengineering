@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "infrastructure/pulumi/**"
+      - "infrastructure/worker/**"
 
 concurrency:
   group: pulumi-deploy-${{ github.ref }}

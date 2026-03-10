@@ -1,0 +1,35 @@
+name: Deploy Services
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "services/users/**"
+      - "services/reservations/**"
+      - "packages/types/**"
+      - "packages/auth/**"
+
+concurrency:
+  group: deploy-services-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy API Services
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+
+      - name: Trigger deployment
+        run: |
+          APP_ID=$(doctl apps list --format ID,Spec.Name --no-header | grep mattbutlerengineering-api | awk '{print $1}')
+          if [ -z "$APP_ID" ]; then
+            echo "::error::Could not find mattbutlerengineering-api app"
+            exit 1
+          fi
+          echo "Triggering deployment for app $APP_ID"
+          doctl apps create-deployment "$APP_ID" --wait
