@@ -30,28 +30,56 @@
 
 /* ── Neutral (default) ───────────────────────── */
 .neutral {
-  background: var(--rialto-surface-recessed);
+  background: linear-gradient(
+    180deg,
+    var(--rialto-surface-elevated) 0%,
+    var(--rialto-surface-recessed) 100%
+  );
   color: var(--rialto-text-secondary);
   border: 1px solid var(--rialto-border);
+  box-shadow: var(--rialto-shadow-xs);
 }
 
 /* ── Accent (gold — selected/active state) ───── */
 .accent {
-  background: var(--rialto-accent-muted);
+  background: linear-gradient(
+    180deg,
+    rgb(196 146 42 / 0.16) 0%,
+    rgb(196 146 42 / 0.08) 100%
+  );
   color: var(--rialto-accent);
   border: 1px solid rgb(196 146 42 / 0.25);
 }
 
 /* ── Success ─────────────────────────────────── */
 .success {
-  background: var(--rialto-success-muted);
+  background: linear-gradient(
+    180deg,
+    rgb(122 138 60 / 0.14) 0%,
+    rgb(122 138 60 / 0.06) 100%
+  );
   color: var(--rialto-success);
   border: 1px solid rgb(122 138 60 / 0.2);
 }
 
+/* ── Warning ─────────────────────────────────── */
+.warning {
+  background: linear-gradient(
+    180deg,
+    rgb(184 134 42 / 0.14) 0%,
+    rgb(184 134 42 / 0.06) 100%
+  );
+  color: var(--rialto-warning);
+  border: 1px solid rgb(184 134 42 / 0.2);
+}
+
 /* ── Error ───────────────────────────────────── */
 .error {
-  background: var(--rialto-error-muted);
+  background: linear-gradient(
+    180deg,
+    rgb(184 74 60 / 0.14) 0%,
+    rgb(184 74 60 / 0.06) 100%
+  );
   color: var(--rialto-error);
   border: 1px solid rgb(184 74 60 / 0.2);
 }

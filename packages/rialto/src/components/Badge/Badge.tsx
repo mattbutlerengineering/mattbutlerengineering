@@ -11,7 +11,7 @@ import styles from "./Badge.module.css";
  * </Badge>
  */
 export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
-  variant?: "neutral" | "accent" | "success" | "error";
+  variant?: "neutral" | "accent" | "success" | "warning" | "error";
   /** Compact or default size */
   size?: "sm" | "md";
   /** Show a status dot before the label */

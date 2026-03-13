@@ -26,7 +26,7 @@
   align-items: flex-start;
   padding: var(--rialto-space-xs) var(--rialto-space-sm);
   border-radius: var(--rialto-radius-default);
-  transition: background 0.15s cubic-bezier(0.2, 0, 0, 1);
+  transition: background 0.15s var(--rialto-ease-precision);
 }
 
 .checkboxItem:hover {
@@ -91,9 +91,9 @@
   background: var(--rialto-surface);
   box-shadow: inset 0 1px 2px rgb(26 25 24 / 0.06);
   transition:
-    border-color 0.1s cubic-bezier(0.2, 0, 0, 1),
-    background 0.1s cubic-bezier(0.2, 0, 0, 1),
-    box-shadow 0.1s cubic-bezier(0.2, 0, 0, 1);
+    border-color 0.1s var(--rialto-ease-precision),
+    background 0.1s var(--rialto-ease-precision),
+    box-shadow 0.1s var(--rialto-ease-precision);
 }
 
 .input:focus-visible + .box {
@@ -137,8 +137,8 @@
   background: var(--rialto-surface);
   box-shadow: inset 0 1px 2px rgb(26 25 24 / 0.06);
   transition:
-    border-color 0.1s cubic-bezier(0.2, 0, 0, 1),
-    box-shadow 0.1s cubic-bezier(0.2, 0, 0, 1);
+    border-color 0.1s var(--rialto-ease-precision),
+    box-shadow 0.1s var(--rialto-ease-precision);
 }
 
 .input:focus-visible + .circle {
@@ -196,7 +196,7 @@
   align-items: flex-start;
   padding: var(--rialto-space-xs) var(--rialto-space-sm);
   border-radius: var(--rialto-radius-default);
-  transition: background 0.15s cubic-bezier(0.2, 0, 0, 1);
+  transition: background 0.15s var(--rialto-ease-precision);
 }
 
 .radioItem:hover {

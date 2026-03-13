@@ -21,7 +21,7 @@
   background: var(--rialto-surface-elevated);
   border: none;
   cursor: pointer;
-  transition: background 0.15s cubic-bezier(0.2, 0, 0, 1);
+  transition: background 0.15s var(--rialto-ease-precision);
 }
 
 .trigger:hover {
@@ -30,6 +30,7 @@
 
 .trigger[data-open="true"] {
   color: var(--rialto-accent);
+  background: var(--rialto-accent-muted);
 }
 
 .trigger[aria-disabled="true"] {
@@ -45,7 +46,7 @@
 .chevron {
   flex-shrink: 0;
   color: var(--rialto-text-tertiary);
-  transition: color 0.15s cubic-bezier(0.2, 0, 0, 1);
+  transition: color 0.15s var(--rialto-ease-precision);
 }
 
 .trigger[data-open="true"] .chevron {

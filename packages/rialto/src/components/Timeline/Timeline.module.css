@@ -28,7 +28,7 @@
   width: 2px;
   transform: translateX(-50%);
   background: var(--rialto-border);
-  transition: background 0.3s cubic-bezier(0.2, 0, 0, 1);
+  transition: background 0.3s var(--rialto-ease-precision);
 }
 
 .item.completed:not(:last-child) .track::after {
@@ -70,9 +70,9 @@
   position: relative;
   z-index: 1;
   transition:
-    border-color 0.3s cubic-bezier(0.2, 0, 0, 1),
-    background 0.3s cubic-bezier(0.2, 0, 0, 1),
-    box-shadow 0.3s cubic-bezier(0.2, 0, 0, 1);
+    border-color 0.3s var(--rialto-ease-precision),
+    background 0.3s var(--rialto-ease-precision),
+    box-shadow 0.3s var(--rialto-ease-precision);
 }
 
 /* Completed: gold filled */
@@ -114,7 +114,7 @@
   font-weight: var(--rialto-weight-medium);
   color: var(--rialto-text-tertiary);
   line-height: var(--rialto-leading-tight);
-  transition: color 0.3s cubic-bezier(0.2, 0, 0, 1);
+  transition: color 0.3s var(--rialto-ease-precision);
 }
 
 .completed .title {

@@ -18,7 +18,7 @@
   display: inline-flex;
   align-items: stretch;
   border-radius: var(--rialto-radius-default);
-  transition: box-shadow 0.15s cubic-bezier(0.2, 0, 0, 1);
+  transition: box-shadow 0.15s var(--rialto-ease-precision);
 }
 
 .control:focus-within {
@@ -42,10 +42,10 @@
   user-select: none;
   -webkit-user-select: none;
   transition:
-    background 0.12s cubic-bezier(0.2, 0, 0, 1),
-    border-color 0.12s cubic-bezier(0.2, 0, 0, 1),
-    transform 0.1s cubic-bezier(0.2, 0, 0, 1),
-    box-shadow 0.1s cubic-bezier(0.2, 0, 0, 1);
+    background 0.12s var(--rialto-ease-precision),
+    border-color 0.12s var(--rialto-ease-precision),
+    transform 0.1s var(--rialto-ease-precision),
+    box-shadow 0.1s var(--rialto-ease-precision);
 }
 
 .stepper:hover {

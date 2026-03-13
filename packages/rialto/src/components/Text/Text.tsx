@@ -10,6 +10,7 @@ type TextColor =
   | "tertiary"
   | "accent"
   | "success"
+  | "warning"
   | "error"
   | "on-accent";
 type TextAlign = "left" | "center" | "right";
@@ -60,6 +61,7 @@ const colorClass: Record<TextColor, string> = {
   tertiary: "colorTertiary",
   accent: "colorAccent",
   success: "colorSuccess",
+  warning: "colorWarning",
   error: "colorError",
   "on-accent": "colorOnAccent",
 };

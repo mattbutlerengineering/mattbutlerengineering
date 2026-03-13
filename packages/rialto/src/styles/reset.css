@@ -12,6 +12,14 @@ html {
   text-rendering: optimizeLegibility;
 }
 
+/* ── Text selection ────────────────────────────
+   Warm gold tint that matches the accent palette.
+   ──────────────────────────────────────────────── */
+::selection {
+  background-color: var(--rialto-accent-muted);
+  color: var(--rialto-text-primary);
+}
+
 body {
   min-height: 100dvh;
 }
@@ -40,4 +48,31 @@ button {
 a {
   color: inherit;
   text-decoration: none;
+}
+
+/* ── Scrollbar ─────────────────────────────────
+   Warm aluminum scrollbar that matches the Rialto
+   surface palette. Thin by default, widens on hover.
+   ──────────────────────────────────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--rialto-surface-matte) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--rialto-surface-matte);
+  border-radius: var(--rialto-radius-round);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--rialto-surface-deep);
 }

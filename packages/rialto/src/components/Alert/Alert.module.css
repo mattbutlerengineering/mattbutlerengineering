@@ -22,8 +22,8 @@
 }
 
 .warning {
-  border-inline-start-color: #c49a2a;
-  background: linear-gradient(90deg, rgb(196 154 42 / 0.04) 0%, var(--rialto-surface-elevated) 40%);
+  border-inline-start-color: var(--rialto-warning);
+  background: linear-gradient(90deg, var(--rialto-warning-muted) 0%, var(--rialto-surface-elevated) 40%);
 }
 
 .error {
@@ -46,7 +46,7 @@
   color: var(--rialto-success);
 }
 .warning .icon {
-  color: #c49a2a;
+  color: var(--rialto-warning);
 }
 .error .icon {
   color: var(--rialto-error);
@@ -99,9 +99,9 @@
   margin-top: -2px;
   margin-inline-end: -4px;
   transition:
-    background 0.1s cubic-bezier(0.2, 0, 0, 1),
-    color 0.1s cubic-bezier(0.2, 0, 0, 1),
-    box-shadow 0.1s cubic-bezier(0.2, 0, 0, 1);
+    background 0.1s var(--rialto-ease-precision),
+    color 0.1s var(--rialto-ease-precision),
+    box-shadow 0.1s var(--rialto-ease-precision);
 }
 
 .close:hover {

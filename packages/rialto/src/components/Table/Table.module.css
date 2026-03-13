@@ -37,7 +37,7 @@
 /* ── Sortable header ─────────────────────────── */
 .sortable {
   cursor: pointer;
-  transition: color 0.1s cubic-bezier(0.2, 0, 0, 1);
+  transition: color 0.1s var(--rialto-ease-precision);
 }
 
 .sortable:hover {
@@ -77,11 +77,11 @@
 
 /* ── Row hover ───────────────────────────────── */
 .tr {
-  transition: background 0.1s cubic-bezier(0.2, 0, 0, 1);
+  transition: background 0.1s var(--rialto-ease-precision);
 }
 
 .tr:hover {
-  background: rgb(196 146 42 / 0.02);
+  background: rgb(196 146 42 / 0.06);
 }
 
 /* ── Striped rows ────────────────────────────── */
@@ -90,7 +90,7 @@
 }
 
 .striped .tr:nth-child(even):hover {
-  background: rgb(196 146 42 / 0.04);
+  background: rgb(196 146 42 / 0.08);
 }
 
 /* ── Density ─────────────────────────────────── */

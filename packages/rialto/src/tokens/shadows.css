@@ -1,7 +1,46 @@
 :root {
-  /* ── Elevation ─────────────────────────────── */
-  /* Cards, dropdowns, popovers, elevated buttons */
-  --rialto-shadow-elevated: 0 1px 2px rgb(26 25 24 / 0.06), 0 4px 12px rgb(26 25 24 / 0.08);
+  /* ── Easing ────────────────────────────────── */
+  /* Precision easing — crisp, instant-feeling transitions */
+  --rialto-ease-precision: cubic-bezier(0.2, 0, 0, 1);
+  /* Smooth easing — gentle entrances and exits */
+  --rialto-ease-smooth: cubic-bezier(0.25, 0.1, 0.25, 1);
+
+  /* ── Duration ─────────────────────────────── */
+  /* Micro-interactions — hover color, icon changes */
+  --rialto-duration-fast: 0.1s;
+  /* Standard transitions — most UI state changes */
+  --rialto-duration-standard: 0.15s;
+  /* Deliberate movements — card hover lift, panel slide */
+  --rialto-duration-slow: 0.2s;
+
+  /* ── Z-Index Scale ────────────────────────── */
+  /* Local stacking within a component */
+  --rialto-z-local: 1;
+  /* Sticky headers, fixed elements within flow */
+  --rialto-z-sticky: 10;
+  /* Tooltips, popovers, hover cards */
+  --rialto-z-popover: 50;
+  /* Dropdowns, select menus, context menus */
+  --rialto-z-dropdown: 100;
+  /* Toast notifications */
+  --rialto-z-toast: 200;
+  /* Modal/dialog overlays */
+  --rialto-z-modal: 500;
+  /* Command palette, drawers — highest interactive */
+  --rialto-z-overlay: 1000;
+
+  /* ── Elevation tiers ───────────────────────── */
+  /* Subtle lift — buttons at rest, tags, badges */
+  --rialto-shadow-xs: 0 1px 2px rgb(26 25 24 / 0.05);
+  /* Standard elevation — cards, dropdowns */
+  --rialto-shadow-sm: 0 1px 2px rgb(26 25 24 / 0.06), 0 4px 12px rgb(26 25 24 / 0.08);
+  /* Pronounced elevation — hovered cards, active dropdowns */
+  --rialto-shadow-md: 0 2px 4px rgb(26 25 24 / 0.06), 0 8px 24px rgb(26 25 24 / 0.1);
+  /* Dramatic elevation — modals, command palette, floating panels */
+  --rialto-shadow-lg: 0 4px 8px rgb(26 25 24 / 0.06), 0 12px 40px rgb(26 25 24 / 0.12), 0 24px 64px rgb(26 25 24 / 0.06);
+
+  /* Back-compat alias */
+  --rialto-shadow-elevated: var(--rialto-shadow-sm);
 
   /* ── Pressed (tactile inset) ───────────────── */
   /* Recessed inputs, slider tracks, toggle tracks, active button press */
@@ -22,7 +61,11 @@
 
 /* ── Dark Theme Shadows ──────────────────────── */
 [data-theme="dark"] {
-  --rialto-shadow-elevated: 0 1px 2px rgb(0 0 0 / 0.2), 0 4px 12px rgb(0 0 0 / 0.3);
+  --rialto-shadow-xs: 0 1px 2px rgb(0 0 0 / 0.15);
+  --rialto-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.2), 0 4px 12px rgb(0 0 0 / 0.3);
+  --rialto-shadow-md: 0 2px 4px rgb(0 0 0 / 0.2), 0 8px 24px rgb(0 0 0 / 0.35);
+  --rialto-shadow-lg: 0 4px 8px rgb(0 0 0 / 0.2), 0 12px 40px rgb(0 0 0 / 0.35), 0 24px 64px rgb(0 0 0 / 0.15);
+  --rialto-shadow-elevated: var(--rialto-shadow-sm);
 
   --rialto-shadow-pressed: inset 0 1px 3px rgb(0 0 0 / 0.4), inset 0 0 1px rgb(0 0 0 / 0.3);
 

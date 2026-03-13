@@ -36,9 +36,10 @@
 }
 
 .title {
+  font-family: var(--rialto-font-display);
   font-size: var(--rialto-text-2xl);
-  font-weight: 300;
-  letter-spacing: var(--rialto-tracking-tight);
+  font-weight: 400;
+  letter-spacing: -0.01em;
   color: var(--rialto-text-primary);
   margin: 0;
 }

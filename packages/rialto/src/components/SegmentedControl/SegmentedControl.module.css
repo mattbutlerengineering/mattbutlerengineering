@@ -43,7 +43,7 @@
   cursor: pointer;
   white-space: nowrap;
   user-select: none;
-  transition: color 0.15s cubic-bezier(0.2, 0, 0, 1);
+  transition: color 0.15s var(--rialto-ease-precision);
 }
 
 .segment:hover:not([aria-disabled="true"]) {

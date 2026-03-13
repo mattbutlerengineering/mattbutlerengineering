@@ -13,17 +13,23 @@
   padding: var(--rialto-space-4xl) var(--rialto-space-lg);
 }
 
-/* Subtle warm gold radial glow */
+/* Warm gold radial glow — visible but restrained */
 .hero::before {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(
-    ellipse 60% 50% at 50% 45%,
-    rgb(196 146 42 / 0.015) 0%,
-    transparent 60%
-  );
+  background:
+    radial-gradient(
+      ellipse 65% 55% at 50% 40%,
+      rgb(196 146 42 / 0.04) 0%,
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse 40% 30% at 50% 50%,
+      rgb(212 162 58 / 0.02) 0%,
+      transparent 50%
+    );
 }
 
 /* Machined edge line at bottom */
@@ -64,11 +70,12 @@
 }
 
 .title {
+  font-family: var(--rialto-font-display);
   font-size: var(--rialto-text-4xl);
-  font-weight: 300;
-  letter-spacing: var(--rialto-tracking-tight);
+  font-weight: 400;
+  letter-spacing: -0.01em;
   color: var(--rialto-text-primary);
-  line-height: 1.15;
+  line-height: 1.1;
   margin: 0;
 }
 

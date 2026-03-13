@@ -23,12 +23,18 @@ This component library embodies a design language of material honesty, precision
 - Text: `--rialto-text-primary`, `--rialto-text-secondary`, `--rialto-text-tertiary`
 - Borders: `--rialto-border`, `--rialto-border-strong`
 - Gold accent: `--rialto-accent` — ONLY for focus rings, active/selected states, primary action fills
+- Semantic: `--rialto-error`, `--rialto-warning`, `--rialto-success` + their `*-muted` variants
+- Warning is warm amber (#b8862a light / #d4a030 dark) — distinct from gold accent
 - Never use gold for decorative purposes, backgrounds, or text color (except on gold-filled buttons)
+- Never hardcode semantic colors — always use the tokens (replaces old `#c49a2a` pattern)
 
 ### Typography
 
-- Font stack: `var(--rialto-font-sans)` — humanist sans-serif
-- Use the type scale tokens: `--rialto-text-xs` through `--rialto-text-2xl`
+- Body/UI text: `var(--rialto-font-sans)` — DM Sans (humanist sans-serif)
+- Display headings: `var(--rialto-font-display)` — Instrument Serif (sharp, editorial)
+- Use display font for Hero titles, PageHeader titles, and `Text variant="display"`
+- Use sans font for body text, card titles, buttons, form labels, and all other UI
+- Use the type scale tokens: `--rialto-text-xs` through `--rialto-text-4xl`
 - Maximum 3 weights: 300 (light), 400 (regular), 500 (medium)
 - Headings: slightly tighter letter-spacing via `--rialto-tracking-tight`
 - Body: natural letter-spacing
@@ -49,10 +55,18 @@ This component library embodies a design language of material honesty, precision
 
 ### Shadows
 
-- Elevated elements: `--rialto-shadow-elevated`
+- Elevation tiers: `--rialto-shadow-xs` → `--rialto-shadow-sm` → `--rialto-shadow-md` → `--rialto-shadow-lg`
+- Use `xs` for resting buttons/tags, `sm` for cards, `md` for hovered cards, `lg` for modals/floating panels
+- Back-compat alias: `--rialto-shadow-elevated` = `--rialto-shadow-sm`
 - Pressed/active states: `--rialto-shadow-pressed` (inset)
 - Focus states: `--rialto-shadow-focus` (gold glow)
 - Glass panels: `--rialto-shadow-glass`
+
+### Easing
+
+- **Never hardcode easing curves.** Use `var(--rialto-ease-precision)` for crisp transitions
+- Use `var(--rialto-ease-smooth)` for gentle entrances and exits
+- All CSS transitions must use easing tokens, not raw `cubic-bezier()`
 
 ### Direction / RTL
 

@@ -24,13 +24,17 @@
   user-select: none;
   white-space: nowrap;
   transition:
-    color 0.15s cubic-bezier(0.2, 0, 0, 1),
-    background 0.15s cubic-bezier(0.2, 0, 0, 1);
+    color 0.15s var(--rialto-ease-precision),
+    background 0.15s var(--rialto-ease-precision);
 }
 
 .tab:hover {
-  color: var(--rialto-text-secondary);
-  background: var(--rialto-accent-muted);
+  color: var(--rialto-text-primary);
+  background: linear-gradient(
+    180deg,
+    rgb(196 146 42 / 0.08) 0%,
+    rgb(196 146 42 / 0.04) 100%
+  );
 }
 
 .tabActive {

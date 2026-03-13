@@ -171,6 +171,8 @@
   --rialto-badge-accent-text: var(--rialto-text-on-accent);
   --rialto-badge-success-bg: var(--rialto-success);
   --rialto-badge-success-text: var(--rialto-text-on-accent);
+  --rialto-badge-warning-bg: var(--rialto-warning);
+  --rialto-badge-warning-text: var(--rialto-text-on-accent);
   --rialto-badge-error-bg: var(--rialto-error);
   --rialto-badge-error-text: var(--rialto-text-on-accent);
 
@@ -181,6 +183,8 @@
   --rialto-toast-default-border: var(--rialto-border-strong);
   --rialto-toast-success-border: var(--rialto-success);
   --rialto-toast-success-bg: rgb(122 138 60 / 0.08);
+  --rialto-toast-warning-border: var(--rialto-warning);
+  --rialto-toast-warning-bg: var(--rialto-warning-muted);
   --rialto-toast-error-border: var(--rialto-error);
   --rialto-toast-error-bg: var(--rialto-error-muted);
   --rialto-toast-accent-border: var(--rialto-accent);

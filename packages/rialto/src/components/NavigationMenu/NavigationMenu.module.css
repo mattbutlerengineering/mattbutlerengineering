@@ -27,8 +27,8 @@
   cursor: pointer;
   white-space: nowrap;
   transition:
-    background 0.15s cubic-bezier(0.2, 0, 0, 1),
-    color 0.15s cubic-bezier(0.2, 0, 0, 1);
+    background 0.15s var(--rialto-ease-precision),
+    color 0.15s var(--rialto-ease-precision);
 }
 
 .trigger:hover {
@@ -76,8 +76,8 @@
   text-decoration: none;
   cursor: pointer;
   transition:
-    background 0.1s cubic-bezier(0.2, 0, 0, 1),
-    color 0.1s cubic-bezier(0.2, 0, 0, 1);
+    background 0.1s var(--rialto-ease-precision),
+    color 0.1s var(--rialto-ease-precision);
 }
 
 .item:hover,

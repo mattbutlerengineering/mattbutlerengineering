@@ -115,7 +115,7 @@
 
 .group .avatar {
   margin-inline-start: -8px;
-  transition: transform 0.15s cubic-bezier(0.2, 0, 0, 1);
+  transition: transform 0.15s var(--rialto-ease-precision);
 }
 
 .group .avatar:last-child {

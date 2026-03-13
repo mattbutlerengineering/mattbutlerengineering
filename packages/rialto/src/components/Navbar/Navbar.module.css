@@ -56,8 +56,8 @@
   font-size: var(--rialto-text-sm);
   color: var(--rialto-text-primary);
   transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
+    border-color 0.15s var(--rialto-ease-precision),
+    box-shadow 0.15s var(--rialto-ease-precision);
 }
 
 .searchInput::placeholder {
@@ -95,7 +95,7 @@
   padding: var(--rialto-space-xs);
   border-radius: var(--rialto-radius-default);
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: background 0.15s var(--rialto-ease-precision);
 }
 
 .user:hover {
@@ -163,8 +163,8 @@
   text-decoration: none;
   color: var(--rialto-text-secondary);
   transition:
-    background 0.1s ease,
-    color 0.1s ease;
+    background 0.1s var(--rialto-ease-precision),
+    color 0.1s var(--rialto-ease-precision);
 }
 
 .link:hover {
@@ -217,7 +217,7 @@
   border-radius: var(--rialto-radius-sharp);
   color: var(--rialto-text-tertiary);
   cursor: pointer;
-  transition: color 0.1s ease;
+  transition: color 0.1s var(--rialto-ease-precision);
 }
 
 .chevronButton:hover {

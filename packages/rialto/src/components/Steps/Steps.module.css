@@ -22,7 +22,7 @@
   inset-inline-end: calc(-50% + 18px);
   height: 2px;
   background: var(--rialto-border);
-  transition: background 0.3s cubic-bezier(0.2, 0, 0, 1);
+  transition: background 0.3s var(--rialto-ease-precision);
 }
 
 .horizontal .step.completed:not(:last-child)::after {
@@ -52,7 +52,7 @@
   bottom: 0;
   width: 2px;
   background: var(--rialto-border);
-  transition: background 0.3s cubic-bezier(0.2, 0, 0, 1);
+  transition: background 0.3s var(--rialto-ease-precision);
 }
 
 .vertical .step.completed:not(:last-child)::after {
@@ -75,10 +75,10 @@
   font-size: var(--rialto-text-xs);
   font-weight: var(--rialto-weight-medium);
   transition:
-    border-color 0.3s cubic-bezier(0.2, 0, 0, 1),
-    background 0.3s cubic-bezier(0.2, 0, 0, 1),
-    color 0.3s cubic-bezier(0.2, 0, 0, 1),
-    box-shadow 0.3s cubic-bezier(0.2, 0, 0, 1);
+    border-color 0.3s var(--rialto-ease-precision),
+    background 0.3s var(--rialto-ease-precision),
+    color 0.3s var(--rialto-ease-precision),
+    box-shadow 0.3s var(--rialto-ease-precision);
   position: relative;
   z-index: 1;
 }
@@ -131,7 +131,7 @@
   font-size: var(--rialto-text-sm);
   font-weight: var(--rialto-weight-medium);
   color: var(--rialto-text-tertiary);
-  transition: color 0.3s cubic-bezier(0.2, 0, 0, 1);
+  transition: color 0.3s var(--rialto-ease-precision);
 }
 
 .completed .stepLabel,

@@ -65,18 +65,19 @@
   width: 100%;
   text-align: start;
   transition:
-    background 0.15s cubic-bezier(0.2, 0, 0, 1),
-    color 0.15s cubic-bezier(0.2, 0, 0, 1);
+    background 0.15s var(--rialto-ease-precision),
+    color 0.15s var(--rialto-ease-precision);
 }
 
 .item:hover {
-  background: var(--rialto-surface-recessed);
+  background: rgb(196 146 42 / 0.06);
   color: var(--rialto-text-primary);
 }
 
 .itemActive {
   background: var(--rialto-accent-muted);
   color: var(--rialto-accent);
+  box-shadow: inset 3px 0 0 var(--rialto-accent);
 }
 
 .itemActive:hover {
@@ -120,8 +121,8 @@
   color: var(--rialto-text-tertiary);
   cursor: pointer;
   transition:
-    background 0.15s cubic-bezier(0.2, 0, 0, 1),
-    color 0.15s cubic-bezier(0.2, 0, 0, 1);
+    background 0.15s var(--rialto-ease-precision),
+    color 0.15s var(--rialto-ease-precision);
 }
 
 .collapseToggle:hover {

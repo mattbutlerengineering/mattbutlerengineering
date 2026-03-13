@@ -12,8 +12,8 @@
   cursor: pointer;
   border: none;
   transition:
-    background 0.15s cubic-bezier(0.2, 0, 0, 1),
-    color 0.15s cubic-bezier(0.2, 0, 0, 1);
+    background 0.15s var(--rialto-ease-precision),
+    color 0.15s var(--rialto-ease-precision);
 }
 
 .cancel {

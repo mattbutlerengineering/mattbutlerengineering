@@ -44,10 +44,11 @@
 }
 
 .display {
+  font-family: var(--rialto-font-display);
   font-size: var(--rialto-text-xl);
-  font-weight: var(--rialto-weight-light);
+  font-weight: 400;
   line-height: var(--rialto-leading-tight);
-  letter-spacing: var(--rialto-tracking-tight);
+  letter-spacing: -0.01em;
   color: var(--rialto-text-primary);
 }
 
@@ -67,6 +68,9 @@
 }
 .colorSuccess {
   color: var(--rialto-success);
+}
+.colorWarning {
+  color: var(--rialto-warning);
 }
 .colorError {
   color: var(--rialto-error);

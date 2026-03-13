@@ -3,8 +3,16 @@
 
   border-radius: var(--rialto-radius-soft);
   padding: var(--rialto-space-lg);
-  transition: box-shadow 0.15s cubic-bezier(0.2, 0, 0, 1);
+  box-shadow: var(--rialto-shadow-sm);
+  transition:
+    box-shadow 0.2s var(--rialto-ease-precision),
+    transform 0.2s var(--rialto-ease-precision);
   position: relative;
+}
+
+.card:hover {
+  box-shadow: var(--rialto-shadow-md);
+  transform: translateY(-2px);
 }
 
 /* ── Glass variant ───────────────────────────── */
@@ -61,7 +69,7 @@
     rgb(255 255 255 / 0.08) 0%,
     transparent 70%
   );
-  transition: opacity 0.15s cubic-bezier(0.2, 0, 0, 1);
+  transition: opacity 0.15s var(--rialto-ease-precision);
 }
 
 .card[data-tilt]:hover::after,

@@ -25,7 +25,8 @@
 }
 
 /* ── Glass ───────────────────────────────────────
-   Backdrop blur + translucent overlay + fine border.
+   Backdrop blur + translucent overlay + fine border +
+   top-edge shine line for premium frosted-glass depth.
    The "Rialto" effect — for overlays, dialogs, floating panels.
    ──────────────────────────────────────────────── */
 .glass {
@@ -33,12 +34,19 @@
   backdrop-filter: blur(24px) saturate(1.2);
   -webkit-backdrop-filter: blur(24px) saturate(1.2);
   border: 1px solid rgb(255 255 255 / 0.5);
-  box-shadow: var(--rialto-shadow-glass);
+  border-top-color: rgb(255 255 255 / 0.7);
+  box-shadow:
+    var(--rialto-shadow-glass),
+    inset 0 1px 0 rgb(255 255 255 / 0.25);
 }
 
 :global([data-theme="dark"]) .glass {
   background: rgb(42 39 37 / 0.92);
   border-color: rgb(255 255 255 / 0.1);
+  border-top-color: rgb(255 255 255 / 0.15);
+  box-shadow:
+    var(--rialto-shadow-glass),
+    inset 0 1px 0 rgb(255 255 255 / 0.06);
 }
 
 /* ── Recessed Channel ────────────────────────────
@@ -90,8 +98,9 @@
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 600px 500px at 30% 20%, rgb(196 146 42 / 0.08) 0%, transparent 70%),
-    radial-gradient(ellipse 500px 400px at 75% 80%, rgb(180 120 40 / 0.05) 0%, transparent 70%),
+    radial-gradient(ellipse 700px 550px at 25% 15%, rgb(196 146 42 / 0.12) 0%, transparent 65%),
+    radial-gradient(ellipse 500px 400px at 80% 75%, rgb(180 120 40 / 0.08) 0%, transparent 65%),
+    radial-gradient(ellipse 300px 300px at 55% 40%, rgb(212 162 58 / 0.04) 0%, transparent 60%),
     radial-gradient(ellipse at 50% 50%, rgb(40 36 32 / 0) 0%, rgb(20 18 16 / 0.6) 100%);
 }
 
