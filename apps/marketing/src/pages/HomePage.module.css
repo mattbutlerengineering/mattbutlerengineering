@@ -1,6 +1,25 @@
 .section {
+  position: relative;
   padding-block: var(--rialto-space-4xl, 5rem);
   padding-inline: var(--rialto-space-lg);
+}
+
+/* Machined accent edge — mirrors Hero bottom edge */
+.section + .section::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  inset-inline-start: 10%;
+  inset-inline-end: 10%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--rialto-border) 20%,
+    var(--rialto-border-strong) 50%,
+    var(--rialto-border) 80%,
+    transparent 100%
+  );
 }
 
 .sectionInner {
