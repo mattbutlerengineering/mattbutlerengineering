@@ -57,6 +57,21 @@
   --rialto-shadow-glass:
     0 2px 8px rgb(26 25 24 / 0.05), 0 8px 32px rgb(26 25 24 / 0.1),
     inset 0 0.5px 0 rgb(255 255 255 / 0.3);
+
+  /* ── Ambient glow (warm gold halo) ─────────── */
+  /* Subtle gold luminosity for primary CTAs, active selections,
+     and elevated interactive elements that should "breathe" warmth */
+  --rialto-shadow-ambient:
+    0 0 20px rgb(196 146 42 / 0.08),
+    0 0 40px rgb(196 146 42 / 0.04);
+
+  /* ── Luminous elevation ────────────────────── */
+  /* Cards and panels that should feel lit from within.
+     Combines standard elevation with warm ambient bloom. */
+  --rialto-shadow-luminous:
+    0 2px 4px rgb(26 25 24 / 0.06),
+    0 8px 24px rgb(26 25 24 / 0.08),
+    0 0 32px rgb(196 146 42 / 0.06);
 }
 
 /* ── Dark Theme Shadows ──────────────────────── */
@@ -76,4 +91,15 @@
   --rialto-shadow-glass:
     0 2px 8px rgb(0 0 0 / 0.2), 0 8px 32px rgb(0 0 0 / 0.35),
     inset 0 0.5px 0 rgb(255 255 255 / 0.08);
+
+  /* Ambient glow — brighter gold on dark backgrounds */
+  --rialto-shadow-ambient:
+    0 0 24px rgb(212 162 58 / 0.12),
+    0 0 48px rgb(212 162 58 / 0.06);
+
+  /* Luminous elevation — warm bloom visible on dark canvas */
+  --rialto-shadow-luminous:
+    0 2px 4px rgb(0 0 0 / 0.2),
+    0 8px 24px rgb(0 0 0 / 0.3),
+    0 0 36px rgb(212 162 58 / 0.1);
 }

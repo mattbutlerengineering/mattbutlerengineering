@@ -11,8 +11,8 @@
 }
 
 .card:hover {
-  box-shadow: var(--rialto-shadow-md);
-  transform: translateY(-2px);
+  box-shadow: var(--rialto-shadow-luminous);
+  transform: translateY(-3px);
 }
 
 /* ── Glass variant ───────────────────────────── */
@@ -64,12 +64,18 @@
   border-radius: inherit;
   pointer-events: none;
   opacity: 0;
-  background: radial-gradient(
-    circle 600px at var(--tilt-glow-x, 50%) var(--tilt-glow-y, 50%),
-    rgb(255 255 255 / 0.08) 0%,
-    transparent 70%
-  );
-  transition: opacity 0.15s var(--rialto-ease-precision);
+  background:
+    radial-gradient(
+      circle 400px at var(--tilt-glow-x, 50%) var(--tilt-glow-y, 50%),
+      rgb(255 255 255 / 0.12) 0%,
+      transparent 60%
+    ),
+    radial-gradient(
+      circle 200px at var(--tilt-glow-x, 50%) var(--tilt-glow-y, 50%),
+      rgb(196 146 42 / 0.06) 0%,
+      transparent 50%
+    );
+  transition: opacity 0.2s var(--rialto-ease-precision);
 }
 
 .card[data-tilt]:hover::after,

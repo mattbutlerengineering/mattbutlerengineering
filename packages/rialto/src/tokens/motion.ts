@@ -46,6 +46,34 @@ export const boop = {
   },
 };
 
+/** Stagger reveal — orchestrated page-load animation preset.
+ *  Apply to a parent container; children with `variants` will
+ *  enter sequentially with a gentle spring settle. */
+export const staggerReveal = {
+  container: {
+    hidden: {},
+    visible: {
+      transition: {
+        staggerChildren: 0.06,
+        delayChildren: 0.1,
+      },
+    },
+  },
+  item: {
+    hidden: { opacity: 0, y: 16 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        type: "spring" as const,
+        stiffness: 260,
+        damping: 24,
+        mass: 0.8,
+      },
+    },
+  },
+};
+
 /** Reduced motion fallback — instant, no animation */
 export const reduced = {
   duration: 0,

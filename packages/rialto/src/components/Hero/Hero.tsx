@@ -1,6 +1,6 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { precision } from "../../tokens/motion";
+import { springGentle, reduced } from "../../tokens/motion";
 import styles from "./Hero.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -38,7 +38,7 @@ export interface HeroProps extends Omit<HTMLAttributes<HTMLElement>, "title"> {
 /* ── Animation variants ──────────────────────── */
 
 const fadeUp = {
-  hidden: { opacity: 0, y: 20 },
+  hidden: { opacity: 0, y: 24 },
   visible: { opacity: 1, y: 0 },
 };
 
@@ -64,7 +64,7 @@ export const Hero = forwardRef<HTMLElement, HeroProps>(
     // Avoid spreading arbitrary HTML attrs onto motion.section (type conflict)
     void rest;
     const shouldReduceMotion = useReducedMotion();
-    const transition = shouldReduceMotion ? { duration: 0 } : precision;
+    const transition = shouldReduceMotion ? reduced : springGentle;
 
     const classes = [styles.hero, className].filter(Boolean).join(" ");
 
@@ -77,7 +77,7 @@ export const Hero = forwardRef<HTMLElement, HeroProps>(
         aria-label={ariaLabel}
         initial="hidden"
         animate="visible"
-        transition={{ staggerChildren: shouldReduceMotion ? 0 : 0.08 }}
+        transition={{ staggerChildren: shouldReduceMotion ? 0 : 0.12 }}
       >
         <div className={styles.content}>
           {eyebrow && (
