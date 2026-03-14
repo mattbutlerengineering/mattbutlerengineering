@@ -1,0 +1,32 @@
+.appBar {
+  position: sticky;
+  top: 0;
+  z-index: var(--rialto-z-sticky);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--rialto-space-sm) var(--rialto-space-lg);
+  border-bottom: 1px solid var(--rialto-border);
+  background: var(--rialto-surface-elevated);
+}
+
+.glass {
+  composes: glass from "../../styles/surfaces.module.css";
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-md);
+  font-weight: var(--rialto-weight-light);
+  letter-spacing: var(--rialto-tracking-wide);
+  color: var(--rialto-text-primary);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+}

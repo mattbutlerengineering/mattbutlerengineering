@@ -1,9 +1,12 @@
-import { Stack, Text } from "@mbe/rialto";
+import { Stack, Text, useScrollReveal, staggerReveal } from "@mbe/rialto";
+import { motion } from "framer-motion";
 import { PROJECTS } from "../data/projects";
 import { ProjectCard } from "./ProjectCard";
 import styles from "../pages/HomePage.module.css";
 
 export function ProjectsSection() {
+  const { ref, controls } = useScrollReveal();
+
   return (
     <section id="projects" className={styles.section}>
       <div className={styles.sectionInner}>
@@ -15,11 +18,19 @@ export function ProjectsSection() {
             </Text>
           </div>
 
-          <div className={styles.projectGrid}>
+          <motion.div
+            ref={ref}
+            className={styles.projectGrid}
+            variants={staggerReveal.container}
+            initial="hidden"
+            animate={controls}
+          >
             {PROJECTS.map((project) => (
-              <ProjectCard key={project.title} project={project} />
+              <motion.div key={project.title} variants={staggerReveal.item}>
+                <ProjectCard project={project} />
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         </Stack>
       </div>
     </section>

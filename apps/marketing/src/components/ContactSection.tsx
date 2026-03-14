@@ -1,33 +1,43 @@
-import { Stack } from "@mbe/rialto";
+import { Stack, useScrollReveal, staggerReveal, boop } from "@mbe/rialto";
+import { motion, useReducedMotion } from "framer-motion";
 import styles from "../pages/HomePage.module.css";
 
 export function ContactSection() {
+  const { ref, controls } = useScrollReveal();
+  const shouldReduceMotion = useReducedMotion();
+
   return (
     <section id="contact" className={styles.section}>
       <div className={styles.sectionInner}>
         <Stack gap="md">
           <h2 className={styles.sectionHeading}>Contact</h2>
-          <Stack direction="row" gap="md" wrap>
-            <a
-              href="https://github.com/mattbutler"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.contactLink}
-            >
-              GitHub
-            </a>
-            <a
-              href="https://linkedin.com/in/mattbutler"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.contactLink}
-            >
-              LinkedIn
-            </a>
-            <a href="mailto:matt@mattbutlerengineering.com" className={styles.contactLink}>
-              Email
-            </a>
-          </Stack>
+          <motion.div
+            ref={ref}
+            variants={staggerReveal.container}
+            initial="hidden"
+            animate={controls}
+          >
+            <Stack direction="row" gap="md" wrap>
+              {[
+                { href: "https://github.com/mattbutler", label: "GitHub", external: true },
+                { href: "https://linkedin.com/in/mattbutler", label: "LinkedIn", external: true },
+                { href: "mailto:matt@mattbutlerengineering.com", label: "Email", external: false },
+              ].map((link) => (
+                <motion.a
+                  key={link.label}
+                  href={link.href}
+                  target={link.external ? "_blank" : undefined}
+                  rel={link.external ? "noopener noreferrer" : undefined}
+                  className={styles.contactLink}
+                  variants={staggerReveal.item}
+                  whileHover={shouldReduceMotion ? undefined : { scale: boop.scale }}
+                  transition={boop.transition}
+                >
+                  {link.label}
+                </motion.a>
+              ))}
+            </Stack>
+          </motion.div>
         </Stack>
       </div>
     </section>

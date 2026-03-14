@@ -1,5 +1,4 @@
-import { Toggle } from "@mbe/rialto";
-import styles from "./Navbar.module.css";
+import { Toggle, AppBar } from "@mbe/rialto";
 
 interface NavbarProps {
   theme: "light" | "dark";
@@ -8,16 +7,16 @@ interface NavbarProps {
 
 export function Navbar({ theme, onThemeToggle }: NavbarProps) {
   return (
-    <header className={styles.navbar}>
-      <div className={styles.inner}>
-        <span className={styles.brand}>Matt Butler</span>
+    <AppBar
+      logo={<span>Matt Butler</span>}
+      actions={
         <Toggle
           label={theme === "dark" ? "☀" : "☽"}
           checked={theme === "dark"}
           onCheckedChange={onThemeToggle}
           aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
         />
-      </div>
-    </header>
+      }
+    />
   );
 }

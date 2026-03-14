@@ -1,4 +1,5 @@
 export * from "./Accordion";
+export * from "./AppBar";
 export * from "./Alert";
 export * from "./Avatar";
 export * from "./Badge";
