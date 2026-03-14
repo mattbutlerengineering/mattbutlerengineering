@@ -6,6 +6,7 @@ import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 
 /* ── Components ─────────────────────────────── */
+import { AppBar } from "./AppBar/AppBar";
 import { Accordion } from "./Accordion/Accordion";
 import { Alert } from "./Alert/Alert";
 import { AspectRatio } from "./AspectRatio/AspectRatio";
@@ -66,6 +67,12 @@ const noop = () => {};
 
 /* ── Smoke Tests ─────────────────────────────── */
 describe("Smoke tests — every component renders without crashing", () => {
+  it("AppBar", () => {
+    render(<AppBar logo={<span>Brand</span>} actions={<button>Toggle</button>} />);
+    expect(screen.getByText("Brand")).toBeInTheDocument();
+    expect(screen.getByText("Toggle")).toBeInTheDocument();
+  });
+
   it("Accordion", () => {
     render(<Accordion items={[{ id: "1", title: "Section 1", content: "Content 1" }]} />);
   });
