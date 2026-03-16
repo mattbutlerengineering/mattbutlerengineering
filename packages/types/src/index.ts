@@ -23,11 +23,14 @@ export type {
 export type {
   ReservationStatus,
   Table,
+  TableStatus,
   Reservation,
   CreateReservationRequest,
   UpdateReservationRequest,
   CreateTableRequest,
   UpdateTableRequest,
+  UpdateTableStatusRequest,
+  WalkInRequest,
 } from "./reservation.js";
 
 // Venue types

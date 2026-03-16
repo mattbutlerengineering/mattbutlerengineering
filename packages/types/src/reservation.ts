@@ -5,6 +5,8 @@ export type ReservationStatus =
   | "COMPLETED"
   | "NO_SHOW";
 
+export type TableStatus = "AVAILABLE" | "OCCUPIED" | "DIRTY" | "READY";
+
 import type { TableShapeMetadata } from "./floor-plan.js";
 
 export interface Table {
@@ -17,6 +19,7 @@ export interface Table {
   location: string | null;
   isActive: boolean;
   priority: number;
+  status: TableStatus;
   venueId: string | null;
   floorPlanId: string | null;
   shapeMetadata: TableShapeMetadata | null;
@@ -32,6 +35,8 @@ export interface Reservation {
   partySize: number;
   status: ReservationStatus;
   notes: string | null;
+  cancellationReason: string | null;
+  cancellationNote: string | null;
   guestName: string | null;
   guestEmail: string | null;
   guestPhone: string | null;
@@ -66,6 +71,20 @@ export interface UpdateReservationRequest {
   tableId?: string;
   status?: ReservationStatus;
   notes?: string;
+  cancellationReason?: string;
+  cancellationNote?: string;
+}
+
+export interface UpdateTableStatusRequest {
+  status: TableStatus;
+}
+
+export interface WalkInRequest {
+  partySize: number;
+  tableId: string;
+  venueId: string;
+  guestName?: string;
+  durationMinutes?: number;
 }
 
 export interface CreateTableRequest {
