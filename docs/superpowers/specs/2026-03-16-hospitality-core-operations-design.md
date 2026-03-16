@@ -22,9 +22,9 @@ All changes persist via existing table CRUD endpoints and bulk position API.
 
 Wire up the existing Edit/Seat/Cancel buttons on the timeline reservation sidebar.
 
-- **Seat:** Sets reservation status to COMPLETED, sets table status to OCCUPIED.
-- **Cancel:** Opens CancelReservationDialog with reason dropdown (guest_cancelled, no_show, restaurant_cancelled, other) and optional note. Calls DELETE endpoint with reason.
-- **Edit:** Opens EditReservationDrawer with editable fields (time, party size, table, notes). Saves via PATCH.
+- **Seat:** Sets reservation status to CONFIRMED (guest has arrived), sets table status to OCCUPIED. Only available for PENDING reservations.
+- **Cancel:** Opens CancelReservationDialog with reason dropdown (guest_cancelled, no_show, restaurant_cancelled, other) and optional note. Uses PATCH with `{ status: "CANCELLED", cancellationReason, cancellationNote }`.
+- **Edit:** Opens EditReservationDrawer with editable fields (time, party size, table, notes). Saves via PATCH with conflict checking.
 
 All actions emit SSE events for real-time sync.
 
@@ -32,10 +32,12 @@ All actions emit SSE events for real-time sync.
 
 New `status` field on the Table model: AVAILABLE, OCCUPIED, DIRTY, READY.
 
-**Transitions:**
-- AVAILABLE → OCCUPIED (when guest is seated)
-- OCCUPIED → DIRTY (when reservation completed/cleared)
-- DIRTY → AVAILABLE (when table is cleaned — manual toggle)
+**Transitions (all manual via staff action in timeline):**
+- AVAILABLE → OCCUPIED (staff clicks "Seat" on a reservation)
+- OCCUPIED → DIRTY (staff marks table after guests leave)
+- DIRTY → READY (staff marks table as reset — optional two-step cleaning)
+- READY → AVAILABLE (staff marks table as ready for next guest)
+- DIRTY → AVAILABLE (shortcut: skip READY step for quick turnover)
 
 **API:** `PATCH /api/v1/tables/:id/status` for explicit transitions.
 
@@ -47,9 +49,13 @@ Quick-seat flow for guests without reservations.
 
 **UI:** "Walk-in" button on Timeline page header opens WalkInDialog with: party size, auto-suggested best available table (editable), optional guest name, duration estimate.
 
-**Behavior:** Creates reservation with status COMPLETED immediately. Sets table to OCCUPIED. No hold system — instant seating.
+**Behavior:** Creates reservation with status CONFIRMED immediately (guest is present and seated). Sets table to OCCUPIED. No hold system — instant seating.
 
-**API:** `POST /api/v1/reservations/walk-in` accepts party size, table ID, optional guest name/duration.
+**Table auto-suggest:** Smallest-capacity available table that fits the party size, sorted by capacity ascending.
+
+**API:** `POST /api/v1/reservations/walk-in` accepts party size, table ID, venue ID, optional guest name/duration.
+
+**Guard:** Table deletion is blocked if the table has future reservations (existing 409 response on DELETE).
 
 ## Data Model Changes
 
@@ -89,7 +95,7 @@ model Reservation {
 |----------|--------|
 | `PATCH /api/v1/tables/:id/status` | New — status transitions |
 | `PATCH /api/v1/reservations/:id` | Accept cancellationReason/Note |
-| `DELETE /api/v1/reservations/:id` | Accept reason in body |
+| `PATCH /api/v1/reservations/:id` | Also used for cancellation with reason (no DELETE with body) |
 | `POST /api/v1/reservations/walk-in` | New — instant seated reservation |
 | SSE `table:status-changed` | New event type |
 

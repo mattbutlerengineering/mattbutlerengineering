@@ -314,8 +314,8 @@ git commit -m "feat: add table status update endpoint"
 Add to `reservations.test.ts`:
 
 ```typescript
-describe("DELETE /api/v1/reservations/:id with reason", () => {
-  it("should cancel with reason and note", async () => {
+describe("PATCH /api/v1/reservations/:id cancellation", () => {
+  it("should cancel with reason and note via PATCH", async () => {
     vi.mocked(reservationService.cancel).mockResolvedValueOnce({
       id: "res-1",
       date: "2026-03-20",
@@ -338,9 +338,10 @@ describe("DELETE /api/v1/reservations/:id with reason", () => {
     });
 
     const response = await app.inject({
-      method: "DELETE",
+      method: "PATCH",
       url: "/api/v1/reservations/res-1",
       payload: {
+        status: "CANCELLED",
         cancellationReason: "guest_cancelled",
         cancellationNote: "Called ahead",
       },
@@ -388,27 +389,32 @@ In `services/reservations/src/services/reservation.ts`, update the `cancel` meth
 
 Ensure the mapping function includes `cancellationReason` and `cancellationNote`.
 
-- [ ] **Step 5: Update DELETE route to accept body**
+- [ ] **Step 5: Update PATCH route handler to detect cancellation**
 
-In `services/reservations/src/routes/reservations.ts`, update the DELETE route to accept an optional body:
-
-```typescript
-  fastify.delete<{
-    Params: { id: string };
-    Body: { cancellationReason?: string; cancellationNote?: string };
-  }>(
-```
-
-Update the handler to pass reason through:
+In `services/reservations/src/routes/reservations.ts`, update the existing PATCH `/:id` handler. When the update includes `status: "CANCELLED"`, call `reservationService.cancel()` with the reason fields instead of `updateWithConflictCheck()`:
 
 ```typescript
     async (request, reply) => {
-      const reservation = await reservationService.cancel(
-        request.params.id,
-        request.body?.cancellationReason,
-        request.body?.cancellationNote
-      );
+      if (request.body.status === "CANCELLED") {
+        const reservation = await reservationService.cancel(
+          request.params.id,
+          request.body.cancellationReason,
+          request.body.cancellationNote
+        );
+        if (!reservation) {
+          return reply.code(404).send({
+            error: "Not Found",
+            message: "Reservation not found",
+            statusCode: 404,
+          });
+        }
+        emitReservationCancelled(reservation);
+        return { data: reservation };
+      }
+      // ... existing update logic
 ```
+
+Also add `cancellationReason` and `cancellationNote` to the PATCH body schema properties.
 
 - [ ] **Step 6: Run tests**
 
@@ -442,7 +448,7 @@ describe("POST /api/v1/reservations/walk-in", () => {
       startTime: "2026-03-20T18:00:00.000Z",
       endTime: "2026-03-20T19:30:00.000Z",
       partySize: 2,
-      status: "COMPLETED",
+      status: "CONFIRMED",
       notes: null,
       cancellationReason: null,
       cancellationNote: null,
@@ -502,7 +508,7 @@ In `services/reservations/src/services/reservation.ts`, add:
         startTime: now,
         endTime,
         partySize: data.partySize,
-        status: "COMPLETED",
+        status: "CONFIRMED",
         tableId: data.tableId,
         venueId: data.venueId,
         guestName: data.guestName ?? "Walk-in",
@@ -619,27 +625,24 @@ In `packages/api-client/src/tables.ts`, add after the `delete` method:
   }
 ```
 
-- [ ] **Step 2: Add cancel with reason to ReservationsClient**
+- [ ] **Step 2: Add cancelWithReason to ReservationsClient**
 
-In `packages/api-client/src/reservations.ts`, update the `cancel` method to accept optional reason:
+In `packages/api-client/src/reservations.ts`, add a new method (keep existing `cancel` for backwards compat):
 
 ```typescript
   /**
-   * Cancel a reservation with optional reason
+   * Cancel a reservation with reason via PATCH
    */
-  async cancel(
+  async cancelWithReason(
     id: string,
     reason?: { cancellationReason?: string; cancellationNote?: string }
   ): Promise<Reservation> {
-    const response = await this.client.delete(
-      `/api/v1/reservations/${id}`,
-      reason
-    ) as unknown as ApiResponse<Reservation>;
-    return response.data;
+    return this.update(id, {
+      status: "CANCELLED",
+      ...reason,
+    });
   }
 ```
-
-Note: Check if `ApiClient.delete` accepts a body parameter. If not, modify the base `delete` method in `packages/api-client/src/client.ts` to accept an optional body.
 
 - [ ] **Step 3: Add walkIn to ReservationsClient**
 
@@ -1324,7 +1327,7 @@ const handleSeat = async (reservation: Reservation) => {
 
 const handleCancel = async (reason: string, note: string) => {
   if (!selectedReservation) return;
-  await api.reservations.cancel(selectedReservation.id, {
+  await api.reservations.cancelWithReason(selectedReservation.id, {
     cancellationReason: reason,
     cancellationNote: note,
   });
