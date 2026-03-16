@@ -63,11 +63,25 @@ export namespace $Enums {
 
 export type ReservationStatus = (typeof ReservationStatus)[keyof typeof ReservationStatus]
 
+
+export const TableStatus: {
+  AVAILABLE: 'AVAILABLE',
+  OCCUPIED: 'OCCUPIED',
+  DIRTY: 'DIRTY',
+  READY: 'READY'
+};
+
+export type TableStatus = (typeof TableStatus)[keyof typeof TableStatus]
+
 }
 
 export type ReservationStatus = $Enums.ReservationStatus
 
 export const ReservationStatus: typeof $Enums.ReservationStatus
+
+export type TableStatus = $Enums.TableStatus
+
+export const TableStatus: typeof $Enums.TableStatus
 
 /**
  * ##  Prisma Client ʲˢ
@@ -5113,6 +5127,7 @@ export namespace Prisma {
     maxCovers: number | null
     location: string | null
     isActive: boolean | null
+    status: $Enums.TableStatus | null
     priority: number | null
     venueId: string | null
     floorPlanId: string | null
@@ -5129,6 +5144,7 @@ export namespace Prisma {
     maxCovers: number | null
     location: string | null
     isActive: boolean | null
+    status: $Enums.TableStatus | null
     priority: number | null
     venueId: string | null
     floorPlanId: string | null
@@ -5145,6 +5161,7 @@ export namespace Prisma {
     maxCovers: number
     location: number
     isActive: number
+    status: number
     priority: number
     venueId: number
     floorPlanId: number
@@ -5178,6 +5195,7 @@ export namespace Prisma {
     maxCovers?: true
     location?: true
     isActive?: true
+    status?: true
     priority?: true
     venueId?: true
     floorPlanId?: true
@@ -5194,6 +5212,7 @@ export namespace Prisma {
     maxCovers?: true
     location?: true
     isActive?: true
+    status?: true
     priority?: true
     venueId?: true
     floorPlanId?: true
@@ -5210,6 +5229,7 @@ export namespace Prisma {
     maxCovers?: true
     location?: true
     isActive?: true
+    status?: true
     priority?: true
     venueId?: true
     floorPlanId?: true
@@ -5314,6 +5334,7 @@ export namespace Prisma {
     maxCovers: number | null
     location: string | null
     isActive: boolean
+    status: $Enums.TableStatus
     priority: number
     venueId: string | null
     floorPlanId: string | null
@@ -5350,6 +5371,7 @@ export namespace Prisma {
     maxCovers?: boolean
     location?: boolean
     isActive?: boolean
+    status?: boolean
     priority?: boolean
     venueId?: boolean
     floorPlanId?: boolean
@@ -5372,6 +5394,7 @@ export namespace Prisma {
     maxCovers?: boolean
     location?: boolean
     isActive?: boolean
+    status?: boolean
     priority?: boolean
     venueId?: boolean
     floorPlanId?: boolean
@@ -5391,6 +5414,7 @@ export namespace Prisma {
     maxCovers?: boolean
     location?: boolean
     isActive?: boolean
+    status?: boolean
     priority?: boolean
     venueId?: boolean
     floorPlanId?: boolean
@@ -5410,6 +5434,7 @@ export namespace Prisma {
     maxCovers?: boolean
     location?: boolean
     isActive?: boolean
+    status?: boolean
     priority?: boolean
     venueId?: boolean
     floorPlanId?: boolean
@@ -5418,7 +5443,7 @@ export namespace Prisma {
     updatedAt?: boolean
   }
 
-  export type TableOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "tableNumber" | "capacity" | "minCovers" | "maxCovers" | "location" | "isActive" | "priority" | "venueId" | "floorPlanId" | "shapeMetadata" | "createdAt" | "updatedAt", ExtArgs["result"]["table"]>
+  export type TableOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "tableNumber" | "capacity" | "minCovers" | "maxCovers" | "location" | "isActive" | "status" | "priority" | "venueId" | "floorPlanId" | "shapeMetadata" | "createdAt" | "updatedAt", ExtArgs["result"]["table"]>
   export type TableInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     venue?: boolean | Table$venueArgs<ExtArgs>
     floorPlan?: boolean | Table$floorPlanArgs<ExtArgs>
@@ -5452,6 +5477,7 @@ export namespace Prisma {
       maxCovers: number | null
       location: string | null
       isActive: boolean
+      status: $Enums.TableStatus
       priority: number
       venueId: string | null
       floorPlanId: string | null
@@ -5893,6 +5919,7 @@ export namespace Prisma {
     readonly maxCovers: FieldRef<"Table", 'Int'>
     readonly location: FieldRef<"Table", 'String'>
     readonly isActive: FieldRef<"Table", 'Boolean'>
+    readonly status: FieldRef<"Table", 'TableStatus'>
     readonly priority: FieldRef<"Table", 'Int'>
     readonly venueId: FieldRef<"Table", 'String'>
     readonly floorPlanId: FieldRef<"Table", 'String'>
@@ -7640,6 +7667,8 @@ export namespace Prisma {
     partySize: number | null
     status: $Enums.ReservationStatus | null
     notes: string | null
+    cancellationReason: string | null
+    cancellationNote: string | null
     guestName: string | null
     guestEmail: string | null
     guestPhone: string | null
@@ -7659,6 +7688,8 @@ export namespace Prisma {
     partySize: number | null
     status: $Enums.ReservationStatus | null
     notes: string | null
+    cancellationReason: string | null
+    cancellationNote: string | null
     guestName: string | null
     guestEmail: string | null
     guestPhone: string | null
@@ -7678,6 +7709,8 @@ export namespace Prisma {
     partySize: number
     status: number
     notes: number
+    cancellationReason: number
+    cancellationNote: number
     guestName: number
     guestEmail: number
     guestPhone: number
@@ -7707,6 +7740,8 @@ export namespace Prisma {
     partySize?: true
     status?: true
     notes?: true
+    cancellationReason?: true
+    cancellationNote?: true
     guestName?: true
     guestEmail?: true
     guestPhone?: true
@@ -7726,6 +7761,8 @@ export namespace Prisma {
     partySize?: true
     status?: true
     notes?: true
+    cancellationReason?: true
+    cancellationNote?: true
     guestName?: true
     guestEmail?: true
     guestPhone?: true
@@ -7745,6 +7782,8 @@ export namespace Prisma {
     partySize?: true
     status?: true
     notes?: true
+    cancellationReason?: true
+    cancellationNote?: true
     guestName?: true
     guestEmail?: true
     guestPhone?: true
@@ -7851,6 +7890,8 @@ export namespace Prisma {
     partySize: number
     status: $Enums.ReservationStatus
     notes: string | null
+    cancellationReason: string | null
+    cancellationNote: string | null
     guestName: string | null
     guestEmail: string | null
     guestPhone: string | null
@@ -7889,6 +7930,8 @@ export namespace Prisma {
     partySize?: boolean
     status?: boolean
     notes?: boolean
+    cancellationReason?: boolean
+    cancellationNote?: boolean
     guestName?: boolean
     guestEmail?: boolean
     guestPhone?: boolean
@@ -7911,6 +7954,8 @@ export namespace Prisma {
     partySize?: boolean
     status?: boolean
     notes?: boolean
+    cancellationReason?: boolean
+    cancellationNote?: boolean
     guestName?: boolean
     guestEmail?: boolean
     guestPhone?: boolean
@@ -7933,6 +7978,8 @@ export namespace Prisma {
     partySize?: boolean
     status?: boolean
     notes?: boolean
+    cancellationReason?: boolean
+    cancellationNote?: boolean
     guestName?: boolean
     guestEmail?: boolean
     guestPhone?: boolean
@@ -7955,6 +8002,8 @@ export namespace Prisma {
     partySize?: boolean
     status?: boolean
     notes?: boolean
+    cancellationReason?: boolean
+    cancellationNote?: boolean
     guestName?: boolean
     guestEmail?: boolean
     guestPhone?: boolean
@@ -7966,7 +8015,7 @@ export namespace Prisma {
     updatedAt?: boolean
   }
 
-  export type ReservationOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "date" | "startTime" | "endTime" | "partySize" | "status" | "notes" | "guestName" | "guestEmail" | "guestPhone" | "guestId" | "userId" | "tableId" | "venueId" | "createdAt" | "updatedAt", ExtArgs["result"]["reservation"]>
+  export type ReservationOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "date" | "startTime" | "endTime" | "partySize" | "status" | "notes" | "cancellationReason" | "cancellationNote" | "guestName" | "guestEmail" | "guestPhone" | "guestId" | "userId" | "tableId" | "venueId" | "createdAt" | "updatedAt", ExtArgs["result"]["reservation"]>
   export type ReservationInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     guest?: boolean | Reservation$guestArgs<ExtArgs>
     table?: boolean | TableDefaultArgs<ExtArgs>
@@ -7998,6 +8047,8 @@ export namespace Prisma {
       partySize: number
       status: $Enums.ReservationStatus
       notes: string | null
+      cancellationReason: string | null
+      cancellationNote: string | null
       guestName: string | null
       guestEmail: string | null
       guestPhone: string | null
@@ -8440,6 +8491,8 @@ export namespace Prisma {
     readonly partySize: FieldRef<"Reservation", 'Int'>
     readonly status: FieldRef<"Reservation", 'ReservationStatus'>
     readonly notes: FieldRef<"Reservation", 'String'>
+    readonly cancellationReason: FieldRef<"Reservation", 'String'>
+    readonly cancellationNote: FieldRef<"Reservation", 'String'>
     readonly guestName: FieldRef<"Reservation", 'String'>
     readonly guestEmail: FieldRef<"Reservation", 'String'>
     readonly guestPhone: FieldRef<"Reservation", 'String'>
@@ -10129,6 +10182,7 @@ export namespace Prisma {
     maxCovers: 'maxCovers',
     location: 'location',
     isActive: 'isActive',
+    status: 'status',
     priority: 'priority',
     venueId: 'venueId',
     floorPlanId: 'floorPlanId',
@@ -10166,6 +10220,8 @@ export namespace Prisma {
     partySize: 'partySize',
     status: 'status',
     notes: 'notes',
+    cancellationReason: 'cancellationReason',
+    cancellationNote: 'cancellationNote',
     guestName: 'guestName',
     guestEmail: 'guestEmail',
     guestPhone: 'guestPhone',
@@ -10309,6 +10365,20 @@ export namespace Prisma {
    * Reference to a field of type 'Int[]'
    */
   export type ListIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int[]'>
+    
+
+
+  /**
+   * Reference to a field of type 'TableStatus'
+   */
+  export type EnumTableStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'TableStatus'>
+    
+
+
+  /**
+   * Reference to a field of type 'TableStatus[]'
+   */
+  export type ListEnumTableStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'TableStatus[]'>
     
 
 
@@ -10587,6 +10657,7 @@ export namespace Prisma {
     maxCovers?: IntNullableFilter<"Table"> | number | null
     location?: StringNullableFilter<"Table"> | string | null
     isActive?: BoolFilter<"Table"> | boolean
+    status?: EnumTableStatusFilter<"Table"> | $Enums.TableStatus
     priority?: IntFilter<"Table"> | number
     venueId?: StringNullableFilter<"Table"> | string | null
     floorPlanId?: StringNullableFilter<"Table"> | string | null
@@ -10608,6 +10679,7 @@ export namespace Prisma {
     maxCovers?: SortOrderInput | SortOrder
     location?: SortOrderInput | SortOrder
     isActive?: SortOrder
+    status?: SortOrder
     priority?: SortOrder
     venueId?: SortOrderInput | SortOrder
     floorPlanId?: SortOrderInput | SortOrder
@@ -10632,6 +10704,7 @@ export namespace Prisma {
     maxCovers?: IntNullableFilter<"Table"> | number | null
     location?: StringNullableFilter<"Table"> | string | null
     isActive?: BoolFilter<"Table"> | boolean
+    status?: EnumTableStatusFilter<"Table"> | $Enums.TableStatus
     priority?: IntFilter<"Table"> | number
     venueId?: StringNullableFilter<"Table"> | string | null
     floorPlanId?: StringNullableFilter<"Table"> | string | null
@@ -10653,6 +10726,7 @@ export namespace Prisma {
     maxCovers?: SortOrderInput | SortOrder
     location?: SortOrderInput | SortOrder
     isActive?: SortOrder
+    status?: SortOrder
     priority?: SortOrder
     venueId?: SortOrderInput | SortOrder
     floorPlanId?: SortOrderInput | SortOrder
@@ -10678,6 +10752,7 @@ export namespace Prisma {
     maxCovers?: IntNullableWithAggregatesFilter<"Table"> | number | null
     location?: StringNullableWithAggregatesFilter<"Table"> | string | null
     isActive?: BoolWithAggregatesFilter<"Table"> | boolean
+    status?: EnumTableStatusWithAggregatesFilter<"Table"> | $Enums.TableStatus
     priority?: IntWithAggregatesFilter<"Table"> | number
     venueId?: StringNullableWithAggregatesFilter<"Table"> | string | null
     floorPlanId?: StringNullableWithAggregatesFilter<"Table"> | string | null
@@ -10794,6 +10869,8 @@ export namespace Prisma {
     partySize?: IntFilter<"Reservation"> | number
     status?: EnumReservationStatusFilter<"Reservation"> | $Enums.ReservationStatus
     notes?: StringNullableFilter<"Reservation"> | string | null
+    cancellationReason?: StringNullableFilter<"Reservation"> | string | null
+    cancellationNote?: StringNullableFilter<"Reservation"> | string | null
     guestName?: StringNullableFilter<"Reservation"> | string | null
     guestEmail?: StringNullableFilter<"Reservation"> | string | null
     guestPhone?: StringNullableFilter<"Reservation"> | string | null
@@ -10816,6 +10893,8 @@ export namespace Prisma {
     partySize?: SortOrder
     status?: SortOrder
     notes?: SortOrderInput | SortOrder
+    cancellationReason?: SortOrderInput | SortOrder
+    cancellationNote?: SortOrderInput | SortOrder
     guestName?: SortOrderInput | SortOrder
     guestEmail?: SortOrderInput | SortOrder
     guestPhone?: SortOrderInput | SortOrder
@@ -10841,6 +10920,8 @@ export namespace Prisma {
     partySize?: IntFilter<"Reservation"> | number
     status?: EnumReservationStatusFilter<"Reservation"> | $Enums.ReservationStatus
     notes?: StringNullableFilter<"Reservation"> | string | null
+    cancellationReason?: StringNullableFilter<"Reservation"> | string | null
+    cancellationNote?: StringNullableFilter<"Reservation"> | string | null
     guestName?: StringNullableFilter<"Reservation"> | string | null
     guestEmail?: StringNullableFilter<"Reservation"> | string | null
     guestPhone?: StringNullableFilter<"Reservation"> | string | null
@@ -10863,6 +10944,8 @@ export namespace Prisma {
     partySize?: SortOrder
     status?: SortOrder
     notes?: SortOrderInput | SortOrder
+    cancellationReason?: SortOrderInput | SortOrder
+    cancellationNote?: SortOrderInput | SortOrder
     guestName?: SortOrderInput | SortOrder
     guestEmail?: SortOrderInput | SortOrder
     guestPhone?: SortOrderInput | SortOrder
@@ -10890,6 +10973,8 @@ export namespace Prisma {
     partySize?: IntWithAggregatesFilter<"Reservation"> | number
     status?: EnumReservationStatusWithAggregatesFilter<"Reservation"> | $Enums.ReservationStatus
     notes?: StringNullableWithAggregatesFilter<"Reservation"> | string | null
+    cancellationReason?: StringNullableWithAggregatesFilter<"Reservation"> | string | null
+    cancellationNote?: StringNullableWithAggregatesFilter<"Reservation"> | string | null
     guestName?: StringNullableWithAggregatesFilter<"Reservation"> | string | null
     guestEmail?: StringNullableWithAggregatesFilter<"Reservation"> | string | null
     guestPhone?: StringNullableWithAggregatesFilter<"Reservation"> | string | null
@@ -11238,6 +11323,7 @@ export namespace Prisma {
     maxCovers?: number | null
     location?: string | null
     isActive?: boolean
+    status?: $Enums.TableStatus
     priority?: number
     shapeMetadata?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: Date | string
@@ -11257,6 +11343,7 @@ export namespace Prisma {
     maxCovers?: number | null
     location?: string | null
     isActive?: boolean
+    status?: $Enums.TableStatus
     priority?: number
     venueId?: string | null
     floorPlanId?: string | null
@@ -11276,6 +11363,7 @@ export namespace Prisma {
     maxCovers?: NullableIntFieldUpdateOperationsInput | number | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
     isActive?: BoolFieldUpdateOperationsInput | boolean
+    status?: EnumTableStatusFieldUpdateOperationsInput | $Enums.TableStatus
     priority?: IntFieldUpdateOperationsInput | number
     shapeMetadata?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -11295,6 +11383,7 @@ export namespace Prisma {
     maxCovers?: NullableIntFieldUpdateOperationsInput | number | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
     isActive?: BoolFieldUpdateOperationsInput | boolean
+    status?: EnumTableStatusFieldUpdateOperationsInput | $Enums.TableStatus
     priority?: IntFieldUpdateOperationsInput | number
     venueId?: NullableStringFieldUpdateOperationsInput | string | null
     floorPlanId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -11314,6 +11403,7 @@ export namespace Prisma {
     maxCovers?: number | null
     location?: string | null
     isActive?: boolean
+    status?: $Enums.TableStatus
     priority?: number
     venueId?: string | null
     floorPlanId?: string | null
@@ -11331,6 +11421,7 @@ export namespace Prisma {
     maxCovers?: NullableIntFieldUpdateOperationsInput | number | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
     isActive?: BoolFieldUpdateOperationsInput | boolean
+    status?: EnumTableStatusFieldUpdateOperationsInput | $Enums.TableStatus
     priority?: IntFieldUpdateOperationsInput | number
     shapeMetadata?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -11346,6 +11437,7 @@ export namespace Prisma {
     maxCovers?: NullableIntFieldUpdateOperationsInput | number | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
     isActive?: BoolFieldUpdateOperationsInput | boolean
+    status?: EnumTableStatusFieldUpdateOperationsInput | $Enums.TableStatus
     priority?: IntFieldUpdateOperationsInput | number
     venueId?: NullableStringFieldUpdateOperationsInput | string | null
     floorPlanId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -11470,6 +11562,8 @@ export namespace Prisma {
     partySize: number
     status?: $Enums.ReservationStatus
     notes?: string | null
+    cancellationReason?: string | null
+    cancellationNote?: string | null
     guestName?: string | null
     guestEmail?: string | null
     guestPhone?: string | null
@@ -11489,6 +11583,8 @@ export namespace Prisma {
     partySize: number
     status?: $Enums.ReservationStatus
     notes?: string | null
+    cancellationReason?: string | null
+    cancellationNote?: string | null
     guestName?: string | null
     guestEmail?: string | null
     guestPhone?: string | null
@@ -11508,6 +11604,8 @@ export namespace Prisma {
     partySize?: IntFieldUpdateOperationsInput | number
     status?: EnumReservationStatusFieldUpdateOperationsInput | $Enums.ReservationStatus
     notes?: NullableStringFieldUpdateOperationsInput | string | null
+    cancellationReason?: NullableStringFieldUpdateOperationsInput | string | null
+    cancellationNote?: NullableStringFieldUpdateOperationsInput | string | null
     guestName?: NullableStringFieldUpdateOperationsInput | string | null
     guestEmail?: NullableStringFieldUpdateOperationsInput | string | null
     guestPhone?: NullableStringFieldUpdateOperationsInput | string | null
@@ -11527,6 +11625,8 @@ export namespace Prisma {
     partySize?: IntFieldUpdateOperationsInput | number
     status?: EnumReservationStatusFieldUpdateOperationsInput | $Enums.ReservationStatus
     notes?: NullableStringFieldUpdateOperationsInput | string | null
+    cancellationReason?: NullableStringFieldUpdateOperationsInput | string | null
+    cancellationNote?: NullableStringFieldUpdateOperationsInput | string | null
     guestName?: NullableStringFieldUpdateOperationsInput | string | null
     guestEmail?: NullableStringFieldUpdateOperationsInput | string | null
     guestPhone?: NullableStringFieldUpdateOperationsInput | string | null
@@ -11546,6 +11646,8 @@ export namespace Prisma {
     partySize: number
     status?: $Enums.ReservationStatus
     notes?: string | null
+    cancellationReason?: string | null
+    cancellationNote?: string | null
     guestName?: string | null
     guestEmail?: string | null
     guestPhone?: string | null
@@ -11565,6 +11667,8 @@ export namespace Prisma {
     partySize?: IntFieldUpdateOperationsInput | number
     status?: EnumReservationStatusFieldUpdateOperationsInput | $Enums.ReservationStatus
     notes?: NullableStringFieldUpdateOperationsInput | string | null
+    cancellationReason?: NullableStringFieldUpdateOperationsInput | string | null
+    cancellationNote?: NullableStringFieldUpdateOperationsInput | string | null
     guestName?: NullableStringFieldUpdateOperationsInput | string | null
     guestEmail?: NullableStringFieldUpdateOperationsInput | string | null
     guestPhone?: NullableStringFieldUpdateOperationsInput | string | null
@@ -11581,6 +11685,8 @@ export namespace Prisma {
     partySize?: IntFieldUpdateOperationsInput | number
     status?: EnumReservationStatusFieldUpdateOperationsInput | $Enums.ReservationStatus
     notes?: NullableStringFieldUpdateOperationsInput | string | null
+    cancellationReason?: NullableStringFieldUpdateOperationsInput | string | null
+    cancellationNote?: NullableStringFieldUpdateOperationsInput | string | null
     guestName?: NullableStringFieldUpdateOperationsInput | string | null
     guestEmail?: NullableStringFieldUpdateOperationsInput | string | null
     guestPhone?: NullableStringFieldUpdateOperationsInput | string | null
@@ -12065,6 +12171,13 @@ export namespace Prisma {
     not?: NestedIntNullableFilter<$PrismaModel> | number | null
   }
 
+  export type EnumTableStatusFilter<$PrismaModel = never> = {
+    equals?: $Enums.TableStatus | EnumTableStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.TableStatus[] | ListEnumTableStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.TableStatus[] | ListEnumTableStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumTableStatusFilter<$PrismaModel> | $Enums.TableStatus
+  }
+
   export type VenueNullableScalarRelationFilter = {
     is?: VenueWhereInput | null
     isNot?: VenueWhereInput | null
@@ -12084,6 +12197,7 @@ export namespace Prisma {
     maxCovers?: SortOrder
     location?: SortOrder
     isActive?: SortOrder
+    status?: SortOrder
     priority?: SortOrder
     venueId?: SortOrder
     floorPlanId?: SortOrder
@@ -12108,6 +12222,7 @@ export namespace Prisma {
     maxCovers?: SortOrder
     location?: SortOrder
     isActive?: SortOrder
+    status?: SortOrder
     priority?: SortOrder
     venueId?: SortOrder
     floorPlanId?: SortOrder
@@ -12124,6 +12239,7 @@ export namespace Prisma {
     maxCovers?: SortOrder
     location?: SortOrder
     isActive?: SortOrder
+    status?: SortOrder
     priority?: SortOrder
     venueId?: SortOrder
     floorPlanId?: SortOrder
@@ -12168,6 +12284,16 @@ export namespace Prisma {
     _sum?: NestedIntNullableFilter<$PrismaModel>
     _min?: NestedIntNullableFilter<$PrismaModel>
     _max?: NestedIntNullableFilter<$PrismaModel>
+  }
+
+  export type EnumTableStatusWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.TableStatus | EnumTableStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.TableStatus[] | ListEnumTableStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.TableStatus[] | ListEnumTableStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumTableStatusWithAggregatesFilter<$PrismaModel> | $Enums.TableStatus
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumTableStatusFilter<$PrismaModel>
+    _max?: NestedEnumTableStatusFilter<$PrismaModel>
   }
 
   export type DecimalNullableFilter<$PrismaModel = never> = {
@@ -12310,6 +12436,8 @@ export namespace Prisma {
     partySize?: SortOrder
     status?: SortOrder
     notes?: SortOrder
+    cancellationReason?: SortOrder
+    cancellationNote?: SortOrder
     guestName?: SortOrder
     guestEmail?: SortOrder
     guestPhone?: SortOrder
@@ -12333,6 +12461,8 @@ export namespace Prisma {
     partySize?: SortOrder
     status?: SortOrder
     notes?: SortOrder
+    cancellationReason?: SortOrder
+    cancellationNote?: SortOrder
     guestName?: SortOrder
     guestEmail?: SortOrder
     guestPhone?: SortOrder
@@ -12352,6 +12482,8 @@ export namespace Prisma {
     partySize?: SortOrder
     status?: SortOrder
     notes?: SortOrder
+    cancellationReason?: SortOrder
+    cancellationNote?: SortOrder
     guestName?: SortOrder
     guestEmail?: SortOrder
     guestPhone?: SortOrder
@@ -12820,6 +12952,10 @@ export namespace Prisma {
     divide?: number
   }
 
+  export type EnumTableStatusFieldUpdateOperationsInput = {
+    set?: $Enums.TableStatus
+  }
+
   export type VenueUpdateOneWithoutTablesNestedInput = {
     create?: XOR<VenueCreateWithoutTablesInput, VenueUncheckedCreateWithoutTablesInput>
     connectOrCreate?: VenueCreateOrConnectWithoutTablesInput
@@ -13210,6 +13346,13 @@ export namespace Prisma {
     not?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
   }
 
+  export type NestedEnumTableStatusFilter<$PrismaModel = never> = {
+    equals?: $Enums.TableStatus | EnumTableStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.TableStatus[] | ListEnumTableStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.TableStatus[] | ListEnumTableStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumTableStatusFilter<$PrismaModel> | $Enums.TableStatus
+  }
+
   export type NestedIntWithAggregatesFilter<$PrismaModel = never> = {
     equals?: number | IntFieldRefInput<$PrismaModel>
     in?: number[] | ListIntFieldRefInput<$PrismaModel>
@@ -13262,6 +13405,16 @@ export namespace Prisma {
     gt?: number | FloatFieldRefInput<$PrismaModel>
     gte?: number | FloatFieldRefInput<$PrismaModel>
     not?: NestedFloatNullableFilter<$PrismaModel> | number | null
+  }
+
+  export type NestedEnumTableStatusWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.TableStatus | EnumTableStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.TableStatus[] | ListEnumTableStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.TableStatus[] | ListEnumTableStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumTableStatusWithAggregatesFilter<$PrismaModel> | $Enums.TableStatus
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumTableStatusFilter<$PrismaModel>
+    _max?: NestedEnumTableStatusFilter<$PrismaModel>
   }
 
   export type NestedDecimalNullableFilter<$PrismaModel = never> = {
@@ -13439,6 +13592,7 @@ export namespace Prisma {
     maxCovers?: number | null
     location?: string | null
     isActive?: boolean
+    status?: $Enums.TableStatus
     priority?: number
     shapeMetadata?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: Date | string
@@ -13457,6 +13611,7 @@ export namespace Prisma {
     maxCovers?: number | null
     location?: string | null
     isActive?: boolean
+    status?: $Enums.TableStatus
     priority?: number
     floorPlanId?: string | null
     shapeMetadata?: NullableJsonNullValueInput | InputJsonValue
@@ -13484,6 +13639,8 @@ export namespace Prisma {
     partySize: number
     status?: $Enums.ReservationStatus
     notes?: string | null
+    cancellationReason?: string | null
+    cancellationNote?: string | null
     guestName?: string | null
     guestEmail?: string | null
     guestPhone?: string | null
@@ -13502,6 +13659,8 @@ export namespace Prisma {
     partySize: number
     status?: $Enums.ReservationStatus
     notes?: string | null
+    cancellationReason?: string | null
+    cancellationNote?: string | null
     guestName?: string | null
     guestEmail?: string | null
     guestPhone?: string | null
@@ -13681,6 +13840,7 @@ export namespace Prisma {
     maxCovers?: IntNullableFilter<"Table"> | number | null
     location?: StringNullableFilter<"Table"> | string | null
     isActive?: BoolFilter<"Table"> | boolean
+    status?: EnumTableStatusFilter<"Table"> | $Enums.TableStatus
     priority?: IntFilter<"Table"> | number
     venueId?: StringNullableFilter<"Table"> | string | null
     floorPlanId?: StringNullableFilter<"Table"> | string | null
@@ -13716,6 +13876,8 @@ export namespace Prisma {
     partySize?: IntFilter<"Reservation"> | number
     status?: EnumReservationStatusFilter<"Reservation"> | $Enums.ReservationStatus
     notes?: StringNullableFilter<"Reservation"> | string | null
+    cancellationReason?: StringNullableFilter<"Reservation"> | string | null
+    cancellationNote?: StringNullableFilter<"Reservation"> | string | null
     guestName?: StringNullableFilter<"Reservation"> | string | null
     guestEmail?: StringNullableFilter<"Reservation"> | string | null
     guestPhone?: StringNullableFilter<"Reservation"> | string | null
@@ -13870,6 +14032,7 @@ export namespace Prisma {
     maxCovers?: number | null
     location?: string | null
     isActive?: boolean
+    status?: $Enums.TableStatus
     priority?: number
     shapeMetadata?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: Date | string
@@ -13888,6 +14051,7 @@ export namespace Prisma {
     maxCovers?: number | null
     location?: string | null
     isActive?: boolean
+    status?: $Enums.TableStatus
     priority?: number
     venueId?: string | null
     shapeMetadata?: NullableJsonNullValueInput | InputJsonValue
@@ -14040,6 +14204,8 @@ export namespace Prisma {
     partySize: number
     status?: $Enums.ReservationStatus
     notes?: string | null
+    cancellationReason?: string | null
+    cancellationNote?: string | null
     guestName?: string | null
     guestEmail?: string | null
     guestPhone?: string | null
@@ -14058,6 +14224,8 @@ export namespace Prisma {
     partySize: number
     status?: $Enums.ReservationStatus
     notes?: string | null
+    cancellationReason?: string | null
+    cancellationNote?: string | null
     guestName?: string | null
     guestEmail?: string | null
     guestPhone?: string | null
@@ -14267,6 +14435,8 @@ export namespace Prisma {
     partySize: number
     status?: $Enums.ReservationStatus
     notes?: string | null
+    cancellationReason?: string | null
+    cancellationNote?: string | null
     guestName?: string | null
     guestEmail?: string | null
     guestPhone?: string | null
@@ -14285,6 +14455,8 @@ export namespace Prisma {
     partySize: number
     status?: $Enums.ReservationStatus
     notes?: string | null
+    cancellationReason?: string | null
+    cancellationNote?: string | null
     guestName?: string | null
     guestEmail?: string | null
     guestPhone?: string | null
@@ -14410,6 +14582,7 @@ export namespace Prisma {
     maxCovers?: number | null
     location?: string | null
     isActive?: boolean
+    status?: $Enums.TableStatus
     priority?: number
     shapeMetadata?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: Date | string
@@ -14428,6 +14601,7 @@ export namespace Prisma {
     maxCovers?: number | null
     location?: string | null
     isActive?: boolean
+    status?: $Enums.TableStatus
     priority?: number
     venueId?: string | null
     floorPlanId?: string | null
@@ -14542,6 +14716,7 @@ export namespace Prisma {
     maxCovers?: NullableIntFieldUpdateOperationsInput | number | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
     isActive?: BoolFieldUpdateOperationsInput | boolean
+    status?: EnumTableStatusFieldUpdateOperationsInput | $Enums.TableStatus
     priority?: IntFieldUpdateOperationsInput | number
     shapeMetadata?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -14560,6 +14735,7 @@ export namespace Prisma {
     maxCovers?: NullableIntFieldUpdateOperationsInput | number | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
     isActive?: BoolFieldUpdateOperationsInput | boolean
+    status?: EnumTableStatusFieldUpdateOperationsInput | $Enums.TableStatus
     priority?: IntFieldUpdateOperationsInput | number
     venueId?: NullableStringFieldUpdateOperationsInput | string | null
     floorPlanId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -14662,6 +14838,7 @@ export namespace Prisma {
     maxCovers?: number | null
     location?: string | null
     isActive?: boolean
+    status?: $Enums.TableStatus
     priority?: number
     shapeMetadata?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: Date | string
@@ -14680,6 +14857,7 @@ export namespace Prisma {
     maxCovers?: number | null
     location?: string | null
     isActive?: boolean
+    status?: $Enums.TableStatus
     priority?: number
     venueId?: string | null
     floorPlanId?: string | null
@@ -14759,6 +14937,7 @@ export namespace Prisma {
     maxCovers?: NullableIntFieldUpdateOperationsInput | number | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
     isActive?: BoolFieldUpdateOperationsInput | boolean
+    status?: EnumTableStatusFieldUpdateOperationsInput | $Enums.TableStatus
     priority?: IntFieldUpdateOperationsInput | number
     shapeMetadata?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -14777,6 +14956,7 @@ export namespace Prisma {
     maxCovers?: NullableIntFieldUpdateOperationsInput | number | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
     isActive?: BoolFieldUpdateOperationsInput | boolean
+    status?: EnumTableStatusFieldUpdateOperationsInput | $Enums.TableStatus
     priority?: IntFieldUpdateOperationsInput | number
     venueId?: NullableStringFieldUpdateOperationsInput | string | null
     floorPlanId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -14853,6 +15033,7 @@ export namespace Prisma {
     maxCovers?: number | null
     location?: string | null
     isActive?: boolean
+    status?: $Enums.TableStatus
     priority?: number
     floorPlanId?: string | null
     shapeMetadata?: NullableJsonNullValueInput | InputJsonValue
@@ -14868,6 +15049,8 @@ export namespace Prisma {
     partySize: number
     status?: $Enums.ReservationStatus
     notes?: string | null
+    cancellationReason?: string | null
+    cancellationNote?: string | null
     guestName?: string | null
     guestEmail?: string | null
     guestPhone?: string | null
@@ -14922,6 +15105,7 @@ export namespace Prisma {
     maxCovers?: NullableIntFieldUpdateOperationsInput | number | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
     isActive?: BoolFieldUpdateOperationsInput | boolean
+    status?: EnumTableStatusFieldUpdateOperationsInput | $Enums.TableStatus
     priority?: IntFieldUpdateOperationsInput | number
     shapeMetadata?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -14940,6 +15124,7 @@ export namespace Prisma {
     maxCovers?: NullableIntFieldUpdateOperationsInput | number | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
     isActive?: BoolFieldUpdateOperationsInput | boolean
+    status?: EnumTableStatusFieldUpdateOperationsInput | $Enums.TableStatus
     priority?: IntFieldUpdateOperationsInput | number
     floorPlanId?: NullableStringFieldUpdateOperationsInput | string | null
     shapeMetadata?: NullableJsonNullValueInput | InputJsonValue
@@ -14958,6 +15143,7 @@ export namespace Prisma {
     maxCovers?: NullableIntFieldUpdateOperationsInput | number | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
     isActive?: BoolFieldUpdateOperationsInput | boolean
+    status?: EnumTableStatusFieldUpdateOperationsInput | $Enums.TableStatus
     priority?: IntFieldUpdateOperationsInput | number
     floorPlanId?: NullableStringFieldUpdateOperationsInput | string | null
     shapeMetadata?: NullableJsonNullValueInput | InputJsonValue
@@ -14973,6 +15159,8 @@ export namespace Prisma {
     partySize?: IntFieldUpdateOperationsInput | number
     status?: EnumReservationStatusFieldUpdateOperationsInput | $Enums.ReservationStatus
     notes?: NullableStringFieldUpdateOperationsInput | string | null
+    cancellationReason?: NullableStringFieldUpdateOperationsInput | string | null
+    cancellationNote?: NullableStringFieldUpdateOperationsInput | string | null
     guestName?: NullableStringFieldUpdateOperationsInput | string | null
     guestEmail?: NullableStringFieldUpdateOperationsInput | string | null
     guestPhone?: NullableStringFieldUpdateOperationsInput | string | null
@@ -14991,6 +15179,8 @@ export namespace Prisma {
     partySize?: IntFieldUpdateOperationsInput | number
     status?: EnumReservationStatusFieldUpdateOperationsInput | $Enums.ReservationStatus
     notes?: NullableStringFieldUpdateOperationsInput | string | null
+    cancellationReason?: NullableStringFieldUpdateOperationsInput | string | null
+    cancellationNote?: NullableStringFieldUpdateOperationsInput | string | null
     guestName?: NullableStringFieldUpdateOperationsInput | string | null
     guestEmail?: NullableStringFieldUpdateOperationsInput | string | null
     guestPhone?: NullableStringFieldUpdateOperationsInput | string | null
@@ -15009,6 +15199,8 @@ export namespace Prisma {
     partySize?: IntFieldUpdateOperationsInput | number
     status?: EnumReservationStatusFieldUpdateOperationsInput | $Enums.ReservationStatus
     notes?: NullableStringFieldUpdateOperationsInput | string | null
+    cancellationReason?: NullableStringFieldUpdateOperationsInput | string | null
+    cancellationNote?: NullableStringFieldUpdateOperationsInput | string | null
     guestName?: NullableStringFieldUpdateOperationsInput | string | null
     guestEmail?: NullableStringFieldUpdateOperationsInput | string | null
     guestPhone?: NullableStringFieldUpdateOperationsInput | string | null
@@ -15137,6 +15329,7 @@ export namespace Prisma {
     maxCovers?: number | null
     location?: string | null
     isActive?: boolean
+    status?: $Enums.TableStatus
     priority?: number
     venueId?: string | null
     shapeMetadata?: NullableJsonNullValueInput | InputJsonValue
@@ -15153,6 +15346,7 @@ export namespace Prisma {
     maxCovers?: NullableIntFieldUpdateOperationsInput | number | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
     isActive?: BoolFieldUpdateOperationsInput | boolean
+    status?: EnumTableStatusFieldUpdateOperationsInput | $Enums.TableStatus
     priority?: IntFieldUpdateOperationsInput | number
     shapeMetadata?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -15171,6 +15365,7 @@ export namespace Prisma {
     maxCovers?: NullableIntFieldUpdateOperationsInput | number | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
     isActive?: BoolFieldUpdateOperationsInput | boolean
+    status?: EnumTableStatusFieldUpdateOperationsInput | $Enums.TableStatus
     priority?: IntFieldUpdateOperationsInput | number
     venueId?: NullableStringFieldUpdateOperationsInput | string | null
     shapeMetadata?: NullableJsonNullValueInput | InputJsonValue
@@ -15189,6 +15384,7 @@ export namespace Prisma {
     maxCovers?: NullableIntFieldUpdateOperationsInput | number | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
     isActive?: BoolFieldUpdateOperationsInput | boolean
+    status?: EnumTableStatusFieldUpdateOperationsInput | $Enums.TableStatus
     priority?: IntFieldUpdateOperationsInput | number
     venueId?: NullableStringFieldUpdateOperationsInput | string | null
     shapeMetadata?: NullableJsonNullValueInput | InputJsonValue
@@ -15204,6 +15400,8 @@ export namespace Prisma {
     partySize: number
     status?: $Enums.ReservationStatus
     notes?: string | null
+    cancellationReason?: string | null
+    cancellationNote?: string | null
     guestName?: string | null
     guestEmail?: string | null
     guestPhone?: string | null
@@ -15234,6 +15432,8 @@ export namespace Prisma {
     partySize?: IntFieldUpdateOperationsInput | number
     status?: EnumReservationStatusFieldUpdateOperationsInput | $Enums.ReservationStatus
     notes?: NullableStringFieldUpdateOperationsInput | string | null
+    cancellationReason?: NullableStringFieldUpdateOperationsInput | string | null
+    cancellationNote?: NullableStringFieldUpdateOperationsInput | string | null
     guestName?: NullableStringFieldUpdateOperationsInput | string | null
     guestEmail?: NullableStringFieldUpdateOperationsInput | string | null
     guestPhone?: NullableStringFieldUpdateOperationsInput | string | null
@@ -15252,6 +15452,8 @@ export namespace Prisma {
     partySize?: IntFieldUpdateOperationsInput | number
     status?: EnumReservationStatusFieldUpdateOperationsInput | $Enums.ReservationStatus
     notes?: NullableStringFieldUpdateOperationsInput | string | null
+    cancellationReason?: NullableStringFieldUpdateOperationsInput | string | null
+    cancellationNote?: NullableStringFieldUpdateOperationsInput | string | null
     guestName?: NullableStringFieldUpdateOperationsInput | string | null
     guestEmail?: NullableStringFieldUpdateOperationsInput | string | null
     guestPhone?: NullableStringFieldUpdateOperationsInput | string | null
@@ -15270,6 +15472,8 @@ export namespace Prisma {
     partySize?: IntFieldUpdateOperationsInput | number
     status?: EnumReservationStatusFieldUpdateOperationsInput | $Enums.ReservationStatus
     notes?: NullableStringFieldUpdateOperationsInput | string | null
+    cancellationReason?: NullableStringFieldUpdateOperationsInput | string | null
+    cancellationNote?: NullableStringFieldUpdateOperationsInput | string | null
     guestName?: NullableStringFieldUpdateOperationsInput | string | null
     guestEmail?: NullableStringFieldUpdateOperationsInput | string | null
     guestPhone?: NullableStringFieldUpdateOperationsInput | string | null
@@ -15324,6 +15528,8 @@ export namespace Prisma {
     partySize: number
     status?: $Enums.ReservationStatus
     notes?: string | null
+    cancellationReason?: string | null
+    cancellationNote?: string | null
     guestName?: string | null
     guestEmail?: string | null
     guestPhone?: string | null
@@ -15342,6 +15548,8 @@ export namespace Prisma {
     partySize?: IntFieldUpdateOperationsInput | number
     status?: EnumReservationStatusFieldUpdateOperationsInput | $Enums.ReservationStatus
     notes?: NullableStringFieldUpdateOperationsInput | string | null
+    cancellationReason?: NullableStringFieldUpdateOperationsInput | string | null
+    cancellationNote?: NullableStringFieldUpdateOperationsInput | string | null
     guestName?: NullableStringFieldUpdateOperationsInput | string | null
     guestEmail?: NullableStringFieldUpdateOperationsInput | string | null
     guestPhone?: NullableStringFieldUpdateOperationsInput | string | null
@@ -15360,6 +15568,8 @@ export namespace Prisma {
     partySize?: IntFieldUpdateOperationsInput | number
     status?: EnumReservationStatusFieldUpdateOperationsInput | $Enums.ReservationStatus
     notes?: NullableStringFieldUpdateOperationsInput | string | null
+    cancellationReason?: NullableStringFieldUpdateOperationsInput | string | null
+    cancellationNote?: NullableStringFieldUpdateOperationsInput | string | null
     guestName?: NullableStringFieldUpdateOperationsInput | string | null
     guestEmail?: NullableStringFieldUpdateOperationsInput | string | null
     guestPhone?: NullableStringFieldUpdateOperationsInput | string | null
@@ -15378,6 +15588,8 @@ export namespace Prisma {
     partySize?: IntFieldUpdateOperationsInput | number
     status?: EnumReservationStatusFieldUpdateOperationsInput | $Enums.ReservationStatus
     notes?: NullableStringFieldUpdateOperationsInput | string | null
+    cancellationReason?: NullableStringFieldUpdateOperationsInput | string | null
+    cancellationNote?: NullableStringFieldUpdateOperationsInput | string | null
     guestName?: NullableStringFieldUpdateOperationsInput | string | null
     guestEmail?: NullableStringFieldUpdateOperationsInput | string | null
     guestPhone?: NullableStringFieldUpdateOperationsInput | string | null

@@ -103,6 +103,7 @@ const mockTable = {
   location: "Main Floor",
   isActive: true,
   priority: 0,
+  status: "AVAILABLE" as const,
   venueId: "venue-123",
   floorPlanId: "floor-plan-123",
   shapeMetadata: {

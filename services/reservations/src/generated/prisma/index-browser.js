@@ -161,6 +161,7 @@ exports.Prisma.TableScalarFieldEnum = {
   maxCovers: 'maxCovers',
   location: 'location',
   isActive: 'isActive',
+  status: 'status',
   priority: 'priority',
   venueId: 'venueId',
   floorPlanId: 'floorPlanId',
@@ -192,6 +193,8 @@ exports.Prisma.ReservationScalarFieldEnum = {
   partySize: 'partySize',
   status: 'status',
   notes: 'notes',
+  cancellationReason: 'cancellationReason',
+  cancellationNote: 'cancellationNote',
   guestName: 'guestName',
   guestEmail: 'guestEmail',
   guestPhone: 'guestPhone',
@@ -245,6 +248,13 @@ exports.Prisma.NullsOrder = {
   first: 'first',
   last: 'last'
 };
+exports.TableStatus = exports.$Enums.TableStatus = {
+  AVAILABLE: 'AVAILABLE',
+  OCCUPIED: 'OCCUPIED',
+  DIRTY: 'DIRTY',
+  READY: 'READY'
+};
+
 exports.ReservationStatus = exports.$Enums.ReservationStatus = {
   PENDING: 'PENDING',
   CONFIRMED: 'CONFIRMED',
