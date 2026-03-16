@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
-import type { FloorPlan, Table } from "@mbe/types";
-import { FloorPlanCanvas } from "../components/floor-plan";
+import type { CreateTableRequest, FloorPlan, Table } from "@mbe/types";
+import { AddTableDialog, FloorPlanCanvas } from "../components/floor-plan";
 import styles from "./FloorPlanEditorPage.module.css";
 
 export function FloorPlanEditorPage() {
@@ -18,6 +18,7 @@ export function FloorPlanEditorPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
+  const [showAddDialog, setShowAddDialog] = useState(false);
 
   // Track pending position updates for batch save
   const [pendingUpdates, setPendingUpdates] = useState<Map<string, { x: number; y: number }>>(
@@ -121,6 +122,27 @@ export function FloorPlanEditorPage() {
     }
   };
 
+  const handleAddTable = async (data: CreateTableRequest) => {
+    const newTable = await api.tables.create(data);
+    setTables((prev) => [...prev, newTable]);
+    setShowAddDialog(false);
+  };
+
+  const handleDeleteTable = async (tableId: string) => {
+    const confirmed = window.confirm("Delete this table? This action cannot be undone.");
+    if (!confirmed) return;
+
+    try {
+      await api.tables.delete(tableId);
+      setTables((prev) => prev.filter((t) => t.id !== tableId));
+      if (selectedTableId === tableId) {
+        setSelectedTableId(null);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete table");
+    }
+  };
+
   const selectedTable = tables.find((t) => t.id === selectedTableId);
 
   if (isLoading) {
@@ -166,6 +188,9 @@ export function FloorPlanEditorPage() {
               Set as Active
             </button>
           )}
+          <button onClick={() => setShowAddDialog(true)} className={styles.addTableButton}>
+            + Add Table
+          </button>
           <button
             onClick={handleSave}
             disabled={!hasChanges || isSaving}
@@ -175,6 +200,16 @@ export function FloorPlanEditorPage() {
           </button>
         </div>
       </div>
+
+      {/* Add Table dialog */}
+      {showAddDialog && (
+        <AddTableDialog
+          venueId={floorPlan.venueId}
+          floorPlanId={floorPlan.id}
+          onSubmit={handleAddTable}
+          onClose={() => setShowAddDialog(false)}
+        />
+      )}
 
       {/* Main content */}
       <div className={styles.content}>
@@ -231,6 +266,12 @@ export function FloorPlanEditorPage() {
                   {selectedTable.shapeMetadata?.y ?? 0}
                 </div>
               </div>
+              <button
+                className={styles.deleteTableButton}
+                onClick={() => handleDeleteTable(selectedTable.id)}
+              >
+                Delete Table
+              </button>
             </div>
           ) : (
             <div className={styles.noSelection}>Select a table to view details</div>
