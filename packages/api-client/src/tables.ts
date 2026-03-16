@@ -63,4 +63,15 @@ export class TablesClient {
   async delete(id: string): Promise<void> {
     await this.client.delete(`/api/v1/tables/${id}`);
   }
+
+  /**
+   * Update the status of a table
+   */
+  async updateStatus(id: string, status: string): Promise<Table> {
+    const response = await this.client.patch<ApiResponse<Table>>(
+      `/api/v1/tables/${id}/status`,
+      { status }
+    );
+    return response.data;
+  }
 }

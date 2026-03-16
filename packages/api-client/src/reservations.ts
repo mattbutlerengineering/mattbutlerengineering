@@ -86,4 +86,34 @@ export class ReservationsClient {
     const response = await this.client.delete(`/api/v1/reservations/${id}`) as unknown as ApiResponse<Reservation>;
     return response.data;
   }
+
+  /**
+   * Cancel a reservation with an optional reason and note
+   */
+  async cancelWithReason(
+    id: string,
+    reason?: { cancellationReason?: string; cancellationNote?: string }
+  ): Promise<Reservation> {
+    return this.update(id, {
+      status: "CANCELLED",
+      ...reason,
+    });
+  }
+
+  /**
+   * Create a walk-in reservation
+   */
+  async walkIn(data: {
+    partySize: number;
+    tableId: string;
+    venueId: string;
+    guestName?: string;
+    durationMinutes?: number;
+  }): Promise<Reservation> {
+    const response = await this.client.post<ApiResponse<Reservation>>(
+      "/api/v1/reservations/walk-in",
+      data
+    );
+    return response.data;
+  }
 }
