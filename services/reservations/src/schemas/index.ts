@@ -92,6 +92,12 @@ export const TableSchema = {
       description: "Priority for auto-assignment (higher = preferred)",
       example: 0,
     },
+    status: {
+      type: "string",
+      enum: ["AVAILABLE", "OCCUPIED", "DIRTY", "READY"],
+      description: "Current operational status of the table",
+      example: "AVAILABLE",
+    },
     venueId: {
       type: "string",
       nullable: true,
@@ -178,6 +184,18 @@ export const ReservationSchema = {
       nullable: true,
       description: "Special requests or notes",
       example: "Birthday celebration, need high chair",
+    },
+    cancellationReason: {
+      type: "string",
+      nullable: true,
+      description: "Reason for cancellation",
+      example: "no_show",
+    },
+    cancellationNote: {
+      type: "string",
+      nullable: true,
+      description: "Additional cancellation notes",
+      example: "Guest did not arrive",
     },
     guestName: {
       type: "string",

@@ -32,6 +32,7 @@ type PrismaTable = {
   location: string | null;
   isActive: boolean;
   priority: number;
+  status: string;
   venueId: string | null;
   floorPlanId: string | null;
   shapeMetadata: unknown;
@@ -50,6 +51,7 @@ function mapPrismaTable(table: PrismaTable): Table {
     location: table.location,
     isActive: table.isActive,
     priority: table.priority,
+    status: table.status as Table["status"],
     venueId: table.venueId,
     floorPlanId: table.floorPlanId,
     shapeMetadata: table.shapeMetadata as TableShapeMetadata | null,

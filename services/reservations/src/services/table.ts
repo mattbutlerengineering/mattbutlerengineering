@@ -1,5 +1,6 @@
 import type {
   Table,
+  TableStatus,
   TableShapeMetadata,
   CreateTableRequest,
   UpdateTableRequest,
@@ -7,6 +8,8 @@ import type {
 } from "@mbe/types";
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
+
+const VALID_TABLE_STATUSES: TableStatus[] = ["AVAILABLE", "OCCUPIED", "DIRTY", "READY"];
 
 function mapPrismaTable(table: {
   id: string;
@@ -18,6 +21,7 @@ function mapPrismaTable(table: {
   location: string | null;
   isActive: boolean;
   priority: number;
+  status: string;
   venueId: string | null;
   floorPlanId: string | null;
   shapeMetadata: unknown;
@@ -34,6 +38,7 @@ function mapPrismaTable(table: {
     location: table.location,
     isActive: table.isActive,
     priority: table.priority,
+    status: table.status as TableStatus,
     venueId: table.venueId,
     floorPlanId: table.floorPlanId,
     shapeMetadata: table.shapeMetadata as TableShapeMetadata | null,
@@ -126,6 +131,21 @@ export const tableService = {
       const table = await prisma.table.update({
         where: { id },
         data: updateData,
+      });
+      return mapPrismaTable(table);
+    } catch {
+      return null;
+    }
+  },
+
+  async updateStatus(id: string, status: string): Promise<Table | null> {
+    if (!VALID_TABLE_STATUSES.includes(status as TableStatus)) {
+      return null;
+    }
+    try {
+      const table = await prisma.table.update({
+        where: { id },
+        data: { status: status as TableStatus },
       });
       return mapPrismaTable(table);
     } catch {

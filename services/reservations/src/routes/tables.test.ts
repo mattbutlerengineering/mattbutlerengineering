@@ -9,8 +9,20 @@ vi.mock("../services/table.js", () => ({
     getById: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
+    updateStatus: vi.fn(),
     delete: vi.fn(),
   },
+}));
+
+// Mock the events service
+vi.mock("../services/events.js", () => ({
+  emitTableUpdated: vi.fn(),
+  emitReservationCreated: vi.fn(),
+  emitReservationUpdated: vi.fn(),
+  emitReservationCancelled: vi.fn(),
+  emitHoldCreated: vi.fn(),
+  emitHoldReleased: vi.fn(),
+  emitHoldConfirmed: vi.fn(),
 }));
 
 // Mock the reservation service (needed for app registration)
@@ -91,6 +103,7 @@ vi.mock("jose", () => ({
 }));
 
 import { tableService } from "../services/table.js";
+import { emitTableUpdated } from "../services/events.js";
 import { jwtVerify } from "jose";
 
 const mockTable = {
@@ -103,6 +116,7 @@ const mockTable = {
   location: "Main Floor",
   isActive: true,
   priority: 0,
+  status: "AVAILABLE" as const,
   venueId: null,
   floorPlanId: null,
   shapeMetadata: null,
@@ -303,6 +317,89 @@ describe("Table Routes", () => {
       });
 
       expect(response.statusCode).toBe(404);
+    });
+  });
+
+  describe("PATCH /v1/tables/:id/status", () => {
+    it("updates table status with valid auth", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: mockJWTPayload,
+        protectedHeader: { alg: "RS256" },
+      } as never);
+      const occupiedTable = { ...mockTable, status: "OCCUPIED" as const };
+      vi.mocked(tableService.updateStatus).mockResolvedValueOnce(occupiedTable);
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/tables/table-123/status",
+        headers: {
+          authorization: "Bearer valid-token",
+        },
+        payload: {
+          status: "OCCUPIED",
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.data.status).toBe("OCCUPIED");
+      expect(tableService.updateStatus).toHaveBeenCalledWith("table-123", "OCCUPIED");
+      expect(emitTableUpdated).toHaveBeenCalledWith(occupiedTable);
+    });
+
+    it("returns 404 when table not found", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: mockJWTPayload,
+        protectedHeader: { alg: "RS256" },
+      } as never);
+      vi.mocked(tableService.updateStatus).mockResolvedValueOnce(null);
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/tables/nonexistent/status",
+        headers: {
+          authorization: "Bearer valid-token",
+        },
+        payload: {
+          status: "DIRTY",
+        },
+      });
+
+      expect(response.statusCode).toBe(404);
+      const body = JSON.parse(response.body);
+      expect(body.error).toBe("Not Found");
+    });
+
+    it("returns 401 without auth", async () => {
+      const response = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/tables/table-123/status",
+        payload: {
+          status: "AVAILABLE",
+        },
+      });
+
+      expect(response.statusCode).toBe(401);
+    });
+
+    it("returns 400 with invalid status", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: mockJWTPayload,
+        protectedHeader: { alg: "RS256" },
+      } as never);
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/tables/table-123/status",
+        headers: {
+          authorization: "Bearer valid-token",
+        },
+        payload: {
+          status: "INVALID_STATUS",
+        },
+      });
+
+      expect(response.statusCode).toBe(400);
     });
   });
 

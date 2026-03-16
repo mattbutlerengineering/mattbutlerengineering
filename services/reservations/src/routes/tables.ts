@@ -3,6 +3,7 @@ import type {
   Table,
   CreateTableRequest,
   UpdateTableRequest,
+  UpdateTableStatusRequest,
   ApiResponse,
   ApiError,
   PaginatedResponse,
@@ -10,6 +11,7 @@ import type {
 import type { AuthUser, JWTPayload } from "@mbe/auth/types";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { tableService } from "../services/table.js";
+import { emitTableUpdated } from "../services/events.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -344,6 +346,85 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
           statusCode: 404,
         });
       }
+      return { data: table };
+    }
+  );
+
+  // Update table status (requires auth)
+  fastify.patch<{
+    Params: { id: string };
+    Body: UpdateTableStatusRequest;
+    Reply: ApiResponse<Table> | ApiError;
+  }>(
+    "/:id/status",
+    {
+      preHandler: verifyAuth,
+      schema: {
+        summary: "Update table status",
+        operationId: "updateTableStatus",
+        description:
+          "Update the operational status of a table (AVAILABLE, OCCUPIED, DIRTY, READY). Requires authentication.",
+        tags: ["Tables"],
+        security: [{ bearerAuth: [] }],
+        params: {
+          type: "object",
+          properties: {
+            id: {
+              type: "string",
+              description: "Unique table identifier",
+            },
+          },
+          required: ["id"],
+        },
+        body: {
+          type: "object",
+          description: "Table status update payload",
+          properties: {
+            status: {
+              type: "string",
+              enum: ["AVAILABLE", "OCCUPIED", "DIRTY", "READY"],
+              description: "New table status",
+            },
+          },
+          required: ["status"],
+        },
+        response: {
+          200: {
+            description: "Table status updated successfully",
+            type: "object",
+            properties: {
+              data: { $ref: "Table#" },
+            },
+          },
+          400: {
+            description: "Invalid status value",
+            $ref: "Error#",
+          },
+          401: {
+            description: "Authentication required",
+            $ref: "Error#",
+          },
+          404: {
+            description: "Table not found",
+            $ref: "Error#",
+          },
+          500: {
+            description: "Internal server error",
+            $ref: "Error#",
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const table = await tableService.updateStatus(request.params.id, request.body.status);
+      if (!table) {
+        return reply.code(404).send({
+          error: "Not Found",
+          message: "Table not found",
+          statusCode: 404,
+        });
+      }
+      emitTableUpdated(table);
       return { data: table };
     }
   );
