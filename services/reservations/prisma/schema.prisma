@@ -16,6 +16,13 @@ enum ReservationStatus {
   NO_SHOW
 }
 
+enum TableStatus {
+  AVAILABLE
+  OCCUPIED
+  DIRTY
+  READY
+}
+
 model VenueGroup {
   id        String   @id @default(cuid())
   name      String
@@ -73,6 +80,7 @@ model Table {
   maxCovers     Int?              @map("max_covers")
   location      String?
   isActive      Boolean           @default(true) @map("is_active")
+  status        TableStatus       @default(AVAILABLE)
   priority      Int               @default(0)
   venueId       String?           @map("venue_id")
   venue         Venue?            @relation(fields: [venueId], references: [id])
@@ -118,9 +126,11 @@ model Reservation {
   startTime  DateTime          @map("start_time")
   endTime    DateTime          @map("end_time")
   partySize  Int               @map("party_size")
-  status     ReservationStatus @default(PENDING)
-  notes      String?
-  guestName  String?           @map("guest_name")
+  status             ReservationStatus @default(PENDING)
+  notes              String?
+  cancellationReason String?           @map("cancellation_reason")
+  cancellationNote   String?           @map("cancellation_note")
+  guestName          String?           @map("guest_name")
   guestEmail String?           @map("guest_email")
   guestPhone String?           @map("guest_phone")
   guestId    String?           @map("guest_id")
