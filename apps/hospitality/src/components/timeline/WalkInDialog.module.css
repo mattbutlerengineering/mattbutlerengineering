@@ -1,0 +1,191 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: var(--rialto-space-md);
+}
+
+.dialog {
+  background: var(--rialto-surface);
+  border-radius: var(--rialto-radius-default);
+  box-shadow: var(--rialto-shadow-lg);
+  padding: var(--rialto-space-lg);
+  inline-size: 100%;
+  max-inline-size: 28rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-lg);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.title {
+  font-size: var(--rialto-text-lg);
+  font-weight: var(--rialto-weight-bold);
+  color: var(--rialto-text-primary);
+  margin: 0;
+}
+
+.errorBanner {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  border-radius: var(--rialto-radius-default);
+  font-size: var(--rialto-text-sm);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-2xs);
+}
+
+.label {
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-primary);
+}
+
+.optional {
+  font-weight: normal;
+  color: var(--rialto-text-tertiary);
+}
+
+.partySizeRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-xs);
+}
+
+.partySizeButton {
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--rialto-radius-default);
+  border: 1px solid var(--rialto-border);
+  background: var(--rialto-surface);
+  color: var(--rialto-text-primary);
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.partySizeButton:hover:not(:disabled) {
+  background: var(--rialto-surface-recessed);
+}
+
+.partySizeButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.partySizeButtonActive {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  color: #ffffff;
+}
+
+.partySizeButtonActive:hover:not(:disabled) {
+  background: #1e40af;
+  border-color: #1e40af;
+}
+
+.select,
+.input {
+  inline-size: 100%;
+  padding-inline: var(--rialto-space-sm);
+  padding-block: var(--rialto-space-xs);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  font-size: var(--rialto-text-base);
+  color: var(--rialto-text-primary);
+  background: var(--rialto-surface);
+  box-sizing: border-box;
+}
+
+.select:focus,
+.input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+}
+
+.select:disabled,
+.input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.noTablesMessage {
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+  padding-block: var(--rialto-space-xs);
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  gap: var(--rialto-space-sm);
+  justify-content: flex-end;
+}
+
+.cancelButton {
+  padding-block: var(--rialto-space-xs);
+  padding-inline: var(--rialto-space-md);
+  border-radius: var(--rialto-radius-default);
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  border: 1px solid var(--rialto-border);
+  background: var(--rialto-surface);
+  color: var(--rialto-text-primary);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.cancelButton:hover:not(:disabled) {
+  background: var(--rialto-surface-recessed);
+}
+
+.cancelButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.confirmButton {
+  padding-block: var(--rialto-space-xs);
+  padding-inline: var(--rialto-space-md);
+  border-radius: var(--rialto-radius-default);
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  border: none;
+  background: #16a34a;
+  color: #ffffff;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.confirmButton:hover:not(:disabled) {
+  background: #15803d;
+}
+
+.confirmButton:disabled {
+  background: #86efac;
+  cursor: not-allowed;
+}

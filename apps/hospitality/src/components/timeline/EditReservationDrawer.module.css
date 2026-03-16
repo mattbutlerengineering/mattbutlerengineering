@@ -1,0 +1,180 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 50;
+}
+
+.drawer {
+  position: fixed;
+  inset-block: 0;
+  inset-inline-end: 0;
+  inline-size: 400px;
+  background: var(--rialto-surface);
+  box-shadow: var(--rialto-shadow-lg);
+  z-index: 51;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--rialto-space-lg);
+  border-block-end: 1px solid var(--rialto-border);
+  flex-shrink: 0;
+}
+
+.title {
+  font-size: var(--rialto-text-lg);
+  font-weight: var(--rialto-weight-bold);
+  color: var(--rialto-text-primary);
+  margin: 0;
+}
+
+.closeButton {
+  inline-size: 2rem;
+  block-size: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: var(--rialto-text-secondary);
+  font-size: var(--rialto-text-xl);
+  cursor: pointer;
+  border-radius: var(--rialto-radius-default);
+  line-height: 1;
+  transition: background-color 0.15s ease;
+}
+
+.closeButton:hover {
+  background: var(--rialto-surface-recessed);
+  color: var(--rialto-text-primary);
+}
+
+.errorBanner {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: var(--rialto-space-sm) var(--rialto-space-lg);
+  font-size: var(--rialto-text-sm);
+  flex-shrink: 0;
+}
+
+.body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--rialto-space-lg);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+}
+
+.fieldRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--rialto-space-sm);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-2xs);
+}
+
+.label {
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-primary);
+}
+
+.input,
+.select,
+.textarea {
+  inline-size: 100%;
+  padding-inline: var(--rialto-space-sm);
+  padding-block: var(--rialto-space-xs);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  font-size: var(--rialto-text-base);
+  color: var(--rialto-text-primary);
+  background: var(--rialto-surface);
+  box-sizing: border-box;
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+}
+
+.input:disabled,
+.select:disabled,
+.textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.textarea {
+  resize: vertical;
+}
+
+.footer {
+  display: flex;
+  gap: var(--rialto-space-sm);
+  justify-content: flex-end;
+  padding: var(--rialto-space-lg);
+  border-block-start: 1px solid var(--rialto-border);
+  flex-shrink: 0;
+}
+
+.cancelButton {
+  padding-block: var(--rialto-space-xs);
+  padding-inline: var(--rialto-space-md);
+  border-radius: var(--rialto-radius-default);
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  border: 1px solid var(--rialto-border);
+  background: var(--rialto-surface);
+  color: var(--rialto-text-primary);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.cancelButton:hover:not(:disabled) {
+  background: var(--rialto-surface-recessed);
+}
+
+.cancelButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.saveButton {
+  padding-block: var(--rialto-space-xs);
+  padding-inline: var(--rialto-space-md);
+  border-radius: var(--rialto-radius-default);
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  border: none;
+  background: #1d4ed8;
+  color: #ffffff;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.saveButton:hover:not(:disabled) {
+  background: #1e40af;
+}
+
+.saveButton:disabled {
+  background: #93c5fd;
+  cursor: not-allowed;
+}
