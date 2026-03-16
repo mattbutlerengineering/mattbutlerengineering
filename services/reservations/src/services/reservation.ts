@@ -1,8 +1,10 @@
 import type {
   Reservation,
   ReservationStatus,
+  Table,
   CreateReservationRequest,
   UpdateReservationRequest,
+  WalkInRequest,
   PaginatedResponse,
   ConflictCheckResult,
   PacingCheckResult,
@@ -26,6 +28,8 @@ function mapPrismaReservation(reservation: PrismaReservationWithTable): Reservat
     partySize: reservation.partySize,
     status: reservation.status as ReservationStatus,
     notes: reservation.notes,
+    cancellationReason: reservation.cancellationReason,
+    cancellationNote: reservation.cancellationNote,
     guestName: reservation.guestName,
     guestEmail: reservation.guestEmail,
     guestPhone: reservation.guestPhone,
@@ -43,6 +47,7 @@ function mapPrismaReservation(reservation: PrismaReservationWithTable): Reservat
           location: reservation.table.location,
           isActive: reservation.table.isActive,
           priority: reservation.table.priority,
+          status: reservation.table.status as Table["status"],
           venueId: reservation.table.venueId,
           floorPlanId: reservation.table.floorPlanId,
           shapeMetadata: reservation.table.shapeMetadata as TableShapeMetadata | null,
@@ -333,11 +338,50 @@ export const reservationService = {
     return { success: true, reservation };
   },
 
-  async cancel(id: string): Promise<Reservation | null> {
+  async createWalkIn(data: WalkInRequest, userId?: string): Promise<Reservation> {
+    const now = new Date();
+    const durationMinutes = data.durationMinutes ?? 90;
+    const endTime = new Date(now.getTime() + durationMinutes * 60 * 1000);
+
+    // Date only (no time component), normalized to midnight UTC
+    const dateOnly = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+    );
+
+    const reservation = await prisma.reservation.create({
+      data: {
+        date: dateOnly,
+        startTime: now,
+        endTime,
+        partySize: data.partySize,
+        tableId: data.tableId,
+        status: "CONFIRMED",
+        guestName: data.guestName ?? "Walk-in",
+        guestEmail: null,
+        guestPhone: null,
+        guestId: null,
+        userId: userId ?? null,
+        venueId: data.venueId ?? null,
+        notes: null,
+      },
+      include: { table: true },
+    });
+    return mapPrismaReservation(reservation);
+  },
+
+  async cancel(
+    id: string,
+    reason?: string,
+    note?: string
+  ): Promise<Reservation | null> {
     try {
       const reservation = await prisma.reservation.update({
         where: { id },
-        data: { status: "CANCELLED" },
+        data: {
+          status: "CANCELLED",
+          ...(reason !== undefined && { cancellationReason: reason }),
+          ...(note !== undefined && { cancellationNote: note }),
+        },
         include: { table: true },
       });
       return mapPrismaReservation(reservation);

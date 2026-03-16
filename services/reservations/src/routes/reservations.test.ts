@@ -10,6 +10,7 @@ vi.mock("../services/reservation.js", () => ({
     getById: vi.fn(),
     create: vi.fn(),
     createWithConflictCheck: vi.fn(),
+    createWalkIn: vi.fn(),
     update: vi.fn(),
     updateWithConflictCheck: vi.fn(),
     cancel: vi.fn(),
@@ -23,8 +24,20 @@ vi.mock("../services/table.js", () => ({
     getById: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
+    updateStatus: vi.fn(),
     delete: vi.fn(),
   },
+}));
+
+// Mock the events service
+vi.mock("../services/events.js", () => ({
+  emitTableUpdated: vi.fn(),
+  emitReservationCreated: vi.fn(),
+  emitReservationUpdated: vi.fn(),
+  emitReservationCancelled: vi.fn(),
+  emitHoldCreated: vi.fn(),
+  emitHoldReleased: vi.fn(),
+  emitHoldConfirmed: vi.fn(),
 }));
 
 // Mock the venue service (needed for app registration)
@@ -92,6 +105,8 @@ vi.mock("jose", () => ({
 }));
 
 import { reservationService } from "../services/reservation.js";
+import { tableService } from "../services/table.js";
+import { emitReservationCancelled, emitReservationCreated } from "../services/events.js";
 import { jwtVerify } from "jose";
 
 const mockTable = {
@@ -104,6 +119,7 @@ const mockTable = {
   location: "Main Floor",
   isActive: true,
   priority: 0,
+  status: "AVAILABLE" as const,
   venueId: null,
   floorPlanId: null,
   shapeMetadata: null,
@@ -119,6 +135,8 @@ const mockReservation = {
   partySize: 4,
   status: "PENDING" as const,
   notes: null,
+  cancellationReason: null,
+  cancellationNote: null,
   guestName: "John Doe",
   guestEmail: "john@example.com",
   guestPhone: null,
@@ -443,6 +461,179 @@ describe("Reservation Routes", () => {
       expect(response.statusCode).toBe(409);
       const body = JSON.parse(response.body);
       expect(body.error).toBe("Conflict");
+    });
+  });
+
+  describe("PATCH /v1/reservations/:id — cancellation", () => {
+    it("cancels reservation with reason via PATCH status=CANCELLED", async () => {
+      const cancelledReservation = {
+        ...mockReservation,
+        status: "CANCELLED" as const,
+        cancellationReason: "no_show",
+        cancellationNote: "Guest did not arrive",
+      };
+      vi.mocked(reservationService.cancel).mockResolvedValueOnce(cancelledReservation);
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/reservations/res-123",
+        payload: {
+          status: "CANCELLED",
+          cancellationReason: "no_show",
+          cancellationNote: "Guest did not arrive",
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.data.status).toBe("CANCELLED");
+      expect(body.data.cancellationReason).toBe("no_show");
+      expect(body.data.cancellationNote).toBe("Guest did not arrive");
+      expect(reservationService.cancel).toHaveBeenCalledWith(
+        "res-123",
+        "no_show",
+        "Guest did not arrive"
+      );
+      expect(emitReservationCancelled).toHaveBeenCalledWith(cancelledReservation);
+    });
+
+    it("cancels reservation without reason", async () => {
+      const cancelledReservation = {
+        ...mockReservation,
+        status: "CANCELLED" as const,
+        cancellationReason: null,
+        cancellationNote: null,
+      };
+      vi.mocked(reservationService.cancel).mockResolvedValueOnce(cancelledReservation);
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/reservations/res-123",
+        payload: {
+          status: "CANCELLED",
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(reservationService.cancel).toHaveBeenCalledWith(
+        "res-123",
+        undefined,
+        undefined
+      );
+    });
+
+    it("returns 404 when cancelling nonexistent reservation via PATCH", async () => {
+      vi.mocked(reservationService.cancel).mockResolvedValueOnce(null);
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/reservations/nonexistent",
+        payload: {
+          status: "CANCELLED",
+        },
+      });
+
+      expect(response.statusCode).toBe(404);
+    });
+  });
+
+  describe("POST /v1/reservations/walk-in", () => {
+    it("creates walk-in reservation with valid auth", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: mockJWTPayload,
+        protectedHeader: { alg: "RS256" },
+      } as never);
+
+      const walkInReservation = {
+        ...mockReservation,
+        status: "CONFIRMED" as const,
+        guestName: "Walk-in",
+      };
+      vi.mocked(reservationService.createWalkIn).mockResolvedValueOnce(walkInReservation);
+      vi.mocked(tableService.updateStatus).mockResolvedValueOnce({
+        ...mockTable,
+        status: "OCCUPIED" as const,
+      });
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/reservations/walk-in",
+        headers: {
+          authorization: "Bearer valid-token",
+        },
+        payload: {
+          partySize: 4,
+          tableId: "table-123",
+          venueId: "venue-123",
+        },
+      });
+
+      expect(response.statusCode).toBe(201);
+      const body = JSON.parse(response.body);
+      expect(body.data.status).toBe("CONFIRMED");
+      expect(body.data.guestName).toBe("Walk-in");
+      expect(reservationService.createWalkIn).toHaveBeenCalledWith(
+        expect.objectContaining({ partySize: 4, tableId: "table-123" }),
+        "auth0|user-123"
+      );
+      expect(tableService.updateStatus).toHaveBeenCalledWith("table-123", "OCCUPIED");
+      expect(emitReservationCreated).toHaveBeenCalledWith(walkInReservation);
+    });
+
+    it("creates walk-in with custom guest name and duration", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: mockJWTPayload,
+        protectedHeader: { alg: "RS256" },
+      } as never);
+
+      const walkInReservation = {
+        ...mockReservation,
+        status: "CONFIRMED" as const,
+        guestName: "Jane Smith",
+      };
+      vi.mocked(reservationService.createWalkIn).mockResolvedValueOnce(walkInReservation);
+      vi.mocked(tableService.updateStatus).mockResolvedValueOnce({
+        ...mockTable,
+        status: "OCCUPIED" as const,
+      });
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/reservations/walk-in",
+        headers: {
+          authorization: "Bearer valid-token",
+        },
+        payload: {
+          partySize: 2,
+          tableId: "table-123",
+          venueId: "venue-123",
+          guestName: "Jane Smith",
+          durationMinutes: 60,
+        },
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(reservationService.createWalkIn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          guestName: "Jane Smith",
+          durationMinutes: 60,
+        }),
+        "auth0|user-123"
+      );
+    });
+
+    it("returns 401 without auth", async () => {
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/reservations/walk-in",
+        payload: {
+          partySize: 4,
+          tableId: "table-123",
+          venueId: "venue-123",
+        },
+      });
+
+      expect(response.statusCode).toBe(401);
     });
   });
 

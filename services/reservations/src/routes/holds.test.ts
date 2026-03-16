@@ -138,6 +138,8 @@ const mockReservation = {
   partySize: 4,
   status: "CONFIRMED" as const,
   notes: null,
+  cancellationReason: null,
+  cancellationNote: null,
   guestName: "John Doe",
   guestEmail: "john@example.com",
   guestPhone: null,

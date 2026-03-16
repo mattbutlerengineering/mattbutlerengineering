@@ -4,6 +4,7 @@ import type {
   ReservationStatus,
   CreateReservationRequest,
   UpdateReservationRequest,
+  WalkInRequest,
   ApiResponse,
   ApiError,
   PaginatedResponse,
@@ -11,6 +12,8 @@ import type {
 import type { AuthUser, JWTPayload } from "@mbe/auth/types";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { reservationService } from "../services/reservation.js";
+import { emitReservationCancelled, emitReservationCreated, emitTableUpdated } from "../services/events.js";
+import { tableService } from "../services/table.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -254,6 +257,81 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
+  // Create walk-in reservation (must be before /:id)
+  fastify.post<{
+    Body: WalkInRequest;
+    Reply: ApiResponse<Reservation> | ApiError;
+  }>(
+    "/walk-in",
+    {
+      preHandler: verifyAuth,
+      schema: {
+        summary: "Create a walk-in reservation",
+        operationId: "createWalkIn",
+        description:
+          "Create an immediate walk-in reservation. Sets the reservation to CONFIRMED status and marks the table as OCCUPIED. Requires authentication.",
+        tags: ["Reservations"],
+        security: [{ bearerAuth: [] }],
+        body: {
+          type: "object",
+          description: "Walk-in reservation payload",
+          properties: {
+            partySize: {
+              type: "integer",
+              minimum: 1,
+              description: "Number of guests",
+            },
+            tableId: {
+              type: "string",
+              description: "ID of the table to seat guests at",
+            },
+            venueId: {
+              type: "string",
+              description: "ID of the venue",
+            },
+            guestName: {
+              type: "string",
+              description: "Guest name (defaults to 'Walk-in')",
+            },
+            durationMinutes: {
+              type: "integer",
+              minimum: 1,
+              description: "Expected duration in minutes (defaults to 90)",
+            },
+          },
+          required: ["partySize", "tableId", "venueId"],
+        },
+        response: {
+          201: {
+            description: "Walk-in reservation created successfully",
+            type: "object",
+            properties: {
+              data: { $ref: "Reservation#" },
+            },
+          },
+          401: {
+            description: "Authentication required",
+            $ref: "Error#",
+          },
+          500: {
+            description: "Internal server error",
+            $ref: "Error#",
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const userId = request.user?.id;
+      const reservation = await reservationService.createWalkIn(request.body, userId);
+      const updatedTable = await tableService.updateStatus(request.body.tableId, "OCCUPIED");
+      emitReservationCreated(reservation);
+      if (updatedTable) {
+        emitTableUpdated(updatedTable);
+      }
+      return reply.code(201).send({ data: reservation });
+    }
+  );
+
   // Get reservation by ID
   fastify.get<{
     Params: { id: string };
@@ -478,6 +556,14 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
               type: "string",
               description: "Updated notes",
             },
+            cancellationReason: {
+              type: "string",
+              description: "Reason for cancellation (used when status is CANCELLED)",
+            },
+            cancellationNote: {
+              type: "string",
+              description: "Additional cancellation notes (used when status is CANCELLED)",
+            },
           },
         },
         response: {
@@ -508,6 +594,25 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
+      if (request.body.status === "CANCELLED") {
+        const reservation = await reservationService.cancel(
+          request.params.id,
+          request.body.cancellationReason,
+          request.body.cancellationNote
+        );
+
+        if (!reservation) {
+          return reply.code(404).send({
+            error: "Not Found",
+            message: "Reservation not found",
+            statusCode: 404,
+          });
+        }
+
+        emitReservationCancelled(reservation);
+        return { data: reservation };
+      }
+
       const result = await reservationService.updateWithConflictCheck(
         request.params.id,
         request.body
