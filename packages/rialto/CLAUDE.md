@@ -31,7 +31,7 @@ This component library embodies a design language of material honesty, precision
 ### Typography
 
 - Body/UI text: `var(--rialto-font-sans)` — DM Sans (humanist sans-serif)
-- Display headings: `var(--rialto-font-display)` — Instrument Serif (sharp, editorial)
+- Display headings: `var(--rialto-font-display)` — Bricolage Grotesque (clean, warm grotesque with optical sizing)
 - Use display font for Hero titles, PageHeader titles, and `Text variant="display"`
 - Use sans font for body text, card titles, buttons, form labels, and all other UI
 - Use the type scale tokens: `--rialto-text-xs` through `--rialto-text-4xl`

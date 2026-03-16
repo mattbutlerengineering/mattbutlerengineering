@@ -37,6 +37,15 @@ describe("RialtoProvider", () => {
     expect(wrapper).toHaveAttribute("data-theme", "dark");
   });
 
+  it("syncs data-theme to document.documentElement", () => {
+    render(
+      <RialtoProvider theme="dark">
+        <span>Dark mode</span>
+      </RialtoProvider>
+    );
+    expect(document.documentElement).toHaveAttribute("data-theme", "dark");
+  });
+
   it("defaults to system theme (resolves from device context)", () => {
     const { container } = render(
       <RialtoProvider>

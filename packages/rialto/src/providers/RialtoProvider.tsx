@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import { useDeviceContext } from "./useDeviceContext";
 import { vibes, type VibeName, type VibeOverrides } from "./vibes";
 import { UIEnvironmentContext, type UIEnvironment } from "./useUIEnvironment";
@@ -43,6 +43,11 @@ export function RialtoProvider({
     if (!vibeOverrides && Object.keys(preset).length === 0) return undefined;
     return { ...preset, ...vibeOverrides } as React.CSSProperties;
   }, [vibe, vibeOverrides]);
+
+  // Sync theme to <html> so body-level styles (global.css) inherit dark tokens
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", resolvedTheme);
+  }, [resolvedTheme]);
 
   // Context value — memoized to prevent unnecessary re-renders
   const contextValue = useMemo<UIEnvironment>(

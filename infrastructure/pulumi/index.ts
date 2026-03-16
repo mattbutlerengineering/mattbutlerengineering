@@ -16,208 +16,6 @@ const databaseUrl = config.requireSecret("databaseUrl");
 export const auth0ApiIdentifier = auth0Outputs.apiIdentifier;
 export const auth0ClientId = auth0Outputs.hospitalityClientId;
 
-// ── Legacy DO App (REMOVE AFTER CUTOVER) ────────────────────────────
-// Keep the old app alive during transition. Once the Worker + CF Pages
-// are verified, delete this block and run `pulumi up` to remove it.
-const _legacyApp = new digitalocean.App("mattbutlerengineering-app", {
-  spec: {
-    name: "mattbutlerengineering",
-    region: "nyc",
-    domainNames: [
-      {
-        name: domain,
-        type: "PRIMARY",
-        zone: domain,
-      },
-    ],
-    ingress: {
-      rules: [
-        {
-          match: { path: { prefix: "/api/v1/users" } },
-          component: { name: "users-api", preservePathPrefix: true },
-        },
-        {
-          match: { path: { prefix: "/api" } },
-          component: { name: "reservations-api", preservePathPrefix: true },
-        },
-        {
-          match: { path: { prefix: "/dashboard" } },
-          redirect: { uri: "/hospitality", redirectCode: 301 },
-        },
-        {
-          match: { path: { prefix: "/hospitality" } },
-          component: { name: "hospitality", preservePathPrefix: false },
-        },
-        {
-          match: { path: { prefix: "/rialto" } },
-          component: { name: "rialto-web", preservePathPrefix: false },
-        },
-        {
-          match: { path: { prefix: "/" } },
-          component: { name: "marketing" },
-        },
-      ],
-    },
-    staticSites: [
-      {
-        name: "marketing",
-        github: {
-          repo: "mattbutlerengineering/mattbutlerengineering",
-          branch: "main",
-          deployOnPush: true,
-        },
-        sourceDir: "/",
-        buildCommand: "pnpm build --filter=@mbe/marketing",
-        outputDir: "apps/marketing/dist",
-        catchallDocument: "index.html",
-      },
-      {
-        name: "rialto-web",
-        github: {
-          repo: "mattbutlerengineering/mattbutlerengineering",
-          branch: "main",
-          deployOnPush: true,
-        },
-        sourceDir: "/",
-        buildCommand: "pnpm build --filter=@mbe/rialto-web",
-        outputDir: "apps/rialto-web/dist",
-        catchallDocument: "index.html",
-      },
-      {
-        name: "hospitality",
-        github: {
-          repo: "mattbutlerengineering/mattbutlerengineering",
-          branch: "main",
-          deployOnPush: true,
-        },
-        sourceDir: "/",
-        buildCommand: "pnpm build --filter=@mbe/hospitality",
-        outputDir: "apps/hospitality/dist",
-        catchallDocument: "index.html",
-        envs: [
-          {
-            key: "VITE_AUTH_AUTHORITY",
-            value: "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com",
-            scope: "BUILD_TIME",
-          },
-          {
-            key: "VITE_AUTH_CLIENT_ID",
-            value: auth0Outputs.hospitalityClientId,
-            scope: "BUILD_TIME",
-          },
-          {
-            key: "VITE_AUTH_AUDIENCE",
-            value: `https://api.${domain}`,
-            scope: "BUILD_TIME",
-          },
-          {
-            key: "VITE_AUTH_REDIRECT_URI",
-            value: `https://${domain}/hospitality/callback`,
-            scope: "BUILD_TIME",
-          },
-          {
-            key: "VITE_API_URL",
-            value: `https://${domain}`,
-            scope: "BUILD_TIME",
-          },
-        ],
-      },
-    ],
-    jobs: [
-      {
-        name: "db-migrate-users",
-        kind: "PRE_DEPLOY",
-        github: {
-          repo: "mattbutlerengineering/mattbutlerengineering",
-          branch: "main",
-          deployOnPush: true,
-        },
-        sourceDir: "/",
-        dockerfilePath: "services/users/Dockerfile",
-        envs: [
-          { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" },
-        ],
-        runCommand: "npx prisma migrate deploy",
-      },
-      {
-        name: "db-migrate-reservations",
-        kind: "PRE_DEPLOY",
-        github: {
-          repo: "mattbutlerengineering/mattbutlerengineering",
-          branch: "main",
-          deployOnPush: true,
-        },
-        sourceDir: "/",
-        dockerfilePath: "services/reservations/Dockerfile",
-        envs: [
-          { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" },
-        ],
-        runCommand: "npx prisma migrate deploy",
-      },
-    ],
-    services: [
-      {
-        name: "users-api",
-        github: {
-          repo: "mattbutlerengineering/mattbutlerengineering",
-          branch: "main",
-          deployOnPush: true,
-        },
-        sourceDir: "/",
-        dockerfilePath: "services/users/Dockerfile",
-        instanceCount: 1,
-        instanceSizeSlug: "apps-s-1vcpu-0.5gb",
-        httpPort: 3001,
-        envs: [
-          { key: "NODE_ENV", value: "production" },
-          { key: "PORT", value: "3001" },
-          { key: "API_BASE_URL", value: `https://${domain}/api` },
-          { key: "AUTH0_DOMAIN", value: "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com" },
-          { key: "AUTH0_AUDIENCE", value: `https://api.${domain}` },
-          { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" },
-        ],
-        healthCheck: {
-          httpPath: "/health",
-          initialDelaySeconds: 10,
-          periodSeconds: 10,
-          timeoutSeconds: 5,
-          successThreshold: 1,
-          failureThreshold: 3,
-        },
-      },
-      {
-        name: "reservations-api",
-        github: {
-          repo: "mattbutlerengineering/mattbutlerengineering",
-          branch: "main",
-          deployOnPush: true,
-        },
-        sourceDir: "/",
-        dockerfilePath: "services/reservations/Dockerfile",
-        instanceCount: 1,
-        instanceSizeSlug: "apps-s-1vcpu-0.5gb",
-        httpPort: 3004,
-        envs: [
-          { key: "NODE_ENV", value: "production" },
-          { key: "PORT", value: "3004" },
-          { key: "API_BASE_URL", value: `https://${domain}/api` },
-          { key: "AUTH_AUTHORITY", value: "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com" },
-          { key: "AUTH_AUDIENCE", value: `https://api.${domain}` },
-          { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" },
-        ],
-        healthCheck: {
-          httpPath: "/health",
-          initialDelaySeconds: 10,
-          periodSeconds: 10,
-          timeoutSeconds: 5,
-          successThreshold: 1,
-          failureThreshold: 3,
-        },
-      },
-    ],
-  },
-});
-
 // ── DO App Platform (API services only) ─────────────────────────────
 // Services + migration jobs. Static sites are on CF Pages.
 const apiApp = new digitalocean.App("mattbutlerengineering-api-app", {
@@ -458,16 +256,13 @@ const wwwWorkerRoute = new cloudflare.WorkersRoute("edge-router-www-route", {
 });
 
 // ── DNS Records ─────────────────────────────────────────────────────
-// Root domain still points to legacy DO App. Once confident in Worker,
-// change to AAAA 100:: and remove the legacy app block above.
-const legacyHostname = _legacyApp.defaultIngress.apply((url) =>
-  url.replace("https://", "")
-);
+// Root domain uses AAAA 100:: (Cloudflare proxy placeholder) so the
+// Worker edge-router handles all traffic.
 const dnsRecord = new cloudflare.Record("mattbutlerengineering-dns", {
   zoneId: cloudflareZoneId,
   name: "@",
-  type: "CNAME",
-  content: legacyHostname,
+  type: "AAAA",
+  content: "100::",
   proxied: true,
   ttl: 1,
 });
@@ -483,11 +278,6 @@ const wwwRecord = new cloudflare.Record("mattbutlerengineering-www-dns", {
 });
 
 // ── Exports ─────────────────────────────────────────────────────────
-// Legacy exports (REMOVE AFTER CUTOVER)
-export const appDefaultDomain = _legacyApp.defaultIngress;
-export const appLiveUrl = _legacyApp.liveUrl;
-
-// New architecture exports
 export const apiAppUrl = apiApp.liveUrl;
 export const apiAppDefaultDomain = apiApp.defaultIngress;
 export const appUrl = pulumi.interpolate`https://${domain}`;
