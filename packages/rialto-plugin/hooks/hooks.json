@@ -1,0 +1,14 @@
+{
+  "PostToolUse": [
+    {
+      "matcher": "Write|Edit",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "node $CLAUDE_PLUGIN_ROOT/hooks/validate-rialto.mjs $CLAUDE_TOOL_ARG_FILE_PATH",
+          "timeout": 10
+        }
+      ]
+    }
+  ]
+}

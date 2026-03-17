@@ -1,0 +1,8 @@
+{
+  "name": "rialto",
+  "version": "0.1.0",
+  "description": "Rialto design system knowledge, autonomous UI builder, and convention validation for Claude Code",
+  "author": {
+    "name": "Matt Butler"
+  }
+}
