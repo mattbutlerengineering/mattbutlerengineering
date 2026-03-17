@@ -1,8 +1,12 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
-import type { Reservation, Table, Venue } from "@mbe/types";
+import type { Reservation, Table, Venue, TableStatus, UpdateReservationRequest } from "@mbe/types";
 import { TimelineGrid } from "../components/timeline";
+import { CancelReservationDialog } from "../components/timeline/CancelReservationDialog";
+import { EditReservationDrawer } from "../components/timeline/EditReservationDrawer";
+import { WalkInDialog } from "../components/timeline/WalkInDialog";
+import { TableStatusBadge } from "../components/TableStatusBadge";
 import { useReservationEvents } from "../hooks/useReservationEvents";
 import styles from "./TimelinePage.module.css";
 
@@ -34,6 +38,10 @@ export function TimelinePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
+
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showEditDrawer, setShowEditDrawer] = useState(false);
+  const [showWalkInDialog, setShowWalkInDialog] = useState(false);
 
   const api = useMemo(
     () =>
@@ -75,6 +83,9 @@ export function TimelinePage() {
       },
       [selectedDate]
     ),
+    onTableUpdated: useCallback((table: Table) => {
+      setTables((prev) => prev.map((t) => (t.id === table.id ? table : t)));
+    }, []),
   });
 
   // Fetch venues on mount
@@ -148,6 +159,55 @@ export function TimelinePage() {
   const handleReservationClick = useCallback((reservation: Reservation) => {
     setSelectedReservation(reservation);
   }, []);
+
+  const handleSeat = async (reservation: Reservation) => {
+    const updated = await api.reservations.update(reservation.id, { status: "CONFIRMED" });
+    await api.tables.updateStatus(reservation.tableId, "OCCUPIED");
+    setReservations((prev) => prev.map((r) => (r.id === reservation.id ? updated : r)));
+    setTables((prev) =>
+      prev.map((t) => (t.id === reservation.tableId ? { ...t, status: "OCCUPIED" as const } : t))
+    );
+    setSelectedReservation(null);
+  };
+
+  const handleCancel = async (reason: string, note: string) => {
+    if (!selectedReservation) return;
+    await api.reservations.cancelWithReason(selectedReservation.id, {
+      cancellationReason: reason,
+      cancellationNote: note,
+    });
+    setReservations((prev) =>
+      prev.map((r) =>
+        r.id === selectedReservation.id ? { ...r, status: "CANCELLED" as const } : r
+      )
+    );
+    setShowCancelDialog(false);
+    setSelectedReservation(null);
+  };
+
+  const handleEdit = async (id: string, data: UpdateReservationRequest) => {
+    const updated = await api.reservations.update(id, data);
+    setReservations((prev) => prev.map((r) => (r.id === id ? updated : r)));
+    setSelectedReservation(updated);
+  };
+
+  const handleWalkIn = async (data: {
+    partySize: number;
+    tableId: string;
+    venueId: string;
+    guestName?: string;
+  }) => {
+    const reservation = await api.reservations.walkIn(data);
+    setReservations((prev) => [...prev, reservation]);
+    setTables((prev) =>
+      prev.map((t) => (t.id === data.tableId ? { ...t, status: "OCCUPIED" as const } : t))
+    );
+  };
+
+  const handleTableStatusChange = async (tableId: string, status: TableStatus) => {
+    await api.tables.updateStatus(tableId, status);
+    setTables((prev) => prev.map((t) => (t.id === tableId ? { ...t, status } : t)));
+  };
 
   // Format date for display
   const formattedDate = new Date(selectedDate + "T00:00:00").toLocaleDateString("en-US", {
@@ -239,6 +299,12 @@ export function TimelinePage() {
                 Today
               </button>
             )}
+            <button
+              onClick={() => setShowWalkInDialog(true)}
+              className={styles.walkInButton}
+            >
+              Walk-in
+            </button>
           </div>
 
           {/* Stats */}
@@ -296,6 +362,7 @@ export function TimelinePage() {
               date={selectedDate}
               onReservationClick={handleReservationClick}
               selectedReservationId={selectedReservation?.id}
+              onTableStatusChange={handleTableStatusChange}
             />
           )}
         </div>
@@ -403,18 +470,59 @@ export function TimelinePage() {
               )}
 
               <div className={styles.actionsDivider}>
-                <button className={styles.actionButtonPrimary}>Edit Reservation</button>
+                <button
+                  className={styles.actionButtonPrimary}
+                  onClick={() => setShowEditDrawer(true)}
+                >
+                  Edit Reservation
+                </button>
                 {selectedReservation.status === "CONFIRMED" && (
-                  <button className={styles.actionButtonSeat}>Seat Guest</button>
+                  <button
+                    className={styles.actionButtonSeat}
+                    onClick={() => handleSeat(selectedReservation)}
+                  >
+                    Seat Guest
+                  </button>
                 )}
                 {selectedReservation.status !== "CANCELLED" && (
-                  <button className={styles.actionButtonCancel}>Cancel Reservation</button>
+                  <button
+                    className={styles.actionButtonCancel}
+                    onClick={() => setShowCancelDialog(true)}
+                  >
+                    Cancel Reservation
+                  </button>
                 )}
               </div>
             </div>
           </div>
         )}
       </div>
+
+      {/* Dialogs */}
+      {showCancelDialog && selectedReservation && (
+        <CancelReservationDialog
+          reservationId={selectedReservation.id}
+          guestName={selectedReservation.guestName}
+          onConfirm={handleCancel}
+          onClose={() => setShowCancelDialog(false)}
+        />
+      )}
+      {showEditDrawer && selectedReservation && (
+        <EditReservationDrawer
+          reservation={selectedReservation}
+          tables={tables}
+          onSave={handleEdit}
+          onClose={() => setShowEditDrawer(false)}
+        />
+      )}
+      {showWalkInDialog && selectedVenueId && (
+        <WalkInDialog
+          tables={tables}
+          venueId={selectedVenueId}
+          onConfirm={handleWalkIn}
+          onClose={() => setShowWalkInDialog(false)}
+        />
+      )}
     </div>
   );
 }

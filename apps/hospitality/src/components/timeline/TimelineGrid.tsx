@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
-import type { Reservation, Table } from "@mbe/types";
+import type { Reservation, Table, TableStatus } from "@mbe/types";
 import { ReservationBlock } from "./ReservationBlock";
+import { TableStatusBadge } from "../TableStatusBadge.js";
 import styles from "./TimelineGrid.module.css";
 
 export interface TimelineGridProps {
@@ -11,6 +12,7 @@ export interface TimelineGridProps {
   endHour?: number;
   onReservationClick?: (reservation: Reservation) => void;
   selectedReservationId?: string | null;
+  onTableStatusChange?: (tableId: string, status: TableStatus) => void;
 }
 
 const HOUR_WIDTH = 120; // pixels per hour
@@ -26,6 +28,7 @@ export function TimelineGrid({
   endHour = 23,
   onReservationClick,
   selectedReservationId,
+  onTableStatusChange,
 }: TimelineGridProps) {
   // Generate hour labels
   const hours = useMemo(() => {
@@ -123,6 +126,23 @@ export function TimelineGrid({
                 <div className={styles.tableCapacity}>
                   {table.minCovers}-{table.maxCovers ?? table.capacity} guests
                 </div>
+                <TableStatusBadge
+                  status={table.status}
+                  size="sm"
+                  onClick={
+                    onTableStatusChange
+                      ? () => {
+                          const nextStatus: Record<TableStatus, TableStatus> = {
+                            AVAILABLE: "OCCUPIED",
+                            OCCUPIED: "DIRTY",
+                            DIRTY: "AVAILABLE",
+                            READY: "AVAILABLE",
+                          };
+                          onTableStatusChange(table.id, nextStatus[table.status]);
+                        }
+                      : undefined
+                  }
+                />
               </div>
             </div>
 
