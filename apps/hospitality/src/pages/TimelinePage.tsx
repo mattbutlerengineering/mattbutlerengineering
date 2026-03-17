@@ -6,7 +6,6 @@ import { TimelineGrid } from "../components/timeline";
 import { CancelReservationDialog } from "../components/timeline/CancelReservationDialog";
 import { EditReservationDrawer } from "../components/timeline/EditReservationDrawer";
 import { WalkInDialog } from "../components/timeline/WalkInDialog";
-import { TableStatusBadge } from "../components/TableStatusBadge";
 import { useReservationEvents } from "../hooks/useReservationEvents";
 import styles from "./TimelinePage.module.css";
 
