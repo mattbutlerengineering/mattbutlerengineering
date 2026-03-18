@@ -6,6 +6,7 @@ on:
     paths:
       - "infrastructure/pulumi/**"
       - "infrastructure/worker/**"
+  workflow_dispatch:
 
 concurrency:
   group: pulumi-deploy-${{ github.ref }}
@@ -31,7 +32,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-        working-directory: infrastructure/pulumi
 
       - name: Pulumi Up
         uses: pulumi/actions@v5

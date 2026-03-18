@@ -31,7 +31,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-        working-directory: infrastructure/pulumi
 
       - name: Pulumi Preview
         uses: pulumi/actions@v5

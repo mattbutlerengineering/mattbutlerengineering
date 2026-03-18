@@ -10,7 +10,6 @@ const localCallbacks = [
   "http://localhost:3002/hospitality/callback",
 ];
 const prodCallbacks = [
-  `https://${domain}/callback`,
   `https://${domain}/hospitality/callback`,
 ];
 const callbackUrls = [...localCallbacks, ...prodCallbacks];
