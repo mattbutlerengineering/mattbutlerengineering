@@ -38,6 +38,12 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
     }
   };
 
+  const handleOverlayKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Escape") {
+      onClose();
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -84,8 +90,9 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
   };
 
   return (
-    <div className={styles.overlay} onClick={handleOverlayClick} role="dialog" aria-modal="true">
-      <div className={styles.dialog}>
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
+    <div className={styles.overlay} onClick={handleOverlayClick} onKeyDown={handleOverlayKeyDown}>
+      <div className={styles.dialog} role="dialog" aria-modal="true">
         <div className={styles.dialogHeader}>
           <h2 className={styles.dialogTitle}>Add Table</h2>
           <button className={styles.closeButton} onClick={onClose} aria-label="Close dialog">

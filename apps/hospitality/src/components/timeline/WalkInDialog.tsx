@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useCallback } from "react";
 import type { Table } from "@mbe/types";
 import styles from "./WalkInDialog.module.css";
 
@@ -34,11 +34,13 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
     .filter((t) => t.status === "AVAILABLE" && t.capacity >= partySize)
     .sort((a, b) => a.capacity - b.capacity);
 
-  // Auto-select best table when party size changes
-  useEffect(() => {
-    const best = findBestTable(tables, partySize);
-    setTableId(best);
-  }, [partySize, tables]);
+  const handlePartySizeChange = useCallback(
+    (size: number) => {
+      setPartySize(size);
+      setTableId(findBestTable(tables, size));
+    },
+    [tables]
+  );
 
   const handleConfirm = async () => {
     if (!tableId) {
@@ -86,7 +88,7 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
                   ]
                     .filter(Boolean)
                     .join(" ")}
-                  onClick={() => setPartySize(size)}
+                  onClick={() => handlePartySizeChange(size)}
                   disabled={isLoading}
                   aria-pressed={partySize === size}
                 >
