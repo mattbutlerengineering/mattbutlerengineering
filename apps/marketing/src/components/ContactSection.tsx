@@ -19,9 +19,9 @@ export function ContactSection() {
           >
             <Stack direction="row" gap="md" wrap>
               {[
-                { href: "https://github.com/mattbutler", label: "GitHub", external: true },
-                { href: "https://linkedin.com/in/mattbutler", label: "LinkedIn", external: true },
-                { href: "mailto:matt@mattbutlerengineering.com", label: "Email", external: false },
+                { href: "https://github.com/mattbutlerengineering", label: "GitHub", external: true },
+                { href: "https://www.linkedin.com/in/matt-butler-66496a68/", label: "LinkedIn", external: true },
+                { href: "mailto:mattbutlerengineering+webapp@gmail.com", label: "Email", external: false },
               ].map((link) => (
                 <motion.a
                   key={link.label}
