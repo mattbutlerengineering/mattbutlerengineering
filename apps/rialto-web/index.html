@@ -9,23 +9,10 @@
       content="Rialto Design System — a precision-crafted React component library with warm material surfaces, gold accents, and full WCAG AA accessibility."
     />
     <link rel="icon" href="/rialto/favicon.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="/rialto/apple-touch-icon.png" />
     <title>Rialto — Design System</title>
   </head>
   <body>
     <div id="root"></div>
-    <script>
-      // SPA fallback: restore path from 404.html redirect
-      (function () {
-        var q = new URLSearchParams(location.search);
-        var p = q.get("p");
-        if (p) {
-          q.delete("p");
-          var qs = q.toString();
-          history.replaceState(null, "", p + (qs ? "?" + qs : ""));
-        }
-      })();
-    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

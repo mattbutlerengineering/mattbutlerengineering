@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { Spinner } from "@mbe/rialto";
 
 /* ── Lazy-loaded demo pages ──────────────────── */
@@ -413,6 +413,9 @@ export function ShowcaseRouter({ theme, onThemeToggle }: ShowcaseRouterProps) {
 
         {/* ── Standalone visual-test (not in sidebar) ── */}
         <Route path="/visual-test" element={<VisualTest />} />
+
+        {/* ── Catch-all: redirect unknown routes to overview ── */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>
   );

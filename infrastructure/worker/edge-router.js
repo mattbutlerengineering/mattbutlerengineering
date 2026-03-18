@@ -86,6 +86,19 @@ export default {
       }
     }
 
+    // Prevent CDN from caching HTML (SPA index.html must always be fresh)
+    const contentType = response.headers.get("Content-Type") || "";
+    if (contentType.includes("text/html")) {
+      const headers = new Headers(response.headers);
+      headers.set("Cache-Control", "no-cache, no-store, must-revalidate");
+      headers.set("CDN-Cache-Control", "no-store");
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers,
+      });
+    }
+
     return response;
   },
 };
