@@ -111,7 +111,7 @@ export function DashboardLayout() {
   });
 
   return (
-    <div className={styles.root}>
+    <div className={styles.root} data-testid="dashboard-layout">
       <header className={styles.header}>
         <span className={styles.logo}>Hospitality</span>
       </header>

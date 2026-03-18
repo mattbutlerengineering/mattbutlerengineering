@@ -16,6 +16,7 @@
     "version-packages": "changeset version",
     "release": "pnpm --filter @mbe/rialto build && changeset publish",
     "test:visual": "playwright test --config apps/rialto-web/playwright.config.ts",
+    "test:e2e:hospitality": "playwright test --config apps/hospitality/playwright.config.ts",
     "lighthouse": "lhci autorun",
     "size": "pnpm --filter @mbe/rialto exec size-limit",
     "size:check": "pnpm --filter @mbe/rialto exec size-limit --limit"
