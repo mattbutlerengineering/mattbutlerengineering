@@ -157,7 +157,7 @@ pulumi stack output  # View outputs
 
 **GitHub Actions Secrets** (configured):
 - `DIGITALOCEAN_TOKEN`
-- `CLOUDFLARE_API_TOKEN`
+- `MBE_CLOUDFLARE_API_TOKEN`
 - `AUTH0_DOMAIN`
 - `AUTH0_CLIENT_ID`
 - `AUTH0_CLIENT_SECRET`

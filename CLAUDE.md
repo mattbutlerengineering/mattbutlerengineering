@@ -69,7 +69,7 @@ Client → mattbutlerengineering.com (Cloudflare Worker "edge-router")
 
 **Required GitHub Secrets:**
 - `CLOUDFLARE_ACCOUNT_ID` — CF account ID (for Pages deploys + Worker)
-- `CLOUDFLARE_API_TOKEN` — CF API token (Pulumi + wrangler)
+- `MBE_CLOUDFLARE_API_TOKEN` — CF API token scoped to this project (Pulumi + wrangler)
 - `DIGITALOCEAN_TOKEN` — DO API token (Pulumi + doctl)
 - `AUTH0_HOSPITALITY_CLIENT_ID` — Auth0 client ID (hospitality build env)
 - `PULUMI_ACCESS_TOKEN`, `PULUMI_CONFIG_PASSPHRASE` — Pulumi state
@@ -208,6 +208,7 @@ pnpm changeset              # Create a changeset for versioning
 ```
 mattbutlerengineering/
 ├── apps/                    # Frontend applications
+│   ├── agent-viz/           # Agent session visualizer (React + Vite)
 │   ├── marketing/          # Public marketing site (React + Vite)
 │   ├── hospitality/        # Hospitality app (React + Vite)
 │   └── rialto-web/         # Design system showcase (React + Vite)
@@ -217,7 +218,9 @@ mattbutlerengineering/
 │   └── reservations/       # Reservations API (Fastify + Prisma) — port 3004
 ├── packages/               # Shared packages
 │   ├── agent-core/        # Agent session runner, worktree mgmt, tool permissions
+│   ├── api-client/        # Typed API client for frontend apps (wraps fetch + auth)
 │   ├── rialto/            # Rialto design system (React component library)
+│   ├── rialto-plugin/     # Rialto Claude Code plugin (skills, agents, hooks)
 │   ├── types/             # Shared TypeScript types (incl. agent types)
 │   ├── auth/              # Auth utilities (React + Fastify)
 │   └── config/            # ESLint/TypeScript/Prettier configs
@@ -440,6 +443,14 @@ response: {
 - **MAX_CONCURRENT_SESSIONS**: Rate limit (default: 5)
 - **GITHUB_WEBHOOK_SECRET**: HMAC secret for GitHub webhook signature verification
 - **AGENT_API_URL**: Base URL for agent API (used by CLI, default: "http://localhost:3003")
+
+### Reservations Service (`services/reservations`)
+- **PORT**: Service port (default: 3004)
+- **LOG_LEVEL**: Logging level (default: "info")
+- **CORS_ORIGIN**: CORS origin configuration
+- **AUTH_AUTHORITY**: Auth0 authority URL
+- **AUTH_AUDIENCE**: Auth0 API identifier
+- **DATABASE_URL**: Prisma database connection string
 
 ## Database Migrations
 
