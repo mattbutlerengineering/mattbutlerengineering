@@ -76,36 +76,36 @@ Deferred to future milestones.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| A11Y-01 | — | Pending |
-| A11Y-02 | — | Pending |
-| A11Y-03 | — | Pending |
-| A11Y-04 | — | Pending |
-| A11Y-05 | — | Pending |
-| A11Y-06 | — | Pending |
-| A11Y-07 | — | Pending |
-| A11Y-08 | — | Pending |
-| A11Y-09 | — | Pending |
-| A11Y-10 | — | Pending |
-| EXMP-01 | — | Pending |
-| EXMP-02 | — | Pending |
-| EXMP-03 | — | Pending |
-| EXMP-04 | — | Pending |
-| EXMP-05 | — | Pending |
-| EXMP-06 | — | Pending |
-| EXMP-07 | — | Pending |
-| EXMP-08 | — | Pending |
-| AIDX-01 | — | Pending |
-| AIDX-02 | — | Pending |
-| AIDX-03 | — | Pending |
-| AIDX-04 | — | Pending |
-| AIDX-05 | — | Pending |
-| AIDX-06 | — | Pending |
+| A11Y-01 | Phase 6 | Pending |
+| A11Y-02 | Phase 6 | Pending |
+| A11Y-03 | Phase 6 | Pending |
+| A11Y-04 | Phase 6 | Pending |
+| A11Y-05 | Phase 6 | Pending |
+| A11Y-06 | Phase 6 | Pending |
+| A11Y-07 | Phase 6 | Pending |
+| A11Y-08 | Phase 6 | Pending |
+| A11Y-09 | Phase 9 | Pending |
+| A11Y-10 | Phase 6 | Pending |
+| EXMP-01 | Phase 7 | Pending |
+| EXMP-02 | Phase 7 | Pending |
+| EXMP-03 | Phase 7 | Pending |
+| EXMP-04 | Phase 7 | Pending |
+| EXMP-05 | Phase 7 | Pending |
+| EXMP-06 | Phase 7 | Pending |
+| EXMP-07 | Phase 7 | Pending |
+| EXMP-08 | Phase 7 | Pending |
+| AIDX-01 | Phase 8 | Pending |
+| AIDX-02 | Phase 8 | Pending |
+| AIDX-03 | Phase 8 | Pending |
+| AIDX-04 | Phase 8 | Pending |
+| AIDX-05 | Phase 9 | Pending |
+| AIDX-06 | Phase 8 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 24 total
-- Mapped to phases: 0
-- Unmapped: 24 ⚠️
+- Mapped to phases: 24
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-22*
-*Last updated: 2026-03-22 after initial definition*
+*Last updated: 2026-03-22 — traceability updated after roadmap creation*
