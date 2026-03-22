@@ -33,7 +33,13 @@ Every web app uses Rialto as the single design system and is accessible at mattb
 
 ### Active
 
-(None — define next milestone with `/gsd:new-milestone`)
+- [ ] WCAG AA audit of all ~55 Rialto components with fixes
+- [ ] Automated a11y test suite (axe-core) in CI
+- [ ] Realistic example pages (dashboards, forms, settings) with visual polish
+- [ ] Comprehensive component prop/state coverage in examples
+- [ ] Component registry (JSON catalog of all components, props, patterns)
+- [ ] llms.txt for AI tool discovery of Rialto
+- [ ] CLI scaffold for new Rialto projects within monorepo
 
 ### Out of Scope
 
@@ -42,6 +48,19 @@ Every web app uses Rialto as the single design system and is accessible at mattb
 - Storybook — custom showcase (rialto-web) already exists
 - Mobile app — web-first; mobile later if ever
 - Subdomain routing — path-prefix is the convention and simpler to manage
+- npm publishing — monorepo-only for now; external distribution is a future milestone
+- External adoption — v1.1 targets AI-correct usage, not external developer onboarding
+
+## Current Milestone: v1.1 Rialto Accessibility & AI DX
+
+**Goal:** Make Rialto accessible (WCAG AA), improve examples to be realistic and comprehensive, and add AI-friendly tooling (registry, llms.txt, CLI) so AI tools produce correct Rialto code.
+
+**Target features:**
+- WCAG AA compliance across all components + axe-core CI tests
+- Overhauled example pages with real-world patterns and full prop coverage
+- Component registry, llms.txt, and CLI scaffold for AI-driven development
+
+**Success criterion:** "Build a settings page with Rialto" → AI produces correct, accessible code using real components.
 
 ## Context
 
@@ -70,4 +89,4 @@ Backend services (users, agent) unchanged during v1.0 — APIs stay as-is.
 | Pulumi resource rename (delete+recreate) for Auth0 | Atomic rename; accepted operational cost of new client_id | ⚠️ Revisit — document operational step more prominently |
 
 ---
-*Last updated: 2026-03-04 after v1.0 milestone*
+*Last updated: 2026-03-22 after v1.1 milestone initialization*
