@@ -27,6 +27,7 @@ metrics:
   completed_date: "2026-03-23"
   tasks_completed: 2
   files_modified: 5
+requirements-completed: [A11Y-03, A11Y-04, A11Y-07]
 ---
 
 # Phase 6 Plan 2: Axe-Core Coverage for All 58 Component Directories Summary

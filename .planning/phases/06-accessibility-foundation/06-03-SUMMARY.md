@@ -29,6 +29,7 @@ metrics:
   completed: "2026-03-23"
   tasks_completed: 2
   files_modified: 7
+requirements-completed: [A11Y-05, A11Y-08]
 ---
 
 # Phase 6 Plan 03: Focus-Return-on-Close for All Overlay Components Summary

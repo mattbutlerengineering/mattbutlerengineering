@@ -26,6 +26,7 @@ metrics:
   completed: "2026-03-23"
   tasks: 2
   files: 4
+requirements-completed: [AIDX-02, AIDX-03]
 ---
 
 # Phase 08 Plan 02: Two-Tier llms.txt System Summary
