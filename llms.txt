@@ -1,0 +1,218 @@
+# Rialto Design System — AI Quick Reference
+
+> Package: `@mbe/rialto`
+> Version: `0.1.0`
+> Peer deps: `react`, `react-dom`, `framer-motion`
+> Import: `import { Button, Input, Card, Text, Stack } from "@mbe/rialto"`
+> Styles: `import "@mbe/rialto/styles"` (must load before any rendering)
+> Motion tokens: `import { spring, precision } from "@mbe/rialto/motion"`
+
+---
+
+## Provider Setup
+
+```tsx
+import { RialtoProvider } from "@mbe/rialto";
+
+// Wrap your app root (main.tsx):
+<RialtoProvider theme="light"> {/* "light" | "dark" | "system" */}
+  <App />
+</RialtoProvider>
+```
+
+`RialtoProvider` props: `theme` (`"light" | "dark" | "system"`, default `"system"`), `vibe` (`"default" | "transacting" | "presenting"`), `vibeOverrides` (CSS custom property overrides).
+
+---
+
+## Component Catalog
+
+### Form Inputs
+
+| Component        | Description                              | Key Props                                      |
+| ---------------- | ---------------------------------------- | ---------------------------------------------- |
+| Input            | Single-line text field with label/hint   | `label`, `hint`, `error`, `type`, `placeholder` |
+| TextArea         | Multi-line text with optional auto-grow  | `label`, `rows`, `autoResize`, `maxLength`     |
+| NumberInput      | Numeric value with stepper buttons       | `label`, `min`, `max`, `step`, `size`          |
+| Checkbox         | Multi-select checkbox                    | `label`, `checked`, `indeterminate`            |
+| Radio            | Single radio option (use inside RadioGroup) | `value`, `label`                            |
+| RadioGroup       | Single-select from visible options       | `label`, `value`, `onChange`                   |
+| Toggle           | Binary on/off switch                     | `label`, `checked`, `onChange`, `disabled`     |
+| Select           | Dropdown for one choice from a list      | `label`, `options`, `placeholder`, `value`, `onChange` |
+| SegmentedControl | Pill-style mutually exclusive toggle     | `segments`, `value`, `onChange`, `size`        |
+| Slider           | Continuous value range selector          | `min`, `max`, `step`, `value`, `onChange`      |
+| PinInput         | Fixed-length code entry (OTP, PINs)      | `label`, `length`, `mask`, `type`             |
+
+### Navigation
+
+| Component      | Description                       | Key Props                              |
+| -------------- | --------------------------------- | -------------------------------------- |
+| Button         | Action trigger with press physics | `variant`, `size`, `loading`, `disabled`, `onClick` |
+| Breadcrumb     | Navigation trail                  | `items`, `maxItems`                    |
+| Tabs           | Switch between content panels     | `tabs`, `activeId`                     |
+| Steps          | Multi-step progress indicator     | `steps`, `currentStep`, `orientation`  |
+| Pagination     | Page-by-page navigation           | `page`, `totalPages`, `onChange`       |
+| NavigationMenu | Horizontal nav with dropdowns     | `items`                                |
+| Sidebar        | Vertical app navigation           | `items`, `collapsed`, `onCollapse`     |
+| Navbar         | Top navigation bar with logo/user | `links`, `logo`, `user`, `search`      |
+
+### Data Display
+
+| Component  | Description                        | Key Props                                     |
+| ---------- | ---------------------------------- | --------------------------------------------- |
+| Card       | Content container with surfaces    | `variant`, `padding`, `title`, `subtitle`     |
+| Table      | Generic `<Table<T>>` with sorting  | `columns`, `data`, `rowKey`, `striped`        |
+| Badge      | Small status indicator             | `variant`, `size`, `dot`                      |
+| Tag        | Selectable/dismissible label       | `variant`, `selected`, `dismissible`          |
+| TagGroup   | Layout wrapper for multiple Tags   | `children`                                    |
+| Avatar     | User image with fallback initials  | `src`, `name`, `size`, `status`               |
+| AvatarGroup | Stacked avatars with overflow     | `avatars`, `max`                              |
+| Stat       | Metric display with trend          | `value`, `label`, `delta`, `trend`, `size`    |
+| DataList   | Key-value pairs                    | `items`, `orientation`, `striped`             |
+| Meter      | Gauge for bounded values           | `value`, `min`, `max`, `label`, `variant`     |
+| Timeline   | Chronological event sequence       | `items`                                       |
+| Tree       | Recursive expandable hierarchy     | `data`, `defaultExpanded`, `selectedId`       |
+
+### Layout & Typography
+
+| Component   | Description                        | Key Props                               |
+| ----------- | ---------------------------------- | --------------------------------------- |
+| Stack       | Flexbox layout helper              | `direction`, `gap`, `align`, `justify`  |
+| Text        | Typography with semantic variants  | `variant`, `size`, `weight`, `as`       |
+| Divider     | Visual separator line              | `label`, `spacing`                      |
+| Collapsible | Single expand/collapse section     | `open`, `onOpenChange`, `label`         |
+| Accordion   | Grouped collapsible panels         | `items`, `allowMultiple`                |
+| AspectRatio | Responsive proportional container  | `ratio`                                 |
+| ScrollArea  | Custom-styled scroll container     | `width`, `height`                       |
+| Kbd         | Keyboard key display               | `children`                              |
+
+### Feedback
+
+| Component     | Description                        | Key Props                                  |
+| ------------- | ---------------------------------- | ------------------------------------------ |
+| Toast         | Transient notification (Provider!) | use `useToast()` hook; `toast({ title, variant })` |
+| Alert         | Inline contextual message          | `variant`, `title`, `dismissible`          |
+| Banner        | Full-width page-level message      | `variant`, `title`, `action`, `dismissible`|
+| Progress      | Determinate/indeterminate bar      | `value`, `max`, `indeterminate`, `variant` |
+| Spinner       | Loading indicator (unknown duration)| `size`, `label`                           |
+| Skeleton      | Loading content placeholder        | `variant`, `width`, `height`               |
+| SkeletonGroup | Groups multiple skeletons          | `children`                                 |
+| EmptyState    | No-content display with CTA        | `heading`, `description`, `action`, `icon` |
+
+### Overlays
+
+| Component      | Description                       | Key Props                                  |
+| -------------- | --------------------------------- | ------------------------------------------ |
+| Dialog         | Modal dialog with focus trap      | `open`, `onClose`, `title`, `children`     |
+| ConfirmDialog  | Pre-built confirmation modal      | `open`, `onOpenChange`, `title`, `variant` |
+| Drawer         | Slide-out edge panel              | `open`, `onOpenChange`, `placement`        |
+| Popover        | Positioned floating content       | `open`, `onOpenChange`, `content`, `placement` |
+| Tooltip        | Short hover text                  | `content`, `placement`, `delay`            |
+| HoverCard      | Rich hover preview                | `content`                                  |
+| CommandPalette | Keyboard command interface (Cmd+K)| `open`, `onOpenChange`, `items`            |
+| DropdownMenu   | Action menu triggered by click    | `trigger`, `items`, `align`                |
+| ContextMenu    | Right-click action menu           | `items`                                    |
+
+---
+
+## Design Token Quick Reference
+
+### Surface tokens
+- `--rialto-surface` — page backgrounds, default component bg
+- `--rialto-surface-elevated` — cards, popovers, elevated containers
+- `--rialto-surface-recessed` — input fields, slider tracks
+- `--rialto-surface-matte` — disabled fills, subtle divider bg
+- `--rialto-surface-deep` — heavy separators, decorative accents
+
+### Text tokens
+- `--rialto-text-primary` — headings, body text, primary labels
+- `--rialto-text-secondary` — descriptions, helper text
+- `--rialto-text-tertiary` — placeholders, disabled, timestamps
+- `--rialto-text-on-accent` — text on accent-filled backgrounds
+
+### Border tokens
+- `--rialto-border` — default borders (cards, inputs)
+- `--rialto-border-strong` — emphasized borders, active outlines
+
+### Accent tokens (gold — surgical use only)
+- `--rialto-accent` — primary buttons, focus rings, active/selected states
+- `--rialto-accent-hover` — primary button hover
+- `--rialto-accent-muted` — selected rows, active tab bg
+- `--rialto-accent-glow` — focus ring outer glow
+
+### Semantic tokens
+- `--rialto-error` / `--rialto-error-muted` — error text, destructive actions / backgrounds
+- `--rialto-success` / `--rialto-success-muted` — success text / backgrounds
+
+### Spacing (4px base)
+- `--rialto-space-xs` (8px), `--rialto-space-sm` (12px), `--rialto-space-md` (16px)
+- `--rialto-space-lg` (24px), `--rialto-space-xl` (32px), `--rialto-space-2xl` (48px), `--rialto-space-3xl` (64px)
+
+### Radius hierarchy
+- `--rialto-radius-sharp` (2px) — badges, chips
+- `--rialto-radius-default` (6px) — buttons, inputs
+- `--rialto-radius-soft` (10px) — cards, dialogs
+- `--rialto-radius-round` (9999px) — pills, avatars
+
+### Shadow tiers
+- `--rialto-shadow-elevated` — cards, dropdowns, popovers
+- `--rialto-shadow-pressed` — recessed inputs, active press states
+- `--rialto-shadow-focus` — focus-visible ring on interactive elements
+- `--rialto-shadow-glass` — floating glass panels, command palette
+
+### Easing
+- `--rialto-ease-precision` — crisp UI transitions, hover, small movements
+- `--rialto-ease-smooth` — gentle entrances and exits
+
+---
+
+## Key Patterns
+
+### Form layout
+```tsx
+<Card title="Sign in">
+  <Stack direction="column" gap="md">
+    <Input label="Email" type="email" />
+    <Input label="Password" type="password" />
+    <Button variant="primary">Sign in</Button>
+  </Stack>
+</Card>
+```
+
+### Card grid page
+```tsx
+<Stack direction="column" gap="lg">
+  <Text variant="heading" as="h1">Dashboard</Text>
+  <Stack direction="row" gap="md" wrap>
+    <Card title="Users" padding="lg"><Stat value="1,024" label="Total users" /></Card>
+    <Card title="Revenue" padding="lg"><Stat value="$12.4k" label="This month" /></Card>
+  </Stack>
+</Stack>
+```
+
+### Page layout with sidebar
+```tsx
+<Stack direction="row" gap="none" align="stretch">
+  <Sidebar items={navItems} collapsed={collapsed} onCollapse={setCollapsed} />
+  <Stack direction="column" gap="xl" style={{ flex: 1, padding: "var(--rialto-space-xl)" }}>
+    {children}
+  </Stack>
+</Stack>
+```
+
+### Modal with form
+```tsx
+<Dialog open={open} onClose={() => setOpen(false)} title="Add member">
+  <Stack direction="column" gap="md">
+    <Input label="Name" />
+    <Input label="Email" type="email" />
+    <Stack direction="row" gap="sm" justify="end">
+      <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+      <Button variant="primary">Add</Button>
+    </Stack>
+  </Stack>
+</Dialog>
+```
+
+---
+
+For complete prop tables, composition examples, and advanced patterns, see `llms-full.txt`.

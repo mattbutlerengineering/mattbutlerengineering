@@ -157,8 +157,9 @@ src/
 ## AI Assistant Reference
 
 For component usage reference (choosing components, props API, composition patterns),
-see `llms.txt` in the repo root. This file (CLAUDE.md) covers authoring and contributing;
-llms.txt covers consuming the library in an application.
+see `llms-full.txt` in the repo root (or `llms.txt` for a condensed overview).
+This file (CLAUDE.md) covers authoring and contributing to Rialto;
+llms-full.txt covers consuming the library in an application.
 
 ## Commands
 
