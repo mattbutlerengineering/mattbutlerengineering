@@ -31,6 +31,7 @@ export * from "./Tag";
 export * from "./TextArea";
 export * from "./Timeline";
 export * from "./Toast";
+export * from "./ThemeToggle";
 export * from "./Toggle";
 export * from "./Tooltip";
 export * from "./Tree";

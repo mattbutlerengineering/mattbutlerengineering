@@ -1,0 +1,27 @@
+.button {
+  composes: focusRing from "../../styles/surfaces.module.css";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: var(--rialto-surface-elevated);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  color: var(--rialto-text-secondary);
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.button:hover {
+  color: var(--rialto-text-primary);
+  background: var(--rialto-surface);
+  border-color: var(--rialto-border-strong);
+}
+
+.button:active {
+  box-shadow: var(--rialto-shadow-pressed);
+  color: var(--rialto-text-primary);
+}
