@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Rialto Accessibility & AI DX
 status: unknown
-last_updated: "2026-03-23T02:07:08.692Z"
+last_updated: "2026-03-23T04:37:36.681Z"
 progress:
-  total_phases: 3
+  total_phases: 4
   completed_phases: 3
-  total_plans: 11
-  completed_plans: 11
+  total_plans: 14
+  completed_plans: 12
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-22)
 
 **Core value:** Every web app uses Rialto as the single design system and is accessible at mattbutlerengineering.com
-**Current focus:** v1.1 — Phase 8: AI Developer Experience
+**Current focus:** v1.1 — Phase 9: Polish and Documentation
 
 ## Current Position
 
-Phase: 8 of 9 (AI Developer Experience)
-Plan: 3 of 3 complete
-Status: Phase Complete
-Last activity: 2026-03-23 — Completed 08-03 mbe new scaffold command
+Phase: 9 of 9 (Polish and Documentation)
+Plan: 2 of 3 complete
+Status: In Progress
+Last activity: 2026-03-23 — Completed 09-02 component spec files (first 10)
 
-Progress: [█████░░░░░] 33%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
@@ -51,6 +51,7 @@ Progress: [█████░░░░░] 33%
 | Phase 08-ai-developer-experience P02 | 2 | 2 tasks | 4 files |
 | Phase 08-ai-developer-experience P01 | 2min | 2 tasks | 6 files |
 | Phase 08-ai-developer-experience P03 | 3min | 2 tasks | 2 files |
+| Phase 09-polish-and-documentation P02 | 4min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -85,6 +86,9 @@ v1.1 decisions pending ():
 - [Phase 08-ai-developer-experience]: Registry output to packages/rialto/registry.json (package root, committed) not dist/ (gitignored)
 - [Phase 08-ai-developer-experience]: importPath always '@mbe/rialto' — all components barrel-exported from single entry point
 - [Phase 08-ai-developer-experience]: mbe init port assignment: auto-assign by scanning all apps/*/vite.config.ts for port values plus known ports 3000-3004, return max+1 (defaults to 3005)
+- [Phase 09-polish-and-documentation]: Spec files for layout primitives (Stack, Text, Divider) kept at 40-60 lines — non-interactive components don't warrant over-documentation
+- [Phase 09-polish-and-documentation]: Checkbox spec covers Radio and RadioGroup exports from same module — single spec per source file
+- [Phase 09-polish-and-documentation]: Toast spec documents dual aria-live region pattern — both regions always mounted at page load for reliable screen reader registration
 
 ### Pending Todos
 
@@ -99,6 +103,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-23T02:06:13Z
-Stopped at: Completed 08-03-PLAN.md — mbe new scaffold command complete
-Resume file: .planning/phases/09-hospitality-launch/09-01-PLAN.md
+Last session: 2026-03-23T04:36:49Z
+Stopped at: Completed 09-02-PLAN.md — component spec files (first 10)
+Resume file: .planning/phases/09-polish-and-documentation/09-03-PLAN.md

@@ -37,7 +37,7 @@ Requirements for milestone v1.1: Rialto Accessibility & AI DX.
 - [x] **AIDX-02**: Two-tier llms.txt at repo root: overview (<20KB) + full (complete component API + patterns)
 - [x] **AIDX-03**: CLAUDE.md updated with Rialto usage section (imports, tokens, provider setup, top components)
 - [x] **AIDX-04**: CLI scaffold command (`mbe new`) creates app skeleton with RialtoProvider, layout, example page
-- [ ] **AIDX-05**: Structured spec files (`.spec.md`) for top 20 most-used components with anatomy, tokens, props, states
+- [x] **AIDX-05**: Structured spec files (`.spec.md`) for top 20 most-used components with anatomy, tokens, props, states
 - [x] **AIDX-06**: Registry served as static JSON from rialto-web at `/rialto/registry.json`
 
 ## Future Requirements
@@ -98,7 +98,7 @@ Deferred to future milestones.
 | AIDX-02 | Phase 8 | Complete |
 | AIDX-03 | Phase 8 | Complete |
 | AIDX-04 | Phase 8 | Complete |
-| AIDX-05 | Phase 9 | Pending |
+| AIDX-05 | Phase 9 | Complete |
 | AIDX-06 | Phase 8 | Complete |
 
 **Coverage:**
