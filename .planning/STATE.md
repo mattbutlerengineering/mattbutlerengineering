@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Rialto Accessibility & AI DX
 status: executing
-stopped_at: Completed 09-01-PLAN.md — screen reader docs and manual a11y checklist
-last_updated: "2026-03-23T14:19:13.338Z"
-last_activity: 2026-03-23 — Completed 09-03 component spec files (all 20 specs complete)
+stopped_at: Completed 10-01-PLAN.md — documentation reconciliation for Phase 10
+last_updated: "2026-03-23T15:25:00Z"
+last_activity: 2026-03-23 — Completed 10-01 documentation reconciliation (requirements trail + llms corrections + CLAUDE.md verification)
 progress:
-  total_phases: 4
+  total_phases: 5
   completed_phases: 4
-  total_plans: 14
-  completed_plans: 14
-  percent: 80
+  total_plans: 15
+  completed_plans: 15
+  percent: 90
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 
 ## Current Position
 
-Phase: 9 of 9 (Polish and Documentation)
-Plan: 3 of 3 complete
+Phase: 10 of 10 (Documentation Reconciliation)
+Plan: 1 of 1 complete
 Status: In Progress
-Last activity: 2026-03-23 — Completed quick task 1: consistent ThemeToggle across apps
+Last activity: 2026-03-23 — Completed 10-01 documentation reconciliation (requirements trail + llms corrections + CLAUDE.md verification)
 
-Progress: [████████░░] 80%
+Progress: [█████████░] 90%
 
 ## Performance Metrics
 
@@ -57,6 +57,7 @@ Progress: [████████░░] 80%
 | Phase 09-polish-and-documentation P02 | 4min | 2 tasks | 10 files |
 | Phase 09-polish-and-documentation P03 | 5min | 2 tasks | 10 files |
 | Phase 09-polish-and-documentation P01 | 5min | 2 tasks | 29 files |
+| Phase 10-documentation-reconciliation P01 | 2min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -97,6 +98,8 @@ v1.1 decisions pending ():
 - [Phase 09-polish-and-documentation]: Dialog spec documents triggerRef focus-return pattern: triggerRef effect declared before focus-trap effect so activeElement is captured before trap moves focus
 - [Phase 09-polish-and-documentation]: Badge has no info variant — use neutral for informational/neutral-status items (confirmed in spec)
 - [Phase 09-01]: Screen reader DataList item is the final item in every interactive component Accessibility section — layout/presentational pages intentionally excluded
+- [Phase 10-01]: CommandPalette and Collapsible correctly use onOpenChange (boolean setter) — only Dialog, Drawer, ConfirmDialog, Popover had stale props in llms files
+- [Phase 10-01]: Toggle uses onCheckedChange not onChange — corrected in CLAUDE.md top-10 table
 
 ### Pending Todos
 

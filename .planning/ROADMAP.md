@@ -28,7 +28,7 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 - [x] **Phase 7: Example Pages** - Build realistic dashboard, settings, and form pages with all component states visible (completed 2026-03-23)
 - [x] **Phase 8: AI Developer Experience** - Ship registry, two-tier llms.txt, CLAUDE.md update, and CLI scaffold (completed 2026-03-23)
 - [x] **Phase 9: Polish and Documentation** - Per-component a11y docs in showcase and structured spec files for top 20 components (completed 2026-03-23)
-- [ ] **Phase 10: Documentation Reconciliation & llms-full.txt Fix** - Fix SUMMARY frontmatter omissions, correct stale prop names in llms-full.txt, verify CLAUDE.md accuracy
+- [x] **Phase 10: Documentation Reconciliation & llms-full.txt Fix** - Fix SUMMARY frontmatter omissions, correct stale prop names in llms-full.txt, verify CLAUDE.md accuracy
 - [ ] **Phase 11: Registry Props & Phase 08 Verification** - Improve registry.json props coverage, create Phase 08 VERIFICATION.md
 
 ## Phase Details
@@ -114,7 +114,7 @@ Plans:
 **Plans:** 1 plan
 
 Plans:
-- [ ] 10-01-PLAN.md — SUMMARY frontmatter fixes, llms prop corrections, CLAUDE.md verification
+- [x] 10-01-PLAN.md — SUMMARY frontmatter fixes, llms prop corrections, CLAUDE.md verification
 
 ### Phase 11: Registry Props & Phase 08 Verification
 **Goal**: Improve registry.json props coverage for components with empty props arrays, and create formal verification for Phase 08
@@ -141,5 +141,5 @@ Plans: (to be planned)
 | 7. Example Pages | v1.1 | 3/3 | Complete | 2026-03-23 |
 | 8. AI Developer Experience | v1.1 | 3/3 | Complete | 2026-03-23 |
 | 9. Polish and Documentation | v1.1 | 3/3 | Complete | 2026-03-23 |
-| 10. Documentation Reconciliation & llms-full.txt Fix | v1.1 | 0/1 | Pending | - |
+| 10. Documentation Reconciliation & llms-full.txt Fix | v1.1 | 1/1 | Complete | 2026-03-23 |
 | 11. Registry Props & Phase 08 Verification | v1.1 | 0/0 | Pending | - |
