@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Rialto Accessibility & AI DX
 status: unknown
-last_updated: "2026-03-23T20:48:13.592Z"
+last_updated: "2026-03-23T20:48:52.678Z"
 progress:
   total_phases: 6
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 17
-  completed_plans: 16
+  completed_plans: 17
 ---
 
 # Project State
@@ -22,12 +22,12 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 
 ## Current Position
 
-Phase: 10 of 10 (Documentation Reconciliation)
+Phase: 11 of 11 (Registry Props Verification)
 Plan: 1 of 1 complete
-Status: In Progress
-Last activity: 2026-03-23 — Completed 10-01 documentation reconciliation (requirements trail + llms corrections + CLAUDE.md verification)
+Status: Complete
+Last activity: 2026-03-23 — Completed 11-01 registry props verification (export Props interfaces + regenerate registry.json)
 
-Progress: [█████████░] 90%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -56,6 +56,7 @@ Progress: [█████████░] 90%
 | Phase 09-polish-and-documentation P01 | 5min | 2 tasks | 29 files |
 | Phase 10-documentation-reconciliation P01 | 2min | 3 tasks | 6 files |
 | Phase 11 P02 | 4 | 2 tasks | 1 files |
+| Phase 11-registry-props-verification P01 | 5min | 2 tasks | 19 files |
 
 ## Accumulated Context
 
@@ -99,6 +100,8 @@ v1.1 decisions pending ():
 - [Phase 10-01]: CommandPalette and Collapsible correctly use onOpenChange (boolean setter) — only Dialog, Drawer, ConfirmDialog, Popover had stale props in llms files
 - [Phase 10-01]: Toggle uses onCheckedChange not onChange — corrected in CLAUDE.md top-10 table
 - [Phase 11]: Score reported as 5/5 requirements (AIDX-01 through AIDX-04, AIDX-06) — AIDX-02 and AIDX-03 included beyond the 3 required since llms.txt evidence was readily available
+- [Phase 11-registry-props-verification]: Non-generic TableProps alias: rename generic TableProps<T> to TablePropsGeneric<T> internally; export concrete TableProps for registry/AI tooling
+- [Phase 11-registry-props-verification]: Export Props interfaces pattern: all component Props interfaces must use export keyword so TypeScript Compiler API getExportsOfModule can discover them
 
 ### Pending Todos
 
@@ -119,5 +122,5 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-23T05:10:00Z
-Stopped at: Completed quick task 1: consistent ThemeToggle across apps
+Last session: 2026-03-23T20:50:00Z
+Stopped at: Completed 11-01 registry props verification (export Props interfaces + regenerate registry.json)

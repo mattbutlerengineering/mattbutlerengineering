@@ -29,7 +29,7 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 - [x] **Phase 8: AI Developer Experience** - Ship registry, two-tier llms.txt, CLAUDE.md update, and CLI scaffold (completed 2026-03-23)
 - [x] **Phase 9: Polish and Documentation** - Per-component a11y docs in showcase and structured spec files for top 20 components (completed 2026-03-23)
 - [x] **Phase 10: Documentation Reconciliation & llms-full.txt Fix** - Fix SUMMARY frontmatter omissions, correct stale prop names in llms-full.txt, verify CLAUDE.md accuracy
-- [ ] **Phase 11: Registry Props & Phase 08 Verification** - Improve registry.json props coverage, create Phase 08 VERIFICATION.md
+- [x] **Phase 11: Registry Props & Phase 08 Verification** - Improve registry.json props coverage, create Phase 08 VERIFICATION.md (completed 2026-03-23)
 
 ## Phase Details
 
@@ -125,7 +125,7 @@ Plans:
   1. `packages/rialto/registry.json` has non-empty props arrays for high-use components (Table, Drawer, Checkbox, TextArea, and other frequently used components)
   2. Phase 08 VERIFICATION.md exists with verification evidence for AIDX-01, AIDX-04, AIDX-06
   3. CI drift check for registry.json continues to pass after props improvement
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 11-01-PLAN.md — Export Props interfaces in 17 component files + Table fix + regenerate registry
@@ -145,4 +145,4 @@ Plans:
 | 8. AI Developer Experience | v1.1 | 3/3 | Complete | 2026-03-23 |
 | 9. Polish and Documentation | v1.1 | 3/3 | Complete | 2026-03-23 |
 | 10. Documentation Reconciliation & llms-full.txt Fix | v1.1 | Complete    | 2026-03-23 | 2026-03-23 |
-| 11. Registry Props & Phase 08 Verification | 1/2 | In Progress|  | - |
+| 11. Registry Props & Phase 08 Verification | 2/2 | Complete   | 2026-03-23 | - |
