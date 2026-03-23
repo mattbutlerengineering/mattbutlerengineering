@@ -147,6 +147,18 @@ const TOKENS: NavSection = {
 };
 
 // ---------------------------------------------------------------------------
+// Examples
+// ---------------------------------------------------------------------------
+const EXAMPLES: NavSection = {
+  label: "Examples",
+  items: [
+    { id: "example-dashboard", label: "Dashboard", path: "/examples/dashboard" },
+    { id: "example-settings", label: "Settings", path: "/examples/settings" },
+    { id: "example-form", label: "Form States", path: "/examples/form" },
+  ],
+};
+
+// ---------------------------------------------------------------------------
 // Public exports
 // ---------------------------------------------------------------------------
 
@@ -158,6 +170,7 @@ export const NAV_SECTIONS: NavSection[] = [
   OVERLAYS,
   LAYOUT,
   TOKENS,
+  EXAMPLES,
 ];
 
 /** Total number of showcased components across all sections. */

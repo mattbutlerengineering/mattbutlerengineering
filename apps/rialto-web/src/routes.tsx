@@ -186,6 +186,19 @@ const DisabledTooltipPage = lazy(() =>
   import("./pages/overlays/DisabledTooltipPage").then((m) => ({ default: m.DisabledTooltipPage }))
 );
 
+/* ── Examples ────────────────────────────────── */
+const DashboardExamplePage = lazy(() =>
+  import("./pages/examples/DashboardExamplePage").then((m) => ({ default: m.DashboardExamplePage }))
+);
+const SettingsExamplePage = lazy(() =>
+  import("./pages/examples/SettingsExamplePage").then((m) => ({ default: m.SettingsExamplePage }))
+);
+const FormStatesExamplePage = lazy(() =>
+  import("./pages/examples/FormStatesExamplePage").then((m) => ({
+    default: m.FormStatesExamplePage,
+  }))
+);
+
 /* ── Layout ──────────────────────────────────── */
 const DividerPage = lazy(() =>
   import("./pages/layout/DividerPage").then((m) => ({ default: m.DividerPage }))
@@ -393,6 +406,10 @@ export function ShowcaseRouter({ theme, onThemeToggle }: ShowcaseRouterProps) {
               </div>
             }
           />
+          {/* -- Examples -- */}
+          <Route path="/examples/dashboard" element={<DashboardExamplePage />} />
+          <Route path="/examples/settings" element={<SettingsExamplePage />} />
+          <Route path="/examples/form" element={<FormStatesExamplePage />} />
         </Route>
 
         {/* ── Demo pages ──────────────────────── */}
