@@ -86,6 +86,8 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
     const [activeIndex, setActiveIndex] = useState(0);
     const inputRef = useRef<HTMLInputElement>(null);
     const listRef = useRef<HTMLDivElement>(null);
+    const panelRef = useRef<HTMLDivElement>(null);
+    const triggerRef = useRef<Element | null>(null);
 
     /* ── Global ⌘K / Ctrl+K shortcut ────────── */
     useEffect(() => {
@@ -136,6 +138,18 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
     /* ── Flat list for keyboard nav ──────────── */
     const flatItems = useMemo(() => grouped.flatMap((g) => g.items), [grouped]);
 
+    /* ── Capture trigger on open; restore focus on close ── */
+    useEffect(() => {
+      if (open) {
+        triggerRef.current = document.activeElement;
+      } else {
+        requestAnimationFrame(() => {
+          (triggerRef.current as HTMLElement | null)?.focus();
+          triggerRef.current = null;
+        });
+      }
+    }, [open]);
+
     /* ── Reset on open/close ─────────────────── */
     useEffect(() => {
       if (open) {
@@ -143,6 +157,37 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
         setActiveIndex(0);
         requestAnimationFrame(() => inputRef.current?.focus());
       }
+    }, [open]);
+
+    /* ── Focus trap inside panel when open ───── */
+    useEffect(() => {
+      if (!open) return;
+      const panel = panelRef.current;
+      if (!panel) return;
+
+      const focusable = panel.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      const trap = (e: KeyboardEvent) => {
+        if (e.key !== "Tab") return;
+        if (e.shiftKey) {
+          if (document.activeElement === first) {
+            e.preventDefault();
+            last?.focus();
+          }
+        } else {
+          if (document.activeElement === last) {
+            e.preventDefault();
+            first?.focus();
+          }
+        }
+      };
+
+      document.addEventListener("keydown", trap);
+      return () => document.removeEventListener("keydown", trap);
     }, [open]);
 
     /* ── Clamp active index when results change  */
@@ -215,6 +260,7 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
             onKeyDown={handleKeyDown}
           >
             <motion.div
+              ref={panelRef}
               className={styles.panel}
               role="dialog"
               aria-label="Command palette"

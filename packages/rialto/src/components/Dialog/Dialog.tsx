@@ -27,6 +27,19 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
   ({ open, onClose, title, description, children, footer }, ref) => {
     const shouldReduceMotion = useReducedMotion();
     const panelRef = useRef<HTMLDivElement>(null);
+    const triggerRef = useRef<Element | null>(null);
+
+    // Capture trigger element on open; restore focus to it on close
+    useEffect(() => {
+      if (open) {
+        triggerRef.current = document.activeElement;
+      } else {
+        requestAnimationFrame(() => {
+          (triggerRef.current as HTMLElement | null)?.focus();
+          triggerRef.current = null;
+        });
+      }
+    }, [open]);
 
     // Close on Escape
     useEffect(() => {
