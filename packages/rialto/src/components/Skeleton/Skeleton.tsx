@@ -16,7 +16,7 @@ type SkeletonVariant = "text" | "heading" | "circle" | "rect" | "card";
  * <Skeleton variant="text" lines={3} width="100%" />
  * <Skeleton variant="card" width={300} height={180} />
  */
-interface SkeletonProps {
+export interface SkeletonProps {
   /** Shape variant controls border-radius and default height */
   variant?: SkeletonVariant;
   /** Explicit width (CSS value) */
@@ -95,7 +95,7 @@ Skeleton.displayName = "Skeleton";
  *   <Skeleton variant="text" lines={2} width="80%" />
  * </SkeletonGroup>
  */
-interface SkeletonGroupProps {
+export interface SkeletonGroupProps {
   children: React.ReactNode;
   className?: string;
 }

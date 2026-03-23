@@ -13,7 +13,7 @@ import styles from "./Divider.module.css";
  * <Divider label="Or" accent />
  * <Divider orientation="vertical" spacing="compact" />
  */
-interface DividerProps {
+export interface DividerProps {
   /** Orientation */
   orientation?: "horizontal" | "vertical";
   /** Optional centered label */

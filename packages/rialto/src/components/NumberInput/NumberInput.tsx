@@ -14,7 +14,7 @@ import styles from "./NumberInput.module.css";
  * <NumberInput label="Price" value={price} onChange={setPrice} step={0.5} />
  * <NumberInput label="Count" value={count} onChange={setCount} size="small" />
  */
-interface NumberInputProps extends Pick<
+export interface NumberInputProps extends Pick<
   InputHTMLAttributes<HTMLInputElement>,
   "name" | "required" | "readOnly"
 > {

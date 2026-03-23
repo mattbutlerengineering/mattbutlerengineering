@@ -60,7 +60,7 @@ type MenuEntry = MenuItemDef | MenuDividerDef | MenuLabelDef;
  *   ]}
  * />
  */
-interface DropdownMenuProps {
+export interface DropdownMenuProps {
   /** The trigger element — rendered as-is, click opens the menu */
   trigger: ReactElement;
   /** Menu entries: items, dividers, labels */

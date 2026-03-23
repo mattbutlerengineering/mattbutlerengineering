@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
 import { Tooltip } from "../Tooltip/Tooltip";
 
-interface DisabledTooltipProps {
+export interface DisabledTooltipProps {
   disabled?: boolean;
   disabledReason?: string;
   children: ReactNode;

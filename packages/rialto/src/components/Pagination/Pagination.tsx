@@ -18,7 +18,7 @@ import styles from "./Pagination.module.css";
  *   siblingCount={1}
  * />
  */
-interface PaginationProps {
+export interface PaginationProps {
   /** Current active page (1-indexed) */
   page: number;
   /** Total number of pages */

@@ -32,7 +32,7 @@ export interface TimelineEvent {
  *   ]}
  * />
  */
-interface TimelineProps {
+export interface TimelineProps {
   events: TimelineEvent[];
   /** Tighter vertical spacing between events */
   compact?: boolean;

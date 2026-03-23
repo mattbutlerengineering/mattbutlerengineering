@@ -32,7 +32,7 @@ export interface StepItem {
  *   onStepClick={(i) => setStep(i)}
  * />
  */
-interface StepsProps {
+export interface StepsProps {
   steps: StepItem[];
   /** Zero-indexed current step */
   currentStep: number;

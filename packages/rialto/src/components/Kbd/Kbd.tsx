@@ -11,7 +11,7 @@ import styles from "./Kbd.module.css";
  * <Kbd>Esc</Kbd>
  * <Kbd>A</Kbd>
  */
-interface KbdProps {
+export interface KbdProps {
   children: string;
   className?: string;
 }
@@ -35,7 +35,7 @@ Kbd.displayName = "Kbd";
  * <Shortcut keys={["⌘", "K"]} />
  * <Shortcut keys={["Ctrl", "Shift", "P"]} />
  */
-interface ShortcutProps {
+export interface ShortcutProps {
   /** Array of key labels, e.g. ["⌘", "K"] */
   keys: string[];
   className?: string;

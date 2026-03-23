@@ -52,7 +52,7 @@ export interface CommandItem {
  *   groups={["File", "Edit", "View"]}
  * />
  */
-interface CommandPaletteProps {
+export interface CommandPaletteProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   items: CommandItem[];

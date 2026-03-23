@@ -37,7 +37,7 @@ export interface BreadcrumbItem {
  *   maxItems={3}
  * />
  */
-interface BreadcrumbProps {
+export interface BreadcrumbProps {
   items: BreadcrumbItem[];
   /**
    * Max visible items before collapsing middle items with ellipsis.

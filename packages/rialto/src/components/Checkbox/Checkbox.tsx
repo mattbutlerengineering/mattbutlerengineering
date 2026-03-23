@@ -16,7 +16,7 @@ import styles from "./Checkbox.module.css";
  * <Checkbox label="Select all" indeterminate description="3 of 5 selected" />
  * <Checkbox label="Archived" disabled />
  */
-interface CheckboxProps {
+export interface CheckboxProps {
   label: string;
   checked?: boolean;
   /** Displays a dash instead of a checkmark — useful for "select all" with partial selection */
@@ -135,7 +135,7 @@ Checkbox.displayName = "Checkbox";
  * <Radio label="Small" value="sm" />
  * <Radio label="Large" value="lg" description="Best for readability" />
  */
-interface RadioProps {
+export interface RadioProps {
   label: string;
   value: string;
   /** Provided automatically by RadioGroup — only needed for standalone use */
@@ -228,7 +228,7 @@ Radio.displayName = "Radio";
  *   <Radio label="Large" value="lg" />
  * </RadioGroup>
  */
-interface RadioGroupProps {
+export interface RadioGroupProps {
   label?: string;
   /** Shared HTML `name` attribute for all child radios */
   name: string;

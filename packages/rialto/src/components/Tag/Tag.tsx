@@ -15,7 +15,7 @@ type TagVariant = "default" | "accent" | "success" | "error";
  *   Telemetry
  * </Tag>
  */
-interface TagProps {
+export interface TagProps {
   children: string;
   variant?: TagVariant;
   /** Show dismiss button */
@@ -146,7 +146,7 @@ Tag.displayName = "Tag";
  *   ))}
  * </TagGroup>
  */
-interface AnimatedTagProps extends TagProps {
+export interface AnimatedTagProps extends TagProps {
   /** Unique key for AnimatePresence */
   id: string;
 }
@@ -182,7 +182,7 @@ AnimatedTag.displayName = "AnimatedTag";
  *   <AnimatedTag id="b">Beta</AnimatedTag>
  * </TagGroup>
  */
-interface TagGroupProps {
+export interface TagGroupProps {
   children: ReactNode;
   className?: string;
 }

@@ -15,7 +15,7 @@ import styles from "./Drawer.module.css";
  *   <p>Drawer body content</p>
  * </Drawer>
  */
-interface DrawerProps {
+export interface DrawerProps {
   open: boolean;
   onClose: () => void;
   title?: string;

@@ -26,7 +26,7 @@ type Placement = "top" | "bottom" | "left" | "right";
  *   <p>Popover content here</p>
  * </Popover>
  */
-interface PopoverProps {
+export interface PopoverProps {
   /** The trigger element — click opens the popover */
   trigger: ReactElement;
   /** Optional title shown in the header */

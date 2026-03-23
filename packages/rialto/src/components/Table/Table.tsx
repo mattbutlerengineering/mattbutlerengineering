@@ -45,7 +45,7 @@ interface Column<T> {
  *   rowKey={(row) => row.name}
  * />
  */
-interface TableProps<T> {
+interface TablePropsGeneric<T> {
   columns: Column<T>[];
   data: T[];
   /** Unique key extractor per row */
@@ -55,6 +55,17 @@ interface TableProps<T> {
   /** Alternating row tints */
   striped?: boolean;
   /** Message when data is empty */
+  emptyMessage?: string;
+  className?: string;
+}
+
+/** Registry documentation type -- concrete version of TableProps for AI tooling */
+export interface TableProps {
+  columns: Column<unknown>[];
+  data: unknown[];
+  rowKey: (row: unknown) => string | number;
+  density?: "compact" | "default" | "spacious";
+  striped?: boolean;
   emptyMessage?: string;
   className?: string;
 }
@@ -104,7 +115,7 @@ function TableInner<T extends Record<string, unknown>>(
     striped = false,
     emptyMessage = "No data",
     className = "",
-  }: TableProps<T>,
+  }: TablePropsGeneric<T>,
   ref: React.ForwardedRef<HTMLDivElement>
 ) {
   const [sortKey, setSortKey] = useState<string | null>(null);
@@ -218,6 +229,6 @@ function TableInner<T extends Record<string, unknown>>(
 }
 
 export const Table = forwardRef(TableInner) as <T extends Record<string, unknown>>(
-  props: TableProps<T> & { ref?: React.Ref<HTMLDivElement> }
+  props: TablePropsGeneric<T> & { ref?: React.Ref<HTMLDivElement> }
 ) => React.ReactElement | null;
 (Table as { displayName?: string }).displayName = "Table";
