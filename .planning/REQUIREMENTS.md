@@ -17,7 +17,7 @@ Requirements for milestone v1.1: Rialto Accessibility & AI DX.
 - [x] **A11Y-06**: Dynamic content changes use `aria-live` regions for screen reader announcements
 - [x] **A11Y-07**: Every form input has an associated visible or screen-reader-accessible label
 - [x] **A11Y-08**: Dialog, Drawer, and ConfirmDialog return focus to trigger element on close
-- [ ] **A11Y-09**: Each component has a11y documentation in showcase (keyboard shortcuts, ARIA, screen reader behavior)
+- [x] **A11Y-09**: Each component has a11y documentation in showcase (keyboard shortcuts, ARIA, screen reader behavior)
 - [x] **A11Y-10**: Contrast ratios verified and fixed at design token level, not per-component CSS
 
 ### Example Pages
@@ -84,7 +84,7 @@ Deferred to future milestones.
 | A11Y-06 | Phase 6 | Complete |
 | A11Y-07 | Phase 6 | Complete |
 | A11Y-08 | Phase 6 | Complete |
-| A11Y-09 | Phase 9 | Pending |
+| A11Y-09 | Phase 9 | Complete |
 | A11Y-10 | Phase 6 | Complete |
 | EXMP-01 | Phase 7 | Complete |
 | EXMP-02 | Phase 7 | Complete |

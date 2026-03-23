@@ -93,6 +93,7 @@ v1.1 decisions pending ():
 - [Phase 09-polish-and-documentation]: Toast spec documents dual aria-live region pattern — both regions always mounted at page load for reliable screen reader registration
 - [Phase 09-polish-and-documentation]: Dialog spec documents triggerRef focus-return pattern: triggerRef effect declared before focus-trap effect so activeElement is captured before trap moves focus
 - [Phase 09-polish-and-documentation]: Badge has no info variant — use neutral for informational/neutral-status items (confirmed in spec)
+- [Phase 09-01]: Screen reader DataList item is the final item in every interactive component Accessibility section — layout/presentational pages intentionally excluded
 
 ### Pending Todos
 
@@ -107,6 +108,5 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-23T04:37:20Z
-Stopped at: Completed 09-03-PLAN.md — component spec files (second 10, all 20 complete)
-Resume file: .planning/phases/09-polish-and-documentation/09-01-PLAN.md
+Last session: 2026-03-23T04:37:57Z
+Stopped at: Completed 09-01-PLAN.md — screen reader docs and manual a11y checklist

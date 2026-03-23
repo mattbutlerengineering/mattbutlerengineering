@@ -27,7 +27,7 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 - [x] **Phase 6: Accessibility Foundation** - Audit and fix all 55+ components to WCAG AA; gate CI with axe-core (completed 2026-03-23)
 - [x] **Phase 7: Example Pages** - Build realistic dashboard, settings, and form pages with all component states visible (completed 2026-03-23)
 - [x] **Phase 8: AI Developer Experience** - Ship registry, two-tier llms.txt, CLAUDE.md update, and CLI scaffold (completed 2026-03-23)
-- [ ] **Phase 9: Polish and Documentation** - Per-component a11y docs in showcase and structured spec files for top 20 components
+- [x] **Phase 9: Polish and Documentation** - Per-component a11y docs in showcase and structured spec files for top 20 components (completed 2026-03-23)
 
 ## Phase Details
 
@@ -92,7 +92,7 @@ Plans:
   1. Each component page in rialto-web showcase has an "Accessibility" section listing keyboard shortcuts, ARIA roles/attributes, and screen reader behavior — verifiable by navigating to any interactive component page
   2. Structured `.spec.md` files exist for the top 20 most-used components in `packages/rialto/specs/` with anatomy, design tokens used, prop tables, and all component states documented
   3. A manual verification checklist exists and is completed for Dialog, DropdownMenu, CommandPalette, and Toast — covering behaviors axe-core cannot detect
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 09-01-PLAN.md — Deepen a11y docs for 28 shallow showcase pages + manual verification checklist
@@ -111,4 +111,4 @@ Plans:
 | 6. Accessibility Foundation | v1.1 | 5/5 | Complete | 2026-03-23 |
 | 7. Example Pages | v1.1 | 3/3 | Complete | 2026-03-23 |
 | 8. AI Developer Experience | v1.1 | 3/3 | Complete | 2026-03-23 |
-| 9. Polish and Documentation | 2/3 | In Progress|  | - |
+| 9. Polish and Documentation | 3/3 | Complete   | 2026-03-23 | - |
