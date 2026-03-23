@@ -41,7 +41,7 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
   3. Opening a Dialog or Drawer then closing it returns keyboard focus to the element that triggered it — verified by tab-navigating in the hospitality "Add Reservation" and "Walk-in" flows
   4. All interactive components have visible `:focus-visible` outlines — verifiable by tabbing through rialto-web showcase with mouse disconnected
   5. Every form input in the showcase has a visible or programmatically-associated label, and aria-live regions announce Toast and Alert updates to screen readers
-**Plans:** 1/5 plans executed
+**Plans:** 2/5 plans executed
 
 Plans:
 - [ ] 06-01-PLAN.md — Token contrast test + fix failing light theme token values
@@ -93,7 +93,7 @@ Plans:
 | 3. Marketing Portfolio | v1.0 | 2/2 | Complete | 2026-02-28 |
 | 4. Hospitality Migration + Full Hosting | v1.0 | 5/5 | Complete | 2026-03-04 |
 | 5. Retroactive Verification & Gap Closure | v1.0 | 2/2 | Complete | 2026-03-04 |
-| 6. Accessibility Foundation | 1/5 | In Progress|  | - |
+| 6. Accessibility Foundation | 2/5 | In Progress|  | - |
 | 7. Example Pages | v1.1 | 0/TBD | Not started | - |
 | 8. AI Developer Experience | v1.1 | 0/TBD | Not started | - |
 | 9. Polish and Documentation | v1.1 | 0/TBD | Not started | - |

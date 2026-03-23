@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Rialto Accessibility & AI DX
 status: unknown
-last_updated: "2026-03-23T00:05:59.447Z"
+last_updated: "2026-03-23T00:17:24.776Z"
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 5
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -23,24 +23,24 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 ## Current Position
 
 Phase: 6 of 9 (Accessibility Foundation)
-Plan: 1 of 5 complete
+Plan: 2 of 5 complete
 Status: In Progress
-Last activity: 2026-03-23 — Completed 06-01 token contrast baseline
+Last activity: 2026-03-23 — Completed 06-02 axe-core coverage for all 58 components
 
-Progress: [█░░░░░░░░░] 5%
+Progress: [██░░░░░░░░] 10%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1 (v1.1)
-- Average duration: 4 min
-- Total execution time: 4 min
+- Total plans completed: 2 (v1.1)
+- Average duration: 6.5 min
+- Total execution time: 13 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 06-accessibility-foundation | 1/5 | 4 min | 4 min |
+| 06-accessibility-foundation | 2/5 | 13 min | 6.5 min |
 
 *Updated after each plan completion*
 
@@ -56,6 +56,8 @@ v1.1 decisions pending ():
 - `mbe init` port assignment UX (auto-assign 3005+ vs prompt) — to be decided at start of Phase 8
 - [Phase 06]: Use dark text (#1a1918) on light theme accent backgrounds — 6.26:1 vs 2.73:1 for white on #b0841e gold
 - [Phase 06]: Accent darkened from #c4922a to #b0841e for 3:1 UI control threshold; dark text-tertiary opacity raised 0.38->0.50 after test revealed 3.49:1 failure
+- [Phase 06-accessibility-foundation]: Disable region rule on document.body scans in accessibility tests — isolated test content lacks page-level landmarks; not a component responsibility
+- [Phase 06-accessibility-foundation]: Use cloneElement to inject aria-haspopup/aria-expanded onto trigger elements in DropdownMenu and Popover — eliminates nested-interactive violation from role=button wrapper div
 
 ### Pending Todos
 
@@ -64,12 +66,12 @@ None.
 ### Blockers/Concerns
 
 - [RESOLVED 06-01] Phase 6: axe-core cannot resolve CSS custom property contrast values in jsdom — token-contrast.test.ts now handles this programmatically
-- Phase 6: 14 component directories have no axe tests (CommandPalette, DropdownMenu, Autocomplete, Popover, Tooltip, ContextMenu + 8 others) — must audit coverage gaps before fixing begins
+- [RESOLVED 06-02] Phase 6: 18 component directories had no axe tests — all 58 component directories now have axe-core WCAG 2.1 AA assertions
 - Phase 6: Dialog focus-return-on-close is absent — implement inside Dialog component (not callers), smoke-test hospitality flows after fix
 - Phase 8: Single llms.txt would exceed AI context windows for 55+ components — must use two-tier structure (index under 20KB + full file)
 
 ## Session Continuity
 
-Last session: 2026-03-23T00:04:55Z
-Stopped at: Completed 06-01-PLAN.md
-Resume file: .planning/phases/06-accessibility-foundation/06-02-PLAN.md
+Last session: 2026-03-23T00:16:17Z
+Stopped at: Completed 06-02-PLAN.md
+Resume file: .planning/phases/06-accessibility-foundation/06-03-PLAN.md
