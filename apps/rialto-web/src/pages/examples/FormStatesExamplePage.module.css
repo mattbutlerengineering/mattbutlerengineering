@@ -1,0 +1,5 @@
+.statePanels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xl);
+}
