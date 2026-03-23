@@ -17,9 +17,9 @@
   /* Descriptions, helper text, secondary labels */
   --rialto-text-secondary: #6b6660;
   /* Placeholders, disabled text, timestamps */
-  --rialto-text-tertiary: #9e9890;
+  --rialto-text-tertiary: #747070;
   /* Text on accent-filled backgrounds (primary buttons, badges) */
-  --rialto-text-on-accent: #fdfcfa;
+  --rialto-text-on-accent: #1a1918;
 
   /* ── Borders ───────────────────────────────── */
   /* Default borders for cards, inputs, dividers */
@@ -29,13 +29,13 @@
 
   /* ── Accent (amber gold — surgical use only) ─ */
   /* Primary buttons, focus rings, active/selected states only */
-  --rialto-accent: #c4922a;
+  --rialto-accent: #b0841e;
   /* Primary button hover state */
-  --rialto-accent-hover: #d4a23a;
+  --rialto-accent-hover: #c0942e;
   /* Subtle accent backgrounds (selected rows, active tabs) */
-  --rialto-accent-muted: rgb(196 146 42 / 0.12);
+  --rialto-accent-muted: rgb(176 132 30 / 0.12);
   /* Focus ring outer glow (used in --rialto-shadow-focus) */
-  --rialto-accent-glow: rgb(196 146 42 / 0.35);
+  --rialto-accent-glow: rgb(176 132 30 / 0.35);
 
   /* ── Semantic ──────────────────────────────── */
   /* Error text, destructive button fills, invalid borders */
@@ -43,13 +43,13 @@
   /* Error alert backgrounds, error badge tints */
   --rialto-error-muted: rgb(184 74 60 / 0.1);
   /* Warning text, caution banners, pending states */
-  --rialto-warning: #b8862a;
+  --rialto-warning: #8a6820;
   /* Warning alert backgrounds, warning badge tints */
-  --rialto-warning-muted: rgb(184 134 42 / 0.1);
+  --rialto-warning-muted: rgb(138 104 32 / 0.1);
   /* Success text, confirmation icons */
-  --rialto-success: #7a8a3c;
+  --rialto-success: #5e6a2e;
   /* Success alert backgrounds, success badge tints */
-  --rialto-success-muted: rgb(122 138 60 / 0.1);
+  --rialto-success-muted: rgb(94 106 46 / 0.1);
 
   /* ── Overlay ───────────────────────────────── */
   /* Modal/drawer backdrop, scrim behind overlays */
@@ -71,7 +71,7 @@
   /* ── Text ──────────────────────────────────── */
   --rialto-text-primary: rgb(253 252 250 / 0.92);
   --rialto-text-secondary: rgb(253 252 250 / 0.6);
-  --rialto-text-tertiary: rgb(253 252 250 / 0.38);
+  --rialto-text-tertiary: rgb(253 252 250 / 0.50);
   --rialto-text-on-accent: #1a1918;
 
   /* ── Borders ───────────────────────────────── */

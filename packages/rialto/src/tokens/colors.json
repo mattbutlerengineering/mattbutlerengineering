@@ -39,12 +39,12 @@
         "$description": "Descriptions, helper text, secondary labels"
       },
       "tertiary": {
-        "$value": "#9e9890",
+        "$value": "#747070",
         "$type": "color",
         "$description": "Placeholders, disabled text, timestamps"
       },
       "on-accent": {
-        "$value": "#fdfcfa",
+        "$value": "#1a1918",
         "$type": "color",
         "$description": "Text on accent-filled backgrounds"
       }
@@ -63,22 +63,22 @@
     },
     "accent": {
       "default": {
-        "$value": "#c4922a",
+        "$value": "#b0841e",
         "$type": "color",
         "$description": "Primary buttons, focus rings, active/selected states"
       },
       "hover": {
-        "$value": "#d4a23a",
+        "$value": "#c0942e",
         "$type": "color",
         "$description": "Primary button hover state"
       },
       "muted": {
-        "$value": "rgb(196 146 42 / 0.12)",
+        "$value": "rgb(176 132 30 / 0.12)",
         "$type": "color",
         "$description": "Subtle accent backgrounds"
       },
       "glow": {
-        "$value": "rgb(196 146 42 / 0.35)",
+        "$value": "rgb(176 132 30 / 0.35)",
         "$type": "color",
         "$description": "Focus ring outer glow"
       }
@@ -96,14 +96,26 @@
           "$description": "Error alert backgrounds"
         }
       },
+      "warning": {
+        "default": {
+          "$value": "#8a6820",
+          "$type": "color",
+          "$description": "Warning text, caution banners, pending states"
+        },
+        "muted": {
+          "$value": "rgb(138 104 32 / 0.1)",
+          "$type": "color",
+          "$description": "Warning alert backgrounds, warning badge tints"
+        }
+      },
       "success": {
         "default": {
-          "$value": "#7a8a3c",
+          "$value": "#5e6a2e",
           "$type": "color",
           "$description": "Success text, confirmation icons"
         },
         "muted": {
-          "$value": "rgb(122 138 60 / 0.1)",
+          "$value": "rgb(94 106 46 / 0.1)",
           "$type": "color",
           "$description": "Success alert backgrounds"
         }

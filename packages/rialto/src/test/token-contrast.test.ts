@@ -18,7 +18,7 @@ const DARK = {
   surfaceElevated: "#2a2725",
   textPrimaryOpacity: 0.92,
   textSecondaryOpacity: 0.6,
-  textTertiaryOpacity: 0.38,
+  textTertiaryOpacity: 0.50,
   textOnBase: "#fdfcfa", // base before alpha blend
   accent: "#d4a23a",
   textOnAccent: "#1a1918",
@@ -89,11 +89,8 @@ const textOnAccent = colors.color["text"]["on-accent"].$value;
 const accent = colors.color.accent.default.$value;
 
 const error = colors.color.semantic.error.default.$value;
+const warning = colors.color.semantic.warning.default.$value;
 const success = colors.color.semantic.success.default.$value;
-
-// Warning is only in colors.css — hardcode the light theme value here
-// Light theme warning from colors.css: --rialto-warning: #b8862a
-const WARNING_LIGHT = "#b8862a";
 
 // ── Light Theme Tests ─────────────────────────────────────────────────────────
 
@@ -106,7 +103,7 @@ describe("Light theme — text on surface (4.5:1 minimum)", () => {
     expect(contrastRatio(textSecondary, surface)).toBeGreaterThanOrEqual(4.5);
   });
 
-  it("text-tertiary on surface — CURRENTLY FAILS (approx 2.65:1)", () => {
+  it("text-tertiary on surface", () => {
     expect(contrastRatio(textTertiary, surface)).toBeGreaterThanOrEqual(4.5);
   });
 
@@ -124,21 +121,21 @@ describe("Light theme — semantic text on surface (4.5:1 minimum)", () => {
     expect(contrastRatio(error, surface)).toBeGreaterThanOrEqual(4.5);
   });
 
-  it("warning on surface — CURRENTLY FAILS (approx 3.00:1)", () => {
-    expect(contrastRatio(WARNING_LIGHT, surface)).toBeGreaterThanOrEqual(4.5);
+  it("warning on surface", () => {
+    expect(contrastRatio(warning, surface)).toBeGreaterThanOrEqual(4.5);
   });
 
-  it("success on surface — CURRENTLY FAILS (approx 3.52:1)", () => {
+  it("success on surface", () => {
     expect(contrastRatio(success, surface)).toBeGreaterThanOrEqual(4.5);
   });
 });
 
 describe("Light theme — accent text and UI controls", () => {
-  it("text-on-accent on accent (4.5:1 minimum) — CURRENTLY FAILS (approx 2.73:1 for white)", () => {
+  it("text-on-accent on accent (4.5:1 minimum)", () => {
     expect(contrastRatio(textOnAccent, accent)).toBeGreaterThanOrEqual(4.5);
   });
 
-  it("accent as UI control on surface (3:1 minimum) — CURRENTLY FAILS (approx 2.60:1)", () => {
+  it("accent as UI control on surface (3:1 minimum)", () => {
     expect(contrastRatio(accent, surface)).toBeGreaterThanOrEqual(3);
   });
 });
