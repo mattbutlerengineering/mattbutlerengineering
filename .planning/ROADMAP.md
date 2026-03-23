@@ -25,7 +25,7 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 **Milestone Goal:** Make Rialto accessible (WCAG AA), build polished real-world example pages, and add AI-friendly tooling so AI tools produce correct, accessible Rialto code.
 
 - [x] **Phase 6: Accessibility Foundation** - Audit and fix all 55+ components to WCAG AA; gate CI with axe-core (completed 2026-03-23)
-- [ ] **Phase 7: Example Pages** - Build realistic dashboard, settings, and form pages with all component states visible
+- [x] **Phase 7: Example Pages** - Build realistic dashboard, settings, and form pages with all component states visible (completed 2026-03-23)
 - [ ] **Phase 8: AI Developer Experience** - Ship registry, two-tier llms.txt, CLAUDE.md update, and CLI scaffold
 - [ ] **Phase 9: Polish and Documentation** - Per-component a11y docs in showcase and structured spec files for top 20 components
 
@@ -60,7 +60,7 @@ Plans:
   3. Navigating to `/rialto/examples/form` shows a single page where error, disabled, loading, and default validation states are all visible simultaneously without any interaction
   4. Every example page has a copy-to-clipboard button that copies the full page JSX, and annotated composition notes explain why specific components are combined
   5. Multi-state flows (empty → loading → populated) are rendered as separate static panels on each example page, visible without JavaScript interaction
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 07-01-PLAN.md — Shared infrastructure: ExamplePageLayout, routes, and sidebar navigation
@@ -99,6 +99,6 @@ Plans:
 | 4. Hospitality Migration + Full Hosting | v1.0 | 5/5 | Complete | 2026-03-04 |
 | 5. Retroactive Verification & Gap Closure | v1.0 | 2/2 | Complete | 2026-03-04 |
 | 6. Accessibility Foundation | v1.1 | 5/5 | Complete | 2026-03-23 |
-| 7. Example Pages | 2/3 | In Progress|  | - |
+| 7. Example Pages | 3/3 | Complete   | 2026-03-23 | - |
 | 8. AI Developer Experience | v1.1 | 0/TBD | Not started | - |
 | 9. Polish and Documentation | v1.1 | 0/TBD | Not started | - |
