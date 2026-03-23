@@ -514,6 +514,72 @@ Starts Postgres (Docker), syncs all database schemas, and launches all dev serve
    - Reservations API: http://localhost:3004
    - Reservations API Docs: http://localhost:3004/docs
 
+## Rialto Design System Usage
+
+### Import Paths
+
+```typescript
+// Components (barrel export — always use this, never subpaths)
+import { Button, Input, Card, Text, Stack } from "@mbe/rialto";
+
+// Styles (must be imported before any component rendering)
+import "@mbe/rialto/styles";
+
+// Motion tokens
+import { spring, precision } from "@mbe/rialto/motion";
+```
+
+### RialtoProvider Setup
+
+```tsx
+import { RialtoProvider } from "@mbe/rialto";
+
+// Wrap your app root (main.tsx):
+<RialtoProvider theme="light"> {/* "light" | "dark" | "system" */}
+  <App />
+</RialtoProvider>
+```
+
+`vibe` prop adjusts component density: `"default"` (standard), `"transacting"` (tighter, sharper — for checkout/payments), `"presenting"` (more whitespace, softer — for dashboards/demos).
+
+### Top 10 Component APIs
+
+| Component | Key Props |
+|-----------|-----------|
+| **Button** | `variant` (`"primary" \| "secondary" \| "ghost" \| "danger"`), `size` (`"sm" \| "md" \| "lg"`), `loading`, `disabled`, `onClick` |
+| **Input** | `label`, `hint`, `error`, `type`, `placeholder` |
+| **Card** | `variant`, `padding` (`"sm" \| "md" \| "lg"`), `title`, `subtitle` |
+| **Text** | `variant` (`"body" \| "heading" \| "display" \| "label" \| "caption"`), `size`, `weight`, `as` |
+| **Stack** | `direction` (`"row" \| "column"`), `gap` (spacing token), `align`, `justify` (`"between"` not `"space-between"`) |
+| **Badge** | `variant` (`"neutral" \| "success" \| "warning" \| "error" \| "info"`), `size`, `dot` |
+| **Select** | `label`, `options` (`{ value, label }[]`), `placeholder`, `value`, `onChange` |
+| **Toggle** | `label`, `checked`, `onChange`, `disabled` |
+| **Dialog** | `open`, `onClose`, `title`, `children` |
+| **Toast** | Use `useToast()` hook: `const { toast } = useToast();` then `toast.success("msg")` / `toast.error("msg")` — requires `<ToastProvider>` ancestor |
+
+### Token Rules
+
+- **Never hardcode colors** — always use `var(--rialto-*)` tokens
+- **Spacing**: `--rialto-space-{xs|sm|md|lg|xl|2xl|3xl}`
+- **Radius**: `--rialto-radius-{sharp|default|soft|round}`
+- **Accent** (`--rialto-accent`) is gold — use only for focus rings, active states, primary buttons. Never decorative.
+- **Always use CSS logical properties**: `margin-inline-start` not `margin-left`, `padding-inline-start` not `padding-left`
+- **Do NOT call `useToast()` without `<ToastProvider>`** or `useUIEnvironment()` without `<RialtoProvider>`
+
+### AI Reference Files
+
+- `llms.txt` — condensed component catalog and token reference (<20KB, fits in AI context windows)
+- `llms-full.txt` — complete prop tables, composition examples, and advanced patterns (26KB)
+- `packages/rialto/CLAUDE.md` — component authoring guidelines (for contributing to Rialto)
+
+### Scaffold New Apps
+
+```bash
+mbe new <app-name>   # creates apps/<name>/ with RialtoProvider, routing, and example page
+```
+
+---
+
 ## Before Committing
 
 Always run these commands before committing:
