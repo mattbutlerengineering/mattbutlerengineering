@@ -48,10 +48,11 @@ const apiApp = new digitalocean.App("mattbutlerengineering-api-app", {
       ],
     },
 
-    // Pre-deploy migration jobs
+    // Single pre-deploy job runs both migrations sequentially to avoid
+    // concurrent lock conflicts on the shared _prisma_migrations table.
     jobs: [
       {
-        name: "db-migrate-users",
+        name: "db-migrate",
         kind: "PRE_DEPLOY",
         github: {
           repo: "mattbutlerengineering/mattbutlerengineering",
@@ -59,26 +60,11 @@ const apiApp = new digitalocean.App("mattbutlerengineering-api-app", {
           deployOnPush: false, // CI triggers deploys via doctl
         },
         sourceDir: "/",
-        dockerfilePath: "services/users/Dockerfile",
+        dockerfilePath: "infrastructure/migrate/Dockerfile",
         envs: [
           { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" },
         ],
-        runCommand: "npx prisma migrate deploy",
-      },
-      {
-        name: "db-migrate-reservations",
-        kind: "PRE_DEPLOY",
-        github: {
-          repo: "mattbutlerengineering/mattbutlerengineering",
-          branch: "main",
-          deployOnPush: false,
-        },
-        sourceDir: "/",
-        dockerfilePath: "services/reservations/Dockerfile",
-        envs: [
-          { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" },
-        ],
-        runCommand: "npx prisma migrate deploy",
+        runCommand: "/migrate.sh",
       },
     ],
 
