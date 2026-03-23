@@ -553,7 +553,7 @@ import { RialtoProvider } from "@mbe/rialto";
 | **Stack** | `direction` (`"row" \| "column"`), `gap` (spacing token), `align`, `justify` (`"between"` not `"space-between"`) |
 | **Badge** | `variant` (`"neutral" \| "success" \| "warning" \| "error" \| "info"`), `size`, `dot` |
 | **Select** | `label`, `options` (`{ value, label }[]`), `placeholder`, `value`, `onChange` |
-| **Toggle** | `label`, `checked`, `onChange`, `disabled` |
+| **Toggle** | `label`, `checked`, `onCheckedChange`, `disabled` |
 | **Dialog** | `open`, `onClose`, `title`, `children` |
 | **Toast** | Use `useToast()` hook: `const { toast } = useToast();` then `toast.success("msg")` / `toast.error("msg")` — requires `<ToastProvider>` ancestor |
 
