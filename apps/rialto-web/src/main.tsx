@@ -1,11 +1,12 @@
 /* eslint-disable react-refresh/only-export-components -- entry point, not a fast-refresh module */
-import { StrictMode, useState, useEffect } from "react";
+import { StrictMode, useState, useEffect, useMemo } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter } from "react-router-dom";
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import "@mbe/rialto/styles";
 import "./global.css";
 import { RialtoProvider, ToastProvider } from "@mbe/rialto";
-import { ShowcaseRouter } from "./routes";
+import { ThemeContext } from "./ThemeContext";
+import { routeTree } from "./routes";
 
 /* ── Theme initialization ─────────────────────── */
 function getInitialTheme(): "light" | "dark" {
@@ -14,6 +15,12 @@ function getInitialTheme(): "light" | "dark" {
   if (saved === "dark" || saved === "light") return saved;
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
+
+/**
+ * Uses createBrowserRouter (React Router v7 recommended API) instead of
+ * BrowserRouter to ensure basename is correctly applied on deep links.
+ */
+const router = createBrowserRouter(routeTree, { basename: "/rialto" });
 
 /* ── Root component ───────────────────────────── */
 function Root() {
@@ -28,14 +35,19 @@ function Root() {
     setTheme((current) => (current === "dark" ? "light" : "dark"));
   };
 
+  const themeContextValue = useMemo(
+    () => ({ theme, onThemeToggle: handleThemeToggle }),
+    [theme]
+  );
+
   return (
-    // RialtoProvider MUST wrap BrowserRouter (outside it)
+    // RialtoProvider MUST wrap RouterProvider (outside it)
     <RialtoProvider theme={theme}>
-      <BrowserRouter basename="/rialto">
+      <ThemeContext value={themeContextValue}>
         <ToastProvider>
-          <ShowcaseRouter theme={theme} onThemeToggle={handleThemeToggle} />
+          <RouterProvider router={router} />
         </ToastProvider>
-      </BrowserRouter>
+      </ThemeContext>
     </RialtoProvider>
   );
 }

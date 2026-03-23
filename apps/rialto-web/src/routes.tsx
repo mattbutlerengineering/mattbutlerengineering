@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
+import type { RouteObject } from "react-router-dom";
 import { Spinner } from "@mbe/rialto";
 
 /* ── Lazy-loaded demo pages ──────────────────── */
@@ -221,7 +222,6 @@ const AspectRatioPage = lazy(() =>
 const ScrollAreaPage = lazy(() =>
   import("./pages/layout/ScrollAreaPage").then((m) => ({ default: m.ScrollAreaPage }))
 );
-// Timeline is in pages/data/ but the nav route is under Layout section
 const TimelinePage = lazy(() =>
   import("./pages/data/TimelinePage").then((m) => ({ default: m.TimelinePage }))
 );
@@ -236,206 +236,155 @@ const PageHeaderPage = lazy(() =>
 );
 
 /* ── Shared loading fallback ─────────────────── */
-const pageLoading = (
-  <div
-    style={{
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      minHeight: "100vh",
-    }}
-  >
-    <Spinner size="lg" label="Loading..." />
-  </div>
-);
-
-/* ── Route props ─────────────────────────────── */
-export interface ShowcaseRouterProps {
-  theme: "light" | "dark";
-  onThemeToggle: () => void;
+function PageLoading() {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: "100vh",
+      }}
+    >
+      <Spinner size="lg" label="Loading..." />
+    </div>
+  );
 }
 
-/**
- * All route definitions for the rialto-web showcase app.
- *
- * Structure:
- * - ShowcaseLayout wraps the overview + all component pages (/ and /components/*)
- * - DemoLayout wraps the full-page demo pages (/demos/*)
- * - A standalone /visual-test route (hidden from sidebar)
- */
-export function ShowcaseRouter({ theme, onThemeToggle }: ShowcaseRouterProps) {
+/** Wrap a lazy component with Suspense */
+function suspended(Component: React.LazyExoticComponent<React.ComponentType>) {
   return (
-    <Suspense fallback={pageLoading}>
-      <Routes>
-        {/* ── Showcase shell ──────────────────── */}
-        <Route element={<ShowcaseLayout theme={theme} onThemeToggle={onThemeToggle} />}>
-          {/* Overview landing page */}
-          <Route index element={<OverviewPage />} />
-
-          {/* ── Forms ─────────────────────────── */}
-          <Route path="/components/button" element={<ButtonPage />} />
-          <Route path="/components/input" element={<InputPage />} />
-          <Route path="/components/textarea" element={<TextAreaPage />} />
-          <Route path="/components/number-input" element={<NumberInputPage />} />
-          <Route path="/components/checkbox-radio" element={<CheckboxRadioPage />} />
-          <Route path="/components/toggle" element={<TogglePage />} />
-          <Route path="/components/slider" element={<SliderPage />} />
-          <Route path="/components/select" element={<SelectPage />} />
-          <Route path="/components/pin-input" element={<PinInputPage />} />
-          <Route path="/components/segmented-control" element={<SegmentedControlPage />} />
-          <Route path="/components/autocomplete" element={<AutocompletePage />} />
-          <Route path="/components/input-group" element={<InputGroupPage />} />
-
-          {/* ── Data Display ──────────────────── */}
-          <Route path="/components/card" element={<CardPage />} />
-          <Route path="/components/table" element={<TablePage />} />
-          <Route path="/components/badge" element={<BadgePage />} />
-          <Route path="/components/tag" element={<TagPage />} />
-          <Route path="/components/avatar" element={<AvatarPage />} />
-          <Route path="/components/stat" element={<StatPage />} />
-          <Route path="/components/data-list" element={<DataListPage />} />
-          <Route path="/components/meter" element={<MeterPage />} />
-          <Route path="/components/kbd" element={<KbdPage />} />
-
-          {/* ── Navigation ────────────────────── */}
-          <Route path="/components/tabs" element={<TabsPage />} />
-          <Route path="/components/breadcrumb" element={<BreadcrumbPage />} />
-          <Route path="/components/steps" element={<StepsPage />} />
-          <Route path="/components/pagination" element={<PaginationPage />} />
-          <Route path="/components/navigation-menu" element={<NavigationMenuPage />} />
-          <Route path="/components/tree" element={<TreePage />} />
-          <Route path="/components/sidebar" element={<SidebarPage />} />
-          <Route path="/components/navbar" element={<NavbarPage />} />
-
-          {/* ── Feedback ──────────────────────── */}
-          <Route path="/components/toast" element={<ToastPage />} />
-          <Route path="/components/alert" element={<AlertPage />} />
-          <Route path="/components/banner" element={<BannerPage />} />
-          <Route path="/components/progress" element={<ProgressPage />} />
-          <Route path="/components/spinner" element={<SpinnerPage />} />
-          <Route path="/components/skeleton" element={<SkeletonPage />} />
-          <Route path="/components/empty-state" element={<EmptyStatePage />} />
-
-          {/* ── Overlays ──────────────────────── */}
-          <Route path="/components/dialog" element={<DialogPage />} />
-          <Route path="/components/confirm-dialog" element={<ConfirmDialogPage />} />
-          <Route path="/components/drawer" element={<DrawerPage />} />
-          <Route path="/components/command-palette" element={<CommandPalettePage />} />
-          <Route path="/components/tooltip" element={<TooltipPage />} />
-          <Route path="/components/popover" element={<PopoverPage />} />
-          <Route path="/components/hover-card" element={<HoverCardPage />} />
-          <Route path="/components/dropdown-menu" element={<DropdownMenuPage />} />
-          <Route path="/components/context-menu" element={<ContextMenuPage />} />
-          <Route path="/components/disabled-tooltip" element={<DisabledTooltipPage />} />
-
-          {/* ── Layout ────────────────────────── */}
-          <Route path="/components/divider" element={<DividerPage />} />
-          <Route path="/components/text" element={<TextPage />} />
-          <Route path="/components/stack" element={<StackPage />} />
-          <Route path="/components/collapsible" element={<CollapsiblePage />} />
-          <Route path="/components/accordion" element={<AccordionPage />} />
-          <Route path="/components/aspect-ratio" element={<AspectRatioPage />} />
-          <Route path="/components/scroll-area" element={<ScrollAreaPage />} />
-          <Route path="/components/timeline" element={<TimelinePage />} />
-          <Route path="/components/hero" element={<HeroPage />} />
-          <Route path="/components/footer" element={<FooterPage />} />
-          <Route path="/components/page-header" element={<PageHeaderPage />} />
-
-          {/* ── Token pages (kept as future work) ── */}
-          <Route
-            path="/components/motion"
-            element={
-              <div style={{ padding: "var(--rialto-space-xl)" }}>
-                <p style={{ color: "var(--rialto-text-secondary)" }}>Motion tokens — coming soon</p>
-              </div>
-            }
-          />
-          <Route
-            path="/components/typography"
-            element={
-              <div style={{ padding: "var(--rialto-space-xl)" }}>
-                <p style={{ color: "var(--rialto-text-secondary)" }}>Typography tokens — coming soon</p>
-              </div>
-            }
-          />
-          <Route
-            path="/components/color"
-            element={
-              <div style={{ padding: "var(--rialto-space-xl)" }}>
-                <p style={{ color: "var(--rialto-text-secondary)" }}>Color tokens — coming soon</p>
-              </div>
-            }
-          />
-          <Route
-            path="/components/spacing"
-            element={
-              <div style={{ padding: "var(--rialto-space-xl)" }}>
-                <p style={{ color: "var(--rialto-text-secondary)" }}>Spacing tokens — coming soon</p>
-              </div>
-            }
-          />
-          <Route
-            path="/components/radius"
-            element={
-              <div style={{ padding: "var(--rialto-space-xl)" }}>
-                <p style={{ color: "var(--rialto-text-secondary)" }}>Radius tokens — coming soon</p>
-              </div>
-            }
-          />
-          <Route
-            path="/components/shadows"
-            element={
-              <div style={{ padding: "var(--rialto-space-xl)" }}>
-                <p style={{ color: "var(--rialto-text-secondary)" }}>Shadow tokens — coming soon</p>
-              </div>
-            }
-          />
-          <Route
-            path="/components/surfaces"
-            element={
-              <div style={{ padding: "var(--rialto-space-xl)" }}>
-                <p style={{ color: "var(--rialto-text-secondary)" }}>Surface tokens — coming soon</p>
-              </div>
-            }
-          />
-          <Route
-            path="/components/icon-vocabulary"
-            element={
-              <div style={{ padding: "var(--rialto-space-xl)" }}>
-                <p style={{ color: "var(--rialto-text-secondary)" }}>Icon vocabulary — coming soon</p>
-              </div>
-            }
-          />
-          {/* -- Examples -- */}
-          <Route path="/examples/dashboard" element={<DashboardExamplePage />} />
-          <Route path="/examples/settings" element={<SettingsExamplePage />} />
-          <Route path="/examples/form" element={<FormStatesExamplePage />} />
-        </Route>
-
-        {/* ── Demo pages ──────────────────────── */}
-        <Route element={<DemoLayout />}>
-          <Route path="/demos/login" element={<SignIn />} />
-          <Route path="/demos/signup" element={<SignUp />} />
-          <Route path="/demos/dashboard" element={<Dashboard />} />
-          <Route path="/demos/teams/new" element={<TeamCreate />} />
-          <Route path="/demos/layouts" element={<LayoutDemo />} />
-          <Route path="/demos/visual-test" element={<VisualTest />} />
-          <Route element={<DriverProvider />}>
-            <Route path="/demos/drivers" element={<DriverList />} />
-            <Route path="/demos/drivers/new" element={<DriverCreate />} />
-            <Route path="/demos/drivers/:id" element={<DriverRead />} />
-            <Route path="/demos/drivers/:id/edit" element={<DriverUpdate />} />
-          </Route>
-        </Route>
-
-        {/* ── Standalone visual-test (not in sidebar) ── */}
-        <Route path="/visual-test" element={<VisualTest />} />
-
-        {/* ── Catch-all: redirect unknown routes to overview ── */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+    <Suspense fallback={<PageLoading />}>
+      <Component />
     </Suspense>
   );
 }
 
-ShowcaseRouter.displayName = "ShowcaseRouter";
+/** Token placeholder page */
+function tokenPlaceholder(name: string) {
+  return (
+    <div style={{ padding: "var(--rialto-space-xl)" }}>
+      <p style={{ color: "var(--rialto-text-secondary)" }}>{name} — coming soon</p>
+    </div>
+  );
+}
+
+/* ── Component routes (inside ShowcaseLayout) ── */
+const componentRoutes: RouteObject[] = [
+  // Forms
+  { path: "components/button", element: suspended(ButtonPage) },
+  { path: "components/input", element: suspended(InputPage) },
+  { path: "components/textarea", element: suspended(TextAreaPage) },
+  { path: "components/number-input", element: suspended(NumberInputPage) },
+  { path: "components/checkbox-radio", element: suspended(CheckboxRadioPage) },
+  { path: "components/toggle", element: suspended(TogglePage) },
+  { path: "components/slider", element: suspended(SliderPage) },
+  { path: "components/select", element: suspended(SelectPage) },
+  { path: "components/pin-input", element: suspended(PinInputPage) },
+  { path: "components/segmented-control", element: suspended(SegmentedControlPage) },
+  { path: "components/autocomplete", element: suspended(AutocompletePage) },
+  { path: "components/input-group", element: suspended(InputGroupPage) },
+  // Data Display
+  { path: "components/card", element: suspended(CardPage) },
+  { path: "components/table", element: suspended(TablePage) },
+  { path: "components/badge", element: suspended(BadgePage) },
+  { path: "components/tag", element: suspended(TagPage) },
+  { path: "components/avatar", element: suspended(AvatarPage) },
+  { path: "components/stat", element: suspended(StatPage) },
+  { path: "components/data-list", element: suspended(DataListPage) },
+  { path: "components/meter", element: suspended(MeterPage) },
+  { path: "components/kbd", element: suspended(KbdPage) },
+  // Navigation
+  { path: "components/tabs", element: suspended(TabsPage) },
+  { path: "components/breadcrumb", element: suspended(BreadcrumbPage) },
+  { path: "components/steps", element: suspended(StepsPage) },
+  { path: "components/pagination", element: suspended(PaginationPage) },
+  { path: "components/navigation-menu", element: suspended(NavigationMenuPage) },
+  { path: "components/tree", element: suspended(TreePage) },
+  { path: "components/sidebar", element: suspended(SidebarPage) },
+  { path: "components/navbar", element: suspended(NavbarPage) },
+  // Feedback
+  { path: "components/toast", element: suspended(ToastPage) },
+  { path: "components/alert", element: suspended(AlertPage) },
+  { path: "components/banner", element: suspended(BannerPage) },
+  { path: "components/progress", element: suspended(ProgressPage) },
+  { path: "components/spinner", element: suspended(SpinnerPage) },
+  { path: "components/skeleton", element: suspended(SkeletonPage) },
+  { path: "components/empty-state", element: suspended(EmptyStatePage) },
+  // Overlays
+  { path: "components/dialog", element: suspended(DialogPage) },
+  { path: "components/confirm-dialog", element: suspended(ConfirmDialogPage) },
+  { path: "components/drawer", element: suspended(DrawerPage) },
+  { path: "components/command-palette", element: suspended(CommandPalettePage) },
+  { path: "components/tooltip", element: suspended(TooltipPage) },
+  { path: "components/popover", element: suspended(PopoverPage) },
+  { path: "components/hover-card", element: suspended(HoverCardPage) },
+  { path: "components/dropdown-menu", element: suspended(DropdownMenuPage) },
+  { path: "components/context-menu", element: suspended(ContextMenuPage) },
+  { path: "components/disabled-tooltip", element: suspended(DisabledTooltipPage) },
+  // Layout
+  { path: "components/divider", element: suspended(DividerPage) },
+  { path: "components/text", element: suspended(TextPage) },
+  { path: "components/stack", element: suspended(StackPage) },
+  { path: "components/collapsible", element: suspended(CollapsiblePage) },
+  { path: "components/accordion", element: suspended(AccordionPage) },
+  { path: "components/aspect-ratio", element: suspended(AspectRatioPage) },
+  { path: "components/scroll-area", element: suspended(ScrollAreaPage) },
+  { path: "components/timeline", element: suspended(TimelinePage) },
+  { path: "components/hero", element: suspended(HeroPage) },
+  { path: "components/footer", element: suspended(FooterPage) },
+  { path: "components/page-header", element: suspended(PageHeaderPage) },
+  // Token pages
+  { path: "components/motion", element: tokenPlaceholder("Motion tokens") },
+  { path: "components/typography", element: tokenPlaceholder("Typography tokens") },
+  { path: "components/color", element: tokenPlaceholder("Color tokens") },
+  { path: "components/spacing", element: tokenPlaceholder("Spacing tokens") },
+  { path: "components/radius", element: tokenPlaceholder("Radius tokens") },
+  { path: "components/shadows", element: tokenPlaceholder("Shadow tokens") },
+  { path: "components/surfaces", element: tokenPlaceholder("Surface tokens") },
+  { path: "components/icon-vocabulary", element: tokenPlaceholder("Icon vocabulary") },
+  // Examples
+  { path: "examples/dashboard", element: suspended(DashboardExamplePage) },
+  { path: "examples/settings", element: suspended(SettingsExamplePage) },
+  { path: "examples/form", element: suspended(FormStatesExamplePage) },
+];
+
+/**
+ * Route tree for createBrowserRouter.
+ * Uses the v7 data router API which correctly handles basename on deep links.
+ */
+export const routeTree: RouteObject[] = [
+  // Showcase shell (sidebar + header)
+  {
+    element: suspended(ShowcaseLayout),
+    children: [
+      { index: true, element: suspended(OverviewPage) },
+      ...componentRoutes,
+    ],
+  },
+  // Demo pages (standalone layouts)
+  {
+    element: suspended(DemoLayout),
+    children: [
+      { path: "demos/login", element: suspended(SignIn) },
+      { path: "demos/signup", element: suspended(SignUp) },
+      { path: "demos/dashboard", element: suspended(Dashboard) },
+      { path: "demos/teams/new", element: suspended(TeamCreate) },
+      { path: "demos/layouts", element: suspended(LayoutDemo) },
+      { path: "demos/visual-test", element: suspended(VisualTest) },
+      {
+        element: suspended(DriverProvider),
+        children: [
+          { path: "demos/drivers", element: suspended(DriverList) },
+          { path: "demos/drivers/new", element: suspended(DriverCreate) },
+          { path: "demos/drivers/:id", element: suspended(DriverRead) },
+          { path: "demos/drivers/:id/edit", element: suspended(DriverUpdate) },
+        ],
+      },
+    ],
+  },
+  // Standalone visual-test
+  { path: "visual-test", element: suspended(VisualTest) },
+  // Catch-all
+  { path: "*", element: <Navigate to="/" replace /> },
+];

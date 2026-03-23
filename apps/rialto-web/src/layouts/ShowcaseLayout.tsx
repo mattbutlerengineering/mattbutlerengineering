@@ -3,6 +3,7 @@ import { Footer } from "@mbe/rialto";
 import { ShowcaseSidebar } from "../components/ShowcaseSidebar";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { NAV_SECTIONS, DEMO_PAGES } from "../data/nav-sections";
+import { useThemeContext } from "../ThemeContext";
 import styles from "./ShowcaseLayout.module.css";
 
 /* ── GitHub icon ─────────────────────────────── */
@@ -22,8 +23,8 @@ function GitHubIcon() {
 
 /* ── Props ───────────────────────────────────── */
 export interface ShowcaseLayoutProps {
-  theme: "light" | "dark";
-  onThemeToggle: () => void;
+  theme?: "light" | "dark";
+  onThemeToggle?: () => void;
 }
 
 /**
@@ -35,7 +36,10 @@ export interface ShowcaseLayoutProps {
  * - Main content area (Outlet) — only this scrolls
  * - Footer at bottom of content scroll area
  */
-export function ShowcaseLayout({ theme, onThemeToggle }: ShowcaseLayoutProps) {
+export function ShowcaseLayout(props: ShowcaseLayoutProps) {
+  const themeCtx = useThemeContext();
+  const theme = props.theme ?? themeCtx.theme;
+  const onThemeToggle = props.onThemeToggle ?? themeCtx.onThemeToggle;
   const navigate = useNavigate();
   const location = useLocation();
 
