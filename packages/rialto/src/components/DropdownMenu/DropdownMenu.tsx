@@ -216,7 +216,7 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
           }
         }}
       >
-        {cloneElement(trigger, {
+        {cloneElement(trigger as React.ReactElement<Record<string, unknown>>, {
           "aria-haspopup": "menu",
           "aria-expanded": open,
         })}

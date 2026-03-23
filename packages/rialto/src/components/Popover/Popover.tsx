@@ -138,7 +138,7 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
           }
         }}
       >
-        {cloneElement(trigger, {
+        {cloneElement(trigger as React.ReactElement<Record<string, unknown>>, {
           "aria-haspopup": "dialog",
           "aria-expanded": open,
         })}
