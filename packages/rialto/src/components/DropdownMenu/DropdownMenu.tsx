@@ -96,7 +96,20 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
   const [activeIndex, setActiveIndex] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
+  const triggerRef = useRef<Element | null>(null);
   const shouldReduceMotion = useReducedMotion();
+
+  // Capture trigger on open; restore focus to it on close
+  useEffect(() => {
+    if (open) {
+      triggerRef.current = document.activeElement;
+    } else {
+      requestAnimationFrame(() => {
+        (triggerRef.current as HTMLElement | null)?.focus();
+        triggerRef.current = null;
+      });
+    }
+  }, [open]);
 
   // Flat list of focusable item indices
   const focusableIndices = items.reduce<number[]>((acc, entry, i) => {
