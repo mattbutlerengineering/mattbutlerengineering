@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "cp ../../packages/rialto/registry.json public/registry.json",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
