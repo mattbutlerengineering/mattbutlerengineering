@@ -125,8 +125,11 @@ Plans:
   1. `packages/rialto/registry.json` has non-empty props arrays for high-use components (Table, Drawer, Checkbox, TextArea, and other frequently used components)
   2. Phase 08 VERIFICATION.md exists with verification evidence for AIDX-01, AIDX-04, AIDX-06
   3. CI drift check for registry.json continues to pass after props improvement
+**Plans:** 2 plans
 
-Plans: (to be planned)
+Plans:
+- [ ] 11-01-PLAN.md — Export Props interfaces in 17 component files + Table fix + regenerate registry
+- [ ] 11-02-PLAN.md — Phase 08 VERIFICATION.md with formal evidence for AIDX-01, AIDX-04, AIDX-06
 
 ## Progress
 
@@ -142,4 +145,4 @@ Plans: (to be planned)
 | 8. AI Developer Experience | v1.1 | 3/3 | Complete | 2026-03-23 |
 | 9. Polish and Documentation | v1.1 | 3/3 | Complete | 2026-03-23 |
 | 10. Documentation Reconciliation & llms-full.txt Fix | v1.1 | Complete    | 2026-03-23 | 2026-03-23 |
-| 11. Registry Props & Phase 08 Verification | v1.1 | 0/0 | Pending | - |
+| 11. Registry Props & Phase 08 Verification | v1.1 | 0/2 | Planned | - |
