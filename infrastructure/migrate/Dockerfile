@@ -3,7 +3,7 @@ FROM node:22-alpine
 WORKDIR /app
 
 # Install prisma CLI directly — no workspace resolution needed
-RUN npm install -g prisma
+RUN npm install -g prisma@6
 
 # Copy Prisma schemas and migrations for both services
 COPY services/users/prisma ./services/users/prisma
