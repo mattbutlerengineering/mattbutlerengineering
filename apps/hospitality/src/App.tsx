@@ -23,7 +23,12 @@ export function App() {
   }
 
   if (!isAuthenticated) {
-    return <LoginPrompt />;
+    return (
+      <Routes>
+        <Route path="callback" element={<LoadingPage />} />
+        <Route path="*" element={<LoginPrompt />} />
+      </Routes>
+    );
   }
 
   return (
