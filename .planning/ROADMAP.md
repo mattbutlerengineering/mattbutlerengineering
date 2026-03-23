@@ -111,7 +111,7 @@ Plans:
   2. `llms-full.txt` documents correct prop names for Drawer (`onClose`), ConfirmDialog (`onConfirm`/`onCancel`), and Popover (actual API)
   3. `llms.txt` is consistent with corrected `llms-full.txt`
   4. CLAUDE.md Rialto section is verified accurate against current component APIs
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
 - [x] 10-01-PLAN.md — SUMMARY frontmatter fixes, llms prop corrections, CLAUDE.md verification
@@ -141,5 +141,5 @@ Plans: (to be planned)
 | 7. Example Pages | v1.1 | 3/3 | Complete | 2026-03-23 |
 | 8. AI Developer Experience | v1.1 | 3/3 | Complete | 2026-03-23 |
 | 9. Polish and Documentation | v1.1 | 3/3 | Complete | 2026-03-23 |
-| 10. Documentation Reconciliation & llms-full.txt Fix | v1.1 | 1/1 | Complete | 2026-03-23 |
+| 10. Documentation Reconciliation & llms-full.txt Fix | v1.1 | Complete    | 2026-03-23 | 2026-03-23 |
 | 11. Registry Props & Phase 08 Verification | v1.1 | 0/0 | Pending | - |
