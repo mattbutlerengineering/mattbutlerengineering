@@ -46,7 +46,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
-    "manifest": "pnpm exec tsx scripts/generate-manifest.ts"
+    "manifest": "pnpm exec tsx scripts/generate-manifest.ts",
+    "build:registry": "pnpm exec tsx scripts/generate-registry.ts"
   },
   "peerDependencies": {
     "framer-motion": "^12.0.0",
