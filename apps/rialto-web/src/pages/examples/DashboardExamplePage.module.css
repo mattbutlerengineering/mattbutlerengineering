@@ -1,0 +1,13 @@
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--rialto-space-lg);
+  margin-block-start: var(--rialto-space-sm);
+}
+
+.statePanels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-lg);
+  margin-block-start: var(--rialto-space-sm);
+}
