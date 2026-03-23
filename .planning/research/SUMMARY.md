@@ -1,232 +1,196 @@
 # Project Research Summary
 
-**Project:** Rialto Unification & Hosting
-**Domain:** Design system migration (Tailwind -> Rialto) + multi-SPA path-prefix hosting
-**Researched:** 2026-02-27
+**Project:** mattbutlerengineering — Rialto v1.1 (Accessibility, Example Pages, AI Developer Experience)
+**Domain:** React design system — WCAG AA compliance, full-page showcase examples, and AI-friendly developer tooling
+**Researched:** 2026-03-22
 **Confidence:** HIGH
 
 ## Executive Summary
 
-This project has two tightly coupled objectives: unify all three frontend apps under the Rialto design system (replacing Tailwind CSS and @mbe/ui), and bring the full multi-SPA deployment online under correct path-prefix routing. Both objectives are well-understood, well-scoped, and have ground-truth evidence in the existing codebase — the dashboard app already demonstrates the complete working pattern for both the hosting infrastructure and a partial Rialto adoption. The core stack is fixed (React 19, Vite 7, TypeScript), and the design system target is fixed (@mbe/rialto with CSS Modules + CSS custom properties). No new architectural decisions are required; this is an execution project, not a design project.
+Rialto v1.1 is an enhancement milestone for an existing 55-component React design system. The primary success criterion is specific and testable: when an AI tool is given the prompt "Build a settings page with Rialto," it produces correct, accessible code using real components. Achieving this requires three workstreams in a strict dependency order — first, make the components themselves WCAG AA compliant; second, build polished example pages demonstrating correct composition patterns including non-happy-path states; third, publish machine-readable artifacts (registry, llms.txt) that make those patterns accessible to AI tooling. The research confirms that all necessary infrastructure already exists in the codebase — no new frameworks, build tools, or CI systems are required.
 
-The recommended approach is sequential app migration: rialto-web first (already partially migrated, lowest risk), then marketing (simplest app, no auth), then hospitality/dashboard rename (most complex: 440+ Tailwind usages, auth-gated, backend-connected). The hosting infrastructure must be validated end-to-end before the last app is migrated — specifically, the ingress rules, Vite base configs, React Router basenames, and catchallDocument settings must all align. Running these in strict sequential order avoids the compounding failure modes that arise from parallel migration branches.
+The recommended approach is sequential by necessity. Accessibility work must precede example pages because example pages are the canonical Rialto usage reference — they must themselves be accessible or they teach AI tools to generate inaccessible code. Example pages must precede llms.txt expansion because llms.txt should link to working, realistic examples. The component registry must be generated from TypeScript source (never hand-maintained), and llms.txt must be split into an index file (under 20KB) and a full file — the two-tier pattern used by Nord Design System and Ant Design. A single monolithic llms.txt exceeds AI context windows for a 55+ component library.
 
-The primary risks are operational, not architectural. Five critical pitfalls are well-documented: Tailwind's CSS preflight disappearing without Rialto's reset in place, DigitalOcean ingress misconfiguration, Auth0 callback URL mismatch after the dashboard rename, leftover Tailwind classes surviving the library swap, and premature deletion of @mbe/ui before all consumers are migrated. Each has a clear, low-cost prevention strategy. The project is well-positioned to execute quickly given that patterns are proven in the existing codebase.
+The most significant risk is subtle: axe-core cannot resolve CSS custom property values in jsdom, meaning the existing automated accessibility suite will never catch contrast failures in the token-based color system. A separate programmatic token-contrast test (importing hex values as JS constants, asserting 4.5:1 ratios) must be added before any accessibility work is marked complete. Additionally, 14 of 58 component directories currently have no axe tests — several of these (CommandPalette, DropdownMenu, Autocomplete) are the most ARIA-complex components and the most likely to harbor real violations. Both gaps must be closed during the accessibility phase before any fixing work begins.
 
 ## Key Findings
 
 ### Recommended Stack
 
-The stack is unchanged from what is already deployed. The migration is purely additive (adopt Rialto) and subtractive (remove Tailwind, @mbe/ui, PostCSS, autoprefixer). Rialto's architecture is correct for 2026: CSS Modules for scoping, CSS custom properties for theming, zero runtime overhead, SSR-compatible. No alternative styling approach should be introduced.
-
-The hosting layer uses DigitalOcean App Platform with path-prefix ingress rules. The multi-SPA pattern requires three aligned configurations per app: Vite `base`, React Router `basename`, and a Pulumi ingress rule. The dashboard app already implements this pattern correctly and serves as the reference implementation.
+The base stack is fixed (React 19, Vite 7, TypeScript 5.9.3) and production-validated. This milestone requires no stack changes. The existing test infrastructure in `packages/rialto` is already correct for the accessibility work: `vitest-axe` matchers are registered in `src/test/setup.ts`, canvas is stubbed for jsdom compatibility, and framer-motion is mocked to prevent animation interference during axe scans. The build pipeline already generates `dist/manifest.json` from TypeScript source via `scripts/generate-manifest.ts`. The `llms.txt` file already exists at `packages/rialto/llms.txt` and needs expansion, not replacement. The `tools/cli` package already provides the `mbe` command and needs one new `init.ts` command added following the established pattern.
 
 **Core technologies:**
-- @mbe/rialto 0.1.0: Design system target — CSS Modules + CSS custom properties, peer deps already installed
-- React Router DOM 7.1.0: Client-side routing — `basename` must match Vite `base` exactly
-- Vite 7.0.0: Build tool — `base` option controls asset URL prefix; trailing slash required
-- DigitalOcean App Platform: Hosting — ingress rules ordered most-specific-first; `catchallDocument: "index.html"` required on all static sites
-- Pulumi (TypeScript): IaC — manages ingress rules, static site specs, Auth0 config atomically
+- `@mbe/rialto 0.1.0`: The design system under improvement — CSS Modules + CSS custom properties, Vite lib mode, 55+ components
+- `vitest-axe`: axe-core integration for Vitest — already installed and wired; no new setup needed
+- `scripts/generate-manifest.ts` + `dist/manifest.json`: TypeScript Compiler API → JSON build artifact; single source of truth for component names and props; never hand-edit
+- `packages/rialto/llms.txt` + `llms-full.txt` (new): Hand-authored AI context files; index under 20KB, full file with complete API
+- `tools/cli/src/commands/init.ts` (new): `mbe init <name>` scaffold command following established `agent.ts` / `users.ts` pattern
 
-**Removing:** tailwindcss, postcss, autoprefixer, @mbe/ui, class-variance-authority, tailwind-merge, clsx
+**Removing nothing:** This milestone adds; it does not remove existing infrastructure.
 
 ### Expected Features
 
-Three distinct feature surfaces are in scope for this project: the marketing portfolio, the Rialto design system showcase, and the shared hosting layer.
-
 **Must have (table stakes — P1):**
-- Marketing: Hero, About, Projects showcase (3+ real projects), GitHub/LinkedIn links
-- Marketing: Rialto-only styling (no Tailwind) — validates the migration goal
-- Rialto Showcase: All 55+ components visible with correct Rialto-only styling
-- Rialto Showcase: Light/dark theme toggle and vibe switcher — demonstrates the design system
-- Hosting: All three apps reachable at correct paths (`/`, `/rialto`, `/hospitality`)
-- Hosting: SPA fallback routing (catchallDocument) so deep links return 200, not 404
+- WCAG AA color contrast on all components — 4.5:1 for normal text, 3:1 for UI controls; verified at token level via programmatic hex-constant test
+- Keyboard focus indicators on all interactive components — `:focus-visible` styling audit across all 55+ components
+- ARIA attributes on interactive components — roles, labels, `aria-expanded`, `aria-invalid`; semantic HTML first, ARIA only where HTML falls short
+- axe-core CI gate — `toHaveNoViolations()` assertions covering all 58 component directories (14 currently missing), including portal components tested via `axe(document.body)`
+- Programmatic token-contrast test — separate from axe; imports hex literals, asserts ratios for both light and dark themes
+- Settings page example — the explicit AI success criterion; polished, realistic, accessible
+- Dashboard example page — second most common pattern; validates Card + DataTable + Badge composition
+- Full form example with all validation states — error, disabled, loading states as static renders (visible without interaction)
+- Component registry JSON (`registry.json`) — generated from TypeScript source at build time; CI diff check prevents drift
+- Two-tier llms.txt — index file under 20KB, full file with complete prop tables; both committed to repo
+- CLAUDE.md Rialto usage section — import paths, RialtoProvider setup, top component APIs
 
-**Should have (competitive — P2):**
-- Rialto Showcase: Design token visualization (color palette, spacing, typography)
-- Rialto Showcase: Navigation sidebar / table of contents (55+ components is a long scroll)
-- Rialto Showcase: Code snippets with syntax highlighting (Shiki recommended)
-- Rialto Showcase: Icon search (getIconsByCategory API already exists — wiring only)
-- Marketing: "This site IS the project" narrative — rare differentiator for an engineering portfolio
-- Hosting: Shared navigation bar across apps via packages/shared-layout
+**Should have (v1.1 polish — P2):**
+- CLI scaffold command (`mbe init <name>`) — minimal app skeleton (shell, not copied implementation); reads `dist/manifest.json` to verify Rialto is built
+- Per-component structured spec files (`.spec.md`) — top 20 most-used components first; a11y docs and API combined in one file
+- Per-component a11y doc section in showcase — keyboard shortcuts, ARIA attributes, screen reader behavior
+- Multi-state page flows — empty → loading → populated for same layout (high AI context value)
+- Copy-this-page code snippet with syntax highlighting (Shiki)
 
-**Defer (v2+):**
-- Marketing: Blog with MDX pipeline — content infrastructure not justified until content exists
-- Rialto Showcase: Accessibility docs per component — high writing effort, valuable only if Rialto gets external consumers
-- Rialto Showcase: Interactive prop editor (Storybook knobs) — over-engineering for a single-author system
-
-**Anti-features confirmed (do not build):**
-- Animated particle backgrounds, WebGL hero
-- Contact form with backend (use mailto or Calendly)
-- Subdomain per app (breaks the single-domain story)
-- Module federation shell (over-engineering for 3 small apps)
+**Defer to v1.2+:**
+- Token audit CI script — scans app code for hardcoded hex values; low urgency until external devs use Rialto
+- WCAG 2.2 specific criteria (focus appearance sizing, label-in-name) — after 2.1 AA is solid
+- Mobile / responsive example pages — after core desktop patterns are established
+- npm publishing / external registry distribution — explicitly out of scope for this milestone
 
 ### Architecture Approach
 
-The architecture is already correct and proven in production. Three independent SPAs are deployed as static sites on DigitalOcean App Platform, served under path prefixes (`/`, `/rialto`, `/hospitality`) via ordered ingress rules. Cloudflare sits in front as CDN/proxy. Shared packages (@mbe/rialto, @mbe/auth, @mbe/types) are build-time dependencies via pnpm workspaces — no runtime module federation. The design system token flow is: `@mbe/rialto/styles` injects CSS custom properties at `:root`; components reference `var(--rialto-*)` via CSS Modules; themes and vibes work by overriding the custom property values at runtime.
-
-The migration pattern is app-by-app, not component-type-by-component-type. Tailwind and Rialto are safe to coexist during transition (no class name conflicts), enabling incremental component-by-component replacement within each app before Tailwind is removed entirely.
+The architecture is additive: all changes are new files or extensions to existing files within the established package structure. The build dependency graph runs `packages/rialto` (source and tests) → `apps/rialto-web/src/pages/examples/` (new example pages consuming fixed components) → `packages/rialto/llms.txt` (expanded with links to new example routes) → `tools/cli/src/commands/init.ts` (new scaffold command reading `dist/manifest.json`). No new packages, no new CI infrastructure, and no Storybook dependency are required.
 
 **Major components:**
-1. apps/marketing — Public portfolio at `/`; simplest app; migrated second
-2. apps/rialto-web — Design system showcase at `/rialto`; already partially on Rialto; migrated first
-3. apps/hospitality (rename from apps/dashboard) — Auth-gated reservation management at `/hospitality`; most complex; migrated last
-4. @mbe/rialto — The migration target; consumed at build time by all three apps; CSS Modules + CSS custom properties
-5. DigitalOcean App Platform ingress — Routes path prefixes to correct static site; rules ordered most-specific-first
-6. Auth0 (via Pulumi IaC) — Callback URLs must be updated atomically with the dashboard rename
+1. `packages/rialto/src/components/accessibility.test.tsx` — single-file axe suite; extend to cover all 58 directories; portal components use `axe(document.body)`, not `axe(container)`; separate token-contrast Vitest file for color ratio assertions
+2. `packages/rialto/scripts/generate-manifest.ts` + `dist/manifest.json` — TypeScript-to-JSON build artifact; CI diff check ensures committed registry matches generated output
+3. `packages/rialto/llms.txt` + `llms-full.txt` — hand-authored AI context files; index file under 20KB; full file with complete prop tables and composition examples; linked from CLAUDE.md
+4. `apps/rialto-web/src/pages/examples/` — new directory: DashboardPage, SettingsPage, DataTablePage; all pages render all component states statically including error and disabled
+5. `tools/cli/src/commands/init.ts` — new command; generates `apps/<name>/` skeleton with RialtoProvider, base vite config, and dev port; outputs minimal shell, not copied implementations
 
 ### Critical Pitfalls
 
-1. **Tailwind CSS preflight removed without Rialto reset imported** — Import `@mbe/rialto/styles` as the FIRST import in every app's `main.tsx` before any app-local CSS. Verify `--rialto-surface` resolves on `:root` in DevTools after migration. Establish this pattern in rialto-web first.
+1. **axe-core cannot see CSS token contrast in jsdom** — axe sees blank strings for `var(--rialto-*)` values, so contrast failures are invisible to the automated suite. Add a separate Vitest test importing hex constants and asserting 4.5:1 ratios for both light and dark themes. This must be the first task of the accessibility phase.
 
-2. **Tailwind utility classes left in JSX after library swap** — After removing Tailwind from PostCSS, remaining `className="min-h-screen flex..."` strings silently do nothing. Audit with `grep -r "className" apps/<app>/src/ --include="*.tsx"` after each migration. Run Playwright visual regression against pre-migration baseline.
+2. **14 component directories have no axe tests** — The most ARIA-complex components (CommandPalette, DropdownMenu, Autocomplete, Popover, Tooltip, ContextMenu, plus 8 others) are the most likely to harbor real violations. Portal components need `axe(document.body)` after triggering the open state. Audit coverage gaps before beginning any fixes.
 
-3. **Auth0 callback URL not updated when renaming dashboard to hospitality** — Update Auth0 Allowed Callback URLs in Pulumi IaC atomically with the rename. Deploy IaC change before the renamed app. Test login flow to `/hospitality/` in staging. Old `/dashboard/callback` can remain temporarily during transition but must be removed post-verification.
+3. **Dialog focus-return-on-close is absent** — The Dialog component has a focus trap on open (correct) but does not return focus to the trigger element on close, violating WCAG 2.4.3. Implement capture inside the component (`previousFocus = useRef(document.activeElement)`) so callers require zero changes. Smoke-test hospitality's "Add Reservation" and "Walk-in" flows after any overlay component change.
 
-4. **DigitalOcean App Platform ingress misconfiguration** — Ingress rules must be ordered most-specific-first; `/` catch-all must be last. Each static site must have `catchallDocument: "index.html"`. Test deep links directly (navigate to `/rialto/any-sub-page`, not via in-app navigation) — these are the first to break.
+4. **Component registry must be generated, never hand-maintained** — A hand-written registry drifts from TypeScript source within one sprint, causing AI tools to hallucinate prop names. Add a CI diff check that fails if committed `registry.json` diverges from regenerated output. Make this decision before writing any registry content.
 
-5. **@mbe/ui deleted before all consumers are migrated** — Do NOT remove `packages/ui` until all three apps pass `pnpm typecheck` with zero `@mbe/ui` import errors. Deleting it mid-migration breaks CI for all remaining apps simultaneously.
+5. **A single llms.txt exceeds AI context windows** — 55+ components at reasonable documentation depth produces 300KB+, which AI tools truncate or ignore. Split into `llms.txt` (index, under 20KB) and `llms-full.txt` (complete). Define this structure before writing any content.
+
+6. **Example pages showing only happy-path defaults** — AI tools generate code matching the showcase. Every interactive component example must render error, disabled, and loading states as statically visible without any interaction. Make "all states visible without JavaScript" a done criterion for each example page.
 
 ## Implications for Roadmap
 
-Based on research, suggested phase structure:
+Based on the strict dependency chain identified across all four research files, a four-phase structure is recommended:
 
-### Phase 1: Rialto-Web Migration + Pattern Establishment
+### Phase 1: Accessibility Foundation
 
-**Rationale:** rialto-web already imports Rialto and has the fewest Tailwind usages. Migrating it first validates the full migration pattern (RialtoProvider setup, Tailwind removal, visual regression testing) in the lowest-risk app before touching the two production apps. Mistakes here are cheap to fix.
+**Rationale:** Accessibility must come first. Example pages are the canonical Rialto reference — they must be built on fixed, accessible components or they propagate inaccessible patterns into AI training context. The axe infrastructure is already in place; this phase is audit-and-fix work, not infrastructure work. Two pre-conditions must be met before fixing begins: write the token-contrast test (to catch what axe misses), and audit the 14 missing component test cases (to know the full scope of violations).
 
-**Delivers:** One fully migrated app; a proven migration checklist; visual regression baselines; confirmation that the showcase displays all 55+ components correctly in Rialto-only mode.
+**Delivers:** All 58 components pass axe-core CI; programmatic token-contrast Vitest test passes for light and dark themes; focus management correct in Dialog/Drawer/ConfirmDialog (capture inside component, zero caller changes); keyboard navigation audited on complex interactive components; documented manual spot-check for Toast, CommandPalette, and DropdownMenu.
 
-**Addresses (P1):** Rialto Showcase — all components with correct styling, theme toggle, vibe switcher, token visualization
+**Addresses:** WCAG AA color contrast, keyboard focus indicators, ARIA attributes on interactive components, axe-core CI gate, focus return on close (WCAG 2.4.3), screen reader live regions for Toast/Alert/Skeleton.
 
-**Avoids:** Tailwind preflight pitfall (establishes correct import order); @mbe/ui premature deletion (pattern locks in the sequencing)
+**Avoids:** CSS token contrast blind spot (Pitfall 1), missing axe coverage (Pitfall 2), focus return regression in hospitality dialogs (Pitfall 3), shipping inaccessible example pages.
 
-**Research flag:** Standard pattern — skip phase research. Pattern is fully documented in existing codebase (rialto-web is 70% there already).
+### Phase 2: Example Pages
 
----
+**Rationale:** Example pages depend on Phase 1 (components must be accessible before they appear in the canonical reference). They must precede llms.txt expansion because llms.txt links to example page routes that must exist. Example pages also serve as the scaffold templates for the CLI in Phase 3.
 
-### Phase 2: Dashboard Rename + Auth Update
+**Delivers:** DashboardPage, SettingsPage, DataTablePage in `apps/rialto-web/src/pages/examples/` — all statically rendering all component states (idle, error, disabled, loading) without interaction; realistic mock data using actual domain object shapes; annotated composition notes explaining why specific components are combined; routes wired into `apps/rialto-web/src/routes.tsx`.
 
-**Rationale:** The dashboard rename to "hospitality" has a hard dependency on Auth0 callback URL updates that must happen atomically with the deployment. Isolating this rename as its own phase ensures the auth plumbing is verified before Rialto migration work begins on that app. This also updates all Pulumi ingress rules to reference the new component name.
+**Addresses:** Settings page success criterion (the explicit v1.1 goal), dashboard example, form validation states, realistic data shapes, annotated composition patterns.
 
-**Delivers:** apps/dashboard renamed to apps/hospitality; Vite base updated to `/hospitality/`; React Router basename updated; Pulumi ingress rule and static site name updated; Auth0 callback URL updated and verified; login flow confirmed working at `/hospitality/`.
+**Avoids:** Happy-path-only examples (Pitfall 6) by enforcing "all states visible without JavaScript" as the done criterion for each page.
 
-**Addresses:** Hosting — all apps reachable at correct paths (prerequisite for hosting phase)
+### Phase 3: AI Developer Experience
 
-**Avoids:** Auth0 callback URL mismatch (dedicated phase means this cannot be forgotten); VITE_AUTH_REDIRECT_URI hardcoded fallback updated
+**Rationale:** This phase depends on Phase 1 (a11y docs reference audited, accurate component behavior) and Phase 2 (llms.txt links to example pages that now exist; CLI scaffold uses example pages as templates). The registry generation pipeline decision must be made at the start of this phase, before any content is written.
 
-**Research flag:** Standard pattern — skip phase research. Auth0 + Pulumi integration is well-documented and already implemented for the dashboard; this is a reconfiguration, not a new integration.
+**Delivers:** Registry generation pipeline (`pnpm build:registry`) with CI diff check; two-tier llms.txt (index + full) committed to repo; CLAUDE.md Rialto usage section; `mbe init <name>` CLI scaffold command generating minimal app skeletons (vite.config.ts with `base: "/<name>/"`, RialtoProvider in main.tsx, assigned dev port from 3005+).
 
----
+**Addresses:** Component registry JSON, llms.txt AI context files (both tiers), CLAUDE.md update, CLI scaffold command.
 
-### Phase 3: Marketing App Migration
+**Avoids:** Registry drift (Pitfall 4), context-window overflow (Pitfall 5), scaffold copying implementations (Pitfall 8 — scaffold generates shells only, references `packages/rialto/CLAUDE.md` for authoring patterns).
 
-**Rationale:** Marketing is the simplest app (one page, no auth, no backend data, fewer Tailwind usages than hospitality). Migrating it second proves the Tailwind-removal process works end-to-end on a production app with real content, while the stakes of a brief visual disruption are lower than for the auth-gated hospitality app.
+### Phase 4: Polish and Documentation
 
-**Delivers:** Marketing app fully migrated to Rialto-only; Tailwind, postcss, autoprefixer, @mbe/ui removed from apps/marketing; portfolio content complete (Hero, About, Projects, links); visual regression tests passing.
+**Rationale:** Per-component spec files and a11y docs in the showcase are writing work that can only be done accurately after the accessibility audit is complete and violations are fixed. This phase delivers the v1.1 polish items that don't block the core success criterion but significantly improve the developer experience long-term.
 
-**Addresses (P1):** Marketing — Hero, About, Projects showcase, GitHub/LinkedIn links, Rialto-only styling, fast load time
+**Delivers:** Structured `.spec.md` files for top 20 components (combining API docs and a11y notes in one file, not two); per-component a11y doc section in rialto-web showcase (keyboard shortcuts, ARIA attributes, screen reader behavior); multi-state page flows (empty → loading → populated) for showcase; llms.txt sync lint script (verifies every manifest.json component has a llms.txt entry); manual verification checklist for Dialog, DropdownMenu, CommandPalette, and Toast.
 
-**Avoids:** Leftover Tailwind classes (grep audit after removal); Tailwind preflight removed without Rialto reset (pattern already established in Phase 1)
+**Addresses:** Per-component a11y docs, structured spec files, multi-state flows, copy-this-page snippets.
 
-**Research flag:** Standard pattern — skip phase research. Migration pattern proven in Phase 1; marketing app is simpler.
-
----
-
-### Phase 4: Hospitality App Migration + Full Hosting Verification
-
-**Rationale:** Hospitality is the most complex migration (440+ Tailwind usages, auth-gated, backend-connected, two PWA service workers to manage). Tackling it last means the migration pattern is proven, the auth plumbing is verified from Phase 2, and the hosting infrastructure is understood. This phase also removes @mbe/ui from the workspace as its final step.
-
-**Delivers:** apps/hospitality fully migrated to Rialto-only; Tailwind, @mbe/ui removed from the app; PWA service worker scope verified to `/hospitality/`; @mbe/ui removed from packages/ workspace (the final cleanup); all three apps reachable and verified end-to-end in production.
-
-**Addresses (P1):** Hosting — all three apps at correct paths, SPA fallback routing, no CORS issues, cross-app navigation via plain hrefs
-
-**Avoids:** PWA service worker scope conflict (navigateFallbackAllowlist scoped to `/hospitality/`); @mbe/ui premature deletion (removed only in this phase's final step); big-bang migration (already avoided by sequential approach)
-
-**Research flag:** Standard pattern — skip phase research. All patterns established. The complexity here is volume of Tailwind usages, not novel integration challenges.
-
----
-
-### Phase 5: Showcase Enhancement + Polish
-
-**Rationale:** With all three apps migrated and hosting verified, the P2 features can be added safely. These are net-new features rather than migrations, so they carry no migration risk. This phase can be executed in any order internally.
-
-**Delivers:** Rialto Showcase with code snippets (Shiki), icon search, navigation sidebar, design token visualization; Marketing with "this site IS the project" write-up; shared navigation bar across apps (packages/shared-layout).
-
-**Addresses (P2):** Rialto Showcase — code snippets, icon search, TOC sidebar, token visualization; Marketing — portfolio narrative; Hosting — shared navigation
-
-**Avoids:** Scope creep (blog CMS, Storybook, accessibility docs, version selector all deferred)
-
-**Research flag:** Code snippets with Shiki may benefit from a quick research pass — Shiki integration in a Vite + React app has a few gotchas (async loading, bundle size). All other P2 features use existing APIs with no new dependencies.
-
----
+**Avoids:** Treating "axe passes" as "WCAG AA compliant" (Pitfall 7) — this phase includes the documented manual verification checklist as a required completion criterion.
 
 ### Phase Ordering Rationale
 
-- **rialto-web first:** Lowest risk, highest pattern-learning value. Mistakes are cheapest here.
-- **Rename before migration:** The Auth0 callback update is a hard dependency. Isolating it prevents it from being forgotten inside a larger migration PR.
-- **Marketing before hospitality:** Marketing is simpler; validates end-to-end Tailwind removal before the 440-usage migration.
-- **Hosting verification at Phase 4 close:** Only meaningful after all three apps are deployed under their final paths. Deep-link testing across all apps confirms the full system.
-- **Enhancement last:** No P2 features are blockers for launch. Adding them after the migration is complete means they don't slow down the primary objective.
+- Accessibility precedes everything because the example pages are meant to demonstrate correct usage — components with ARIA violations or broken focus management cannot be the canonical reference. This is not a preference; it is a logical dependency.
+- Example pages precede llms.txt because llms.txt should reference working, deployable routes with realistic examples. Writing llms.txt before examples exist means documenting placeholder patterns that AI tools will faithfully reproduce.
+- Registry, llms.txt, and CLI are in the same phase because they form a coherent artifact set: the registry is the machine-structured catalog, llms.txt is the narrative layer referencing the registry, and the CLI reads the registry to verify Rialto is built before scaffolding. Building them together ensures they are in sync from the start.
+- Polish (Phase 4) is separated because spec file writing requires the audit to be complete — you cannot accurately document a11y behavior until violations are found and fixed. Attempting this in parallel with Phase 1 would mean rewriting spec files after the audit changes component behavior.
 
 ### Research Flags
 
-Phases likely needing deeper research during planning:
-- **Phase 5 (Shiki integration):** Shiki's async API and Vite integration have known gotchas. A 30-minute research spike before implementation is recommended. All other P2 features use existing APIs.
+Phases needing careful execution (well-researched, but non-trivial implementation):
 
-Phases with standard patterns (skip research-phase):
-- **Phase 1 (rialto-web migration):** Fully documented in existing codebase; pattern established.
-- **Phase 2 (rename/Auth0 update):** Pulumi + Auth0 integration is working today; this is reconfiguration.
-- **Phase 3 (marketing migration):** Pattern proven in Phase 1.
-- **Phase 4 (hospitality migration):** Pattern proven; volume of work, not novel complexity.
+- **Phase 1 (accessibility audit):** The axe coverage gaps for portal-rendering components (Popover, Tooltip, DropdownMenu, CommandPalette) require non-trivial test setup (trigger open state, `await act()`, `axe(document.body)`). The token-contrast programmatic test requires careful import resolution from the token source file — the exact hex constant import path needs verification. Dialog focus-return needs smoke-testing against hospitality production flows before the phase is marked complete.
+- **Phase 3 (registry generation):** The generation pipeline decision (ts-morph vs react-docgen-typescript vs extending the existing TypeScript Compiler API in `generate-manifest.ts`) must be made as the first action of this phase. The CI diff check implementation is non-trivial but well-documented. Make both decisions before writing any registry content.
+
+Phases with standard patterns (low research risk, skip research-phase):
+
+- **Phase 2 (example pages):** Construction follows established Carbon / Atlassian patterns. File structure is defined by the architecture research. Main risk is discipline (showing all states), not technical complexity. No new dependencies required.
+- **Phase 4 (polish and docs):** Pure documentation and writing work following established spec file patterns from Hardik Pandya's approach and Nord Design System. No technical risk.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Core stack unchanged and in production; Rialto source read directly; Vite + React Router config verified against working dashboard implementation |
-| Features | MEDIUM | Portfolio feature landscape from web search (no authoritative spec); showcase features validated against existing showcase source; hosting requirements derived from working infrastructure |
-| Architecture | HIGH | Existing working implementations in codebase (dashboard Vite base, Pulumi ingress, Rialto CSS Modules) serve as ground truth; migration patterns verified against community sources |
-| Pitfalls | HIGH | Infrastructure pitfalls verified against existing code; migration pitfalls documented in official React Router issue tracker and Tailwind repo; Auth0 callback behavior confirmed in Auth0 community docs |
+| Stack | HIGH | Existing production stack; no new technologies required; all tool versions verified by direct code inspection of the codebase |
+| Features | MEDIUM-HIGH | Core a11y patterns verified against axe-core docs and WCAG 2.2 spec; AI DX patterns verified against Nord Design System, shadcn registry, and Hardik Pandya's published techniques; example page patterns from Carbon and Atlassian |
+| Architecture | HIGH | Existing codebase examined directly; all file paths and component boundaries confirmed; build pipeline verified; 14 missing test cases confirmed by diff; Dialog focus-return absence confirmed in Dialog.tsx source |
+| Pitfalls | HIGH | Critical pitfalls derived from direct code inspection (14 missing tests confirmed, focus-return absence confirmed); supplemented by Deque's axe coverage research (57% WCAG coverage) and BOIA dark mode contrast guidance |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **DigitalOcean `preservePathPrefix` behavior for static SPAs:** The existing Pulumi config has `preservePathPrefix: false` on the dashboard static site, but the behavior differs for SPAs vs backend services. This should be tested in staging for rialto-web before assuming it is correct (MEDIUM risk — the pattern works for dashboard, but adding a third SPA may surface edge cases).
-
-- **PWA service worker scope when two PWAs share a domain:** The hospitality app (PWA) and the new hospitality path prefix have a verified pattern for scope isolation (`navigateFallbackAllowlist`), but this has not been tested with two active PWAs on the same DigitalOcean App Platform deployment. Verify in staging before production.
-
-- **Marketing portfolio content:** The feature is technically trivial (a grid of cards). The actual gap is project descriptions, screenshots, and links. This is a content creation task, not a technical one — budget time for it in Phase 3 planning.
-
-- **Shared navigation package (packages/shared-layout):** The package exists but its current state and API are not fully documented in the research. Review the package contents before committing to the P2 shared navigation feature in Phase 5.
+- **Dark mode token contrast values:** The specific hex values for dark theme tokens have not been audited against 4.5:1 requirements. The programmatic contrast test in Phase 1 will surface these; expect fixes to the dark theme token set. Budget time for this discovery work.
+- **Portal component test setup for axe:** The approach is confirmed (`axe(document.body)` + trigger open state + `await act()`), but exact implementation for each of the 14 missing components — especially CommandPalette (combobox role) and Autocomplete — will require per-component iteration during Phase 1.
+- **Registry generation approach:** The existing `generate-manifest.ts` uses the TypeScript Compiler API. Whether to extend it or replace it with `ts-morph` (more ergonomic) or `react-docgen-typescript` (purpose-built for React props) is an unresolved decision. Evaluate at the start of Phase 3 with a 30-minute spike.
+- **llms.txt content scope:** The research specifies the structure and size constraints (index under 20KB, full with complete prop tables) but not the exact composition examples to include. This is authoring work to be done in Phase 3 after example pages exist — the example pages become the source of truth for the composition guidance.
+- **`mbe init` port assignment UX:** CLAUDE.md documents ports 3000-3004 as assigned; CLI assigns 3005+ or prompts. The exact interactive prompt design for the CLI is not specified — minor execution detail, but worth finalizing at the start of Phase 3 to avoid rework.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- packages/rialto source code — CSS Modules architecture, component inventory, peer deps, lib build config
-- infrastructure/pulumi/index.ts — Existing ingress rules, static site config, DigitalOcean App Platform Pulumi schema
-- apps/dashboard/vite.config.ts — Working `base: "/dashboard/"` pattern with PWA
-- apps/*/package.json — Current Tailwind, @mbe/ui, and postcss dependencies confirmed
-- Context7 `/vitejs/vite` — Verified `base` config, library mode CSS, `--base` CLI flag
-- Context7 `/remix-run/react-router` — Verified `BrowserRouter` `basename` prop API and React Router v7 config
-- React Router issue tracker (github.com/remix-run/react-router) — basename pitfalls confirmed
+
+- Existing codebase: `packages/rialto/src/test/setup.ts`, `accessibility.test.tsx`, `scripts/generate-manifest.ts`, `llms.txt`, `Dialog.tsx` — examined directly
+- 58 component directories inspected; 44 covered by axe tests, 14 missing confirmed by diff against test file `it()` calls
+- [vitest-axe — GitHub](https://github.com/chaance/vitest-axe) — official source; happy-dom incompatibility confirmed
+- [llms.txt specification — llmstxt.org](https://llmstxt.org/) — file format, root path requirement
+- [axe-core — Deque](https://www.deque.com/axe/axe-core/) — official tool documentation
+- [WCAG 2.1 SC 1.4.3](https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum.html) — contrast minimum requirements
+- [WCAG 2.4.3 Focus Order](https://www.w3.org/WAI/WCAG21/Understanding/focus-order.html) — focus return on close requirement
+- [Accessibility Testing for Design System Components — VA.gov](https://design.va.gov/accessibility/accessibility-testing-for-design-system-components) — authoritative government design system reference
+- [shadcn Registry Getting Started](https://ui.shadcean.com/docs/registry/getting-started) — registry JSON schema reference
 
 ### Secondary (MEDIUM confidence)
-- DigitalOcean App Platform docs — `catchallDocument` and `preservePathPrefix` behavior
-- DigitalOcean static site catchall (blog.hao.dev) — Practitioner SPA routing confirmation
-- Auth0 community (community.auth0.com) — Callback URL wildcard limitations confirmed
-- Vercel incremental microfrontend migration guide — Migration ordering rationale
-- Cloudflare vertical microfrontend template (InfoQ, Feb 2026) — Path-based routing pattern
-- WebSearch: portfolio best practices (Zencoder, Webportfolios.dev, Colorlib) — Feature landscape validation
-- WebSearch: design system documentation best practices (UXPin, Backlight, LogRocket) — Showcase features
-- sancho.dev "Don't use Tailwind for your Design System" — Architectural rationale for removal
+
+- [Nord Design System llms.txt](https://nordhealth.design/ai/llms-txt/) — two-tier index/full pattern in production; direct inspection
+- [Expose Your Design System to LLMs — Hardik Pandya](https://hvpandya.com/llm-design-systems) — structured spec file approach; verified against our constraints
+- [Carbon Design System Dashboards](https://carbondesignsystem.com/data-visualization/dashboards/) — example page pattern reference; direct inspection
+- [Deque Automated Accessibility Coverage Report](https://www.deque.com/automated-accessibility-testing-coverage/) — axe-core catches 57% of WCAG issues on average
+- [BOIA — Dark mode contrast requirements](https://www.boia.org/blog/offering-a-dark-mode-doesnt-satisfy-wcag-color-contrast-requirements) — each theme must be audited independently
+- [Design Systems And AI: Why MCP Servers Are The Unlock — Figma Blog](https://www.figma.com/blog/design-systems-ai-mcp/) — Figma official blog; MCP pattern noted but not adopted
+- [Supercharge your design system with LLMs and Storybook MCP — Codrops](https://tympanus.net/codrops/2025/12/09/supercharge-your-design-system-with-llms-and-storybook-mcp/) — Storybook MCP approach noted; custom registry chosen instead
 
 ### Tertiary (LOW confidence)
-- Medium: "React & CSS in 2026" — CSS Modules vs CSS-in-JS ecosystem sentiment (corroborates Rialto's approach)
-- Medium: "Design Systems in 2026: Predictions, Pitfalls, and Power Moves" — Token drift editorial
-- Medium: "Pro Tips for UI Library Migration" — Migration sequencing guidance
+
+- [React & CSS in 2026: Best Styling Approaches Compared](https://medium.com/@imranmsa93/react-css-in-2026-best-styling-approaches-compared-d5e99a771753) — corroborates CSS Modules approach; used for ecosystem sentiment only, not as primary source
 
 ---
-*Research completed: 2026-02-27*
+*Research completed: 2026-03-22*
 *Ready for roadmap: yes*

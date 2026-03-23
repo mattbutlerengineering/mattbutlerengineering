@@ -1,33 +1,48 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: Rialto Unification & Hosting
-status: shipped
-last_updated: "2026-03-04"
+milestone: v1.1
+milestone_name: Rialto Accessibility & AI DX
+status: unknown
+last_updated: "2026-03-23T00:05:59.447Z"
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 14
-  completed_plans: 14
+  total_phases: 1
+  completed_phases: 0
+  total_plans: 5
+  completed_plans: 1
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-04)
+See: .planning/PROJECT.md (updated 2026-03-22)
 
 **Core value:** Every web app uses Rialto as the single design system and is accessible at mattbutlerengineering.com
-**Current focus:** v1.0 shipped — planning next milestone
+**Current focus:** v1.1 — Phase 6: Accessibility Foundation
 
 ## Current Position
 
-Milestone: v1.0 Rialto Unification & Hosting — SHIPPED 2026-03-04
-Phases: 5/5 complete (14/14 plans)
-Requirements: 28/28 satisfied
-Audit: PASSED
+Phase: 6 of 9 (Accessibility Foundation)
+Plan: 1 of 5 complete
+Status: In Progress
+Last activity: 2026-03-23 — Completed 06-01 token contrast baseline
 
-Progress: [██████████] 100% — SHIPPED
+Progress: [█░░░░░░░░░] 5%
+
+## Performance Metrics
+
+**Velocity:**
+- Total plans completed: 1 (v1.1)
+- Average duration: 4 min
+- Total execution time: 4 min
+
+**By Phase:**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| 06-accessibility-foundation | 1/5 | 4 min | 4 min |
+
+*Updated after each plan completion*
 
 ## Accumulated Context
 
@@ -36,17 +51,25 @@ Progress: [██████████] 100% — SHIPPED
 All v1.0 decisions archived in .planning/milestones/v1.0-phases/ SUMMARY.md files.
 Key decisions summarized in PROJECT.md Key Decisions table.
 
+v1.1 decisions pending ():
+- Registry generation approach (ts-morph vs react-docgen-typescript vs extend generate-manifest.ts) — to be decided at start of Phase 8
+- `mbe init` port assignment UX (auto-assign 3005+ vs prompt) — to be decided at start of Phase 8
+- [Phase 06]: Use dark text (#1a1918) on light theme accent backgrounds — 6.26:1 vs 2.73:1 for white on #b0841e gold
+- [Phase 06]: Accent darkened from #c4922a to #b0841e for 3:1 UI control threshold; dark text-tertiary opacity raised 0.38->0.50 after test revealed 3.49:1 failure
+
 ### Pending Todos
 
 None.
 
 ### Blockers/Concerns
 
-- Verify DigitalOcean `preservePathPrefix: false` behavior for SPAs in staging before production deploy
-- PWA service worker scope isolation when two PWAs share a domain — test in staging
+- [RESOLVED 06-01] Phase 6: axe-core cannot resolve CSS custom property contrast values in jsdom — token-contrast.test.ts now handles this programmatically
+- Phase 6: 14 component directories have no axe tests (CommandPalette, DropdownMenu, Autocomplete, Popover, Tooltip, ContextMenu + 8 others) — must audit coverage gaps before fixing begins
+- Phase 6: Dialog focus-return-on-close is absent — implement inside Dialog component (not callers), smoke-test hospitality flows after fix
+- Phase 8: Single llms.txt would exceed AI context windows for 55+ components — must use two-tier structure (index under 20KB + full file)
 
 ## Session Continuity
 
-Last session: 2026-03-04
-Stopped at: v1.0 milestone shipped
-Resume file: none
+Last session: 2026-03-23T00:04:55Z
+Stopped at: Completed 06-01-PLAN.md
+Resume file: .planning/phases/06-accessibility-foundation/06-02-PLAN.md
