@@ -233,6 +233,11 @@ export function DropdownMenuPage() {
             },
             { label: "Trigger", value: "aria-haspopup=menu, aria-expanded" },
             { label: "Destructive", value: "Color is supplemental — label conveys danger" },
+            {
+              label: "Screen reader",
+              value:
+                "Menu opens silently; each focused item announced by label; items with keyboard shortcuts announce the shortcut text; destructive items have no additional annotation",
+            },
           ]}
         />
       </Section>

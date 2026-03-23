@@ -111,6 +111,11 @@ export function SidebarPage() {
             { label: "Groups", value: "<ul role=group> per section, <li> per item" },
             { label: "Keyboard", value: "Arrow Up/Down navigate items; Enter activates" },
             { label: "Focus", value: "Gold glow ring on focused item" },
+            {
+              label: "Screen reader",
+              value:
+                "Announced as navigation landmark; collapsible sections announced via aria-expanded state; current item indicated by aria-current",
+            },
           ]}
         />
       </Section>

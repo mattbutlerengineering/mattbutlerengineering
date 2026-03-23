@@ -252,6 +252,11 @@ export function PinInputPage() {
             { label: "Paste", value: "Full code paste distributes across cells" },
             { label: "Backspace", value: "Clears current cell and moves focus back" },
             { label: "Focus", value: "Gold glow ring on focused cell" },
+            {
+              label: "Screen reader",
+              value:
+                "Each field announced as 'text field' with position; auto-advance to next field announced as focus moves; Backspace returns to previous field",
+            },
           ]}
         />
       </Section>

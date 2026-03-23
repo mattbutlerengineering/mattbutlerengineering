@@ -122,6 +122,11 @@ export function NavbarPage() {
             { label: "Expandable", value: "aria-expanded on links with children" },
             { label: "Badge", value: "Badge counts announced via aria-label" },
             { label: "Keyboard", value: "Tab navigation through links; Enter to activate" },
+            {
+              label: "Screen reader",
+              value:
+                "Announced as navigation landmark; links announced with their labels; current page indicated by aria-current=page",
+            },
           ]}
         />
       </Section>

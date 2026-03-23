@@ -260,6 +260,11 @@ export function HoverCardPage() {
             { label: "Focus", value: "Not focused on open — hover mechanic only" },
             { label: "Keyboard", value: "Tab into the card to interact with its content" },
             { label: "Close delay", value: "Grace period prevents accidental dismissal" },
+            {
+              label: "Screen reader",
+              value:
+                "Content not announced on hover alone; announced only when focus moves into the card via keyboard; uses role=dialog when interactive",
+            },
           ]}
         />
       </Section>

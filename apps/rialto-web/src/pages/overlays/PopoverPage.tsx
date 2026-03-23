@@ -133,6 +133,11 @@ export function PopoverPage() {
             { label: "Trigger", value: "aria-haspopup=dialog, aria-expanded on trigger" },
             { label: "Close", value: "Escape key and click-outside dismiss" },
             { label: "Focus", value: "Focus moves into popover on open" },
+            {
+              label: "Screen reader",
+              value:
+                "Content announced when popover opens via aria-describedby link to trigger; focus moves into popover if interactive content present",
+            },
           ]}
         />
       </Section>

@@ -206,6 +206,11 @@ export function InputPage() {
             { label: "Hint", value: "aria-describedby links to hint/error text" },
             { label: "Focus", value: "Gold glow focus ring via box-shadow" },
             { label: "Keyboard", value: "Tab to focus, standard text editing" },
+            {
+              label: "Screen reader",
+              value:
+                "Announces label, current value, and 'text field'; error message announced via aria-describedby when present; required state announced",
+            },
           ]}
         />
       </Section>

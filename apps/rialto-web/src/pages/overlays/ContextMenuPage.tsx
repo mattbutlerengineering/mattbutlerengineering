@@ -166,6 +166,11 @@ export function ContextMenuPage() {
               label: "Placement",
               value: "Viewport boundary detection prevents clipping",
             },
+            {
+              label: "Screen reader",
+              value:
+                "Menu announced on right-click; arrow navigation announces each item label; nested submenus announced as 'has submenu'",
+            },
           ]}
         />
       </Section>

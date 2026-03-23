@@ -199,6 +199,11 @@ export function SegmentedControlPage() {
             { label: "Keyboard", value: "Arrow Left/Right navigate between segments" },
             { label: "Keyboard", value: "Home/End jump to first/last segment" },
             { label: "Disabled", value: "aria-disabled=true on disabled segments" },
+            {
+              label: "Screen reader",
+              value:
+                "Announces as radio group; each segment announced with label + 'radio button' + selected state; selection change announced immediately",
+            },
           ]}
         />
       </Section>

@@ -160,6 +160,11 @@ export function AccordionPage() {
             { label: "Trigger", value: "button with aria-expanded and aria-controls" },
             { label: "Panel", value: "role=region with aria-labelledby" },
             { label: "Keyboard", value: "Enter/Space to toggle, Tab to navigate" },
+            {
+              label: "Screen reader",
+              value:
+                "Each trigger announced as 'button' + expanded/collapsed state via aria-expanded; panel content announced when expanded; Enter/Space toggles",
+            },
           ]}
         />
       </Section>

@@ -214,6 +214,11 @@ export function TextAreaPage() {
             { label: "Hint", value: "aria-describedby links to helper text" },
             { label: "Keyboard", value: "Tab to focus, standard text editing" },
             { label: "Resize", value: "Auto-resize respects prefers-reduced-motion" },
+            {
+              label: "Screen reader",
+              value:
+                "Announces label, current value, and 'text field'; character count not automatically announced — use aria-live region if needed",
+            },
           ]}
         />
       </Section>

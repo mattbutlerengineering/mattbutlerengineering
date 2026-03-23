@@ -195,6 +195,11 @@ export function ButtonPage() {
               label: "Role",
               value: "Implicit role=button from native element",
             },
+            {
+              label: "Screen reader",
+              value:
+                "Announces label + 'button'; disabled state announced as 'dimmed' (VoiceOver) or 'unavailable' (NVDA)",
+            },
           ]}
         />
       </Section>

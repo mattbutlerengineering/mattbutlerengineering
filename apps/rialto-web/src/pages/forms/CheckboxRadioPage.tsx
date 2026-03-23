@@ -240,6 +240,11 @@ export function CheckboxRadioPage() {
             { label: "Keyboard", value: "Space toggles checkbox; Arrow keys navigate radio group" },
             { label: "Indeterminate", value: "aria-checked=mixed for indeterminate checkboxes" },
             { label: "Focus", value: "Gold glow ring on focus-visible" },
+            {
+              label: "Screen reader",
+              value:
+                "Checkbox: announces label + 'checkbox' + checked state; Radio: announces label + 'radio button' + position in group ('1 of 3')",
+            },
           ]}
         />
       </Section>

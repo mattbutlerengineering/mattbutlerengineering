@@ -172,6 +172,11 @@ export function DialogPage() {
             { label: "Close", value: "Escape key and outside click close the dialog" },
             { label: "Label", value: "aria-labelledby points to the dialog title" },
             { label: "Return", value: "Focus returns to trigger element on close" },
+            {
+              label: "Screen reader",
+              value:
+                "VoiceOver reads dialog title then description on open; tab announces each focused element within the trap; closing announces nothing — focus silently returns to trigger",
+            },
           ]}
         />
       </Section>

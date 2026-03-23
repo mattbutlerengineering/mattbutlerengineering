@@ -201,6 +201,11 @@ export function SelectPage() {
             { label: "Keyboard", value: "Home/End jump to first/last option" },
             { label: "Keyboard", value: "Type-ahead for quick option selection" },
             { label: "Keyboard", value: "Escape to close without selecting" },
+            {
+              label: "Screen reader",
+              value:
+                "Announces label + 'pop-up button' + current value; option changes announced as selected; listbox role on dropdown",
+            },
           ]}
         />
       </Section>

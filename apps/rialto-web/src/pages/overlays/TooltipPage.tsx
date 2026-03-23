@@ -217,6 +217,11 @@ export function TooltipPage() {
             { label: "Trigger", value: "aria-describedby links trigger to tooltip" },
             { label: "Keyboard", value: "Opens on focus, closes on blur or Escape" },
             { label: "Motion", value: "Scale animation respects prefers-reduced-motion" },
+            {
+              label: "Screen reader",
+              value:
+                "Content announced via aria-describedby when trigger receives focus; tooltip text read after trigger label; no focus movement into tooltip",
+            },
           ]}
         />
       </Section>

@@ -148,6 +148,11 @@ export function TogglePage() {
             { label: "Keyboard", value: "Space toggles on/off" },
             { label: "Focus", value: "Gold glow ring on focus-visible" },
             { label: "Disabled", value: "aria-disabled=true; no interaction" },
+            {
+              label: "Screen reader",
+              value:
+                "Announces label + 'switch' + on/off state; state change announced immediately on toggle",
+            },
           ]}
         />
       </Section>

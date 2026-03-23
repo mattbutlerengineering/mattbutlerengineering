@@ -210,6 +210,11 @@ export function SliderPage() {
             { label: "Keyboard", value: "Arrow Left/Right to decrement/increment" },
             { label: "Keyboard", value: "Home/End jump to min/max" },
             { label: "Focus", value: "Gold glow ring on focus-visible on the thumb" },
+            {
+              label: "Screen reader",
+              value:
+                "Announces label + current value + 'slider'; value changes announced on arrow key press; min/max range announced on focus",
+            },
           ]}
         />
       </Section>

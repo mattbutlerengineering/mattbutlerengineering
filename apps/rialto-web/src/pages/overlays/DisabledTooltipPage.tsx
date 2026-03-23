@@ -200,6 +200,11 @@ export function DisabledTooltipPage() {
               value:
                 "When not disabled, renders a React fragment — zero DOM overhead, no wrapping element",
             },
+            {
+              label: "Screen reader",
+              value:
+                "Tooltip announced via aria-describedby on focus of the disabled wrapper element; explains why the control is disabled",
+            },
           ]}
         />
       </Section>

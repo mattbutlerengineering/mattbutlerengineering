@@ -229,6 +229,11 @@ export function InputGroupPage() {
               value:
                 "Add an aria-label or aria-labelledby to the InputGroup when context is unclear",
             },
+            {
+              label: "Screen reader",
+              value:
+                "Group label announced via fieldset/legend or aria-label; individual inputs within group retain their own labels",
+            },
           ]}
         />
       </Section>

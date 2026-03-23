@@ -193,6 +193,11 @@ useEffect(() => {
             { label: "Keyboard", value: "↑/↓ to navigate, Enter to select, Escape to close" },
             { label: "Search", value: "Fuzzy match across label text" },
             { label: "Focus", value: "Focus trapped inside palette while open" },
+            {
+              label: "Screen reader",
+              value:
+                "Search input announced as combobox; result count announced via aria-live as user types; arrow navigation announces each command label; Enter selects and closes silently",
+            },
           ]}
         />
       </Section>

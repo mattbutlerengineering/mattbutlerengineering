@@ -176,6 +176,11 @@ export function TimelinePage() {
             { label: "Status", value: "aria-label on each node describes the status" },
             { label: "Timestamps", value: "Wrapped in <time> element" },
             { label: "Reading order", value: "Linear top-to-bottom DOM order matches visual order" },
+            {
+              label: "Screen reader",
+              value:
+                "Items announced as list items with position; status indicators need explicit aria-label for screen reader differentiation",
+            },
           ]}
         />
       </Section>

@@ -231,6 +231,11 @@ export function NumberInputPage() {
             { label: "Keyboard", value: "Hold stepper buttons for accelerating repeat" },
             { label: "Focus", value: "Gold glow ring on focus-visible" },
             { label: "Range", value: "aria-valuemin, aria-valuemax communicated" },
+            {
+              label: "Screen reader",
+              value:
+                "Announces label + current value + 'stepper'; increment/decrement buttons announced; value change announced on step",
+            },
           ]}
         />
       </Section>

@@ -136,6 +136,11 @@ export function BannerPage() {
             { label: "Placement", value: "Typically placed at the top of the page content area" },
             { label: "Dismiss", value: "Dismiss button has aria-label='Dismiss banner'" },
             { label: "Color", value: "Color is supplemental — text conveys the message meaning" },
+            {
+              label: "Screen reader",
+              value:
+                "Announced via role=status as a live region; content read when banner appears; dismiss button announced with 'close' label",
+            },
           ]}
         />
       </Section>

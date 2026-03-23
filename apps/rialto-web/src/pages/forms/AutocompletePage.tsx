@@ -289,6 +289,11 @@ export function AutocompletePage() {
               label: "Motion",
               value: "Dropdown entrance animation respects prefers-reduced-motion",
             },
+            {
+              label: "Screen reader",
+              value:
+                "Announces as combobox; filtered results count via aria-live; arrow navigation announces each option; selected option announced on Enter",
+            },
           ]}
         />
       </Section>

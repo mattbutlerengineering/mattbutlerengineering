@@ -236,6 +236,11 @@ export function DrawerPage() {
             { label: "Focus", value: "Focus trapped inside drawer while open" },
             { label: "Close", value: "Escape key and backdrop click dismiss" },
             { label: "Motion", value: "Slide animation respects prefers-reduced-motion" },
+            {
+              label: "Screen reader",
+              value:
+                "Announced as dialog with title; focus trapped inside drawer; Escape or outside click closes; focus returns to trigger element",
+            },
           ]}
         />
       </Section>

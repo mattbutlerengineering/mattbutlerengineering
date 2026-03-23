@@ -156,6 +156,11 @@ export function TreePage() {
             { label: "Keyboard", value: "Arrow Up/Down to navigate, Right to expand, Left to collapse" },
             { label: "Keyboard", value: "Home/End jump to first/last visible node" },
             { label: "Focus", value: "Gold glow ring on focused node" },
+            {
+              label: "Screen reader",
+              value:
+                "Items announced with level, position in set, and expanded/collapsed state; arrow keys navigate tree structure; Enter toggles expansion",
+            },
           ]}
         />
       </Section>
