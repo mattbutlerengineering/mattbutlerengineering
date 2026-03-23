@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   forwardRef,
+  cloneElement,
   type ForwardedRef,
   type ReactNode,
   type ReactElement,
@@ -190,13 +191,9 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
 
   return (
     <div ref={mergeRefs(ref, wrapperRef)} className={styles.wrapper}>
-      {/* Trigger */}
+      {/* Trigger — ARIA attributes injected onto the trigger element itself */}
       <div
         onClick={handleTriggerClick}
-        role="button"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        tabIndex={0}
         onKeyDown={(e) => {
           if (!open && (e.key === "Enter" || e.key === " ")) {
             e.preventDefault();
@@ -206,7 +203,10 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
           }
         }}
       >
-        {trigger}
+        {cloneElement(trigger, {
+          "aria-haspopup": "menu",
+          "aria-expanded": open,
+        })}
       </div>
 
       {/* Menu */}

@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   forwardRef,
+  cloneElement,
   type ForwardedRef,
   type ReactNode,
   type ReactElement,
@@ -114,10 +115,8 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
 
   return (
     <div ref={mergeRefs(ref, wrapperRef)} className={`${styles.wrapper} ${className}`}>
-      {/* Trigger */}
+      {/* Trigger — ARIA attributes injected onto the trigger element itself */}
       <div
-        role="button"
-        tabIndex={0}
         onClick={() => setOpen((v) => !v)}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -125,10 +124,11 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
             setOpen((v) => !v);
           }
         }}
-        aria-haspopup="dialog"
-        aria-expanded={open}
       >
-        {trigger}
+        {cloneElement(trigger, {
+          "aria-haspopup": "dialog",
+          "aria-expanded": open,
+        })}
       </div>
 
       {/* Panel */}
@@ -138,6 +138,7 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
             ref={panelRef}
             className={`${styles.panel} ${styles[placement]}`}
             role="dialog"
+            aria-label={title ?? "Popover"}
             initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, ...origin }}
             animate={{ opacity: 1, y: 0, x: 0, scale: 1 }}
             exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, ...origin }}

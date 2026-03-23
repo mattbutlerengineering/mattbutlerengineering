@@ -3,12 +3,15 @@
  * Each test verifies the component has no WCAG 2.1 AA violations.
  */
 import { describe, it, expect } from "vitest";
-import { render } from "@testing-library/react";
+import { render, fireEvent, act } from "@testing-library/react";
 import { axe } from "vitest-axe";
 
 /* ── Components ─────────────────────────────── */
 import { Accordion } from "./Accordion/Accordion";
 import { Alert } from "./Alert/Alert";
+import { AppBar } from "./AppBar/AppBar";
+import { AspectRatio } from "./AspectRatio/AspectRatio";
+import { Autocomplete } from "./Autocomplete/Autocomplete";
 import { Avatar } from "./Avatar/Avatar";
 import { Badge } from "./Badge/Badge";
 import { Banner } from "./Banner/Banner";
@@ -17,22 +20,36 @@ import { Button } from "./Button/Button";
 import { Card } from "./Card/Card";
 import { Checkbox } from "./Checkbox/Checkbox";
 import { Collapsible } from "./Collapsible/Collapsible";
+import { CommandPalette } from "./CommandPalette/CommandPalette";
+import { ConfirmDialog } from "./ConfirmDialog/ConfirmDialog";
+import { ContextMenu } from "./ContextMenu/ContextMenu";
 import { DataList } from "./DataList/DataList";
 import { Dialog } from "./Dialog/Dialog";
+import { DisabledTooltip } from "./DisabledTooltip/DisabledTooltip";
 import { Divider } from "./Divider/Divider";
+import { Drawer } from "./Drawer/Drawer";
+import { DropdownMenu } from "./DropdownMenu/DropdownMenu";
 import { EmptyState } from "./EmptyState/EmptyState";
+import { Footer } from "./Footer/Footer";
+import { Hero } from "./Hero/Hero";
+import { HoverCard } from "./HoverCard/HoverCard";
 import { Input } from "./Input/Input";
+import { InputGroup } from "./InputGroup/InputGroup";
 import { Kbd } from "./Kbd/Kbd";
 import { Meter } from "./Meter/Meter";
 import { Navbar } from "./Navbar/Navbar";
 import { NavigationMenu } from "./NavigationMenu/NavigationMenu";
 import { NumberInput } from "./NumberInput/NumberInput";
+import { PageHeader } from "./PageHeader/PageHeader";
 import { Pagination } from "./Pagination/Pagination";
 import { PinInput } from "./PinInput/PinInput";
+import { Popover } from "./Popover/Popover";
 import { Progress, Spinner } from "./Progress/Progress";
+import { ScrollArea } from "./ScrollArea/ScrollArea";
 import { SegmentedControl } from "./SegmentedControl/SegmentedControl";
 import { Select } from "./Select/Select";
 import { Sidebar } from "./Sidebar/Sidebar";
+import { Skeleton } from "./Skeleton/Skeleton";
 import { Slider } from "./Slider/Slider";
 import { Stack } from "./Stack/Stack";
 import { Stat } from "./Stat/Stat";
@@ -44,12 +61,15 @@ import { Text } from "./Text/Text";
 import { TextArea } from "./TextArea/TextArea";
 import { Timeline } from "./Timeline/Timeline";
 import { ToastProvider } from "./Toast/Toast";
-
 import { Toggle } from "./Toggle/Toggle";
+import { Tooltip } from "./Tooltip/Tooltip";
 import { Tree } from "./Tree/Tree";
 
 /* ── Helpers ─────────────────────────────────── */
 const noop = () => {};
+
+// jsdom does not implement scrollIntoView — stub it so CommandPalette doesn't throw
+window.HTMLElement.prototype.scrollIntoView = () => {};
 
 /* ── Accessibility Tests ─────────────────────── */
 describe("Accessibility — axe-core WCAG 2.1 AA", () => {
@@ -374,5 +394,388 @@ describe("Accessibility — axe-core WCAG 2.1 AA", () => {
       />
     );
     expect(await axe(container)).toHaveNoViolations();
+  });
+
+  /* ── Non-portal components (Task 1) ──────────── */
+
+  it("AppBar", async () => {
+    const { container } = render(
+      <AppBar logo={<span>Acme</span>} aria-label="Main navigation" />
+    );
+    expect(
+      await axe(container, {
+        rules: {
+          // jsdom cannot resolve CSS custom properties — covered by token-contrast.test.ts
+          "color-contrast": { enabled: false },
+        },
+      })
+    ).toHaveNoViolations();
+  });
+
+  it("AspectRatio", async () => {
+    const { container } = render(
+      <AspectRatio ratio={16 / 9}>
+        <div>Content</div>
+      </AspectRatio>
+    );
+    expect(
+      await axe(container, {
+        rules: {
+          // jsdom cannot resolve CSS custom properties — covered by token-contrast.test.ts
+          "color-contrast": { enabled: false },
+        },
+      })
+    ).toHaveNoViolations();
+  });
+
+  it("DisabledTooltip (disabled with reason)", async () => {
+    const { container } = render(
+      <DisabledTooltip disabled disabledReason="Feature unavailable">
+        <button type="button" disabled>
+          Save
+        </button>
+      </DisabledTooltip>
+    );
+    expect(
+      await axe(container, {
+        rules: {
+          // jsdom cannot resolve CSS custom properties — covered by token-contrast.test.ts
+          "color-contrast": { enabled: false },
+        },
+      })
+    ).toHaveNoViolations();
+  });
+
+  it("Footer (minimal)", async () => {
+    const { container } = render(
+      <Footer>
+        <span>&copy; 2026 Rialto</span>
+      </Footer>
+    );
+    expect(
+      await axe(container, {
+        rules: {
+          // jsdom cannot resolve CSS custom properties — covered by token-contrast.test.ts
+          "color-contrast": { enabled: false },
+        },
+      })
+    ).toHaveNoViolations();
+  });
+
+  it("Footer (rich)", async () => {
+    const { container } = render(
+      <Footer
+        variant="rich"
+        columns={[{ title: "Product", links: [{ label: "Docs", href: "/docs" }] }]}
+        copyright="&copy; 2026 Rialto"
+      />
+    );
+    expect(
+      await axe(container, {
+        rules: {
+          // jsdom cannot resolve CSS custom properties — covered by token-contrast.test.ts
+          "color-contrast": { enabled: false },
+        },
+      })
+    ).toHaveNoViolations();
+  });
+
+  it("Hero", async () => {
+    const { container } = render(
+      <Hero
+        title="Precision meets warmth"
+        subtitle="A component library for premium digital products."
+        minHeight="auto"
+      />
+    );
+    expect(
+      await axe(container, {
+        rules: {
+          // jsdom cannot resolve CSS custom properties — covered by token-contrast.test.ts
+          "color-contrast": { enabled: false },
+        },
+      })
+    ).toHaveNoViolations();
+  });
+
+  it("InputGroup", async () => {
+    const { container } = render(
+      <InputGroup aria-label="Search group">
+        <Input label="Search" />
+        <Button>Go</Button>
+      </InputGroup>
+    );
+    expect(
+      await axe(container, {
+        rules: {
+          // jsdom cannot resolve CSS custom properties — covered by token-contrast.test.ts
+          "color-contrast": { enabled: false },
+        },
+      })
+    ).toHaveNoViolations();
+  });
+
+  it("PageHeader", async () => {
+    const { container } = render(
+      <PageHeader
+        title="Account Settings"
+        breadcrumbs={[
+          { label: "Home", href: "/" },
+          { label: "Settings" },
+        ]}
+      />
+    );
+    expect(
+      await axe(container, {
+        rules: {
+          // jsdom cannot resolve CSS custom properties — covered by token-contrast.test.ts
+          "color-contrast": { enabled: false },
+        },
+      })
+    ).toHaveNoViolations();
+  });
+
+  it("ScrollArea", async () => {
+    const { container } = render(
+      <ScrollArea maxHeight={200}>
+        <p>Long scrollable content goes here.</p>
+      </ScrollArea>
+    );
+    expect(
+      await axe(container, {
+        rules: {
+          // jsdom cannot resolve CSS custom properties — covered by token-contrast.test.ts
+          "color-contrast": { enabled: false },
+        },
+      })
+    ).toHaveNoViolations();
+  });
+
+  it("Skeleton", async () => {
+    const { container } = render(<Skeleton variant="rect" width={200} height={24} />);
+    expect(
+      await axe(container, {
+        rules: {
+          // jsdom cannot resolve CSS custom properties — covered by token-contrast.test.ts
+          "color-contrast": { enabled: false },
+        },
+      })
+    ).toHaveNoViolations();
+  });
+
+  /* ── Portal-based components (Task 2) ────────── */
+
+  it("CommandPalette (open)", async () => {
+    render(
+      <CommandPalette
+        open
+        onOpenChange={noop}
+        items={[
+          { id: "new", label: "New File", onSelect: noop },
+          { id: "open", label: "Open File", onSelect: noop },
+        ]}
+        placeholder="Search commands…"
+      />
+    );
+    expect(
+      await axe(document.body, {
+        rules: {
+          // jsdom cannot resolve CSS custom properties — covered by token-contrast.test.ts
+          "color-contrast": { enabled: false },
+          // Isolated test content lacks page-level landmark wrappers — not a component concern
+          region: { enabled: false },
+        },
+      })
+    ).toHaveNoViolations();
+  });
+
+  it("Drawer (open)", async () => {
+    render(
+      <Drawer open onClose={noop} title="Test Drawer">
+        <p>Drawer content</p>
+      </Drawer>
+    );
+    expect(
+      await axe(document.body, {
+        rules: {
+          // jsdom cannot resolve CSS custom properties — covered by token-contrast.test.ts
+          "color-contrast": { enabled: false },
+          // Isolated test content lacks page-level landmark wrappers — not a component concern
+          region: { enabled: false },
+        },
+      })
+    ).toHaveNoViolations();
+  });
+
+  it("ConfirmDialog (open)", async () => {
+    render(
+      <ConfirmDialog
+        open
+        onConfirm={noop}
+        onCancel={noop}
+        title="Delete item?"
+        description="This action cannot be undone."
+      />
+    );
+    expect(
+      await axe(document.body, {
+        rules: {
+          // jsdom cannot resolve CSS custom properties — covered by token-contrast.test.ts
+          "color-contrast": { enabled: false },
+          // Isolated test content lacks page-level landmark wrappers — not a component concern
+          region: { enabled: false },
+        },
+      })
+    ).toHaveNoViolations();
+  });
+
+  it("DropdownMenu (open)", async () => {
+    const { getByRole } = render(
+      <DropdownMenu
+        trigger={<button type="button">Actions</button>}
+        items={[
+          { id: "edit", label: "Edit", onSelect: noop },
+          { id: "delete", label: "Delete", destructive: true, onSelect: noop },
+        ]}
+      />
+    );
+    await act(async () => {
+      // The trigger button now has aria-haspopup and aria-expanded injected onto it
+      fireEvent.click(getByRole("button", { name: "Actions" }));
+    });
+    expect(
+      await axe(document.body, {
+        rules: {
+          // jsdom cannot resolve CSS custom properties — covered by token-contrast.test.ts
+          "color-contrast": { enabled: false },
+          // Isolated test content lacks page-level landmark wrappers — not a component concern
+          region: { enabled: false },
+        },
+      })
+    ).toHaveNoViolations();
+  });
+
+  it("Popover (open)", async () => {
+    const { getByRole } = render(
+      <Popover trigger={<button type="button">Options</button>} title="Filter">
+        <p>Popover content</p>
+      </Popover>
+    );
+    await act(async () => {
+      // The trigger button now has aria-haspopup and aria-expanded injected onto it
+      fireEvent.click(getByRole("button", { name: "Options" }));
+    });
+    expect(
+      await axe(document.body, {
+        rules: {
+          // jsdom cannot resolve CSS custom properties — covered by token-contrast.test.ts
+          "color-contrast": { enabled: false },
+          // Isolated test content lacks page-level landmark wrappers — not a component concern
+          region: { enabled: false },
+        },
+      })
+    ).toHaveNoViolations();
+  });
+
+  it("Tooltip (visible)", async () => {
+    const { getByRole } = render(
+      <Tooltip content="Copy to clipboard" delay={0}>
+        <button type="button">Copy</button>
+      </Tooltip>
+    );
+    await act(async () => {
+      fireEvent.mouseEnter(getByRole("button"));
+      // delay=0 means tooltip shows synchronously in next tick
+      await new Promise((r) => setTimeout(r, 10));
+    });
+    expect(
+      await axe(document.body, {
+        rules: {
+          // jsdom cannot resolve CSS custom properties — covered by token-contrast.test.ts
+          "color-contrast": { enabled: false },
+          // Isolated test content lacks page-level landmark wrappers — not a component concern
+          region: { enabled: false },
+        },
+      })
+    ).toHaveNoViolations();
+  });
+
+  it("ContextMenu (open)", async () => {
+    const { getByText } = render(
+      <ContextMenu
+        items={[
+          { id: "copy", label: "Copy", onSelect: noop },
+          { id: "paste", label: "Paste", onSelect: noop },
+        ]}
+      >
+        <div>Right-click this area</div>
+      </ContextMenu>
+    );
+    await act(async () => {
+      fireEvent.contextMenu(getByText("Right-click this area"));
+    });
+    expect(
+      await axe(document.body, {
+        rules: {
+          // jsdom cannot resolve CSS custom properties — covered by token-contrast.test.ts
+          "color-contrast": { enabled: false },
+          // Isolated test content lacks page-level landmark wrappers — not a component concern
+          region: { enabled: false },
+        },
+      })
+    ).toHaveNoViolations();
+  });
+
+  it("HoverCard (visible)", async () => {
+    const { getByRole } = render(
+      <HoverCard
+        content={<p>User profile preview</p>}
+        openDelay={0}
+        placement="bottom"
+      >
+        <a href="/user/1">Ada Lovelace</a>
+      </HoverCard>
+    );
+    await act(async () => {
+      fireEvent.mouseEnter(getByRole("link"));
+      await new Promise((r) => setTimeout(r, 10));
+    });
+    expect(
+      await axe(document.body, {
+        rules: {
+          // jsdom cannot resolve CSS custom properties — covered by token-contrast.test.ts
+          "color-contrast": { enabled: false },
+          // Isolated test content lacks page-level landmark wrappers — not a component concern
+          region: { enabled: false },
+        },
+      })
+    ).toHaveNoViolations();
+  });
+
+  it("Autocomplete (open with options)", async () => {
+    const { getByRole } = render(
+      <Autocomplete
+        label="Country"
+        options={[
+          { value: "us", label: "United States" },
+          { value: "ca", label: "Canada" },
+          { value: "gb", label: "United Kingdom" },
+        ]}
+        placeholder="Search countries…"
+      />
+    );
+    await act(async () => {
+      fireEvent.change(getByRole("combobox"), { target: { value: "U" } });
+    });
+    expect(
+      await axe(document.body, {
+        rules: {
+          // jsdom cannot resolve CSS custom properties — covered by token-contrast.test.ts
+          "color-contrast": { enabled: false },
+          // Isolated test content lacks page-level landmark wrappers — not a component concern
+          region: { enabled: false },
+        },
+      })
+    ).toHaveNoViolations();
   });
 });

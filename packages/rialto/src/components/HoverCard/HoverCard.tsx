@@ -93,6 +93,7 @@ export const HoverCard = forwardRef<HTMLDivElement, HoverCardProps>(
             <motion.div
               className={`${styles.panel} ${styles[placement]}`}
               role="dialog"
+              aria-label="Preview"
               onMouseEnter={cancelClose}
               onMouseLeave={scheduleClose}
               initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, ...origin }}

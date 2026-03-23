@@ -234,6 +234,7 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
                   ref={inputRef}
                   className={styles.searchInput}
                   type="text"
+                  aria-label="Search commands"
                   placeholder={placeholder}
                   value={query}
                   onChange={(e) => {
@@ -246,7 +247,7 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
               </div>
 
               {/* Results */}
-              <div className={styles.results} ref={listRef} role="listbox">
+              <div className={styles.results} ref={listRef} role="listbox" aria-label="Command results">
                 {flatItems.length === 0 ? (
                   <div className={styles.empty}>
                     <svg className={styles.emptyIcon} viewBox="0 0 32 32">
