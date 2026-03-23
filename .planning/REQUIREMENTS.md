@@ -9,7 +9,7 @@ Requirements for milestone v1.1: Rialto Accessibility & AI DX.
 
 ### Accessibility
 
-- [ ] **A11Y-01**: All components meet WCAG AA color contrast (4.5:1 text, 3:1 UI controls) via token-level audit
+- [x] **A11Y-01**: All components meet WCAG AA color contrast (4.5:1 text, 3:1 UI controls) via token-level audit
 - [ ] **A11Y-02**: All interactive components have visible `:focus-visible` keyboard focus indicators
 - [ ] **A11Y-03**: All interactive components have correct ARIA roles, labels, and state attributes
 - [ ] **A11Y-04**: Every component has an axe-core assertion in Vitest CI (`toHaveNoViolations`)
@@ -18,7 +18,7 @@ Requirements for milestone v1.1: Rialto Accessibility & AI DX.
 - [ ] **A11Y-07**: Every form input has an associated visible or screen-reader-accessible label
 - [ ] **A11Y-08**: Dialog, Drawer, and ConfirmDialog return focus to trigger element on close
 - [ ] **A11Y-09**: Each component has a11y documentation in showcase (keyboard shortcuts, ARIA, screen reader behavior)
-- [ ] **A11Y-10**: Contrast ratios verified and fixed at design token level, not per-component CSS
+- [x] **A11Y-10**: Contrast ratios verified and fixed at design token level, not per-component CSS
 
 ### Example Pages
 
@@ -76,7 +76,7 @@ Deferred to future milestones.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| A11Y-01 | Phase 6 | Pending |
+| A11Y-01 | Phase 6 | Complete |
 | A11Y-02 | Phase 6 | Pending |
 | A11Y-03 | Phase 6 | Pending |
 | A11Y-04 | Phase 6 | Pending |
@@ -85,7 +85,7 @@ Deferred to future milestones.
 | A11Y-07 | Phase 6 | Pending |
 | A11Y-08 | Phase 6 | Pending |
 | A11Y-09 | Phase 9 | Pending |
-| A11Y-10 | Phase 6 | Pending |
+| A11Y-10 | Phase 6 | Complete |
 | EXMP-01 | Phase 7 | Pending |
 | EXMP-02 | Phase 7 | Pending |
 | EXMP-03 | Phase 7 | Pending |
