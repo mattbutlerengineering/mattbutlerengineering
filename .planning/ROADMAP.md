@@ -77,7 +77,12 @@ Plans:
   3. CLAUDE.md contains a Rialto usage section with import paths, RialtoProvider setup, and the top 10 most-used component APIs
   4. Running `mbe init my-app` creates `apps/my-app/` with a working vite config (base set to `/my-app/`), RialtoProvider in main.tsx, and a skeleton example page — no implementation is copied
   5. `packages/rialto/registry.json` is served as static JSON from rialto-web at `/rialto/registry.json` with the correct Content-Type header
-**Plans**: TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 08-01-PLAN.md — Registry generation script, CI drift check, and rialto-web static serving
+- [ ] 08-02-PLAN.md — Two-tier llms.txt at repo root and CLAUDE.md Rialto usage section
+- [ ] 08-03-PLAN.md — CLI scaffold command (mbe new / mbe init)
 
 ### Phase 9: Polish and Documentation
 **Goal**: Every component has accurate a11y documentation in the showcase, and the top 20 most-used components have structured spec files
@@ -99,6 +104,6 @@ Plans:
 | 4. Hospitality Migration + Full Hosting | v1.0 | 5/5 | Complete | 2026-03-04 |
 | 5. Retroactive Verification & Gap Closure | v1.0 | 2/2 | Complete | 2026-03-04 |
 | 6. Accessibility Foundation | v1.1 | 5/5 | Complete | 2026-03-23 |
-| 7. Example Pages | 3/3 | Complete   | 2026-03-23 | - |
-| 8. AI Developer Experience | v1.1 | 0/TBD | Not started | - |
+| 7. Example Pages | v1.1 | 3/3 | Complete | 2026-03-23 |
+| 8. AI Developer Experience | v1.1 | 0/3 | Not started | - |
 | 9. Polish and Documentation | v1.1 | 0/TBD | Not started | - |
