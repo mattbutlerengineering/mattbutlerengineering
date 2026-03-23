@@ -2,11 +2,9 @@
 set -e
 
 echo "Running users migrations..."
-cd /app/services/users
-npx prisma migrate deploy
+prisma migrate deploy --schema /app/services/users/prisma/schema.prisma
 
 echo "Running reservations migrations..."
-cd /app/services/reservations
-npx prisma migrate deploy
+prisma migrate deploy --schema /app/services/reservations/prisma/schema.prisma
 
 echo "All migrations complete."
