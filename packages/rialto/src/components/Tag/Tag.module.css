@@ -36,6 +36,8 @@
 
 /* ── Interactive (clickable) ─────────────────── */
 .interactive {
+  composes: focusRing from "../../styles/surfaces.module.css";
+
   cursor: pointer;
   transition:
     background 0.1s var(--rialto-ease-precision),
@@ -49,11 +51,6 @@
 
 .interactive.accent:hover {
   background: rgb(196 146 42 / 0.15);
-}
-
-.interactive:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--rialto-accent-glow);
 }
 
 /* ── Selected state ──────────────────────────── */
@@ -70,6 +67,8 @@
 
 /* ── Dismiss button ──────────────────────────── */
 .dismiss {
+  composes: focusRing from "../../styles/surfaces.module.css";
+
   display: flex;
   align-items: center;
   justify-content: center;
@@ -82,9 +81,7 @@
   opacity: 0.6;
   cursor: pointer;
   border-radius: var(--rialto-radius-sharp);
-  transition:
-    opacity 0.1s var(--rialto-ease-precision),
-    box-shadow 0.1s var(--rialto-ease-precision);
+  transition: opacity 0.1s var(--rialto-ease-precision);
 }
 
 .dismiss:hover {
@@ -92,8 +89,6 @@
 }
 
 .dismiss:focus-visible {
-  outline: none;
-  box-shadow: var(--rialto-shadow-focus);
   opacity: 1;
 }
 

@@ -53,20 +53,16 @@
 }
 
 .searchInput {
+  composes: focusRing from "../../styles/surfaces.module.css";
+
   flex: 1;
   background: transparent;
   border: none;
-  outline: none;
   font-family: var(--rialto-font-sans);
   font-size: var(--rialto-text-base);
   font-weight: var(--rialto-weight-regular);
   color: var(--rialto-text-primary);
   caret-color: var(--rialto-accent);
-}
-
-.searchInput:focus-visible {
-  outline: none;
-  box-shadow: inset 0 -2px 0 var(--rialto-accent);
 }
 
 .searchInput::placeholder {
@@ -94,6 +90,8 @@
 
 /* ── Item ─────────────────────────────────────── */
 .item {
+  composes: focusRing from "../../styles/surfaces.module.css";
+
   display: flex;
   align-items: center;
   gap: var(--rialto-space-sm);
@@ -104,11 +102,6 @@
   transition:
     background 0.1s var(--rialto-ease-precision),
     color 0.1s var(--rialto-ease-precision);
-}
-
-.item:focus-visible {
-  outline: none;
-  box-shadow: var(--rialto-shadow-focus);
 }
 
 .item:hover {

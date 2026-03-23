@@ -74,6 +74,8 @@
 
 /* ── Close button ────────────────────────────── */
 .close {
+  composes: focusRing from "../../styles/surfaces.module.css";
+
   display: flex;
   align-items: center;
   justify-content: center;
@@ -87,18 +89,12 @@
   flex-shrink: 0;
   transition:
     background 0.1s var(--rialto-ease-precision),
-    color 0.1s var(--rialto-ease-precision),
-    box-shadow 0.1s var(--rialto-ease-precision);
+    color 0.1s var(--rialto-ease-precision);
 }
 
 .close:hover {
   background: var(--rialto-surface-recessed);
   color: var(--rialto-text-primary);
-}
-
-.close:focus-visible {
-  outline: none;
-  box-shadow: var(--rialto-shadow-focus);
 }
 
 /* ── Body ────────────────────────────────────── */

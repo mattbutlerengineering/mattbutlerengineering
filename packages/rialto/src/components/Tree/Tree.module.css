@@ -12,6 +12,8 @@
 /* ── Item ──────────────────────────────────── */
 
 .item {
+  composes: focusRing from "../../styles/surfaces.module.css";
+
   display: flex;
   align-items: center;
   gap: var(--rialto-space-xs);
@@ -33,11 +35,6 @@
 
 .item:hover {
   background: var(--rialto-surface-recessed);
-}
-
-.item:focus-visible {
-  outline: none;
-  box-shadow: var(--rialto-shadow-focus);
 }
 
 .item.selected {

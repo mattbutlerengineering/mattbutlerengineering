@@ -118,6 +118,7 @@
 /* ── Close button ────────────────────────────── */
 .close {
   composes: aluminum from "../../styles/surfaces.module.css";
+  composes: focusRing from "../../styles/surfaces.module.css";
 
   width: 28px;
   height: 28px;
@@ -137,11 +138,6 @@
 .close:hover {
   border-color: var(--rialto-border-strong);
   color: var(--rialto-text-primary);
-}
-
-.close:focus-visible {
-  outline: none;
-  box-shadow: var(--rialto-shadow-focus);
 }
 
 .closeIcon {

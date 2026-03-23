@@ -36,17 +36,14 @@
 
 /* ── Sortable header ─────────────────────────── */
 .sortable {
+  composes: focusRing from "../../styles/surfaces.module.css";
+
   cursor: pointer;
   transition: color 0.1s var(--rialto-ease-precision);
 }
 
 .sortable:hover {
   color: var(--rialto-text-secondary);
-}
-
-.sortable:focus-visible {
-  outline: none;
-  box-shadow: inset 0 0 0 2px var(--rialto-accent-glow);
 }
 
 .sortActive {

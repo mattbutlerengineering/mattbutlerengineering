@@ -104,6 +104,8 @@
 
 /* ── Close button ────────────────────────────── */
 .close {
+  composes: focusRing from "../../styles/surfaces.module.css";
+
   position: absolute;
   top: var(--rialto-space-xs);
   inset-inline-end: var(--rialto-space-xs);
@@ -119,18 +121,12 @@
   background: none;
   transition:
     background 0.1s var(--rialto-ease-precision),
-    color 0.1s var(--rialto-ease-precision),
-    box-shadow 0.1s var(--rialto-ease-precision);
+    color 0.1s var(--rialto-ease-precision);
 }
 
 .close:hover {
   background: var(--rialto-surface-recessed);
   color: var(--rialto-text-primary);
-}
-
-.close:focus-visible {
-  outline: none;
-  box-shadow: var(--rialto-shadow-focus);
 }
 
 /* ── Countdown bar ───────────────────────────── */

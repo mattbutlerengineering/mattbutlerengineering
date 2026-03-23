@@ -160,6 +160,13 @@
   cursor: pointer;
 }
 
+/* Focus ring on the node when stepButton is keyboard-focused.
+   display:contents means the button is invisible — target its child node. */
+.stepButton:focus-visible .node {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+}
+
 .clickable {
   cursor: pointer;
 }

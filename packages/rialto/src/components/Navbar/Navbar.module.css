@@ -45,6 +45,8 @@
 }
 
 .searchInput {
+  composes: focusRing from "../../styles/surfaces.module.css";
+
   width: 100%;
   padding: var(--rialto-space-xs) var(--rialto-space-sm);
   padding-inline-start: 32px;
@@ -66,12 +68,6 @@
 
 .searchInput:hover {
   border-color: var(--rialto-border-strong);
-}
-
-.searchInput:focus {
-  outline: none;
-  border-color: var(--rialto-accent);
-  box-shadow: var(--rialto-shadow-focus);
 }
 
 .searchKbd {
@@ -155,6 +151,8 @@
 }
 
 .link {
+  composes: focusRing from "../../styles/surfaces.module.css";
+
   display: flex;
   align-items: center;
   gap: var(--rialto-space-sm);
@@ -170,11 +168,6 @@
 .link:hover {
   background: var(--rialto-surface-recessed);
   color: var(--rialto-text-primary);
-}
-
-.link:focus-visible {
-  outline: none;
-  box-shadow: var(--rialto-shadow-focus);
 }
 
 .linkIcon {
@@ -206,6 +199,8 @@
 }
 
 .chevronButton {
+  composes: focusRing from "../../styles/surfaces.module.css";
+
   display: flex;
   align-items: center;
   justify-content: center;
@@ -222,11 +217,6 @@
 
 .chevronButton:hover {
   color: var(--rialto-text-primary);
-}
-
-.chevronButton:focus-visible {
-  outline: none;
-  box-shadow: var(--rialto-shadow-focus);
 }
 
 [dir="rtl"] .chevronButton {

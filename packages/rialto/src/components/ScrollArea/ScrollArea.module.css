@@ -1,4 +1,6 @@
 .root {
+  composes: focusRing from "../../styles/surfaces.module.css";
+
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--rialto-surface-matte) transparent;
@@ -21,7 +23,3 @@
   background: var(--rialto-border-strong);
 }
 
-.root:focus-visible {
-  outline: none;
-  box-shadow: var(--rialto-shadow-focus);
-}

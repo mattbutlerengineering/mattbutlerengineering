@@ -31,6 +31,7 @@
 /* ── Stepper buttons ─────────────────────────── */
 .stepper {
   composes: aluminum from "../../styles/surfaces.module.css";
+  composes: focusRing from "../../styles/surfaces.module.css";
 
   display: flex;
   align-items: center;

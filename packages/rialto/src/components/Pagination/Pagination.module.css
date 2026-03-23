@@ -9,6 +9,8 @@
 /* ── Shared button base ──────────────────────── */
 .page,
 .arrow {
+  composes: focusRing from "../../styles/surfaces.module.css";
+
   position: relative;
   z-index: 0;
   display: flex;
@@ -36,12 +38,6 @@
   z-index: 1;
   background: var(--rialto-surface-recessed);
   color: var(--rialto-text-primary);
-}
-
-.page:focus-visible,
-.arrow:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px var(--rialto-accent-glow);
 }
 
 /* ── Active page ─────────────────────────────── */
