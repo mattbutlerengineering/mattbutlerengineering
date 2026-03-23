@@ -2,16 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Rialto Accessibility & AI DX
-status: executing
-stopped_at: Completed 07-03-PLAN.md — Settings and Form States example pages complete
-last_updated: "2026-03-23T01:35:51.889Z"
-last_activity: 2026-03-22 — Completed 07-03 Settings and Form States example pages
+status: unknown
+last_updated: "2026-03-23T02:06:51.525Z"
 progress:
-  total_phases: 4
+  total_phases: 3
   completed_phases: 2
-  total_plans: 8
-  completed_plans: 8
-  percent: 33
+  total_plans: 11
+  completed_plans: 10
 ---
 
 # Project State
@@ -21,14 +18,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-22)
 
 **Core value:** Every web app uses Rialto as the single design system and is accessible at mattbutlerengineering.com
-**Current focus:** v1.1 — Phase 7: Example Pages
+**Current focus:** v1.1 — Phase 8: AI Developer Experience
 
 ## Current Position
 
-Phase: 7 of 9 (Example Pages)
-Plan: 3 of 5 complete
+Phase: 8 of 9 (AI Developer Experience)
+Plan: 2 of 3 complete
 Status: In Progress
-Last activity: 2026-03-22 — Completed 07-03 Settings and Form States example pages
+Last activity: 2026-03-23 — Completed 08-02 two-tier llms.txt system and CLAUDE.md Rialto section
 
 Progress: [█████░░░░░] 33%
 
@@ -51,6 +48,8 @@ Progress: [█████░░░░░] 33%
 | Phase 07-example-pages P01 | 3 | 2 tasks | 7 files |
 | Phase 07-example-pages P02 | 2 min | 1 task | 2 files |
 | Phase 07-example-pages P03 | 8min | 2 tasks | 4 files |
+| Phase 08-ai-developer-experience P02 | 2 | 2 tasks | 4 files |
+| Phase 08-ai-developer-experience P01 | 2min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -81,6 +80,9 @@ v1.1 decisions pending ():
 - [Phase 06-accessibility-foundation]: composes: focusRing is the canonical focus pattern — never write inline :focus-visible box-shadow rules
 - [Phase 07-example-pages]: Select has no error prop — error state shown via Input error+hint; error panel inputs use readOnly to avoid controlled/uncontrolled warnings
 - [Phase 07-example-pages]: Spinner exported from @mbe/rialto via Progress module — not a separate package
+- [Phase 08-ai-developer-experience]: Two-tier llms.txt: lean llms.txt (<20KB) at repo root for AI context windows, llms-full.txt (26KB) for complete reference
+- [Phase 08-ai-developer-experience]: Registry output to packages/rialto/registry.json (package root, committed) not dist/ (gitignored)
+- [Phase 08-ai-developer-experience]: importPath always '@mbe/rialto' — all components barrel-exported from single entry point
 
 ### Pending Todos
 
@@ -91,10 +93,10 @@ None.
 - [RESOLVED 06-01] Phase 6: axe-core cannot resolve CSS custom property contrast values in jsdom — token-contrast.test.ts now handles this programmatically
 - [RESOLVED 06-02] Phase 6: 18 component directories had no axe tests — all 58 component directories now have axe-core WCAG 2.1 AA assertions
 - [RESOLVED 06-03] Phase 6: Dialog focus-return-on-close is absent — triggerRef pattern now implemented in all 7 overlay components
-- Phase 8: Single llms.txt would exceed AI context windows for 55+ components — must use two-tier structure (index under 20KB + full file)
+- [RESOLVED 08-02] Phase 8: Single llms.txt would exceed AI context windows for 55+ components — two-tier structure implemented: llms.txt (11KB) + llms-full.txt (26KB)
 
 ## Session Continuity
 
-Last session: 2026-03-22T18:31:28Z
-Stopped at: Completed 07-03-PLAN.md — Settings and Form States example pages complete
-Resume file: .planning/phases/07-example-pages/07-04-PLAN.md
+Last session: 2026-03-23T02:05:55Z
+Stopped at: Completed 08-02-PLAN.md — two-tier llms.txt system and CLAUDE.md Rialto section
+Resume file: .planning/phases/08-ai-developer-experience/08-03-PLAN.md

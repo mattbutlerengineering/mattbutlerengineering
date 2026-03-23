@@ -26,7 +26,7 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 
 - [x] **Phase 6: Accessibility Foundation** - Audit and fix all 55+ components to WCAG AA; gate CI with axe-core (completed 2026-03-23)
 - [x] **Phase 7: Example Pages** - Build realistic dashboard, settings, and form pages with all component states visible (completed 2026-03-23)
-- [ ] **Phase 8: AI Developer Experience** - Ship registry, two-tier llms.txt, CLAUDE.md update, and CLI scaffold
+- [x] **Phase 8: AI Developer Experience** - Ship registry, two-tier llms.txt, CLAUDE.md update, and CLI scaffold (completed 2026-03-23)
 - [ ] **Phase 9: Polish and Documentation** - Per-component a11y docs in showcase and structured spec files for top 20 components
 
 ## Phase Details
@@ -77,7 +77,7 @@ Plans:
   3. CLAUDE.md contains a Rialto usage section with import paths, RialtoProvider setup, and the top 10 most-used component APIs
   4. Running `mbe init my-app` creates `apps/my-app/` with a working vite config (base set to `/my-app/`), RialtoProvider in main.tsx, and a skeleton example page — no implementation is copied
   5. `packages/rialto/registry.json` is served as static JSON from rialto-web at `/rialto/registry.json` with the correct Content-Type header
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 08-01-PLAN.md — Registry generation script, CI drift check, and rialto-web static serving
@@ -105,5 +105,5 @@ Plans:
 | 5. Retroactive Verification & Gap Closure | v1.0 | 2/2 | Complete | 2026-03-04 |
 | 6. Accessibility Foundation | v1.1 | 5/5 | Complete | 2026-03-23 |
 | 7. Example Pages | v1.1 | 3/3 | Complete | 2026-03-23 |
-| 8. AI Developer Experience | v1.1 | 0/3 | Not started | - |
+| 8. AI Developer Experience | 3/3 | Complete   | 2026-03-23 | - |
 | 9. Polish and Documentation | v1.1 | 0/TBD | Not started | - |

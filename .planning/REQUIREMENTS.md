@@ -33,12 +33,12 @@ Requirements for milestone v1.1: Rialto Accessibility & AI DX.
 
 ### AI Developer Experience
 
-- [ ] **AIDX-01**: Component registry JSON at `packages/rialto/registry.json` with name, description, props, import path, examples
+- [x] **AIDX-01**: Component registry JSON at `packages/rialto/registry.json` with name, description, props, import path, examples
 - [ ] **AIDX-02**: Two-tier llms.txt at repo root: overview (<20KB) + full (complete component API + patterns)
 - [ ] **AIDX-03**: CLAUDE.md updated with Rialto usage section (imports, tokens, provider setup, top components)
 - [ ] **AIDX-04**: CLI scaffold command (`mbe new`) creates app skeleton with RialtoProvider, layout, example page
 - [ ] **AIDX-05**: Structured spec files (`.spec.md`) for top 20 most-used components with anatomy, tokens, props, states
-- [ ] **AIDX-06**: Registry served as static JSON from rialto-web at `/rialto/registry.json`
+- [x] **AIDX-06**: Registry served as static JSON from rialto-web at `/rialto/registry.json`
 
 ## Future Requirements
 
@@ -94,12 +94,12 @@ Deferred to future milestones.
 | EXMP-06 | Phase 7 | Complete |
 | EXMP-07 | Phase 7 | Complete |
 | EXMP-08 | Phase 7 | Complete |
-| AIDX-01 | Phase 8 | Pending |
+| AIDX-01 | Phase 8 | Complete |
 | AIDX-02 | Phase 8 | Pending |
 | AIDX-03 | Phase 8 | Pending |
 | AIDX-04 | Phase 8 | Pending |
 | AIDX-05 | Phase 9 | Pending |
-| AIDX-06 | Phase 8 | Pending |
+| AIDX-06 | Phase 8 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 24 total
