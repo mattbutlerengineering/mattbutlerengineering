@@ -27,9 +27,9 @@ Requirements for milestone v1.1: Rialto Accessibility & AI DX.
 - [ ] **EXMP-03**: Full form example with all validation states (default, focused, error, disabled, loading)
 - [ ] **EXMP-04**: All component states shown in context (not isolated) within example pages
 - [ ] **EXMP-05**: Examples use realistic content and data shapes (not Lorem ipsum or test data)
-- [ ] **EXMP-06**: Each example page has a copy-to-clipboard button with the full page JSX
-- [ ] **EXMP-07**: Annotated composition patterns explain why components are combined
-- [ ] **EXMP-08**: Multi-state page flows showing empty → loading → populated for same layout
+- [x] **EXMP-06**: Each example page has a copy-to-clipboard button with the full page JSX
+- [x] **EXMP-07**: Annotated composition patterns explain why components are combined
+- [x] **EXMP-08**: Multi-state page flows showing empty → loading → populated for same layout
 
 ### AI Developer Experience
 
@@ -91,9 +91,9 @@ Deferred to future milestones.
 | EXMP-03 | Phase 7 | Pending |
 | EXMP-04 | Phase 7 | Pending |
 | EXMP-05 | Phase 7 | Pending |
-| EXMP-06 | Phase 7 | Pending |
-| EXMP-07 | Phase 7 | Pending |
-| EXMP-08 | Phase 7 | Pending |
+| EXMP-06 | Phase 7 | Complete |
+| EXMP-07 | Phase 7 | Complete |
+| EXMP-08 | Phase 7 | Complete |
 | AIDX-01 | Phase 8 | Pending |
 | AIDX-02 | Phase 8 | Pending |
 | AIDX-03 | Phase 8 | Pending |
