@@ -10,7 +10,7 @@ Requirements for milestone v1.1: Rialto Accessibility & AI DX.
 ### Accessibility
 
 - [x] **A11Y-01**: All components meet WCAG AA color contrast (4.5:1 text, 3:1 UI controls) via token-level audit
-- [ ] **A11Y-02**: All interactive components have visible `:focus-visible` keyboard focus indicators
+- [x] **A11Y-02**: All interactive components have visible `:focus-visible` keyboard focus indicators
 - [x] **A11Y-03**: All interactive components have correct ARIA roles, labels, and state attributes
 - [x] **A11Y-04**: Every component has an axe-core assertion in Vitest CI (`toHaveNoViolations`)
 - [x] **A11Y-05**: Keyboard navigation follows logical DOM order with no keyboard traps
@@ -77,7 +77,7 @@ Deferred to future milestones.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | A11Y-01 | Phase 6 | Complete |
-| A11Y-02 | Phase 6 | Pending |
+| A11Y-02 | Phase 6 | Complete |
 | A11Y-03 | Phase 6 | Complete |
 | A11Y-04 | Phase 6 | Complete |
 | A11Y-05 | Phase 6 | Complete |
