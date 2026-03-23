@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Rialto Accessibility & AI DX
 status: unknown
-last_updated: "2026-03-23T02:06:51.525Z"
+last_updated: "2026-03-23T02:07:08.692Z"
 progress:
   total_phases: 3
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 11
-  completed_plans: 10
+  completed_plans: 11
 ---
 
 # Project State
@@ -50,6 +50,7 @@ Progress: [█████░░░░░] 33%
 | Phase 07-example-pages P03 | 8min | 2 tasks | 4 files |
 | Phase 08-ai-developer-experience P02 | 2 | 2 tasks | 4 files |
 | Phase 08-ai-developer-experience P01 | 2min | 2 tasks | 6 files |
+| Phase 08-ai-developer-experience P03 | 3min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,7 @@ v1.1 decisions pending ():
 - [Phase 08-ai-developer-experience]: Two-tier llms.txt: lean llms.txt (<20KB) at repo root for AI context windows, llms-full.txt (26KB) for complete reference
 - [Phase 08-ai-developer-experience]: Registry output to packages/rialto/registry.json (package root, committed) not dist/ (gitignored)
 - [Phase 08-ai-developer-experience]: importPath always '@mbe/rialto' — all components barrel-exported from single entry point
+- [Phase 08-ai-developer-experience]: mbe init port assignment: auto-assign by scanning all apps/*/vite.config.ts for port values plus known ports 3000-3004, return max+1 (defaults to 3005)
 
 ### Pending Todos
 
