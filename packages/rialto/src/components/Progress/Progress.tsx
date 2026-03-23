@@ -100,6 +100,7 @@ export const Spinner = forwardRef<HTMLDivElement, SpinnerProps>(
         ref={ref}
         className={[styles.trace, sizeClass, className].filter(Boolean).join(" ")}
         role="status"
+        aria-live="polite"
         aria-label={label}
         {...props}
       >

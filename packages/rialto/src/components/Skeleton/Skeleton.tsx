@@ -53,8 +53,7 @@ export const Skeleton = forwardRef<HTMLDivElement, SkeletonProps>(
             flexDirection: "column",
             gap: typeof gap === "number" ? `${gap}px` : gap,
           }}
-          role="status"
-          aria-label="Loading"
+          aria-hidden="true"
         >
           {Array.from({ length: lines }, (_, i) => (
             <div
@@ -76,8 +75,7 @@ export const Skeleton = forwardRef<HTMLDivElement, SkeletonProps>(
         ref={ref}
         className={`${styles.skeleton} ${variantClass} ${className}`}
         style={style}
-        role="status"
-        aria-label="Loading"
+        aria-hidden="true"
       />
     );
   }
