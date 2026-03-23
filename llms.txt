@@ -103,9 +103,9 @@ import { RialtoProvider } from "@mbe/rialto";
 | Component      | Description                       | Key Props                                  |
 | -------------- | --------------------------------- | ------------------------------------------ |
 | Dialog         | Modal dialog with focus trap      | `open`, `onClose`, `title`, `children`     |
-| ConfirmDialog  | Pre-built confirmation modal      | `open`, `onOpenChange`, `title`, `variant` |
-| Drawer         | Slide-out edge panel              | `open`, `onOpenChange`, `placement`        |
-| Popover        | Positioned floating content       | `open`, `onOpenChange`, `content`, `placement` |
+| ConfirmDialog  | Pre-built confirmation modal      | `open`, `onConfirm`, `onCancel`, `title`, `variant` |
+| Drawer         | Slide-out edge panel              | `open`, `onClose`, `title`, `side`, `size` |
+| Popover        | Positioned floating content       | `trigger`, `children`, `placement`, `title` |
 | Tooltip        | Short hover text                  | `content`, `placement`, `delay`            |
 | HoverCard      | Rich hover preview                | `content`                                  |
 | CommandPalette | Keyboard command interface (Cmd+K)| `open`, `onOpenChange`, `items`            |

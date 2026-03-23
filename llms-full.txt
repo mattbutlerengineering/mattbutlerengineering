@@ -87,10 +87,10 @@
 
 | Component      | Description                       | Key Props                                  |
 | -------------- | --------------------------------- | ------------------------------------------ |
-| Dialog         | Modal dialog with focus trap      | `open`, `onOpenChange`, `title`            |
-| ConfirmDialog  | Pre-built confirmation modal      | `open`, `onOpenChange`, `title`, `variant` |
-| Drawer         | Slide-out edge panel              | `open`, `onOpenChange`, `placement`        |
-| Popover        | Positioned floating content       | `open`, `onOpenChange`, `content`, `placement` |
+| Dialog         | Modal dialog with focus trap      | `open`, `onClose`, `title`                 |
+| ConfirmDialog  | Pre-built confirmation modal      | `open`, `onConfirm`, `onCancel`, `title`, `variant` |
+| Drawer         | Slide-out edge panel              | `open`, `onClose`, `title`, `side`, `size` |
+| Popover        | Positioned floating content       | `trigger`, `children`, `placement`, `title` |
 | Tooltip        | Short hover text                  | `content`, `placement`, `delay`            |
 | HoverCard      | Rich hover preview                | `content`                                  |
 | CommandPalette | Keyboard command interface (Cmd+K)| `open`, `onOpenChange`, `items`            |
@@ -383,7 +383,7 @@ if (Icon) <Icon size={16} />;
 ### Settings panel
 
 ```tsx
-<Drawer open={isOpen} onOpenChange={setOpen} title="Settings" placement="right">
+<Drawer open={isOpen} onClose={() => setOpen(false)} title="Settings" side="right">
   <Stack direction="column" gap="lg">
     <Toggle label="Dark mode" checked={dark} onCheckedChange={setDark} />
     <Toggle label="Notifications" checked={notifs} onCheckedChange={setNotifs} />
@@ -406,11 +406,12 @@ if (Icon) <Icon size={16} />;
 ```tsx
 <ConfirmDialog
   open={showConfirm}
-  onOpenChange={setShowConfirm}
+  onConfirm={handleConfirm}
+  onCancel={() => setShowConfirm(false)}
   title="Delete project?"
   description="This action cannot be undone. All data will be permanently removed."
   confirmLabel="Delete"
-  variant="danger"
+  variant="destructive"
 />
 ```
 
