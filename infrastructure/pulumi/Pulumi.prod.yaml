@@ -8,6 +8,6 @@ config:
   # CLOUDFLARE_API_TOKEN
   mbe-infrastructure:cloudflareZoneId: dfed09378e547f95a3bd645c55ef777d
   mbe-infrastructure:databaseUrl:
-    secure: v1:yq1LDwfXCzpv28pP:jHzXbzItQLDgQy7GyOSmANmKL8J9HkGrJi6I6TcwEurxZAHPv7VCdhqN6rolRYHUy+RtHKOc9vLD2R0BV9S3nBPKj8oCbDjc4K4HDs7AP/Vb2K+N8/EjJ2EkRkigQoJJRP3wvEaa+w==
+    secure: v1:0RzZY3eW9IeiS01y:Kd6Wfxp4JgeBYwuwaJAzdzybDdtEB/Oe7malwhpy4bjn3fj0rMrAFgH0PzpI2cEblybnAu7+B1K3VOVZBuwq8MhN1iiLEXEuOXaAeX0ydf56Yia5NJopxo03MOhWbXijn9iaveUsiPro5GgTfW03ABMEfZ/UONRJ9JKwAw==
   mbe-infrastructure:cloudflareAccountId: 59d5bec2d6e979d474efe54ec76c3658
 encryptionsalt: v1:mJxX5QhUvT4=:v1:Uhf1OKllU+a17pOh:FyVoS0r/JdFmAbbr0f4zfEvad/KpMg==
