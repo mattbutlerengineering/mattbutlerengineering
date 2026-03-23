@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generatedAt": "2026-03-23T02:04:29.739Z",
+  "generatedAt": "2026-03-23T20:46:41.427Z",
   "components": [
     {
       "name": "Accordion",
@@ -47,9 +47,46 @@
     },
     {
       "name": "Alert",
+      "description": "Props for the Alert component, an inline feedback message used to communicate\ncontextual information, success confirmations, warnings, or errors within a page flow.\n\nDismissible alerts animate out and call `onDismiss` after the exit transition completes.",
       "importPath": "@mbe/rialto",
-      "props": [],
-      "slots": [],
+      "props": [
+        {
+          "name": "variant",
+          "type": "AlertVariant | undefined",
+          "required": false
+        },
+        {
+          "name": "title",
+          "type": "string | undefined",
+          "required": false
+        },
+        {
+          "name": "dismissible",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "Show dismiss button"
+        },
+        {
+          "name": "onDismiss",
+          "type": "(() => void) | undefined",
+          "required": false,
+          "description": "Called when dismissed"
+        },
+        {
+          "name": "actions",
+          "type": "ReactNode",
+          "required": false,
+          "description": "Action slot rendered below the description"
+        },
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false
+        }
+      ],
+      "slots": [
+        "children"
+      ],
       "characterLimits": [
         {
           "prop": "title",
@@ -65,8 +102,61 @@
     },
     {
       "name": "AnimatedTag",
+      "description": "A Tag wrapped in a Framer Motion layout animation for smooth enter/exit transitions.\nUse inside a `TagGroup` so that `AnimatePresence` can track additions and removals.",
       "importPath": "@mbe/rialto",
-      "props": [],
+      "props": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": true,
+          "description": "Unique key for AnimatePresence"
+        },
+        {
+          "name": "children",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "variant",
+          "type": "TagVariant | undefined",
+          "required": false
+        },
+        {
+          "name": "dismissible",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "Show dismiss button"
+        },
+        {
+          "name": "onDismiss",
+          "type": "(() => void) | undefined",
+          "required": false,
+          "description": "Called when dismiss is clicked"
+        },
+        {
+          "name": "onClick",
+          "type": "(() => void) | undefined",
+          "required": false,
+          "description": "Clickable tag (for filters)"
+        },
+        {
+          "name": "selected",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "Selected state (gold fill)"
+        },
+        {
+          "name": "icon",
+          "type": "ReactNode",
+          "required": false,
+          "description": "Icon rendered before label"
+        },
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false
+        }
+      ],
       "slots": []
     },
     {
@@ -3283,7 +3373,7 @@
       "props": [
         {
           "name": "variant",
-          "type": "\"neutral\" | \"accent\" | \"success\" | \"warning\" | \"error\" | undefined",
+          "type": "\"success\" | \"warning\" | \"error\" | \"neutral\" | \"accent\" | undefined",
           "required": false
         },
         {
@@ -4756,7 +4846,7 @@
       "props": [
         {
           "name": "variant",
-          "type": "\"accent\" | \"warning\" | \"error\" | \"info\" | undefined",
+          "type": "\"info\" | \"warning\" | \"error\" | \"accent\" | undefined",
           "required": false,
           "description": "Visual and semantic variant"
         },
@@ -6231,8 +6321,32 @@
     },
     {
       "name": "Breadcrumb",
+      "description": "Navigation trail showing the user's location within a hierarchy.\nAutomatically collapses middle items into an ellipsis when `maxItems` is set.",
       "importPath": "@mbe/rialto",
-      "props": [],
+      "props": [
+        {
+          "name": "items",
+          "type": "BreadcrumbItem[]",
+          "required": true
+        },
+        {
+          "name": "maxItems",
+          "type": "number | undefined",
+          "required": false,
+          "description": "Max visible items before collapsing middle items with ellipsis.\nFirst and last N items remain visible. 0 = no collapsing."
+        },
+        {
+          "name": "separator",
+          "type": "ReactNode",
+          "required": false,
+          "description": "Custom separator — defaults to chevron"
+        },
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false
+        }
+      ],
       "slots": [],
       "characterLimits": [
         {
@@ -7793,8 +7907,53 @@
     },
     {
       "name": "Checkbox",
+      "description": "Checkbox with animated check/indeterminate mark, label, and optional description.\nSupports a three-state visual (unchecked, checked, indeterminate) with spring animation.",
       "importPath": "@mbe/rialto",
-      "props": [],
+      "props": [
+        {
+          "name": "label",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "checked",
+          "type": "boolean | undefined",
+          "required": false
+        },
+        {
+          "name": "indeterminate",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "Displays a dash instead of a checkmark — useful for \"select all\" with partial selection"
+        },
+        {
+          "name": "onCheckedChange",
+          "type": "((checked: boolean) => void) | undefined",
+          "required": false
+        },
+        {
+          "name": "disabled",
+          "type": "boolean | undefined",
+          "required": false
+        },
+        {
+          "name": "disabledReason",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Explains why the checkbox is disabled. Shown in a tooltip; requires `disabled` to be true."
+        },
+        {
+          "name": "description",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Secondary text rendered below the label"
+        },
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false
+        }
+      ],
       "slots": [],
       "characterLimits": [
         {
@@ -7869,8 +8028,36 @@
     },
     {
       "name": "CommandPalette",
+      "description": "An uncontrolled, searchable command palette driven by a declarative `CommandItem[]` array.\nThe component owns its own search state, filtering, keyboard navigation, and grouping --\nthe consumer only provides the data and responds to selection via each item's `onSelect`.\nGlobally toggleable with Cmd+K / Ctrl+K.",
       "importPath": "@mbe/rialto",
-      "props": [],
+      "props": [
+        {
+          "name": "open",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "name": "onOpenChange",
+          "type": "(open: boolean) => void",
+          "required": true
+        },
+        {
+          "name": "items",
+          "type": "CommandItem[]",
+          "required": true
+        },
+        {
+          "name": "placeholder",
+          "type": "string | undefined",
+          "required": false
+        },
+        {
+          "name": "groups",
+          "type": "string[] | undefined",
+          "required": false,
+          "description": "Ordered list of group names — ungrouped items appear first"
+        }
+      ],
       "slots": []
     },
     {
@@ -9522,13 +9709,57 @@
     {
       "name": "DisabledTooltip",
       "importPath": "@mbe/rialto",
-      "props": [],
-      "slots": []
+      "props": [
+        {
+          "name": "disabled",
+          "type": "boolean | undefined",
+          "required": false
+        },
+        {
+          "name": "disabledReason",
+          "type": "string | undefined",
+          "required": false
+        }
+      ],
+      "slots": [
+        "children"
+      ]
     },
     {
       "name": "Divider",
+      "description": "Visual separator for dividing content sections, rendered as a thin rule.\n\nSupports an optional centered text label and a gold accent gradient for\nemphasis. Renders `role=\"separator\"` with the appropriate `aria-orientation`.",
       "importPath": "@mbe/rialto",
-      "props": [],
+      "props": [
+        {
+          "name": "orientation",
+          "type": "\"horizontal\" | \"vertical\" | undefined",
+          "required": false,
+          "description": "Orientation"
+        },
+        {
+          "name": "label",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Optional centered label"
+        },
+        {
+          "name": "accent",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "Gold accent gradient instead of neutral"
+        },
+        {
+          "name": "spacing",
+          "type": "\"compact\" | \"default\" | \"spacious\" | undefined",
+          "required": false,
+          "description": "Spacing: compact (xs), default (md), spacious (lg)"
+        },
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false
+        }
+      ],
       "slots": [],
       "characterLimits": [
         {
@@ -9540,9 +9771,51 @@
     },
     {
       "name": "Drawer",
+      "description": "A slide-out panel that enters from an edge of the viewport over a backdrop.\nUse for secondary content, forms, or detail views that should not fully replace the page.\nLocks body scroll while open and closes on Escape or backdrop click.",
       "importPath": "@mbe/rialto",
-      "props": [],
-      "slots": [],
+      "props": [
+        {
+          "name": "open",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "name": "onClose",
+          "type": "() => void",
+          "required": true
+        },
+        {
+          "name": "title",
+          "type": "string | undefined",
+          "required": false
+        },
+        {
+          "name": "description",
+          "type": "string | undefined",
+          "required": false
+        },
+        {
+          "name": "footer",
+          "type": "ReactNode",
+          "required": false,
+          "description": "Content rendered below the body in a fixed footer area"
+        },
+        {
+          "name": "side",
+          "type": "\"right\" | \"left\" | \"bottom\" | undefined",
+          "required": false,
+          "description": "Which edge the drawer slides from"
+        },
+        {
+          "name": "size",
+          "type": "\"default\" | \"wide\" | \"full\" | undefined",
+          "required": false,
+          "description": "Panel width/height"
+        }
+      ],
+      "slots": [
+        "children"
+      ],
       "characterLimits": [
         {
           "prop": "title",
@@ -9553,8 +9826,28 @@
     },
     {
       "name": "DropdownMenu",
+      "description": "A click-triggered dropdown menu for presenting a list of actions.\nSupports keyboard navigation (arrow keys, Home/End, Enter, Escape),\nitem icons, shortcut hints, dividers, section labels, and destructive items.",
       "importPath": "@mbe/rialto",
-      "props": [],
+      "props": [
+        {
+          "name": "trigger",
+          "type": "ReactElement<unknown, string | JSXElementConstructor<any>>",
+          "required": true,
+          "description": "The trigger element — rendered as-is, click opens the menu"
+        },
+        {
+          "name": "items",
+          "type": "MenuEntry[]",
+          "required": true,
+          "description": "Menu entries: items, dividers, labels"
+        },
+        {
+          "name": "align",
+          "type": "\"right\" | \"left\" | undefined",
+          "required": false,
+          "description": "Align dropdown to left (default) or right edge of trigger"
+        }
+      ],
       "slots": []
     },
     {
@@ -17165,8 +17458,20 @@
     },
     {
       "name": "Kbd",
+      "description": "Renders a single keyboard key in a styled `<kbd>` element that resembles\na physical key cap with a machined-surface look.",
       "importPath": "@mbe/rialto",
-      "props": [],
+      "props": [
+        {
+          "name": "children",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false
+        }
+      ],
       "slots": [],
       "characterLimits": [
         {
@@ -17207,7 +17512,7 @@
         },
         {
           "name": "variant",
-          "type": "\"accent\" | \"success\" | \"error\" | \"default\" | undefined",
+          "type": "\"success\" | \"error\" | \"accent\" | \"default\" | undefined",
           "required": false,
           "description": "Fill color variant"
         },
@@ -21616,8 +21921,94 @@
     },
     {
       "name": "NumberInput",
+      "description": "Numeric input with increment/decrement stepper buttons and hold-to-repeat.\nAlways controlled — requires `value` and `onChange`. Values are clamped to `min`/`max` when provided.",
       "importPath": "@mbe/rialto",
-      "props": [],
+      "props": [
+        {
+          "name": "value",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "onChange",
+          "type": "(value: number) => void",
+          "required": true,
+          "description": "Called with the clamped numeric value on every change"
+        },
+        {
+          "name": "min",
+          "type": "number | undefined",
+          "required": false
+        },
+        {
+          "name": "max",
+          "type": "number | undefined",
+          "required": false
+        },
+        {
+          "name": "step",
+          "type": "number | undefined",
+          "required": false,
+          "description": "Increment/decrement amount per step (default 1)"
+        },
+        {
+          "name": "label",
+          "type": "string | undefined",
+          "required": false
+        },
+        {
+          "name": "hint",
+          "type": "string | undefined",
+          "required": false
+        },
+        {
+          "name": "error",
+          "type": "boolean | undefined",
+          "required": false
+        },
+        {
+          "name": "disabled",
+          "type": "boolean | undefined",
+          "required": false
+        },
+        {
+          "name": "disabledReason",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Explains why the input is disabled. Shown in a tooltip; requires `disabled` to be true."
+        },
+        {
+          "name": "showOptional",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "When true and not required, shows \"(optional)\" after the label"
+        },
+        {
+          "name": "size",
+          "type": "\"default\" | \"small\" | \"large\" | undefined",
+          "required": false
+        },
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false
+        },
+        {
+          "name": "name",
+          "type": "string | undefined",
+          "required": false
+        },
+        {
+          "name": "readOnly",
+          "type": "boolean | undefined",
+          "required": false
+        },
+        {
+          "name": "required",
+          "type": "boolean | undefined",
+          "required": false
+        }
+      ],
       "slots": [],
       "characterLimits": [
         {
@@ -23097,8 +23488,39 @@
     },
     {
       "name": "Pagination",
+      "description": "Page navigation control with previous/next arrows and numbered page buttons.\nPages are 1-indexed. When there are many pages, middle buttons collapse into ellipsis\nbased on `siblingCount`.",
       "importPath": "@mbe/rialto",
-      "props": [],
+      "props": [
+        {
+          "name": "page",
+          "type": "number",
+          "required": true,
+          "description": "Current active page (1-indexed)"
+        },
+        {
+          "name": "totalPages",
+          "type": "number",
+          "required": true,
+          "description": "Total number of pages"
+        },
+        {
+          "name": "onChange",
+          "type": "(page: number) => void",
+          "required": true,
+          "description": "Called when page changes"
+        },
+        {
+          "name": "siblingCount",
+          "type": "number | undefined",
+          "required": false,
+          "description": "Max page buttons visible (including first/last).\nMiddle pages collapse to ellipsis beyond this count."
+        },
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false
+        }
+      ],
       "slots": [],
       "characterLimits": [
         {
@@ -23195,9 +23617,36 @@
     },
     {
       "name": "Popover",
+      "description": "A click-triggered floating panel positioned relative to its trigger element.\nUse for interactive content like forms, filters, or rich controls that need\nto stay anchored to a specific UI element. Closes on outside click or Escape.",
       "importPath": "@mbe/rialto",
-      "props": [],
-      "slots": []
+      "props": [
+        {
+          "name": "trigger",
+          "type": "ReactElement<unknown, string | JSXElementConstructor<any>>",
+          "required": true,
+          "description": "The trigger element — click opens the popover"
+        },
+        {
+          "name": "title",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Optional title shown in the header"
+        },
+        {
+          "name": "placement",
+          "type": "Placement | undefined",
+          "required": false,
+          "description": "Placement relative to trigger"
+        },
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false
+        }
+      ],
+      "slots": [
+        "children"
+      ]
     },
     {
       "name": "Progress",
@@ -24672,8 +25121,58 @@
     },
     {
       "name": "Radio",
+      "description": "Single radio button with an animated dot indicator and optional description.\nTypically used inside a `RadioGroup`, which auto-injects `name`, `checked`, and `onCheckedChange`.",
       "importPath": "@mbe/rialto",
-      "props": [],
+      "props": [
+        {
+          "name": "label",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Provided automatically by RadioGroup — only needed for standalone use"
+        },
+        {
+          "name": "checked",
+          "type": "boolean | undefined",
+          "required": false
+        },
+        {
+          "name": "onCheckedChange",
+          "type": "((value: string) => void) | undefined",
+          "required": false
+        },
+        {
+          "name": "disabled",
+          "type": "boolean | undefined",
+          "required": false
+        },
+        {
+          "name": "disabledReason",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Explains why the radio is disabled. Shown in a tooltip; requires `disabled` to be true."
+        },
+        {
+          "name": "description",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Secondary text rendered below the label"
+        },
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false
+        }
+      ],
       "slots": [],
       "characterLimits": [
         {
@@ -24685,9 +25184,40 @@
     },
     {
       "name": "RadioGroup",
+      "description": "Groups `Radio` children into a single controlled selection. Renders a `<fieldset>` with\n`role=\"radiogroup\"` and injects `name`, `checked`, and change handling into each child.",
       "importPath": "@mbe/rialto",
-      "props": [],
-      "slots": [],
+      "props": [
+        {
+          "name": "label",
+          "type": "string | undefined",
+          "required": false
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "description": "Shared HTML `name` attribute for all child radios"
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "description": "Currently selected radio value"
+        },
+        {
+          "name": "onChange",
+          "type": "(value: string) => void",
+          "required": true
+        },
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false
+        }
+      ],
+      "slots": [
+        "children"
+      ],
       "characterLimits": [
         {
           "prop": "label",
@@ -27724,8 +28254,21 @@
     },
     {
       "name": "Shortcut",
+      "description": "Displays a multi-key shortcut as a horizontal sequence of \n{@link \nKbd \n}\n caps\nseparated by `+` glyphs.",
       "importPath": "@mbe/rialto",
-      "props": [],
+      "props": [
+        {
+          "name": "keys",
+          "type": "string[]",
+          "required": true,
+          "description": "Array of key labels, e.g. [\"⌘\", \"K\"]"
+        },
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false
+        }
+      ],
       "slots": []
     },
     {
@@ -29211,15 +29754,61 @@
     },
     {
       "name": "Skeleton",
+      "description": "Props for the Skeleton component, a pulsing placeholder shape that communicates loading\nstate before real content appears.\n\nUse `lines` with `\"text\"` or `\"heading\"` variants to generate a multi-line paragraph skeleton\nwhere the last line is automatically shortened for a natural look.",
       "importPath": "@mbe/rialto",
-      "props": [],
+      "props": [
+        {
+          "name": "variant",
+          "type": "SkeletonVariant | undefined",
+          "required": false,
+          "description": "Shape variant controls border-radius and default height"
+        },
+        {
+          "name": "width",
+          "type": "string | number | undefined",
+          "required": false,
+          "description": "Explicit width (CSS value)"
+        },
+        {
+          "name": "height",
+          "type": "string | number | undefined",
+          "required": false,
+          "description": "Explicit height (CSS value)"
+        },
+        {
+          "name": "lines",
+          "type": "number | undefined",
+          "required": false,
+          "description": "Number of skeleton lines to render (for text/heading)"
+        },
+        {
+          "name": "gap",
+          "type": "string | number | undefined",
+          "required": false,
+          "description": "Gap between lines"
+        },
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false
+        }
+      ],
       "slots": []
     },
     {
       "name": "SkeletonGroup",
+      "description": "Props for the SkeletonGroup component, a semantic wrapper that groups multiple\nSkeleton elements into a single ARIA `role=\"status\"` region with `aria-busy=\"true\"`.\n\nUse this to compose complex loading placeholders (e.g. a card with avatar + text lines).",
       "importPath": "@mbe/rialto",
-      "props": [],
-      "slots": []
+      "props": [
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false
+        }
+      ],
+      "slots": [
+        "children"
+      ]
     },
     {
       "name": "Slider",
@@ -33753,8 +34342,43 @@
     },
     {
       "name": "Steps",
+      "description": "Multi-step progress indicator for wizards, checkout flows, or onboarding sequences.\nSteps before `currentStep` display a check mark; the active step is highlighted with the accent color.",
       "importPath": "@mbe/rialto",
-      "props": [],
+      "props": [
+        {
+          "name": "steps",
+          "type": "StepItem[]",
+          "required": true
+        },
+        {
+          "name": "currentStep",
+          "type": "number",
+          "required": true,
+          "description": "Zero-indexed current step"
+        },
+        {
+          "name": "orientation",
+          "type": "\"horizontal\" | \"vertical\" | undefined",
+          "required": false
+        },
+        {
+          "name": "compact",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "Compact node size, hides descriptions"
+        },
+        {
+          "name": "onStepClick",
+          "type": "((index: number) => void) | undefined",
+          "required": false,
+          "description": "Callback when a step is clicked — enables clickable navigation"
+        },
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false
+        }
+      ],
       "slots": [],
       "characterLimits": [
         {
@@ -33778,8 +34402,45 @@
     },
     {
       "name": "Table",
+      "description": "Registry documentation type -- concrete version of TableProps for AI tooling",
       "importPath": "@mbe/rialto",
-      "props": [],
+      "props": [
+        {
+          "name": "columns",
+          "type": "Column<unknown>[]",
+          "required": true
+        },
+        {
+          "name": "data",
+          "type": "unknown[]",
+          "required": true
+        },
+        {
+          "name": "rowKey",
+          "type": "(row: unknown) => string | number",
+          "required": true
+        },
+        {
+          "name": "density",
+          "type": "\"compact\" | \"default\" | \"spacious\" | undefined",
+          "required": false
+        },
+        {
+          "name": "striped",
+          "type": "boolean | undefined",
+          "required": false
+        },
+        {
+          "name": "emptyMessage",
+          "type": "string | undefined",
+          "required": false
+        },
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false
+        }
+      ],
       "slots": []
     },
     {
@@ -35254,8 +35915,55 @@
     },
     {
       "name": "Tag",
+      "description": "A compact label for categorization, filtering, or selection.\nWhen `onClick` is provided the tag renders as an interactive button; otherwise it is a static span.",
       "importPath": "@mbe/rialto",
-      "props": [],
+      "props": [
+        {
+          "name": "children",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "variant",
+          "type": "TagVariant | undefined",
+          "required": false
+        },
+        {
+          "name": "dismissible",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "Show dismiss button"
+        },
+        {
+          "name": "onDismiss",
+          "type": "(() => void) | undefined",
+          "required": false,
+          "description": "Called when dismiss is clicked"
+        },
+        {
+          "name": "onClick",
+          "type": "(() => void) | undefined",
+          "required": false,
+          "description": "Clickable tag (for filters)"
+        },
+        {
+          "name": "selected",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "Selected state (gold fill)"
+        },
+        {
+          "name": "icon",
+          "type": "ReactNode",
+          "required": false,
+          "description": "Icon rendered before label"
+        },
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false
+        }
+      ],
       "slots": [],
       "characterLimits": [
         {
@@ -35267,9 +35975,18 @@
     },
     {
       "name": "TagGroup",
+      "description": "A flex container that wraps `AnimatedTag` children with `AnimatePresence` for coordinated enter/exit animations.",
       "importPath": "@mbe/rialto",
-      "props": [],
-      "slots": []
+      "props": [
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false
+        }
+      ],
+      "slots": [
+        "children"
+      ]
     },
     {
       "name": "Text",
@@ -36753,8 +37470,105 @@
     },
     {
       "name": "TextArea",
+      "description": "Multi-line text field with optional label, hint, error state, auto-resize, and character counter.\nAccepts a subset of native `<textarea>` attributes for controlled or uncontrolled use.",
       "importPath": "@mbe/rialto",
-      "props": [],
+      "props": [
+        {
+          "name": "label",
+          "type": "string | undefined",
+          "required": false
+        },
+        {
+          "name": "hint",
+          "type": "string | undefined",
+          "required": false
+        },
+        {
+          "name": "error",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "When true, applies error styling to the wrapper"
+        },
+        {
+          "name": "autoResize",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "Auto-resize to fit content"
+        },
+        {
+          "name": "maxLength",
+          "type": "number | undefined",
+          "required": false,
+          "description": "Max character count (shows counter)"
+        },
+        {
+          "name": "disabledReason",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Explains why the textarea is disabled. Shown in a tooltip; requires `disabled` to be true."
+        },
+        {
+          "name": "showOptional",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "When true and not required, shows \"(optional)\" after the label"
+        },
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false
+        },
+        {
+          "name": "disabled",
+          "type": "boolean | undefined",
+          "required": false
+        },
+        {
+          "name": "name",
+          "type": "string | undefined",
+          "required": false
+        },
+        {
+          "name": "placeholder",
+          "type": "string | undefined",
+          "required": false
+        },
+        {
+          "name": "readOnly",
+          "type": "boolean | undefined",
+          "required": false
+        },
+        {
+          "name": "required",
+          "type": "boolean | undefined",
+          "required": false
+        },
+        {
+          "name": "value",
+          "type": "string | number | readonly string[] | undefined",
+          "required": false
+        },
+        {
+          "name": "onChange",
+          "type": "ChangeEventHandler<HTMLTextAreaElement, HTMLTextAreaElement> | undefined",
+          "required": false
+        },
+        {
+          "name": "defaultValue",
+          "type": "string | number | readonly string[] | undefined",
+          "required": false
+        },
+        {
+          "name": "onBlur",
+          "type": "FocusEventHandler<HTMLTextAreaElement> | undefined",
+          "required": false
+        },
+        {
+          "name": "rows",
+          "type": "number | undefined",
+          "required": false
+        }
+      ],
       "slots": [],
       "characterLimits": [
         {
@@ -36765,9 +37579,45 @@
       ]
     },
     {
-      "name": "Timeline",
+      "name": "ThemeToggle",
+      "description": "Sun/moon icon button for toggling between light and dark mode.\n\nWhen in dark mode — shows sun icon (click switches to light).\nWhen in light mode — shows moon icon (click switches to dark).",
       "importPath": "@mbe/rialto",
-      "props": [],
+      "props": [
+        {
+          "name": "theme",
+          "type": "\"light\" | \"dark\"",
+          "required": true
+        },
+        {
+          "name": "onToggle",
+          "type": "() => void",
+          "required": true
+        }
+      ],
+      "slots": []
+    },
+    {
+      "name": "Timeline",
+      "description": "A vertical event sequence with status-colored nodes and a connecting track line.\nUse for activity logs, process steps, or any ordered event history.",
+      "importPath": "@mbe/rialto",
+      "props": [
+        {
+          "name": "events",
+          "type": "TimelineEvent[]",
+          "required": true
+        },
+        {
+          "name": "compact",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "Tighter vertical spacing between events"
+        },
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false
+        }
+      ],
       "slots": [],
       "characterLimits": [
         {
@@ -38420,7 +39270,7 @@
         },
         {
           "name": "placement",
-          "type": "\"top\" | \"bottom\" | \"left\" | \"right\" | undefined",
+          "type": "\"right\" | \"left\" | \"bottom\" | \"top\" | undefined",
           "required": false
         },
         {
