@@ -1,5 +1,27 @@
 # Milestones
 
+## v1.1 Rialto Accessibility & AI DX (Shipped: 2026-03-23)
+
+**Delivered:** All Rialto components are WCAG AA accessible, example pages demonstrate real-world composition, and AI tools produce correct Rialto code via registry, llms.txt, and CLI scaffold.
+
+**Stats:**
+- Phases: 6-11 (17 plans)
+- Commits: 138
+- Files modified: 388 (+65,212 / -2,364)
+- Codebase: 94,670 LOC TypeScript
+- Timeline: 19 days (2026-03-04 → 2026-03-23)
+- Git range: feat(06-01)..feat(11-01)
+- Requirements: 24/24 satisfied
+
+**Key accomplishments:**
+1. WCAG AA accessibility across all 58 Rialto components — axe-core CI assertions, token-level contrast verification, focus-return-on-close for all overlay components
+2. Three realistic example pages (dashboard, settings, form-states) with copy-to-clipboard JSX, composition notes, and multi-state panels
+3. AI developer experience toolkit — component registry (registry.json), two-tier llms.txt, CLAUDE.md Rialto section, and `mbe new` CLI scaffold
+4. Component documentation — 20 structured spec files, accessibility docs on all interactive showcase pages, manual verification checklist
+5. Audit-driven gap closure — Phases 10-11 fixed SUMMARY frontmatter, stale llms-full.txt props, registry props coverage (23 components improved), and Phase 08 VERIFICATION.md
+
+---
+
 ## v1.0 Rialto Unification & Hosting (Shipped: 2026-03-04)
 
 **Delivered:** Every web app uses Rialto as the sole design system, all accessible at mattbutlerengineering.com with path-prefix routing.

@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A professional engineering portfolio and monorepo hosting three web applications under mattbutlerengineering.com — all built exclusively with the Rialto design system. The marketing site showcases projects and engineering skills, the hospitality app manages reservations and floor plans, and the rialto-web app is an interactive design system showcase.
+A professional engineering portfolio and monorepo hosting three web applications under mattbutlerengineering.com — all built exclusively with the Rialto design system. The marketing site showcases projects and engineering skills, the hospitality app manages reservations and floor plans, and the rialto-web app is an interactive design system showcase with WCAG AA accessibility, realistic example pages, and AI-friendly tooling (registry, llms.txt, CLI scaffold).
 
 ## Core Value
 
@@ -30,16 +30,20 @@ Every web app uses Rialto as the single design system and is accessible at mattb
 - ✓ @mbe/ui and @mbe/shared-layout packages removed — v1.0
 - ✓ All three apps at / (marketing), /rialto (showcase), /hospitality (app) — v1.0
 - ✓ 301 redirect from legacy /dashboard to /hospitality — v1.0
+- ✓ WCAG AA audit of all 58 Rialto components with axe-core CI assertions — v1.1
+- ✓ Token-level contrast verification (4.5:1 text, 3:1 UI controls) — v1.1
+- ✓ Focus-return-on-close for all overlay components — v1.1
+- ✓ Realistic example pages (dashboard, settings, form-states) with composition notes — v1.1
+- ✓ Component registry (registry.json) with props, descriptions, examples — v1.1
+- ✓ Two-tier llms.txt (overview + full API reference) — v1.1
+- ✓ CLAUDE.md Rialto usage section with top 10 component APIs — v1.1
+- ✓ CLI scaffold (`mbe new`) for new Rialto projects — v1.1
+- ✓ 20 structured spec files for most-used components — v1.1
+- ✓ Accessibility docs on all interactive showcase pages — v1.1
 
 ### Active
 
-- [ ] WCAG AA audit of all ~55 Rialto components with fixes
-- [ ] Automated a11y test suite (axe-core) in CI
-- [ ] Realistic example pages (dashboards, forms, settings) with visual polish
-- [ ] Comprehensive component prop/state coverage in examples
-- [ ] Component registry (JSON catalog of all components, props, patterns)
-- [ ] llms.txt for AI tool discovery of Rialto
-- [ ] CLI scaffold for new Rialto projects within monorepo
+(No active requirements — define with next milestone)
 
 ### Out of Scope
 
@@ -49,26 +53,15 @@ Every web app uses Rialto as the single design system and is accessible at mattb
 - Mobile app — web-first; mobile later if ever
 - Subdomain routing — path-prefix is the convention and simpler to manage
 - npm publishing — monorepo-only for now; external distribution is a future milestone
-- External adoption — v1.1 targets AI-correct usage, not external developer onboarding
-
-## Current Milestone: v1.1 Rialto Accessibility & AI DX
-
-**Goal:** Make Rialto accessible (WCAG AA), improve examples to be realistic and comprehensive, and add AI-friendly tooling (registry, llms.txt, CLI) so AI tools produce correct Rialto code.
-
-**Target features:**
-- WCAG AA compliance across all components + axe-core CI tests
-- Overhauled example pages with real-world patterns and full prop coverage
-- Component registry, llms.txt, and CLI scaffold for AI-driven development
-
-**Success criterion:** "Build a settings page with Rialto" → AI produces correct, accessible code using real components.
+- External adoption — Rialto is monorepo-only; external onboarding is a future milestone
 
 ## Context
 
-Shipped v1.0 with 51,640 LOC TypeScript across 379 files.
+Shipped v1.1 with 94,670 LOC TypeScript across 388+ files.
 Tech stack: React 19, Vite 7, TypeScript, Pulumi, Auth0, DigitalOcean App Platform.
 Three apps live at mattbutlerengineering.com: marketing (/), rialto-web (/rialto), hospitality (/hospitality).
-Rialto is the sole design system — no Tailwind, no @mbe/ui, no legacy styling anywhere.
-Backend services (users, agent) unchanged during v1.0 — APIs stay as-is.
+Rialto is the sole design system — WCAG AA accessible, with axe-core CI, 20 spec files, registry.json, and llms.txt.
+Backend services (users, agent, reservations) unchanged during v1.0/v1.1 — APIs stay as-is.
 
 ## Constraints
 
@@ -87,6 +80,12 @@ Backend services (users, agent) unchanged during v1.0 — APIs stay as-is.
 | CSS Modules for Tailwind replacement | Provides scoped styling without adding new dependencies | ✓ Good — clean, no-dependency solution |
 | Retroactive verification for early phases | Phases 01/03 predated verification workflow | ✓ Good — formal VERIFICATION.md created from codebase evidence |
 | Pulumi resource rename (delete+recreate) for Auth0 | Atomic rename; accepted operational cost of new client_id | ⚠️ Revisit — document operational step more prominently |
+| Token-level contrast fixes | Fix at design token level (not per-component CSS) for WCAG AA | ✓ Good — systematic fix, 4.5:1 text / 3:1 UI verified |
+| Two-tier llms.txt | Lean llms.txt (<20KB) + llms-full.txt (26KB) for different AI context budgets | ✓ Good — fits AI context windows while preserving full API |
+| Registry via TypeScript Compiler API | Extract props from source using ts-morph pattern; gap-closed in Phase 11 | ✓ Good — 90 components with props, CI drift check |
+| Audit-driven gap closure (Phases 10-11) | Milestone audit found 10 partial/unsatisfied reqs; created targeted phases | ✓ Good — 24/24 requirements satisfied |
+| Dark text on gold accent backgrounds | #1a1918 on #b0841e (6.26:1) vs white on gold (2.73:1) | ✓ Good — meets AA without changing brand gold |
+| cloneElement for aria-haspopup injection | Eliminates nested-interactive axe violation in DropdownMenu/Popover | ⚠️ Revisit — pre-existing TS type-narrowing errors (runtime correct) |
 
 ---
-*Last updated: 2026-03-22 after v1.1 milestone initialization*
+*Last updated: 2026-03-23 after v1.1 milestone completion*
