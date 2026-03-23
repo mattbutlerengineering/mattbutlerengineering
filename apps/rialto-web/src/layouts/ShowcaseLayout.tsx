@@ -1,7 +1,6 @@
 import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
-import { Footer } from "@mbe/rialto";
+import { Footer, ThemeToggle } from "@mbe/rialto";
 import { ShowcaseSidebar } from "../components/ShowcaseSidebar";
-import { ThemeToggle } from "../components/ThemeToggle";
 import { NAV_SECTIONS, DEMO_PAGES } from "../data/nav-sections";
 import { useThemeContext } from "../ThemeContext";
 import styles from "./ShowcaseLayout.module.css";
