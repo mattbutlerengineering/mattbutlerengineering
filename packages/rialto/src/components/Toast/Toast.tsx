@@ -138,15 +138,32 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Split toasts by severity so we can route them to the correct aria-live region.
+  // Both regions are ALWAYS mounted — screen readers only register live regions present
+  // at page load; dynamically injected regions miss the first announcement.
+  const politeToasts = toasts.filter((t) => t.variant !== "error");
+  const assertiveToasts = toasts.filter((t) => t.variant === "error");
+
   return (
     <ToastContext.Provider value={{ toast, dismiss }}>
       {children}
-      <div className={styles.container} role="region" aria-live="polite" aria-label="Notifications">
-        <AnimatePresence mode="popLayout">
-          {toasts.map((t) => (
-            <ToastItem key={t.id} toast={t} onDismiss={dismiss} />
-          ))}
-        </AnimatePresence>
+      <div className={styles.container} role="region" aria-label="Notifications">
+        {/* Polite region — info, success, accent, default (non-critical) */}
+        <div aria-live="polite" aria-atomic="false">
+          <AnimatePresence mode="popLayout">
+            {politeToasts.map((t) => (
+              <ToastItem key={t.id} toast={t} onDismiss={dismiss} />
+            ))}
+          </AnimatePresence>
+        </div>
+        {/* Assertive region — error (interrupts user immediately) */}
+        <div aria-live="assertive" aria-atomic="true">
+          <AnimatePresence mode="popLayout">
+            {assertiveToasts.map((t) => (
+              <ToastItem key={t.id} toast={t} onDismiss={dismiss} />
+            ))}
+          </AnimatePresence>
+        </div>
       </div>
     </ToastContext.Provider>
   );
