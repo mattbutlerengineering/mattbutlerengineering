@@ -5,6 +5,7 @@ import { logoutCommand } from "./commands/logout.js";
 import { whoamiCommand } from "./commands/whoami.js";
 import { usersCommand } from "./commands/users.js";
 import { agentCommand } from "./commands/agent.js";
+import { newCommand } from "./commands/new.js";
 
 const program = new Command();
 
@@ -23,5 +24,8 @@ program.addCommand(usersCommand);
 
 // Agent commands
 program.addCommand(agentCommand);
+
+// Scaffold commands
+program.addCommand(newCommand);
 
 program.parse();
