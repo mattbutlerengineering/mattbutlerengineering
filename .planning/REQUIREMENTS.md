@@ -13,10 +13,10 @@ Requirements for milestone v1.1: Rialto Accessibility & AI DX.
 - [ ] **A11Y-02**: All interactive components have visible `:focus-visible` keyboard focus indicators
 - [x] **A11Y-03**: All interactive components have correct ARIA roles, labels, and state attributes
 - [x] **A11Y-04**: Every component has an axe-core assertion in Vitest CI (`toHaveNoViolations`)
-- [ ] **A11Y-05**: Keyboard navigation follows logical DOM order with no keyboard traps
+- [x] **A11Y-05**: Keyboard navigation follows logical DOM order with no keyboard traps
 - [x] **A11Y-06**: Dynamic content changes use `aria-live` regions for screen reader announcements
 - [x] **A11Y-07**: Every form input has an associated visible or screen-reader-accessible label
-- [ ] **A11Y-08**: Dialog, Drawer, and ConfirmDialog return focus to trigger element on close
+- [x] **A11Y-08**: Dialog, Drawer, and ConfirmDialog return focus to trigger element on close
 - [ ] **A11Y-09**: Each component has a11y documentation in showcase (keyboard shortcuts, ARIA, screen reader behavior)
 - [x] **A11Y-10**: Contrast ratios verified and fixed at design token level, not per-component CSS
 
@@ -80,10 +80,10 @@ Deferred to future milestones.
 | A11Y-02 | Phase 6 | Pending |
 | A11Y-03 | Phase 6 | Complete |
 | A11Y-04 | Phase 6 | Complete |
-| A11Y-05 | Phase 6 | Pending |
+| A11Y-05 | Phase 6 | Complete |
 | A11Y-06 | Phase 6 | Complete |
 | A11Y-07 | Phase 6 | Complete |
-| A11Y-08 | Phase 6 | Pending |
+| A11Y-08 | Phase 6 | Complete |
 | A11Y-09 | Phase 9 | Pending |
 | A11Y-10 | Phase 6 | Complete |
 | EXMP-01 | Phase 7 | Pending |

@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Rialto Accessibility & AI DX
 status: unknown
-last_updated: "2026-03-23T00:17:24.776Z"
+last_updated: "2026-03-23T00:28:24.953Z"
 progress:
   total_phases: 1
   completed_phases: 0
@@ -23,9 +23,9 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 ## Current Position
 
 Phase: 6 of 9 (Accessibility Foundation)
-Plan: 4 of 5 complete
+Plan: 5 of 5 complete
 Status: In Progress
-Last activity: 2026-03-23 — Completed 06-04 dynamic content screen reader announcements
+Last activity: 2026-03-23 — Completed 06-03 focus-return-on-close for all overlay components
 
 Progress: [████░░░░░░] 20%
 
@@ -43,6 +43,7 @@ Progress: [████░░░░░░] 20%
 | 06-accessibility-foundation | 4/5 | ~15 min | ~4 min |
 
 *Updated after each plan completion*
+| Phase 06-accessibility-foundation P03 | 4 min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -60,6 +61,8 @@ v1.1 decisions pending ():
 - [Phase 06-accessibility-foundation]: Use cloneElement to inject aria-haspopup/aria-expanded onto trigger elements in DropdownMenu and Popover — eliminates nested-interactive violation from role=button wrapper div
 - [Phase 06-04]: Toast error variant routes to assertive region; both aria-live regions always mounted — screen readers register live regions at page load
 - [Phase 06-04]: Skeleton bones use aria-hidden=true (visual-only); SkeletonGroup remains semantic status container
+- [Phase 06-accessibility-foundation]: Use vi.useFakeTimers + vi.runAllTimers in focus-return tests — jsdom rAF backed by setTimeout; fake timers needed for reliable synchronous flushing
+- [Phase 06-accessibility-foundation]: [Phase 06-03]: triggerRef focus-return effect declared before focus-trap effect in all components — React effect ordering ensures activeElement captured before trap moves focus
 
 ### Pending Todos
 
@@ -69,11 +72,11 @@ None.
 
 - [RESOLVED 06-01] Phase 6: axe-core cannot resolve CSS custom property contrast values in jsdom — token-contrast.test.ts now handles this programmatically
 - [RESOLVED 06-02] Phase 6: 18 component directories had no axe tests — all 58 component directories now have axe-core WCAG 2.1 AA assertions
-- Phase 6: Dialog focus-return-on-close is absent — implement inside Dialog component (not callers), smoke-test hospitality flows after fix
+- [RESOLVED 06-03] Phase 6: Dialog focus-return-on-close is absent — triggerRef pattern now implemented in all 7 overlay components
 - Phase 8: Single llms.txt would exceed AI context windows for 55+ components — must use two-tier structure (index under 20KB + full file)
 
 ## Session Continuity
 
-Last session: 2026-03-23T00:20:45Z
-Stopped at: Completed 06-04-PLAN.md
+Last session: 2026-03-23T00:28:00Z
+Stopped at: Completed 06-03-PLAN.md
 Resume file: .planning/phases/06-accessibility-foundation/06-05-PLAN.md
