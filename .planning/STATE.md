@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Rialto Accessibility & AI DX
 status: unknown
-last_updated: "2026-03-23T00:28:24.953Z"
+last_updated: "2026-03-23T00:38:21.081Z"
 progress:
   total_phases: 1
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State
@@ -63,6 +63,8 @@ v1.1 decisions pending ():
 - [Phase 06-04]: Skeleton bones use aria-hidden=true (visual-only); SkeletonGroup remains semantic status container
 - [Phase 06-accessibility-foundation]: Use vi.useFakeTimers + vi.runAllTimers in focus-return tests — jsdom rAF backed by setTimeout; fake timers needed for reliable synchronous flushing
 - [Phase 06-accessibility-foundation]: [Phase 06-03]: triggerRef focus-return effect declared before focus-trap effect in all components — React effect ordering ensures activeElement captured before trap moves focus
+- [Phase 06-accessibility-foundation]: Steps .stepButton uses display:contents — focus ring applied via .stepButton:focus-visible .node descendant selector
+- [Phase 06-accessibility-foundation]: composes: focusRing is the canonical focus pattern — never write inline :focus-visible box-shadow rules
 
 ### Pending Todos
 
