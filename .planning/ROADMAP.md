@@ -92,7 +92,7 @@ Plans:
   1. Each component page in rialto-web showcase has an "Accessibility" section listing keyboard shortcuts, ARIA roles/attributes, and screen reader behavior — verifiable by navigating to any interactive component page
   2. Structured `.spec.md` files exist for the top 20 most-used components in `packages/rialto/specs/` with anatomy, design tokens used, prop tables, and all component states documented
   3. A manual verification checklist exists and is completed for Dialog, DropdownMenu, CommandPalette, and Toast — covering behaviors axe-core cannot detect
-**Plans:** 3 plans
+**Plans:** 2/3 plans executed
 
 Plans:
 - [ ] 09-01-PLAN.md — Deepen a11y docs for 28 shallow showcase pages + manual verification checklist
@@ -111,4 +111,4 @@ Plans:
 | 6. Accessibility Foundation | v1.1 | 5/5 | Complete | 2026-03-23 |
 | 7. Example Pages | v1.1 | 3/3 | Complete | 2026-03-23 |
 | 8. AI Developer Experience | v1.1 | 3/3 | Complete | 2026-03-23 |
-| 9. Polish and Documentation | v1.1 | 0/3 | Not started | - |
+| 9. Polish and Documentation | 2/3 | In Progress|  | - |

@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Rialto Accessibility & AI DX
 status: unknown
-last_updated: "2026-03-23T04:37:36.681Z"
+last_updated: "2026-03-23T04:38:39.198Z"
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 14
-  completed_plans: 12
+  completed_plans: 14
 ---
 
 # Project State
@@ -23,9 +23,9 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 ## Current Position
 
 Phase: 9 of 9 (Polish and Documentation)
-Plan: 2 of 3 complete
+Plan: 3 of 3 complete
 Status: In Progress
-Last activity: 2026-03-23 — Completed 09-02 component spec files (first 10)
+Last activity: 2026-03-23 — Completed 09-03 component spec files (all 20 specs complete)
 
 Progress: [████████░░] 80%
 
@@ -52,6 +52,8 @@ Progress: [████████░░] 80%
 | Phase 08-ai-developer-experience P01 | 2min | 2 tasks | 6 files |
 | Phase 08-ai-developer-experience P03 | 3min | 2 tasks | 2 files |
 | Phase 09-polish-and-documentation P02 | 4min | 2 tasks | 10 files |
+| Phase 09-polish-and-documentation P03 | 5min | 2 tasks | 10 files |
+| Phase 09-polish-and-documentation P01 | 5min | 2 tasks | 29 files |
 
 ## Accumulated Context
 
@@ -89,6 +91,8 @@ v1.1 decisions pending ():
 - [Phase 09-polish-and-documentation]: Spec files for layout primitives (Stack, Text, Divider) kept at 40-60 lines — non-interactive components don't warrant over-documentation
 - [Phase 09-polish-and-documentation]: Checkbox spec covers Radio and RadioGroup exports from same module — single spec per source file
 - [Phase 09-polish-and-documentation]: Toast spec documents dual aria-live region pattern — both regions always mounted at page load for reliable screen reader registration
+- [Phase 09-polish-and-documentation]: Dialog spec documents triggerRef focus-return pattern: triggerRef effect declared before focus-trap effect so activeElement is captured before trap moves focus
+- [Phase 09-polish-and-documentation]: Badge has no info variant — use neutral for informational/neutral-status items (confirmed in spec)
 
 ### Pending Todos
 
@@ -103,6 +107,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-23T04:36:49Z
-Stopped at: Completed 09-02-PLAN.md — component spec files (first 10)
-Resume file: .planning/phases/09-polish-and-documentation/09-03-PLAN.md
+Last session: 2026-03-23T04:37:20Z
+Stopped at: Completed 09-03-PLAN.md — component spec files (second 10, all 20 complete)
+Resume file: .planning/phases/09-polish-and-documentation/09-01-PLAN.md
