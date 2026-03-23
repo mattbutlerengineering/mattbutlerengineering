@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Rialto Accessibility & AI DX
 status: in-progress
-last_updated: "2026-03-23T01:26:00Z"
+last_updated: "2026-03-23T01:30:02Z"
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 8
-  completed_plans: 7
+  completed_plans: 8
 ---
 
 # Project State
@@ -23,11 +23,11 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 ## Current Position
 
 Phase: 7 of 9 (Example Pages)
-Plan: 1 of 3 complete
+Plan: 2 of 3 complete
 Status: In Progress
-Last activity: 2026-03-23 — Completed 07-01 example pages infrastructure — ExamplePageLayout, routes, sidebar nav
+Last activity: 2026-03-23 — Completed 07-02 Dashboard example page — KPI stats, reservation table, multi-state panels
 
-Progress: [████░░░░░░] 22%
+Progress: [█████░░░░░] 28%
 
 ## Performance Metrics
 
@@ -46,6 +46,7 @@ Progress: [████░░░░░░] 22%
 | Phase 06-accessibility-foundation P03 | 4 min | 2 tasks | 7 files |
 | Phase 06-accessibility-foundation P05 | 8min | 2 tasks | 17 files |
 | Phase 07-example-pages P01 | 3 | 2 tasks | 7 files |
+| Phase 07-example-pages P02 | 2 min | 1 task | 2 files |
 
 ## Accumulated Context
 
@@ -55,6 +56,10 @@ All v1.0 decisions archived in .planning/milestones/v1.0-phases/ SUMMARY.md file
 Key decisions summarized in PROJECT.md Key Decisions table.
 
 v1.1 decisions pending ():
+- [Phase 07-02]: Badge has no "info" variant — use "neutral" for neutral-status items (Confirmed)
+- [Phase 07-02]: EmptyState uses "heading" prop not "title" — plan spec was incorrect
+- [Phase 07-02]: Table Column.render receives full row (row: T), not (value, row) — plan spec was incorrect
+- [Phase 07-02]: Table requires rowKey prop — not optional, must provide key extractor function
 - [Phase 07-01]: Stack justify uses "between" not "space-between" — StackJustify type shorthand names
 - [Phase 07-01]: Button doesn't forward aria-live — wrap label in <span aria-live="polite"> in children
 - [Phase 07-01]: Plan specified nonexistent CSS tokens (--rialto-radius-md, --rialto-surface-secondary) — verified correct names from source
@@ -84,6 +89,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-23T01:26:00Z
-Stopped at: Completed 07-01-PLAN.md — Phase 7 Plan 1 complete
-Resume file: .planning/phases/07-example-pages/07-02-PLAN.md
+Last session: 2026-03-23T01:30:02Z
+Stopped at: Completed 07-02-PLAN.md — Phase 7 Plan 2 complete
+Resume file: .planning/phases/07-example-pages/07-03-PLAN.md

@@ -22,11 +22,11 @@ Requirements for milestone v1.1: Rialto Accessibility & AI DX.
 
 ### Example Pages
 
-- [ ] **EXMP-01**: Dashboard example page with KPI cards, DataTable, Badge, and Stat in realistic combination
+- [x] **EXMP-01**: Dashboard example page with KPI cards, DataTable, Badge, and Stat in realistic combination
 - [ ] **EXMP-02**: Settings page example with Form, Input, Select, Toggle, Button in sectioned layout
 - [ ] **EXMP-03**: Full form example with all validation states (default, focused, error, disabled, loading)
-- [ ] **EXMP-04**: All component states shown in context (not isolated) within example pages
-- [ ] **EXMP-05**: Examples use realistic content and data shapes (not Lorem ipsum or test data)
+- [x] **EXMP-04**: All component states shown in context (not isolated) within example pages
+- [x] **EXMP-05**: Examples use realistic content and data shapes (not Lorem ipsum or test data)
 - [x] **EXMP-06**: Each example page has a copy-to-clipboard button with the full page JSX
 - [x] **EXMP-07**: Annotated composition patterns explain why components are combined
 - [x] **EXMP-08**: Multi-state page flows showing empty → loading → populated for same layout
@@ -86,11 +86,11 @@ Deferred to future milestones.
 | A11Y-08 | Phase 6 | Complete |
 | A11Y-09 | Phase 9 | Pending |
 | A11Y-10 | Phase 6 | Complete |
-| EXMP-01 | Phase 7 | Pending |
+| EXMP-01 | Phase 7 | Complete |
 | EXMP-02 | Phase 7 | Pending |
 | EXMP-03 | Phase 7 | Pending |
-| EXMP-04 | Phase 7 | Pending |
-| EXMP-05 | Phase 7 | Pending |
+| EXMP-04 | Phase 7 | Complete |
+| EXMP-05 | Phase 7 | Complete |
 | EXMP-06 | Phase 7 | Complete |
 | EXMP-07 | Phase 7 | Complete |
 | EXMP-08 | Phase 7 | Complete |
