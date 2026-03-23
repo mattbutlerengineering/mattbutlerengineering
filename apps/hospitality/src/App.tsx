@@ -16,19 +16,43 @@ import { TimelinePage } from "./pages/TimelinePage";
 import styles from "./App.module.css";
 
 export function App() {
-  const { isLoading, isAuthenticated } = useAuth();
+  const { isLoading, isAuthenticated, error } = useAuth();
 
+  // While OIDC is processing (including callback token exchange), show loading
   if (isLoading) {
     return <LoadingPage />;
   }
 
-  if (!isAuthenticated) {
+  // If on the callback path, show loading while OIDC finishes processing.
+  // This handles the brief window where isLoading is false but the token
+  // exchange hasn't started yet, or when it completed but auth state
+  // hasn't propagated.
+  const isCallback = window.location.pathname.endsWith("/callback");
+
+  if (error) {
     return (
-      <Routes>
-        <Route path="callback" element={<LoadingPage />} />
-        <Route path="*" element={<LoginPrompt />} />
-      </Routes>
+      <div className={styles.loginContainer}>
+        <Stack gap="md" align="center">
+          <Text as="h1" variant="display" color="primary">
+            Authentication Error
+          </Text>
+          <Text variant="body" color="secondary">
+            {error.message}
+          </Text>
+          <Button variant="primary" onClick={() => window.location.assign("/hospitality")}>
+            Try Again
+          </Button>
+        </Stack>
+      </div>
     );
+  }
+
+  if (isCallback && !isAuthenticated) {
+    return <LoadingPage />;
+  }
+
+  if (!isAuthenticated) {
+    return <LoginPrompt />;
   }
 
   return (
@@ -45,7 +69,6 @@ export function App() {
         <Route path="settings" element={<SettingsPage />} />
         <Route path="admin" element={<AdminPage />} />
       </Route>
-      <Route path="callback" element={<Navigate to="/" replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

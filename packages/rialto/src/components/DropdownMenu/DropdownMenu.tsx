@@ -206,6 +206,7 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
     <div ref={mergeRefs(ref, wrapperRef)} className={styles.wrapper}>
       {/* Trigger — ARIA attributes injected onto the trigger element itself */}
       <div
+        role="presentation"
         onClick={handleTriggerClick}
         onKeyDown={(e) => {
           if (!open && (e.key === "Enter" || e.key === " ")) {

@@ -130,6 +130,7 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
     <div ref={mergeRefs(ref, wrapperRef)} className={`${styles.wrapper} ${className}`}>
       {/* Trigger — ARIA attributes injected onto the trigger element itself */}
       <div
+        role="presentation"
         onClick={() => setOpen((v) => !v)}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
