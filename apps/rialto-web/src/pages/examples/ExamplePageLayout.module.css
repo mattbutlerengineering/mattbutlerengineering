@@ -1,0 +1,42 @@
+.page {
+  padding: var(--rialto-space-xl);
+}
+
+.header {
+  margin-block-end: var(--rialto-space-lg);
+}
+
+.notes {
+  margin-block-start: var(--rialto-space-md);
+  padding: var(--rialto-space-md);
+  background: var(--rialto-surface-recessed);
+  border-radius: var(--rialto-radius-soft);
+}
+
+.content {
+  margin-block-start: var(--rialto-space-xl);
+}
+
+.statePanel {
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-soft);
+  overflow: hidden;
+}
+
+.statePanelLabel {
+  padding: var(--rialto-space-xs) var(--rialto-space-sm);
+  background: var(--rialto-surface-matte);
+  border-block-end: 1px solid var(--rialto-border);
+}
+
+.statePanelContent {
+  padding: var(--rialto-space-lg);
+}
+
+.compositionNote {
+  margin-block-start: var(--rialto-space-sm);
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  border-inline-start: 3px solid var(--rialto-accent);
+  background: var(--rialto-surface-recessed);
+  border-radius: 0 var(--rialto-radius-default) var(--rialto-radius-default) 0;
+}
