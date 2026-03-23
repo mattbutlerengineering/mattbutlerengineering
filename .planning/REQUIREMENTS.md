@@ -11,12 +11,12 @@ Requirements for milestone v1.1: Rialto Accessibility & AI DX.
 
 - [x] **A11Y-01**: All components meet WCAG AA color contrast (4.5:1 text, 3:1 UI controls) via token-level audit
 - [x] **A11Y-02**: All interactive components have visible `:focus-visible` keyboard focus indicators
-- [x] **A11Y-03**: All interactive components have correct ARIA roles, labels, and state attributes
-- [x] **A11Y-04**: Every component has an axe-core assertion in Vitest CI (`toHaveNoViolations`)
-- [x] **A11Y-05**: Keyboard navigation follows logical DOM order with no keyboard traps
+- [ ] **A11Y-03**: All interactive components have correct ARIA roles, labels, and state attributes
+- [ ] **A11Y-04**: Every component has an axe-core assertion in Vitest CI (`toHaveNoViolations`)
+- [ ] **A11Y-05**: Keyboard navigation follows logical DOM order with no keyboard traps
 - [x] **A11Y-06**: Dynamic content changes use `aria-live` regions for screen reader announcements
-- [x] **A11Y-07**: Every form input has an associated visible or screen-reader-accessible label
-- [x] **A11Y-08**: Dialog, Drawer, and ConfirmDialog return focus to trigger element on close
+- [ ] **A11Y-07**: Every form input has an associated visible or screen-reader-accessible label
+- [ ] **A11Y-08**: Dialog, Drawer, and ConfirmDialog return focus to trigger element on close
 - [x] **A11Y-09**: Each component has a11y documentation in showcase (keyboard shortcuts, ARIA, screen reader behavior)
 - [x] **A11Y-10**: Contrast ratios verified and fixed at design token level, not per-component CSS
 
@@ -33,12 +33,12 @@ Requirements for milestone v1.1: Rialto Accessibility & AI DX.
 
 ### AI Developer Experience
 
-- [x] **AIDX-01**: Component registry JSON at `packages/rialto/registry.json` with name, description, props, import path, examples
-- [x] **AIDX-02**: Two-tier llms.txt at repo root: overview (<20KB) + full (complete component API + patterns)
-- [x] **AIDX-03**: CLAUDE.md updated with Rialto usage section (imports, tokens, provider setup, top components)
-- [x] **AIDX-04**: CLI scaffold command (`mbe new`) creates app skeleton with RialtoProvider, layout, example page
+- [ ] **AIDX-01**: Component registry JSON at `packages/rialto/registry.json` with name, description, props, import path, examples
+- [ ] **AIDX-02**: Two-tier llms.txt at repo root: overview (<20KB) + full (complete component API + patterns)
+- [ ] **AIDX-03**: CLAUDE.md updated with Rialto usage section (imports, tokens, provider setup, top components)
+- [ ] **AIDX-04**: CLI scaffold command (`mbe new`) creates app skeleton with RialtoProvider, layout, example page
 - [x] **AIDX-05**: Structured spec files (`.spec.md`) for top 20 most-used components with anatomy, tokens, props, states
-- [x] **AIDX-06**: Registry served as static JSON from rialto-web at `/rialto/registry.json`
+- [ ] **AIDX-06**: Registry served as static JSON from rialto-web at `/rialto/registry.json`
 
 ## Future Requirements
 
@@ -78,12 +78,12 @@ Deferred to future milestones.
 |-------------|-------|--------|
 | A11Y-01 | Phase 6 | Complete |
 | A11Y-02 | Phase 6 | Complete |
-| A11Y-03 | Phase 6 | Complete |
-| A11Y-04 | Phase 6 | Complete |
-| A11Y-05 | Phase 6 | Complete |
+| A11Y-03 | Phase 10 | Pending |
+| A11Y-04 | Phase 10 | Pending |
+| A11Y-05 | Phase 10 | Pending |
 | A11Y-06 | Phase 6 | Complete |
-| A11Y-07 | Phase 6 | Complete |
-| A11Y-08 | Phase 6 | Complete |
+| A11Y-07 | Phase 10 | Pending |
+| A11Y-08 | Phase 10 | Pending |
 | A11Y-09 | Phase 9 | Complete |
 | A11Y-10 | Phase 6 | Complete |
 | EXMP-01 | Phase 7 | Complete |
@@ -94,18 +94,20 @@ Deferred to future milestones.
 | EXMP-06 | Phase 7 | Complete |
 | EXMP-07 | Phase 7 | Complete |
 | EXMP-08 | Phase 7 | Complete |
-| AIDX-01 | Phase 8 | Complete |
-| AIDX-02 | Phase 8 | Complete |
-| AIDX-03 | Phase 8 | Complete |
-| AIDX-04 | Phase 8 | Complete |
+| AIDX-01 | Phase 11 | Pending |
+| AIDX-02 | Phase 10 | Pending |
+| AIDX-03 | Phase 10 | Pending |
+| AIDX-04 | Phase 11 | Pending |
 | AIDX-05 | Phase 9 | Complete |
-| AIDX-06 | Phase 8 | Complete |
+| AIDX-06 | Phase 11 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 24 total
+- Satisfied: 14
+- Pending (gap closure): 10 (7 in Phase 10, 3 in Phase 11)
 - Mapped to phases: 24
-- Unmapped: 0 ✓
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-22*
-*Last updated: 2026-03-22 — traceability updated after roadmap creation*
+*Last updated: 2026-03-23 — traceability updated for gap closure phases 10-11*

@@ -28,6 +28,8 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 - [x] **Phase 7: Example Pages** - Build realistic dashboard, settings, and form pages with all component states visible (completed 2026-03-23)
 - [x] **Phase 8: AI Developer Experience** - Ship registry, two-tier llms.txt, CLAUDE.md update, and CLI scaffold (completed 2026-03-23)
 - [x] **Phase 9: Polish and Documentation** - Per-component a11y docs in showcase and structured spec files for top 20 components (completed 2026-03-23)
+- [ ] **Phase 10: Documentation Reconciliation & llms-full.txt Fix** - Fix SUMMARY frontmatter omissions, correct stale prop names in llms-full.txt, verify CLAUDE.md accuracy
+- [ ] **Phase 11: Registry Props & Phase 08 Verification** - Improve registry.json props coverage, create Phase 08 VERIFICATION.md
 
 ## Phase Details
 
@@ -99,6 +101,31 @@ Plans:
 - [ ] 09-02-PLAN.md — Structured spec files for top 10 components (Stack, Text, DataList, Select, Button, Card, Checkbox, Input, Toast, Divider)
 - [ ] 09-03-PLAN.md — Structured spec files for next 10 components (Stat, Table, Skeleton, EmptyState, Toggle, Tag, Dialog, Tabs, Badge, Tooltip)
 
+### Phase 10: Documentation Reconciliation & llms-full.txt Fix
+**Goal**: Close documentation-only gaps: fix Phase 06 SUMMARY frontmatter omissions, correct stale prop names in llms-full.txt, and formally verify CLAUDE.md Rialto section
+**Depends on**: Phase 8, Phase 6
+**Requirements**: A11Y-03, A11Y-04, A11Y-05, A11Y-07, A11Y-08, AIDX-02, AIDX-03
+**Gap Closure:** Closes gaps from v1.1 audit
+**Success Criteria** (what must be TRUE):
+  1. Phase 06 SUMMARY files (06-02, 06-03) list all contributed requirements in `requirements-completed` frontmatter
+  2. `llms-full.txt` documents correct prop names for Drawer (`onClose`), ConfirmDialog (`onConfirm`/`onCancel`), and Popover (actual API)
+  3. `llms.txt` is consistent with corrected `llms-full.txt`
+  4. CLAUDE.md Rialto section is verified accurate against current component APIs
+
+Plans: (to be planned)
+
+### Phase 11: Registry Props & Phase 08 Verification
+**Goal**: Improve registry.json props coverage for components with empty props arrays, and create formal verification for Phase 08
+**Depends on**: Phase 10
+**Requirements**: AIDX-01, AIDX-04, AIDX-06
+**Gap Closure:** Closes gaps from v1.1 audit
+**Success Criteria** (what must be TRUE):
+  1. `packages/rialto/registry.json` has non-empty props arrays for high-use components (Table, Drawer, Checkbox, TextArea, and other frequently used components)
+  2. Phase 08 VERIFICATION.md exists with verification evidence for AIDX-01, AIDX-04, AIDX-06
+  3. CI drift check for registry.json continues to pass after props improvement
+
+Plans: (to be planned)
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -111,4 +138,6 @@ Plans:
 | 6. Accessibility Foundation | v1.1 | 5/5 | Complete | 2026-03-23 |
 | 7. Example Pages | v1.1 | 3/3 | Complete | 2026-03-23 |
 | 8. AI Developer Experience | v1.1 | 3/3 | Complete | 2026-03-23 |
-| 9. Polish and Documentation | 3/3 | Complete   | 2026-03-23 | - |
+| 9. Polish and Documentation | v1.1 | 3/3 | Complete | 2026-03-23 |
+| 10. Documentation Reconciliation & llms-full.txt Fix | v1.1 | 0/0 | Pending | - |
+| 11. Registry Props & Phase 08 Verification | v1.1 | 0/0 | Pending | - |
