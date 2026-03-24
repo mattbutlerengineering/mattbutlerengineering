@@ -32,11 +32,19 @@ const authConfig = {
  * BrowserRouter had a bug where initial page loads didn't strip the basename,
  * causing "No routes matched" warnings and catch-all redirects.
  */
+/**
+ * Route tree: callback is outside DashboardLayout (no sidebar/nav needed).
+ * All other routes are inside DashboardLayout. The catch-all lives inside
+ * DashboardLayout so it doesn't compete with the pathless layout route —
+ * React Router v7 can misroute when pathless layouts and named routes
+ * coexist at the same level.
+ */
 const router = createBrowserRouter(
   [
     {
       element: <App />,
       children: [
+        { path: "callback", element: <CallbackRedirect /> },
         {
           element: <DashboardLayout />,
           children: [
@@ -50,10 +58,9 @@ const router = createBrowserRouter(
             { path: "profile", element: <ProfilePage /> },
             { path: "settings", element: <SettingsPage /> },
             { path: "admin", element: <AdminPage /> },
+            { path: "*", element: <Navigate to="/" replace /> },
           ],
         },
-        { path: "callback", element: <CallbackRedirect /> },
-        { path: "*", element: <Navigate to="/" replace /> },
       ],
     },
   ],
