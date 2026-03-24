@@ -61,7 +61,9 @@ export default {
     // index.html after a deploy would reference an old JS bundle hash
     // that no longer exists, causing a blank page.
     const hasExtension = /\.[a-zA-Z0-9]+$/.test(path.split("?")[0]);
-    const fetchOptions = hasExtension ? {} : { cf: { cacheTtl: 0 } };
+    if (!hasExtension) {
+      headers.set("Cache-Control", "no-store");
+    }
 
     const response = await fetch(
       new Request(target, {
@@ -70,7 +72,7 @@ export default {
         body: request.body,
         redirect: "manual",
       }),
-      fetchOptions
+      hasExtension ? undefined : { cf: { cacheTtl: 0, cacheEverything: false } }
     );
 
     // Rewrite Location headers so redirects use the public domain, not internal origins.
