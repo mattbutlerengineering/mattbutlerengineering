@@ -352,6 +352,10 @@ const componentRoutes: RouteObject[] = [
 /**
  * Route tree for createBrowserRouter.
  * Uses the v7 data router API which correctly handles basename on deep links.
+ *
+ * Only ONE pathless layout route (ShowcaseLayout) exists at the top level.
+ * DemoLayout uses an explicit `path: "demos"` to avoid ambiguous route matching
+ * in React Router v7 when multiple pathless layouts compete at the same level.
  */
 export const routeTree: RouteObject[] = [
   // Showcase shell (sidebar + header)
@@ -362,23 +366,24 @@ export const routeTree: RouteObject[] = [
       ...componentRoutes,
     ],
   },
-  // Demo pages (standalone layouts)
+  // Demo pages — explicit "demos" path prefix avoids pathless layout ambiguity
   {
+    path: "demos",
     element: suspended(DemoLayout),
     children: [
-      { path: "demos/login", element: suspended(SignIn) },
-      { path: "demos/signup", element: suspended(SignUp) },
-      { path: "demos/dashboard", element: suspended(Dashboard) },
-      { path: "demos/teams/new", element: suspended(TeamCreate) },
-      { path: "demos/layouts", element: suspended(LayoutDemo) },
-      { path: "demos/visual-test", element: suspended(VisualTest) },
+      { path: "login", element: suspended(SignIn) },
+      { path: "signup", element: suspended(SignUp) },
+      { path: "dashboard", element: suspended(Dashboard) },
+      { path: "teams/new", element: suspended(TeamCreate) },
+      { path: "layouts", element: suspended(LayoutDemo) },
+      { path: "visual-test", element: suspended(VisualTest) },
       {
         element: suspended(DriverProvider),
         children: [
-          { path: "demos/drivers", element: suspended(DriverList) },
-          { path: "demos/drivers/new", element: suspended(DriverCreate) },
-          { path: "demos/drivers/:id", element: suspended(DriverRead) },
-          { path: "demos/drivers/:id/edit", element: suspended(DriverUpdate) },
+          { path: "drivers", element: suspended(DriverList) },
+          { path: "drivers/new", element: suspended(DriverCreate) },
+          { path: "drivers/:id", element: suspended(DriverRead) },
+          { path: "drivers/:id/edit", element: suspended(DriverUpdate) },
         ],
       },
     ],
