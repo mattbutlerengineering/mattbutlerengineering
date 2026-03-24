@@ -38,10 +38,11 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2}"],
-        // Auth callback must always hit the network so the OIDC library
-        // receives the current HTML + JS bundle (not a stale SW precache).
-        navigateFallbackDenylist: [/\/callback/],
+        // Precache assets only — NOT html. JS/CSS have content hashes so
+        // stale cache is harmless; HTML must always come from the network
+        // to avoid serving old bundles after a deploy.
+        globPatterns: ["**/*.{js,css,ico,png,svg,woff,woff2}"],
+        navigateFallback: null,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
