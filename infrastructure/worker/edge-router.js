@@ -54,13 +54,23 @@ export default {
     headers.set("Host", target.host);
     headers.set("X-Forwarded-Host", url.host);
 
+    // Bypass Cloudflare CDN cache for non-asset requests (SPA routes).
+    // Assets (JS/CSS/fonts/images) have file extensions and are safely
+    // cached — the browser also caches them via immutable headers.
+    // SPA navigation routes have no extension; serving a stale cached
+    // index.html after a deploy would reference an old JS bundle hash
+    // that no longer exists, causing a blank page.
+    const hasExtension = /\.[a-zA-Z0-9]+$/.test(path.split("?")[0]);
+    const fetchOptions = hasExtension ? {} : { cf: { cacheTtl: 0 } };
+
     const response = await fetch(
       new Request(target, {
         method: request.method,
         headers,
         body: request.body,
         redirect: "manual",
-      })
+      }),
+      fetchOptions
     );
 
     // Rewrite Location headers so redirects use the public domain, not internal origins.
