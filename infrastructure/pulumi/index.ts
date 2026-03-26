@@ -143,86 +143,27 @@ const apiDns = new cloudflare.Record("mattbutlerengineering-api-dns", {
   ttl: 300,
 });
 
-// ── CF Pages Projects ───────────────────────────────────────────────
-// Static sites deployed via CI (wrangler pages deploy), not CF GitHub integration.
-
-const marketingPages = new cloudflare.PagesProject("mattbutlerengineering-marketing", {
-  accountId: cloudflareAccountId,
-  name: "mattbutlerengineering-marketing",
-  productionBranch: "main",
-  deploymentConfigs: {
-    production: {
-      compatibilityDate: "2024-09-23",
-    },
-    preview: {
-      compatibilityDate: "2024-09-23",
-    },
-  },
-});
-
-const hospitalityPages = new cloudflare.PagesProject("mattbutlerengineering-hospitality", {
-  accountId: cloudflareAccountId,
-  name: "mattbutlerengineering-hospitality",
-  productionBranch: "main",
-  deploymentConfigs: {
-    production: {
-      compatibilityDate: "2024-09-23",
-      environmentVariables: {
-        VITE_AUTH_AUTHORITY: "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com",
-        VITE_AUTH_AUDIENCE: `https://api.${domain}`,
-        VITE_AUTH_REDIRECT_URI: `https://${domain}/hospitality/callback`,
-        VITE_API_URL: `https://${domain}`,
-      },
-    },
-    preview: {
-      compatibilityDate: "2024-09-23",
-      environmentVariables: {
-        VITE_AUTH_AUTHORITY: "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com",
-        VITE_AUTH_AUDIENCE: `https://api.${domain}`,
-        VITE_AUTH_REDIRECT_URI: `https://${domain}/hospitality/callback`,
-        VITE_API_URL: `https://${domain}`,
-      },
-    },
-  },
-});
-
-const rialtoPages = new cloudflare.PagesProject("mattbutlerengineering-rialto-web", {
-  accountId: cloudflareAccountId,
-  name: "mattbutlerengineering-rialto-web",
-  productionBranch: "main",
-  deploymentConfigs: {
-    production: {
-      compatibilityDate: "2024-09-23",
-    },
-    preview: {
-      compatibilityDate: "2024-09-23",
-    },
-  },
-});
-
 // ── Cloudflare Worker Edge Router ────────────────────────────────────
-// Routes traffic by path prefix to CF Pages origins or DO API app.
+// Routes traffic by path prefix to Workers Static Assets (via Service
+// Bindings) or DO API app (via HTTP subrequest).
+//
+// Static site Workers are created by `wrangler deploy` in CI — Pulumi
+// only manages the edge-router and its bindings. Service Bindings call
+// app Workers in-process, bypassing the CDN entirely.
 
 const workerScript = new cloudflare.WorkersScript("mattbutlerengineering-edge-router", {
   accountId: cloudflareAccountId,
   name: "mattbutlerengineering-edge-router",
   content: readFileSync("../worker/edge-router.js", "utf-8"),
   module: true,
-  compatibilityDate: "2024-09-23",
+  compatibilityDate: "2026-03-25",
   plainTextBindings: [
     { name: "API_ORIGIN", text: `https://api.${domain}` },
-    {
-      name: "HOSPITALITY_ORIGIN",
-      text: hospitalityPages.subdomain.apply((s) => `https://${s}`),
-    },
-    {
-      name: "RIALTO_ORIGIN",
-      text: rialtoPages.subdomain.apply((s) => `https://${s}`),
-    },
-    {
-      name: "MARKETING_ORIGIN",
-      text: marketingPages.subdomain.apply((s) => `https://${s}`),
-    },
+  ],
+  serviceBindings: [
+    { name: "MARKETING", service: "mattbutlerengineering-marketing" },
+    { name: "HOSPITALITY", service: "mattbutlerengineering-hospitality" },
+    { name: "RIALTO", service: "mattbutlerengineering-rialto-web" },
   ],
 });
 
@@ -270,6 +211,3 @@ export const appUrl = pulumi.interpolate`https://${domain}`;
 export const apiUrl = pulumi.interpolate`https://api.${domain}/api`;
 export const hospitalityUrl = pulumi.interpolate`https://${domain}/hospitality`;
 export const rialtoUrl = pulumi.interpolate`https://${domain}/rialto`;
-export const marketingPagesUrl = marketingPages.subdomain.apply((s) => `https://${s}`);
-export const hospitalityPagesUrl = hospitalityPages.subdomain.apply((s) => `https://${s}`);
-export const rialtoPagesUrl = rialtoPages.subdomain.apply((s) => `https://${s}`);

@@ -47,15 +47,15 @@ Split deployment with independent deploy pipelines:
 
 ```
 Client → mattbutlerengineering.com (Cloudflare Worker "edge-router")
-  /hospitality*  → CF Pages (hospitality project, prefix stripped)
-  /rialto*       → CF Pages (rialto-web project, prefix stripped)
+  /hospitality*  → Workers Static Assets (Service Binding, CDN-free)
+  /rialto*       → Workers Static Assets (Service Binding, CDN-free)
   /api/*         → api.mattbutlerengineering.com (DO App Platform)
-  /*             → CF Pages (marketing project)
+  /*             → Workers Static Assets (Service Binding, CDN-free)
 ```
 
 **Key components:**
 - **Edge Router** (`infrastructure/worker/edge-router.js`): CF Worker that routes traffic by path prefix
-- **Static Sites**: 3 CF Pages projects, deployed via `wrangler pages deploy` from CI
+- **Static Sites**: 3 Workers with Static Assets, deployed via `wrangler deploy` from CI. Called via Service Bindings from the edge router, bypassing CDN entirely (prevents stale HTML after deploys).
 - **API Services**: DO App Platform at `api.mattbutlerengineering.com` with `deployOnPush: false` (CI triggers deploys via `doctl`)
 - **Infrastructure**: Pulumi (TypeScript) in `infrastructure/pulumi/`
 
@@ -63,7 +63,7 @@ Client → mattbutlerengineering.com (Cloudflare Worker "edge-router")
 
 | Change | Workflow | Speed |
 |--------|----------|-------|
-| Static site (`apps/*`) | `deploy-static.yml` → CF Pages | ~30-60 sec |
+| Static site (`apps/*`) | `deploy-static.yml` → Workers Static Assets | ~30-60 sec |
 | Service (`services/*`) | `deploy-services.yml` → DO App Platform | ~3-5 min |
 | Infrastructure (`infrastructure/*`) | `pulumi-up.yml` → Pulumi | ~2 min |
 

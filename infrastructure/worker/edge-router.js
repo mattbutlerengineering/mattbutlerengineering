@@ -2,10 +2,13 @@
  * Cloudflare Worker edge router for mattbutlerengineering.com
  *
  * Routes requests based on path prefix:
- *   /api/*          → DO App Platform (API services)
- *   /hospitality/*  → CF Pages (hospitality project, prefix stripped)
- *   /rialto/*       → CF Pages (rialto-web project, prefix stripped)
- *   /*              → CF Pages (marketing project)
+ *   /api/*          → DO App Platform (HTTP subrequest)
+ *   /hospitality/*  → Workers Static Assets (Service Binding, CDN-free)
+ *   /rialto/*       → Workers Static Assets (Service Binding, CDN-free)
+ *   /*              → Workers Static Assets (Service Binding, CDN-free)
+ *
+ * Static site Workers are called via Service Bindings (env.BINDING.fetch()),
+ * which bypass the CDN entirely — eliminating stale HTML after deploys.
  */
 export default {
   async fetch(request, env) {
@@ -29,59 +32,52 @@ export default {
       );
     }
 
-    // Determine origin, path prefix to strip, and rewritten path
-    let origin;
+    // ── API routes → HTTP subrequest to DO App Platform ──────────────
+    if (url.pathname.startsWith("/api/") || url.pathname === "/api") {
+      const target = new URL(url.pathname + url.search, env.API_ORIGIN);
+      const headers = new Headers(request.headers);
+      headers.set("Host", target.host);
+      headers.set("X-Forwarded-Host", url.host);
+
+      return fetch(
+        new Request(target, {
+          method: request.method,
+          headers,
+          body: request.body,
+          redirect: "manual",
+        })
+      );
+    }
+
+    // ── Static sites → Service Binding (CDN-free) ───────────────────
+    let binding;
     let prefix = "";
-    let path = url.pathname;
 
-    if (path.startsWith("/api/") || path === "/api") {
-      origin = env.API_ORIGIN;
-    } else if (path.startsWith("/hospitality")) {
-      origin = env.HOSPITALITY_ORIGIN;
+    if (url.pathname.startsWith("/hospitality")) {
+      binding = env.HOSPITALITY;
       prefix = "/hospitality";
-      path = path.slice(prefix.length) || "/";
-    } else if (path.startsWith("/rialto")) {
-      origin = env.RIALTO_ORIGIN;
+    } else if (url.pathname.startsWith("/rialto")) {
+      binding = env.RIALTO;
       prefix = "/rialto";
-      path = path.slice(prefix.length) || "/";
     } else {
-      origin = env.MARKETING_ORIGIN;
+      binding = env.MARKETING;
     }
 
-    // Proxy to origin
-    const target = new URL(path + url.search, origin);
-    const headers = new Headers(request.headers);
-    headers.set("Host", target.host);
-    headers.set("X-Forwarded-Host", url.host);
+    // Strip path prefix before forwarding to the app Worker.
+    // Each app is built with base: "/<name>/" in Vite, but the Worker
+    // serves from root — so /hospitality/foo → /foo on the app Worker.
+    const strippedPath = prefix ? (url.pathname.slice(prefix.length) || "/") : url.pathname;
+    const appUrl = new URL(strippedPath + url.search, url.origin);
+    const appRequest = new Request(appUrl, request);
 
-    // Bypass Cloudflare CDN cache for non-asset requests (SPA routes).
-    // Assets (JS/CSS/fonts/images) have file extensions and are safely
-    // cached — the browser also caches them via immutable headers.
-    // SPA navigation routes have no extension; serving a stale cached
-    // index.html after a deploy would reference an old JS bundle hash
-    // that no longer exists, causing a blank page.
-    const hasExtension = /\.[a-zA-Z0-9]+$/.test(path.split("?")[0]);
-    if (!hasExtension) {
-      headers.set("Cache-Control", "no-store");
-    }
+    const response = await binding.fetch(appRequest);
 
-    const response = await fetch(
-      new Request(target, {
-        method: request.method,
-        headers,
-        body: request.body,
-        redirect: "manual",
-      }),
-      hasExtension ? undefined : { cf: { cacheTtl: 0, cacheEverything: false } }
-    );
-
-    // Rewrite Location headers so redirects use the public domain, not internal origins.
-    // Re-adds the stripped prefix (e.g., /hospitality) so the client sees correct public URLs.
+    // Rewrite Location headers so redirects use the public domain with prefix.
     const location = response.headers.get("Location");
     if (location) {
       try {
-        const loc = new URL(location);
-        if (loc.host !== url.host) {
+        const loc = new URL(location, url.origin);
+        if (loc.pathname !== url.pathname) {
           const rewritten = new Headers(response.headers);
           rewritten.set(
             "Location",
@@ -94,21 +90,8 @@ export default {
           });
         }
       } catch {
-        // Relative Location header — pass through as-is
+        // Relative or malformed Location header — pass through as-is
       }
-    }
-
-    // Prevent CDN from caching HTML (SPA index.html must always be fresh)
-    const contentType = response.headers.get("Content-Type") || "";
-    if (contentType.includes("text/html")) {
-      const headers = new Headers(response.headers);
-      headers.set("Cache-Control", "no-cache, no-store, must-revalidate");
-      headers.set("CDN-Cache-Control", "no-store");
-      return new Response(response.body, {
-        status: response.status,
-        statusText: response.statusText,
-        headers,
-      });
     }
 
     return response;
