@@ -48,6 +48,7 @@ coverage/
 .claude/settings.local.json
 
 # Playwright
+e2e/.auth/
 e2e/test-results/
 .playwright-cli/
 

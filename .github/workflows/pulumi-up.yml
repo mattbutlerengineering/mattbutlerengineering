@@ -6,6 +6,12 @@ on:
     paths:
       - "infrastructure/pulumi/**"
       - "infrastructure/worker/**"
+  # Run after static deploys so Service Binding targets exist before
+  # Pulumi tries to reference them. Only triggers on successful completion.
+  workflow_run:
+    workflows: ["Deploy Static Sites"]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -16,6 +22,8 @@ jobs:
   deploy:
     name: Deploy Infrastructure
     runs-on: ubuntu-latest
+    # Skip if triggered by a failed static deploy
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
 
     steps:
       - name: Checkout
