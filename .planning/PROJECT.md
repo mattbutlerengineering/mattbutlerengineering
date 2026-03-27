@@ -43,7 +43,16 @@ Every web app uses Rialto as the single design system and is accessible at mattb
 
 ### Active
 
-(No active requirements — define with next milestone)
+## Current Milestone: v1.2 Generative UI
+
+**Goal:** AI-powered interface generation using Rialto components — from prompts to rendered, interactive UIs.
+
+**Target features:**
+- Rialto catalog for json-render (derive from registry.json + Zod schemas)
+- AI generation backend (AI SDK + Anthropic, streaming)
+- AI-generated pages and dashboards from natural language prompts
+- AI copilot embedded in hospitality app (inline component generation)
+- Standalone generative UI playground at /gen
 
 ### Out of Scope
 
@@ -62,6 +71,8 @@ Tech stack: React 19, Vite 7, TypeScript, Pulumi, Auth0, DigitalOcean App Platfo
 Three apps live at mattbutlerengineering.com: marketing (/), rialto-web (/rialto), hospitality (/hospitality).
 Rialto is the sole design system — WCAG AA accessible, with axe-core CI, 20 spec files, registry.json, and llms.txt.
 Backend services (users, agent, reservations) unchanged during v1.0/v1.1 — APIs stay as-is.
+Agent service (port 3003) uses @anthropic-ai/claude-agent-sdk for code-level sessions — will be extended or supplemented for UI generation.
+Evaluations complete: json-render selected as generative UI framework, AI SDK + Anthropic Direct selected as AI provider (see docs/evaluations/2026-03-27-*).
 
 ## Constraints
 
@@ -87,5 +98,9 @@ Backend services (users, agent, reservations) unchanged during v1.0/v1.1 — API
 | Dark text on gold accent backgrounds | #1a1918 on #b0841e (6.26:1) vs white on gold (2.73:1) | ✓ Good — meets AA without changing brand gold |
 | cloneElement for aria-haspopup injection | Eliminates nested-interactive axe violation in DropdownMenu/Popover | ⚠️ Revisit — pre-existing TS type-narrowing errors (runtime correct) |
 
+| json-render for generative UI | Catalog-based JSON generation constrained to Rialto components; native AI SDK integration; code export | — Pending |
+| AI SDK + Anthropic Direct | Provider-agnostic abstraction with existing Anthropic key; no hosting change required; add providers later | — Pending |
+| Haiku 4.5 as default gen model | $1/$5 MTok + prompt caching ≈ $0.001/gen — cost-effective for playground volume | — Pending |
+
 ---
-*Last updated: 2026-03-23 after v1.1 milestone completion*
+*Last updated: 2026-03-27 after v1.2 milestone start*
