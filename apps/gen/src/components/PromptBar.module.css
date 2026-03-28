@@ -1,0 +1,45 @@
+.bar {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--rialto-space-sm);
+  padding: var(--rialto-space-sm) var(--rialto-space-lg);
+  border-block-start: 1px solid var(--rialto-border);
+  background-color: var(--rialto-surface-default);
+  flex-shrink: 0;
+}
+
+.input {
+  flex: 1;
+  resize: none;
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-primary);
+  background-color: var(--rialto-surface-recessed);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  line-height: 1.5;
+  outline: none;
+  transition: border-color 150ms var(--rialto-ease-precision),
+    box-shadow 150ms var(--rialto-ease-precision);
+}
+
+.input:focus {
+  border-color: var(--rialto-accent);
+  box-shadow: var(--rialto-shadow-focus);
+}
+
+.input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.input::placeholder {
+  color: var(--rialto-text-tertiary);
+}
+
+/* Stop button — override secondary to use error color */
+.bar button[data-stop] {
+  color: var(--rialto-error);
+  border-color: var(--rialto-error);
+}

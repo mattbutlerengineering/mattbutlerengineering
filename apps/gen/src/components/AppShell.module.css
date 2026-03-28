@@ -1,0 +1,25 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-block-size: 100dvh;
+  background-color: var(--rialto-surface-default);
+}
+
+.logoText {
+  font-size: var(--rialto-text-sm);
+  font-weight: 500;
+  color: var(--rialto-text-primary);
+  font-family: var(--rialto-font-sans);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+}
+
+.content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}

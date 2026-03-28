@@ -1,0 +1,68 @@
+.pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: var(--rialto-space-lg);
+  background-color: var(--rialto-surface-default);
+}
+
+.rendererWrapper {
+  inline-size: 100%;
+}
+
+/* Empty state */
+.emptyState {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  block-size: 100%;
+}
+
+.emptyText {
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-tertiary);
+  font-family: var(--rialto-font-sans);
+  text-align: center;
+}
+
+/* TTFT loading pulse */
+.loadingState {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  padding-block-start: var(--rialto-space-sm);
+}
+
+.pulse {
+  block-size: 4px;
+  inline-size: 60%;
+  max-inline-size: 320px;
+  border-radius: var(--rialto-radius-round);
+  background-color: var(--rialto-accent);
+  opacity: 0.35;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.15;
+    transform: scaleX(0.7);
+    transform-origin: start;
+  }
+  50% {
+    opacity: 0.5;
+    transform: scaleX(1);
+    transform-origin: start;
+  }
+}
+
+/* Error state */
+.errorState {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+  padding: var(--rialto-space-lg);
+  max-inline-size: 480px;
+}
