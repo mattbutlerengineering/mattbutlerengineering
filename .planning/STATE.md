@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Generative UI
 status: in_progress
-last_updated: "2026-03-28T17:20:45Z"
+last_updated: "2026-03-28T17:26:04Z"
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 13
-  completed_plans: 12
+  completed_plans: 13
 ---
 
 # Project State
@@ -22,12 +22,12 @@ See: .planning/PROJECT.md (updated 2026-03-27)
 
 ## Current Position
 
-Phase: 16 of 16 (Persistence and Refinement) — In Progress (1 of 3 plans done)
-Plan: 01 complete (StoredSpec model, migration, service layer, REST routes, tests)
-Status: Phase 16 plan 01 complete
-Last activity: 2026-03-28 — Completed 16-01 (StoredSpec persistence API — Prisma model + 5 REST endpoints + 12 integration tests)
+Phase: 16 of 16 (Persistence and Refinement) — In Progress (2 of 3 plans done)
+Plan: 02 complete (StoredSpec type, useSpecsApi hook, HistoryPanel migration, PlaygroundPage auto-save)
+Status: Phase 16 plan 02 complete
+Last activity: 2026-03-28 — Completed 16-02 (Frontend persistence — useSpecsApi hook + HistoryPanel favorites/replay + PlaygroundPage auto-save)
 
-Progress: [█░░░░░░░░░] 10%
+Progress: [██░░░░░░░░] 20%
 
 ## Performance Metrics
 
@@ -51,6 +51,7 @@ Progress: [█░░░░░░░░░] 10%
 | Phase 14-playground-app P03 | 15 | 2 tasks | 5 files |
 | Phase 15-hospitality-copilot P01 | 22 | 2 tasks | 13 files |
 | Phase 16-persistence-and-refinement P01 | 3 | 2 tasks | 8 files |
+| Phase 16-persistence-and-refinement P02 | 3 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -104,6 +105,10 @@ Phase 15 Plan 01 decisions:
 - [Phase 16-persistence-and-refinement]: [16-01]: StoredSpec _enforceCapForUser evicts oldest unfavorited spec when count reaches 100 — keeps favorites safe while bounding storage per user
 - [Phase 16-persistence-and-refinement]: [16-01]: GET /api/gen/specs/:id has no preHandler (public) for permalink sharing
 - [Phase 16-persistence-and-refinement]: [16-01]: mapStoredSpec helper converts Prisma dates to ISO strings at service boundary — consistent with mapPrismaSession pattern
+- [Phase 16-persistence-and-refinement]: [16-02]: accumulatedRawLines local array in useGenStream send() avoids stale React state closure — rawLines passed to onComplete from local variable not useState
+- [Phase 16-persistence-and-refinement]: [16-02]: useSpecsApi deleteSpec captures previous specs in closure before optimistic removal — enables correct revert on error
+- [Phase 16-persistence-and-refinement]: [16-02]: PlaygroundPage no longer needs rawLinesRef — rawLines now flow from useGenStream onComplete second argument directly to saveSpec
+- [Phase 16-persistence-and-refinement]: [16-02]: HistoryPanel filter tabs use plain buttons with CSS not Rialto Tabs — Rialto Tabs component does not exist
 
 ### Pending Todos
 
@@ -119,5 +124,5 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-28T17:20:45Z
-Stopped at: Completed 16-01-PLAN.md
+Last session: 2026-03-28T17:26:04Z
+Stopped at: Completed 16-02-PLAN.md
