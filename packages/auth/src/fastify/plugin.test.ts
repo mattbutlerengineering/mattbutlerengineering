@@ -238,6 +238,41 @@ describe("Auth Plugin", () => {
       const body = JSON.parse(response.body);
       expect(body.error).toBe("Missing or invalid authorization header");
     });
+
+    it("returns 401 and does not execute route handler when user is missing", async () => {
+      const handlerSpy = vi.fn();
+
+      // Create a separate app where requireAuth guards a route on an excluded path
+      // so the onRequest hook is skipped but requireAuth still runs as preHandler
+      const spyApp = Fastify({ logger: false });
+      const spyRoutesPlugin: FastifyPluginAsync = async (fastify) => {
+        await fastify.register(authPlugin, {
+          authority: "https://test.auth0.com",
+          audience: "https://api.example.com",
+          excludePaths: ["/guarded"],
+        });
+
+        fastify.get("/guarded", { preHandler: requireAuth }, async (_request, _reply) => {
+          handlerSpy();
+          return { data: "should not reach here" };
+        });
+      };
+
+      await spyApp.register(spyRoutesPlugin);
+      await spyApp.ready();
+
+      const response = await spyApp.inject({
+        method: "GET",
+        url: "/guarded",
+      });
+
+      expect(response.statusCode).toBe(401);
+      const body = JSON.parse(response.body);
+      expect(body.error).toBe("Authentication required");
+      expect(handlerSpy).not.toHaveBeenCalled();
+
+      await spyApp.close();
+    });
   });
 
   describe("getAuthPluginOptionsFromEnv", () => {
