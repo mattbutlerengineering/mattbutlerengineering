@@ -12,7 +12,7 @@
     }
   },
   "scripts": {
-    "generate": "tsx scripts/generate.ts",
+    "generate": "tsx scripts/generate-catalog.ts",
     "build": "tsc",
     "test": "vitest run",
     "test:drift": "vitest run src/__tests__/drift-check.test.ts",
