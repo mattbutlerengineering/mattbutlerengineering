@@ -4,7 +4,7 @@ milestone: v1.2
 milestone_name: Generative UI
 status: completed
 stopped_at: Completed 18-01-PLAN.md
-last_updated: "2026-03-28T18:57:53.520Z"
+last_updated: "2026-03-28T20:39:49.325Z"
 last_activity: 2026-03-28 — Phase 18 complete, v1.2 Generative UI milestone complete
 progress:
   total_phases: 7
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-28)
 
 **Core value:** Every web app uses Rialto as the single design system and is accessible at mattbutlerengineering.com
-**Current focus:** v1.2 Generative UI — COMPLETE. All phases delivered.
+**Current focus:** v1.2 archived. Planning next milestone.
 
 ## Current Position
 

@@ -1,5 +1,32 @@
 # Milestones
 
+## v1.2 Generative UI (Shipped: 2026-03-28)
+
+**Delivered:** AI-powered interface generation using Rialto components — from natural language prompts to rendered, interactive UIs via a standalone playground at /gen and an embedded copilot in the hospitality app.
+
+**Stats:**
+- Phases: 12-18 (15 plans)
+- Commits: 79
+- Files modified: 155 (+18,858 / -268)
+- Codebase: 100,402 LOC TypeScript
+- Timeline: 2 days (2026-03-27 → 2026-03-28)
+- Git range: docs(12)..docs(phase-18)
+- Requirements: 34/34 satisfied
+
+**Key accomplishments:**
+1. Rialto Catalog — Zod schemas for 26 components with TypeScript Compiler API generation pipeline, CI drift check, and defineRegistry() client mapping
+2. AI generation backend — streaming gen-ui and gen-chat routes with Auth0 JWT, rate limiting, Anthropic prompt caching (~$0.001/gen), and cost logging
+3. Playground app — full Vite SPA at /gen with three-column layout, streaming preview, JSON inspector, prompt history, favorites, shareable permalinks, and conversational refinement
+4. Hospitality copilot — GenCopilot component in @mbe/rialto with domain-aware prompt context, embedded in the hospitality dashboard via Drawer
+5. Persistence layer — StoredSpec Prisma model with REST API, auto-save, replay, favorites, and shareable permalinks
+6. IaC compliance — gen Worker managed by Pulumi with @pulumi/cloudflare v5→v6 upgrade across the entire stack
+
+**Known Gaps (operational, not code):**
+- GEN-07: Production SSE verification blocked on `pulumi up` (code and infra wiring verified correct)
+- INFRA-04: Anthropic spend cap requires manual action at console.anthropic.com
+
+---
+
 ## v1.1 Rialto Accessibility & AI DX (Shipped: 2026-03-23)
 
 **Delivered:** All Rialto components are WCAG AA accessible, example pages demonstrate real-world composition, and AI tools produce correct Rialto code via registry, llms.txt, and CLI scaffold.

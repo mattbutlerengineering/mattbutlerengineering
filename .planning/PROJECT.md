@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A professional engineering portfolio and monorepo hosting three web applications under mattbutlerengineering.com — all built exclusively with the Rialto design system. The marketing site showcases projects and engineering skills, the hospitality app manages reservations and floor plans, and the rialto-web app is an interactive design system showcase with WCAG AA accessibility, realistic example pages, and AI-friendly tooling (registry, llms.txt, CLI scaffold).
+A professional engineering portfolio and monorepo hosting four web applications under mattbutlerengineering.com — all built exclusively with the Rialto design system. The marketing site showcases projects and engineering skills, the hospitality app manages reservations and floor plans with an embedded AI copilot, the rialto-web app is an interactive design system showcase, and the gen app is an AI-powered playground that generates Rialto UIs from natural language prompts.
 
 ## Core Value
 
@@ -40,19 +40,20 @@ Every web app uses Rialto as the single design system and is accessible at mattb
 - ✓ CLI scaffold (`mbe new`) for new Rialto projects — v1.1
 - ✓ 20 structured spec files for most-used components — v1.1
 - ✓ Accessibility docs on all interactive showcase pages — v1.1
+- ✓ Rialto catalog with Zod schemas for 26 components and CI drift check — v1.2
+- ✓ defineRegistry() mapping catalog to React components for json-render — v1.2
+- ✓ Streaming gen-ui and gen-chat endpoints with Auth0 JWT, rate limiting, prompt caching — v1.2
+- ✓ Per-request cost logging (tokens, cache hits, model) — v1.2
+- ✓ Playground app at /gen with streaming preview, JSON inspector, prompt history — v1.2
+- ✓ Shareable permalinks and conversational refinement mode — v1.2
+- ✓ GenCopilot component in @mbe/rialto with hospitality domain context — v1.2
+- ✓ StoredSpec persistence with favorites, replay, and auto-save — v1.2
+- ✓ Gen Worker managed by Pulumi with @pulumi/cloudflare v6 — v1.2
+- ✓ Four apps at / (marketing), /rialto (showcase), /hospitality (app), /gen (playground) — v1.2
 
 ### Active
 
-## Current Milestone: v1.2 Generative UI
-
-**Goal:** AI-powered interface generation using Rialto components — from prompts to rendered, interactive UIs.
-
-**Target features:**
-- Rialto catalog for json-render (derive from registry.json + Zod schemas)
-- AI generation backend (AI SDK + Anthropic, streaming)
-- AI-generated pages and dashboards from natural language prompts
-- AI copilot embedded in hospitality app (inline component generation)
-- Standalone generative UI playground at /gen
+(No active requirements — next milestone not yet defined)
 
 ### Out of Scope
 
@@ -63,16 +64,21 @@ Every web app uses Rialto as the single design system and is accessible at mattb
 - Subdomain routing — path-prefix is the convention and simpler to manage
 - npm publishing — monorepo-only for now; external distribution is a future milestone
 - External adoption — Rialto is monorepo-only; external onboarding is a future milestone
+- Open-ended HTML/CSS generation — XSS risk, breaks design system fidelity
+- LLM-generated inline styles — breaks Rialto token system
+- Auto-deploy generated UIs — no human review gate
+- Public unauthenticated playground — cost/abuse risk; auth required
 
 ## Context
 
-Shipped v1.1 with 94,670 LOC TypeScript across 388+ files.
-Tech stack: React 19, Vite 7, TypeScript, Pulumi, Auth0, DigitalOcean App Platform.
-Three apps live at mattbutlerengineering.com: marketing (/), rialto-web (/rialto), hospitality (/hospitality).
-Rialto is the sole design system — WCAG AA accessible, with axe-core CI, 20 spec files, registry.json, and llms.txt.
-Backend services (users, agent, reservations) unchanged during v1.0/v1.1 — APIs stay as-is.
-Agent service (port 3003) uses @anthropic-ai/claude-agent-sdk for code-level sessions — will be extended or supplemented for UI generation.
-Evaluations complete: json-render selected as generative UI framework, AI SDK + Anthropic Direct selected as AI provider (see docs/evaluations/2026-03-27-*).
+Shipped v1.2 with 100,402 LOC TypeScript across 155+ modified files.
+Tech stack: React 19, Vite 7, TypeScript, Pulumi, Auth0, DigitalOcean App Platform, AI SDK + Anthropic.
+Four apps live at mattbutlerengineering.com: marketing (/), rialto-web (/rialto), hospitality (/hospitality), gen (/gen).
+Rialto is the sole design system — WCAG AA accessible, with axe-core CI, Zod catalog (26 components), registry.json, and llms.txt.
+Agent service (port 3003) now serves both claude-agent-sdk sessions and AI generation endpoints (gen-ui, gen-chat).
+Gen app uses json-render with Rialto catalog for constrained UI generation from LLM output.
+Prompt caching achieves ~$0.001/generation with Haiku 4.5 default model.
+All CF Workers (marketing, hospitality, rialto-web, gen) managed by Pulumi with @pulumi/cloudflare v6.
 
 ## Constraints
 
@@ -98,9 +104,14 @@ Evaluations complete: json-render selected as generative UI framework, AI SDK + 
 | Dark text on gold accent backgrounds | #1a1918 on #b0841e (6.26:1) vs white on gold (2.73:1) | ✓ Good — meets AA without changing brand gold |
 | cloneElement for aria-haspopup injection | Eliminates nested-interactive axe violation in DropdownMenu/Popover | ⚠️ Revisit — pre-existing TS type-narrowing errors (runtime correct) |
 
-| json-render for generative UI | Catalog-based JSON generation constrained to Rialto components; native AI SDK integration; code export | — Pending |
-| AI SDK + Anthropic Direct | Provider-agnostic abstraction with existing Anthropic key; no hosting change required; add providers later | — Pending |
-| Haiku 4.5 as default gen model | $1/$5 MTok + prompt caching ≈ $0.001/gen — cost-effective for playground volume | — Pending |
+| json-render for generative UI | Catalog-based JSON generation constrained to Rialto components; native AI SDK integration; code export | ✓ Good — 26 components mapped, streaming preview works |
+| AI SDK + Anthropic Direct | Provider-agnostic abstraction with existing Anthropic key; no hosting change required; add providers later | ✓ Good — streaming gen-ui and gen-chat routes, prompt caching active |
+| Haiku 4.5 as default gen model | $1/$5 MTok + prompt caching ≈ $0.001/gen — cost-effective for playground volume | ✓ Good — cost-effective default, Sonnet selectable server-side |
+| TypeScript Compiler API for catalog schemas | Extract prop types from Rialto source, generate Zod schemas automatically | ✓ Good — isDeclaredInRialto() filter, CI drift check prevents divergence |
+| GenCopilot as @mbe/rialto export | Reusable copilot component, auth-agnostic (getAccessToken prop) | ✓ Good — embedded in hospitality, portable to any Rialto app |
+| Conditional mount pattern for GenCopilot | Consumer uses `{open && <GenCopilot>}` for fresh state on every open | ✓ Good — simpler than controlled open prop, natural React pattern |
+| @pulumi/cloudflare v5→v6 upgrade | Required for gen Worker resource; unified bindings[] array, DnsRecord rename | ✓ Good — all 4 Workers managed by Pulumi, CI deploys via Pulumi |
+| Audit-driven gap closure (Phases 17-18) | Milestone audit found proxy routing bug and missing Pulumi resource | ✓ Good — 34/34 requirements satisfied |
 
 ---
-*Last updated: 2026-03-28 after Phase 17*
+*Last updated: 2026-03-28 after v1.2 milestone*
