@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Generative UI
-status: in_progress
+status: completed
 stopped_at: Completed 17-01-PLAN.md
-last_updated: "2026-03-28T18:23:25.957Z"
+last_updated: "2026-03-28T18:27:59.789Z"
 last_activity: 2026-03-28 — Completed 17-01 (Local dev streaming pipeline fixes)
 progress:
-  total_phases: 6
-  completed_phases: 5
+  total_phases: 7
+  completed_phases: 6
   total_plans: 14
   completed_plans: 14
   percent: 97

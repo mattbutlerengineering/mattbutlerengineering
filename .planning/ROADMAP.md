@@ -179,5 +179,5 @@ Plans:
 | 14. Playground App | v1.2 | 3/3 | Complete | 2026-03-28 |
 | 15. Hospitality Copilot | v1.2 | 1/1 | Complete | 2026-03-28 |
 | 16. Persistence and Refinement | 3/3 | Complete    | 2026-03-28 | - |
-| 17. Local Dev & Streaming Fixes | 1/1 | Complete   | 2026-03-28 | - |
+| 17. Local Dev & Streaming Fixes | 1/1 | Complete    | 2026-03-28 | - |
 | 18. Gen Worker Pulumi Resource | v1.2 | 0/1 | Planned | - |
