@@ -67,6 +67,7 @@ async function authPluginImpl(
     } catch (error) {
       fastify.log.warn({ error }, "JWT validation failed");
       reply.code(401).send({ error: "Invalid token" });
+      return;
     }
   });
 }
@@ -83,6 +84,7 @@ export const authPlugin = fp(authPluginImpl, {
 export async function requireAuth(request: FastifyRequest, reply: FastifyReply) {
   if (!request.user) {
     reply.code(401).send({ error: "Authentication required" });
+    return;
   }
 }
 
