@@ -39,10 +39,10 @@ Requirements for Generative UI milestone. Each maps to roadmap phases.
 
 ### Hospitality Copilot
 
-- [ ] **COP-01**: `<GenCopilot>` component in `packages/rialto` with embedded generation panel
-- [ ] **COP-02**: Integration into hospitality app dashboard layout
-- [ ] **COP-03**: Domain-aware prompt context (reservation schema, floor plan structure, guest data shapes)
-- [ ] **COP-04**: Generated UIs render inline within the hospitality app using Rialto components
+- [x] **COP-01**: `<GenCopilot>` component in `packages/rialto` with embedded generation panel
+- [x] **COP-02**: Integration into hospitality app dashboard layout
+- [x] **COP-03**: Domain-aware prompt context (reservation schema, floor plan structure, guest data shapes)
+- [x] **COP-04**: Generated UIs render inline within the hospitality app using Rialto components
 
 ### Persistence
 
@@ -113,10 +113,10 @@ Deferred to v1.3+. Tracked but not in current roadmap.
 | PLAY-05 | Phase 14 | Complete |
 | PLAY-06 | Phase 14 | Complete |
 | PLAY-07 | Phase 14 | Complete |
-| COP-01 | Phase 15 | Pending |
-| COP-02 | Phase 15 | Pending |
-| COP-03 | Phase 15 | Pending |
-| COP-04 | Phase 15 | Pending |
+| COP-01 | Phase 15 | Complete |
+| COP-02 | Phase 15 | Complete |
+| COP-03 | Phase 15 | Complete |
+| COP-04 | Phase 15 | Complete |
 | PERS-01 | Phase 16 | Pending |
 | PERS-02 | Phase 16 | Pending |
 | PERS-03 | Phase 16 | Pending |

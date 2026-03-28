@@ -42,7 +42,7 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 - [x] **Phase 12: Catalog Foundation** — Zod schemas for ~25 Rialto components, CI drift check, action declarations, and the client/server split that every downstream feature depends on (completed 2026-03-28)
 - [x] **Phase 13: AI Generation Endpoint** — Streaming generation routes in services/agent with auth, rate limiting, prompt caching, cost logging, and SSE verified through the CF edge router; plus all supporting infrastructure (completed 2026-03-28)
 - [x] **Phase 14: Playground App** — Vite SPA at /gen with prompt bar, streaming preview, JSON inspector, prompt history, and theme-aware rendering (completed 2026-03-28)
-- [ ] **Phase 15: Hospitality Copilot** — GenCopilot component embedded in the hospitality dashboard with domain-aware prompt context for reservations and floor plans (can run in parallel with Phase 14)
+- [x] **Phase 15: Hospitality Copilot** — GenCopilot component embedded in the hospitality dashboard with domain-aware prompt context for reservations and floor plans (can run in parallel with Phase 14) (completed 2026-03-28)
 - [ ] **Phase 16: Persistence and Refinement** — Spec storage, prompt history replay, favorites, shareable permalinks, and inline conversational refinement mode
 
 ## Phase Details
@@ -109,7 +109,7 @@ Plans:
   2. A prompt referencing hospitality domain concepts (e.g., "show reservations for table 5") produces a generated UI that uses reservation and floor plan field names from the actual data schema
   3. Generated Rialto components render inside the hospitality app layout using the same theme and design tokens as the surrounding app — no visual mismatch
   4. The GenCopilot component is importable from `@mbe/rialto` and renders without errors when mounted in any Rialto-themed app
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
 - [ ] 15-01-PLAN.md — GenCopilot component in @mbe/rialto + hospitality dashboard integration
@@ -147,5 +147,5 @@ Plans:
 | 12. Catalog Foundation | v1.2 | 3/3 | Complete | 2026-03-28 |
 | 13. AI Generation Endpoint | v1.2 | 3/3 | Complete | 2026-03-28 |
 | 14. Playground App | 3/3 | Complete    | 2026-03-28 | - |
-| 15. Hospitality Copilot | v1.2 | 0/1 | Planning complete | - |
+| 15. Hospitality Copilot | 1/1 | Complete   | 2026-03-28 | - |
 | 16. Persistence and Refinement | v1.2 | 0/TBD | Not started | - |

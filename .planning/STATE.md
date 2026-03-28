@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Generative UI
-status: completed
-stopped_at: Phase 15 context gathered
-last_updated: "2026-03-28T16:27:07.040Z"
-last_activity: 2026-03-28 — Completed 14-03 (CI deploy-gen job, edge router /gen route, Pulumi GEN Service Binding, .env.example, auth0.ts gen URLs)
+status: in_progress
+stopped_at: Completed 15-01-PLAN.md
+last_updated: "2026-03-28T17:06:00.000Z"
+last_activity: 2026-03-28 — Completed 15-01 (GenCopilot component in @mbe/rialto, hospitality dashboard integration)
 progress:
   total_phases: 5
   completed_phases: 3
-  total_plans: 9
-  completed_plans: 9
-  percent: 10
+  total_plans: 10
+  completed_plans: 10
+  percent: 11
 ---
 
 # Project State
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-03-27)
 
 ## Current Position
 
-Phase: 14 of 16 (Playground App) — Complete (3 of 3 plans done)
-Plan: 03 complete (checkpoint:human-verify approved, all tasks done)
-Status: Phase 14 complete — ready for Phase 15
-Last activity: 2026-03-28 — Completed 14-03 (CI deploy-gen job, edge router /gen route, Pulumi GEN Service Binding, .env.example, auth0.ts gen URLs)
+Phase: 15 of 16 (Hospitality Copilot) — In Progress (1 of 1 plans done)
+Plan: 01 complete (GenCopilot component + hospitality integration)
+Status: Phase 15 plan 01 complete
+Last activity: 2026-03-28 — Completed 15-01 (GenCopilot component in @mbe/rialto, hospitality dashboard integration)
 
 Progress: [█░░░░░░░░░] 10%
 
@@ -52,6 +52,7 @@ Progress: [█░░░░░░░░░] 10%
 | Phase 14-playground-app P02 | 6 | 2 tasks | 15 files |
 | Phase 14-playground-app P03 | 2 | 1 tasks | 3 files |
 | Phase 14-playground-app P03 | 15 | 2 tasks | 5 files |
+| Phase 15-hospitality-copilot P01 | 22 | 2 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -97,6 +98,12 @@ Phase 13 Plan 03 decisions:
 - [Phase 14-playground-app]: [14-03]: wrangler deploy must run before pulumi up — Worker must exist before Service Binding can reference it
 - [Phase 14-playground-app]: [14-03]: Auth0 gen URLs added to shared auth0.ts alongside hospitality; gen app can share or get its own CLIENT_ID via AUTH0_GEN_CLIENT_ID secret
 
+Phase 15 Plan 01 decisions:
+- [Phase 15-01]: GenCopilot uses relative imports for Alert/Skeleton/Button sub-components — importing from @mbe/rialto barrel would create circular dep inside the library
+- [Phase 15-01]: useGenCopilotStream accepts getAccessToken prop not useAuth() — @mbe/rialto must remain auth-provider-agnostic, no dep on @mbe/auth
+- [Phase 15-01]: GenCopilot has no open prop — Drawer always open={true}, consumer uses conditional mount ({copilotOpen && <GenCopilot>}) for fresh state on every open
+- [Phase 15-01]: ComponentRegistry from @json-render/react as registry type — consumer passes registry from @mbe/rialto-catalog, no circular dep rialto↔rialto-catalog
+
 ### Pending Todos
 
 None.
@@ -111,5 +118,5 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-28T16:27:07.037Z
-Stopped at: Phase 15 context gathered
+Last session: 2026-03-28T17:06:00.000Z
+Stopped at: Completed 15-01-PLAN.md
