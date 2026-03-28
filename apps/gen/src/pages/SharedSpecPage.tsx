@@ -27,15 +27,11 @@ type LoadState = "loading" | "error" | "success";
 export function SharedSpecPage() {
   const { id } = useParams<{ id: string }>();
   const [storedSpec, setStoredSpec] = useState<StoredSpec | null>(null);
-  const [loadState, setLoadState] = useState<LoadState>("loading");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [loadState, setLoadState] = useState<LoadState>(id ? "loading" : "error");
+  const [errorMessage, setErrorMessage] = useState<string | null>(id ? null : "No spec ID provided.");
 
   useEffect(() => {
-    if (!id) {
-      setLoadState("error");
-      setErrorMessage("No spec ID provided.");
-      return;
-    }
+    if (!id) return;
 
     let cancelled = false;
 
