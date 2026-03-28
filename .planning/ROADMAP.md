@@ -109,7 +109,10 @@ Plans:
   2. A prompt referencing hospitality domain concepts (e.g., "show reservations for table 5") produces a generated UI that uses reservation and floor plan field names from the actual data schema
   3. Generated Rialto components render inside the hospitality app layout using the same theme and design tokens as the surrounding app — no visual mismatch
   4. The GenCopilot component is importable from `@mbe/rialto` and renders without errors when mounted in any Rialto-themed app
-**Plans**: TBD
+**Plans:** 1 plan
+
+Plans:
+- [ ] 15-01-PLAN.md — GenCopilot component in @mbe/rialto + hospitality dashboard integration
 
 ### Phase 16: Persistence and Refinement
 **Goal**: Generated specs are stored in the database; users can replay past prompts, save favorites, share UIs via permalink, and refine a generated UI conversationally without starting over
@@ -121,7 +124,10 @@ Plans:
   3. A user can mark a generated UI as a favorite and see it in a saved list that persists across sessions
   4. Copying a shareable permalink URL and opening it in a fresh browser session loads the exact stored spec without requiring the original prompt to be re-run
   5. Typing a refinement instruction ("make the button larger") in conversational mode applies a patch to the existing spec rather than regenerating from scratch — the preview updates to reflect only the changed element
-**Plans**: TBD
+**Plans:** 1 plan
+
+Plans:
+- [ ] 15-01-PLAN.md — GenCopilot component in @mbe/rialto + hospitality dashboard integration
 
 ## Progress
 
@@ -141,5 +147,5 @@ Plans:
 | 12. Catalog Foundation | v1.2 | 3/3 | Complete | 2026-03-28 |
 | 13. AI Generation Endpoint | v1.2 | 3/3 | Complete | 2026-03-28 |
 | 14. Playground App | 3/3 | Complete    | 2026-03-28 | - |
-| 15. Hospitality Copilot | v1.2 | 0/TBD | Not started | - |
+| 15. Hospitality Copilot | v1.2 | 0/1 | Planning complete | - |
 | 16. Persistence and Refinement | v1.2 | 0/TBD | Not started | - |
