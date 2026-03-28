@@ -1,8 +1,8 @@
 # Architecture Research
 
-**Domain:** React design system — a11y audit, example pages, component registry, llms.txt, CLI scaffold
-**Researched:** 2026-03-22
-**Confidence:** HIGH (existing codebase examined directly; patterns confirmed against official sources)
+**Domain:** Generative UI integration into existing monorepo (Fastify + Vite SPAs + CF Worker edge)
+**Researched:** 2026-03-27
+**Confidence:** HIGH — patterns verified against official AI SDK v6 docs, json-render source, CF Workers docs, and live AI Gateway model list
 
 ---
 
@@ -11,184 +11,261 @@
 ### System Overview
 
 ```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                    packages/rialto  (source of truth)                        │
-│                                                                               │
-│  src/components/                ← 55 component directories                   │
-│  src/components/accessibility.test.tsx  ← axe-core suite (EXISTS)            │
-│  src/components/components.test.tsx     ← render/prop tests (EXISTS)         │
-│  scripts/generate-manifest.ts           ← TypeScript→JSON parser (EXISTS)    │
-│  dist/manifest.json                     ← build artifact, consumed downstream│
-│  llms.txt                               ← AI reference markdown (EXISTS)     │
-└──────────────┬───────────────────────────────────────────────────────────────┘
-               │  workspace:*  (build-time dependency)
-    ┌──────────▼──────────────────────────────────────────┐
-    │           apps/rialto-web  (showcase + examples)     │
-    │                                                       │
-    │  src/pages/              ← section pages (EXISTS)    │
-    │  src/showcase/           ← per-component demos       │
-    │  src/pages/examples/     ← NEW: realistic page demos │
-    └──────────────────────────────────────────────────────┘
-               │
-    ┌──────────▼──────────────────────────────────────────┐
-    │         tools/cli  (mbe CLI)                         │
-    │                                                       │
-    │  src/commands/agent.ts    ← existing commands        │
-    │  src/commands/init.ts     ← NEW: rialto scaffold cmd │
-    └──────────────────────────────────────────────────────┘
+Browser
+  |
+  | HTTPS
+  v
+mattbutlerengineering.com (CF Worker: edge-router)
+  |
+  |-- /gen/*          --> Workers Static Assets: gen app (NEW, Service Binding)
+  |-- /hospitality/*  --> Workers Static Assets: hospitality (existing, Service Binding)
+  |-- /rialto/*       --> Workers Static Assets: rialto-web (existing, Service Binding)
+  |-- /api/*          --> HTTP subrequest --> api.mattbutlerengineering.com (DO App Platform)
+  |-- /*              --> Workers Static Assets: marketing (existing, Service Binding)
+  |
+  v (for /api/gen/*)
+api.mattbutlerengineering.com (DO App Platform — existing host)
+  |
+  +-- services/agent/ (Fastify, port 3003) [EXTEND with /api/gen/* routes]
+  |     |
+  |     +--> POST /api/gen/ui        — streamText + Output.object() -> JSON spec stream
+  |     +--> POST /api/gen/chat      — streamText -> UI message stream
+  |
+  +--> Vercel AI Gateway (ai-gateway.vercel.sh) via AI_GATEWAY_API_KEY
+  +--> Anthropic Claude (anthropic/claude-sonnet-4.6)
 ```
 
-**Data flow: registry feeds llms.txt feeds AI tools**
+```
+packages/ (new and modified)
+  rialto-catalog/ (NEW)     -- catalog + registry; shared by gen app + hospitality
+  rialto/         (EXTEND)  -- add <GenCopilot> sidebar component
+  types/          (EXTEND)  -- UISpec types, GenPromptRequest types
+  api-client/     (EXTEND)  -- typed client for /api/gen/* endpoints
 
+apps/
+  gen/            (NEW)     -- playground SPA at /gen
+  hospitality/    (EXTEND)  -- integrate <GenCopilot> sidebar via layout
+
+services/
+  agent/          (EXTEND)  -- /api/gen/* routes added to existing Fastify service
 ```
-packages/rialto/src/components/index.ts
-        │
-        │  pnpm manifest  (tsx scripts/generate-manifest.ts)
-        ▼
-  dist/manifest.json     (names, props, types, defaults, char limits)
-        │
-        ├──▶  llms.txt           (markdown; references manifest for completeness)
-        │          │
-        │          └──▶  Cursor / Claude / Copilot read llms.txt as context
-        │
-        └──▶  tools/cli init     (reads manifest to verify rialto is built)
-                   │
-                   └──▶  new app scaffolded with RialtoProvider wiring
-```
+
+### Component Responsibilities
+
+| Component | Responsibility | Implementation |
+|-----------|----------------|----------------|
+| `edge-router` (CF Worker) | Path-prefix routing; SSE passthrough | Add `/gen` Service Binding. SSE passes through transparently — CF Worker returns subrequest `Response` body as-is (ReadableStream passthrough, no buffering). |
+| `services/agent` (Fastify) | AI generation endpoints; stream SSE | New routes `/api/gen/ui` (structured output via `streamText + Output.object()`) and `/api/gen/chat` (`streamText`). Both use `reply.send(result.toUIMessageStream())`. |
+| `packages/rialto-catalog` (new) | Rialto component catalog + registry for json-render | `defineCatalog()` + `defineRegistry()` wrapping real Rialto component implementations; shared across apps. |
+| `apps/gen` (new) | Standalone playground SPA | Vite SPA at `/gen`; `useUIStream` hook + `<Renderer>` from `@json-render/react`; editable prompt, live preview, JSON spec export. |
+| `apps/hospitality` (extend) | Existing SPA + embedded AI copilot | Add `<GenCopilot>` to sidebar via route layout; copilot calls `/api/gen/chat`. |
+| `packages/rialto` (extend) | Shared UI + new `<GenCopilot>` component | `<GenCopilot>` is a UI component; belongs in the design system package so any future app can embed it. |
+| `packages/types` (extend) | Shared TypeScript types | `UISpec`, `GenPromptRequest`, `GenStreamResponse` types consumed by both services and apps. |
+| `packages/api-client` (extend) | Typed fetch wrappers | `genApi.streamUI(prompt)` returning `ReadableStream`; auth headers injected automatically. |
 
 ---
 
-## Component Responsibilities
-
-| Component | Responsibility | Status |
-|-----------|---------------|--------|
-| `packages/rialto/src/components/accessibility.test.tsx` | axe-core WCAG AA checks for all 55 components | EXISTS — coverage gaps to audit |
-| `packages/rialto/src/test/setup.ts` | Vitest globals: vitest-axe matchers, jsdom stubs, framer-motion mock | EXISTS — no changes needed |
-| `packages/rialto/scripts/generate-manifest.ts` | TypeScript Compiler API → `dist/manifest.json` | EXISTS — extend if more metadata needed |
-| `packages/rialto/dist/manifest.json` | Structured component catalog (names, props, types, char limits) | BUILD ARTIFACT |
-| `packages/rialto/llms.txt` | AI-readable markdown: catalog, tokens, patterns, common mistakes | EXISTS — gaps to fill |
-| `apps/rialto-web/src/pages/` | Section showcase pages (forms, overlays, navigation, etc.) | EXISTS |
-| `apps/rialto-web/src/pages/examples/` | NEW: realistic full-page demos (dashboard, settings, data table) | TO BUILD |
-| `tools/cli/src/commands/init.ts` | NEW: `mbe init` scaffold command for new Rialto apps in monorepo | TO BUILD |
-
----
-
-## Recommended Monorepo Layout (new vs. modified)
+## Recommended Project Structure
 
 ```
-mattbutlerengineering/
-├── packages/
-│   └── rialto/
-│       ├── src/
-│       │   └── components/
-│       │       └── accessibility.test.tsx     # MODIFY: audit + fix each component
-│       ├── scripts/
-│       │   └── generate-manifest.ts           # MODIFY: extend prop metadata if needed
-│       └── llms.txt                           # MODIFY: expand with example patterns
-│
-├── apps/
-│   └── rialto-web/
-│       └── src/
-│           ├── routes.tsx                     # MODIFY: add example routes
-│           └── pages/
-│               └── examples/                  # NEW directory
-│                   ├── DashboardPage.tsx       # NEW: metrics + table + sidebar layout
-│                   ├── SettingsPage.tsx        # NEW: forms + toggles + sections
-│                   ├── DataTablePage.tsx       # NEW: Table + Pagination + filters
-│                   └── OnboardingPage.tsx      # NEW: Steps + multi-step form
-│
-└── tools/
-    └── cli/
-        └── src/
-            └── commands/
-                └── init.ts                    # NEW: mbe init <name> scaffold command
+packages/
+  rialto-catalog/
+    package.json             -- name: @mbe/rialto-catalog; private: true
+    src/
+      catalog.ts             -- defineCatalog(schema, { components, actions })
+      registry.tsx           -- defineRegistry(catalog, { components -> Rialto impls })
+      index.ts               -- re-export catalog + registry + inferred types
+    tsconfig.json
+
+apps/
+  gen/
+    package.json             -- name: @mbe/gen; deps: @mbe/rialto, @mbe/rialto-catalog, @mbe/api-client
+    vite.config.ts           -- base: "/gen/", server.port: 3005
+    src/
+      main.tsx               -- RialtoProvider, BrowserRouter basename="/gen"
+      pages/
+        Playground.tsx       -- prompt textarea + <Renderer> + streaming state
+      components/
+        PromptBar.tsx        -- controlled input, send button
+        PreviewPane.tsx      -- <Renderer spec={spec} registry={registry} />
+        CodeExport.tsx       -- show generated JSON spec + export-as-code
+
+services/
+  agent/
+    src/
+      routes/
+        gen-ui.ts            -- POST /api/gen/ui -> streamText + Output.object() (JSON spec)
+        gen-chat.ts          -- POST /api/gen/chat -> streamText (UI message stream)
+      app.ts                 -- register genUiRoutes + genChatRoutes plugins (MODIFY)
+
+infrastructure/
+  worker/
+    edge-router.js           -- add /gen -> env.GEN binding (MODIFY)
+    wrangler.gen.toml        -- NEW: CF Worker config for gen static app
+  pulumi/
+    index.ts                 -- add GEN CF Worker resource (MODIFY)
 ```
 
 ### Structure Rationale
 
-- **`accessibility.test.tsx` (modify, not new):** The axe-core infrastructure already exists (`vitest-axe`, `setup.ts`, canvas stub, framer-motion mock). Work here is audit-driven — run the suite, fix violations in component source, extend test fixtures for missing states (error, disabled, open overlays). No new test infrastructure is required.
+- **`packages/rialto-catalog/` as a separate package:** The catalog definition (`defineCatalog`) is pure data (Zod schemas + descriptions). The registry (`defineRegistry`) wraps real Rialto components. Separating into its own package lets `apps/gen` and `apps/hospitality` share the same catalog without coupling. `packages/rialto` stays lean — no json-render dependency added to the core design system.
 
-- **`apps/rialto-web/src/pages/examples/` (new subdirectory):** Example pages live in the showcase app, not in the library. They consume Rialto components the same way real apps do — this is intentional and provides living proof that the components compose correctly. They serve two purposes: visual reference for developers and composition examples in `llms.txt` for AI context.
+- **Extend `services/agent/` rather than creating a new service:** The agent service already has Fastify, CORS, structured logging, and a DO App Platform deploy pipeline. Two new routes (`/api/gen/ui`, `/api/gen/chat`) do not justify a second service. New routes added as FastifyPlugins in `routes/gen-ui.ts` and `routes/gen-chat.ts`, registered in `app.ts`.
 
-- **`packages/rialto/llms.txt` (modify in-place):** The file already exists and covers component catalog, tokens, motion, and common mistakes. Gaps: no realistic multi-component composition pages, no error state examples, no links to the new example pages, no coverage of the `vibe` prop patterns. These are additive changes, not restructuring.
+- **`apps/gen` as a new Vite SPA:** Follows the established pattern (`apps/hospitality`, `apps/rialto-web`). Gets its own path prefix (`/gen`), its own `vite.config.ts` with `base: "/gen/"`, and its own CF Worker with Static Assets deployed via `wrangler deploy`.
 
-- **`tools/cli/src/commands/init.ts` (new file):** CLI commands follow an established pattern (`users.ts`, `agent.ts`, `login.ts`). A new `init.ts` command reads `@mbe/rialto/manifest` at scaffold time to verify the package is built, then generates a new app skeleton following CLAUDE.md conventions: `base: "/<name>/"` in vite config, `RialtoProvider` in `main.tsx`, assigned dev port.
+- **`<GenCopilot>` in `packages/rialto`:** The copilot sidebar is a UI component, not app-specific logic. Placing it in `@mbe/rialto` makes it available to any future app. It depends on `@mbe/rialto-catalog` and `@json-render/react` — both are acceptable as additional deps in the shared UI package.
 
 ---
 
 ## Architectural Patterns
 
-### Pattern 1: Single-File Axe Suite
+### Pattern 1: SSE Passthrough Through CF Worker Edge
 
-**What:** All axe-core accessibility tests live in one file (`accessibility.test.tsx`) rather than co-located per component. One `describe` block, one `it()` per component state.
+**What:** The CF Worker edge router proxies `/api/*` via `fetch()` returning the subrequest `Response` directly. CF Workers pass `ReadableStream` bodies through without buffering when you return the subrequest `Response` object as-is. SSE from Fastify at DO App Platform reaches the browser without modification.
 
-**When to use:** When the test shape is always identical (`render → axe → toHaveNoViolations`) and only the fixture varies. Co-locating would scatter identical boilerplate across 55 directories.
+**When to use:** All `/api/gen/*` streaming endpoints. No changes needed to the existing `/api/*` routing logic in `edge-router.js`.
 
-**Trade-offs:** The file grows long (~600 lines at full coverage) but is easy to scan. Coverage gaps are immediately visible — if a component is not listed, it has no a11y test. This pattern is already established in the codebase; stay consistent with it.
+**Trade-offs:** CF Free plan has a 100ms CPU time limit per Worker invocation, but this applies only to the Worker's own CPU usage. The edge router executes minimal CPU work (URL rewrite + `fetch()`), then suspends while awaiting the upstream stream. Long-lived SSE connections are not a concern.
+
+**Required Fastify headers** to prevent intermediate proxy buffering:
+```typescript
+reply.header("Content-Type", "text/plain; charset=utf-8");
+reply.header("X-Accel-Buffering", "no");
+reply.header("Cache-Control", "no-cache");
+reply.header("x-vercel-ai-ui-message-stream", "v1");
+```
+
+**Example (AI SDK v6 — uses `streamText` with `Output.object()`, not `streamObject`):**
+```typescript
+// services/agent/src/routes/gen-ui.ts
+import { streamText, Output } from "ai";
+import type { FastifyPluginAsync } from "fastify";
+import { catalog } from "@mbe/rialto-catalog";
+import { uiSpecSchema } from "@mbe/types";
+
+// AI SDK v6: when the model string is "provider/model", the AI SDK automatically
+// routes through the Vercel AI Gateway using AI_GATEWAY_API_KEY env var.
+// No separate provider import needed.
+
+export const genUiRoutes: FastifyPluginAsync = async (fastify) => {
+  fastify.post("/api/gen/ui", async (request, reply) => {
+    const { prompt } = request.body as { prompt: string };
+
+    const result = streamText({
+      model: "anthropic/claude-sonnet-4.6",
+      system: catalog.prompt(),
+      prompt,
+      output: Output.object({ schema: uiSpecSchema }),
+    });
+
+    reply.header("Content-Type", "text/plain; charset=utf-8");
+    reply.header("X-Accel-Buffering", "no");
+    reply.header("Cache-Control", "no-cache");
+    reply.header("x-vercel-ai-ui-message-stream", "v1");
+
+    return reply.send(result.toUIMessageStream());
+  });
+};
+```
+
+**AI Gateway auth for DO App Platform:** OIDC tokens require Vercel hosting and `vercel env pull`. For DO App Platform, use `AI_GATEWAY_API_KEY` — create a key in the Vercel AI Gateway dashboard and add it to DO App Platform environment variables. This is the correct approach for non-Vercel-hosted servers.
+
+### Pattern 2: Catalog-Constrained Generation (json-render)
+
+**What:** `@json-render/core` `defineCatalog()` builds a Zod-validated catalog of Rialto components. `catalog.prompt()` generates a system prompt that constrains the model to only produce components declared in the catalog. The model outputs a flat JSON spec. `@json-render/react` `<Renderer>` resolves the spec against the registry (actual Rialto component implementations) and renders it.
+
+**When to use:** All generative UI features. The playground app and copilot sidebar share the same catalog from `@mbe/rialto-catalog`. The catalog is the single source of truth for what the AI can produce.
+
+**Trade-offs:** The catalog must be kept in sync with Rialto component props as the design system evolves. Adding a new Rialto component requires adding it to the catalog with Zod prop schemas. This is a manual step but low friction.
+
+**Example — catalog definition:**
+```typescript
+// packages/rialto-catalog/src/catalog.ts
+import { defineCatalog } from "@json-render/core";
+import { schema } from "@json-render/react/schema";
+import { z } from "zod";
+
+export const catalog = defineCatalog(schema, {
+  components: {
+    Button: {
+      props: z.object({
+        label: z.string(),
+        variant: z.enum(["primary", "secondary", "ghost", "danger"]).optional(),
+        size: z.enum(["sm", "md", "lg"]).optional(),
+        disabled: z.boolean().optional(),
+      }),
+      description: "Clickable button. Use variant=primary for main CTA actions.",
+    },
+    Card: {
+      props: z.object({
+        title: z.string().optional(),
+        subtitle: z.string().optional(),
+        padding: z.enum(["sm", "md", "lg"]).optional(),
+      }),
+      slots: ["default"],
+      description: "Content container. Use for grouping related content.",
+    },
+    // ... remaining Rialto components with descriptions
+  },
+  actions: {
+    navigate: {
+      params: z.object({ path: z.string() }),
+      description: "Navigate to a path within the app",
+    },
+  },
+});
+```
+
+**Example — registry (maps catalog to real Rialto components):**
+```typescript
+// packages/rialto-catalog/src/registry.tsx
+import { defineRegistry } from "@json-render/react";
+import { Button, Card, Input, Text, Stack, Badge } from "@mbe/rialto";
+import { catalog } from "./catalog.js";
+
+export const { registry } = defineRegistry(catalog, {
+  components: {
+    Button: ({ props, emit }) => (
+      <Button variant={props.variant} size={props.size} disabled={props.disabled}
+        onClick={() => emit("press")}>
+        {props.label}
+      </Button>
+    ),
+    Card: ({ props, children }) => (
+      <Card title={props.title} subtitle={props.subtitle} padding={props.padding}>
+        {children}
+      </Card>
+    ),
+    // ...
+  },
+});
+```
+
+### Pattern 3: Progressive Spec Streaming with `useUIStream`
+
+**What:** `@json-render/react` `useUIStream` hook connects to the Fastify SSE endpoint, applies streaming JSON-Pointer patches as tokens arrive, and exposes a `spec` object that `<Renderer>` consumes. The UI builds progressively as the model generates — components appear as their JSON nodes complete.
+
+**When to use:** `apps/gen` playground (full spec stream via `streamText + Output.object()` on backend). The hospitality copilot variant uses `useChat` instead (text + tool call stream), since the copilot response is conversational rather than a pure spec render.
+
+**Trade-offs:** Progressive rendering requires the flat json-render spec format (element map with ID references). This works out-of-the-box with `streamText + Output.object()` on the backend and `useUIStream` on the frontend. No custom streaming plumbing needed.
 
 **Example:**
 ```typescript
-it("Input", async () => {
-  const { container } = render(
-    <Input label="Email address" type="email" hint="We will never share your email" />
+// apps/gen/src/pages/Playground.tsx
+import { useUIStream, Renderer } from "@json-render/react";
+import { registry } from "@mbe/rialto-catalog";
+import { Stack } from "@mbe/rialto";
+
+export function Playground() {
+  const { spec, isStreaming, send } = useUIStream({ api: "/api/gen/ui" });
+
+  return (
+    <Stack direction="column" gap="lg">
+      <PromptBar onSend={send} disabled={isStreaming} />
+      <Renderer spec={spec} registry={registry} loading={isStreaming} />
+    </Stack>
   );
-  expect(await axe(container)).toHaveNoViolations();
-});
-
-// Error state — separate it() because aria-invalid changes axe rule set
-it("Input — error state", async () => {
-  const { container } = render(
-    <Input label="Email address" error="Please enter a valid email" />
-  );
-  expect(await axe(container)).toHaveNoViolations();
-});
-```
-
-### Pattern 2: Build-Time Manifest, Static llms.txt
-
-**What:** `manifest.json` is generated at build time from TypeScript source via the Compiler API. `llms.txt` is a static markdown file committed to the repo, manually authored and updated.
-
-**When to use:** Always. The manifest provides prop exhaustiveness that prose cannot; llms.txt provides narrative, decision rationale, and composition guidance that TypeScript types cannot express.
-
-**Trade-offs:** Two artifacts require manual sync discipline. Mitigation: a lightweight lint script that verifies every component in `manifest.json` has a row in `llms.txt`. This is a ~20-line check.
-
-**Do not generate llms.txt from manifest.json.** Generated llms.txt files contain only type information — they lack the "which overlay?", "common mistakes", and composition examples that make llms.txt useful for AI context.
-
-**Data flow:**
-```
-dist/manifest.json  →  machine-structured: { name, props[], characterLimits[] }
-llms.txt            →  human+AI narrative: decision guides, composition patterns, mistakes
-AI tool             →  reads llms.txt as context; uses it to produce correct component usage
-```
-
-### Pattern 3: Registry-Informed CLI Scaffold
-
-**What:** The `mbe init` command does not embed hardcoded component lists. It reads `@mbe/rialto/manifest` at scaffold time to verify the package is built, then generates a minimal app skeleton.
-
-**When to use:** Always. Embedding component lists in the CLI creates drift. The manifest is the single source of truth for what components exist.
-
-**Trade-offs:** Requires `dist/manifest.json` to exist (rialto must be built before scaffolding). In the monorepo this is a Turborepo dependency, not a manual concern.
-
-**What the scaffold produces:**
-```
-apps/<name>/
-├── src/
-│   ├── main.tsx       (RialtoProvider + import "@mbe/rialto/styles")
-│   └── App.tsx        (minimal shell with placeholder)
-├── package.json       (name: "@mbe/<name>", vite, react deps)
-└── vite.config.ts     (base: "/<name>/", port: <chosen>)
-```
-
-**Example sketch:**
-```typescript
-// tools/cli/src/commands/init.ts
-import manifest from "@mbe/rialto/manifest";
-
-export async function init(name: string, port: number) {
-  // verifying manifest resolves confirms rialto is built
-  const componentCount = manifest.components.length;
-  console.log(`Scaffolding app with ${componentCount} components available`);
-  await scaffoldApp(name, port);
 }
 ```
 
@@ -196,204 +273,275 @@ export async function init(name: string, port: number) {
 
 ## Data Flow
 
-### A11y Audit Flow
+### Full Request Path: Prompt to Rendered UI
 
 ```
-Developer runs: pnpm test (from packages/rialto or monorepo root)
-    │
-    ▼
-Vitest picks up accessibility.test.tsx
-    │
-    ▼
-Each it() renders component fixture in jsdom
-    │
-    ▼
-axe(container) scans rendered DOM with WCAG 2.1 AA ruleset
-    │
-    ├─ PASS → next test
-    └─ FAIL → violation: { id, impact, description, nodes[] }
-                  │
-                  └─ Fix in component: add aria-label, fix contrast token,
-                     add role attribute, correct heading hierarchy, etc.
+1. User types prompt in apps/gen Playground
+        |
+        v
+2. useUIStream.send(prompt)
+   POST /api/gen/ui
+   Headers: Content-Type: application/json, Authorization: Bearer <token>
+        |
+        v
+3. CF Worker edge-router (edge-router.js)
+   url.pathname.startsWith("/api/") -> fetch(api.mattbutlerengineering.com/api/gen/ui)
+   request.body passed through verbatim (existing pattern, no change needed)
+        |
+        v
+4. services/agent Fastify — POST /api/gen/ui route handler
+   - Validates body: { prompt: string }
+   - Calls catalog.prompt() -> system prompt with component schema
+   - Calls streamText({ model: "anthropic/claude-sonnet-4.6", output: Output.object({ schema }) })
+   - AI SDK routes "anthropic/*" string through Vercel AI Gateway via AI_GATEWAY_API_KEY
+   - Sets SSE headers (text/plain, X-Accel-Buffering: no, x-vercel-ai-ui-message-stream: v1)
+   - reply.send(result.toUIMessageStream()) -> begins streaming
+        |
+        v
+5. Vercel AI Gateway -> Anthropic Claude (anthropic/claude-sonnet-4.6)
+   Generates JSON spec tokens constrained to catalog schema
+   Streams tokens back to Fastify -> Fastify pipes to DO response body
+        |
+        v
+6. CF Worker receives the subrequest Response, returns it directly to browser
+   (ReadableStream body — no buffering, no modification)
+        |
+        v
+7. Browser — useUIStream hook receives SSE stream
+   Applies progressive JSON-Pointer patches to build spec object
+   spec changes trigger React re-renders via useState
+        |
+        v
+8. <Renderer spec={spec} registry={registry} />
+   Resolves each spec element type to a Rialto component via registry lookup
+   Renders components as spec nodes complete — UI appears progressively
+        |
+        v
+9. User sees UI building in real time
+   isStreaming=false when done; CodeExport shows final JSON spec
 ```
 
-### Registry → AI Tool Flow
+### Hospitality Copilot Data Flow
 
 ```
-pnpm build (packages/rialto)
-    │
-    ├─ Vite lib build → dist/lib/rialto.js, dist/lib/styles.css
-    └─ pnpm manifest → dist/manifest.json
-            │
-            └─ llms.txt references manifest: "Run pnpm manifest to get full prop catalog"
-                    │
-                    └─ AI IDE (Cursor/Claude/Copilot) reads llms.txt as context window
-                            │
-                            └─ Generates code using correct component names, props,
-                               composition patterns, and character limit constraints
+Hospitality user -> <GenCopilot> sidebar (in apps/hospitality)
+  |
+  | POST /api/gen/chat (AI SDK useChat text/tool stream)
+  v
+services/agent — /api/gen/chat — streamText({ model: "anthropic/claude-sonnet-4.6", system, prompt, tools })
+  |                               tools can call reservations API, fetch table status, etc.
+  v
+useChat hook in <GenCopilot>
+  -> Renders assistant messages as text
+  -> Tool call results can render a <Renderer> inline within the chat message
 ```
 
-### CLI Scaffold Flow
+### AI SDK Dependency Placement
 
 ```
-Developer runs: mbe init my-feature-app
-    │
-    ▼
-tools/cli resolves @mbe/rialto/manifest (fails fast if not built)
-    │
-    ▼
-Prompts: confirm app name, port (default: next available from 3005+)
-    │
-    ▼
-Writes: apps/my-feature-app/
-    ├── src/main.tsx       (RialtoProvider + style import)
-    ├── src/App.tsx        (shell)
-    └── vite.config.ts     (base: "/my-feature-app/", server.port: <chosen>)
-    │
-    ▼
-Prints: "Add to Turborepo pipeline and edge-router.js manually"
+services/agent/package.json:
+  "ai": "^6.x"               -- streamText, Output, createUIMessageStream
+  (no @ai-sdk/anthropic needed — AI Gateway routing is built into AI SDK v6
+   when using "provider/model" string format with AI_GATEWAY_API_KEY)
+
+packages/rialto-catalog/package.json:
+  "@json-render/core": "^1.x"   -- defineCatalog, schema
+  "@json-render/react": "^1.x"  -- defineRegistry
+  "@mbe/rialto": "workspace:*"  -- Rialto component implementations in registry
+  "zod": "^3.x"                 -- prop schema definitions
+
+apps/gen/package.json:
+  "@mbe/rialto-catalog": "workspace:*"  -- catalog + registry
+  "@json-render/react": "^1.x"          -- Renderer, useUIStream
+
+packages/rialto/package.json (extend):
+  "@json-render/react": "^1.x"          -- Renderer (for GenCopilot component)
+  "ai": "^6.x"                          -- useChat (client-side, for GenCopilot)
+
+apps/hospitality/package.json (extend):
+  "@mbe/rialto-catalog": "workspace:*"  -- catalog + registry (for inline rendering)
 ```
+
+**Rule:** `ai` server SDK (`streamText`, `Output`) lives in `services/` only. Client-side hooks (`useChat`, `useUIStream`) live in `apps/` or `packages/rialto` (for the `<GenCopilot>` component). Catalog definitions live in `packages/rialto-catalog/`.
 
 ---
 
-## Integration Points
+## Component Boundaries
 
-### A11y Suite ↔ Existing Test Infrastructure
-
-| Integration | Mechanism | Notes |
-|-------------|-----------|-------|
-| `vitest-axe` matchers | `src/test/setup.ts` already calls `expect.extend(matchers)` | No new setup needed |
-| jsdom canvas stub | `setup.ts` stubs `getContext` — axe uses canvas for contrast checks | No change needed |
-| framer-motion mock | `setup.ts` mocks `useReducedMotion` → `true` | Prevents animation interference during axe scan |
-| CI pipeline | `pnpm test` in Turborepo pipeline for `@mbe/rialto` | Already wired; no new CI config needed |
-
-### manifest.json ↔ Build Pipeline
-
-| Integration | Mechanism | Notes |
-|-------------|-----------|-------|
-| Generation trigger | `package.json` `"build"` script: `vite build … && pnpm manifest` | Manifest always generated after JS bundle |
-| Turborepo cache | `dist/manifest.json` is a build output — cached per source hash | No change needed |
-| CLI consumption | `import manifest from "@mbe/rialto/manifest"` via `"./manifest": "./dist/manifest.json"` export | Requires rialto to be built first; Turborepo dependency handles ordering |
-| llms.txt sync | Manual — add lint script to verify all `manifest.json` components appear in `llms.txt` | Lightweight check, not a blocking build step |
-
-### llms.txt ↔ Example Pages
-
-| Integration | Mechanism | Notes |
-|-------------|-----------|-------|
-| Link from llms.txt | Add `## Example Pages` section linking to rialto-web routes | Static links — no build step |
-| Consistency | Example pages must use the same composition patterns documented in llms.txt | Manual discipline; examples are the canonical source for AI composition guidance |
-| AI consumption | AI tools fetch llms.txt and use example code as few-shot demonstrations | The richer the examples, the better the AI output quality |
-
-### CLI ↔ Monorepo Conventions
-
-| Integration | Mechanism | Notes |
-|-------------|-----------|-------|
-| Port assignment | CLAUDE.md documents ports 3000–3004; CLI assigns 3005+ or prompts | No magic; convention enforced via prompt/docs |
-| Path prefix | CLI writes `base: "/<name>/"` to `vite.config.ts` per CLAUDE.md convention | New app is immediately routable with edge-router wiring |
-| Turborepo pipeline | New apps auto-discovered via pnpm workspace glob `apps/*` | New `package.json` with `"name": "@mbe/<name>"` is all that's required |
-| Edge router | CLI does NOT modify `infrastructure/worker/edge-router.js` — prints instructions instead | Avoids CLI touching infrastructure files; developer adds route manually |
+| Boundary | Communication | Notes |
+|----------|---------------|-------|
+| `apps/gen` <-> `services/agent` | HTTP POST + SSE stream via `/api/gen/ui` | Bearer token in Authorization header; CORS already configured in Fastify |
+| `apps/hospitality` <-> `services/agent` | HTTP POST + SSE stream via `/api/gen/chat` | Same auth pattern; extend `@mbe/api-client` with `genApi` methods |
+| `apps/*` <-> `packages/rialto-catalog` | Direct workspace import | `@mbe/rialto-catalog` provides catalog + registry; no network boundary |
+| `packages/rialto-catalog` <-> `packages/rialto` | Workspace import | Registry wraps real Rialto components; prop schemas must stay in sync with Rialto prop types |
+| `services/agent` <-> Vercel AI Gateway | HTTPS via `ai-gateway.vercel.sh` | Auth: `AI_GATEWAY_API_KEY` env var in DO App Platform. Model string `"anthropic/claude-sonnet-4.6"` routes automatically. OIDC auth is Vercel-hosted only — not applicable to DO. |
+| CF Worker <-> `apps/gen` | Service Binding (new) | New `GEN` binding in `wrangler.gen.toml`; new `/gen` route in `edge-router.js` |
+| CF Worker <-> `services/agent` | HTTP subrequest (existing) | No changes to `/api/*` routing logic needed |
 
 ---
 
-## Build Order (Dependency Graph)
+## Build Order
+
+Phases that can be parallelized are marked with `||`.
 
 ```
-Phase 1: A11y fixes
-  packages/rialto/src/components/**  (fix violations in component source)
-      ↓ depends on nothing
-  pnpm test  (passes green) → CI gate
+Phase 1: Foundation packages (no deps on new code — start here)
+  packages/rialto-catalog    -- defineCatalog, defineRegistry, catalog.prompt()
+  packages/types             -- extend with UISpec, GenPromptRequest, GenStreamResponse
+  packages/api-client        -- extend with genApi.streamUI() + genApi.streamChat()
 
-Phase 2: Example pages
-  apps/rialto-web/src/pages/examples/**  (new page components)
-  apps/rialto-web/src/routes.tsx         (add example routes)
-      ↓ depends on Phase 1 (examples use fixed, correct components)
-  pnpm build --filter=@mbe/rialto-web  (verifies examples build)
+Phase 2: Backend routes (depends on Phase 1 types and catalog)
+  services/agent             -- gen-ui.ts + gen-chat.ts routes
+                             -- register in app.ts
+                             -- add AI_GATEWAY_API_KEY to DO App Platform env config
+                             -- (uses "anthropic/claude-sonnet-4.6" model string — no provider URL needed)
 
-Phase 3: llms.txt expansion
-  packages/rialto/llms.txt  (add example patterns, link to new pages)
-      ↓ depends on Phase 2 (links to example page routes that now exist)
-  (no build step — static file committed to repo)
+Phase 3a || Phase 3b: Apps (both depend on Phase 1 + 2, run in parallel)
 
-Phase 4: CLI scaffold
-  tools/cli/src/commands/init.ts
-      ↓ depends on packages/rialto build (reads dist/manifest.json)
-  pnpm build --filter=@mbe/cli  (verifies command compiles)
+  3a: Playground app
+    apps/gen                 -- Vite SPA, /gen path prefix
+    infrastructure/worker    -- wrangler.gen.toml, edge-router.js /gen binding
+    infrastructure/pulumi    -- GEN CF Worker resource
+
+  3b: Copilot embed
+    packages/rialto          -- <GenCopilot> component (useChat + optional Renderer)
+    apps/hospitality         -- integrate <GenCopilot> into DashboardLayout sidebar
 ```
 
-**Why this order:**
-- A11y first: example pages are meant to demonstrate correct, accessible patterns — components must pass axe before they appear in canonical examples
-- Examples before llms.txt: llms.txt links to example page routes; routes must exist before links are added
-- llms.txt before CLI: the scaffold produces apps that import from Rialto; llms.txt is what AI tools read to understand that scaffold — they are better paired when llms.txt reflects the full component surface
-- `dist/manifest.json` is produced by the Phase 1 build; the CLI in Phase 4 inherits it automatically via Turborepo
+Phases 3a and 3b share no direct dependency on each other and can be developed concurrently once Phase 2 is complete.
 
 ---
 
 ## Anti-Patterns
 
-### Anti-Pattern 1: Co-locating Axe Tests Per Component
+### Anti-Pattern 1: New Service for Gen Endpoints
 
-**What people do:** Add `ComponentName.a11y.test.tsx` inside each component directory alongside `ComponentName.tsx`.
+**What people do:** Create `services/gen/` as a separate Fastify service with its own Prisma, CORS, logging, Docker config, and DO App Platform component.
 
-**Why it's wrong:** Identical boilerplate scattered across 55 directories. Gap detection requires grepping rather than scanning one file. The single-file pattern already established in this codebase (`accessibility.test.tsx`) is correct — stay consistent with it.
+**Why it's wrong:** Two streaming routes do not justify a new service. The agent service already has all required infrastructure: Fastify, CORS, structured logging, DO App Platform deploy pipeline, environment variable management. A second service doubles operational surface area for zero benefit.
 
-**Do this instead:** Keep one `accessibility.test.tsx`. Add separate `it()` per meaningful state variant (error, disabled, open) only when those states have distinct ARIA semantics that axe checks differently.
+**Do this instead:** Add `genUiRoutes` and `genChatRoutes` as FastifyPlugins to `services/agent/src/routes/`. Register them in `app.ts`. Total addition is approximately 80 lines of route code.
 
-### Anti-Pattern 2: Generating llms.txt from manifest.json
+### Anti-Pattern 2: Installing AI SDK at Monorepo Root
 
-**What people do:** Script that renders `manifest.json` → `llms.txt` as a build step, treating llms.txt as a generated artifact.
+**What people do:** Install `ai`, `@ai-sdk/anthropic`, `@json-render/react` in the root `package.json` for convenience.
 
-**Why it's wrong:** The manifest contains types and prop shapes. It cannot generate the decision guidance ("which overlay?"), composition examples, common mistakes, or token rationale that makes llms.txt useful for AI context. Generated llms.txt files produce worse AI output than hand-authored ones because they lack narrative.
+**Why it's wrong:** `ai` (server SDK) should never be included in Vite SPA builds. `@json-render/react` should not be imported in the Fastify service. Root-level installation makes Turborepo's dependency graph ambiguous and risks cross-contamination in production bundles.
 
-**Do this instead:** Hand-author `llms.txt`. Use the manifest as a cross-check: a lint script flags components present in `manifest.json` but absent from `llms.txt`. Keep the two artifacts in deliberate sync.
+**Do this instead:** Install `ai` only in `services/agent/package.json`. Install `@json-render/react` and client-side hooks only in packages and apps that use them. Let Turborepo's workspace resolution handle version consistency.
 
-### Anti-Pattern 3: CLI Scaffold as a Separate Package
+### Anti-Pattern 3: `Content-Type: application/json` on Streaming Endpoints
 
-**What people do:** Create `packages/create-rialto-app` as a standalone NPM-publishable package mirroring `create-react-app`.
+**What people do:** Set `Content-Type: application/json` on `/api/gen/ui` expecting the structured output schema means JSON delivery.
 
-**Why it's wrong:** The monorepo convention is `tools/cli` with `mbe` as the unified command (`mbe agent`, `mbe users`). A second CLI binary adds friction and breaks the convention. CLAUDE.md says npm publishing is out of scope.
+**Why it's wrong:** `streamText + Output.object()` streams partial JSON tokens, not a complete JSON document. Any JSON parser that sees the response will either fail or wait for the stream to close before parsing — defeating the purpose of streaming.
 
-**Do this instead:** Add `init.ts` to `tools/cli/src/commands/` following the existing command pattern. The command is `mbe init <name>`, consistent with the established CLI interface.
+**Do this instead:** Set `Content-Type: text/plain; charset=utf-8`. The AI SDK's `toUIMessageStream()` produces a text-based line-delimited SSE format. Set `x-vercel-ai-ui-message-stream: v1` so `useUIStream` and `useChat` recognize the protocol version.
 
-### Anti-Pattern 4: Hosting llms.txt as a Vite Route
+### Anti-Pattern 4: Catalog Definitions Inside `packages/rialto`
 
-**What people do:** Serve `llms.txt` as a dynamic route in the rialto-web SPA at `/rialto/llms.txt`.
+**What people do:** Add `defineCatalog` and `defineRegistry` calls directly inside `packages/rialto` alongside the component source.
 
-**Why it's wrong:** The llms.txt spec (llmstxt.org) requires the file at `/llms.txt` at the root. An SPA route returns HTML (the app shell), not plain text. AI tools that fetch `llms.txt` by URL will receive unusable HTML.
+**Why it's wrong:** `packages/rialto` is a design system library. Adding `@json-render/core` couples every consumer of `@mbe/rialto` to json-render, significantly increasing bundle weight. Apps that only use Rialto components (marketing, users) would pull in unused json-render code.
 
-**Do this instead:** `llms.txt` stays as a committed file in `packages/rialto/`. AI tools in the monorepo (Cursor, Claude Code) read it directly via the file system. For public hosting (a future milestone), serve it as a static file from the Cloudflare edge, not from the SPA.
+**Do this instead:** Keep `packages/rialto-catalog` as a separate internal package (`private: true`) that depends on `@mbe/rialto`. Only apps doing generative UI add `@mbe/rialto-catalog` as a dependency.
 
-### Anti-Pattern 5: Axe Tests on Empty or Trivial Fixtures
+### Anti-Pattern 5: Buffering SSE at the CF Worker Edge
 
-**What people do:** Write `render(<Button />)` without required props, or render components in states that never appear in real use.
+**What people do:** In `edge-router.js`, read the full upstream response before returning it — e.g., `new Response(await upstreamResponse.text(), ...)`.
 
-**Why it's wrong:** axe-core finds violations in content that doesn't reflect real usage (e.g., an `<input>` with no label because the label prop was omitted). False positives obscure real issues; trivial fixtures miss real ones.
+**Why it's wrong:** This defeats streaming entirely. The browser receives nothing until the AI model finishes generating (potentially 15-30 seconds), then gets all content at once. The UX degrades to an unresponsive loading spinner.
 
-**Do this instead:** Render each component with realistic, representative props — the same props you would use in a real application. Test error states separately. Consult `llms.txt` character limits and `manifest.json` prop descriptions to build accurate fixtures.
+**Do this instead:** Return the subrequest response body directly: `return fetch(target, ...)` or `return response`. CF Workers pass `ReadableStream` bodies through without buffering when you return the `Response` object as-is. The existing edge router already does this correctly for `/api/*` — do not change that logic.
+
+### Anti-Pattern 6: Coupling Gen Routes to `@mbe/agent-core`
+
+**What people do:** Import `@anthropic-ai/claude-agent-sdk` from `@mbe/agent-core` inside the gen routes, assuming the agent SDK handles streaming.
+
+**Why it's wrong:** `@anthropic-ai/claude-agent-sdk` is for autonomous code-editing agents (the existing sessions feature). Gen routes need `streamText + Output.object()` from the Vercel `ai` package — a fundamentally different paradigm (constrained JSON generation vs. open-ended tool-calling agent loops).
+
+**Do this instead:** Gen routes import directly from `ai`. They have no dependency on `@mbe/agent-core`.
+
+### Anti-Pattern 7: Using `streamObject()` (removed in AI SDK v6)
+
+**What people do:** Import and call `streamObject({ model, schema, prompt })` from the `ai` package.
+
+**Why it's wrong:** `streamObject` was removed in AI SDK v6. The replacement is `streamText` with `output: Output.object({ schema })`. Using the removed API causes a runtime error.
+
+**Do this instead:**
+```typescript
+// WRONG (v5 API — removed)
+import { streamObject } from "ai";
+const result = streamObject({ model, schema: mySchema, prompt });
+
+// CORRECT (v6 API)
+import { streamText, Output } from "ai";
+const result = streamText({ model, output: Output.object({ schema: mySchema }), prompt });
+```
+
+### Anti-Pattern 8: OIDC Auth for Non-Vercel Servers
+
+**What people do:** Attempt to use `vercel env pull` OIDC tokens to authenticate with the AI Gateway from DO App Platform.
+
+**Why it's wrong:** OIDC tokens are generated by Vercel for Vercel-hosted projects only. They require `vercel env pull` and expire every 12 hours. DO App Platform cannot generate them.
+
+**Do this instead:** Create an `AI_GATEWAY_API_KEY` in the Vercel AI Gateway dashboard. Add it to DO App Platform as an environment variable. The AI SDK automatically uses `AI_GATEWAY_API_KEY` when routing via `"provider/model"` string format.
+
+---
+
+## Integration Points
+
+### External Services
+
+| Service | Integration Pattern | Notes |
+|---------|---------------------|-------|
+| Vercel AI Gateway | AI SDK v6 model string `"anthropic/claude-sonnet-4.6"` + `AI_GATEWAY_API_KEY` env var | No separate provider import needed in v6. API key auth (not OIDC) is correct for DO App Platform. Fetch current model IDs from `https://ai-gateway.vercel.sh/v1/models` before hardcoding. |
+| json-render npm packages | `@json-render/core`, `@json-render/react` as npm dependencies | Apache 2.0 license; active development (200+ releases since Jan 2026 launch); pin to minor version |
+
+### Internal Boundaries
+
+| Boundary | Communication | Notes |
+|----------|---------------|-------|
+| `edge-router.js` <-> `apps/gen` Worker | New `GEN` Service Binding | Same pattern as existing `HOSPITALITY` and `RIALTO` bindings; add `wrangler.gen.toml` |
+| `packages/rialto-catalog` <-> `apps/*` | Workspace import | `catalog.prompt()` called server-side in Fastify route; `registry` used client-side in Renderer |
+| `services/agent` gen routes <-> `packages/agent-core` | No coupling | Gen routes use `ai` SDK directly; they do not touch `@anthropic-ai/claude-agent-sdk` |
+| `packages/rialto-catalog` <-> `packages/rialto` | Workspace import (registry depends on Rialto components) | Must keep catalog prop schemas in sync with Rialto component prop types |
 
 ---
 
 ## Scaling Considerations
 
-This is an internal design system in a personal engineering portfolio. Scaling is not a concern for this milestone. The architecture is sized correctly for the problem.
-
 | Scale | Architecture |
 |-------|-------------|
-| Current (1 developer, 3 apps, 55 components) | Single `accessibility.test.tsx`, static `llms.txt`, `dist/manifest.json` via build script |
-| If npm-published (future) | llms.txt moves to a public URL; manifest becomes a versioned API; CLI gains `npx @mbe/create-rialto-app` entrypoint alongside `mbe init` |
+| 0-1k gen requests/day | Single DO App Platform dyno; no caching; SSE adds no server-side state |
+| 1k-100k requests/day | Rate-limit `/api/gen/*` routes (add per-IP or per-user limit alongside existing `MAX_CONCURRENT_SESSIONS` pattern); token cost becomes significant — enable Anthropic prompt caching on the system prompt (`catalog.prompt()` is stable and long) |
+| 100k+ requests/day | Extract gen routes to dedicated service; add request queue to prevent AI Gateway rate limit spikes; cache popular specs by prompt hash with short TTL |
+
+### Scaling Priorities
+
+1. **First bottleneck:** AI Gateway / Anthropic rate limits. Gen routes share the same `AI_GATEWAY_API_KEY` as agent sessions. Consider separate gateway keys for gen vs. agent session traffic — configurable in Vercel AI Gateway dashboard with per-key spend limits.
+2. **Second bottleneck:** DO App Platform dyno concurrency. Each SSE stream holds a Fastify connection open for 5-30s. Monitor active connection count; scale horizontally before adding architectural complexity.
 
 ---
 
 ## Sources
 
-- Existing codebase: `packages/rialto/src/test/setup.ts`, `accessibility.test.tsx`, `scripts/generate-manifest.ts`, `llms.txt`, `package.json` — examined directly (HIGH confidence)
-- [vitest-axe API reference — toHaveNoViolations matcher](https://deepwiki.com/chaance/vitest-axe/3.3-tohavenoviolations-matcher) (MEDIUM confidence)
-- [llms.txt specification — file format, root path requirement](https://llmstxt.org/) (HIGH confidence)
-- [shadcn component registry JSON schema](https://ui.shadcn.com/docs/registry/registry-json) — monorepo CLI integration pattern reference (MEDIUM confidence — more complex than needed; used as reference only)
-- [Nord Design System llms.txt](https://nordhealth.design/ai/llms-txt/) — production design system llms.txt structure reference (MEDIUM confidence)
-- [axe-core React testing guide](https://oneuptime.com/blog/post/2026-01-15-test-react-accessibility-axe-core/view) — render → axe → assert pattern (MEDIUM confidence, consistent with existing codebase)
-- [Supercharge your design system with LLMs and Storybook MCP](https://tympanus.net/codrops/2025/12/09/supercharge-your-design-system-with-llms-and-storybook-mcp/) — component manifest + AI context pattern (MEDIUM confidence)
+- [AI SDK Fastify Cookbook](https://ai-sdk.dev/cookbook/api-servers/fastify) — Official Fastify + `streamText` patterns (HIGH confidence)
+- [AI SDK Stream Protocol](https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol) — SSE format, `x-vercel-ai-ui-message-stream` header requirement (HIGH confidence)
+- [AI SDK Generating Structured Data](https://ai-sdk.dev/docs/ai-sdk-core/generating-structured-data) — `streamText + Output.object()` replacing `streamObject` in v6; `partialOutputStream` (HIGH confidence)
+- [Vercel AI Gateway Overview](https://vercel.com/docs/ai-gateway) — capabilities, model string format `"provider/model"` (HIGH confidence)
+- [Vercel AI Gateway Text Quickstart](https://vercel.com/docs/ai-gateway/getting-started/text) — `AI_GATEWAY_API_KEY` env var, model string routing, OIDC token scope (HIGH confidence — official docs)
+- [Vercel AI Gateway Authentication](https://vercel.com/docs/ai-gateway/authentication-and-byok/authentication) — API key vs. OIDC; OIDC requires Vercel hosting (HIGH confidence)
+- [json-render Getting Started (DeepWiki)](https://deepwiki.com/vercel-labs/json-render/2-getting-started) — `defineCatalog`, `defineRegistry`, `useUIStream`, `<Renderer>` patterns (HIGH confidence)
+- [json-render Official Site](https://json-render.dev/) — `catalog.prompt()` system prompt generation, Zod prop schema examples (HIGH confidence)
+- [Vercel json-render Release (InfoQ)](https://www.infoq.com/news/2026/03/vercel-json-render/) — Framework architecture, progressive rendering, flat spec format (MEDIUM confidence — journalism, not official docs)
+- [Cloudflare Workers SSE](https://developers.cloudflare.com/agents/api-reference/http-sse/) — SSE support in CF Workers, long-lived connection behavior (HIGH confidence)
+- [CF Workers Streams](https://developers.cloudflare.com/workers/runtime-apis/streams/) — ReadableStream passthrough; no buffering when returning Response body as-is (HIGH confidence)
+- [CF SSE buffering community thread](https://community.cloudflare.com/t/using-server-sent-events-sse-with-cloudflare-proxy/656279) — `X-Accel-Buffering: no` requirement for proxy passthrough (MEDIUM confidence)
+- Live AI Gateway model list: `curl https://ai-gateway.vercel.sh/v1/models` — confirmed `anthropic/claude-sonnet-4.6` as current highest version (HIGH confidence — live data)
+- Existing codebase: `infrastructure/worker/edge-router.js`, `services/agent/src/app.ts`, `packages/agent-core/package.json` — examined directly (HIGH confidence)
 
 ---
 
-*Architecture research for: Rialto a11y, examples, and AI DX (v1.1 milestone)*
-*Researched: 2026-03-22*
+*Architecture research for: generative UI integration into mattbutlerengineering monorepo*
+*Researched: 2026-03-27*

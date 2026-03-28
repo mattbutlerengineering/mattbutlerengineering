@@ -1,222 +1,183 @@
 # Stack Research
 
-**Domain:** Design system migration and multi-SPA hosting
-**Researched:** 2026-02-27
-**Confidence:** HIGH — core stack already validated in production; research focused on migration tooling and infrastructure patterns
+**Domain:** Generative UI (json-render + AI SDK v6 + Anthropic)
+**Researched:** 2026-03-27
+**Confidence:** HIGH (all versions verified against npm registry and official docs/dist inspection)
+
+## Context
+
+This is an additive milestone on an existing monorepo. The stack below covers ONLY new packages needed for generative UI features. Do not re-add what already exists: React 19, Vite 7, TypeScript, Fastify 5, Prisma, `@anthropic-ai/claude-agent-sdk` (agent sessions).
 
 ---
 
-## Context: What is NOT Being Researched
+## New Packages Required
 
-The base stack is fixed by `PROJECT.md` constraints:
-
-> React 19, Vite 7, TypeScript — no framework changes
-
-This research addresses only:
-1. How to migrate apps from Tailwind + @mbe/ui to Rialto-only
-2. How to correctly configure multi-SPA path-prefix hosting on DigitalOcean App Platform
-
----
-
-## Recommended Stack
-
-### Core Technologies (Unchanged)
+### Core Generative UI
 
 | Technology | Version | Purpose | Why Recommended |
 |------------|---------|---------|-----------------|
-| React | 19.0.0 | UI framework | Already in use; React 19 concurrent features already active |
-| Vite | 7.0.0 | Build tool | Already in use; `base` config option is the key mechanism for path-prefix SPAs |
-| TypeScript | 5.9.3 | Type safety | Already in use; strict mode enforced |
-| React Router DOM | 7.1.0 | Client-side routing | Already in use; `basename` prop on `BrowserRouter` must match the Vite `base` path |
-| @mbe/rialto | 0.1.0 | Design system | The migration target — CSS Modules + CSS custom properties, no Tailwind dependency |
+| `@json-render/core` | `^0.15.0` | Catalog definition, spec parsing, stream compilation | The framework that constrains AI output to registered components. `defineCatalog()` produces a typed schema + optimized system prompt in one call. No Vite plugin needed — purely runtime. |
+| `@json-render/react` | `^0.15.0` | React renderer for json-render specs | Ships `useUIStream` (standalone mode) and `useJsonRenderMessage` (inline/chat mode). Peer dep confirmed: `react@^19.2.3` — matches what the monorepo runs. |
+| `ai` | `^6.0.141` | AI SDK core — `streamText`, `createUIMessageStream`, `pipeJsonRender` | The streaming bridge between Anthropic and the client. Dist-inspected: exports `createUIMessageStream`, `createUIMessageStreamResponse`, and `UI_MESSAGE_STREAM_HEADERS`. Fastify receives the stream directly via `reply.send()`. |
+| `@ai-sdk/react` | `^3.0.143` | `useChat` hook for the client side | Consumes the UI message stream protocol (`x-vercel-ai-ui-message-stream: v1`). React 19 compat confirmed in peerDependencies: `"^18 \|\| ~19.0.1 \|\| ~19.1.2 \|\| ^19.2.1"`. |
+| `@ai-sdk/anthropic` | `^3.0.64` | Anthropic provider for AI SDK | Wraps the Anthropic Messages API into the AI SDK provider interface. Use `anthropic("claude-sonnet-4-5")` — do NOT use `@anthropic-ai/sdk` directly in the same service that uses this package. |
 
-### Migration Approach: Rialto CSS Architecture
+### Zod Upgrade (Required — Breaking Dependency)
 
-Rialto already uses the correct 2025/2026 pattern. Confirmed by reading the source:
+| Technology | Current Version | Required Version | Reason |
+|------------|----------------|-----------------|--------|
+| `zod` | `^3.23.0` (all services) | `^4.3.6` | `@json-render/core@0.15.0` has a hard `peerDependencies: { zod: "^4.0.0" }`. The `ai` SDK v6 supports both (`^3.25.76 \|\| ^4.1.8`) so upgrading to 4 satisfies both. |
 
-- **CSS Modules** for scoping: each component has a `ComponentName.module.css` file
-- **CSS custom properties** (`var(--rialto-*)`) for all visual values — no hardcoded colors, spacing, or radii
-- **No runtime CSS-in-JS** — zero runtime overhead, works with SSR if ever needed
-- **Vite library mode** with `cssFileName: "styles"` — all component styles bundled into `dist/lib/styles.css`, exported as `@mbe/rialto/styles`
+**Migration risk is LOW.** The existing Zod usage in `@mbe/agent-core` and all services is limited to:
+`z.string()`, `z.number()`, `z.object()`, `z.optional()`, `z.url()`, `z.array()`, `z.union()`, `z.enum()`, `.describe()` — all preserved unchanged in Zod 4. The `.url()` validator on `z.string()` is deprecated (use top-level `z.url()` instead) but still works and emits only a deprecation warning.
 
-This is the right pattern. No alternative styling architecture is needed.
+Zod 4 ships a `zod/v3` compat export (`"./v3"` subpath). This is intended for library authors who need to vendor the old API for downstream consumers — it is NOT the right migration path for app-level code. Upgrade all consumer code to `zod@4` directly.
 
-### Multi-SPA Path-Prefix Hosting
+---
 
-The infrastructure already has the correct pattern in `infrastructure/pulumi/index.ts`. The existing `dashboard` app already demonstrates the complete working configuration.
+## Streaming Infrastructure
 
-**Required alignment (must match across three files for each app):**
+### Server Side — Fastify 5 (No Plugin Required)
 
-| Config file | Setting | Example (hospitality) |
-|------------|---------|----------------------|
-| `vite.config.ts` | `base: "/hospitality/"` | Sets asset URL prefix at build time |
-| `App.tsx` (BrowserRouter) | `basename="/hospitality"` | Tells React Router where the app is mounted |
-| `pulumi/index.ts` (ingress rule) | `prefix: "/hospitality"` | Routes traffic to the correct static site |
-| `pulumi/index.ts` (static site) | `catchallDocument: "index.html"` | Enables client-side routing |
-| PWA manifest | `scope: "/hospitality/"`, `start_url: "/hospitality/"` | Required for PWA correctness |
+Fastify 5 natively accepts `ReadableStream<Uint8Array>` in `reply.send()`. The AI SDK's `result.toUIMessageStream()` returns exactly this type. The pattern, confirmed against the official AI SDK Fastify cookbook example:
 
-### Supporting Libraries (Migration-Specific)
+```typescript
+// In a Fastify route handler — no additional SSE plugins needed
+fastify.post("/api/generate-ui", async (request, reply) => {
+  const result = streamText({
+    model: anthropic("claude-sonnet-4-5"),
+    system: catalog.prompt(),
+    messages: request.body.messages,
+  });
+
+  // AI SDK sets these headers automatically via toUIMessageStream(),
+  // but Fastify needs them set explicitly before reply.send():
+  reply.header("Content-Type", "text/event-stream");
+  reply.header("Cache-Control", "no-cache");
+  reply.header("x-vercel-ai-ui-message-stream", "v1");
+  return reply.send(result.toUIMessageStream());
+});
+```
+
+For json-render **inline mode** (conversational text interleaved with UI patches):
+
+```typescript
+// pipeJsonRender splits the stream into text parts and JSONL spec patches
+const stream = createUIMessageStream({
+  execute: async ({ writer }) => {
+    writer.merge(pipeJsonRender(result.toUIMessageStream()));
+  },
+});
+return reply.send(stream);
+```
+
+`createUIMessageStreamResponse` (which wraps the stream into a standard Web `Response`) is the Next.js / Edge runtime pattern. In Fastify, use `reply.send(stream)` directly — do not call `createUIMessageStreamResponse`.
+
+The `UI_MESSAGE_STREAM_HEADERS` (dist-inspected from `ai@6.0.141`) are:
+- `content-type: text/event-stream`
+- `cache-control: no-cache`
+- `connection: keep-alive`
+- `x-vercel-ai-ui-message-stream: v1`
+- `x-accel-buffering: no`
+
+### Client Side — @ai-sdk/react
+
+`useChat` from `@ai-sdk/react` consumes the stream. The `x-vercel-ai-ui-message-stream: v1` header signals the AI SDK UI protocol; the hook handles SSE parsing automatically. `useJsonRenderMessage` (from `@json-render/react`) extracts the spec patches from individual chat message data parts.
+
+---
+
+## Supporting Libraries
 
 | Library | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
-| @mbe/rialto | 0.1.0 | Replacement for @mbe/ui and Tailwind | Every component in migrated apps |
-| framer-motion | ^12.0.0 | Animation (peer dep of Rialto) | Already installed as peer dep; required |
-| lucide-react | >=0.400.0 | Icons (peer dep of Rialto) | Already installed as peer dep; required |
-| vite-plugin-dts | ^4.5.4 | TypeScript declarations for Rialto | Already in use in Rialto's lib build |
+| `@fastify/sse` | `^0.4.0` (Fastify 5 compatible) | SSE broadcast / multi-client pub-sub | NOT needed for single-request AI streaming. Only add if a future feature requires pushing events to multiple connected clients simultaneously (e.g., live collaboration). |
 
-### Libraries Being Removed
+---
 
-| Library | Why Removed | Replaced By |
-|---------|------------|-------------|
-| tailwindcss | No longer the design system; creates maintenance burden and styling conflicts with Rialto | Rialto's CSS Modules + CSS custom properties |
-| postcss | Only needed as Tailwind's build pipeline; not needed without Tailwind | Remove when Tailwind is removed |
-| autoprefixer | Same — Tailwind's PostCSS plugin chain | Remove when PostCSS is removed |
-| @mbe/ui | Explicitly being replaced by Rialto (noted in codebase docs); built on Tailwind + class-variance-authority + Radix | @mbe/rialto |
-| class-variance-authority | @mbe/ui's variant utility | Not needed — Rialto uses CSS module class composition |
-| tailwind-merge | @mbe/ui's className merge utility | Not needed — Rialto uses explicit className composition |
-| clsx | @mbe/ui's conditional class helper | Not needed — Rialto components compose classes directly |
+## Installation
+
+Install into the specific apps/services that need them — not at the root workspace.
+
+```bash
+# Frontend app that renders generative UI (e.g., apps/hospitality)
+pnpm --filter @mbe/hospitality add @json-render/core @json-render/react ai @ai-sdk/react
+
+# Backend service that handles AI inference (existing agent service or new service)
+pnpm --filter @mbe/agent-service add ai @ai-sdk/anthropic
+
+# Zod upgrade — ALL packages that currently declare zod as a dependency
+pnpm --filter @mbe/agent-core add zod@^4.3.6
+pnpm --filter @mbe/agent-service add zod@^4.3.6
+pnpm --filter @mbe/users-service add zod@^4.3.6
+pnpm --filter @mbe/reservations-service add zod@^4.3.6
+```
+
+Alternatively, enforce a single Zod version via the pnpm workspace catalog (add to `pnpm-workspace.yaml`):
+
+```yaml
+catalog:
+  zod: "^4.3.6"
+```
+
+Then reference `catalog:` in each `package.json` instead of a version string. This prevents version drift across packages.
 
 ---
 
 ## Alternatives Considered
 
-### CSS-in-JS (e.g., styled-components, Emotion)
-
-**Not recommended.** By 2026, the community consensus is that runtime CSS-in-JS trades developer convenience for performance regression, SSR complexity, and debugging difficulty. The project already made the correct call: Rialto uses CSS Modules + CSS custom properties, which has zero runtime overhead and full SSR compatibility. Do not introduce CSS-in-JS.
-
-### Tailwind CSS v4 (upgrade instead of remove)
-
-**Not recommended.** Tailwind v4 has a CSS-first config model and is architecturally different from v3. The project decision is to remove Tailwind entirely and standardize on Rialto. An upgrade would still leave two design systems competing — Tailwind utility classes and Rialto token-based classes — with ongoing risk of style conflicts. Removal is the right call.
-
-### shadcn/ui (headless component approach)
-
-**Not applicable.** The project already has 55+ Rialto components. Shadcn is the right choice when starting fresh with no design system. Here, the design system exists and is the target, not the problem.
-
-### Vite base: `"./"` (relative base for portable builds)
-
-**Not recommended for this project.** Relative base (`base: "./"`) enables deployment without knowing the path at build time. Useful for IPFS or unknown paths. Here, the paths are known and fixed (marketing at `/`, hospitality at `/hospitality`, rialto-web at `/rialto`). Static base paths produce cleaner asset URLs and correct absolute asset resolution.
+| Recommended | Alternative | Why Not |
+|-------------|-------------|---------|
+| `@ai-sdk/anthropic` | `@anthropic-ai/sdk` directly | `@anthropic-ai/claude-agent-sdk` already wraps the Anthropic SDK for agent sessions. Avoid two competing Anthropic clients in the same service — `@ai-sdk/anthropic` integrates natively with `streamText` and the data stream protocol. |
+| `reply.send(stream)` in Fastify | `@fastify/sse` plugin | The `@fastify/sse` plugin's `{ sse: true }` route option adds a broadcast session model useful for pub-sub. Unnecessary complexity for single-request AI streaming where `reply.send(ReadableStream)` is sufficient and has no additional dependencies. |
+| `ai@6` | `ai@5` or `ai@4` | v6 is current stable. `createUIMessageStream` and `pipeJsonRender` integration are v6 APIs documented by json-render. Earlier versions have different streaming APIs. |
+| Upgrade all to `zod@4` | Use `zod/v3` compat subpath | The `zod/v3` compat path is for library authors — not app migration. Existing usage patterns (`z.string()`, `z.object()`, etc.) are stable in Zod 4. A monorepo should pin one Zod version. |
 
 ---
 
-## What NOT to Use
+## What NOT to Add
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| Tailwind CSS utility classes in migrated apps | Creates dual design system — conflicts with Rialto tokens, doubles maintenance | Rialto CSS Modules + `var(--rialto-*)` tokens |
-| Raw inline styles with hardcoded values | Bypasses the design token system; breaks theming | Rialto components with `style` prop using `var(--rialto-*)` variables only |
-| @mbe/ui components | Tailwind-dependent; being deprecated | @mbe/rialto equivalents |
-| CSS-in-JS libraries | Runtime overhead, SSR complexity | Rialto's CSS Modules approach |
-| React Router without `basename` | App routes break when served at a sub-path; `/about` resolves to `/about` instead of `/hospitality/about` | `<BrowserRouter basename="/hospitality">` |
-| Vite `base` without trailing slash | Known Vite issue: trailing slash required for correct asset resolution in sub-path builds | `base: "/hospitality/"` (trailing slash required) |
-| `preservePathPrefix: false` for SPAs (DigitalOcean) | DigitalOcean strips the prefix before forwarding to the static site; SPAs built with a base path expect it in URLs — omitting the flag strips the path the app is expecting | Set `preservePathPrefix: false` only when the backend handles its own routing (like the users-api). For static SPAs, the ingress rule does NOT strip the path — the SPA's `vite.config.ts base` handles URL prefix alignment. |
+| `@ai-sdk/openai` or other provider packages | Not needed — Anthropic is the only inference provider for this feature | `@ai-sdk/anthropic` only |
+| `fastify-sse-v2` (community plugin) | Community package maintained for Fastify 4; `@fastify/sse` is the official Fastify 5 plugin if broadcast SSE is ever needed | Neither — `reply.send(stream)` is sufficient for AI streaming |
+| `langchain` or `llamaindex` | 10x the dependency weight with no benefit over AI SDK v6 for Anthropic-only inference | `ai` + `@ai-sdk/anthropic` |
+| Vite plugins for json-render | None exist or are required. json-render is purely runtime — `defineCatalog()` and `defineRegistry()` run at startup. No build-time code generation or Vite transform is involved. | No change to Vite config |
+| `@ai-sdk/gateway` as an explicit dep | Already bundled inside the `ai` package. Adding it separately risks version mismatch. | Let `ai` manage it internally |
+| `createUIMessageStreamResponse` in Fastify | This is the Next.js / Edge runtime pattern that returns a Web `Response`. Fastify has its own reply abstraction. | `reply.send(result.toUIMessageStream())` |
 
 ---
 
-## Installation (Migration Steps Per App)
+## Version Compatibility Matrix
 
-```bash
-# 1. In each migrated app, remove Tailwind + @mbe/ui
-pnpm remove tailwindcss postcss autoprefixer @mbe/ui --filter @mbe/<app-name>
+| Package A | Compatible With | Notes |
+|-----------|-----------------|-------|
+| `@json-render/core@0.15.0` | `zod@^4.0.0` | Hard peer dep — will not resolve with zod 3 |
+| `@json-render/react@0.15.0` | `react@^19.2.3` | Requires React 19.2+ exactly (not 19.0 or 19.1). Verify installed React version with `pnpm why react` before adding. |
+| `@ai-sdk/react@3.0.143` | `react@^18 \|\| ~19.0.1 \|\| ~19.1.2 \|\| ^19.2.1` | Supports all React 19 minor versions |
+| `ai@6.0.141` | `zod@^3.25.76 \|\| ^4.1.8` | Supports both Zod 3 and 4 — upgrading to zod 4 satisfies this |
+| `@ai-sdk/anthropic@3.0.64` | `zod@^3.25.76 \|\| ^4.1.8` | Same as ai SDK |
+| `@ai-sdk/react@3.0.143` | `ai@6.0.141` | `ai` is a direct `dependency` of `@ai-sdk/react` — versions are pinned together |
 
-# 2. Add @mbe/rialto
-pnpm add @mbe/rialto --filter @mbe/<app-name>
-
-# 3. Import Rialto styles in main entry point
-# apps/<app-name>/src/main.tsx
-import "@mbe/rialto/styles";
-```
-
-```typescript
-// 4. Update App.tsx basename to match Vite base
-// apps/hospitality/src/App.tsx
-<BrowserRouter basename="/hospitality">
-
-// apps/rialto-web/src/App.tsx
-<BrowserRouter basename="/rialto">
-
-// apps/marketing/src/App.tsx
-<BrowserRouter basename="/">  // or omit basename entirely — root has no sub-path
-```
-
-```typescript
-// 5. vite.config.ts: ensure base is set correctly
-// apps/hospitality/vite.config.ts
-export default defineConfig({
-  base: "/hospitality/",   // must match React Router basename
-  // ...
-});
-```
-
-```typescript
-// 6. Delete tailwind.config.js and postcss.config.js from each app
-// These files are only needed for Tailwind's build pipeline
-```
-
----
-
-## Version Compatibility
-
-| Package | Compatible With | Notes |
-|---------|-----------------|-------|
-| @mbe/rialto 0.1.0 | react@^19.0.0, framer-motion@^12.0.0, lucide-react@>=0.400.0 | Peer deps must be installed in consuming app |
-| react-router-dom 7.1.0 | react@^19.0.0 | React Router v7 requires React 18+; 19 is supported |
-| vite 7.0.0 | @vitejs/plugin-react@^5.0.0 | Plugin version must be >=5.0.0 for Vite 7 compat |
-| vite-plugin-pwa 1.2.0 | vite@^7.0.0 | PWA plugin already upgraded to Vite 7 in dashboard |
-| Vite `base: "/path/"` | React Router `basename="/path"` | Both must match. Vite base has trailing slash; React Router basename does NOT include trailing slash. |
-
----
-
-## Stack Patterns by Variant
-
-**Marketing app (root `/`):**
-- `vite.config.ts`: no `base` config (defaults to `/`) or explicitly `base: "/"`
-- `App.tsx`: `<BrowserRouter>` with no `basename`
-- Pulumi ingress: `prefix: "/"` as the catch-all, last in rules array
-- `catchallDocument: "index.html"` required
-
-**Hospitality app (renamed from dashboard, at `/hospitality`):**
-- `vite.config.ts`: `base: "/hospitality/"`
-- `App.tsx`: `<BrowserRouter basename="/hospitality">`
-- PWA scope/start_url: `"/hospitality/"`
-- Pulumi ingress: `prefix: "/hospitality"`, ordered before the catch-all `/`
-- `catchallDocument: "index.html"` required
-
-**Rialto showcase app (at `/rialto`):**
-- Already correctly configured: `base: "/rialto/"` in vite.config.ts
-- Needs `<BrowserRouter basename="/rialto">` if it uses React Router client-side navigation
-- Pulumi ingress rule for `/rialto` needs to be added (currently not in index.ts)
-
----
-
-## Pulumi Ingress Ordering Rule
-
-Ingress rules in DigitalOcean App Platform are evaluated in order. More specific paths must appear before less specific ones:
-
-```typescript
-// Correct order (most specific → least specific):
-rules: [
-  { match: { path: { prefix: "/api" } },         component: { name: "users-api" } },
-  { match: { path: { prefix: "/hospitality" } },  component: { name: "hospitality" } },
-  { match: { path: { prefix: "/rialto" } },       component: { name: "rialto-web" } },
-  { match: { path: { prefix: "/" } },             component: { name: "marketing" } },  // catch-all last
-]
-```
+**React 19.2 caveat:** `@json-render/react@0.15.0` requires `react@^19.2.3`. Apps currently declare `react: "^19.0.0"` in their `package.json`. pnpm will resolve to the latest installed React 19.x, which may already be 19.2.x. Run `pnpm why react` to confirm before adding `@json-render/react`.
 
 ---
 
 ## Sources
 
-- Context7 `/vitejs/vite` — Verified `base` config, library mode CSS, `--base` CLI flag behavior (HIGH confidence)
-- Context7 `/remix-run/react-router` — Verified `BrowserRouter` `basename` prop API and React Router v7 config (HIGH confidence)
-- DigitalOcean App Platform docs (https://docs.digitalocean.com/products/app-platform/how-to/manage-static-sites/) — `catchallDocument` and `preservePathPrefix` behavior (MEDIUM confidence — doc verified, not hands-on tested for new `/hospitality` path)
-- packages/rialto source code — Confirmed CSS Modules + CSS custom properties pattern, lib build config, peer deps (HIGH confidence — read directly)
-- infrastructure/pulumi/index.ts — Confirmed existing ingress pattern, static site config, DigitalOcean App Platform Pulumi schema (HIGH confidence — read directly)
-- apps/dashboard/vite.config.ts — Confirmed working `base: "/dashboard/"` pattern with PWA (HIGH confidence — existing working implementation)
-- apps/*/package.json — Confirmed current Tailwind, @mbe/ui, and postcss dependencies to remove (HIGH confidence — read directly)
-- WebSearch: "React & CSS in 2026: Best Styling Approaches Compared" (https://medium.com/@imranmsa93/react-css-in-2026-best-styling-approaches-compared-d5e99a771753) — CSS Modules vs CSS-in-JS 2026 ecosystem sentiment (LOW confidence — Medium article, used to corroborate, not as primary source)
-- WebSearch: sancho.dev "Don't use Tailwind for your Design System" (https://sancho.dev/blog/tailwind-and-design-systems) — why Tailwind and design systems conflict (MEDIUM confidence — well-argued technical article)
+- npm registry `@json-render/core@0.15.0` — peerDeps: `{ zod: "^4.0.0" }` (HIGH confidence — direct npm view)
+- npm registry `@json-render/react@0.15.0` — peerDeps: `{ react: "^19.2.3" }` (HIGH confidence — direct npm view)
+- npm registry `ai@6.0.141` — peerDeps: `{ zod: "^3.25.76 || ^4.1.8" }`, exports `['.', './internal', './test']` (HIGH confidence)
+- npm registry `@ai-sdk/react@3.0.143` — peerDeps React 19 confirmed (HIGH confidence)
+- npm registry `@ai-sdk/anthropic@3.0.64` — deps: `@ai-sdk/provider`, `@ai-sdk/provider-utils` (HIGH confidence)
+- npm registry `zod@4.3.6` — exports confirmed `./v3` and `./v4` subpaths (HIGH confidence)
+- Dist inspection `ai@6.0.141` — confirmed `createUIMessageStream`, `createUIMessageStreamResponse` exported; `UI_MESSAGE_STREAM_HEADERS` = `text/event-stream` + `x-vercel-ai-ui-message-stream: v1` (HIGH confidence)
+- Dist inspection `@json-render/core@0.15.0` — confirmed uses `z.union`, `z.object`, `z.string`, `z.boolean`, `z.number` — all stable in Zod 4 (HIGH confidence)
+- [AI SDK Fastify cookbook](https://ai-sdk.dev/cookbook/api-servers/fastify) — confirmed `reply.send(result.toUIMessageStream())` pattern, no plugins (HIGH confidence)
+- [json-render AI SDK integration docs](https://json-render.dev/docs/ai-sdk) — confirmed `pipeJsonRender`, `createUIMessageStream`, `catalog.prompt()` (MEDIUM confidence — doc fetched, not hands-on tested)
+- [AI SDK stream protocol docs](https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol) — confirmed `x-vercel-ai-ui-message-stream: v1` header, SSE format (HIGH confidence)
+- [Zod v4 changelog](https://zod.dev/v4/changelog) — confirmed core APIs (`z.string()`, `z.object()`, `z.array()`, `z.union()`, `z.optional()`) stable in v4 (HIGH confidence)
+- Monorepo source inspection — confirmed existing Zod usage in `@mbe/agent-core` is limited to stable APIs (HIGH confidence — read directly)
 
 ---
-
-*Stack research for: Rialto Unification & Hosting — design system migration and multi-SPA hosting*
-*Researched: 2026-02-27*
+*Stack research for: Generative UI — json-render + AI SDK v6 + Anthropic*
+*Researched: 2026-03-27*

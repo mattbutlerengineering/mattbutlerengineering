@@ -1,200 +1,152 @@
 # Feature Research
 
-**Domain:** Design system accessibility, example pages, and AI-friendly developer tooling (Rialto v1.1)
-**Researched:** 2026-03-22
-**Confidence:** MEDIUM-HIGH (core a11y patterns verified against axe-core docs and WCAG 2.2 spec; AI DX patterns verified against Nord Design System, shadcn registry, and Hardik Pandya's published techniques; example page patterns from Carbon and Atlassian design systems)
+**Domain:** Generative UI — AI-powered interface generator built on a constrained component catalog (json-render pattern)
+**Researched:** 2026-03-27
+**Confidence:** HIGH for json-render capabilities (direct docs inspection + InfoQ coverage); MEDIUM for playground/copilot patterns (Microsoft, CopilotKit official guidance); MEDIUM-LOW for sharing/history UX patterns (limited authoritative sources)
 
 ---
 
 ## Scope
 
-This research covers three dimensions of the v1.1 milestone:
+This research covers seven dimensions of generative UI as they apply to this milestone:
 
-1. **Accessibility** — WCAG AA compliance per component and automated axe-core CI enforcement
-2. **Example pages** — Realistic, visually polished full-page patterns showing real-world Rialto usage
-3. **AI developer experience** — Component registry, llms.txt, and CLI scaffold so AI tools produce correct Rialto code
-
-The success criterion is: "Build a settings page with Rialto" → AI produces correct, accessible code using real components.
+1. **Catalog/registry features** — what metadata json-render needs per component beyond what `registry.json` already has
+2. **Generation modes** — standalone (full-page) vs inline/conversational vs hybrid
+3. **Prompt engineering** — how good generative UI systems instruct the LLM about available components
+4. **Interactive generated UIs** — state binding, form submissions, data updates in generated interfaces
+5. **Code export** — how json-render exports to standalone React components
+6. **Playground features** — what generative UI playgrounds typically offer
+7. **Copilot patterns** — how AI copilots embed in existing apps (sidebar, inline, command palette)
 
 ---
 
 ## Feature Landscape
 
-### Surface 1: Accessibility (WCAG AA + axe-core)
+### Table Stakes (Users Expect These)
 
-#### Table Stakes (Must Have or the Milestone Fails)
-
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| WCAG AA color contrast on all components | 4.5:1 for normal text, 3:1 for large text and UI controls — minimum legal and moral bar | MEDIUM | Audit all color tokens against backgrounds; fix any non-conformant combinations. CSS Modules means fixes are contained. |
-| Visible keyboard focus indicators | All interactive components must have a clearly visible focus ring when tabbed to | MEDIUM | Check each interactive component (Button, Input, Select, Dialog, etc.) for `:focus-visible` styling. Common gap in custom design systems. |
-| ARIA attributes on interactive components | Buttons, inputs, dialogs, modals, toggles all need correct roles, labels, and state attributes | MEDIUM | Use semantic HTML first; add ARIA only where HTML semantics fall short. Common issues: missing `aria-label` on icon-only buttons, missing `aria-expanded` on dropdowns. |
-| axe-core test per component in Vitest | Automated gate that catches regressions in CI | LOW | `vitest-axe` package integrates axe-core with Vitest. One `toHaveNoViolations()` assertion per component. Note: color contrast does NOT work in jsdom — requires browser mode for that check. |
-| Keyboard navigation order (tab order) | Interactive elements must be reachable in logical DOM order; no keyboard traps | MEDIUM | Audit complex components (modals, dropdowns, date pickers) for focus management. Dialogs need focus lock; modals need focus return on close. |
-| Screen reader announcements for state changes | Dynamic content changes (loading states, error messages, live regions) must be announced | MEDIUM | Use `aria-live` regions for toast notifications, form errors, and async state. Common omission. |
-| Form field labeling | Every input must have an associated visible or screen-reader-accessible label | LOW | Verify `<label>` pairing or `aria-label`/`aria-labelledby` on all form components. |
-
-#### Differentiators (Sets Rialto Apart from Generic Component Libraries)
-
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| Per-component a11y doc section in showcase | Shows keyboard shortcuts, ARIA attributes, and screen reader behavior — rare among private design systems | MEDIUM | Short table per component: "Keyboard: Tab/Enter/Space/Escape", "ARIA: role, aria-label, aria-expanded". Written once per component. |
-| Axe-core CI gate (blocks PR on violations) | Regressions caught automatically — team can't accidentally ship inaccessible components | LOW | Vitest already runs in CI; add axe assertions to existing component tests. Zero new infrastructure. |
-| WCAG 2.2 (not just 2.1) compliance | 2.2 adds focus appearance, drag alternatives, accessible authentication — more current than most systems | MEDIUM | Key additions: 2.4.11 Focus Appearance (min focus ring size), 2.5.3 Label in Name. Worth targeting since we're auditing anyway. |
-| Contrast ratio verified at token level | Fix contrast in design tokens, not component CSS — one fix propagates everywhere | MEDIUM | Audit `--rialto-*` CSS variables, not individual component files. More scalable than per-component fixes. |
-
-#### Anti-Features (Do Not Build)
-
-| Anti-Feature | Why Requested | Why Problematic | Alternative |
-|--------------|---------------|-----------------|-------------|
-| Full manual screen reader test suite as a CI gate | "Thorough testing" | Screen reader behavior is platform-specific (JAWS vs NVDA vs VoiceOver), can't automate reliably, blocks CI for non-deterministic reasons | Manual screen reader testing is a one-time audit with notes; axe-core handles regression prevention automatically |
-| AAA compliance | "Better is better" | WCAG AAA includes criteria (1.4.6 enhanced contrast 7:1, no audio at all) that conflict with normal design system aesthetics; not required by any regulation | Target AA strictly; note where AAA is achievable without design tradeoffs |
-| Accessibility overlay / third-party widget | "Quick fix for compliance" | Overlays are widely condemned by the accessibility community and don't fix underlying issues | Fix the components; no overlay |
-
----
-
-### Surface 2: Example Pages (Realistic, Polished Full-Page Patterns)
-
-#### Table Stakes (Must Have or the Milestone Fails)
+Features users assume exist. Missing these = product feels incomplete.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Dashboard example page | Most common "first page" pattern for any web app — KPI cards, tables, charts layout | MEDIUM | Show Rialto Card, DataTable, Badge, Stat components in realistic combination. Already partly exists in hospitality app. |
-| Settings page example | Second most common pattern — form layout with sections, save/cancel, validation | MEDIUM | Show Rialto Form, Input, Select, Toggle, Button, Section Header in a real settings layout. This is the AI success criterion. |
-| Data entry / form example | Full form with validation states, error messages, helper text, submit flow | MEDIUM | Show all form component states: default, focused, error, disabled, loading. |
-| Component states in context | Every component shown in all meaningful states: default, hover, active, disabled, loading, error, empty | MEDIUM | Not just isolated knobs — show states as they appear in real usage (e.g., a disabled Submit button in a form). |
-| Visual polish matching production quality | Examples that look like they belong in a real app, not a developer sandbox | MEDIUM | Realistic content (not "Lorem ipsum"), consistent spacing, realistic data. Carbon Design System and Atlassian are the reference bar. |
+| Prompt → rendered UI (streaming) | Core value prop — if generation isn't instant/streaming, it feels broken | MEDIUM | json-render's `createSpecStreamCompiler()` handles streaming; wire up to Claude or GPT with `catalog.prompt()` as system prompt |
+| Component catalog with Zod schemas | json-render requires Zod-validated catalog; without this, the renderer has no vocabulary | MEDIUM | Rialto's `registry.json` has `name`, `description`, `props`, `slots`, `characterLimits` — needs Zod schemas added per json-render's `defineCatalog()` API |
+| Constrained generation (guardrails) | Users expect AI can't hallucinate components outside the catalog | LOW | json-render enforces this via schema validation — catalog defines the vocabulary, renderer rejects unknown elements |
+| Standalone generation mode | Full-page generation from a single prompt — the "wow demo" mode | MEDIUM | json-render standalone mode: LLM outputs only JSONL patches with no conversational text; maps directly to full-page renders |
+| Inline/conversational mode | Multi-turn refinement ("make the button larger", "add a table below") | HIGH | json-render inline/chat mode interleaves prose with JSONL patch operations; requires `pipeJsonRender` or `pipeYamlRender` mixers to separate responses |
+| Component descriptions in catalog | LLM needs to know when to use Accordion vs Collapsible, Card vs Panel | LOW | Already have `description` in `registry.json` — must be mapped into json-render's `description` field on each catalog entry |
+| Action definitions for interactive components | Buttons and forms in generated UI need wired actions (submit, setState, navigate) | MEDIUM | json-render's built-in `setState`, `pushState`, `validateForm` actions are injected automatically by `ActionProvider`; custom actions declared in catalog |
+| Loading/error states for generation | Users need feedback while AI generates; errors need graceful handling | LOW | Standard streaming pattern: show skeleton or spinner during stream, surface LLM errors with retry |
+| Mobile-responsive generated output | Generated UIs must work on tablets (hospitality staff use tablets at floor level) | MEDIUM | Requires responsive props in catalog component schemas — Rialto components are responsive but catalog constraints must allow responsive variants |
 
-#### Differentiators
+### Differentiators (Competitive Advantage)
 
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| "Copy this page" code snippet for each example | Developers can take the full page as a starting point — high utility | LOW | Add a copy-to-clipboard button with the full page JSX. Requires syntax highlighting (Shiki). |
-| Annotated composition patterns | Notes on why specific components are combined — "Use Card + DataTable for tabular dashboard sections, not nested Cards" | LOW | Short written annotations alongside each example. Guides correct AI code generation. |
-| Multi-state page flows | Show page with empty state → loading state → populated state for the same layout | MEDIUM | This is rare and highly valuable for AI context — demonstrates that states aren't different components but different data conditions. |
-| Real data shapes in examples | Use realistic mock data (not `{id: 1, name: "Test"}`) — proper domain objects matching hospitality app | LOW | Use actual reservation, floor plan, and user data shapes from the services layer. Gives AI correct context for the domain. |
-
-#### Anti-Features
-
-| Anti-Feature | Why Requested | Why Problematic | Alternative |
-|--------------|---------------|-----------------|-------------|
-| Interactive prop editor (knobs/controls) | "Let users tweak props live" | High implementation complexity; conflicts with the "show realistic usage" goal; encourages prop-by-prop thinking instead of composition | Show multiple pre-built variants; provide copy-able code |
-| Auto-generated prop tables from TypeScript | "Complete documentation" | Requires TypeDoc or ts-morph; significant tooling; output is mechanical and verbose | Hand-written examples showing the props that matter in context are more useful to humans and AI alike |
-| Version history in examples | "Show what changed" | Only relevant when external consumers exist; Rialto is a private monorepo package currently | Deferred until npm publishing milestone |
-
----
-
-### Surface 3: AI Developer Experience (Registry, llms.txt, CLI)
-
-#### Table Stakes (Must Have or the Milestone Fails)
-
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| Component registry JSON | Machine-readable catalog of all components: name, description, props, import path, usage examples | MEDIUM | Not the shadcn CLI format (which requires external distribution); a simple `registry.json` file at `packages/rialto/registry.json`. Structure: `{components: [{name, description, importPath, props, examples}]}`. |
-| llms.txt at project root | AI tools (Cursor, Windsurf, Claude) read this file to understand the design system before generating code | LOW | Two files: `/llms.txt` (~5K tokens, overview + component list) and `/llms-full.txt` (full component API + usage patterns). Nord Design System is the reference implementation. |
-| CLAUDE.md updated with Rialto patterns | Ensures Claude starts every session with Rialto import paths, token names, component APIs | LOW | Add a `## Rialto Design System` section to CLAUDE.md (or a dedicated `.claude/skills/rialto-usage.md`) with import conventions, theme provider setup, and top 10 most-used components. |
-| CLI scaffold command (`mbe new`) | Creates a new app skeleton in `apps/` with RialtoProvider, base layout, and example page | MEDIUM | Extend the existing `tools/cli` package. Interactive prompts: app name, port, example page type. Outputs wired Vite config, RialtoProvider setup, and one example page. |
-
-#### Differentiators
+Features that set the product apart. Not required, but valued.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| Structured spec files per component | Markdown files (not JSDoc) with metadata, anatomy, token references, props, states, and code examples — the format LLMs parse best | MEDIUM | One `.spec.md` file per component in `packages/rialto/src/components/<Name>/`. Hardik Pandya's approach: LLMs prefer structured markdown over inline comments or TypeDoc. |
-| Token audit CI script | Scans app code for hardcoded hex values or raw CSS; suggests correct Rialto token; fails CI on violations | MEDIUM | Node.js script using regex on CSS Modules files. Exit code 1 on violations. Prevents "AI generated code with hardcoded #3B82F6 instead of var(--rialto-color-primary)". |
-| Registry served as static JSON from rialto-web | Makes component registry discoverable at `mattbutlerengineering.com/rialto/registry.json` for tools that fetch it | LOW | Copy `registry.json` into `apps/rialto-web/public/` during build. Single line Turborepo pipeline addition. |
-| AI-readable example page annotations | Each example page has a frontmatter block with `components_used`, `patterns`, and `when_to_use` fields — machine-readable metadata | LOW | Simple JSON block in a comment at the top of each example page file. Costs nothing; gives AI context for when to suggest which pattern. |
+| Rialto-constrained catalog (design system fidelity) | All generated UIs look identical to hand-authored Rialto UIs — no inconsistency | MEDIUM | json-render catalog replaces shadcn defaults with Rialto components. This is the architecture's core advantage: AI can't escape the design system. |
+| Character limit enforcement in catalog | json-render can expose `characterLimits` from `registry.json` as Zod `.max()` constraints — AI respects label lengths | LOW | Rialto's `registry.json` already has `characterLimits` per prop (e.g., Button children max 30 chars). Map these to Zod `.max()` in the catalog schema — automatic prompt enforcement |
+| Domain-aware prompt context (hospitality data shapes) | Catalog `customRules` in `catalog.prompt()` inject domain knowledge: reservation schema, floor plan structure, guest data | MEDIUM | json-render's `catalog.prompt({ customRules: [...] })` accepts freeform rules. Inject hospitality-specific rules: "Use ReservationCard for reservation objects, FloorPlanGrid for table layouts" |
+| Hybrid mode (conversational refinement of full-page) | Start with standalone full-page generation, then refine inline via chat without starting over | HIGH | Requires persisting the spec between turns and switching from standalone to inline mode mid-session. json-render supports both modes; session management is custom work. |
+| Code export via `@json-render/codegen` | "Take this generated UI and own it" — export as standalone React with no json-render runtime dependency | MEDIUM | `generateJSX()` + `collectUsedComponents()` from `@json-render/codegen` transform spec to JSX. Output uses Rialto imports, not shadcn — requires adapter. |
+| Prompt history with replay | Users iterate on prompts; being able to re-run an old prompt with the current catalog is valuable for iteration | MEDIUM | Persist prompt + generated spec pairs; replay regenerates from stored prompt. Not version control — simple ordered list. |
+| "Favorites" / saved generations | Users find a generated UI they like and want to save it before refining further | LOW | Store spec JSON + prompt in a saved items list; render from stored spec on demand |
+| Shareable permalink to generated UI | Share a link that renders a specific stored spec — useful for hospitality staff to share a floor plan or booking widget config with colleagues | MEDIUM | Hash or UUID → stored spec lookup → server-side render from spec. Requires persistence layer (existing Prisma/Postgres). |
 
-#### Anti-Features
+### Anti-Features (Commonly Requested, Often Problematic)
+
+Features that seem good but create problems.
 
 | Anti-Feature | Why Requested | Why Problematic | Alternative |
 |--------------|---------------|-----------------|-------------|
-| Storybook MCP server | "Industry standard for component discovery" | Requires full Storybook adoption (explicitly out of scope per PROJECT.md); the MCP pattern is correct but we achieve it with a custom registry | Custom `registry.json` + llms.txt gives the same machine-readable context without the Storybook dependency |
-| External registry (npm publish to use it) | "Real distribution" | npm publishing is explicitly deferred to a future milestone; premature distribution creates maintenance obligations | Keep registry as a file-system artifact; serve it from rialto-web as a static JSON endpoint |
-| shadcn CLI registry format | "Compatibility with shadcn tooling" | shadcn registry format is designed for external component installation workflows; Rialto is a private monorepo package, not a component distribution service | Simple bespoke JSON schema that serves Rialto's actual needs (AI context) better than a distribution-optimized format |
-| Figma plugin or design token sync | "Source of truth in Figma" | Adds Figma as a required tool; creates a sync problem (code vs design drift); out of scope for this milestone | CSS token variables are the source of truth; document them in llms.txt and spec files |
+| Open-ended code generation (arbitrary HTML/CSS) | "More flexible" | Security risk (XSS), breaks design system fidelity, inconsistent styling, near-impossible to support | Use json-render's catalog constraint. AI generates JSON spec within Rialto vocabulary — guaranteed consistent output |
+| Real-time collaborative editing of generated UIs | "Like Figma for AI UIs" | Multi-user spec sync is a hard distributed systems problem; conflicts in JSON patch streams are non-trivial; far exceeds this milestone scope | Single-user generation with shareable permalinks covers 90% of the collaboration need |
+| LLM-generated CSS/inline styles | "Let AI customize styling" | Breaks Rialto token system, produces hardcoded hex values, can't theme, inaccessible contrast ratios | All styling is Rialto tokens. AI controls layout and component selection, not colors or spacing values |
+| Unlimited component catalog | "Give AI access to everything" | More components = more prompt tokens = higher cost; LLM selection accuracy drops with large catalogs; slower generation | Curated catalog of 25-35 most composable components. Quality over quantity — `catalog.prompt()` gets expensive fast |
+| Auto-deploy generated UIs to production | "Skip the developer" | Generated UIs aren't reviewed; may not meet accessibility standards; business logic may be wrong | Code export → developer review → manual deploy. Code export is the off-ramp from generated to owned. |
+| Persistent UI mutations (AI edits live app state) | "Have the copilot actually change the floor plan" | Conflates UI generation with app mutation; introduces rollback requirements, audit trails, permissions problems | Copilot generates a preview/proposal; human confirms before applying to real data |
+| Versioned prompt management (prompt library/hub) | "Track all our prompts" | Prompt management is a separate product category (LangSmith, Arize AX); building it here is scope creep | Use prompt history (ordered list of prior prompts in session) — simple, sufficient for the use case |
 
 ---
 
 ## Feature Dependencies
 
 ```
-[A11y: axe-core tests in Vitest]
-    └──requires──> [Vitest component test files (some already exist)]
-    └──requires──> [vitest-axe package installed]
+[Catalog: Zod schemas for all Rialto components]
+    └──required by──> [json-render catalog (defineCatalog)]
+    └──required by──> [Streaming generation (catalog.prompt() system prompt)]
+    └──required by──> [Code export (collectUsedComponents needs typed catalog)]
+    └──leverages──> [registry.json characterLimits → Zod .max() constraints]
 
-[A11y: WCAG AA color contrast]
-    └──requires──> [Token-level audit of CSS custom properties]
-    └──enhances──> [AI DX: Token audit CI script] (same token knowledge)
+[Streaming generation (standalone mode)]
+    └──required by──> [Playground: basic prompt → UI flow]
+    └──required by──> [Copilot: full-page generation]
+    └──enhances──> [Hybrid mode (standalone as starting point)]
 
-[A11y: Per-component a11y doc section]
-    └──requires──> [A11y audit completed first] (can't document until issues are found and fixed)
-    └──enhances──> [AI DX: Structured spec files] (a11y docs live inside spec files)
+[Inline/conversational mode]
+    └──required by──> [Copilot sidebar (multi-turn refinement)]
+    └──required by──> [Hybrid mode (refinement phase)]
+    └──requires──> [Spec persistence between turns]
 
-[Example Pages: Settings page]
-    └──requires──> [A11y: form field labeling complete] (example pages must be accessible)
-    └──requires──> [A11y: WCAG contrast fixes] (can't ship polished examples with contrast failures)
+[Spec persistence (stored generated specs)]
+    └──required by──> [Prompt history + replay]
+    └──required by──> [Favorites / saved generations]
+    └──required by──> [Shareable permalinks]
+    └──required by──> [Code export (export any saved spec, not just current)]
 
-[Example Pages: Copy-this-page snippet]
-    └──requires──> [Syntax highlighting library (Shiki)] (already researched in v1 — defer or reuse)
+[Code export (@json-render/codegen)]
+    └──requires──> [Catalog Zod schemas] (collectUsedComponents traverses typed catalog)
+    └──enhances──> [Playground: "own this UI" off-ramp]
 
-[AI DX: Component registry JSON]
-    └──enhances──> [AI DX: llms.txt] (llms.txt links to registry for detail)
-    └──enhances──> [AI DX: CLI scaffold] (scaffold uses registry to know available components)
+[Domain-aware prompt context]
+    └──requires──> [Catalog + catalog.prompt() base] (custom rules extend the base prompt)
+    └──enhances──> [Hospitality copilot] (domain rules make generation accurate for reservations/floor plans)
 
-[AI DX: llms.txt]
-    └──requires──> [Example pages complete] (llms.txt should reference realistic examples, not toy demos)
-    └──requires──> [A11y audit complete] (llms.txt must document accessible usage patterns)
-
-[AI DX: CLI scaffold]
-    └──requires──> [Example pages] (scaffold templates are the example pages)
-    └──requires──> [Component registry] (scaffold reads registry to offer component choices)
-
-[AI DX: Structured spec files]
-    └──enhances──> [A11y: Per-component a11y docs] (same file, a11y is one section)
-    └──enhances──> [AI DX: llms.txt] (llms-full.txt aggregates spec files)
-
-[AI DX: Token audit CI script]
-    └──requires──> [Rialto token names documented] (script needs the valid token list)
-    └──enhances──> [A11y: WCAG contrast fixes] (ensures fixes propagate from tokens, not component overrides)
+[Copilot sidebar embed in hospitality app]
+    └──requires──> [Inline/conversational mode]
+    └──requires──> [Domain-aware prompt context]
+    └──enhances──> [Shareable permalink] (staff share a generated widget config)
 ```
 
 ### Dependency Notes
 
-- **A11y must precede example pages**: Example pages are the canonical Rialto usage reference — they must themselves be fully accessible or they teach AI tools to generate inaccessible code.
-- **Example pages must precede llms.txt**: The llms.txt "full" file should reference working examples; writing it before examples exist means it documents placeholder patterns.
-- **Registry feeds CLI**: The scaffold CLI should generate code that uses real component names and import paths from the registry. Building the registry first means the CLI doesn't hardcode component lists.
-- **Spec files and a11y docs are the same work**: Write one `.spec.md` per component that includes both the API documentation and the a11y notes — not two separate deliverables.
+- **Catalog Zod schemas are the foundation**: Everything — streaming, code export, type inference, prompt generation — flows from having a correct `defineCatalog()` declaration. This is Phase 1 work regardless of which features launch.
+- **Spec persistence unlocks three features at once**: History, favorites, and shareable permalinks all require a stored spec. Build the persistence layer once, get three features.
+- **Standalone mode precedes inline mode**: Inline mode requires understanding what spec already exists and patching it. Starting with standalone (generate from scratch) is simpler to validate before adding refinement complexity.
+- **Code export requires typed catalog**: `@json-render/codegen`'s `collectUsedComponents()` traverses the catalog to know what imports the exported JSX needs. Can't export correctly without a complete catalog.
 
 ---
 
 ## MVP Definition
 
-### Launch With (v1.1) — Minimum to Satisfy Success Criterion
+### Launch With (v1 — Generative UI Core)
 
-The success criterion is: AI produces correct, accessible Rialto code for "Build a settings page."
+Minimum viable product — validates that AI can generate Rialto-quality UIs.
 
-- [ ] A11y: WCAG AA audit complete + critical violations fixed — accessibility is non-negotiable for the claim
-- [ ] A11y: axe-core assertions in component tests, running in CI — automated regression gate
-- [ ] A11y: Focus management fixed on interactive components (dialogs, dropdowns, forms)
-- [ ] Examples: Settings page example, polished and realistic — the explicit success criterion
-- [ ] Examples: Dashboard example — second most common pattern; validates component composition
-- [ ] Examples: Full form with all validation states — validates form component coverage
-- [ ] AI DX: Component registry JSON (`packages/rialto/registry.json`) — machine-readable component catalog
-- [ ] AI DX: llms.txt at repo root (overview + full) — AI tool discovery
-- [ ] AI DX: CLAUDE.md updated with Rialto usage section — ensures every Claude session has context
+- [ ] Catalog Zod schemas for top 25 Rialto components — foundation for everything else; without this nothing works
+- [ ] Standalone generation mode (prompt → full-page Rialto UI, streamed) — the core demo; proves the concept
+- [ ] `catalog.prompt()` system prompt with Rialto component descriptions and character limit constraints — quality gate for generation
+- [ ] Playground: basic text input + streaming renderer — the surface that proves standalone generation works
+- [ ] Playground: prompt history (in-session, no persistence required yet) — lets users iterate without losing prior attempts
+- [ ] Action wiring: `setState`, `validateForm` for interactive generated forms — generated forms that actually work
 
-### Add After Core (v1.1 Polish)
+### Add After Validation (v1.x)
 
-- [ ] AI DX: CLI scaffold command (`mbe new`) — high value but not required for AI success criterion
-- [ ] AI DX: Structured spec files per component — significant writing work; do for top 20 most-used components first
-- [ ] A11y: Per-component a11y doc in showcase — write after audit is complete
-- [ ] Examples: Multi-state page flows (empty → loading → populated) — valuable but tertiary
+Features to add once core standalone generation is working and generating quality output.
 
-### Future Consideration (v1.2+)
+- [ ] Inline/conversational refinement mode — enables "make the header smaller" follow-ups; requires standalone to be stable first
+- [ ] Spec persistence (Prisma model for stored specs) — unlocks history replay, favorites, shareable permalinks in one schema migration
+- [ ] Favorites / saved generations — depends on spec persistence; low effort once storage exists
+- [ ] Shareable permalink — depends on spec persistence; medium effort (UUID route + server lookup)
+- [ ] Domain-aware prompt context for hospitality — customRules injecting reservation/floor plan knowledge; depends on catalog being stable
 
-- [ ] AI DX: Token audit CI script — good prevention; low urgency until external devs use Rialto
-- [ ] A11y: WCAG 2.2 specific criteria (focus appearance sizing) — after 2.1 AA is solid
-- [ ] Examples: Mobile / responsive example page — after core desktop patterns are established
+### Future Consideration (v2+)
+
+Features to defer until core generation is validated and used.
+
+- [ ] Code export (@json-render/codegen) — high value but only needed once generated UIs prove worth keeping; defer until users ask "how do I own this?"
+- [ ] Hybrid mode (standalone → inline mid-session) — complex session management; defer until inline mode is battle-tested
+- [ ] Copilot sidebar embed in hospitality app — full copilot embed is a separate UX surface; defer until playground is mature enough to prove the generation quality
 
 ---
 
@@ -202,63 +154,187 @@ The success criterion is: AI produces correct, accessible Rialto code for "Build
 
 | Feature | User Value | Implementation Cost | Priority |
 |---------|------------|---------------------|----------|
-| A11y: WCAG AA color contrast fixes | HIGH | MEDIUM | P1 |
-| A11y: Keyboard focus indicators | HIGH | MEDIUM | P1 |
-| A11y: ARIA on interactive components | HIGH | MEDIUM | P1 |
-| A11y: axe-core CI gate | HIGH | LOW | P1 |
-| Examples: Settings page (success criterion) | HIGH | MEDIUM | P1 |
-| Examples: Dashboard example | HIGH | MEDIUM | P1 |
-| AI DX: Component registry JSON | HIGH | MEDIUM | P1 |
-| AI DX: llms.txt (overview + full) | HIGH | LOW | P1 |
-| AI DX: CLAUDE.md Rialto section | HIGH | LOW | P1 |
-| Examples: Full form + validation states | MEDIUM | MEDIUM | P2 |
-| A11y: Focus management (dialogs/dropdowns) | HIGH | MEDIUM | P1 |
-| A11y: Per-component a11y docs in showcase | MEDIUM | MEDIUM | P2 |
-| AI DX: CLI scaffold command | MEDIUM | MEDIUM | P2 |
-| AI DX: Structured spec files (top 20 components) | MEDIUM | HIGH | P2 |
-| Examples: Multi-state page flows | MEDIUM | MEDIUM | P2 |
-| Examples: Copy-this-page code snippet | MEDIUM | LOW | P2 |
-| AI DX: Token audit CI script | LOW | MEDIUM | P3 |
-| A11y: WCAG 2.2 specific criteria | LOW | MEDIUM | P3 |
+| Catalog Zod schemas (25 Rialto components) | HIGH | MEDIUM | P1 |
+| Standalone generation mode (streaming) | HIGH | MEDIUM | P1 |
+| `catalog.prompt()` system prompt with Rialto rules | HIGH | LOW | P1 |
+| Playground: prompt input + streamed renderer | HIGH | MEDIUM | P1 |
+| Action wiring (setState, validateForm) | HIGH | MEDIUM | P1 |
+| Prompt history (in-session) | MEDIUM | LOW | P1 |
+| Inline/conversational refinement mode | HIGH | HIGH | P2 |
+| Spec persistence (Prisma storage) | HIGH | MEDIUM | P2 |
+| Favorites / saved generations | MEDIUM | LOW | P2 (after persistence) |
+| Shareable permalink | MEDIUM | MEDIUM | P2 (after persistence) |
+| Domain-aware prompt context (hospitality rules) | HIGH | LOW | P2 |
+| Code export (@json-render/codegen) | HIGH | MEDIUM | P3 |
+| Hybrid mode (standalone → inline) | MEDIUM | HIGH | P3 |
+| Copilot sidebar in hospitality app | HIGH | HIGH | P3 |
 
 **Priority key:**
-- P1: Must have for v1.1 milestone
-- P2: Should have in v1.1, add after P1 is solid
-- P3: Future milestone
+- P1: Must have for v1 milestone (validates core generation loop)
+- P2: Add after core loop is working and generating quality output
+- P3: Future milestone once generation quality is proven
 
 ---
 
-## Reference Analysis
+## Detailed Feature Analysis by Research Question
 
-These systems informed the feature landscape (confidence noted):
+### 1. Catalog/Registry Features — What Metadata json-render Needs
 
-| Feature | Nord Design System | Carbon (IBM) | Atlassian | Rialto v1.1 Approach |
-|---------|--------------------|--------------|-----------|----------------------|
-| llms.txt | Yes — `/llms.txt` + `/llms-full.txt`, ~5K and ~1M tokens | No | No | Yes — same two-file approach |
-| Component registry | Via Storybook manifest | Yes — JSON | Yes — JSON | Custom `registry.json` without Storybook dependency |
-| a11y docs per component | Yes | Yes — detailed WCAG references | Yes | Yes — inside spec files |
-| Example page patterns | Limited | Yes — full dashboard/form patterns | Yes — product-level patterns | Yes — settings + dashboard + form |
-| CLI scaffold | No | No | No | Yes — `mbe new` extends existing CLI |
-| axe-core CI | Yes | Yes | Yes | Yes — vitest-axe |
-| Per-component spec files | Informal | Via Storybook stories | Via Atlaskit docs | Markdown spec files |
+The existing `registry.json` has: `name`, `description`, `importPath`, `props` (name + type + required + description), `slots`, `characterLimits`.
+
+**What json-render additionally requires:**
+- **Zod schema per prop** (not TypeScript type strings — Zod validates at runtime): `z.string().max(30)` not `"string | undefined"`
+- **Action definitions** declared at catalog level: which components can trigger which actions
+- **`hasChildren` / slots as json-render slots**: map existing `slots[]` to json-render's `slots` array
+- **Component-level usage guidance** in `description`: current descriptions are component-centric ("a grouped set of collapsible panels"); need usage-centric additions ("use when content sections can be collapsed independently; prefer over Tab for 3+ sections")
+- **Character limits as Zod constraints**: `characterLimits[].max` maps directly to `z.string().max(n)` in the Zod schema
+
+**What to NOT add to the catalog:**
+- All 91 components — curate to ~25-30 composable primitives. Layout components (Stack, Grid), content components (Card, Text, Badge, Alert, DataList), form components (Input, Select, Toggle, Checkbox, Button), navigation (Tabs, Breadcrumb), feedback (Toast, Dialog, ConfirmDialog).
+- Internal/wrapper components (AccordionItem, BreadcrumbItem, ContextMenuEntry) — these are sub-components used inside parent; only register the parent in the catalog.
+
+**Confidence: HIGH** — from direct json-render docs inspection.
+
+### 2. Generation Modes
+
+json-render defines two distinct modes:
+
+**Standalone mode**: LLM outputs only JSONL patches (RFC 6902 format). No conversational text. Suited for: full-page generation from a single prompt, playground demos, "generate a dashboard for hotel check-ins."
+
+**Inline/chat mode**: LLM interleaves natural language with JSONL patches. Requires `pipeJsonRender` or `pipeYamlRender` mixers to separate prose from spec operations. Suited for: conversational refinement, copilot sidebar in hospitality app, multi-turn editing.
+
+**Hybrid**: Start with standalone, persist the spec, continue with inline refinement. Custom session management required — json-render supports both modes but switching between them mid-session is application-level work.
+
+**Recommendation**: Build standalone first. It's simpler (no mixer required, no session state), easier to test, and proves the catalog/prompt quality. Add inline mode once standalone generates acceptable output.
+
+**Confidence: HIGH** — from DeepWiki json-render architecture docs.
+
+### 3. Prompt Engineering — How to Instruct the LLM
+
+`catalog.prompt()` generates a system prompt that includes:
+1. JSON Schema representation of all component props (converted from Zod)
+2. Component names and descriptions
+3. Available actions and their parameters
+4. Custom rules (injected via `customRules` parameter)
+
+**What makes generative UI prompt engineering effective** (from research):
+- **Component descriptions must be usage-oriented**, not feature-oriented: "Use DataList for key-value pairs in a detail view; use DataTable for tabular data with multiple rows and sortable columns" — not "DataList renders a list of items"
+- **Explicit negative rules** in `customRules`: "Never use Avatar without a name prop. Never nest Card inside Card. Always use ConfirmDialog for destructive actions, not Dialog."
+- **Domain context as custom rules**: For hospitality, inject: "When displaying reservation data, use ReservationCard. When displaying floor plan data, use FloorPlanGrid. Guest names are always first + last name format."
+- **Character limit enforcement**: Mapping `characterLimits` to Zod `.max()` means the schema itself enforces limits — the LLM sees them in the JSON Schema output and respects them.
+
+**What to avoid in the system prompt**:
+- Don't dump all 91 components — token cost scales with catalog size; accuracy drops with too many choices
+- Don't include raw TypeScript type strings — json-render converts Zod to JSON Schema for the prompt; use Zod, not TypeScript interfaces
+
+**Confidence: HIGH** for json-render mechanics; MEDIUM for best practice composition rules (from practitioner sources).
+
+### 4. Interactive Generated UIs — State Binding and Forms
+
+json-render's React schema provides built-in state management primitives:
+- **`setState`**: Updates shared state by key. AI can wire a Button's `onClick` action to `setState({ key: "activeTab", value: "reservations" })`
+- **`pushState`**: Appends to an array in state (e.g., adding an item to a list)
+- **`removeState`**: Removes from state by key
+- **`validateForm`**: Triggers form validation and calls a registered submit handler
+
+These are injected into AI prompts automatically by `ActionProvider` without needing to be declared in catalog actions. Custom actions (navigate to a page, call an API endpoint) must be declared in the catalog.
+
+**For hospitality app integration**: Generated booking widgets and floor plan views need custom actions beyond built-in state: `submitReservation`, `updateTableStatus`, `assignGuest`. These would be declared as catalog actions with Zod parameter schemas, registered in the `ActionProvider`, and the LLM can call them from generated button components.
+
+**The security boundary**: State binding operates within the generated UI surface. The LLM cannot access app-level React state outside the json-render boundary. Application data flows in via props; generated UI actions flow out via registered action handlers. This is the correct separation.
+
+**Confidence: HIGH** — from json-render official docs and LogRocket analysis.
+
+### 5. Code Export — `@json-render/codegen`
+
+The `@json-render/codegen` package provides:
+- **`generateJSX(spec)`**: Converts a stored JSON spec into React/JSX code
+- **`collectUsedComponents(spec, catalog)`**: Identifies which catalog components the spec uses — drives the import statements in the output
+
+**Output format**: Standalone React component files with proper imports from `@mbe/rialto` (not shadcn — requires that the catalog is built on Rialto, not the default shadcn components). Exported code has zero json-render runtime dependencies.
+
+**What the exported code looks like**: A React functional component that hardcodes the layout, uses Rialto imports, has static prop values (no AI, no json-render). The developer can then wire in real data, add routing, add tests.
+
+**The "off-ramp" mental model**: Code export is for when a generated UI proves useful enough to graduate from AI-maintained to developer-maintained. It's not the primary use case — most generated UIs are ephemeral (used once, discarded). Export is for the ones worth keeping.
+
+**Confidence: HIGH** for capability; MEDIUM for Rialto-specific output (requires custom adapter, not documented).
+
+### 6. Playground Features
+
+Based on research across json-render's own playground, CopilotKit's generative UI playground, and Microsoft's collaborative UX guidance:
+
+**Table stakes for a generative UI playground**:
+- Prompt text input with submission (Enter or button)
+- Streaming rendered output (components appear as JSON streams)
+- Prompt history (in-session) — lets users try variations without losing prior results
+- Clear/reset action (start fresh without reloading)
+- Error state with retry (LLM failures happen; user should not see raw errors)
+
+**Differentiating playground features**:
+- Split pane: prompt/chat on left, rendered output on right — lets user see prompt and result simultaneously
+- Spec inspector: collapsible JSON view of the generated spec — useful for developers debugging catalog issues
+- Favorites: star a generation to save it; view saved generations list
+- Shareable link: copy URL that renders a specific saved spec
+- "Export as React" button: triggers code export for the current spec
+
+**Anti-features for the playground**:
+- Live component prop editor (knobs) — conflicts with AI-generated approach; if you're editing props manually, use Rialto showcase instead
+- Model selector — adds UI complexity; pick one model (Claude) and optimize for it
+- Prompt templates library — scope creep; prompt history + domain-aware defaults cover 90% of the need
+
+**Confidence: MEDIUM** — synthesized from Microsoft collaborative UX docs, CopilotKit playground, and json-render playground docs.
+
+### 7. Copilot Patterns — Embedding in Existing Apps
+
+Microsoft's framework identifies three embed patterns (from official ISV UX guidance):
+
+**Embedded (single entity)**: Minimal footprint, contextual. Example: inline "Generate booking widget" button in the hospitality floor plan editor. Triggered from context (right-click, hover button, inline icon). Best for: occasional guidance, single-action interactions.
+
+**Assistive (sidebar)**: Side panel with full chat interface. User keeps the main app visible. Best for: ongoing tasks, multi-turn refinement. Example: "Hospitality Copilot" sidebar where staff describe what UI they need for tonight's event layout.
+
+**Immersive (full canvas)**: Full-page AI experience. Best for: complex generation tasks, report generation. The standalone playground is this pattern.
+
+**Recommendation for hospitality app**: Start with embedded pattern (a "Generate with AI" button in specific contexts like FloorPlanEditorPage and BookingWidgetDemoPage). This requires less infrastructure than a sidebar, proves value in context, and defers the full sidebar to v2. The sidebar pattern requires inline/conversational mode to be mature.
+
+**Key UX requirements for copilot embeds** (from Microsoft HAX guidelines):
+- Show generation suggestions (starter prompts) on first open — "I can generate a seating chart for up to 50 guests. Try: 'Create a floor plan for a wedding reception of 40'"
+- Keep prompt + output history visible together — tight feedback loop
+- Add friction at "apply to app" moments — generated outputs should require confirmation before mutating real data
+- Allow editing generated output before applying — human stays the pilot
+- Provide feedback mechanism (thumbs up/down) — improves generation quality over time
+
+**Confidence: HIGH** for Microsoft's three-pattern framework; MEDIUM for hospitality-specific recommendations.
+
+---
+
+## Competitor/Reference Analysis
+
+| Feature | json-render (Vercel) | CopilotKit | Tambo | Our Approach |
+|---------|---------------------|------------|-------|--------------|
+| Component catalog | Zod schemas + `defineCatalog()` | Predefined component set | Component registry | Rialto components via `defineCatalog()` |
+| Generation mode | Standalone + inline/chat | Chat-first | Chat-first | Standalone first, then inline |
+| Design system fidelity | shadcn defaults | Custom | Custom | Rialto (primary differentiator) |
+| State management | Built-in (setState, validateForm) | Hook-based | Hook-based | json-render built-ins + custom hospitality actions |
+| Code export | `@json-render/codegen` | No | No | `@json-render/codegen` adapted for Rialto |
+| Streaming | Yes (progressive rendering) | Yes | Yes | Yes (json-render core) |
 
 ---
 
 ## Sources
 
-- [LLMs.txt — Nord Design System](https://nordhealth.design/ai/llms-txt/) — MEDIUM confidence (official docs, direct inspection)
-- [Expose Your Design System to LLMs — Hardik Pandya](https://hvpandya.com/llm-design-systems) — MEDIUM confidence (practitioner writeup, verified against our constraints)
-- [shadcn Registry Getting Started](https://ui.shadcn.com/docs/registry/getting-started) — HIGH confidence (official docs)
-- [vitest-axe — GitHub](https://github.com/chaance/vitest-axe) — HIGH confidence (official source)
-- [Preparing a Design System for Accessibility — Design Systems Collective](https://www.designsystemscollective.com/preparing-a-design-system-for-accessibility-af9e51015d9c) — MEDIUM confidence (practitioner article)
-- [Accessibility Testing for Design System Components — VA.gov](https://design.va.gov/accessibility/accessibility-testing-for-design-system-components) — HIGH confidence (government design system, authoritative)
-- [Axe-core — Deque](https://www.deque.com/axe/axe-core/) — HIGH confidence (official tool documentation)
-- [Carbon Design System Dashboards](https://carbondesignsystem.com/data-visualization/dashboards/) — HIGH confidence (IBM official docs, direct inspection)
-- [Supercharge Your Design System with LLMs and Storybook MCP — Codrops](https://tympanus.net/codrops/2025/12/09/supercharge-your-design-system-with-llms-and-storybook-mcp/) — MEDIUM confidence (industry article, Storybook MCP approach noted but not adopted)
-- [Design Systems And AI: Why MCP Servers Are The Unlock — Figma Blog](https://www.figma.com/blog/design-systems-ai-mcp/) — MEDIUM confidence (Figma official blog)
-- Existing codebase: `packages/rialto/`, `apps/rialto-web/`, `tools/cli/`, `CLAUDE.md` — HIGH confidence (direct inspection)
+- [json-render official docs — Catalog](https://json-render.dev/docs/catalog) — HIGH confidence (official docs, direct inspection)
+- [json-render DeepWiki architecture](https://deepwiki.com/vercel-labs/json-render) — HIGH confidence (comprehensive architecture analysis)
+- [Vercel json-render GitHub](https://github.com/vercel-labs/json-render) — HIGH confidence (official source)
+- [InfoQ: Vercel Releases JSON-Render](https://www.infoq.com/news/2026/03/vercel-json-render/) — HIGH confidence (March 2026 coverage)
+- [LogRocket: json-render dynamic UI](https://blog.logrocket.com/vercel-json-render-dynamic-ui/) — MEDIUM confidence (verified against official docs)
+- [Microsoft ISV UX Guidance for Copilot](https://learn.microsoft.com/en-us/microsoft-cloud/dev/copilot/isv/ux-guidance) — HIGH confidence (Microsoft official, HAX toolkit)
+- [CopilotKit: Developer's Guide to Generative UI 2026](https://www.copilotkit.ai/blog/the-developer-s-guide-to-generative-ui-in-2026) — MEDIUM confidence (practitioner guide, CopilotKit-biased)
+- [Vercel AI SDK: Generative UI](https://ai-sdk.dev/docs/ai-sdk-ui/generative-user-interfaces) — HIGH confidence (official Vercel docs)
+- [Roger Wong: Generative UI and the Ephemeral Interface](https://rogerwong.me/2025/11/generative-ui-and-the-ephemeral-interface) — MEDIUM confidence (practitioner analysis)
+- [Google A2UI Protocol](https://developers.googleblog.com/introducing-a2ui-an-open-project-for-agent-driven-interfaces/) — HIGH confidence (Google official blog)
+- Existing codebase: `packages/rialto/registry.json`, `apps/hospitality/src/pages/`, `services/agent/` — HIGH confidence (direct inspection)
 
 ---
 
-*Feature research for: Rialto v1.1 — Accessibility, Example Pages, AI Developer Experience*
-*Researched: 2026-03-22*
+*Feature research for: Generative UI milestone — AI-powered interface generator on Rialto design system*
+*Researched: 2026-03-27*
