@@ -88,6 +88,49 @@ importers:
         specifier: ^7.0.0
         version: 7.3.1(@types/node@25.3.1)(jiti@1.21.7)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
 
+  apps/gen:
+    dependencies:
+      '@json-render/react':
+        specifier: ^0.15.0
+        version: 0.15.0(react@19.2.4)(zod@4.3.6)
+      '@mbe/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
+      '@mbe/rialto':
+        specifier: workspace:*
+        version: link:../../packages/rialto
+      '@mbe/rialto-catalog':
+        specifier: workspace:*
+        version: link:../../packages/rialto-catalog
+      react:
+        specifier: ^19.0.0
+        version: 19.2.4
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.4(react@19.2.4)
+      react-router-dom:
+        specifier: ^7.1.0
+        version: 7.13.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+    devDependencies:
+      '@mbe/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.0.0
+        version: 19.2.3(@types/react@19.2.14)
+      '@vitejs/plugin-react':
+        specifier: ^5.0.0
+        version: 5.1.4(vite@7.3.1(@types/node@25.3.1)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^7.0.0
+        version: 7.3.1(@types/node@25.3.1)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
+
   apps/hospitality:
     dependencies:
       '@mbe/api-client':
