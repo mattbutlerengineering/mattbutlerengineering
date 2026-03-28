@@ -44,6 +44,12 @@ function buildNavSections(
           active: currentPath.startsWith("/floor-plans"),
           onClick: () => navigate("/floor-plans"),
         },
+        {
+          id: "onboarding",
+          label: "New Venue",
+          active: currentPath === "/onboarding",
+          onClick: () => navigate("/onboarding"),
+        },
       ],
     },
     {

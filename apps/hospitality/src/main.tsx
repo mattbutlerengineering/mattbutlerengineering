@@ -17,6 +17,7 @@ import { FloorPlansPage } from "./pages/FloorPlansPage";
 import { FloorPlanEditorPage } from "./pages/FloorPlanEditorPage";
 import { BookingWidgetDemoPage } from "./pages/BookingWidgetDemoPage";
 import { TimelinePage } from "./pages/TimelinePage";
+import { VenueOnboardingPage } from "./pages/VenueOnboardingPage";
 
 // Auth config from environment
 const authConfig = {
@@ -58,6 +59,7 @@ const router = createBrowserRouter(
             { path: "profile", element: <ProfilePage /> },
             { path: "settings", element: <SettingsPage /> },
             { path: "admin", element: <AdminPage /> },
+            { path: "onboarding", element: <VenueOnboardingPage /> },
             { path: "*", element: <Navigate to="/" replace /> },
           ],
         },

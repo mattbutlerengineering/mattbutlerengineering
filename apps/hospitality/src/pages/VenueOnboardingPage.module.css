@@ -1,0 +1,10 @@
+.wizardContainer {
+  max-width: 40rem;
+}
+
+.errorBanner {
+  padding: var(--rialto-space-md);
+  background: color-mix(in srgb, var(--rialto-surface) 90%, red);
+  border: 1px solid color-mix(in srgb, var(--rialto-border) 50%, red);
+  border-radius: var(--rialto-radius-default);
+}

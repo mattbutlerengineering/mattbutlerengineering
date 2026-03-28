@@ -1,0 +1,204 @@
+.stepContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-lg);
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+}
+
+.fieldRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--rialto-space-md);
+}
+
+@media (max-width: 640px) {
+  .fieldRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.label {
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-secondary);
+}
+
+.select {
+  width: 100%;
+  max-width: 24rem;
+  padding-inline: var(--rialto-space-sm);
+  padding-block: var(--rialto-space-xs);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-surface-recessed);
+  color: var(--rialto-text-primary);
+  font-size: var(--rialto-text-sm);
+}
+
+.select:focus {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+  border-color: var(--rialto-accent);
+}
+
+.dayRow {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-md);
+  padding-block: var(--rialto-space-xs);
+  border-block-end: 1px solid var(--rialto-border);
+}
+
+.dayRow:last-child {
+  border-block-end: none;
+}
+
+.dayLabel {
+  width: 6rem;
+  flex-shrink: 0;
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-primary);
+  text-transform: capitalize;
+}
+
+.dayTimes {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+  flex: 1;
+}
+
+.timeInput {
+  width: 7rem;
+  padding-inline: var(--rialto-space-sm);
+  padding-block: var(--rialto-space-xs);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-surface-recessed);
+  color: var(--rialto-text-primary);
+  font-size: var(--rialto-text-sm);
+}
+
+.timeInput:focus {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+  border-color: var(--rialto-accent);
+}
+
+.timeInput:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.closedText {
+  color: var(--rialto-text-secondary);
+  font-size: var(--rialto-text-sm);
+  font-style: italic;
+}
+
+.checkbox {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  accent-color: var(--rialto-accent);
+}
+
+.reviewSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+  padding-block: var(--rialto-space-sm);
+  border-block-end: 1px solid var(--rialto-border);
+}
+
+.reviewSection:last-child {
+  border-block-end: none;
+}
+
+.reviewLabel {
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-secondary);
+}
+
+.reviewValue {
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-primary);
+}
+
+.numberInput {
+  width: 8rem;
+  padding-inline: var(--rialto-space-sm);
+  padding-block: var(--rialto-space-xs);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-surface-recessed);
+  color: var(--rialto-text-primary);
+  font-size: var(--rialto-text-sm);
+}
+
+.numberInput:focus {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+  border-color: var(--rialto-accent);
+}
+
+/* Step indicator */
+.stepIndicator {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+  margin-block-end: var(--rialto-space-lg);
+}
+
+.stepDot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--rialto-radius-round);
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.stepDotActive {
+  background: var(--rialto-accent);
+  color: var(--rialto-text-on-accent, #fff);
+}
+
+.stepDotCompleted {
+  background: var(--rialto-accent);
+  color: var(--rialto-text-on-accent, #fff);
+  opacity: 0.7;
+}
+
+.stepDotPending {
+  background: var(--rialto-surface-recessed);
+  color: var(--rialto-text-secondary);
+}
+
+.stepConnector {
+  flex: 1;
+  height: 2px;
+  background: var(--rialto-border);
+  min-width: var(--rialto-space-sm);
+}
+
+.stepConnectorCompleted {
+  background: var(--rialto-accent);
+  opacity: 0.7;
+}
+
+.errorText {
+  color: var(--rialto-text-error, #dc2626);
+  font-size: var(--rialto-text-sm);
+}
