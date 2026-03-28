@@ -380,6 +380,32 @@ describe("Reservation Routes", () => {
       );
     });
 
+    it("returns 401 when Bearer token is invalid", async () => {
+      vi.mocked(jwtVerify).mockRejectedValueOnce(new Error("invalid signature"));
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/reservations",
+        headers: {
+          authorization: "Bearer invalid-token",
+        },
+        payload: {
+          date: "2026-02-15",
+          startTime: "2026-02-15T18:00:00.000Z",
+          endTime: "2026-02-15T20:00:00.000Z",
+          partySize: 4,
+          tableId: "table-123",
+          guestName: "John Doe",
+        },
+      });
+
+      expect(response.statusCode).toBe(401);
+      const body = JSON.parse(response.body);
+      expect(body.error).toBe("Unauthorized");
+      expect(body.message).toBe("Invalid token");
+      expect(reservationService.createWithConflictCheck).not.toHaveBeenCalled();
+    });
+
     it("returns 409 when conflict exists", async () => {
       vi.mocked(reservationService.createWithConflictCheck).mockResolvedValueOnce({
         success: false,
