@@ -66,6 +66,10 @@ export interface ShowcaseSidebarProps {
   demoPages: readonly NavItem[];
   activePath: string;
   onNavigate: (path: string) => void;
+  /** Whether the mobile drawer is open (only affects screens < 768px) */
+  isMobileOpen?: boolean;
+  /** Called when the mobile drawer should close */
+  onMobileClose?: () => void;
 }
 
 /* ── Component ───────────────────────────────── */
@@ -75,15 +79,42 @@ export function ShowcaseSidebar({
   demoPages,
   activePath,
   onNavigate,
+  isMobileOpen = false,
+  onMobileClose,
 }: ShowcaseSidebarProps) {
   const [filter, setFilter] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
   const inputRef = useRef<HTMLInputElement>(null);
+  const sidebarRef = useRef<HTMLElement>(null);
 
   // Persist collapsed state
   useEffect(() => {
     saveCollapsed(collapsed);
   }, [collapsed]);
+
+  // Close mobile drawer on Escape key
+  useEffect(() => {
+    if (!isMobileOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onMobileClose?.();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isMobileOpen, onMobileClose]);
+
+  // Prevent body scroll when mobile drawer is open
+  useEffect(() => {
+    if (isMobileOpen) {
+      document.body.style.overflow = "hidden";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isMobileOpen]);
 
   const normalizedFilter = filter.toLowerCase().trim();
   const isFiltering = normalizedFilter.length > 0;
@@ -126,8 +157,9 @@ export function ShowcaseSidebar({
   const handleItemClick = useCallback(
     (path: string) => {
       onNavigate(path);
+      onMobileClose?.();
     },
-    [onNavigate]
+    [onNavigate, onMobileClose]
   );
 
   const clearFilter = useCallback(() => {
@@ -135,8 +167,24 @@ export function ShowcaseSidebar({
     inputRef.current?.focus();
   }, []);
 
+  const rootClassName = `${styles.root} ${isMobileOpen ? styles.mobileOpen : ""}`;
+
   return (
-    <nav className={styles.root} aria-label="Component navigation">
+    <>
+      {/* ── Mobile backdrop ────────────────── */}
+      {isMobileOpen && (
+        <div
+          className={styles.backdrop}
+          onClick={onMobileClose}
+          aria-hidden="true"
+        />
+      )}
+
+      <nav
+        ref={sidebarRef}
+        className={rootClassName}
+        aria-label="Component navigation"
+      >
       {/* ── Search ──────────────────────────── */}
       <div className={styles.searchWrapper}>
         <div className={styles.searchInputWrapper}>
@@ -218,6 +266,7 @@ export function ShowcaseSidebar({
         })}
       </div>
     </nav>
+    </>
   );
 }
 
