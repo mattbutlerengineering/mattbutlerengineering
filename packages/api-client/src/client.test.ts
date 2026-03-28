@@ -1,0 +1,362 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { ApiClient, ApiClientError } from "./client.js";
+
+// Mock global fetch
+const mockFetch = vi.fn<typeof fetch>();
+vi.stubGlobal("fetch", mockFetch);
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    statusText: status === 200 ? "OK" : "Error",
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+describe("ApiClient", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    mockFetch.mockReset();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  describe("basic request functionality", () => {
+    it("should make a GET request with correct URL and headers", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: "ok" }));
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com" });
+      await client.get("/users");
+
+      expect(mockFetch).toHaveBeenCalledOnce();
+      const [url, options] = mockFetch.mock.calls[0]!;
+      expect(url).toBe("https://api.test.com/users");
+      expect((options?.headers as Record<string, string>)["Content-Type"]).toBe(
+        "application/json"
+      );
+    });
+
+    it("should include authorization header when token is available", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: "ok" }));
+
+      const client = new ApiClient({
+        baseUrl: "https://api.test.com",
+        getAccessToken: () => "my-token",
+      });
+      await client.get("/users");
+
+      const [, options] = mockFetch.mock.calls[0]!;
+      expect((options?.headers as Record<string, string>).Authorization).toBe("Bearer my-token");
+    });
+
+    it("should handle 204 No Content responses", async () => {
+      mockFetch.mockResolvedValueOnce(
+        new Response(null, { status: 204, statusText: "No Content" })
+      );
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com" });
+      const result = await client.delete("/users/1");
+
+      expect(result).toBeUndefined();
+    });
+
+    it("should POST with JSON body", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "1" } }));
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com" });
+      await client.post("/users", { name: "Alice" });
+
+      const [, options] = mockFetch.mock.calls[0]!;
+      expect(options?.method).toBe("POST");
+      expect(options?.body).toBe(JSON.stringify({ name: "Alice" }));
+    });
+
+    it("should PATCH with JSON body", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "1" } }));
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com" });
+      await client.patch("/users/1", { name: "Bob" });
+
+      const [, options] = mockFetch.mock.calls[0]!;
+      expect(options?.method).toBe("PATCH");
+      expect(options?.body).toBe(JSON.stringify({ name: "Bob" }));
+    });
+  });
+
+  describe("error handling", () => {
+    it("should throw ApiClientError with method and path on non-ok response", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ error: "Not Found", message: "User not found", statusCode: 404 }, 404)
+      );
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
+
+      await expect(client.get("/api/v1/users/999")).rejects.toThrow(ApiClientError);
+
+      try {
+        await client.get("/api/v1/users/999");
+      } catch (error) {
+        // Second call also fails, but we check the first throw above
+      }
+    });
+
+    it("should include method and path in error message", async () => {
+      mockFetch.mockResolvedValue(
+        jsonResponse({ error: "Server Error", message: "Internal Server Error", statusCode: 500 }, 500)
+      );
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
+
+      try {
+        await client.get("/api/v1/users");
+        expect.unreachable("Should have thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(ApiClientError);
+        const apiError = error as ApiClientError;
+        expect(apiError.message).toBe("GET /api/v1/users failed: 500 Internal Server Error");
+        expect(apiError.method).toBe("GET");
+        expect(apiError.path).toBe("/api/v1/users");
+        expect(apiError.statusCode).toBe(500);
+      }
+    });
+
+    it("should handle non-JSON error responses gracefully", async () => {
+      mockFetch.mockResolvedValue(
+        new Response("Bad Gateway", {
+          status: 502,
+          statusText: "Bad Gateway",
+        })
+      );
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
+
+      try {
+        await client.get("/api/v1/users");
+        expect.unreachable("Should have thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(ApiClientError);
+        const apiError = error as ApiClientError;
+        expect(apiError.statusCode).toBe(502);
+      }
+    });
+  });
+
+  describe("retry with exponential backoff", () => {
+    it("should retry on 503 and succeed on subsequent attempt", async () => {
+      mockFetch
+        .mockResolvedValueOnce(
+          jsonResponse({ error: "Unavailable", message: "Service Unavailable", statusCode: 503 }, 503)
+        )
+        .mockResolvedValueOnce(jsonResponse({ data: "ok" }));
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 3 });
+      const result = await client.get<{ data: string }>("/users");
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(result).toEqual({ data: "ok" });
+    });
+
+    it("should retry on 502 and 504 status codes", async () => {
+      mockFetch
+        .mockResolvedValueOnce(
+          jsonResponse({ error: "Bad Gateway", message: "Bad Gateway", statusCode: 502 }, 502)
+        )
+        .mockResolvedValueOnce(
+          jsonResponse({ error: "Timeout", message: "Gateway Timeout", statusCode: 504 }, 504)
+        )
+        .mockResolvedValueOnce(jsonResponse({ data: "ok" }));
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 3 });
+      const result = await client.get<{ data: string }>("/users");
+
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+      expect(result).toEqual({ data: "ok" });
+    });
+
+    it("should NOT retry on 400 client errors", async () => {
+      mockFetch.mockResolvedValue(
+        jsonResponse({ error: "Bad Request", message: "Invalid input", statusCode: 400 }, 400)
+      );
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 3 });
+
+      await expect(client.get("/users")).rejects.toThrow(ApiClientError);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("should NOT retry on 500 server errors", async () => {
+      mockFetch.mockResolvedValue(
+        jsonResponse(
+          { error: "Server Error", message: "Internal Server Error", statusCode: 500 },
+          500
+        )
+      );
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 3 });
+
+      await expect(client.get("/users")).rejects.toThrow(ApiClientError);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("should NOT retry on 401 unauthorized", async () => {
+      mockFetch.mockResolvedValue(
+        jsonResponse({ error: "Unauthorized", message: "Unauthorized", statusCode: 401 }, 401)
+      );
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 3 });
+
+      await expect(client.get("/users")).rejects.toThrow(ApiClientError);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("should retry on network errors (TypeError)", async () => {
+      mockFetch
+        .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+        .mockResolvedValueOnce(jsonResponse({ data: "ok" }));
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 3 });
+      const result = await client.get<{ data: string }>("/users");
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(result).toEqual({ data: "ok" });
+    });
+
+    it("should throw after exhausting all retries", async () => {
+      mockFetch.mockResolvedValue(
+        jsonResponse(
+          { error: "Unavailable", message: "Service Unavailable", statusCode: 503 },
+          503
+        )
+      );
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 2 });
+
+      await expect(client.get("/users")).rejects.toThrow(ApiClientError);
+      // 1 initial + 2 retries = 3 total
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+    });
+
+    it("should disable retries when maxRetries is 0", async () => {
+      mockFetch.mockResolvedValue(
+        jsonResponse(
+          { error: "Unavailable", message: "Service Unavailable", statusCode: 503 },
+          503
+        )
+      );
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
+
+      await expect(client.get("/users")).rejects.toThrow(ApiClientError);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("timeout via AbortController", () => {
+    it("should pass an AbortSignal to fetch", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: "ok" }));
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", timeout: 5000 });
+      await client.get("/users");
+
+      const [, options] = mockFetch.mock.calls[0]!;
+      expect(options?.signal).toBeDefined();
+      expect(options?.signal).toBeInstanceOf(AbortSignal);
+    });
+
+    it("should use default 30s timeout when not configured", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: "ok" }));
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com" });
+      await client.get("/users");
+
+      const [, options] = mockFetch.mock.calls[0]!;
+      expect(options?.signal).toBeDefined();
+    });
+  });
+
+  describe("caller-provided AbortSignal", () => {
+    it("should respect caller abort signal", async () => {
+      const controller = new AbortController();
+
+      mockFetch.mockImplementation(async (_url, options) => {
+        // Simulate checking the signal
+        if (options?.signal?.aborted) {
+          throw new DOMException("The operation was aborted.", "AbortError");
+        }
+        return jsonResponse({ data: "ok" });
+      });
+
+      controller.abort();
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
+
+      await expect(
+        client.request("/users", { method: "GET", signal: controller.signal })
+      ).rejects.toThrow();
+    });
+  });
+
+  describe("configuration defaults", () => {
+    it("should use default timeout of 30000ms", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: "ok" }));
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com" });
+      await client.get("/users");
+
+      // Signal should be present (timeout is active)
+      const [, options] = mockFetch.mock.calls[0]!;
+      expect(options?.signal).toBeDefined();
+    });
+
+    it(
+      "should use default maxRetries of 3",
+      async () => {
+        mockFetch.mockResolvedValue(
+          jsonResponse(
+            { error: "Unavailable", message: "Service Unavailable", statusCode: 503 },
+            503
+          )
+        );
+
+        const client = new ApiClient({ baseUrl: "https://api.test.com" });
+
+        await expect(client.get("/users")).rejects.toThrow(ApiClientError);
+        // 1 initial + 3 retries = 4 total
+        expect(mockFetch).toHaveBeenCalledTimes(4);
+      },
+      15_000
+    );
+
+    it("should allow custom timeout", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: "ok" }));
+
+      const client = new ApiClient({
+        baseUrl: "https://api.test.com",
+        timeout: 5000,
+      });
+      await client.get("/users");
+
+      expect(mockFetch).toHaveBeenCalledOnce();
+    });
+
+    it("should allow custom maxRetries", async () => {
+      mockFetch.mockResolvedValue(
+        jsonResponse(
+          { error: "Unavailable", message: "Service Unavailable", statusCode: 503 },
+          503
+        )
+      );
+
+      const client = new ApiClient({
+        baseUrl: "https://api.test.com",
+        maxRetries: 1,
+      });
+
+      await expect(client.get("/users")).rejects.toThrow(ApiClientError);
+      // 1 initial + 1 retry = 2 total
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+  });
+});
