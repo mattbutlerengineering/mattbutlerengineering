@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
+import type { FastifyPluginAsync } from "fastify";
 import type {
   FloorPlan,
   Table,
@@ -10,66 +10,10 @@ import type {
   ApiError,
   PaginatedResponse,
 } from "@mbe/types";
-import type { AuthUser, JWTPayload } from "@mbe/auth/types";
-import { createRemoteJWKSet, jwtVerify } from "jose";
+import { requireAuth } from "@mbe/auth/fastify";
 import { floorPlanService } from "../services/floor-plan.js";
 
-declare module "fastify" {
-  interface FastifyRequest {
-    user?: AuthUser;
-  }
-}
-
 export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
-  const authority = process.env.AUTH_AUTHORITY;
-  const audience = process.env.AUTH_AUDIENCE;
-
-  let JWKS: ReturnType<typeof createRemoteJWKSet> | null = null;
-  if (authority && audience) {
-    const jwksUri = `${authority.replace(/\/$/, "")}/.well-known/jwks.json`;
-    JWKS = createRemoteJWKSet(new URL(jwksUri));
-  }
-
-  const verifyAuth = async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!JWKS || !authority || !audience) {
-      return reply.code(500).send({ error: "Auth not configured" });
-    }
-
-    const authHeader = request.headers.authorization;
-    if (!authHeader?.startsWith("Bearer ")) {
-      return reply.code(401).send({
-        error: "Unauthorized",
-        message: "Missing or invalid authorization header",
-        statusCode: 401,
-      });
-    }
-
-    const token = authHeader.slice(7);
-    try {
-      const { payload } = await jwtVerify(token, JWKS, {
-        issuer: authority.replace(/\/$/, "") + "/",
-        audience,
-      });
-
-      const jwtPayload = payload as unknown as JWTPayload;
-      request.user = {
-        id: jwtPayload.sub,
-        email: jwtPayload.email,
-        name: jwtPayload.name,
-        picture: jwtPayload.picture,
-        emailVerified: jwtPayload.email_verified,
-        raw: jwtPayload,
-      };
-    } catch (error) {
-      fastify.log.warn({ error }, "JWT validation failed");
-      return reply.code(401).send({
-        error: "Unauthorized",
-        message: "Invalid token",
-        statusCode: 401,
-      });
-    }
-  };
-
   // List floor plans
   fastify.get<{
     Querystring: { page?: string; limit?: string; venueId?: string };
@@ -235,7 +179,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
-      preHandler: verifyAuth,
+      preHandler: requireAuth,
       schema: {
         summary: "Create a new floor plan",
         operationId: "createFloorPlan",
@@ -306,7 +250,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: verifyAuth,
+      preHandler: requireAuth,
       schema: {
         summary: "Update a floor plan",
         operationId: "updateFloorPlan",
@@ -382,7 +326,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id/activate",
     {
-      preHandler: verifyAuth,
+      preHandler: requireAuth,
       schema: {
         summary: "Set floor plan as active",
         operationId: "activateFloorPlan",
@@ -451,7 +395,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: verifyAuth,
+      preHandler: requireAuth,
       schema: {
         summary: "Delete a floor plan",
         operationId: "deleteFloorPlan",
@@ -505,7 +449,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/tables/positions",
     {
-      preHandler: verifyAuth,
+      preHandler: requireAuth,
       schema: {
         summary: "Bulk update table positions",
         operationId: "bulkUpdateTablePositions",
@@ -574,7 +518,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/tables/:tableId/assign",
     {
-      preHandler: verifyAuth,
+      preHandler: requireAuth,
       schema: {
         summary: "Assign table to floor plan",
         operationId: "assignTableToFloorPlan",
@@ -646,7 +590,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/tables/:tableId/remove",
     {
-      preHandler: verifyAuth,
+      preHandler: requireAuth,
       schema: {
         summary: "Remove table from floor plan",
         operationId: "removeTableFromFloorPlan",

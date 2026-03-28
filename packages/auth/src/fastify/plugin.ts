@@ -14,14 +14,22 @@ export interface AuthPluginOptions {
   authority: string;
   /** Expected audience */
   audience: string;
-  /** Routes to exclude from auth (e.g., ["/health"]) */
+  /** Routes to exclude from token verification (e.g., ["/health"]) */
   excludePaths?: string[];
 }
 
 /**
- * Fastify plugin for JWT validation using OIDC provider's JWKS
- * Uses jose library for standard JWT/JWKS handling (not Auth0-specific)
- * Wrapped with fastify-plugin to break encapsulation - hooks apply to parent context
+ * Fastify plugin for JWT validation using OIDC provider's JWKS.
+ *
+ * The onRequest hook is **permissive**: it populates `request.user` when a
+ * valid Bearer token is present, rejects requests with *invalid* tokens, and
+ * silently passes through requests with no token. Use the `requireAuth`
+ * preHandler on routes that must be authenticated, or `optionalAuth` on
+ * routes that accept either authenticated or anonymous access (invalid tokens
+ * are still rejected by the global hook).
+ *
+ * Uses jose library for standard JWT/JWKS handling (not Auth0-specific).
+ * Wrapped with fastify-plugin to break encapsulation — hooks apply to parent context.
  */
 async function authPluginImpl(
   fastify: FastifyInstance,
@@ -33,16 +41,17 @@ async function authPluginImpl(
   const jwksUri = `${authority.replace(/\/$/, "")}/.well-known/jwks.json`;
   const JWKS = createRemoteJWKSet(new URL(jwksUri));
 
-  // Add authentication hook
+  // Permissive authentication hook — populates request.user when a valid
+  // token is present, rejects invalid tokens, passes through missing tokens.
   fastify.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
-    // Skip excluded paths
+    // Skip excluded paths entirely
     if (excludePaths.some((path) => request.url.startsWith(path))) {
       return;
     }
 
     const authHeader = request.headers.authorization;
     if (!authHeader?.startsWith("Bearer ")) {
-      reply.code(401).send({ error: "Missing or invalid authorization header" });
+      // No token provided — continue as anonymous
       return;
     }
 
@@ -66,7 +75,11 @@ async function authPluginImpl(
       };
     } catch (error) {
       fastify.log.warn({ error }, "JWT validation failed");
-      reply.code(401).send({ error: "Invalid token" });
+      reply.code(401).send({
+        error: "Unauthorized",
+        message: "Invalid token",
+        statusCode: 401,
+      });
       return;
     }
   });
@@ -78,14 +91,30 @@ export const authPlugin = fp(authPluginImpl, {
 });
 
 /**
- * Require authentication for a specific route
- * Use as a preHandler on routes that need auth
+ * Require authentication for a specific route.
+ * Use as a preHandler — returns 401 if no valid token was provided.
  */
 export async function requireAuth(request: FastifyRequest, reply: FastifyReply) {
   if (!request.user) {
-    reply.code(401).send({ error: "Authentication required" });
+    reply.code(401).send({
+      error: "Unauthorized",
+      message: "Missing or invalid authorization header",
+      statusCode: 401,
+    });
     return;
   }
+}
+
+/**
+ * Allow optional authentication for a specific route.
+ * The global onRequest hook already rejects invalid tokens and populates
+ * request.user for valid ones, so this is a no-op preHandler that
+ * documents the route's intent. Routes can inspect `request.user` to
+ * determine if the caller is authenticated.
+ */
+export async function optionalAuth(_request: FastifyRequest, _reply: FastifyReply) {
+  // No-op: the global hook already handled token verification.
+  // request.user is set if a valid token was provided, undefined otherwise.
 }
 
 /**
@@ -102,6 +131,6 @@ export function getAuthPluginOptionsFromEnv(): AuthPluginOptions {
   return {
     authority,
     audience,
-    excludePaths: ["/health", "/api/v1/docs"],
+    excludePaths: ["/health", "/docs"],
   };
 }

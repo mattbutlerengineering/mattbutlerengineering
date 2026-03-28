@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
+import type { FastifyPluginAsync } from "fastify";
 import type {
   User,
   CreateUserRequest,
@@ -8,68 +8,10 @@ import type {
   ApiError,
   PaginatedResponse,
 } from "@mbe/types";
-import type { AuthUser, JWTPayload } from "@mbe/auth/types";
-import { createRemoteJWKSet, jwtVerify } from "jose";
+import { requireAuth } from "@mbe/auth/fastify";
 import { userService } from "../services/user.js";
 
-// Augment FastifyRequest to include user from auth
-declare module "fastify" {
-  interface FastifyRequest {
-    user?: AuthUser;
-  }
-}
-
 export const userRoutes: FastifyPluginAsync = async (fastify) => {
-  // JWT verification for protected routes
-  const authority = process.env.AUTH_AUTHORITY;
-  const audience = process.env.AUTH_AUDIENCE;
-
-  let JWKS: ReturnType<typeof createRemoteJWKSet> | null = null;
-  if (authority && audience) {
-    const jwksUri = `${authority.replace(/\/$/, "")}/.well-known/jwks.json`;
-    JWKS = createRemoteJWKSet(new URL(jwksUri));
-  }
-
-  const verifyAuth = async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!JWKS || !authority || !audience) {
-      return reply.code(500).send({ error: "Auth not configured" });
-    }
-
-    const authHeader = request.headers.authorization;
-    if (!authHeader?.startsWith("Bearer ")) {
-      return reply.code(401).send({
-        error: "Unauthorized",
-        message: "Missing or invalid authorization header",
-        statusCode: 401,
-      });
-    }
-
-    const token = authHeader.slice(7);
-    try {
-      const { payload } = await jwtVerify(token, JWKS, {
-        issuer: authority.replace(/\/$/, "") + "/",
-        audience,
-      });
-
-      const jwtPayload = payload as unknown as JWTPayload;
-      request.user = {
-        id: jwtPayload.sub,
-        email: jwtPayload.email,
-        name: jwtPayload.name,
-        picture: jwtPayload.picture,
-        emailVerified: jwtPayload.email_verified,
-        raw: jwtPayload,
-      };
-    } catch (error) {
-      fastify.log.warn({ error }, "JWT validation failed");
-      return reply.code(401).send({
-        error: "Unauthorized",
-        message: "Invalid token",
-        statusCode: 401,
-      });
-    }
-  };
-
   // List users
   fastify.get<{
     Querystring: { page?: string; limit?: string };
@@ -358,7 +300,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/me",
     {
-      preHandler: verifyAuth,
+      preHandler: requireAuth,
       schema: {
         summary: "Get current authenticated user",
         operationId: "getCurrentUser",
@@ -415,7 +357,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/me/preferences",
     {
-      preHandler: verifyAuth,
+      preHandler: requireAuth,
       schema: {
         summary: "Update current user's preferences",
         operationId: "updateCurrentUserPreferences",
