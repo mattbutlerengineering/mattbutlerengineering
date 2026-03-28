@@ -2,16 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Generative UI
-status: completed
-stopped_at: Phase 16 context gathered
-last_updated: "2026-03-28T16:59:38.916Z"
-last_activity: 2026-03-28 — Completed 15-01 (GenCopilot component in @mbe/rialto, hospitality dashboard integration)
+status: in_progress
+last_updated: "2026-03-28T17:20:45Z"
 progress:
   total_phases: 5
   completed_phases: 4
-  total_plans: 10
-  completed_plans: 10
-  percent: 10
+  total_plans: 13
+  completed_plans: 12
 ---
 
 # Project State
@@ -25,10 +22,10 @@ See: .planning/PROJECT.md (updated 2026-03-27)
 
 ## Current Position
 
-Phase: 15 of 16 (Hospitality Copilot) — In Progress (1 of 1 plans done)
-Plan: 01 complete (GenCopilot component + hospitality integration)
-Status: Phase 15 plan 01 complete
-Last activity: 2026-03-28 — Completed 15-01 (GenCopilot component in @mbe/rialto, hospitality dashboard integration)
+Phase: 16 of 16 (Persistence and Refinement) — In Progress (1 of 3 plans done)
+Plan: 01 complete (StoredSpec model, migration, service layer, REST routes, tests)
+Status: Phase 16 plan 01 complete
+Last activity: 2026-03-28 — Completed 16-01 (StoredSpec persistence API — Prisma model + 5 REST endpoints + 12 integration tests)
 
 Progress: [█░░░░░░░░░] 10%
 
@@ -53,6 +50,7 @@ Progress: [█░░░░░░░░░] 10%
 | Phase 14-playground-app P03 | 2 | 1 tasks | 3 files |
 | Phase 14-playground-app P03 | 15 | 2 tasks | 5 files |
 | Phase 15-hospitality-copilot P01 | 22 | 2 tasks | 13 files |
+| Phase 16-persistence-and-refinement P01 | 3 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -103,6 +101,9 @@ Phase 15 Plan 01 decisions:
 - [Phase 15-01]: useGenCopilotStream accepts getAccessToken prop not useAuth() — @mbe/rialto must remain auth-provider-agnostic, no dep on @mbe/auth
 - [Phase 15-01]: GenCopilot has no open prop — Drawer always open={true}, consumer uses conditional mount ({copilotOpen && <GenCopilot>}) for fresh state on every open
 - [Phase 15-01]: ComponentRegistry from @json-render/react as registry type — consumer passes registry from @mbe/rialto-catalog, no circular dep rialto↔rialto-catalog
+- [Phase 16-persistence-and-refinement]: [16-01]: StoredSpec _enforceCapForUser evicts oldest unfavorited spec when count reaches 100 — keeps favorites safe while bounding storage per user
+- [Phase 16-persistence-and-refinement]: [16-01]: GET /api/gen/specs/:id has no preHandler (public) for permalink sharing
+- [Phase 16-persistence-and-refinement]: [16-01]: mapStoredSpec helper converts Prisma dates to ISO strings at service boundary — consistent with mapPrismaSession pattern
 
 ### Pending Todos
 
@@ -118,5 +119,5 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-28T16:59:38.914Z
-Stopped at: Phase 16 context gathered
+Last session: 2026-03-28T17:20:45Z
+Stopped at: Completed 16-01-PLAN.md
