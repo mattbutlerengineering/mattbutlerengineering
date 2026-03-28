@@ -8,18 +8,29 @@ const environment = config.get("environment") || "production";
 // Determine callback URLs based on environment
 const localCallbacks = [
   "http://localhost:3002/hospitality/callback",
+  "http://localhost:3005/gen/callback",
 ];
 const prodCallbacks = [
   `https://${domain}/hospitality/callback`,
+  `https://${domain}/gen/callback`,
 ];
 const callbackUrls = [...localCallbacks, ...prodCallbacks];
 
-const localLogoutUrls = ["http://localhost:3002", "http://localhost:3002/hospitality"];
-const prodLogoutUrls = [`https://${domain}`, `https://${domain}/hospitality`];
+const localLogoutUrls = [
+  "http://localhost:3002",
+  "http://localhost:3002/hospitality",
+  "http://localhost:3005",
+  "http://localhost:3005/gen",
+];
+const prodLogoutUrls = [
+  `https://${domain}`,
+  `https://${domain}/hospitality`,
+  `https://${domain}/gen`,
+];
 const logoutUrls = [...localLogoutUrls, ...prodLogoutUrls];
 
-const localWebOrigins = ["http://localhost:3002"];
-const prodWebOrigins = [`https://${domain}`, `https://${domain}/hospitality`];
+const localWebOrigins = ["http://localhost:3002", "http://localhost:3005"];
+const prodWebOrigins = [`https://${domain}`, `https://${domain}/hospitality`, `https://${domain}/gen`];
 const webOrigins = [...localWebOrigins, ...prodWebOrigins];
 
 // Auth0 API (Resource Server)
