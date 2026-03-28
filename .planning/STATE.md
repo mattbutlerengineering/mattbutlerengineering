@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Generative UI
-status: completed
-stopped_at: Completed 17-01-PLAN.md
-last_updated: "2026-03-28T18:27:59.789Z"
-last_activity: 2026-03-28 — Completed 17-01 (Local dev streaming pipeline fixes)
+status: planning
+stopped_at: Phase 18 context gathered
+last_updated: "2026-03-28T18:34:39.917Z"
+last_activity: 2026-03-28 — Phase 17 complete, transitioning to Phase 18
 progress:
   total_phases: 7
   completed_phases: 6
@@ -32,8 +32,8 @@ Last activity: 2026-03-28 — Phase 17 complete, transitioning to Phase 18
 
 Progress: [█████████▉] 97%
 
-Last session: 2026-03-28
-Stopped at: Phase 17 complete, ready to plan Phase 18
+Last session: 2026-03-28T18:34:39.915Z
+Stopped at: Phase 18 context gathered
 
 ## Performance Metrics
 
@@ -138,4 +138,4 @@ None.
 
 Last session: 2026-03-28
 Stopped at: Phase 17 complete, ready to plan Phase 18
-Resume file: None
+Resume file: .planning/phases/18-gen-worker-pulumi-resource/18-CONTEXT.md
