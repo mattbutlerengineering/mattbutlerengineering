@@ -58,6 +58,18 @@
   }
 }
 
+/* Action bar — Share and Refine controls above the rendered spec */
+.actionBar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+  padding-block-end: var(--rialto-space-sm);
+  margin-block-end: var(--rialto-space-sm);
+  border-block-end: 1px solid var(--rialto-border);
+  flex-shrink: 0;
+}
+
 /* Error state */
 .errorState {
   display: flex;

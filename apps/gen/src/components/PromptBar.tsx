@@ -7,14 +7,32 @@ export interface PromptBarProps {
   onStop: () => void;
   isStreaming: boolean;
   disabled: boolean;
+  /** Controls placeholder text and button labels. Defaults to "generate". */
+  mode?: "generate" | "refine";
+  /** Called when user clicks the "New" button to exit refinement mode. */
+  onExitRefinement?: () => void;
 }
 
 /**
  * Bottom bar with text input and Generate/Stop toggle button.
  * Submits on Enter (unless empty). Clears input after submit.
+ * In "refine" mode, shows a different placeholder and a "New" exit button.
  */
-export function PromptBar({ onSubmit, onStop, isStreaming, disabled }: PromptBarProps) {
+export function PromptBar({
+  onSubmit,
+  onStop,
+  isStreaming,
+  disabled,
+  mode = "generate",
+  onExitRefinement,
+}: PromptBarProps) {
   const [value, setValue] = useState("");
+
+  const isRefineMode = mode === "refine";
+  const placeholder = isRefineMode
+    ? "Refine this UI..."
+    : "Describe the UI you want to build...";
+  const submitLabel = isRefineMode ? "Refine" : "Generate";
 
   function handleSubmit() {
     const trimmed = value.trim();
@@ -34,12 +52,22 @@ export function PromptBar({ onSubmit, onStop, isStreaming, disabled }: PromptBar
 
   return (
     <div className={styles.bar}>
+      {isRefineMode && onExitRefinement && (
+        <Button
+          variant="ghost"
+          size="md"
+          onClick={onExitRefinement}
+          disabled={isStreaming}
+        >
+          New
+        </Button>
+      )}
       <textarea
         className={styles.input}
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="Describe the UI you want to build..."
+        placeholder={placeholder}
         disabled={disabled}
         rows={2}
         aria-label="Prompt input"
@@ -56,7 +84,7 @@ export function PromptBar({ onSubmit, onStop, isStreaming, disabled }: PromptBar
           onClick={handleSubmit}
           disabled={disabled || value.trim().length === 0}
         >
-          Generate
+          {submitLabel}
         </Button>
       )}
     </div>
