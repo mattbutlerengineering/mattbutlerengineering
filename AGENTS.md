@@ -11,3 +11,11 @@ Please refer to [CLAUDE.md](./CLAUDE.md) for complete documentation on:
 - API development conventions
 - Local development setup
 - Project architecture
+
+## Package-Level Context
+
+Each service/package has its own CLAUDE.md with domain-specific context:
+- `services/users/CLAUDE.md` — User model, auth, env vars
+- `services/agent/CLAUDE.md` — Agent sessions, SSE streaming, orchestration
+- `services/reservations/CLAUDE.md` — Venues, tables, reservations
+- `packages/rialto/CLAUDE.md` — Design system tokens, component APIs
