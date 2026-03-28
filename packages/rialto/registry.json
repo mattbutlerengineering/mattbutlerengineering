@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generatedAt": "2026-03-27T20:22:55.217Z",
+  "generatedAt": "2026-03-28T22:31:00.600Z",
   "components": [
     {
       "name": "Accordion",
@@ -9770,6 +9770,13 @@
       ]
     },
     {
+      "name": "DomainContextSchema",
+      "description": "A single data schema describing an entity available to the AI generator.",
+      "importPath": "@mbe/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
       "name": "Drawer",
       "description": "A slide-out panel that enters from an edge of the viewport over a backdrop.\nUse for secondary content, forms, or detail views that should not fully replace the page.\nLocks body scroll while open and closes on Escape or backdrop click.",
       "importPath": "@mbe/rialto",
@@ -12829,6 +12836,79 @@
       "name": "FooterLink",
       "importPath": "@mbe/rialto",
       "props": [],
+      "slots": []
+    },
+    {
+      "name": "GenCopilot",
+      "description": "Props for GenCopilot.\n\nNOTE: There is no `open` prop. GenCopilot is designed for conditional\nmounting — the consumer renders `{copilotOpen && <GenCopilot ... />}` to\ncontrol visibility. This guarantees fresh state on every open (no persisted\nstreaming state, spec, or errors from a previous session).\nThe Drawer is always rendered with `open={true}` internally.",
+      "importPath": "@mbe/rialto",
+      "props": [
+        {
+          "name": "onClose",
+          "type": "() => void",
+          "required": true,
+          "description": "Called when the user closes the panel — consumer should unmount GenCopilot"
+        },
+        {
+          "name": "api",
+          "type": "string",
+          "required": true,
+          "description": "API endpoint for the generation stream (e.g. \"/api/gen/ui\")"
+        },
+        {
+          "name": "domainContext",
+          "type": "DomainContext",
+          "required": true,
+          "description": "Domain context schemas serialized into the AI prompt preamble"
+        },
+        {
+          "name": "getAccessToken",
+          "type": "() => string | Promise<string | null> | null",
+          "required": true,
+          "description": "Callback that returns the current auth token (or null if unauthenticated).\nAccepts a sync or async getter so it works with any auth provider."
+        },
+        {
+          "name": "registry",
+          "type": "ComponentRegistry",
+          "required": true,
+          "description": "Component registry for rendering AI-generated specs (from"
+        }
+      ],
+      "slots": []
+    },
+    {
+      "name": "GlobalNav",
+      "description": "Cross-app navigation bar for mattbutlerengineering.com.\n\nUses full `<a href>` tags (not React Router `<Link>`) because\nnavigation between apps requires full page loads — each app is\nserved by a separate Cloudflare Worker.",
+      "importPath": "@mbe/rialto",
+      "props": [
+        {
+          "name": "currentApp",
+          "type": "\"marketing\" | \"hospitality\" | \"rialto\"",
+          "required": true,
+          "description": "Which app is currently active — drives the active link indicator."
+        },
+        {
+          "name": "id",
+          "type": "string | undefined",
+          "required": false
+        },
+        {
+          "name": "aria-label",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Defines a string value that labels the current element."
+        },
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false
+        },
+        {
+          "name": "style",
+          "type": "CSSProperties | undefined",
+          "required": false
+        }
+      ],
       "slots": []
     },
     {
