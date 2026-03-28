@@ -42,8 +42,8 @@ Generated specs are stored in the database; users can replay past prompts, save 
 ### Conversational refinement
 - Uses the existing `/api/gen/chat` endpoint (Phase 13) which supports multi-turn conversation with spec context
 - After a generation completes, a "Refine" button appears next to the prompt bar (or the prompt bar switches to refinement mode)
-- In refinement mode: the prompt bar shows "Refine this UI..." placeholder, and submissions go to `/api/gen/chat` instead of `/api/gen/ui`
-- The chat endpoint receives the current spec as context and applies a patch — the preview updates incrementally
+- In refinement mode: the prompt bar shows "Refine this UI..." placeholder, and submissions go to `/api/gen/ui` with the current spec embedded as context in the prompt (e.g., "Given this existing UI spec: [JSON], apply this change: [user instruction]")
+- The model receives the full spec and refinement instruction, producing a complete updated spec via the same JSONL streaming pipeline — this reuses the existing useGenStream infrastructure without needing a separate parser for the chat endpoint's UIMessageStream format
 - Exiting refinement mode (clicking "New" or clearing) returns to standalone `/api/gen/ui` mode
 - Refinement history is not persisted separately — each refinement overwrites the stored spec with the latest version
 
