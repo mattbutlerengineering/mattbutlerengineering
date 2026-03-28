@@ -74,7 +74,12 @@ Plans:
   3. Each generation request logs the model used, total tokens, and cache read tokens to the service log output
   4. SSE chunks arrive progressively in the browser DevTools Network tab (chunked incremental delivery, not one completed response) when routed through the CF edge router
   5. The `/gen` path is routed by the edge router to the gen app Static Assets worker via a Service Binding, and the Pulumi resource for the gen app CF Worker exists in the stack
-**Plans**: TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 13-01-PLAN.md — Streaming gen-ui and gen-chat routes with auth, rate limiting, prompt caching, cost logging
+- [ ] 13-02-PLAN.md — Agent service Dockerfile, Pulumi deployment, CI workflow, GEN Service Binding
+- [ ] 13-03-PLAN.md — Production SSE verification and Anthropic spend cap checkpoint
 
 ### Phase 14: Playground App
 **Goal**: A standalone Vite SPA at /gen lets authenticated users type natural language prompts and watch Rialto components render progressively as the AI streams a JSON spec; the app shows the raw spec, remembers prompts within the session, and respects the current theme
@@ -128,8 +133,8 @@ Plans:
 | 9. Polish and Documentation | v1.1 | 3/3 | Complete | 2026-03-23 |
 | 10. Documentation Reconciliation | v1.1 | 1/1 | Complete | 2026-03-23 |
 | 11. Registry Props & Verification | v1.1 | 2/2 | Complete | 2026-03-23 |
-| 12. Catalog Foundation | 3/3 | Complete    | 2026-03-28 | - |
-| 13. AI Generation Endpoint | v1.2 | 0/TBD | Not started | - |
+| 12. Catalog Foundation | v1.2 | 3/3 | Complete | 2026-03-28 |
+| 13. AI Generation Endpoint | v1.2 | 0/3 | Not started | - |
 | 14. Playground App | v1.2 | 0/TBD | Not started | - |
 | 15. Hospitality Copilot | v1.2 | 0/TBD | Not started | - |
 | 16. Persistence and Refinement | v1.2 | 0/TBD | Not started | - |
