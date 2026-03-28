@@ -2,13 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Generative UI
-status: unknown
-last_updated: "2026-03-28T01:41:05.406Z"
+status: executing
+stopped_at: Completed 12-03-PLAN.md (Phase 12 complete)
+last_updated: "2026-03-28T01:44:55.309Z"
+last_activity: 2026-03-28 — Completed 12-03 (defineRegistry() mapping 25 Rialto components to json-render)
 progress:
-  total_phases: 1
+  total_phases: 5
   completed_phases: 1
   total_plans: 3
   completed_plans: 3
+  percent: 6
 ---
 
 # Project State

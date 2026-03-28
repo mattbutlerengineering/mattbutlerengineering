@@ -128,7 +128,7 @@ Plans:
 | 9. Polish and Documentation | v1.1 | 3/3 | Complete | 2026-03-23 |
 | 10. Documentation Reconciliation | v1.1 | 1/1 | Complete | 2026-03-23 |
 | 11. Registry Props & Verification | v1.1 | 2/2 | Complete | 2026-03-23 |
-| 12. Catalog Foundation | 3/3 | Complete   | 2026-03-28 | - |
+| 12. Catalog Foundation | 3/3 | Complete    | 2026-03-28 | - |
 | 13. AI Generation Endpoint | v1.2 | 0/TBD | Not started | - |
 | 14. Playground App | v1.2 | 0/TBD | Not started | - |
 | 15. Hospitality Copilot | v1.2 | 0/TBD | Not started | - |
