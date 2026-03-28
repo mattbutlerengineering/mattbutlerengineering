@@ -1,13 +1,17 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
+import rateLimit from "@fastify/rate-limit";
 import swagger from "@fastify/swagger";
 import ScalarApiReference from "@scalar/fastify-api-reference";
+import { authPlugin, getAuthPluginOptionsFromEnv } from "@mbe/auth/fastify";
 import { registerSchemas } from "./schemas/index.js";
 import { healthRoutes } from "./routes/health.js";
 import { sessionRoutes } from "./routes/sessions.js";
 import { sessionEventsRoutes } from "./routes/session-events.js";
 import { orchestrateRoutes } from "./routes/orchestrate.js";
 import { webhookRoutes } from "./routes/webhooks.js";
+import { genUiRoutes } from "./routes/gen-ui.js";
+import { genChatRoutes } from "./routes/gen-chat.js";
 
 export interface AppOptions {
   logger?: boolean | object;
@@ -75,12 +79,28 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
     }, "request completed");
   });
 
+  // Auth plugin — must be registered before rate limit so request.user is available
+  // Only register if auth env vars are present (skipped in test environments)
+  if (process.env.AUTH_AUTHORITY && process.env.AUTH_AUDIENCE) {
+    await fastify.register(authPlugin, getAuthPluginOptionsFromEnv());
+  }
+
+  // GEN-04: per-user rate limiting — global default, gen routes override per-route
+  await fastify.register(rateLimit, {
+    hook: "preHandler", // runs after requireAuth so request.user is set
+    max: 100,
+    timeWindow: "1 minute",
+    keyGenerator: (req) => (req.user?.id ?? req.ip) as string,
+  });
+
   registerSchemas(fastify);
   await fastify.register(healthRoutes);
   await fastify.register(sessionRoutes, { prefix: "/v1/sessions" });
   await fastify.register(sessionEventsRoutes, { prefix: "/v1/sessions" });
   await fastify.register(orchestrateRoutes, { prefix: "/v1/orchestrate" });
   await fastify.register(webhookRoutes, { prefix: "/v1/webhooks" });
+  await fastify.register(genUiRoutes);
+  await fastify.register(genChatRoutes);
 
   return fastify;
 }
