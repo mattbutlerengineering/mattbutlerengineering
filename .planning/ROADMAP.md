@@ -45,7 +45,7 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 - [x] **Phase 15: Hospitality Copilot** — GenCopilot component embedded in the hospitality dashboard with domain-aware prompt context for reservations and floor plans (can run in parallel with Phase 14) (completed 2026-03-28)
 - [x] **Phase 16: Persistence and Refinement** — Spec storage, prompt history replay, favorites, shareable permalinks, and inline conversational refinement mode (completed 2026-03-28)
 - [x] **Phase 17: Local Dev & Streaming Fixes** — Fix GenCopilot Vite proxy routing and validate stream format compatibility between toUIMessageStream and useGenStream (gap closure) (completed 2026-03-28)
-- [ ] **Phase 18: Gen Worker Pulumi Resource** — Add Pulumi-managed CF Worker resource for the gen app to satisfy INFRA-02 (gap closure)
+- [x] **Phase 18: Gen Worker Pulumi Resource** — Add Pulumi-managed CF Worker resource for the gen app to satisfy INFRA-02 (gap closure) (completed 2026-03-28)
 
 ## Phase Details
 
@@ -180,4 +180,4 @@ Plans:
 | 15. Hospitality Copilot | v1.2 | 1/1 | Complete | 2026-03-28 |
 | 16. Persistence and Refinement | 3/3 | Complete    | 2026-03-28 | - |
 | 17. Local Dev & Streaming Fixes | 1/1 | Complete    | 2026-03-28 | - |
-| 18. Gen Worker Pulumi Resource | v1.2 | 0/1 | Planned | - |
+| 18. Gen Worker Pulumi Resource | 1/1 | Complete   | 2026-03-28 | - |

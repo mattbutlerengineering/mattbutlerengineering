@@ -2,16 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Generative UI
-status: planning
-stopped_at: Phase 18 context gathered
-last_updated: "2026-03-28T18:34:39.917Z"
-last_activity: 2026-03-28 — Phase 17 complete, transitioning to Phase 18
+status: unknown
+last_updated: "2026-03-28T18:54:32.812Z"
 progress:
   total_phases: 7
-  completed_phases: 6
-  total_plans: 14
-  completed_plans: 14
-  percent: 97
+  completed_phases: 7
+  total_plans: 15
+  completed_plans: 15
 ---
 
 # Project State
@@ -21,19 +18,19 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-28)
 
 **Core value:** Every web app uses Rialto as the single design system and is accessible at mattbutlerengineering.com
-**Current focus:** v1.2 Generative UI — Phase 17 complete (streaming pipeline fixed), Phase 18 next (gen Worker Pulumi resource)
+**Current focus:** v1.2 Generative UI — COMPLETE. All phases delivered.
 
 ## Current Position
 
-Phase: 18 of 18 (Gen Worker Pulumi Resource) — Ready to plan
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-03-28 — Phase 17 complete, transitioning to Phase 18
+Phase: 18 of 18 (Gen Worker Pulumi Resource) — Complete
+Plan: 1 of 1 complete
+Status: Complete
+Last activity: 2026-03-28 — Phase 18 complete, v1.2 Generative UI milestone complete
 
-Progress: [█████████▉] 97%
+Progress: [██████████] 100%
 
-Last session: 2026-03-28T18:34:39.915Z
-Stopped at: Phase 18 context gathered
+Last session: 2026-03-28T18:53:18Z
+Stopped at: Completed 18-01-PLAN.md
 
 ## Performance Metrics
 
@@ -59,6 +56,7 @@ Stopped at: Phase 18 context gathered
 | Phase 16-persistence-and-refinement P01 | 3 | 2 tasks | 8 files |
 | Phase 16-persistence-and-refinement P02 | 3 | 2 tasks | 6 files |
 | Phase 16-persistence-and-refinement P03 | 226 | 2 tasks | 8 files |
+| Phase 18 P01 | 4 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -120,6 +118,9 @@ Phase 15 Plan 01 decisions:
 - [Phase 16]: [16-03]: isSharedSpec check bypasses auth gate for /gen/s/ paths before isAuthenticated check
 - [Phase 16]: [16-03]: useState initial value computed from route param to avoid synchronous setState in useEffect (react-hooks/set-state-in-effect)
 - [Phase 17-local-dev-streaming-fixes]: AI SDK v6 result.textStream is a ReadableStream property (not toTextStream() method) — plan referenced wrong API name
+- [Phase 18-01]: @pulumi/cloudflare v6 renames cloudflare.Record to cloudflare.DnsRecord and WorkersRoute scriptName to script
+- [Phase 18-01]: WorkersScript v6 uses unified bindings[] array with type field instead of separate plainTextBindings/serviceBindings
+- [Phase 18-01]: Gen Worker uses assets-only WorkersScript (no content/mainModule) with assets.directory relative to infrastructure/pulumi/
 
 ### Pending Todos
 
@@ -137,5 +138,4 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-28
-Stopped at: Phase 17 complete, ready to plan Phase 18
-Resume file: .planning/phases/18-gen-worker-pulumi-resource/18-CONTEXT.md
+Stopped at: Completed 18-01-PLAN.md — v1.2 milestone complete

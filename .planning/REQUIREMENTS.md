@@ -55,7 +55,7 @@ Requirements for Generative UI milestone. Each maps to roadmap phases.
 ### Infrastructure
 
 - [x] **INFRA-01**: CF Worker edge router gains `/gen*` route and GEN Service Binding
-- [ ] **INFRA-02**: Pulumi resource for gen app CF Worker with Static Assets
+- [x] **INFRA-02**: Pulumi resource for gen app CF Worker with Static Assets
 - [x] **INFRA-03**: `AI_GATEWAY_API_KEY` or `ANTHROPIC_API_KEY` configured in DO App Platform
 - [x] **INFRA-04**: Hard monthly spend cap configured in Anthropic console
 
@@ -103,7 +103,7 @@ Deferred to v1.3+. Tracked but not in current roadmap.
 | GEN-07 | Phase 13 | Complete |
 | GEN-08 | Phase 13 | Complete |
 | INFRA-01 | Phase 13 | Complete |
-| INFRA-02 | Phase 18 | Pending |
+| INFRA-02 | Phase 18 | Complete |
 | INFRA-03 | Phase 13 | Complete |
 | INFRA-04 | Phase 13 | Complete |
 | PLAY-01 | Phase 14 | Complete |
