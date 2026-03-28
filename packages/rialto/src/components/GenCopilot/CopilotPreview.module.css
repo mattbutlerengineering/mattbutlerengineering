@@ -1,0 +1,31 @@
+.preview {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--rialto-space-md);
+  min-height: 0;
+}
+
+.stateContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: var(--rialto-space-sm);
+  text-align: center;
+  padding-block: var(--rialto-space-xl);
+  min-height: 12rem;
+  width: 100%;
+}
+
+.emptyText {
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-tertiary);
+  margin: 0;
+}
+
+.rendererWrapper {
+  width: 100%;
+}

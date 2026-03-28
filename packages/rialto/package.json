@@ -93,5 +93,8 @@
       "path": "dist/lib/motion.js",
       "limit": "1 kB"
     }
-  ]
+  ],
+  "dependencies": {
+    "@json-render/react": "^0.15.0"
+  }
 }

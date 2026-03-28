@@ -403,6 +403,10 @@ importers:
         version: 8.56.1(eslint@9.39.3(jiti@2.6.1))(typescript@5.9.3)
 
   packages/rialto:
+    dependencies:
+      '@json-render/react':
+        specifier: ^0.15.0
+        version: 0.15.0(react@19.2.4)(zod@4.3.6)
     devDependencies:
       '@mbe/config':
         specifier: workspace:*

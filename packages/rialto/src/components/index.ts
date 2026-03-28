@@ -61,5 +61,8 @@ export * from "./Stack";
 export * from "./Stat";
 export * from "./Text";
 
+// ── Generative AI ───────────────────────────────
+export * from "./GenCopilot";
+
 // ── Providers ──────────────────────────────────
 export * from "../providers";
