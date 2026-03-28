@@ -24,10 +24,14 @@ import { AvailabilityClient, HoldsClient } from "./availability.js";
 export function createApiClient(config: {
   baseUrl?: string;
   getAccessToken?: () => string | null | Promise<string | null>;
+  timeout?: number;
+  maxRetries?: number;
 }) {
   const client = new ApiClient({
     baseUrl: config.baseUrl ?? "",
     getAccessToken: config.getAccessToken,
+    timeout: config.timeout,
+    maxRetries: config.maxRetries,
   });
 
   return {
