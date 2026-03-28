@@ -1,9 +1,31 @@
+import { useState, useCallback } from "react";
 import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
 import { Footer, GlobalNav, ThemeToggle } from "@mbe/rialto";
 import { ShowcaseSidebar } from "../components/ShowcaseSidebar";
 import { NAV_SECTIONS, DEMO_PAGES } from "../data/nav-sections";
 import { useThemeContext } from "../ThemeContext";
 import styles from "./ShowcaseLayout.module.css";
+
+/* ── Hamburger icon (mobile only) ────────────── */
+function HamburgerIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <line x1="3" y1="12" x2="21" y2="12" />
+      <line x1="3" y1="18" x2="21" y2="18" />
+    </svg>
+  );
+}
 
 /* ── GitHub icon ─────────────────────────────── */
 function GitHubIcon() {
@@ -41,6 +63,15 @@ export function ShowcaseLayout(props: ShowcaseLayoutProps) {
   const onThemeToggle = props.onThemeToggle ?? themeCtx.onThemeToggle;
   const navigate = useNavigate();
   const location = useLocation();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const handleMobileClose = useCallback(() => {
+    setIsMobileMenuOpen(false);
+  }, []);
+
+  const handleMobileToggle = useCallback(() => {
+    setIsMobileMenuOpen((prev) => !prev);
+  }, []);
 
   return (
     <div className={styles.root}>
@@ -48,6 +79,15 @@ export function ShowcaseLayout(props: ShowcaseLayoutProps) {
       {/* ── Top header bar ─────────────────────── */}
       <header className={styles.header}>
         <div className={styles.headerStart}>
+          <button
+            className={styles.hamburger}
+            onClick={handleMobileToggle}
+            aria-label={isMobileMenuOpen ? "Close navigation" : "Open navigation"}
+            aria-expanded={isMobileMenuOpen}
+            type="button"
+          >
+            <HamburgerIcon />
+          </button>
           <Link to="/" className={styles.logo} aria-label="Rialto home">
             Ri<span className={styles.logoAccent}>a</span>lto
           </Link>
@@ -74,6 +114,8 @@ export function ShowcaseLayout(props: ShowcaseLayoutProps) {
           demoPages={DEMO_PAGES}
           activePath={location.pathname}
           onNavigate={navigate}
+          isMobileOpen={isMobileMenuOpen}
+          onMobileClose={handleMobileClose}
         />
 
         <main className={styles.content}>

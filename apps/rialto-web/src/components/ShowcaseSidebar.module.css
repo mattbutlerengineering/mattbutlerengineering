@@ -234,10 +234,39 @@
   color: var(--rialto-text-tertiary);
 }
 
-/* ── Responsive: hide on mobile ──────────────── */
+/* ── Mobile backdrop overlay ─────────────────── */
+
+.backdrop {
+  display: none;
+}
+
+/* ── Responsive: mobile drawer ──────────────── */
 
 @media (max-width: 767px) {
   .root {
     display: none;
+    position: fixed;
+    inset-block-start: 0;
+    inset-inline-start: 0;
+    z-index: 200;
+    width: 280px;
+    max-width: 80vw;
+    height: 100dvh;
+    box-shadow: var(--rialto-shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.2));
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+  }
+
+  .mobileOpen {
+    display: flex;
+    transform: translateX(0);
+  }
+
+  .backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 199;
+    background: rgba(0, 0, 0, 0.4);
   }
 }

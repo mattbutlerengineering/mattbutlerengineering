@@ -29,6 +29,32 @@
   gap: var(--rialto-space-md);
 }
 
+/* ── Hamburger button (mobile only) ──────────── */
+.hamburger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: var(--rialto-radius-default);
+  background: transparent;
+  color: var(--rialto-text-secondary);
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.hamburger:hover {
+  color: var(--rialto-text-primary);
+  background: var(--rialto-surface);
+}
+
+.hamburger:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+}
+
 .headerEnd {
   display: flex;
   align-items: center;
@@ -103,8 +129,12 @@
   margin-block-start: var(--rialto-space-2xl);
 }
 
-/* ── Responsive: mobile sidebar collapse ─────── */
+/* ── Responsive: mobile layout ───────────────── */
 @media (max-width: 767px) {
+  .hamburger {
+    display: flex;
+  }
+
   .content {
     padding: var(--rialto-space-md);
   }
