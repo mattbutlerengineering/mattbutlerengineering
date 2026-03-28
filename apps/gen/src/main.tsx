@@ -7,6 +7,7 @@ import { RialtoProvider } from "@mbe/rialto";
 import { AuthProvider } from "@mbe/auth/react";
 import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
 import { PlaygroundPage } from "./pages/PlaygroundPage";
+import { SharedSpecPage } from "./pages/SharedSpecPage";
 import { App, CallbackRedirect } from "./App";
 
 // Auth config from environment
@@ -47,6 +48,7 @@ const router = createBrowserRouter(
           index: true,
           element: <PlaygroundPage />,
         },
+        { path: "s/:id", element: <SharedSpecPage /> },
         { path: "*", element: <Navigate to="/" replace /> },
       ],
     },

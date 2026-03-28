@@ -23,6 +23,8 @@ export function App() {
 
   // If on the callback path, show loading while OIDC finishes processing
   const isCallback = window.location.pathname.endsWith("/callback");
+  // Bypass auth gate for shared spec permalinks (/gen/s/:id)
+  const isSharedSpec = window.location.pathname.includes("/gen/s/");
 
   if (error) {
     return (
@@ -50,6 +52,10 @@ export function App() {
         </Text>
       </div>
     );
+  }
+
+  if (isSharedSpec) {
+    return <Outlet />;
   }
 
   if (!isAuthenticated) {
