@@ -1,5 +1,5 @@
 import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
-import { Footer, ThemeToggle } from "@mbe/rialto";
+import { Footer, GlobalNav, ThemeToggle } from "@mbe/rialto";
 import { ShowcaseSidebar } from "../components/ShowcaseSidebar";
 import { NAV_SECTIONS, DEMO_PAGES } from "../data/nav-sections";
 import { useThemeContext } from "../ThemeContext";
@@ -44,6 +44,7 @@ export function ShowcaseLayout(props: ShowcaseLayoutProps) {
 
   return (
     <div className={styles.root}>
+      <GlobalNav currentApp="rialto" />
       {/* ── Top header bar ─────────────────────── */}
       <header className={styles.header}>
         <div className={styles.headerStart}>

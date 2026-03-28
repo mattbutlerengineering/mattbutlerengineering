@@ -1,5 +1,5 @@
 import { Routes, Route } from "react-router-dom";
-import { Footer } from "@mbe/rialto";
+import { Footer, GlobalNav } from "@mbe/rialto";
 import { Navbar } from "./components/Navbar";
 import { HomePage } from "./pages/HomePage";
 import styles from "./App.module.css";
@@ -12,6 +12,7 @@ interface AppProps {
 export function App({ theme, onThemeToggle }: AppProps) {
   return (
     <div className={styles.layout}>
+      <GlobalNav currentApp="marketing" />
       <Navbar theme={theme} onThemeToggle={onThemeToggle} />
       <main className={styles.main}>
         <Routes>

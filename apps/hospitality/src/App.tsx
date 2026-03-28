@@ -1,6 +1,6 @@
 import { Outlet, Navigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
-import { Stack, Text, Button } from "@mbe/rialto";
+import { Stack, Text, Button, GlobalNav } from "@mbe/rialto";
 import { LoadingPage } from "./pages/LoadingPage";
 import styles from "./App.module.css";
 
@@ -13,7 +13,12 @@ export function App() {
   const { isLoading, isAuthenticated, error } = useAuth();
 
   if (isLoading) {
-    return <LoadingPage />;
+    return (
+      <>
+        <GlobalNav currentApp="hospitality" />
+        <LoadingPage />
+      </>
+    );
   }
 
   // If on the callback path, show loading while OIDC finishes processing
@@ -21,31 +26,49 @@ export function App() {
 
   if (error) {
     return (
-      <div className={styles.loginContainer}>
-        <Stack gap="md" align="center">
-          <Text as="h1" variant="display" color="primary">
-            Authentication Error
-          </Text>
-          <Text variant="body" color="secondary">
-            {error.message}
-          </Text>
-          <Button variant="primary" onClick={() => window.location.assign("/hospitality")}>
-            Try Again
-          </Button>
-        </Stack>
-      </div>
+      <>
+        <GlobalNav currentApp="hospitality" />
+        <div className={styles.loginContainer}>
+          <Stack gap="md" align="center">
+            <Text as="h1" variant="display" color="primary">
+              Authentication Error
+            </Text>
+            <Text variant="body" color="secondary">
+              {error.message}
+            </Text>
+            <Button variant="primary" onClick={() => window.location.assign("/hospitality")}>
+              Try Again
+            </Button>
+          </Stack>
+        </div>
+      </>
     );
   }
 
   if (isCallback && !isAuthenticated) {
-    return <LoadingPage />;
+    return (
+      <>
+        <GlobalNav currentApp="hospitality" />
+        <LoadingPage />
+      </>
+    );
   }
 
   if (!isAuthenticated) {
-    return <LoginPrompt />;
+    return (
+      <>
+        <GlobalNav currentApp="hospitality" />
+        <LoginPrompt />
+      </>
+    );
   }
 
-  return <Outlet />;
+  return (
+    <>
+      <GlobalNav currentApp="hospitality" />
+      <Outlet />
+    </>
+  );
 }
 
 function LoginPrompt() {
