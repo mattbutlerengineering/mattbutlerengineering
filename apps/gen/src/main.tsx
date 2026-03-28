@@ -6,6 +6,7 @@ import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom"
 import { RialtoProvider } from "@mbe/rialto";
 import { AuthProvider } from "@mbe/auth/react";
 import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
+import { PlaygroundPage } from "./pages/PlaygroundPage";
 import { App, CallbackRedirect } from "./App";
 
 // Auth config from environment
@@ -44,7 +45,7 @@ const router = createBrowserRouter(
         { path: "callback", element: <CallbackRedirect /> },
         {
           index: true,
-          element: <div>Playground</div>,
+          element: <PlaygroundPage />,
         },
         { path: "*", element: <Navigate to="/" replace /> },
       ],

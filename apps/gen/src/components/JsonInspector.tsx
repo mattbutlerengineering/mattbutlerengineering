@@ -20,7 +20,7 @@ export interface JsonInspectorProps {
  */
 function highlightJson(json: string): ReactNode[] {
   // Captures: quoted strings (with optional colon = key), numbers, literals, structure
-  const TOKEN_REGEX = /("(?:[^"\\]|\\.)*"(?:\s*:)?|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null|[{}\[\],:])/g;
+  const TOKEN_REGEX = /("(?:[^"\\]|\\.)*"(?:\s*:)?|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null|[{}[\],:])/g;
 
   const parts: ReactNode[] = [];
   let lastIndex = 0;

@@ -23,7 +23,7 @@ export function HistoryPanel({ entries, activeId, onSelect }: HistoryPanelProps)
 
   return (
     <aside className={styles.panel}>
-      <ul className={styles.list} role="list">
+      <ul className={styles.list}>
         {entries.map((entry) => (
           <li key={entry.id}>
             <button
