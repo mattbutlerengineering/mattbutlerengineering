@@ -184,7 +184,7 @@ const apiApp = new digitalocean.App("mattbutlerengineering-api-app", {
 });
 
 // API subdomain DNS — proxied: false so DO can verify domain and provision TLS
-const apiDns = new cloudflare.Record("mattbutlerengineering-api-dns", {
+const apiDns = new cloudflare.DnsRecord("mattbutlerengineering-api-dns", {
   zoneId: cloudflareZoneId,
   name: "api",
   type: "CNAME",
@@ -197,25 +197,39 @@ const apiDns = new cloudflare.Record("mattbutlerengineering-api-dns", {
 // Routes traffic by path prefix to Workers Static Assets (via Service
 // Bindings) or DO API app (via HTTP subrequest).
 //
-// Static site Workers are created by `wrangler deploy` in CI — Pulumi
-// only manages the edge-router and its bindings. Service Bindings call
-// app Workers in-process, bypassing the CDN entirely.
+// Static site Workers — marketing, hospitality, rialto-web, and gen —
+// are all managed as Pulumi WorkersScript resources. Service Bindings
+// call app Workers in-process, bypassing the CDN entirely.
 
 const workerScript = new cloudflare.WorkersScript("mattbutlerengineering-edge-router", {
   accountId: cloudflareAccountId,
-  name: "mattbutlerengineering-edge-router",
+  scriptName: "mattbutlerengineering-edge-router",
   content: readFileSync("../worker/edge-router.js", "utf-8"),
-  module: true,
+  mainModule: "edge-router.js",
   compatibilityDate: "2026-03-25",
-  plainTextBindings: [
-    { name: "API_ORIGIN", text: `https://api.${domain}` },
+  bindings: [
+    { name: "API_ORIGIN", text: `https://api.${domain}`, type: "plain_text" },
+    { name: "MARKETING", service: "mattbutlerengineering-marketing", type: "service" },
+    { name: "HOSPITALITY", service: "mattbutlerengineering-hospitality", type: "service" },
+    { name: "RIALTO", service: "mattbutlerengineering-rialto-web", type: "service" },
+    { name: "GEN", service: "mattbutlerengineering-gen", type: "service" },
   ],
-  serviceBindings: [
-    { name: "MARKETING", service: "mattbutlerengineering-marketing" },
-    { name: "HOSPITALITY", service: "mattbutlerengineering-hospitality" },
-    { name: "RIALTO", service: "mattbutlerengineering-rialto-web" },
-    { name: "GEN", service: "mattbutlerengineering-gen" },
-  ],
+});
+
+// ── Gen App Worker (Static Assets) ───────────────────────────────────
+// Pulumi-managed CF Worker for the gen playground app. Replaces the
+// wrangler deploy in CI. Assets uploaded from apps/gen/dist/ at
+// pulumi up time — requires `pnpm build --filter=@mbe/gen` first.
+const genWorker = new cloudflare.WorkersScript("mattbutlerengineering-gen", {
+  accountId: cloudflareAccountId,
+  scriptName: "mattbutlerengineering-gen",
+  compatibilityDate: "2026-03-25",
+  assets: {
+    directory: "../../apps/gen/dist",
+    config: {
+      notFoundHandling: "single-page-application",
+    },
+  },
 });
 
 // ── Worker Routes ───────────────────────────────────────────────────
@@ -224,19 +238,19 @@ const workerScript = new cloudflare.WorkersScript("mattbutlerengineering-edge-ro
 const workerRoute = new cloudflare.WorkersRoute("edge-router-route", {
   zoneId: cloudflareZoneId,
   pattern: `${domain}/*`,
-  scriptName: workerScript.name,
+  script: workerScript.scriptName,
 });
 
 const wwwWorkerRoute = new cloudflare.WorkersRoute("edge-router-www-route", {
   zoneId: cloudflareZoneId,
   pattern: `www.${domain}/*`,
-  scriptName: workerScript.name,
+  script: workerScript.scriptName,
 });
 
 // ── DNS Records ─────────────────────────────────────────────────────
 // Root domain uses AAAA 100:: (Cloudflare proxy placeholder) so the
 // Worker edge-router handles all traffic.
-const dnsRecord = new cloudflare.Record("mattbutlerengineering-dns", {
+const dnsRecord = new cloudflare.DnsRecord("mattbutlerengineering-dns", {
   zoneId: cloudflareZoneId,
   name: "@",
   type: "AAAA",
@@ -246,7 +260,7 @@ const dnsRecord = new cloudflare.Record("mattbutlerengineering-dns", {
 });
 
 // WWW subdomain: proxied CNAME → root domain (Worker handles redirect)
-const wwwRecord = new cloudflare.Record("mattbutlerengineering-www-dns", {
+const wwwRecord = new cloudflare.DnsRecord("mattbutlerengineering-www-dns", {
   zoneId: cloudflareZoneId,
   name: "www",
   type: "CNAME",
