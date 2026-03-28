@@ -6,8 +6,10 @@ on:
     paths:
       - "services/users/**"
       - "services/reservations/**"
+      - "services/agent/**"
       - "packages/types/**"
       - "packages/auth/**"
+      - "packages/agent-core/**"
 
 concurrency:
   group: deploy-services-${{ github.ref }}

@@ -11,6 +11,7 @@ const cloudflareZoneId = config.require("cloudflareZoneId");
 const cloudflareAccountId = config.require("cloudflareAccountId");
 
 const databaseUrl = config.requireSecret("databaseUrl");
+const aiGatewayApiKey = config.requireSecret("aiGatewayApiKey");
 
 // ── Auth0 Exports ───────────────────────────────────────────────────
 export const auth0ApiIdentifier = auth0Outputs.apiIdentifier;
@@ -35,6 +36,23 @@ const apiApp = new digitalocean.App("mattbutlerengineering-api-app", {
         {
           match: { path: { prefix: "/api/v1/users" } },
           component: { name: "users-api", preservePathPrefix: true },
+        },
+        // Agent-api routes — must come before /api catch-all
+        {
+          match: { path: { prefix: "/api/gen" } },
+          component: { name: "agent-api", preservePathPrefix: true },
+        },
+        {
+          match: { path: { prefix: "/v1/sessions" } },
+          component: { name: "agent-api", preservePathPrefix: true },
+        },
+        {
+          match: { path: { prefix: "/v1/orchestrate" } },
+          component: { name: "agent-api", preservePathPrefix: true },
+        },
+        {
+          match: { path: { prefix: "/v1/webhooks" } },
+          component: { name: "agent-api", preservePathPrefix: true },
         },
         {
           match: { path: { prefix: "/api" } },
@@ -129,6 +147,38 @@ const apiApp = new digitalocean.App("mattbutlerengineering-api-app", {
           failureThreshold: 3,
         },
       },
+      {
+        name: "agent-api",
+        github: {
+          repo: "mattbutlerengineering/mattbutlerengineering",
+          branch: "main",
+          deployOnPush: false,
+        },
+        sourceDir: "/",
+        dockerfilePath: "services/agent/Dockerfile",
+        instanceCount: 1,
+        instanceSizeSlug: "apps-s-1vcpu-0.5gb",
+        httpPort: 3003,
+        envs: [
+          { key: "NODE_ENV", value: "production" },
+          { key: "PORT", value: "3003" },
+          { key: "CORS_ORIGIN", value: `https://${domain}` },
+          { key: "API_BASE_URL", value: `https://api.${domain}/api` },
+          { key: "AUTH_AUTHORITY", value: "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com" },
+          { key: "AUTH_AUDIENCE", value: `https://api.${domain}` },
+          { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" },
+          { key: "AI_GATEWAY_API_KEY", value: aiGatewayApiKey, type: "SECRET" },
+          { key: "DEFAULT_MODEL", value: "anthropic/claude-haiku-4.5" },
+        ],
+        healthCheck: {
+          httpPath: "/health",
+          initialDelaySeconds: 10,
+          periodSeconds: 10,
+          timeoutSeconds: 5,
+          successThreshold: 1,
+          failureThreshold: 3,
+        },
+      },
     ],
   },
 });
@@ -164,6 +214,8 @@ const workerScript = new cloudflare.WorkersScript("mattbutlerengineering-edge-ro
     { name: "MARKETING", service: "mattbutlerengineering-marketing" },
     { name: "HOSPITALITY", service: "mattbutlerengineering-hospitality" },
     { name: "RIALTO", service: "mattbutlerengineering-rialto-web" },
+    // GEN Service Binding — uncomment when apps/gen Worker is deployed (Phase 14):
+    // { name: "GEN", service: "mattbutlerengineering-gen" },
   ],
 });
 
@@ -211,3 +263,4 @@ export const appUrl = pulumi.interpolate`https://${domain}`;
 export const apiUrl = pulumi.interpolate`https://api.${domain}/api`;
 export const hospitalityUrl = pulumi.interpolate`https://${domain}/hospitality`;
 export const rialtoUrl = pulumi.interpolate`https://${domain}/rialto`;
+export const genUrl = pulumi.interpolate`https://${domain}/gen`;
