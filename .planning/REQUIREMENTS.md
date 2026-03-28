@@ -11,7 +11,7 @@ Requirements for Generative UI milestone. Each maps to roadmap phases.
 
 - [x] **CAT-01**: Zod v4 upgrade across all services and packages without breaking existing schemas
 - [x] **CAT-02**: `packages/rialto-catalog` package with `defineCatalog()` containing Zod schemas for ~25 Rialto components
-- [ ] **CAT-03**: `defineRegistry()` mapping catalog component types to Rialto React components
+- [x] **CAT-03**: `defineRegistry()` mapping catalog component types to Rialto React components
 - [x] **CAT-04**: `catalog.prompt()` generates a system prompt with usage-oriented descriptions and character limit constraints
 - [x] **CAT-05**: CI check that fails if committed catalog schemas drift from Rialto TypeScript prop interfaces
 - [x] **CAT-06**: Catalog includes action declarations for `setState`, `validateForm`, and `navigate`
@@ -90,7 +90,7 @@ Deferred to v1.3+. Tracked but not in current roadmap.
 |-------------|-------|--------|
 | CAT-01 | Phase 12 | Complete |
 | CAT-02 | Phase 12 | Complete |
-| CAT-03 | Phase 12 | Pending |
+| CAT-03 | Phase 12 | Complete |
 | CAT-04 | Phase 12 | Complete |
 | CAT-05 | Phase 12 | Complete |
 | CAT-06 | Phase 12 | Complete |
