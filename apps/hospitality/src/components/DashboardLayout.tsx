@@ -1,7 +1,10 @@
+import { useState, useCallback } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
-import { Sidebar } from "@mbe/rialto";
+import { Sidebar, GenCopilot } from "@mbe/rialto";
 import type { SidebarSection } from "@mbe/rialto";
+import { registry } from "@mbe/rialto-catalog";
+import { HOSPITALITY_DOMAIN_CONTEXT } from "../constants/copilotContext.js";
 import styles from "./DashboardLayout.module.css";
 
 function buildNavSections(
@@ -88,7 +91,12 @@ function buildNavSections(
 export function DashboardLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signOut } = useAuth();
+  const { signOut, accessToken } = useAuth();
+
+  const [copilotOpen, setCopilotOpen] = useState(false);
+
+  // Stable token getter — passes latest token to GenCopilot without recreating on every render
+  const getAccessToken = useCallback(() => accessToken, [accessToken]);
 
   const sections = buildNavSections(navigate, location.pathname);
 
@@ -110,17 +118,43 @@ export function DashboardLayout() {
     return section;
   });
 
+  // Add Tools section with Copilot toggle — immutable new array, no mutation
+  const sectionsWithCopilot: SidebarSection[] = [
+    ...sectionsWithSignOut,
+    {
+      label: "Tools",
+      items: [
+        {
+          id: "copilot",
+          label: "Copilot",
+          active: copilotOpen,
+          onClick: () => setCopilotOpen((prev) => !prev),
+        },
+      ],
+    },
+  ];
+
   return (
     <div className={styles.root} data-testid="dashboard-layout">
       <header className={styles.header}>
         <span className={styles.logo}>Hospitality</span>
       </header>
       <div className={styles.body}>
-        <Sidebar items={sectionsWithSignOut} />
+        <Sidebar items={sectionsWithCopilot} />
         <main className={styles.content}>
           <Outlet />
         </main>
       </div>
+      {/* Conditionally mount GenCopilot — destroying it on close resets all streaming state */}
+      {copilotOpen && (
+        <GenCopilot
+          onClose={() => setCopilotOpen(false)}
+          api="/api/gen/ui"
+          domainContext={HOSPITALITY_DOMAIN_CONTEXT}
+          getAccessToken={getAccessToken}
+          registry={registry}
+        />
+      )}
     </div>
   );
 }

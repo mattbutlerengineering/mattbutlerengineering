@@ -12,9 +12,11 @@
     "test:e2e": "playwright test --config playwright.config.ts"
   },
   "dependencies": {
+    "@json-render/react": "^0.15.0",
     "@mbe/api-client": "workspace:*",
     "@mbe/auth": "workspace:*",
     "@mbe/rialto": "workspace:*",
+    "@mbe/rialto-catalog": "workspace:*",
     "@mbe/types": "workspace:*",
     "konva": "^9.3.22",
     "react": "^19.0.0",
