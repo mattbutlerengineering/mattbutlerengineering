@@ -102,28 +102,32 @@ Deferred to v1.3+. Tracked but not in current roadmap.
 | GEN-06 | Phase 13 | Pending |
 | GEN-07 | Phase 13 | Pending |
 | GEN-08 | Phase 13 | Pending |
-| PLAY-01 | Phase 14a | Pending |
-| PLAY-02 | Phase 14a | Pending |
-| PLAY-03 | Phase 14a | Pending |
-| PLAY-04 | Phase 14a | Pending |
-| PLAY-05 | Phase 14a | Pending |
-| PLAY-06 | Phase 14a | Pending |
-| PLAY-07 | Phase 14a | Pending |
-| COP-01 | Phase 14b | Pending |
-| COP-02 | Phase 14b | Pending |
-| COP-03 | Phase 14b | Pending |
-| COP-04 | Phase 14b | Pending |
-| PERS-01 | Phase 15 | Pending |
-| PERS-02 | Phase 15 | Pending |
-| PERS-03 | Phase 15 | Pending |
-| PERS-04 | Phase 15 | Pending |
-| PERS-05 | Phase 15 | Pending |
+| INFRA-01 | Phase 13 | Pending |
+| INFRA-02 | Phase 13 | Pending |
+| INFRA-03 | Phase 13 | Pending |
+| INFRA-04 | Phase 13 | Pending |
+| PLAY-01 | Phase 14 | Pending |
+| PLAY-02 | Phase 14 | Pending |
+| PLAY-03 | Phase 14 | Pending |
+| PLAY-04 | Phase 14 | Pending |
+| PLAY-05 | Phase 14 | Pending |
+| PLAY-06 | Phase 14 | Pending |
+| PLAY-07 | Phase 14 | Pending |
+| COP-01 | Phase 15 | Pending |
+| COP-02 | Phase 15 | Pending |
+| COP-03 | Phase 15 | Pending |
+| COP-04 | Phase 15 | Pending |
+| PERS-01 | Phase 16 | Pending |
+| PERS-02 | Phase 16 | Pending |
+| PERS-03 | Phase 16 | Pending |
+| PERS-04 | Phase 16 | Pending |
+| PERS-05 | Phase 16 | Pending |
 
 **Coverage:**
-- v1.2 requirements: 30 total
-- Mapped to phases: 30
+- v1.2 requirements: 34 total
+- Mapped to phases: 34
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-27*
-*Last updated: 2026-03-27 after initial definition*
+*Last updated: 2026-03-27 — traceability updated with Phase 12-16 assignments*
