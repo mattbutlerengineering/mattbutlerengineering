@@ -57,7 +57,7 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
   3. `catalog.prompt()` returns a system prompt string that includes component descriptions and character limit constraints derived from the Zod schemas
   4. The CI drift check fails when a catalog schema is manually edited to diverge from the Rialto TypeScript prop interface, and passes when they match
   5. The catalog includes `setState`, `validateForm`, and `navigate` action declarations that can be referenced in generated specs
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
 - [ ] 12-01-PLAN.md — Zod v4 upgrade and rialto-catalog package scaffold
@@ -128,7 +128,7 @@ Plans:
 | 9. Polish and Documentation | v1.1 | 3/3 | Complete | 2026-03-23 |
 | 10. Documentation Reconciliation | v1.1 | 1/1 | Complete | 2026-03-23 |
 | 11. Registry Props & Verification | v1.1 | 2/2 | Complete | 2026-03-23 |
-| 12. Catalog Foundation | 1/3 | In Progress|  | - |
+| 12. Catalog Foundation | 2/3 | In Progress|  | - |
 | 13. AI Generation Endpoint | v1.2 | 0/TBD | Not started | - |
 | 14. Playground App | v1.2 | 0/TBD | Not started | - |
 | 15. Hospitality Copilot | v1.2 | 0/TBD | Not started | - |

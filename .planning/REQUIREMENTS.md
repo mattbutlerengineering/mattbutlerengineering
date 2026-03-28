@@ -10,11 +10,11 @@ Requirements for Generative UI milestone. Each maps to roadmap phases.
 ### Catalog
 
 - [x] **CAT-01**: Zod v4 upgrade across all services and packages without breaking existing schemas
-- [ ] **CAT-02**: `packages/rialto-catalog` package with `defineCatalog()` containing Zod schemas for ~25 Rialto components
+- [x] **CAT-02**: `packages/rialto-catalog` package with `defineCatalog()` containing Zod schemas for ~25 Rialto components
 - [ ] **CAT-03**: `defineRegistry()` mapping catalog component types to Rialto React components
-- [ ] **CAT-04**: `catalog.prompt()` generates a system prompt with usage-oriented descriptions and character limit constraints
-- [ ] **CAT-05**: CI check that fails if committed catalog schemas drift from Rialto TypeScript prop interfaces
-- [ ] **CAT-06**: Catalog includes action declarations for `setState`, `validateForm`, and `navigate`
+- [x] **CAT-04**: `catalog.prompt()` generates a system prompt with usage-oriented descriptions and character limit constraints
+- [x] **CAT-05**: CI check that fails if committed catalog schemas drift from Rialto TypeScript prop interfaces
+- [x] **CAT-06**: Catalog includes action declarations for `setState`, `validateForm`, and `navigate`
 
 ### Generation Backend
 
@@ -89,11 +89,11 @@ Deferred to v1.3+. Tracked but not in current roadmap.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | CAT-01 | Phase 12 | Complete |
-| CAT-02 | Phase 12 | Pending |
+| CAT-02 | Phase 12 | Complete |
 | CAT-03 | Phase 12 | Pending |
-| CAT-04 | Phase 12 | Pending |
-| CAT-05 | Phase 12 | Pending |
-| CAT-06 | Phase 12 | Pending |
+| CAT-04 | Phase 12 | Complete |
+| CAT-05 | Phase 12 | Complete |
+| CAT-06 | Phase 12 | Complete |
 | GEN-01 | Phase 13 | Pending |
 | GEN-02 | Phase 13 | Pending |
 | GEN-03 | Phase 13 | Pending |
