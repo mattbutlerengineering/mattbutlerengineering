@@ -1,2 +1,2 @@
 export { catalog } from "./catalog.js";
-// registry export added in Plan 03
+export { registry, handlers, executeAction } from "./registry.js";

@@ -3,7 +3,8 @@
   "extends": "@mbe/config/typescript/base",
   "compilerOptions": {
     "noEmit": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM"]
   },
   "include": ["src"]
 }

@@ -26,9 +26,13 @@
   },
   "devDependencies": {
     "@mbe/config": "workspace:*",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^25.3.0",
     "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.4",
     "react": "^19.2.4",
+    "react-dom": "^19.2.4",
     "tsx": "^4.19.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
