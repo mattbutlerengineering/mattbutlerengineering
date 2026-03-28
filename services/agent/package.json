@@ -21,11 +21,15 @@
   },
   "dependencies": {
     "@fastify/cors": "^10.0.0",
+    "@fastify/rate-limit": "^10.3.0",
     "@fastify/swagger": "^9.0.0",
     "@mbe/agent-core": "workspace:*",
+    "@mbe/auth": "workspace:^",
+    "@mbe/rialto-catalog": "workspace:^",
     "@mbe/types": "workspace:*",
     "@prisma/client": "^6.0.0",
     "@scalar/fastify-api-reference": "^1.44.1",
+    "ai": "^6.0.141",
     "fastify": "^5.8.1",
     "zod": "catalog:"
   },

@@ -2,7 +2,8 @@
   "extends": "@mbe/config/typescript/node",
   "compilerOptions": {
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "src",
+    "jsx": "react-jsx"
   },
   "include": ["src"]
 }
