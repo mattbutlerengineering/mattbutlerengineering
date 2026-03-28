@@ -15,6 +15,22 @@
   color: var(--rialto-text-primary);
 }
 
+.headerControls {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+}
+
+.venueSelector {
+  padding-inline: var(--rialto-space-sm);
+  padding-block: var(--rialto-space-xs);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-primary);
+  background: var(--rialto-surface);
+}
+
 .searchInput {
   padding-inline: var(--rialto-space-sm);
   padding-block: var(--rialto-space-xs);
