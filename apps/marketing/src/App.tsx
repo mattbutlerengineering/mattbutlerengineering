@@ -2,6 +2,7 @@ import { Routes, Route } from "react-router-dom";
 import { Footer, GlobalNav } from "@mbe/rialto";
 import { Navbar } from "./components/Navbar";
 import { HomePage } from "./pages/HomePage";
+import { NotFoundPage } from "./pages/NotFoundPage";
 import styles from "./App.module.css";
 
 interface AppProps {
@@ -17,6 +18,7 @@ export function App({ theme, onThemeToggle }: AppProps) {
       <main className={styles.main}>
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
       <Footer variant="minimal" className={styles.footer}>
