@@ -24,16 +24,19 @@ tech-stack:
     - "Edge router else-if chain: /hospitality → /rialto → /gen → marketing (catch-all)"
 
 key-files:
-  created: []
+  created:
+    - apps/gen/.env.example
   modified:
     - .github/workflows/deploy-static.yml
     - infrastructure/worker/edge-router.js
     - infrastructure/pulumi/index.ts
+    - infrastructure/pulumi/auth0.ts
 
 key-decisions:
   - "[14-03]: GEN Service Binding uncommented — apps/gen wrangler.toml created in 14-02, Worker can now be deployed"
   - "[14-03]: deploy-gen detects changes to packages/rialto-catalog/** in addition to apps/gen/** — gen depends on catalog"
   - "[14-03]: wrangler deploy must run before pulumi up — Worker must exist before Service Binding can reference it"
+  - "[14-03]: Auth0 gen URLs added to shared auth0.ts alongside hospitality; gen app can share or get its own CLIENT_ID"
 
 patterns-established:
   - "New static app deploy pattern: add path filter to on.push.paths + detect-changes output + paths-filter block + deploy job"
@@ -52,11 +55,11 @@ completed: 2026-03-28
 
 ## Performance
 
-- **Duration:** 2 min
+- **Duration:** 15 min
 - **Started:** 2026-03-28T16:01:19Z
-- **Completed:** 2026-03-28T16:03:02Z
-- **Tasks:** 1 of 2 auto tasks complete (Task 2 is checkpoint:human-verify)
-- **Files modified:** 3
+- **Completed:** 2026-03-28T16:15:00Z
+- **Tasks:** 2 of 2 complete (1 auto + 1 checkpoint:human-verify — approved)
+- **Files modified:** 5
 
 ## Accomplishments
 
@@ -64,24 +67,30 @@ completed: 2026-03-28
 - Added `apps/gen/**` and `packages/rialto-catalog/**` to push path triggers and detect-changes filters
 - Added `/gen` route to edge-router.js routing gen traffic to `env.GEN` Service Binding
 - Uncommented GEN Service Binding in pulumi/index.ts (`mattbutlerengineering-gen`)
+- Added gen callback/logout/origin URLs to infrastructure/pulumi/auth0.ts alongside hospitality
+- Created apps/gen/.env.example with VITE_AUTH_* template variables for local development
 
 ## Task Commits
 
 Each task was committed atomically:
 
 1. **Task 1: Add gen deploy job to CI and update edge router + Pulumi** - `469ccb9` (feat)
+2. **Task 2: Checkpoint files — gen .env.example and Auth0 gen URLs** - `98f8a82` (feat)
 
 ## Files Created/Modified
 
 - `.github/workflows/deploy-static.yml` - Added gen path filters, detect-changes output, and deploy-gen job
 - `infrastructure/worker/edge-router.js` - Added /gen route (before marketing catch-all), updated JSDoc
 - `infrastructure/pulumi/index.ts` - Uncommented GEN Service Binding
+- `infrastructure/pulumi/auth0.ts` - Added gen callback, logout URL, and web origin alongside hospitality
+- `apps/gen/.env.example` - VITE_AUTH_* environment variable template for local development
 
 ## Decisions Made
 
 - GEN Service Binding is now uncommented because the wrangler.toml was created in 14-02 and the Worker can be deployed via CI before `pulumi up` runs
 - `packages/rialto-catalog/**` added to gen path filter since the playground depends on the catalog for JSON schema rendering
 - Deploy ordering note preserved in plan: `wrangler deploy` must precede `pulumi up` (CI handles this naturally)
+- Auth0 gen URLs added to existing auth0.ts alongside hospitality rather than creating a new Pulumi resource — gen app can use AUTH0_GEN_CLIENT_ID secret to point at its own Auth0 application
 
 ## Deviations from Plan
 
@@ -112,17 +121,22 @@ Before production deployment works end-to-end:
 
 ## Next Phase Readiness
 
-- All Phase 14 infra is complete
-- Awaiting checkpoint:human-verify (Task 2) — user confirms local dev + build work and reviews pre-deploy checklist
-- Phase 15 (playground features) can begin after Task 2 checkpoint approval
+- All Phase 14 infrastructure is complete — CI, edge router, and Pulumi are ready
+- Checkpoint:human-verify approved — user confirmed local dev and build work
+- Phase 15 (playground features / UI polish) can begin immediately
+- Production serve requires user to complete the setup checklist above (Auth0 app, GitHub secret, wrangler deploy, pulumi up)
+- Remaining Phase 13 blocker still pending: `pulumi up` to deploy agent-api to DO App Platform (required for streaming generation in production)
 
 ## Self-Check: PASSED
 
 - FOUND: `.planning/phases/14-playground-app/14-03-SUMMARY.md`
 - FOUND: commit `469ccb9` (feat(14-03): add gen CI deploy job, edge router route, and Pulumi GEN binding)
+- FOUND: commit `98f8a82` (feat(14-03): add gen .env.example and Auth0 gen URLs to Pulumi)
 - FOUND: `deploy-gen` job in `.github/workflows/deploy-static.yml`
 - FOUND: `env.GEN` route in `infrastructure/worker/edge-router.js`
 - FOUND: GEN Service Binding in `infrastructure/pulumi/index.ts` (uncommented)
+- FOUND: `apps/gen/.env.example`
+- FOUND: gen URLs in `infrastructure/pulumi/auth0.ts`
 
 ---
 *Phase: 14-playground-app*

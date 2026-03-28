@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Generative UI
 status: unknown
-last_updated: "2026-03-28T16:04:02.983Z"
+last_updated: "2026-03-28T16:16:40.376Z"
 progress:
   total_phases: 3
   completed_phases: 3
@@ -18,14 +18,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-27)
 
 **Core value:** Every web app uses Rialto as the single design system and is accessible at mattbutlerengineering.com
-**Current focus:** v1.2 Generative UI — Phase 12 complete (all 3 plans done), Phase 13 complete (all 3 plans done, pulumi up + spend cap pending user action)
+**Current focus:** v1.2 Generative UI — Phase 12 complete (all 3 plans done), Phase 13 complete (all 3 plans done, pulumi up + spend cap pending user action), Phase 14 complete (all 3 plans done)
 
 ## Current Position
 
-Phase: 14 of 16 (Playground App) — In Progress (3 of 3 plans complete, awaiting checkpoint)
-Plan: 03 complete (all 3 plans done, checkpoint:human-verify pending)
-Status: Awaiting checkpoint verification
-Last activity: 2026-03-28 — Completed 14-03 (CI deploy-gen job, edge router /gen route, Pulumi GEN Service Binding)
+Phase: 14 of 16 (Playground App) — Complete (3 of 3 plans done)
+Plan: 03 complete (checkpoint:human-verify approved, all tasks done)
+Status: Phase 14 complete — ready for Phase 15
+Last activity: 2026-03-28 — Completed 14-03 (CI deploy-gen job, edge router /gen route, Pulumi GEN Service Binding, .env.example, auth0.ts gen URLs)
 
 Progress: [█░░░░░░░░░] 10%
 
@@ -48,6 +48,7 @@ Progress: [█░░░░░░░░░] 10%
 | Phase 14-playground-app P01 | 18 | 2 tasks | 15 files |
 | Phase 14-playground-app P02 | 6 | 2 tasks | 15 files |
 | Phase 14-playground-app P03 | 2 | 1 tasks | 3 files |
+| Phase 14-playground-app P03 | 15 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -91,6 +92,7 @@ Phase 13 Plan 03 decisions:
 - [Phase 14-playground-app]: rawLinesRef sync moved to useEffect (no-dep) — avoids react-hooks/refs lint error, same semantic for onComplete
 - [Phase 14-playground-app]: [14-03]: GEN Service Binding uncommented — apps/gen wrangler.toml created in 14-02, Worker can now be deployed
 - [Phase 14-playground-app]: [14-03]: wrangler deploy must run before pulumi up — Worker must exist before Service Binding can reference it
+- [Phase 14-playground-app]: [14-03]: Auth0 gen URLs added to shared auth0.ts alongside hospitality; gen app can share or get its own CLIENT_ID via AUTH0_GEN_CLIENT_ID secret
 
 ### Pending Todos
 
@@ -106,6 +108,5 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-28T16:03:02Z
-Stopped at: Completed 14-03 Task 1 (infra), awaiting checkpoint:human-verify (Task 2)
-Resume file: .planning/phases/14-playground-app/14-03-PLAN.md (Task 2 — human verify)
+Last session: 2026-03-28T16:15:00Z
+Stopped at: Completed 14-03-PLAN.md (all tasks done, SUMMARY.md created)
