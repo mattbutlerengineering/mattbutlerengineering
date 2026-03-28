@@ -1,0 +1,77 @@
+# Build stage
+FROM node:22-alpine AS builder
+
+RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
+
+WORKDIR /app
+
+# Copy workspace config
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+
+# Copy package.json files for all workspace packages we depend on
+COPY packages/types/package.json ./packages/types/
+COPY packages/config/package.json ./packages/config/
+COPY packages/agent-core/package.json ./packages/agent-core/
+COPY services/agent/package.json ./services/agent/
+
+# Install all dependencies
+RUN pnpm install --frozen-lockfile
+
+# Copy source code
+COPY packages/types ./packages/types
+COPY packages/config ./packages/config
+COPY packages/agent-core ./packages/agent-core
+COPY services/agent ./services/agent
+
+# Generate Prisma client and build
+RUN pnpm --filter @mbe/agent-service db:generate
+RUN pnpm --filter @mbe/agent-service build
+
+# Production stage
+FROM node:22-alpine AS runner
+
+RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
+
+WORKDIR /app
+
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 app
+
+# Copy workspace config
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+
+# Copy package.json files
+COPY packages/types/package.json ./packages/types/
+COPY packages/config/package.json ./packages/config/
+COPY packages/agent-core/package.json ./packages/agent-core/
+COPY services/agent/package.json ./services/agent/
+
+# Copy Prisma schema first (needed for generate)
+COPY services/agent/prisma ./services/agent/prisma
+
+# Install all dependencies (NODE_ENV unset to include devDeps for prisma CLI)
+RUN pnpm install --frozen-lockfile
+
+# Generate Prisma client
+RUN pnpm --filter @mbe/agent-service db:generate
+
+# Now set NODE_ENV for runtime
+ENV NODE_ENV=production
+
+# Copy source files for TypeScript packages (no build step needed)
+COPY --from=builder /app/packages/types/src ./packages/types/src
+COPY --from=builder /app/packages/agent-core/src ./packages/agent-core/src
+
+# Copy built agent service
+COPY --from=builder /app/services/agent/dist ./services/agent/dist
+# Copy generated Prisma client (tsc doesn't copy .js files from src/ to dist/)
+COPY --from=builder /app/services/agent/src/generated/prisma ./services/agent/dist/generated/prisma
+
+USER app
+
+WORKDIR /app/services/agent
+
+EXPOSE 3003
+
+CMD ["node", "dist/index.js"]
