@@ -92,8 +92,8 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request) => {
-      const page = Math.max(1, parseInt(request.query.page ?? "1", 10));
-      const limit = Math.min(100, Math.max(1, parseInt(request.query.limit ?? "10", 10)));
+      const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
+      const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "10", 10) || 10));
       const status = request.query.status as AgentSessionStatus | undefined;
 
       const prismaStatus = status?.toUpperCase() as
