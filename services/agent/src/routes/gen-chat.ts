@@ -88,10 +88,9 @@ export const genChatRoutes: FastifyPluginAsync = async (fastify) => {
       reply.header("Content-Type", "text/plain; charset=utf-8");
       reply.header("Cache-Control", "no-cache");
       reply.header("Connection", "keep-alive");
-      reply.header("x-vercel-ai-ui-message-stream", "v1");
       reply.header("X-Accel-Buffering", "no");
 
-      return reply.send(result.toUIMessageStream());
+      return reply.send(result.textStream);
     }
   );
 };

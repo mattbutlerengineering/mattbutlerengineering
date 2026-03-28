@@ -1,7 +1,7 @@
 /// <reference types="@fastify/rate-limit" />
 // AI SDK routes "provider/model" strings through Vercel AI Gateway when
 // AI_GATEWAY_API_KEY is set in the environment. No @ai-sdk/anthropic import needed.
-import { streamText, Output } from "ai";
+import { streamText } from "ai";
 import type { FastifyRequest } from "fastify";
 import type { FastifyPluginAsync } from "fastify";
 import { requireAuth } from "@mbe/auth/fastify";
@@ -70,7 +70,6 @@ export const genUiRoutes: FastifyPluginAsync = async (fastify) => {
             content: prompt,
           },
         ],
-        output: Output.object({ schema: z.object({ spec: z.any() }) }),
         // GEN-06: cost logging in onFinish
         onFinish: async ({ usage, providerMetadata }) => {
           const anthropicMeta = providerMetadata?.anthropic as
@@ -94,10 +93,9 @@ export const genUiRoutes: FastifyPluginAsync = async (fastify) => {
       reply.header("Content-Type", "text/plain; charset=utf-8");
       reply.header("Cache-Control", "no-cache");
       reply.header("Connection", "keep-alive");
-      reply.header("x-vercel-ai-ui-message-stream", "v1");
       reply.header("X-Accel-Buffering", "no");
 
-      return reply.send(result.toUIMessageStream());
+      return reply.send(result.textStream);
     }
   );
 };

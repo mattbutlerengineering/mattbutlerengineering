@@ -89,6 +89,10 @@ export default defineConfig({
         target: "http://localhost:3001",
         changeOrigin: true,
       },
+      "/api/gen": {
+        target: "http://localhost:3003",
+        changeOrigin: true,
+      },
       "/api": {
         target: "http://localhost:3004",
         changeOrigin: true,
