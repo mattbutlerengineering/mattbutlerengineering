@@ -43,7 +43,7 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 - [x] **Phase 13: AI Generation Endpoint** — Streaming generation routes in services/agent with auth, rate limiting, prompt caching, cost logging, and SSE verified through the CF edge router; plus all supporting infrastructure (completed 2026-03-28)
 - [x] **Phase 14: Playground App** — Vite SPA at /gen with prompt bar, streaming preview, JSON inspector, prompt history, and theme-aware rendering (completed 2026-03-28)
 - [x] **Phase 15: Hospitality Copilot** — GenCopilot component embedded in the hospitality dashboard with domain-aware prompt context for reservations and floor plans (can run in parallel with Phase 14) (completed 2026-03-28)
-- [ ] **Phase 16: Persistence and Refinement** — Spec storage, prompt history replay, favorites, shareable permalinks, and inline conversational refinement mode
+- [x] **Phase 16: Persistence and Refinement** — Spec storage, prompt history replay, favorites, shareable permalinks, and inline conversational refinement mode (completed 2026-03-28)
 
 ## Phase Details
 
@@ -124,7 +124,7 @@ Plans:
   3. A user can mark a generated UI as a favorite and see it in a saved list that persists across sessions
   4. Copying a shareable permalink URL and opening it in a fresh browser session loads the exact stored spec without requiring the original prompt to be re-run
   5. Typing a refinement instruction ("make the button larger") in conversational mode applies a patch to the existing spec rather than regenerating from scratch — the preview updates to reflect only the changed element
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 16-01-PLAN.md — StoredSpec Prisma model, service layer, and REST API endpoints
@@ -150,4 +150,4 @@ Plans:
 | 13. AI Generation Endpoint | v1.2 | 3/3 | Complete | 2026-03-28 |
 | 14. Playground App | v1.2 | 3/3 | Complete | 2026-03-28 |
 | 15. Hospitality Copilot | v1.2 | 1/1 | Complete | 2026-03-28 |
-| 16. Persistence and Refinement | 2/3 | In Progress|  | - |
+| 16. Persistence and Refinement | 3/3 | Complete   | 2026-03-28 | - |

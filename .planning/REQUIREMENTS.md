@@ -49,8 +49,8 @@ Requirements for Generative UI milestone. Each maps to roadmap phases.
 - [x] **PERS-01**: Prisma model for stored specs (prompt, spec JSON, user ID, timestamps)
 - [x] **PERS-02**: Prompt history replay — user can re-run previous prompts
 - [x] **PERS-03**: Favorites — user can save/unsave generated UIs
-- [ ] **PERS-04**: Shareable permalink — UUID-based URL that loads a stored spec
-- [ ] **PERS-05**: Inline/conversational refinement mode ("make the button larger" applies patches to existing spec)
+- [x] **PERS-04**: Shareable permalink — UUID-based URL that loads a stored spec
+- [x] **PERS-05**: Inline/conversational refinement mode ("make the button larger" applies patches to existing spec)
 
 ### Infrastructure
 
@@ -120,8 +120,8 @@ Deferred to v1.3+. Tracked but not in current roadmap.
 | PERS-01 | Phase 16 | Complete |
 | PERS-02 | Phase 16 | Complete |
 | PERS-03 | Phase 16 | Complete |
-| PERS-04 | Phase 16 | Pending |
-| PERS-05 | Phase 16 | Pending |
+| PERS-04 | Phase 16 | Complete |
+| PERS-05 | Phase 16 | Complete |
 
 **Coverage:**
 - v1.2 requirements: 34 total

@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Generative UI
-status: in_progress
-last_updated: "2026-03-28T17:26:04Z"
+status: complete
+last_updated: "2026-03-28T17:34:04.922Z"
 progress:
   total_phases: 5
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 13
   completed_plans: 13
 ---
@@ -22,12 +22,15 @@ See: .planning/PROJECT.md (updated 2026-03-27)
 
 ## Current Position
 
-Phase: 16 of 16 (Persistence and Refinement) — In Progress (2 of 3 plans done)
-Plan: 02 complete (StoredSpec type, useSpecsApi hook, HistoryPanel migration, PlaygroundPage auto-save)
-Status: Phase 16 plan 02 complete
-Last activity: 2026-03-28 — Completed 16-02 (Frontend persistence — useSpecsApi hook + HistoryPanel favorites/replay + PlaygroundPage auto-save)
+Phase: 16 of 16 (Persistence and Refinement) — Complete (3 of 3 plans done)
+Plan: 03 complete (SharedSpecPage permalink, Share button, refinement mode, PromptBar mode toggle)
+Status: Phase 16 complete — all plans done
+Last activity: 2026-03-28 — Completed 16-03 (Shareable permalinks + refinement mode for Gen Playground)
 
-Progress: [██░░░░░░░░] 20%
+Progress: [██████████] 100%
+
+Last session: 2026-03-28T17:41:00Z
+Stopped at: Completed 16-03-PLAN.md
 
 ## Performance Metrics
 
@@ -52,6 +55,7 @@ Progress: [██░░░░░░░░] 20%
 | Phase 15-hospitality-copilot P01 | 22 | 2 tasks | 13 files |
 | Phase 16-persistence-and-refinement P01 | 3 | 2 tasks | 8 files |
 | Phase 16-persistence-and-refinement P02 | 3 | 2 tasks | 6 files |
+| Phase 16-persistence-and-refinement P03 | 226 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -109,6 +113,9 @@ Phase 15 Plan 01 decisions:
 - [Phase 16-persistence-and-refinement]: [16-02]: useSpecsApi deleteSpec captures previous specs in closure before optimistic removal — enables correct revert on error
 - [Phase 16-persistence-and-refinement]: [16-02]: PlaygroundPage no longer needs rawLinesRef — rawLines now flow from useGenStream onComplete second argument directly to saveSpec
 - [Phase 16-persistence-and-refinement]: [16-02]: HistoryPanel filter tabs use plain buttons with CSS not Rialto Tabs — Rialto Tabs component does not exist
+- [Phase 16]: [16-03]: Refinement uses /api/gen/ui not /api/gen/chat — embeds spec as JSON context in prompt, reuses JSONL streaming pipeline
+- [Phase 16]: [16-03]: isSharedSpec check bypasses auth gate for /gen/s/ paths before isAuthenticated check
+- [Phase 16]: [16-03]: useState initial value computed from route param to avoid synchronous setState in useEffect (react-hooks/set-state-in-effect)
 
 ### Pending Todos
 
