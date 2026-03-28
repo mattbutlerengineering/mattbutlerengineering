@@ -71,13 +71,14 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
     }
   };
 
-  const optionalAuth = async (request: FastifyRequest) => {
+  const optionalAuth = async (request: FastifyRequest, reply: FastifyReply) => {
     if (!JWKS || !authority || !audience) {
       return;
     }
 
     const authHeader = request.headers.authorization;
     if (!authHeader?.startsWith("Bearer ")) {
+      // No token provided — continue as anonymous
       return;
     }
 
@@ -97,8 +98,14 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         emailVerified: jwtPayload.email_verified,
         raw: jwtPayload,
       };
-    } catch {
-      // Invalid token for optional auth - just ignore
+    } catch (error) {
+      // Token was provided but is invalid — reject with 401
+      fastify.log.warn({ error }, "Invalid JWT token");
+      return reply.code(401).send({
+        error: "Unauthorized",
+        message: "Invalid token",
+        statusCode: 401,
+      });
     }
   };
 
