@@ -116,41 +116,18 @@ pnpm clean
 
 ### Service-Specific Commands
 
-All backend services (`services/users`, `services/agent`, and `services/reservations`) share the same command structure:
+Each service has its own CLAUDE.md with full command reference. Common pattern:
 
 ```bash
-cd services/users   # or: cd services/agent, cd services/reservations
-
-# Development (with hot reload)
-pnpm dev
-
-# Build the service
-pnpm build
-
-# Testing
-pnpm test                    # Run all tests once
-pnpm test:watch             # Run tests in watch mode
-pnpm test:coverage          # Run with coverage report
-
-# Database operations
-pnpm db:generate            # Generate Prisma client
-pnpm db:push                # Push schema (dev only, no migration history)
-pnpm db:migrate             # Create and apply migrations (development)
-pnpm db:migrate:deploy      # Apply pending migrations (production/CI)
-pnpm db:migrate:status      # Check migration status
-pnpm db:studio              # Open Prisma Studio
-
-# Linting and type checking
-pnpm lint                   # ESLint
-pnpm typecheck              # TypeScript type checking
+cd services/<name>
+pnpm dev / pnpm build / pnpm test / pnpm test:coverage
+pnpm db:generate / pnpm db:push / pnpm db:migrate / pnpm db:studio
 ```
 
 ### Running Single Tests
 ```bash
-# In any service directory
-npx vitest run src/routes/users.test.ts           # Run specific test file
-npx vitest run --reporter=verbose src/routes/     # Run with detailed output
-npx vitest --grep "GET /api/v1/users"             # Run tests matching pattern
+npx vitest run src/routes/users.test.ts           # Specific file
+npx vitest --grep "GET /api/v1/users"             # Pattern match
 ```
 
 ### CLI Commands (`mbe`)
@@ -174,26 +151,12 @@ mbe agent orchestrate "Big task"                  # Decompose → parallel sessi
 ```
 
 ### Rialto Design System
+
+See `packages/rialto/CLAUDE.md` for design philosophy, token rules, and component APIs.
+
 ```bash
-cd packages/rialto
-
-# Build library (Vite lib mode + types)
-pnpm build
-
-# Testing
-pnpm test                    # Run component tests
-pnpm test:watch             # Run tests in watch mode
-
-# Linting and type checking
-pnpm lint                   # ESLint
-pnpm typecheck              # TypeScript type checking
-
-# From root:
-pnpm size                   # Check bundle size
-pnpm size:check             # Enforce bundle size limits
-pnpm test:visual            # Run Playwright visual regression tests
-pnpm lighthouse             # Run Lighthouse CI performance audit
-pnpm changeset              # Create a changeset for versioning
+cd packages/rialto && pnpm build / pnpm test / pnpm lint / pnpm typecheck
+# From root: pnpm size / pnpm size:check / pnpm test:visual / pnpm lighthouse
 ```
 
 ## Project Architecture
@@ -426,31 +389,9 @@ response: {
 
 ## Environment Variables
 
-### Users Service (`services/users`)
-- **PORT**: Service port (default: 3001)
-- **LOG_LEVEL**: Logging level (default: "info")
-- **CORS_ORIGIN**: CORS origin configuration
-- **AUTH_AUTHORITY**: Auth0 authority URL
-- **AUTH_AUDIENCE**: Auth0 API identifier
-- **DATABASE_URL**: Prisma database connection string
-
-### Agent Service (`services/agent`)
-- **PORT**: Service port (default: 3003)
-- **LOG_LEVEL**: Logging level (default: "info")
-- **DATABASE_URL**: Prisma database connection string (separate DB from users)
-- **ANTHROPIC_API_KEY**: Claude API key (required for agent sessions)
-- **DEFAULT_MODEL**: Default Claude model (default: "claude-sonnet-4-6")
-- **MAX_CONCURRENT_SESSIONS**: Rate limit (default: 5)
-- **GITHUB_WEBHOOK_SECRET**: HMAC secret for GitHub webhook signature verification
-- **AGENT_API_URL**: Base URL for agent API (used by CLI, default: "http://localhost:3003")
-
-### Reservations Service (`services/reservations`)
-- **PORT**: Service port (default: 3004)
-- **LOG_LEVEL**: Logging level (default: "info")
-- **CORS_ORIGIN**: CORS origin configuration
-- **AUTH_AUTHORITY**: Auth0 authority URL
-- **AUTH_AUDIENCE**: Auth0 API identifier
-- **DATABASE_URL**: Prisma database connection string
+Each service documents its own env vars in its CLAUDE.md. Common across all services:
+- `PORT`, `LOG_LEVEL`, `DATABASE_URL` (Prisma connection string)
+- Auth-protected services also need `AUTH_AUTHORITY` and `AUTH_AUDIENCE`
 
 ## Database Migrations
 
@@ -516,66 +457,18 @@ Starts Postgres (Docker), syncs all database schemas, and launches all dev serve
 
 ## Rialto Design System Usage
 
-### Import Paths
+Full component APIs, token rules, and design philosophy: see `packages/rialto/CLAUDE.md`.
 
+Quick reference:
 ```typescript
-// Components (barrel export — always use this, never subpaths)
 import { Button, Input, Card, Text, Stack } from "@mbe/rialto";
-
-// Styles (must be imported before any component rendering)
-import "@mbe/rialto/styles";
-
-// Motion tokens
-import { spring, precision } from "@mbe/rialto/motion";
+import "@mbe/rialto/styles";  // Must import before any component rendering
 ```
 
-### RialtoProvider Setup
-
-```tsx
-import { RialtoProvider } from "@mbe/rialto";
-
-// Wrap your app root (main.tsx):
-<RialtoProvider theme="light"> {/* "light" | "dark" | "system" */}
-  <App />
-</RialtoProvider>
-```
-
-`vibe` prop adjusts component density: `"default"` (standard), `"transacting"` (tighter, sharper — for checkout/payments), `"presenting"` (more whitespace, softer — for dashboards/demos).
-
-### Top 10 Component APIs
-
-| Component | Key Props |
-|-----------|-----------|
-| **Button** | `variant` (`"primary" \| "secondary" \| "ghost" \| "danger"`), `size` (`"sm" \| "md" \| "lg"`), `loading`, `disabled`, `onClick` |
-| **Input** | `label`, `hint`, `error`, `type`, `placeholder` |
-| **Card** | `variant`, `padding` (`"sm" \| "md" \| "lg"`), `title`, `subtitle` |
-| **Text** | `variant` (`"body" \| "heading" \| "display" \| "label" \| "caption"`), `size`, `weight`, `as` |
-| **Stack** | `direction` (`"row" \| "column"`), `gap` (spacing token), `align`, `justify` (`"between"` not `"space-between"`) |
-| **Badge** | `variant` (`"neutral" \| "success" \| "warning" \| "error" \| "info"`), `size`, `dot` |
-| **Select** | `label`, `options` (`{ value, label }[]`), `placeholder`, `value`, `onChange` |
-| **Toggle** | `label`, `checked`, `onCheckedChange`, `disabled` |
-| **Dialog** | `open`, `onClose`, `title`, `children` |
-| **Toast** | Use `useToast()` hook: `const { toast } = useToast();` then `toast.success("msg")` / `toast.error("msg")` — requires `<ToastProvider>` ancestor |
-
-### Token Rules
-
-- **Never hardcode colors** — always use `var(--rialto-*)` tokens
-- **Spacing**: `--rialto-space-{xs|sm|md|lg|xl|2xl|3xl}`
-- **Radius**: `--rialto-radius-{sharp|default|soft|round}`
-- **Accent** (`--rialto-accent`) is gold — use only for focus rings, active states, primary buttons. Never decorative.
-- **Always use CSS logical properties**: `margin-inline-start` not `margin-left`, `padding-inline-start` not `padding-left`
-- **Do NOT call `useToast()` without `<ToastProvider>`** or `useUIEnvironment()` without `<RialtoProvider>`
-
-### AI Reference Files
-
-- `llms.txt` — condensed component catalog and token reference (<20KB, fits in AI context windows)
-- `llms-full.txt` — complete prop tables, composition examples, and advanced patterns (26KB)
-- `packages/rialto/CLAUDE.md` — component authoring guidelines (for contributing to Rialto)
-
-### Scaffold New Apps
+Wrap app root with `<RialtoProvider theme="light">`. Never hardcode colors — use `var(--rialto-*)` tokens.
 
 ```bash
-mbe new <app-name>   # creates apps/<name>/ with RialtoProvider, routing, and example page
+mbe new <app-name>   # Scaffold app with RialtoProvider, routing, and example page
 ```
 
 ---
