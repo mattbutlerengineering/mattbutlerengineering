@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
 import type { FloorPlan } from "@mbe/types";
+import { NewFloorPlanDialog } from "../components/floor-plan";
 import styles from "./FloorPlansPage.module.css";
 
 export function FloorPlansPage() {
@@ -11,20 +12,32 @@ export function FloorPlansPage() {
   const [floorPlans, setFloorPlans] = useState<FloorPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showNewDialog, setShowNewDialog] = useState(false);
+  const [venueId, setVenueId] = useState<string | null>(null);
+
+  const api = useMemo(
+    () =>
+      createApiClient({
+        baseUrl: import.meta.env.VITE_API_URL ?? "",
+        getAccessToken: () => accessToken,
+      }),
+    [accessToken]
+  );
 
   useEffect(() => {
-    async function fetchFloorPlans() {
+    async function fetchData() {
       setIsLoading(true);
       setError(null);
 
       try {
-        const api = createApiClient({
-          baseUrl: import.meta.env.VITE_API_URL ?? "",
-          getAccessToken: () => accessToken,
-        });
-
-        const response = await api.floorPlans.list({ limit: 50 });
-        setFloorPlans(response.data);
+        const [floorPlansResponse, venuesResponse] = await Promise.all([
+          api.floorPlans.list({ limit: 50 }),
+          api.venues.list({ limit: 1 }),
+        ]);
+        setFloorPlans(floorPlansResponse.data);
+        if (venuesResponse.data.length > 0) {
+          setVenueId(venuesResponse.data[0].id);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load floor plans");
       } finally {
@@ -32,8 +45,22 @@ export function FloorPlansPage() {
       }
     }
 
-    fetchFloorPlans();
-  }, [accessToken]);
+    fetchData();
+  }, [api]);
+
+  const handleCreate = useCallback(
+    async (data: Parameters<typeof api.floorPlans.create>[0]) => {
+      return api.floorPlans.create(data);
+    },
+    [api]
+  );
+
+  const handleCreated = useCallback(
+    (floorPlan: FloorPlan) => {
+      navigate(`/floor-plans/${floorPlan.id}`);
+    },
+    [navigate]
+  );
 
   const formatDate = (isoString: string) => {
     return new Date(isoString).toLocaleDateString();
@@ -43,8 +70,23 @@ export function FloorPlansPage() {
     <div className={styles.container}>
       <div className={styles.header}>
         <h1 className={styles.title}>Floor Plans</h1>
-        <button className={styles.newButton}>New Floor Plan</button>
+        <button
+          className={styles.newButton}
+          onClick={() => setShowNewDialog(true)}
+          disabled={!venueId}
+        >
+          New Floor Plan
+        </button>
       </div>
+
+      {showNewDialog && venueId && (
+        <NewFloorPlanDialog
+          venueId={venueId}
+          onCreate={handleCreate}
+          onCreated={handleCreated}
+          onClose={() => setShowNewDialog(false)}
+        />
+      )}
 
       {isLoading && (
         <div className={styles.loadingWrapper}>
