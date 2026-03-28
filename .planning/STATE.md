@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Generative UI
-status: executing
-last_updated: "2026-03-28T15:57:17Z"
+status: unknown
+last_updated: "2026-03-28T16:04:02.983Z"
 progress:
   total_phases: 3
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 9
-  completed_plans: 8
+  completed_plans: 9
 ---
 
 # Project State
@@ -22,10 +22,10 @@ See: .planning/PROJECT.md (updated 2026-03-27)
 
 ## Current Position
 
-Phase: 14 of 16 (Playground App) — In Progress (2 of 3 plans done)
-Plan: 02 complete (2 of 3 plans done)
-Status: In progress
-Last activity: 2026-03-28 — Completed 14-02 (three-column playground UI: AppShell, HistoryPanel, PreviewPane, JsonInspector, PromptBar, PlaygroundPage)
+Phase: 14 of 16 (Playground App) — In Progress (3 of 3 plans complete, awaiting checkpoint)
+Plan: 03 complete (all 3 plans done, checkpoint:human-verify pending)
+Status: Awaiting checkpoint verification
+Last activity: 2026-03-28 — Completed 14-03 (CI deploy-gen job, edge router /gen route, Pulumi GEN Service Binding)
 
 Progress: [█░░░░░░░░░] 10%
 
@@ -47,6 +47,7 @@ Progress: [█░░░░░░░░░] 10%
 | Phase 13-ai-generation-endpoint P01 | 5 | 2 tasks | 8 files |
 | Phase 14-playground-app P01 | 18 | 2 tasks | 15 files |
 | Phase 14-playground-app P02 | 6 | 2 tasks | 15 files |
+| Phase 14-playground-app P03 | 2 | 1 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -88,6 +89,8 @@ Phase 13 Plan 03 decisions:
 - [Phase 14-playground-app]: Rialto Button has no danger variant — Stop button uses secondary+CSS data-stop override for error color
 - [Phase 14-playground-app]: handlers from defineRegistry is a factory fn — omitted from JSONUIProvider since playground is render-only
 - [Phase 14-playground-app]: rawLinesRef sync moved to useEffect (no-dep) — avoids react-hooks/refs lint error, same semantic for onComplete
+- [Phase 14-playground-app]: [14-03]: GEN Service Binding uncommented — apps/gen wrangler.toml created in 14-02, Worker can now be deployed
+- [Phase 14-playground-app]: [14-03]: wrangler deploy must run before pulumi up — Worker must exist before Service Binding can reference it
 
 ### Pending Todos
 
@@ -103,6 +106,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-28T15:57:17Z
-Stopped at: Completed 14-02-PLAN.md
-Resume file: .planning/phases/14-playground-app/14-03-PLAN.md
+Last session: 2026-03-28T16:03:02Z
+Stopped at: Completed 14-03 Task 1 (infra), awaiting checkpoint:human-verify (Task 2)
+Resume file: .planning/phases/14-playground-app/14-03-PLAN.md (Task 2 — human verify)

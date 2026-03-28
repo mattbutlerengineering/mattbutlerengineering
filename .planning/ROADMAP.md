@@ -41,7 +41,7 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 
 - [x] **Phase 12: Catalog Foundation** — Zod schemas for ~25 Rialto components, CI drift check, action declarations, and the client/server split that every downstream feature depends on (completed 2026-03-28)
 - [x] **Phase 13: AI Generation Endpoint** — Streaming generation routes in services/agent with auth, rate limiting, prompt caching, cost logging, and SSE verified through the CF edge router; plus all supporting infrastructure (completed 2026-03-28)
-- [ ] **Phase 14: Playground App** — Vite SPA at /gen with prompt bar, streaming preview, JSON inspector, prompt history, and theme-aware rendering
+- [x] **Phase 14: Playground App** — Vite SPA at /gen with prompt bar, streaming preview, JSON inspector, prompt history, and theme-aware rendering (completed 2026-03-28)
 - [ ] **Phase 15: Hospitality Copilot** — GenCopilot component embedded in the hospitality dashboard with domain-aware prompt context for reservations and floor plans (can run in parallel with Phase 14)
 - [ ] **Phase 16: Persistence and Refinement** — Spec storage, prompt history replay, favorites, shareable permalinks, and inline conversational refinement mode
 
@@ -92,7 +92,7 @@ Plans:
   3. The JSON spec inspector panel shows the raw generated spec updating in real time alongside the rendered preview
   4. Prompts submitted during a session appear in a history list; navigating away and back within the same session preserves the history; logging out clears it
   5. When the app is in dark mode, generated UIs render with dark theme tokens; when in light mode, they render with light theme tokens
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 14-01-PLAN.md — App scaffold with auth, theme context, and useGenStream streaming hook
@@ -140,6 +140,6 @@ Plans:
 | 11. Registry Props & Verification | v1.1 | 2/2 | Complete | 2026-03-23 |
 | 12. Catalog Foundation | v1.2 | 3/3 | Complete | 2026-03-28 |
 | 13. AI Generation Endpoint | v1.2 | 3/3 | Complete | 2026-03-28 |
-| 14. Playground App | 2/3 | In Progress|  | - |
+| 14. Playground App | 3/3 | Complete   | 2026-03-28 | - |
 | 15. Hospitality Copilot | v1.2 | 0/TBD | Not started | - |
 | 16. Persistence and Refinement | v1.2 | 0/TBD | Not started | - |
