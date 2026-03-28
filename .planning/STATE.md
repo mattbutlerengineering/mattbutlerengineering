@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Generative UI
 status: executing
-stopped_at: Completed 12-03-PLAN.md (Phase 12 complete)
-last_updated: "2026-03-28T01:44:55.309Z"
-last_activity: 2026-03-28 — Completed 12-03 (defineRegistry() mapping 25 Rialto components to json-render)
+stopped_at: Completed 13-02-PLAN.md
+last_updated: "2026-03-27T00:12:00Z"
+last_activity: 2026-03-27 — Completed 13-02 (agent-api Dockerfile, Pulumi service component with AI Gateway secret, ingress rules)
 progress:
   total_phases: 5
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
-  percent: 6
+  total_plans: 4
+  completed_plans: 4
+  percent: 8
 ---
 
 # Project State
@@ -21,29 +21,30 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-27)
 
 **Core value:** Every web app uses Rialto as the single design system and is accessible at mattbutlerengineering.com
-**Current focus:** v1.2 Generative UI — Phase 12 complete (all 3 plans done), Phase 13 next
+**Current focus:** v1.2 Generative UI — Phase 12 complete (all 3 plans done), Phase 13 in progress (Plan 02 of 3 complete)
 
 ## Current Position
 
-Phase: 12 of 16 (Catalog Foundation) — COMPLETE
-Plan: 03 complete (all plans done)
+Phase: 13 of 16 (AI Generation Endpoint) — In Progress
+Plan: 02 complete (2 of 3 plans done)
 Status: In progress
-Last activity: 2026-03-28 — Completed 12-03 (defineRegistry() mapping 25 Rialto components to json-render)
+Last activity: 2026-03-27 — Completed 13-02 (agent-api Dockerfile, Pulumi service component with AI Gateway secret, ingress rules)
 
-Progress: [░░░░░░░░░░] 6%
+Progress: [░░░░░░░░░░] 8%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: 6.3 min
-- Total execution time: 19 min
+- Total plans completed: 4
+- Average duration: 7.8 min
+- Total execution time: 31 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 12-catalog-foundation | 3 | 19 min | 6.3 min |
+| 13-ai-generation-endpoint | 1 | 12 min | 12 min |
 
 *Updated after each plan completion*
 
@@ -68,6 +69,12 @@ Phase 12 Plan 01 decisions:
 - [Phase 12-catalog-foundation]: Toast excluded from registry — useToast() hook pattern incompatible with declarative JSON spec rendering
 - [Phase 12-catalog-foundation]: DOM lib added to rialto-catalog tsconfig — registry.tsx is browser-side and tests use DOM APIs
 
+Phase 13 Plan 02 decisions:
+- [Phase 13-02]: rialto-catalog excluded from agent Dockerfile — actual package.json has no rialto-catalog dependency (only agent-core and types)
+- [Phase 13-02]: GEN Service Binding commented in Pulumi — activating before Phase 14 deploys the Worker would cause Pulumi error (target not found)
+- [Phase 13-02]: DEFAULT_MODEL set to anthropic/claude-haiku-4.5 for cost-optimized generation
+- [Phase 13-02]: migrate/Dockerfile updated to include agent Prisma schema for when migrations are created
+
 ### Pending Todos
 
 None.
@@ -76,10 +83,11 @@ None.
 
 - **Phase 12:** ~~How to automate Zod catalog schema generation~~ — RESOLVED in Plan 02 via TypeScript Compiler API isDeclaredInRialto() filter
 - **Phase 13:** Vercel AI Gateway model string routing via `AI_GATEWAY_API_KEY` in DO App Platform is confirmed in docs but untested in practice — verify before treating as resolved
+- **Phase 13:** User must set Pulumi secret `aiGatewayApiKey` before running `pulumi up` (obtain from Vercel Dashboard > AI Gateway)
 - **Phase 16:** `pipeJsonRender` mixing of prose and JSONL patch streams has limited documentation — plan for hands-on experimentation
 
 ## Session Continuity
 
-Last session: 2026-03-28
-Stopped at: Completed 12-03-PLAN.md (Phase 12 complete)
+Last session: 2026-03-27
+Stopped at: Completed 13-02-PLAN.md
 Resume file: None

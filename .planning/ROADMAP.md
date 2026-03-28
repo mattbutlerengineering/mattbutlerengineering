@@ -74,7 +74,7 @@ Plans:
   3. Each generation request logs the model used, total tokens, and cache read tokens to the service log output
   4. SSE chunks arrive progressively in the browser DevTools Network tab (chunked incremental delivery, not one completed response) when routed through the CF edge router
   5. The `/gen` path is routed by the edge router to the gen app Static Assets worker via a Service Binding, and the Pulumi resource for the gen app CF Worker exists in the stack
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 
 Plans:
 - [ ] 13-01-PLAN.md — Streaming gen-ui and gen-chat routes with auth, rate limiting, prompt caching, cost logging
@@ -134,7 +134,7 @@ Plans:
 | 10. Documentation Reconciliation | v1.1 | 1/1 | Complete | 2026-03-23 |
 | 11. Registry Props & Verification | v1.1 | 2/2 | Complete | 2026-03-23 |
 | 12. Catalog Foundation | v1.2 | 3/3 | Complete | 2026-03-28 |
-| 13. AI Generation Endpoint | v1.2 | 0/3 | Not started | - |
+| 13. AI Generation Endpoint | 1/3 | In Progress|  | - |
 | 14. Playground App | v1.2 | 0/TBD | Not started | - |
 | 15. Hospitality Copilot | v1.2 | 0/TBD | Not started | - |
 | 16. Persistence and Refinement | v1.2 | 0/TBD | Not started | - |
