@@ -1,21 +1,41 @@
 {
   "hooks": {
-    "SessionStart": [
+    "PreToolUse": [
       {
+        "matcher": "Edit|Write",
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/hooks/gsd-check-update.js"
+            "command": "case \"$CLAUDE_FILE_PATH\" in *.env|*.env.*) echo 'BLOCK: Do not edit .env files — use environment variables via vercel env or service .env.example files instead' >&2; exit 2;; esac"
           }
         ]
       }
     ],
     "PostToolUse": [
       {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx prettier --write \"$CLAUDE_FILE_PATH\" 2>/dev/null || true"
+          }
+        ]
+      },
+      {
         "hooks": [
           {
             "type": "command",
             "command": "node .claude/hooks/gsd-context-monitor.js"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/gsd-check-update.js"
           }
         ]
       }
