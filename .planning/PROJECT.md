@@ -103,4 +103,4 @@ Evaluations complete: json-render selected as generative UI framework, AI SDK + 
 | Haiku 4.5 as default gen model | $1/$5 MTok + prompt caching ≈ $0.001/gen — cost-effective for playground volume | — Pending |
 
 ---
-*Last updated: 2026-03-27 after v1.2 milestone start*
+*Last updated: 2026-03-28 after Phase 17*

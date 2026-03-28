@@ -18,22 +18,22 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-27)
+See: .planning/PROJECT.md (updated 2026-03-28)
 
 **Core value:** Every web app uses Rialto as the single design system and is accessible at mattbutlerengineering.com
-**Current focus:** v1.2 Generative UI — Phase 12 complete (all 3 plans done), Phase 13 complete (all 3 plans done, pulumi up + spend cap pending user action), Phase 14 complete (all 3 plans done)
+**Current focus:** v1.2 Generative UI — Phase 17 complete (streaming pipeline fixed), Phase 18 next (gen Worker Pulumi resource)
 
 ## Current Position
 
-Phase: 17 of 17 (Local Dev and Streaming Fixes) — In Progress (1 of 1 plans done)
-Plan: 01 complete (Vite proxy fix, backend textStream, hooks dead code cleanup)
-Status: Phase 17 complete — all plans done
-Last activity: 2026-03-28 — Completed 17-01 (Local dev streaming pipeline fixes)
+Phase: 18 of 18 (Gen Worker Pulumi Resource) — Ready to plan
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-03-28 — Phase 17 complete, transitioning to Phase 18
 
 Progress: [█████████▉] 97%
 
-Last session: 2026-03-28T18:22:08Z
-Stopped at: Completed 17-01-PLAN.md
+Last session: 2026-03-28
+Stopped at: Phase 17 complete, ready to plan Phase 18
 
 ## Performance Metrics
 
@@ -132,8 +132,10 @@ None.
 - **Phase 13:** ~~User must set Pulumi secret `aiGatewayApiKey` before running `pulumi up`~~ — documented in 13-03 SUMMARY, still pending user action
 - **Phase 13 [BLOCKING USER ACTION]:** `pulumi up` must be run from `infrastructure/pulumi/` to deploy agent-api to DO App Platform; Anthropic spend cap must be set at https://console.anthropic.com/settings/limits
 - **Phase 16:** `pipeJsonRender` mixing of prose and JSONL patch streams has limited documentation — plan for hands-on experimentation
+- **Phase 17:** Test mocks in gen-ui.test.ts and gen-chat.test.ts still reference toUIMessageStream — tests pass but don't exercise the stream path; low priority
 
 ## Session Continuity
 
-Last session: 2026-03-28T17:26:04Z
-Stopped at: Completed 16-02-PLAN.md
+Last session: 2026-03-28
+Stopped at: Phase 17 complete, ready to plan Phase 18
+Resume file: None
