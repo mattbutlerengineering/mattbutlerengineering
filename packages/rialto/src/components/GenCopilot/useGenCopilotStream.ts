@@ -135,11 +135,6 @@ export function useGenCopilotStream({
             try {
               const parsed = JSON.parse(trimmed) as Record<string, unknown>;
 
-              // Skip usage metadata lines — copilot doesn't expose usage to UI
-              if (parsed.type === "usage") {
-                continue;
-              }
-
               // Treat as a flat element; cast to FlatElement for spec assembly
               accumulatedElements.push(parsed as unknown as FlatElement);
               const updatedSpec = flatToTree([...accumulatedElements]);
@@ -154,11 +149,9 @@ export function useGenCopilotStream({
         if (buffer.trim()) {
           try {
             const parsed = JSON.parse(buffer.trim()) as Record<string, unknown>;
-            if (parsed.type !== "usage") {
-              accumulatedElements.push(parsed as unknown as FlatElement);
-              const finalSpec = flatToTree([...accumulatedElements]);
-              setSpec(finalSpec);
-            }
+            accumulatedElements.push(parsed as unknown as FlatElement);
+            const finalSpec = flatToTree([...accumulatedElements]);
+            setSpec(finalSpec);
           } catch {
             // Skip malformed JSON lines
           }

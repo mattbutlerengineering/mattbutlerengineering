@@ -13,17 +13,10 @@ export interface UseGenStreamOptions {
   onError?: (error: Error) => void;
 }
 
-export interface TokenUsage {
-  promptTokens: number;
-  completionTokens: number;
-  totalTokens: number;
-}
-
 export interface UseGenStreamReturn {
   spec: Spec | null;
   isStreaming: boolean;
   error: Error | null;
-  usage: TokenUsage | null;
   rawLines: string[];
   send: (prompt: string, context?: Record<string, unknown>) => Promise<void>;
   clear: () => void;
@@ -49,7 +42,6 @@ export function useGenStream({
   const [spec, setSpec] = useState<Spec | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-  const [usage, setUsage] = useState<TokenUsage | null>(null);
   const [rawLines, setRawLines] = useState<string[]>([]);
 
   // Store AbortController in ref so it persists across renders
@@ -75,7 +67,6 @@ export function useGenStream({
       setError(null);
       setRawLines([]);
       setSpec(null);
-      setUsage(null);
 
       const accumulatedElements: FlatElement[] = [];
       // Track raw lines locally to avoid stale React state in onComplete callback
@@ -128,20 +119,10 @@ export function useGenStream({
             try {
               const parsed = JSON.parse(trimmed) as Record<string, unknown>;
 
-              if (parsed.type === "usage") {
-                // Extract token usage info
-                const usageData: TokenUsage = {
-                  promptTokens: (parsed.promptTokens as number) ?? 0,
-                  completionTokens: (parsed.completionTokens as number) ?? 0,
-                  totalTokens: (parsed.totalTokens as number) ?? 0,
-                };
-                setUsage(usageData);
-              } else {
-                // Treat as a flat element; cast to FlatElement for spec assembly
-                accumulatedElements.push(parsed as unknown as FlatElement);
-                const updatedSpec = flatToTree([...accumulatedElements]);
-                setSpec(updatedSpec);
-              }
+              // Treat as a flat element; cast to FlatElement for spec assembly
+              accumulatedElements.push(parsed as unknown as FlatElement);
+              const updatedSpec = flatToTree([...accumulatedElements]);
+              setSpec(updatedSpec);
             } catch {
               // Skip malformed JSON lines
             }
@@ -155,11 +136,9 @@ export function useGenStream({
           setRawLines((prev) => [...prev, trimmedBuffer]);
           try {
             const parsed = JSON.parse(trimmedBuffer) as Record<string, unknown>;
-            if (parsed.type !== "usage") {
-              accumulatedElements.push(parsed as unknown as FlatElement);
-              const finalSpec = flatToTree([...accumulatedElements]);
-              setSpec(finalSpec);
-            }
+            accumulatedElements.push(parsed as unknown as FlatElement);
+            const finalSpec = flatToTree([...accumulatedElements]);
+            setSpec(finalSpec);
           } catch {
             // Skip malformed JSON lines
           }
@@ -193,7 +172,6 @@ export function useGenStream({
     setSpec(null);
     setError(null);
     setRawLines([]);
-    setUsage(null);
   }, []);
 
   const stop = useCallback(() => {
@@ -201,5 +179,5 @@ export function useGenStream({
     setIsStreaming(false);
   }, []);
 
-  return { spec, isStreaming, error, usage, rawLines, send, clear, stop };
+  return { spec, isStreaming, error, rawLines, send, clear, stop };
 }
