@@ -12,6 +12,7 @@ import { orchestrateRoutes } from "./routes/orchestrate.js";
 import { webhookRoutes } from "./routes/webhooks.js";
 import { genUiRoutes } from "./routes/gen-ui.js";
 import { genChatRoutes } from "./routes/gen-chat.js";
+import { genSpecsRoutes } from "./routes/gen-specs.js";
 
 export interface AppOptions {
   logger?: boolean | object;
@@ -101,6 +102,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   await fastify.register(webhookRoutes, { prefix: "/v1/webhooks" });
   await fastify.register(genUiRoutes);
   await fastify.register(genChatRoutes);
+  await fastify.register(genSpecsRoutes);
 
   return fastify;
 }
