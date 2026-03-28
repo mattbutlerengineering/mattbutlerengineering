@@ -182,8 +182,8 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request) => {
-      const page = parseInt(request.query.page ?? "1", 10);
-      const limit = parseInt(request.query.limit ?? "10", 10);
+      const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
+      const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "10", 10) || 10));
       return reservationService.list({
         page,
         limit,
@@ -258,8 +258,8 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      const page = parseInt(request.query.page ?? "1", 10);
-      const limit = parseInt(request.query.limit ?? "10", 10);
+      const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
+      const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "10", 10) || 10));
       return reservationService.listByUserId(authUser.id, page, limit);
     }
   );

@@ -123,8 +123,8 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request) => {
-      const page = parseInt(request.query.page ?? "1", 10);
-      const limit = parseInt(request.query.limit ?? "10", 10);
+      const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
+      const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "10", 10) || 10));
       const activeOnly = request.query.activeOnly === "true";
       return tableService.list(page, limit, activeOnly);
     }

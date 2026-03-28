@@ -130,8 +130,8 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
           statusCode: 400,
         });
       }
-      const page = parseInt(request.query.page ?? "1", 10);
-      const limit = Math.min(parseInt(request.query.limit ?? "20", 10), 100);
+      const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
+      const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "20", 10) || 20));
       return guestService.list(venueId, page, limit);
     }
   );

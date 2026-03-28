@@ -117,7 +117,7 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
               format: "date-time",
               description: "Start time in ISO 8601 format",
             },
-            partySize: { type: "integer", minimum: 1, description: "Number of guests" },
+            partySize: { type: "integer", minimum: 1, maximum: 20, description: "Number of guests" },
             tableId: {
               type: "string",
               description: "Optional specific table to hold. If not provided, best available table is assigned.",
