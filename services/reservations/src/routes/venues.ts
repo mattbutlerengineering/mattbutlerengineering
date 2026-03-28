@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
+import type { FastifyPluginAsync } from "fastify";
 import type {
   Venue,
   VenueGroup,
@@ -10,66 +10,10 @@ import type {
   ApiError,
   PaginatedResponse,
 } from "@mbe/types";
-import type { AuthUser, JWTPayload } from "@mbe/auth/types";
-import { createRemoteJWKSet, jwtVerify } from "jose";
+import { requireAuth } from "@mbe/auth/fastify";
 import { venueService, venueGroupService } from "../services/venue.js";
 
-declare module "fastify" {
-  interface FastifyRequest {
-    user?: AuthUser;
-  }
-}
-
 export const venueRoutes: FastifyPluginAsync = async (fastify) => {
-  const authority = process.env.AUTH_AUTHORITY;
-  const audience = process.env.AUTH_AUDIENCE;
-
-  let JWKS: ReturnType<typeof createRemoteJWKSet> | null = null;
-  if (authority && audience) {
-    const jwksUri = `${authority.replace(/\/$/, "")}/.well-known/jwks.json`;
-    JWKS = createRemoteJWKSet(new URL(jwksUri));
-  }
-
-  const verifyAuth = async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!JWKS || !authority || !audience) {
-      return reply.code(500).send({ error: "Auth not configured" });
-    }
-
-    const authHeader = request.headers.authorization;
-    if (!authHeader?.startsWith("Bearer ")) {
-      return reply.code(401).send({
-        error: "Unauthorized",
-        message: "Missing or invalid authorization header",
-        statusCode: 401,
-      });
-    }
-
-    const token = authHeader.slice(7);
-    try {
-      const { payload } = await jwtVerify(token, JWKS, {
-        issuer: authority.replace(/\/$/, "") + "/",
-        audience,
-      });
-
-      const jwtPayload = payload as unknown as JWTPayload;
-      request.user = {
-        id: jwtPayload.sub,
-        email: jwtPayload.email,
-        name: jwtPayload.name,
-        picture: jwtPayload.picture,
-        emailVerified: jwtPayload.email_verified,
-        raw: jwtPayload,
-      };
-    } catch (error) {
-      fastify.log.warn({ error }, "JWT validation failed");
-      return reply.code(401).send({
-        error: "Unauthorized",
-        message: "Invalid token",
-        statusCode: 401,
-      });
-    }
-  };
-
   // ============ VENUE GROUP ROUTES ============
 
   // List venue groups
@@ -182,7 +126,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/groups",
     {
-      preHandler: verifyAuth,
+      preHandler: requireAuth,
       schema: {
         summary: "Create a new venue group",
         operationId: "createVenueGroup",
@@ -255,7 +199,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/groups/:id",
     {
-      preHandler: verifyAuth,
+      preHandler: requireAuth,
       schema: {
         summary: "Update a venue group",
         operationId: "updateVenueGroup",
@@ -320,7 +264,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/groups/:id",
     {
-      preHandler: verifyAuth,
+      preHandler: requireAuth,
       schema: {
         summary: "Delete a venue group",
         operationId: "deleteVenueGroup",
@@ -538,7 +482,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
-      preHandler: verifyAuth,
+      preHandler: requireAuth,
       schema: {
         summary: "Create a new venue",
         operationId: "createVenue",
@@ -628,7 +572,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: verifyAuth,
+      preHandler: requireAuth,
       schema: {
         summary: "Update a venue",
         operationId: "updateVenue",
@@ -697,7 +641,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: verifyAuth,
+      preHandler: requireAuth,
       schema: {
         summary: "Delete a venue",
         operationId: "deleteVenue",

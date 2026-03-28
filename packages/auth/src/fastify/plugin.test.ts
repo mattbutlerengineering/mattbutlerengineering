@@ -89,18 +89,19 @@ describe("Auth Plugin", () => {
       });
     });
 
-    it("returns 401 for missing Authorization header", async () => {
+    it("passes through when no Authorization header is present (permissive)", async () => {
       const response = await app.inject({
         method: "GET",
         url: "/protected",
       });
 
-      expect(response.statusCode).toBe(401);
+      expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Missing or invalid authorization header");
+      expect(body.user).toBeUndefined();
+      expect(mockJwtVerify).not.toHaveBeenCalled();
     });
 
-    it("returns 401 for invalid header format (no Bearer)", async () => {
+    it("passes through when Authorization header is not Bearer (permissive)", async () => {
       const response = await app.inject({
         method: "GET",
         url: "/protected",
@@ -109,9 +110,10 @@ describe("Auth Plugin", () => {
         },
       });
 
-      expect(response.statusCode).toBe(401);
+      expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Missing or invalid authorization header");
+      expect(body.user).toBeUndefined();
+      expect(mockJwtVerify).not.toHaveBeenCalled();
     });
 
     it("returns 401 for invalid/malformed token", async () => {
@@ -127,7 +129,8 @@ describe("Auth Plugin", () => {
 
       expect(response.statusCode).toBe(401);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Invalid token");
+      expect(body.error).toBe("Unauthorized");
+      expect(body.message).toBe("Invalid token");
     });
 
     it("returns 401 for expired token", async () => {
@@ -143,7 +146,8 @@ describe("Auth Plugin", () => {
 
       expect(response.statusCode).toBe(401);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Invalid token");
+      expect(body.error).toBe("Unauthorized");
+      expect(body.message).toBe("Invalid token");
     });
 
     it("bypasses auth for excluded paths", async () => {
@@ -228,7 +232,7 @@ describe("Auth Plugin", () => {
     });
 
     it("returns 401 when user is not set (no token)", async () => {
-      // Without a token, the auth plugin hook returns 401 before requireAuth runs
+      // Without a token, the permissive hook passes through, then requireAuth rejects
       const response = await app.inject({
         method: "GET",
         url: "/with-require-auth",
@@ -236,20 +240,19 @@ describe("Auth Plugin", () => {
 
       expect(response.statusCode).toBe(401);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Missing or invalid authorization header");
+      expect(body.error).toBe("Unauthorized");
+      expect(body.message).toBe("Missing or invalid authorization header");
     });
 
     it("returns 401 and does not execute route handler when user is missing", async () => {
       const handlerSpy = vi.fn();
 
-      // Create a separate app where requireAuth guards a route on an excluded path
-      // so the onRequest hook is skipped but requireAuth still runs as preHandler
+      // Create a separate app where requireAuth guards a route
       const spyApp = Fastify({ logger: false });
       const spyRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         await fastify.register(authPlugin, {
           authority: "https://test.auth0.com",
           audience: "https://api.example.com",
-          excludePaths: ["/guarded"],
         });
 
         fastify.get("/guarded", { preHandler: requireAuth }, async (_request, _reply) => {
@@ -268,7 +271,8 @@ describe("Auth Plugin", () => {
 
       expect(response.statusCode).toBe(401);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Authentication required");
+      expect(body.error).toBe("Unauthorized");
+      expect(body.message).toBe("Missing or invalid authorization header");
       expect(handlerSpy).not.toHaveBeenCalled();
 
       await spyApp.close();
@@ -295,7 +299,7 @@ describe("Auth Plugin", () => {
       expect(options).toEqual({
         authority: "https://test.auth0.com",
         audience: "https://api.example.com",
-        excludePaths: ["/health", "/api/v1/docs"],
+        excludePaths: ["/health", "/docs"],
       });
     });
 
