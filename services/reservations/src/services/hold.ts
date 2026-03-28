@@ -210,24 +210,50 @@ export const holdService = {
       return { success: false, error: "Hold not found or expired" };
     }
 
-    // Verify the table is still available (in case of race condition)
-    const conflict = await availabilityService.checkConflict(
-      hold.tableId,
-      hold.date.toISOString().split("T")[0],
-      hold.startTime,
-      hold.endTime,
-      undefined,
-      holdId // Exclude this hold from the check
-    );
+    // Check conflict + create reservation + delete hold atomically in a transaction
+    // to prevent TOCTOU race conditions where two simultaneous conversions both
+    // pass the conflict check and create overlapping reservations.
+    const txResult = await prisma.$transaction(async (tx) => {
+      // Verify the table is still available (inside transaction for atomicity)
+      const conflictingReservation = await tx.reservation.findFirst({
+        where: {
+          tableId: hold.tableId,
+          date: hold.date,
+          status: { notIn: ["CANCELLED", "NO_SHOW"] },
+          AND: [
+            { startTime: { lt: hold.endTime } },
+            { endTime: { gt: hold.startTime } },
+          ],
+        },
+        select: { id: true },
+      });
 
-    if (conflict.hasConflict) {
-      // Clean up the hold since it's no longer valid
-      await prisma.reservationHold.delete({ where: { id: holdId } });
-      return { success: false, error: "Time slot is no longer available" };
-    }
+      if (conflictingReservation) {
+        // Clean up the hold since it's no longer valid
+        await tx.reservationHold.delete({ where: { id: holdId } });
+        return { conflict: true as const };
+      }
 
-    // Create reservation and delete hold in a transaction
-    const result = await prisma.$transaction(async (tx) => {
+      const conflictingHold = await tx.reservationHold.findFirst({
+        where: {
+          tableId: hold.tableId,
+          date: hold.date,
+          expiresAt: { gt: new Date() },
+          id: { not: holdId },
+          AND: [
+            { startTime: { lt: hold.endTime } },
+            { endTime: { gt: hold.startTime } },
+          ],
+        },
+        select: { id: true },
+      });
+
+      if (conflictingHold) {
+        // Clean up the hold since it's no longer valid
+        await tx.reservationHold.delete({ where: { id: holdId } });
+        return { conflict: true as const };
+      }
+
       // Create the reservation
       const reservation = await tx.reservation.create({
         data: {
@@ -251,9 +277,14 @@ export const holdService = {
       // Delete the hold
       await tx.reservationHold.delete({ where: { id: holdId } });
 
-      return reservation;
+      return { conflict: false as const, reservation };
     });
 
+    if (txResult.conflict) {
+      return { success: false, error: "Time slot is no longer available" };
+    }
+
+    const result = txResult.reservation;
     return {
       success: true,
       reservation: {
