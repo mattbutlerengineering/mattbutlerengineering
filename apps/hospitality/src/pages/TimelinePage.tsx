@@ -59,7 +59,13 @@ export function TimelinePage() {
       (reservation: Reservation) => {
         // Only add if it matches our current date
         if (reservation.date === selectedDate) {
-          setReservations((prev) => [...prev, reservation]);
+          setReservations((prev) => {
+            const exists = prev.some((r) => r.id === reservation.id);
+            if (exists) {
+              return prev.map((r) => (r.id === reservation.id ? reservation : r));
+            }
+            return [...prev, reservation];
+          });
         }
       },
       [selectedDate]
@@ -77,7 +83,13 @@ export function TimelinePage() {
     onHoldConfirmed: useCallback(
       (reservation: Reservation) => {
         if (reservation.date === selectedDate) {
-          setReservations((prev) => [...prev, reservation]);
+          setReservations((prev) => {
+            const exists = prev.some((r) => r.id === reservation.id);
+            if (exists) {
+              return prev.map((r) => (r.id === reservation.id ? reservation : r));
+            }
+            return [...prev, reservation];
+          });
         }
       },
       [selectedDate]
