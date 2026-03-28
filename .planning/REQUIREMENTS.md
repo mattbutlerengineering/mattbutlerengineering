@@ -103,7 +103,7 @@ Deferred to v1.3+. Tracked but not in current roadmap.
 | GEN-07 | Phase 13 | Complete |
 | GEN-08 | Phase 13 | Complete |
 | INFRA-01 | Phase 13 | Complete |
-| INFRA-02 | Phase 13 | Pending |
+| INFRA-02 | Phase 18 | Pending |
 | INFRA-03 | Phase 13 | Complete |
 | INFRA-04 | Phase 13 | Complete |
 | PLAY-01 | Phase 14 | Complete |

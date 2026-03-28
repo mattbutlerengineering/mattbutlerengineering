@@ -44,6 +44,8 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 - [x] **Phase 14: Playground App** — Vite SPA at /gen with prompt bar, streaming preview, JSON inspector, prompt history, and theme-aware rendering (completed 2026-03-28)
 - [x] **Phase 15: Hospitality Copilot** — GenCopilot component embedded in the hospitality dashboard with domain-aware prompt context for reservations and floor plans (can run in parallel with Phase 14) (completed 2026-03-28)
 - [x] **Phase 16: Persistence and Refinement** — Spec storage, prompt history replay, favorites, shareable permalinks, and inline conversational refinement mode (completed 2026-03-28)
+- [ ] **Phase 17: Local Dev & Streaming Fixes** — Fix GenCopilot Vite proxy routing and validate stream format compatibility between toUIMessageStream and useGenStream (gap closure)
+- [ ] **Phase 18: Gen Worker Pulumi Resource** — Add Pulumi-managed CF Worker resource for the gen app to satisfy INFRA-02 (gap closure)
 
 ## Phase Details
 
@@ -131,6 +133,32 @@ Plans:
 - [ ] 16-02-PLAN.md — API-backed history panel with auto-save, replay, and favorites
 - [ ] 16-03-PLAN.md — Shareable permalink page and conversational refinement mode
 
+### Phase 17: Local Dev & Streaming Fixes
+**Goal**: GenCopilot works in local dev (Vite proxy routes /api/gen to agent-api on port 3003) and stream format compatibility between toUIMessageStream() and useGenStream is validated and fixed if needed
+**Depends on**: Phase 13, Phase 15
+**Requirements**: COP-01, COP-02, COP-03, GEN-01, PLAY-03, PERS-05
+**Gap Closure:** Closes integration and flow gaps from v1.2 audit
+**Success Criteria** (what must be TRUE):
+  1. Running `pnpm dev` and opening the hospitality app GenCopilot sends requests to agent-api (port 3003), not reservations-api (port 3004)
+  2. A GenCopilot prompt in local dev produces a streaming response that renders Rialto components progressively
+  3. The useGenStream hook correctly parses all line formats produced by toUIMessageStream() without JSON.parse errors
+
+Plans:
+- [ ] 17-01-PLAN.md — Vite proxy fix and stream format validation
+
+### Phase 18: Gen Worker Pulumi Resource
+**Goal**: The gen app CF Worker is defined as a Pulumi resource in the infrastructure stack, replacing the wrangler-only deployment for IaC compliance
+**Depends on**: Phase 13
+**Requirements**: INFRA-02
+**Gap Closure:** Closes INFRA-02 requirement gap from v1.2 audit
+**Success Criteria** (what must be TRUE):
+  1. `pulumi preview` shows a CF Worker resource for the gen app in the stack
+  2. The gen Worker resource references Static Assets configuration consistent with the existing wrangler.toml
+  3. `pulumi up` successfully creates/updates the gen Worker without disrupting the existing edge router or other Workers
+
+Plans:
+- [ ] 18-01-PLAN.md — Pulumi CF Worker resource for gen app
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -151,3 +179,5 @@ Plans:
 | 14. Playground App | v1.2 | 3/3 | Complete | 2026-03-28 |
 | 15. Hospitality Copilot | v1.2 | 1/1 | Complete | 2026-03-28 |
 | 16. Persistence and Refinement | 3/3 | Complete    | 2026-03-28 | - |
+| 17. Local Dev & Streaming Fixes | v1.2 | 0/1 | Planned | - |
+| 18. Gen Worker Pulumi Resource | v1.2 | 0/1 | Planned | - |
