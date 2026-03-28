@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Generative UI
-status: completed
-stopped_at: Completed 16-03-PLAN.md
-last_updated: "2026-03-28T17:38:28.975Z"
-last_activity: 2026-03-28 — Completed 16-03 (Shareable permalinks + refinement mode for Gen Playground)
+status: in_progress
+stopped_at: Completed 17-01-PLAN.md
+last_updated: "2026-03-28T18:23:25.957Z"
+last_activity: 2026-03-28 — Completed 17-01 (Local dev streaming pipeline fixes)
 progress:
-  total_phases: 5
+  total_phases: 6
   completed_phases: 5
-  total_plans: 13
-  completed_plans: 13
-  percent: 100
+  total_plans: 14
+  completed_plans: 14
+  percent: 97
 ---
 
 # Project State
@@ -25,15 +25,15 @@ See: .planning/PROJECT.md (updated 2026-03-27)
 
 ## Current Position
 
-Phase: 16 of 16 (Persistence and Refinement) — Complete (3 of 3 plans done)
-Plan: 03 complete (SharedSpecPage permalink, Share button, refinement mode, PromptBar mode toggle)
-Status: Phase 16 complete — all plans done
-Last activity: 2026-03-28 — Completed 16-03 (Shareable permalinks + refinement mode for Gen Playground)
+Phase: 17 of 17 (Local Dev and Streaming Fixes) — In Progress (1 of 1 plans done)
+Plan: 01 complete (Vite proxy fix, backend textStream, hooks dead code cleanup)
+Status: Phase 17 complete — all plans done
+Last activity: 2026-03-28 — Completed 17-01 (Local dev streaming pipeline fixes)
 
-Progress: [██████████] 100%
+Progress: [█████████▉] 97%
 
-Last session: 2026-03-28T17:41:00Z
-Stopped at: Completed 16-03-PLAN.md
+Last session: 2026-03-28T18:22:08Z
+Stopped at: Completed 17-01-PLAN.md
 
 ## Performance Metrics
 
@@ -119,6 +119,7 @@ Phase 15 Plan 01 decisions:
 - [Phase 16]: [16-03]: Refinement uses /api/gen/ui not /api/gen/chat — embeds spec as JSON context in prompt, reuses JSONL streaming pipeline
 - [Phase 16]: [16-03]: isSharedSpec check bypasses auth gate for /gen/s/ paths before isAuthenticated check
 - [Phase 16]: [16-03]: useState initial value computed from route param to avoid synchronous setState in useEffect (react-hooks/set-state-in-effect)
+- [Phase 17-local-dev-streaming-fixes]: AI SDK v6 result.textStream is a ReadableStream property (not toTextStream() method) — plan referenced wrong API name
 
 ### Pending Todos
 
