@@ -43,7 +43,7 @@ export function AdminPage() {
     return (
       <div>
         <PageHeader title="Admin" description="Loading users..." />
-        <div className={styles.loadingWrapper}>
+        <div className={styles.loadingWrapper} aria-busy="true" role="status" aria-label="Loading">
           <div className={styles.skeletonRow} />
           <div className={styles.skeletonRow} />
           <div className={styles.skeletonRow} />
@@ -58,7 +58,7 @@ export function AdminPage() {
         <PageHeader title="Admin" description="User management" />
         <Card>
           <Stack gap="md" align="center">
-            <Text variant="body" color="error">
+            <Text variant="body" color="error" role="alert">
               {error}
             </Text>
             <Button variant="secondary" onClick={() => window.location.reload()}>

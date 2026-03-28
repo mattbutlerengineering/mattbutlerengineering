@@ -142,12 +142,15 @@ export function DashboardLayout() {
 
   return (
     <div className={styles.root} data-testid="dashboard-layout">
+      <a href="#main-content" className={styles.skipLink}>
+        Skip to content
+      </a>
       <header className={styles.header}>
         <span className={styles.logo}>Hospitality</span>
       </header>
       <div className={styles.body}>
         <Sidebar items={sectionsWithCopilot} />
-        <main className={styles.content}>
+        <main id="main-content" className={styles.content}>
           <Outlet />
         </main>
       </div>

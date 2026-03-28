@@ -68,7 +68,7 @@ export function SettingsPage() {
     return (
       <div>
         <PageHeader title="Settings" description="Loading settings..." />
-        <div className={styles.loadingWrapper}>
+        <div className={styles.loadingWrapper} aria-busy="true" role="status" aria-label="Loading">
           <div className={styles.skeletonBlock} />
           <div className={styles.skeletonBlock} />
         </div>
@@ -84,7 +84,7 @@ export function SettingsPage() {
 
       <Stack gap="lg">
         {error && (
-          <div className={styles.errorBanner}>
+          <div className={styles.errorBanner} role="alert">
             <Text variant="body" color="error">
               {error}
             </Text>

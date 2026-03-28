@@ -147,8 +147,8 @@ export function FloorPlanEditorPage() {
 
   if (isLoading) {
     return (
-      <div className={styles.loadingWrapper}>
-        <div className={styles.spinner} />
+      <div className={styles.loadingWrapper} aria-busy="true">
+        <div className={styles.spinner} aria-label="Loading" role="status" />
       </div>
     );
   }
@@ -156,7 +156,7 @@ export function FloorPlanEditorPage() {
   if (error || !floorPlan) {
     return (
       <div className={styles.errorContainer}>
-        <div className={styles.errorBox}>{error ?? "Floor plan not found"}</div>
+        <div className={styles.errorBox} role="alert">{error ?? "Floor plan not found"}</div>
         <button onClick={() => navigate("/floor-plans")} className={styles.backLink}>
           Back to Floor Plans
         </button>

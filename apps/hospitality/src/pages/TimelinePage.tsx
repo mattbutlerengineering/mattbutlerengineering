@@ -356,11 +356,11 @@ export function TimelinePage() {
         {/* Timeline */}
         <div className={styles.timelineArea}>
           {isLoading ? (
-            <div className={styles.loadingWrapper}>
-              <div className={styles.spinner} />
+            <div className={styles.loadingWrapper} aria-busy="true">
+              <div className={styles.spinner} aria-label="Loading" role="status" />
             </div>
           ) : error ? (
-            <div className={styles.errorBox}>{error}</div>
+            <div className={styles.errorBox} role="alert">{error}</div>
           ) : tables.length === 0 ? (
             <div className={styles.emptyState}>
               <p className={styles.emptyStateText}>No tables configured for this venue.</p>
