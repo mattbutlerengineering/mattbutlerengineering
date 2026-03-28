@@ -4,6 +4,12 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+catalogs:
+  default:
+    zod:
+      specifier: ^4.3.6
+      version: 4.3.6
+
 overrides:
   tar: '>=7.5.8'
   rollup: '>=4.59.0'
@@ -240,13 +246,13 @@ importers:
     dependencies:
       '@anthropic-ai/claude-agent-sdk':
         specifier: ^0.1.0
-        version: 0.1.77(zod@3.25.76)
+        version: 0.1.77(zod@4.3.6)
       '@mbe/types':
         specifier: workspace:*
         version: link:../types
       zod:
-        specifier: ^3.23.0
-        version: 3.25.76
+        specifier: 'catalog:'
+        version: 4.3.6
     devDependencies:
       '@mbe/config':
         specifier: workspace:*
@@ -416,6 +422,43 @@ importers:
         specifier: ^0.1.0
         version: 0.1.0(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.1)(jiti@2.6.1)(jsdom@28.1.0)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))
 
+  packages/rialto-catalog:
+    dependencies:
+      '@json-render/core':
+        specifier: ^0.15.0
+        version: 0.15.0(zod@4.3.6)
+      '@json-render/react':
+        specifier: ^0.15.0
+        version: 0.15.0(react@19.2.4)(zod@4.3.6)
+      '@mbe/rialto':
+        specifier: workspace:*
+        version: link:../rialto
+      zod:
+        specifier: 'catalog:'
+        version: 4.3.6
+    devDependencies:
+      '@mbe/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/node':
+        specifier: ^25.3.0
+        version: 25.3.1
+      '@types/react':
+        specifier: ^19.2.14
+        version: 19.2.14
+      react:
+        specifier: ^19.2.4
+        version: 19.2.4
+      tsx:
+        specifier: ^4.19.0
+        version: 4.21.0
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.18
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.1)(jiti@2.6.1)(jsdom@28.1.0)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
+
   packages/rialto-plugin:
     dependencies:
       '@mbe/rialto':
@@ -468,8 +511,8 @@ importers:
         specifier: ^5.8.1
         version: 5.8.1
       zod:
-        specifier: ^3.23.0
-        version: 3.25.76
+        specifier: 'catalog:'
+        version: 4.3.6
     devDependencies:
       '@mbe/config':
         specifier: workspace:*
@@ -520,8 +563,8 @@ importers:
         specifier: ^5.2.0
         version: 5.10.0
       zod:
-        specifier: ^3.23.0
-        version: 3.25.76
+        specifier: 'catalog:'
+        version: 4.3.6
     devDependencies:
       '@mbe/config':
         specifier: workspace:*
@@ -572,8 +615,8 @@ importers:
         specifier: ^5.2.0
         version: 5.10.0
       zod:
-        specifier: ^3.23.0
-        version: 3.25.76
+        specifier: 'catalog:'
+        version: 4.3.6
     devDependencies:
       '@mbe/config':
         specifier: workspace:*
@@ -1695,6 +1738,16 @@ packages:
 
   '@js-sdsl/ordered-map@4.4.2':
     resolution: {integrity: sha512-iUKgm52T8HOE/makSxjqoWhe95ZJA1/G1sYsGev2JDKUSS14KAgg1LHb+Ba+IPow0xflbnSkOsZcO08C7w1gYw==}
+
+  '@json-render/core@0.15.0':
+    resolution: {integrity: sha512-ej5fx6C2Gp5iSit+HyyFh6QenKRIAO9xvFlxal6uzQQTpOJzJlXPsNROL2JT5QjY/iLgLaf4RJohdP1mWSYDNQ==}
+    peerDependencies:
+      zod: ^4.0.0
+
+  '@json-render/react@0.15.0':
+    resolution: {integrity: sha512-2vfevZ3zRQNqVN6Y/WPFDkOe9/LPpUwDS+W4ViQQRJGO2j1wl0RbfMQtiiPai/bWQkJq0aantoQWIbh1/o8Cew==}
+    peerDependencies:
+      react: ^19.2.3
 
   '@lhci/cli@0.15.1':
     resolution: {integrity: sha512-yhC0oXnXqGHYy1xl4D8YqaydMZ/khFAnXGY/o2m/J3PqPa/D0nj3V6TLoH02oVMFeEF2AQim7UbmdXMiXx2tOw==}
@@ -6402,9 +6455,9 @@ snapshots:
 
   '@alloc/quick-lru@5.2.0': {}
 
-  '@anthropic-ai/claude-agent-sdk@0.1.77(zod@3.25.76)':
+  '@anthropic-ai/claude-agent-sdk@0.1.77(zod@4.3.6)':
     dependencies:
-      zod: 3.25.76
+      zod: 4.3.6
     optionalDependencies:
       '@img/sharp-darwin-arm64': 0.33.5
       '@img/sharp-darwin-x64': 0.33.5
@@ -7675,6 +7728,17 @@ snapshots:
       '@jridgewell/sourcemap-codec': 1.5.5
 
   '@js-sdsl/ordered-map@4.4.2': {}
+
+  '@json-render/core@0.15.0(zod@4.3.6)':
+    dependencies:
+      zod: 4.3.6
+
+  '@json-render/react@0.15.0(react@19.2.4)(zod@4.3.6)':
+    dependencies:
+      '@json-render/core': 0.15.0(zod@4.3.6)
+      react: 19.2.4
+    transitivePeerDependencies:
+      - zod
 
   '@lhci/cli@0.15.1(encoding@0.1.13)':
     dependencies:
@@ -9758,8 +9822,8 @@ snapshots:
       '@babel/parser': 7.29.0
       eslint: 9.39.3(jiti@2.6.1)
       hermes-parser: 0.25.1
-      zod: 3.25.76
-      zod-validation-error: 4.0.2(zod@3.25.76)
+      zod: 4.3.6
+      zod-validation-error: 4.0.2(zod@4.3.6)
     transitivePeerDependencies:
       - supports-color
 
@@ -13114,9 +13178,9 @@ snapshots:
 
   yocto-queue@0.1.0: {}
 
-  zod-validation-error@4.0.2(zod@3.25.76):
+  zod-validation-error@4.0.2(zod@4.3.6):
     dependencies:
-      zod: 3.25.76
+      zod: 4.3.6
 
   zod@3.25.76: {}
 
