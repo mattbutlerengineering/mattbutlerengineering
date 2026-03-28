@@ -1,0 +1,129 @@
+# Requirements: mattbutlerengineering
+
+**Defined:** 2026-03-27
+**Core Value:** Every web app uses Rialto as the single design system and is accessible at mattbutlerengineering.com
+
+## v1.2 Requirements
+
+Requirements for Generative UI milestone. Each maps to roadmap phases.
+
+### Catalog
+
+- [ ] **CAT-01**: Zod v4 upgrade across all services and packages without breaking existing schemas
+- [ ] **CAT-02**: `packages/rialto-catalog` package with `defineCatalog()` containing Zod schemas for ~25 Rialto components
+- [ ] **CAT-03**: `defineRegistry()` mapping catalog component types to Rialto React components
+- [ ] **CAT-04**: `catalog.prompt()` generates a system prompt with usage-oriented descriptions and character limit constraints
+- [ ] **CAT-05**: CI check that fails if committed catalog schemas drift from Rialto TypeScript prop interfaces
+- [ ] **CAT-06**: Catalog includes action declarations for `setState`, `validateForm`, and `navigate`
+
+### Generation Backend
+
+- [ ] **GEN-01**: `POST /api/gen/ui` endpoint streams JSONL spec patches via SSE (standalone mode)
+- [ ] **GEN-02**: `POST /api/gen/chat` endpoint streams text + JSONL via SSE (conversational mode)
+- [ ] **GEN-03**: Auth0 JWT authentication required on all generation endpoints
+- [ ] **GEN-04**: Per-user rate limiting by Auth0 `sub` claim
+- [ ] **GEN-05**: Anthropic prompt caching configured with `cache_control` on catalog system prompt
+- [ ] **GEN-06**: Cost logging — `cache_read_input_tokens`, total tokens, and model used per request
+- [ ] **GEN-07**: SSE streaming verified end-to-end through CF Worker edge router to browser
+- [ ] **GEN-08**: Model selection — Haiku 4.5 for simple prompts, Sonnet 4.6 for complex (user-selectable or auto)
+
+### Playground App
+
+- [ ] **PLAY-01**: `apps/gen` Vite SPA served at `/gen` with Auth0 login
+- [ ] **PLAY-02**: Prompt bar for natural language input with submit action
+- [ ] **PLAY-03**: Streaming preview pane that renders Rialto components progressively as JSONL arrives
+- [ ] **PLAY-04**: JSON spec inspector showing the raw generated spec
+- [ ] **PLAY-05**: In-session prompt history (survives page navigation, clears on logout)
+- [ ] **PLAY-06**: Loading and error states for generation (spinner during TTFT, error display on failure)
+- [ ] **PLAY-07**: Theme-aware rendering (generated UIs respect current light/dark mode)
+
+### Hospitality Copilot
+
+- [ ] **COP-01**: `<GenCopilot>` component in `packages/rialto` with embedded generation panel
+- [ ] **COP-02**: Integration into hospitality app dashboard layout
+- [ ] **COP-03**: Domain-aware prompt context (reservation schema, floor plan structure, guest data shapes)
+- [ ] **COP-04**: Generated UIs render inline within the hospitality app using Rialto components
+
+### Persistence
+
+- [ ] **PERS-01**: Prisma model for stored specs (prompt, spec JSON, user ID, timestamps)
+- [ ] **PERS-02**: Prompt history replay — user can re-run previous prompts
+- [ ] **PERS-03**: Favorites — user can save/unsave generated UIs
+- [ ] **PERS-04**: Shareable permalink — UUID-based URL that loads a stored spec
+- [ ] **PERS-05**: Inline/conversational refinement mode ("make the button larger" applies patches to existing spec)
+
+### Infrastructure
+
+- [ ] **INFRA-01**: CF Worker edge router gains `/gen*` route and GEN Service Binding
+- [ ] **INFRA-02**: Pulumi resource for gen app CF Worker with Static Assets
+- [ ] **INFRA-03**: `AI_GATEWAY_API_KEY` or `ANTHROPIC_API_KEY` configured in DO App Platform
+- [ ] **INFRA-04**: Hard monthly spend cap configured in Anthropic console
+
+## Future Requirements
+
+Deferred to v1.3+. Tracked but not in current roadmap.
+
+### Code Export
+
+- **EXPORT-01**: Export generated UI as standalone React component with Rialto imports
+- **EXPORT-02**: `collectUsedComponents()` for tree-shaking exports to only used components
+
+### Advanced Copilot
+
+- **ACOP-01**: Full sidebar copilot pattern in hospitality app (assistive mode)
+- **ACOP-02**: Hybrid mode — switch between standalone and conversational mid-session
+- **ACOP-03**: Copilot in marketing and rialto-web apps
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Open-ended HTML/CSS generation | XSS risk, breaks design system fidelity |
+| LLM-generated inline styles | Breaks Rialto token system |
+| Auto-deploy generated UIs | No human review gate |
+| Public unauthenticated playground | Cost/abuse risk; auth required |
+| npm-publishable catalog package | Monorepo-only; external distribution is future |
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| CAT-01 | Phase 12 | Pending |
+| CAT-02 | Phase 12 | Pending |
+| CAT-03 | Phase 12 | Pending |
+| CAT-04 | Phase 12 | Pending |
+| CAT-05 | Phase 12 | Pending |
+| CAT-06 | Phase 12 | Pending |
+| GEN-01 | Phase 13 | Pending |
+| GEN-02 | Phase 13 | Pending |
+| GEN-03 | Phase 13 | Pending |
+| GEN-04 | Phase 13 | Pending |
+| GEN-05 | Phase 13 | Pending |
+| GEN-06 | Phase 13 | Pending |
+| GEN-07 | Phase 13 | Pending |
+| GEN-08 | Phase 13 | Pending |
+| PLAY-01 | Phase 14a | Pending |
+| PLAY-02 | Phase 14a | Pending |
+| PLAY-03 | Phase 14a | Pending |
+| PLAY-04 | Phase 14a | Pending |
+| PLAY-05 | Phase 14a | Pending |
+| PLAY-06 | Phase 14a | Pending |
+| PLAY-07 | Phase 14a | Pending |
+| COP-01 | Phase 14b | Pending |
+| COP-02 | Phase 14b | Pending |
+| COP-03 | Phase 14b | Pending |
+| COP-04 | Phase 14b | Pending |
+| PERS-01 | Phase 15 | Pending |
+| PERS-02 | Phase 15 | Pending |
+| PERS-03 | Phase 15 | Pending |
+| PERS-04 | Phase 15 | Pending |
+| PERS-05 | Phase 15 | Pending |
+
+**Coverage:**
+- v1.2 requirements: 30 total
+- Mapped to phases: 30
+- Unmapped: 0 ✓
+
+---
+*Requirements defined: 2026-03-27*
+*Last updated: 2026-03-27 after initial definition*
