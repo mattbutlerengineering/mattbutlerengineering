@@ -9,6 +9,39 @@
   background-color: var(--rialto-surface-default);
 }
 
+.filterBar {
+  display: flex;
+  flex-direction: row;
+  gap: 0;
+  padding: var(--rialto-space-xs) var(--rialto-space-xs) 0;
+  border-block-end: 1px solid var(--rialto-border);
+  flex-shrink: 0;
+}
+
+.filterTab {
+  flex: 1;
+  padding: var(--rialto-space-xs) var(--rialto-space-sm);
+  border: none;
+  border-block-end: 2px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  font-size: var(--rialto-text-xs);
+  font-family: var(--rialto-font-sans);
+  color: var(--rialto-text-secondary);
+  transition: color 150ms var(--rialto-ease-precision),
+    border-color 150ms var(--rialto-ease-precision);
+}
+
+.filterTab:hover {
+  color: var(--rialto-text-primary);
+}
+
+.filterTabActive {
+  color: var(--rialto-text-primary);
+  border-block-end-color: var(--rialto-accent);
+  font-weight: 500;
+}
+
 .empty {
   margin: auto;
   padding: var(--rialto-space-lg);
@@ -24,14 +57,22 @@
   padding: var(--rialto-space-xs);
 }
 
+.listItem {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0;
+}
+
 .item {
   display: flex;
   flex-direction: column;
   gap: var(--rialto-space-xs);
-  inline-size: 100%;
+  flex: 1;
+  min-inline-size: 0;
   padding: var(--rialto-space-sm) var(--rialto-space-md);
   border: none;
-  border-radius: var(--rialto-radius-default);
+  border-radius: var(--rialto-radius-default) 0 0 var(--rialto-radius-default);
   background: transparent;
   cursor: pointer;
   text-align: start;
@@ -62,4 +103,65 @@
   font-size: var(--rialto-text-xs);
   color: var(--rialto-text-tertiary);
   font-family: var(--rialto-font-sans);
+}
+
+.itemActions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--rialto-space-xs);
+  padding: var(--rialto-space-xs);
+  flex-shrink: 0;
+}
+
+.starButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 24px;
+  block-size: 24px;
+  padding: 0;
+  border: none;
+  border-radius: var(--rialto-radius-default);
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--rialto-text-tertiary);
+  transition: color 150ms var(--rialto-ease-precision),
+    background-color 150ms var(--rialto-ease-precision);
+  line-height: 1;
+}
+
+.starButton:hover {
+  background-color: var(--rialto-surface-elevated);
+  color: var(--rialto-text-secondary);
+}
+
+.starButtonActive {
+  color: var(--rialto-accent);
+}
+
+.starButtonActive:hover {
+  color: var(--rialto-accent);
+}
+
+.replayButton {
+  padding: 2px var(--rialto-space-xs);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  background: transparent;
+  cursor: pointer;
+  font-size: 10px;
+  font-family: var(--rialto-font-sans);
+  color: var(--rialto-text-secondary);
+  transition: background-color 150ms var(--rialto-ease-precision),
+    color 150ms var(--rialto-ease-precision);
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+.replayButton:hover {
+  background-color: var(--rialto-surface-elevated);
+  color: var(--rialto-text-primary);
 }

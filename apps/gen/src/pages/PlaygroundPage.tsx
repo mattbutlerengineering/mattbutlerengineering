@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { useAuth } from "@mbe/auth/react";
+import type { Spec } from "@json-render/react";
 import { useGenStream } from "../hooks/useGenStream.js";
-import type { HistoryEntry } from "../types.js";
+import { useSpecsApi } from "../hooks/useSpecsApi.js";
 import { AppShell } from "../components/AppShell.js";
 import { HistoryPanel } from "../components/HistoryPanel.js";
 import { PreviewPane } from "../components/PreviewPane.js";
@@ -11,47 +12,45 @@ import styles from "./PlaygroundPage.module.css";
 
 /**
  * Main playground page.
- * Owns all state: streaming, history, active entry selection.
+ * Owns all state: streaming, active entry selection, history filter.
+ * History is now database-backed via useSpecsApi — survives page refresh.
  * Three-column layout: HistoryPanel | PreviewPane | JsonInspector
  * with AppShell wrapping the top bar and PromptBar at the bottom.
  */
 export function PlaygroundPage() {
   const { signOut } = useAuth();
+  const { specs, isLoading, saveSpec, toggleFavorite } = useSpecsApi();
 
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<"all" | "favorites">("all");
 
   // Track the most recently submitted prompt without triggering re-renders
   const promptRef = useRef("");
-  // Keep rawLines accessible in onComplete without stale closure
-  const rawLinesRef = useRef<string[]>([]);
 
   const { spec, isStreaming, error, rawLines, send, stop } = useGenStream({
     api: "/api/gen/ui",
-    onComplete: (completedSpec) => {
-      const entry: HistoryEntry = {
-        id: crypto.randomUUID(),
+    onComplete: (completedSpec, completedRawLines) => {
+      // Auto-save completed generation to the database
+      void saveSpec({
         prompt: promptRef.current,
         spec: completedSpec,
-        rawLines: [...rawLinesRef.current],
-        timestamp: new Date(),
-      };
-      setHistory((prev) => [entry, ...prev].slice(0, 50));
-      setActiveId(entry.id);
+        rawLines: completedRawLines,
+      }).then((stored) => {
+        setActiveId(stored.id);
+      });
     },
-  });
-
-  // Keep rawLinesRef in sync after each render so onComplete sees current rawLines
-  useEffect(() => {
-    rawLinesRef.current = rawLines;
   });
 
   // ---------------------------------------------------------------------------
   // Display logic — live streaming vs. history review mode
   // ---------------------------------------------------------------------------
-  const activeEntry = activeId ? history.find((e) => e.id === activeId) : null;
-  const displaySpec = isStreaming ? spec : (activeEntry?.spec ?? spec);
-  const displayRawLines = isStreaming ? rawLines : (activeEntry?.rawLines ?? rawLines);
+  const activeEntry = activeId ? specs.find((s) => s.id === activeId) : null;
+  // Cast spec from unknown to Spec — it's a valid Spec JSON object from the API
+  const activeEntrySpec = activeEntry?.spec as Spec | undefined;
+  const activeEntryRawLines = activeEntry?.rawLines ?? [];
+
+  const displaySpec = isStreaming ? spec : (activeEntrySpec ?? spec);
+  const displayRawLines = isStreaming ? rawLines : (activeEntryRawLines.length > 0 ? activeEntryRawLines : rawLines);
   const displayError = isStreaming ? error : null;
 
   // ---------------------------------------------------------------------------
@@ -73,6 +72,18 @@ export function PlaygroundPage() {
     setActiveId(id);
   }
 
+  function handleReplay(id: string) {
+    const entry = specs.find((s) => s.id === id);
+    if (!entry) return;
+    promptRef.current = entry.prompt;
+    setActiveId(null); // Switch to live streaming mode for new generation
+    void send(entry.prompt);
+  }
+
+  function handleToggleFavorite(id: string) {
+    void toggleFavorite(id);
+  }
+
   function handleRetry() {
     const retryPrompt = activeEntry?.prompt ?? promptRef.current;
     if (!retryPrompt) return;
@@ -82,7 +93,6 @@ export function PlaygroundPage() {
   }
 
   function handleSignOut() {
-    setHistory([]);
     setActiveId(null);
     void signOut();
   }
@@ -91,9 +101,14 @@ export function PlaygroundPage() {
     <AppShell onSignOut={handleSignOut}>
       <div className={styles.layout}>
         <HistoryPanel
-          entries={history}
+          entries={specs}
           activeId={activeId}
+          filter={filter}
+          isLoading={isLoading}
           onSelect={handleSelectHistory}
+          onReplay={handleReplay}
+          onToggleFavorite={handleToggleFavorite}
+          onFilterChange={setFilter}
         />
         <PreviewPane
           spec={displaySpec}
