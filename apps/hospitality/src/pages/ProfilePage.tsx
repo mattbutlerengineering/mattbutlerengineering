@@ -77,7 +77,7 @@ export function ProfilePage() {
     return (
       <div>
         <PageHeader title="Profile" description="Loading your profile..." />
-        <div className={styles.loadingWrapper}>
+        <div className={styles.loadingWrapper} aria-busy="true" role="status" aria-label="Loading">
           <div className={styles.skeletonBlock} />
           <div className={styles.skeletonBlock} />
         </div>
@@ -91,7 +91,7 @@ export function ProfilePage() {
         <PageHeader title="Profile" description="Manage your profile" />
         <Card>
           <Stack gap="md" align="center">
-            <Text variant="body" color="error">
+            <Text variant="body" color="error" role="alert">
               {error}
             </Text>
             <Button variant="secondary" onClick={() => window.location.reload()}>

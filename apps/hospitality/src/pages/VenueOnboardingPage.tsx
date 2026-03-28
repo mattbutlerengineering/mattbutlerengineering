@@ -310,7 +310,7 @@ export function VenueOnboardingPage() {
             )}
 
             {submitError && (
-              <div className={styles.errorBanner}>
+              <div className={styles.errorBanner} role="alert">
                 <Text variant="body" color="error">
                   {submitError}
                 </Text>

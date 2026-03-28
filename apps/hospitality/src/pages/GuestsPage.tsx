@@ -124,12 +124,12 @@ export function GuestsPage() {
       )}
 
       {isLoading && (
-        <div className={styles.loadingWrapper}>
-          <div className={styles.spinner} />
+        <div className={styles.loadingWrapper} aria-busy="true">
+          <div className={styles.spinner} aria-label="Loading" role="status" />
         </div>
       )}
 
-      {error && <div className={styles.errorBox}>{error}</div>}
+      {error && <div className={styles.errorBox} role="alert">{error}</div>}
 
       {!isLoading && !error && guests.length === 0 && (
         <div className={styles.emptyState}>
