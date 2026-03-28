@@ -40,7 +40,7 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 **Milestone Goal:** AI-powered interface generation using Rialto components — from natural language prompts to rendered, interactive UIs. Delivered via a standalone playground app at /gen and an embedded copilot in the hospitality app.
 
 - [x] **Phase 12: Catalog Foundation** — Zod schemas for ~25 Rialto components, CI drift check, action declarations, and the client/server split that every downstream feature depends on (completed 2026-03-28)
-- [ ] **Phase 13: AI Generation Endpoint** — Streaming generation routes in services/agent with auth, rate limiting, prompt caching, cost logging, and SSE verified through the CF edge router; plus all supporting infrastructure
+- [x] **Phase 13: AI Generation Endpoint** — Streaming generation routes in services/agent with auth, rate limiting, prompt caching, cost logging, and SSE verified through the CF edge router; plus all supporting infrastructure (completed 2026-03-28)
 - [ ] **Phase 14: Playground App** — Vite SPA at /gen with prompt bar, streaming preview, JSON inspector, prompt history, and theme-aware rendering
 - [ ] **Phase 15: Hospitality Copilot** — GenCopilot component embedded in the hospitality dashboard with domain-aware prompt context for reservations and floor plans (can run in parallel with Phase 14)
 - [ ] **Phase 16: Persistence and Refinement** — Spec storage, prompt history replay, favorites, shareable permalinks, and inline conversational refinement mode
@@ -74,7 +74,7 @@ Plans:
   3. Each generation request logs the model used, total tokens, and cache read tokens to the service log output
   4. SSE chunks arrive progressively in the browser DevTools Network tab (chunked incremental delivery, not one completed response) when routed through the CF edge router
   5. The `/gen` path is routed by the edge router to the gen app Static Assets worker via a Service Binding, and the Pulumi resource for the gen app CF Worker exists in the stack
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 13-01-PLAN.md — Streaming gen-ui and gen-chat routes with auth, rate limiting, prompt caching, cost logging
@@ -134,7 +134,7 @@ Plans:
 | 10. Documentation Reconciliation | v1.1 | 1/1 | Complete | 2026-03-23 |
 | 11. Registry Props & Verification | v1.1 | 2/2 | Complete | 2026-03-23 |
 | 12. Catalog Foundation | v1.2 | 3/3 | Complete | 2026-03-28 |
-| 13. AI Generation Endpoint | 2/3 | In Progress|  | - |
+| 13. AI Generation Endpoint | 3/3 | Complete   | 2026-03-28 | - |
 | 14. Playground App | v1.2 | 0/TBD | Not started | - |
 | 15. Hospitality Copilot | v1.2 | 0/TBD | Not started | - |
 | 16. Persistence and Refinement | v1.2 | 0/TBD | Not started | - |

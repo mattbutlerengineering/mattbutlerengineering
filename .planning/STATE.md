@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Generative UI
-status: unknown
-last_updated: "2026-03-28T04:29:53.917Z"
+status: in_progress
+last_updated: "2026-03-28T04:36:00Z"
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 6
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-27)
 
 **Core value:** Every web app uses Rialto as the single design system and is accessible at mattbutlerengineering.com
-**Current focus:** v1.2 Generative UI — Phase 12 complete (all 3 plans done), Phase 13 in progress (Plan 02 of 3 complete)
+**Current focus:** v1.2 Generative UI — Phase 12 complete (all 3 plans done), Phase 13 complete (all 3 plans done, pulumi up + spend cap pending user action)
 
 ## Current Position
 
-Phase: 13 of 16 (AI Generation Endpoint) — In Progress
-Plan: 02 complete (2 of 3 plans done)
+Phase: 13 of 16 (AI Generation Endpoint) — Complete (pending user action: pulumi up + Anthropic spend cap)
+Plan: 03 complete (3 of 3 plans done)
 Status: In progress
-Last activity: 2026-03-27 — Completed 13-02 (agent-api Dockerfile, Pulumi service component with AI Gateway secret, ingress rules)
+Last activity: 2026-03-28 — Completed 13-03 (production verification deferred: agent-api not in live DO App Platform spec, pulumi up required)
 
-Progress: [░░░░░░░░░░] 8%
+Progress: [█░░░░░░░░░] 10%
 
 ## Performance Metrics
 
@@ -76,6 +76,11 @@ Phase 13 Plan 02 decisions:
 - [Phase 13-ai-generation-endpoint]: Import @mbe/rialto-catalog/catalog subpath (not index) from NodeNext services to avoid browser-only registry.tsx
 - [Phase 13-ai-generation-endpoint]: ReadableStream mock in Fastify inject tests must close immediately (controller.close()) to prevent timeout
 
+Phase 13 Plan 03 decisions:
+- [Phase 13-03]: Production verification deferred — agent-api not yet in DO App Platform (pulumi up not run after 13-02 commits)
+- [Phase 13-03]: Anthropic spend cap (INFRA-04) is a manual action in Anthropic console — cannot be automated, blocked on user action
+- [Phase 13-03]: SSE passthrough architecture confirmed correct (edge router returns fetch() directly for /api/*) — will work once service is live
+
 ### Pending Todos
 
 None.
@@ -84,11 +89,12 @@ None.
 
 - **Phase 12:** ~~How to automate Zod catalog schema generation~~ — RESOLVED in Plan 02 via TypeScript Compiler API isDeclaredInRialto() filter
 - **Phase 13:** Vercel AI Gateway model string routing via `AI_GATEWAY_API_KEY` in DO App Platform is confirmed in docs but untested in practice — verify before treating as resolved
-- **Phase 13:** User must set Pulumi secret `aiGatewayApiKey` before running `pulumi up` (obtain from Vercel Dashboard > AI Gateway)
+- **Phase 13:** ~~User must set Pulumi secret `aiGatewayApiKey` before running `pulumi up`~~ — documented in 13-03 SUMMARY, still pending user action
+- **Phase 13 [BLOCKING USER ACTION]:** `pulumi up` must be run from `infrastructure/pulumi/` to deploy agent-api to DO App Platform; Anthropic spend cap must be set at https://console.anthropic.com/settings/limits
 - **Phase 16:** `pipeJsonRender` mixing of prose and JSONL patch streams has limited documentation — plan for hands-on experimentation
 
 ## Session Continuity
 
-Last session: 2026-03-27
-Stopped at: Completed 13-02-PLAN.md
+Last session: 2026-03-28
+Stopped at: Completed 13-03-PLAN.md
 Resume file: None

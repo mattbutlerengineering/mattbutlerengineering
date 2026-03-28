@@ -24,7 +24,7 @@ Requirements for Generative UI milestone. Each maps to roadmap phases.
 - [x] **GEN-04**: Per-user rate limiting by Auth0 `sub` claim
 - [x] **GEN-05**: Anthropic prompt caching configured with `cache_control` on catalog system prompt
 - [x] **GEN-06**: Cost logging — `cache_read_input_tokens`, total tokens, and model used per request
-- [ ] **GEN-07**: SSE streaming verified end-to-end through CF Worker edge router to browser
+- [x] **GEN-07**: SSE streaming verified end-to-end through CF Worker edge router to browser
 - [x] **GEN-08**: Model selection — Haiku 4.5 for simple prompts, Sonnet 4.6 for complex (user-selectable or auto)
 
 ### Playground App
@@ -57,7 +57,7 @@ Requirements for Generative UI milestone. Each maps to roadmap phases.
 - [x] **INFRA-01**: CF Worker edge router gains `/gen*` route and GEN Service Binding
 - [ ] **INFRA-02**: Pulumi resource for gen app CF Worker with Static Assets
 - [x] **INFRA-03**: `AI_GATEWAY_API_KEY` or `ANTHROPIC_API_KEY` configured in DO App Platform
-- [ ] **INFRA-04**: Hard monthly spend cap configured in Anthropic console
+- [x] **INFRA-04**: Hard monthly spend cap configured in Anthropic console
 
 ## Future Requirements
 
@@ -100,12 +100,12 @@ Deferred to v1.3+. Tracked but not in current roadmap.
 | GEN-04 | Phase 13 | Complete |
 | GEN-05 | Phase 13 | Complete |
 | GEN-06 | Phase 13 | Complete |
-| GEN-07 | Phase 13 | Pending |
+| GEN-07 | Phase 13 | Complete |
 | GEN-08 | Phase 13 | Complete |
 | INFRA-01 | Phase 13 | Complete |
 | INFRA-02 | Phase 13 | Pending |
 | INFRA-03 | Phase 13 | Complete |
-| INFRA-04 | Phase 13 | Pending |
+| INFRA-04 | Phase 13 | Complete |
 | PLAY-01 | Phase 14 | Pending |
 | PLAY-02 | Phase 14 | Pending |
 | PLAY-03 | Phase 14 | Pending |
