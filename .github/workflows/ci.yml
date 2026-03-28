@@ -73,6 +73,12 @@ jobs:
           git diff --exit-code packages/rialto/registry.json || \
             (echo "ERROR: registry.json is stale. Run 'pnpm --filter @mbe/rialto build:registry' locally and commit the result." && exit 1)
 
+      - name: Check catalog drift
+        run: |
+          pnpm --filter @mbe/rialto-catalog generate
+          git diff --exit-code packages/rialto-catalog/src/generated-schemas.ts || \
+            (echo "ERROR: generated-schemas.ts is stale. Run 'pnpm --filter @mbe/rialto-catalog generate' locally and commit the result." && exit 1)
+
   test:
     name: Test
     runs-on: ubuntu-latest

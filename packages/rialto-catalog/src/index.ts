@@ -1,1 +1,2 @@
-// Exports added in Plan 02 and Plan 03
+export { catalog } from "./catalog.js";
+// registry export added in Plan 03
