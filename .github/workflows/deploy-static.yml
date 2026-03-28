@@ -7,7 +7,6 @@ on:
       - "apps/marketing/**"
       - "apps/hospitality/**"
       - "apps/rialto-web/**"
-      - "apps/gen/**"
       - "packages/rialto/**"
       - "packages/rialto-catalog/**"
       - "packages/auth/**"
@@ -25,7 +24,6 @@ jobs:
       marketing: ${{ steps.result.outputs.marketing }}
       hospitality: ${{ steps.result.outputs.hospitality }}
       rialto-web: ${{ steps.result.outputs.rialto-web }}
-      gen: ${{ steps.result.outputs.gen }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -43,11 +41,6 @@ jobs:
             rialto-web:
               - 'apps/rialto-web/**'
               - 'packages/rialto/**'
-            gen:
-              - 'apps/gen/**'
-              - 'packages/rialto/**'
-              - 'packages/rialto-catalog/**'
-              - 'packages/auth/**'
       - name: Set outputs
         id: result
         run: |
@@ -55,12 +48,10 @@ jobs:
             echo "marketing=true" >> "$GITHUB_OUTPUT"
             echo "hospitality=true" >> "$GITHUB_OUTPUT"
             echo "rialto-web=true" >> "$GITHUB_OUTPUT"
-            echo "gen=true" >> "$GITHUB_OUTPUT"
           else
             echo "marketing=${{ steps.filter.outputs.marketing }}" >> "$GITHUB_OUTPUT"
             echo "hospitality=${{ steps.filter.outputs.hospitality }}" >> "$GITHUB_OUTPUT"
             echo "rialto-web=${{ steps.filter.outputs.rialto-web }}" >> "$GITHUB_OUTPUT"
-            echo "gen=${{ steps.filter.outputs.gen }}" >> "$GITHUB_OUTPUT"
           fi
 
   deploy-marketing:
@@ -145,34 +136,3 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-  deploy-gen:
-    name: Deploy Gen
-    needs: detect-changes
-    if: needs.detect-changes.outputs.gen == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: "pnpm"
-
-      - run: pnpm install --frozen-lockfile
-
-      - name: Build gen
-        run: pnpm build --filter=@mbe/gen
-        env:
-          VITE_AUTH_AUTHORITY: https://dev-ytbgmz5ls3wh4xdx.us.auth0.com
-          VITE_AUTH_CLIENT_ID: ${{ secrets.AUTH0_GEN_CLIENT_ID }}
-          VITE_AUTH_AUDIENCE: https://api.mattbutlerengineering.com
-          VITE_AUTH_REDIRECT_URI: https://mattbutlerengineering.com/gen/callback
-          VITE_API_URL: https://mattbutlerengineering.com
-
-      - name: Deploy to Workers Static Assets
-        run: npx wrangler@3 deploy --config apps/gen/wrangler.toml
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

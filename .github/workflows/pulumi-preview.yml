@@ -6,6 +6,10 @@ on:
     paths:
       - "infrastructure/pulumi/**"
       - "infrastructure/worker/**"
+      - "apps/gen/**"
+      - "packages/rialto/**"
+      - "packages/rialto-catalog/**"
+      - "packages/auth/**"
 
 concurrency:
   group: pulumi-preview-${{ github.ref }}
