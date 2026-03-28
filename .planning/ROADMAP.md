@@ -92,7 +92,7 @@ Plans:
   3. The JSON spec inspector panel shows the raw generated spec updating in real time alongside the rendered preview
   4. Prompts submitted during a session appear in a history list; navigating away and back within the same session preserves the history; logging out clears it
   5. When the app is in dark mode, generated UIs render with dark theme tokens; when in light mode, they render with light theme tokens
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 
 Plans:
 - [ ] 14-01-PLAN.md — App scaffold with auth, theme context, and useGenStream streaming hook
@@ -140,6 +140,6 @@ Plans:
 | 11. Registry Props & Verification | v1.1 | 2/2 | Complete | 2026-03-23 |
 | 12. Catalog Foundation | v1.2 | 3/3 | Complete | 2026-03-28 |
 | 13. AI Generation Endpoint | v1.2 | 3/3 | Complete | 2026-03-28 |
-| 14. Playground App | v1.2 | 0/3 | Planning | - |
+| 14. Playground App | 1/3 | In Progress|  | - |
 | 15. Hospitality Copilot | v1.2 | 0/TBD | Not started | - |
 | 16. Persistence and Refinement | v1.2 | 0/TBD | Not started | - |

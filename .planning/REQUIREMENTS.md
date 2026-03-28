@@ -29,12 +29,12 @@ Requirements for Generative UI milestone. Each maps to roadmap phases.
 
 ### Playground App
 
-- [ ] **PLAY-01**: `apps/gen` Vite SPA served at `/gen` with Auth0 login
+- [x] **PLAY-01**: `apps/gen` Vite SPA served at `/gen` with Auth0 login
 - [ ] **PLAY-02**: Prompt bar for natural language input with submit action
 - [ ] **PLAY-03**: Streaming preview pane that renders Rialto components progressively as JSONL arrives
 - [ ] **PLAY-04**: JSON spec inspector showing the raw generated spec
 - [ ] **PLAY-05**: In-session prompt history (survives page navigation, clears on logout)
-- [ ] **PLAY-06**: Loading and error states for generation (spinner during TTFT, error display on failure)
+- [x] **PLAY-06**: Loading and error states for generation (spinner during TTFT, error display on failure)
 - [ ] **PLAY-07**: Theme-aware rendering (generated UIs respect current light/dark mode)
 
 ### Hospitality Copilot
@@ -106,12 +106,12 @@ Deferred to v1.3+. Tracked but not in current roadmap.
 | INFRA-02 | Phase 13 | Pending |
 | INFRA-03 | Phase 13 | Complete |
 | INFRA-04 | Phase 13 | Complete |
-| PLAY-01 | Phase 14 | Pending |
+| PLAY-01 | Phase 14 | Complete |
 | PLAY-02 | Phase 14 | Pending |
 | PLAY-03 | Phase 14 | Pending |
 | PLAY-04 | Phase 14 | Pending |
 | PLAY-05 | Phase 14 | Pending |
-| PLAY-06 | Phase 14 | Pending |
+| PLAY-06 | Phase 14 | Complete |
 | PLAY-07 | Phase 14 | Pending |
 | COP-01 | Phase 15 | Pending |
 | COP-02 | Phase 15 | Pending |
