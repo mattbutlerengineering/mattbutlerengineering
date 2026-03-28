@@ -124,10 +124,12 @@ Plans:
   3. A user can mark a generated UI as a favorite and see it in a saved list that persists across sessions
   4. Copying a shareable permalink URL and opening it in a fresh browser session loads the exact stored spec without requiring the original prompt to be re-run
   5. Typing a refinement instruction ("make the button larger") in conversational mode applies a patch to the existing spec rather than regenerating from scratch — the preview updates to reflect only the changed element
-**Plans:** 1 plan
+**Plans:** 3 plans
 
 Plans:
-- [ ] 15-01-PLAN.md — GenCopilot component in @mbe/rialto + hospitality dashboard integration
+- [ ] 16-01-PLAN.md — StoredSpec Prisma model, service layer, and REST API endpoints
+- [ ] 16-02-PLAN.md — API-backed history panel with auto-save, replay, and favorites
+- [ ] 16-03-PLAN.md — Shareable permalink page and conversational refinement mode
 
 ## Progress
 
@@ -146,6 +148,6 @@ Plans:
 | 11. Registry Props & Verification | v1.1 | 2/2 | Complete | 2026-03-23 |
 | 12. Catalog Foundation | v1.2 | 3/3 | Complete | 2026-03-28 |
 | 13. AI Generation Endpoint | v1.2 | 3/3 | Complete | 2026-03-28 |
-| 14. Playground App | 3/3 | Complete    | 2026-03-28 | - |
-| 15. Hospitality Copilot | 1/1 | Complete    | 2026-03-28 | - |
-| 16. Persistence and Refinement | v1.2 | 0/TBD | Not started | - |
+| 14. Playground App | v1.2 | 3/3 | Complete | 2026-03-28 |
+| 15. Hospitality Copilot | v1.2 | 1/1 | Complete | 2026-03-28 |
+| 16. Persistence and Refinement | v1.2 | 0/3 | Not started | - |
