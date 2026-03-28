@@ -147,5 +147,5 @@ Plans:
 | 12. Catalog Foundation | v1.2 | 3/3 | Complete | 2026-03-28 |
 | 13. AI Generation Endpoint | v1.2 | 3/3 | Complete | 2026-03-28 |
 | 14. Playground App | 3/3 | Complete    | 2026-03-28 | - |
-| 15. Hospitality Copilot | 1/1 | Complete   | 2026-03-28 | - |
+| 15. Hospitality Copilot | 1/1 | Complete    | 2026-03-28 | - |
 | 16. Persistence and Refinement | v1.2 | 0/TBD | Not started | - |
