@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Generative UI
 status: executing
-last_updated: "2026-03-28T15:47:02Z"
+last_updated: "2026-03-28T15:57:17Z"
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 9
-  completed_plans: 7
+  completed_plans: 8
 ---
 
 # Project State
@@ -22,10 +22,10 @@ See: .planning/PROJECT.md (updated 2026-03-27)
 
 ## Current Position
 
-Phase: 14 of 16 (Playground App) — In Progress (1 of 3 plans done)
-Plan: 01 complete (1 of 3 plans done)
+Phase: 14 of 16 (Playground App) — In Progress (2 of 3 plans done)
+Plan: 02 complete (2 of 3 plans done)
 Status: In progress
-Last activity: 2026-03-28 — Completed 14-01 (apps/gen scaffold with auth gate, ThemeContext, useGenStream hook)
+Last activity: 2026-03-28 — Completed 14-02 (three-column playground UI: AppShell, HistoryPanel, PreviewPane, JsonInspector, PromptBar, PlaygroundPage)
 
 Progress: [█░░░░░░░░░] 10%
 
@@ -46,6 +46,7 @@ Progress: [█░░░░░░░░░] 10%
 *Updated after each plan completion*
 | Phase 13-ai-generation-endpoint P01 | 5 | 2 tasks | 8 files |
 | Phase 14-playground-app P01 | 18 | 2 tasks | 15 files |
+| Phase 14-playground-app P02 | 6 | 2 tasks | 15 files |
 
 ## Accumulated Context
 
@@ -84,6 +85,9 @@ Phase 13 Plan 03 decisions:
 - [Phase 14-01]: FlatElement type derived from Parameters<typeof flatToTree>[0][number] — avoids direct @json-render/core dependency in apps/gen
 - [Phase 14-01]: ThemedApp bridge pattern: ThemeProvider ancestor of RialtoProvider, bridge reads useTheme() and passes controlled theme prop
 - [Phase 14-01]: AbortError in useGenStream caught silently — preserves partial spec on stop(), no error state set
+- [Phase 14-playground-app]: Rialto Button has no danger variant — Stop button uses secondary+CSS data-stop override for error color
+- [Phase 14-playground-app]: handlers from defineRegistry is a factory fn — omitted from JSONUIProvider since playground is render-only
+- [Phase 14-playground-app]: rawLinesRef sync moved to useEffect (no-dep) — avoids react-hooks/refs lint error, same semantic for onComplete
 
 ### Pending Todos
 
@@ -99,6 +103,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-28T15:47:02Z
-Stopped at: Completed 14-01-PLAN.md
-Resume file: .planning/phases/14-playground-app/14-02-PLAN.md
+Last session: 2026-03-28T15:57:17Z
+Stopped at: Completed 14-02-PLAN.md
+Resume file: .planning/phases/14-playground-app/14-03-PLAN.md
