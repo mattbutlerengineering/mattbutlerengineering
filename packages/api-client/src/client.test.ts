@@ -94,12 +94,6 @@ describe("ApiClient", () => {
       const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
 
       await expect(client.get("/api/v1/users/999")).rejects.toThrow(ApiClientError);
-
-      try {
-        await client.get("/api/v1/users/999");
-      } catch (error) {
-        // Second call also fails, but we check the first throw above
-      }
     });
 
     it("should include method and path in error message", async () => {
