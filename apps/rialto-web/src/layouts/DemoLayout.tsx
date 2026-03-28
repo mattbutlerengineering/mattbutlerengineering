@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Outlet } from "react-router-dom";
-import { RialtoProvider, type VibeName } from "@mbe/rialto";
+import { GlobalNav, RialtoProvider, type VibeName } from "@mbe/rialto";
 import { useCookieConsent } from "../components/CookieConsent/useCookieConsent";
 import { CookieBanner, CookiePreferencesDialog } from "../components/CookieConsent/CookieConsent";
 import styles from "./DemoLayout.module.css";
@@ -162,6 +162,7 @@ export function DemoLayout() {
   return (
     <RialtoProvider vibe={activeVibe} theme={darkMode ? "dark" : "light"}>
       <div dir={rtl ? "rtl" : undefined}>
+        <GlobalNav currentApp="rialto" />
         <div className={styles.floatingControls}>
           <FloatingControls
             darkMode={darkMode}

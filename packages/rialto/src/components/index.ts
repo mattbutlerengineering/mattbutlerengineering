@@ -38,6 +38,7 @@ export * from "./Tree";
 
 // ── Layout components ─────────────────────────────
 export * from "./Footer";
+export * from "./GlobalNav";
 export * from "./Hero";
 export * from "./PageHeader";
 
