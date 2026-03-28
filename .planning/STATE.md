@@ -2,16 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Generative UI
-status: executing
-stopped_at: Completed 13-02-PLAN.md
-last_updated: "2026-03-27T00:12:00Z"
-last_activity: 2026-03-27 — Completed 13-02 (agent-api Dockerfile, Pulumi service component with AI Gateway secret, ingress rules)
+status: unknown
+last_updated: "2026-03-28T04:29:53.917Z"
 progress:
-  total_phases: 5
+  total_phases: 2
   completed_phases: 1
-  total_plans: 4
-  completed_plans: 4
-  percent: 8
+  total_plans: 6
+  completed_plans: 5
 ---
 
 # Project State
@@ -47,6 +44,7 @@ Progress: [░░░░░░░░░░] 8%
 | 13-ai-generation-endpoint | 1 | 12 min | 12 min |
 
 *Updated after each plan completion*
+| Phase 13-ai-generation-endpoint P01 | 5 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -74,6 +72,9 @@ Phase 13 Plan 02 decisions:
 - [Phase 13-02]: GEN Service Binding commented in Pulumi — activating before Phase 14 deploys the Worker would cause Pulumi error (target not found)
 - [Phase 13-02]: DEFAULT_MODEL set to anthropic/claude-haiku-4.5 for cost-optimized generation
 - [Phase 13-02]: migrate/Dockerfile updated to include agent Prisma schema for when migrations are created
+- [Phase 13-ai-generation-endpoint]: AI SDK v6 uses inputTokens/outputTokens (not promptTokens/completionTokens) for LanguageModelUsage
+- [Phase 13-ai-generation-endpoint]: Import @mbe/rialto-catalog/catalog subpath (not index) from NodeNext services to avoid browser-only registry.tsx
+- [Phase 13-ai-generation-endpoint]: ReadableStream mock in Fastify inject tests must close immediately (controller.close()) to prevent timeout
 
 ### Pending Todos
 

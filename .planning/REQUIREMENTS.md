@@ -18,14 +18,14 @@ Requirements for Generative UI milestone. Each maps to roadmap phases.
 
 ### Generation Backend
 
-- [ ] **GEN-01**: `POST /api/gen/ui` endpoint streams JSONL spec patches via SSE (standalone mode)
-- [ ] **GEN-02**: `POST /api/gen/chat` endpoint streams text + JSONL via SSE (conversational mode)
-- [ ] **GEN-03**: Auth0 JWT authentication required on all generation endpoints
-- [ ] **GEN-04**: Per-user rate limiting by Auth0 `sub` claim
-- [ ] **GEN-05**: Anthropic prompt caching configured with `cache_control` on catalog system prompt
-- [ ] **GEN-06**: Cost logging — `cache_read_input_tokens`, total tokens, and model used per request
+- [x] **GEN-01**: `POST /api/gen/ui` endpoint streams JSONL spec patches via SSE (standalone mode)
+- [x] **GEN-02**: `POST /api/gen/chat` endpoint streams text + JSONL via SSE (conversational mode)
+- [x] **GEN-03**: Auth0 JWT authentication required on all generation endpoints
+- [x] **GEN-04**: Per-user rate limiting by Auth0 `sub` claim
+- [x] **GEN-05**: Anthropic prompt caching configured with `cache_control` on catalog system prompt
+- [x] **GEN-06**: Cost logging — `cache_read_input_tokens`, total tokens, and model used per request
 - [ ] **GEN-07**: SSE streaming verified end-to-end through CF Worker edge router to browser
-- [ ] **GEN-08**: Model selection — Haiku 4.5 for simple prompts, Sonnet 4.6 for complex (user-selectable or auto)
+- [x] **GEN-08**: Model selection — Haiku 4.5 for simple prompts, Sonnet 4.6 for complex (user-selectable or auto)
 
 ### Playground App
 
@@ -94,14 +94,14 @@ Deferred to v1.3+. Tracked but not in current roadmap.
 | CAT-04 | Phase 12 | Complete |
 | CAT-05 | Phase 12 | Complete |
 | CAT-06 | Phase 12 | Complete |
-| GEN-01 | Phase 13 | Pending |
-| GEN-02 | Phase 13 | Pending |
-| GEN-03 | Phase 13 | Pending |
-| GEN-04 | Phase 13 | Pending |
-| GEN-05 | Phase 13 | Pending |
-| GEN-06 | Phase 13 | Pending |
+| GEN-01 | Phase 13 | Complete |
+| GEN-02 | Phase 13 | Complete |
+| GEN-03 | Phase 13 | Complete |
+| GEN-04 | Phase 13 | Complete |
+| GEN-05 | Phase 13 | Complete |
+| GEN-06 | Phase 13 | Complete |
 | GEN-07 | Phase 13 | Pending |
-| GEN-08 | Phase 13 | Pending |
+| GEN-08 | Phase 13 | Complete |
 | INFRA-01 | Phase 13 | Complete |
 | INFRA-02 | Phase 13 | Pending |
 | INFRA-03 | Phase 13 | Complete |
