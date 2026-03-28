@@ -23,6 +23,11 @@ export type Session = $Result.DefaultSelection<Prisma.$SessionPayload>
  * 
  */
 export type SessionEvent = $Result.DefaultSelection<Prisma.$SessionEventPayload>
+/**
+ * Model StoredSpec
+ * 
+ */
+export type StoredSpec = $Result.DefaultSelection<Prisma.$StoredSpecPayload>
 
 /**
  * Enums
@@ -181,6 +186,16 @@ export class PrismaClient<
     * ```
     */
   get sessionEvent(): Prisma.SessionEventDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.storedSpec`: Exposes CRUD operations for the **StoredSpec** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more StoredSpecs
+    * const storedSpecs = await prisma.storedSpec.findMany()
+    * ```
+    */
+  get storedSpec(): Prisma.StoredSpecDelegate<ExtArgs, ClientOptions>;
 }
 
 export namespace Prisma {
@@ -623,7 +638,8 @@ export namespace Prisma {
 
   export const ModelName: {
     Session: 'Session',
-    SessionEvent: 'SessionEvent'
+    SessionEvent: 'SessionEvent',
+    StoredSpec: 'StoredSpec'
   };
 
   export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -642,7 +658,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions
     }
     meta: {
-      modelProps: "session" | "sessionEvent"
+      modelProps: "session" | "sessionEvent" | "storedSpec"
       txIsolationLevel: Prisma.TransactionIsolationLevel
     }
     model: {
@@ -794,6 +810,80 @@ export namespace Prisma {
           }
         }
       }
+      StoredSpec: {
+        payload: Prisma.$StoredSpecPayload<ExtArgs>
+        fields: Prisma.StoredSpecFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.StoredSpecFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$StoredSpecPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.StoredSpecFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$StoredSpecPayload>
+          }
+          findFirst: {
+            args: Prisma.StoredSpecFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$StoredSpecPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.StoredSpecFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$StoredSpecPayload>
+          }
+          findMany: {
+            args: Prisma.StoredSpecFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$StoredSpecPayload>[]
+          }
+          create: {
+            args: Prisma.StoredSpecCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$StoredSpecPayload>
+          }
+          createMany: {
+            args: Prisma.StoredSpecCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.StoredSpecCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$StoredSpecPayload>[]
+          }
+          delete: {
+            args: Prisma.StoredSpecDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$StoredSpecPayload>
+          }
+          update: {
+            args: Prisma.StoredSpecUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$StoredSpecPayload>
+          }
+          deleteMany: {
+            args: Prisma.StoredSpecDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.StoredSpecUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.StoredSpecUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$StoredSpecPayload>[]
+          }
+          upsert: {
+            args: Prisma.StoredSpecUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$StoredSpecPayload>
+          }
+          aggregate: {
+            args: Prisma.StoredSpecAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateStoredSpec>
+          }
+          groupBy: {
+            args: Prisma.StoredSpecGroupByArgs<ExtArgs>
+            result: $Utils.Optional<StoredSpecGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.StoredSpecCountArgs<ExtArgs>
+            result: $Utils.Optional<StoredSpecCountAggregateOutputType> | number
+          }
+        }
+      }
     }
   } & {
     other: {
@@ -892,6 +982,7 @@ export namespace Prisma {
   export type GlobalOmitConfig = {
     session?: SessionOmit
     sessionEvent?: SessionEventOmit
+    storedSpec?: StoredSpecOmit
   }
 
   /* Types for Logging */
@@ -3506,6 +3597,1032 @@ export namespace Prisma {
 
 
   /**
+   * Model StoredSpec
+   */
+
+  export type AggregateStoredSpec = {
+    _count: StoredSpecCountAggregateOutputType | null
+    _min: StoredSpecMinAggregateOutputType | null
+    _max: StoredSpecMaxAggregateOutputType | null
+  }
+
+  export type StoredSpecMinAggregateOutputType = {
+    id: string | null
+    userId: string | null
+    prompt: string | null
+    isFavorite: boolean | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type StoredSpecMaxAggregateOutputType = {
+    id: string | null
+    userId: string | null
+    prompt: string | null
+    isFavorite: boolean | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type StoredSpecCountAggregateOutputType = {
+    id: number
+    userId: number
+    prompt: number
+    spec: number
+    rawLines: number
+    isFavorite: number
+    createdAt: number
+    updatedAt: number
+    _all: number
+  }
+
+
+  export type StoredSpecMinAggregateInputType = {
+    id?: true
+    userId?: true
+    prompt?: true
+    isFavorite?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type StoredSpecMaxAggregateInputType = {
+    id?: true
+    userId?: true
+    prompt?: true
+    isFavorite?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type StoredSpecCountAggregateInputType = {
+    id?: true
+    userId?: true
+    prompt?: true
+    spec?: true
+    rawLines?: true
+    isFavorite?: true
+    createdAt?: true
+    updatedAt?: true
+    _all?: true
+  }
+
+  export type StoredSpecAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which StoredSpec to aggregate.
+     */
+    where?: StoredSpecWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of StoredSpecs to fetch.
+     */
+    orderBy?: StoredSpecOrderByWithRelationInput | StoredSpecOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: StoredSpecWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` StoredSpecs from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` StoredSpecs.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned StoredSpecs
+    **/
+    _count?: true | StoredSpecCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: StoredSpecMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: StoredSpecMaxAggregateInputType
+  }
+
+  export type GetStoredSpecAggregateType<T extends StoredSpecAggregateArgs> = {
+        [P in keyof T & keyof AggregateStoredSpec]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateStoredSpec[P]>
+      : GetScalarType<T[P], AggregateStoredSpec[P]>
+  }
+
+
+
+
+  export type StoredSpecGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: StoredSpecWhereInput
+    orderBy?: StoredSpecOrderByWithAggregationInput | StoredSpecOrderByWithAggregationInput[]
+    by: StoredSpecScalarFieldEnum[] | StoredSpecScalarFieldEnum
+    having?: StoredSpecScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: StoredSpecCountAggregateInputType | true
+    _min?: StoredSpecMinAggregateInputType
+    _max?: StoredSpecMaxAggregateInputType
+  }
+
+  export type StoredSpecGroupByOutputType = {
+    id: string
+    userId: string
+    prompt: string
+    spec: JsonValue
+    rawLines: JsonValue
+    isFavorite: boolean
+    createdAt: Date
+    updatedAt: Date
+    _count: StoredSpecCountAggregateOutputType | null
+    _min: StoredSpecMinAggregateOutputType | null
+    _max: StoredSpecMaxAggregateOutputType | null
+  }
+
+  type GetStoredSpecGroupByPayload<T extends StoredSpecGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<StoredSpecGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof StoredSpecGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], StoredSpecGroupByOutputType[P]>
+            : GetScalarType<T[P], StoredSpecGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type StoredSpecSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    userId?: boolean
+    prompt?: boolean
+    spec?: boolean
+    rawLines?: boolean
+    isFavorite?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }, ExtArgs["result"]["storedSpec"]>
+
+  export type StoredSpecSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    userId?: boolean
+    prompt?: boolean
+    spec?: boolean
+    rawLines?: boolean
+    isFavorite?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }, ExtArgs["result"]["storedSpec"]>
+
+  export type StoredSpecSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    userId?: boolean
+    prompt?: boolean
+    spec?: boolean
+    rawLines?: boolean
+    isFavorite?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }, ExtArgs["result"]["storedSpec"]>
+
+  export type StoredSpecSelectScalar = {
+    id?: boolean
+    userId?: boolean
+    prompt?: boolean
+    spec?: boolean
+    rawLines?: boolean
+    isFavorite?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }
+
+  export type StoredSpecOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "userId" | "prompt" | "spec" | "rawLines" | "isFavorite" | "createdAt" | "updatedAt", ExtArgs["result"]["storedSpec"]>
+
+  export type $StoredSpecPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "StoredSpec"
+    objects: {}
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      userId: string
+      prompt: string
+      spec: Prisma.JsonValue
+      rawLines: Prisma.JsonValue
+      isFavorite: boolean
+      createdAt: Date
+      updatedAt: Date
+    }, ExtArgs["result"]["storedSpec"]>
+    composites: {}
+  }
+
+  type StoredSpecGetPayload<S extends boolean | null | undefined | StoredSpecDefaultArgs> = $Result.GetResult<Prisma.$StoredSpecPayload, S>
+
+  type StoredSpecCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<StoredSpecFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: StoredSpecCountAggregateInputType | true
+    }
+
+  export interface StoredSpecDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['StoredSpec'], meta: { name: 'StoredSpec' } }
+    /**
+     * Find zero or one StoredSpec that matches the filter.
+     * @param {StoredSpecFindUniqueArgs} args - Arguments to find a StoredSpec
+     * @example
+     * // Get one StoredSpec
+     * const storedSpec = await prisma.storedSpec.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends StoredSpecFindUniqueArgs>(args: SelectSubset<T, StoredSpecFindUniqueArgs<ExtArgs>>): Prisma__StoredSpecClient<$Result.GetResult<Prisma.$StoredSpecPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one StoredSpec that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {StoredSpecFindUniqueOrThrowArgs} args - Arguments to find a StoredSpec
+     * @example
+     * // Get one StoredSpec
+     * const storedSpec = await prisma.storedSpec.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends StoredSpecFindUniqueOrThrowArgs>(args: SelectSubset<T, StoredSpecFindUniqueOrThrowArgs<ExtArgs>>): Prisma__StoredSpecClient<$Result.GetResult<Prisma.$StoredSpecPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first StoredSpec that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {StoredSpecFindFirstArgs} args - Arguments to find a StoredSpec
+     * @example
+     * // Get one StoredSpec
+     * const storedSpec = await prisma.storedSpec.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends StoredSpecFindFirstArgs>(args?: SelectSubset<T, StoredSpecFindFirstArgs<ExtArgs>>): Prisma__StoredSpecClient<$Result.GetResult<Prisma.$StoredSpecPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first StoredSpec that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {StoredSpecFindFirstOrThrowArgs} args - Arguments to find a StoredSpec
+     * @example
+     * // Get one StoredSpec
+     * const storedSpec = await prisma.storedSpec.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends StoredSpecFindFirstOrThrowArgs>(args?: SelectSubset<T, StoredSpecFindFirstOrThrowArgs<ExtArgs>>): Prisma__StoredSpecClient<$Result.GetResult<Prisma.$StoredSpecPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more StoredSpecs that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {StoredSpecFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all StoredSpecs
+     * const storedSpecs = await prisma.storedSpec.findMany()
+     * 
+     * // Get first 10 StoredSpecs
+     * const storedSpecs = await prisma.storedSpec.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const storedSpecWithIdOnly = await prisma.storedSpec.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends StoredSpecFindManyArgs>(args?: SelectSubset<T, StoredSpecFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$StoredSpecPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a StoredSpec.
+     * @param {StoredSpecCreateArgs} args - Arguments to create a StoredSpec.
+     * @example
+     * // Create one StoredSpec
+     * const StoredSpec = await prisma.storedSpec.create({
+     *   data: {
+     *     // ... data to create a StoredSpec
+     *   }
+     * })
+     * 
+     */
+    create<T extends StoredSpecCreateArgs>(args: SelectSubset<T, StoredSpecCreateArgs<ExtArgs>>): Prisma__StoredSpecClient<$Result.GetResult<Prisma.$StoredSpecPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many StoredSpecs.
+     * @param {StoredSpecCreateManyArgs} args - Arguments to create many StoredSpecs.
+     * @example
+     * // Create many StoredSpecs
+     * const storedSpec = await prisma.storedSpec.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends StoredSpecCreateManyArgs>(args?: SelectSubset<T, StoredSpecCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many StoredSpecs and returns the data saved in the database.
+     * @param {StoredSpecCreateManyAndReturnArgs} args - Arguments to create many StoredSpecs.
+     * @example
+     * // Create many StoredSpecs
+     * const storedSpec = await prisma.storedSpec.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many StoredSpecs and only return the `id`
+     * const storedSpecWithIdOnly = await prisma.storedSpec.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends StoredSpecCreateManyAndReturnArgs>(args?: SelectSubset<T, StoredSpecCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$StoredSpecPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a StoredSpec.
+     * @param {StoredSpecDeleteArgs} args - Arguments to delete one StoredSpec.
+     * @example
+     * // Delete one StoredSpec
+     * const StoredSpec = await prisma.storedSpec.delete({
+     *   where: {
+     *     // ... filter to delete one StoredSpec
+     *   }
+     * })
+     * 
+     */
+    delete<T extends StoredSpecDeleteArgs>(args: SelectSubset<T, StoredSpecDeleteArgs<ExtArgs>>): Prisma__StoredSpecClient<$Result.GetResult<Prisma.$StoredSpecPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one StoredSpec.
+     * @param {StoredSpecUpdateArgs} args - Arguments to update one StoredSpec.
+     * @example
+     * // Update one StoredSpec
+     * const storedSpec = await prisma.storedSpec.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends StoredSpecUpdateArgs>(args: SelectSubset<T, StoredSpecUpdateArgs<ExtArgs>>): Prisma__StoredSpecClient<$Result.GetResult<Prisma.$StoredSpecPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more StoredSpecs.
+     * @param {StoredSpecDeleteManyArgs} args - Arguments to filter StoredSpecs to delete.
+     * @example
+     * // Delete a few StoredSpecs
+     * const { count } = await prisma.storedSpec.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends StoredSpecDeleteManyArgs>(args?: SelectSubset<T, StoredSpecDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more StoredSpecs.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {StoredSpecUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many StoredSpecs
+     * const storedSpec = await prisma.storedSpec.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends StoredSpecUpdateManyArgs>(args: SelectSubset<T, StoredSpecUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more StoredSpecs and returns the data updated in the database.
+     * @param {StoredSpecUpdateManyAndReturnArgs} args - Arguments to update many StoredSpecs.
+     * @example
+     * // Update many StoredSpecs
+     * const storedSpec = await prisma.storedSpec.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more StoredSpecs and only return the `id`
+     * const storedSpecWithIdOnly = await prisma.storedSpec.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends StoredSpecUpdateManyAndReturnArgs>(args: SelectSubset<T, StoredSpecUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$StoredSpecPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one StoredSpec.
+     * @param {StoredSpecUpsertArgs} args - Arguments to update or create a StoredSpec.
+     * @example
+     * // Update or create a StoredSpec
+     * const storedSpec = await prisma.storedSpec.upsert({
+     *   create: {
+     *     // ... data to create a StoredSpec
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the StoredSpec we want to update
+     *   }
+     * })
+     */
+    upsert<T extends StoredSpecUpsertArgs>(args: SelectSubset<T, StoredSpecUpsertArgs<ExtArgs>>): Prisma__StoredSpecClient<$Result.GetResult<Prisma.$StoredSpecPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of StoredSpecs.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {StoredSpecCountArgs} args - Arguments to filter StoredSpecs to count.
+     * @example
+     * // Count the number of StoredSpecs
+     * const count = await prisma.storedSpec.count({
+     *   where: {
+     *     // ... the filter for the StoredSpecs we want to count
+     *   }
+     * })
+    **/
+    count<T extends StoredSpecCountArgs>(
+      args?: Subset<T, StoredSpecCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], StoredSpecCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a StoredSpec.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {StoredSpecAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends StoredSpecAggregateArgs>(args: Subset<T, StoredSpecAggregateArgs>): Prisma.PrismaPromise<GetStoredSpecAggregateType<T>>
+
+    /**
+     * Group by StoredSpec.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {StoredSpecGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends StoredSpecGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: StoredSpecGroupByArgs['orderBy'] }
+        : { orderBy?: StoredSpecGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, StoredSpecGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetStoredSpecGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the StoredSpec model
+   */
+  readonly fields: StoredSpecFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for StoredSpec.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__StoredSpecClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the StoredSpec model
+   */
+  interface StoredSpecFieldRefs {
+    readonly id: FieldRef<"StoredSpec", 'String'>
+    readonly userId: FieldRef<"StoredSpec", 'String'>
+    readonly prompt: FieldRef<"StoredSpec", 'String'>
+    readonly spec: FieldRef<"StoredSpec", 'Json'>
+    readonly rawLines: FieldRef<"StoredSpec", 'Json'>
+    readonly isFavorite: FieldRef<"StoredSpec", 'Boolean'>
+    readonly createdAt: FieldRef<"StoredSpec", 'DateTime'>
+    readonly updatedAt: FieldRef<"StoredSpec", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * StoredSpec findUnique
+   */
+  export type StoredSpecFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the StoredSpec
+     */
+    select?: StoredSpecSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the StoredSpec
+     */
+    omit?: StoredSpecOmit<ExtArgs> | null
+    /**
+     * Filter, which StoredSpec to fetch.
+     */
+    where: StoredSpecWhereUniqueInput
+  }
+
+  /**
+   * StoredSpec findUniqueOrThrow
+   */
+  export type StoredSpecFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the StoredSpec
+     */
+    select?: StoredSpecSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the StoredSpec
+     */
+    omit?: StoredSpecOmit<ExtArgs> | null
+    /**
+     * Filter, which StoredSpec to fetch.
+     */
+    where: StoredSpecWhereUniqueInput
+  }
+
+  /**
+   * StoredSpec findFirst
+   */
+  export type StoredSpecFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the StoredSpec
+     */
+    select?: StoredSpecSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the StoredSpec
+     */
+    omit?: StoredSpecOmit<ExtArgs> | null
+    /**
+     * Filter, which StoredSpec to fetch.
+     */
+    where?: StoredSpecWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of StoredSpecs to fetch.
+     */
+    orderBy?: StoredSpecOrderByWithRelationInput | StoredSpecOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for StoredSpecs.
+     */
+    cursor?: StoredSpecWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` StoredSpecs from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` StoredSpecs.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of StoredSpecs.
+     */
+    distinct?: StoredSpecScalarFieldEnum | StoredSpecScalarFieldEnum[]
+  }
+
+  /**
+   * StoredSpec findFirstOrThrow
+   */
+  export type StoredSpecFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the StoredSpec
+     */
+    select?: StoredSpecSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the StoredSpec
+     */
+    omit?: StoredSpecOmit<ExtArgs> | null
+    /**
+     * Filter, which StoredSpec to fetch.
+     */
+    where?: StoredSpecWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of StoredSpecs to fetch.
+     */
+    orderBy?: StoredSpecOrderByWithRelationInput | StoredSpecOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for StoredSpecs.
+     */
+    cursor?: StoredSpecWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` StoredSpecs from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` StoredSpecs.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of StoredSpecs.
+     */
+    distinct?: StoredSpecScalarFieldEnum | StoredSpecScalarFieldEnum[]
+  }
+
+  /**
+   * StoredSpec findMany
+   */
+  export type StoredSpecFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the StoredSpec
+     */
+    select?: StoredSpecSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the StoredSpec
+     */
+    omit?: StoredSpecOmit<ExtArgs> | null
+    /**
+     * Filter, which StoredSpecs to fetch.
+     */
+    where?: StoredSpecWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of StoredSpecs to fetch.
+     */
+    orderBy?: StoredSpecOrderByWithRelationInput | StoredSpecOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing StoredSpecs.
+     */
+    cursor?: StoredSpecWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` StoredSpecs from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` StoredSpecs.
+     */
+    skip?: number
+    distinct?: StoredSpecScalarFieldEnum | StoredSpecScalarFieldEnum[]
+  }
+
+  /**
+   * StoredSpec create
+   */
+  export type StoredSpecCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the StoredSpec
+     */
+    select?: StoredSpecSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the StoredSpec
+     */
+    omit?: StoredSpecOmit<ExtArgs> | null
+    /**
+     * The data needed to create a StoredSpec.
+     */
+    data: XOR<StoredSpecCreateInput, StoredSpecUncheckedCreateInput>
+  }
+
+  /**
+   * StoredSpec createMany
+   */
+  export type StoredSpecCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many StoredSpecs.
+     */
+    data: StoredSpecCreateManyInput | StoredSpecCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * StoredSpec createManyAndReturn
+   */
+  export type StoredSpecCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the StoredSpec
+     */
+    select?: StoredSpecSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the StoredSpec
+     */
+    omit?: StoredSpecOmit<ExtArgs> | null
+    /**
+     * The data used to create many StoredSpecs.
+     */
+    data: StoredSpecCreateManyInput | StoredSpecCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * StoredSpec update
+   */
+  export type StoredSpecUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the StoredSpec
+     */
+    select?: StoredSpecSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the StoredSpec
+     */
+    omit?: StoredSpecOmit<ExtArgs> | null
+    /**
+     * The data needed to update a StoredSpec.
+     */
+    data: XOR<StoredSpecUpdateInput, StoredSpecUncheckedUpdateInput>
+    /**
+     * Choose, which StoredSpec to update.
+     */
+    where: StoredSpecWhereUniqueInput
+  }
+
+  /**
+   * StoredSpec updateMany
+   */
+  export type StoredSpecUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update StoredSpecs.
+     */
+    data: XOR<StoredSpecUpdateManyMutationInput, StoredSpecUncheckedUpdateManyInput>
+    /**
+     * Filter which StoredSpecs to update
+     */
+    where?: StoredSpecWhereInput
+    /**
+     * Limit how many StoredSpecs to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * StoredSpec updateManyAndReturn
+   */
+  export type StoredSpecUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the StoredSpec
+     */
+    select?: StoredSpecSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the StoredSpec
+     */
+    omit?: StoredSpecOmit<ExtArgs> | null
+    /**
+     * The data used to update StoredSpecs.
+     */
+    data: XOR<StoredSpecUpdateManyMutationInput, StoredSpecUncheckedUpdateManyInput>
+    /**
+     * Filter which StoredSpecs to update
+     */
+    where?: StoredSpecWhereInput
+    /**
+     * Limit how many StoredSpecs to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * StoredSpec upsert
+   */
+  export type StoredSpecUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the StoredSpec
+     */
+    select?: StoredSpecSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the StoredSpec
+     */
+    omit?: StoredSpecOmit<ExtArgs> | null
+    /**
+     * The filter to search for the StoredSpec to update in case it exists.
+     */
+    where: StoredSpecWhereUniqueInput
+    /**
+     * In case the StoredSpec found by the `where` argument doesn't exist, create a new StoredSpec with this data.
+     */
+    create: XOR<StoredSpecCreateInput, StoredSpecUncheckedCreateInput>
+    /**
+     * In case the StoredSpec was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<StoredSpecUpdateInput, StoredSpecUncheckedUpdateInput>
+  }
+
+  /**
+   * StoredSpec delete
+   */
+  export type StoredSpecDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the StoredSpec
+     */
+    select?: StoredSpecSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the StoredSpec
+     */
+    omit?: StoredSpecOmit<ExtArgs> | null
+    /**
+     * Filter which StoredSpec to delete.
+     */
+    where: StoredSpecWhereUniqueInput
+  }
+
+  /**
+   * StoredSpec deleteMany
+   */
+  export type StoredSpecDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which StoredSpecs to delete
+     */
+    where?: StoredSpecWhereInput
+    /**
+     * Limit how many StoredSpecs to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * StoredSpec without action
+   */
+  export type StoredSpecDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the StoredSpec
+     */
+    select?: StoredSpecSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the StoredSpec
+     */
+    omit?: StoredSpecOmit<ExtArgs> | null
+  }
+
+
+  /**
    * Enums
    */
 
@@ -3558,6 +4675,20 @@ export namespace Prisma {
   };
 
   export type SessionEventScalarFieldEnum = (typeof SessionEventScalarFieldEnum)[keyof typeof SessionEventScalarFieldEnum]
+
+
+  export const StoredSpecScalarFieldEnum: {
+    id: 'id',
+    userId: 'userId',
+    prompt: 'prompt',
+    spec: 'spec',
+    rawLines: 'rawLines',
+    isFavorite: 'isFavorite',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+  };
+
+  export type StoredSpecScalarFieldEnum = (typeof StoredSpecScalarFieldEnum)[keyof typeof StoredSpecScalarFieldEnum]
 
 
   export const SortOrder: {
@@ -3912,6 +5043,73 @@ export namespace Prisma {
     createdAt?: DateTimeWithAggregatesFilter<"SessionEvent"> | Date | string
   }
 
+  export type StoredSpecWhereInput = {
+    AND?: StoredSpecWhereInput | StoredSpecWhereInput[]
+    OR?: StoredSpecWhereInput[]
+    NOT?: StoredSpecWhereInput | StoredSpecWhereInput[]
+    id?: StringFilter<"StoredSpec"> | string
+    userId?: StringFilter<"StoredSpec"> | string
+    prompt?: StringFilter<"StoredSpec"> | string
+    spec?: JsonFilter<"StoredSpec">
+    rawLines?: JsonFilter<"StoredSpec">
+    isFavorite?: BoolFilter<"StoredSpec"> | boolean
+    createdAt?: DateTimeFilter<"StoredSpec"> | Date | string
+    updatedAt?: DateTimeFilter<"StoredSpec"> | Date | string
+  }
+
+  export type StoredSpecOrderByWithRelationInput = {
+    id?: SortOrder
+    userId?: SortOrder
+    prompt?: SortOrder
+    spec?: SortOrder
+    rawLines?: SortOrder
+    isFavorite?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type StoredSpecWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    AND?: StoredSpecWhereInput | StoredSpecWhereInput[]
+    OR?: StoredSpecWhereInput[]
+    NOT?: StoredSpecWhereInput | StoredSpecWhereInput[]
+    userId?: StringFilter<"StoredSpec"> | string
+    prompt?: StringFilter<"StoredSpec"> | string
+    spec?: JsonFilter<"StoredSpec">
+    rawLines?: JsonFilter<"StoredSpec">
+    isFavorite?: BoolFilter<"StoredSpec"> | boolean
+    createdAt?: DateTimeFilter<"StoredSpec"> | Date | string
+    updatedAt?: DateTimeFilter<"StoredSpec"> | Date | string
+  }, "id">
+
+  export type StoredSpecOrderByWithAggregationInput = {
+    id?: SortOrder
+    userId?: SortOrder
+    prompt?: SortOrder
+    spec?: SortOrder
+    rawLines?: SortOrder
+    isFavorite?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    _count?: StoredSpecCountOrderByAggregateInput
+    _max?: StoredSpecMaxOrderByAggregateInput
+    _min?: StoredSpecMinOrderByAggregateInput
+  }
+
+  export type StoredSpecScalarWhereWithAggregatesInput = {
+    AND?: StoredSpecScalarWhereWithAggregatesInput | StoredSpecScalarWhereWithAggregatesInput[]
+    OR?: StoredSpecScalarWhereWithAggregatesInput[]
+    NOT?: StoredSpecScalarWhereWithAggregatesInput | StoredSpecScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"StoredSpec"> | string
+    userId?: StringWithAggregatesFilter<"StoredSpec"> | string
+    prompt?: StringWithAggregatesFilter<"StoredSpec"> | string
+    spec?: JsonWithAggregatesFilter<"StoredSpec">
+    rawLines?: JsonWithAggregatesFilter<"StoredSpec">
+    isFavorite?: BoolWithAggregatesFilter<"StoredSpec"> | boolean
+    createdAt?: DateTimeWithAggregatesFilter<"StoredSpec"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"StoredSpec"> | Date | string
+  }
+
   export type SessionCreateInput = {
     id?: string
     status?: $Enums.SessionStatus
@@ -4161,6 +5359,83 @@ export namespace Prisma {
     type?: StringFieldUpdateOperationsInput | string
     data?: JsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type StoredSpecCreateInput = {
+    id?: string
+    userId: string
+    prompt: string
+    spec: JsonNullValueInput | InputJsonValue
+    rawLines: JsonNullValueInput | InputJsonValue
+    isFavorite?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type StoredSpecUncheckedCreateInput = {
+    id?: string
+    userId: string
+    prompt: string
+    spec: JsonNullValueInput | InputJsonValue
+    rawLines: JsonNullValueInput | InputJsonValue
+    isFavorite?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type StoredSpecUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    userId?: StringFieldUpdateOperationsInput | string
+    prompt?: StringFieldUpdateOperationsInput | string
+    spec?: JsonNullValueInput | InputJsonValue
+    rawLines?: JsonNullValueInput | InputJsonValue
+    isFavorite?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type StoredSpecUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    userId?: StringFieldUpdateOperationsInput | string
+    prompt?: StringFieldUpdateOperationsInput | string
+    spec?: JsonNullValueInput | InputJsonValue
+    rawLines?: JsonNullValueInput | InputJsonValue
+    isFavorite?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type StoredSpecCreateManyInput = {
+    id?: string
+    userId: string
+    prompt: string
+    spec: JsonNullValueInput | InputJsonValue
+    rawLines: JsonNullValueInput | InputJsonValue
+    isFavorite?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type StoredSpecUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    userId?: StringFieldUpdateOperationsInput | string
+    prompt?: StringFieldUpdateOperationsInput | string
+    spec?: JsonNullValueInput | InputJsonValue
+    rawLines?: JsonNullValueInput | InputJsonValue
+    isFavorite?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type StoredSpecUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    userId?: StringFieldUpdateOperationsInput | string
+    prompt?: StringFieldUpdateOperationsInput | string
+    spec?: JsonNullValueInput | InputJsonValue
+    rawLines?: JsonNullValueInput | InputJsonValue
+    isFavorite?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type StringFilter<$PrismaModel = never> = {
@@ -4622,6 +5897,35 @@ export namespace Prisma {
     sessionId?: SortOrder
     type?: SortOrder
     createdAt?: SortOrder
+  }
+
+  export type StoredSpecCountOrderByAggregateInput = {
+    id?: SortOrder
+    userId?: SortOrder
+    prompt?: SortOrder
+    spec?: SortOrder
+    rawLines?: SortOrder
+    isFavorite?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type StoredSpecMaxOrderByAggregateInput = {
+    id?: SortOrder
+    userId?: SortOrder
+    prompt?: SortOrder
+    isFavorite?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type StoredSpecMinOrderByAggregateInput = {
+    id?: SortOrder
+    userId?: SortOrder
+    prompt?: SortOrder
+    isFavorite?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
   }
 
   export type SessionCreateNestedOneWithoutChildrenInput = {

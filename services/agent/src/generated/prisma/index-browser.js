@@ -156,6 +156,17 @@ exports.Prisma.SessionEventScalarFieldEnum = {
   createdAt: 'createdAt'
 };
 
+exports.Prisma.StoredSpecScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  prompt: 'prompt',
+  spec: 'spec',
+  rawLines: 'rawLines',
+  isFavorite: 'isFavorite',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -190,7 +201,8 @@ exports.SessionStatus = exports.$Enums.SessionStatus = {
 
 exports.Prisma.ModelName = {
   Session: 'Session',
-  SessionEvent: 'SessionEvent'
+  SessionEvent: 'SessionEvent',
+  StoredSpec: 'StoredSpec'
 };
 
 /**

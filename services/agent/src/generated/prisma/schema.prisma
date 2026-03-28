@@ -72,3 +72,18 @@ model SessionEvent {
   @@index([sessionId, createdAt])
   @@map("session_events")
 }
+
+model StoredSpec {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  prompt     String
+  spec       Json
+  rawLines   Json     @map("raw_lines")
+  isFavorite Boolean  @default(false) @map("is_favorite")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, createdAt])
+  @@index([userId, isFavorite])
+  @@map("stored_specs")
+}
