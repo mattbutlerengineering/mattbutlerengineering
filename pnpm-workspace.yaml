@@ -4,3 +4,6 @@ packages:
   - "packages/*"
   - "tools/*"
   - "infrastructure/pulumi"
+
+catalog:
+  zod: "^4.3.6"

@@ -6,7 +6,7 @@ import type { PrOptions, PrResult } from "./types.js";
 const execFileAsync = promisify(execFile);
 
 const GhPrResultSchema = z.object({
-  url: z.string().url(),
+  url: z.url(),
   number: z.number().int(),
 });
 

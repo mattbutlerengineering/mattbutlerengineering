@@ -28,7 +28,7 @@
     "@scalar/fastify-api-reference": "^1.44.1",
     "fastify": "^5.8.1",
     "jose": "^5.2.0",
-    "zod": "^3.23.0"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@mbe/config": "workspace:*",
