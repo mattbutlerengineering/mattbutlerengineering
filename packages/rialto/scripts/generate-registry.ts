@@ -46,7 +46,6 @@ interface RegistryComponent {
 
 interface Registry {
   version: string;
-  generatedAt: string;
   components: RegistryComponent[];
 }
 
@@ -212,7 +211,6 @@ function main() {
 
   const registry: Registry = {
     version: pkg.version,
-    generatedAt: new Date().toISOString(),
     components: components.sort((a, b) => a.name.localeCompare(b.name)),
   };
 
