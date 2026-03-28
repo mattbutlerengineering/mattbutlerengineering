@@ -214,8 +214,7 @@ const workerScript = new cloudflare.WorkersScript("mattbutlerengineering-edge-ro
     { name: "MARKETING", service: "mattbutlerengineering-marketing" },
     { name: "HOSPITALITY", service: "mattbutlerengineering-hospitality" },
     { name: "RIALTO", service: "mattbutlerengineering-rialto-web" },
-    // GEN Service Binding — uncomment when apps/gen Worker is deployed (Phase 14):
-    // { name: "GEN", service: "mattbutlerengineering-gen" },
+    { name: "GEN", service: "mattbutlerengineering-gen" },
   ],
 });
 

@@ -3,6 +3,7 @@
  *
  * Routes requests based on path prefix:
  *   /api/*          → DO App Platform (HTTP subrequest)
+ *   /gen/*          → Workers Static Assets (Service Binding, CDN-free)
  *   /hospitality/*  → Workers Static Assets (Service Binding, CDN-free)
  *   /rialto/*       → Workers Static Assets (Service Binding, CDN-free)
  *   /*              → Workers Static Assets (Service Binding, CDN-free)
@@ -59,6 +60,9 @@ export default {
     } else if (url.pathname.startsWith("/rialto")) {
       binding = env.RIALTO;
       prefix = "/rialto";
+    } else if (url.pathname.startsWith("/gen")) {
+      binding = env.GEN;
+      prefix = "/gen";
     } else {
       binding = env.MARKETING;
     }
