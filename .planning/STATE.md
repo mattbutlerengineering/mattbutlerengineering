@@ -2,13 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Generative UI
-status: unknown
-last_updated: "2026-03-28T16:16:40.376Z"
+status: completed
+stopped_at: Completed 14-03-PLAN.md (all tasks done, SUMMARY.md created)
+last_updated: "2026-03-28T16:22:43.992Z"
+last_activity: 2026-03-28 — Completed 14-03 (CI deploy-gen job, edge router /gen route, Pulumi GEN Service Binding, .env.example, auth0.ts gen URLs)
 progress:
-  total_phases: 3
+  total_phases: 5
   completed_phases: 3
   total_plans: 9
   completed_plans: 9
+  percent: 10
 ---
 
 # Project State

@@ -140,6 +140,6 @@ Plans:
 | 11. Registry Props & Verification | v1.1 | 2/2 | Complete | 2026-03-23 |
 | 12. Catalog Foundation | v1.2 | 3/3 | Complete | 2026-03-28 |
 | 13. AI Generation Endpoint | v1.2 | 3/3 | Complete | 2026-03-28 |
-| 14. Playground App | 3/3 | Complete   | 2026-03-28 | - |
+| 14. Playground App | 3/3 | Complete    | 2026-03-28 | - |
 | 15. Hospitality Copilot | v1.2 | 0/TBD | Not started | - |
 | 16. Persistence and Refinement | v1.2 | 0/TBD | Not started | - |
