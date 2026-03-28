@@ -92,7 +92,12 @@ Plans:
   3. The JSON spec inspector panel shows the raw generated spec updating in real time alongside the rendered preview
   4. Prompts submitted during a session appear in a history list; navigating away and back within the same session preserves the history; logging out clears it
   5. When the app is in dark mode, generated UIs render with dark theme tokens; when in light mode, they render with light theme tokens
-**Plans**: TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 14-01-PLAN.md — App scaffold with auth, theme context, and useGenStream streaming hook
+- [ ] 14-02-PLAN.md — Three-column playground UI (history, preview, JSON inspector, prompt bar)
+- [ ] 14-03-PLAN.md — CI/CD deploy job, edge router /gen route, Pulumi GEN binding + verification checkpoint
 
 ### Phase 15: Hospitality Copilot
 **Goal**: A GenCopilot component is embedded in the hospitality app dashboard; authenticated users can open it, enter a prompt with hospitality-specific context (reservation schema, floor plan structure, guest data shapes), and see generated Rialto UI rendered inline within the app
@@ -134,7 +139,7 @@ Plans:
 | 10. Documentation Reconciliation | v1.1 | 1/1 | Complete | 2026-03-23 |
 | 11. Registry Props & Verification | v1.1 | 2/2 | Complete | 2026-03-23 |
 | 12. Catalog Foundation | v1.2 | 3/3 | Complete | 2026-03-28 |
-| 13. AI Generation Endpoint | 3/3 | Complete    | 2026-03-28 | - |
-| 14. Playground App | v1.2 | 0/TBD | Not started | - |
+| 13. AI Generation Endpoint | v1.2 | 3/3 | Complete | 2026-03-28 |
+| 14. Playground App | v1.2 | 0/3 | Planning | - |
 | 15. Hospitality Copilot | v1.2 | 0/TBD | Not started | - |
 | 16. Persistence and Refinement | v1.2 | 0/TBD | Not started | - |
