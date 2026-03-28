@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Generative UI
-status: roadmap-complete
-stopped_at: Roadmap created — Phase 12 ready to plan
-last_updated: "2026-03-27T00:00:00.000Z"
-last_activity: 2026-03-27 — Roadmap created for v1.2 Generative UI
+status: in-progress
+stopped_at: Completed 12-01-PLAN.md
+last_updated: "2026-03-28T01:16:47Z"
+last_activity: 2026-03-28 — Completed Phase 12 Plan 01 (Zod v4 upgrade + rialto-catalog scaffold)
 progress:
   total_phases: 5
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 1
+  completed_plans: 1
+  percent: 3
 ---
 
 # Project State
@@ -21,29 +21,29 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-27)
 
 **Core value:** Every web app uses Rialto as the single design system and is accessible at mattbutlerengineering.com
-**Current focus:** v1.2 Generative UI — Phase 12 ready to plan
+**Current focus:** v1.2 Generative UI — Phase 12 Plan 01 complete, Plan 02 next
 
 ## Current Position
 
 Phase: 12 of 16 (Catalog Foundation)
-Plan: — (not started)
-Status: Ready to plan
-Last activity: 2026-03-27 — Roadmap created, 5 phases covering 34 requirements
+Plan: 01 complete, 02 next
+Status: In progress
+Last activity: 2026-03-28 — Completed 12-01 (Zod v4 upgrade + @mbe/rialto-catalog scaffold)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [░░░░░░░░░░] 3%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
-- Average duration: —
-- Total execution time: —
+- Total plans completed: 1
+- Average duration: 3 min
+- Total execution time: 3 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| — | — | — | — |
+| 12-catalog-foundation | 1 | 3 min | 3 min |
 
 *Updated after each plan completion*
 
@@ -58,6 +58,11 @@ v1.2 decisions (see PROJECT.md Key Decisions for full log):
 - INFRA requirements bundled with Phase 13 (SSE verification requires full pipeline)
 - Phases 14 and 15 can run in parallel after Phase 13 is complete
 
+Phase 12 Plan 01 decisions:
+- Zod v4 enforced via pnpm workspace catalog — single source of truth for version across all workspace packages
+- z.url() used instead of deprecated z.string().url() in Zod v4 (only breaking change found)
+- rialto-catalog tsconfig extends @mbe/config/typescript/base with jsx: react-jsx added for React component support
+
 ### Pending Todos
 
 None.
@@ -70,6 +75,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-27
-Stopped at: Roadmap created — ready for `/gsd:plan-phase 12`
+Last session: 2026-03-28
+Stopped at: Completed 12-01-PLAN.md
 Resume file: None
