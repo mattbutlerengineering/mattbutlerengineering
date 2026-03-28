@@ -1,20 +1,46 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
-import type { Guest, GuestSegment } from "@mbe/types";
+import type { Guest, GuestSegment, Venue } from "@mbe/types";
 import styles from "./GuestsPage.module.css";
 
 export function GuestsPage() {
   const { accessToken } = useAuth();
+  const [venues, setVenues] = useState<Venue[]>([]);
+  const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [segments, setSegments] = useState<GuestSegment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [venueId] = useState(""); // TODO: Get from context or URL
+
+  const api = useMemo(
+    () =>
+      createApiClient({
+        baseUrl: import.meta.env.VITE_API_URL ?? "",
+        getAccessToken: () => accessToken,
+      }),
+    [accessToken]
+  );
+
+  // Fetch venues on mount
+  useEffect(() => {
+    async function fetchVenues() {
+      try {
+        const response = await api.venues.list({ limit: 50 });
+        setVenues(response.data);
+        if (response.data.length > 0) {
+          setSelectedVenueId(response.data[0].id);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load venues");
+      }
+    }
+    fetchVenues();
+  }, [api]);
 
   useEffect(() => {
-    if (!venueId) {
+    if (!selectedVenueId) {
       setIsLoading(false);
       return;
     }
@@ -24,16 +50,11 @@ export function GuestsPage() {
       setError(null);
 
       try {
-        const api = createApiClient({
-          baseUrl: import.meta.env.VITE_API_URL ?? "",
-          getAccessToken: () => accessToken,
-        });
-
         const [guestsResponse, segmentsResponse] = await Promise.all([
           searchQuery
-            ? api.guests.search({ venueId, query: searchQuery })
-            : api.guests.list({ venueId, limit: 50 }),
-          api.guests.getSegments(venueId),
+            ? api.guests.search({ venueId: selectedVenueId!, query: searchQuery })
+            : api.guests.list({ venueId: selectedVenueId!, limit: 50 }),
+          api.guests.getSegments(selectedVenueId!),
         ]);
 
         setGuests(guestsResponse.data);
@@ -46,14 +67,14 @@ export function GuestsPage() {
     }
 
     fetchGuests();
-  }, [venueId, searchQuery, accessToken]);
+  }, [api, selectedVenueId, searchQuery]);
 
   const formatDate = (isoString: string | null) => {
     if (!isoString) return "Never";
     return new Date(isoString).toLocaleDateString();
   };
 
-  if (!venueId) {
+  if (!selectedVenueId) {
     return (
       <div className={styles.container}>
         <h1 className={styles.title}>Guests</h1>
@@ -66,13 +87,28 @@ export function GuestsPage() {
     <div className={styles.container}>
       <div className={styles.header}>
         <h1 className={styles.title}>Guests</h1>
-        <input
-          type="text"
-          placeholder="Search guests..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className={styles.searchInput}
-        />
+        <div className={styles.headerControls}>
+          {venues.length > 1 && (
+            <select
+              value={selectedVenueId ?? ""}
+              onChange={(e) => setSelectedVenueId(e.target.value)}
+              className={styles.venueSelector}
+            >
+              {venues.map((venue) => (
+                <option key={venue.id} value={venue.id}>
+                  {venue.name}
+                </option>
+              ))}
+            </select>
+          )}
+          <input
+            type="text"
+            placeholder="Search guests..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className={styles.searchInput}
+          />
+        </div>
       </div>
 
       {/* Segments Overview */}
