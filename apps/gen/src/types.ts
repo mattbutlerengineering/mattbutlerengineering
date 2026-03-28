@@ -7,3 +7,14 @@ export interface HistoryEntry {
   rawLines: string[];
   timestamp: Date;
 }
+
+export interface StoredSpec {
+  id: string;
+  userId: string;
+  prompt: string;
+  spec: unknown;
+  rawLines: string[];
+  isFavorite: boolean;
+  createdAt: string;
+  updatedAt: string;
+}

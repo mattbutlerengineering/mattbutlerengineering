@@ -9,7 +9,7 @@ type FlatElement = Parameters<typeof flatToTree>[0][number];
 
 export interface UseGenStreamOptions {
   api: string;
-  onComplete?: (spec: Spec) => void;
+  onComplete?: (spec: Spec, rawLines: string[]) => void;
   onError?: (error: Error) => void;
 }
 
@@ -78,6 +78,8 @@ export function useGenStream({
       setUsage(null);
 
       const accumulatedElements: FlatElement[] = [];
+      // Track raw lines locally to avoid stale React state in onComplete callback
+      const accumulatedRawLines: string[] = [];
 
       try {
         const response = await fetch(api, {
@@ -120,6 +122,7 @@ export function useGenStream({
             const trimmed = line.trim();
             if (!trimmed) continue;
 
+            accumulatedRawLines.push(trimmed);
             setRawLines((prev) => [...prev, trimmed]);
 
             try {
@@ -147,9 +150,11 @@ export function useGenStream({
 
         // Process any remaining buffered content
         if (buffer.trim()) {
-          setRawLines((prev) => [...prev, buffer.trim()]);
+          const trimmedBuffer = buffer.trim();
+          accumulatedRawLines.push(trimmedBuffer);
+          setRawLines((prev) => [...prev, trimmedBuffer]);
           try {
-            const parsed = JSON.parse(buffer.trim()) as Record<string, unknown>;
+            const parsed = JSON.parse(trimmedBuffer) as Record<string, unknown>;
             if (parsed.type !== "usage") {
               accumulatedElements.push(parsed as unknown as FlatElement);
               const finalSpec = flatToTree([...accumulatedElements]);
@@ -160,10 +165,11 @@ export function useGenStream({
           }
         }
 
-        // Build the final spec and notify completion
+        // Build the final spec and notify completion — pass local rawLines array
+        // to avoid stale closure pitfall (React state may not reflect latest lines)
         const finalSpec = accumulatedElements.length > 0 ? flatToTree(accumulatedElements) : null;
         if (finalSpec) {
-          onCompleteRef.current?.(finalSpec);
+          onCompleteRef.current?.(finalSpec, accumulatedRawLines);
         }
 
         setIsStreaming(false);
