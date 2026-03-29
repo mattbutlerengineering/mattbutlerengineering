@@ -8,6 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
+      scope: "/hospitality/",
       includeAssets: ["favicon.svg", "robots.txt"],
       manifest: {
         name: "MBE Hospitality",
