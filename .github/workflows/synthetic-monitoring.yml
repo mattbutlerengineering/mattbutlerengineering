@@ -1,0 +1,65 @@
+name: Synthetic Monitoring
+
+on:
+  schedule:
+    # Every 5 minutes
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  health-pings:
+    name: Health Pings
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Ping marketing site
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://mattbutlerengineering.com/")
+          echo "marketing: HTTP $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::Marketing site returned HTTP $STATUS (expected 200)"
+            exit 1
+          fi
+
+      - name: Ping hospitality app
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://mattbutlerengineering.com/hospitality")
+          echo "hospitality: HTTP $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::Hospitality app returned HTTP $STATUS (expected 200)"
+            exit 1
+          fi
+
+      - name: Ping rialto showcase
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://mattbutlerengineering.com/rialto")
+          echo "rialto: HTTP $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::Rialto showcase returned HTTP $STATUS (expected 200)"
+            exit 1
+          fi
+
+      - name: Ping users API health
+        run: |
+          RESPONSE=$(curl -s --max-time 10 "https://api.mattbutlerengineering.com/health")
+          STATUS_HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://api.mattbutlerengineering.com/health")
+          echo "users-api: HTTP $STATUS_HTTP — $RESPONSE"
+          if [ "$STATUS_HTTP" != "200" ]; then
+            echo "::error::Users API health returned HTTP $STATUS_HTTP (expected 200)"
+            exit 1
+          fi
+          STATUS_BODY=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status','unknown'))" 2>/dev/null || echo "parse-error")
+          echo "users-api status: $STATUS_BODY"
+          if [ "$STATUS_BODY" = "error" ]; then
+            echo "::error::Users API health status is 'error': $RESPONSE"
+            exit 1
+          fi
+
+      - name: Summarize results
+        if: success()
+        run: echo "All endpoints healthy."
