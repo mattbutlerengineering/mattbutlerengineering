@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components -- entry point, not a fast-refresh module */
-import { StrictMode, useState, useEffect, useMemo } from "react";
+import { StrictMode, useState, useMemo, useCallback } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import "@mbe/rialto/styles";
@@ -8,12 +8,26 @@ import { RialtoProvider, ToastProvider } from "@mbe/rialto";
 import { ThemeContext } from "./ThemeContext";
 import { routeTree } from "./routes";
 
-/* ── Theme initialization ─────────────────────── */
-function getInitialTheme(): "light" | "dark" {
-  if (typeof window === "undefined") return "light";
-  const saved = localStorage.getItem("rialto-theme");
-  if (saved === "dark" || saved === "light") return saved;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+/* ── Theme persistence ────────────────────────── */
+const THEME_KEY = "mbe-theme-preference";
+
+type ThemePreference = "light" | "dark" | "system";
+
+function getStoredTheme(): ThemePreference {
+  try {
+    const stored = localStorage.getItem(THEME_KEY);
+    if (stored === "light" || stored === "dark" || stored === "system") return stored;
+  } catch {
+    // localStorage unavailable
+  }
+  return "system";
+}
+
+function resolveTheme(pref: ThemePreference): "light" | "dark" {
+  if (pref === "system") {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  return pref;
 }
 
 /**
@@ -24,25 +38,30 @@ const router = createBrowserRouter(routeTree, { basename: "/rialto" });
 
 /* ── Root component ───────────────────────────── */
 function Root() {
-  const [theme, setTheme] = useState<"light" | "dark">(getInitialTheme);
+  const [preference, setPreference] = useState<ThemePreference>(getStoredTheme);
+  const resolved = resolveTheme(preference);
 
-  // Persist theme choice on change
-  useEffect(() => {
-    localStorage.setItem("rialto-theme", theme);
-  }, [theme]);
-
-  const handleThemeToggle = () => {
-    setTheme((current) => (current === "dark" ? "light" : "dark"));
-  };
+  const handleThemeToggle = useCallback(() => {
+    setPreference((current) => {
+      const currentResolved = resolveTheme(current);
+      const next: ThemePreference = currentResolved === "dark" ? "light" : "dark";
+      try {
+        localStorage.setItem(THEME_KEY, next);
+      } catch {
+        // Theme still works in memory
+      }
+      return next;
+    });
+  }, []);
 
   const themeContextValue = useMemo(
-    () => ({ theme, onThemeToggle: handleThemeToggle }),
-    [theme]
+    () => ({ theme: resolved, onThemeToggle: handleThemeToggle }),
+    [resolved, handleThemeToggle]
   );
 
   return (
     // RialtoProvider MUST wrap RouterProvider (outside it)
-    <RialtoProvider theme={theme}>
+    <RialtoProvider theme={resolved}>
       <ThemeContext value={themeContextValue}>
         <ToastProvider>
           <RouterProvider router={router} />

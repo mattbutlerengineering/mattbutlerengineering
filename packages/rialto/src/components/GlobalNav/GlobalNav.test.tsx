@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { GlobalNav } from "./GlobalNav";
@@ -118,5 +118,42 @@ describe("GlobalNav", () => {
 
     const nav = screen.getByRole("navigation", { name: "Global navigation" });
     expect(nav.className).toContain("custom-class");
+  });
+
+  it("renders theme toggle when theme and onThemeToggle are provided", () => {
+    const onToggle = vi.fn();
+    render(<GlobalNav currentApp="marketing" theme="light" onThemeToggle={onToggle} />);
+
+    const toggle = screen.getByRole("button", { name: "Switch to dark mode" });
+    expect(toggle).toBeTruthy();
+  });
+
+  it("does not render theme toggle when props are omitted", () => {
+    render(<GlobalNav currentApp="marketing" />);
+
+    expect(screen.queryByRole("button", { name: /switch to .* mode/i })).toBeNull();
+  });
+
+  it("calls onThemeToggle when theme toggle is clicked", async () => {
+    const user = userEvent.setup();
+    const onToggle = vi.fn();
+    render(<GlobalNav currentApp="marketing" theme="dark" onThemeToggle={onToggle} />);
+
+    const toggle = screen.getByRole("button", { name: "Switch to light mode" });
+    await user.click(toggle);
+
+    expect(onToggle).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows correct icon label for dark theme", () => {
+    render(<GlobalNav currentApp="marketing" theme="dark" onThemeToggle={() => {}} />);
+
+    expect(screen.getByRole("button", { name: "Switch to light mode" })).toBeTruthy();
+  });
+
+  it("shows correct icon label for light theme", () => {
+    render(<GlobalNav currentApp="marketing" theme="light" onThemeToggle={() => {}} />);
+
+    expect(screen.getByRole("button", { name: "Switch to dark mode" })).toBeTruthy();
   });
 });

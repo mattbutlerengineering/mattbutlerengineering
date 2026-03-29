@@ -38,6 +38,15 @@ export const ThemeContext = createContext<ThemeContextValue>({
 
 /* ── Hooks ──────────────────────────────────────── */
 
+/** Resolve a preference to a concrete light/dark value. */
+export function resolveTheme(pref: ThemePreference): "light" | "dark" {
+  if (pref === "system") {
+    if (typeof window === "undefined") return "light";
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  return pref;
+}
+
 /** Consume the current theme preference from context. */
 export function useTheme(): ThemeContextValue {
   return useContext(ThemeContext);

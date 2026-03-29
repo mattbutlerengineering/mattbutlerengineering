@@ -75,7 +75,7 @@ export function ShowcaseLayout(props: ShowcaseLayoutProps) {
 
   return (
     <div className={styles.root}>
-      <GlobalNav currentApp="rialto" />
+      <GlobalNav currentApp="rialto" theme={theme} onThemeToggle={onThemeToggle} />
       {/* ── Top header bar ─────────────────────── */}
       <header className={styles.header}>
         <div className={styles.headerStart}>

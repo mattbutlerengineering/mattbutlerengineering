@@ -1,4 +1,5 @@
 import { forwardRef, useState, useCallback, type HTMLAttributes } from "react";
+import { ThemeToggle } from "../ThemeToggle/ThemeToggle";
 import styles from "./GlobalNav.module.css";
 
 /** Navigation item definition. */
@@ -22,16 +23,20 @@ const NAV_ITEMS: readonly NavItem[] = [
  * served by a separate Cloudflare Worker.
  *
  * @example
- * <GlobalNav currentApp="marketing" />
+ * <GlobalNav currentApp="marketing" theme="dark" onThemeToggle={() => {}} />
  */
 export interface GlobalNavProps
   extends Pick<HTMLAttributes<HTMLElement>, "id" | "aria-label" | "className" | "style"> {
   /** Which app is currently active — drives the active link indicator. */
   currentApp: "marketing" | "hospitality" | "rialto";
+  /** Current resolved theme for the theme toggle icon. */
+  theme?: "light" | "dark";
+  /** Called when the user clicks the theme toggle. */
+  onThemeToggle?: () => void;
 }
 
 export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
-  ({ currentApp, className, ...props }, ref) => {
+  ({ currentApp, theme, onThemeToggle, className, ...props }, ref) => {
     const [menuOpen, setMenuOpen] = useState(false);
 
     const handleToggle = useCallback(() => {
@@ -79,18 +84,25 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
             ))}
           </ul>
 
-          {/* ── Mobile hamburger ──────────────────── */}
-          <button
-            type="button"
-            className={styles.hamburger}
-            onClick={handleToggle}
-            onKeyDown={handleKeyDown}
-            aria-expanded={menuOpen}
-            aria-controls="global-nav-mobile-menu"
-            aria-label={menuOpen ? "Close menu" : "Open menu"}
-          >
-            <span className={[styles.hamburgerBar, menuOpen ? styles.open : ""].filter(Boolean).join(" ")} />
-          </button>
+          {/* ── Actions (theme toggle) ────────────── */}
+          <div className={styles.actions}>
+            {theme && onThemeToggle && (
+              <ThemeToggle theme={theme} onToggle={onThemeToggle} />
+            )}
+
+            {/* ── Mobile hamburger ──────────────────── */}
+            <button
+              type="button"
+              className={styles.hamburger}
+              onClick={handleToggle}
+              onKeyDown={handleKeyDown}
+              aria-expanded={menuOpen}
+              aria-controls="global-nav-mobile-menu"
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
+            >
+              <span className={[styles.hamburgerBar, menuOpen ? styles.open : ""].filter(Boolean).join(" ")} />
+            </button>
+          </div>
         </div>
 
         {/* ── Mobile menu ─────────────────────────── */}

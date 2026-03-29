@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useCallback } from "react";
 import type { ReactNode } from "react";
 
-const THEME_STORAGE_KEY = "mbe-gen-theme";
+const THEME_STORAGE_KEY = "mbe-theme-preference";
 
 type Theme = "light" | "dark";
 

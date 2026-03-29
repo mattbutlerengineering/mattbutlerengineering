@@ -1,6 +1,7 @@
 import { Outlet, Navigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { Stack, Text, Button, GlobalNav } from "@mbe/rialto";
+import { useTheme, resolveTheme } from "./hooks/use-theme";
 import { LoadingPage } from "./pages/LoadingPage";
 import styles from "./App.module.css";
 
@@ -11,11 +12,19 @@ import styles from "./App.module.css";
  */
 export function App() {
   const { isLoading, isAuthenticated, error } = useAuth();
+  const { theme: preference, setTheme } = useTheme();
+  const resolved = resolveTheme(preference);
+
+  const handleThemeToggle = () => {
+    setTheme(resolved === "dark" ? "light" : "dark");
+  };
+
+  const nav = <GlobalNav currentApp="hospitality" theme={resolved} onThemeToggle={handleThemeToggle} />;
 
   if (isLoading) {
     return (
       <>
-        <GlobalNav currentApp="hospitality" />
+        {nav}
         <LoadingPage />
       </>
     );
@@ -27,7 +36,7 @@ export function App() {
   if (error) {
     return (
       <>
-        <GlobalNav currentApp="hospitality" />
+        {nav}
         <div className={styles.loginContainer}>
           <Stack gap="md" align="center">
             <Text as="h1" variant="display" color="primary">
@@ -48,7 +57,7 @@ export function App() {
   if (isCallback && !isAuthenticated) {
     return (
       <>
-        <GlobalNav currentApp="hospitality" />
+        {nav}
         <LoadingPage />
       </>
     );
@@ -57,7 +66,7 @@ export function App() {
   if (!isAuthenticated) {
     return (
       <>
-        <GlobalNav currentApp="hospitality" />
+        {nav}
         <LoginPrompt />
       </>
     );
@@ -65,7 +74,7 @@ export function App() {
 
   return (
     <>
-      <GlobalNav currentApp="hospitality" />
+      {nav}
       <Outlet />
     </>
   );

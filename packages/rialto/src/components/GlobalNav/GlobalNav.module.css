@@ -77,6 +77,15 @@
   border-radius: var(--rialto-radius-round);
 }
 
+/* ── Actions (theme toggle + hamburger) ────────── */
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+  flex-shrink: 0;
+}
+
 /* ── Hamburger button ───────────────────────────── */
 
 .hamburger {
