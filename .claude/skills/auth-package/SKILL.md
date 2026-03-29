@@ -406,6 +406,51 @@ Logout:
 3. Redirect back to app
 ```
 
+## E2E Testing with Playwright
+
+Playwright can test authenticated features using programmatic Auth0 login (Resource Owner Password Grant). This bypasses the browser login UI entirely — fast, reliable, CI-friendly.
+
+### Required Environment Variables
+
+```bash
+E2E_AUTH0_DOMAIN=dev-ytbgmz5ls3wh4xdx.us.auth0.com
+E2E_AUTH0_CLIENT_ID=<Auth0 client ID with Password grant enabled>
+E2E_AUTH0_AUDIENCE=https://api.mattbutlerengineering.com
+E2E_AUTH_EMAIL=<test user email>
+E2E_AUTH_PASSWORD=<test user password>
+```
+
+### Auth0 Prerequisites
+
+1. The Auth0 application must have the **Password** grant type enabled (Settings > Advanced > Grant Types)
+2. The test user must use email/password (no MFA, no social login)
+3. The default directory in Auth0 must be set to `Username-Password-Authentication`
+
+### Using the authPage Fixture
+
+```typescript
+import { test, expect } from "./fixtures.js";
+
+test("authenticated page works", async ({ authPage }) => {
+  await authPage.goto("/reservations");
+  await expect(authPage.getByTestId("dashboard-layout")).toBeVisible();
+});
+```
+
+### How It Works
+
+1. `injectAuth0Session()` fetches tokens via Auth0's `/oauth/token` endpoint (ROPC grant)
+2. Tokens are injected into `sessionStorage` as an `oidc-client-ts` user entry
+3. Page reloads — `react-oidc-context` AuthProvider reads the session and treats user as authenticated
+4. No browser login flow, no Auth0 UI interaction, no consent screens
+
+### Running E2E Tests
+
+```bash
+cd apps/hospitality
+pnpm test:e2e  # Requires E2E_AUTH* env vars
+```
+
 ## Quick Checklist
 
 ### Adding Auth to React App
