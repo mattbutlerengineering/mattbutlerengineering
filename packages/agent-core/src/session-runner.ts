@@ -25,6 +25,7 @@ import {
   buildPrBody,
   buildFailurePrBody,
 } from "./pr-creator.js";
+import { isTrivialDepBump, mergeDirectly } from "./dep-bump-merger.js";
 import { evaluateSuccess, getGitDiff, shouldEvaluate } from "./success-evaluator.js";
 import type { EvaluationResult } from "./success-evaluator.js";
 import { mapSdkMessage } from "./event-mapper.js";
@@ -177,37 +178,68 @@ export async function runSession(
       }
 
       if (config.createPr) {
-        const title = evaluationPassed
-          ? buildPrTitle(config.taskDescription)
-          : `wip: ${config.taskDescription.slice(0, 57)}`;
+        // Fast-path: trivial dependency bumps that passed tests are merged
+        // directly without waiting for PR review.
+        if (evaluationPassed) {
+          const depBumpCheck = isTrivialDepBump(await getGitDiff(worktree.path));
+          if (depBumpCheck.isTrivial) {
+            const commitTitle = buildPrTitle(config.taskDescription);
+            prUrl = await mergeDirectly({
+              branchName: worktree.branchName,
+              baseBranch: config.baseBranch,
+              repoPath: worktree.path,
+              commitTitle,
+            });
+            emitEvent(onEvent, "session:result", {
+              message: `Trivial dep bump — direct-merged: ${prUrl}`,
+            });
+          } else {
+            const title = buildPrTitle(config.taskDescription);
+            const body = resultMessage
+              ? buildPrBody(
+                  config.taskDescription,
+                  resultMessage.session_id,
+                  resultMessage.total_cost_usd,
+                  resultMessage.num_turns
+                )
+              : buildFailurePrBody(config.taskDescription, errors, stuckReason?.type);
 
-        const body = evaluationPassed && resultMessage
-          ? buildPrBody(
-              config.taskDescription,
-              resultMessage.session_id,
-              resultMessage.total_cost_usd,
-              resultMessage.num_turns
-            )
-          : buildFailurePrBody(
-              config.taskDescription,
-              errors,
-              stuckReason?.type
-            );
+            const pr = await createPullRequest({
+              title,
+              body,
+              baseBranch: config.baseBranch,
+              branchName: worktree.branchName,
+              repoPath: worktree.path,
+              draft: false,
+            });
 
-        const pr = await createPullRequest({
-          title,
-          body,
-          baseBranch: config.baseBranch,
-          branchName: worktree.branchName,
-          repoPath: worktree.path,
-          draft: !evaluationPassed,
-        });
+            prUrl = pr.url;
+            emitEvent(onEvent, "session:result", {
+              message: `PR created: ${pr.url}`,
+            });
+          }
+        } else {
+          const title = `wip: ${config.taskDescription.slice(0, 57)}`;
+          const body = buildFailurePrBody(
+            config.taskDescription,
+            errors,
+            stuckReason?.type
+          );
 
-        prUrl = pr.url;
-        const prType = evaluationPassed ? "PR" : "Draft PR";
-        emitEvent(onEvent, "session:result", {
-          message: `${prType} created: ${pr.url}`,
-        });
+          const pr = await createPullRequest({
+            title,
+            body,
+            baseBranch: config.baseBranch,
+            branchName: worktree.branchName,
+            repoPath: worktree.path,
+            draft: true,
+          });
+
+          prUrl = pr.url;
+          emitEvent(onEvent, "session:result", {
+            message: `Draft PR created: ${pr.url}`,
+          });
+        }
       }
     } else {
       emitEvent(onEvent, "session:result", {

@@ -45,6 +45,10 @@ export {
   buildFailurePrBody,
 } from "./pr-creator.js";
 
+// Dependency bump direct-merge
+export { isTrivialDepBump, mergeDirectly } from "./dep-bump-merger.js";
+export type { TrivialDepBumpResult } from "./dep-bump-merger.js";
+
 // Prompt building
 export {
   buildSystemPrompt,
