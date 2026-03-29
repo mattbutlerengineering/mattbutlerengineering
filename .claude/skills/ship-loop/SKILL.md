@@ -45,6 +45,23 @@ gh issue create \
   --label "ci-fix,ready"
 ```
 
+### A2.5. Smoke Audit
+
+After merging a PR, run a targeted audit on affected surfaces:
+
+```bash
+# Get files changed in the last merge
+git diff HEAD~1 --name-only
+```
+
+Then invoke `/site-audit smoke` which will:
+1. Map changed files to affected surfaces via file-to-surface mapping
+2. Run Lighthouse + console checks in parallel on affected surfaces
+3. Detect regressions against stored scores (>0.05 drop)
+4. Create `ci-fix` + `audit` issues for any regressions found
+
+If no files in `apps/`, `services/`, `packages/`, or `infrastructure/` changed, skip this step.
+
 ### A3. Gather Issues
 
 ```bash

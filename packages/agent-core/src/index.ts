@@ -1,3 +1,26 @@
+// Audit inventory
+export {
+  buildInventory,
+  loadInventory,
+  saveInventory,
+  mergeInventory,
+  mapFilesToSurfaces,
+  findStalestZone,
+  updateSurfaceScore,
+  detectRegression,
+  ZONES,
+  BASE_URL,
+  INVENTORY_VERSION,
+} from "./audit-inventory.js";
+export type {
+  AuditInventory,
+  AuditSurface,
+  LighthouseScores,
+  ScoreEntry,
+  Zone,
+  Regression,
+} from "./audit-inventory.js";
+
 // Core session runner
 export { runSession } from "./session-runner.js";
 
