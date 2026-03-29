@@ -83,6 +83,10 @@ export type {
   ShouldEvaluateConfig,
 } from "./success-evaluator.js";
 
+// Diff review (AI code review before auto-merge)
+export { reviewDiff, DEFAULT_REVIEW_CONFIG } from "./diff-reviewer.js";
+export type { ReviewResult, ReviewConfig } from "./diff-reviewer.js";
+
 // Failure memory
 export {
   recordFailure,

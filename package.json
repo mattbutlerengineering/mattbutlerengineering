@@ -35,16 +35,16 @@
   },
   "lint-staged": {
     "apps/**/*.{ts,tsx}": [
-      "eslint --fix"
+      "eslint --fix --flag v10_config_lookup_from_file"
     ],
     "packages/**/*.{ts,tsx}": [
-      "eslint --fix"
+      "eslint --fix --flag v10_config_lookup_from_file"
     ],
     "services/**/*.{ts,tsx}": [
-      "eslint --fix"
+      "eslint --fix --flag v10_config_lookup_from_file"
     ],
     "tools/**/*.{ts,tsx}": [
-      "eslint --fix"
+      "eslint --fix --flag v10_config_lookup_from_file"
     ]
   },
   "pnpm": {
