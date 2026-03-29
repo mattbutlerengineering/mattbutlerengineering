@@ -15,6 +15,7 @@ vi.mock("node:fs/promises", () => ({
 
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import {
   createWorktree,
   removeWorktree,
@@ -40,19 +41,43 @@ function setupExecFileMock(stdoutResponses: string[] = [""]) {
   );
 }
 
-describe("createWorktree", () => {
+// ── Full worktree mode (default) ──────────────────────────────────────────────
+
+describe("createWorktree (full mode)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("creates a worktree with a generated branch name", async () => {
+  it("creates a full worktree with a generated branch name", async () => {
     setupExecFileMock([""]);
 
     const result = await createWorktree("/repo", "main", "Fix login bug");
 
     expect(result.branchName).toMatch(/^agent\/fix-login-bug-[a-f0-9]{6}$/);
     expect(result.path).toContain(".agent-worktrees");
+    expect(result.mode).toBe("full");
     expect(execFile).toHaveBeenCalled();
+  });
+
+  it("defaults to full mode when no options are provided", async () => {
+    setupExecFileMock([""]);
+
+    const result = await createWorktree("/repo", "main", "task");
+
+    expect(result.mode).toBe("full");
+  });
+
+  it("explicitly uses full mode when mode: 'full' is passed", async () => {
+    setupExecFileMock([""]);
+
+    const result = await createWorktree("/repo", "main", "task", { mode: "full" });
+
+    expect(result.mode).toBe("full");
+    // 'git worktree add' should be the command used
+    const calls = vi.mocked(execFile).mock.calls;
+    const gitArgs = calls[0][1] as string[];
+    expect(gitArgs).toContain("worktree");
+    expect(gitArgs).toContain("add");
   });
 
   it("generates branch names from task descriptions", async () => {
@@ -75,17 +100,97 @@ describe("createWorktree", () => {
   });
 });
 
+// ── Lightweight worktree mode ────────────────────────────────────────────────
+
+describe("createWorktree (lightweight mode)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("creates a lightweight clone and returns mode: 'lightweight'", async () => {
+    // Two execFile calls: git clone, then git checkout -b
+    setupExecFileMock(["", ""]);
+
+    const result = await createWorktree("/repo", "main", "Fix typo", { mode: "lightweight" });
+
+    expect(result.branchName).toMatch(/^agent\/fix-typo-[a-f0-9]{6}$/);
+    expect(result.path).toContain(".agent-worktrees");
+    expect(result.mode).toBe("lightweight");
+  });
+
+  it("uses git clone --depth 1 for the shallow clone step", async () => {
+    setupExecFileMock(["", ""]);
+
+    await createWorktree("/repo", "main", "Fix typo", { mode: "lightweight" });
+
+    const calls = vi.mocked(execFile).mock.calls;
+    // First call should be the clone
+    const firstArgs = calls[0][1] as string[];
+    expect(firstArgs).toContain("clone");
+    expect(firstArgs).toContain("--depth");
+    expect(firstArgs).toContain("1");
+  });
+
+  it("creates a new branch in the cloned directory", async () => {
+    setupExecFileMock(["", ""]);
+
+    const result = await createWorktree("/repo", "main", "Fix typo", { mode: "lightweight" });
+
+    const calls = vi.mocked(execFile).mock.calls;
+    // Second call should be the branch creation
+    const secondArgs = calls[1][1] as string[];
+    expect(secondArgs).toContain("checkout");
+    expect(secondArgs).toContain("-b");
+    expect(secondArgs).toContain(result.branchName);
+  });
+
+  it("places the clone under .agent-worktrees with the branch name as directory", async () => {
+    setupExecFileMock(["", ""]);
+
+    const result = await createWorktree("/repo", "main", "Fix typo", { mode: "lightweight" });
+
+    expect(result.path).toMatch(/\.agent-worktrees\/agent-fix-typo-[a-f0-9]{6}$/);
+  });
+});
+
+// ── removeWorktree ────────────────────────────────────────────────────────────
+
 describe("removeWorktree", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("removes an existing worktree", async () => {
+  it("removes an existing full worktree via git worktree remove", async () => {
+    vi.mocked(existsSync).mockReturnValueOnce(true);
+    setupExecFileMock([""]);
+
+    await removeWorktree("/repo", "/repo/.agent-worktrees/test", "full");
+    expect(execFile).toHaveBeenCalled();
+    const gitArgs = vi.mocked(execFile).mock.calls[0][1] as string[];
+    expect(gitArgs).toContain("worktree");
+    expect(gitArgs).toContain("remove");
+  });
+
+  it("removes an existing lightweight worktree via rm (no git command)", async () => {
+    vi.mocked(existsSync).mockReturnValueOnce(true);
+    vi.mocked(rm).mockResolvedValueOnce(undefined);
+
+    await removeWorktree("/repo", "/repo/.agent-worktrees/test", "lightweight");
+
+    expect(execFile).not.toHaveBeenCalled();
+    expect(rm).toHaveBeenCalledWith("/repo/.agent-worktrees/test", {
+      recursive: true,
+      force: true,
+    });
+  });
+
+  it("defaults to full mode when no mode is passed", async () => {
     vi.mocked(existsSync).mockReturnValueOnce(true);
     setupExecFileMock([""]);
 
     await removeWorktree("/repo", "/repo/.agent-worktrees/test");
-    expect(execFile).toHaveBeenCalled();
+    const gitArgs = vi.mocked(execFile).mock.calls[0][1] as string[];
+    expect(gitArgs).toContain("worktree");
   });
 
   it("skips removal if worktree does not exist", async () => {
@@ -93,8 +198,11 @@ describe("removeWorktree", () => {
 
     await removeWorktree("/repo", "/repo/.agent-worktrees/nonexistent");
     expect(execFile).not.toHaveBeenCalled();
+    expect(rm).not.toHaveBeenCalled();
   });
 });
+
+// ── commitChanges ─────────────────────────────────────────────────────────────
 
 describe("commitChanges", () => {
   beforeEach(() => {
@@ -115,6 +223,8 @@ describe("commitChanges", () => {
     expect(sha).toBe("");
   });
 });
+
+// ── hasChanges ────────────────────────────────────────────────────────────────
 
 describe("hasChanges", () => {
   beforeEach(() => {

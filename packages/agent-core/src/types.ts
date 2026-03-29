@@ -87,9 +87,16 @@ export type SessionEventCallback = (event: SessionEvent) => void;
 
 // ── Worktree ─────────────────────────────────────────────────────────
 
+/**
+ * 'full'        – git worktree add (full working tree, current behavior)
+ * 'lightweight' – shallow clone + checkout -b (faster for small changes)
+ */
+export type WorktreeMode = "full" | "lightweight";
+
 export interface WorktreeInfo {
   readonly path: string;
   readonly branchName: string;
+  readonly mode: WorktreeMode;
 }
 
 // ── PR creation ──────────────────────────────────────────────────────
