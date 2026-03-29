@@ -69,10 +69,33 @@ gh issue edit <number> --add-label "in-progress" --remove-label "ready"
 
 ## Phase B: Implement in Worktree Agent
 
-Launch a worktree agent for the claimed issue:
+### B0. Issue Enrichment (Planner Step)
+
+Before launching the worktree agent, expand the raw issue title into a structured spec. This significantly improves first-iteration quality by giving the agent concrete acceptance criteria and scope boundaries.
+
+Run a planner sub-agent (prefer `claude-haiku-4-5` to minimize cost) with the following prompt:
+
+```
+Given this GitHub issue:
+Title: <issue title>
+Body: <issue body>
+
+Produce a structured implementation spec:
+1. **Goal** — One sentence summary of what success looks like.
+2. **Acceptance Criteria** — Bullet list of testable conditions that must be true.
+3. **Files Likely Affected** — List of files/directories most likely to need changes.
+4. **Edge Cases** — Potential failure modes or tricky scenarios to handle.
+5. **Out of Scope** — What NOT to change.
+```
+
+Save the enriched spec for use in B1 (agent prompt) and B2 (evaluator criteria).
+
+### B1. Launch Worktree Agent
+
+Pass the enriched spec (from B0) rather than just the raw issue title:
 
 ```bash
-mbe agent run "<issue title> (closes #<number>)" \
+mbe agent run "<enriched spec from B0> (closes #<number>)" \
   --model claude-sonnet-4-6 \
   --max-budget 1.00 \
   --max-turns 50
@@ -94,16 +117,53 @@ Every worktree agent prompt MUST include the following security guidance:
 > - For any changes touching auth, crypto, or input handling, use the **security-reviewer** agent.
 > - If you discover an existing security vulnerability, stop feature work and fix it first.
 
-### Agent Outcome Handling
+### B2. Evaluate the PR (Evaluator Phase)
 
-- **Success** (PR created): Label issue `has-pr`, remove `in-progress`.
-- **Failure**: Label issue `agent-failed`, remove `in-progress`. Log failure reason.
+After the worktree agent creates a PR, run a **separate evaluator agent** against the diff before accepting. Models have strong self-evaluation bias — a fresh skeptical agent catches issues the generator misses.
+
+Run an evaluator sub-agent with:
+
+```
+Review this PR diff against the acceptance criteria below. Be skeptical — your job is to
+find problems, not validate success.
+
+Acceptance Criteria:
+<criteria from B0 enrichment>
+
+PR diff:
+<output of: gh pr diff <pr-number>>
+
+Answer: PASS or FAIL.
+If FAIL, list specific issues as bullet points — reference file names and line numbers.
+Do not give partial credit. If any criterion is unmet, it is a FAIL.
+```
+
+**Evaluator outcomes:**
+
+- **PASS**: Proceed to Phase C.
+- **FAIL (first attempt)**: Feed the evaluator's feedback back to the worktree agent as a follow-up prompt requesting fixes. Allow one retry, then re-run the evaluator.
+- **FAIL (second attempt)**: Treat as agent failure — proceed to B3 failure path.
+
+### B3. Agent Outcome Handling
+
+- **Success** (PR created and evaluator passes): Label issue `has-pr`, remove `in-progress`.
+- **Failure**: Write a structured handoff comment, then label `agent-failed`, remove `in-progress`.
 
 ```bash
 # On success
 gh issue edit <number> --add-label "has-pr" --remove-label "in-progress"
 
-# On failure
+# On failure — post structured handoff first, then update labels
+gh issue comment <number> --body "## Agent Failure Handoff
+
+**What was attempted:** <summary of the approach taken>
+**What succeeded:** <list of steps that completed successfully>
+**What failed:** <specific error message or blocker>
+**Files changed:** <list any partial changes; include branch name if one was created>
+**Suggested next step:** <concrete recommendation for the next agent or human reviewer>
+
+*Logged by ship-loop automation*"
+
 gh issue edit <number> --add-label "agent-failed" --remove-label "in-progress"
 ```
 
@@ -177,7 +237,7 @@ gh issue close <number> --comment "Deployed and verified on production."
 ## GitHub Labels (State Machine)
 
 | Label | Meaning |
-|-------|---------|
+|-------|--------|
 | `ready` | Available for agent pickup |
 | `in-progress` | Agent is working on it |
 | `has-pr` | PR created, awaiting merge/review |
