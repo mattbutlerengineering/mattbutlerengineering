@@ -1,46 +1,10 @@
 import { useState, useCallback } from "react";
-import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
-import { Footer, GlobalNav, ThemeToggle } from "@mbe/rialto";
+import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import { Footer, GlobalNav } from "@mbe/rialto";
 import { ShowcaseSidebar } from "../components/ShowcaseSidebar";
 import { NAV_SECTIONS, DEMO_PAGES } from "../data/nav-sections";
 import { useThemeContext } from "../ThemeContext";
 import styles from "./ShowcaseLayout.module.css";
-
-/* ── Hamburger icon (mobile only) ────────────── */
-function HamburgerIcon() {
-  return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <line x1="3" y1="6" x2="21" y2="6" />
-      <line x1="3" y1="12" x2="21" y2="12" />
-      <line x1="3" y1="18" x2="21" y2="18" />
-    </svg>
-  );
-}
-
-/* ── GitHub icon ─────────────────────────────── */
-function GitHubIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
-    </svg>
-  );
-}
 
 /* ── Props ───────────────────────────────────── */
 export interface ShowcaseLayoutProps {
@@ -52,7 +16,7 @@ export interface ShowcaseLayoutProps {
  * App shell for the Rialto showcase.
  *
  * Structure:
- * - Top header bar with logo, ThemeToggle, and GitHub link
+ * - Shared GlobalNav (cross-app navigation + theme toggle)
  * - Left sidebar with all component categories + demos section (fixed, not scrolling with content)
  * - Main content area (Outlet) — only this scrolls
  * - Footer at bottom of content scroll area
@@ -76,36 +40,31 @@ export function ShowcaseLayout(props: ShowcaseLayoutProps) {
   return (
     <div className={styles.root}>
       <GlobalNav currentApp="rialto" theme={theme} onThemeToggle={onThemeToggle} />
-      {/* ── Top header bar ─────────────────────── */}
-      <header className={styles.header}>
-        <div className={styles.headerStart}>
-          <button
-            className={styles.hamburger}
-            onClick={handleMobileToggle}
-            aria-label={isMobileMenuOpen ? "Close navigation" : "Open navigation"}
-            aria-expanded={isMobileMenuOpen}
-            type="button"
-          >
-            <HamburgerIcon />
-          </button>
-          <Link to="/" className={styles.logo} aria-label="Rialto home">
-            Ri<span className={styles.logoAccent}>a</span>lto
-          </Link>
-        </div>
 
-        <div className={styles.headerEnd}>
-          <ThemeToggle theme={theme} onToggle={onThemeToggle} />
-          <a
-            href="https://github.com/mattbutler/mattbutlerengineering"
-            className={styles.githubLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="View on GitHub"
-          >
-            <GitHubIcon />
-          </a>
-        </div>
-      </header>
+      {/* ── Mobile sidebar toggle (visible < 768px only) ── */}
+      <button
+        className={styles.mobileSidebarToggle}
+        onClick={handleMobileToggle}
+        aria-label={isMobileMenuOpen ? "Close sidebar" : "Open sidebar"}
+        aria-expanded={isMobileMenuOpen}
+        type="button"
+      >
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+      </button>
 
       {/* ── Body (sidebar + content) ────────────── */}
       <div className={styles.body}>

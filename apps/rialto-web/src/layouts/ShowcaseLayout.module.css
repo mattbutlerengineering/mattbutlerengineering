@@ -8,103 +8,33 @@
   color: var(--rialto-text-primary);
 }
 
-/* ── Header bar ───────────────────────────────── */
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 56px;
-  padding-inline: var(--rialto-space-md);
-  background: var(--rialto-surface-elevated);
-  border-block-end: 1px solid var(--rialto-border);
-  flex-shrink: 0;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-
-.headerStart {
-  display: flex;
-  align-items: center;
-  gap: var(--rialto-space-md);
-}
-
-/* ── Hamburger button (mobile only) ──────────── */
-.hamburger {
+/* ── Mobile sidebar toggle (hidden on desktop) ── */
+.mobileSidebarToggle {
   display: none;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   padding: 0;
   border: none;
   border-radius: var(--rialto-radius-default);
-  background: transparent;
+  background: var(--rialto-surface-elevated);
   color: var(--rialto-text-secondary);
   cursor: pointer;
+  position: fixed;
+  inset-block-end: var(--rialto-space-lg);
+  inset-inline-start: var(--rialto-space-lg);
+  z-index: 90;
+  box-shadow: var(--rialto-shadow-md);
   transition: color 0.15s ease, background-color 0.15s ease;
 }
 
-.hamburger:hover {
+.mobileSidebarToggle:hover {
   color: var(--rialto-text-primary);
   background: var(--rialto-surface);
 }
 
-.hamburger:focus-visible {
-  outline: none;
-  box-shadow: var(--rialto-shadow-focus);
-}
-
-.headerEnd {
-  display: flex;
-  align-items: center;
-  gap: var(--rialto-space-sm);
-}
-
-/* ── Logo ─────────────────────────────────────── */
-.logo {
-  font-family: var(--rialto-font-sans);
-  font-size: var(--rialto-text-lg);
-  font-weight: 500;
-  letter-spacing: var(--rialto-tracking-tight);
-  color: var(--rialto-text-primary);
-  text-decoration: none;
-  transition: opacity 0.15s ease;
-}
-
-.logo:hover {
-  opacity: 0.8;
-}
-
-.logo:focus-visible {
-  outline: none;
-  box-shadow: var(--rialto-shadow-focus);
-  border-radius: var(--rialto-radius-sharp);
-}
-
-.logoAccent {
-  color: var(--rialto-accent);
-}
-
-/* ── GitHub link ──────────────────────────────── */
-.githubLink {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  color: var(--rialto-text-secondary);
-  border-radius: var(--rialto-radius-default);
-  transition: color 0.15s ease, background-color 0.15s ease;
-  text-decoration: none;
-}
-
-.githubLink:hover {
-  color: var(--rialto-text-primary);
-  background: var(--rialto-surface);
-}
-
-.githubLink:focus-visible {
+.mobileSidebarToggle:focus-visible {
   outline: none;
   box-shadow: var(--rialto-shadow-focus);
 }
@@ -131,7 +61,7 @@
 
 /* ── Responsive: mobile layout ───────────────── */
 @media (max-width: 767px) {
-  .hamburger {
+  .mobileSidebarToggle {
     display: flex;
   }
 
