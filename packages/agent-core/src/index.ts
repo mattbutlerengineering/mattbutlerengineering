@@ -33,6 +33,7 @@ export {
   pushBranch,
   hasChanges,
 } from "./worktree-manager.js";
+export type { CreateWorktreeOptions } from "./worktree-manager.js";
 
 // PR creation
 export {
@@ -71,11 +72,13 @@ export type {
 export {
   evaluateSuccess,
   getGitDiff,
+  shouldEvaluate,
   DEFAULT_EVALUATION_CONFIG,
 } from "./success-evaluator.js";
 export type {
   EvaluationResult,
   EvaluationConfig,
+  ShouldEvaluateConfig,
 } from "./success-evaluator.js";
 
 // Failure memory
@@ -139,6 +142,7 @@ export type {
   SessionEventCallback,
   TokenUsage,
   WorktreeInfo,
+  WorktreeMode,
   PrResult,
   PrOptions,
 } from "./types.js";
