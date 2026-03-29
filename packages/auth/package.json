@@ -4,12 +4,29 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./react": "./src/react/index.ts",
-    "./fastify": "./src/fastify/index.ts",
-    "./types": "./src/types/index.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "production": "./dist/index.js",
+      "default": "./src/index.ts"
+    },
+    "./react": {
+      "types": "./src/react/index.ts",
+      "production": "./dist/react/index.js",
+      "default": "./src/react/index.ts"
+    },
+    "./fastify": {
+      "types": "./src/fastify/index.ts",
+      "production": "./dist/fastify/index.js",
+      "default": "./src/fastify/index.ts"
+    },
+    "./types": {
+      "types": "./src/types/index.ts",
+      "production": "./dist/types/index.js",
+      "default": "./src/types/index.ts"
+    }
   },
   "scripts": {
+    "build": "tsc",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

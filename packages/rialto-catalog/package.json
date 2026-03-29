@@ -8,16 +8,18 @@
   "exports": {
     ".": {
       "types": "./src/index.ts",
-      "import": "./src/index.ts"
+      "production": "./dist/index.js",
+      "default": "./src/index.ts"
     },
     "./catalog": {
       "types": "./src/catalog.ts",
-      "import": "./src/catalog.ts"
+      "production": "./dist/catalog.js",
+      "default": "./src/catalog.ts"
     }
   },
   "scripts": {
     "generate": "tsx scripts/generate-catalog.ts",
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
     "test:drift": "vitest run src/__tests__/drift-check.test.ts",
     "typecheck": "tsc --noEmit"

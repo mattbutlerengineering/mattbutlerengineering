@@ -4,12 +4,29 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./api": "./src/api.ts",
-    "./user": "./src/user.ts",
-    "./agent": "./src/agent.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "production": "./dist/index.js",
+      "default": "./src/index.ts"
+    },
+    "./api": {
+      "types": "./src/api.ts",
+      "production": "./dist/api.js",
+      "default": "./src/api.ts"
+    },
+    "./user": {
+      "types": "./src/user.ts",
+      "production": "./dist/user.js",
+      "default": "./src/user.ts"
+    },
+    "./agent": {
+      "types": "./src/agent.ts",
+      "production": "./dist/agent.js",
+      "default": "./src/agent.ts"
+    }
   },
   "scripts": {
+    "build": "tsc",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit"
   },

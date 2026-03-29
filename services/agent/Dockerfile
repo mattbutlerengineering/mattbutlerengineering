@@ -29,7 +29,11 @@ COPY packages/rialto ./packages/rialto
 COPY packages/rialto-catalog ./packages/rialto-catalog
 COPY services/agent ./services/agent
 
-# Generate Prisma client and build
+# Build workspace packages and service
+RUN pnpm --filter @mbe/types build
+RUN pnpm --filter @mbe/auth build
+RUN pnpm --filter @mbe/agent-core build
+RUN pnpm --filter @mbe/rialto-catalog build
 RUN pnpm --filter @mbe/agent-service db:generate
 RUN pnpm --filter @mbe/agent-service build
 
@@ -68,12 +72,11 @@ RUN pnpm --filter @mbe/agent-service db:generate
 # Now set NODE_ENV for runtime
 ENV NODE_ENV=production
 
-# Copy source files for TypeScript packages (no build step needed)
-COPY --from=builder /app/packages/types/src ./packages/types/src
-COPY --from=builder /app/packages/auth/src ./packages/auth/src
-COPY --from=builder /app/packages/agent-core/src ./packages/agent-core/src
-COPY --from=builder /app/packages/rialto/src ./packages/rialto/src
-COPY --from=builder /app/packages/rialto-catalog/src ./packages/rialto-catalog/src
+# Copy compiled workspace packages
+COPY --from=builder /app/packages/types/dist ./packages/types/dist
+COPY --from=builder /app/packages/auth/dist ./packages/auth/dist
+COPY --from=builder /app/packages/agent-core/dist ./packages/agent-core/dist
+COPY --from=builder /app/packages/rialto-catalog/dist ./packages/rialto-catalog/dist
 
 # Copy built agent service
 COPY --from=builder /app/services/agent/dist ./services/agent/dist
@@ -86,4 +89,4 @@ WORKDIR /app/services/agent
 
 EXPOSE 3003
 
-CMD ["node", "dist/index.js"]
+CMD ["node", "--conditions", "production", "dist/index.js"]

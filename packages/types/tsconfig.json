@@ -1,5 +1,5 @@
 {
-  "extends": "@mbe/config/typescript/base",
+  "extends": "@mbe/config/typescript/node",
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src"

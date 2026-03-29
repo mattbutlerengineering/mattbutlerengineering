@@ -23,7 +23,9 @@ COPY packages/auth ./packages/auth
 COPY packages/config ./packages/config
 COPY services/reservations ./services/reservations
 
-# Generate Prisma client and build
+# Build workspace packages and service
+RUN pnpm --filter @mbe/types build
+RUN pnpm --filter @mbe/auth build
 RUN pnpm --filter @mbe/reservations-service db:generate
 RUN pnpm --filter @mbe/reservations-service build
 
@@ -58,9 +60,9 @@ RUN pnpm --filter @mbe/reservations-service db:generate
 # Now set NODE_ENV for runtime
 ENV NODE_ENV=production
 
-# Copy source files for TypeScript packages (no build step needed)
-COPY --from=builder /app/packages/types/src ./packages/types/src
-COPY --from=builder /app/packages/auth/src ./packages/auth/src
+# Copy compiled workspace packages
+COPY --from=builder /app/packages/types/dist ./packages/types/dist
+COPY --from=builder /app/packages/auth/dist ./packages/auth/dist
 
 # Copy built reservations service
 COPY --from=builder /app/services/reservations/dist ./services/reservations/dist
@@ -73,4 +75,4 @@ WORKDIR /app/services/reservations
 
 EXPOSE 3004
 
-CMD ["node", "dist/index.js"]
+CMD ["node", "--conditions", "production", "dist/index.js"]
