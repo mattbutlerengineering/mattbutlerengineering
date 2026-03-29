@@ -37,3 +37,26 @@ jobs:
           fi
           echo "Triggering deployment for app $APP_ID"
           doctl apps create-deployment "$APP_ID" --wait
+
+  verify:
+    name: Post-Deploy Verification
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - name: Verify users API health
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 https://api.mattbutlerengineering.com/health)
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::Users API health check returned HTTP $STATUS (expected 200)"
+            exit 1
+          fi
+          echo "Users API health OK (HTTP $STATUS)"
+
+      - name: Verify reservations API health
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 https://api.mattbutlerengineering.com/api/health)
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::Reservations API health check returned HTTP $STATUS (expected 200)"
+            exit 1
+          fi
+          echo "Reservations API health OK (HTTP $STATUS)"
