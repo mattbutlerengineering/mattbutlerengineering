@@ -471,6 +471,71 @@ Wrap app root with `<RialtoProvider theme="light">`. Never hardcode colors — u
 mbe new <app-name>   # Scaffold app with RialtoProvider, routing, and example page
 ```
 
+## Continuous Improvement Loop
+
+Automated system that audits the live site, finds and fixes issues, builds features, and verifies deploys — all autonomously.
+
+### Two Modes
+
+| Mode | How | Pushes to | Best for |
+|------|-----|-----------|----------|
+| **Scheduled** (conservative) | RemoteTriggers on claude.ai | PRs for review | Background maintenance |
+| **Ship Loop** (aggressive) | `/loop 5m /ship-loop` locally | Directly to main | Active development sprints |
+
+### Skills
+
+| Skill | Purpose |
+|-------|---------|
+| `/ship-loop` | Full cycle: audit → fix → push → CI → E2E → deploy verify → close |
+| `/site-audit` | Crawl live site with Playwright + Lighthouse, create issues |
+| `/issue-worker` | Pick up ready issues, implement via `mbe agent run`, create PRs |
+| `/ci-monitor` | Check CI health, auto-fix simple failures, escalate complex ones |
+| `/progress-tracker` | Metrics, self-tuning circuit breaker, trend analysis |
+| `/decompose` | Break a feature into ordered, agent-sized issues for the loop |
+
+### Quick Start
+
+```bash
+# Aggressive mode — audit, fix, push, verify every 5 min
+claude --auto
+> /loop 5m /ship-loop
+
+# Feature development — decompose then let the loop build it
+/decompose Add a guest check-in kiosk to hospitality
+/loop 5m /ship-loop
+
+# One-off audit
+/site-audit
+
+# Check loop health
+/progress-tracker
+```
+
+### GitHub Labels (coordination state machine)
+
+| Label | Meaning |
+|-------|---------|
+| `ready` | Available for agent pickup |
+| `in-progress` | Agent is working on it |
+| `has-pr` | PR created, awaiting merge/review |
+| `agent-failed` | Agent could not complete — needs manual review or retry |
+| `audit` | Found by site-audit |
+| `ci-fix` | CI failure needing fix |
+| `feature` | New feature (created by `/decompose`) |
+| `tracking` | Parent issue tracking multi-part feature |
+| `meta-improvement` | Process improvement suggestion |
+
+### RemoteTriggers (scheduled background agents)
+
+Managed at https://claude.ai/code/scheduled
+
+| Trigger | Schedule (PT) |
+|---------|--------------|
+| `mbe-deep-audit` | Mon 8:23am |
+| `mbe-light-audit` | Tue-Sun 9:41am |
+| `mbe-issue-worker` | Every 2h (includes CI monitoring) |
+| `mbe-progress-tracker` | Daily 5:11pm |
+
 ---
 
 ## Before Committing

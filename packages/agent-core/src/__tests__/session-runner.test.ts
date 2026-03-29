@@ -18,6 +18,19 @@ vi.mock("../pr-creator.js", () => ({
   createPullRequest: vi.fn(),
   buildPrTitle: vi.fn(),
   buildPrBody: vi.fn(),
+  buildFailurePrBody: vi.fn(),
+}));
+
+vi.mock("../success-evaluator.js", () => ({
+  evaluateSuccess: vi.fn(),
+  getGitDiff: vi.fn(),
+}));
+
+vi.mock("../failure-memory.js", () => ({
+  loadMemory: vi.fn(),
+  queryPastFailures: vi.fn(),
+  buildFailureContext: vi.fn(),
+  recordFailure: vi.fn(),
 }));
 
 vi.mock("../prompt-builder.js", () => ({
@@ -37,6 +50,8 @@ import {
   removeWorktree,
 } from "../worktree-manager.js";
 import { createPullRequest, buildPrTitle, buildPrBody } from "../pr-creator.js";
+import { evaluateSuccess, getGitDiff } from "../success-evaluator.js";
+import { loadMemory, queryPastFailures, buildFailureContext } from "../failure-memory.js";
 import { buildSystemPrompt } from "../prompt-builder.js";
 import { createToolPermissionHandler } from "../tool-permissions.js";
 import { runSession } from "../session-runner.js";
@@ -96,6 +111,18 @@ describe("runSession", () => {
     vi.mocked(createToolPermissionHandler).mockReturnValue(
       vi.fn().mockResolvedValue({ behavior: "allow" })
     );
+
+    vi.mocked(loadMemory).mockResolvedValue({ records: [] });
+    vi.mocked(queryPastFailures).mockReturnValue([]);
+    vi.mocked(buildFailureContext).mockReturnValue("");
+
+    vi.mocked(getGitDiff).mockResolvedValue("diff --git a/file.ts\n+change");
+    vi.mocked(evaluateSuccess).mockResolvedValue({
+      passed: true,
+      confidence: 0.95,
+      reasoning: "Changes address the task",
+      issues: [],
+    });
   });
 
   it("runs a successful session with PR creation", async () => {
@@ -166,6 +193,7 @@ describe("runSession", () => {
     vi.mocked(query).mockReturnValue(
       mockQueryGenerator([{ type: "system", subtype: "init" }]) as ReturnType<typeof query>
     );
+    vi.mocked(hasChanges).mockResolvedValue(false);
 
     const result = await runSession(BASE_CONFIG);
 

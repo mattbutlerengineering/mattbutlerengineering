@@ -69,33 +69,10 @@ gh issue edit <number> --add-label "in-progress" --remove-label "ready"
 
 ## Phase B: Implement in Worktree Agent
 
-### B0. Issue Enrichment (Planner Step)
-
-Before launching the worktree agent, expand the raw issue title into a structured spec. This significantly improves first-iteration quality by giving the agent concrete acceptance criteria and scope boundaries.
-
-Run a planner sub-agent (prefer `claude-haiku-4-5` to minimize cost) with the following prompt:
-
-```
-Given this GitHub issue:
-Title: <issue title>
-Body: <issue body>
-
-Produce a structured implementation spec:
-1. **Goal** — One sentence summary of what success looks like.
-2. **Acceptance Criteria** — Bullet list of testable conditions that must be true.
-3. **Files Likely Affected** — List of files/directories most likely to need changes.
-4. **Edge Cases** — Potential failure modes or tricky scenarios to handle.
-5. **Out of Scope** — What NOT to change.
-```
-
-Save the enriched spec for use in B1 (agent prompt) and B2 (evaluator criteria).
-
-### B1. Launch Worktree Agent
-
-Pass the enriched spec (from B0) rather than just the raw issue title:
+Launch a worktree agent for the claimed issue:
 
 ```bash
-mbe agent run "<enriched spec from B0> (closes #<number>)" \
+mbe agent run "<issue title> (closes #<number>)" \
   --model claude-sonnet-4-6 \
   --max-budget 1.00 \
   --max-turns 50
@@ -117,54 +94,33 @@ Every worktree agent prompt MUST include the following security guidance:
 > - For any changes touching auth, crypto, or input handling, use the **security-reviewer** agent.
 > - If you discover an existing security vulnerability, stop feature work and fix it first.
 
-### B2. Evaluate the PR (Evaluator Phase)
+### Built-in Agent Resilience
 
-After the worktree agent creates a PR, run a **separate evaluator agent** against the diff before accepting. Models have strong self-evaluation bias — a fresh skeptical agent catches issues the generator misses.
+Agent-core includes automatic protections:
 
-Run an evaluator sub-agent with:
+- **Stuck detection** — Detects 6 failure patterns (repeated actions, error loops, alternating patterns, context thrashing, zero progress) and aborts early to save budget.
+- **LLM success evaluation** — After the agent finishes, a separate haiku call verifies the diff actually addresses the issue. Failed evaluations produce draft PRs.
+- **Draft PRs on failure** — When an agent fails but produces partial work, a draft PR is created for human inspection.
 
-```
-Review this PR diff against the acceptance criteria below. Be skeptical — your job is to
-find problems, not validate success.
+### Agent Outcome Handling
 
-Acceptance Criteria:
-<criteria from B0 enrichment>
-
-PR diff:
-<output of: gh pr diff <pr-number>>
-
-Answer: PASS or FAIL.
-If FAIL, list specific issues as bullet points — reference file names and line numbers.
-Do not give partial credit. If any criterion is unmet, it is a FAIL.
-```
-
-**Evaluator outcomes:**
-
-- **PASS**: Proceed to Phase C.
-- **FAIL (first attempt)**: Feed the evaluator's feedback back to the worktree agent as a follow-up prompt requesting fixes. Allow one retry, then re-run the evaluator.
-- **FAIL (second attempt)**: Treat as agent failure — proceed to B3 failure path.
-
-### B3. Agent Outcome Handling
-
-- **Success** (PR created and evaluator passes): Label issue `has-pr`, remove `in-progress`.
-- **Failure**: Write a structured handoff comment, then label `agent-failed`, remove `in-progress`.
+- **Success** (PR created, evaluation passed): Label issue `has-pr`, remove `in-progress`.
+- **Partial success** (draft PR created): Label issue `needs-review`, remove `in-progress`.
+- **Failure** (no changes): Label issue `agent-failed`, remove `in-progress`. Log failure reason.
+- **Repeated failure** (2+ failures on same issue): Label issue `stealable` — needs different approach or human help.
 
 ```bash
-# On success
+# On success (evaluation passed)
 gh issue edit <number> --add-label "has-pr" --remove-label "in-progress"
 
-# On failure — post structured handoff first, then update labels
-gh issue comment <number> --body "## Agent Failure Handoff
+# On partial success (draft PR from failed/stuck session)
+gh issue edit <number> --add-label "needs-review" --remove-label "in-progress"
 
-**What was attempted:** <summary of the approach taken>
-**What succeeded:** <list of steps that completed successfully>
-**What failed:** <specific error message or blocker>
-**Files changed:** <list any partial changes; include branch name if one was created>
-**Suggested next step:** <concrete recommendation for the next agent or human reviewer>
-
-*Logged by ship-loop automation*"
-
+# On failure (no changes produced)
 gh issue edit <number> --add-label "agent-failed" --remove-label "in-progress"
+
+# On second failure of same issue
+gh issue edit <number> --add-label "stealable"
 ```
 
 ## Phase C: Verify and Deploy
@@ -185,20 +141,42 @@ gh run list --workflow=deploy-static.yml --limit=1
 gh run list --workflow=deploy-services.yml --limit=1
 ```
 
+### C2.5. Post-Deploy Health Verification
+
+After deploy workflows complete, verify all affected endpoints. Agent-core provides `verifyDeployment()` with retry logic, but you can also verify manually:
+
+```bash
+# Static sites (CF Workers — instant propagation)
+curl -sf https://mattbutlerengineering.com/ > /dev/null && echo "Marketing OK" || echo "Marketing FAIL"
+curl -sf https://mattbutlerengineering.com/hospitality > /dev/null && echo "Hospitality OK" || echo "Hospitality FAIL"
+curl -sf https://mattbutlerengineering.com/rialto > /dev/null && echo "Rialto OK" || echo "Rialto FAIL"
+
+# API services (DO — allow 15s for container startup, retry up to 5 times)
+for endpoint in \
+  "https://mattbutlerengineering.com/api/v1/users/health" \
+  "https://mattbutlerengineering.com/api/health"; do
+  for i in 1 2 3 4 5; do
+    status=$(curl -sf "$endpoint" | jq -r '.status' 2>/dev/null || echo "error")
+    [ "$status" = "ok" ] && echo "$(basename $endpoint) OK" && break
+    [ "$i" -eq 5 ] && echo "$(basename $endpoint) FAIL"
+    sleep 3
+  done
+done
+```
+
+**If verification fails:**
+
+1. **Rollback deployment** — For CF Workers: `npx wrangler rollback <prev-version-id> --name <worker> --yes`. For DO services: `git revert HEAD -m 1 --no-edit && git push origin main`
+2. **Create ci-fix issue** for the failed change
+3. **Label original issue** as `agent-failed`
+4. **Continue to Phase D** (loop or stop — counts as a failure toward circuit breaker)
+
 ### C3. Smoke Test
 
 If Playwright is available, run a quick smoke test against the live site:
 
 ```bash
 npx playwright test --grep @smoke
-```
-
-Otherwise, verify key endpoints manually:
-
-```bash
-curl -sf https://mattbutlerengineering.com/ > /dev/null && echo "Marketing OK"
-curl -sf https://mattbutlerengineering.com/hospitality > /dev/null && echo "Hospitality OK"
-curl -sf https://api.mattbutlerengineering.com/api/v1/users/health > /dev/null && echo "Users API OK"
 ```
 
 ### C4. Close Issue
@@ -210,7 +188,7 @@ gh issue close <number> --comment "Deployed and verified on production."
 ## Phase D: Loop or Stop
 
 - If time/budget remains, return to **Phase A**.
-- If circuit breaker triggers (3 consecutive failures), stop and report.
+- If circuit breaker triggers (3 consecutive failures, including stuck detections), stop and report.
 - Log iteration metrics for `/progress-tracker`.
 
 ## Safety Rails
@@ -237,11 +215,13 @@ gh issue close <number> --comment "Deployed and verified on production."
 ## GitHub Labels (State Machine)
 
 | Label | Meaning |
-|-------|--------|
+|-------|---------|
 | `ready` | Available for agent pickup |
 | `in-progress` | Agent is working on it |
 | `has-pr` | PR created, awaiting merge/review |
 | `agent-failed` | Agent could not complete — needs manual review |
+| `needs-review` | Agent created draft PR from failed/partial work |
+| `stealable` | Agent failed twice — needs different approach or human help |
 | `audit` | Found by site-audit |
 | `ci-fix` | CI failure or security vulnerability needing fix |
 | `feature` | New feature (created by `/decompose`) |

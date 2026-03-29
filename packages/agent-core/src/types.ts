@@ -11,6 +11,7 @@ export interface SessionConfig {
   readonly maxBudgetUsd: number;
   readonly allowedTools: readonly string[];
   readonly createPr: boolean;
+  readonly evaluateSuccess?: boolean;
 }
 
 export const DEFAULT_SESSION_CONFIG: Omit<SessionConfig, "taskDescription" | "repoPath"> = {
@@ -55,6 +56,12 @@ export interface SessionResult {
   readonly numTurns: number;
   readonly resultText: string;
   readonly errors: readonly string[];
+  readonly stuckPattern?: string;
+  readonly evaluation?: {
+    readonly passed: boolean;
+    readonly confidence: number;
+    readonly reasoning: string;
+  };
 }
 
 // ── Session events (for streaming) ───────────────────────────────────
@@ -65,7 +72,10 @@ export type SessionEventType =
   | "session:tool_use"
   | "session:assistant"
   | "session:result"
-  | "session:error";
+  | "session:error"
+  | "session:stuck"
+  | "session:evaluation"
+  | "session:tool_result";
 
 export interface SessionEvent {
   readonly type: SessionEventType;
@@ -95,4 +105,5 @@ export interface PrOptions {
   readonly baseBranch: string;
   readonly branchName: string;
   readonly repoPath: string;
+  readonly draft?: boolean;
 }

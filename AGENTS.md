@@ -11,6 +11,7 @@ Please refer to [CLAUDE.md](./CLAUDE.md) for complete documentation on:
 - API development conventions
 - Local development setup
 - Project architecture
+- Continuous improvement loop (skills, labels, RemoteTriggers)
 
 ## Package-Level Context
 
