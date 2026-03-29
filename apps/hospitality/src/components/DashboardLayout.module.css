@@ -1,3 +1,5 @@
+/* ── Skip link ───────────────────────────────── */
+
 .skipLink {
   position: absolute;
   inset-inline-start: -9999px;
@@ -16,26 +18,50 @@
   inset-block-start: var(--rialto-space-md);
 }
 
+/* ── Root layout ─────────────────────────────── */
+
 .root {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  overflow: hidden;
+  background: var(--rialto-surface);
+  color: var(--rialto-text-primary);
 }
 
-.header {
-  display: flex;
+/* ── Mobile sidebar toggle (hidden on desktop) ── */
+
+.mobileSidebarToggle {
+  display: none;
   align-items: center;
-  padding-inline: var(--rialto-space-lg);
-  padding-block: var(--rialto-space-sm);
-  border-block-end: 1px solid var(--rialto-border);
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-surface-elevated);
+  color: var(--rialto-text-secondary);
+  cursor: pointer;
+  position: fixed;
+  inset-block-end: var(--rialto-space-lg);
+  inset-inline-start: var(--rialto-space-lg);
+  z-index: 90;
+  box-shadow: var(--rialto-shadow-md);
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.mobileSidebarToggle:hover {
+  color: var(--rialto-text-primary);
   background: var(--rialto-surface);
 }
 
-.logo {
-  font-size: var(--rialto-text-lg);
-  font-weight: var(--rialto-weight-semibold);
-  color: var(--rialto-text-primary);
+.mobileSidebarToggle:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
 }
+
+/* ── Body (sidebar + main) ───────────────────── */
 
 .body {
   display: flex;
@@ -43,8 +69,23 @@
   overflow: hidden;
 }
 
+/* ── Main content ────────────────────────────── */
+
 .content {
   flex: 1;
+  min-width: 0;
   overflow-y: auto;
   padding: var(--rialto-space-lg);
+}
+
+/* ── Responsive: mobile layout ──────────────── */
+
+@media (max-width: 767px) {
+  .mobileSidebarToggle {
+    display: flex;
+  }
+
+  .content {
+    padding: var(--rialto-space-md);
+  }
 }

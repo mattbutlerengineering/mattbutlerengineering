@@ -1,98 +1,13 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
-import { Sidebar, GenCopilot } from "@mbe/rialto";
-import type { SidebarSection } from "@mbe/rialto";
+import { GenCopilot } from "@mbe/rialto";
 import { registry } from "@mbe/rialto-catalog";
 import { HOSPITALITY_DOMAIN_CONTEXT } from "../constants/copilotContext.js";
+import { NAV_SECTIONS } from "../nav-sections.js";
+import type { NavItem } from "../nav-sections.js";
+import { DashboardSidebar } from "./DashboardSidebar.js";
 import styles from "./DashboardLayout.module.css";
-
-function buildNavSections(
-  navigate: (path: string) => void,
-  currentPath: string
-): SidebarSection[] {
-  return [
-    {
-      items: [
-        {
-          id: "home",
-          label: "Home",
-          active: currentPath === "/",
-          onClick: () => navigate("/"),
-        },
-        {
-          id: "timeline",
-          label: "Timeline",
-          active: currentPath === "/timeline",
-          onClick: () => navigate("/timeline"),
-        },
-        {
-          id: "reservations",
-          label: "Reservations",
-          active: currentPath === "/reservations",
-          onClick: () => navigate("/reservations"),
-        },
-        {
-          id: "guests",
-          label: "Guests",
-          active: currentPath === "/guests",
-          onClick: () => navigate("/guests"),
-        },
-        {
-          id: "floor-plans",
-          label: "Floor Plans",
-          active: currentPath.startsWith("/floor-plans"),
-          onClick: () => navigate("/floor-plans"),
-        },
-        {
-          id: "onboarding",
-          label: "New Venue",
-          active: currentPath === "/onboarding",
-          onClick: () => navigate("/onboarding"),
-        },
-      ],
-    },
-    {
-      label: "Account",
-      items: [
-        {
-          id: "profile",
-          label: "Profile",
-          active: currentPath === "/profile",
-          onClick: () => navigate("/profile"),
-        },
-        {
-          id: "settings",
-          label: "Settings",
-          active: currentPath === "/settings",
-          onClick: () => navigate("/settings"),
-        },
-      ],
-    },
-    {
-      label: "Developer",
-      items: [
-        {
-          id: "booking-widget",
-          label: "Booking Widget",
-          active: currentPath === "/booking-widget",
-          onClick: () => navigate("/booking-widget"),
-        },
-      ],
-    },
-    {
-      label: "Admin",
-      items: [
-        {
-          id: "admin",
-          label: "Users",
-          active: currentPath === "/admin",
-          onClick: () => navigate("/admin"),
-        },
-      ],
-    },
-  ];
-}
 
 export function DashboardLayout() {
   const navigate = useNavigate();
@@ -100,60 +15,121 @@ export function DashboardLayout() {
   const { signOut, accessToken } = useAuth();
 
   const [copilotOpen, setCopilotOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Stable token getter — passes latest token to GenCopilot without recreating on every render
   const getAccessToken = useCallback(() => accessToken, [accessToken]);
 
-  const sections = buildNavSections(navigate, location.pathname);
+  const handleMobileClose = useCallback(() => {
+    setIsMobileMenuOpen(false);
+  }, []);
 
-  // Append sign out to the Account section
-  const sectionsWithSignOut: SidebarSection[] = sections.map((section) => {
-    if (section.label === "Account") {
-      return {
-        ...section,
+  const handleMobileToggle = useCallback(() => {
+    setIsMobileMenuOpen((prev) => !prev);
+  }, []);
+
+  // Build extra items to inject into named sections (immutable map)
+  const extraItems = useMemo(() => {
+    const map = new Map<string, readonly NavItem[]>();
+    map.set("Account", [
+      { id: "signout", label: "Sign Out", path: "/__signout__" },
+    ]);
+    return map;
+  }, []);
+
+  // Handle navigation — intercept special paths
+  const handleNavigate = useCallback(
+    (path: string) => {
+      if (path === "/__signout__") {
+        signOut();
+        return;
+      }
+      navigate(path);
+    },
+    [navigate, signOut]
+  );
+
+  // Build a Tools section with Copilot toggle appended to sections
+  const sectionsWithCopilot = useMemo(
+    () => [
+      ...NAV_SECTIONS,
+      {
+        label: "Tools" as const,
         items: [
-          ...section.items,
           {
-            id: "signout",
-            label: "Sign Out",
-            onClick: () => signOut(),
+            id: "copilot",
+            label: "Copilot",
+            path: "/__copilot__",
           },
         ],
-      };
-    }
-    return section;
-  });
+      },
+    ],
+    []
+  );
 
-  // Add Tools section with Copilot toggle — immutable new array, no mutation
-  const sectionsWithCopilot: SidebarSection[] = [
-    ...sectionsWithSignOut,
-    {
-      label: "Tools",
-      items: [
-        {
-          id: "copilot",
-          label: "Copilot",
-          active: copilotOpen,
-          onClick: () => setCopilotOpen((prev) => !prev),
-        },
-      ],
+  // Custom navigate that handles copilot toggle
+  const handleNavigateWithCopilot = useCallback(
+    (path: string) => {
+      if (path === "/__copilot__") {
+        setCopilotOpen((prev) => !prev);
+        return;
+      }
+      handleNavigate(path);
     },
-  ];
+    [handleNavigate]
+  );
+
+  // Copilot is "active" when open — map its sentinel path to current location
+  const activePath = copilotOpen && location.pathname === location.pathname
+    ? location.pathname
+    : location.pathname;
 
   return (
     <div className={styles.root} data-testid="dashboard-layout">
       <a href="#main-content" className={styles.skipLink}>
         Skip to content
       </a>
-      <header className={styles.header}>
-        <span className={styles.logo}>Hospitality</span>
-      </header>
+
+      {/* ── Mobile sidebar toggle (visible < 768px only) ── */}
+      <button
+        className={styles.mobileSidebarToggle}
+        onClick={handleMobileToggle}
+        aria-label={isMobileMenuOpen ? "Close sidebar" : "Open sidebar"}
+        aria-expanded={isMobileMenuOpen}
+        type="button"
+      >
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+      </button>
+
       <div className={styles.body}>
-        <Sidebar items={sectionsWithCopilot} />
+        <DashboardSidebar
+          sections={sectionsWithCopilot}
+          activePath={activePath}
+          onNavigate={handleNavigateWithCopilot}
+          extraItems={extraItems}
+          isMobileOpen={isMobileMenuOpen}
+          onMobileClose={handleMobileClose}
+        />
+
         <main id="main-content" className={styles.content}>
           <Outlet />
         </main>
       </div>
+
       {/* Conditionally mount GenCopilot — destroying it on close resets all streaming state */}
       {copilotOpen && (
         <GenCopilot

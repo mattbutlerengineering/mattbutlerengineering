@@ -1,0 +1,191 @@
+/* ── DashboardSidebar ────────────────────────── */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  width: 240px;
+  height: 100%;
+  background: var(--rialto-surface-elevated);
+  border-inline-end: 1px solid var(--rialto-border);
+  overflow: hidden;
+}
+
+/* ── Scrollable section list ─────────────────── */
+
+.sections {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--rialto-surface-matte) transparent;
+  padding-block-end: var(--rialto-space-lg);
+}
+
+/* ── Section ─────────────────────────────────── */
+
+.section {
+  border-block-end: 1px solid var(--rialto-border);
+}
+
+.section:last-child {
+  border-block-end: none;
+}
+
+/* ── Section header (collapsible toggle) ─────── */
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+  width: 100%;
+  padding: var(--rialto-space-sm) var(--rialto-space-sm);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-primary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s ease;
+  text-align: start;
+}
+
+.sectionHeader:hover {
+  background: var(--rialto-surface-recessed);
+}
+
+.sectionHeader:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+  border-radius: var(--rialto-radius-sharp);
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Chevron ─────────────────────────────────── */
+
+.chevron {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  color: var(--rialto-text-tertiary);
+  transition: transform 0.2s ease;
+}
+
+.chevronExpanded {
+  transform: rotate(90deg);
+}
+
+/* ── Section label ───────────────────────────── */
+
+.sectionLabel {
+  flex: 1;
+}
+
+/* ── Section items list ──────────────────────── */
+
+.sectionItems {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 var(--rialto-space-2xs) 0;
+}
+
+/* ── Unlabelled section items (no header) ────── */
+
+.sectionItemsFlat {
+  list-style: none;
+  margin: 0;
+  padding: var(--rialto-space-2xs) 0;
+}
+
+/* ── Nav item ────────────────────────────────── */
+
+.navItem {
+  position: relative;
+}
+
+.navLink {
+  display: block;
+  padding: 6px var(--rialto-space-sm);
+  padding-inline-start: var(--rialto-space-lg);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  line-height: var(--rialto-leading-normal);
+  color: var(--rialto-text-secondary);
+  text-decoration: none;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: start;
+  cursor: pointer;
+  border-inline-start: 2px solid transparent;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.navLink:hover {
+  color: var(--rialto-text-primary);
+  background: var(--rialto-surface-recessed);
+}
+
+.navLink:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+  border-radius: var(--rialto-radius-sharp);
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Active state ────────────────────────────── */
+
+.navLinkActive {
+  color: var(--rialto-accent);
+  font-weight: var(--rialto-weight-medium);
+  background: var(--rialto-accent-muted);
+  border-inline-start-color: var(--rialto-accent);
+}
+
+.navLinkActive:hover {
+  color: var(--rialto-accent);
+  background: var(--rialto-accent-muted);
+}
+
+/* ── Mobile backdrop overlay ─────────────────── */
+
+.backdrop {
+  display: none;
+}
+
+/* ── Responsive: mobile drawer ──────────────── */
+
+@media (max-width: 767px) {
+  .root {
+    display: none;
+    position: fixed;
+    inset-block-start: 0;
+    inset-inline-start: 0;
+    z-index: 200;
+    width: 280px;
+    max-width: 80vw;
+    height: 100dvh;
+    box-shadow: var(--rialto-shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.2));
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+  }
+
+  .mobileOpen {
+    display: flex;
+    transform: translateX(0);
+  }
+
+  .backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 199;
+    background: rgba(0, 0, 0, 0.4);
+  }
+}
