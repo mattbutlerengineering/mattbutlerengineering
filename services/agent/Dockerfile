@@ -11,7 +11,10 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 # Copy package.json files for all workspace packages we depend on
 COPY packages/types/package.json ./packages/types/
 COPY packages/config/package.json ./packages/config/
+COPY packages/auth/package.json ./packages/auth/
 COPY packages/agent-core/package.json ./packages/agent-core/
+COPY packages/rialto/package.json ./packages/rialto/
+COPY packages/rialto-catalog/package.json ./packages/rialto-catalog/
 COPY services/agent/package.json ./services/agent/
 
 # Install all dependencies
@@ -20,7 +23,10 @@ RUN pnpm install --frozen-lockfile
 # Copy source code
 COPY packages/types ./packages/types
 COPY packages/config ./packages/config
+COPY packages/auth ./packages/auth
 COPY packages/agent-core ./packages/agent-core
+COPY packages/rialto ./packages/rialto
+COPY packages/rialto-catalog ./packages/rialto-catalog
 COPY services/agent ./services/agent
 
 # Generate Prisma client and build
@@ -44,7 +50,10 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 # Copy package.json files
 COPY packages/types/package.json ./packages/types/
 COPY packages/config/package.json ./packages/config/
+COPY packages/auth/package.json ./packages/auth/
 COPY packages/agent-core/package.json ./packages/agent-core/
+COPY packages/rialto/package.json ./packages/rialto/
+COPY packages/rialto-catalog/package.json ./packages/rialto-catalog/
 COPY services/agent/package.json ./services/agent/
 
 # Copy Prisma schema first (needed for generate)
@@ -61,7 +70,10 @@ ENV NODE_ENV=production
 
 # Copy source files for TypeScript packages (no build step needed)
 COPY --from=builder /app/packages/types/src ./packages/types/src
+COPY --from=builder /app/packages/auth/src ./packages/auth/src
 COPY --from=builder /app/packages/agent-core/src ./packages/agent-core/src
+COPY --from=builder /app/packages/rialto/src ./packages/rialto/src
+COPY --from=builder /app/packages/rialto-catalog/src ./packages/rialto-catalog/src
 
 # Copy built agent service
 COPY --from=builder /app/services/agent/dist ./services/agent/dist
