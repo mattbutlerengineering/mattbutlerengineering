@@ -39,6 +39,9 @@ export function ShowcaseLayout(props: ShowcaseLayoutProps) {
 
   return (
     <div className={styles.root}>
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
       <GlobalNav currentApp="rialto" theme={theme} onThemeToggle={onThemeToggle} />
 
       {/* ── Mobile sidebar toggle (visible < 768px only) ── */}
@@ -77,7 +80,7 @@ export function ShowcaseLayout(props: ShowcaseLayoutProps) {
           onMobileClose={handleMobileClose}
         />
 
-        <main className={styles.content}>
+        <main id="main-content" className={styles.content}>
           <Outlet />
 
           {/* Footer lives inside the scroll area — visible at end of content */}

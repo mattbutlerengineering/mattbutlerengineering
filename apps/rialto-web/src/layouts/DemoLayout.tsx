@@ -175,6 +175,9 @@ export function DemoLayout() {
   return (
     <RialtoProvider vibe={activeVibe} theme={demoTheme}>
       <div dir={rtl ? "rtl" : undefined}>
+        <a href="#main-content" className="skip-link">
+          Skip to main content
+        </a>
         <GlobalNav currentApp="rialto" theme={demoTheme} onThemeToggle={() => handleDarkModeChange(!darkMode)} />
         <div className={styles.floatingControls}>
           <FloatingControls
@@ -187,7 +190,9 @@ export function DemoLayout() {
             onOpenCookiePrefs={openPrefs}
           />
         </div>
-        <Outlet />
+        <main id="main-content">
+          <Outlet />
+        </main>
         <CookieBanner
           consented={cookie.consented}
           onAcceptAll={cookie.acceptAll}

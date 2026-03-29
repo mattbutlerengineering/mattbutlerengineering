@@ -2,6 +2,21 @@ html {
   scroll-behavior: smooth;
 }
 
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  padding: 8px 16px;
+  background: var(--rialto-surface-raised);
+  color: var(--rialto-text-primary);
+  z-index: 10000;
+  transition: top 0.2s;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
 body {
   font-family: var(--rialto-font-sans);
   font-size: var(--rialto-text-base);
