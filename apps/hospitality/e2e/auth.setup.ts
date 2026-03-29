@@ -1,17 +1,16 @@
 import { test as setup, expect } from "@playwright/test";
-import { loginViaAuth0 } from "./auth-helpers.js";
+import { injectAuth0Session } from "./auth-helpers.js";
 
 /**
- * Gate test: if the Auth0 login flow is broken, all downstream tests are skipped.
- * Also saves Auth0 session cookies so subsequent logins skip the consent screen.
+ * Gate test: validates that programmatic Auth0 login works.
+ * If this fails, all downstream tests (which depend on "setup") are skipped.
+ *
+ * Required env vars: E2E_AUTH0_DOMAIN, E2E_AUTH0_CLIENT_ID,
+ * E2E_AUTH0_AUDIENCE, E2E_AUTH_EMAIL, E2E_AUTH_PASSWORD
  */
 setup("authenticate via Auth0", async ({ page }) => {
-  await loginViaAuth0(page);
+  await injectAuth0Session(page);
 
-  // Verify we're authenticated — dashboard content should be visible
-  await expect(page.getByTestId("dashboard-layout")).toBeVisible();
+  await expect(page.getByTestId("dashboard-layout")).toBeVisible({ timeout: 10_000 });
   await expect(page.getByRole("button", { name: "Sign In" })).not.toBeVisible();
-
-  // Save Auth0 session cookies — speeds up subsequent logins (skips consent)
-  await page.context().storageState({ path: "./e2e/.auth/user.json" });
 });

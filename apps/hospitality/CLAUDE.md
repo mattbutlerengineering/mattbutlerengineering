@@ -46,6 +46,32 @@ Build-time env vars (set in CI and `.env`):
 - `useReservationEvents` hook for real-time reservation updates
 - Vite base path: `base: "/hospitality/"` in `vite.config.ts`
 
+## E2E Testing
+
+Uses Playwright with programmatic Auth0 login (Resource Owner Password Grant). No browser login flow needed.
+
+```bash
+pnpm test:e2e     # Requires E2E_AUTH* env vars (see .env.example)
+```
+
+**E2E env vars** (separate from VITE_* build vars):
+- `E2E_AUTH0_DOMAIN` — Auth0 tenant domain
+- `E2E_AUTH0_CLIENT_ID` — Auth0 client ID (must have Password grant enabled)
+- `E2E_AUTH0_AUDIENCE` — API audience identifier
+- `E2E_AUTH_EMAIL` — Test user email (no MFA)
+- `E2E_AUTH_PASSWORD` — Test user password
+
+**Writing authenticated tests**: use the `authPage` fixture from `e2e/fixtures.ts`:
+
+```typescript
+import { test, expect } from "./fixtures.js";
+
+test("page loads authenticated", async ({ authPage }) => {
+  await authPage.goto("/reservations");
+  await expect(authPage.getByTestId("dashboard-layout")).toBeVisible();
+});
+```
+
 ## Commands
 
 ```bash
@@ -53,4 +79,5 @@ pnpm dev          # Dev server on :3002
 pnpm build        # Production build (needs VITE_* env vars)
 pnpm lint         # ESLint
 pnpm typecheck    # TypeScript
+pnpm test:e2e     # Playwright E2E tests (needs E2E_AUTH* env vars)
 ```
