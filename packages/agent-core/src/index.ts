@@ -5,6 +5,8 @@ export {
   saveInventory,
   mergeInventory,
   mapFilesToSurfaces,
+  isNonAuditableFile,
+  allFilesNonAuditable,
   findStalestZone,
   updateSurfaceScore,
   detectRegression,
