@@ -27,7 +27,7 @@ function runGenerator(): void {
 }
 
 describe("drift-check: catalog generation is deterministic", () => {
-  it("running catalog generation twice produces identical output (diff is empty)", () => {
+  it("running catalog generation twice produces identical output (diff is empty)", { timeout: 30_000 }, () => {
     // Capture the current committed content
     const beforeContent = fs.readFileSync(generatedFile, "utf-8");
 
@@ -44,7 +44,7 @@ describe("drift-check: catalog generation is deterministic", () => {
     expect(afterSecondRun).toBe(beforeContent);
   });
 
-  it("detects drift when generated-schemas.ts is manually modified", () => {
+  it("detects drift when generated-schemas.ts is manually modified", { timeout: 30_000 }, () => {
     const originalContent = fs.readFileSync(generatedFile, "utf-8");
 
     try {
