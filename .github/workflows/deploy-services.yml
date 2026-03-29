@@ -36,4 +36,4 @@ jobs:
             exit 1
           fi
           echo "Triggering deployment for app $APP_ID"
-          doctl apps create-deployment "$APP_ID" --wait
+          doctl apps create-deployment "$APP_ID" --wait --wait-timeout 2400
