@@ -19,7 +19,8 @@
     "test:e2e:hospitality": "playwright test --config apps/hospitality/playwright.config.ts",
     "lighthouse": "lhci autorun",
     "size": "pnpm --filter @mbe/rialto exec size-limit",
-    "size:check": "pnpm --filter @mbe/rialto exec size-limit --limit"
+    "size:check": "pnpm --filter @mbe/rialto exec size-limit --limit",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^0.5.2",
@@ -27,8 +28,24 @@
     "@lhci/cli": "^0.15.1",
     "@playwright/test": "^1.58.2",
     "@size-limit/file": "^12.0.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
     "size-limit": "^12.0.0",
     "turbo": "^2.3.3"
+  },
+  "lint-staged": {
+    "apps/**/*.{ts,tsx}": [
+      "eslint --fix"
+    ],
+    "packages/**/*.{ts,tsx}": [
+      "eslint --fix"
+    ],
+    "services/**/*.{ts,tsx}": [
+      "eslint --fix"
+    ],
+    "tools/**/*.{ts,tsx}": [
+      "eslint --fix"
+    ]
   },
   "pnpm": {
     "overrides": {
