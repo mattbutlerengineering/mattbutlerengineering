@@ -1,0 +1,173 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { query } from "@anthropic-ai/claude-agent-sdk";
+import type { SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
+
+const execFileAsync = promisify(execFile);
+
+// ── Types ───────────────────────────────────────────────────────────
+
+export interface EvaluationResult {
+  readonly passed: boolean;
+  readonly confidence: number;
+  readonly reasoning: string;
+  readonly issues: readonly string[];
+}
+
+export interface EvaluationConfig {
+  readonly model: string;
+  readonly maxBudgetUsd: number;
+}
+
+export const DEFAULT_EVALUATION_CONFIG: EvaluationConfig = {
+  model: "claude-haiku-4-5-20250929",
+  maxBudgetUsd: 0.05,
+};
+
+const INCONCLUSIVE_RESULT: EvaluationResult = {
+  passed: true,
+  confidence: 0,
+  reasoning: "Evaluation unavailable — defaulting to pass",
+  issues: [],
+};
+
+const MAX_DIFF_LENGTH = 50_000;
+
+// ── Evaluation ──────────────────────────────────────────────────────
+
+const EVALUATION_SCHEMA = {
+  type: "object" as const,
+  properties: {
+    passed: {
+      type: "boolean" as const,
+      description: "Whether the diff adequately addresses the task",
+    },
+    confidence: {
+      type: "number" as const,
+      description: "Confidence in the evaluation (0.0 to 1.0)",
+    },
+    reasoning: {
+      type: "string" as const,
+      description: "Brief explanation of the evaluation",
+    },
+    issues: {
+      type: "array" as const,
+      items: { type: "string" as const },
+      description: "Specific problems found, if any",
+    },
+  },
+  required: ["passed", "confidence", "reasoning", "issues"] as const,
+  additionalProperties: false as const,
+};
+
+function buildEvaluationPrompt(
+  taskDescription: string,
+  gitDiff: string
+): string {
+  const truncatedDiff =
+    gitDiff.length > MAX_DIFF_LENGTH
+      ? gitDiff.slice(0, MAX_DIFF_LENGTH) + "\n\n... (diff truncated)"
+      : gitDiff;
+
+  return [
+    "You are evaluating whether a code change addresses a given task.",
+    "Analyze the git diff and determine if it solves the stated task.",
+    "",
+    "## Task",
+    taskDescription,
+    "",
+    "## Git Diff",
+    "```diff",
+    truncatedDiff,
+    "```",
+    "",
+    "## Evaluation Criteria",
+    "- Does the diff make changes relevant to the task?",
+    "- Are there obvious bugs or incomplete implementations?",
+    "- Are there security issues introduced?",
+    "- Is the scope appropriate (not too much, not too little)?",
+    "",
+    "Return your evaluation as JSON.",
+  ].join("\n");
+}
+
+export async function getGitDiff(worktreePath: string): Promise<string> {
+  try {
+    const { stdout } = await execFileAsync(
+      "git",
+      ["diff", "HEAD~1..HEAD"],
+      { cwd: worktreePath, maxBuffer: 10 * 1024 * 1024 }
+    );
+    return stdout;
+  } catch {
+    return "";
+  }
+}
+
+export async function evaluateSuccess(
+  taskDescription: string,
+  gitDiff: string,
+  configOverrides?: Partial<EvaluationConfig>
+): Promise<EvaluationResult> {
+  if (!gitDiff.trim()) {
+    return {
+      passed: false,
+      confidence: 1.0,
+      reasoning: "No changes in diff — nothing to evaluate",
+      issues: ["Empty diff"],
+    };
+  }
+
+  const config = { ...DEFAULT_EVALUATION_CONFIG, ...configOverrides };
+
+  try {
+    const prompt = buildEvaluationPrompt(taskDescription, gitDiff);
+
+    const conversation = query({
+      prompt,
+      options: {
+        model: config.model,
+        maxTurns: 1,
+        maxBudgetUsd: config.maxBudgetUsd,
+        permissionMode: "plan",
+        systemPrompt:
+          "You are a code review evaluator. Respond only with the requested JSON.",
+        outputFormat: {
+          type: "json_schema",
+          schema: EVALUATION_SCHEMA,
+        },
+      },
+    });
+
+    let result: SDKResultMessage | null = null;
+    for await (const message of conversation) {
+      if (message.type === "result") {
+        result = message as SDKResultMessage;
+      }
+    }
+
+    if (!result || result.subtype !== "success") {
+      return INCONCLUSIVE_RESULT;
+    }
+
+    const parsed = result.structured_output as {
+      passed: boolean;
+      confidence: number;
+      reasoning: string;
+      issues: string[];
+    } | undefined;
+
+    if (!parsed || typeof parsed.passed !== "boolean") {
+      return INCONCLUSIVE_RESULT;
+    }
+
+    return {
+      passed: parsed.passed,
+      confidence: Math.max(0, Math.min(1, parsed.confidence)),
+      reasoning: parsed.reasoning ?? "",
+      issues: Array.isArray(parsed.issues) ? parsed.issues : [],
+    };
+  } catch {
+    return INCONCLUSIVE_RESULT;
+  }
+}
