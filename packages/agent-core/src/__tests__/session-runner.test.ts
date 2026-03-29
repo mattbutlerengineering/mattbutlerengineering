@@ -24,6 +24,7 @@ vi.mock("../pr-creator.js", () => ({
 vi.mock("../success-evaluator.js", () => ({
   evaluateSuccess: vi.fn(),
   getGitDiff: vi.fn(),
+  shouldEvaluate: vi.fn().mockReturnValue(true),
 }));
 
 vi.mock("../failure-memory.js", () => ({

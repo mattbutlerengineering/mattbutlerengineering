@@ -33,6 +33,66 @@ const INCONCLUSIVE_RESULT: EvaluationResult = {
 
 const MAX_DIFF_LENGTH = 50_000;
 
+// ── Skip-evaluation heuristics ──────────────────────────────────────
+
+export interface ShouldEvaluateConfig {
+  /** Whether tests passed during the agent run */
+  readonly testsPassed?: boolean;
+  /** Commit title, used for dependency bump detection */
+  readonly commitTitle?: string;
+}
+
+const TRIVIAL_TITLE_PATTERNS = [/^fix\(security\):/i, /^chore\(deps\):/i];
+
+/** Count the number of changed lines (additions + deletions) in a diff. */
+function countDiffLines(diff: string): number {
+  return diff.split("\n").filter((line) => line.startsWith("+") || line.startsWith("-")).length;
+}
+
+/**
+ * Returns false when the LLM evaluation step can safely be skipped.
+ *
+ * Conditions that skip evaluation:
+ * 1. Diff is < 50 lines AND tests passed
+ * 2. Commit title matches a dependency-bump pattern
+ * 3. Every changed file is a test file (*.test.ts / *.spec.ts / *.test.js / *.spec.js)
+ */
+export function shouldEvaluate(diff: string, config: ShouldEvaluateConfig = {}): boolean {
+  if (!diff.trim()) {
+    // Empty diff — evaluateSuccess handles this case directly; don't skip
+    return true;
+  }
+
+  // Condition 2: dependency bump by commit title
+  const { commitTitle } = config;
+  if (commitTitle && TRIVIAL_TITLE_PATTERNS.some((re) => re.test(commitTitle))) {
+    return false;
+  }
+
+  // Condition 3: only test files changed
+  const changedFiles = diff
+    .split("\n")
+    .filter((line) => line.startsWith("diff --git "))
+    .map((line) => {
+      // e.g. "diff --git a/src/foo.test.ts b/src/foo.test.ts"
+      const match = line.match(/diff --git a\/.+ b\/(.+)$/);
+      return match ? match[1] : "";
+    })
+    .filter(Boolean);
+
+  const TEST_FILE_RE = /\.(test|spec)\.[jt]sx?$/;
+  if (changedFiles.length > 0 && changedFiles.every((f) => TEST_FILE_RE.test(f))) {
+    return false;
+  }
+
+  // Condition 1: small diff AND tests passed
+  if (config.testsPassed === true && countDiffLines(diff) < 50) {
+    return false;
+  }
+
+  return true;
+}
+
 // ── Evaluation ──────────────────────────────────────────────────────
 
 const EVALUATION_SCHEMA = {
