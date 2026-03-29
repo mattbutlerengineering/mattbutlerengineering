@@ -25,8 +25,8 @@ jobs:
       hospitality: ${{ steps.result.outputs.hospitality }}
       rialto-web: ${{ steps.result.outputs.rialto-web }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@v4
         id: filter
         if: github.event_name == 'push'
         with:
@@ -60,11 +60,11 @@ jobs:
     if: needs.detect-changes.outputs.marketing == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: "pnpm"
@@ -85,11 +85,11 @@ jobs:
     if: needs.detect-changes.outputs.hospitality == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: "pnpm"
@@ -117,11 +117,11 @@ jobs:
     if: needs.detect-changes.outputs.rialto-web == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: "pnpm"
