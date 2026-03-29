@@ -53,11 +53,39 @@ gh run list --branch main --limit 5 --json status,conclusion,name,databaseId \
 
 If failures exist, create `ci-fix` issues (or pick up existing ones).
 
-### A2. Security Audit — Dependabot Alerts (parallel)
+### A2. Security Audit — Dependabot Alerts (parallel, cached)
+
+**Cache logic:** Read `.claude/state/dependabot-cache.json` before calling the API. Skip the API call when `lastAlertCount == 0` AND `iterationsSinceCheck < 10` (~30 min). Always check when the cache is missing, stale, or had alerts last time.
 
 ```bash
-gh api repos/{owner}/{repo}/dependabot/alerts \
-  --jq '[.[] | select(.state=="open") | select(.security_advisory.severity=="critical" or .security_advisory.severity=="high")] | .[] | {number, severity: .security_advisory.severity, package: .security_vulnerability.package.name, summary: .security_advisory.summary}'
+# Read cache (create .claude/state/ if missing)
+mkdir -p .claude/state
+CACHE_FILE=".claude/state/dependabot-cache.json"
+if [ -f "$CACHE_FILE" ]; then
+  LAST_COUNT=$(jq -r '.lastAlertCount // -1' "$CACHE_FILE")
+  ITERS=$(jq -r '.iterationsSinceCheck // 99' "$CACHE_FILE")
+else
+  LAST_COUNT=-1
+  ITERS=99
+fi
+
+# Skip if no alerts last time and checked recently
+if [ "$LAST_COUNT" -eq 0 ] && [ "$ITERS" -lt 10 ]; then
+  echo "Dependabot: cached (0 alerts, $ITERS iterations ago) — skipping"
+  # Increment iteration counter
+  jq '.iterationsSinceCheck += 1' "$CACHE_FILE" > "${CACHE_FILE}.tmp" && mv "${CACHE_FILE}.tmp" "$CACHE_FILE"
+else
+  # Run the actual API check
+  ALERTS=$(gh api repos/{owner}/{repo}/dependabot/alerts \
+    --jq '[.[] | select(.state=="open") | select(.security_advisory.severity=="critical" or .security_advisory.severity=="high")] | .[] | {number, severity: .security_advisory.severity, package: .security_vulnerability.package.name, summary: .security_advisory.summary}')
+  ALERT_COUNT=$(echo "$ALERTS" | jq -s 'length')
+
+  # Update cache
+  echo "{\"lastAlertCount\": $ALERT_COUNT, \"iterationsSinceCheck\": 0, \"lastCheckTime\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" > "$CACHE_FILE"
+
+  # Process alerts if any
+  echo "$ALERTS"
+fi
 ```
 
 For each critical/high alert without an existing issue:
