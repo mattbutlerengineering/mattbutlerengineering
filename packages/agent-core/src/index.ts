@@ -165,3 +165,7 @@ export type {
 } from "./task-decomposer.js";
 
 export { DEFAULT_ORCHESTRATOR_CONFIG } from "./task-decomposer.js";
+
+// Model routing
+export { routeModel, routeModelWithReason, resolveModelId } from "./model-router.js";
+export type { ModelTier, IssueInput, ModelRoutingResult } from "./model-router.js";
