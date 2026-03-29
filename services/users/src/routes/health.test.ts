@@ -57,4 +57,38 @@ describe("Health Routes", () => {
       expect(body.checks.database.message).toBe("Connection failed");
     });
   });
+
+  describe("GET /api/v1/users/health", () => {
+    it("returns ok status when database is healthy (ingress-prefixed path)", async () => {
+      vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([{ "?column?": 1 }]);
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/users/health",
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.status).toBe("ok");
+      expect(body.version).toBe("1.0.0");
+      expect(body.timestamp).toBeDefined();
+      expect(body.checks.database.status).toBe("ok");
+      expect(body.checks.database.latency).toBeGreaterThanOrEqual(0);
+    });
+
+    it("returns degraded status when database is unhealthy (ingress-prefixed path)", async () => {
+      vi.mocked(prisma.$queryRaw).mockRejectedValueOnce(new Error("Connection failed"));
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/users/health",
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.status).toBe("degraded");
+      expect(body.checks.database.status).toBe("error");
+      expect(body.checks.database.message).toBe("Connection failed");
+    });
+  });
 });
