@@ -11,7 +11,7 @@ const cloudflareZoneId = config.require("cloudflareZoneId");
 const cloudflareAccountId = config.require("cloudflareAccountId");
 
 const databaseUrl = config.requireSecret("databaseUrl");
-const aiGatewayApiKey = config.requireSecret("aiGatewayApiKey");
+const aiGatewayApiKey = config.getSecret("aiGatewayApiKey");
 
 // ── Auth0 Exports ───────────────────────────────────────────────────
 export const auth0ApiIdentifier = auth0Outputs.apiIdentifier;
@@ -167,7 +167,9 @@ const apiApp = new digitalocean.App("mattbutlerengineering-api-app", {
           { key: "AUTH_AUTHORITY", value: "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com" },
           { key: "AUTH_AUDIENCE", value: `https://api.${domain}` },
           { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" },
-          { key: "AI_GATEWAY_API_KEY", value: aiGatewayApiKey, type: "SECRET" },
+          ...(aiGatewayApiKey
+            ? [{ key: "AI_GATEWAY_API_KEY", value: aiGatewayApiKey, type: "SECRET" as const }]
+            : []),
           { key: "DEFAULT_MODEL", value: "anthropic/claude-haiku-4.5" },
         ],
         healthCheck: {
