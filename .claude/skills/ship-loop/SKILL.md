@@ -115,19 +115,40 @@ gh pr list --author "@me" --json number,title,headRefName,statusCheckRollup,revi
   --jq '.[] | select(.headRefName | startswith("agent/"))'
 ```
 
-For each agent PR:
-- **CI passed + approved/no review required**: Merge it, close the linked issue
-- **CI failed**: Create `ci-fix` issue, label original as `agent-failed`
-- **Changes requested**: Queue for PR feedback loop (if wired in)
-- **CI pending**: Skip — check again next iteration
+For each agent PR, first classify the PR's risk level:
 
 ```bash
-# Auto-merge PRs where CI passed
+# Get the list of changed files for the PR
+gh pr diff <number> --name-only
+```
+
+**Low-risk patterns** — a PR is low-risk when ALL changed files fall into one of:
+- Test files: `*.test.ts`, `*.test.tsx`, `*.spec.ts`, `*.spec.tsx`, `*.test.js`, `*.spec.js`, `*.test.jsx`, `*.spec.jsx`
+- Documentation: `*.md`, `docs/**`
+- Dependency manifests: `package.json`, `pnpm-lock.yaml`, `package-lock.json`, `yarn.lock`
+- Config files: `.github/**`, `.claude/**`, `turbo.json`, `*.config.ts`, `*.config.js`, `*.config.mjs`
+
+Use `isLowRiskPR(files)` from `@mbe/agent-core` if scripting this check.
+
+**Decision matrix:**
+
+| CI status | Risk level | Action |
+|-----------|-----------|--------|
+| passed | low-risk | **Merge immediately** — do not wait for next iteration |
+| passed | other | Merge it, close the linked issue |
+| failed | any | Create `ci-fix` issue, label original as `agent-failed` |
+| changes requested | any | Queue for PR feedback loop (if wired in) |
+| pending | any | Skip — check again next iteration |
+
+```bash
+# Auto-merge PRs where CI passed (low-risk: merge right now)
 gh pr merge <number> --squash --delete-branch
 
 # Close linked issue
 gh issue close <linked-number> --comment "Merged via ship-loop. Deployed."
 ```
+
+**Why immediate merge for low-risk PRs?** Test/docs/deps/config changes cannot break the running application. Merging them right away frees up issue slots and keeps the backlog moving without wasting an entire loop iteration on a trivial wait.
 
 ### A4. Gather & Claim Batch
 
