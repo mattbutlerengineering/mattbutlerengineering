@@ -16,6 +16,8 @@ import {
   loadInventory,
   saveInventory,
   mapFilesToSurfaces,
+  isNonAuditableFile,
+  allFilesNonAuditable,
   findStalestZone,
   updateSurfaceScore,
   detectRegression,
@@ -172,6 +174,103 @@ describe("saveInventory", () => {
       "/repo/.audit-state/inventory.json",
       expect.stringContaining("marketing:home")
     );
+  });
+});
+
+// ── isNonAuditableFile ──────────────────────────────────────────────
+
+describe("isNonAuditableFile", () => {
+  it("returns true for markdown files", () => {
+    expect(isNonAuditableFile("README.md")).toBe(true);
+    expect(isNonAuditableFile("docs/architecture.md")).toBe(true);
+  });
+
+  it("returns true for all files under docs/ directory", () => {
+    expect(isNonAuditableFile("docs/evaluations/2026-03-29-test.md")).toBe(true);
+    expect(isNonAuditableFile("docs/guides/setup.txt")).toBe(true);
+  });
+
+  it("returns true for all files under .github/ directory", () => {
+    expect(isNonAuditableFile(".github/workflows/ci.yml")).toBe(true);
+    expect(isNonAuditableFile(".github/CODEOWNERS")).toBe(true);
+  });
+
+  it("returns true for YAML files", () => {
+    expect(isNonAuditableFile(".github/workflows/deploy.yml")).toBe(true);
+    expect(isNonAuditableFile("some-config.yaml")).toBe(true);
+  });
+
+  it("returns true for test files", () => {
+    expect(isNonAuditableFile("src/utils.test.ts")).toBe(true);
+    expect(isNonAuditableFile("src/components/Button.test.tsx")).toBe(true);
+    expect(isNonAuditableFile("src/utils.spec.js")).toBe(true);
+  });
+
+  it("returns true for .claude/ directory", () => {
+    expect(isNonAuditableFile(".claude/skills/site-audit/SKILL.md")).toBe(true);
+    expect(isNonAuditableFile(".claude/agents/planner.md")).toBe(true);
+  });
+
+  it("returns true for .gitignore", () => {
+    expect(isNonAuditableFile(".gitignore")).toBe(true);
+  });
+
+  it("returns true for turbo.json", () => {
+    expect(isNonAuditableFile("turbo.json")).toBe(true);
+  });
+
+  it("returns false for source files", () => {
+    expect(isNonAuditableFile("apps/marketing/src/App.tsx")).toBe(false);
+    expect(isNonAuditableFile("packages/rialto/src/Button.tsx")).toBe(false);
+    expect(isNonAuditableFile("services/users/src/routes/users.ts")).toBe(false);
+    expect(isNonAuditableFile("infrastructure/worker/edge-router.js")).toBe(false);
+  });
+
+  it("returns false for package.json", () => {
+    expect(isNonAuditableFile("package.json")).toBe(false);
+    expect(isNonAuditableFile("apps/marketing/package.json")).toBe(false);
+  });
+});
+
+// ── allFilesNonAuditable ────────────────────────────────────────────
+
+describe("allFilesNonAuditable", () => {
+  it("returns true when all files are non-auditable", () => {
+    expect(allFilesNonAuditable([
+      "docs/guide.md",
+      ".github/workflows/ci.yml",
+      "src/utils.test.ts",
+      ".gitignore",
+      "turbo.json",
+    ])).toBe(true);
+  });
+
+  it("returns false when any file is auditable", () => {
+    expect(allFilesNonAuditable([
+      "docs/guide.md",
+      "apps/marketing/src/App.tsx",
+    ])).toBe(false);
+  });
+
+  it("returns false for empty list", () => {
+    expect(allFilesNonAuditable([])).toBe(false);
+  });
+
+  it("returns false for a single auditable file", () => {
+    expect(allFilesNonAuditable(["packages/rialto/src/Button.tsx"])).toBe(false);
+  });
+
+  it("returns true for a single non-auditable file", () => {
+    expect(allFilesNonAuditable(["README.md"])).toBe(true);
+  });
+
+  it("returns true for a mix of docs and CI changes", () => {
+    expect(allFilesNonAuditable([
+      "docs/evaluations/2026-03-29-database.md",
+      ".claude/skills/site-audit/SKILL.md",
+      ".github/workflows/deploy-static.yml",
+      "services/users/src/routes/users.test.ts",
+    ])).toBe(true);
   });
 });
 

@@ -240,6 +240,46 @@ export async function saveInventory(
   await writeFile(filePath, JSON.stringify(inventory, null, 2));
 }
 
+// ── Non-Auditable File Detection ────────────────────────────────────
+
+/**
+ * Glob-style patterns for files that never affect auditable surfaces.
+ * When ALL changed files match these patterns, the smoke audit can be skipped entirely.
+ */
+const NON_AUDITABLE_PATTERNS: readonly RegExp[] = [
+  // Documentation
+  /^docs\//,
+  /\.md$/,
+  // CI / GitHub config
+  /^\.github\//,
+  /\.ya?ml$/,
+  // Test files
+  /\.(test|spec)\.(ts|tsx|js|jsx)$/,
+  // Claude / editor / repo config
+  /^\.claude\//,
+  /^\.gitignore$/,
+  /^turbo\.json$/,
+];
+
+/**
+ * Returns true when the file is known to have no effect on any auditable surface.
+ * The smoke audit can be skipped when every changed file satisfies this check.
+ */
+export function isNonAuditableFile(filePath: string): boolean {
+  return NON_AUDITABLE_PATTERNS.some((pattern) => pattern.test(filePath));
+}
+
+/**
+ * Returns true when every file in the list is non-auditable, meaning no
+ * Lighthouse or API health checks are needed for this set of changes.
+ *
+ * An empty list returns false (nothing to skip).
+ */
+export function allFilesNonAuditable(changedFiles: readonly string[]): boolean {
+  if (changedFiles.length === 0) return false;
+  return changedFiles.every(isNonAuditableFile);
+}
+
 // ── File-to-Surface Mapping ─────────────────────────────────────────
 
 const FRONTEND_ZONES: readonly Zone[] = ["marketing", "hospitality", "rialto", "gen"];
