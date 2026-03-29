@@ -1,37 +1,61 @@
 ---
 name: ship-loop
-description: "Full cycle: audit site, check Dependabot alerts, fix issues, push, verify CI, deploy, close. Prioritizes Security > Availability > New features."
+description: "Full cycle: audit site, check Dependabot alerts, fix issues, push, verify CI, deploy, close. Prioritizes Security > Availability > New features. Parallel dispatch for speed."
 user-invocable: true
 ---
 
 # Ship Loop
 
-Autonomous continuous improvement loop. Audits the live site, checks security alerts, picks up issues, implements fixes in worktree agents, pushes to main, verifies CI, and confirms deploys.
+Autonomous continuous improvement loop with **parallel dispatch**. Runs discovery, implementation, and verification concurrently to maximize throughput.
 
 **Priority principle: Security > Availability > New features.**
 
-## Phase A: Discover Work
+**Speed principle: Parallelize everything. Never block when you can pipeline.**
 
-### A1. CI Health Check
+## Architecture: Pipelined Parallel Loop
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ ITERATION N                                             │
+│                                                         │
+│  Phase A: Discover (parallel)                           │
+│  ├── A1. CI health check          ─┐                    │
+│  ├── A2. Dependabot alerts         ├── all in parallel  │
+│  ├── A2.5. Smoke audit (if merge)  │                    │
+│  └── A3. Check previous PRs/CI    ─┘                    │
+│            │                                            │
+│  Phase B: Dispatch (parallel batch)                     │
+│  ├── Agent 1: issue #59 ──┐                             │
+│  ├── Agent 2: issue #62   ├── up to 5 in parallel      │
+│  └── Agent 3: issue #63 ──┘                             │
+│            │                                            │
+│  Phase C: Collect & verify (parallel)                   │
+│  ├── Check CI for PR from iteration N-1 ─┐             │
+│  ├── Health check deploys                 ├── parallel  │
+│  └── Close verified issues               ─┘             │
+│            │                                            │
+│  Phase D: Loop or stop                                  │
+└─────────────────────────────────────────────────────────┘
+```
+
+Key insight: **Phase C checks results from the PREVIOUS iteration** while Phase B works on the CURRENT batch. No blocking waits.
+
+## Phase A: Discover Work (all steps in parallel)
+
+Run ALL discovery steps simultaneously:
+
+### A1. CI Health Check (parallel)
 
 ```bash
-# Check for failing CI workflows
 gh run list --branch main --limit 5 --json status,conclusion,name,databaseId \
   | jq '[.[] | select(.conclusion == "failure")]'
 ```
 
 If failures exist, create `ci-fix` issues (or pick up existing ones).
 
-### A2. Security Audit — Dependabot Alerts
-
-Check for open Dependabot security alerts before any feature work.
+### A2. Security Audit — Dependabot Alerts (parallel)
 
 ```bash
-# Count critical/high severity open alerts
-gh api repos/{owner}/{repo}/dependabot/alerts \
-  --jq '[.[] | select(.state=="open") | select(.security_advisory.severity=="critical" or .security_advisory.severity=="high")] | length'
-
-# List details of critical/high alerts
 gh api repos/{owner}/{repo}/dependabot/alerts \
   --jq '[.[] | select(.state=="open") | select(.security_advisory.severity=="critical" or .security_advisory.severity=="high")] | .[] | {number, severity: .security_advisory.severity, package: .security_vulnerability.package.name, summary: .security_advisory.summary}'
 ```
@@ -45,86 +69,117 @@ gh issue create \
   --label "ci-fix,ready"
 ```
 
-### A2.5. Smoke Audit
-
-After merging a PR, run a targeted audit on affected surfaces:
+### A2.5. Smoke Audit (parallel, if recent merge)
 
 ```bash
-# Get files changed in the last merge
 git diff HEAD~1 --name-only
 ```
 
-Then invoke `/site-audit smoke` which will:
-1. Map changed files to affected surfaces via file-to-surface mapping
-2. Run Lighthouse + console checks in parallel on affected surfaces
-3. Detect regressions against stored scores (>0.05 drop)
-4. Create `ci-fix` + `audit` issues for any regressions found
+Invoke `/site-audit smoke` — maps changed files to surfaces, runs Lighthouse + console checks in parallel, creates `ci-fix` + `audit` issues for regressions.
 
-If no files in `apps/`, `services/`, `packages/`, or `infrastructure/` changed, skip this step.
+### A3. Check Previous Batch Results (parallel)
 
-### A3. Gather Issues
+Check PRs and CI from the **previous iteration's** agents:
 
 ```bash
-# Fetch all actionable issues, ordered by priority
-gh issue list --label "ready" --json number,title,labels --limit 20
+# Find all PRs from agent branches that are still open
+gh pr list --author "@me" --json number,title,headRefName,statusCheckRollup,reviewDecision \
+  --jq '.[] | select(.headRefName | startswith("agent/"))'
 ```
 
-**Priority order for issue selection:**
-
-1. **Security vulnerabilities** — Dependabot critical/high alerts (label: `ci-fix` + title starts with `fix(security):`)
-2. **CI failures** — Other `ci-fix` labeled issues
-3. **Feature issues** — `feature` labeled issues
-4. **Audit findings** — `ready` + `audit` labeled issues
-
-Pick the highest-priority issue that is not labeled `in-progress`.
-
-### A4. Claim Issue
+For each agent PR:
+- **CI passed + approved/no review required**: Merge it, close the linked issue
+- **CI failed**: Create `ci-fix` issue, label original as `agent-failed`
+- **Changes requested**: Queue for PR feedback loop (if wired in)
+- **CI pending**: Skip — check again next iteration
 
 ```bash
-gh issue edit <number> --add-label "in-progress" --remove-label "ready"
+# Auto-merge PRs where CI passed
+gh pr merge <number> --squash --delete-branch
+
+# Close linked issue
+gh issue close <linked-number> --comment "Merged via ship-loop. Deployed."
 ```
 
-## Phase B: Implement in Worktree Agent
+### A4. Gather & Claim Batch
 
-Launch a worktree agent for the claimed issue:
+After all discovery steps complete, gather the full issue backlog:
 
 ```bash
-mbe agent run "<issue title> (closes #<number>)" \
-  --model claude-sonnet-4-6 \
+gh issue list --label "ready" --state open --json number,title,body,labels --limit 20
+```
+
+**Sort by priority:**
+1. Security vulnerabilities (`ci-fix` + `fix(security):`)
+2. CI failures (other `ci-fix`)
+3. Features (`feature`)
+4. Audit findings (`audit`)
+
+**Filter for independence:**
+- Skip issues with unresolved `Depends on: #N` in their body
+- Skip issues in the same zone as another issue in this batch (prevent merge conflicts)
+- Skip issues labeled `in-progress` or `stealable`
+
+**Claim up to 5 independent issues:**
+
+```bash
+# Claim each issue in the batch
+for NUMBER in $BATCH; do
+  gh issue edit $NUMBER --add-label "in-progress" --remove-label "ready"
+done
+```
+
+## Phase B: Implement in Parallel Agents
+
+Launch **one worktree agent per issue**, all simultaneously:
+
+```bash
+# Dispatch all agents in parallel (use & for background)
+for issue in $BATCH; do
+  mbe agent run "<issue title> (closes #<issue_number>)" \
+    --model claude-sonnet-4-6 \
+    --max-budget 1.00 \
+    --max-turns 50 &
+done
+
+# Wait for all to complete
+wait
+```
+
+Or use `mbe agent orchestrate` for managed parallel dispatch:
+
+```bash
+mbe agent orchestrate "Fix issues: #59, #62, #63" \
   --max-budget 1.00 \
-  --max-turns 50
+  --max-concurrent 5
 ```
 
 ### Security Instructions for ALL Worktree Agents
 
-Every worktree agent prompt MUST include the following security guidance:
+Every worktree agent prompt MUST include:
 
 > **Security rules (non-negotiable):**
 >
 > - Never introduce hardcoded secrets, SQL injection, XSS, or other OWASP Top 10 vulnerabilities.
 > - Never commit `.env` files, credentials, API keys, tokens, or secrets of any kind.
-> - Run security checks on all changed files before committing.
 > - Use parameterized queries for all database operations.
 > - Sanitize all user input before rendering in HTML.
 > - Validate all external data at system boundaries.
 > - Follow the security checklist in `~/.claude/rules/common/security.md`.
-> - For any changes touching auth, crypto, or input handling, use the **security-reviewer** agent.
 > - If you discover an existing security vulnerability, stop feature work and fix it first.
 
 ### Built-in Agent Resilience
 
 Agent-core includes automatic protections:
 
-- **Stuck detection** — Detects 6 failure patterns (repeated actions, error loops, alternating patterns, context thrashing, zero progress) and aborts early to save budget.
-- **LLM success evaluation** — After the agent finishes, a separate haiku call verifies the diff actually addresses the issue. Failed evaluations produce draft PRs.
-- **Draft PRs on failure** — When an agent fails but produces partial work, a draft PR is created for human inspection.
+- **Stuck detection** — 6 failure patterns detected, aborts early to save budget
+- **LLM success evaluation** — haiku verifies the diff actually addresses the issue
+- **Draft PRs on failure** — partial work preserved for human inspection
+- **Failure memory** — past failure context injected so agents try different approaches
 
-### Agent Outcome Handling
+### Agent Outcome Handling (per agent, as they complete)
 
-- **Success** (PR created, evaluation passed): Label issue `has-pr`, remove `in-progress`.
-- **Partial success** (draft PR created): Label issue `needs-review`, remove `in-progress`.
-- **Failure** (no changes): Label issue `agent-failed`, remove `in-progress`. Log failure reason.
-- **Repeated failure** (2+ failures on same issue): Label issue `stealable` — needs different approach or human help.
+Don't wait for all agents — handle results as each finishes:
 
 ```bash
 # On success (evaluation passed)
@@ -140,94 +195,87 @@ gh issue edit <number> --add-label "agent-failed" --remove-label "in-progress"
 gh issue edit <number> --add-label "stealable"
 ```
 
-## Phase C: Verify and Deploy
+## Phase C: Verify Previous Batch (pipelined, parallel)
 
-### C1. Wait for CI
+**This runs at the START of each iteration (in Phase A3), not after Phase B.** By the time we're dispatching new agents, the previous batch's PRs have had time to go through CI and deploy.
 
-```bash
-# Watch the latest run on main
-gh run list --branch main --limit 1 --json databaseId,status,conclusion
-gh run watch <run-id>
-```
-
-### C2. Verify Deploy
+### Health Verification (parallel with other Phase A steps)
 
 ```bash
-# Check deploy workflows completed
-gh run list --workflow=deploy-static.yml --limit=1
-gh run list --workflow=deploy-services.yml --limit=1
-```
+# All health checks in parallel
+curl -sf https://mattbutlerengineering.com/ > /dev/null &
+curl -sf https://mattbutlerengineering.com/hospitality > /dev/null &
+curl -sf https://mattbutlerengineering.com/rialto > /dev/null &
 
-### C2.5. Post-Deploy Health Verification
-
-After deploy workflows complete, verify all affected endpoints. Agent-core provides `verifyDeployment()` with retry logic, but you can also verify manually:
-
-```bash
-# Static sites (CF Workers — instant propagation)
-curl -sf https://mattbutlerengineering.com/ > /dev/null && echo "Marketing OK" || echo "Marketing FAIL"
-curl -sf https://mattbutlerengineering.com/hospitality > /dev/null && echo "Hospitality OK" || echo "Hospitality FAIL"
-curl -sf https://mattbutlerengineering.com/rialto > /dev/null && echo "Rialto OK" || echo "Rialto FAIL"
-
-# API services (DO — allow 15s for container startup, retry up to 5 times)
 for endpoint in \
   "https://mattbutlerengineering.com/api/v1/users/health" \
   "https://mattbutlerengineering.com/api/health"; do
-  for i in 1 2 3 4 5; do
-    status=$(curl -sf "$endpoint" | jq -r '.status' 2>/dev/null || echo "error")
-    [ "$status" = "ok" ] && echo "$(basename $endpoint) OK" && break
-    [ "$i" -eq 5 ] && echo "$(basename $endpoint) FAIL"
-    sleep 3
-  done
+  curl -sf "$endpoint" | jq -e '.status == "ok"' > /dev/null &
 done
+
+wait
 ```
 
 **If verification fails:**
-
-1. **Rollback deployment** — For CF Workers: `npx wrangler rollback <prev-version-id> --name <worker> --yes`. For DO services: `git revert HEAD -m 1 --no-edit && git push origin main`
-2. **Create ci-fix issue** for the failed change
-3. **Label original issue** as `agent-failed`
-4. **Continue to Phase D** (loop or stop — counts as a failure toward circuit breaker)
-
-### C3. Smoke Test
-
-If Playwright is available, run a quick smoke test against the live site:
-
-```bash
-npx playwright test --grep @smoke
-```
-
-### C4. Close Issue
-
-```bash
-gh issue close <number> --comment "Deployed and verified on production."
-```
+1. Rollback (CF: `wrangler rollback`, DO: `git revert HEAD -m 1`)
+2. Create `ci-fix` issue
+3. Counts as failure toward circuit breaker
 
 ## Phase D: Loop or Stop
 
-- If time/budget remains, return to **Phase A**.
-- If circuit breaker triggers (3 consecutive failures, including stuck detections), stop and report.
-- Log iteration metrics for `/progress-tracker`.
+- If time/budget remains, return to **Phase A**
+- **Circuit breaker:** 3 consecutive failures (across all agents in a batch) → stop and report
+- Log iteration metrics: issues claimed, PRs created, PRs merged, failures
+- Report throughput: "Iteration N: 4 issues dispatched, 3 PRs created, 2 merged from last batch"
+
+## Concurrency Rules
+
+### Safe to Parallelize
+- Issues in **different zones** (hospitality page + rialto component + API endpoint)
+- Issues that touch **different files** (check sourceFiles in audit inventory)
+- Discovery steps (CI check + Dependabot + smoke audit)
+- Health checks across different endpoints
+
+### NOT Safe to Parallelize
+- Issues in the **same zone** that likely touch the same files → merge conflicts
+- Issues with `Depends on: #N` where #N is in the same batch
+- Multiple changes to the same service's schema/migrations
+
+### Conflict Prevention
+
+Before adding an issue to the batch, check:
+
+```bash
+# Get the zone from issue body or title prefix
+# Ensure no other issue in this batch shares the zone
+```
+
+If two issues would conflict, pick the higher-priority one. The other waits for the next iteration.
+
+### Max Batch Size
+
+- **Default: 5** concurrent agents
+- Adjust based on: available budget ($1/agent × 5 = $5/iteration max), CI capacity, deploy pipeline throughput
+- Security issues always get a slot regardless of batch size
 
 ## Safety Rails
 
 ### Security Rails (highest priority)
 
-- **Security > Availability > New features.** Always fix security issues before other work.
-- Never commit `.env` files, credentials, or secrets. If detected, abort the commit and alert.
-- Use the **security-reviewer** agent for any changes to auth, crypto, or input handling.
-- Follow the mandatory security checklist in `~/.claude/rules/common/security.md`.
-- Dependabot critical/high alerts block all feature work until resolved.
-- Every worktree agent inherits the security instructions from Phase B above.
+- **Security > Availability > New features.** Security issues always get priority slots in the batch.
+- Never commit `.env` files, credentials, or secrets.
+- Dependabot critical/high alerts block feature work — fill remaining batch slots with security fixes first.
+- Every worktree agent inherits security instructions.
 
 ### General Rails
 
-- Never force-push to `main`.
-- Never skip CI checks or pre-commit hooks.
-- Never delete production data or resources.
-- One issue per iteration — do not batch unrelated changes.
-- If CI fails after push, create a `ci-fix` issue and handle it next iteration.
-- Maximum 3 consecutive agent failures triggers circuit breaker — stop and report.
-- Keep commits small and focused — easier to review and revert.
+- Never force-push to `main`
+- Never skip CI checks or pre-commit hooks
+- Never delete production data or resources
+- Each agent gets its own worktree — no shared state between parallel agents
+- If CI fails after merge, create `ci-fix` issue and handle it next iteration
+- Circuit breaker: 3 consecutive batch failures → stop and report
+- Keep commits small and focused — one issue per PR, one PR per agent
 
 ## GitHub Labels (State Machine)
 
@@ -244,3 +292,12 @@ gh issue close <number> --comment "Deployed and verified on production."
 | `feature` | New feature (created by `/decompose`) |
 | `tracking` | Parent issue tracking multi-part feature |
 | `meta-improvement` | Process improvement suggestion |
+
+## Throughput Targets
+
+| Metric | Serial (old) | Parallel (new) |
+|--------|-------------|----------------|
+| Issues per iteration | 1 | 3-5 |
+| Time per iteration | 10-20 min | 8-12 min |
+| Issues per hour | 3-6 | 15-30 |
+| CI wait overhead | Blocking | Pipelined (zero) |
