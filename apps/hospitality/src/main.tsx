@@ -5,6 +5,7 @@ import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
 import { RialtoProvider } from "@mbe/rialto";
 import { AuthProvider } from "@mbe/auth/react";
+import { ThemeContext, useThemeState } from "./hooks/use-theme";
 import { App, CallbackRedirect } from "./App";
 import { DashboardLayout } from "./components/DashboardLayout";
 import { HomePage } from "./pages/HomePage";
@@ -69,12 +70,27 @@ const router = createBrowserRouter(
   { basename: "/hospitality" }
 );
 
+/**
+ * Wrapper that reads the persisted theme preference from localStorage
+ * and passes it to RialtoProvider. Wrapped in its own component so the
+ * `useThemeState` hook can live inside the React tree.
+ */
+function Root() {
+  const themeState = useThemeState();
+
+  return (
+    <ThemeContext.Provider value={themeState}>
+      <RialtoProvider theme={themeState.theme}>
+        <AuthProvider config={authConfig}>
+          <RouterProvider router={router} />
+        </AuthProvider>
+      </RialtoProvider>
+    </ThemeContext.Provider>
+  );
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <RialtoProvider theme="light">
-      <AuthProvider config={authConfig}>
-        <RouterProvider router={router} />
-      </AuthProvider>
-    </RialtoProvider>
+    <Root />
   </StrictMode>
 );

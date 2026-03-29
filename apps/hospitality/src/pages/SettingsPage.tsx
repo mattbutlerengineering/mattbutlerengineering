@@ -3,11 +3,13 @@ import { useAuth } from "@mbe/auth/react";
 import { Card, Button, Text, Stack } from "@mbe/rialto";
 import { ApiClient, UsersClient } from "@mbe/api-client";
 import type { User, UserPreferences } from "@mbe/types";
+import { useTheme } from "../hooks/use-theme";
 import { PageHeader } from "../components/PageHeader";
 import styles from "./SettingsPage.module.css";
 
 export function SettingsPage() {
   const { accessToken, signOut } = useAuth();
+  const { setTheme: setLocalTheme } = useTheme();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -27,6 +29,10 @@ export function SettingsPage() {
         const usersClient = new UsersClient(apiClient);
         const userData = await usersClient.me();
         setUser(userData);
+        // Sync API preference to localStorage so theme persists without auth
+        if (userData.preferences.theme) {
+          setLocalTheme(userData.preferences.theme);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load settings");
       } finally {
@@ -35,7 +41,7 @@ export function SettingsPage() {
     }
 
     fetchUser();
-  }, [accessToken]);
+  }, [accessToken, setLocalTheme]);
 
   async function updatePreference<K extends keyof UserPreferences>(
     key: K,
@@ -105,9 +111,11 @@ export function SettingsPage() {
             <select
               id="settings-theme"
               value={preferences.theme ?? "system"}
-              onChange={(e) =>
-                updatePreference("theme", e.target.value as "light" | "dark" | "system")
-              }
+              onChange={(e) => {
+                const next = e.target.value as "light" | "dark" | "system";
+                setLocalTheme(next);
+                updatePreference("theme", next);
+              }}
               disabled={isSaving}
               className={styles.select}
             >
