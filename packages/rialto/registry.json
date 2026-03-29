@@ -12887,6 +12887,18 @@
           "description": "Which app is currently active — drives the active link indicator."
         },
         {
+          "name": "theme",
+          "type": "\"light\" | \"dark\" | undefined",
+          "required": false,
+          "description": "Current resolved theme for the theme toggle icon."
+        },
+        {
+          "name": "onThemeToggle",
+          "type": "(() => void) | undefined",
+          "required": false,
+          "description": "Called when the user clicks the theme toggle."
+        },
+        {
           "name": "id",
           "type": "string | undefined",
           "required": false
