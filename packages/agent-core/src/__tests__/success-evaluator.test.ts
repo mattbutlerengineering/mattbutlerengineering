@@ -14,7 +14,7 @@ vi.mock("node:util", () => ({
 
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { execFile } from "node:child_process";
-import { evaluateSuccess, getGitDiff } from "../success-evaluator.js";
+import { evaluateSuccess, getGitDiff, shouldEvaluate } from "../success-evaluator.js";
 
 async function* mockQueryGenerator(messages: unknown[]) {
   for (const msg of messages) {
@@ -241,5 +241,104 @@ describe("getGitDiff", () => {
     const diff = await getGitDiff("/not-a-repo");
 
     expect(diff).toBe("");
+  });
+});
+
+// ── shouldEvaluate ────────────────────────────────────────────────────
+
+function buildDiff(files: string[], linesPerFile = 5): string {
+  return files
+    .map((f) => {
+      const lines = Array.from({ length: linesPerFile }, (_, i) => `+line ${i + 1}`).join("\n");
+      return `diff --git a/${f} b/${f}\n${lines}`;
+    })
+    .join("\n");
+}
+
+describe("shouldEvaluate", () => {
+  it("returns true for a normal non-trivial diff", () => {
+    const diff = buildDiff(["src/routes.ts"], 60);
+    expect(shouldEvaluate(diff, {})).toBe(true);
+  });
+
+  it("returns true for an empty diff (let evaluateSuccess handle it)", () => {
+    expect(shouldEvaluate("", {})).toBe(true);
+  });
+
+  // ── Condition 1: small diff + tests passed ────────────────────────
+
+  it("returns false when diff < 50 lines and tests passed", () => {
+    const diff = buildDiff(["src/routes.ts"], 20);
+    expect(shouldEvaluate(diff, { testsPassed: true })).toBe(false);
+  });
+
+  it("returns true when diff < 50 lines but tests did NOT pass", () => {
+    const diff = buildDiff(["src/routes.ts"], 20);
+    expect(shouldEvaluate(diff, { testsPassed: false })).toBe(true);
+  });
+
+  it("returns true when diff < 50 lines and testsPassed is undefined", () => {
+    const diff = buildDiff(["src/routes.ts"], 20);
+    expect(shouldEvaluate(diff, {})).toBe(true);
+  });
+
+  it("returns true when diff >= 50 lines even if tests passed", () => {
+    const diff = buildDiff(["src/routes.ts"], 55);
+    expect(shouldEvaluate(diff, { testsPassed: true })).toBe(true);
+  });
+
+  // ── Condition 2: dependency bump commit title ─────────────────────
+
+  it("returns false for chore(deps): commit title", () => {
+    const diff = buildDiff(["package.json"], 100);
+    expect(shouldEvaluate(diff, { commitTitle: "chore(deps): bump lodash to 4.18" })).toBe(false);
+  });
+
+  it("returns false for fix(security): commit title", () => {
+    const diff = buildDiff(["package-lock.json"], 200);
+    expect(shouldEvaluate(diff, { commitTitle: "fix(security): patch CVE-2025-1234" })).toBe(false);
+  });
+
+  it("is case-insensitive for dependency bump titles", () => {
+    const diff = buildDiff(["package.json"], 100);
+    expect(shouldEvaluate(diff, { commitTitle: "CHORE(DEPS): upgrade all" })).toBe(false);
+  });
+
+  it("returns true for a regular feat: commit title", () => {
+    const diff = buildDiff(["src/feature.ts"], 100);
+    expect(shouldEvaluate(diff, { commitTitle: "feat: add new endpoint" })).toBe(true);
+  });
+
+  // ── Condition 3: only test files changed ─────────────────────────
+
+  it("returns false when only .test.ts files changed", () => {
+    const diff = buildDiff(["src/routes.test.ts", "src/utils.test.ts"], 60);
+    expect(shouldEvaluate(diff, {})).toBe(false);
+  });
+
+  it("returns false when only .spec.ts files changed", () => {
+    const diff = buildDiff(["src/auth.spec.ts"], 60);
+    expect(shouldEvaluate(diff, {})).toBe(false);
+  });
+
+  it("returns false when only .test.js files changed", () => {
+    const diff = buildDiff(["src/helpers.test.js"], 60);
+    expect(shouldEvaluate(diff, {})).toBe(false);
+  });
+
+  it("returns false when only .spec.jsx files changed", () => {
+    const diff = buildDiff(["src/Button.spec.jsx"], 60);
+    expect(shouldEvaluate(diff, {})).toBe(false);
+  });
+
+  it("returns true when mix of test and non-test files changed", () => {
+    const diff = buildDiff(["src/routes.ts", "src/routes.test.ts"], 60);
+    expect(shouldEvaluate(diff, {})).toBe(true);
+  });
+
+  it("returns true when no file headers are present in diff", () => {
+    // A diff with changes but no 'diff --git' header — can't classify as test-only
+    const diff = "+some change\n-old line";
+    expect(shouldEvaluate(diff, {})).toBe(true);
   });
 });

@@ -25,7 +25,7 @@ import {
   buildPrBody,
   buildFailurePrBody,
 } from "./pr-creator.js";
-import { evaluateSuccess, getGitDiff } from "./success-evaluator.js";
+import { evaluateSuccess, getGitDiff, shouldEvaluate } from "./success-evaluator.js";
 import type { EvaluationResult } from "./success-evaluator.js";
 import { mapSdkMessage } from "./event-mapper.js";
 import {
@@ -158,15 +158,21 @@ export async function runSession(
       let evaluationPassed = isSuccess;
       if (isSuccess && config.evaluateSuccess !== false) {
         const diff = await getGitDiff(worktree.path);
-        evaluation = await evaluateSuccess(config.taskDescription, diff);
-        evaluationPassed = evaluation.passed;
+        if (!shouldEvaluate(diff, { commitTitle: commitMsg })) {
+          emitEvent(onEvent, "session:evaluation", {
+            message: "Evaluation skipped — trivial diff",
+          });
+        } else {
+          evaluation = await evaluateSuccess(config.taskDescription, diff);
+          evaluationPassed = evaluation.passed;
 
-        emitEvent(onEvent, "session:evaluation", {
-          message: `Evaluation: ${evaluation.passed ? "PASS" : "FAIL"} (confidence: ${evaluation.confidence.toFixed(2)})`,
-        });
+          emitEvent(onEvent, "session:evaluation", {
+            message: `Evaluation: ${evaluation.passed ? "PASS" : "FAIL"} (confidence: ${evaluation.confidence.toFixed(2)})`,
+          });
 
-        if (!evaluation.passed) {
-          errors.push(`Evaluation failed: ${evaluation.reasoning}`);
+          if (!evaluation.passed) {
+            errors.push(`Evaluation failed: ${evaluation.reasoning}`);
+          }
         }
       }
 
