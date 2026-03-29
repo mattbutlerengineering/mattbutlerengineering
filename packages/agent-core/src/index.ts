@@ -45,6 +45,10 @@ export {
   buildFailurePrBody,
 } from "./pr-creator.js";
 
+// Dependency bump direct-merge
+export { isTrivialDepBump, mergeDirectly } from "./dep-bump-merger.js";
+export type { TrivialDepBumpResult } from "./dep-bump-merger.js";
+
 // Prompt building
 export {
   buildSystemPrompt,
@@ -82,6 +86,10 @@ export type {
   EvaluationConfig,
   ShouldEvaluateConfig,
 } from "./success-evaluator.js";
+
+// Diff review (AI code review before auto-merge)
+export { reviewDiff, DEFAULT_REVIEW_CONFIG } from "./diff-reviewer.js";
+export type { ReviewResult, ReviewConfig } from "./diff-reviewer.js";
 
 // Failure memory
 export {
@@ -169,3 +177,6 @@ export { DEFAULT_ORCHESTRATOR_CONFIG } from "./task-decomposer.js";
 // Model routing
 export { routeModel, routeModelWithReason, resolveModelId } from "./model-router.js";
 export type { ModelTier, IssueInput, ModelRoutingResult } from "./model-router.js";
+
+// PR risk classification
+export { isLowRiskPR } from "./pr-risk-classifier.js";

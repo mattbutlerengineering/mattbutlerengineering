@@ -81,18 +81,37 @@ If no files in `apps/`, `services/`, `packages/`, or `infrastructure/` changed, 
 
 2. **List all surfaces** in the chosen zone.
 
-3. **Dispatch parallel subagents** — up to 5 simultaneously (wave-based for larger zones). Each agent runs:
+3. **Filter surfaces with code changes** — before dispatching, check each surface to see if any of its source files changed since `lastChecked`. Skip Lighthouse entirely for surfaces with no changes.
+
+For each surface, run:
+
+```bash
+# LAST_CHECKED = surface.lastChecked (ISO timestamp, e.g. "2026-03-01T12:00:00.000Z")
+# SOURCE_FILES = space-separated list from surface.sourceFiles
+git log --since='$LAST_CHECKED' --name-only -- $SOURCE_FILES | head -1
+```
+
+- If the output is **empty** → no changes since last audit → **skip this surface** (keep its existing inventory entry unchanged)
+- If the output is **non-empty** → source changed → include in this sweep
+- If `lastChecked` is **null** (never audited) → always include
+
+Log skipped surfaces in the final report:
+```
+Skipped 4 unchanged surfaces: marketing/home, rialto/tokens, ...
+```
+
+4. **Dispatch parallel subagents** — up to 5 simultaneously (wave-based for larger zones), **only for surfaces that passed the change filter**. Each agent runs:
    - **Full Lighthouse** (all 4 categories: performance, accessibility, best-practices, SEO)
    - **Mobile responsive check** (375x812 viewport via Playwright `browser_resize`)
    - **Console error check** via Playwright `browser_console_messages`
    - **Network request check** via Playwright `browser_network_requests` (flag 4xx/5xx, >3s responses)
    - **Dead link check** — click navigation links, verify they load
 
-4. **Update inventory** with new scores.
+5. **Update inventory** with new scores.
 
-5. **Create issues** for anything below 0.9 threshold on any Lighthouse category, or any console errors.
+6. **Create issues** for anything below 0.9 threshold on any Lighthouse category, or any console errors.
 
-6. **Report coverage stats:**
+7. **Report coverage stats:**
 
 ```
 Sweep complete: zone "hospitality" (11 surfaces checked)

@@ -53,11 +53,39 @@ gh run list --branch main --limit 5 --json status,conclusion,name,databaseId \
 
 If failures exist, create `ci-fix` issues (or pick up existing ones).
 
-### A2. Security Audit — Dependabot Alerts (parallel)
+### A2. Security Audit — Dependabot Alerts (parallel, cached)
+
+**Cache logic:** Read `.claude/state/dependabot-cache.json` before calling the API. Skip the API call when `lastAlertCount == 0` AND `iterationsSinceCheck < 10` (~30 min). Always check when the cache is missing, stale, or had alerts last time.
 
 ```bash
-gh api repos/{owner}/{repo}/dependabot/alerts \
-  --jq '[.[] | select(.state=="open") | select(.security_advisory.severity=="critical" or .security_advisory.severity=="high")] | .[] | {number, severity: .security_advisory.severity, package: .security_vulnerability.package.name, summary: .security_advisory.summary}'
+# Read cache (create .claude/state/ if missing)
+mkdir -p .claude/state
+CACHE_FILE=".claude/state/dependabot-cache.json"
+if [ -f "$CACHE_FILE" ]; then
+  LAST_COUNT=$(jq -r '.lastAlertCount // -1' "$CACHE_FILE")
+  ITERS=$(jq -r '.iterationsSinceCheck // 99' "$CACHE_FILE")
+else
+  LAST_COUNT=-1
+  ITERS=99
+fi
+
+# Skip if no alerts last time and checked recently
+if [ "$LAST_COUNT" -eq 0 ] && [ "$ITERS" -lt 10 ]; then
+  echo "Dependabot: cached (0 alerts, $ITERS iterations ago) — skipping"
+  # Increment iteration counter
+  jq '.iterationsSinceCheck += 1' "$CACHE_FILE" > "${CACHE_FILE}.tmp" && mv "${CACHE_FILE}.tmp" "$CACHE_FILE"
+else
+  # Run the actual API check
+  ALERTS=$(gh api repos/{owner}/{repo}/dependabot/alerts \
+    --jq '[.[] | select(.state=="open") | select(.security_advisory.severity=="critical" or .security_advisory.severity=="high")] | .[] | {number, severity: .security_advisory.severity, package: .security_vulnerability.package.name, summary: .security_advisory.summary}')
+  ALERT_COUNT=$(echo "$ALERTS" | jq -s 'length')
+
+  # Update cache
+  echo "{\"lastAlertCount\": $ALERT_COUNT, \"iterationsSinceCheck\": 0, \"lastCheckTime\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" > "$CACHE_FILE"
+
+  # Process alerts if any
+  echo "$ALERTS"
+fi
 ```
 
 For each critical/high alert without an existing issue:
@@ -87,19 +115,40 @@ gh pr list --author "@me" --json number,title,headRefName,statusCheckRollup,revi
   --jq '.[] | select(.headRefName | startswith("agent/"))'
 ```
 
-For each agent PR:
-- **CI passed + approved/no review required**: Merge it, close the linked issue
-- **CI failed**: Create `ci-fix` issue, label original as `agent-failed`
-- **Changes requested**: Queue for PR feedback loop (if wired in)
-- **CI pending**: Skip — check again next iteration
+For each agent PR, first classify the PR's risk level:
 
 ```bash
-# Auto-merge PRs where CI passed
+# Get the list of changed files for the PR
+gh pr diff <number> --name-only
+```
+
+**Low-risk patterns** — a PR is low-risk when ALL changed files fall into one of:
+- Test files: `*.test.ts`, `*.test.tsx`, `*.spec.ts`, `*.spec.tsx`, `*.test.js`, `*.spec.js`, `*.test.jsx`, `*.spec.jsx`
+- Documentation: `*.md`, `docs/**`
+- Dependency manifests: `package.json`, `pnpm-lock.yaml`, `package-lock.json`, `yarn.lock`
+- Config files: `.github/**`, `.claude/**`, `turbo.json`, `*.config.ts`, `*.config.js`, `*.config.mjs`
+
+Use `isLowRiskPR(files)` from `@mbe/agent-core` if scripting this check.
+
+**Decision matrix:**
+
+| CI status | Risk level | Action |
+|-----------|-----------|--------|
+| passed | low-risk | **Merge immediately** — do not wait for next iteration |
+| passed | other | Merge it, close the linked issue |
+| failed | any | Create `ci-fix` issue, label original as `agent-failed` |
+| changes requested | any | Queue for PR feedback loop (if wired in) |
+| pending | any | Skip — check again next iteration |
+
+```bash
+# Auto-merge PRs where CI passed (low-risk: merge right now)
 gh pr merge <number> --squash --delete-branch
 
 # Close linked issue
 gh issue close <linked-number> --comment "Merged via ship-loop. Deployed."
 ```
+
+**Why immediate merge for low-risk PRs?** Test/docs/deps/config changes cannot break the running application. Merging them right away frees up issue slots and keeps the backlog moving without wasting an entire loop iteration on a trivial wait.
 
 ### A4. Gather & Claim Batch
 
