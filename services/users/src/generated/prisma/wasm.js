@@ -144,7 +144,7 @@ const config = {
       "value": "prisma-client-js"
     },
     "output": {
-      "value": "/Users/mbutler/github/mattbutlerengineering/services/users/src/generated/prisma",
+      "value": "/home/user/mattbutlerengineering/services/users/src/generated/prisma",
       "fromEnvVar": null
     },
     "config": {
@@ -153,17 +153,16 @@ const config = {
     "binaryTargets": [
       {
         "fromEnvVar": null,
-        "value": "darwin-arm64",
+        "value": "debian-openssl-3.0.x",
         "native": true
       }
     ],
     "previewFeatures": [],
-    "sourceFilePath": "/Users/mbutler/github/mattbutlerengineering/services/users/prisma/schema.prisma",
+    "sourceFilePath": "/home/user/mattbutlerengineering/services/users/prisma/schema.prisma",
     "isCustomOutput": true
   },
   "relativeEnvPaths": {
-    "rootEnvPath": "../../../.env",
-    "schemaEnvPath": "../../../.env"
+    "rootEnvPath": null
   },
   "relativePath": "../../../prisma",
   "clientVersion": "6.19.2",
