@@ -24,8 +24,13 @@ export function App() {
   if (isLoading) {
     return (
       <>
+        <a href="#main-content" className={styles.skipLink}>
+          Skip to main content
+        </a>
         {nav}
-        <LoadingPage />
+        <main id="main-content">
+          <LoadingPage />
+        </main>
       </>
     );
   }
@@ -36,8 +41,11 @@ export function App() {
   if (error) {
     return (
       <>
+        <a href="#main-content" className={styles.skipLink}>
+          Skip to main content
+        </a>
         {nav}
-        <div className={styles.loginContainer}>
+        <main id="main-content" className={styles.loginContainer}>
           <Stack gap="md" align="center">
             <Text as="h1" variant="display" color="primary">
               Authentication Error
@@ -49,7 +57,7 @@ export function App() {
               Try Again
             </Button>
           </Stack>
-        </div>
+        </main>
       </>
     );
   }
@@ -57,8 +65,13 @@ export function App() {
   if (isCallback && !isAuthenticated) {
     return (
       <>
+        <a href="#main-content" className={styles.skipLink}>
+          Skip to main content
+        </a>
         {nav}
-        <LoadingPage />
+        <main id="main-content">
+          <LoadingPage />
+        </main>
       </>
     );
   }
@@ -66,8 +79,13 @@ export function App() {
   if (!isAuthenticated) {
     return (
       <>
+        <a href="#main-content" className={styles.skipLink}>
+          Skip to main content
+        </a>
         {nav}
-        <LoginPrompt />
+        <main id="main-content">
+          <LoginPrompt />
+        </main>
       </>
     );
   }
