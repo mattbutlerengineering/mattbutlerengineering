@@ -12,6 +12,14 @@ interface AppProps {
 export function App({ theme, onThemeToggle }: AppProps) {
   return (
     <div className={styles.layout}>
+      <noscript>
+        <style>{`
+          #main-content [style*="opacity"] {
+            opacity: 1 !important;
+            transform: none !important;
+          }
+        `}</style>
+      </noscript>
       <a href="#main-content" className="skip-link">
         Skip to main content
       </a>
