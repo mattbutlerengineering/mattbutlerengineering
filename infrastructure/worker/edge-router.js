@@ -11,6 +11,38 @@
  * Static site Workers are called via Service Bindings (env.BINDING.fetch()),
  * which bypass the CDN entirely — eliminating stale HTML after deploys.
  */
+const SECURITY_HEADERS = {
+  "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+  "X-Frame-Options": "DENY",
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Content-Security-Policy": [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https:",
+    "font-src 'self'",
+    "connect-src 'self' https://dev-ytbgmz5ls3wh4xdx.us.auth0.com https://api.mattbutlerengineering.com",
+    "frame-ancestors 'none'",
+  ].join("; "),
+};
+
+/**
+ * Clone a response and append security headers.
+ * Used for static site responses only (not API proxy).
+ */
+function addSecurityHeaders(response) {
+  const headers = new Headers(response.headers);
+  for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
+    headers.set(key, value);
+  }
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -97,17 +129,19 @@ export default {
             "Location",
             `https://${url.host}${prefix}${loc.pathname}${loc.search}`
           );
-          return new Response(response.body, {
-            status: response.status,
-            statusText: response.statusText,
-            headers: rewritten,
-          });
+          return addSecurityHeaders(
+            new Response(response.body, {
+              status: response.status,
+              statusText: response.statusText,
+              headers: rewritten,
+            })
+          );
         }
       } catch {
         // Relative or malformed Location header — pass through as-is
       }
     }
 
-    return response;
+    return addSecurityHeaders(response);
   },
 };
