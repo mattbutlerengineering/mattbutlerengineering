@@ -84,8 +84,21 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   registerSchemas(fastify);
 
   // Register auth plugin (permissive — populates request.user when token present)
-  if (process.env.AUTH_AUTHORITY && process.env.AUTH_AUDIENCE) {
+  const nodeEnv = process.env.NODE_ENV ?? "development";
+  const hasAuthVars = process.env.AUTH_AUTHORITY && process.env.AUTH_AUDIENCE;
+
+  if (hasAuthVars) {
     await fastify.register(authPlugin, getAuthPluginOptionsFromEnv());
+  } else if (nodeEnv === "production") {
+    throw new Error(
+      "Fail-closed: AUTH_AUTHORITY and AUTH_AUDIENCE are required in production. " +
+        "Refusing to start without authentication."
+    );
+  } else {
+    fastify.log.warn(
+      "Auth plugin skipped — AUTH_AUTHORITY and AUTH_AUDIENCE not set. " +
+        "This is only acceptable in development/test environments."
+    );
   }
 
   // Register routes
