@@ -455,6 +455,8 @@ Starts Postgres (Docker), syncs all database schemas, and launches all dev serve
    - Reservations API: http://localhost:3004
    - Reservations API Docs: http://localhost:3004/docs
 
+**Production API docs** are available at `api.mattbutlerengineering.com/docs/` (direct domain), not via the public `mattbutlerengineering.com/api/docs` path. The edge router forwards `/api/*` to DO App Platform which preserves path prefixes, so `/api/docs` would arrive as `/api/docs` at the service — but Scalar is registered at `/docs`.
+
 ## Rialto Design System Usage
 
 Full component APIs, token rules, and design philosophy: see `packages/rialto/CLAUDE.md`.
