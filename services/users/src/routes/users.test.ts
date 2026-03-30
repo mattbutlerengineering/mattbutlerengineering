@@ -326,3 +326,51 @@ describe("GET /api/v1/users/me", () => {
     expect(body.message).toBe("Invalid token");
   });
 });
+
+describe("Auth fail-closed behavior", () => {
+  const originalEnv = process.env;
+
+  afterEach(() => {
+    process.env = originalEnv;
+    vi.clearAllMocks();
+  });
+
+  it("throws in production when AUTH_AUTHORITY and AUTH_AUDIENCE are missing", async () => {
+    process.env = {
+      ...originalEnv,
+      NODE_ENV: "production",
+      AUTH_AUTHORITY: undefined,
+      AUTH_AUDIENCE: undefined,
+    };
+
+    await expect(buildApp({ logger: false })).rejects.toThrow(
+      "Fail-closed: AUTH_AUTHORITY and AUTH_AUDIENCE are required in production"
+    );
+  });
+
+  it("starts without auth in development when env vars are missing", async () => {
+    process.env = {
+      ...originalEnv,
+      NODE_ENV: "development",
+      AUTH_AUTHORITY: undefined,
+      AUTH_AUDIENCE: undefined,
+    };
+
+    const app = await buildApp({ logger: false });
+    await app.ready();
+    await app.close();
+  });
+
+  it("starts without auth in test when env vars are missing", async () => {
+    process.env = {
+      ...originalEnv,
+      NODE_ENV: "test",
+      AUTH_AUTHORITY: undefined,
+      AUTH_AUDIENCE: undefined,
+    };
+
+    const app = await buildApp({ logger: false });
+    await app.ready();
+    await app.close();
+  });
+});
