@@ -29,9 +29,9 @@ All apps are served under `mattbutlerengineering.com` using path-prefix routing:
 
 | Path | App | Hosted On |
 |------|-----|-----------|
-| `/` | Marketing site (catch-all) | CF Pages (`mattbutlerengineering-marketing`) |
-| `/hospitality` | Hospitality app | CF Pages (`mattbutlerengineering-hospitality`) |
-| `/rialto` | Design system showcase | CF Pages (`mattbutlerengineering-rialto-web`) |
+| `/` | Marketing site (catch-all) | Workers Static Assets (`mattbutlerengineering-marketing`) |
+| `/hospitality` | Hospitality app | Workers Static Assets (`mattbutlerengineering-hospitality`) |
+| `/rialto` | Design system showcase | Workers Static Assets (`mattbutlerengineering-rialto-web`) |
 | `/api/v1/users` | Users API | DO App Platform (`mattbutlerengineering-api`) |
 | `/api` | Reservations API (catch-all) | DO App Platform (`mattbutlerengineering-api`) |
 
@@ -171,8 +171,9 @@ cd packages/rialto && pnpm build / pnpm test / pnpm lint / pnpm typecheck
 ```
 mattbutlerengineering/
 ├── apps/                    # Frontend applications
-│   ├── marketing/          # Public marketing site (React + Vite)
+│   ├── gen/                 # Code generator app (React + Vite)
 │   ├── hospitality/        # Hospitality app (React + Vite)
+│   ├── marketing/          # Public marketing site (React + Vite)
 │   └── rialto-web/         # Design system showcase (React + Vite)
 ├── services/                # Backend services
 │   ├── users/              # Users API (Fastify + Prisma) — port 3001
@@ -182,6 +183,7 @@ mattbutlerengineering/
 │   ├── agent-core/        # Agent session runner, worktree mgmt, tool permissions
 │   ├── api-client/        # Typed API client for frontend apps (wraps fetch + auth)
 │   ├── rialto/            # Rialto design system (React component library)
+│   ├── rialto-catalog/    # Rialto component catalog/registry
 │   ├── rialto-plugin/     # Rialto Claude Code plugin (skills, agents, hooks)
 │   ├── types/             # Shared TypeScript types (incl. agent types)
 │   ├── auth/              # Auth utilities (React + Fastify)
