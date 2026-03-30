@@ -7,6 +7,7 @@ import { RialtoProvider } from "@mbe/rialto";
 import { AuthProvider } from "@mbe/auth/react";
 import { ThemeContext, useThemeState } from "./hooks/use-theme";
 import { App, CallbackRedirect } from "./App";
+import { AuthConfigError } from "./components/AuthConfigError";
 import { DashboardLayout } from "./components/DashboardLayout";
 import { HomePage } from "./pages/HomePage";
 import { ProfilePage } from "./pages/ProfilePage";
@@ -19,14 +20,10 @@ import { FloorPlanEditorPage } from "./pages/FloorPlanEditorPage";
 import { BookingWidgetDemoPage } from "./pages/BookingWidgetDemoPage";
 import { TimelinePage } from "./pages/TimelinePage";
 import { VenueOnboardingPage } from "./pages/VenueOnboardingPage";
+import { validateAuthConfig } from "./constants/auth";
 
-// Auth config from environment
-const authConfig = {
-  authority: import.meta.env.VITE_AUTH_AUTHORITY ?? "",
-  clientId: import.meta.env.VITE_AUTH_CLIENT_ID ?? "",
-  redirectUri: import.meta.env.VITE_AUTH_REDIRECT_URI ?? window.location.origin + "/hospitality/callback",
-  audience: import.meta.env.VITE_AUTH_AUDIENCE,
-};
+// Validate auth config at startup — fail fast with a user-friendly error
+const authConfigResult = validateAuthConfig();
 
 /**
  * Uses createBrowserRouter (React Router v7 recommended API) instead of
@@ -78,10 +75,20 @@ const router = createBrowserRouter(
 function Root() {
   const themeState = useThemeState();
 
+  if (!authConfigResult.valid) {
+    return (
+      <ThemeContext.Provider value={themeState}>
+        <RialtoProvider theme={themeState.theme}>
+          <AuthConfigError missing={authConfigResult.missing} />
+        </RialtoProvider>
+      </ThemeContext.Provider>
+    );
+  }
+
   return (
     <ThemeContext.Provider value={themeState}>
       <RialtoProvider theme={themeState.theme}>
-        <AuthProvider config={authConfig}>
+        <AuthProvider config={authConfigResult.config}>
           <RouterProvider router={router} />
         </AuthProvider>
       </RialtoProvider>
