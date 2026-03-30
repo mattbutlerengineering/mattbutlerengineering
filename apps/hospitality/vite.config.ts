@@ -9,7 +9,6 @@ export default defineConfig({
     VitePWA({
       injectRegister: "script-defer",
       registerType: "autoUpdate",
-      injectRegister: "script-defer",
       scope: "/hospitality/",
       includeAssets: ["favicon.svg", "robots.txt"],
       manifest: {
@@ -79,6 +78,22 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Rialto design system — large shared UI, loaded once
+          "rialto-vendor": ["@mbe/rialto"],
+          // React core — stable, cached long-term
+          "react-vendor": ["react", "react-dom"],
+          // Routing — separate from page code
+          "router-vendor": ["react-router-dom"],
+          // Canvas library for floor plan editor
+          "canvas-vendor": ["konva", "react-konva"],
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": resolve(__dirname, "./src"),
