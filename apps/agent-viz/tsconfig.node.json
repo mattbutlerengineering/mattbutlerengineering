@@ -1,8 +1,0 @@
-{
-  "extends": "@mbe/config/typescript/node",
-  "compilerOptions": {
-    "composite": true,
-    "noEmit": false
-  },
-  "include": ["vite.config.ts"]
-}

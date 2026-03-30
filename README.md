@@ -40,7 +40,6 @@ This starts PostgreSQL in Docker, syncs all database schemas, and launches all d
 ```
 mattbutlerengineering/
 ├── apps/                     # Frontend applications
-│   ├── agent-viz/            # Agent session visualizer
 │   ├── gen/                  # Gen app (dynamic UI rendering)
 │   ├── hospitality/          # Restaurant management SPA
 │   ├── marketing/            # Public marketing site

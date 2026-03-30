@@ -17,7 +17,7 @@
 
 **Presentation Layer (Frontend):**
 - Purpose: User interface and interactions via browser
-- Location: `apps/marketing`, `apps/hospitality`, `apps/agent-viz`, `apps/rialto-web`
+- Location: `apps/marketing`, `apps/hospitality`, `apps/rialto-web`
 - Contains: React components, pages, layouts, hooks, styling
 - Depends on: @mbe/auth, @mbe/types, @mbe/api-client, @mbe/shared-layout, @mbe/rialto
 - Used by: Web browsers
