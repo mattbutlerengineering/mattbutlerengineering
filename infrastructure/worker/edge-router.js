@@ -85,7 +85,7 @@ export default {
     // ── Trailing-slash redirects for SPA prefixes ────────────────────
     // Without the trailing slash, the prefix strip leaves "" which
     // normalizes to "/" and causes React Router catch-all confusion.
-    if (url.pathname === "/rialto" || url.pathname === "/hospitality") {
+    if (url.pathname === "/rialto" || url.pathname === "/hospitality" || url.pathname === "/gen") {
       return Response.redirect(
         `https://${url.hostname}${url.pathname}/${url.search}`,
         301
