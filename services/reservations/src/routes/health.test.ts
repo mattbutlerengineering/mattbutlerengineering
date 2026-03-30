@@ -167,4 +167,39 @@ describe("Health Routes", () => {
       expect(body.checks.database.message).toBe("Connection refused");
     });
   });
+
+  describe("GET /api/v1/reservations/health", () => {
+    it("returns ok status when database is healthy (reservations ingress path)", async () => {
+      vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([{ "?column?": 1 }]);
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/reservations/health",
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.status).toBe("ok");
+      expect(body.version).toBe("1.0.0");
+      expect(body.checks.database.status).toBe("ok");
+      expect(typeof body.checks.database.latency).toBe("number");
+    });
+
+    it("returns degraded status when database is unhealthy (reservations ingress path)", async () => {
+      vi.mocked(prisma.$queryRaw).mockRejectedValueOnce(
+        new Error("Connection refused")
+      );
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/reservations/health",
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.status).toBe("degraded");
+      expect(body.checks.database.status).toBe("error");
+      expect(body.checks.database.message).toBe("Connection refused");
+    });
+  });
 });

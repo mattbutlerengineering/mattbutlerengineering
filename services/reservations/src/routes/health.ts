@@ -109,4 +109,8 @@ export const healthRoutes: FastifyPluginAsync = async (fastify) => {
   // /api/health — public path via DO ingress (preservePathPrefix: true, prefix "/api")
   // Required for post-deploy verification workflow hitting api.mattbutlerengineering.com/api/health
   fastify.get("/api/health", { schema: { ...healthSchema, operationId: "getHealthApi" } }, healthHandler);
+
+  // /api/v1/reservations/health — public path via DO ingress (preservePathPrefix: true, prefix "/api/v1/reservations")
+  // Must be registered here (not in reservationRoutes) to avoid falling through to /:id param route
+  fastify.get("/api/v1/reservations/health", { schema: { ...healthSchema, operationId: "getHealthApiReservations" } }, healthHandler);
 };
