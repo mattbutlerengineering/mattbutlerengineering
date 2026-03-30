@@ -1,6 +1,6 @@
 import "@mbe/rialto/styles";
 import "./index.css";
-import { StrictMode } from "react";
+import { StrictMode, Suspense, lazy } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
 import { RialtoProvider, ErrorBoundary } from "@mbe/rialto";
@@ -8,19 +8,46 @@ import { AuthProvider } from "@mbe/auth/react";
 import { ThemeContext, useThemeState } from "./hooks/use-theme";
 import { App, CallbackRedirect } from "./App";
 import { AuthConfigError } from "./components/AuthConfigError";
-import { DashboardLayout } from "./components/DashboardLayout";
-import { HomePage } from "./pages/HomePage";
-import { ProfilePage } from "./pages/ProfilePage";
-import { SettingsPage } from "./pages/SettingsPage";
-import { AdminPage } from "./pages/AdminPage";
-import { ReservationsPage } from "./pages/ReservationsPage";
-import { GuestsPage } from "./pages/GuestsPage";
-import { FloorPlansPage } from "./pages/FloorPlansPage";
-import { FloorPlanEditorPage } from "./pages/FloorPlanEditorPage";
-import { BookingWidgetDemoPage } from "./pages/BookingWidgetDemoPage";
-import { TimelinePage } from "./pages/TimelinePage";
-import { VenueOnboardingPage } from "./pages/VenueOnboardingPage";
+import { LoadingPage } from "./pages/LoadingPage";
 import { validateAuthConfig } from "./constants/auth";
+
+// Lazy-loaded route components — each becomes its own chunk
+const DashboardLayout = lazy(() =>
+  import("./components/DashboardLayout.js").then((m) => ({ default: m.DashboardLayout }))
+);
+const HomePage = lazy(() =>
+  import("./pages/HomePage.js").then((m) => ({ default: m.HomePage }))
+);
+const ReservationsPage = lazy(() =>
+  import("./pages/ReservationsPage.js").then((m) => ({ default: m.ReservationsPage }))
+);
+const TimelinePage = lazy(() =>
+  import("./pages/TimelinePage.js").then((m) => ({ default: m.TimelinePage }))
+);
+const GuestsPage = lazy(() =>
+  import("./pages/GuestsPage.js").then((m) => ({ default: m.GuestsPage }))
+);
+const FloorPlansPage = lazy(() =>
+  import("./pages/FloorPlansPage.js").then((m) => ({ default: m.FloorPlansPage }))
+);
+const FloorPlanEditorPage = lazy(() =>
+  import("./pages/FloorPlanEditorPage.js").then((m) => ({ default: m.FloorPlanEditorPage }))
+);
+const BookingWidgetDemoPage = lazy(() =>
+  import("./pages/BookingWidgetDemoPage.js").then((m) => ({ default: m.BookingWidgetDemoPage }))
+);
+const ProfilePage = lazy(() =>
+  import("./pages/ProfilePage.js").then((m) => ({ default: m.ProfilePage }))
+);
+const SettingsPage = lazy(() =>
+  import("./pages/SettingsPage.js").then((m) => ({ default: m.SettingsPage }))
+);
+const AdminPage = lazy(() =>
+  import("./pages/AdminPage.js").then((m) => ({ default: m.AdminPage }))
+);
+const VenueOnboardingPage = lazy(() =>
+  import("./pages/VenueOnboardingPage.js").then((m) => ({ default: m.VenueOnboardingPage }))
+);
 
 // Validate auth config at startup — fail fast with a user-friendly error
 const authConfigResult = validateAuthConfig();
@@ -45,19 +72,100 @@ const router = createBrowserRouter(
       children: [
         { path: "callback", element: <CallbackRedirect /> },
         {
-          element: <DashboardLayout />,
+          element: (
+            <Suspense fallback={<LoadingPage />}>
+              <DashboardLayout />
+            </Suspense>
+          ),
           children: [
-            { index: true, element: <HomePage /> },
-            { path: "reservations", element: <ReservationsPage /> },
-            { path: "timeline", element: <TimelinePage /> },
-            { path: "guests", element: <GuestsPage /> },
-            { path: "floor-plans", element: <FloorPlansPage /> },
-            { path: "floor-plans/:id", element: <FloorPlanEditorPage /> },
-            { path: "booking-widget", element: <BookingWidgetDemoPage /> },
-            { path: "profile", element: <ProfilePage /> },
-            { path: "settings", element: <SettingsPage /> },
-            { path: "admin", element: <AdminPage /> },
-            { path: "onboarding", element: <VenueOnboardingPage /> },
+            {
+              index: true,
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <HomePage />
+                </Suspense>
+              ),
+            },
+            {
+              path: "reservations",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <ReservationsPage />
+                </Suspense>
+              ),
+            },
+            {
+              path: "timeline",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <TimelinePage />
+                </Suspense>
+              ),
+            },
+            {
+              path: "guests",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <GuestsPage />
+                </Suspense>
+              ),
+            },
+            {
+              path: "floor-plans",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <FloorPlansPage />
+                </Suspense>
+              ),
+            },
+            {
+              path: "floor-plans/:id",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <FloorPlanEditorPage />
+                </Suspense>
+              ),
+            },
+            {
+              path: "booking-widget",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <BookingWidgetDemoPage />
+                </Suspense>
+              ),
+            },
+            {
+              path: "profile",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <ProfilePage />
+                </Suspense>
+              ),
+            },
+            {
+              path: "settings",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <SettingsPage />
+                </Suspense>
+              ),
+            },
+            {
+              path: "admin",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <AdminPage />
+                </Suspense>
+              ),
+            },
+            {
+              path: "onboarding",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <VenueOnboardingPage />
+                </Suspense>
+              ),
+            },
             { path: "*", element: <Navigate to="/" replace /> },
           ],
         },
