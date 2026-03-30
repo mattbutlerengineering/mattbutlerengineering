@@ -129,31 +129,309 @@ const SURFACE_REGISTRY: readonly AuditSurface[] = [
     "apps/hospitality/src/pages/AdminPage.tsx",
   ], "auth0"),
 
-  // Rialto Web (key pages — not all 60+)
+  // Rialto Web — Overview
   surface("rialto:overview", "rialto", "page", "/rialto", [
     "apps/rialto-web/src/pages/OverviewPage.tsx",
   ]),
+
+  // Rialto Web — Forms
   surface("rialto:button", "rialto", "page", "/rialto/components/button", [
-    "apps/rialto-web/src/pages/ButtonPage.tsx",
+    "apps/rialto-web/src/pages/forms/ButtonPage.tsx",
     "packages/rialto/src/components/button",
   ]),
   surface("rialto:input", "rialto", "page", "/rialto/components/input", [
-    "apps/rialto-web/src/pages/InputPage.tsx",
+    "apps/rialto-web/src/pages/forms/InputPage.tsx",
     "packages/rialto/src/components/input",
   ]),
+  surface("rialto:textarea", "rialto", "page", "/rialto/components/textarea", [
+    "apps/rialto-web/src/pages/forms/TextAreaPage.tsx",
+    "packages/rialto/src/components/textarea",
+  ]),
+  surface("rialto:number-input", "rialto", "page", "/rialto/components/number-input", [
+    "apps/rialto-web/src/pages/forms/NumberInputPage.tsx",
+    "packages/rialto/src/components/number-input",
+  ]),
+  surface("rialto:checkbox-radio", "rialto", "page", "/rialto/components/checkbox-radio", [
+    "apps/rialto-web/src/pages/forms/CheckboxRadioPage.tsx",
+    "packages/rialto/src/components/checkbox",
+  ]),
+  surface("rialto:toggle", "rialto", "page", "/rialto/components/toggle", [
+    "apps/rialto-web/src/pages/forms/TogglePage.tsx",
+    "packages/rialto/src/components/toggle",
+  ]),
+  surface("rialto:slider", "rialto", "page", "/rialto/components/slider", [
+    "apps/rialto-web/src/pages/forms/SliderPage.tsx",
+    "packages/rialto/src/components/slider",
+  ]),
+  surface("rialto:select", "rialto", "page", "/rialto/components/select", [
+    "apps/rialto-web/src/pages/forms/SelectPage.tsx",
+    "packages/rialto/src/components/select",
+  ]),
+  surface("rialto:pin-input", "rialto", "page", "/rialto/components/pin-input", [
+    "apps/rialto-web/src/pages/forms/PinInputPage.tsx",
+    "packages/rialto/src/components/pin-input",
+  ]),
+  surface("rialto:segmented-control", "rialto", "page", "/rialto/components/segmented-control", [
+    "apps/rialto-web/src/pages/forms/SegmentedControlPage.tsx",
+    "packages/rialto/src/components/segmented-control",
+  ]),
+  surface("rialto:autocomplete", "rialto", "page", "/rialto/components/autocomplete", [
+    "apps/rialto-web/src/pages/forms/AutocompletePage.tsx",
+    "packages/rialto/src/components/autocomplete",
+  ]),
+  surface("rialto:input-group", "rialto", "page", "/rialto/components/input-group", [
+    "apps/rialto-web/src/pages/forms/InputGroupPage.tsx",
+    "packages/rialto/src/components/input-group",
+  ]),
+
+  // Rialto Web — Data Display
+  surface("rialto:card", "rialto", "page", "/rialto/components/card", [
+    "apps/rialto-web/src/pages/data/CardPage.tsx",
+    "packages/rialto/src/components/card",
+  ]),
   surface("rialto:table", "rialto", "page", "/rialto/components/table", [
-    "apps/rialto-web/src/pages/TablePage.tsx",
+    "apps/rialto-web/src/pages/data/TablePage.tsx",
     "packages/rialto/src/components/table",
   ]),
+  surface("rialto:badge", "rialto", "page", "/rialto/components/badge", [
+    "apps/rialto-web/src/pages/data/BadgePage.tsx",
+    "packages/rialto/src/components/badge",
+  ]),
+  surface("rialto:tag", "rialto", "page", "/rialto/components/tag", [
+    "apps/rialto-web/src/pages/data/TagPage.tsx",
+    "packages/rialto/src/components/tag",
+  ]),
+  surface("rialto:avatar", "rialto", "page", "/rialto/components/avatar", [
+    "apps/rialto-web/src/pages/data/AvatarPage.tsx",
+    "packages/rialto/src/components/avatar",
+  ]),
+  surface("rialto:stat", "rialto", "page", "/rialto/components/stat", [
+    "apps/rialto-web/src/pages/data/StatPage.tsx",
+    "packages/rialto/src/components/stat",
+  ]),
+  surface("rialto:data-list", "rialto", "page", "/rialto/components/data-list", [
+    "apps/rialto-web/src/pages/data/DataListPage.tsx",
+    "packages/rialto/src/components/data-list",
+  ]),
+  surface("rialto:meter", "rialto", "page", "/rialto/components/meter", [
+    "apps/rialto-web/src/pages/data/MeterPage.tsx",
+    "packages/rialto/src/components/meter",
+  ]),
+  surface("rialto:kbd", "rialto", "page", "/rialto/components/kbd", [
+    "apps/rialto-web/src/pages/data/KbdPage.tsx",
+    "packages/rialto/src/components/kbd",
+  ]),
+
+  // Rialto Web — Navigation
+  surface("rialto:tabs", "rialto", "page", "/rialto/components/tabs", [
+    "apps/rialto-web/src/pages/navigation/TabsPage.tsx",
+    "packages/rialto/src/components/tabs",
+  ]),
+  surface("rialto:breadcrumb", "rialto", "page", "/rialto/components/breadcrumb", [
+    "apps/rialto-web/src/pages/navigation/BreadcrumbPage.tsx",
+    "packages/rialto/src/components/breadcrumb",
+  ]),
+  surface("rialto:steps", "rialto", "page", "/rialto/components/steps", [
+    "apps/rialto-web/src/pages/navigation/StepsPage.tsx",
+    "packages/rialto/src/components/steps",
+  ]),
+  surface("rialto:pagination", "rialto", "page", "/rialto/components/pagination", [
+    "apps/rialto-web/src/pages/navigation/PaginationPage.tsx",
+    "packages/rialto/src/components/pagination",
+  ]),
+  surface("rialto:navigation-menu", "rialto", "page", "/rialto/components/navigation-menu", [
+    "apps/rialto-web/src/pages/navigation/NavigationMenuPage.tsx",
+    "packages/rialto/src/components/navigation-menu",
+  ]),
+  surface("rialto:tree", "rialto", "page", "/rialto/components/tree", [
+    "apps/rialto-web/src/pages/data/TreePage.tsx",
+    "packages/rialto/src/components/tree",
+  ]),
+  surface("rialto:sidebar", "rialto", "page", "/rialto/components/sidebar", [
+    "apps/rialto-web/src/pages/navigation/SidebarPage.tsx",
+    "packages/rialto/src/components/sidebar",
+  ]),
+  surface("rialto:navbar", "rialto", "page", "/rialto/components/navbar", [
+    "apps/rialto-web/src/pages/navigation/NavbarPage.tsx",
+    "packages/rialto/src/components/navbar",
+  ]),
+
+  // Rialto Web — Feedback
+  surface("rialto:toast", "rialto", "page", "/rialto/components/toast", [
+    "apps/rialto-web/src/pages/feedback/ToastPage.tsx",
+    "packages/rialto/src/components/toast",
+  ]),
+  surface("rialto:alert", "rialto", "page", "/rialto/components/alert", [
+    "apps/rialto-web/src/pages/feedback/AlertPage.tsx",
+    "packages/rialto/src/components/alert",
+  ]),
+  surface("rialto:banner", "rialto", "page", "/rialto/components/banner", [
+    "apps/rialto-web/src/pages/feedback/BannerPage.tsx",
+    "packages/rialto/src/components/banner",
+  ]),
+  surface("rialto:progress", "rialto", "page", "/rialto/components/progress", [
+    "apps/rialto-web/src/pages/feedback/ProgressPage.tsx",
+    "packages/rialto/src/components/progress",
+  ]),
+  surface("rialto:spinner", "rialto", "page", "/rialto/components/spinner", [
+    "apps/rialto-web/src/pages/feedback/SpinnerPage.tsx",
+    "packages/rialto/src/components/spinner",
+  ]),
+  surface("rialto:skeleton", "rialto", "page", "/rialto/components/skeleton", [
+    "apps/rialto-web/src/pages/feedback/SkeletonPage.tsx",
+    "packages/rialto/src/components/skeleton",
+  ]),
+  surface("rialto:empty-state", "rialto", "page", "/rialto/components/empty-state", [
+    "apps/rialto-web/src/pages/feedback/EmptyStatePage.tsx",
+    "packages/rialto/src/components/empty-state",
+  ]),
+
+  // Rialto Web — Overlays
   surface("rialto:dialog", "rialto", "page", "/rialto/components/dialog", [
-    "apps/rialto-web/src/pages/DialogPage.tsx",
+    "apps/rialto-web/src/pages/overlays/DialogPage.tsx",
     "packages/rialto/src/components/dialog",
   ]),
+  surface("rialto:confirm-dialog", "rialto", "page", "/rialto/components/confirm-dialog", [
+    "apps/rialto-web/src/pages/overlays/ConfirmDialogPage.tsx",
+    "packages/rialto/src/components/confirm-dialog",
+  ]),
+  surface("rialto:drawer", "rialto", "page", "/rialto/components/drawer", [
+    "apps/rialto-web/src/pages/overlays/DrawerPage.tsx",
+    "packages/rialto/src/components/drawer",
+  ]),
+  surface("rialto:command-palette", "rialto", "page", "/rialto/components/command-palette", [
+    "apps/rialto-web/src/pages/overlays/CommandPalettePage.tsx",
+    "packages/rialto/src/components/command-palette",
+  ]),
+  surface("rialto:tooltip", "rialto", "page", "/rialto/components/tooltip", [
+    "apps/rialto-web/src/pages/overlays/TooltipPage.tsx",
+    "packages/rialto/src/components/tooltip",
+  ]),
+  surface("rialto:popover", "rialto", "page", "/rialto/components/popover", [
+    "apps/rialto-web/src/pages/overlays/PopoverPage.tsx",
+    "packages/rialto/src/components/popover",
+  ]),
+  surface("rialto:hover-card", "rialto", "page", "/rialto/components/hover-card", [
+    "apps/rialto-web/src/pages/overlays/HoverCardPage.tsx",
+    "packages/rialto/src/components/hover-card",
+  ]),
+  surface("rialto:dropdown-menu", "rialto", "page", "/rialto/components/dropdown-menu", [
+    "apps/rialto-web/src/pages/overlays/DropdownMenuPage.tsx",
+    "packages/rialto/src/components/dropdown-menu",
+  ]),
+  surface("rialto:context-menu", "rialto", "page", "/rialto/components/context-menu", [
+    "apps/rialto-web/src/pages/overlays/ContextMenuPage.tsx",
+    "packages/rialto/src/components/context-menu",
+  ]),
+  surface("rialto:disabled-tooltip", "rialto", "page", "/rialto/components/disabled-tooltip", [
+    "apps/rialto-web/src/pages/overlays/DisabledTooltipPage.tsx",
+    "packages/rialto/src/components/tooltip",
+  ]),
+
+  // Rialto Web — Layout
+  surface("rialto:divider", "rialto", "page", "/rialto/components/divider", [
+    "apps/rialto-web/src/pages/layout/DividerPage.tsx",
+    "packages/rialto/src/components/divider",
+  ]),
+  surface("rialto:text", "rialto", "page", "/rialto/components/text", [
+    "apps/rialto-web/src/pages/layout/TextPage.tsx",
+    "packages/rialto/src/components/text",
+  ]),
+  surface("rialto:stack", "rialto", "page", "/rialto/components/stack", [
+    "apps/rialto-web/src/pages/layout/StackPage.tsx",
+    "packages/rialto/src/components/stack",
+  ]),
+  surface("rialto:collapsible", "rialto", "page", "/rialto/components/collapsible", [
+    "apps/rialto-web/src/pages/layout/CollapsiblePage.tsx",
+    "packages/rialto/src/components/collapsible",
+  ]),
+  surface("rialto:accordion", "rialto", "page", "/rialto/components/accordion", [
+    "apps/rialto-web/src/pages/layout/AccordionPage.tsx",
+    "packages/rialto/src/components/accordion",
+  ]),
+  surface("rialto:aspect-ratio", "rialto", "page", "/rialto/components/aspect-ratio", [
+    "apps/rialto-web/src/pages/layout/AspectRatioPage.tsx",
+    "packages/rialto/src/components/aspect-ratio",
+  ]),
+  surface("rialto:scroll-area", "rialto", "page", "/rialto/components/scroll-area", [
+    "apps/rialto-web/src/pages/layout/ScrollAreaPage.tsx",
+    "packages/rialto/src/components/scroll-area",
+  ]),
+  surface("rialto:timeline", "rialto", "page", "/rialto/components/timeline", [
+    "apps/rialto-web/src/pages/data/TimelinePage.tsx",
+    "packages/rialto/src/components/timeline",
+  ]),
+  surface("rialto:hero", "rialto", "page", "/rialto/components/hero", [
+    "apps/rialto-web/src/pages/layout/HeroPage.tsx",
+    "packages/rialto/src/components/hero",
+  ]),
+  surface("rialto:footer", "rialto", "page", "/rialto/components/footer", [
+    "apps/rialto-web/src/pages/layout/FooterPage.tsx",
+    "packages/rialto/src/components/footer",
+  ]),
+  surface("rialto:page-header", "rialto", "page", "/rialto/components/page-header", [
+    "apps/rialto-web/src/pages/layout/PageHeaderPage.tsx",
+    "packages/rialto/src/components/page-header",
+  ]),
+
+  // Rialto Web — Token Pages
+  surface("rialto:motion", "rialto", "page", "/rialto/components/motion", [
+    "apps/rialto-web/src/routes.tsx",
+  ]),
+  surface("rialto:typography", "rialto", "page", "/rialto/components/typography", [
+    "apps/rialto-web/src/routes.tsx",
+  ]),
+  surface("rialto:color", "rialto", "page", "/rialto/components/color", [
+    "apps/rialto-web/src/routes.tsx",
+  ]),
+  surface("rialto:spacing", "rialto", "page", "/rialto/components/spacing", [
+    "apps/rialto-web/src/routes.tsx",
+  ]),
+  surface("rialto:radius", "rialto", "page", "/rialto/components/radius", [
+    "apps/rialto-web/src/routes.tsx",
+  ]),
+  surface("rialto:shadows", "rialto", "page", "/rialto/components/shadows", [
+    "apps/rialto-web/src/routes.tsx",
+  ]),
+  surface("rialto:surfaces", "rialto", "page", "/rialto/components/surfaces", [
+    "apps/rialto-web/src/routes.tsx",
+  ]),
+  surface("rialto:icon-vocabulary", "rialto", "page", "/rialto/components/icon-vocabulary", [
+    "apps/rialto-web/src/routes.tsx",
+  ]),
+
+  // Rialto Web — Examples
   surface("rialto:dashboard-example", "rialto", "page", "/rialto/examples/dashboard", [
     "apps/rialto-web/src/pages/examples/DashboardExamplePage.tsx",
   ]),
+  surface("rialto:settings-example", "rialto", "page", "/rialto/examples/settings", [
+    "apps/rialto-web/src/pages/examples/SettingsExamplePage.tsx",
+  ]),
+  surface("rialto:form-example", "rialto", "page", "/rialto/examples/form", [
+    "apps/rialto-web/src/pages/examples/FormStatesExamplePage.tsx",
+  ]),
+
+  // Rialto Web — Demos
   surface("rialto:login-demo", "rialto", "page", "/rialto/demos/login", [
-    "apps/rialto-web/src/pages/demos/SignIn.tsx",
+    "apps/rialto-web/src/pages/auth/SignIn.tsx",
+  ]),
+  surface("rialto:signup-demo", "rialto", "page", "/rialto/demos/signup", [
+    "apps/rialto-web/src/pages/auth/SignUp.tsx",
+  ]),
+  surface("rialto:dashboard-demo", "rialto", "page", "/rialto/demos/dashboard", [
+    "apps/rialto-web/src/pages/dashboard/Dashboard.tsx",
+  ]),
+  surface("rialto:teams-new-demo", "rialto", "page", "/rialto/demos/teams/new", [
+    "apps/rialto-web/src/pages/teams/TeamCreate.tsx",
+  ]),
+  surface("rialto:layouts-demo", "rialto", "page", "/rialto/demos/layouts", [
+    "apps/rialto-web/src/pages/layouts/LayoutDemo.tsx",
+  ]),
+  surface("rialto:drivers-demo", "rialto", "page", "/rialto/demos/drivers", [
+    "apps/rialto-web/src/pages/drivers/DriverList.tsx",
+  ]),
+  surface("rialto:visual-test", "rialto", "page", "/rialto/visual-test", [
+    "apps/rialto-web/src/pages/visual-test/VisualTest.tsx",
   ]),
 
   // Gen
