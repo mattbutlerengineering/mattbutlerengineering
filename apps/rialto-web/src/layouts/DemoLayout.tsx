@@ -133,6 +133,12 @@ export function FloatingControls({
 const THEME_KEY = "mbe-theme-preference";
 
 export function DemoLayout() {
+  useEffect(() => {
+    const main = document.getElementById("main-content");
+    if (main && !window.location.hash) {
+      main.focus({ preventScroll: true });
+    }
+  }, []);
   const [activeVibe, setActiveVibe] = useState<VibeName>("default");
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window === "undefined") return false;

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Routes, Route } from "react-router-dom";
 import { Footer, GlobalNav } from "@mbe/rialto";
 import { HomePage } from "./pages/HomePage";
@@ -10,6 +11,13 @@ interface AppProps {
 }
 
 export function App({ theme, onThemeToggle }: AppProps) {
+  useEffect(() => {
+    const main = document.getElementById("main-content");
+    if (main && !window.location.hash) {
+      main.focus({ preventScroll: true });
+    }
+  }, []);
+
   return (
     <div className={styles.layout}>
       <noscript>

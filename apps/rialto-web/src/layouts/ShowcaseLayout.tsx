@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { Footer, GlobalNav } from "@mbe/rialto";
 import { ShowcaseSidebar } from "../components/ShowcaseSidebar";
@@ -22,6 +22,13 @@ export interface ShowcaseLayoutProps {
  * - Footer at bottom of content scroll area
  */
 export function ShowcaseLayout(props: ShowcaseLayoutProps) {
+  useEffect(() => {
+    const main = document.getElementById("main-content");
+    if (main && !window.location.hash) {
+      main.focus({ preventScroll: true });
+    }
+  }, []);
+
   const themeCtx = useThemeContext();
   const theme = props.theme ?? themeCtx.theme;
   const onThemeToggle = props.onThemeToggle ?? themeCtx.onThemeToggle;

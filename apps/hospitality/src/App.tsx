@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import type { ReactNode } from "react";
 import { Outlet, Navigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
@@ -40,6 +41,13 @@ function UnauthenticatedShell({
  */
 export function App() {
   const { isLoading, isAuthenticated, error } = useAuth();
+
+  useEffect(() => {
+    const main = document.getElementById("main-content");
+    if (main && !window.location.hash) {
+      main.focus({ preventScroll: true });
+    }
+  }, []);
   const { theme: preference, setTheme } = useTheme();
   const resolved = resolveTheme(preference);
 
