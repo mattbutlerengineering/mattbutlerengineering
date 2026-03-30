@@ -242,9 +242,12 @@ export function ShowcaseSidebar({
               {isExpanded && (
                 <ul className={styles.sectionItems}>
                   {section.items.map((item) => {
+                    const normalizedActive = activePath.replace(/\/+$/, "");
+                    const normalizedItem = item.path.replace(/\/+$/, "");
                     const isActive =
-                      activePath === item.path ||
-                      activePath.startsWith(item.path + "/");
+                      normalizedActive === normalizedItem ||
+                      normalizedActive.endsWith(normalizedItem) ||
+                      normalizedActive.startsWith(normalizedItem + "/");
 
                     return (
                       <li key={item.id} className={styles.navItem}>
