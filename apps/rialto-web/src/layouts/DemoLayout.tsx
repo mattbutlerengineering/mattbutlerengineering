@@ -190,7 +190,7 @@ export function DemoLayout() {
             onOpenCookiePrefs={openPrefs}
           />
         </div>
-        <main id="main-content">
+        <main id="main-content" tabIndex={-1}>
           <Outlet />
         </main>
         <CookieBanner

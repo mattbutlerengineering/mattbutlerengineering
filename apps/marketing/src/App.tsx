@@ -24,7 +24,7 @@ export function App({ theme, onThemeToggle }: AppProps) {
         Skip to main content
       </a>
       <GlobalNav currentApp="marketing" theme={theme} onThemeToggle={onThemeToggle} />
-      <main id="main-content" className={styles.main}>
+      <main id="main-content" tabIndex={-1} className={styles.main}>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="*" element={<NotFoundPage />} />

@@ -23,7 +23,7 @@ function UnauthenticatedShell({
         Skip to main content
       </a>
       {nav}
-      <main id="main-content" className={styles.loginContainer}>
+      <main id="main-content" tabIndex={-1} className={styles.loginContainer}>
         {children}
       </main>
       <Footer variant="minimal" className={styles.footer}>
