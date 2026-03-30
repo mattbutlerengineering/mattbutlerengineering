@@ -28,7 +28,7 @@ export function App() {
           Skip to main content
         </a>
         {nav}
-        <main id="main-content">
+        <main id="main-content" tabIndex={-1}>
           <LoadingPage />
         </main>
       </>
@@ -45,7 +45,7 @@ export function App() {
           Skip to main content
         </a>
         {nav}
-        <main id="main-content" className={styles.loginContainer}>
+        <main id="main-content" tabIndex={-1} className={styles.loginContainer}>
           <Stack gap="md" align="center">
             <Text as="h1" variant="display" color="primary">
               Authentication Error
@@ -69,7 +69,7 @@ export function App() {
           Skip to main content
         </a>
         {nav}
-        <main id="main-content">
+        <main id="main-content" tabIndex={-1}>
           <LoadingPage />
         </main>
       </>
@@ -83,7 +83,7 @@ export function App() {
           Skip to main content
         </a>
         {nav}
-        <main id="main-content">
+        <main id="main-content" tabIndex={-1}>
           <LoginPrompt />
         </main>
       </>

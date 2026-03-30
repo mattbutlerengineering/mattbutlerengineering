@@ -80,7 +80,7 @@ export function ShowcaseLayout(props: ShowcaseLayoutProps) {
           onMobileClose={handleMobileClose}
         />
 
-        <main id="main-content" className={styles.content}>
+        <main id="main-content" tabIndex={-1} className={styles.content}>
           <Outlet />
 
           {/* Footer lives inside the scroll area — visible at end of content */}
