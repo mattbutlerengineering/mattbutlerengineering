@@ -7,6 +7,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      injectRegister: "script-defer",
       registerType: "autoUpdate",
       scope: "/hospitality/",
       includeAssets: ["favicon.svg", "robots.txt"],
