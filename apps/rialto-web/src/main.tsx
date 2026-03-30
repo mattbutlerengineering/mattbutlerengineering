@@ -8,6 +8,19 @@ import { RialtoProvider, ToastProvider } from "@mbe/rialto";
 import { ThemeContext } from "./ThemeContext";
 import { routeTree } from "./routes";
 
+// Unregister stale service workers. A previous build registered the hospitality
+// SW at scope "/" instead of "/hospitality/", causing rialto pages to redirect
+// to /hospitality for returning visitors. Clears any SW not scoped to /hospitality/.
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    for (const registration of registrations) {
+      if (!registration.scope.includes("/hospitality/")) {
+        void registration.unregister();
+      }
+    }
+  });
+}
+
 /* ── Theme persistence ────────────────────────── */
 const THEME_KEY = "mbe-theme-preference";
 
