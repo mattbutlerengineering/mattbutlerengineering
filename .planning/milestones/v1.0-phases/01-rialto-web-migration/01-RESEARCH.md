@@ -68,7 +68,7 @@
 
 ## Summary
 
-The rialto-web app already has excellent bones. It is a React 19 + Vite 7 + React Router 7 SPA with `base: "/rialto/"` set in vite.config.ts, `BrowserRouter basename="/rialto"` in main.tsx, and Rialto styles imported via `@mbe/rialto/styles`. Tailwind was **never installed** in rialto-web — it exists only in apps/marketing, apps/dashboard, and apps/agent-viz. There are exactly two stray Tailwind-style className strings to fix: `className="w-full"` on a Button in App.tsx and `className="accent"` on a span in LayoutDemo.tsx.
+The rialto-web app already has excellent bones. It is a React 19 + Vite 7 + React Router 7 SPA with `base: "/rialto/"` set in vite.config.ts, `BrowserRouter basename="/rialto"` in main.tsx, and Rialto styles imported via `@mbe/rialto/styles`. Tailwind was **never installed** in rialto-web — it exists only in apps/marketing and apps/dashboard. There are exactly two stray Tailwind-style className strings to fix: `className="w-full"` on a Button in App.tsx and `className="accent"` on a span in LayoutDemo.tsx.
 
 The structural work is the real task. The current App.tsx (3,974 lines) is a monolithic single-page scrolling showcase. The locked decisions call for a sidebar-nav architecture with per-component dedicated pages. This is a full restructure of the app's routing and layout — not a simple find-and-replace. The existing content (all 55+ component demos) is already written; it must be migrated into the new per-page structure.
 

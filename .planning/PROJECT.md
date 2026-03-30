@@ -57,7 +57,6 @@ Every web app uses Rialto as the single design system and is accessible at mattb
 
 ### Out of Scope
 
-- agent-viz app — internal tool, not part of public web presence
 - SSR / server-side rendering — static SPA builds are correct for this use case
 - Storybook — custom showcase (rialto-web) already exists
 - Mobile app — web-first; mobile later if ever

@@ -171,7 +171,6 @@ cd packages/rialto && pnpm build / pnpm test / pnpm lint / pnpm typecheck
 ```
 mattbutlerengineering/
 ├── apps/                    # Frontend applications
-│   ├── agent-viz/           # Agent session visualizer (React + Vite)
 │   ├── marketing/          # Public marketing site (React + Vite)
 │   ├── hospitality/        # Hospitality app (React + Vite)
 │   └── rialto-web/         # Design system showcase (React + Vite)
