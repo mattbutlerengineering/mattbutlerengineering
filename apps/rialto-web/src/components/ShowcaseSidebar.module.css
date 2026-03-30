@@ -8,6 +8,9 @@
   background: var(--rialto-surface-elevated);
   border-inline-end: 1px solid var(--rialto-border);
   overflow: hidden;
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
 }
 
 /* ── Search filter ───────────────────────────── */
