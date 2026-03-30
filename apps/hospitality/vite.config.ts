@@ -8,6 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
+      injectRegister: "script-defer",
       scope: "/hospitality/",
       includeAssets: ["favicon.svg", "robots.txt"],
       manifest: {
