@@ -213,6 +213,24 @@
   z-index: 1;
 }
 
+/* ── Coming soon state ──────────────────────── */
+
+.navLinkComingSoon {
+  color: var(--rialto-text-tertiary);
+}
+
+.navLinkComingSoon:hover {
+  color: var(--rialto-text-tertiary);
+}
+
+.comingSoonBadge {
+  margin-inline-start: var(--rialto-space-xs);
+  font-size: var(--rialto-text-xs);
+  font-style: italic;
+  color: var(--rialto-text-tertiary);
+  font-weight: var(--rialto-weight-regular);
+}
+
 /* ── Active state ────────────────────────────── */
 
 .navLinkActive {

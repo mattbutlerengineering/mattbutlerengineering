@@ -249,15 +249,20 @@ export function ShowcaseSidebar({
                       normalizedActive.endsWith(normalizedItem) ||
                       normalizedActive.startsWith(normalizedItem + "/");
 
+                    const isComingSoon = item.comingSoon === true;
+
                     return (
                       <li key={item.id} className={styles.navItem}>
                         <button
-                          className={`${styles.navLink} ${isActive ? styles.navLinkActive : ""}`}
+                          className={`${styles.navLink} ${isActive ? styles.navLinkActive : ""} ${isComingSoon ? styles.navLinkComingSoon : ""}`}
                           onClick={() => handleItemClick(item.path)}
                           aria-current={isActive ? "page" : undefined}
                           type="button"
                         >
                           {item.label}
+                          {isComingSoon && (
+                            <span className={styles.comingSoonBadge}>coming soon</span>
+                          )}
                         </button>
                       </li>
                     );

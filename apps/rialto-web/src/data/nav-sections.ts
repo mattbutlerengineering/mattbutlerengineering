@@ -11,6 +11,8 @@ export interface NavItem {
   id: string;
   label: string;
   path: string;
+  /** When true, item is rendered in a muted style with a "coming soon" indicator. */
+  comingSoon?: boolean;
 }
 
 export interface NavSection {
@@ -135,14 +137,19 @@ const LAYOUT: NavSection = {
 const TOKENS: NavSection = {
   label: "Tokens",
   items: [
-    { id: "motion", label: "Motion", path: "/components/motion" },
-    { id: "typography", label: "Typography", path: "/components/typography" },
-    { id: "color", label: "Color", path: "/components/color" },
-    { id: "spacing", label: "Spacing", path: "/components/spacing" },
-    { id: "radius", label: "Radius", path: "/components/radius" },
-    { id: "shadows", label: "Shadows", path: "/components/shadows" },
-    { id: "surfaces", label: "Surfaces", path: "/components/surfaces" },
-    { id: "icon-vocabulary", label: "Icon Vocabulary", path: "/components/icon-vocabulary" },
+    { id: "motion", label: "Motion", path: "/components/motion", comingSoon: true },
+    { id: "typography", label: "Typography", path: "/components/typography", comingSoon: true },
+    { id: "color", label: "Color", path: "/components/color", comingSoon: true },
+    { id: "spacing", label: "Spacing", path: "/components/spacing", comingSoon: true },
+    { id: "radius", label: "Radius", path: "/components/radius", comingSoon: true },
+    { id: "shadows", label: "Shadows", path: "/components/shadows", comingSoon: true },
+    { id: "surfaces", label: "Surfaces", path: "/components/surfaces", comingSoon: true },
+    {
+      id: "icon-vocabulary",
+      label: "Icon Vocabulary",
+      path: "/components/icon-vocabulary",
+      comingSoon: true,
+    },
   ],
 };
 
