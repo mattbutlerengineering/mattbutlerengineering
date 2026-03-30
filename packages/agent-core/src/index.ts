@@ -184,3 +184,20 @@ export { isLowRiskPR } from "./pr-risk-classifier.js";
 // Static diff analysis (fast pre-check)
 export { analyzeDiff, formatViolations, ANALYSIS_RULES } from "./diff-static-analyzer.js";
 export type { StaticAnalysisResult, Violation, AnalysisRule } from "./diff-static-analyzer.js";
+
+// Bundle size tracking
+export {
+  measureAppBundleSize,
+  measureAllBundles,
+  loadBaseline,
+  saveBaseline,
+  compareWithBaseline,
+  formatReport,
+} from "./bundle-size-tracker.js";
+export type {
+  BundleSizeEntry,
+  FileSize,
+  BundleSizeBaseline,
+  BundleSizeComparison,
+  BundleSizeReport,
+} from "./bundle-size-tracker.js";
