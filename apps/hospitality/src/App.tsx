@@ -1,9 +1,37 @@
+import type { ReactNode } from "react";
 import { Outlet, Navigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
-import { Stack, Text, Button, GlobalNav } from "@mbe/rialto";
+import { Stack, Text, Button, GlobalNav, Footer } from "@mbe/rialto";
 import { useTheme, resolveTheme } from "./hooks/use-theme";
 import { LoadingPage } from "./pages/LoadingPage";
 import styles from "./App.module.css";
+
+/**
+ * Shared shell for all unauthenticated views (loading, error, login).
+ * Renders the skip-link, nav, main content, and a minimal footer.
+ */
+function UnauthenticatedShell({
+  nav,
+  children,
+}: {
+  readonly nav: ReactNode;
+  readonly children: ReactNode;
+}) {
+  return (
+    <div className={styles.unauthLayout}>
+      <a href="#main-content" className={styles.skipLink}>
+        Skip to main content
+      </a>
+      {nav}
+      <main id="main-content" className={styles.loginContainer}>
+        {children}
+      </main>
+      <Footer variant="minimal" className={styles.footer}>
+        <span>&copy; {new Date().getFullYear()} Matt Butler Engineering</span>
+      </Footer>
+    </div>
+  );
+}
 
 /**
  * Root layout route — handles auth gating before any child routes render.
@@ -23,15 +51,9 @@ export function App() {
 
   if (isLoading) {
     return (
-      <>
-        <a href="#main-content" className={styles.skipLink}>
-          Skip to main content
-        </a>
-        {nav}
-        <main id="main-content">
-          <LoadingPage />
-        </main>
-      </>
+      <UnauthenticatedShell nav={nav}>
+        <LoadingPage />
+      </UnauthenticatedShell>
     );
   }
 
@@ -40,53 +62,35 @@ export function App() {
 
   if (error) {
     return (
-      <>
-        <a href="#main-content" className={styles.skipLink}>
-          Skip to main content
-        </a>
-        {nav}
-        <main id="main-content" className={styles.loginContainer}>
-          <Stack gap="md" align="center">
-            <Text as="h1" variant="display" color="primary">
-              Authentication Error
-            </Text>
-            <Text variant="body" color="secondary">
-              {error.message}
-            </Text>
-            <Button variant="primary" onClick={() => window.location.assign("/hospitality")}>
-              Try Again
-            </Button>
-          </Stack>
-        </main>
-      </>
+      <UnauthenticatedShell nav={nav}>
+        <Stack gap="md" align="center">
+          <Text as="h1" variant="display" color="primary">
+            Authentication Error
+          </Text>
+          <Text variant="body" color="secondary">
+            {error.message}
+          </Text>
+          <Button variant="primary" onClick={() => window.location.assign("/hospitality")}>
+            Try Again
+          </Button>
+        </Stack>
+      </UnauthenticatedShell>
     );
   }
 
   if (isCallback && !isAuthenticated) {
     return (
-      <>
-        <a href="#main-content" className={styles.skipLink}>
-          Skip to main content
-        </a>
-        {nav}
-        <main id="main-content">
-          <LoadingPage />
-        </main>
-      </>
+      <UnauthenticatedShell nav={nav}>
+        <LoadingPage />
+      </UnauthenticatedShell>
     );
   }
 
   if (!isAuthenticated) {
     return (
-      <>
-        <a href="#main-content" className={styles.skipLink}>
-          Skip to main content
-        </a>
-        {nav}
-        <main id="main-content">
-          <LoginPrompt />
-        </main>
-      </>
+      <UnauthenticatedShell nav={nav}>
+        <LoginPrompt />
+      </UnauthenticatedShell>
     );
   }
 
@@ -102,19 +106,17 @@ function LoginPrompt() {
   const { signIn } = useAuth();
 
   return (
-    <div className={styles.loginContainer}>
-      <Stack gap="md" align="center">
-        <Text as="h1" variant="display" color="primary">
-          Hospitality
-        </Text>
-        <Text variant="body" color="secondary">
-          Please sign in to continue
-        </Text>
-        <Button variant="primary" onClick={() => signIn()}>
-          Sign In
-        </Button>
-      </Stack>
-    </div>
+    <Stack gap="md" align="center">
+      <Text as="h1" variant="display" color="primary">
+        Hospitality
+      </Text>
+      <Text variant="body" color="secondary">
+        Please sign in to continue
+      </Text>
+      <Button variant="primary" onClick={() => signIn()}>
+        Sign In
+      </Button>
+    </Stack>
   );
 }
 

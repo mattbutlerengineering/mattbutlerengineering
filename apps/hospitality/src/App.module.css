@@ -18,11 +18,25 @@
   inset-block-start: var(--rialto-space-md);
 }
 
+/* ── Unauthenticated layout ──────────────────── */
+
+.unauthLayout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
 /* ── Login container ─────────────────────────── */
 
 .loginContainer {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
+  flex: 1;
+}
+
+/* ── Footer ──────────────────────────────────── */
+
+.footer {
+  margin-block-start: auto;
 }
