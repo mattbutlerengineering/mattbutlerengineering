@@ -3,7 +3,7 @@ import "./index.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
-import { RialtoProvider } from "@mbe/rialto";
+import { RialtoProvider, ErrorBoundary } from "@mbe/rialto";
 import { AuthProvider } from "@mbe/auth/react";
 import { ThemeContext, useThemeState } from "./hooks/use-theme";
 import { App, CallbackRedirect } from "./App";
@@ -88,9 +88,11 @@ function Root() {
   return (
     <ThemeContext.Provider value={themeState}>
       <RialtoProvider theme={themeState.theme}>
-        <AuthProvider config={authConfigResult.config}>
-          <RouterProvider router={router} />
-        </AuthProvider>
+        <ErrorBoundary>
+          <AuthProvider config={authConfigResult.config}>
+            <RouterProvider router={router} />
+          </AuthProvider>
+        </ErrorBoundary>
       </RialtoProvider>
     </ThemeContext.Provider>
   );

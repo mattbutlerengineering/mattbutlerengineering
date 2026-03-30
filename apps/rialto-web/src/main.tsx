@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import "@mbe/rialto/styles";
 import "./global.css";
-import { RialtoProvider, ToastProvider } from "@mbe/rialto";
+import { RialtoProvider, ToastProvider, ErrorBoundary } from "@mbe/rialto";
 import { ThemeContext } from "./ThemeContext";
 import { routeTree } from "./routes";
 
@@ -62,11 +62,13 @@ function Root() {
   return (
     // RialtoProvider MUST wrap RouterProvider (outside it)
     <RialtoProvider theme={resolved}>
-      <ThemeContext value={themeContextValue}>
-        <ToastProvider>
-          <RouterProvider router={router} />
-        </ToastProvider>
-      </ThemeContext>
+      <ErrorBoundary>
+        <ThemeContext value={themeContextValue}>
+          <ToastProvider>
+            <RouterProvider router={router} />
+          </ToastProvider>
+        </ThemeContext>
+      </ErrorBoundary>
     </RialtoProvider>
   );
 }

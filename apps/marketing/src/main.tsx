@@ -4,7 +4,7 @@ import "./global.css";
 import { StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
-import { RialtoProvider } from "@mbe/rialto";
+import { RialtoProvider, ErrorBoundary } from "@mbe/rialto";
 import { App } from "./App";
 
 /* ── Theme persistence ────────────────────────── */
@@ -47,9 +47,11 @@ function Root() {
   return (
     // RialtoProvider MUST wrap BrowserRouter (outside it)
     <RialtoProvider theme={resolved}>
-      <BrowserRouter>
-        <App theme={resolved} onThemeToggle={handleThemeToggle} />
-      </BrowserRouter>
+      <ErrorBoundary>
+        <BrowserRouter>
+          <App theme={resolved} onThemeToggle={handleThemeToggle} />
+        </BrowserRouter>
+      </ErrorBoundary>
     </RialtoProvider>
   );
 }
