@@ -25,14 +25,19 @@ export interface ToggleProps extends Omit<InputHTMLAttributes<HTMLInputElement>,
 
 export const Toggle = forwardRef<HTMLInputElement, ToggleProps>(
   (
-    { label, checked = false, onCheckedChange, disabled, disabledReason, className, ...props },
+    { label, checked, onCheckedChange, disabled, disabledReason, className, ...props },
     ref
   ) => {
+    const isControlled = checked !== undefined;
     const autoId = useId();
     const id = props.id ?? autoId;
     const shouldReduceMotion = useReducedMotion();
     const wrapperRef = useRef<HTMLDivElement>(null);
     const dir = useDirection(wrapperRef);
+
+    const inputProps = isControlled
+      ? { checked, "aria-checked": checked }
+      : {};
 
     return (
       <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>
@@ -47,17 +52,21 @@ export const Toggle = forwardRef<HTMLInputElement, ToggleProps>(
             role="switch"
             id={id}
             className={styles.input}
-            checked={checked}
             disabled={disabled}
             onChange={(e) => onCheckedChange?.(e.target.checked)}
-            aria-checked={checked}
+            {...inputProps}
             {...props}
           />
           {/* eslint-disable-next-line jsx-a11y/label-has-associated-control -- visual track label, hidden from AT */}
-          <label htmlFor={id} className={styles.track} data-checked={checked} aria-hidden="true">
+          <label
+            htmlFor={id}
+            className={styles.track}
+            data-checked={checked ?? false}
+            aria-hidden="true"
+          >
             <motion.div
               className={styles.knob}
-              animate={{ x: checked ? (dir === "rtl" ? -20 : 20) : 0 }}
+              animate={{ x: (checked ?? false) ? (dir === "rtl" ? -20 : 20) : 0 }}
               whileHover={
                 disabled || shouldReduceMotion
                   ? undefined
