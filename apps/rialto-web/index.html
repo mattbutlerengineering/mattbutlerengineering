@@ -32,6 +32,20 @@
     <title>Rialto — Design System</title>
   </head>
   <body>
+    <script>
+      // Unregister stale hospitality service workers that were registered at
+      // root scope before the scope fix (#39). Without this, browsers that
+      // visited hospitality before the fix will redirect all pages to /hospitality.
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function (registrations) {
+          for (var i = 0; i < registrations.length; i++) {
+            if (registrations[i].scope.includes("/hospitality")) {
+              registrations[i].unregister();
+            }
+          }
+        });
+      }
+    </script>
     <noscript>
       <div style="padding: 2rem; text-align: center; font-family: system-ui, sans-serif;">
         <h1>JavaScript Required</h1>
