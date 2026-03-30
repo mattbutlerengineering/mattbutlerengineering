@@ -103,7 +103,7 @@ export function ShowcaseLayout(props: ShowcaseLayoutProps) {
                 {
                   title: "Design System",
                   links: [
-                    { label: "GitHub", href: "https://github.com/mattbutler/mattbutlerengineering" },
+                    { label: "GitHub", href: "https://github.com/mattbutlerengineering/mattbutlerengineering" },
                     { label: "Overview", href: "/rialto/" },
                   ],
                 },
