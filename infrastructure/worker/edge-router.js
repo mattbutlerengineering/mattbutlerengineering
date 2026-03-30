@@ -28,14 +28,42 @@ const SECURITY_HEADERS = {
 };
 
 /**
- * Clone a response and append security headers.
+ * Determine the correct Cache-Control header based on the request path.
+ *
+ * Hashed assets (Vite outputs under /assets/ with content hashes) are
+ * immutable by definition — cache them for one year.  HTML documents
+ * must always revalidate so deploys take effect immediately.
+ */
+function cacheControlFor(pathname) {
+  if (pathname.includes("/assets/")) {
+    return "public, max-age=31536000, immutable";
+  }
+  // HTML and other types are handled in addHeaders where Content-Type is available
+  return null;
+}
+
+/**
+ * Clone a response, append security headers, and set cache headers.
  * Used for static site responses only (not API proxy).
  */
-function addSecurityHeaders(response) {
+function addHeaders(response, pathname) {
   const headers = new Headers(response.headers);
+
   for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
     headers.set(key, value);
   }
+
+  // Cache policy: hashed assets get immutable; HTML always revalidates
+  const cacheOverride = cacheControlFor(pathname);
+  if (cacheOverride) {
+    headers.set("Cache-Control", cacheOverride);
+  } else {
+    const contentType = headers.get("Content-Type") || "";
+    if (contentType.includes("text/html")) {
+      headers.set("Cache-Control", "public, max-age=0, must-revalidate");
+    }
+  }
+
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -129,12 +157,13 @@ export default {
             "Location",
             `https://${url.host}${prefix}${loc.pathname}${loc.search}`
           );
-          return addSecurityHeaders(
+          return addHeaders(
             new Response(response.body, {
               status: response.status,
               statusText: response.statusText,
               headers: rewritten,
-            })
+            }),
+            url.pathname
           );
         }
       } catch {
@@ -142,6 +171,6 @@ export default {
       }
     }
 
-    return addSecurityHeaders(response);
+    return addHeaders(response, url.pathname);
   },
 };
