@@ -60,6 +60,38 @@ jobs:
             exit 1
           fi
 
+      - name: Ping reservations API health
+        run: |
+          RESPONSE=$(curl -s --max-time 10 "https://api.mattbutlerengineering.com/api/v1/reservations/health")
+          STATUS_HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://api.mattbutlerengineering.com/api/v1/reservations/health")
+          echo "reservations-api: HTTP $STATUS_HTTP — $RESPONSE"
+          if [ "$STATUS_HTTP" != "200" ]; then
+            echo "::error::Reservations API health returned HTTP $STATUS_HTTP (expected 200)"
+            exit 1
+          fi
+          STATUS_BODY=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status','unknown'))" 2>/dev/null || echo "parse-error")
+          echo "reservations-api status: $STATUS_BODY"
+          if [ "$STATUS_BODY" = "error" ]; then
+            echo "::error::Reservations API health status is 'error': $RESPONSE"
+            exit 1
+          fi
+
+      - name: Ping agent API health
+        run: |
+          RESPONSE=$(curl -s --max-time 10 "https://api.mattbutlerengineering.com/api/gen/health")
+          STATUS_HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://api.mattbutlerengineering.com/api/gen/health")
+          echo "agent-api: HTTP $STATUS_HTTP — $RESPONSE"
+          if [ "$STATUS_HTTP" != "200" ]; then
+            echo "::error::Agent API health returned HTTP $STATUS_HTTP (expected 200)"
+            exit 1
+          fi
+          STATUS_BODY=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status','unknown'))" 2>/dev/null || echo "parse-error")
+          echo "agent-api status: $STATUS_BODY"
+          if [ "$STATUS_BODY" = "error" ]; then
+            echo "::error::Agent API health status is 'error': $RESPONSE"
+            exit 1
+          fi
+
       - name: Summarize results
         if: success()
         run: echo "All endpoints healthy."
