@@ -1,3 +1,25 @@
+/* ── Skip link ───────────────────────────────── */
+
+.skipLink {
+  position: absolute;
+  inset-inline-start: -9999px;
+  z-index: 1000;
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  background: var(--rialto-surface);
+  color: var(--rialto-text-primary);
+  font-weight: var(--rialto-weight-semibold);
+  text-decoration: none;
+  border: 2px solid var(--rialto-accent);
+  border-radius: var(--rialto-radius-default);
+}
+
+.skipLink:focus {
+  inset-inline-start: var(--rialto-space-md);
+  inset-block-start: var(--rialto-space-md);
+}
+
+/* ── Login container ─────────────────────────── */
+
 .loginContainer {
   display: flex;
   align-items: center;
