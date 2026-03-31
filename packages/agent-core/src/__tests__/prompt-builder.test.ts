@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
-import { buildSystemPrompt, loadProjectContext } from "../prompt-builder.js";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { buildSystemPrompt, loadProjectContext, loadSourceFiles } from "../prompt-builder.js";
+import type { SourceFileEntry } from "../prompt-builder.js";
 
 // Mock fs modules
 vi.mock("node:fs/promises", () => ({
@@ -12,6 +13,10 @@ vi.mock("node:fs", () => ({
 
 import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 describe("buildSystemPrompt", () => {
   it("includes the task description", () => {
@@ -35,6 +40,70 @@ describe("buildSystemPrompt", () => {
   it("includes instruction about committing changes", () => {
     const prompt = buildSystemPrompt("Any task");
     expect(prompt).toContain("Commit your changes");
+  });
+
+  it("appends source file context when entries are provided", () => {
+    const entries: readonly SourceFileEntry[] = [
+      { path: "src/app.ts", content: "const x = 1;" },
+      { path: "src/utils.ts", content: "export function add(a: number, b: number) { return a + b; }" },
+    ];
+    const prompt = buildSystemPrompt("Fix bug", entries);
+    expect(prompt).toContain("## Source File Context");
+    expect(prompt).toContain("### `src/app.ts`");
+    expect(prompt).toContain("const x = 1;");
+    expect(prompt).toContain("### `src/utils.ts`");
+    expect(prompt).toContain("export function add");
+  });
+
+  it("does not include source file section when no entries provided", () => {
+    const prompt = buildSystemPrompt("Fix bug");
+    expect(prompt).not.toContain("## Source File Context");
+  });
+
+  it("does not include source file section when entries array is empty", () => {
+    const prompt = buildSystemPrompt("Fix bug", []);
+    expect(prompt).not.toContain("## Source File Context");
+  });
+});
+
+describe("loadSourceFiles", () => {
+  it("reads existing files and returns entries", async () => {
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFile)
+      .mockResolvedValueOnce("file one content")
+      .mockResolvedValueOnce("file two content");
+
+    const entries = await loadSourceFiles(["src/a.ts", "src/b.ts"]);
+    expect(entries).toEqual([
+      { path: "src/a.ts", content: "file one content" },
+      { path: "src/b.ts", content: "file two content" },
+    ]);
+  });
+
+  it("handles missing files gracefully", async () => {
+    vi.mocked(existsSync).mockReturnValueOnce(true).mockReturnValueOnce(false);
+    vi.mocked(readFile).mockResolvedValueOnce("exists");
+
+    const entries = await loadSourceFiles(["src/exists.ts", "src/missing.ts"]);
+    expect(entries).toEqual([
+      { path: "src/exists.ts", content: "exists" },
+      { path: "src/missing.ts", content: "<!-- file not found, skipped -->" },
+    ]);
+  });
+
+  it("handles read errors gracefully", async () => {
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFile).mockRejectedValueOnce(new Error("permission denied"));
+
+    const entries = await loadSourceFiles(["src/broken.ts"]);
+    expect(entries).toEqual([
+      { path: "src/broken.ts", content: "<!-- read error, skipped -->" },
+    ]);
+  });
+
+  it("returns empty array for empty input", async () => {
+    const entries = await loadSourceFiles([]);
+    expect(entries).toEqual([]);
   });
 });
 

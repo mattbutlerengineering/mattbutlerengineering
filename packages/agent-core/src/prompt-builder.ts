@@ -15,8 +15,51 @@ const QUALITY_CHECKLIST = [
   "Follow conventional commit message format for any commits",
 ].map((item, i) => `${i + 1}. ${item}`).join("\n");
 
-export function buildSystemPrompt(taskDescription: string): string {
+export interface SourceFileEntry {
+  readonly path: string;
+  readonly content: string;
+}
+
+export async function loadSourceFiles(
+  paths: readonly string[]
+): Promise<readonly SourceFileEntry[]> {
+  const entries: SourceFileEntry[] = [];
+  for (const filePath of paths) {
+    if (!existsSync(filePath)) {
+      entries.push({ path: filePath, content: "<!-- file not found, skipped -->" });
+      continue;
+    }
+    try {
+      const content = await readFile(filePath, "utf-8");
+      entries.push({ path: filePath, content });
+    } catch {
+      entries.push({ path: filePath, content: "<!-- read error, skipped -->" });
+    }
+  }
+  return entries;
+}
+
+function formatSourceFileSection(entries: readonly SourceFileEntry[]): string {
+  if (entries.length === 0) return "";
+  const blocks = entries.map(
+    (e) => `### \`${e.path}\`\n\n\`\`\`\n${e.content}\n\`\`\``
+  );
   return [
+    "",
+    "",
+    "## Source File Context",
+    "",
+    "The following files are relevant to this task. Use them as reference — you do not need to re-read them.",
+    "",
+    ...blocks,
+  ].join("\n");
+}
+
+export function buildSystemPrompt(
+  taskDescription: string,
+  sourceFileEntries?: readonly SourceFileEntry[]
+): string {
+  const base = [
     "You are an autonomous coding agent. Complete the following task in a single session.",
     "",
     "## Task",
@@ -35,6 +78,12 @@ export function buildSystemPrompt(taskDescription: string): string {
     "- If you encounter a blocker you cannot resolve, explain it clearly and stop",
     "- Commit your changes with a descriptive message when done",
   ].join("\n");
+
+  const sourceSection = sourceFileEntries
+    ? formatSourceFileSection(sourceFileEntries)
+    : "";
+
+  return base + sourceSection;
 }
 
 export async function loadProjectContext(repoPath: string): Promise<string | null> {

@@ -53,7 +53,9 @@ export type { TrivialDepBumpResult } from "./dep-bump-merger.js";
 export {
   buildSystemPrompt,
   loadProjectContext,
+  loadSourceFiles,
 } from "./prompt-builder.js";
+export type { SourceFileEntry } from "./prompt-builder.js";
 
 // Tool permissions
 export { createToolPermissionHandler } from "./tool-permissions.js";

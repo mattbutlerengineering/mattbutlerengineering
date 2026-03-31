@@ -7,7 +7,7 @@ import type {
   SessionEventCallback,
   WorktreeInfo,
 } from "./types.js";
-import { buildSystemPrompt } from "./prompt-builder.js";
+import { buildSystemPrompt, loadSourceFiles } from "./prompt-builder.js";
 import { createToolPermissionHandler } from "./tool-permissions.js";
 import { buildSessionResult } from "./cost-tracker.js";
 import { createStuckDetector } from "./stuck-detector.js";
@@ -71,11 +71,15 @@ export async function runSession(
       config.taskDescription
     );
 
-    // 2. Build system prompt with failure context
+    // 2. Build system prompt with failure context and source files
     const failureMemory = await loadMemory(config.repoPath);
     const pastFailures = queryPastFailures(failureMemory, config.taskDescription);
     const failureContext = buildFailureContext(pastFailures);
-    const systemPrompt = buildSystemPrompt(config.taskDescription) + failureContext;
+    const sourceFileEntries = config.sourceFiles
+      ? await loadSourceFiles(config.sourceFiles)
+      : undefined;
+    const systemPrompt =
+      buildSystemPrompt(config.taskDescription, sourceFileEntries) + failureContext;
 
     // 3. Run the agent via SDK query()
     emitEvent(onEvent, "session:start", {

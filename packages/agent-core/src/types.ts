@@ -12,6 +12,7 @@ export interface SessionConfig {
   readonly allowedTools: readonly string[];
   readonly createPr: boolean;
   readonly evaluateSuccess?: boolean;
+  readonly sourceFiles?: readonly string[];
 }
 
 export const DEFAULT_SESSION_CONFIG: Omit<SessionConfig, "taskDescription" | "repoPath"> = {
