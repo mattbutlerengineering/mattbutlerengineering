@@ -9,6 +9,7 @@ export default defineConfig({
     VitePWA({
       injectRegister: "script-defer",
       registerType: "autoUpdate",
+      injectRegister: "script-defer",
       scope: "/hospitality/",
       includeAssets: ["favicon.svg", "robots.txt"],
       manifest: {
