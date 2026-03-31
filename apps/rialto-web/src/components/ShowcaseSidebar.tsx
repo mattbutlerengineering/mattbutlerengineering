@@ -251,10 +251,18 @@ export function ShowcaseSidebar({
 
                     const isComingSoon = item.comingSoon === true;
 
+                    const linkClass = [
+                      styles.navLink,
+                      isActive ? styles.navLinkActive : "",
+                      item.comingSoon ? styles.navLinkComingSoon : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ");
+
                     return (
                       <li key={item.id} className={styles.navItem}>
                         <button
-                          className={`${styles.navLink} ${isActive ? styles.navLinkActive : ""} ${isComingSoon ? styles.navLinkComingSoon : ""}`}
+                          className={linkClass}
                           onClick={() => handleItemClick(item.path)}
                           aria-current={isActive ? "page" : undefined}
                           type="button"
