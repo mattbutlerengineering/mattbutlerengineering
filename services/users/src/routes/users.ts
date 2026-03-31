@@ -19,6 +19,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
+      preHandler: requireAuth,
       schema: {
         summary: "List all users",
         operationId: "listUsers",
@@ -73,6 +74,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
+      preHandler: requireAuth,
       schema: {
         summary: "Get user by ID",
         operationId: "getUserById",
@@ -127,6 +129,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
+      preHandler: requireAuth,
       schema: {
         summary: "Create a new user",
         operationId: "createUser",
@@ -187,6 +190,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
+      preHandler: requireAuth,
       schema: {
         summary: "Update a user",
         operationId: "updateUser",
@@ -256,6 +260,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
+      preHandler: requireAuth,
       schema: {
         summary: "Delete a user",
         operationId: "deleteUser",

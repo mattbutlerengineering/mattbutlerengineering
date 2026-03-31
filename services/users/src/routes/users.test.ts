@@ -30,6 +30,18 @@ vi.mock("jose", () => ({
 import { userService } from "../services/user.js";
 import { jwtVerify } from "jose";
 
+const mockJWTPayload = {
+  sub: "auth0|user-123",
+  iss: "https://test.auth0.com/",
+  aud: "https://api.example.com",
+  exp: Math.floor(Date.now() / 1000) + 3600,
+  iat: Math.floor(Date.now() / 1000),
+  email: "test@example.com",
+  email_verified: true,
+  name: "Test User",
+  picture: "https://example.com/pic.jpg",
+};
+
 const mockUser = {
   id: "user-123",
   email: "test@example.com",
@@ -43,8 +55,18 @@ const mockUser = {
 
 describe("User Routes", () => {
   let app: FastifyInstance;
+  const originalEnv = process.env;
 
   beforeEach(async () => {
+    process.env = {
+      ...originalEnv,
+      AUTH_AUTHORITY: "https://test.auth0.com",
+      AUTH_AUDIENCE: "https://api.example.com",
+    };
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: mockJWTPayload,
+      protectedHeader: { alg: "RS256" },
+    } as never);
     app = await buildApp({ logger: false });
     await app.ready();
   });
@@ -52,9 +74,19 @@ describe("User Routes", () => {
   afterEach(async () => {
     await app.close();
     vi.clearAllMocks();
+    process.env = originalEnv;
   });
 
   describe("GET /api/v1/users", () => {
+    it("returns 401 without auth token", async () => {
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/users",
+      });
+
+      expect(response.statusCode).toBe(401);
+    });
+
     it("returns paginated list of users", async () => {
       vi.mocked(userService.list).mockResolvedValueOnce({
         data: [mockUser],
@@ -71,6 +103,7 @@ describe("User Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/users",
+        headers: { authorization: "Bearer valid-token" },
       });
 
       expect(response.statusCode).toBe(200);
@@ -96,6 +129,7 @@ describe("User Routes", () => {
       await app.inject({
         method: "GET",
         url: "/api/v1/users?page=2&limit=5",
+        headers: { authorization: "Bearer valid-token" },
       });
 
       expect(userService.list).toHaveBeenCalledWith(2, 5);
@@ -109,6 +143,7 @@ describe("User Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/users/user-123",
+        headers: { authorization: "Bearer valid-token" },
       });
 
       expect(response.statusCode).toBe(200);
@@ -123,6 +158,7 @@ describe("User Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/users/nonexistent",
+        headers: { authorization: "Bearer valid-token" },
       });
 
       expect(response.statusCode).toBe(404);
@@ -138,6 +174,7 @@ describe("User Routes", () => {
       const response = await app.inject({
         method: "POST",
         url: "/api/v1/users",
+        headers: { authorization: "Bearer valid-token" },
         payload: {
           email: "test@example.com",
           name: "Test User",
@@ -156,6 +193,7 @@ describe("User Routes", () => {
       const response = await app.inject({
         method: "POST",
         url: "/api/v1/users",
+        headers: { authorization: "Bearer valid-token" },
         payload: {
           email: "minimal@example.com",
         },
@@ -176,6 +214,7 @@ describe("User Routes", () => {
       const response = await app.inject({
         method: "PATCH",
         url: "/api/v1/users/user-123",
+        headers: { authorization: "Bearer valid-token" },
         payload: {
           name: "Updated Name",
         },
@@ -192,6 +231,7 @@ describe("User Routes", () => {
       const response = await app.inject({
         method: "PATCH",
         url: "/api/v1/users/nonexistent",
+        headers: { authorization: "Bearer valid-token" },
         payload: {
           name: "New Name",
         },
@@ -208,6 +248,7 @@ describe("User Routes", () => {
       const response = await app.inject({
         method: "DELETE",
         url: "/api/v1/users/user-123",
+        headers: { authorization: "Bearer valid-token" },
       });
 
       expect(response.statusCode).toBe(204);
@@ -215,18 +256,6 @@ describe("User Routes", () => {
     });
   });
 });
-
-const mockJWTPayload = {
-  sub: "auth0|user-123",
-  iss: "https://test.auth0.com/",
-  aud: "https://api.example.com",
-  exp: Math.floor(Date.now() / 1000) + 3600,
-  iat: Math.floor(Date.now() / 1000),
-  email: "test@example.com",
-  email_verified: true,
-  name: "Test User",
-  picture: "https://example.com/pic.jpg",
-};
 
 describe("GET /api/v1/users/me", () => {
   let app: FastifyInstance;

@@ -1,0 +1,22 @@
+name = "mattbutlerengineering-edge-router"
+main = "edge-router.js"
+compatibility_date = "2026-03-25"
+
+[vars]
+API_ORIGIN = "https://api.mattbutlerengineering.com"
+
+[[services]]
+binding = "MARKETING"
+service = "mattbutlerengineering-marketing"
+
+[[services]]
+binding = "HOSPITALITY"
+service = "mattbutlerengineering-hospitality"
+
+[[services]]
+binding = "RIALTO"
+service = "mattbutlerengineering-rialto-web"
+
+[[services]]
+binding = "GEN"
+service = "mattbutlerengineering-gen"

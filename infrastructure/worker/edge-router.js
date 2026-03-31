@@ -78,18 +78,24 @@ export default {
     // Redirect www → non-www
     if (url.hostname.startsWith("www.")) {
       const bare = url.hostname.slice(4);
-      return Response.redirect(
-        `https://${bare}${url.pathname}${url.search}`,
-        301
+      return addHeaders(
+        Response.redirect(
+          `https://${bare}${url.pathname}${url.search}`,
+          301
+        ),
+        url.pathname
       );
     }
 
     // Redirect legacy /dashboard → /hospitality
     if (url.pathname.startsWith("/dashboard")) {
       const rest = url.pathname.slice("/dashboard".length);
-      return Response.redirect(
-        `https://${url.hostname}/hospitality${rest}`,
-        301
+      return addHeaders(
+        Response.redirect(
+          `https://${url.hostname}/hospitality${rest}`,
+          301
+        ),
+        url.pathname
       );
     }
 
@@ -114,9 +120,12 @@ export default {
     // Without the trailing slash, the prefix strip leaves "" which
     // normalizes to "/" and causes React Router catch-all confusion.
     if (url.pathname === "/rialto" || url.pathname === "/hospitality" || url.pathname === "/gen") {
-      return Response.redirect(
-        `https://${url.hostname}${url.pathname}/${url.search}`,
-        301
+      return addHeaders(
+        Response.redirect(
+          `https://${url.hostname}${url.pathname}/${url.search}`,
+          301
+        ),
+        url.pathname
       );
     }
 
