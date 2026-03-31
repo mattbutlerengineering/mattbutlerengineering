@@ -135,6 +135,10 @@ export type {
 
 export { buildReviewFixPrompt } from "./feedback-prompt-builder.js";
 
+// Feedback loop (PR review + CI fix cycle)
+export { runFeedbackLoop } from "./feedback-loop.js";
+export type { FeedbackLoopParams, FeedbackLoopResult } from "./feedback-loop.js";
+
 // Event mapping
 export { mapSdkMessage } from "./event-mapper.js";
 export type {
@@ -157,9 +161,10 @@ export type {
   WorktreeMode,
   PrResult,
   PrOptions,
+  FeedbackLoopConfig,
 } from "./types.js";
 
-export { DEFAULT_SESSION_CONFIG } from "./types.js";
+export { DEFAULT_SESSION_CONFIG, DEFAULT_FEEDBACK_LOOP_CONFIG } from "./types.js";
 
 // Orchestrator
 export { runOrchestrator } from "./orchestrator.js";

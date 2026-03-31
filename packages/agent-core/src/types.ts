@@ -2,6 +2,20 @@ import type { SDKMessage, SDKResultMessage } from "@anthropic-ai/claude-agent-sd
 
 // ── Session configuration ────────────────────────────────────────────
 
+export interface FeedbackLoopConfig {
+  readonly enabled: boolean;
+  readonly maxRetries: number;
+  readonly pollIntervalMs: number;
+  readonly pollTimeoutMs: number;
+}
+
+export const DEFAULT_FEEDBACK_LOOP_CONFIG: FeedbackLoopConfig = {
+  enabled: false,
+  maxRetries: 2,
+  pollIntervalMs: 30_000,
+  pollTimeoutMs: 300_000,
+};
+
 export interface SessionConfig {
   readonly taskDescription: string;
   readonly repoPath: string;
@@ -13,6 +27,7 @@ export interface SessionConfig {
   readonly createPr: boolean;
   readonly evaluateSuccess?: boolean;
   readonly sourceFiles?: readonly string[];
+  readonly feedbackLoop?: FeedbackLoopConfig;
 }
 
 export const DEFAULT_SESSION_CONFIG: Omit<SessionConfig, "taskDescription" | "repoPath"> = {

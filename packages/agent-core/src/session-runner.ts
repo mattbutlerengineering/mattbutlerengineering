@@ -35,6 +35,7 @@ import {
   buildFailureContext,
   loadMemory,
 } from "./failure-memory.js";
+import { runFeedbackLoop } from "./feedback-loop.js";
 
 function emitEvent(
   onEvent: SessionEventCallback | undefined,
@@ -221,6 +222,28 @@ export async function runSession(
             emitEvent(onEvent, "session:result", {
               message: `PR created: ${pr.url}`,
             });
+
+            // Run feedback loop if enabled (poll for review comments / CI failures)
+            if (config.feedbackLoop?.enabled) {
+              const feedbackResult = await runFeedbackLoop(
+                {
+                  prNumber: pr.number,
+                  branchName: worktree.branchName,
+                  repoPath: worktree.path,
+                  model: config.model,
+                  maxRetries: config.feedbackLoop.maxRetries ?? 2,
+                  pollIntervalMs: config.feedbackLoop.pollIntervalMs ?? 30_000,
+                  pollTimeoutMs: config.feedbackLoop.pollTimeoutMs ?? 300_000,
+                  maxBudgetUsd: config.maxBudgetUsd * 0.5,
+                  allowedTools: config.allowedTools,
+                },
+                onEvent
+              );
+
+              emitEvent(onEvent, "session:result", {
+                message: `Feedback loop: ${feedbackResult.resolved ? "resolved" : "escalated"} after ${feedbackResult.retriesUsed} retries`,
+              });
+            }
           }
         } else {
           const title = `wip: ${config.taskDescription.slice(0, 57)}`;
