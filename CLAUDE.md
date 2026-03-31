@@ -539,6 +539,8 @@ Managed at https://claude.ai/code/scheduled
 | `mbe-issue-worker` | Every 2h (includes CI monitoring) |
 | `mbe-progress-tracker` | Daily 5:11pm |
 
+**GitHub Actions scheduling backups:** `audit-sweep.yml` (weekly Monday) and `audit-scout.yml` (monthly 1st) serve as cron-based reminders in case RemoteTriggers are missed. They do not execute audits directly — see `.github/workflows/` for details.
+
 ---
 
 ## Before Committing

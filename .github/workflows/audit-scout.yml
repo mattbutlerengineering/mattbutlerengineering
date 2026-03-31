@@ -1,0 +1,17 @@
+name: Monthly Audit Scout
+on:
+  schedule:
+    - cron: '41 17 1 * *' # 1st of month, 10:41am PT (17:41 UTC)
+  workflow_dispatch: {} # Manual trigger
+
+jobs:
+  scout:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Trigger scout audit
+        run: |
+          echo "::notice::Scout audit scheduled — run '/site-audit scout' via Claude Code remote trigger"
+          echo "This workflow serves as a scheduling backup for monthly improvement analysis."
+          echo ""
+          echo "To run manually: claude --print '/site-audit scout'"
