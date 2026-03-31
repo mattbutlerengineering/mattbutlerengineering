@@ -181,6 +181,14 @@ export type { ModelTier, IssueInput, ModelRoutingResult } from "./model-router.j
 // PR risk classification
 export { isLowRiskPR } from "./pr-risk-classifier.js";
 
+// Change-type classification (ship-loop phase gating)
+export { classifyChanges, shouldSkipPhase, formatClassification } from "./change-type-classifier.js";
+export type {
+  ChangeType,
+  ChangeClassification,
+  SkippablePhase,
+} from "./change-type-classifier.js";
+
 // Static diff analysis (fast pre-check)
 export { analyzeDiff, formatViolations, ANALYSIS_RULES } from "./diff-static-analyzer.js";
 export type { StaticAnalysisResult, Violation, AnalysisRule } from "./diff-static-analyzer.js";
