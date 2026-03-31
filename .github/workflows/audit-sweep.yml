@@ -1,0 +1,20 @@
+name: Weekly Audit Sweep
+on:
+  schedule:
+    - cron: '23 16 * * 1' # Monday 9:23am PT (16:23 UTC)
+  workflow_dispatch: {} # Manual trigger
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Trigger sweep audit
+        run: |
+          echo "::notice::Sweep audit scheduled — run '/site-audit sweep' via Claude Code remote trigger"
+          echo "This workflow serves as a scheduling backup. Primary execution is via RemoteTrigger 'mbe-deep-audit'."
+          echo ""
+          echo "To run manually: claude --print '/site-audit sweep'"
+          # Note: Full sweep execution requires Claude Code CLI with API access.
+          # This workflow creates a GitHub notification as a scheduling reminder.
+          # The actual execution happens via RemoteTriggers on claude.ai/code/scheduled.
