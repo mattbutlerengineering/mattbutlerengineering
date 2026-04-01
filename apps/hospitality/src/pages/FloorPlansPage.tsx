@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
 import type { FloorPlan } from "@mbe/types";
+import { Button, Card, Text, Stack, Badge, EmptyState, Alert } from "@mbe/rialto";
 import { NewFloorPlanDialog } from "../components/floor-plan";
 import styles from "./FloorPlansPage.module.css";
 
@@ -67,17 +68,15 @@ export function FloorPlansPage() {
   };
 
   return (
-    <div className={styles.container}>
-      <div className={styles.header}>
-        <h1 className={styles.title}>Floor Plans</h1>
-        <button
-          className={styles.newButton}
-          onClick={() => setShowNewDialog(true)}
-          disabled={!venueId}
-        >
+    <Stack gap="lg" className={styles.container}>
+      <Stack direction="row" align="center" justify="between">
+        <Text variant="display" as="h1">
+          Floor Plans
+        </Text>
+        <Button variant="primary" onClick={() => setShowNewDialog(true)} disabled={!venueId}>
           New Floor Plan
-        </button>
-      </div>
+        </Button>
+      </Stack>
 
       {showNewDialog && venueId && (
         <NewFloorPlanDialog
@@ -94,28 +93,42 @@ export function FloorPlansPage() {
         </div>
       )}
 
-      {error && <div className={styles.errorBox} role="alert">{error}</div>}
+      {error && (
+        <Alert variant="error" title="Error">
+          {error}
+        </Alert>
+      )}
 
       {!isLoading && !error && floorPlans.length === 0 && (
-        <div className={styles.emptyState}>
-          <p className={styles.emptyStateText}>No floor plans yet</p>
-          <p className={styles.emptyStateHint}>
-            Create a floor plan to start arranging tables for your venue.
-          </p>
-        </div>
+        <EmptyState
+          heading="No floor plans yet"
+          description="Create a floor plan to start arranging tables for your venue."
+          action={
+            <Button variant="primary" onClick={() => setShowNewDialog(true)} disabled={!venueId}>
+              New Floor Plan
+            </Button>
+          }
+        />
       )}
 
       {!isLoading && !error && floorPlans.length > 0 && (
         <div className={styles.grid}>
           {floorPlans.map((floorPlan) => (
-            <button
+            <Card
               key={floorPlan.id}
-              onClick={() => navigate(`/floor-plans/${floorPlan.id}`)}
+              variant="elevated"
               className={styles.card}
-              type="button"
+              onClick={() => navigate(`/floor-plans/${floorPlan.id}`)}
+              role="button"
+              tabIndex={0}
               aria-label={`Open floor plan: ${floorPlan.name}`}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  navigate(`/floor-plans/${floorPlan.id}`);
+                }
+              }}
             >
-              {/* Placeholder for floor plan preview */}
               <div className={styles.cardPreview}>
                 <svg
                   className={styles.cardPreviewIcon}
@@ -131,22 +144,30 @@ export function FloorPlansPage() {
                   />
                 </svg>
               </div>
-              <div className={styles.cardBody}>
-                <div className={styles.cardMeta}>
-                  <h3 className={styles.cardName}>{floorPlan.name}</h3>
+              <Stack gap="xs" className={styles.cardBody}>
+                <Stack direction="row" align="center" justify="between">
+                  <Text variant="label" as="h3" className={styles.cardName}>
+                    {floorPlan.name}
+                  </Text>
                   {floorPlan.isActive && (
-                    <span className={styles.activeBadge}>Active</span>
+                    <Badge variant="success" size="sm">
+                      Active
+                    </Badge>
                   )}
-                </div>
-                <div className={styles.cardDetails}>
-                  <p>{floorPlan.tables?.length ?? 0} tables</p>
-                  <p>Updated {formatDate(floorPlan.updatedAt)}</p>
-                </div>
-              </div>
-            </button>
+                </Stack>
+                <Stack direction="row" gap="sm">
+                  <Text variant="caption" color="secondary">
+                    {floorPlan.tables?.length ?? 0} tables
+                  </Text>
+                  <Text variant="caption" color="secondary">
+                    Updated {formatDate(floorPlan.updatedAt)}
+                  </Text>
+                </Stack>
+              </Stack>
+            </Card>
           ))}
         </div>
       )}
-    </div>
+    </Stack>
   );
 }
