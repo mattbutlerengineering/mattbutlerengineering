@@ -14,4 +14,12 @@ export const PROJECTS: Project[] = [
     tags: ["React", "TypeScript", "Vite", "Framer Motion"],
     href: "/rialto",
   },
+  {
+    title: "Hospitality Platform",
+    description:
+      "A full-stack restaurant management app with Auth0 authentication, dark mode, " +
+      "offline-capable PWA support, and route-level code splitting. Built on the Rialto design system.",
+    tags: ["React", "Auth0", "PWA", "Fastify", "Prisma"],
+    href: "/hospitality",
+  },
 ];
