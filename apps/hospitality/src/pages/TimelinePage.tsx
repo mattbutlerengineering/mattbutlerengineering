@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
 import type { Reservation, Table, Venue, TableStatus, UpdateReservationRequest } from "@mbe/types";
+import { Alert, Badge, Button, Select, Skeleton, SkeletonGroup } from "@mbe/rialto";
+import type { SelectOption } from "@mbe/rialto";
 import { TimelineGrid } from "../components/timeline";
 import { CancelReservationDialog } from "../components/timeline/CancelReservationDialog";
 import { EditReservationDrawer } from "../components/timeline/EditReservationDrawer";
@@ -240,6 +242,11 @@ export function TimelinePage() {
     return { confirmed, pending, totalCovers, total: reservations.length };
   }, [reservations]);
 
+  const venueOptions: SelectOption[] = useMemo(
+    () => venues.map((v) => ({ value: v.id, label: v.name })),
+    [venues]
+  );
+
   return (
     <div className={styles.root}>
       {/* Header */}
@@ -249,26 +256,23 @@ export function TimelinePage() {
 
           {/* Venue selector */}
           {venues.length > 1 && (
-            <select
+            <Select
+              options={venueOptions}
               value={selectedVenueId ?? ""}
-              onChange={(e) => setSelectedVenueId(e.target.value)}
+              onChange={(v) => setSelectedVenueId(v)}
+              placeholder="Select venue"
               className={styles.venueSelect}
-            >
-              {venues.map((venue) => (
-                <option key={venue.id} value={venue.id}>
-                  {venue.name}
-                </option>
-              ))}
-            </select>
+            />
           )}
         </div>
 
         {/* Date navigation */}
         <div className={styles.dateNav}>
           <div className={styles.dateNavLeft}>
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={handlePreviousDay}
-              className={styles.navButton}
               aria-label="Previous day"
             >
               <svg
@@ -284,11 +288,12 @@ export function TimelinePage() {
                   d="M15 19l-7-7 7-7"
                 />
               </svg>
-            </button>
+            </Button>
             <div className={styles.dateLabel}>{formattedDate}</div>
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={handleNextDay}
-              className={styles.navButton}
               aria-label="Next day"
             >
               <svg
@@ -304,48 +309,40 @@ export function TimelinePage() {
                   d="M9 5l7 7-7 7"
                 />
               </svg>
-            </button>
+            </Button>
             {!isToday && (
-              <button onClick={handleToday} className={styles.todayButton}>
+              <Button variant="ghost" size="sm" onClick={handleToday}>
                 Today
-              </button>
+              </Button>
             )}
-            <button
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => setShowWalkInDialog(true)}
-              className={styles.walkInButton}
             >
               Walk-in
-            </button>
+            </Button>
           </div>
 
           {/* Stats */}
           <div className={styles.statsRow}>
             {/* Live indicator */}
-            <div className={styles.liveIndicator}>
-              <span
-                className={`${styles.liveDot} ${isConnected ? styles.liveDotConnected : styles.liveDotOffline}`}
-              />
-              <span className={isConnected ? styles.liveTextConnected : styles.liveTextOffline}>
-                {isConnected ? "Live" : "Offline"}
-              </span>
-            </div>
-            <div className={styles.statItem}>
-              Reservations:{" "}
-              <span className={styles.statValue}>{stats.total}</span>
-            </div>
-            <div className={styles.statItem}>
-              Covers:{" "}
-              <span className={styles.statValue}>{stats.totalCovers}</span>
-            </div>
-            <div>
-              <span className={styles.statConfirmed}>{stats.confirmed}</span>
-              <span className={styles.statItem}> confirmed</span>
-            </div>
+            <Badge variant={isConnected ? "success" : "neutral"} size="sm" dot>
+              {isConnected ? "Live" : "Offline"}
+            </Badge>
+            <Badge variant="neutral" size="sm">
+              {stats.total} reservations
+            </Badge>
+            <Badge variant="neutral" size="sm">
+              {stats.totalCovers} covers
+            </Badge>
+            <Badge variant="accent" size="sm">
+              {stats.confirmed} confirmed
+            </Badge>
             {stats.pending > 0 && (
-              <div>
-                <span className={styles.statPending}>{stats.pending}</span>
-                <span className={styles.statItem}> pending</span>
-              </div>
+              <Badge variant="warning" size="sm">
+                {stats.pending} pending
+              </Badge>
             )}
           </div>
         </div>
@@ -356,11 +353,16 @@ export function TimelinePage() {
         {/* Timeline */}
         <div className={styles.timelineArea}>
           {isLoading ? (
-            <div className={styles.loadingWrapper} aria-busy="true">
-              <div className={styles.spinner} aria-label="Loading" role="status" />
+            <div className={styles.loadingWrapper}>
+              <SkeletonGroup>
+                <Skeleton variant="rect" width="100%" height={40} />
+                <Skeleton variant="rect" width="100%" height={400} />
+              </SkeletonGroup>
             </div>
           ) : error ? (
-            <div className={styles.errorBox} role="alert">{error}</div>
+            <Alert variant="error" title="Failed to load timeline" dismissible onDismiss={() => setError(null)}>
+              {error}
+            </Alert>
           ) : tables.length === 0 ? (
             <div className={styles.emptyState}>
               <p className={styles.emptyStateText}>No tables configured for this venue.</p>
