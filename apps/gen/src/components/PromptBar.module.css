@@ -1,11 +1,21 @@
+.wrapper {
+  flex-shrink: 0;
+  border-block-start: 1px solid var(--rialto-border);
+  background-color: var(--rialto-surface-default);
+}
+
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-xs);
+  padding: var(--rialto-space-xs) var(--rialto-space-lg);
+}
+
 .bar {
   display: flex;
   align-items: flex-end;
   gap: var(--rialto-space-sm);
   padding: var(--rialto-space-sm) var(--rialto-space-lg);
-  border-block-start: 1px solid var(--rialto-border);
-  background-color: var(--rialto-surface-default);
-  flex-shrink: 0;
 }
 
 .input {
