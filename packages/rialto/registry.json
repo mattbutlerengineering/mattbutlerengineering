@@ -11354,6 +11354,22 @@
       ]
     },
     {
+      "name": "ErrorBoundary",
+      "description": "Catches unhandled React render errors and displays a user-friendly fallback\ninstead of crashing the entire app to a blank screen.\n\nMust be a class component — React does not support error boundaries as\nfunction components (as of React 19).",
+      "importPath": "@mbe/rialto",
+      "props": [
+        {
+          "name": "fallback",
+          "type": "ReactNode",
+          "required": false,
+          "description": "Optional custom fallback UI. When omitted, a default \"Something went wrong\" message is shown."
+        }
+      ],
+      "slots": [
+        "children"
+      ]
+    },
+    {
       "name": "Footer",
       "description": "Page footer with two layout variants.\n\n- **minimal** (default) — horizontal flex row for utility bars, kbd hints, inline links.\n- **rich** — centered column with logo, multi-column link groups, and copyright.",
       "importPath": "@mbe/rialto",
