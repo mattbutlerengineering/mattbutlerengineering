@@ -38,9 +38,29 @@ export function App({ theme, onThemeToggle }: AppProps) {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
-      <Footer variant="minimal" className={styles.footer}>
-        <span>&copy; {new Date().getFullYear()} Matt Butler Engineering</span>
-      </Footer>
+      <Footer
+        variant="rich"
+        className={styles.footer}
+        logo={<span>MBE</span>}
+        columns={[
+          {
+            title: "Projects",
+            links: [
+              { label: "Rialto Design System", href: "/rialto" },
+              { label: "Hospitality Platform", href: "/hospitality" },
+            ],
+          },
+          {
+            title: "Connect",
+            links: [
+              { label: "GitHub", href: "https://github.com/mattbutlerengineering" },
+              { label: "LinkedIn", href: "https://www.linkedin.com/in/matt-butler-66496a68/" },
+              { label: "Email", href: "mailto:mattbutlerengineering+webapp@gmail.com" },
+            ],
+          },
+        ]}
+        copyright={`\u00A9 ${new Date().getFullYear()} Matt Butler Engineering`}
+      />
     </div>
   );
 }
