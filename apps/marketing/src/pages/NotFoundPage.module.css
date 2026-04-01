@@ -17,12 +17,14 @@
 }
 
 .message {
-  font-size: var(--rialto-text-lg);
-  color: var(--rialto-text-secondary);
   margin: 0 0 var(--rialto-space-xl) 0;
 }
 
-.homeLink {
+.primaryLink {
+  text-decoration: none;
+}
+
+.suggestedLink {
   color: var(--rialto-text-secondary);
   text-decoration: none;
   font-size: var(--rialto-text-base);
@@ -34,7 +36,7 @@
   transition: color 150ms ease, border-color 150ms ease;
 }
 
-.homeLink:hover {
+.suggestedLink:hover {
   color: var(--rialto-text-primary);
   border-color: var(--rialto-border-strong);
 }
