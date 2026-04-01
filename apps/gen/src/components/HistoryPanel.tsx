@@ -1,3 +1,5 @@
+import { useState, useCallback, useMemo } from "react";
+import { Input } from "@mbe/rialto";
 import type { StoredSpec } from "../types.js";
 import { relativeTime } from "../utils/relative-time.js";
 import styles from "./HistoryPanel.module.css";
@@ -15,7 +17,7 @@ export interface HistoryPanelProps {
 
 /**
  * Left column showing the API-backed prompt history as a scrollable list.
- * Supports filtering by favorites, star toggle, and replay button.
+ * Supports filtering by favorites, search by prompt text, star toggle, and replay button.
  * Active entry is highlighted with an accent border.
  */
 export function HistoryPanel({
@@ -28,7 +30,22 @@ export function HistoryPanel({
   onToggleFavorite,
   onFilterChange,
 }: HistoryPanelProps) {
-  const filteredEntries = filter === "favorites" ? entries.filter((e) => e.isFavorite) : entries;
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const handleFilterChange = useCallback(
+    (f: "all" | "favorites") => {
+      setSearchQuery("");
+      onFilterChange(f);
+    },
+    [onFilterChange]
+  );
+
+  const filteredEntries = useMemo(() => {
+    const byTab = filter === "favorites" ? entries.filter((e) => e.isFavorite) : entries;
+    if (searchQuery.trim() === "") return byTab;
+    const query = searchQuery.trim().toLowerCase();
+    return byTab.filter((e) => e.prompt.toLowerCase().includes(query));
+  }, [entries, filter, searchQuery]);
 
   return (
     <aside className={styles.panel}>
@@ -36,7 +53,7 @@ export function HistoryPanel({
         <button
           type="button"
           className={[styles.filterTab, filter === "all" ? styles.filterTabActive : ""].join(" ")}
-          onClick={() => onFilterChange("all")}
+          onClick={() => handleFilterChange("all")}
         >
           All
         </button>
@@ -46,10 +63,24 @@ export function HistoryPanel({
             styles.filterTab,
             filter === "favorites" ? styles.filterTabActive : "",
           ].join(" ")}
-          onClick={() => onFilterChange("favorites")}
+          onClick={() => handleFilterChange("favorites")}
         >
           Favorites
         </button>
+      </div>
+
+      <div className={styles.searchBar}>
+        <Input
+          placeholder="Search specs..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className={styles.searchInput}
+        />
+        {searchQuery.trim() !== "" && (
+          <span className={styles.searchCount}>
+            {filteredEntries.length} result{filteredEntries.length !== 1 ? "s" : ""}
+          </span>
+        )}
       </div>
 
       {isLoading && entries.length === 0 ? (
