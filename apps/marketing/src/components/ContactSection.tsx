@@ -28,6 +28,7 @@ export function ContactSection() {
                   href={link.href}
                   target={link.external ? "_blank" : undefined}
                   rel={link.external ? "noopener noreferrer" : undefined}
+                  aria-label={link.external ? `${link.label} (opens in new tab)` : undefined}
                   className={styles.contactLink}
                   variants={staggerReveal.item}
                   whileHover={shouldReduceMotion ? undefined : { scale: boop.scale }}
