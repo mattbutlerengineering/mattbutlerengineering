@@ -2,14 +2,23 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
 import type { Reservation, ReservationStatus } from "@mbe/types";
+import { Alert, Badge, Card, EmptyState, Input, Skeleton, Stack, Table, Text } from "@mbe/rialto";
 import styles from "./ReservationsPage.module.css";
 
-const STATUS_BADGE_CLASS: Record<ReservationStatus, string> = {
-  PENDING: styles.badgePending,
-  CONFIRMED: styles.badgeConfirmed,
-  CANCELLED: styles.badgeCancelled,
-  COMPLETED: styles.badgeCompleted,
-  NO_SHOW: styles.badgeNoShow,
+const STATUS_VARIANT: Record<ReservationStatus, "neutral" | "accent" | "success" | "warning" | "error"> = {
+  PENDING: "warning",
+  CONFIRMED: "success",
+  CANCELLED: "error",
+  COMPLETED: "neutral",
+  NO_SHOW: "error",
+};
+
+const STATUS_LABEL: Record<ReservationStatus, string> = {
+  PENDING: "Pending",
+  CONFIRMED: "Confirmed",
+  CANCELLED: "Cancelled",
+  COMPLETED: "Completed",
+  NO_SHOW: "No Show",
 };
 
 export function ReservationsPage() {
@@ -55,71 +64,130 @@ export function ReservationsPage() {
     });
   };
 
+  type Row = Record<string, unknown>;
+  const asReservation = (row: Row) => row as unknown as Reservation;
+
+  const columns = [
+    {
+      key: "time",
+      header: "Time",
+      render: (row: Row) => {
+        const r = asReservation(row);
+        return (
+          <Text variant="body" as="span">
+            {formatTime(r.startTime)} - {formatTime(r.endTime)}
+          </Text>
+        );
+      },
+    },
+    {
+      key: "guest",
+      header: "Guest",
+      render: (row: Row) => {
+        const r = asReservation(row);
+        return (
+          <Stack gap="2xs">
+            <Text variant="label">{r.guestName ?? "Guest"}</Text>
+            {r.guestEmail && (
+              <Text variant="caption" color="secondary">
+                {r.guestEmail}
+              </Text>
+            )}
+          </Stack>
+        );
+      },
+    },
+    {
+      key: "partySize",
+      header: "Party Size",
+      render: (row: Row) => (
+        <Text variant="body" as="span">
+          {asReservation(row).partySize}
+        </Text>
+      ),
+    },
+    {
+      key: "table",
+      header: "Table",
+      render: (row: Row) => {
+        const r = asReservation(row);
+        return (
+          <Text variant="body" as="span">
+            {r.table?.name ?? r.tableId}
+          </Text>
+        );
+      },
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (row: Row) => {
+        const r = asReservation(row);
+        return (
+          <Badge variant={STATUS_VARIANT[r.status]} size="sm" dot>
+            {STATUS_LABEL[r.status]}
+          </Badge>
+        );
+      },
+    },
+    {
+      key: "notes",
+      header: "Notes",
+      render: (row: Row) => (
+        <Text variant="caption" color="secondary" truncate>
+          {asReservation(row).notes ?? "-"}
+        </Text>
+      ),
+    },
+  ];
+
   return (
-    <div className={styles.container}>
-      <div className={styles.header}>
-        <h1 className={styles.title}>Reservations</h1>
-        <input
+    <Stack gap="lg" className={styles.container}>
+      <Stack direction="row" align="center" justify="between">
+        <Text variant="display" as="h1">
+          Reservations
+        </Text>
+        <Input
           type="date"
+          label="Date"
           value={selectedDate}
           onChange={(e) => setSelectedDate(e.target.value)}
           className={styles.dateInput}
         />
-      </div>
+      </Stack>
 
       {isLoading && (
-        <div className={styles.loadingWrapper} aria-busy="true">
-          <div className={styles.spinner} aria-label="Loading" role="status" />
-        </div>
+        <Card variant="flat">
+          <Stack gap="sm" aria-busy="true">
+            <Skeleton variant="text" lines={5} width="100%" />
+          </Stack>
+        </Card>
       )}
 
-      {error && <div className={styles.errorBox} role="alert">{error}</div>}
+      {error && (
+        <Alert variant="error" title="Error loading reservations">
+          {error}
+        </Alert>
+      )}
 
       {!isLoading && !error && reservations.length === 0 && (
-        <div className={styles.emptyState}>No reservations for {selectedDate}</div>
+        <EmptyState
+          heading="No reservations"
+          description={`No reservations found for ${selectedDate}.`}
+          variant="elevated"
+        />
       )}
 
       {!isLoading && !error && reservations.length > 0 && (
-        <div className={styles.tableWrapper}>
-          <table className={styles.table}>
-            <thead className={styles.thead}>
-              <tr>
-                <th className={styles.th}>Time</th>
-                <th className={styles.th}>Guest</th>
-                <th className={styles.th}>Party Size</th>
-                <th className={styles.th}>Table</th>
-                <th className={styles.th}>Status</th>
-                <th className={styles.th}>Notes</th>
-              </tr>
-            </thead>
-            <tbody className={styles.tbody}>
-              {reservations.map((reservation) => (
-                <tr key={reservation.id}>
-                  <td className={styles.td}>
-                    {formatTime(reservation.startTime)} - {formatTime(reservation.endTime)}
-                  </td>
-                  <td className={styles.td}>
-                    <div className={styles.guestName}>{reservation.guestName ?? "Guest"}</div>
-                    {reservation.guestEmail && (
-                      <div className={styles.guestEmail}>{reservation.guestEmail}</div>
-                    )}
-                  </td>
-                  <td className={styles.td}>{reservation.partySize}</td>
-                  <td className={styles.td}>
-                    {reservation.table?.name ?? reservation.tableId}
-                  </td>
-                  <td className={styles.td}>
-                    <span className={`${styles.badge} ${STATUS_BADGE_CLASS[reservation.status]}`}>
-                      {reservation.status}
-                    </span>
-                  </td>
-                  <td className={styles.tdMuted}>{reservation.notes ?? "-"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Card variant="flat" className={styles.tableCard}>
+          <Table
+            columns={columns}
+            data={reservations as unknown as Row[]}
+            rowKey={(row) => asReservation(row).id}
+            striped
+          />
+        </Card>
       )}
-    </div>
+    </Stack>
   );
 }
