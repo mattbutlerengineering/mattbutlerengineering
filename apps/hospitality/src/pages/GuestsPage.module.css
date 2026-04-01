@@ -10,8 +10,6 @@
 }
 
 .title {
-  font-size: var(--rialto-text-2xl);
-  font-weight: var(--rialto-weight-bold);
   color: var(--rialto-text-primary);
 }
 
@@ -22,35 +20,16 @@
 }
 
 .venueSelector {
-  padding-inline: var(--rialto-space-sm);
-  padding-block: var(--rialto-space-xs);
-  border: 1px solid var(--rialto-border);
-  border-radius: var(--rialto-radius-default);
-  font-size: var(--rialto-text-sm);
-  color: var(--rialto-text-primary);
-  background: var(--rialto-surface);
+  min-width: 12rem;
 }
 
 .searchInput {
-  padding-inline: var(--rialto-space-sm);
-  padding-block: var(--rialto-space-xs);
-  border: 1px solid var(--rialto-border);
-  border-radius: var(--rialto-radius-default);
-  font-size: var(--rialto-text-sm);
-  color: var(--rialto-text-primary);
-  background: var(--rialto-surface);
   width: 16rem;
 }
 
-.searchInput:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
-}
-
 .noVenueNotice {
-  background: #fefce8;
-  color: #a16207;
+  background: var(--rialto-warning-muted);
+  color: var(--rialto-warning);
   padding: var(--rialto-space-md);
   border-radius: var(--rialto-radius-default);
   font-size: var(--rialto-text-sm);
@@ -65,22 +44,11 @@
 }
 
 .segmentCard {
-  background: var(--rialto-surface);
-  padding: var(--rialto-space-md);
-  border-radius: var(--rialto-radius-soft);
-  border: 1px solid var(--rialto-border);
-  border-inline-start: 4px solid #3b82f6;
+  border-inline-start: 4px solid var(--rialto-accent);
 }
 
 .segmentCount {
-  font-size: var(--rialto-text-2xl);
-  font-weight: var(--rialto-weight-bold);
-  color: var(--rialto-text-primary);
-}
-
-.segmentName {
-  font-size: var(--rialto-text-sm);
-  color: var(--rialto-text-secondary);
+  margin-block-end: var(--rialto-space-2xs);
 }
 
 /* Loading / error / empty states */
@@ -96,7 +64,7 @@
   height: 2rem;
   border-radius: var(--rialto-radius-round);
   border: 2px solid transparent;
-  border-block-end-color: #2563eb;
+  border-block-end-color: var(--rialto-accent);
   animation: spin 0.75s linear infinite;
 }
 
@@ -107,8 +75,8 @@
 }
 
 .errorBox {
-  background: #fef2f2;
-  color: #dc2626;
+  background: var(--rialto-error-muted);
+  color: var(--rialto-error);
   padding: var(--rialto-space-md);
   border-radius: var(--rialto-radius-default);
   margin-block-end: var(--rialto-space-md);

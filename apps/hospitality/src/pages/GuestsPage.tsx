@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
+import { Card, Input, Select, Text } from "@mbe/rialto";
+import type { SelectOption } from "@mbe/rialto";
 import type { Guest, GuestSegment, Venue } from "@mbe/types";
 import styles from "./GuestsPage.module.css";
 
@@ -74,10 +76,15 @@ export function GuestsPage() {
     return new Date(isoString).toLocaleDateString();
   };
 
+  const venueOptions: SelectOption[] = useMemo(
+    () => venues.map((v) => ({ value: v.id, label: v.name })),
+    [venues]
+  );
+
   if (!selectedVenueId) {
     return (
       <div className={styles.container}>
-        <h1 className={styles.title}>Guests</h1>
+        <Text variant="display" as="h1">Guests</Text>
         <div className={styles.noVenueNotice}>Please select a venue to view guests.</div>
       </div>
     );
@@ -86,22 +93,18 @@ export function GuestsPage() {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h1 className={styles.title}>Guests</h1>
+        <Text variant="display" as="h1">Guests</Text>
         <div className={styles.headerControls}>
           {venues.length > 1 && (
-            <select
-              value={selectedVenueId ?? ""}
-              onChange={(e) => setSelectedVenueId(e.target.value)}
+            <Select
+              options={venueOptions}
+              value={selectedVenueId ?? undefined}
+              onChange={(value) => setSelectedVenueId(value)}
+              placeholder="Select venue"
               className={styles.venueSelector}
-            >
-              {venues.map((venue) => (
-                <option key={venue.id} value={venue.id}>
-                  {venue.name}
-                </option>
-              ))}
-            </select>
+            />
           )}
-          <input
+          <Input
             type="text"
             placeholder="Search guests..."
             value={searchQuery}
@@ -115,10 +118,14 @@ export function GuestsPage() {
       {segments.length > 0 && (
         <div className={styles.segmentsGrid}>
           {segments.map((segment) => (
-            <div key={segment.name} className={styles.segmentCard}>
-              <div className={styles.segmentCount}>{segment.count}</div>
-              <div className={styles.segmentName}>{segment.name}</div>
-            </div>
+            <Card key={segment.name} variant="flat" className={styles.segmentCard}>
+              <Text variant="display" as="div" className={styles.segmentCount}>
+                {segment.count}
+              </Text>
+              <Text variant="caption" color="secondary" as="div">
+                {segment.name}
+              </Text>
+            </Card>
           ))}
         </div>
       )}
