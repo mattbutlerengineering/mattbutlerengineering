@@ -2,6 +2,16 @@ import { useRef, useEffect, useCallback, type ReactNode } from "react";
 import { Button } from "@mbe/rialto";
 import styles from "./JsonInspector.module.css";
 
+function downloadJson(content: string): void {
+  const blob = new Blob([content], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `spec-${Date.now()}.json`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
 export interface JsonInspectorProps {
   rawLines: string[];
   isStreaming: boolean;
@@ -111,18 +121,32 @@ export function JsonInspector({ rawLines, isStreaming }: JsonInspectorProps) {
     void navigator.clipboard.writeText(buildFullJson());
   }
 
+  function handleDownload() {
+    downloadJson(buildFullJson());
+  }
+
   return (
     <aside className={styles.inspector}>
       <div className={styles.toolbar}>
         <span className={styles.label}>JSON</span>
-        <Button
-          variant="ghost"
-          size="sm"
-          disabled={isStreaming || rawLines.length === 0}
-          onClick={handleCopy}
-        >
-          Copy
-        </Button>
+        <div className={styles.toolbarActions}>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={isStreaming || rawLines.length === 0}
+            onClick={handleDownload}
+          >
+            Download
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={isStreaming || rawLines.length === 0}
+            onClick={handleCopy}
+          >
+            Copy
+          </Button>
+        </div>
       </div>
 
       <div

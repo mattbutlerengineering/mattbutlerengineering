@@ -19,6 +19,12 @@
   flex-shrink: 0;
 }
 
+.toolbarActions {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+}
+
 .label {
   font-size: var(--rialto-text-xs);
   font-weight: 500;
