@@ -28,7 +28,7 @@ jobs:
 
       - name: Ping hospitality app
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://mattbutlerengineering.com/hospitality")
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://mattbutlerengineering.com/hospitality/")
           echo "hospitality: HTTP $STATUS"
           if [ "$STATUS" != "200" ]; then
             echo "::error::Hospitality app returned HTTP $STATUS (expected 200)"
@@ -37,7 +37,7 @@ jobs:
 
       - name: Ping rialto showcase
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://mattbutlerengineering.com/rialto")
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://mattbutlerengineering.com/rialto/")
           echo "rialto: HTTP $STATUS"
           if [ "$STATUS" != "200" ]; then
             echo "::error::Rialto showcase returned HTTP $STATUS (expected 200)"
