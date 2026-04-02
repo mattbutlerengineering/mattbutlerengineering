@@ -42,6 +42,23 @@
   font-weight: 500;
 }
 
+.searchBar {
+  padding: var(--rialto-space-xs) var(--rialto-space-xs) 0;
+  flex-shrink: 0;
+}
+
+.searchInput {
+  font-size: var(--rialto-text-xs);
+}
+
+.searchCount {
+  display: block;
+  padding-block-start: var(--rialto-space-xs);
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-tertiary);
+  font-family: var(--rialto-font-sans);
+}
+
 .empty {
   margin: auto;
   padding: var(--rialto-space-lg);
