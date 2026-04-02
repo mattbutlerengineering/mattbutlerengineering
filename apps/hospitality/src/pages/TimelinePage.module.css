@@ -20,23 +20,6 @@
   margin-block-end: var(--rialto-space-md);
 }
 
-.title {
-  font-size: var(--rialto-text-2xl);
-  font-weight: var(--rialto-weight-bold);
-  color: var(--rialto-text-primary);
-}
-
-/* Venue selector */
-.venueSelect {
-  padding-inline: var(--rialto-space-sm);
-  padding-block: var(--rialto-space-xs);
-  border: 1px solid var(--rialto-border);
-  border-radius: var(--rialto-radius-default);
-  font-size: var(--rialto-text-sm);
-  color: var(--rialto-text-primary);
-  background: var(--rialto-surface);
-}
-
 /* Date navigation row */
 .dateNav {
   display: flex;
@@ -110,11 +93,11 @@
 .liveDot {
   width: 0.5rem;
   height: 0.5rem;
-  border-radius: 9999px;
+  border-radius: var(--rialto-radius-round);
 }
 
 .liveDotConnected {
-  background: #22c55e;
+  background: var(--rialto-success);
   animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
@@ -133,7 +116,7 @@
 }
 
 .liveTextConnected {
-  color: #16a34a;
+  color: var(--rialto-success);
 }
 
 .liveTextOffline {
@@ -151,12 +134,12 @@
 
 .statConfirmed {
   font-weight: var(--rialto-weight-medium);
-  color: #2563eb;
+  color: var(--rialto-accent);
 }
 
 .statPending {
   font-weight: var(--rialto-weight-medium);
-  color: #ca8a04;
+  color: var(--rialto-warning);
 }
 
 /* Main content area */
@@ -184,9 +167,9 @@
 .spinner {
   width: 2rem;
   height: 2rem;
-  border-radius: 9999px;
+  border-radius: var(--rialto-radius-round);
   border: 2px solid transparent;
-  border-block-end-color: #2563eb;
+  border-block-end-color: var(--rialto-accent);
   animation: spin 0.75s linear infinite;
 }
 
@@ -197,8 +180,8 @@
 }
 
 .errorBox {
-  background: #fef2f2;
-  color: #dc2626;
+  background: var(--rialto-error-muted);
+  color: var(--rialto-error);
   padding: var(--rialto-space-md);
   border-radius: var(--rialto-radius-default);
   font-size: var(--rialto-text-sm);
@@ -304,32 +287,32 @@
   padding-block: 0.125rem;
   font-size: var(--rialto-text-xs);
   font-weight: var(--rialto-weight-medium);
-  border-radius: 9999px;
+  border-radius: var(--rialto-radius-round);
 }
 
 .statusConfirmed {
-  background: #dbeafe;
-  color: #1e40af;
+  background: color-mix(in srgb, var(--rialto-accent) 15%, transparent);
+  color: var(--rialto-accent);
 }
 
 .statusPending {
-  background: #fef9c3;
-  color: #92400e;
+  background: var(--rialto-warning-muted);
+  color: var(--rialto-warning);
 }
 
 .statusCompleted {
-  background: #dcfce7;
-  color: #166534;
+  background: var(--rialto-success-muted);
+  color: var(--rialto-success);
 }
 
 .statusCancelled {
-  background: #f3f4f6;
-  color: #4b5563;
+  background: var(--rialto-surface-recessed);
+  color: var(--rialto-text-secondary);
 }
 
 .statusNoShow {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--rialto-error-muted);
+  color: var(--rialto-error);
 }
 
 /* Action buttons */
@@ -346,8 +329,8 @@
   padding-inline: var(--rialto-space-md);
   padding-block: var(--rialto-space-xs);
   font-size: var(--rialto-text-sm);
-  background: #2563eb;
-  color: #ffffff;
+  background: var(--rialto-accent);
+  color: var(--rialto-text-on-accent);
   border: none;
   border-radius: var(--rialto-radius-default);
   cursor: pointer;
@@ -355,7 +338,8 @@
 }
 
 .actionButtonPrimary:hover {
-  background: #1d4ed8;
+  background: var(--rialto-accent);
+  filter: brightness(0.9);
 }
 
 .actionButtonSeat {
@@ -364,14 +348,14 @@
   padding-block: var(--rialto-space-xs);
   font-size: var(--rialto-text-sm);
   background: none;
-  border: 1px solid #16a34a;
-  color: #16a34a;
+  border: 1px solid var(--rialto-success);
+  color: var(--rialto-success);
   border-radius: var(--rialto-radius-default);
   cursor: pointer;
 }
 
 .actionButtonSeat:hover {
-  background: #f0fdf4;
+  background: var(--rialto-success-muted);
 }
 
 .actionButtonCancel {
@@ -381,11 +365,52 @@
   font-size: var(--rialto-text-sm);
   background: none;
   border: none;
-  color: #dc2626;
+  color: var(--rialto-error);
   border-radius: var(--rialto-radius-default);
   cursor: pointer;
 }
 
 .actionButtonCancel:hover {
-  background: #fef2f2;
+  background: var(--rialto-error-muted);
+}
+
+/* ── Mobile responsive breakpoints ─────────────── */
+@media (max-width: 768px) {
+  /* Hide sidebar on mobile — details shown in Drawer instead */
+  .sidebar {
+    display: none;
+  }
+
+  /* Compact header */
+  .headerTop {
+    margin-block-end: var(--rialto-space-xs);
+  }
+
+  /* Stack date nav vertically */
+  .dateNav {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--rialto-space-xs);
+  }
+
+  .dateNavLeft {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .dateLabel {
+    font-size: var(--rialto-text-base);
+  }
+
+  /* Compact stats row — show only total + live indicator */
+  .statsRow {
+    justify-content: center;
+    gap: var(--rialto-space-sm);
+    flex-wrap: wrap;
+  }
+
+  /* Reduce timeline area padding on mobile */
+  .timelineArea {
+    padding: var(--rialto-space-xs);
+  }
 }

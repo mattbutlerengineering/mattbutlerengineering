@@ -5,12 +5,88 @@
   background-color: var(--rialto-surface-default);
 }
 
+/* ── Logo group ─────────────────────────── */
+
+.logoGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+}
+
+.logoButton {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.logoButton:hover .logoText {
+  color: var(--rialto-accent);
+}
+
+.logoAccent {
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-accent);
+  line-height: 1;
+}
+
 .logoText {
   font-size: var(--rialto-text-sm);
   font-weight: 500;
   color: var(--rialto-text-primary);
   font-family: var(--rialto-font-sans);
+  transition: color 150ms var(--rialto-ease-precision);
 }
+
+.shortcutHint {
+  opacity: 0.5;
+}
+
+/* ── Panel toggle buttons ─────────────── */
+
+.panelToggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 32px;
+  block-size: 32px;
+  padding: 0;
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-surface-default);
+  color: var(--rialto-text-secondary);
+  font-size: var(--rialto-text-sm);
+  font-family: var(--rialto-font-sans);
+  cursor: pointer;
+  transition:
+    background-color 150ms var(--rialto-ease-precision),
+    color 150ms var(--rialto-ease-precision),
+    border-color 150ms var(--rialto-ease-precision);
+}
+
+.panelToggle:hover {
+  background-color: var(--rialto-surface-elevated);
+  color: var(--rialto-text-primary);
+}
+
+.panelToggleActive {
+  background-color: var(--rialto-accent);
+  color: var(--rialto-surface-default);
+  border-color: var(--rialto-accent);
+}
+
+.panelToggleActive:hover {
+  background-color: var(--rialto-accent);
+  color: var(--rialto-surface-default);
+  opacity: 0.9;
+}
+
+/* ── Actions slot ─────────────────────── */
 
 .actions {
   display: flex;
@@ -18,9 +94,19 @@
   gap: var(--rialto-space-sm);
 }
 
+/* ── Content area ─────────────────────── */
+
 .content {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+/* ── Responsive: hide shortcut on small screens ── */
+
+@media (max-width: 767px) {
+  .shortcutHint {
+    display: none;
+  }
 }

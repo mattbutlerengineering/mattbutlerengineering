@@ -1,4 +1,5 @@
 import type { TimeSlot } from "@mbe/types";
+import { Button, Alert, Skeleton, SkeletonGroup, EmptyState } from "@mbe/rialto";
 import styles from "./TimeSlotPicker.module.css";
 
 export interface TimeSlotPickerProps {
@@ -11,6 +12,8 @@ export interface TimeSlotPickerProps {
   date: string;
   partySize: number;
 }
+
+const SKELETON_SLOT_COUNT = 8;
 
 export function TimeSlotPicker({
   slots,
@@ -56,8 +59,10 @@ export function TimeSlotPicker({
       } else {
         period = "late";
       }
-      groups[period].push(slot);
-      return groups;
+      return {
+        ...groups,
+        [period]: [...groups[period], slot],
+      };
     },
     { lunch: [] as TimeSlot[], dinner: [] as TimeSlot[], late: [] as TimeSlot[] }
   );
@@ -70,19 +75,29 @@ export function TimeSlotPicker({
 
   if (isLoading) {
     return (
-      <div className={styles.loadingContainer}>
-        <div className={styles.spinner} />
-      </div>
+      <SkeletonGroup className={styles.loadingContainer}>
+        <div className={styles.slotGrid}>
+          {Array.from({ length: SKELETON_SLOT_COUNT }, (_, i) => (
+            <Skeleton key={i} variant="rect" width="100%" height={38} />
+          ))}
+        </div>
+      </SkeletonGroup>
     );
   }
 
   if (error) {
     return (
       <div className={styles.errorContainer}>
-        <div className={styles.errorMessage}>{error}</div>
-        <button onClick={onBack} className={styles.backLink}>
-          &larr; Change date or party size
-        </button>
+        <Alert
+          variant="error"
+          actions={
+            <Button variant="ghost" size="sm" onClick={onBack} type="button">
+              &larr; Change date or party size
+            </Button>
+          }
+        >
+          {error}
+        </Alert>
       </div>
     );
   }
@@ -90,9 +105,9 @@ export function TimeSlotPicker({
   return (
     <div className={styles.container}>
       <div className={styles.topBar}>
-        <button onClick={onBack} className={styles.backLink}>
+        <Button variant="ghost" size="sm" onClick={onBack} type="button">
           &larr; Back
-        </button>
+        </Button>
         <div className={styles.summaryRight}>
           <div className={styles.summaryDate}>{formattedDate}</div>
           <div className={styles.summaryParty}>
@@ -102,10 +117,10 @@ export function TimeSlotPicker({
       </div>
 
       {slots.length === 0 ? (
-        <div className={styles.emptyState}>
-          <p>No available times for this date.</p>
-          <p className={styles.emptyStateNote}>Try a different date or party size.</p>
-        </div>
+        <EmptyState
+          heading="No available times"
+          description="Try a different date or party size."
+        />
       ) : (
         <div className={styles.periods}>
           {(["lunch", "dinner", "late"] as const).map((period) => {
@@ -115,10 +130,16 @@ export function TimeSlotPicker({
             return (
               <div key={period}>
                 <h3 className={styles.periodLabel}>{periodLabels[period]}</h3>
-                <div className={styles.slotGrid}>
+                <div
+                  className={styles.slotGrid}
+                  role="listbox"
+                  aria-label={`Available ${periodLabels[period].toLowerCase()} times`}
+                >
                   {periodSlots.map((slot) => (
                     <button
                       key={slot.time}
+                      role="option"
+                      aria-selected={selectedSlot?.time === slot.time}
                       onClick={() => onSelectSlot(slot)}
                       className={[
                         styles.slot,

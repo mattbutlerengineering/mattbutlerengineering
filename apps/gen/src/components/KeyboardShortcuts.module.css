@@ -1,0 +1,243 @@
+/* ── Overlay ──────────────────────────── */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--rialto-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--rialto-space-lg);
+  z-index: 100;
+  animation: fadeIn 150ms var(--rialto-ease-smooth) both;
+}
+
+/* ── Panel ────────────────────────────── */
+
+.panel {
+  inline-size: 100%;
+  max-inline-size: 480px;
+  max-block-size: calc(100dvh - var(--rialto-space-4xl));
+  border-radius: var(--rialto-radius-soft);
+  background: var(--rialto-surface-elevated);
+  box-shadow: var(--rialto-shadow-lg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: scaleIn 200ms var(--rialto-ease-smooth) both;
+}
+
+/* ── Header ──────────────────────────── */
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--rialto-space-md);
+  padding: var(--rialto-space-md) var(--rialto-space-lg);
+  border-block-end: 1px solid var(--rialto-border);
+  flex-shrink: 0;
+}
+
+.title {
+  font-family: var(--rialto-font-display);
+  font-size: var(--rialto-text-lg);
+  font-weight: var(--rialto-weight-medium);
+  letter-spacing: var(--rialto-tracking-tight);
+  color: var(--rialto-text-primary);
+  margin: 0;
+}
+
+.closeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 28px;
+  block-size: 28px;
+  padding: 0;
+  border: none;
+  border-radius: var(--rialto-radius-default);
+  background: none;
+  color: var(--rialto-text-tertiary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background 150ms var(--rialto-ease-precision),
+    color 150ms var(--rialto-ease-precision);
+}
+
+.closeButton:hover {
+  background: var(--rialto-surface-recessed);
+  color: var(--rialto-text-primary);
+}
+
+.closeButton:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+}
+
+/* ── Body ────────────────────────────── */
+
+.body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--rialto-space-md) var(--rialto-space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-lg);
+}
+
+/* ── Section ─────────────────────────── */
+
+.sectionTitle {
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-xs);
+  font-weight: 500;
+  color: var(--rialto-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 var(--rialto-space-sm) 0;
+}
+
+.shortcutList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+}
+
+/* ── Shortcut row ────────────────────── */
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--rialto-space-md);
+  padding: var(--rialto-space-xs) 0;
+}
+
+.label {
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+}
+
+.keys {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+  flex-shrink: 0;
+}
+
+/* ── Footer hint ─────────────────────── */
+
+.footer {
+  padding: var(--rialto-space-sm) var(--rialto-space-lg);
+  border-block-start: 1px solid var(--rialto-border);
+  flex-shrink: 0;
+}
+
+.footerText {
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-tertiary);
+  text-align: center;
+  margin: 0;
+}
+
+/* ── Help button (fixed bottom-right) ── */
+
+.helpButton {
+  position: fixed;
+  inset-block-end: var(--rialto-space-lg);
+  inset-inline-end: var(--rialto-space-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 32px;
+  block-size: 32px;
+  padding: 0;
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-round);
+  background: var(--rialto-surface-elevated);
+  color: var(--rialto-text-secondary);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: var(--rialto-shadow-sm);
+  z-index: 50;
+  transition:
+    background-color 150ms var(--rialto-ease-precision),
+    color 150ms var(--rialto-ease-precision),
+    border-color 150ms var(--rialto-ease-precision),
+    box-shadow 150ms var(--rialto-ease-precision);
+}
+
+.helpButton:hover {
+  background-color: var(--rialto-surface-recessed);
+  color: var(--rialto-text-primary);
+  box-shadow: var(--rialto-shadow-md);
+}
+
+.helpButton:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+}
+
+/* ── Animations ──────────────────────── */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ── Responsive: mobile ──────────────── */
+
+@media (max-width: 480px) {
+  .overlay {
+    padding: var(--rialto-space-sm);
+  }
+
+  .panel {
+    max-block-size: calc(100dvh - var(--rialto-space-lg));
+  }
+
+  .body {
+    padding: var(--rialto-space-sm) var(--rialto-space-md);
+  }
+}
+
+/* ── Hide help button on mobile ──────── */
+
+@media (max-width: 767px) {
+  .helpButton {
+    display: none;
+  }
+}
+
+/* ── Reduced motion ──────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay {
+    animation: none;
+  }
+
+  .panel {
+    animation: none;
+  }
+}

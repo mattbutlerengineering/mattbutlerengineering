@@ -1,16 +1,62 @@
+/* ── Entry animation ──────────────────────── */
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(var(--rialto-space-md));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Checkmark draw animation ────────────── */
+@keyframes drawCheck {
+  from {
+    stroke-dashoffset: 30;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ── Accent burst animation ──────────────── */
+@keyframes burstScale {
+  0% {
+    transform: scale(0);
+    opacity: 0.8;
+  }
+  60% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+/* ── Container ───────────────────────────── */
 .container {
   text-align: center;
   display: flex;
   flex-direction: column;
   gap: var(--rialto-space-lg);
+  animation: fadeSlideUp 0.5s var(--rialto-ease-smooth) both;
 }
 
-/* Success icon */
+@media (prefers-reduced-motion: reduce) {
+  .container {
+    animation: none;
+  }
+}
+
+/* ── Success icon ────────────────────────── */
 .iconWrapper {
+  position: relative;
   inline-size: 4rem;
   block-size: 4rem;
-  background: #dcfce7;
-  border-radius: 50%;
+  background: var(--rialto-success-muted);
+  border-radius: var(--rialto-radius-round);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -20,23 +66,72 @@
 .icon {
   inline-size: 2rem;
   block-size: 2rem;
-  color: #16a34a;
+  color: var(--rialto-success);
 }
 
-/* Heading area */
-.heading {
-  font-size: var(--rialto-text-2xl);
-  font-weight: var(--rialto-weight-bold);
-  color: var(--rialto-text-primary);
-  margin: 0 0 var(--rialto-space-xs);
+.checkPath {
+  stroke-dasharray: 30;
+  stroke-dashoffset: 30;
+  animation: drawCheck 0.5s var(--rialto-ease-smooth) 0.25s forwards;
 }
 
-.subheading {
-  color: var(--rialto-text-secondary);
-  margin: 0;
+@media (prefers-reduced-motion: reduce) {
+  .checkPath {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
 }
 
-/* Details card */
+/* ── Accent burst dots ───────────────────── */
+.accentBurst {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.burstDot {
+  position: absolute;
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  border-radius: var(--rialto-radius-round);
+  background: var(--rialto-accent);
+  animation: burstScale 0.8s var(--rialto-ease-smooth) 0.3s both;
+}
+
+.burstDot:nth-child(1) {
+  inset-block-start: -0.25rem;
+  inset-inline-start: 50%;
+}
+
+.burstDot:nth-child(2) {
+  inset-block-end: -0.25rem;
+  inset-inline-start: 50%;
+  animation-delay: 0.4s;
+}
+
+.burstDot:nth-child(3) {
+  inset-inline-start: -0.25rem;
+  inset-block-start: 50%;
+  animation-delay: 0.5s;
+}
+
+.burstDot:nth-child(4) {
+  inset-inline-end: -0.25rem;
+  inset-block-start: 50%;
+  animation-delay: 0.6s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .burstDot {
+    animation: none;
+    display: none;
+  }
+}
+
+/* ── Details card ────────────────────────── */
 .detailsCard {
   background: var(--rialto-surface-recessed);
   padding: var(--rialto-space-lg);
@@ -45,8 +140,6 @@
 }
 
 .detailsTitle {
-  font-weight: var(--rialto-weight-medium);
-  color: var(--rialto-text-primary);
   margin-block-end: var(--rialto-space-md);
 }
 
@@ -56,7 +149,6 @@
   gap: var(--rialto-space-sm);
   margin: 0;
   padding: 0;
-  font-size: var(--rialto-text-sm);
 }
 
 .detailRow {
@@ -64,46 +156,13 @@
   justify-content: space-between;
 }
 
-.detailLabel {
-  color: var(--rialto-text-secondary);
-}
-
-.detailValue {
-  color: var(--rialto-text-primary);
-  font-family: monospace;
-}
-
-.detailValueNormal {
-  color: var(--rialto-text-primary);
-}
-
-/* Contact note */
-.contactNote {
-  font-size: var(--rialto-text-sm);
-  color: var(--rialto-text-secondary);
-}
-
-/* Actions */
+/* ── Actions ─────────────────────────────── */
 .actions {
   display: flex;
   flex-direction: column;
   gap: var(--rialto-space-sm);
 }
 
-.secondaryButton {
+.fullWidth {
   inline-size: 100%;
-  padding-block: var(--rialto-space-sm);
-  padding-inline: var(--rialto-space-md);
-  border: 1px solid var(--rialto-border);
-  border-radius: var(--rialto-radius-default);
-  font-size: var(--rialto-text-sm);
-  font-weight: var(--rialto-weight-medium);
-  color: var(--rialto-text-primary);
-  background: var(--rialto-surface);
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-}
-
-.secondaryButton:hover {
-  background: var(--rialto-surface-recessed);
 }

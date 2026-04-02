@@ -1,15 +1,33 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
+import { Drawer, Select } from "@mbe/rialto";
 import type { Reservation, Table, Venue, TableStatus, UpdateReservationRequest } from "@mbe/types";
-import { Alert, Badge, Button, Select, Skeleton, SkeletonGroup } from "@mbe/rialto";
-import type { SelectOption } from "@mbe/rialto";
 import { TimelineGrid } from "../components/timeline";
 import { CancelReservationDialog } from "../components/timeline/CancelReservationDialog";
 import { EditReservationDrawer } from "../components/timeline/EditReservationDrawer";
 import { WalkInDialog } from "../components/timeline/WalkInDialog";
 import { useReservationEvents } from "../hooks/useReservationEvents";
+import { PageHeader } from "../components/PageHeader";
 import styles from "./TimelinePage.module.css";
+
+const MOBILE_BREAKPOINT = "(max-width: 768px)";
+
+function useIsMobile(): boolean {
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia(MOBILE_BREAKPOINT).matches : false
+  );
+
+  useEffect(() => {
+    const mql = window.matchMedia(MOBILE_BREAKPOINT);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, []);
+
+  return isMobile;
+}
 
 function getStatusBadgeClass(status: Reservation["status"]): string {
   switch (status) {
@@ -26,6 +44,119 @@ function getStatusBadgeClass(status: Reservation["status"]): string {
   }
 }
 
+interface ReservationDetailsProps {
+  reservation: Reservation;
+  onEdit: () => void;
+  onSeat: () => void;
+  onCancel: () => void;
+}
+
+function ReservationDetails({ reservation, onEdit, onSeat, onCancel }: ReservationDetailsProps) {
+  return (
+    <div className={styles.detailsStack}>
+      <div>
+        <span className={styles.detailLabel}>Guest</span>
+        <div className={styles.detailValue}>
+          {reservation.guestName || "Guest"}
+        </div>
+      </div>
+
+      {reservation.guestEmail && (
+        <div>
+          <span className={styles.detailLabel}>Email</span>
+          <div className={styles.detailValueSecondary}>
+            {reservation.guestEmail}
+          </div>
+        </div>
+      )}
+
+      {reservation.guestPhone && (
+        <div>
+          <span className={styles.detailLabel}>Phone</span>
+          <div className={styles.detailValueSecondary}>
+            {reservation.guestPhone}
+          </div>
+        </div>
+      )}
+
+      <div>
+        <span className={styles.detailLabel}>Time</span>
+        <div className={styles.detailValue}>
+          {new Date(reservation.startTime).toLocaleTimeString("en-US", {
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+          })}
+          {" - "}
+          {new Date(reservation.endTime).toLocaleTimeString("en-US", {
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+          })}
+        </div>
+      </div>
+
+      <div>
+        <span className={styles.detailLabel}>Party Size</span>
+        <div className={styles.detailValue}>
+          {reservation.partySize}{" "}
+          {reservation.partySize === 1 ? "guest" : "guests"}
+        </div>
+      </div>
+
+      <div>
+        <span className={styles.detailLabel}>Table</span>
+        <div className={styles.detailValue}>
+          {reservation.table?.tableNumber ||
+            reservation.table?.name ||
+            "Unassigned"}
+        </div>
+      </div>
+
+      <div>
+        <span className={styles.detailLabel}>Status</span>
+        <span
+          className={`${styles.statusBadge} ${getStatusBadgeClass(reservation.status)}`}
+        >
+          {reservation.status}
+        </span>
+      </div>
+
+      {reservation.notes && (
+        <div>
+          <span className={styles.detailLabel}>Notes</span>
+          <div className={styles.notesValue}>{reservation.notes}</div>
+        </div>
+      )}
+
+      <div className={styles.actionsDivider}>
+        <button
+          className={styles.actionButtonPrimary}
+          onClick={onEdit}
+        >
+          Edit Reservation
+        </button>
+        {reservation.status === "CONFIRMED" && (
+          <button
+            className={styles.actionButtonSeat}
+            onClick={onSeat}
+          >
+            Seat Guest
+          </button>
+        )}
+        {reservation.status !== "CANCELLED" && (
+          <button
+            className={styles.actionButtonCancel}
+            onClick={onCancel}
+          >
+            Cancel Reservation
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function TimelinePage() {
   const { accessToken } = useAuth();
 
@@ -33,9 +164,8 @@ export function TimelinePage() {
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null);
   const [tables, setTables] = useState<Table[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [selectedDate, setSelectedDate] = useState(() => {
-    return new Date().toISOString().split("T")[0];
-  });
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedDate = searchParams.get("date") ?? new Date().toISOString().split("T")[0];
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
@@ -43,6 +173,7 @@ export function TimelinePage() {
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showEditDrawer, setShowEditDrawer] = useState(false);
   const [showWalkInDialog, setShowWalkInDialog] = useState(false);
+  const isMobile = useIsMobile();
 
   const api = useMemo(
     () =>
@@ -154,20 +285,34 @@ export function TimelinePage() {
   }, [api, selectedVenueId, selectedDate]);
 
   const handlePreviousDay = useCallback(() => {
-    const date = new Date(selectedDate);
-    date.setDate(date.getDate() - 1);
-    setSelectedDate(date.toISOString().split("T")[0]);
-  }, [selectedDate]);
+    const prev = new Date(selectedDate);
+    prev.setDate(prev.getDate() - 1);
+    const newDate = prev.toISOString().split("T")[0];
+    setSearchParams((p) => {
+      const next = new URLSearchParams(p);
+      next.set("date", newDate);
+      return next;
+    });
+  }, [selectedDate, setSearchParams]);
 
   const handleNextDay = useCallback(() => {
-    const date = new Date(selectedDate);
-    date.setDate(date.getDate() + 1);
-    setSelectedDate(date.toISOString().split("T")[0]);
-  }, [selectedDate]);
+    const next = new Date(selectedDate);
+    next.setDate(next.getDate() + 1);
+    const newDate = next.toISOString().split("T")[0];
+    setSearchParams((p) => {
+      const params = new URLSearchParams(p);
+      params.set("date", newDate);
+      return params;
+    });
+  }, [selectedDate, setSearchParams]);
 
   const handleToday = useCallback(() => {
-    setSelectedDate(new Date().toISOString().split("T")[0]);
-  }, []);
+    setSearchParams((p) => {
+      const next = new URLSearchParams(p);
+      next.set("date", new Date().toISOString().split("T")[0]);
+      return next;
+    });
+  }, [setSearchParams]);
 
   const handleReservationClick = useCallback((reservation: Reservation) => {
     setSelectedReservation(reservation);
@@ -242,7 +387,7 @@ export function TimelinePage() {
     return { confirmed, pending, totalCovers, total: reservations.length };
   }, [reservations]);
 
-  const venueOptions: SelectOption[] = useMemo(
+  const venueOptions = useMemo(
     () => venues.map((v) => ({ value: v.id, label: v.name })),
     [venues]
   );
@@ -252,16 +397,15 @@ export function TimelinePage() {
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.headerTop}>
-          <h1 className={styles.title}>Timeline</h1>
+          <PageHeader title="Timeline" description="Real-time reservation view" />
 
           {/* Venue selector */}
           {venues.length > 1 && (
             <Select
+              label="Venue"
               options={venueOptions}
               value={selectedVenueId ?? ""}
-              onChange={(v) => setSelectedVenueId(v)}
-              placeholder="Select venue"
-              className={styles.venueSelect}
+              onChange={(value) => setSelectedVenueId(value)}
             />
           )}
         </div>
@@ -269,10 +413,9 @@ export function TimelinePage() {
         {/* Date navigation */}
         <div className={styles.dateNav}>
           <div className={styles.dateNavLeft}>
-            <Button
-              variant="ghost"
-              size="sm"
+            <button
               onClick={handlePreviousDay}
+              className={styles.navButton}
               aria-label="Previous day"
             >
               <svg
@@ -288,12 +431,11 @@ export function TimelinePage() {
                   d="M15 19l-7-7 7-7"
                 />
               </svg>
-            </Button>
+            </button>
             <div className={styles.dateLabel}>{formattedDate}</div>
-            <Button
-              variant="ghost"
-              size="sm"
+            <button
               onClick={handleNextDay}
+              className={styles.navButton}
               aria-label="Next day"
             >
               <svg
@@ -309,40 +451,48 @@ export function TimelinePage() {
                   d="M9 5l7 7-7 7"
                 />
               </svg>
-            </Button>
+            </button>
             {!isToday && (
-              <Button variant="ghost" size="sm" onClick={handleToday}>
+              <button onClick={handleToday} className={styles.todayButton}>
                 Today
-              </Button>
+              </button>
             )}
-            <Button
-              variant="secondary"
-              size="sm"
+            <button
               onClick={() => setShowWalkInDialog(true)}
+              className={styles.walkInButton}
             >
               Walk-in
-            </Button>
+            </button>
           </div>
 
           {/* Stats */}
           <div className={styles.statsRow}>
             {/* Live indicator */}
-            <Badge variant={isConnected ? "success" : "neutral"} size="sm" dot>
-              {isConnected ? "Live" : "Offline"}
-            </Badge>
-            <Badge variant="neutral" size="sm">
-              {stats.total} reservations
-            </Badge>
-            <Badge variant="neutral" size="sm">
-              {stats.totalCovers} covers
-            </Badge>
-            <Badge variant="accent" size="sm">
-              {stats.confirmed} confirmed
-            </Badge>
+            <div className={styles.liveIndicator}>
+              <span
+                className={`${styles.liveDot} ${isConnected ? styles.liveDotConnected : styles.liveDotOffline}`}
+              />
+              <span className={isConnected ? styles.liveTextConnected : styles.liveTextOffline}>
+                {isConnected ? "Live" : "Offline"}
+              </span>
+            </div>
+            <div className={styles.statItem}>
+              Reservations:{" "}
+              <span className={styles.statValue}>{stats.total}</span>
+            </div>
+            <div className={styles.statItem}>
+              Covers:{" "}
+              <span className={styles.statValue}>{stats.totalCovers}</span>
+            </div>
+            <div>
+              <span className={styles.statConfirmed}>{stats.confirmed}</span>
+              <span className={styles.statItem}> confirmed</span>
+            </div>
             {stats.pending > 0 && (
-              <Badge variant="warning" size="sm">
-                {stats.pending} pending
-              </Badge>
+              <div>
+                <span className={styles.statPending}>{stats.pending}</span>
+                <span className={styles.statItem}> pending</span>
+              </div>
             )}
           </div>
         </div>
@@ -353,16 +503,11 @@ export function TimelinePage() {
         {/* Timeline */}
         <div className={styles.timelineArea}>
           {isLoading ? (
-            <div className={styles.loadingWrapper}>
-              <SkeletonGroup>
-                <Skeleton variant="rect" width="100%" height={40} />
-                <Skeleton variant="rect" width="100%" height={400} />
-              </SkeletonGroup>
+            <div className={styles.loadingWrapper} aria-busy="true">
+              <div className={styles.spinner} aria-label="Loading" role="status" />
             </div>
           ) : error ? (
-            <Alert variant="error" title="Failed to load timeline" dismissible onDismiss={() => setError(null)}>
-              {error}
-            </Alert>
+            <div className={styles.errorBox} role="alert">{error}</div>
           ) : tables.length === 0 ? (
             <div className={styles.emptyState}>
               <p className={styles.emptyStateText}>No tables configured for this venue.</p>
@@ -380,7 +525,7 @@ export function TimelinePage() {
           )}
         </div>
 
-        {/* Sidebar - Reservation details */}
+        {/* Sidebar - Reservation details (hidden on mobile via CSS) */}
         {selectedReservation && (
           <div className={styles.sidebar}>
             <div className={styles.sidebarHeader}>
@@ -406,110 +551,35 @@ export function TimelinePage() {
               </button>
             </div>
 
-            <div className={styles.detailsStack}>
-              <div>
-                <span className={styles.detailLabel}>Guest</span>
-                <div className={styles.detailValue}>
-                  {selectedReservation.guestName || "Guest"}
-                </div>
-              </div>
-
-              {selectedReservation.guestEmail && (
-                <div>
-                  <span className={styles.detailLabel}>Email</span>
-                  <div className={styles.detailValueSecondary}>
-                    {selectedReservation.guestEmail}
-                  </div>
-                </div>
-              )}
-
-              {selectedReservation.guestPhone && (
-                <div>
-                  <span className={styles.detailLabel}>Phone</span>
-                  <div className={styles.detailValueSecondary}>
-                    {selectedReservation.guestPhone}
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <span className={styles.detailLabel}>Time</span>
-                <div className={styles.detailValue}>
-                  {new Date(selectedReservation.startTime).toLocaleTimeString("en-US", {
-                    hour: "numeric",
-                    minute: "2-digit",
-                    hour12: true,
-                  })}
-                  {" - "}
-                  {new Date(selectedReservation.endTime).toLocaleTimeString("en-US", {
-                    hour: "numeric",
-                    minute: "2-digit",
-                    hour12: true,
-                  })}
-                </div>
-              </div>
-
-              <div>
-                <span className={styles.detailLabel}>Party Size</span>
-                <div className={styles.detailValue}>
-                  {selectedReservation.partySize}{" "}
-                  {selectedReservation.partySize === 1 ? "guest" : "guests"}
-                </div>
-              </div>
-
-              <div>
-                <span className={styles.detailLabel}>Table</span>
-                <div className={styles.detailValue}>
-                  {selectedReservation.table?.tableNumber ||
-                    selectedReservation.table?.name ||
-                    "Unassigned"}
-                </div>
-              </div>
-
-              <div>
-                <span className={styles.detailLabel}>Status</span>
-                <span
-                  className={`${styles.statusBadge} ${getStatusBadgeClass(selectedReservation.status)}`}
-                >
-                  {selectedReservation.status}
-                </span>
-              </div>
-
-              {selectedReservation.notes && (
-                <div>
-                  <span className={styles.detailLabel}>Notes</span>
-                  <div className={styles.notesValue}>{selectedReservation.notes}</div>
-                </div>
-              )}
-
-              <div className={styles.actionsDivider}>
-                <button
-                  className={styles.actionButtonPrimary}
-                  onClick={() => setShowEditDrawer(true)}
-                >
-                  Edit Reservation
-                </button>
-                {selectedReservation.status === "CONFIRMED" && (
-                  <button
-                    className={styles.actionButtonSeat}
-                    onClick={() => handleSeat(selectedReservation)}
-                  >
-                    Seat Guest
-                  </button>
-                )}
-                {selectedReservation.status !== "CANCELLED" && (
-                  <button
-                    className={styles.actionButtonCancel}
-                    onClick={() => setShowCancelDialog(true)}
-                  >
-                    Cancel Reservation
-                  </button>
-                )}
-              </div>
-            </div>
+            <ReservationDetails
+              reservation={selectedReservation}
+              onEdit={() => setShowEditDrawer(true)}
+              onSeat={() => handleSeat(selectedReservation)}
+              onCancel={() => setShowCancelDialog(true)}
+            />
           </div>
         )}
       </div>
+
+      {/* Mobile drawer for reservation details */}
+      {isMobile && (
+        <Drawer
+          side="right"
+          size="default"
+          open={!!selectedReservation}
+          onClose={() => setSelectedReservation(null)}
+          title="Reservation Details"
+        >
+          {selectedReservation && (
+            <ReservationDetails
+              reservation={selectedReservation}
+              onEdit={() => setShowEditDrawer(true)}
+              onSeat={() => handleSeat(selectedReservation)}
+              onCancel={() => setShowCancelDialog(true)}
+            />
+          )}
+        </Drawer>
+      )}
 
       {/* Dialogs */}
       {showCancelDialog && selectedReservation && (

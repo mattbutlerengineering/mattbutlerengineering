@@ -90,13 +90,14 @@ export function TimelineGrid({
   const totalHeight = HEADER_HEIGHT + tables.length * ROW_HEIGHT;
 
   return (
-    <div className={styles.gridWrapper}>
+    <div className={styles.gridWrapper} role="grid" aria-label="Reservation timeline">
       <div style={{ width: totalWidth, height: totalHeight }}>
         {/* Header row with hours */}
-        <div className={styles.headerRow} style={{ height: HEADER_HEIGHT }}>
+        <div className={styles.headerRow} role="row" style={{ height: HEADER_HEIGHT }}>
           {/* Table column header */}
           <div
             className={styles.tableColumnHeader}
+            role="columnheader"
             style={{ width: TABLE_COLUMN_WIDTH, minWidth: TABLE_COLUMN_WIDTH }}
           >
             Tables
@@ -106,6 +107,7 @@ export function TimelineGrid({
             <div
               key={hour}
               className={styles.hourHeader}
+              role="columnheader"
               style={{ width: HOUR_WIDTH, minWidth: HOUR_WIDTH }}
             >
               {formatHour(hour)}
@@ -115,10 +117,11 @@ export function TimelineGrid({
 
         {/* Table rows */}
         {tables.map((table) => (
-          <div key={table.id} className={styles.tableRow} style={{ height: ROW_HEIGHT }}>
+          <div key={table.id} className={styles.tableRow} role="row" aria-label={`Table ${table.name}`} style={{ height: ROW_HEIGHT }}>
             {/* Table name column */}
             <div
               className={styles.tableNameCell}
+              role="rowheader"
               style={{ width: TABLE_COLUMN_WIDTH, minWidth: TABLE_COLUMN_WIDTH }}
             >
               <div>
@@ -147,7 +150,7 @@ export function TimelineGrid({
             </div>
 
             {/* Time slots with reservations */}
-            <div className={styles.reservationArea}>
+            <div className={styles.reservationArea} role="gridcell">
               {/* Hour grid lines */}
               <div className={styles.hourGrid}>
                 {hours.map((hour) => (

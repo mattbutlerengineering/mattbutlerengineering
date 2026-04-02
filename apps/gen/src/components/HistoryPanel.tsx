@@ -1,5 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
-import { Input } from "@mbe/rialto";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { StoredSpec } from "../types.js";
 import { relativeTime } from "../utils/relative-time.js";
 import styles from "./HistoryPanel.module.css";
@@ -12,13 +11,18 @@ export interface HistoryPanelProps {
   onSelect: (id: string) => void;
   onReplay: (id: string) => void;
   onToggleFavorite: (id: string) => void;
+  onDelete: (id: string) => void;
   onFilterChange: (f: "all" | "favorites") => void;
 }
 
+const PROMPT_TRUNCATE_LENGTH = 60;
+const DELETE_CONFIRM_TIMEOUT_MS = 3000;
+
 /**
  * Left column showing the API-backed prompt history as a scrollable list.
- * Supports filtering by favorites, search by prompt text, star toggle, and replay button.
+ * Supports filtering by favorites, star toggle, replay, delete, and search.
  * Active entry is highlighted with an accent border.
+ * Keyboard navigation via Arrow Up/Down and Enter.
  */
 export function HistoryPanel({
   entries,
@@ -28,24 +32,132 @@ export function HistoryPanel({
   onSelect,
   onReplay,
   onToggleFavorite,
+  onDelete,
   onFilterChange,
 }: HistoryPanelProps) {
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [focusedIndex, setFocusedIndex] = useState(-1);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+  const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+
+  const favoriteFiltered =
+    filter === "favorites" ? entries.filter((e) => e.isFavorite) : entries;
+
+  const filteredEntries = searchTerm
+    ? favoriteFiltered.filter((e) =>
+        e.prompt.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : favoriteFiltered;
+
+  const isFiltered = searchTerm || filter === "favorites";
+  const countLabel = isFiltered
+    ? `${filteredEntries.length} of ${entries.length} specs`
+    : `${entries.length} ${entries.length === 1 ? "spec" : "specs"}`;
+
+  // Clear confirm timer on unmount
+  useEffect(() => {
+    return () => {
+      if (confirmTimerRef.current) {
+        clearTimeout(confirmTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Auto-dismiss delete confirmation after timeout
+  useEffect(() => {
+    if (confirmingDeleteId === null) return;
+
+    if (confirmTimerRef.current) {
+      clearTimeout(confirmTimerRef.current);
+    }
+
+    confirmTimerRef.current = setTimeout(() => {
+      setConfirmingDeleteId(null);
+      confirmTimerRef.current = null;
+    }, DELETE_CONFIRM_TIMEOUT_MS);
+
+    return () => {
+      if (confirmTimerRef.current) {
+        clearTimeout(confirmTimerRef.current);
+        confirmTimerRef.current = null;
+      }
+    };
+  }, [confirmingDeleteId]);
+
+  const handleDeleteClick = useCallback((id: string) => {
+    setConfirmingDeleteId(id);
+  }, []);
+
+  const handleDeleteConfirm = useCallback(
+    (id: string) => {
+      setConfirmingDeleteId(null);
+      onDelete(id);
+    },
+    [onDelete]
+  );
+
+  const handleDeleteCancel = useCallback(() => {
+    setConfirmingDeleteId(null);
+  }, []);
+
+  const handleListKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLUListElement>) => {
+      const count = filteredEntries.length;
+      if (count === 0) return;
+
+      switch (e.key) {
+        case "ArrowDown": {
+          e.preventDefault();
+          const next = focusedIndex < count - 1 ? focusedIndex + 1 : 0;
+          setFocusedIndex(next);
+          break;
+        }
+        case "ArrowUp": {
+          e.preventDefault();
+          const prev = focusedIndex > 0 ? focusedIndex - 1 : count - 1;
+          setFocusedIndex(prev);
+          break;
+        }
+        case "Enter": {
+          e.preventDefault();
+          if (focusedIndex >= 0 && focusedIndex < count) {
+            onSelect(filteredEntries[focusedIndex].id);
+          }
+          break;
+        }
+      }
+    },
+    [filteredEntries, focusedIndex, onSelect]
+  );
+
+  // Scroll focused item into view
+  useEffect(() => {
+    if (focusedIndex < 0 || !listRef.current) return;
+    const items = listRef.current.querySelectorAll("[data-history-item]");
+    const target = items[focusedIndex];
+    if (target) {
+      target.scrollIntoView({ block: "nearest" });
+    }
+  }, [focusedIndex]);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchTerm(value);
+    setFocusedIndex(-1);
+  }, []);
 
   const handleFilterChange = useCallback(
     (f: "all" | "favorites") => {
-      setSearchQuery("");
+      setFocusedIndex(-1);
       onFilterChange(f);
     },
     [onFilterChange]
   );
 
-  const filteredEntries = useMemo(() => {
-    const byTab = filter === "favorites" ? entries.filter((e) => e.isFavorite) : entries;
-    if (searchQuery.trim() === "") return byTab;
-    const query = searchQuery.trim().toLowerCase();
-    return byTab.filter((e) => e.prompt.toLowerCase().includes(query));
-  }, [entries, filter, searchQuery]);
+  const focusedEntryId =
+    focusedIndex >= 0 && focusedIndex < filteredEntries.length
+      ? `history-item-${filteredEntries[focusedIndex].id}`
+      : undefined;
 
   return (
     <aside className={styles.panel}>
@@ -70,75 +182,185 @@ export function HistoryPanel({
       </div>
 
       <div className={styles.searchBar}>
-        <Input
-          placeholder="Search specs..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+        <input
+          type="text"
           className={styles.searchInput}
+          placeholder="Search prompts..."
+          value={searchTerm}
+          onChange={(e) => handleSearchChange(e.target.value)}
         />
-        {searchQuery.trim() !== "" && (
-          <span className={styles.searchCount}>
-            {filteredEntries.length} result{filteredEntries.length !== 1 ? "s" : ""}
-          </span>
+        {searchTerm && (
+          <button
+            type="button"
+            className={styles.searchClear}
+            onClick={() => handleSearchChange("")}
+            aria-label="Clear search"
+          >
+            {"\u00D7"}
+          </button>
         )}
       </div>
+
+      {entries.length > 0 && (
+        <p className={styles.entryCount}>{countLabel}</p>
+      )}
 
       {isLoading && entries.length === 0 ? (
         <p className={styles.empty}>Loading...</p>
       ) : filteredEntries.length === 0 ? (
         <p className={styles.empty}>
-          {filter === "favorites" ? "No favorites yet" : "No history yet"}
+          {searchTerm
+            ? "No matching prompts"
+            : filter === "favorites"
+              ? "No favorites yet"
+              : "No history yet"}
         </p>
       ) : (
-        <ul className={styles.list}>
-          {filteredEntries.map((entry) => (
-            <li key={entry.id} className={styles.listItem}>
-              <button
-                type="button"
-                className={[styles.item, activeId === entry.id ? styles.itemActive : ""].join(" ")}
-                onClick={() => onSelect(entry.id)}
-                aria-pressed={activeId === entry.id}
+        <ul
+          ref={listRef}
+          className={styles.list}
+          role="listbox"
+          tabIndex={0}
+          aria-activedescendant={focusedEntryId}
+          aria-label="Prompt history"
+          onKeyDown={handleListKeyDown}
+        >
+          {filteredEntries.map((entry, index) => {
+            const isTruncated = entry.prompt.length > PROMPT_TRUNCATE_LENGTH;
+            const displayPrompt = isTruncated
+              ? `${entry.prompt.slice(0, PROMPT_TRUNCATE_LENGTH)}\u2026`
+              : entry.prompt;
+            const isRefined = entry.prompt.startsWith("Refined:");
+            const isFocused = index === focusedIndex;
+            const isConfirmingDelete = confirmingDeleteId === entry.id;
+
+            return (
+              <li
+                key={entry.id}
+                id={`history-item-${entry.id}`}
+                className={[
+                  styles.listItem,
+                  isFocused ? styles.listItemFocused : "",
+                ].join(" ")}
+                role="option"
+                aria-selected={activeId === entry.id}
+                data-history-item
               >
-                <span className={styles.itemPrompt}>
-                  {entry.prompt.length > 60
-                    ? `${entry.prompt.slice(0, 60)}\u2026`
-                    : entry.prompt}
-                </span>
-                <span className={styles.itemTime}>
-                  {relativeTime(new Date(entry.createdAt))}
-                </span>
-              </button>
-              <div className={styles.itemActions}>
                 <button
                   type="button"
                   className={[
-                    styles.starButton,
-                    entry.isFavorite ? styles.starButtonActive : "",
+                    styles.item,
+                    activeId === entry.id ? styles.itemActive : "",
                   ].join(" ")}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleFavorite(entry.id);
-                  }}
-                  aria-label={entry.isFavorite ? "Unfavorite" : "Favorite"}
-                  title={entry.isFavorite ? "Remove from favorites" : "Add to favorites"}
+                  onClick={() => onSelect(entry.id)}
+                  tabIndex={-1}
                 >
-                  {entry.isFavorite ? "\u2605" : "\u2606"}
+                  <span
+                    className={styles.itemPrompt}
+                    title={isTruncated ? entry.prompt : undefined}
+                    data-tooltip={isTruncated ? entry.prompt : undefined}
+                  >
+                    {displayPrompt}
+                  </span>
+                  <span className={styles.itemMeta}>
+                    <span className={styles.itemTime}>
+                      {relativeTime(new Date(entry.createdAt))}
+                    </span>
+                    {isRefined && (
+                      <>
+                        <span className={styles.metaDot}>{"\u00B7"}</span>
+                        <span className={styles.refinedTag}>Refined</span>
+                      </>
+                    )}
+                    {entry.isFavorite && (
+                      <>
+                        <span className={styles.metaDot}>{"\u00B7"}</span>
+                        <span className={styles.metaStar}>{"\u2605"}</span>
+                      </>
+                    )}
+                  </span>
                 </button>
-                <button
-                  type="button"
-                  className={styles.replayButton}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onReplay(entry.id);
-                  }}
-                  aria-label="Replay prompt"
-                  title="Replay this prompt"
-                >
-                  Replay
-                </button>
-              </div>
-            </li>
-          ))}
+
+                {isConfirmingDelete ? (
+                  <div className={styles.deleteConfirm}>
+                    <span className={styles.deleteConfirmLabel}>Delete?</span>
+                    <button
+                      type="button"
+                      className={styles.deleteConfirmYes}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteConfirm(entry.id);
+                      }}
+                      aria-label="Confirm delete"
+                      title="Confirm delete"
+                    >
+                      {"\u2713"}
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.deleteConfirmNo}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteCancel();
+                      }}
+                      aria-label="Cancel delete"
+                      title="Cancel delete"
+                    >
+                      {"\u00D7"}
+                    </button>
+                  </div>
+                ) : (
+                  <div className={[
+                    styles.itemActions,
+                    entry.isFavorite ? styles.itemActionsHasFavorite : "",
+                  ].join(" ")}>
+                    <button
+                      type="button"
+                      className={[
+                        styles.starButton,
+                        entry.isFavorite ? styles.starButtonActive : "",
+                      ].join(" ")}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleFavorite(entry.id);
+                      }}
+                      aria-label={entry.isFavorite ? "Unfavorite" : "Favorite"}
+                      title={entry.isFavorite ? "Remove from favorites" : "Add to favorites"}
+                      tabIndex={-1}
+                    >
+                      {entry.isFavorite ? "\u2605" : "\u2606"}
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.replayButton}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onReplay(entry.id);
+                      }}
+                      aria-label="Replay prompt"
+                      title="Replay this prompt"
+                      tabIndex={-1}
+                    >
+                      Replay
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.deleteButton}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteClick(entry.id);
+                      }}
+                      aria-label="Delete spec"
+                      title="Delete this spec"
+                      tabIndex={-1}
+                    >
+                      {"\u00D7"}
+                    </button>
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </aside>

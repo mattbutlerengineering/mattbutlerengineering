@@ -17,24 +17,6 @@
   margin-block-end: var(--rialto-space-xs);
 }
 
-.dateInput {
-  inline-size: 100%;
-  padding-inline: var(--rialto-space-sm);
-  padding-block: var(--rialto-space-xs);
-  border: 1px solid var(--rialto-border);
-  border-radius: var(--rialto-radius-default);
-  box-shadow: var(--rialto-shadow-sm);
-  font-size: var(--rialto-text-base);
-  color: var(--rialto-text-primary);
-  background: var(--rialto-surface);
-}
-
-.dateInput:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
-}
-
 .partyGrid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -49,7 +31,7 @@
   font-weight: var(--rialto-weight-medium);
   border: none;
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  transition: background-color 0.15s var(--rialto-ease-precision);
   background: var(--rialto-surface-recessed);
   color: var(--rialto-text-primary);
 }
@@ -58,41 +40,23 @@
   background: var(--rialto-surface-elevated);
 }
 
+.partyButton:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+}
+
 .partyButtonActive {
-  background: #1d4ed8;
-  color: #ffffff;
+  background: var(--rialto-accent);
+  color: var(--rialto-text-on-accent);
 }
 
 .partyButtonActive:hover {
-  background: #1e40af;
+  background: var(--rialto-accent);
+  filter: brightness(0.9);
 }
 
 .partySizeNote {
   margin-block-start: var(--rialto-space-xs);
   font-size: var(--rialto-text-sm);
   color: var(--rialto-text-secondary);
-}
-
-.primaryButton {
-  inline-size: 100%;
-  padding-block: var(--rialto-space-sm);
-  padding-inline: var(--rialto-space-md);
-  border-radius: var(--rialto-radius-default);
-  font-size: var(--rialto-text-sm);
-  font-weight: var(--rialto-weight-medium);
-  border: none;
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-  background: #1d4ed8;
-  color: #ffffff;
-}
-
-.primaryButton:hover:not(:disabled) {
-  background: #1e40af;
-}
-
-.primaryButton:disabled {
-  background: var(--rialto-surface-recessed);
-  color: var(--rialto-text-tertiary);
-  cursor: not-allowed;
 }

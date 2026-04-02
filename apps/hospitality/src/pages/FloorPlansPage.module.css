@@ -2,27 +2,11 @@
   padding: var(--rialto-space-lg);
 }
 
-/* Loading state */
-.loadingWrapper {
+.header {
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding-block: var(--rialto-space-2xl);
-}
-
-.spinner {
-  width: 2rem;
-  height: 2rem;
-  border-radius: var(--rialto-radius-round);
-  border: 2px solid transparent;
-  border-block-end-color: var(--rialto-accent);
-  animation: spin 0.75s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  justify-content: space-between;
+  margin-block-end: var(--rialto-space-lg);
 }
 
 /* Cards grid */
@@ -33,8 +17,16 @@
 }
 
 .card {
-  cursor: pointer;
+  background: var(--rialto-surface);
+  border-radius: var(--rialto-radius-soft);
+  border: 1px solid var(--rialto-border);
   overflow: hidden;
+  cursor: pointer;
+  transition: box-shadow 0.15s var(--rialto-ease-precision);
+}
+
+.card:hover {
+  box-shadow: var(--rialto-shadow-md);
 }
 
 .cardPreview {
@@ -55,6 +47,18 @@
   padding: var(--rialto-space-md);
 }
 
+.cardMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-block-end: var(--rialto-space-xs);
+}
+
 .cardName {
-  font-size: var(--rialto-text-lg);
+  font-weight: var(--rialto-weight-medium);
+}
+
+.cardDetails {
+  display: flex;
+  flex-direction: column;
 }

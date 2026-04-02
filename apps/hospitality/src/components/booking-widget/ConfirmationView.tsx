@@ -1,3 +1,4 @@
+import { Button, Text } from "@mbe/rialto";
 import type { Reservation } from "@mbe/types";
 import styles from "./ConfirmationView.module.css";
 
@@ -24,8 +25,14 @@ export function ConfirmationView({ reservation, onNewBooking }: ConfirmationView
 
   return (
     <div className={styles.container}>
-      {/* Success icon */}
+      {/* Success icon with animation */}
       <div className={styles.iconWrapper}>
+        <div className={styles.accentBurst} aria-hidden="true">
+          <span className={styles.burstDot} />
+          <span className={styles.burstDot} />
+          <span className={styles.burstDot} />
+          <span className={styles.burstDot} />
+        </div>
         <svg
           className={styles.icon}
           fill="none"
@@ -34,6 +41,7 @@ export function ConfirmationView({ reservation, onNewBooking }: ConfirmationView
           aria-hidden="true"
         >
           <path
+            className={styles.checkPath}
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeWidth={2}
@@ -43,44 +51,70 @@ export function ConfirmationView({ reservation, onNewBooking }: ConfirmationView
       </div>
 
       <div>
-        <h2 className={styles.heading}>Reservation Confirmed!</h2>
-        <p className={styles.subheading}>We look forward to seeing you.</p>
+        <Text variant="display" as="h2" align="center">
+          Reservation Confirmed!
+        </Text>
+        <Text variant="caption" color="secondary" align="center">
+          We look forward to seeing you.
+        </Text>
       </div>
 
       {/* Reservation details */}
       <div className={styles.detailsCard}>
-        <h3 className={styles.detailsTitle}>Reservation Details</h3>
+        <Text variant="label" as="h3" className={styles.detailsTitle}>
+          Reservation Details
+        </Text>
         <dl className={styles.detailsList}>
           <div className={styles.detailRow}>
-            <dt className={styles.detailLabel}>Confirmation #</dt>
-            <dd className={styles.detailValue}>{reservation.id.slice(-8).toUpperCase()}</dd>
+            <Text variant="caption" color="secondary" as="dt">
+              Confirmation #
+            </Text>
+            <Text variant="caption" as="dd" mono>
+              {reservation.id.slice(-8).toUpperCase()}
+            </Text>
           </div>
           <div className={styles.detailRow}>
-            <dt className={styles.detailLabel}>Date</dt>
-            <dd className={styles.detailValueNormal}>{formattedDate}</dd>
+            <Text variant="caption" color="secondary" as="dt">
+              Date
+            </Text>
+            <Text variant="caption" as="dd">
+              {formattedDate}
+            </Text>
           </div>
           <div className={styles.detailRow}>
-            <dt className={styles.detailLabel}>Time</dt>
-            <dd className={styles.detailValueNormal}>{formattedTime}</dd>
+            <Text variant="caption" color="secondary" as="dt">
+              Time
+            </Text>
+            <Text variant="caption" as="dd">
+              {formattedTime}
+            </Text>
           </div>
           <div className={styles.detailRow}>
-            <dt className={styles.detailLabel}>Party Size</dt>
-            <dd className={styles.detailValueNormal}>
+            <Text variant="caption" color="secondary" as="dt">
+              Party Size
+            </Text>
+            <Text variant="caption" as="dd">
               {reservation.partySize} {reservation.partySize === 1 ? "guest" : "guests"}
-            </dd>
+            </Text>
           </div>
           {reservation.guestName && (
             <div className={styles.detailRow}>
-              <dt className={styles.detailLabel}>Name</dt>
-              <dd className={styles.detailValueNormal}>{reservation.guestName}</dd>
+              <Text variant="caption" color="secondary" as="dt">
+                Name
+              </Text>
+              <Text variant="caption" as="dd">
+                {reservation.guestName}
+              </Text>
             </div>
           )}
           {reservation.table && (
             <div className={styles.detailRow}>
-              <dt className={styles.detailLabel}>Table</dt>
-              <dd className={styles.detailValueNormal}>
+              <Text variant="caption" color="secondary" as="dt">
+                Table
+              </Text>
+              <Text variant="caption" as="dd">
                 {reservation.table.tableNumber || reservation.table.name}
-              </dd>
+              </Text>
             </div>
           )}
         </dl>
@@ -88,17 +122,17 @@ export function ConfirmationView({ reservation, onNewBooking }: ConfirmationView
 
       {/* Contact info note */}
       {(reservation.guestEmail || reservation.guestPhone) && (
-        <p className={styles.contactNote}>
+        <Text variant="caption" color="secondary" align="center">
           A confirmation has been sent to{" "}
           {reservation.guestEmail || reservation.guestPhone}.
-        </p>
+        </Text>
       )}
 
       {/* Actions */}
       <div className={styles.actions}>
-        <button type="button" onClick={onNewBooking} className={styles.secondaryButton}>
+        <Button variant="secondary" onClick={onNewBooking} className={styles.fullWidth}>
           Make Another Reservation
-        </button>
+        </Button>
       </div>
     </div>
   );

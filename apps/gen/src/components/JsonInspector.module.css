@@ -12,7 +12,7 @@
 .toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: var(--rialto-space-xs);
   padding: var(--rialto-space-xs) var(--rialto-space-sm);
   border-block-end: 1px solid var(--rialto-border);
   background-color: var(--rialto-surface-default);
@@ -32,12 +32,51 @@
   font-family: var(--rialto-font-sans);
   letter-spacing: var(--rialto-tracking-tight);
   text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.searchGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.searchInput {
+  flex: 1;
+  min-inline-size: 80px;
+  max-inline-size: 200px;
+  padding: 2px var(--rialto-space-xs);
+  font-family: monospace;
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-primary);
+  background-color: var(--rialto-surface-sunken);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-sm);
+  outline: none;
+}
+
+.searchInput::placeholder {
+  color: var(--rialto-text-tertiary);
+}
+
+.searchInput:focus {
+  border-color: var(--rialto-accent);
+}
+
+.matchCount {
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-tertiary);
+  font-family: var(--rialto-font-sans);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .scrollArea {
   flex: 1;
   overflow-y: auto;
-  padding: var(--rialto-space-sm);
+  padding: var(--rialto-space-xs) 0;
 }
 
 .empty {
@@ -47,16 +86,104 @@
   padding: var(--rialto-space-sm);
 }
 
+/* --- Block structure --- */
+
+.block {
+  display: flex;
+  align-items: flex-start;
+  padding-inline-start: var(--rialto-space-xs);
+  border-block-end: 1px solid color-mix(in srgb, var(--rialto-border) 50%, transparent);
+  padding-block: 2px;
+}
+
+.block:last-child {
+  border-block-end: none;
+}
+
+.collapseToggle {
+  all: unset;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 16px;
+  block-size: 20px;
+  margin-block-start: 1px;
+}
+
+.arrow {
+  font-size: 9px;
+  color: var(--rialto-text-tertiary);
+  line-height: 1;
+}
+
+.collapseToggle:hover .arrow {
+  color: var(--rialto-text-secondary);
+}
+
+/* --- Collapsed state --- */
+
+.collapsedRow {
+  display: flex;
+  align-items: baseline;
+  min-inline-size: 0;
+}
+
+.ellipsis {
+  color: var(--rialto-text-tertiary);
+  font-style: italic;
+}
+
+.collapsedCode {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* --- Expanded state --- */
+
+.expandedBlock {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.lineRow {
+  display: flex;
+  align-items: baseline;
+}
+
+/* --- Line numbers --- */
+
+.lineNumber {
+  display: inline-block;
+  inline-size: 36px;
+  flex-shrink: 0;
+  text-align: end;
+  padding-inline-end: var(--rialto-space-sm);
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--rialto-text-tertiary);
+  background-color: color-mix(in srgb, var(--rialto-surface-sunken) 80%, var(--rialto-surface-default));
+  user-select: none;
+}
+
+/* --- Code --- */
+
 .pre {
-  margin: 0 0 var(--rialto-space-sm);
+  margin: 0;
   font-size: 11px;
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-all;
   color: var(--rialto-text-primary);
+  flex: 1;
+  min-inline-size: 0;
+  padding-inline-start: var(--rialto-space-xs);
 }
 
-/* Syntax highlighting classes */
+/* --- Syntax highlighting --- */
+
 .jsonKey {
   color: var(--rialto-accent);
   font-weight: 500;
@@ -67,7 +194,7 @@
 }
 
 .jsonNumber {
-  color: #7c9cbf;
+  color: color-mix(in srgb, var(--rialto-accent) 60%, var(--rialto-text-secondary));
 }
 
 .jsonBoolean {
@@ -76,4 +203,13 @@
 
 .jsonNull {
   color: var(--rialto-text-tertiary);
+}
+
+/* --- Search highlight --- */
+
+.searchMatch {
+  background-color: color-mix(in srgb, var(--rialto-warning) 35%, transparent);
+  color: inherit;
+  border-radius: 2px;
+  padding-inline: 1px;
 }

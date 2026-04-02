@@ -1,4 +1,5 @@
 .pane {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -7,12 +8,39 @@
   background-color: var(--rialto-surface-default);
 }
 
+.fullscreenToggle {
+  position: absolute;
+  inset-block-start: var(--rialto-space-sm);
+  inset-inline-end: var(--rialto-space-sm);
+  z-index: 1;
+}
+
+/* Viewport toolbar — always visible when content exists */
+.viewportBar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-block: var(--rialto-space-xs);
+  flex-shrink: 0;
+}
+
+/* Renderer container — centers the viewport frame */
 .rendererWrapper {
+  display: flex;
+  justify-content: center;
+  inline-size: 100%;
+  flex: 1;
+}
+
+/* Viewport frame constrains width and centers content */
+.viewportFrame {
+  margin-inline: auto;
+  transition: max-inline-size 300ms var(--rialto-ease-smooth);
   inline-size: 100%;
 }
 
-/* Empty state */
-.emptyState {
+/* Welcome state */
+.welcomeState {
   flex: 1;
   display: flex;
   align-items: center;
@@ -20,11 +48,98 @@
   block-size: 100%;
 }
 
-.emptyText {
-  font-size: var(--rialto-text-sm);
-  color: var(--rialto-text-tertiary);
-  font-family: var(--rialto-font-sans);
+.welcomeContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--rialto-space-md);
+  max-inline-size: 720px;
+  padding: var(--rialto-space-lg);
+}
+
+.welcomeHeading {
+  font-size: var(--rialto-text-2xl);
+  color: var(--rialto-text-primary);
   text-align: center;
+}
+
+.welcomeSubtitle {
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+  text-align: center;
+  margin-block-end: var(--rialto-space-sm);
+}
+
+.suggestionsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--rialto-space-md);
+  inline-size: 100%;
+}
+
+@media (max-width: 900px) {
+  .suggestionsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .suggestionsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.suggestionCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--rialto-space-xs);
+  padding: var(--rialto-space-md);
+  background: var(--rialto-surface-default);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-md);
+  cursor: pointer;
+  text-align: start;
+  font-family: var(--rialto-font-sans);
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  animation: cardFadeIn 0.35s ease both;
+}
+
+.suggestionCard:hover {
+  transform: translateY(-2px);
+  border-color: var(--rialto-accent);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.suggestionCard:active {
+  transform: translateY(0);
+}
+
+@keyframes cardFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.suggestionIcon {
+  font-size: var(--rialto-text-xl);
+  line-height: 1;
+}
+
+.suggestionTitle {
+  font-weight: 600;
+  color: var(--rialto-text-primary);
+}
+
+.suggestionDescription {
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-secondary);
+  line-height: 1.4;
 }
 
 /* TTFT loading pulse */
@@ -68,6 +183,17 @@
   margin-block-end: var(--rialto-space-sm);
   border-block-end: 1px solid var(--rialto-border);
   flex-shrink: 0;
+}
+
+.specStats {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+  margin-inline-start: var(--rialto-space-sm);
+}
+
+.actionBarEnd {
+  margin-inline-start: auto;
 }
 
 /* Error state */

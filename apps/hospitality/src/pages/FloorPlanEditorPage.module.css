@@ -18,7 +18,7 @@
   height: 2rem;
   border-radius: 9999px;
   border: 2px solid transparent;
-  border-block-end-color: #2563eb;
+  border-block-end-color: var(--rialto-accent);
   animation: spin 0.75s linear infinite;
 }
 
@@ -34,8 +34,8 @@
 }
 
 .errorBox {
-  background: #fef2f2;
-  color: #dc2626;
+  background: var(--rialto-error-muted);
+  color: var(--rialto-error);
   padding: var(--rialto-space-md);
   border-radius: var(--rialto-radius-default);
   font-size: var(--rialto-text-sm);
@@ -44,7 +44,7 @@
 .backLink {
   display: inline-block;
   margin-block-start: var(--rialto-space-md);
-  color: #2563eb;
+  color: var(--rialto-accent);
   font-size: var(--rialto-text-sm);
   background: none;
   border: none;
@@ -105,8 +105,8 @@
   padding-block: 0.125rem;
   font-size: var(--rialto-text-xs);
   font-weight: var(--rialto-weight-medium);
-  background: #dcfce7;
-  color: #166534;
+  background: var(--rialto-success-muted);
+  color: var(--rialto-success);
   border-radius: 9999px;
 }
 
@@ -142,12 +142,13 @@
 }
 
 .saveButtonActive {
-  background: #2563eb;
-  color: #ffffff;
+  background: var(--rialto-accent);
+  color: var(--rialto-text-on-accent);
 }
 
 .saveButtonActive:hover {
-  background: #1d4ed8;
+  background: var(--rialto-accent);
+  filter: brightness(0.9);
 }
 
 .saveButtonDisabled {
@@ -161,15 +162,15 @@
   padding-block: 0.375rem;
   font-size: var(--rialto-text-sm);
   font-weight: var(--rialto-weight-medium);
-  border: 1px solid #2563eb;
+  border: 1px solid var(--rialto-accent);
   border-radius: var(--rialto-radius-default);
   background: var(--rialto-surface);
-  color: #2563eb;
+  color: var(--rialto-accent);
   cursor: pointer;
 }
 
 .addTableButton:hover {
-  background: #eff6ff;
+  background: color-mix(in srgb, var(--rialto-accent) 10%, transparent);
 }
 
 .deleteTableButton {
@@ -178,16 +179,16 @@
   padding-block: 0.375rem;
   font-size: var(--rialto-text-sm);
   font-weight: var(--rialto-weight-medium);
-  border: 1px solid #dc2626;
+  border: 1px solid var(--rialto-error);
   border-radius: var(--rialto-radius-default);
   background: var(--rialto-surface);
-  color: #dc2626;
+  color: var(--rialto-error);
   cursor: pointer;
   margin-block-start: var(--rialto-space-sm);
 }
 
 .deleteTableButton:hover {
-  background: #fef2f2;
+  background: var(--rialto-error-muted);
 }
 
 /* Main content area */
@@ -243,7 +244,7 @@
 .detailValueActive {
   font-size: var(--rialto-text-sm);
   font-weight: var(--rialto-weight-medium);
-  color: #16a34a;
+  color: var(--rialto-success);
 }
 
 .detailValueInactive {
@@ -295,12 +296,12 @@
 }
 
 .tableListButtonSelected {
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: color-mix(in srgb, var(--rialto-accent) 10%, transparent);
+  color: var(--rialto-accent);
 }
 
 .tableListButtonSelected:hover {
-  background: #dbeafe;
+  background: color-mix(in srgb, var(--rialto-accent) 15%, transparent);
 }
 
 .tableListButton:not(.tableListButtonSelected):hover {

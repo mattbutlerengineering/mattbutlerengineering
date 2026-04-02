@@ -28,7 +28,7 @@ export function TableStatusBadge({ status, size = "md", onClick }: TableStatusBa
 
   if (onClick) {
     return (
-      <button type="button" className={className} onClick={onClick}>
+      <button type="button" className={className} onClick={onClick} aria-label={`Table status: ${label}. Click to change.`}>
         {label}
       </button>
     );

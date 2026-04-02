@@ -24,7 +24,7 @@
 .activeLabel {
   margin-inline-start: var(--rialto-space-xs);
   font-size: var(--rialto-text-xs);
-  color: #16a34a;
+  color: var(--rialto-success);
 }
 
 /* Zoom indicator (top-right) */

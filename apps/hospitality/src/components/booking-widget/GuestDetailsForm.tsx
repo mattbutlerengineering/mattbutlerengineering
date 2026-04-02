@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import type { TimeSlot, ReservationHold } from "@mbe/types";
+import { Input, TextArea, Button, Alert, Text } from "@mbe/rialto";
 import styles from "./GuestDetailsForm.module.css";
 
 export interface GuestDetails {
@@ -20,6 +21,16 @@ export interface GuestDetailsFormProps {
   onBack: () => void;
 }
 
+function computeHoldTimeRemaining(hold: ReservationHold): string {
+  const expiresAt = new Date(hold.expiresAt);
+  const now = new Date();
+  const diffMs = expiresAt.getTime() - now.getTime();
+  if (diffMs <= 0) return "Expired";
+  const minutes = Math.floor(diffMs / 60000);
+  const seconds = Math.floor((diffMs % 60000) / 1000);
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
 export function GuestDetailsForm({
   slot,
   hold,
@@ -34,6 +45,22 @@ export function GuestDetailsForm({
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
+  const [holdTimeRemaining, setHoldTimeRemaining] = useState<string | null>(
+    hold ? computeHoldTimeRemaining(hold) : null
+  );
+
+  // Tick the hold timer every second
+  useEffect(() => {
+    if (!hold) return;
+
+    const tick = () => {
+      setHoldTimeRemaining(computeHoldTimeRemaining(hold));
+    };
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [hold]);
 
   // Format date and time for display
   const formattedDate = new Date(date + "T00:00:00").toLocaleDateString("en-US", {
@@ -48,39 +75,32 @@ export function GuestDetailsForm({
     hour12: true,
   });
 
-  // Calculate time remaining on hold
-  const getHoldTimeRemaining = () => {
-    if (!hold) return null;
-    const expiresAt = new Date(hold.expiresAt);
-    const now = new Date();
-    const diffMs = expiresAt.getTime() - now.getTime();
-    if (diffMs <= 0) return "Expired";
-    const minutes = Math.floor(diffMs / 60000);
-    const seconds = Math.floor((diffMs % 60000) / 1000);
-    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmit({ name, email, phone, notes });
-  };
+  const handleSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      onSubmit({ name, email, phone, notes });
+    },
+    [name, email, phone, notes, onSubmit]
+  );
 
   const isValid = name.trim().length > 0 && (email.trim().length > 0 || phone.trim().length > 0);
 
   return (
     <div className={styles.container}>
       <div className={styles.topBar}>
-        <button onClick={onBack} className={styles.backLink}>
+        <Button variant="ghost" size="sm" onClick={onBack} type="button">
           &larr; Back
-        </button>
-        {hold && (
-          <div className={styles.holdTimer}>Hold expires in: {getHoldTimeRemaining()}</div>
+        </Button>
+        {hold && holdTimeRemaining && (
+          <div className={styles.holdTimer} aria-live="polite">
+            Hold expires in: {holdTimeRemaining}
+          </div>
         )}
       </div>
 
       {/* Reservation summary */}
       <div className={styles.summaryCard}>
-        <h3 className={styles.summaryTitle}>Reservation Details</h3>
+        <Text className={styles.summaryTitle}>Reservation Details</Text>
         <div className={styles.summaryDetails}>
           <p>{formattedDate}</p>
           <p>{formattedTime}</p>
@@ -90,71 +110,46 @@ export function GuestDetailsForm({
         </div>
       </div>
 
-      {error && <div className={styles.errorBanner}>{error}</div>}
+      {error && <Alert variant="error">{error}</Alert>}
 
       <form onSubmit={handleSubmit} className={styles.form}>
-        <div className={styles.field}>
-          <label htmlFor="name" className={styles.label}>
-            Name <span className={styles.required}>*</span>
-          </label>
-          <input
-            type="text"
-            id="name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            className={styles.input}
-            placeholder="John Smith"
-          />
-        </div>
+        <Input
+          label="Name"
+          required
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="John Smith"
+        />
 
-        <div className={styles.field}>
-          <label htmlFor="email" className={styles.label}>
-            Email
-          </label>
-          <input
-            type="email"
-            id="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={styles.input}
-            placeholder="john@example.com"
-          />
-        </div>
+        <Input
+          label="Email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="john@example.com"
+        />
 
-        <div className={styles.field}>
-          <label htmlFor="phone" className={styles.label}>
-            Phone
-          </label>
-          <input
-            type="tel"
-            id="phone"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className={styles.input}
-            placeholder="(555) 123-4567"
-          />
-        </div>
+        <Input
+          label="Phone"
+          type="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="(555) 123-4567"
+        />
 
         <p className={styles.hint}>Please provide either email or phone for confirmation.</p>
 
-        <div className={styles.field}>
-          <label htmlFor="notes" className={styles.label}>
-            Special Requests
-          </label>
-          <textarea
-            id="notes"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={3}
-            className={styles.textarea}
-            placeholder="Allergies, celebrations, seating preferences..."
-          />
-        </div>
+        <TextArea
+          label="Special Requests"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={3}
+          placeholder="Allergies, celebrations, seating preferences..."
+        />
 
-        <button type="submit" disabled={!isValid || isLoading} className={styles.submitButton}>
+        <Button variant="primary" type="submit" disabled={!isValid || isLoading}>
           {isLoading ? "Confirming..." : "Complete Reservation"}
-        </button>
+        </Button>
       </form>
     </div>
   );

@@ -172,12 +172,12 @@
 
 .stepDotActive {
   background: var(--rialto-accent);
-  color: var(--rialto-text-on-accent, #fff);
+  color: var(--rialto-text-on-accent);
 }
 
 .stepDotCompleted {
   background: var(--rialto-accent);
-  color: var(--rialto-text-on-accent, #fff);
+  color: var(--rialto-text-on-accent);
   opacity: 0.7;
 }
 
@@ -199,6 +199,6 @@
 }
 
 .errorText {
-  color: var(--rialto-text-error, #dc2626);
+  color: var(--rialto-error);
   font-size: var(--rialto-text-sm);
 }

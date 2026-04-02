@@ -2,19 +2,41 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
+import { Badge, Button, EmptyState, Skeleton, SkeletonGroup, Text } from "@mbe/rialto";
 import type { FloorPlan } from "@mbe/types";
-import { Button, Card, Text, Stack, Badge, EmptyState, Alert } from "@mbe/rialto";
+import { useVenue } from "../contexts/VenueContext.js";
+import { PageHeader } from "../components/PageHeader";
+import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import { NewFloorPlanDialog } from "../components/floor-plan";
 import styles from "./FloorPlansPage.module.css";
+
+/* ── Loading skeleton ───────────────────────── */
+
+function FloorPlansLoadingSkeleton() {
+  return (
+    <div className={styles.container}>
+      <PageHeader title="Floor Plans" description="Design and manage your venue layouts" />
+      <SkeletonGroup>
+        <div className={styles.grid}>
+          {Array.from({ length: 3 }, (_, i) => (
+            <Skeleton key={i} variant="card" width="100%" height={220} />
+          ))}
+        </div>
+      </SkeletonGroup>
+    </div>
+  );
+}
+
+/* ── Main component ─────────────────────────── */
 
 export function FloorPlansPage() {
   const navigate = useNavigate();
   const { accessToken } = useAuth();
+  const { selectedVenueId } = useVenue();
   const [floorPlans, setFloorPlans] = useState<FloorPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showNewDialog, setShowNewDialog] = useState(false);
-  const [venueId, setVenueId] = useState<string | null>(null);
 
   const api = useMemo(
     () =>
@@ -25,29 +47,26 @@ export function FloorPlansPage() {
     [accessToken]
   );
 
-  useEffect(() => {
-    async function fetchData() {
-      setIsLoading(true);
-      setError(null);
+  const fetchFloorPlans = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
 
-      try {
-        const [floorPlansResponse, venuesResponse] = await Promise.all([
-          api.floorPlans.list({ limit: 50 }),
-          api.venues.list({ limit: 1 }),
-        ]);
-        setFloorPlans(floorPlansResponse.data);
-        if (venuesResponse.data.length > 0) {
-          setVenueId(venuesResponse.data[0].id);
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load floor plans");
-      } finally {
-        setIsLoading(false);
-      }
+    try {
+      const floorPlansResponse = await api.floorPlans.list({
+        venueId: selectedVenueId ?? undefined,
+        limit: 50,
+      });
+      setFloorPlans(floorPlansResponse.data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load floor plans");
+    } finally {
+      setIsLoading(false);
     }
+  }, [api, selectedVenueId]);
 
-    fetchData();
-  }, [api]);
+  useEffect(() => {
+    fetchFloorPlans();
+  }, [fetchFloorPlans]);
 
   const handleCreate = useCallback(
     async (data: Parameters<typeof api.floorPlans.create>[0]) => {
@@ -67,74 +86,65 @@ export function FloorPlansPage() {
     return new Date(isoString).toLocaleDateString();
   };
 
+  if (isLoading && floorPlans.length === 0) {
+    return <FloorPlansLoadingSkeleton />;
+  }
+
   return (
-    <Stack gap="lg" className={styles.container}>
-      <Stack direction="row" align="center" justify="between">
-        <Text variant="display" as="h1">
-          Floor Plans
-        </Text>
-        <Button variant="primary" onClick={() => setShowNewDialog(true)} disabled={!venueId}>
+    <div className={styles.container}>
+      <div className={styles.header}>
+        <PageHeader title="Floor Plans" description="Design and manage your venue layouts" />
+        <Button
+          variant="primary"
+          onClick={() => setShowNewDialog(true)}
+          disabled={!selectedVenueId}
+        >
           New Floor Plan
         </Button>
-      </Stack>
+      </div>
 
-      {showNewDialog && venueId && (
+      {showNewDialog && selectedVenueId && (
         <NewFloorPlanDialog
-          venueId={venueId}
+          venueId={selectedVenueId}
           onCreate={handleCreate}
           onCreated={handleCreated}
           onClose={() => setShowNewDialog(false)}
         />
       )}
 
-      {isLoading && (
-        <div className={styles.loadingWrapper} aria-busy="true">
-          <div className={styles.spinner} aria-label="Loading" role="status" />
-        </div>
-      )}
-
       {error && (
-        <Alert variant="error" title="Error">
-          {error}
-        </Alert>
+        <ErrorRetryBanner
+          error={error}
+          onRetry={fetchFloorPlans}
+          onDismiss={() => setError(null)}
+        />
       )}
 
       {!isLoading && !error && floorPlans.length === 0 && (
         <EmptyState
           heading="No floor plans yet"
           description="Create a floor plan to start arranging tables for your venue."
-          action={
-            <Button variant="primary" onClick={() => setShowNewDialog(true)} disabled={!venueId}>
-              New Floor Plan
-            </Button>
-          }
         />
       )}
 
       {!isLoading && !error && floorPlans.length > 0 && (
         <div className={styles.grid}>
           {floorPlans.map((floorPlan) => (
-            <Card
+            <button
               key={floorPlan.id}
-              variant="elevated"
-              className={styles.card}
               onClick={() => navigate(`/floor-plans/${floorPlan.id}`)}
-              role="button"
-              tabIndex={0}
+              className={styles.card}
+              type="button"
               aria-label={`Open floor plan: ${floorPlan.name}`}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  navigate(`/floor-plans/${floorPlan.id}`);
-                }
-              }}
             >
+              {/* Placeholder for floor plan preview */}
               <div className={styles.cardPreview}>
                 <svg
                   className={styles.cardPreviewIcon}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
+                  aria-hidden="true"
                 >
                   <path
                     strokeLinecap="round"
@@ -144,9 +154,9 @@ export function FloorPlansPage() {
                   />
                 </svg>
               </div>
-              <Stack gap="xs" className={styles.cardBody}>
-                <Stack direction="row" align="center" justify="between">
-                  <Text variant="label" as="h3" className={styles.cardName}>
+              <div className={styles.cardBody}>
+                <div className={styles.cardMeta}>
+                  <Text variant="body" color="primary" className={styles.cardName}>
                     {floorPlan.name}
                   </Text>
                   {floorPlan.isActive && (
@@ -154,20 +164,20 @@ export function FloorPlansPage() {
                       Active
                     </Badge>
                   )}
-                </Stack>
-                <Stack direction="row" gap="sm">
+                </div>
+                <div className={styles.cardDetails}>
                   <Text variant="caption" color="secondary">
                     {floorPlan.tables?.length ?? 0} tables
                   </Text>
                   <Text variant="caption" color="secondary">
                     Updated {formatDate(floorPlan.updatedAt)}
                   </Text>
-                </Stack>
-              </Stack>
-            </Card>
+                </div>
+              </div>
+            </button>
           ))}
         </div>
       )}
-    </Stack>
+    </div>
   );
 }
