@@ -144,14 +144,6 @@ function AddGuestDialog({ open, onClose, onSubmit, isSubmitting, error }: AddGue
 
 /* ── Guest Detail Drawer ───────────────────── */
 
-const HISTORY_STATUS_VARIANT: Record<string, "warning" | "success" | "error" | "neutral"> = {
-  PENDING: "warning",
-  CONFIRMED: "success",
-  CANCELLED: "error",
-  COMPLETED: "neutral",
-  NO_SHOW: "error",
-};
-
 interface GuestEditFormData {
   name: string;
   email: string;
@@ -177,8 +169,8 @@ function GuestDetailDrawer({ guest, open, onClose, onSave, api }: GuestDetailDra
   });
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [reservationHistory, setReservationHistory] = useState<Reservation[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
+  const [_reservationHistory, setReservationHistory] = useState<Reservation[]>([]);
+  const [_historyLoading, setHistoryLoading] = useState(false);
 
   // Reset form when guest changes or drawer opens
   useEffect(() => {
@@ -721,6 +713,7 @@ export function GuestsPage() {
         open={drawerOpen}
         onClose={handleDrawerClose}
         onSave={handleEditGuest}
+        api={api}
       />
 
       {/* Add Guest Dialog */}
