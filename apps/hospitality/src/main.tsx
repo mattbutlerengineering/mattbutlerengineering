@@ -3,7 +3,7 @@ import "./index.css";
 import { StrictMode, Suspense, lazy } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
-import { RialtoProvider, ErrorBoundary } from "@mbe/rialto";
+import { RialtoProvider, ErrorBoundary, ToastProvider } from "@mbe/rialto";
 import { AuthProvider } from "@mbe/auth/react";
 import { ThemeContext, useThemeState } from "./hooks/use-theme";
 import { App, CallbackRedirect } from "./App";
@@ -196,11 +196,13 @@ function Root() {
   return (
     <ThemeContext.Provider value={themeState}>
       <RialtoProvider theme={themeState.theme}>
-        <ErrorBoundary>
-          <AuthProvider config={authConfigResult.config}>
-            <RouterProvider router={router} />
-          </AuthProvider>
-        </ErrorBoundary>
+        <ToastProvider>
+          <ErrorBoundary>
+            <AuthProvider config={authConfigResult.config}>
+              <RouterProvider router={router} />
+            </AuthProvider>
+          </ErrorBoundary>
+        </ToastProvider>
       </RialtoProvider>
     </ThemeContext.Provider>
   );

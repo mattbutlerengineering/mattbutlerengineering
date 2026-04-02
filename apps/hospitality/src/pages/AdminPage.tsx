@@ -1,18 +1,157 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "@mbe/auth/react";
-import { Card, Button, Text, Stack } from "@mbe/rialto";
+import {
+  Alert,
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  Divider,
+  Input,
+  Pagination,
+  SegmentedControl,
+  Skeleton,
+  SkeletonGroup,
+  Stat,
+  Text,
+} from "@mbe/rialto";
 import { ApiClient, UsersClient } from "@mbe/api-client";
-import type { User, Pagination } from "@mbe/types";
+import type { User, Pagination as PaginationType } from "@mbe/types";
 import { PageHeader } from "../components/PageHeader";
 import styles from "./AdminPage.module.css";
+
+type StatusFilter = "all" | "verified" | "unverified";
+
+const SearchIcon = (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <circle cx="7" cy="7" r="4.5" />
+    <path d="M10.5 10.5L14 14" />
+  </svg>
+);
+
+const STATUS_SEGMENTS = [
+  { id: "all", label: "All" },
+  { id: "verified", label: "Verified" },
+  { id: "unverified", label: "Unverified" },
+];
+
+function isCurrentMonth(dateString: string): boolean {
+  const date = new Date(dateString);
+  const now = new Date();
+  return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+}
+
+function formatFullDate(dateString: string): string {
+  return new Date(dateString).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatShortDate(dateString: string): string {
+  return new Date(dateString).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function LoadingSkeleton() {
+  return (
+    <div>
+      <PageHeader title="Admin" description="Loading users..." />
+      <div className={styles.statsRow}>
+        {Array.from({ length: 3 }, (_, i) => (
+          <Skeleton key={i} variant="rect" width="100%" height={72} />
+        ))}
+      </div>
+      <Card>
+        <SkeletonGroup>
+          <div className={styles.skeletonTable}>
+            {Array.from({ length: 5 }, (_, i) => (
+              <div key={i} className={styles.skeletonRow}>
+                <Skeleton variant="circle" width={32} />
+                <Skeleton variant="text" width="40%" />
+                <Skeleton variant="text" width="25%" />
+                <Skeleton variant="rect" width={64} height={22} />
+                <Skeleton variant="text" width="15%" />
+              </div>
+            ))}
+          </div>
+        </SkeletonGroup>
+      </Card>
+    </div>
+  );
+}
+
+function UserDetailRow({ user }: { readonly user: User }) {
+  return (
+    <tr className={styles.detailRow}>
+      <td colSpan={4}>
+        <div className={styles.detailContent}>
+          <div className={styles.detailGrid}>
+            <div className={styles.detailField}>
+              <Text variant="caption" color="secondary">
+                User ID
+              </Text>
+              <Text variant="detail" color="primary">
+                {user.id}
+              </Text>
+            </div>
+            <div className={styles.detailField}>
+              <Text variant="caption" color="secondary">
+                Created
+              </Text>
+              <Text variant="detail" color="primary">
+                {formatFullDate(user.createdAt)}
+              </Text>
+            </div>
+            <div className={styles.detailField}>
+              <Text variant="caption" color="secondary">
+                Updated
+              </Text>
+              <Text variant="detail" color="primary">
+                {formatFullDate(user.updatedAt)}
+              </Text>
+            </div>
+            <div className={styles.detailField}>
+              <Text variant="caption" color="secondary">
+                Theme
+              </Text>
+              <Text variant="detail" color="primary">
+                {user.preferences.theme ?? "system"}
+              </Text>
+            </div>
+          </div>
+        </div>
+      </td>
+    </tr>
+  );
+}
 
 export function AdminPage() {
   const { accessToken } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
-  const [pagination, setPagination] = useState<Pagination | null>(null);
+  const [pagination, setPagination] = useState<PaginationType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchUsers() {
@@ -39,33 +178,61 @@ export function AdminPage() {
     fetchUsers();
   }, [accessToken, currentPage]);
 
+  const filteredUsers = useMemo(() => {
+    const query = searchQuery.toLowerCase().trim();
+    return users.filter((user) => {
+      const matchesSearch =
+        query === "" ||
+        (user.name?.toLowerCase().includes(query) ?? false) ||
+        user.email.toLowerCase().includes(query);
+
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "verified" && user.emailVerified) ||
+        (statusFilter === "unverified" && !user.emailVerified);
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [users, searchQuery, statusFilter]);
+
+  const stats = useMemo(() => {
+    const total = pagination?.total ?? users.length;
+    const verified = users.filter((u) => u.emailVerified).length;
+    const newThisMonth = users.filter((u) => isCurrentMonth(u.createdAt)).length;
+    return { total, verified, newThisMonth };
+  }, [users, pagination]);
+
+  const handleToggleExpand = useCallback((userId: string) => {
+    setExpandedUserId((prev) => (prev === userId ? null : userId));
+  }, []);
+
+  const handleStatusFilterChange = useCallback((id: string) => {
+    setStatusFilter(id as StatusFilter);
+  }, []);
+
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+  }, []);
+
   if (isLoading) {
-    return (
-      <div>
-        <PageHeader title="Admin" description="Loading users..." />
-        <div className={styles.loadingWrapper} aria-busy="true" role="status" aria-label="Loading">
-          <div className={styles.skeletonRow} />
-          <div className={styles.skeletonRow} />
-          <div className={styles.skeletonRow} />
-        </div>
-      </div>
-    );
+    return <LoadingSkeleton />;
   }
 
   if (error) {
     return (
       <div>
         <PageHeader title="Admin" description="User management" />
-        <Card>
-          <Stack gap="md" align="center">
-            <Text variant="body" color="error" role="alert">
-              {error}
-            </Text>
+        <Alert
+          variant="error"
+          title="Failed to load users"
+          actions={
             <Button variant="secondary" onClick={() => window.location.reload()}>
               Retry
             </Button>
-          </Stack>
-        </Card>
+          }
+        >
+          {error}
+        </Alert>
       </div>
     );
   }
@@ -74,14 +241,28 @@ export function AdminPage() {
     <div>
       <PageHeader title="Admin" description="Manage users and system settings" />
 
+      <div className={styles.statsRow}>
+        <Stat label="Total Users" value={stats.total} size="sm" />
+        <Stat label="Verified" value={stats.verified} size="sm" />
+        <Stat label="New This Month" value={stats.newThisMonth} size="sm" />
+      </div>
+
+      <Divider spacing="compact" />
+
       <Card>
-        <div className={styles.cardHeader}>
-          <Text variant="label" color="primary">
-            Users
-          </Text>
-          <Text variant="caption" color="secondary">
-            {pagination?.total ?? 0} total users
-          </Text>
+        <div className={styles.toolbar}>
+          <Input
+            placeholder="Search by name or email..."
+            value={searchQuery}
+            onChange={handleSearchChange}
+            startIcon={SearchIcon}
+          />
+          <SegmentedControl
+            segments={STATUS_SEGMENTS}
+            value={statusFilter}
+            onChange={handleStatusFilterChange}
+            size="sm"
+          />
         </div>
 
         <div className={styles.tableWrapper}>
@@ -95,82 +276,92 @@ export function AdminPage() {
               </tr>
             </thead>
             <tbody>
-              {users.map((user) => (
-                <tr key={user.id} className={styles.row}>
-                  <td className={styles.td}>
-                    <div className={styles.userCell}>
-                      {user.picture ? (
-                        <img
-                          src={user.picture}
-                          alt={user.name ?? "User"}
-                          className={styles.avatar}
-                        />
-                      ) : (
-                        <div className={styles.avatarFallback}>
-                          <Text variant="caption" color="secondary">
-                            {(user.name ?? user.email).charAt(0).toUpperCase()}
-                          </Text>
-                        </div>
-                      )}
-                      <Text variant="body" color="primary">
-                        {user.name ?? "—"}
-                      </Text>
-                    </div>
-                  </td>
-                  <td className={styles.td}>
-                    <Text variant="body" color="secondary">
-                      {user.email}
-                    </Text>
-                  </td>
-                  <td className={styles.td}>
-                    <span
-                      className={
-                        user.emailVerified ? styles.badgeVerified : styles.badgeUnverified
+              {filteredUsers.map((user, index) => (
+                <>
+                  <tr
+                    key={user.id}
+                    className={[
+                      styles.row,
+                      index % 2 === 1 ? styles.rowAlt : "",
+                      expandedUserId === user.id ? styles.rowExpanded : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    onClick={() => handleToggleExpand(user.id)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleToggleExpand(user.id);
                       }
-                    >
-                      {user.emailVerified ? "Verified" : "Unverified"}
-                    </span>
-                  </td>
-                  <td className={styles.td}>
-                    <Text variant="detail" color="secondary">
-                      {new Date(user.createdAt).toLocaleDateString()}
-                    </Text>
-                  </td>
-                </tr>
+                    }}
+                    aria-expanded={expandedUserId === user.id}
+                  >
+                    <td className={styles.td}>
+                      <div className={styles.userCell}>
+                        <Avatar
+                          src={user.picture ?? undefined}
+                          name={user.name ?? user.email}
+                          size="sm"
+                        />
+                        <Text variant="body" color="primary">
+                          {user.name ?? "\u2014"}
+                        </Text>
+                      </div>
+                    </td>
+                    <td className={styles.td}>
+                      <Text variant="body" color="secondary">
+                        {user.email}
+                      </Text>
+                    </td>
+                    <td className={styles.td}>
+                      {user.emailVerified ? (
+                        <Badge variant="success" size="sm" dot>
+                          Verified
+                        </Badge>
+                      ) : (
+                        <Badge variant="neutral" size="sm">
+                          Unverified
+                        </Badge>
+                      )}
+                    </td>
+                    <td className={styles.td}>
+                      <Text variant="detail" color="secondary">
+                        {formatShortDate(user.createdAt)}
+                      </Text>
+                    </td>
+                  </tr>
+                  {expandedUserId === user.id && (
+                    <UserDetailRow key={`${user.id}-detail`} user={user} />
+                  )}
+                </>
               ))}
             </tbody>
           </table>
         </div>
 
-        {users.length === 0 && (
-          <div className={styles.emptyState}>
+        <span className={styles.srOnly} aria-live="polite" role="status">
+          {`${filteredUsers.length} user${filteredUsers.length !== 1 ? "s" : ""} shown`}
+        </span>
+
+        {filteredUsers.length === 0 && (
+          <div className={styles.emptyState} aria-live="polite" role="status">
             <Text variant="body" color="secondary">
-              No users found
+              {searchQuery || statusFilter !== "all"
+                ? "No users match your filters"
+                : "No users found"}
             </Text>
           </div>
         )}
 
         {pagination && pagination.totalPages > 1 && (
           <div className={styles.paginationRow}>
-            <Text variant="caption" color="secondary">
-              Page {pagination.page} of {pagination.totalPages}
-            </Text>
-            <Stack gap="sm" direction="row">
-              <Button
-                variant="secondary"
-                onClick={() => setCurrentPage((p) => p - 1)}
-                disabled={!pagination.hasPrev}
-              >
-                Previous
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => setCurrentPage((p) => p + 1)}
-                disabled={!pagination.hasNext}
-              >
-                Next
-              </Button>
-            </Stack>
+            <Pagination
+              page={currentPage}
+              totalPages={pagination.totalPages}
+              onChange={setCurrentPage}
+            />
           </div>
         )}
       </Card>

@@ -1,3 +1,4 @@
+import { Input, Button } from "@mbe/rialto";
 import styles from "./DatePartySelector.module.css";
 
 export interface DatePartySelectorProps {
@@ -38,18 +39,14 @@ export function DatePartySelector({
 
   return (
     <div className={styles.container}>
-      <div className={styles.field}>
-        <label htmlFor="booking-date" className={styles.label}>Date</label>
-        <input
-          id="booking-date"
-          type="date"
-          value={selectedDate ?? ""}
-          onChange={(e) => onDateChange(e.target.value)}
-          min={effectiveMinDate}
-          max={effectiveMaxDate}
-          className={styles.dateInput}
-        />
-      </div>
+      <Input
+        label="Date"
+        type="date"
+        value={selectedDate ?? ""}
+        onChange={(e) => onDateChange(e.target.value)}
+        min={effectiveMinDate}
+        max={effectiveMaxDate}
+      />
 
       <div className={styles.field}>
         <span className={styles.label}>Party Size</span>
@@ -57,6 +54,8 @@ export function DatePartySelector({
           {partySizes.map((size) => (
             <button
               key={size}
+              type="button"
+              aria-pressed={partySize === size}
               onClick={() => onPartySizeChange(size)}
               className={[
                 styles.partyButton,
@@ -74,9 +73,9 @@ export function DatePartySelector({
         )}
       </div>
 
-      <button onClick={onNext} disabled={!canProceed} className={styles.primaryButton}>
+      <Button variant="primary" onClick={onNext} disabled={!canProceed}>
         Find Available Times
-      </button>
+      </Button>
     </div>
   );
 }

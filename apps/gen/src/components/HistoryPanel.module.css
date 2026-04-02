@@ -55,19 +55,38 @@
   list-style: none;
   margin: 0;
   padding: var(--rialto-space-xs);
+  outline: none;
 }
+
+.list:focus-visible {
+  outline: 2px solid var(--rialto-accent);
+  outline-offset: -2px;
+  border-radius: var(--rialto-radius-default);
+}
+
+/* --- List item: hover reveals actions --- */
 
 .listItem {
   display: flex;
   flex-direction: row;
   align-items: stretch;
   gap: 0;
+  position: relative;
+  border-radius: var(--rialto-radius-default);
+  transition: background-color 150ms var(--rialto-ease-precision);
 }
+
+.listItemFocused {
+  outline: 2px solid var(--rialto-accent);
+  outline-offset: -2px;
+}
+
+/* --- Item button (prompt + metadata) --- */
 
 .item {
   display: flex;
   flex-direction: column;
-  gap: var(--rialto-space-xs);
+  gap: 2px;
   flex: 1;
   min-inline-size: 0;
   padding: var(--rialto-space-sm) var(--rialto-space-md);
@@ -89,6 +108,8 @@
   border-inline-start-color: var(--rialto-accent);
 }
 
+/* --- Prompt text with CSS tooltip --- */
+
 .itemPrompt {
   font-size: var(--rialto-text-xs);
   color: var(--rialto-text-primary);
@@ -97,13 +118,80 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  position: relative;
+}
+
+/* CSS tooltip for full prompt on hover */
+.itemPrompt[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block-start: calc(100% + 4px);
+  z-index: 10;
+  max-inline-size: 240px;
+  padding: var(--rialto-space-xs) var(--rialto-space-sm);
+  border-radius: var(--rialto-radius-default);
+  background-color: var(--rialto-surface-elevated);
+  border: 1px solid var(--rialto-border);
+  color: var(--rialto-text-primary);
+  font-size: 11px;
+  font-family: var(--rialto-font-sans);
+  line-height: 1.5;
+  white-space: normal;
+  word-break: break-word;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  pointer-events: none;
+  animation: tooltipFadeIn 150ms var(--rialto-ease-precision);
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* --- Metadata line (time, refined tag, star) --- */
+
+.itemMeta {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+  line-height: 1;
 }
 
 .itemTime {
-  font-size: var(--rialto-text-xs);
+  font-size: 11px;
   color: var(--rialto-text-tertiary);
   font-family: var(--rialto-font-sans);
 }
+
+.metaDot {
+  font-size: 10px;
+  color: var(--rialto-text-tertiary);
+  line-height: 1;
+}
+
+.refinedTag {
+  font-size: 10px;
+  font-family: var(--rialto-font-sans);
+  color: var(--rialto-accent);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.metaStar {
+  font-size: 10px;
+  color: var(--rialto-accent);
+  line-height: 1;
+}
+
+/* --- Actions: hidden by default, visible on hover --- */
 
 .itemActions {
   display: flex;
@@ -113,6 +201,35 @@
   gap: var(--rialto-space-xs);
   padding: var(--rialto-space-xs);
   flex-shrink: 0;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 150ms var(--rialto-ease-precision),
+    visibility 150ms var(--rialto-ease-precision);
+}
+
+/* Show actions on list item hover or keyboard focus */
+.listItem:hover > .itemActions,
+.listItemFocused > .itemActions {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Always show star if favorited */
+.itemActionsHasFavorite .starButton {
+  opacity: 1;
+  visibility: visible;
+}
+
+.itemActionsHasFavorite {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* When not hovered and has favorite, hide non-star buttons */
+.listItem:not(:hover):not(.listItemFocused) > .itemActionsHasFavorite .replayButton,
+.listItem:not(:hover):not(.listItemFocused) > .itemActionsHasFavorite .deleteButton {
+  opacity: 0;
+  visibility: hidden;
 }
 
 .starButton {
@@ -164,4 +281,176 @@
 .replayButton:hover {
   background-color: var(--rialto-surface-elevated);
   color: var(--rialto-text-primary);
+}
+
+/* --- Delete button --- */
+
+.deleteButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 24px;
+  block-size: 24px;
+  padding: 0;
+  border: none;
+  border-radius: var(--rialto-radius-default);
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--rialto-text-tertiary);
+  transition: color 150ms var(--rialto-ease-precision),
+    background-color 150ms var(--rialto-ease-precision);
+  line-height: 1;
+}
+
+.deleteButton:hover {
+  color: var(--rialto-error);
+  background-color: var(--rialto-surface-elevated);
+}
+
+/* --- Inline delete confirmation --- */
+
+.deleteConfirm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: var(--rialto-space-xs);
+  flex-shrink: 0;
+  animation: confirmSlideIn 150ms var(--rialto-ease-precision);
+}
+
+@keyframes confirmSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.deleteConfirmLabel {
+  font-size: 9px;
+  font-family: var(--rialto-font-sans);
+  color: var(--rialto-error);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.deleteConfirmYes {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 20px;
+  block-size: 20px;
+  padding: 0;
+  border: none;
+  border-radius: var(--rialto-radius-default);
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--rialto-error);
+  transition: background-color 150ms var(--rialto-ease-precision);
+  line-height: 1;
+}
+
+.deleteConfirmYes:hover {
+  background-color: var(--rialto-surface-elevated);
+}
+
+.deleteConfirmNo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 20px;
+  block-size: 20px;
+  padding: 0;
+  border: none;
+  border-radius: var(--rialto-radius-default);
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--rialto-text-tertiary);
+  transition: color 150ms var(--rialto-ease-precision),
+    background-color 150ms var(--rialto-ease-precision);
+  line-height: 1;
+}
+
+.deleteConfirmNo:hover {
+  color: var(--rialto-text-primary);
+  background-color: var(--rialto-surface-elevated);
+}
+
+/* --- Search bar --- */
+
+.searchBar {
+  position: relative;
+  padding: var(--rialto-space-xs);
+  border-block-end: 1px solid var(--rialto-border);
+  flex-shrink: 0;
+}
+
+.searchInput {
+  inline-size: 100%;
+  padding: var(--rialto-space-xs) var(--rialto-space-sm);
+  padding-inline-end: var(--rialto-space-xl);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  background-color: var(--rialto-surface-default);
+  color: var(--rialto-text-primary);
+  font-size: var(--rialto-text-xs);
+  font-family: var(--rialto-font-sans);
+  outline: none;
+  transition: border-color 150ms var(--rialto-ease-precision);
+  box-sizing: border-box;
+}
+
+.searchInput::placeholder {
+  color: var(--rialto-text-tertiary);
+}
+
+.searchInput:focus {
+  border-color: var(--rialto-accent);
+}
+
+.searchClear {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-end: var(--rialto-space-sm);
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 20px;
+  block-size: 20px;
+  padding: 0;
+  border: none;
+  border-radius: var(--rialto-radius-default);
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--rialto-text-tertiary);
+  transition: color 150ms var(--rialto-ease-precision);
+  line-height: 1;
+}
+
+.searchClear:hover {
+  color: var(--rialto-text-primary);
+}
+
+/* --- Entry count --- */
+
+.entryCount {
+  margin: 0;
+  padding: var(--rialto-space-xs) var(--rialto-space-sm);
+  font-size: 11px;
+  font-family: var(--rialto-font-sans);
+  color: var(--rialto-text-tertiary);
+  text-align: center;
+  flex-shrink: 0;
 }

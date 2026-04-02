@@ -38,6 +38,7 @@ export function ReservationBlock({
 
   return (
     <button
+      type="button"
       onClick={onClick}
       className={[styles.block, statusClass, isSelected ? styles.blockSelected : ""].join(" ")}
       style={{
@@ -45,6 +46,8 @@ export function ReservationBlock({
         width: Math.max(style.width - 4, 40), // Minimum width for visibility
       }}
       title={`${guestName} - ${reservation.partySize} guests at ${startTime}`}
+      aria-label={`${guestName}, party of ${reservation.partySize}, ${startTime}, ${reservation.status.toLowerCase()}`}
+      aria-pressed={isSelected}
     >
       <div className={styles.content}>
         <div className={styles.guestName}>{guestName}</div>

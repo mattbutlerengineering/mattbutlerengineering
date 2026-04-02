@@ -96,7 +96,7 @@
   inset-block-start: 0;
   inset-block-end: 0;
   inline-size: 2px;
-  background: #ef4444;
+  background: var(--rialto-error);
   z-index: 30;
   pointer-events: none;
 }
@@ -107,6 +107,6 @@
   inset-inline-start: -4px;
   inline-size: 10px;
   block-size: 10px;
-  background: #ef4444;
+  background: var(--rialto-error);
   border-radius: 50%;
 }

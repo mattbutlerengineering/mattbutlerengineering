@@ -15,6 +15,7 @@ export interface ListReservationsParams {
   status?: ReservationStatus;
   tableId?: string;
   venueId?: string;
+  guestId?: string;
 }
 
 export class ReservationsClient {
@@ -31,6 +32,7 @@ export class ReservationsClient {
     if (params.status) searchParams.set("status", params.status);
     if (params.tableId) searchParams.set("tableId", params.tableId);
     if (params.venueId) searchParams.set("venueId", params.venueId);
+    if (params.guestId) searchParams.set("guestId", params.guestId);
 
     const query = searchParams.toString();
     return this.client.get<PaginatedResponse<Reservation>>(

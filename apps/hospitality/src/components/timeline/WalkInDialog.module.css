@@ -35,8 +35,8 @@
 }
 
 .errorBanner {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--rialto-error-muted);
+  color: var(--rialto-error);
   padding: var(--rialto-space-sm) var(--rialto-space-md);
   border-radius: var(--rialto-radius-default);
   font-size: var(--rialto-text-sm);
@@ -97,14 +97,15 @@
 }
 
 .partySizeButtonActive {
-  background: #1d4ed8;
-  border-color: #1d4ed8;
-  color: #ffffff;
+  background: var(--rialto-accent);
+  border-color: var(--rialto-accent);
+  color: var(--rialto-text-on-accent);
 }
 
 .partySizeButtonActive:hover:not(:disabled) {
-  background: #1e40af;
-  border-color: #1e40af;
+  background: var(--rialto-accent);
+  border-color: var(--rialto-accent);
+  filter: brightness(0.9);
 }
 
 .select,
@@ -123,7 +124,7 @@
 .select:focus,
 .input:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: var(--rialto-accent);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
 }
 
@@ -175,17 +176,18 @@
   font-size: var(--rialto-text-sm);
   font-weight: var(--rialto-weight-medium);
   border: none;
-  background: #16a34a;
-  color: #ffffff;
+  background: var(--rialto-success);
+  color: var(--rialto-text-on-accent);
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
 
 .confirmButton:hover:not(:disabled) {
-  background: #15803d;
+  background: var(--rialto-success);
+  filter: brightness(0.9);
 }
 
 .confirmButton:disabled {
-  background: #86efac;
+  background: color-mix(in srgb, var(--rialto-success) 40%, transparent);
   cursor: not-allowed;
 }

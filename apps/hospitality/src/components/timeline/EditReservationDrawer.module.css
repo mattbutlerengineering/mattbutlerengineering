@@ -56,8 +56,8 @@
 }
 
 .errorBanner {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--rialto-error-muted);
+  color: var(--rialto-error);
   padding: var(--rialto-space-sm) var(--rialto-space-lg);
   font-size: var(--rialto-text-sm);
   flex-shrink: 0;
@@ -111,7 +111,7 @@
 .select:focus,
 .textarea:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: var(--rialto-accent);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
 }
 
@@ -164,17 +164,18 @@
   font-size: var(--rialto-text-sm);
   font-weight: var(--rialto-weight-medium);
   border: none;
-  background: #1d4ed8;
-  color: #ffffff;
+  background: var(--rialto-accent);
+  color: var(--rialto-text-on-accent);
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
 
 .saveButton:hover:not(:disabled) {
-  background: #1e40af;
+  background: var(--rialto-accent);
+  filter: brightness(0.9);
 }
 
 .saveButton:disabled {
-  background: #93c5fd;
+  background: color-mix(in srgb, var(--rialto-accent) 40%, transparent);
   cursor: not-allowed;
 }

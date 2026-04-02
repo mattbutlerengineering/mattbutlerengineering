@@ -20,7 +20,7 @@
 }
 
 .blockSelected {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid var(--rialto-accent);
   outline-offset: 1px;
 }
 
@@ -47,33 +47,33 @@
   opacity: 0.75;
 }
 
-/* Status-specific colors (hex — no Rialto tokens for semantic status colors) */
+/* Status-specific colors */
 .statusPending {
-  background: #fef3c7;
-  border-inline-start-color: #d97706;
-  color: #92400e;
+  background: var(--rialto-warning-muted);
+  border-inline-start-color: var(--rialto-warning);
+  color: var(--rialto-warning);
 }
 
 .statusConfirmed {
-  background: #dbeafe;
-  border-inline-start-color: #2563eb;
-  color: #1e40af;
+  background: color-mix(in srgb, var(--rialto-accent) 15%, transparent);
+  border-inline-start-color: var(--rialto-accent);
+  color: var(--rialto-accent);
 }
 
 .statusCancelled {
-  background: #f3f4f6;
-  border-inline-start-color: #9ca3af;
-  color: #6b7280;
+  background: var(--rialto-surface-recessed);
+  border-inline-start-color: var(--rialto-border-strong);
+  color: var(--rialto-text-secondary);
 }
 
 .statusCompleted {
-  background: #dcfce7;
-  border-inline-start-color: #16a34a;
-  color: #166534;
+  background: var(--rialto-success-muted);
+  border-inline-start-color: var(--rialto-success);
+  color: var(--rialto-success);
 }
 
 .statusNoShow {
-  background: #fee2e2;
-  border-inline-start-color: #dc2626;
-  color: #991b1b;
+  background: var(--rialto-error-muted);
+  border-inline-start-color: var(--rialto-error);
+  color: var(--rialto-error);
 }

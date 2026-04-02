@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useBlocker } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
+import { ConfirmDialog } from "@mbe/rialto";
 import type { CreateTableRequest, FloorPlan, Table } from "@mbe/types";
 import { AddTableDialog, FloorPlanCanvas } from "../components/floor-plan";
+import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import styles from "./FloorPlanEditorPage.module.css";
 
 export function FloorPlanEditorPage() {
@@ -25,6 +27,24 @@ export function FloorPlanEditorPage() {
     new Map()
   );
 
+  // Warn on browser tab close / refresh when unsaved changes exist
+  useEffect(() => {
+    if (!hasChanges) return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasChanges]);
+
+  // Block SPA navigation when unsaved changes exist
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      hasChanges && currentLocation.pathname !== nextLocation.pathname
+  );
+
   const api = useMemo(
     () =>
       createApiClient({
@@ -34,26 +54,26 @@ export function FloorPlanEditorPage() {
     [accessToken]
   );
 
-  useEffect(() => {
+  const fetchFloorPlan = useCallback(async () => {
     if (!id) return;
 
-    async function fetchFloorPlan() {
-      setIsLoading(true);
-      setError(null);
+    setIsLoading(true);
+    setError(null);
 
-      try {
-        const fp = await api.floorPlans.get(id!);
-        setFloorPlan(fp);
-        setTables(fp.tables ?? []);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load floor plan");
-      } finally {
-        setIsLoading(false);
-      }
+    try {
+      const fp = await api.floorPlans.get(id);
+      setFloorPlan(fp);
+      setTables(fp.tables ?? []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load floor plan");
+    } finally {
+      setIsLoading(false);
     }
-
-    fetchFloorPlan();
   }, [id, api]);
+
+  useEffect(() => {
+    fetchFloorPlan();
+  }, [fetchFloorPlan]);
 
   const handleTableMove = useCallback((tableId: string, x: number, y: number) => {
     // Update local state immediately for responsiveness
@@ -156,7 +176,10 @@ export function FloorPlanEditorPage() {
   if (error || !floorPlan) {
     return (
       <div className={styles.errorContainer}>
-        <div className={styles.errorBox} role="alert">{error ?? "Floor plan not found"}</div>
+        <ErrorRetryBanner
+          error={error ?? "Floor plan not found"}
+          onRetry={fetchFloorPlan}
+        />
         <button onClick={() => navigate("/floor-plans")} className={styles.backLink}>
           Back to Floor Plans
         </button>
@@ -296,6 +319,20 @@ export function FloorPlanEditorPage() {
           </div>
         </div>
       </div>
+
+      {/* Unsaved changes navigation warning */}
+      {blocker.state === "blocked" && (
+        <ConfirmDialog
+          open
+          title="Unsaved Changes"
+          description="You have unsaved changes to this floor plan. Are you sure you want to leave?"
+          confirmLabel="Leave"
+          cancelLabel="Stay"
+          variant="destructive"
+          onConfirm={() => blocker.proceed()}
+          onCancel={() => blocker.reset()}
+        />
+      )}
     </div>
   );
 }

@@ -2,18 +2,41 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
+import { Badge, Button, EmptyState, Skeleton, SkeletonGroup, Text } from "@mbe/rialto";
 import type { FloorPlan } from "@mbe/types";
+import { useVenue } from "../contexts/VenueContext.js";
+import { PageHeader } from "../components/PageHeader";
+import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import { NewFloorPlanDialog } from "../components/floor-plan";
 import styles from "./FloorPlansPage.module.css";
+
+/* ── Loading skeleton ───────────────────────── */
+
+function FloorPlansLoadingSkeleton() {
+  return (
+    <div className={styles.container}>
+      <PageHeader title="Floor Plans" description="Design and manage your venue layouts" />
+      <SkeletonGroup>
+        <div className={styles.grid}>
+          {Array.from({ length: 3 }, (_, i) => (
+            <Skeleton key={i} variant="card" width="100%" height={220} />
+          ))}
+        </div>
+      </SkeletonGroup>
+    </div>
+  );
+}
+
+/* ── Main component ─────────────────────────── */
 
 export function FloorPlansPage() {
   const navigate = useNavigate();
   const { accessToken } = useAuth();
+  const { selectedVenueId } = useVenue();
   const [floorPlans, setFloorPlans] = useState<FloorPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showNewDialog, setShowNewDialog] = useState(false);
-  const [venueId, setVenueId] = useState<string | null>(null);
 
   const api = useMemo(
     () =>
@@ -24,29 +47,26 @@ export function FloorPlansPage() {
     [accessToken]
   );
 
-  useEffect(() => {
-    async function fetchData() {
-      setIsLoading(true);
-      setError(null);
+  const fetchFloorPlans = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
 
-      try {
-        const [floorPlansResponse, venuesResponse] = await Promise.all([
-          api.floorPlans.list({ limit: 50 }),
-          api.venues.list({ limit: 1 }),
-        ]);
-        setFloorPlans(floorPlansResponse.data);
-        if (venuesResponse.data.length > 0) {
-          setVenueId(venuesResponse.data[0].id);
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load floor plans");
-      } finally {
-        setIsLoading(false);
-      }
+    try {
+      const floorPlansResponse = await api.floorPlans.list({
+        venueId: selectedVenueId ?? undefined,
+        limit: 50,
+      });
+      setFloorPlans(floorPlansResponse.data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load floor plans");
+    } finally {
+      setIsLoading(false);
     }
+  }, [api, selectedVenueId]);
 
-    fetchData();
-  }, [api]);
+  useEffect(() => {
+    fetchFloorPlans();
+  }, [fetchFloorPlans]);
 
   const handleCreate = useCallback(
     async (data: Parameters<typeof api.floorPlans.create>[0]) => {
@@ -66,43 +86,45 @@ export function FloorPlansPage() {
     return new Date(isoString).toLocaleDateString();
   };
 
+  if (isLoading && floorPlans.length === 0) {
+    return <FloorPlansLoadingSkeleton />;
+  }
+
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h1 className={styles.title}>Floor Plans</h1>
-        <button
-          className={styles.newButton}
+        <PageHeader title="Floor Plans" description="Design and manage your venue layouts" />
+        <Button
+          variant="primary"
           onClick={() => setShowNewDialog(true)}
-          disabled={!venueId}
+          disabled={!selectedVenueId}
         >
           New Floor Plan
-        </button>
+        </Button>
       </div>
 
-      {showNewDialog && venueId && (
+      {showNewDialog && selectedVenueId && (
         <NewFloorPlanDialog
-          venueId={venueId}
+          venueId={selectedVenueId}
           onCreate={handleCreate}
           onCreated={handleCreated}
           onClose={() => setShowNewDialog(false)}
         />
       )}
 
-      {isLoading && (
-        <div className={styles.loadingWrapper} aria-busy="true">
-          <div className={styles.spinner} aria-label="Loading" role="status" />
-        </div>
+      {error && (
+        <ErrorRetryBanner
+          error={error}
+          onRetry={fetchFloorPlans}
+          onDismiss={() => setError(null)}
+        />
       )}
 
-      {error && <div className={styles.errorBox} role="alert">{error}</div>}
-
       {!isLoading && !error && floorPlans.length === 0 && (
-        <div className={styles.emptyState}>
-          <p className={styles.emptyStateText}>No floor plans yet</p>
-          <p className={styles.emptyStateHint}>
-            Create a floor plan to start arranging tables for your venue.
-          </p>
-        </div>
+        <EmptyState
+          heading="No floor plans yet"
+          description="Create a floor plan to start arranging tables for your venue."
+        />
       )}
 
       {!isLoading && !error && floorPlans.length > 0 && (
@@ -122,6 +144,7 @@ export function FloorPlansPage() {
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
+                  aria-hidden="true"
                 >
                   <path
                     strokeLinecap="round"
@@ -133,14 +156,22 @@ export function FloorPlansPage() {
               </div>
               <div className={styles.cardBody}>
                 <div className={styles.cardMeta}>
-                  <h3 className={styles.cardName}>{floorPlan.name}</h3>
+                  <Text variant="body" color="primary" className={styles.cardName}>
+                    {floorPlan.name}
+                  </Text>
                   {floorPlan.isActive && (
-                    <span className={styles.activeBadge}>Active</span>
+                    <Badge variant="success" size="sm">
+                      Active
+                    </Badge>
                   )}
                 </div>
                 <div className={styles.cardDetails}>
-                  <p>{floorPlan.tables?.length ?? 0} tables</p>
-                  <p>Updated {formatDate(floorPlan.updatedAt)}</p>
+                  <Text variant="caption" color="secondary">
+                    {floorPlan.tables?.length ?? 0} tables
+                  </Text>
+                  <Text variant="caption" color="secondary">
+                    Updated {formatDate(floorPlan.updatedAt)}
+                  </Text>
                 </div>
               </div>
             </button>

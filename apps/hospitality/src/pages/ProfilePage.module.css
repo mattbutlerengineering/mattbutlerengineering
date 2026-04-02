@@ -1,130 +1,116 @@
-.loadingWrapper {
-  display: flex;
-  flex-direction: column;
-  gap: var(--rialto-space-md);
-}
+/* ── Profile Hero ────────────────────────────── */
 
-.skeletonBlock {
-  height: 8rem;
-  background: var(--rialto-surface-recessed);
+.hero {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-xl);
+  padding: var(--rialto-space-lg);
+  background: linear-gradient(
+    135deg,
+    var(--rialto-surface-recessed) 0%,
+    var(--rialto-surface) 100%
+  );
   border-radius: var(--rialto-radius-soft);
 }
 
-.cardHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-block-end: var(--rialto-space-md);
-}
-
-.profileBody {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--rialto-space-xl);
-}
-
-.avatarWrapper {
+.heroAvatar {
   flex-shrink: 0;
 }
 
-.avatar {
-  width: 6rem;
-  height: 6rem;
-  border-radius: var(--rialto-radius-round);
-  object-fit: cover;
+.avatarRing {
+  box-shadow: 0 0 0 3px var(--rialto-surface), 0 0 0 5px var(--rialto-accent);
 }
 
-.avatarFallback {
-  width: 6rem;
-  height: 6rem;
-  border-radius: var(--rialto-radius-round);
-  background: var(--rialto-surface-recessed);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.formFields {
+.heroInfo {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: var(--rialto-space-md);
+  min-inline-size: 0;
 }
 
-.fieldGroup {
-  display: flex;
-  flex-direction: column;
-  gap: var(--rialto-space-xs);
+.heroAction {
+  flex-shrink: 0;
+  align-self: flex-start;
 }
 
-.label {
-  font-size: var(--rialto-text-sm);
-  font-weight: var(--rialto-weight-medium);
-  color: var(--rialto-text-secondary);
-}
+/* ── Edit Panel (smooth transition) ─────────── */
 
-.input {
-  width: 100%;
-  padding-inline: var(--rialto-space-sm);
-  padding-block: var(--rialto-space-xs);
-  border: 1px solid var(--rialto-border);
-  border-radius: var(--rialto-radius-default);
-  background: var(--rialto-surface-recessed);
-  color: var(--rialto-text-primary);
-  font-size: var(--rialto-text-sm);
-}
-
-.input:focus {
-  outline: none;
-  box-shadow: var(--rialto-shadow-focus);
-  border-color: var(--rialto-accent);
-}
-
-.dataList {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: var(--rialto-space-md);
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.accountGrid {
+.editPanel {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--rialto-space-md);
-  list-style: none;
-  margin: 0;
-  padding: 0;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s var(--rialto-ease-smooth);
 }
 
-.dataItem {
+.editPanel > * {
+  overflow: hidden;
+}
+
+.editPanelOpen {
+  grid-template-rows: 1fr;
+}
+
+.editHeader {
+  margin-block-end: var(--rialto-space-md);
+}
+
+/* ── Section Headers ────────────────────────── */
+
+.sectionHeader {
+  margin-block-end: var(--rialto-space-md);
+}
+
+/* ── Activity Summary Grid ──────────────────── */
+
+.activityGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--rialto-space-lg);
+}
+
+.activityItem {
   display: flex;
   flex-direction: column;
   gap: var(--rialto-space-xs);
+  padding: var(--rialto-space-md);
+  background: var(--rialto-surface-recessed);
+  border-radius: var(--rialto-radius-default);
 }
 
-.badgeVerified {
-  display: inline-flex;
+/* ── Loading Skeletons ──────────────────────── */
+
+.heroSkeleton {
+  display: flex;
   align-items: center;
-  padding-inline: var(--rialto-space-sm);
-  padding-block: 2px;
-  border-radius: var(--rialto-radius-sharp);
-  font-size: var(--rialto-text-xs);
-  font-weight: var(--rialto-weight-medium);
-  background-color: #d1fae5;
-  color: #065f46;
+  gap: var(--rialto-space-xl);
+  padding: var(--rialto-space-lg);
 }
 
-.badgeUnverified {
-  display: inline-flex;
-  align-items: center;
-  padding-inline: var(--rialto-space-sm);
-  padding-block: 2px;
-  border-radius: var(--rialto-radius-sharp);
-  font-size: var(--rialto-text-xs);
-  font-weight: var(--rialto-weight-medium);
-  background-color: #fef3c7;
-  color: #92400e;
+.heroSkeletonText {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+}
+
+/* ── Error Retry ────────────────────────────── */
+
+.retryWrapper {
+  display: flex;
+  justify-content: center;
+  margin-block-start: var(--rialto-space-lg);
+}
+
+/* ── Responsive: Mobile ─────────────────────── */
+
+@media (max-width: 640px) {
+  .hero {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .heroAction {
+    align-self: stretch;
+  }
+
+  .activityGrid {
+    grid-template-columns: 1fr;
+  }
 }

@@ -53,8 +53,8 @@
 
 /* Error banner */
 .errorBanner {
-  background: #fef2f2;
-  color: #dc2626;
+  background: var(--rialto-error-muted);
+  color: var(--rialto-error);
   padding: var(--rialto-space-sm);
   border-radius: var(--rialto-radius-default);
   font-size: var(--rialto-text-sm);
@@ -81,7 +81,7 @@
 }
 
 .required {
-  color: #dc2626;
+  color: var(--rialto-error);
 }
 
 .input {
@@ -97,7 +97,7 @@
 }
 
 .input:focus {
-  outline: 2px solid #2563eb;
+  outline: 2px solid var(--rialto-accent);
   outline-offset: -1px;
   border-color: transparent;
 }
@@ -142,13 +142,14 @@
   font-weight: var(--rialto-weight-medium);
   border: none;
   border-radius: var(--rialto-radius-default);
-  background: #2563eb;
-  color: #ffffff;
+  background: var(--rialto-accent);
+  color: var(--rialto-text-on-accent);
   cursor: pointer;
 }
 
 .submitButton:hover:not(:disabled) {
-  background: #1d4ed8;
+  background: var(--rialto-accent);
+  filter: brightness(0.9);
 }
 
 .submitButton:disabled {

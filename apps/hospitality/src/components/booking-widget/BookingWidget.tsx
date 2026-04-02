@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { createApiClient } from "@mbe/api-client";
+import { Steps, Text } from "@mbe/rialto";
+import type { StepItem } from "@mbe/rialto";
 import type { TimeSlot, ReservationHold, Reservation } from "@mbe/types";
 import { DatePartySelector } from "./DatePartySelector";
 import { TimeSlotPicker } from "./TimeSlotPicker";
@@ -16,7 +18,13 @@ export interface BookingWidgetProps {
   className?: string;
 }
 
-const STEPS: BookingStep[] = ["date-party", "time-slot", "guest-details"];
+const STEP_KEYS: BookingStep[] = ["date-party", "time-slot", "guest-details"];
+
+const BOOKING_STEPS: StepItem[] = [
+  { label: "Date & Party" },
+  { label: "Time" },
+  { label: "Details" },
+];
 
 export function BookingWidget({
   venueId,
@@ -202,62 +210,27 @@ export function BookingWidget({
     return () => clearInterval(interval);
   }, [hold, fetchSlots]);
 
-  const currentStepIndex = STEPS.indexOf(step as (typeof STEPS)[number]);
+  const currentStepIndex = STEP_KEYS.indexOf(step as (typeof STEP_KEYS)[number]);
 
   return (
     <div className={[styles.widget, className].filter(Boolean).join(" ")}>
       {/* Header */}
       <div className={styles.header}>
-        <h2 className={styles.title}>Make a Reservation</h2>
+        <Text variant="display" as="h2" align="center">
+          Make a Reservation
+        </Text>
         {step !== "confirmation" && (
-          <p className={styles.subtitle}>
+          <Text variant="caption" color="secondary" align="center">
             {step === "date-party" && "Select your date and party size"}
             {step === "time-slot" && "Choose an available time"}
             {step === "guest-details" && "Enter your details to confirm"}
-          </p>
+          </Text>
         )}
       </div>
 
       {/* Step indicator */}
       {step !== "confirmation" && (
-        <div className={styles.stepIndicator}>
-          {STEPS.map((s, i) => (
-            <div key={s} className={styles.stepItem}>
-              <div
-                className={[
-                  styles.stepCircle,
-                  step === s
-                    ? styles.stepCurrent
-                    : currentStepIndex > i
-                      ? styles.stepCompleted
-                      : styles.stepPending,
-                ].join(" ")}
-              >
-                {currentStepIndex > i ? (
-                  <svg className={styles.stepIcon} fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                    <path
-                      fillRule="evenodd"
-                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                ) : (
-                  i + 1
-                )}
-              </div>
-              {i < 2 && (
-                <div
-                  className={[
-                    styles.stepConnector,
-                    currentStepIndex > i
-                      ? styles.stepConnectorCompleted
-                      : styles.stepConnectorPending,
-                  ].join(" ")}
-                />
-              )}
-            </div>
-          ))}
-        </div>
+        <Steps steps={BOOKING_STEPS} currentStep={currentStepIndex} compact />
       )}
 
       {/* Step content */}

@@ -3,7 +3,7 @@ import "./index.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
-import { RialtoProvider } from "@mbe/rialto";
+import { ErrorBoundary, RialtoProvider, ToastProvider } from "@mbe/rialto";
 import { AuthProvider } from "@mbe/auth/react";
 import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
 import { PlaygroundPage } from "./pages/PlaygroundPage";
@@ -27,9 +27,13 @@ function ThemedApp() {
 
   return (
     <RialtoProvider theme={theme}>
-      <AuthProvider config={authConfig}>
-        <RouterProvider router={router} />
-      </AuthProvider>
+      <ToastProvider>
+        <AuthProvider config={authConfig}>
+          <ErrorBoundary>
+            <RouterProvider router={router} />
+          </ErrorBoundary>
+        </AuthProvider>
+      </ToastProvider>
     </RialtoProvider>
   );
 }

@@ -72,6 +72,55 @@ test("page loads authenticated", async ({ authPage }) => {
 });
 ```
 
+## Harness Engineering Context
+
+Extended documentation for AI agents working on this app:
+
+| Document | Purpose |
+|----------|---------|
+| [`docs/USER-FLOWS.md`](docs/USER-FLOWS.md) | 10 critical user flows with acceptance criteria and "done" definitions |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Data flow, API surface, SSE patterns, component architecture |
+| [`docs/IMPROVEMENT-BACKLOG.md`](docs/IMPROVEMENT-BACKLOG.md) | Prioritized feature gaps (P0-P3) with implementation hints |
+| [`docs/E2E-TEST-PLAN.md`](docs/E2E-TEST-PLAN.md) | 12 Playwright test specs + smoke tests for CI |
+| [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) | 10 code patterns extracted from codebase — copy-paste templates for agents |
+
+### User Personas
+
+| Persona | Primary Pages | Key Constraint |
+|---------|---------------|----------------|
+| **Restaurant Manager** | Dashboard, Timeline, Reservations, Settings | Needs multi-venue support |
+| **Host / Hostess** | Timeline, Guests | Needs fast walk-in creation (<5 clicks) |
+| **Admin** | Admin panel | View-only currently (no user actions) |
+
+### Critical Constraints for Agents
+
+1. **All colors must use `var(--rialto-*)` tokens** — no hardcoded hex colors. The app is fully dark-mode compatible.
+2. **All UI elements must use Rialto components** — no raw `<button>`, `<input>`, `<select>` in pages.
+3. **All API calls must use `@mbe/api-client`** with `getAccessToken` — never raw `fetch` with manual auth.
+4. **SSE callbacks must use refs** — inline callbacks cause reconnection on every render.
+5. **State must be immutable** — always spread/map/filter, never mutate.
+6. **Imports need `.js` extension** — ES modules require explicit file extensions.
+
+### Evaluation Criteria
+
+When implementing features, evaluate against (from `docs/USER-FLOWS.md`):
+
+| Criterion | Weight | What to Check |
+|-----------|--------|---------------|
+| Functionality | 30% | Flow completes end-to-end without errors |
+| Data Consistency | 25% | State correct across pages, SSE, and API |
+| Error Recovery | 20% | Failures handled gracefully with retry |
+| Accessibility | 15% | Keyboard-only completion, screen reader support |
+| Mobile UX | 10% | Works on 375px width |
+
+### Known Gaps (see backlog for full list)
+
+- **P0:** Error recovery missing on most pages (no retry, no timeout handling)
+- **P0:** Timeline unusable on mobile (grid + sidebar = no room)
+- **P0:** Cross-page data divergence (no SSE on ReservationsPage)
+- **P1:** Multi-venue filtering inconsistent (some pages have it, some don't)
+- **P1:** Guest edit flow disabled
+
 ## Commands
 
 ```bash
