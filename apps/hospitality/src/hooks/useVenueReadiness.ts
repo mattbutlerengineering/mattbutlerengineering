@@ -1,7 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { createApiClient } from "@mbe/api-client";
 import { useAuth } from "@mbe/auth/react";
 import { useVenue } from "../contexts/VenueContext.js";
+import type { Venue } from "@mbe/types";
+import type { FloorPlan } from "@mbe/types";
 
 export type SetupStep = "onboarding" | "operating-hours" | "floor-plan";
 
@@ -12,29 +14,74 @@ export interface VenueReadiness {
   progress: number; // 0–100
 }
 
-const READY: VenueReadiness = {
-  status: "operational",
-  completedSteps: ["onboarding", "operating-hours", "floor-plan"],
-  nextStep: null,
-  progress: 100,
-};
+export const STEP_ORDER: readonly SetupStep[] = [
+  "onboarding",
+  "operating-hours",
+  "floor-plan",
+];
 
 const NO_VENUE: VenueReadiness = {
   status: "no-venue",
   completedSteps: [],
-  nextStep: "onboarding",
+  nextStep: null,
   progress: 0,
 };
 
+/**
+ * Pure function that computes readiness from venue data and floor plans.
+ * Can be unit tested independently from React.
+ */
+export function computeReadiness(
+  venue: Venue | null,
+  floorPlans: readonly FloorPlan[]
+): VenueReadiness {
+  if (!venue) {
+    return { status: "no-venue", completedSteps: [], nextStep: null, progress: 0 };
+  }
+
+  const completed: SetupStep[] = [];
+
+  // Gate 1: Onboarding — venue exists with name, timezone, currency
+  if (venue.name && venue.ianaTimezone && venue.currencyCode) {
+    completed.push("onboarding");
+  }
+
+  // Gate 2: Operating hours — at least one day that's not closed
+  if (venue.operatingHours) {
+    const days = Object.values(venue.operatingHours);
+    const hasOpenDay = days.some((day) => day !== undefined && day.closed !== true);
+    if (hasOpenDay) {
+      completed.push("operating-hours");
+    }
+  }
+
+  // Gate 3: Floor plan with at least one table
+  const hasFloorPlanWithTables = floorPlans.some(
+    (fp) => fp.tables && fp.tables.length > 0
+  );
+  if (hasFloorPlanWithTables) {
+    completed.push("floor-plan");
+  }
+
+  const progress = (completed.length / STEP_ORDER.length) * 100;
+
+  if (completed.length === STEP_ORDER.length) {
+    return { status: "operational", completedSteps: completed, nextStep: null, progress };
+  }
+
+  const nextStep = STEP_ORDER.find((step) => !completed.includes(step)) ?? null;
+  return { status: "setup", completedSteps: completed, nextStep, progress };
+}
+
 interface FloorPlanState {
   venueId: string;
-  hasFloorPlan: boolean;
+  floorPlans: readonly FloorPlan[];
 }
 
 export function useVenueReadiness(): VenueReadiness {
   const { selectedVenue, selectedVenueId, isLoading } = useVenue();
   const { accessToken } = useAuth();
-  // Tracks the last resolved floor-plan check result
+  // Tracks the last resolved floor-plan fetch result
   const [floorPlanState, setFloorPlanState] = useState<FloorPlanState | null>(null);
   const fetchingRef = useRef<string | null>(null);
 
@@ -57,14 +104,11 @@ export function useVenueReadiness(): VenueReadiness {
       .list({ venueId: selectedVenueId, limit: 10 })
       .then((response) => {
         if (cancelled) return;
-        const hasAtLeastOne = response.data.some(
-          (fp) => fp.tables !== undefined && fp.tables.length > 0
-        );
-        setFloorPlanState({ venueId: selectedVenueId, hasFloorPlan: hasAtLeastOne });
+        setFloorPlanState({ venueId: selectedVenueId, floorPlans: response.data });
       })
       .catch(() => {
         if (!cancelled) {
-          setFloorPlanState({ venueId: selectedVenueId, hasFloorPlan: false });
+          setFloorPlanState({ venueId: selectedVenueId, floorPlans: [] });
         }
       })
       .finally(() => {
@@ -78,54 +122,18 @@ export function useVenueReadiness(): VenueReadiness {
     };
   }, [selectedVenueId, accessToken, floorPlanState]);
 
-  if (isLoading) {
-    return { status: "setup", completedSteps: [], nextStep: "onboarding", progress: 0 };
-  }
+  // The floor plans relevant to the currently selected venue
+  const currentFloorPlans: readonly FloorPlan[] =
+    floorPlanState?.venueId === selectedVenueId ? floorPlanState.floorPlans : [];
 
-  if (!selectedVenue) {
+  const readiness = useMemo(
+    () => computeReadiness(selectedVenue, currentFloorPlans),
+    [selectedVenue, currentFloorPlans]
+  );
+
+  if (isLoading) {
     return NO_VENUE;
   }
 
-  // Evaluate gates
-  const onboardingComplete = true; // Venue exists = onboarding complete
-  const hasOperatingHours =
-    selectedVenue.operatingHours !== null &&
-    selectedVenue.operatingHours !== undefined &&
-    Object.values(selectedVenue.operatingHours).some(
-      (schedule) => schedule !== undefined
-    );
-
-  // Floor plan is current only if checked matches selected venue
-  const floorPlanReady =
-    floorPlanState !== null &&
-    floorPlanState.venueId === selectedVenueId &&
-    floorPlanState.hasFloorPlan;
-
-  const completedSteps: SetupStep[] = [];
-  if (onboardingComplete) completedSteps.push("onboarding");
-  if (hasOperatingHours) completedSteps.push("operating-hours");
-  if (floorPlanReady) completedSteps.push("floor-plan");
-
-  const allComplete = onboardingComplete && hasOperatingHours && floorPlanReady;
-
-  if (allComplete) return READY;
-
-  // Determine next step
-  let nextStep: SetupStep;
-  if (!onboardingComplete) {
-    nextStep = "onboarding";
-  } else if (!hasOperatingHours) {
-    nextStep = "operating-hours";
-  } else {
-    nextStep = "floor-plan";
-  }
-
-  const progress = Math.round((completedSteps.length / 3) * 100);
-
-  return {
-    status: "setup",
-    completedSteps,
-    nextStep,
-    progress,
-  };
+  return readiness;
 }
