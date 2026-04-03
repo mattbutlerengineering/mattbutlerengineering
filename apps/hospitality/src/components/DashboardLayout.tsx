@@ -114,14 +114,6 @@ function DashboardLayoutInner() {
     setTheme(resolved === "light" ? "dark" : "light");
   }, [theme, setTheme]);
 
-  // Command palette state
-  const {
-    open: paletteOpen,
-    setOpen: setPaletteOpen,
-    items: paletteItems,
-    groups: paletteGroups,
-  } = useCommandPalette({ navigate, toggleTheme, signOut });
-
   // Stable token getter — passes latest token to GenCopilot without recreating on every render
   const getAccessToken = useCallback(() => accessToken, [accessToken]);
 
@@ -171,6 +163,14 @@ function DashboardLayoutInner() {
     ],
     [readiness]
   );
+
+  // Command palette state — receives dynamic sections so items stay in sync
+  const {
+    open: paletteOpen,
+    setOpen: setPaletteOpen,
+    items: paletteItems,
+    groups: paletteGroups,
+  } = useCommandPalette({ sections: sectionsWithCopilot, navigate, toggleTheme, signOut });
 
   // Custom navigate that handles copilot toggle
   const handleNavigateWithCopilot = useCallback(
