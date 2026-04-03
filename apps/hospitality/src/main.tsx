@@ -5,11 +5,17 @@ import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
 import { RialtoProvider, ErrorBoundary, ToastProvider } from "@mbe/rialto";
 import { AuthProvider } from "@mbe/auth/react";
+import { initSentry, handleErrorBoundary } from "@mbe/sentry/react";
 import { ThemeContext, useThemeState } from "./hooks/use-theme";
 import { App, CallbackRedirect } from "./App";
 import { AuthConfigError } from "./components/AuthConfigError";
 import { LoadingPage } from "./pages/LoadingPage";
 import { validateAuthConfig } from "./constants/auth";
+
+initSentry({
+  appName: "hospitality",
+  dsn: import.meta.env.VITE_SENTRY_DSN,
+});
 
 // Lazy-loaded route components — each becomes its own chunk
 const DashboardLayout = lazy(() =>
@@ -197,7 +203,7 @@ function Root() {
     <ThemeContext.Provider value={themeState}>
       <RialtoProvider theme={themeState.theme}>
         <ToastProvider>
-          <ErrorBoundary>
+          <ErrorBoundary onError={handleErrorBoundary}>
             <AuthProvider config={authConfigResult.config}>
               <RouterProvider router={router} />
             </AuthProvider>

@@ -19,6 +19,7 @@
     "@mbe/auth": "workspace:*",
     "@mbe/rialto": "workspace:*",
     "@mbe/rialto-catalog": "workspace:*",
+    "@mbe/sentry": "workspace:^",
     "@mbe/types": "workspace:*",
     "konva": "^9.3.22",
     "react": "^19.0.0",
@@ -28,15 +29,15 @@
   },
   "devDependencies": {
     "@mbe/config": "workspace:*",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^5.0.0",
-    "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react": "^16.3.0",
     "jsdom": "^26.1.0",
     "typescript": "^5.9.3",
-    "vitest": "^3.2.1",
     "vite": "^7.0.0",
-    "vite-plugin-pwa": "^1.2.0"
+    "vite-plugin-pwa": "^1.2.0",
+    "vitest": "^3.2.1"
   }
 }

@@ -5,7 +5,13 @@ import { StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { RialtoProvider, ErrorBoundary } from "@mbe/rialto";
+import { initSentry, handleErrorBoundary } from "@mbe/sentry/react";
 import { App } from "./App";
+
+initSentry({
+  appName: "marketing",
+  dsn: import.meta.env.VITE_SENTRY_DSN,
+});
 
 // Unregister stale service workers. A previous build registered the hospitality
 // SW at scope "/" instead of "/hospitality/", causing marketing pages to redirect
@@ -60,7 +66,7 @@ function Root() {
   return (
     // RialtoProvider MUST wrap BrowserRouter (outside it)
     <RialtoProvider theme={resolved}>
-      <ErrorBoundary>
+      <ErrorBoundary onError={handleErrorBoundary}>
         <BrowserRouter>
           <App theme={resolved} onThemeToggle={handleThemeToggle} />
         </BrowserRouter>
