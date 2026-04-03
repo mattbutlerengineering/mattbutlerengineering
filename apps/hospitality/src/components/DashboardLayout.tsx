@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { Breadcrumb, CommandPalette, ErrorBoundary, GenCopilot, Kbd, useToast } from "@mbe/rialto";
@@ -9,14 +9,16 @@ import { HOSPITALITY_DOMAIN_CONTEXT } from "../constants/copilotContext.js";
 import { useCommandPalette } from "../hooks/use-command-palette.js";
 import { useReservationEvents } from "../hooks/useReservationEvents.js";
 import { useTheme, resolveTheme } from "../hooks/use-theme.js";
-import { NAV_SECTIONS } from "../nav-sections.js";
+import { useVenueReadiness } from "../hooks/useVenueReadiness.js";
+import { buildNavSections } from "../nav-sections.js";
 import type { NavItem } from "../nav-sections.js";
 import { VenueProvider } from "../contexts/VenueContext.js";
 import { DashboardSidebar } from "./DashboardSidebar.js";
+import { VenueSwitcher } from "./VenueSwitcher.js";
 import styles from "./DashboardLayout.module.css";
 
 const ROUTE_LABELS: Record<string, string> = {
-  "": "Dashboard",
+  "": "Timeline",
   "timeline": "Timeline",
   "reservations": "Reservations",
   "guests": "Guests",
@@ -26,17 +28,58 @@ const ROUTE_LABELS: Record<string, string> = {
   "profile": "Profile",
   "settings": "Settings",
   "admin": "Admin",
+  "dashboard": "Dashboard",
+  "setup": "Setup",
+  "hours": "Operating Hours",
 };
 
-export function DashboardLayout() {
+/** Operational pages that should redirect to /setup when not yet ready */
+const OPERATIONAL_ONLY_PATHS = ["/timeline", "/reservations", "/guests"];
+
+/**
+ * Inner layout that has access to VenueProvider context.
+ * Uses useVenueReadiness to build dynamic nav sections and enforce redirects.
+ */
+function DashboardLayoutInner() {
   const navigate = useNavigate();
   const location = useLocation();
   const { signOut, accessToken } = useAuth();
   const { theme, setTheme } = useTheme();
+  const readiness = useVenueReadiness();
 
   const { toast } = useToast();
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Readiness-based redirect guard
+  useEffect(() => {
+    const path = location.pathname.replace(/^\/hospitality/, "");
+
+    if (readiness.status === "no-venue") {
+      if (!path.startsWith("/onboarding") && !path.startsWith("/callback")) {
+        navigate("/onboarding", { replace: true });
+      }
+      return;
+    }
+
+    if (readiness.status === "setup") {
+      const isOperationalPage = OPERATIONAL_ONLY_PATHS.some((p) => path === p || path.startsWith(p + "/"));
+      if (isOperationalPage) {
+        navigate("/setup", { replace: true });
+      }
+      return;
+    }
+
+    if (readiness.status === "operational") {
+      if (path === "/setup" || path.startsWith("/setup/")) {
+        navigate("/timeline", { replace: true });
+      }
+      // Redirect old root (index) to timeline
+      if (path === "/" || path === "") {
+        navigate("/timeline", { replace: true });
+      }
+    }
+  }, [readiness.status, location.pathname, navigate]);
 
   // SSE toast notifications for real-time reservation events
   useReservationEvents({
@@ -111,10 +154,10 @@ export function DashboardLayout() {
     [navigate, signOut]
   );
 
-  // Build a Tools section with Copilot toggle appended to sections
+  // Build dynamic nav sections from readiness state + copilot tool
   const sectionsWithCopilot = useMemo(
     () => [
-      ...NAV_SECTIONS,
+      ...buildNavSections(readiness),
       {
         label: "Tools" as const,
         items: [
@@ -126,7 +169,7 @@ export function DashboardLayout() {
         ],
       },
     ],
-    []
+    [readiness]
   );
 
   // Custom navigate that handles copilot toggle
@@ -141,10 +184,7 @@ export function DashboardLayout() {
     [handleNavigate]
   );
 
-  // Copilot is "active" when open — map its sentinel path to current location
-  const activePath = copilotOpen && location.pathname === location.pathname
-    ? location.pathname
-    : location.pathname;
+  const activePath = location.pathname;
 
   // Build breadcrumb items from current route
   const breadcrumbs = useMemo((): BreadcrumbItem[] => {
@@ -153,14 +193,14 @@ export function DashboardLayout() {
     const path = pathname.replace(/^\/hospitality/, "").replace(/^\//, "");
     const segments = path.split("/").filter(Boolean);
 
-    // On home page, just show "Home" as current (no link)
+    // On home/timeline page, just show "Timeline" as current (no link)
     if (segments.length === 0) {
-      return [{ label: "Home" }];
+      return [{ label: "Timeline" }];
     }
 
-    // Always start with a clickable Home
+    // Always start with a clickable Timeline (new home)
     const items: BreadcrumbItem[] = [
-      { label: "Home", onClick: () => navigate("/") },
+      { label: "Timeline", onClick: () => navigate("/timeline") },
     ];
 
     // Build intermediate + final crumbs
@@ -230,6 +270,9 @@ export function DashboardLayout() {
             extraItems={extraItems}
             isMobileOpen={isMobileMenuOpen}
             onMobileClose={handleMobileClose}
+            headerSlot={
+              <VenueSwitcher onNavigate={handleNavigate} />
+            }
           />
           <button
             type="button"
@@ -243,7 +286,7 @@ export function DashboardLayout() {
           </button>
         </div>
 
-        <main id="main-content" tabIndex={-1} className={styles.content}>
+        <main id="main-content" tabIndex={-1} className={styles.content} style={{ outline: "none" }}>
           <div className={styles.breadcrumbBar}>
             <Breadcrumb items={breadcrumbs} />
           </div>
@@ -271,9 +314,7 @@ export function DashboardLayout() {
               </div>
             }
           >
-            <VenueProvider>
-              <Outlet />
-            </VenueProvider>
+            <Outlet />
           </ErrorBoundary>
         </main>
       </div>
@@ -289,5 +330,17 @@ export function DashboardLayout() {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * Outer shell: wraps VenueProvider around DashboardLayoutInner so that
+ * useVenueReadiness (which calls useVenue) can be used inside the layout.
+ */
+export function DashboardLayout() {
+  return (
+    <VenueProvider>
+      <DashboardLayoutInner />
+    </VenueProvider>
   );
 }

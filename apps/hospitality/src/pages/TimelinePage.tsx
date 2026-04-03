@@ -2,13 +2,14 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
-import { Drawer, Select } from "@mbe/rialto";
-import type { Reservation, Table, Venue, TableStatus, UpdateReservationRequest } from "@mbe/types";
+import { Drawer } from "@mbe/rialto";
+import type { Reservation, Table, TableStatus, UpdateReservationRequest } from "@mbe/types";
 import { TimelineGrid } from "../components/timeline";
 import { CancelReservationDialog } from "../components/timeline/CancelReservationDialog";
 import { EditReservationDrawer } from "../components/timeline/EditReservationDrawer";
 import { WalkInDialog } from "../components/timeline/WalkInDialog";
 import { useReservationEvents } from "../hooks/useReservationEvents";
+import { useVenue } from "../contexts/VenueContext.js";
 import { PageHeader } from "../components/PageHeader";
 import styles from "./TimelinePage.module.css";
 
@@ -159,9 +160,8 @@ function ReservationDetails({ reservation, onEdit, onSeat, onCancel }: Reservati
 
 export function TimelinePage() {
   const { accessToken } = useAuth();
+  const { selectedVenueId } = useVenue();
 
-  const [venues, setVenues] = useState<Venue[]>([]);
-  const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null);
   const [tables, setTables] = useState<Table[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -231,22 +231,6 @@ export function TimelinePage() {
       setTables((prev) => prev.map((t) => (t.id === table.id ? table : t)));
     }, []),
   });
-
-  // Fetch venues on mount
-  useEffect(() => {
-    async function fetchVenues() {
-      try {
-        const response = await api.venues.list({ limit: 50 });
-        setVenues(response.data);
-        if (response.data.length > 0) {
-          setSelectedVenueId(response.data[0].id);
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load venues");
-      }
-    }
-    fetchVenues();
-  }, [api]);
 
   // Fetch tables and reservations when venue or date changes
   useEffect(() => {
@@ -387,27 +371,12 @@ export function TimelinePage() {
     return { confirmed, pending, totalCovers, total: reservations.length };
   }, [reservations]);
 
-  const venueOptions = useMemo(
-    () => venues.map((v) => ({ value: v.id, label: v.name })),
-    [venues]
-  );
-
   return (
     <div className={styles.root}>
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.headerTop}>
           <PageHeader title="Timeline" description="Real-time reservation view" />
-
-          {/* Venue selector */}
-          {venues.length > 1 && (
-            <Select
-              label="Venue"
-              options={venueOptions}
-              value={selectedVenueId ?? ""}
-              onChange={(value) => setSelectedVenueId(value)}
-            />
-          )}
         </div>
 
         {/* Date navigation */}

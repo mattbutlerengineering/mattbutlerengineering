@@ -1,0 +1,158 @@
+/* ── SetupPage ────────────────────────────────── */
+
+.root {
+  padding: var(--rialto-space-xl);
+  max-width: 640px;
+}
+
+/* ── Progress ─────────────────────────────────── */
+
+.progressBar {
+  height: 6px;
+  background: var(--rialto-surface-recessed);
+  border-radius: var(--rialto-radius-pill);
+  margin-block: var(--rialto-space-lg) var(--rialto-space-xs);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--rialto-accent);
+  border-radius: var(--rialto-radius-pill);
+  transition: width 0.4s ease;
+}
+
+.progressLabel {
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-tertiary);
+  margin-block: 0 var(--rialto-space-xl);
+}
+
+/* ── Step list ────────────────────────────────── */
+
+.stepList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+}
+
+/* ── Step card ────────────────────────────────── */
+
+.step {
+  display: flex;
+  gap: var(--rialto-space-md);
+  padding: var(--rialto-space-md);
+  border-radius: var(--rialto-radius-default);
+  border: 1px solid var(--rialto-border);
+  background: var(--rialto-surface-elevated);
+}
+
+.stepCompleted {
+  border-color: var(--rialto-success, var(--rialto-accent));
+  opacity: 0.8;
+}
+
+.stepCurrent {
+  border-color: var(--rialto-accent);
+  background: var(--rialto-accent-muted, var(--rialto-surface-elevated));
+}
+
+.stepLocked {
+  opacity: 0.5;
+}
+
+/* ── Step icon ────────────────────────────────── */
+
+.stepIcon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--rialto-radius-pill);
+  background: var(--rialto-surface-recessed);
+  color: var(--rialto-text-secondary);
+}
+
+.stepCompleted .stepIcon {
+  background: var(--rialto-success-muted, var(--rialto-accent-muted));
+  color: var(--rialto-success, var(--rialto-accent));
+}
+
+.stepCurrent .stepIcon {
+  background: var(--rialto-accent-muted);
+  color: var(--rialto-accent);
+}
+
+/* ── Step content ─────────────────────────────── */
+
+.stepContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.stepTitle {
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-base);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-primary);
+  margin: 0 0 var(--rialto-space-2xs);
+}
+
+.stepDescription {
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+  margin: 0 0 var(--rialto-space-sm);
+}
+
+/* ── CTA buttons ─────────────────────────────── */
+
+.ctaButton {
+  padding: var(--rialto-space-xs) var(--rialto-space-md);
+  background: var(--rialto-accent);
+  color: var(--rialto-text-on-accent, #fff);
+  border: none;
+  border-radius: var(--rialto-radius-default);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.ctaButton:hover {
+  opacity: 0.9;
+}
+
+.ctaButton:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+}
+
+.reviewButton {
+  padding: var(--rialto-space-xs) var(--rialto-space-md);
+  background: transparent;
+  color: var(--rialto-text-secondary);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.reviewButton:hover {
+  background: var(--rialto-surface-recessed);
+  color: var(--rialto-text-primary);
+}
+
+.reviewButton:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+}
