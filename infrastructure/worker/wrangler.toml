@@ -2,6 +2,11 @@ name = "mattbutlerengineering-edge-router"
 main = "edge-router.js"
 compatibility_date = "2026-03-25"
 
+routes = [
+  { pattern = "mattbutlerengineering.com/*", zone_name = "mattbutlerengineering.com" },
+  { pattern = "www.mattbutlerengineering.com/*", zone_name = "mattbutlerengineering.com" },
+]
+
 [vars]
 API_ORIGIN = "https://api.mattbutlerengineering.com"
 

@@ -13,6 +13,22 @@ const cloudflareAccountId = config.require("cloudflareAccountId");
 const databaseUrl = config.requireSecret("databaseUrl");
 const aiGatewayApiKey = config.getSecret("aiGatewayApiKey");
 
+// ── Observability (Grafana Cloud OTLP) ─────────────────────────────
+const otelEndpoint = config.get("otelEndpoint") ?? "";
+const otelHeaders = config.getSecret("otelHeaders");
+
+// ── Remediation webhook ────────────────────────────────────────────
+const remediationWebhookSecret = config.getSecret("remediationWebhookSecret");
+
+const otelEnvs: digitalocean.types.input.AppSpecServiceEnv[] = [
+  ...(otelEndpoint
+    ? [{ key: "OTEL_EXPORTER_OTLP_ENDPOINT", value: otelEndpoint }]
+    : []),
+  ...(otelHeaders
+    ? [{ key: "OTEL_EXPORTER_OTLP_HEADERS", value: otelHeaders, type: "SECRET" as const }]
+    : []),
+];
+
 // ── Auth0 Exports ───────────────────────────────────────────────────
 export const auth0ApiIdentifier = auth0Outputs.apiIdentifier;
 export const auth0ClientId = auth0Outputs.hospitalityClientId;
@@ -107,6 +123,7 @@ const apiApp = new digitalocean.App("mattbutlerengineering-api-app", {
           { key: "AUTH_AUTHORITY", value: "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com" },
           { key: "AUTH_AUDIENCE", value: `https://api.${domain}` },
           { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" },
+          ...otelEnvs,
         ],
         healthCheck: {
           httpPath: "/health",
@@ -137,6 +154,7 @@ const apiApp = new digitalocean.App("mattbutlerengineering-api-app", {
           { key: "AUTH_AUTHORITY", value: "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com" },
           { key: "AUTH_AUDIENCE", value: `https://api.${domain}` },
           { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" },
+          ...otelEnvs,
         ],
         healthCheck: {
           httpPath: "/health",
@@ -171,6 +189,10 @@ const apiApp = new digitalocean.App("mattbutlerengineering-api-app", {
             ? [{ key: "AI_GATEWAY_API_KEY", value: aiGatewayApiKey, type: "SECRET" as const }]
             : []),
           { key: "DEFAULT_MODEL", value: "anthropic/claude-haiku-4.5" },
+          ...(remediationWebhookSecret
+            ? [{ key: "REMEDIATION_WEBHOOK_SECRET", value: remediationWebhookSecret, type: "SECRET" as const }]
+            : []),
+          ...otelEnvs,
         ],
         healthCheck: {
           httpPath: "/health",

@@ -10,6 +10,7 @@ on:
       - "packages/types/**"
       - "packages/auth/**"
       - "packages/agent-core/**"
+      - "packages/observability/**"
 
 concurrency:
   group: deploy-services-${{ github.ref }}
@@ -27,6 +28,33 @@ jobs:
         uses: digitalocean/action-doctl@v2
         with:
           token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+
+      - name: Inject deploy metadata into app spec
+        env:
+          DEPLOY_SHA: ${{ github.sha }}
+          DEPLOY_PR_NUMBER: ${{ github.event.number }}
+          DEPLOY_AUTHOR: ${{ github.actor }}
+        run: |
+          APP_ID=$(doctl apps list --format ID,Spec.Name --no-header | grep mattbutlerengineering-api | awk '{print $1}')
+          if [ -z "$APP_ID" ]; then
+            echo "::error::Could not find mattbutlerengineering-api app"
+            exit 1
+          fi
+
+          # Fetch current spec
+          doctl apps spec get "$APP_ID" > /tmp/spec.yaml
+
+          # Upsert DEPLOY_SHA, DEPLOY_PR_NUMBER, DEPLOY_AUTHOR into each service's envs
+          for SVC in users-api reservations-api agent-api; do
+            yq -i "(.services[] | select(.name == \"$SVC\").envs) |=
+              (map(select(.key != \"DEPLOY_SHA\" and .key != \"DEPLOY_PR_NUMBER\" and .key != \"DEPLOY_AUTHOR\")) +
+              [{\"key\":\"DEPLOY_SHA\",\"value\":\"${DEPLOY_SHA}\"},
+               {\"key\":\"DEPLOY_PR_NUMBER\",\"value\":\"${DEPLOY_PR_NUMBER}\"},
+               {\"key\":\"DEPLOY_AUTHOR\",\"value\":\"${DEPLOY_AUTHOR}\"}])" /tmp/spec.yaml
+          done
+
+          echo "Updating app spec with deploy metadata"
+          doctl apps update "$APP_ID" --spec /tmp/spec.yaml
 
       - name: Trigger deployment
         run: |

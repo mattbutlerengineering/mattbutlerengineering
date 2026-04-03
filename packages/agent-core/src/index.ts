@@ -181,6 +181,10 @@ export type {
 
 export { DEFAULT_ORCHESTRATOR_CONFIG } from "./task-decomposer.js";
 
+// Intent extraction
+export { extractIssueIntent, IssueIntentSchema } from "./intent-extractor.js";
+export type { IssueIntent } from "./intent-extractor.js";
+
 // Model routing
 export { routeModel, routeModelWithReason, resolveModelId } from "./model-router.js";
 export type { ModelTier, IssueInput, ModelRoutingResult } from "./model-router.js";

@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { FastifyPluginAsync } from "fastify";
 import type { ApiError } from "@mbe/types";
+import { extractIssueIntent } from "@mbe/agent-core";
 import { sessionService } from "../services/session.js";
 import { executeSession } from "../services/session-executor.js";
 
@@ -161,22 +162,38 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
 // ── Event handlers ───────────────────────────────────────────────────
 
 async function handleIssueEvent(
-  fastify: { log: { info: (...args: unknown[]) => void; error: (...args: unknown[]) => void } },
+  fastify: { log: { info: (...args: unknown[]) => void; warn: (...args: unknown[]) => void; error: (...args: unknown[]) => void } },
   event: GitHubIssueEvent
 ): Promise<void> {
   // Only handle "labeled" action with the agent label
   if (event.action !== "labeled") return;
   if (event.label?.name !== AGENT_LABEL) return;
 
-  const taskDescription =
-    `Issue #${event.issue.number}: ${event.issue.title}\n\n` +
-    `${event.issue.body ?? "No description provided."}\n\n` +
-    `Source: ${event.issue.html_url}`;
-
-  fastify.log.info(
-    { issueNumber: event.issue.number },
-    "Creating session from issue label"
+  // Attempt structured intent extraction via Haiku
+  const intent = await extractIssueIntent(
+    event.issue.title,
+    event.issue.body ?? "",
+    event.issue.number
   );
+
+  let taskDescription: string;
+  if (intent) {
+    taskDescription = intent.taskDescription;
+    fastify.log.info(
+      { issueNumber: event.issue.number, scope: intent.estimatedScope },
+      "Issue intent extracted"
+    );
+  } else {
+    // Fall back to raw concatenation if extraction fails
+    taskDescription =
+      `Issue #${event.issue.number}: ${event.issue.title}\n\n` +
+      `${event.issue.body ?? "No description provided."}\n\n` +
+      `Source: ${event.issue.html_url}`;
+    fastify.log.warn(
+      { issueNumber: event.issue.number },
+      "Intent extraction failed — using raw issue text"
+    );
+  }
 
   const session = await sessionService.create({
     taskDescription,
