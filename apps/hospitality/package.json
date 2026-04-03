@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "@mbe/config": "workspace:*",
+    "@sentry/vite-plugin": "^5.1.1",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@types/react": "^19.0.0",
