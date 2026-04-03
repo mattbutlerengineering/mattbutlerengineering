@@ -3,6 +3,7 @@ import cors from "@fastify/cors";
 import swagger from "@fastify/swagger";
 import ScalarApiReference from "@scalar/fastify-api-reference";
 import { authPlugin, getAuthPluginOptionsFromEnv } from "@mbe/auth/fastify";
+import { sentryFastifyPlugin } from "@mbe/sentry/node";
 import { registerSchemas } from "./schemas/index.js";
 import { healthRoutes } from "./routes/health.js";
 import { tableRoutes } from "./routes/tables.js";
@@ -126,6 +127,9 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   if (process.env.AUTH_AUTHORITY && process.env.AUTH_AUDIENCE) {
     await fastify.register(authPlugin, getAuthPluginOptionsFromEnv());
   }
+
+  // Register Sentry error handler (no-op without SENTRY_DSN)
+  await fastify.register(sentryFastifyPlugin);
 
   // Register routes
   await fastify.register(healthRoutes);

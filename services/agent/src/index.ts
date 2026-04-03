@@ -1,4 +1,17 @@
-import { buildApp } from "./app.js";
+// OTel SDK must initialize before any other imports — it monkey-patches
+// Node's HTTP stack during registration. Dynamic import() ensures buildApp
+// and all its transitive deps load after the SDK is active.
+import { initTelemetry } from "@mbe/observability";
+import { initSentry } from "@mbe/sentry/node";
+
+const sdk = initTelemetry({ serviceName: "agent-api" });
+sdk.start();
+
+initSentry({ serviceName: "agent-api" });
+
+process.on("SIGTERM", () => sdk.shutdown().finally(() => process.exit(0)));
+
+const { buildApp } = await import("./app.js");
 
 const PORT = parseInt(process.env.PORT ?? "3003", 10);
 const HOST = process.env.HOST ?? "0.0.0.0";

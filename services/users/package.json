@@ -23,6 +23,8 @@
     "@fastify/cors": "^10.0.0",
     "@fastify/swagger": "^9.0.0",
     "@mbe/auth": "workspace:*",
+    "@mbe/observability": "workspace:*",
+    "@mbe/sentry": "workspace:^",
     "@mbe/types": "workspace:*",
     "@prisma/client": "^6.0.0",
     "@scalar/fastify-api-reference": "^1.44.1",

@@ -4,12 +4,14 @@ import rateLimit from "@fastify/rate-limit";
 import swagger from "@fastify/swagger";
 import ScalarApiReference from "@scalar/fastify-api-reference";
 import { authPlugin, getAuthPluginOptionsFromEnv } from "@mbe/auth/fastify";
+import { sentryFastifyPlugin } from "@mbe/sentry/node";
 import { registerSchemas } from "./schemas/index.js";
 import { healthRoutes } from "./routes/health.js";
 import { sessionRoutes } from "./routes/sessions.js";
 import { sessionEventsRoutes } from "./routes/session-events.js";
 import { orchestrateRoutes } from "./routes/orchestrate.js";
 import { webhookRoutes } from "./routes/webhooks.js";
+import { remediationRoutes } from "./routes/remediation.js";
 import { genUiRoutes } from "./routes/gen-ui.js";
 import { genChatRoutes } from "./routes/gen-chat.js";
 import { genSpecsRoutes } from "./routes/gen-specs.js";
@@ -94,12 +96,16 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
     keyGenerator: (req) => (req.user?.id ?? req.ip) as string,
   });
 
+  // Register Sentry error handler (no-op without SENTRY_DSN)
+  await fastify.register(sentryFastifyPlugin);
+
   registerSchemas(fastify);
   await fastify.register(healthRoutes);
   await fastify.register(sessionRoutes, { prefix: "/v1/sessions" });
   await fastify.register(sessionEventsRoutes, { prefix: "/v1/sessions" });
   await fastify.register(orchestrateRoutes, { prefix: "/v1/orchestrate" });
   await fastify.register(webhookRoutes, { prefix: "/v1/webhooks" });
+  await fastify.register(remediationRoutes, { prefix: "/v1/webhooks" });
   await fastify.register(genUiRoutes);
   await fastify.register(genChatRoutes);
   await fastify.register(genSpecsRoutes);

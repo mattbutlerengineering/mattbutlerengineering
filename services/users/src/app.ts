@@ -3,6 +3,7 @@ import cors from "@fastify/cors";
 import swagger from "@fastify/swagger";
 import ScalarApiReference from "@scalar/fastify-api-reference";
 import { authPlugin, getAuthPluginOptionsFromEnv } from "@mbe/auth/fastify";
+import { sentryFastifyPlugin } from "@mbe/sentry/node";
 import { registerSchemas } from "./schemas/index.js";
 import { healthRoutes } from "./routes/health.js";
 import { userRoutes } from "./routes/users.js";
@@ -100,6 +101,9 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
         "This is only acceptable in development/test environments."
     );
   }
+
+  // Register Sentry error handler (no-op without SENTRY_DSN)
+  await fastify.register(sentryFastifyPlugin);
 
   // Register routes
   await fastify.register(healthRoutes);
