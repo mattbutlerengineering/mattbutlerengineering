@@ -186,7 +186,7 @@ jobs:
 
       - name: Run Lighthouse CI
         run: |
-          npx @lhci/cli@0.15 autorun \
+          pnpm exec lhci autorun \
             --collect.staticDistDir=apps/marketing/dist \
             --collect.url=http://localhost \
             --config=lighthouserc.js
@@ -259,7 +259,7 @@ jobs:
 
       - name: Run Lighthouse CI
         run: |
-          npx @lhci/cli@0.15 autorun \
+          pnpm exec lhci autorun \
             --collect.staticDistDir=apps/hospitality/dist \
             --collect.url=http://localhost/hospitality/ \
             --config=lighthouserc.js
@@ -326,9 +326,10 @@ jobs:
 
       - name: Run Lighthouse CI
         run: |
-          npx @lhci/cli@0.15 autorun \
-            --collect.staticDistDir=apps/rialto-web/dist \
-            --collect.url=http://localhost/rialto/ \
+          pnpm exec lhci autorun \
+            --collect.startServerCommand="pnpm --filter @mbe/rialto-web exec vite preview --port 9222" \
+            --collect.startServerReadyPattern="Local:" \
+            --collect.url=http://localhost:9222/rialto/ \
             --config=lighthouserc.js
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.GITHUB_TOKEN }}

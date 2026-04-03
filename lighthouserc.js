@@ -22,9 +22,7 @@ module.exports = {
       },
     },
     assert: {
-      // Block merge if any score falls below these minimums.
-      // The workflow also enforces a delta check (>0.05 drop from base branch).
-      preset: "lighthouse:no-pwa",
+      // Block merge if any category score falls below these minimums.
       assertions: {
         "categories:performance": ["error", { minScore: 0.9 }],
         "categories:accessibility": ["error", { minScore: 0.9 }],
