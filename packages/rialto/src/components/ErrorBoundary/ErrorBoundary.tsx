@@ -7,6 +7,8 @@ export interface ErrorBoundaryProps {
   readonly children: ReactNode;
   /** Optional custom fallback UI. When omitted, a default "Something went wrong" message is shown. */
   readonly fallback?: ReactNode;
+  /** Optional callback invoked when an error is caught. Use to report errors to external services. */
+  readonly onError?: (error: Error, errorInfo: ErrorInfo) => void;
 }
 
 interface ErrorBoundaryState {
@@ -31,9 +33,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
-    // Log to console so monitoring tools can pick it up.
-    // A future iteration could send this to a reporting service.
     console.error("[ErrorBoundary] Uncaught error:", error, info);
+    this.props.onError?.(error, info);
   }
 
   private handleRefresh = (): void => {
