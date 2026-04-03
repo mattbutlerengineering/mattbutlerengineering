@@ -1,4 +1,4 @@
-import { Card, Stack, Text, Tag, Button } from "@mbe/rialto";
+import { Card, Stack, Text, Tag } from "@mbe/rialto";
 import type { Project } from "../data/projects";
 import styles from "./ProjectCard.module.css";
 
@@ -26,10 +26,13 @@ export function ProjectCard({ project }: ProjectCardProps) {
 
         {project.href && (
           <div className={styles.actions}>
-            <a href={project.href} className={styles.link}>
-              <Button variant="secondary" size="sm">
-                View live
-              </Button>
+            <a
+              href={project.href}
+              className={styles.buttonLink}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              View live
             </a>
           </div>
         )}
