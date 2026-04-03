@@ -153,6 +153,24 @@
   background: var(--rialto-accent-muted);
 }
 
+/* ── Disabled nav item ───────────────────────── */
+
+.navLinkDisabled {
+  pointer-events: none;
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* ── Step status icon ────────────────────────── */
+
+.stepIcon {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+  margin-inline-end: var(--rialto-space-xs);
+  color: currentColor;
+}
+
 /* ── Mobile backdrop overlay ─────────────────── */
 
 .backdrop {
