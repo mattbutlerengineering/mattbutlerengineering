@@ -72,11 +72,15 @@ Shown when `readiness.status === "setup"`:
 Shown when `readiness.status === "operational"`:
 
 ```
+┌─ Venue Switcher ────────────┐
+│  The Rustic Table       ▾   │
+│  + Add Venue                │
+└─────────────────────────────┘
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Dashboard
-  Timeline
+  Timeline            ← default
   Reservations
   Guests
+  Dashboard
 ━━ Manage ━━━━━━━━━━━━━━━━━━━
   Floor Plans
   Booking Widget
@@ -90,11 +94,34 @@ Changes from current sidebar:
 
 | Item | Current Location | New Location | Rationale |
 |------|-----------------|--------------|-----------|
-| New Venue | Primary nav | Removed (accessible via venue switcher or Settings) | Not a daily action |
+| Timeline | 2nd in primary nav | 1st in primary nav (default route) | Most-used page during service — should be the landing page |
+| Dashboard | 1st in primary nav | 4th in primary nav | Morning briefing, not the live workspace |
+| New Venue | Primary nav | Venue switcher "Add Venue" action | Not a nav destination — it's a venue-level action |
 | Floor Plans | Primary nav | Manage section | Admin/config task, not daily ops |
 | Booking Widget | Developer section | Manage section | Venue management tool, not dev-only |
 | Admin > Users | Admin section | Admin section (unchanged, role-gated) | Still admin-only |
 | Developer section label | Visible | Removed | Misleading label for venue operators |
+| Venue selector | Per-page (Timeline only) | Sidebar header (always visible) | Consistent, always accessible |
+
+### Venue Switcher
+
+A compact dropdown at the top of the sidebar, above all nav sections:
+
+- Shows the selected venue name with a chevron
+- Dropdown lists all venues the user has access to
+- "+ Add Venue" action at the bottom opens `/onboarding`
+- Single-venue users still see the venue name (no dropdown, no chevron) for context
+- The per-page venue selectors (e.g., TimelinePage header) are removed — the sidebar is the single source
+
+**Component:** New `VenueSwitcher` component in `src/components/VenueSwitcher.tsx`. Uses the existing `useVenue()` context for data and `setVenueId()` for switching. Renders inside `DashboardSidebar` above the sections div.
+
+### Default Route Change
+
+The index route (`/`) changes from `HomePage` (Dashboard) to `TimelinePage`:
+- In `main.tsx`, the index route element becomes `TimelinePage`
+- `HomePage` (Dashboard) moves to `/dashboard`
+- The redirect table (below) updates: operational `/setup` redirects to `/timeline` instead of `/`
+- Breadcrumb labels update accordingly
 
 ## Nav Section Generator
 
@@ -164,7 +191,7 @@ A landing page showing:
 - A welcome message with venue name
 - A vertical stepper matching the sidebar steps (larger, more descriptive)
 - Each step shows: status icon, title, description, and a CTA button for the current step
-- Auto-redirects to `/` (Dashboard) if `readiness.status === "operational"`
+- Auto-redirects to `/timeline` if `readiness.status === "operational"`
 
 ### SetupHoursPage (`/setup/hours`)
 
@@ -194,7 +221,8 @@ The redirect is a soft guard — it keeps new venues focused on setup without ha
 | `no-venue` | Any page | Redirect to `/onboarding` |
 | `setup` | `/timeline`, `/reservations`, `/guests` | Redirect to `/setup` |
 | `setup` | `/floor-plans`, `/setup/hours`, `/settings`, `/profile` | Allow (these are setup-relevant) |
-| `operational` | `/setup` | Redirect to `/` (Dashboard) |
+| `operational` | `/setup` | Redirect to `/timeline` |
+| `operational` | `/` | Redirect to `/timeline` (new default landing) |
 | `operational` | Any page | Allow |
 
 ## Files to Create/Modify
@@ -204,10 +232,12 @@ The redirect is a soft guard — it keeps new venues focused on setup without ha
 | `src/hooks/useVenueReadiness.ts` | Create | Derive setup state from venue + floor plans |
 | `src/nav-sections.ts` | Modify | Replace static `NAV_SECTIONS` with `buildNavSections(readiness)` |
 | `src/components/DashboardLayout.tsx` | Modify | Use readiness hook, pass dynamic sections, add redirects |
-| `src/components/DashboardSidebar.tsx` | Modify | Support `stepStatus` and `disabled` on nav items |
+| `src/components/DashboardSidebar.tsx` | Modify | Support `stepStatus`, `disabled`, and render VenueSwitcher slot |
+| `src/components/VenueSwitcher.tsx` | Create | Sidebar venue dropdown with "Add Venue" action |
 | `src/pages/SetupPage.tsx` | Create | Setup landing with stepper progress |
 | `src/pages/SetupHoursPage.tsx` | Create | Standalone operating hours editor |
-| `src/main.tsx` | Modify | Add `/setup` and `/setup/hours` routes |
+| `src/main.tsx` | Modify | Add `/setup`, `/setup/hours`, `/dashboard` routes; change index to Timeline |
+| `src/pages/TimelinePage.tsx` | Modify | Remove per-page venue selector (now in sidebar) |
 
 ## Testing Strategy
 
@@ -215,12 +245,27 @@ The redirect is a soft guard — it keeps new venues focused on setup without ha
 - `useVenueReadiness` hook: test all gate combinations (no venue, partial setup, fully operational)
 - `buildNavSections`: test setup sections vs operational sections output
 - `DashboardSidebar`: test disabled items are not clickable, step status icons render
+- `VenueSwitcher`: test venue list rendering, switching, single-venue mode (no dropdown)
 
 ### Integration Tests
 - DashboardLayout with mocked venue context: verify correct sidebar sections render for each readiness state
 - Redirect behavior: verify operational pages redirect during setup, and vice versa
+- Venue switcher integration: switching venues triggers readiness recomputation
 
 ### E2E Tests
 - Full setup flow: create venue via onboarding → configure hours → create floor plan → verify sidebar transitions to operational
+- Verify Timeline is the default landing page after setup completes
 - Verify operational pages (Timeline, Reservations) are accessible after setup completes
 - Verify operational pages redirect to `/setup` before setup completes
+- Verify venue switcher changes data on all pages
+
+## Future Iterations
+
+Deferred from this design — to be revisited after shipping and gathering feedback:
+
+| Idea | Description | Why Deferred |
+|------|-------------|--------------|
+| **Service mode** | Stripped-down, full-screen Timeline UI during active service hours with collapsed sidebar and prominent walk-in button | Big feature, needs UX research on how hosts actually use tablets during service |
+| **Role-aware nav** | Different default pages and nav emphasis for Host vs Manager personas | Needs role infrastructure (currently no role distinction in the app) |
+| **Smart default route** | During operating hours → Timeline; outside hours → Dashboard briefing | Requires operating hours awareness in routing logic; ship static default first |
+| **Channels section** | Group customer-facing features (Booking Widget, future: Google Reserve, review links) under a "Channels" nav section | Only one item (Booking Widget) exists today — premature abstraction |
