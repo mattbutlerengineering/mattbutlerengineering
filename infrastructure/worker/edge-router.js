@@ -275,8 +275,8 @@ function isHealthAuthorized(request, env) {
 /**
  * Return a coarse health response with no infrastructure details.
  */
-function coarseHealthResponse(status, timestamp) {
-  return new Response(JSON.stringify({ status, timestamp }), {
+function coarseHealthResponse(status, timestamp, requestId) {
+  return new Response(JSON.stringify({ status, timestamp, requestId }), {
     status: 200,
     headers: {
       "Content-Type": "application/json",
@@ -295,7 +295,7 @@ function coarseHealthResponse(status, timestamp) {
  * If HEALTH_TOKEN is not configured, all requests get the coarse response
  * (safe by default).
  */
-async function handleHealthSystem(request, env) {
+async function handleHealthSystem(request, env, requestId) {
   const now = Date.now();
 
   // Fan out all checks in parallel
@@ -340,13 +340,14 @@ async function handleHealthSystem(request, env) {
 
   // Gate detailed output behind token auth (safe by default)
   if (!isHealthAuthorized(request, env)) {
-    return coarseHealthResponse(status, timestamp);
+    return coarseHealthResponse(status, timestamp, requestId);
   }
 
   return new Response(
     JSON.stringify({
       status,
       timestamp,
+      requestId,
       subsystems: { services, static_sites: staticSites, ci, deploys },
     }),
     {
@@ -426,9 +427,13 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    // Generate or preserve request ID
+    const clientRequestId = request.headers.get("x-request-id");
+    const requestId = clientRequestId || crypto.randomUUID();
+
     // ── Health aggregation endpoint ───────────────────────────────────
     if (url.pathname === "/health/system") {
-      return handleHealthSystem(request, env);
+      return handleHealthSystem(request, env, requestId);
     }
 
     // ── Feature flags admin API ─────────────────────────────────────
@@ -467,6 +472,7 @@ export default {
       headers.set("Host", target.host);
       headers.set("X-Forwarded-Host", url.host);
       headers.set("X-Forwarded-For", request.headers.get("CF-Connecting-IP") ?? "");
+      headers.set("X-Request-ID", requestId);
 
       // Feature flags: get from KV, inject as header for services
       const seed = request.headers.get("CF-Connecting-IP") ?? "";
@@ -520,7 +526,14 @@ export default {
     // serves from root — so /hospitality/foo → /foo on the app Worker.
     const strippedPath = prefix ? (url.pathname.slice(prefix.length) || "/") : url.pathname;
     const appUrl = new URL(strippedPath + url.search, url.origin);
-    const appRequest = new Request(appUrl, request);
+    const appHeaders = new Headers(request.headers);
+    appHeaders.set("X-Request-ID", requestId);
+    const appRequest = new Request(appUrl, {
+      method: request.method,
+      headers: appHeaders,
+      body: request.body,
+      redirect: request.redirect,
+    });
 
     const response = await binding.fetch(appRequest);
 
