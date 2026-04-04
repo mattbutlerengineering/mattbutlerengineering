@@ -72,6 +72,106 @@ function addHeaders(response, pathname) {
   });
 }
 
+/**
+ * Return a branded error page for service failures.
+ */
+function brandedErrorPage(statusCode, message, requestId) {
+  const statusMessages = {
+    502: "Service temporarily unavailable",
+    503: "Service temporarily unavailable",
+    504: "Request timed out",
+    default: "Service unreachable",
+  };
+
+  const displayMessage = statusMessages[statusCode] || statusMessages.default;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Service Unavailable - Matt Butler Engineering</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .container {
+      max-width: 500px;
+      text-align: center;
+    }
+    .logo {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #38bdf8;
+      margin-bottom: 2rem;
+      letter-spacing: -0.025em;
+    }
+    h1 {
+      font-size: 2rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: #f1f5f9;
+    }
+    p {
+      font-size: 1.125rem;
+      color: #94a3b8;
+      margin-bottom: 1.5rem;
+      line-height: 1.6;
+    }
+    .error-code {
+      font-size: 0.875rem;
+      color: #64748b;
+      font-family: monospace;
+      background: #1e293b;
+      padding: 0.25rem 0.75rem;
+      border-radius: 0.25rem;
+      display: inline-block;
+      margin-bottom: 1.5rem;
+    }
+    .link {
+      color: #38bdf8;
+      text-decoration: none;
+    }
+    .link:hover {
+      text-decoration: underline;
+    }
+    .refresh {
+      font-size: 0.875rem;
+      color: #64748b;
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">Matt Butler Engineering</div>
+    <h1>${displayMessage}</h1>
+    <p>We're experiencing some technical difficulties. Please try again shortly.</p>
+    <div class="error-code">Request ID: ${requestId}</div>
+    <p><a href="/" class="link">Return to homepage</a></p>
+    <p class="refresh">Refreshing automatically in 30 seconds...</p>
+  </div>
+  <script>setTimeout(() => location.reload(), 30000);</script>
+</body>
+</html>`;
+
+  return new Response(html, {
+    status: statusCode,
+    headers: {
+      "Content-Type": "text/html; charset=UTF-8",
+      "Cache-Control": "no-store",
+    },
+  });
+}
+
 // ── Health Aggregation ──────────────────────────────────────────────
 // /health/system fans out to all subsystems in parallel and returns a
 // unified JSON response.  Service health endpoints are fetched via HTTP,
@@ -481,14 +581,28 @@ export default {
         headers.set("X-Feature-Flags", JSON.stringify(featureFlags));
       }
 
-      return fetch(
-        new Request(target, {
-          method: request.method,
-          headers,
-          body: request.body,
-          redirect: "manual",
-        })
-      );
+      let apiResponse;
+      try {
+        apiResponse = await fetch(
+          new Request(target, {
+            method: request.method,
+            headers,
+            body: request.body,
+            redirect: "manual",
+          })
+        );
+      } catch (error) {
+        console.error("API proxy error:", error.message);
+        return brandedErrorPage(503, "Service unreachable", requestId);
+      }
+
+      // If API returns 5xx, show branded error
+      if (apiResponse.status >= 500) {
+        return brandedErrorPage(apiResponse.status, "Service error", requestId);
+      }
+
+      // Pass through the response (including 4xx which should show app error pages)
+      return apiResponse;
     }
 
     // ── Trailing-slash redirects for SPA prefixes ────────────────────
@@ -535,7 +649,18 @@ export default {
       redirect: request.redirect,
     });
 
-    const response = await binding.fetch(appRequest);
+    let response;
+    try {
+      response = await binding.fetch(appRequest);
+    } catch (error) {
+      console.error(`Static site error (${prefix || "marketing"}):`, error.message);
+      return brandedErrorPage(503, "Service temporarily unavailable", requestId);
+    }
+
+    // If static site returns 5xx, show branded error
+    if (response.status >= 500) {
+      return brandedErrorPage(response.status, "Service error", requestId);
+    }
 
     // Rewrite Location headers so redirects use the public domain with prefix.
     const location = response.headers.get("Location");
