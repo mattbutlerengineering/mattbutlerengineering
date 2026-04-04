@@ -194,6 +194,31 @@ mattbutlerengineering/
     └── pulumi/            # Pulumi (TypeScript)
 ```
 
+## Harness Engineering Controls
+
+Automated guardrails that keep the codebase correct as it grows. See `docs/superpowers/specs/2026-04-03-harness-engineering-design.md` for full design.
+
+### Module Boundary Enforcement (ESLint)
+
+Import restrictions enforced by `no-restricted-imports` in the ESLint configs:
+
+| Config | Blocked Imports | Error Message Suggests |
+|--------|----------------|----------------------|
+| `react.js` (apps) | `@mbe/agent-core`, `@mbe/observability` | "Backend-only package" |
+| `react.js` (apps) | `@mbe/auth/fastify`, `@mbe/sentry/node` | Use `/react` entrypoint |
+| `node.js` (services) | `@mbe/rialto`, `@mbe/api-client` | "Frontend-only package" |
+| `node.js` (services) | `@mbe/auth/react`, `@mbe/sentry/react` | Use `/fastify` or `/node` entrypoint |
+
+Package classification: `@mbe/rialto-catalog` is **shared** (used by agent service for AI code gen).
+
+### API Schema Snapshot Tests
+
+Every JSON Schema object in `services/*/src/schemas/index.ts` is snapshot-tested. Any schema change fails tests with a clear diff. Accept intentional changes with `vitest -u`.
+
+### Pre-commit Typecheck
+
+`.husky/pre-commit` runs `pnpm turbo typecheck --filter='...[HEAD]'` after lint-staged. This typechecks only packages with uncommitted changes (plus their dependents). Turbo cache makes repeated runs fast (~12s).
+
 ## Code Style Guidelines
 
 ### Import/Export Conventions
