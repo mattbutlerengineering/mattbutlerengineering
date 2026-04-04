@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync } from "fastify";
+import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import type { HealthResponse } from "@mbe/types";
 import { prisma } from "../services/database.js";
 
@@ -31,8 +31,13 @@ export const healthRoutes: FastifyPluginAsync = async (fastify) => {
     },
   };
 
-  const healthHandler = async (): Promise<HealthResponse> => {
+  const healthHandler = async (request: FastifyRequest): Promise<HealthResponse> => {
     const checks: HealthResponse["checks"] = {};
+    const { apiVersion, successorVersion, sunsetDate } = request.server as unknown as {
+      apiVersion: string;
+      successorVersion?: string;
+      sunsetDate: string;
+    };
 
     const dbStart = Date.now();
     try {
@@ -54,6 +59,9 @@ export const healthRoutes: FastifyPluginAsync = async (fastify) => {
     return {
       status: hasErrors ? "degraded" : "ok",
       version: "1.0.0",
+      apiVersion,
+      successorVersion,
+      sunsetDate,
       timestamp: new Date().toISOString(),
       checks,
     };

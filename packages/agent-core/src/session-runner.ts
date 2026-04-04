@@ -8,7 +8,7 @@ import type {
   SessionEventCallback,
   WorktreeInfo,
 } from "./types.js";
-import { buildSystemPrompt, loadSourceFiles } from "./prompt-builder.js";
+import { buildSystemPrompt, loadSourceFiles, loadProjectContext } from "./prompt-builder.js";
 import { createToolPermissionHandler } from "./tool-permissions.js";
 import { buildSessionResult } from "./cost-tracker.js";
 import { createStuckDetector } from "./stuck-detector.js";
@@ -118,8 +118,14 @@ export async function runSession(
         const prExamples = await fetchRecentPrExamples(config.repoPath).catch(() => []);
         const prExamplesSection = formatPrExamples(prExamples);
 
+        // Load project CLAUDE.md for coding conventions (non-blocking)
+        const projectContext = await loadProjectContext(worktree.path).catch(() => null);
+        const projectSection = projectContext
+          ? `\n\n## Project Conventions (from CLAUDE.md)\n\n${projectContext}`
+          : "";
+
         const systemPrompt =
-          buildSystemPrompt(config.taskDescription, sourceFileEntries, prExamplesSection) + failureContext;
+          buildSystemPrompt(config.taskDescription, sourceFileEntries, prExamplesSection) + projectSection + failureContext;
 
         // 3. Run the agent via SDK query()
         emitEvent(onEvent, "session:start", {

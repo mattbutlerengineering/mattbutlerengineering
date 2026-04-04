@@ -73,10 +73,14 @@ const healthSchema = {
   },
 };
 
-const healthHandler: HealthRouteHandler = async () => {
+const healthHandler: HealthRouteHandler = async (request) => {
   const checks: HealthResponse["checks"] = {};
+  const { apiVersion, successorVersion, sunsetDate } = request.server as unknown as {
+    apiVersion: string;
+    successorVersion?: string;
+    sunsetDate: string;
+  };
 
-  // Check database connection
   const dbStart = Date.now();
   try {
     await prisma.$queryRaw`SELECT 1`;
@@ -97,6 +101,9 @@ const healthHandler: HealthRouteHandler = async () => {
   return {
     status: hasErrors ? "degraded" : "ok",
     version: "1.0.0",
+    apiVersion,
+    successorVersion,
+    sunsetDate,
     timestamp: new Date().toISOString(),
     checks,
   };

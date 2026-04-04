@@ -49,6 +49,8 @@ vi.mock("../failure-memory.js", () => ({
 
 vi.mock("../prompt-builder.js", () => ({
   buildSystemPrompt: vi.fn(),
+  loadSourceFiles: vi.fn().mockResolvedValue([]),
+  loadProjectContext: vi.fn().mockResolvedValue(null),
 }));
 
 vi.mock("../tool-permissions.js", () => ({
