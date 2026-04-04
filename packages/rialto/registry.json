@@ -6384,6 +6384,18 @@
           "required": false
         },
         {
+          "name": "isLoading",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "When true, shows a spinner and disables the button"
+        },
+        {
+          "name": "loadingText",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Optional text to show while loading. If omitted, original children are shown."
+        },
+        {
           "name": "id",
           "type": "string | undefined",
           "required": false

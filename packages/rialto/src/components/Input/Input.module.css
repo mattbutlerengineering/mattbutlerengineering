@@ -58,15 +58,15 @@
   align-items: center;
   justify-content: center;
   color: var(--rialto-text-tertiary);
-  pointer-events: none;
 }
 
 .startIcon {
   inset-inline-start: var(--rialto-space-sm);
+  pointer-events: none;
 }
 
 .endIcon {
-  inset-inline-end: var(--rialto-space-sm);
+  inset-inline-end: var(--rialto-space-xs);
 }
 
 .inputWithStartIcon {
@@ -74,7 +74,7 @@
 }
 
 .inputWithEndIcon {
-  padding-inline-end: 36px;
+  padding-inline-end: 44px;
 }
 
 .lockIcon {

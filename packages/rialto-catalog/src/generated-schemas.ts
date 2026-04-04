@@ -39,6 +39,8 @@ export const generatedSchemas = {
   Button: z.object({
     variant: z.enum(["primary", "secondary", "ghost"]).optional(),
     size: z.enum(["sm", "md", "lg"]).optional(),
+    isLoading: z.boolean().optional(),
+    loadingText: z.string().optional(),
   }),
   Card: z.object({
     variant: z.enum(["elevated", "glass", "flat"]).optional(),

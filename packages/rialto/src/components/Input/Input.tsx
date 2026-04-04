@@ -73,7 +73,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           )}
           <div className={styles.inputContainer}>
             {startIcon && (
-              <span className={styles.startIcon} aria-hidden>
+              <span className={styles.startIcon}>
                 {startIcon}
               </span>
             )}
@@ -89,7 +89,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               {...props}
             />
             {endIcon && (
-              <span className={styles.endIcon} aria-hidden>
+              <span className={styles.endIcon}>
                 {endIcon}
               </span>
             )}

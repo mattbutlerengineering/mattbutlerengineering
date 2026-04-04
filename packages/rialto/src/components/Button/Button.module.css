@@ -124,13 +124,35 @@
   }
 }
 
-/* ── Disabled ────────────────────────────────── */
 .button:disabled {
   filter: saturate(0.6) brightness(0.95);
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
   pointer-events: none;
+}
+
+.isLoading {
+  cursor: wait;
+  opacity: 0.9;
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+  margin-right: var(--rialto-space-xs);
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.contentHidden {
+  opacity: 0.8;
 }
 
 /* ── Sizes ───────────────────────────────────── */
