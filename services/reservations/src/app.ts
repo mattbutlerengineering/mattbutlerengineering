@@ -47,12 +47,13 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
       timestamp: () => `,"timestamp":"${new Date().toISOString()}"`,
       formatters: {
         log(level: unknown, args: unknown) {
+          const ctx = args as Record<string, unknown>;
           return {
             level,
             service: "reservations-service",
-            ...(args[0]?.requestId ? { requestId: args[0].requestId } : {}),
-            ...(args[0]?.userId ? { userId: args[0].userId } : {}),
-            ...(typeof args[0] === "object" ? args[0] : { message: args[0] }),
+            ...(ctx?.requestId ? { requestId: ctx.requestId } : {}),
+            ...(ctx?.userId ? { userId: ctx.userId } : {}),
+            ...(typeof ctx === "object" ? ctx : { message: String(ctx) }),
           };
         },
       },
