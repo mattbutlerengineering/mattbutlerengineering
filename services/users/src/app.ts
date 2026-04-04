@@ -4,6 +4,7 @@ import swagger from "@fastify/swagger";
 import ScalarApiReference from "@scalar/fastify-api-reference";
 import { authPlugin, getAuthPluginOptionsFromEnv } from "@mbe/auth/fastify";
 import { sentryFastifyPlugin } from "@mbe/sentry/node";
+import { apiVersioningPlugin } from "@mbe/api-versioning/fastify";
 import { registerSchemas } from "./schemas/index.js";
 import { healthRoutes } from "./routes/health.js";
 import { userRoutes } from "./routes/users.js";
@@ -104,6 +105,13 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
 
   // Register Sentry error handler (no-op without SENTRY_DSN)
   await fastify.register(sentryFastifyPlugin);
+
+  // Register API versioning headers
+  await fastify.register(apiVersioningPlugin, {
+    currentVersion: "v1",
+    successorVersion: "v2",
+    sunsetMonthsFromNow: 6,
+  });
 
   // Register routes
   await fastify.register(healthRoutes);

@@ -51,6 +51,9 @@ export interface ApiError {
 export interface HealthResponse {
   status: "ok" | "degraded" | "error";
   version: string;
+  apiVersion?: string;
+  successorVersion?: string;
+  sunsetDate?: string;
   timestamp: string;
   checks?: Record<string, HealthCheck>;
 }

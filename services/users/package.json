@@ -22,6 +22,7 @@
   "dependencies": {
     "@fastify/cors": "^10.0.0",
     "@fastify/swagger": "^9.0.0",
+    "@mbe/api-versioning": "workspace:*",
     "@mbe/auth": "workspace:*",
     "@mbe/observability": "workspace:*",
     "@mbe/sentry": "workspace:^",

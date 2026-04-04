@@ -37,7 +37,7 @@ const apiVersioningPlugin: FastifyPluginAsync<ApiVersioningOptions> = async (
     reply.header("API-Version", currentVersion);
 
     if (successorVersion) {
-      const path = request.url.replace(/\/v\d+/, `/${successorVersion.replace("v", "v/")}`);
+      const path = request.url.replace(/\/v\d+/, `/${successorVersion}`);
       reply.header("Link", `<${path}>; rel="successor-version"`);
     }
   });
@@ -46,7 +46,7 @@ const apiVersioningPlugin: FastifyPluginAsync<ApiVersioningOptions> = async (
     reply.header("Deprecation", "true");
     reply.header("Sunset", sunsetDate);
     if (successorVersion) {
-      const path = reply.request.url.replace(/\/v\d+/, `/${successorVersion.replace("v", "v/")}`);
+      const path = reply.request.url.replace(/\/v\d+/, `/${successorVersion}`);
       reply.header("Link", `<${path}>; rel="successor-version"`);
     }
   });
