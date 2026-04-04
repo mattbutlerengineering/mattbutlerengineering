@@ -1,0 +1,66 @@
+name: Branch Cleanup
+
+on:
+  schedule:
+    - cron: "0 2 * * 0"  # Sunday 2am UTC
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run mode"
+        required: false
+        default: "true"
+        type: boolean
+
+jobs:
+  cleanup-branches:
+    name: Cleanup merged branches
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Delete branches merged into main
+        env:
+          DRY_RUN: ${{ github.inputs.dry_run || 'true' }}
+        run: |
+          # Get default branch name
+          DEFAULT_BRANCH=$(git remote show origin | grep "HEAD branch" | sed 's/.*: //')
+          
+          # Protected branches to exclude
+          PROTECTED_BRANCHES="main production release/ develop development"
+          
+          # Find branches merged into main (that are not protected)
+          MERGED_BRANCHES=$(git branch --merged main | grep -v "$DEFAULT_BRANCH" | grep -vE "(^\*|main|production|release/)" || true)
+          
+          for branch in $MERGED_BRANCHES; do
+            # Skip current branch
+            [[ "$branch" == "*" ]] && continue
+            
+            # Clean branch name
+            branch=$(echo "$branch" | xargs)
+            [[ -z "$branch" ]] && continue
+            
+            # Check if branch is older than 7 days
+            # Get the commit date of the latest commit on the branch
+            last_commit_date=$(git log -1 --format=%ci "$branch" 2>/dev/null | head -1)
+            if [[ -z "$last_commit_date" ]]; then
+              continue
+            fi
+            
+            # Calculate days since last commit
+            days_since=$(($(date +%s) - $(date -d "$last_commit_date" +%s)) / 86400)
+            
+            if [[ $days_since -lt 7 ]]; then
+              echo "Skipping $branch - only $days_since days old"
+              continue
+            fi
+            
+            if [[ "$DRY_RUN" == "true" ]]; then
+              echo "[DRY RUN] Would delete branch: $branch"
+            else
+              echo "Deleting branch: $branch"
+              git push origin --delete "$branch" || true
+            fi
+          done
