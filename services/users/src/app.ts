@@ -39,7 +39,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
       },
       timestamp: () => `,"timestamp":"${new Date().toISOString()}"`,
       formatters: {
-        log(level, args) {
+        log(level: string, args: Record<string, unknown>) {
           return {
             level,
             service: "users-service",
@@ -126,7 +126,6 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   registerSchemas(fastify);
 
   // Register auth plugin (permissive — populates request.user when token present)
-  const nodeEnv = process.env.NODE_ENV ?? "development";
   const hasAuthVars = process.env.AUTH_AUTHORITY && process.env.AUTH_AUDIENCE;
 
   if (hasAuthVars) {

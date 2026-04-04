@@ -47,7 +47,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
       },
       timestamp: () => `,"timestamp":"${new Date().toISOString()}"`,
       formatters: {
-        log(level, args) {
+        log(level: string, args: Record<string, unknown>) {
           return {
             level,
             service: "agent-service",
