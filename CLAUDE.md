@@ -59,6 +59,7 @@ Client → mattbutlerengineering.com (Cloudflare Worker "edge-router")
 - **API Services**: DO App Platform at `api.mattbutlerengineering.com` with `deployOnPush: false` (CI triggers deploys via `doctl`)
 - **Infrastructure**: Pulumi (TypeScript) in `infrastructure/pulumi/`
 - **Runbooks**: Operational procedures in `infrastructure/docs/RUNBOOKS.md`
+- **Cross-Service Flows**: End-to-end flow documentation in `docs/CROSS-SERVICE-FLOWS.md`
 
 **Deploy pipelines (all independent):****
 
