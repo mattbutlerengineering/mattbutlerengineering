@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import type { HealthResponse } from "@mbe/types";
-import { prisma } from "../services/database.js";
+import { prisma, getSlowQueryStats, getServiceStatus } from "../services/database.js";
 
 export const healthRoutes: FastifyPluginAsync = async (fastify) => {
   const healthSchema = {
@@ -31,41 +31,51 @@ export const healthRoutes: FastifyPluginAsync = async (fastify) => {
     },
   };
 
-  const healthHandler = async (request: FastifyRequest): Promise<HealthResponse> => {
-    const checks: HealthResponse["checks"] = {};
-    const { apiVersion, successorVersion, sunsetDate } = request.server as unknown as {
-      apiVersion: string;
-      successorVersion?: string;
-      sunsetDate: string;
-    };
-
-    const dbStart = Date.now();
-    try {
-      await prisma.$queryRaw`SELECT 1`;
-      checks.database = {
-        status: "ok",
-        latency: Date.now() - dbStart,
-      };
-    } catch (error) {
-      checks.database = {
-        status: "error",
-        message: error instanceof Error ? error.message : "Database connection failed",
-        latency: Date.now() - dbStart,
-      };
-    }
-
-    const hasErrors = Object.values(checks).some((c) => c.status === "error");
-
-    return {
-      status: hasErrors ? "degraded" : "ok",
-      version: "1.0.0",
-      apiVersion,
-      successorVersion,
-      sunsetDate,
-      timestamp: new Date().toISOString(),
-      checks,
-    };
+const healthHandler = async (request: FastifyRequest): Promise<HealthResponse> => {
+  const checks: HealthResponse["checks"] = {};
+  const { apiVersion, successorVersion, sunsetDate } = request.server as unknown as {
+    apiVersion: string;
+    successorVersion?: string;
+    sunsetDate: string;
   };
+
+  const dbStart = Date.now();
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    checks.database = {
+      status: "ok",
+      latency: Date.now() - dbStart,
+    };
+  } catch (error) {
+    checks.database = {
+      status: "error",
+      message: error instanceof Error ? error.message : "Database connection failed",
+      latency: Date.now() - dbStart,
+    };
+  }
+
+  const slowQueries = getSlowQueryStats();
+  const dbStatus = checks.database?.status ?? "ok";
+  const slowQueryStatus = getServiceStatus();
+
+  checks.slow_queries = {
+    status: slowQueryStatus,
+    message: `${slowQueries.count5min} slow queries in last 5min (slowest: ${slowQueries.slowestMs}ms)`,
+    latency: slowQueries.slowestMs,
+  };
+
+  const hasErrors = dbStatus === "error" || slowQueryStatus === "degraded";
+
+  return {
+    status: hasErrors ? "degraded" : "ok",
+    version: "1.0.0",
+    apiVersion,
+    successorVersion,
+    sunsetDate,
+    timestamp: new Date().toISOString(),
+    checks,
+  };
+};
 
   // /health — used by DO App Platform internal health checks (direct container access)
   fastify.get<{ Reply: HealthResponse }>(
