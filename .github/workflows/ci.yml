@@ -23,82 +23,50 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  setup:
-    name: Setup
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
-    outputs:
-      prisma_hash: ${{ steps.prisma.outputs.hash }}
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v5
+      - uses: pnpm/action-setup@v5
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: "pnpm"
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
 
-      - name: Generate Prisma clients
-        id: prisma
-        run: |
-          pnpm --filter @mbe/users-service db:generate
-          pnpm --filter @mbe/reservations-service db:generate
-          pnpm --filter @mbe/agent-service db:generate
-          echo "hash=$(find services/*/prisma -name '*.prisma' -exec cat {} \; | md5sum | cut -d' ' -f1)" >> $GITHUB_OUTPUT
-
-      - name: Cache Prisma clients
-        uses: actions/cache@v4
-        with:
-          path: |
-            services/users/src/generated
-            services/reservations/src/generated
-            services/agent/src/generated
-          key: prisma-${{ runner.os }}-${{ steps.prisma.outputs.hash }}
-          restore-keys: prisma-${{ runner.os }}-
-
-      - name: Upload setup artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: setup-cache
-          retention-days: 1
-          path: |
-            node_modules
-            services/users/src/generated
-            services/reservations/src/generated
-            services/agent/src/generated
-
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    needs: [setup]
-
-    steps:
-      - name: Download setup artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: setup-cache
-
-      - name: Lint
-        run: pnpm lint
+      - run: pnpm lint
 
   typecheck:
     name: Typecheck
     runs-on: ubuntu-latest
-    needs: [setup]
 
     steps:
-      - name: Download setup artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v6
         with:
-          name: setup-cache
+          node-version: 22
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma clients
+        run: |
+          pnpm --filter @mbe/users-service db:generate
+          pnpm --filter @mbe/reservations-service db:generate
+          pnpm --filter @mbe/agent-service db:generate
 
       - name: Typecheck
+        env:
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+          TURBO_TEAM: ${{ vars.TURBO_TEAM }}
         run: pnpm typecheck
 
   build:
@@ -107,10 +75,22 @@ jobs:
     needs: [lint, typecheck]
 
     steps:
-      - name: Download setup artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v6
         with:
-          name: setup-cache
+          node-version: 22
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma clients
+        run: |
+          pnpm --filter @mbe/users-service db:generate
+          pnpm --filter @mbe/reservations-service db:generate
+          pnpm --filter @mbe/agent-service db:generate
 
       - name: Build all packages
         env:
@@ -145,10 +125,22 @@ jobs:
     needs: [lint, typecheck]
 
     steps:
-      - name: Download setup artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v6
         with:
-          name: setup-cache
+          node-version: 22
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma clients
+        run: |
+          pnpm --filter @mbe/users-service db:generate
+          pnpm --filter @mbe/reservations-service db:generate
+          pnpm --filter @mbe/agent-service db:generate
 
       - name: Run tests with coverage
         env:
@@ -184,10 +176,22 @@ jobs:
           - 5432:5432
 
     steps:
-      - name: Download setup artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v6
         with:
-          name: setup-cache
+          node-version: 22
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma clients
+        run: |
+          pnpm --filter @mbe/users-service db:generate
+          pnpm --filter @mbe/reservations-service db:generate
+          pnpm --filter @mbe/agent-service db:generate
 
       - name: Check for destructive migrations
         run: node scripts/check-destructive-migrations.js
