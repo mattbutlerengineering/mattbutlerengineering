@@ -1,6 +1,7 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
 import swagger from "@fastify/swagger";
+import swaggerUi from "@fastify/swagger-ui";
 import ScalarApiReference from "@scalar/fastify-api-reference";
 import { authPlugin, getAuthPluginOptionsFromEnv } from "@mbe/auth/fastify";
 import { sentryFastifyPlugin } from "@mbe/sentry/node";
@@ -113,8 +114,16 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
     },
   });
 
-  await fastify.register(ScalarApiReference, {
+  await fastify.register(swaggerUi, {
     routePrefix: "/docs",
+    uiConfig: {
+      docExpansion: "list",
+      deepLinking: false,
+    },
+  });
+
+  await fastify.register(ScalarApiReference, {
+    routePrefix: "/scalar",
     configuration: {
       title: "Reservations Service API",
       theme: "deepSpace",

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx watch --env-file=.env src/index.ts",
     "build": "tsc",
+    "build:openapi": "tsx -e \"import { buildApp } from './src/app.js'; (async () => { const app = await buildApp({ logger: false }); await app.ready(); console.log(JSON.stringify(app.swagger(), null, 2)); })()\" > openapi.json",
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -23,6 +24,7 @@
     "@fastify/cors": "^10.0.0",
     "@fastify/rate-limit": "^10.3.0",
     "@fastify/swagger": "^9.0.0",
+    "@fastify/swagger-ui": "^3.0.0",
     "@mbe/agent-core": "workspace:*",
     "@mbe/api-versioning": "workspace:*",
     "@mbe/auth": "workspace:^",
