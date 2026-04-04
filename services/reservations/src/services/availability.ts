@@ -221,7 +221,6 @@ export async function getAvailableDates(
   endDate: string,
   partySize: number
 ): Promise<DateAvailability[]> {
-  const results: DateAvailability[] = [];
   const start = new Date(startDate);
   const end = new Date(endDate);
 
@@ -234,15 +233,97 @@ export async function getAvailableDates(
     start.getTime() + Math.min(daysDiff, maxDays) * 24 * 60 * 60 * 1000
   );
 
+  // Hoist venue + tables queries outside the loop (same for every date)
+  const [prismaVenue, suitableTables] = await Promise.all([
+    prisma.venue.findUnique({ where: { id: venueId } }),
+    findSuitableTables(venueId, partySize),
+  ]);
+
+  if (!prismaVenue || suitableTables.length === 0) {
+    // No venue or no tables — every date is unavailable
+    const results: DateAvailability[] = [];
+    for (let d = new Date(start); d <= actualEnd; d.setDate(d.getDate() + 1)) {
+      results.push({ date: d.toISOString().split("T")[0], hasAvailability: false, slotCount: 0 });
+    }
+    return results;
+  }
+
+  const venue: VenueWithSettings = {
+    id: prismaVenue.id,
+    name: prismaVenue.name,
+    slug: prismaVenue.slug,
+    ianaTimezone: prismaVenue.ianaTimezone,
+    settings: prismaVenue.settings as VenueSettings | null,
+    operatingHours: prismaVenue.operatingHours as OperatingHours | null,
+  };
+
+  // Bulk-fetch reservations and holds for the entire date range (2 queries total)
+  const [allReservations, allHolds] = await Promise.all([
+    prisma.reservation.findMany({
+      where: {
+        venueId,
+        date: { gte: start, lte: actualEnd },
+        status: { notIn: ["CANCELLED", "NO_SHOW"] },
+      },
+      select: { id: true, tableId: true, startTime: true, endTime: true, partySize: true },
+    }),
+    prisma.reservationHold.findMany({
+      where: {
+        venueId,
+        date: { gte: start, lte: actualEnd },
+        expiresAt: { gt: new Date() },
+      },
+      select: { id: true, tableId: true, startTime: true, endTime: true, partySize: true, expiresAt: true },
+    }),
+  ]);
+
+  const settings = venue.settings;
+  const slotInterval = settings?.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
+  const lastSeatingBuffer = settings?.lastSeatingBuffer ?? DEFAULT_LAST_SEATING_BUFFER;
+  const duration = estimateDuration(partySize, settings);
+
+  const results: DateAvailability[] = [];
+
   for (let d = new Date(start); d <= actualEnd; d.setDate(d.getDate() + 1)) {
     const dateStr = d.toISOString().split("T")[0];
-    const slots = await generateTimeSlots(venueId, dateStr, partySize);
-    const availableSlots = slots.filter((s) => s.available);
+    const schedule = getDaySchedule(venue.operatingHours, d);
+
+    if (!schedule) {
+      results.push({ date: dateStr, hasAvailability: false, slotCount: 0 });
+      continue;
+    }
+
+    // Filter reservations and holds for this specific date
+    const dateReservations = allReservations.filter(
+      (r) => r.startTime.toISOString().split("T")[0] === dateStr
+    );
+    const dateHolds = allHolds.filter(
+      (h) => h.startTime.toISOString().split("T")[0] === dateStr
+    );
+
+    const openMinutes = parseTimeToMinutes(schedule.open);
+    const closeMinutes = parseTimeToMinutes(schedule.close);
+    const lastSeatingMinutes = closeMinutes - lastSeatingBuffer;
+
+    let availableCount = 0;
+
+    for (let minutes = openMinutes; minutes <= lastSeatingMinutes; minutes += slotInterval) {
+      const slotStart = createDateTimeFromMinutes(dateStr, minutes, venue.ianaTimezone);
+      const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000);
+
+      const hasAvailableTable = suitableTables.some(
+        (table) => !checkTableConflict(table.id, slotStart, slotEnd, dateReservations, dateHolds)
+      );
+
+      if (hasAvailableTable) {
+        availableCount++;
+      }
+    }
 
     results.push({
       date: dateStr,
-      hasAvailability: availableSlots.length > 0,
-      slotCount: availableSlots.length,
+      hasAvailability: availableCount > 0,
+      slotCount: availableCount,
     });
   }
 

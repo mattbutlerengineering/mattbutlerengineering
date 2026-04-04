@@ -10,7 +10,7 @@ export interface FeedbackLoopConfig {
 }
 
 export const DEFAULT_FEEDBACK_LOOP_CONFIG: FeedbackLoopConfig = {
-  enabled: false,
+  enabled: true,
   maxRetries: 2,
   pollIntervalMs: 30_000,
   pollTimeoutMs: 300_000,

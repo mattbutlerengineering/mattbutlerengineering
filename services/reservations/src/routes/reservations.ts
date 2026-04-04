@@ -226,6 +226,10 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
             description: "Authentication required",
             $ref: "Error#",
           },
+          409: {
+            description: "Table is not available",
+            $ref: "Error#",
+          },
           500: {
             description: "Internal server error",
             $ref: "Error#",
@@ -235,13 +239,20 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request, reply) => {
       const userId = request.user?.id;
-      const reservation = await reservationService.createWalkIn(request.body, userId);
+      const result = await reservationService.createWalkIn(request.body, userId);
+      if (!result.success || !result.reservation) {
+        return reply.code(409).send({
+          error: "Conflict",
+          message: result.error ?? "Table is not available",
+          statusCode: 409,
+        });
+      }
       const updatedTable = await tableService.updateStatus(request.body.tableId, "OCCUPIED");
-      emitReservationCreated(reservation);
+      emitReservationCreated(result.reservation);
       if (updatedTable) {
         emitTableUpdated(updatedTable);
       }
-      return reply.code(201).send({ data: reservation });
+      return reply.code(201).send({ data: result.reservation });
     }
   );
 

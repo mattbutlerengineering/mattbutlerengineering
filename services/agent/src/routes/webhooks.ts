@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { Readable } from "node:stream";
 import type { FastifyPluginAsync } from "fastify";
 import type { ApiError } from "@mbe/types";
 import { extractIssueIntent } from "@mbe/agent-core";
@@ -61,7 +62,7 @@ interface GitHubCheckRunEvent {
 // ── Signature verification ───────────────────────────────────────────
 
 function verifySignature(
-  payload: string,
+  payload: Buffer,
   signature: string | undefined,
   secret: string
 ): boolean {
@@ -89,6 +90,19 @@ const AGENT_BRANCH_PREFIX = "agent/";
 // ── Routes ───────────────────────────────────────────────────────────
 
 export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
+  // Capture raw request body before Fastify parses JSON.
+  // GitHub signs the original bytes; re-serializing via JSON.stringify
+  // can produce a different byte sequence and break HMAC verification.
+  fastify.addHook("preParsing", async (request, _reply, payload) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of payload) {
+      chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : (chunk as Buffer));
+    }
+    const rawBody = Buffer.concat(chunks);
+    (request as unknown as Record<string, unknown>).rawBody = rawBody;
+    return Readable.from(rawBody);
+  });
+
   // POST /v1/webhooks/github — Handle GitHub webhook events
   fastify.post<{
     Body: unknown;
@@ -123,9 +137,9 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      // Verify signature
+      // Verify signature against the original raw bytes (not re-serialized JSON)
       const signature = request.headers["x-hub-signature-256"] as string | undefined;
-      const rawBody = JSON.stringify(request.body);
+      const rawBody = (request as unknown as Record<string, unknown>).rawBody as Buffer;
 
       if (!verifySignature(rawBody, signature, secret)) {
         return reply.code(401).send({

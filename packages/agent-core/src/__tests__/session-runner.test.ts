@@ -12,6 +12,7 @@ vi.mock("../worktree-manager.js", () => ({
   pushBranch: vi.fn(),
   hasChanges: vi.fn(),
   removeWorktree: vi.fn(),
+  runVerification: vi.fn(),
 }));
 
 vi.mock("../pr-creator.js", () => ({
@@ -25,6 +26,14 @@ vi.mock("../success-evaluator.js", () => ({
   evaluateSuccess: vi.fn(),
   getGitDiff: vi.fn(),
   shouldEvaluate: vi.fn().mockReturnValue(true),
+}));
+
+vi.mock("../diff-reviewer.js", () => ({
+  reviewDiff: vi.fn(),
+}));
+
+vi.mock("../feedback-loop.js", () => ({
+  runFeedbackLoop: vi.fn(),
 }));
 
 vi.mock("../failure-memory.js", () => ({
@@ -49,9 +58,12 @@ import {
   pushBranch,
   hasChanges,
   removeWorktree,
+  runVerification,
 } from "../worktree-manager.js";
 import { createPullRequest, buildPrTitle, buildPrBody } from "../pr-creator.js";
 import { evaluateSuccess, getGitDiff } from "../success-evaluator.js";
+import { reviewDiff } from "../diff-reviewer.js";
+import { runFeedbackLoop } from "../feedback-loop.js";
 import { loadMemory, queryPastFailures, buildFailureContext } from "../failure-memory.js";
 import { buildSystemPrompt } from "../prompt-builder.js";
 import { createToolPermissionHandler } from "../tool-permissions.js";
@@ -116,6 +128,16 @@ describe("runSession", () => {
     vi.mocked(loadMemory).mockResolvedValue({ records: [] });
     vi.mocked(queryPastFailures).mockReturnValue([]);
     vi.mocked(buildFailureContext).mockReturnValue("");
+
+    vi.mocked(runVerification).mockResolvedValue({
+      passed: true,
+      lintOk: true,
+      typecheckOk: true,
+      testsOk: true,
+    });
+
+    vi.mocked(reviewDiff).mockResolvedValue({ approved: true, issues: [] });
+    vi.mocked(runFeedbackLoop).mockResolvedValue({ resolved: false, retriesUsed: 0 });
 
     vi.mocked(getGitDiff).mockResolvedValue("diff --git a/file.ts\n+change");
     vi.mocked(evaluateSuccess).mockResolvedValue({

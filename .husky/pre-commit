@@ -1,2 +1,15 @@
 pnpm lint-staged
 pnpm turbo typecheck --filter='...[HEAD]'
+
+# Check generated files are up to date (~4s total)
+pnpm --filter @mbe/rialto build:registry --silent
+if ! git diff --quiet packages/rialto/registry.json 2>/dev/null; then
+  echo "ERROR: packages/rialto/registry.json is stale. Run 'pnpm --filter @mbe/rialto build:registry' and stage the result."
+  exit 1
+fi
+
+pnpm --filter @mbe/rialto-catalog generate --silent
+if ! git diff --quiet packages/rialto-catalog/src/generated-schemas.ts 2>/dev/null; then
+  echo "ERROR: packages/rialto-catalog/src/generated-schemas.ts is stale. Run 'pnpm --filter @mbe/rialto-catalog generate' and stage the result."
+  exit 1
+fi

@@ -114,12 +114,13 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
               className={styles.panel}
               role="dialog"
               aria-modal
-              aria-label={title}
+              aria-labelledby={title ? "rialto-dialog-title" : undefined}
+              aria-label={title ? undefined : "Dialog"}
               transition={shouldReduceMotion ? { duration: 0 } : springGentle}
               {...motionProps}
             >
               <div className={styles.header}>
-                {title && <h2 className={styles.title}>{title}</h2>}
+                {title && <h2 id="rialto-dialog-title" className={styles.title}>{title}</h2>}
                 <button className={styles.close} onClick={onClose} aria-label="Close dialog">
                   <svg
                     width="14"

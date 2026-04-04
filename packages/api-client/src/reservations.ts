@@ -85,7 +85,7 @@ export class ReservationsClient {
    * Cancel a reservation
    */
   async cancel(id: string): Promise<Reservation> {
-    const response = await this.client.delete(`/api/v1/reservations/${id}`) as unknown as ApiResponse<Reservation>;
+    const response = await this.client.request<ApiResponse<Reservation>>(`/api/v1/reservations/${id}`, { method: "DELETE" });
     return response.data;
   }
 

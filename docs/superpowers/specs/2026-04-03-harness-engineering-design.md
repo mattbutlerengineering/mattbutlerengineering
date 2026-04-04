@@ -47,6 +47,34 @@ Cross-app/service imports are already prevented by pnpm strict mode.
 
 Turbo-powered typecheck scoped to changed packages + dependents. Runs in ~12s with cache, catches type errors before they reach CI.
 
+### 4. Circular Dependency Detection (Feedback)
+
+**File:** `scripts/check-circular-deps.js`
+
+Walks all workspace `package.json` files and detects `@mbe/*` dependency cycles. Zero external dependencies — pure graph traversal. Runs in CI build job and available as `pnpm check:circular-deps`.
+
+### 5. Dependency Security Audit (Feedback)
+
+**CI step** in build job. Runs `pnpm audit --audit-level=high` as a non-blocking warning. Surfaces known CVEs in dependencies without breaking builds on low-severity issues.
+
+### 6. Destructive Migration Guard (Feedforward)
+
+**File:** `scripts/check-destructive-migrations.js`
+
+Scans new Prisma migration SQL files for `DROP TABLE`, `DROP COLUMN`, `TRUNCATE`, `DELETE FROM`. Runs in CI migrations job before applying migrations. Escape hatch: add `-- DESTRUCTIVE: <reason>` comment to the SQL file for intentional destructive changes.
+
+### 7. Service Layer Enforcement (Feedforward)
+
+**File:** `packages/config/eslint/node.js`
+
+Route files cannot import `**/services/database` or `@prisma/client` directly — must go through the service layer (e.g., `userService`, `reservationService`). Health routes and test files are exempt since they need direct DB access for connectivity checks.
+
+### 8. Generated Code Staleness Check (Temporal Shift)
+
+**File:** `.husky/pre-commit`
+
+Pre-commit hook regenerates `registry.json` and `generated-schemas.ts`, then checks for uncommitted diff. Takes ~4s total. Prevents the "CI fails 5 minutes later" loop when agents or developers forget to regenerate after source changes.
+
 ## Package Classification
 
 | Category | Packages |

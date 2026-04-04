@@ -351,14 +351,24 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
       );
 
       if (!result.success) {
-        const isNotFound =
-          result.error?.includes("not found") ||
-          result.error?.includes("expired");
-        const statusCode = isNotFound ? 404 : 409;
+        const error = result.error ?? "Failed to confirm hold";
+        let statusCode: number;
+        let errorLabel: string;
+
+        if (error.includes("not found") || error.includes("expired")) {
+          statusCode = 404;
+          errorLabel = "Not Found";
+        } else if (error.includes("Session ID")) {
+          statusCode = 403;
+          errorLabel = "Forbidden";
+        } else {
+          statusCode = 409;
+          errorLabel = "Conflict";
+        }
 
         return reply.code(statusCode).send({
-          error: isNotFound ? "Not Found" : "Conflict",
-          message: result.error ?? "Failed to confirm hold",
+          error: errorLabel,
+          message: error,
           statusCode,
         });
       }

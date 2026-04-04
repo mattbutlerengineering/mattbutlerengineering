@@ -652,6 +652,15 @@ export function GuestsPage() {
                         .filter(Boolean)
                         .join(" ")}
                       onClick={() => handleRowClick(guest.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          handleRowClick(guest.id);
+                        }
+                      }}
+                      tabIndex={0}
+                      role="button"
+                      aria-label={`View details for ${guest.name}`}
                     >
                       <td className={styles.td}>
                         <Text variant="body" color="primary" className={styles.guestName}>

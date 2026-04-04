@@ -80,9 +80,9 @@ export class HoldsClient {
    * Create a hold on a time slot
    */
   async create(data: CreateHoldRequest): Promise<{ hold: ReservationHold; sessionId: string }> {
-    const headers: Record<string, string> = {};
-    if (this.sessionId) {
-      headers["x-session-id"] = this.sessionId;
+    // Generate session ID before the request so create and confirm use the same ID
+    if (!this.sessionId) {
+      this.sessionId = crypto.randomUUID();
     }
 
     const response = await this.client.request<ApiResponse<ReservationHold>>(
@@ -90,16 +90,13 @@ export class HoldsClient {
       {
         method: "POST",
         body: JSON.stringify(data),
-        headers,
+        headers: {
+          "x-session-id": this.sessionId,
+        },
       }
     );
 
-    // The session ID may be returned in the response headers
-    // For now, use the one we have or generate one client-side
-    const newSessionId = this.sessionId ?? crypto.randomUUID();
-    this.sessionId = newSessionId;
-
-    return { hold: response.data, sessionId: newSessionId };
+    return { hold: response.data, sessionId: this.sessionId };
   }
 
   /**

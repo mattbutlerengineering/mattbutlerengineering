@@ -11,9 +11,10 @@ interface SettingsStepProps {
   data: SettingsData;
   errors: Partial<Record<keyof SettingsData, string>>;
   onChange: (data: SettingsData) => void;
+  onValidate?: () => void;
 }
 
-export function SettingsStep({ data, errors, onChange }: SettingsStepProps) {
+export function SettingsStep({ data, errors, onChange, onValidate }: SettingsStepProps) {
   return (
     <div className={styles.stepContainer}>
       <Text variant="caption" color="secondary">
@@ -33,6 +34,7 @@ export function SettingsStep({ data, errors, onChange }: SettingsStepProps) {
             onChange={(e) =>
               onChange({ ...data, defaultReservationDuration: e.target.value })
             }
+            onBlur={onValidate}
             placeholder="90"
             min="1"
           />
@@ -51,6 +53,7 @@ export function SettingsStep({ data, errors, onChange }: SettingsStepProps) {
             className={styles.numberInput}
             value={data.maxPartySize}
             onChange={(e) => onChange({ ...data, maxPartySize: e.target.value })}
+            onBlur={onValidate}
             placeholder="12"
             min="1"
           />
@@ -71,6 +74,7 @@ export function SettingsStep({ data, errors, onChange }: SettingsStepProps) {
             onChange={(e) =>
               onChange({ ...data, advanceBookingDays: e.target.value })
             }
+            onBlur={onValidate}
             placeholder="30"
             min="1"
           />

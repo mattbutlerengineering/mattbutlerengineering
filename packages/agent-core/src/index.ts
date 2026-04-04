@@ -34,8 +34,9 @@ export {
   commitChanges,
   pushBranch,
   hasChanges,
+  runVerification,
 } from "./worktree-manager.js";
-export type { CreateWorktreeOptions } from "./worktree-manager.js";
+export type { CreateWorktreeOptions, VerificationResult as PrePushVerification } from "./worktree-manager.js";
 
 // PR creation
 export {
@@ -180,6 +181,15 @@ export type {
 } from "./task-decomposer.js";
 
 export { DEFAULT_ORCHESTRATOR_CONFIG } from "./task-decomposer.js";
+
+// Task intelligence (source files, budget, model, PR examples)
+export {
+  resolveSourceFiles,
+  resolveBudget,
+  resolveModel,
+  fetchRecentPrExamples,
+  formatPrExamples,
+} from "./task-intelligence.js";
 
 // Intent extraction
 export { extractIssueIntent, IssueIntentSchema } from "./intent-extractor.js";

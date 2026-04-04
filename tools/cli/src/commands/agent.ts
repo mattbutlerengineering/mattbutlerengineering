@@ -1,7 +1,13 @@
 import { Command } from "commander";
 import { resolve } from "node:path";
 import type { SessionConfig, SessionEvent } from "@mbe/agent-core";
-import { runSession, DEFAULT_SESSION_CONFIG } from "@mbe/agent-core";
+import {
+  runSession,
+  DEFAULT_SESSION_CONFIG,
+  DEFAULT_FEEDBACK_LOOP_CONFIG,
+  resolveBudget,
+  resolveModel,
+} from "@mbe/agent-core";
 import type {
   AgentSession,
   ApiResponse,
@@ -180,15 +186,24 @@ agentCommand
     ) => {
       const repoPath = resolve(process.cwd());
 
+      // Use task intelligence for smart defaults when user doesn't override
+      const smartBudget = resolveBudget(task);
+      const smartModel = resolveModel(task);
+
+      const isDefaultModel = options.model === DEFAULT_SESSION_CONFIG.model;
+      const isDefaultBudget = options.maxBudget === String(DEFAULT_SESSION_CONFIG.maxBudgetUsd);
+      const isDefaultTurns = options.maxTurns === String(DEFAULT_SESSION_CONFIG.maxTurns);
+
       const config: SessionConfig = {
         taskDescription: task,
         repoPath,
         baseBranch: options.baseBranch,
-        model: options.model,
-        maxTurns: parseInt(options.maxTurns, 10),
-        maxBudgetUsd: parseFloat(options.maxBudget),
+        model: isDefaultModel ? smartModel : options.model,
+        maxTurns: isDefaultTurns ? smartBudget.maxTurns : parseInt(options.maxTurns, 10),
+        maxBudgetUsd: isDefaultBudget ? smartBudget.budgetUsd : parseFloat(options.maxBudget),
         allowedTools: [...DEFAULT_SESSION_CONFIG.allowedTools],
         createPr: options.pr,
+        feedbackLoop: DEFAULT_FEEDBACK_LOOP_CONFIG,
       };
 
       console.log("Agent Session (local)");

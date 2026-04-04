@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
 import {
@@ -76,13 +76,14 @@ function formatRelativeTime(date: Date): string {
 /* ── Main component ─────────────────────────── */
 
 export function ReservationsPage() {
+  const navigate = useNavigate();
   const { accessToken } = useAuth();
   const { selectedVenueId } = useVenue();
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
-  const selectedDate = searchParams.get("date") ?? new Date().toISOString().split("T")[0];
+  const selectedDate = searchParams.get("date") ?? new Date().toLocaleDateString("en-CA");
   const statusFilter = searchParams.get("status") ?? "all";
   const [searchQuery, setSearchQuery] = useState("");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -301,7 +302,20 @@ export function ReservationsPage() {
               </thead>
               <tbody className={styles.tbody}>
                 {filteredReservations.map((reservation) => (
-                  <tr key={reservation.id}>
+                  <tr
+                    key={reservation.id}
+                    onClick={() => navigate(`/timeline?date=${reservation.date}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        navigate(`/timeline?date=${reservation.date}`);
+                      }
+                    }}
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`View ${reservation.guestName ?? "Guest"} reservation on timeline`}
+                    style={{ cursor: "pointer" }}
+                  >
                     <td className={styles.td}>
                       {formatTime(reservation.startTime)} - {formatTime(reservation.endTime)}
                     </td>

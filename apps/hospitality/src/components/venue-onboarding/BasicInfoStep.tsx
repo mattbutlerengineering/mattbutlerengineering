@@ -12,9 +12,11 @@ interface BasicInfoStepProps {
   data: BasicInfoData;
   errors: Partial<Record<keyof BasicInfoData, string>>;
   onChange: (data: BasicInfoData) => void;
+  onValidate?: () => void;
+  slugStatus?: "idle" | "checking" | "available" | "taken";
 }
 
-export function BasicInfoStep({ data, errors, onChange }: BasicInfoStepProps) {
+export function BasicInfoStep({ data, errors, onChange, onValidate, slugStatus }: BasicInfoStepProps) {
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     const currentSlugIsAuto = data.slug === generateSlug(data.name);
@@ -30,6 +32,18 @@ export function BasicInfoStep({ data, errors, onChange }: BasicInfoStepProps) {
     onChange({ ...data, venueGroupId: e.target.value });
   };
 
+  const slugHint =
+    slugStatus === "checking"
+      ? "Checking availability..."
+      : slugStatus === "available"
+        ? "Slug is available"
+        : slugStatus === "taken"
+          ? undefined // shown as error instead
+          : "URL-friendly identifier (auto-generated from name)";
+
+  const slugHintColor =
+    slugStatus === "available" ? "primary" : "secondary";
+
   return (
     <div className={styles.stepContainer}>
       <Stack gap="md">
@@ -44,6 +58,7 @@ export function BasicInfoStep({ data, errors, onChange }: BasicInfoStepProps) {
             placeholder="e.g. The Grand Ballroom"
             value={data.name}
             onChange={handleNameChange}
+            onBlur={onValidate}
             aria-label="Venue Name"
           />
           {errors.name && <span className={styles.errorText}>{errors.name}</span>}
@@ -60,11 +75,14 @@ export function BasicInfoStep({ data, errors, onChange }: BasicInfoStepProps) {
             placeholder="e.g. the-grand-ballroom"
             value={data.slug}
             onChange={handleSlugChange}
+            onBlur={onValidate}
             aria-label="Slug"
           />
-          <Text variant="caption" color="secondary">
-            URL-friendly identifier (auto-generated from name)
-          </Text>
+          {slugHint && (
+            <Text variant="caption" color={slugHintColor}>
+              {slugHint}
+            </Text>
+          )}
           {errors.slug && <span className={styles.errorText}>{errors.slug}</span>}
         </div>
 

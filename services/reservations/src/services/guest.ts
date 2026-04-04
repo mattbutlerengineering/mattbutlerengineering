@@ -237,12 +237,16 @@ export const guestService = {
     const where: Prisma.GuestWhereInput = { venueId };
 
     // Text search on name, email, phone
+    const conditions: Record<string, unknown>[] = [];
+
     if (query) {
-      where.OR = [
-        { name: { contains: query, mode: "insensitive" } },
-        { email: { contains: query, mode: "insensitive" } },
-        { phone: { contains: query } },
-      ];
+      conditions.push({
+        OR: [
+          { name: { contains: query, mode: "insensitive" } },
+          { email: { contains: query, mode: "insensitive" } },
+          { phone: { contains: query } },
+        ],
+      });
     }
 
     // Filter by tags (JSON array contains)
@@ -254,10 +258,16 @@ export const guestService = {
     if (hasNotVisitedInDays) {
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - hasNotVisitedInDays);
-      where.OR = [
-        { lastVisit: { lt: cutoffDate } },
-        { lastVisit: null },
-      ];
+      conditions.push({
+        OR: [
+          { lastVisit: { lt: cutoffDate } },
+          { lastVisit: null },
+        ],
+      });
+    }
+
+    if (conditions.length > 0) {
+      where.AND = conditions;
     }
 
     // Filter by visit count
