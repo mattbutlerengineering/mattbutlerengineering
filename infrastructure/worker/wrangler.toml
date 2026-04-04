@@ -25,3 +25,9 @@ service = "mattbutlerengineering-rialto-web"
 [[services]]
 binding = "GEN"
 service = "mattbutlerengineering-gen"
+
+# Health state KV — stores CI/deploy status written by GitHub Actions.
+# ID comes from: cd infrastructure/pulumi && pulumi stack output healthKvNamespaceId
+[[kv_namespaces]]
+binding = "HEALTH_STATE"
+id = "PLACEHOLDER_UNTIL_PULUMI_DEPLOY"

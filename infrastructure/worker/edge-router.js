@@ -71,9 +71,226 @@ function addHeaders(response, pathname) {
   });
 }
 
+// ── Health Aggregation ──────────────────────────────────────────────
+// /health/system fans out to all subsystems in parallel and returns a
+// unified JSON response.  Service health endpoints are fetched via HTTP,
+// static sites are probed via Service Bindings (in-process), and CI/deploy
+// status is read from KV (written by GitHub Actions).
+
+const HEALTH_TIMEOUT_MS = 5_000;
+const STALENESS_THRESHOLD_MS = 60 * 60 * 1_000; // 1 hour
+
+const SERVICE_ENDPOINTS = {
+  users: "/health",
+  reservations: "/api/health",
+  agent: "/api/gen/health",
+};
+
+const STATIC_SITE_BINDINGS = ["MARKETING", "HOSPITALITY", "RIALTO", "GEN"];
+
+const KV_KEYS = {
+  ci: "ci/latest",
+  deployStatic: "deploy/static",
+  deployServices: "deploy/services",
+  deployInfrastructure: "deploy/infrastructure",
+};
+
+/**
+ * Fetch a service health endpoint with a timeout.
+ * Returns { status, latency, version?, checks? }.
+ */
+async function checkService(apiOrigin, path) {
+  const start = Date.now();
+  try {
+    const response = await fetch(`${apiOrigin}${path}`, {
+      signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS),
+    });
+    const latency = Date.now() - start;
+    if (!response.ok) {
+      return { status: "error", latency };
+    }
+    const body = await response.json();
+    return {
+      status: body.status === "error" ? "error" : "ok",
+      latency,
+      version: body.version,
+      checks: body.checks,
+    };
+  } catch {
+    return { status: "timeout", latency: Date.now() - start };
+  }
+}
+
+/**
+ * Probe a static site via Service Binding HEAD request.
+ * Returns { status, latency }.
+ */
+async function checkStaticSite(binding) {
+  const start = Date.now();
+  try {
+    const response = await binding.fetch(new Request("https://dummy/", { method: "HEAD" }), {
+      signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS),
+    });
+    const latency = Date.now() - start;
+    return { status: response.ok ? "ok" : "error", latency };
+  } catch {
+    return { status: "timeout", latency: Date.now() - start };
+  }
+}
+
+/**
+ * Read a KV key as JSON, returning null if missing.
+ */
+async function readKvJson(kv, key) {
+  try {
+    return await kv.get(key, "json");
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Determine subsystem status from an array of individual check statuses.
+ * "ok" checks are healthy; any "error"/"timeout" degrades the subsystem.
+ */
+function subsystemStatus(checks) {
+  const statuses = Object.values(checks).map((c) => c.status);
+  const errorCount = statuses.filter((s) => s !== "ok").length;
+  if (errorCount === 0) return "healthy";
+  if (errorCount >= 2) return "unhealthy";
+  return "degraded";
+}
+
+/**
+ * Determine CI health from KV data.
+ * null or stale data → "stale"; failure → "unhealthy"; success → "healthy".
+ */
+function ciStatus(kvData, now) {
+  if (!kvData) return { status: "stale", last_run: null };
+  const age = now - new Date(kvData.updated_at).getTime();
+  if (age > STALENESS_THRESHOLD_MS) {
+    return { status: "stale", last_run: kvData };
+  }
+  return {
+    status: kvData.conclusion === "success" ? "healthy" : "unhealthy",
+    last_run: kvData,
+  };
+}
+
+/**
+ * Determine deploy health from KV data for all three pipelines.
+ */
+function deployStatus(pipelines, now) {
+  const entries = Object.entries(pipelines);
+  let errorCount = 0;
+  let staleCount = 0;
+  for (const [, data] of entries) {
+    if (!data) {
+      staleCount++;
+    } else {
+      const age = now - new Date(data.updated_at).getTime();
+      if (age > STALENESS_THRESHOLD_MS) staleCount++;
+      else if (data.conclusion !== "success") errorCount++;
+    }
+  }
+  const status = errorCount > 0 ? "unhealthy" : staleCount > 0 ? "degraded" : "healthy";
+  return { status, pipelines };
+}
+
+/**
+ * Compute the top-level system status from subsystem statuses.
+ *
+ * Policy (balanced):
+ * - Any service unhealthy → unhealthy (users can't do their work)
+ * - 2+ static sites down  → unhealthy (significant outage)
+ * - Single static site / CI / one deploy pipeline failing → degraded
+ * - All healthy → healthy
+ */
+function computeSystemStatus(services, staticSites, ci, deploys) {
+  if (services.status === "unhealthy") return "unhealthy";
+  if (staticSites.status === "unhealthy") return "unhealthy";
+  if (deploys.status === "unhealthy") return "unhealthy";
+
+  const anyDegraded =
+    services.status === "degraded" ||
+    staticSites.status === "degraded" ||
+    ci.status === "stale" ||
+    ci.status === "unhealthy" ||
+    deploys.status === "degraded";
+
+  return anyDegraded ? "degraded" : "healthy";
+}
+
+/**
+ * Handle GET /health/system — aggregate all subsystem health.
+ */
+async function handleHealthSystem(env) {
+  const now = Date.now();
+
+  // Fan out all checks in parallel
+  const [serviceResults, staticResults, kvResults] = await Promise.all([
+    // Service health endpoints (HTTP)
+    Promise.all(
+      Object.entries(SERVICE_ENDPOINTS).map(async ([name, path]) => {
+        const check = await checkService(env.API_ORIGIN, path);
+        return [name, check];
+      })
+    ),
+    // Static site probes (Service Binding)
+    Promise.all(
+      STATIC_SITE_BINDINGS.map(async (bindingName) => {
+        const check = await checkStaticSite(env[bindingName]);
+        return [bindingName.toLowerCase(), check];
+      })
+    ),
+    // KV reads (CI + deploy status)
+    Promise.all([
+      readKvJson(env.HEALTH_STATE, KV_KEYS.ci),
+      readKvJson(env.HEALTH_STATE, KV_KEYS.deployStatic),
+      readKvJson(env.HEALTH_STATE, KV_KEYS.deployServices),
+      readKvJson(env.HEALTH_STATE, KV_KEYS.deployInfrastructure),
+    ]),
+  ]);
+
+  // Build subsystem objects
+  const serviceChecks = Object.fromEntries(serviceResults);
+  const staticChecks = Object.fromEntries(staticResults);
+
+  const services = { status: subsystemStatus(serviceChecks), checks: serviceChecks };
+  const staticSites = { status: subsystemStatus(staticChecks), checks: staticChecks };
+  const ci = ciStatus(kvResults[0], now);
+  const deploys = deployStatus(
+    { static: kvResults[1], services: kvResults[2], infrastructure: kvResults[3] },
+    now
+  );
+
+  const status = computeSystemStatus(services, staticSites, ci, deploys);
+
+  return new Response(
+    JSON.stringify({
+      status,
+      timestamp: new Date(now).toISOString(),
+      subsystems: { services, static_sites: staticSites, ci, deploys },
+    }),
+    {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+        "Access-Control-Allow-Origin": "*",
+      },
+    }
+  );
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    // ── Health aggregation endpoint ───────────────────────────────────
+    if (url.pathname === "/health/system") {
+      return handleHealthSystem(env);
+    }
 
     // Redirect www → non-www
     if (url.hostname.startsWith("www.")) {

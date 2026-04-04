@@ -63,3 +63,63 @@ export interface HealthCheck {
   message?: string;
   latency?: number;
 }
+
+// ── System Health Aggregator Types ──────────────────────────────────
+
+export type SystemStatus = "healthy" | "degraded" | "unhealthy";
+
+/**
+ * Aggregated health response from /health/system.
+ * Combines service health, static site availability, CI status, and deploy status.
+ */
+export interface SystemHealthResponse {
+  status: SystemStatus;
+  timestamp: string;
+  subsystems: {
+    services: SubsystemHealth<ServiceCheck>;
+    static_sites: SubsystemHealth<StaticSiteCheck>;
+    ci: CiHealth;
+    deploys: DeployHealth;
+  };
+}
+
+export interface SubsystemHealth<T> {
+  status: SystemStatus;
+  checks: Record<string, T>;
+}
+
+export interface ServiceCheck {
+  status: "ok" | "error" | "timeout";
+  latency: number;
+  version?: string;
+  checks?: Record<string, HealthCheck>;
+}
+
+export interface StaticSiteCheck {
+  status: "ok" | "error" | "timeout";
+  latency: number;
+}
+
+export interface CiHealth {
+  status: "healthy" | "unhealthy" | "stale";
+  last_run: CiRunInfo | null;
+}
+
+export interface CiRunInfo {
+  id: number;
+  conclusion: string;
+  branch: string;
+  sha: string;
+  updated_at: string;
+}
+
+export interface DeployHealth {
+  status: SystemStatus;
+  pipelines: Record<string, DeployPipelineInfo | null>;
+}
+
+export interface DeployPipelineInfo {
+  conclusion: string;
+  sha: string;
+  updated_at: string;
+}

@@ -7,6 +7,15 @@ export type {
   ApiError,
   HealthResponse,
   HealthCheck,
+  SystemStatus,
+  SystemHealthResponse,
+  SubsystemHealth,
+  ServiceCheck,
+  StaticSiteCheck,
+  CiHealth,
+  CiRunInfo,
+  DeployHealth,
+  DeployPipelineInfo,
 } from "./api.js";
 
 // User types

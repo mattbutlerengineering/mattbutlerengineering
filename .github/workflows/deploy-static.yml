@@ -176,3 +176,40 @@ jobs:
           fi
           echo "Rialto web OK (HTTP $STATUS)"
 
+  report-health:
+    name: Report Deploy Health
+    needs: [detect-changes, deploy-marketing, deploy-hospitality, deploy-rialto-web, verify]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write deploy/static status to KV
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
+          KV_NS_ID: ${{ secrets.HEALTH_KV_NAMESPACE_ID }}
+          GH_SHA: ${{ github.sha }}
+          VERIFY_RESULT: ${{ needs.verify.result }}
+          MARKETING_DEPLOYED: ${{ needs.detect-changes.outputs.marketing }}
+          HOSPITALITY_DEPLOYED: ${{ needs.detect-changes.outputs.hospitality }}
+          RIALTO_DEPLOYED: ${{ needs.detect-changes.outputs.rialto-web }}
+        run: |
+          CONCLUSION="success"
+          if [ "$VERIFY_RESULT" = "failure" ]; then
+            CONCLUSION="failure"
+          elif [ "$VERIFY_RESULT" = "cancelled" ] || [ "$VERIFY_RESULT" = "skipped" ]; then
+            CONCLUSION="cancelled"
+          fi
+          PAYLOAD=$(jq -n \
+            --arg conclusion "$CONCLUSION" \
+            --arg sha "$GH_SHA" \
+            --arg updated_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg marketing "$MARKETING_DEPLOYED" \
+            --arg hospitality "$HOSPITALITY_DEPLOYED" \
+            --arg rialto "$RIALTO_DEPLOYED" \
+            '{conclusion: $conclusion, sha: $sha, updated_at: $updated_at, apps_deployed: {marketing: $marketing, hospitality: $hospitality, rialto: $rialto}}')
+          curl -sf -X PUT \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/values/deploy%2Fstatic" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD"
+

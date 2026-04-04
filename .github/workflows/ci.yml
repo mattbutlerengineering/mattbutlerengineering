@@ -181,3 +181,46 @@ jobs:
         run: pnpm --filter @mbe/users-service db:migrate:status
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/test
+
+  report-health:
+    name: Report CI Health
+    needs: [lint, typecheck, build, test, migrations]
+    if: always() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Write CI status to KV
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
+          KV_NS_ID: ${{ secrets.HEALTH_KV_NAMESPACE_ID }}
+          GH_RUN_ID: ${{ github.run_id }}
+          GH_REF_NAME: ${{ github.ref_name }}
+          GH_SHA: ${{ github.sha }}
+          LINT_RESULT: ${{ needs.lint.result }}
+          TYPECHECK_RESULT: ${{ needs.typecheck.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+          MIGRATIONS_RESULT: ${{ needs.migrations.result }}
+        run: |
+          CONCLUSION="success"
+          for RESULT in "$LINT_RESULT" "$TYPECHECK_RESULT" "$BUILD_RESULT" "$TEST_RESULT" "$MIGRATIONS_RESULT"; do
+            if [ "$RESULT" = "failure" ]; then
+              CONCLUSION="failure"
+              break
+            elif [ "$RESULT" = "cancelled" ]; then
+              CONCLUSION="cancelled"
+            fi
+          done
+          PAYLOAD=$(jq -n \
+            --argjson id "$GH_RUN_ID" \
+            --arg conclusion "$CONCLUSION" \
+            --arg branch "$GH_REF_NAME" \
+            --arg sha "$GH_SHA" \
+            --arg updated_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{id: $id, conclusion: $conclusion, branch: $branch, sha: $sha, updated_at: $updated_at}')
+          curl -sf -X PUT \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/values/ci%2Flatest" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD"

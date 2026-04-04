@@ -217,6 +217,14 @@ const apiDns = new cloudflare.DnsRecord("mattbutlerengineering-api-dns", {
   ttl: 300,
 });
 
+// ── Health State KV Namespace ────────────────────────────────────────
+// Stores CI and deploy status written by GitHub Actions workflows.
+// Read by the edge router's /health/system aggregation endpoint.
+const healthKv = new cloudflare.WorkersKvNamespace("mattbutlerengineering-health-state", {
+  accountId: cloudflareAccountId,
+  title: "mattbutlerengineering-health-state",
+});
+
 // ── Cloudflare Worker Edge Router ────────────────────────────────────
 // Routes traffic by path prefix to Workers Static Assets (via Service
 // Bindings) or DO API app (via HTTP subrequest).
@@ -237,6 +245,7 @@ const workerScript = new cloudflare.WorkersScript("mattbutlerengineering-edge-ro
     { name: "HOSPITALITY", service: "mattbutlerengineering-hospitality", type: "service" },
     { name: "RIALTO", service: "mattbutlerengineering-rialto-web", type: "service" },
     { name: "GEN", service: "mattbutlerengineering-gen", type: "service" },
+    { name: "HEALTH_STATE", namespaceId: healthKv.id, type: "kv_namespace" },
   ],
 });
 
@@ -301,3 +310,4 @@ export const apiUrl = pulumi.interpolate`https://api.${domain}/api`;
 export const hospitalityUrl = pulumi.interpolate`https://${domain}/hospitality`;
 export const rialtoUrl = pulumi.interpolate`https://${domain}/rialto`;
 export const genUrl = pulumi.interpolate`https://${domain}/gen`;
+export const healthKvNamespaceId = healthKv.id;
