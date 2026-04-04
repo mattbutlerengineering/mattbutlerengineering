@@ -12,6 +12,7 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY packages/types/package.json ./packages/types/
 COPY packages/config/package.json ./packages/config/
 COPY packages/auth/package.json ./packages/auth/
+COPY packages/api-versioning/package.json ./packages/api-versioning/
 COPY packages/agent-core/package.json ./packages/agent-core/
 COPY packages/observability/package.json ./packages/observability/
 COPY packages/sentry/package.json ./packages/sentry/
@@ -26,6 +27,7 @@ RUN pnpm install --frozen-lockfile
 COPY packages/types ./packages/types
 COPY packages/config ./packages/config
 COPY packages/auth ./packages/auth
+COPY packages/api-versioning ./packages/api-versioning
 COPY packages/agent-core ./packages/agent-core
 COPY packages/observability ./packages/observability
 COPY packages/sentry ./packages/sentry
@@ -36,6 +38,7 @@ COPY services/agent ./services/agent
 # Build workspace packages and service
 RUN pnpm --filter @mbe/types build
 RUN pnpm --filter @mbe/auth build
+RUN pnpm --filter @mbe/api-versioning build
 RUN pnpm --filter @mbe/observability build
 RUN pnpm --filter @mbe/sentry build
 RUN pnpm --filter @mbe/agent-core build
@@ -61,6 +64,7 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY packages/types/package.json ./packages/types/
 COPY packages/config/package.json ./packages/config/
 COPY packages/auth/package.json ./packages/auth/
+COPY packages/api-versioning/package.json ./packages/api-versioning/
 COPY packages/agent-core/package.json ./packages/agent-core/
 COPY packages/observability/package.json ./packages/observability/
 COPY packages/sentry/package.json ./packages/sentry/
@@ -83,6 +87,7 @@ ENV NODE_ENV=production
 # Copy compiled workspace packages
 COPY --from=builder /app/packages/types/dist ./packages/types/dist
 COPY --from=builder /app/packages/auth/dist ./packages/auth/dist
+COPY --from=builder /app/packages/api-versioning/dist ./packages/api-versioning/dist
 COPY --from=builder /app/packages/observability/dist ./packages/observability/dist
 COPY --from=builder /app/packages/sentry/dist ./packages/sentry/dist
 COPY --from=builder /app/packages/agent-core/dist ./packages/agent-core/dist
