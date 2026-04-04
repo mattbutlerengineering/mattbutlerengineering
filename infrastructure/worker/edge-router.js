@@ -72,6 +72,106 @@ function addHeaders(response, pathname) {
   });
 }
 
+/**
+ * Return a branded error page for service failures.
+ */
+function brandedErrorPage(statusCode, message, requestId) {
+  const statusMessages = {
+    502: "Service temporarily unavailable",
+    503: "Service temporarily unavailable",
+    504: "Request timed out",
+    default: "Service unreachable",
+  };
+
+  const displayMessage = statusMessages[statusCode] || statusMessages.default;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Service Unavailable - Matt Butler Engineering</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .container {
+      max-width: 500px;
+      text-align: center;
+    }
+    .logo {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #38bdf8;
+      margin-bottom: 2rem;
+      letter-spacing: -0.025em;
+    }
+    h1 {
+      font-size: 2rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: #f1f5f9;
+    }
+    p {
+      font-size: 1.125rem;
+      color: #94a3b8;
+      margin-bottom: 1.5rem;
+      line-height: 1.6;
+    }
+    .error-code {
+      font-size: 0.875rem;
+      color: #64748b;
+      font-family: monospace;
+      background: #1e293b;
+      padding: 0.25rem 0.75rem;
+      border-radius: 0.25rem;
+      display: inline-block;
+      margin-bottom: 1.5rem;
+    }
+    .link {
+      color: #38bdf8;
+      text-decoration: none;
+    }
+    .link:hover {
+      text-decoration: underline;
+    }
+    .refresh {
+      font-size: 0.875rem;
+      color: #64748b;
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">Matt Butler Engineering</div>
+    <h1>${displayMessage}</h1>
+    <p>We're experiencing some technical difficulties. Please try again shortly.</p>
+    <div class="error-code">Request ID: ${requestId}</div>
+    <p><a href="/" class="link">Return to homepage</a></p>
+    <p class="refresh">Refreshing automatically in 30 seconds...</p>
+  </div>
+  <script>setTimeout(() => location.reload(), 30000);</script>
+</body>
+</html>`;
+
+  return new Response(html, {
+    status: statusCode,
+    headers: {
+      "Content-Type": "text/html; charset=UTF-8",
+      "Cache-Control": "no-store",
+    },
+  });
+}
+
 // ── Health Aggregation ──────────────────────────────────────────────
 // /health/system fans out to all subsystems in parallel and returns a
 // unified JSON response.  Service health endpoints are fetched via HTTP,
@@ -94,6 +194,7 @@ const KV_KEYS = {
   deployStatic: "deploy/static",
   deployServices: "deploy/services",
   deployInfrastructure: "deploy/infrastructure",
+  featureFlags: "flags/all",
 };
 
 /**
@@ -148,6 +249,45 @@ async function readKvJson(kv, key) {
   } catch {
     return null;
   }
+}
+
+/**
+ * Evaluate a feature flag for a given percentage rollout.
+ * Returns true if the flag is enabled for the given seed (usually a user ID or session ID).
+ */
+function evaluateFlag(flag, seed) {
+  if (!flag || !flag.enabled) return false;
+  if (!flag.percentage || flag.percentage >= 100) return true;
+  if (!seed) return false;
+  const hash = hashCode(seed);
+  return (hash % 100) < flag.percentage;
+}
+
+/**
+ * Simple hash function for consistent percentage distribution.
+ */
+function hashCode(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash);
+}
+
+/**
+ * Get all feature flags from KV and inject into request context.
+ * Returns map of flag name -> boolean (whether enabled for this request).
+ */
+async function getFeatureFlags(env, seed) {
+  const flags = await readKvJson(env.HEALTH_STATE, KV_KEYS.featureFlags);
+  if (!flags) return {};
+  const result = {};
+  for (const [name, flag] of Object.entries(flags)) {
+    result[name] = evaluateFlag(flag, seed);
+  }
+  return result;
 }
 
 /**
@@ -235,8 +375,8 @@ function isHealthAuthorized(request, env) {
 /**
  * Return a coarse health response with no infrastructure details.
  */
-function coarseHealthResponse(status, timestamp) {
-  return new Response(JSON.stringify({ status, timestamp }), {
+function coarseHealthResponse(status, timestamp, requestId) {
+  return new Response(JSON.stringify({ status, timestamp, requestId }), {
     status: 200,
     headers: {
       "Content-Type": "application/json",
@@ -255,7 +395,7 @@ function coarseHealthResponse(status, timestamp) {
  * If HEALTH_TOKEN is not configured, all requests get the coarse response
  * (safe by default).
  */
-async function handleHealthSystem(request, env) {
+async function handleHealthSystem(request, env, requestId) {
   const now = Date.now();
 
   // Fan out all checks in parallel
@@ -300,13 +440,14 @@ async function handleHealthSystem(request, env) {
 
   // Gate detailed output behind token auth (safe by default)
   if (!isHealthAuthorized(request, env)) {
-    return coarseHealthResponse(status, timestamp);
+    return coarseHealthResponse(status, timestamp, requestId);
   }
 
   return new Response(
     JSON.stringify({
       status,
       timestamp,
+      requestId,
       subsystems: { services, static_sites: staticSites, ci, deploys },
     }),
     {
@@ -320,13 +461,84 @@ async function handleHealthSystem(request, env) {
   );
 }
 
+/**
+ * Handle feature flags admin API.
+ * GET /api/flags - list all flags
+ * PUT /api/flags/<name> - create/update a flag
+ * DELETE /api/flags/<name> - delete a flag
+ */
+async function handleFeatureFlags(request, env, url) {
+  const flagName = url.pathname.replace("/api/flags/", "");
+  const authHeader = request.headers.get("Authorization");
+  
+  // Simple auth check (in production, validate against API key)
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const flags = (await readKvJson(env.HEALTH_STATE, KV_KEYS.featureFlags)) || {};
+
+  if (request.method === "GET") {
+    return new Response(JSON.stringify(flags), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  if (request.method === "PUT") {
+    try {
+      const body = await request.json();
+      flags[flagName] = {
+        enabled: body.enabled ?? true,
+        percentage: body.percentage ?? 100,
+      };
+      await env.HEALTH_STATE.put(KV_KEYS.featureFlags, JSON.stringify(flags));
+      return new Response(JSON.stringify({ success: true, flag: flags[flagName] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch {
+      return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+  }
+
+  if (request.method === "DELETE") {
+    delete flags[flagName];
+    await env.HEALTH_STATE.put(KV_KEYS.featureFlags, JSON.stringify(flags));
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  return new Response(JSON.stringify({ error: "Method not allowed" }), {
+    status: 405,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    // Generate or preserve request ID
+    const clientRequestId = request.headers.get("x-request-id");
+    const requestId = clientRequestId || crypto.randomUUID();
+
     // ── Health aggregation endpoint ───────────────────────────────────
     if (url.pathname === "/health/system") {
-      return handleHealthSystem(request, env);
+      return handleHealthSystem(request, env, requestId);
+    }
+
+    // ── Feature flags admin API ─────────────────────────────────────
+    if (url.pathname.startsWith("/api/flags/")) {
+      return handleFeatureFlags(request, env, url);
     }
 
     // Redirect www → non-www
@@ -360,15 +572,37 @@ export default {
       headers.set("Host", target.host);
       headers.set("X-Forwarded-Host", url.host);
       headers.set("X-Forwarded-For", request.headers.get("CF-Connecting-IP") ?? "");
+      headers.set("X-Request-ID", requestId);
 
-      return fetch(
-        new Request(target, {
-          method: request.method,
-          headers,
-          body: request.body,
-          redirect: "manual",
-        })
-      );
+      // Feature flags: get from KV, inject as header for services
+      const seed = request.headers.get("CF-Connecting-IP") ?? "";
+      const featureFlags = await getFeatureFlags(env, seed);
+      if (Object.keys(featureFlags).length > 0) {
+        headers.set("X-Feature-Flags", JSON.stringify(featureFlags));
+      }
+
+      let apiResponse;
+      try {
+        apiResponse = await fetch(
+          new Request(target, {
+            method: request.method,
+            headers,
+            body: request.body,
+            redirect: "manual",
+          })
+        );
+      } catch (error) {
+        console.error("API proxy error:", error.message);
+        return brandedErrorPage(503, "Service unreachable", requestId);
+      }
+
+      // If API returns 5xx, show branded error
+      if (apiResponse.status >= 500) {
+        return brandedErrorPage(apiResponse.status, "Service error", requestId);
+      }
+
+      // Pass through the response (including 4xx which should show app error pages)
+      return apiResponse;
     }
 
     // ── Trailing-slash redirects for SPA prefixes ────────────────────
@@ -406,9 +640,27 @@ export default {
     // serves from root — so /hospitality/foo → /foo on the app Worker.
     const strippedPath = prefix ? (url.pathname.slice(prefix.length) || "/") : url.pathname;
     const appUrl = new URL(strippedPath + url.search, url.origin);
-    const appRequest = new Request(appUrl, request);
+    const appHeaders = new Headers(request.headers);
+    appHeaders.set("X-Request-ID", requestId);
+    const appRequest = new Request(appUrl, {
+      method: request.method,
+      headers: appHeaders,
+      body: request.body,
+      redirect: request.redirect,
+    });
 
-    const response = await binding.fetch(appRequest);
+    let response;
+    try {
+      response = await binding.fetch(appRequest);
+    } catch (error) {
+      console.error(`Static site error (${prefix || "marketing"}):`, error.message);
+      return brandedErrorPage(503, "Service temporarily unavailable", requestId);
+    }
+
+    // If static site returns 5xx, show branded error
+    if (response.status >= 500) {
+      return brandedErrorPage(response.status, "Service error", requestId);
+    }
 
     // Rewrite Location headers so redirects use the public domain with prefix.
     const location = response.headers.get("Location");

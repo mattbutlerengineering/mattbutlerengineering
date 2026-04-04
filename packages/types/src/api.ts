@@ -62,7 +62,7 @@ export interface HealthResponse {
  * Individual health check
  */
 export interface HealthCheck {
-  status: "ok" | "error";
+  status: "ok" | "error" | "degraded";
   message?: string;
   latency?: number;
 }

@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync, RouteHandlerMethod, RawServerDefault } from "fastify";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { HealthResponse } from "@mbe/types";
-import { prisma } from "../services/database.js";
+import { prisma, getSlowQueryStats, getServiceStatus } from "../services/database.js";
 
 type HealthRouteHandler = RouteHandlerMethod<
   RawServerDefault,
@@ -96,7 +96,17 @@ const healthHandler: HealthRouteHandler = async (request) => {
     };
   }
 
-  const hasErrors = Object.values(checks).some((c) => c.status === "error");
+  const slowQueries = getSlowQueryStats();
+  const dbStatus = checks.database?.status ?? "ok";
+  const slowQueryStatus = getServiceStatus();
+
+  checks.slow_queries = {
+    status: slowQueryStatus,
+    message: `${slowQueries.count5min} slow queries in last 5min (slowest: ${slowQueries.slowestMs}ms)`,
+    latency: slowQueries.slowestMs,
+  };
+
+  const hasErrors = dbStatus === "error" || slowQueryStatus === "degraded";
 
   return {
     status: hasErrors ? "degraded" : "ok",

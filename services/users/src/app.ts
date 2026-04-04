@@ -1,6 +1,7 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
 import swagger from "@fastify/swagger";
+import swaggerUi from "@fastify/swagger-ui";
 import ScalarApiReference from "@scalar/fastify-api-reference";
 import { authPlugin, getAuthPluginOptionsFromEnv } from "@mbe/auth/fastify";
 import { sentryFastifyPlugin } from "@mbe/sentry/node";
@@ -14,9 +15,41 @@ export interface AppOptions {
 }
 
 export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
+  const nodeEnv = process.env.NODE_ENV ?? "development";
+  const logLevel = process.env.LOG_LEVEL ?? (nodeEnv === "production" ? "info" : "debug");
+
   const fastify = Fastify({
     logger: options.logger ?? {
-      level: process.env.LOG_LEVEL ?? "info",
+      level: logLevel,
+      serializers: {
+        req(request) {
+          return {
+            method: request.method,
+            url: request.url,
+            path: request.routeOptions?.url,
+            parameters: request.params,
+            headers: { host: request.headers.host },
+          };
+        },
+        res(reply) {
+          return {
+            statusCode: reply.statusCode,
+          };
+        },
+      },
+      timestamp: () => `,"timestamp":"${new Date().toISOString()}"`,
+      formatters: {
+        log(level: unknown, args: unknown) {
+          const ctx = args as Record<string, unknown>;
+          return {
+            level,
+            service: "users-service",
+            ...(ctx?.requestId ? { requestId: ctx.requestId } : {}),
+            ...(ctx?.userId ? { userId: ctx.userId } : {}),
+            ...(typeof ctx === "object" ? ctx : { message: String(ctx) }),
+          };
+        },
+      },
     },
   });
 
@@ -74,8 +107,16 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
     },
   });
 
-  await fastify.register(ScalarApiReference, {
+  await fastify.register(swaggerUi, {
     routePrefix: "/docs",
+    uiConfig: {
+      docExpansion: "list",
+      deepLinking: false,
+    },
+  });
+
+  await fastify.register(ScalarApiReference, {
+    routePrefix: "/scalar",
     configuration: {
       title: "Users Service API",
       theme: "deepSpace",
@@ -86,7 +127,6 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   registerSchemas(fastify);
 
   // Register auth plugin (permissive — populates request.user when token present)
-  const nodeEnv = process.env.NODE_ENV ?? "development";
   const hasAuthVars = process.env.AUTH_AUTHORITY && process.env.AUTH_AUDIENCE;
 
   if (hasAuthVars) {
