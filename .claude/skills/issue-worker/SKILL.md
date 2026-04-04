@@ -52,15 +52,23 @@ Read the full issue body and labels to understand:
 - What needs to be fixed/built
 - Which area of the codebase is affected
 - What the acceptance criteria are
+- **What verification commands exist** (look for a "Verification Commands" section with ```bash blocks)
 
-Build a clear, actionable task description from the issue content.
+Build a clear, actionable task description from the issue content. If the issue includes verification commands, append them to the task description with: "After implementation, run these verification commands to confirm your work: <commands>"
+
+### Step 3b: Determine Budget
+
+Use the issue labels and description to set the right budget:
+- `ci-fix` or simple issues (lint, typo, config): `--max-budget 0.50`
+- `feature` or standard issues: `--max-budget 1.50`
+- Complex issues (multi-file, new service, architecture): `--max-budget 2.00`
 
 ### Step 4: Delegate to Agent
 
 Run the implementation in an isolated worktree:
 
 ```bash
-mbe agent run "<task description synthesized from issue>" --max-budget 1.00
+mbe agent run "<task description synthesized from issue>" --max-budget <budget from step 3b>
 ```
 
 The `mbe agent run` command will:
