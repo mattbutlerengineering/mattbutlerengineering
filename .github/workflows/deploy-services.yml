@@ -16,6 +16,11 @@ concurrency:
   group: deploy-services-${{ github.ref }}
   cancel-in-progress: false
 
+permissions:
+  contents: read
+  checks: read
+  statuses: read
+
 jobs:
   # Wait for CI to pass before deploying
   ci-gate:
