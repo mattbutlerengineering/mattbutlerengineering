@@ -101,6 +101,9 @@ jobs:
       - name: Check circular dependencies
         run: node scripts/check-circular-deps.js
 
+      - name: Check service binding consistency
+        run: node scripts/check-service-bindings.js
+
       - name: Check env var documentation
         run: node scripts/check-env-sync.js
 
