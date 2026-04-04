@@ -10,7 +10,7 @@ interface SlowQueryStats {
   queries: { model: string; operation: string; duration: number; timestamp: number }[];
 }
 
-let slowQueryStats: SlowQueryStats = {
+const slowQueryStats: SlowQueryStats = {
   count5min: 0,
   slowestMs: 0,
   queries: [],
