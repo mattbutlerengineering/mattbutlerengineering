@@ -148,11 +148,34 @@ export interface VerificationResult {
 }
 
 /**
+ * Ensure pnpm-lock.yaml is in sync with any package.json changes.
+ * If out of sync, runs `pnpm install` and amends the commit to include the lockfile.
+ */
+async function syncLockfileIfNeeded(worktreePath: string): Promise<void> {
+  try {
+    await execFileAsync("pnpm", ["install", "--frozen-lockfile"], {
+      cwd: worktreePath,
+      timeout: 60_000,
+    });
+  } catch {
+    // Lockfile out of sync — regenerate and amend the commit
+    await execFileAsync("pnpm", ["install"], {
+      cwd: worktreePath,
+      timeout: 60_000,
+    });
+    await git(["add", "pnpm-lock.yaml"], worktreePath);
+    await git(["commit", "--amend", "--no-edit"], worktreePath);
+  }
+}
+
+/**
  * Run lint, typecheck, and tests in a worktree to verify changes before creating a PR.
  * Uses Turborepo's `--filter=...[HEAD~1]` to only check affected packages.
  * All three must pass for verification to succeed.
  */
 export async function runVerification(worktreePath: string): Promise<VerificationResult> {
+  // Ensure lockfile is in sync before running checks
+  await syncLockfileIfNeeded(worktreePath);
   let lintOk = false;
   let typecheckOk = false;
   let testsOk = false;
