@@ -94,6 +94,7 @@ const KV_KEYS = {
   deployStatic: "deploy/static",
   deployServices: "deploy/services",
   deployInfrastructure: "deploy/infrastructure",
+  featureFlags: "flags/all",
 };
 
 /**
@@ -148,6 +149,45 @@ async function readKvJson(kv, key) {
   } catch {
     return null;
   }
+}
+
+/**
+ * Evaluate a feature flag for a given percentage rollout.
+ * Returns true if the flag is enabled for the given seed (usually a user ID or session ID).
+ */
+function evaluateFlag(flag, seed) {
+  if (!flag || !flag.enabled) return false;
+  if (!flag.percentage || flag.percentage >= 100) return true;
+  if (!seed) return false;
+  const hash = hashCode(seed);
+  return (hash % 100) < flag.percentage;
+}
+
+/**
+ * Simple hash function for consistent percentage distribution.
+ */
+function hashCode(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash);
+}
+
+/**
+ * Get all feature flags from KV and inject into request context.
+ * Returns map of flag name -> boolean (whether enabled for this request).
+ */
+async function getFeatureFlags(env, seed) {
+  const flags = await readKvJson(env.HEALTH_STATE, KV_KEYS.featureFlags);
+  if (!flags) return {};
+  const result = {};
+  for (const [name, flag] of Object.entries(flags)) {
+    result[name] = evaluateFlag(flag, seed);
+  }
+  return result;
 }
 
 /**
@@ -320,6 +360,68 @@ async function handleHealthSystem(request, env) {
   );
 }
 
+/**
+ * Handle feature flags admin API.
+ * GET /api/flags - list all flags
+ * PUT /api/flags/<name> - create/update a flag
+ * DELETE /api/flags/<name> - delete a flag
+ */
+async function handleFeatureFlags(request, env, url) {
+  const flagName = url.pathname.replace("/api/flags/", "");
+  const authHeader = request.headers.get("Authorization");
+  
+  // Simple auth check (in production, validate against API key)
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const flags = (await readKvJson(env.HEALTH_STATE, KV_KEYS.featureFlags)) || {};
+
+  if (request.method === "GET") {
+    return new Response(JSON.stringify(flags), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  if (request.method === "PUT") {
+    try {
+      const body = await request.json();
+      flags[flagName] = {
+        enabled: body.enabled ?? true,
+        percentage: body.percentage ?? 100,
+      };
+      await env.HEALTH_STATE.put(KV_KEYS.featureFlags, JSON.stringify(flags));
+      return new Response(JSON.stringify({ success: true, flag: flags[flagName] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch {
+      return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+  }
+
+  if (request.method === "DELETE") {
+    delete flags[flagName];
+    await env.HEALTH_STATE.put(KV_KEYS.featureFlags, JSON.stringify(flags));
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  return new Response(JSON.stringify({ error: "Method not allowed" }), {
+    status: 405,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -327,6 +429,11 @@ export default {
     // ── Health aggregation endpoint ───────────────────────────────────
     if (url.pathname === "/health/system") {
       return handleHealthSystem(request, env);
+    }
+
+    // ── Feature flags admin API ─────────────────────────────────────
+    if (url.pathname.startsWith("/api/flags/")) {
+      return handleFeatureFlags(request, env, url);
     }
 
     // Redirect www → non-www
@@ -360,6 +467,13 @@ export default {
       headers.set("Host", target.host);
       headers.set("X-Forwarded-Host", url.host);
       headers.set("X-Forwarded-For", request.headers.get("CF-Connecting-IP") ?? "");
+
+      // Feature flags: get from KV, inject as header for services
+      const seed = request.headers.get("CF-Connecting-IP") ?? "";
+      const featureFlags = await getFeatureFlags(env, seed);
+      if (Object.keys(featureFlags).length > 0) {
+        headers.set("X-Feature-Flags", JSON.stringify(featureFlags));
+      }
 
       return fetch(
         new Request(target, {
