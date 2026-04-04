@@ -104,6 +104,9 @@ jobs:
       - name: Check service binding consistency
         run: node scripts/check-service-bindings.js
 
+      - name: Check env var documentation
+        run: node scripts/check-env-sync.js
+
       - name: Audit dependencies for vulnerabilities
         run: pnpm audit --audit-level=high || echo "::warning::Dependency audit found high/critical vulnerabilities — see output above"
 
