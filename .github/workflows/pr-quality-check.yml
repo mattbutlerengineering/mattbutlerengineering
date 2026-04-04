@@ -1,0 +1,143 @@
+name: PR Quality Check
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: pr-quality-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  static-analysis:
+    name: Static Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Get PR diff
+        id: diff
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh pr diff "$PR_NUMBER" > /tmp/pr.diff
+          ADDED=$(grep -c '^+[^+]' /tmp/pr.diff || true)
+          REMOVED=$(grep -c '^-[^-]' /tmp/pr.diff || true)
+          echo "added=$ADDED" >> "$GITHUB_OUTPUT"
+          echo "removed=$REMOVED" >> "$GITHUB_OUTPUT"
+
+      - name: Run static analysis rules
+        id: analysis
+        run: |
+          ERRORS=0
+          WARNINGS=0
+          REPORT=""
+
+          CURRENT_FILE=""
+          LINE_NUM=0
+
+          while IFS= read -r line; do
+            # Track current file
+            if [[ "$line" == "+++ b/"* ]]; then
+              CURRENT_FILE="${line#+++ b/}"
+              continue
+            fi
+
+            # Track line numbers from hunk headers
+            if [[ "$line" == "@@"* ]]; then
+              LINE_NUM=$(echo "$line" | grep -oP '\+\K\d+' | head -1)
+              continue
+            fi
+
+            # Only check added lines
+            if [[ "$line" != "+"* ]] || [[ "$line" == "+++"* ]]; then
+              if [[ "$line" != "-"* ]] && [[ "$line" != "diff "* ]]; then
+                LINE_NUM=$((LINE_NUM + 1))
+              fi
+              continue
+            fi
+
+            CONTENT="${line:1}"
+
+            # Rule: no-console-log (error) — .ts/.tsx/.js/.jsx only
+            if [[ "$CURRENT_FILE" =~ \.(ts|tsx|js|jsx)$ ]] && echo "$CONTENT" | grep -qP 'console\.log\('; then
+              REPORT="${REPORT}ERROR  ${CURRENT_FILE}:${LINE_NUM}  [no-console-log] Use proper logger\n"
+              ERRORS=$((ERRORS + 1))
+            fi
+
+            # Rule: no-hardcoded-url (error)
+            if [[ "$CURRENT_FILE" =~ \.(ts|tsx|js|jsx)$ ]] && echo "$CONTENT" | grep -qP 'https?://(localhost|127\.0\.0\.1)'; then
+              REPORT="${REPORT}ERROR  ${CURRENT_FILE}:${LINE_NUM}  [no-hardcoded-url] Use env vars\n"
+              ERRORS=$((ERRORS + 1))
+            fi
+
+            # Rule: no-empty-catch (error)
+            if [[ "$CURRENT_FILE" =~ \.(ts|tsx|js|jsx)$ ]] && echo "$CONTENT" | grep -qP 'catch\s*\([^)]*\)\s*\{\s*\}'; then
+              REPORT="${REPORT}ERROR  ${CURRENT_FILE}:${LINE_NUM}  [no-empty-catch] Log or rethrow\n"
+              ERRORS=$((ERRORS + 1))
+            fi
+
+            # Rule: img-missing-alt (error)
+            if echo "$CONTENT" | grep -qP '<img(?![^>]*\balt=)[^>]*>'; then
+              REPORT="${REPORT}ERROR  ${CURRENT_FILE}:${LINE_NUM}  [img-missing-alt] Add alt attribute\n"
+              ERRORS=$((ERRORS + 1))
+            fi
+
+            # Rule: no-any-type (warning) — .ts/.tsx only
+            if [[ "$CURRENT_FILE" =~ \.(ts|tsx)$ ]] && echo "$CONTENT" | grep -qP ':\s*any\b'; then
+              REPORT="${REPORT}WARN   ${CURRENT_FILE}:${LINE_NUM}  [no-any-type] Use specific type\n"
+              WARNINGS=$((WARNINGS + 1))
+            fi
+
+            LINE_NUM=$((LINE_NUM + 1))
+          done < /tmp/pr.diff
+
+          echo "errors=$ERRORS" >> "$GITHUB_OUTPUT"
+          echo "warnings=$WARNINGS" >> "$GITHUB_OUTPUT"
+
+          echo "### Static Analysis: ${ERRORS} error(s), ${WARNINGS} warning(s)" >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$REPORT" ]; then
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            echo -e "$REPORT" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No violations found." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          # Save report for comment step
+          if [ -n "$REPORT" ]; then
+            echo -e "$REPORT" > /tmp/violations.txt
+          fi
+
+      - name: Post review comment
+        if: steps.analysis.outputs.errors != '0' || steps.analysis.outputs.warnings != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          ERROR_COUNT: ${{ steps.analysis.outputs.errors }}
+          WARNING_COUNT: ${{ steps.analysis.outputs.warnings }}
+        run: |
+          VIOLATIONS=$(cat /tmp/violations.txt 2>/dev/null || echo "")
+          gh pr comment "$PR_NUMBER" --body "## Static Analysis
+
+          **${ERROR_COUNT} error(s), ${WARNING_COUNT} warning(s)**
+
+          \`\`\`
+          ${VIOLATIONS}
+          \`\`\`
+
+          Errors block merge. Warnings are informational.
+
+          *Automated by PR Quality Check*"
+
+      - name: Fail on errors
+        if: steps.analysis.outputs.errors != '0'
+        env:
+          ERROR_COUNT: ${{ steps.analysis.outputs.errors }}
+        run: |
+          echo "::error::Static analysis found ${ERROR_COUNT} error(s)"
+          exit 1
