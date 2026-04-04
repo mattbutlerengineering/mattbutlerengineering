@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma } from "../generated/prisma/index.js";
+import { PrismaClient, type Prisma } from "../generated/prisma/index.js";
 
 const SLOW_QUERY_THRESHOLD_MS = 100;
 const SLOW_QUERY_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
