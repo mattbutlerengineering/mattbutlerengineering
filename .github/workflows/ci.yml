@@ -113,6 +113,9 @@ jobs:
           name: setup-cache
 
       - name: Build all packages
+        env:
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+          TURBO_TEAM: ${{ vars.TURBO_TEAM }}
         run: pnpm build
 
       - name: Check circular dependencies
@@ -148,6 +151,9 @@ jobs:
           name: setup-cache
 
       - name: Run tests with coverage
+        env:
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+          TURBO_TEAM: ${{ vars.TURBO_TEAM }}
         run: pnpm turbo test:coverage
 
       - name: Upload coverage reports
