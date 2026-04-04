@@ -58,8 +58,9 @@ Client → mattbutlerengineering.com (Cloudflare Worker "edge-router")
 - **Static Sites**: 3 Workers with Static Assets, deployed via `wrangler deploy` from CI. Called via Service Bindings from the edge router, bypassing CDN entirely (prevents stale HTML after deploys).
 - **API Services**: DO App Platform at `api.mattbutlerengineering.com` with `deployOnPush: false` (CI triggers deploys via `doctl`)
 - **Infrastructure**: Pulumi (TypeScript) in `infrastructure/pulumi/`
+- **Runbooks**: Operational procedures in `infrastructure/docs/RUNBOOKS.md`
 
-**Deploy pipelines (all independent):**
+**Deploy pipelines (all independent):****
 
 | Change | Workflow | Speed |
 |--------|----------|-------|
