@@ -1,5 +1,5 @@
 # Build stage
-FROM node:22-alpine AS builder
+FROM node:22-alpine3.19 AS builder
 
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
@@ -36,7 +36,7 @@ RUN pnpm --filter @mbe/reservations-service db:generate
 RUN pnpm --filter @mbe/reservations-service build
 
 # Production stage
-FROM node:22-alpine AS runner
+FROM node:22-alpine3.19 AS runner
 
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
