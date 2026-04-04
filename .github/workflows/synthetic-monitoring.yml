@@ -11,87 +11,118 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  health-pings:
-    name: Health Pings
+  health-check:
+    name: System Health Check
     runs-on: ubuntu-latest
     timeout-minutes: 3
 
     steps:
-      - name: Ping marketing site
+      - name: Query /health/system
+        id: health
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://mattbutlerengineering.com/")
-          echo "marketing: HTTP $STATUS"
-          if [ "$STATUS" != "200" ]; then
-            echo "::error::Marketing site returned HTTP $STATUS (expected 200)"
-            exit 1
+          RESPONSE=$(curl -sf --max-time 15 "https://mattbutlerengineering.com/health/system")
+          STATUS=$(echo "$RESPONSE" | jq -r '.status')
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          echo "response<<HEALTH_EOF" >> "$GITHUB_OUTPUT"
+          echo "$RESPONSE" | jq '.' >> "$GITHUB_OUTPUT"
+          echo "HEALTH_EOF" >> "$GITHUB_OUTPUT"
+
+          echo "### System Health: $STATUS" >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          echo "$RESPONSE" | jq '.' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$STATUS" = "unhealthy" ]; then
+            echo "::error::System health is UNHEALTHY"
+          elif [ "$STATUS" = "degraded" ]; then
+            echo "::warning::System health is DEGRADED"
+          else
+            echo "All systems healthy."
           fi
 
-      - name: Ping hospitality app
+      - name: Check for existing health issue
+        if: steps.health.outputs.status != 'healthy'
+        id: existing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEALTH_STATUS: ${{ steps.health.outputs.status }}
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://mattbutlerengineering.com/hospitality/")
-          echo "hospitality: HTTP $STATUS"
-          if [ "$STATUS" != "200" ]; then
-            echo "::error::Hospitality app returned HTTP $STATUS (expected 200)"
-            exit 1
+          LABEL="ci-fix"
+          if [ "$HEALTH_STATUS" = "degraded" ]; then
+            LABEL="audit"
+          fi
+          COUNT=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --label "$LABEL" --label "auto-health" --json number --jq 'length')
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "label=$LABEL" >> "$GITHUB_OUTPUT"
+
+      - name: Create health alert issue
+        if: steps.health.outputs.status != 'healthy' && steps.existing.outputs.count == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEALTH_STATUS: ${{ steps.health.outputs.status }}
+          HEALTH_RESPONSE: ${{ steps.health.outputs.response }}
+          ISSUE_LABEL: ${{ steps.existing.outputs.label }}
+        run: |
+          # Build a concise summary of what's wrong
+          FAILED_SERVICES=$(echo "$HEALTH_RESPONSE" | jq -r '
+            [.subsystems.services.checks | to_entries[] | select(.value.status != "ok") | .key] | join(", ")')
+          FAILED_SITES=$(echo "$HEALTH_RESPONSE" | jq -r '
+            [.subsystems.static_sites.checks | to_entries[] | select(.value.status != "ok") | .key] | join(", ")')
+          CI_STATUS=$(echo "$HEALTH_RESPONSE" | jq -r '.subsystems.ci.status')
+          DEPLOY_STATUS=$(echo "$HEALTH_RESPONSE" | jq -r '.subsystems.deploys.status')
+
+          SUMMARY=""
+          if [ -n "$FAILED_SERVICES" ]; then
+            SUMMARY="${SUMMARY}Services down: ${FAILED_SERVICES}. "
+          fi
+          if [ -n "$FAILED_SITES" ]; then
+            SUMMARY="${SUMMARY}Static sites down: ${FAILED_SITES}. "
+          fi
+          if [ "$CI_STATUS" != "healthy" ]; then
+            SUMMARY="${SUMMARY}CI: ${CI_STATUS}. "
+          fi
+          if [ "$DEPLOY_STATUS" != "healthy" ]; then
+            SUMMARY="${SUMMARY}Deploys: ${DEPLOY_STATUS}. "
           fi
 
-      - name: Ping rialto showcase
-        run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://mattbutlerengineering.com/rialto/")
-          echo "rialto: HTTP $STATUS"
-          if [ "$STATUS" != "200" ]; then
-            echo "::error::Rialto showcase returned HTTP $STATUS (expected 200)"
-            exit 1
-          fi
+          TITLE="System health ${HEALTH_STATUS}: ${SUMMARY}"
+          # Truncate title to 256 chars
+          TITLE="${TITLE:0:256}"
 
-      - name: Ping users API health
-        run: |
-          RESPONSE=$(curl -s --max-time 10 "https://api.mattbutlerengineering.com/health")
-          STATUS_HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://api.mattbutlerengineering.com/health")
-          echo "users-api: HTTP $STATUS_HTTP — $RESPONSE"
-          if [ "$STATUS_HTTP" != "200" ]; then
-            echo "::error::Users API health returned HTTP $STATUS_HTTP (expected 200)"
-            exit 1
-          fi
-          STATUS_BODY=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status','unknown'))" 2>/dev/null || echo "parse-error")
-          echo "users-api status: $STATUS_BODY"
-          if [ "$STATUS_BODY" = "error" ]; then
-            echo "::error::Users API health status is 'error': $RESPONSE"
-            exit 1
-          fi
+          BODY=$(cat <<'BODY_EOF'
+          ## System Health Alert
 
-      - name: Ping reservations API health
-        run: |
-          RESPONSE=$(curl -s --max-time 10 "https://api.mattbutlerengineering.com/api/v1/reservations/health")
-          STATUS_HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://api.mattbutlerengineering.com/api/v1/reservations/health")
-          echo "reservations-api: HTTP $STATUS_HTTP — $RESPONSE"
-          if [ "$STATUS_HTTP" != "200" ]; then
-            echo "::error::Reservations API health returned HTTP $STATUS_HTTP (expected 200)"
-            exit 1
-          fi
-          STATUS_BODY=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status','unknown'))" 2>/dev/null || echo "parse-error")
-          echo "reservations-api status: $STATUS_BODY"
-          if [ "$STATUS_BODY" = "error" ]; then
-            echo "::error::Reservations API health status is 'error': $RESPONSE"
-            exit 1
-          fi
+          **Status:** `PLACEHOLDER_STATUS`
+          **Detected:** PLACEHOLDER_TIME
+          **Source:** Synthetic monitoring (5-min interval)
 
-      - name: Ping agent API health
-        run: |
-          RESPONSE=$(curl -s --max-time 10 "https://api.mattbutlerengineering.com/api/gen/health")
-          STATUS_HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://api.mattbutlerengineering.com/api/gen/health")
-          echo "agent-api: HTTP $STATUS_HTTP — $RESPONSE"
-          if [ "$STATUS_HTTP" != "200" ]; then
-            echo "::error::Agent API health returned HTTP $STATUS_HTTP (expected 200)"
-            exit 1
-          fi
-          STATUS_BODY=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status','unknown'))" 2>/dev/null || echo "parse-error")
-          echo "agent-api status: $STATUS_BODY"
-          if [ "$STATUS_BODY" = "error" ]; then
-            echo "::error::Agent API health status is 'error': $RESPONSE"
-            exit 1
-          fi
+          ### Resolution
 
-      - name: Summarize results
-        if: success()
-        run: echo "All endpoints healthy."
+          This issue was auto-created by synthetic monitoring. It will be picked up by the ship-loop or issue-worker.
+
+          To check current status: `curl -s https://mattbutlerengineering.com/health/system | jq .`
+          BODY_EOF
+          )
+          BODY="${BODY//PLACEHOLDER_STATUS/$HEALTH_STATUS}"
+          BODY="${BODY//PLACEHOLDER_TIME/$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
+
+          gh issue create \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$TITLE" \
+            --body "$BODY" \
+            --label "$ISSUE_LABEL" \
+            --label "auto-health" \
+            --label "ready"
+
+      - name: Auto-close resolved health issues
+        if: steps.health.outputs.status == 'healthy'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ISSUES=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --label "auto-health" --json number --jq '.[].number')
+          for ISSUE_NUM in $ISSUES; do
+            gh issue close "$ISSUE_NUM" \
+              --repo "$GITHUB_REPOSITORY" \
+              --comment "Auto-closed: system health returned to **healthy** at $(date -u +%Y-%m-%dT%H:%M:%SZ)."
+            echo "Closed issue #$ISSUE_NUM"
+          done
