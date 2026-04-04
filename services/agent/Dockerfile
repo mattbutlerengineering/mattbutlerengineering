@@ -13,6 +13,8 @@ COPY packages/types/package.json ./packages/types/
 COPY packages/config/package.json ./packages/config/
 COPY packages/auth/package.json ./packages/auth/
 COPY packages/agent-core/package.json ./packages/agent-core/
+COPY packages/observability/package.json ./packages/observability/
+COPY packages/sentry/package.json ./packages/sentry/
 COPY packages/rialto/package.json ./packages/rialto/
 COPY packages/rialto-catalog/package.json ./packages/rialto-catalog/
 COPY services/agent/package.json ./services/agent/
@@ -25,6 +27,8 @@ COPY packages/types ./packages/types
 COPY packages/config ./packages/config
 COPY packages/auth ./packages/auth
 COPY packages/agent-core ./packages/agent-core
+COPY packages/observability ./packages/observability
+COPY packages/sentry ./packages/sentry
 COPY packages/rialto ./packages/rialto
 COPY packages/rialto-catalog ./packages/rialto-catalog
 COPY services/agent ./services/agent
@@ -32,6 +36,8 @@ COPY services/agent ./services/agent
 # Build workspace packages and service
 RUN pnpm --filter @mbe/types build
 RUN pnpm --filter @mbe/auth build
+RUN pnpm --filter @mbe/observability build
+RUN pnpm --filter @mbe/sentry build
 RUN pnpm --filter @mbe/agent-core build
 RUN pnpm --filter @mbe/rialto-catalog build
 RUN pnpm --filter @mbe/agent-service db:generate
@@ -56,6 +62,8 @@ COPY packages/types/package.json ./packages/types/
 COPY packages/config/package.json ./packages/config/
 COPY packages/auth/package.json ./packages/auth/
 COPY packages/agent-core/package.json ./packages/agent-core/
+COPY packages/observability/package.json ./packages/observability/
+COPY packages/sentry/package.json ./packages/sentry/
 COPY packages/rialto/package.json ./packages/rialto/
 COPY packages/rialto-catalog/package.json ./packages/rialto-catalog/
 COPY services/agent/package.json ./services/agent/
@@ -75,6 +83,8 @@ ENV NODE_ENV=production
 # Copy compiled workspace packages
 COPY --from=builder /app/packages/types/dist ./packages/types/dist
 COPY --from=builder /app/packages/auth/dist ./packages/auth/dist
+COPY --from=builder /app/packages/observability/dist ./packages/observability/dist
+COPY --from=builder /app/packages/sentry/dist ./packages/sentry/dist
 COPY --from=builder /app/packages/agent-core/dist ./packages/agent-core/dist
 COPY --from=builder /app/packages/rialto-catalog/dist ./packages/rialto-catalog/dist
 
