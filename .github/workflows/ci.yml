@@ -67,7 +67,7 @@ jobs:
         with:
           name: setup-cache
           retention-days: 1
-          paths: |
+          path: |
             node_modules
             services/users/src/generated
             services/reservations/src/generated
