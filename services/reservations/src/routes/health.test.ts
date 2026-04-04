@@ -76,6 +76,8 @@ vi.mock("../services/database.js", () => ({
   prisma: {
     $queryRaw: vi.fn(),
   },
+  getSlowQueryStats: vi.fn().mockReturnValue({ count5min: 0, slowestMs: 0 }),
+  getServiceStatus: vi.fn().mockReturnValue("ok"),
 }));
 
 vi.mock("jose", () => ({

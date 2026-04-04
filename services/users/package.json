@@ -23,7 +23,7 @@
   "dependencies": {
     "@fastify/cors": "^10.0.0",
     "@fastify/swagger": "^9.0.0",
-    "@fastify/swagger-ui": "^3.0.0",
+    "@fastify/swagger-ui": "^5.2.5",
     "@mbe/api-versioning": "workspace:*",
     "@mbe/auth": "workspace:*",
     "@mbe/observability": "workspace:*",
