@@ -136,3 +136,76 @@ export async function hasChanges(worktreePath: string): Promise<boolean> {
   const status = await git(["status", "--porcelain"], worktreePath);
   return status.length > 0;
 }
+
+export interface VerificationResult {
+  passed: boolean;
+  lintOk: boolean;
+  typecheckOk: boolean;
+  testsOk: boolean;
+  lintOutput?: string;
+  typecheckOutput?: string;
+  testOutput?: string;
+}
+
+/**
+ * Run lint, typecheck, and tests in a worktree to verify changes before creating a PR.
+ * Uses Turborepo's `--filter=...[HEAD~1]` to only check affected packages.
+ * All three must pass for verification to succeed.
+ */
+export async function runVerification(worktreePath: string): Promise<VerificationResult> {
+  let lintOk = false;
+  let typecheckOk = false;
+  let testsOk = false;
+  let lintOutput = "";
+  let typecheckOutput = "";
+  let testOutput = "";
+
+  try {
+    const { stdout, stderr } = await execFileAsync(
+      "pnpm",
+      ["turbo", "lint", "--filter=...[HEAD~1]"],
+      { cwd: worktreePath, timeout: 120_000 }
+    );
+    lintOk = true;
+    lintOutput = (stdout + stderr).slice(-500);
+  } catch (err: unknown) {
+    const e = err as { stdout?: string; stderr?: string };
+    lintOutput = ((e.stdout ?? "") + (e.stderr ?? "")).slice(-500);
+  }
+
+  try {
+    const { stdout, stderr } = await execFileAsync(
+      "pnpm",
+      ["turbo", "typecheck", "--filter=...[HEAD~1]"],
+      { cwd: worktreePath, timeout: 120_000 }
+    );
+    typecheckOk = true;
+    typecheckOutput = (stdout + stderr).slice(-500);
+  } catch (err: unknown) {
+    const e = err as { stdout?: string; stderr?: string };
+    typecheckOutput = ((e.stdout ?? "") + (e.stderr ?? "")).slice(-500);
+  }
+
+  try {
+    const { stdout, stderr } = await execFileAsync(
+      "pnpm",
+      ["turbo", "test", "--filter=...[HEAD~1]"],
+      { cwd: worktreePath, timeout: 180_000 }
+    );
+    testsOk = true;
+    testOutput = (stdout + stderr).slice(-500);
+  } catch (err: unknown) {
+    const e = err as { stdout?: string; stderr?: string };
+    testOutput = ((e.stdout ?? "") + (e.stderr ?? "")).slice(-500);
+  }
+
+  return {
+    passed: lintOk && typecheckOk && testsOk,
+    lintOk,
+    typecheckOk,
+    testsOk,
+    lintOutput,
+    typecheckOutput,
+    testOutput,
+  };
+}

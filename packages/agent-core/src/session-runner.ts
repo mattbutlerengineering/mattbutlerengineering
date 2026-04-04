@@ -19,6 +19,7 @@ import {
   pushBranch,
   hasChanges,
   removeWorktree,
+  runVerification,
 } from "./worktree-manager.js";
 import {
   createPullRequest,
@@ -29,6 +30,8 @@ import {
 import { isTrivialDepBump, mergeDirectly } from "./dep-bump-merger.js";
 import { evaluateSuccess, getGitDiff, shouldEvaluate } from "./success-evaluator.js";
 import type { EvaluationResult } from "./success-evaluator.js";
+import { reviewDiff } from "./diff-reviewer.js";
+import type { ReviewResult } from "./diff-reviewer.js";
 import { mapSdkMessage } from "./event-mapper.js";
 import {
   recordFailure,
@@ -195,6 +198,37 @@ export async function runSession(
           const prefix = isSuccess ? "feat" : "wip";
           const commitMsg = `${prefix}: ${sanitizeForCommitMessage(config.taskDescription)}`;
           await commitChanges(worktree.path, commitMsg);
+
+          // 6a. Run lint + typecheck + test verification before pushing
+          let verificationPassed = true;
+          if (isSuccess) {
+            const verifySpan = tracer.startSpan("agent_core.verify_changes");
+            try {
+              const verification = await runVerification(worktree.path);
+              verificationPassed = verification.passed;
+              verifySpan.setAttribute("verify.passed", verification.passed);
+              verifySpan.setAttribute("verify.lint", verification.lintOk);
+              verifySpan.setAttribute("verify.typecheck", verification.typecheckOk);
+              verifySpan.setAttribute("verify.tests", verification.testsOk);
+
+              emitEvent(onEvent, "session:verification", {
+                message: verification.passed
+                  ? "Verification passed (lint + typecheck + tests)"
+                  : `Verification failed — lint: ${verification.lintOk ? "OK" : "FAIL"}, typecheck: ${verification.typecheckOk ? "OK" : "FAIL"}, tests: ${verification.testsOk ? "OK" : "FAIL"}`,
+              });
+
+              if (!verification.passed) {
+                const parts: string[] = [];
+                if (!verification.lintOk) parts.push(`lint: ${verification.lintOutput}`);
+                if (!verification.typecheckOk) parts.push(`typecheck: ${verification.typecheckOutput}`);
+                if (!verification.testsOk) parts.push(`tests: ${verification.testOutput}`);
+                errors.push(`Verification failed: ${parts.join("; ")}`);
+              }
+            } finally {
+              verifySpan.end();
+            }
+          }
+
           await pushBranch(worktree.path, worktree.branchName);
 
           // 6b. Run LLM success evaluation on successful sessions
@@ -226,10 +260,36 @@ export async function runSession(
             }
           }
 
+          // 6c. Run AI security review on the diff
+          let securityReview: ReviewResult | undefined;
+          if (isSuccess && verificationPassed) {
+            const reviewSpan = tracer.startSpan("agent_core.security_review");
+            try {
+              const diff = await getGitDiff(worktree.path);
+              securityReview = await reviewDiff(diff);
+              reviewSpan.setAttribute("review.approved", securityReview.approved);
+              reviewSpan.setAttribute("review.issues_count", securityReview.issues.length);
+
+              emitEvent(onEvent, "session:review", {
+                message: securityReview.approved
+                  ? "Security review: APPROVED"
+                  : `Security review: BLOCKED — ${securityReview.issues.join("; ")}`,
+              });
+
+              if (!securityReview.approved) {
+                errors.push(`Security review failed: ${securityReview.issues.join("; ")}`);
+              }
+            } finally {
+              reviewSpan.end();
+            }
+          }
+
+          const allGatesPass = evaluationPassed && verificationPassed && (securityReview?.approved !== false);
+
           if (config.createPr) {
             // Fast-path: trivial dependency bumps that passed tests are merged
             // directly without waiting for PR review.
-            if (evaluationPassed) {
+            if (allGatesPass) {
               const depBumpCheck = isTrivialDepBump(await getGitDiff(worktree.path));
               if (depBumpCheck.isTrivial) {
                 const commitTitle = buildPrTitle(config.taskDescription);
@@ -307,6 +367,12 @@ export async function runSession(
                 }
               }
             } else {
+              // Quality gates failed — create draft PR so humans can review
+              const gateFailures: string[] = [];
+              if (!verificationPassed) gateFailures.push("verification");
+              if (!evaluationPassed) gateFailures.push("evaluation");
+              if (securityReview?.approved === false) gateFailures.push("security-review");
+
               const title = `wip: ${config.taskDescription.slice(0, 57)}`;
               const body = buildFailurePrBody(
                 config.taskDescription,
@@ -325,7 +391,7 @@ export async function runSession(
 
               prUrl = pr.url;
               emitEvent(onEvent, "session:result", {
-                message: `Draft PR created: ${pr.url}`,
+                message: `Draft PR created (failed gates: ${gateFailures.join(", ")}): ${pr.url}`,
               });
             }
           }

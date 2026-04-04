@@ -91,6 +91,8 @@ export type SessionEventType =
   | "session:error"
   | "session:stuck"
   | "session:evaluation"
+  | "session:verification"
+  | "session:review"
   | "session:tool_result";
 
 export interface SessionEvent {

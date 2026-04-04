@@ -8,11 +8,12 @@ const QUALITY_CHECKLIST = [
   "Handle errors explicitly; do not silently swallow exceptions",
   "Write small, focused functions (<50 lines)",
   "Use immutable data patterns — create new objects, never mutate",
-  "Add tests for new functionality (vitest)",
-  "Run lint and typecheck before marking work complete",
+  "Add tests for new functionality (vitest) — your work will be rejected if tests fail",
+  "Run `pnpm turbo lint typecheck test --filter=...[HEAD~1]` before committing — the orchestrator will verify this and reject your PR if any fail",
   "Use consistent type imports (`import type { ... }`)",
   "Use double quotes, semicolons, 2-space indentation (Prettier)",
   "Follow conventional commit message format for any commits",
+  "If the issue includes a verification command (curl, test assertion), run it to confirm your fix works",
 ].map((item, i) => `${i + 1}. ${item}`).join("\n");
 
 export interface SourceFileEntry {
@@ -77,6 +78,8 @@ export function buildSystemPrompt(
     "- If the task is ambiguous, make reasonable assumptions and document them",
     "- If you encounter a blocker you cannot resolve, explain it clearly and stop",
     "- Commit your changes with a descriptive message when done",
+    "- IMPORTANT: After committing, the orchestrator runs lint, typecheck, and tests. If they fail, your PR is created as a draft and marked as failed. Fix issues before committing.",
+    "- IMPORTANT: A security reviewer scans your diff for hardcoded secrets, XSS, SQL injection, and accessibility issues. Any finding blocks the PR.",
   ].join("\n");
 
   const sourceSection = sourceFileEntries
