@@ -1,0 +1,26 @@
+# Cursor Rules - mattbutlerengineering
+
+This project follows strict development guidelines for AI agents (Cursor, Claude, Gemini, etc.).
+
+## Context
+- Primary truth: [CLAUDE.md](./CLAUDE.md)
+- Gemini specifics: [GEMINI.md](./GEMINI.md)
+- General agents: [AGENTS.md](./AGENTS.md)
+- Component catalog: [llms.txt](./llms.txt)
+
+## Guidelines
+- **Frameworks:** React (TypeScript), CSS Modules, Turborepo, pnpm.
+- **Design System:** Use `@mbe/rialto` components exclusively. No Tailwind.
+- **Commands:**
+  - Build: `pnpm build`
+  - Typecheck: `pnpm typecheck`
+  - Test: `pnpm test`
+- **Conventions:**
+  - Packages use `@mbe/` prefix.
+  - External resources use `mattbutlerengineering-` prefix.
+  - Follow the Research -> Strategy -> Execution lifecycle.
+
+## Code Style
+- Use functional components and hooks.
+- Prefer CSS Modules over inline styles.
+- Always include `tabIndex={-1}` and `outline: none` for main content areas focus.

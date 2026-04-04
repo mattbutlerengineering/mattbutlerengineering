@@ -6,6 +6,7 @@ import { whoamiCommand } from "./commands/whoami.js";
 import { usersCommand } from "./commands/users.js";
 import { agentCommand } from "./commands/agent.js";
 import { newCommand } from "./commands/new.js";
+import { packCommand } from "./commands/pack.js";
 
 const program = new Command();
 
@@ -27,5 +28,8 @@ program.addCommand(agentCommand);
 
 // Scaffold commands
 program.addCommand(newCommand);
+
+// Context commands
+program.addCommand(packCommand);
 
 program.parse();

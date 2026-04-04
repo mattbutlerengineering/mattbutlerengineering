@@ -1,0 +1,402 @@
+<codebase path="services/agent">
+  <file path="src/index.ts">
+    async function main() { /* implementation omitted */ }
+  </file>
+  <file path="src/app.ts">
+    export interface AppOptions {
+      logger?: boolean | object;
+    }
+    export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> { /* implementation omitted */ }
+  </file>
+  <file path="src/services/stored-spec.ts">
+    export interface StoredSpecResponse {
+      id: string;
+      userId: string;
+      prompt: string;
+      spec: unknown;
+      rawLines: unknown;
+      isFavorite: boolean;
+      createdAt: string;
+      updatedAt: string;
+    }
+    export function mapStoredSpec(s: StoredSpec): StoredSpecResponse { /* implementation omitted */ }
+    async function _enforceCapForUser(userId: string): Promise<void> { /* implementation omitted */ }
+    storedSpecService = {
+      async list(userId: string): Promise<StoredSpec[]> {
+        return prisma.storedSpec.findMany({
+          where: { userId },
+          orderBy: { createdAt: "desc" },
+          take: 100,
+        });
+      },
+    
+      async getById(id: string): Promise<StoredSpec | null> {
+        return prisma.storedSpec.findUnique({ where: { id } });
+      },
+    
+      async create(data: {
+        userId: string;
+        prompt: string;
+        spec: unknown;
+        rawLines: unknown;
+      }): Promise<StoredSpec> {
+        await _enforceCapForUser(data.userId);
+    
+        return prisma.storedSpec.create({
+          data: {
+            userId: data.userId,
+            prompt: data.prompt,
+            spec: data.spec as Prisma.InputJsonValue,
+            rawLines: data.rawLines as Prisma.InputJsonValue,
+          },
+        });
+      },
+    
+      async toggleFavorite(id: string, userId: string): Promise<StoredSpec> {
+        const existing = await prisma.storedSpec.findUnique({ where: { id } });
+    
+        if (!existing || existing.userId !== userId) {
+          throw new Error("Not found");
+        }
+    
+        return prisma.storedSpec.update({
+          where: { id },
+          data: { isFavorite: !existing.isFavorite },
+        });
+      },
+    
+      async delete(id: string, userId: string): Promise<void> {
+        const existing = await prisma.storedSpec.findUnique({ where: { id } });
+    
+        if (!existing || existing.userId !== userId) {
+          throw new Error("Not found");
+        }
+    
+        await prisma.storedSpec.delete({ where: { id } });
+      },
+    
+      _enforceCapForUser,
+    }
+  </file>
+  <file path="src/services/session.ts">
+    function mapPrismaSession(session: Session): AgentSession { /* implementation omitted */ }
+    function mapPrismaEvent(event: SessionEvent): AgentSessionEvent { /* implementation omitted */ }
+    interface ListOptions {
+      readonly page: number;
+      readonly limit: number;
+      readonly status?: SessionStatus;
+    }
+    sessionService = {
+      async list(
+        options: ListOptions
+      ): Promise<{ data: AgentSession[]; pagination: Pagination }> {
+        const { page, limit, status } = options;
+        const skip = (page - 1) * limit;
+    
+        const where: Prisma.SessionWhereInput = status ? { status } : {};
+    
+        const [sessions, total] = await Promise.all([
+          prisma.session.findMany({
+            where,
+            skip,
+            take: limit,
+            orderBy: { createdAt: "desc" },
+          }),
+          prisma.session.count({ where }),
+        ]);
+    
+        const totalPages = Math.ceil(total / limit);
+    
+        return {
+          data: sessions.map(mapPrismaSession),
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages,
+            hasNext: page < totalPages,
+            hasPrev: page > 1,
+          },
+        };
+      },
+    
+      async getById(id: string): Promise<AgentSession | null> {
+        const session = await prisma.session.findUnique({ where: { id } });
+        return session ? mapPrismaSession(session) : null;
+      },
+    
+      async create(data: {
+        taskDescription: string;
+        model?: string;
+        maxTurns?: number;
+        maxBudgetUsd?: number;
+        baseBranch?: string;
+        createPr?: boolean;
+        parentId?: string;
+      }): Promise<AgentSession> {
+        const session = await prisma.session.create({
+          data: {
+            taskDescription: data.taskDescription,
+            ...(data.model !== undefined && { model: data.model }),
+            ...(data.maxTurns !== undefined && { maxTurns: data.maxTurns }),
+            ...(data.maxBudgetUsd !== undefined && { maxBudgetUsd: data.maxBudgetUsd }),
+            ...(data.baseBranch !== undefined && { baseBranch: data.baseBranch }),
+            ...(data.createPr !== undefined && { createPr: data.createPr }),
+            ...(data.parentId !== undefined && { parentId: data.parentId }),
+          },
+        });
+        return mapPrismaSession(session);
+      },
+    
+      async updateStatus(
+        id: string,
+        status: SessionStatus,
+        result?: {
+          branchName?: string;
+          prUrl?: string;
+          prNumber?: number;
+          resultText?: string;
+          costUsd?: number;
+          inputTokens?: number;
+          outputTokens?: number;
+          numTurns?: number;
+          durationMs?: number;
+          errors?: string[];
+          sdkSessionId?: string;
+        }
+      ): Promise<AgentSession | null> {
+        try {
+          const now = new Date();
+          const session = await prisma.session.update({
+            where: { id },
+            data: {
+              status,
+              ...(status === "RUNNING" && { startedAt: now }),
+              ...(["SUCCEEDED", "FAILED", "CANCELLED"].includes(status) && {
+                completedAt: now,
+              }),
+              ...(result?.branchName !== undefined && { branchName: result.branchName }),
+              ...(result?.prUrl !== undefined && { prUrl: result.prUrl }),
+              ...(result?.prNumber !== undefined && { prNumber: result.prNumber }),
+              ...(result?.resultText !== undefined && { resultText: result.resultText }),
+              ...(result?.costUsd !== undefined && { costUsd: result.costUsd }),
+              ...(result?.inputTokens !== undefined && { inputTokens: result.inputTokens }),
+              ...(result?.outputTokens !== undefined && { outputTokens: result.outputTokens }),
+              ...(result?.numTurns !== undefined && { numTurns: result.numTurns }),
+              ...(result?.durationMs !== undefined && { durationMs: result.durationMs }),
+              ...(result?.errors !== undefined && { errors: result.errors }),
+              ...(result?.sdkSessionId !== undefined && { sdkSessionId: result.sdkSessionId }),
+            },
+          });
+          return mapPrismaSession(session);
+        } catch {
+          return null;
+        }
+      },
+    
+      async delete(id: string): Promise<boolean> {
+        try {
+          await prisma.session.delete({ where: { id } });
+          return true;
+        } catch {
+          return false;
+        }
+      },
+    
+      async addEvent(
+        sessionId: string,
+        type: string,
+        data: Record<string, unknown> = {}
+      ): Promise<AgentSessionEvent> {
+        const event = await prisma.sessionEvent.create({
+          data: { sessionId, type, data: data as Prisma.InputJsonValue },
+        });
+        return mapPrismaEvent(event);
+      },
+    
+      async listEvents(
+        sessionId: string,
+        afterId?: string
+      ): Promise<AgentSessionEvent[]> {
+        const where: Prisma.SessionEventWhereInput = { sessionId };
+    
+        if (afterId) {
+          const cursor = await prisma.sessionEvent.findUnique({
+            where: { id: afterId },
+            select: { createdAt: true },
+          });
+          if (cursor) {
+            where.createdAt = { gt: cursor.createdAt };
+          }
+        }
+    
+        const events = await prisma.sessionEvent.findMany({
+          where,
+          orderBy: { createdAt: "asc" },
+          take: 100,
+        });
+    
+        return events.map(mapPrismaEvent);
+      },
+    }
+  </file>
+  <file path="src/services/session-executor.ts">
+    function truncate(text: string, maxLen: number): string { /* implementation omitted */ }
+    function extractText(content: unknown): string { /* implementation omitted */ }
+    function summarizeToolInput(input: unknown): Record<string, unknown> { /* implementation omitted */ }
+    function getRepoPath(): string { /* implementation omitted */ }
+    export function getActiveSessionCount(): number { /* implementation omitted */ }
+    export async function executeSession(session: AgentSession): Promise<void> { /* implementation omitted */ }
+    export async function cancelSession(sessionId: string): Promise<boolean> { /* implementation omitted */ }
+    _testHelpers = { truncate, extractText, summarizeToolInput }
+  </file>
+  <file path="src/services/remediation-circuit-breaker.ts">
+    interface CircuitState {
+      consecutiveFailures: number;
+      lastFailureAt: number | null;
+      isOpen: boolean;
+      openedAt: number | null;
+    }
+    export interface CircuitCheckResult {
+      readonly allowed: boolean;
+      readonly reason?: string;
+    }
+    export function checkCircuitBreaker(): CircuitCheckResult { /* implementation omitted */ }
+    export function recordRemediationOutcome(succeeded: boolean): void { /* implementation omitted */ }
+  </file>
+  <file path="src/services/database.ts">
+    interface SlowQueryStats {
+      count5min: number;
+      slowestMs: number;
+      queries: { model: string; operation: string; duration: number; timestamp: number }[];
+    }
+    export function getSlowQueryStats(): { count5min: number; slowestMs: number } { /* implementation omitted */ }
+    export function getServiceStatus(): "ok" | "degraded" { /* implementation omitted */ }
+    export const prisma: import("/Users/mbutler/github/mattbutlerengineering/services/agent/src/generated/prisma/index").PrismaClient<{ datasourceUrl: string; }, never, import("/Users/mbutler/github/mattbutlerengineering/services/agent/src/generated/prisma/runtime/library").DefaultArgs>;
+    function appendConnectionLimit(url: string | undefined, limit: number): string | undefined { /* implementation omitted */ }
+  </file>
+  <file path="src/routes/webhooks.ts">
+    interface GitHubIssueEvent {
+      action: string;
+      label?: { name: string };
+      issue: {
+        number: number;
+        title: string;
+        body: string | null;
+        html_url: string;
+        labels: Array<{ name: string }>;
+      };
+      repository: {
+        full_name: string;
+        default_branch: string;
+      };
+    }
+    interface GitHubIssueCommentEvent {
+      action: string;
+      comment: {
+        body: string;
+        html_url: string;
+        user: { login: string };
+      };
+      issue: {
+        number: number;
+        title: string;
+        html_url: string;
+        pull_request?: { url: string };
+      };
+      repository: {
+        full_name: string;
+        default_branch: string;
+      };
+    }
+    interface GitHubCheckRunEvent {
+      action: string;
+      check_run: {
+        conclusion: string | null;
+        name: string;
+        head_sha: string;
+        check_suite: {
+          head_branch: string | null;
+        };
+      };
+      repository: {
+        full_name: string;
+        default_branch: string;
+      };
+    }
+    function verifySignature(
+      payload: Buffer,
+      signature: string | undefined,
+      secret: string
+    ): boolean { /* implementation omitted */ }
+    export const webhookRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.3/node_modules/fastify/types/plugin").FastifyPluginAsync;
+    async function handleIssueEvent(
+      fastify: { log: { info: (...args: unknown[]) => void; warn: (...args: unknown[]) => void; error: (...args: unknown[]) => void } },
+      event: GitHubIssueEvent
+    ): Promise<void> { /* implementation omitted */ }
+    async function handleIssueCommentEvent(
+      fastify: { log: { info: (...args: unknown[]) => void; error: (...args: unknown[]) => void } },
+      event: GitHubIssueCommentEvent
+    ): Promise<void> { /* implementation omitted */ }
+    async function handleCheckRunEvent(
+      fastify: { log: { info: (...args: unknown[]) => void; error: (...args: unknown[]) => void } },
+      event: GitHubCheckRunEvent
+    ): Promise<void> { /* implementation omitted */ }
+  </file>
+  <file path="src/routes/sessions.ts">
+    export const sessionRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.3/node_modules/fastify/types/plugin").FastifyPluginAsync;
+  </file>
+  <file path="src/routes/session-events.ts">
+    export const sessionEventsRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.3/node_modules/fastify/types/plugin").FastifyPluginAsync;
+  </file>
+  <file path="src/routes/remediation.ts">
+    type AlertPayload = z.infer<typeof AlertPayloadSchema>;
+    function verifyRemediationSignature(
+      payload: Buffer,
+      signature: string | undefined,
+      secret: string
+    ): boolean { /* implementation omitted */ }
+    export const remediationRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.3/node_modules/fastify/types/plugin").FastifyPluginAsync;
+  </file>
+  <file path="src/routes/orchestrate.ts">
+    interface OrchestrateBody {
+      taskDescription: string;
+      model?: string;
+      sessionModel?: string;
+      maxBudgetPerSession?: number;
+      maxTurnsPerSession?: number;
+      baseBranch?: string;
+      maxConcurrentSessions?: number;
+    }
+    interface OrchestrateResponse {
+      parentSessionId: string;
+      status: OrchestratorResult["status"];
+      childSessionIds: readonly string[];
+      summary: string;
+      totalCostUsd: number;
+      durationMs: number;
+    }
+    export const orchestrateRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.3/node_modules/fastify/types/plugin").FastifyPluginAsync;
+  </file>
+  <file path="src/routes/health.ts">
+    export const healthRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.3/node_modules/fastify/types/plugin").FastifyPluginAsync;
+  </file>
+  <file path="src/routes/gen-ui.ts">
+    export const genUiRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.3/node_modules/fastify/types/plugin").FastifyPluginAsync;
+  </file>
+  <file path="src/routes/gen-specs.ts">
+    export const genSpecsRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.3/node_modules/fastify/types/plugin").FastifyPluginAsync;
+  </file>
+  <file path="src/routes/gen-chat.ts">
+    export const genChatRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.3/node_modules/fastify/types/plugin").FastifyPluginAsync;
+  </file>
+  <file path="src/schemas/index.ts">
+    export const SessionStatusEnum: { readonly type: "string"; readonly enum: readonly ["PENDING", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED"]; };
+    export const SessionSchema: { readonly $id: "Session"; readonly type: "object"; readonly description: "An agent coding session"; readonly required: readonly ["id", "status", "taskDescription", "baseBranch", "model", "createdAt", "updatedAt"]; readonly properties: { readonly id: { readonly type: "string"; readonly description: "Unique identifier"; readonly example: "clx1234567890"; }; readonly status: { readonly description: "Current session status"; readonly type: "string"; readonly enum: readonly ["PENDING", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED"]; }; readonly taskDescription: { readonly type: "string"; readonly description: "Task the agent is working on"; }; readonly branchName: { readonly type: "string"; readonly nullable: true; readonly description: "Git branch name"; }; readonly baseBranch: { readonly type: "string"; readonly description: "Base branch"; readonly example: "main"; }; readonly model: { readonly type: "string"; readonly description: "Claude model used"; readonly example: "claude-sonnet-4-6"; }; readonly maxTurns: { readonly type: "number"; readonly description: "Maximum conversation turns"; readonly example: 50; }; readonly maxBudgetUsd: { readonly type: "number"; readonly description: "Budget cap in USD"; readonly example: 1; }; readonly createPr: { readonly type: "boolean"; readonly description: "Whether to create a PR"; }; readonly prUrl: { readonly type: "string"; readonly nullable: true; readonly description: "Pull request URL"; }; readonly prNumber: { readonly type: "number"; readonly nullable: true; readonly description: "Pull request number"; }; readonly resultText: { readonly type: "string"; readonly nullable: true; readonly description: "Agent result text"; }; readonly costUsd: { readonly type: "number"; readonly nullable: true; readonly description: "Actual cost in USD"; }; readonly inputTokens: { readonly type: "number"; readonly nullable: true; }; readonly outputTokens: { readonly type: "number"; readonly nullable: true; }; readonly numTurns: { readonly type: "number"; readonly nullable: true; readonly description: "Actual turns used"; }; readonly durationMs: { readonly type: "number"; readonly nullable: true; readonly description: "Duration in milliseconds"; }; readonly errors: { readonly type: "array"; readonly items: { readonly type: "string"; }; }; readonly parentId: { readonly type: "string"; readonly nullable: true; }; readonly startedAt: { readonly type: "string"; readonly format: "date-time"; readonly nullable: true; }; readonly completedAt: { readonly type: "string"; readonly format: "date-time"; readonly nullable: true; }; readonly createdAt: { readonly type: "string"; readonly format: "date-time"; }; readonly updatedAt: { readonly type: "string"; readonly format: "date-time"; }; }; };
+    export const SessionEventSchema: { readonly $id: "SessionEvent"; readonly type: "object"; readonly required: readonly ["id", "sessionId", "type", "createdAt"]; readonly properties: { readonly id: { readonly type: "string"; }; readonly sessionId: { readonly type: "string"; }; readonly type: { readonly type: "string"; }; readonly data: { readonly type: "object"; readonly additionalProperties: true; }; readonly createdAt: { readonly type: "string"; readonly format: "date-time"; }; }; };
+    export const CreateSessionBodySchema: { readonly $id: "CreateSessionBody"; readonly type: "object"; readonly required: readonly ["taskDescription"]; readonly properties: { readonly taskDescription: { readonly type: "string"; readonly minLength: 1; readonly description: "Task for the agent"; }; readonly model: { readonly type: "string"; readonly description: "Claude model to use"; }; readonly maxTurns: { readonly type: "number"; readonly minimum: 1; readonly maximum: 200; }; readonly maxBudgetUsd: { readonly type: "number"; readonly minimum: 0.01; readonly maximum: 10; }; readonly baseBranch: { readonly type: "string"; }; readonly createPr: { readonly type: "boolean"; }; readonly parentId: { readonly type: "string"; readonly description: "Parent session ID for orchestrated child sessions"; }; }; };
+    export const PaginationSchema: { readonly $id: "AgentPagination"; readonly type: "object"; readonly required: readonly ["page", "limit", "total", "totalPages", "hasNext", "hasPrev"]; readonly properties: { readonly page: { readonly type: "number"; readonly example: 1; }; readonly limit: { readonly type: "number"; readonly example: 10; }; readonly total: { readonly type: "number"; readonly example: 42; }; readonly totalPages: { readonly type: "number"; readonly example: 5; }; readonly hasNext: { readonly type: "boolean"; readonly example: true; }; readonly hasPrev: { readonly type: "boolean"; readonly example: false; }; }; };
+    export const ErrorSchema: { readonly $id: "AgentError"; readonly type: "object"; readonly required: readonly ["error", "message", "statusCode"]; readonly properties: { readonly error: { readonly type: "string"; readonly example: "Not Found"; }; readonly message: { readonly type: "string"; readonly example: "Session not found"; }; readonly statusCode: { readonly type: "number"; readonly example: 404; }; }; };
+    export function registerSchemas(fastify: FastifyInstance) { /* implementation omitted */ }
+  </file>
+</codebase>

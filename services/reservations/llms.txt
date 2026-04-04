@@ -1,0 +1,1895 @@
+<codebase path="services/reservations">
+  <file path="src/index.ts">
+    async function main() { /* implementation omitted */ }
+  </file>
+  <file path="src/app.ts">
+    export interface AppOptions {
+      logger?: boolean | object;
+    }
+    export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> { /* implementation omitted */ }
+  </file>
+  <file path="src/services/venue.ts">
+    function mapPrismaVenueGroup(group: {
+      id: string;
+      name: string;
+      slug: string;
+      settings: unknown;
+      createdAt: Date;
+    }): VenueGroup { /* implementation omitted */ }
+    function mapPrismaVenue(venue: {
+      id: string;
+      venueGroupId: string | null;
+      venueGroup?: {
+        id: string;
+        name: string;
+        slug: string;
+        settings: unknown;
+        createdAt: Date;
+      } | null;
+      name: string;
+      slug: string;
+      ianaTimezone: string;
+      currencyCode: string;
+      operatingHours: unknown;
+      settings: unknown;
+      createdAt: Date;
+      updatedAt: Date;
+    }): Venue { /* implementation omitted */ }
+    venueGroupService = {
+      async list(page: number, limit: number): Promise<PaginatedResponse<VenueGroup>> {
+        const skip = (page - 1) * limit;
+    
+        const [groups, total] = await Promise.all([
+          prisma.venueGroup.findMany({
+            skip,
+            take: limit,
+            orderBy: { name: "asc" },
+          }),
+          prisma.venueGroup.count(),
+        ]);
+    
+        const totalPages = Math.ceil(total / limit);
+    
+        return {
+          data: groups.map(mapPrismaVenueGroup),
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages,
+            hasNext: page < totalPages,
+            hasPrev: page > 1,
+          },
+        };
+      },
+    
+      async getById(id: string): Promise<VenueGroup | null> {
+        const group = await prisma.venueGroup.findUnique({ where: { id } });
+        return group ? mapPrismaVenueGroup(group) : null;
+      },
+    
+      async getBySlug(slug: string): Promise<VenueGroup | null> {
+        const group = await prisma.venueGroup.findUnique({ where: { slug } });
+        return group ? mapPrismaVenueGroup(group) : null;
+      },
+    
+      async create(data: CreateVenueGroupRequest): Promise<VenueGroup> {
+        const group = await prisma.venueGroup.create({
+          data: {
+            name: data.name,
+            slug: data.slug,
+            settings: data.settings as Prisma.InputJsonValue | undefined,
+          },
+        });
+        return mapPrismaVenueGroup(group);
+      },
+    
+      async update(id: string, data: UpdateVenueGroupRequest): Promise<VenueGroup | null> {
+        try {
+          const updateData: Prisma.VenueGroupUpdateInput = {};
+          if (data.name !== undefined) updateData.name = data.name;
+          if (data.slug !== undefined) updateData.slug = data.slug;
+          if (data.settings !== undefined) updateData.settings = data.settings as Prisma.InputJsonValue;
+    
+          const group = await prisma.venueGroup.update({
+            where: { id },
+            data: updateData,
+          });
+          return mapPrismaVenueGroup(group);
+        } catch {
+          return null;
+        }
+      },
+    
+      async delete(id: string): Promise<boolean> {
+        try {
+          await prisma.venueGroup.delete({ where: { id } });
+          return true;
+        } catch {
+          return false;
+        }
+      },
+    }
+    venueService = {
+      async list(
+        page: number,
+        limit: number,
+        venueGroupId?: string
+      ): Promise<PaginatedResponse<Venue>> {
+        const skip = (page - 1) * limit;
+        const where = venueGroupId ? { venueGroupId } : {};
+    
+        const [venues, total] = await Promise.all([
+          prisma.venue.findMany({
+            where,
+            skip,
+            take: limit,
+            orderBy: { name: "asc" },
+            include: { venueGroup: true },
+          }),
+          prisma.venue.count({ where }),
+        ]);
+    
+        const totalPages = Math.ceil(total / limit);
+    
+        return {
+          data: venues.map(mapPrismaVenue),
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages,
+            hasNext: page < totalPages,
+            hasPrev: page > 1,
+          },
+        };
+      },
+    
+      async getById(id: string): Promise<Venue | null> {
+        const venue = await prisma.venue.findUnique({
+          where: { id },
+          include: { venueGroup: true },
+        });
+        return venue ? mapPrismaVenue(venue) : null;
+      },
+    
+      async getBySlug(slug: string): Promise<Venue | null> {
+        const venue = await prisma.venue.findUnique({
+          where: { slug },
+          include: { venueGroup: true },
+        });
+        return venue ? mapPrismaVenue(venue) : null;
+      },
+    
+      async create(data: CreateVenueRequest): Promise<Venue> {
+        const venue = await prisma.venue.create({
+          data: {
+            venueGroupId: data.venueGroupId,
+            name: data.name,
+            slug: data.slug,
+            ianaTimezone: data.ianaTimezone,
+            currencyCode: data.currencyCode ?? "USD",
+            operatingHours: data.operatingHours as Prisma.InputJsonValue | undefined,
+            settings: data.settings as Prisma.InputJsonValue | undefined,
+          },
+          include: { venueGroup: true },
+        });
+        return mapPrismaVenue(venue);
+      },
+    
+      async update(id: string, data: UpdateVenueRequest): Promise<Venue | null> {
+        try {
+          const updateData: Prisma.VenueUpdateInput = {};
+          if (data.venueGroupId !== undefined) {
+            updateData.venueGroup = data.venueGroupId
+              ? { connect: { id: data.venueGroupId } }
+              : { disconnect: true };
+          }
+          if (data.name !== undefined) updateData.name = data.name;
+          if (data.slug !== undefined) updateData.slug = data.slug;
+          if (data.ianaTimezone !== undefined) updateData.ianaTimezone = data.ianaTimezone;
+          if (data.currencyCode !== undefined) updateData.currencyCode = data.currencyCode;
+          if (data.operatingHours !== undefined) {
+            updateData.operatingHours = data.operatingHours as Prisma.InputJsonValue | undefined;
+          }
+          if (data.settings !== undefined) {
+            updateData.settings = data.settings as Prisma.InputJsonValue | undefined;
+          }
+    
+          const venue = await prisma.venue.update({
+            where: { id },
+            data: updateData,
+            include: { venueGroup: true },
+          });
+          return mapPrismaVenue(venue);
+        } catch {
+          return null;
+        }
+      },
+    
+      async delete(id: string): Promise<boolean> {
+        try {
+          await prisma.venue.delete({ where: { id } });
+          return true;
+        } catch {
+          return false;
+        }
+      },
+    }
+  </file>
+  <file path="src/services/table.ts">
+    function mapPrismaTable(table: {
+      id: string;
+      name: string;
+      tableNumber: string | null;
+      capacity: number;
+      minCovers: number;
+      maxCovers: number | null;
+      location: string | null;
+      isActive: boolean;
+      priority: number;
+      status: string;
+      venueId: string | null;
+      floorPlanId: string | null;
+      shapeMetadata: unknown;
+      createdAt: Date;
+      updatedAt: Date;
+    }): Table { /* implementation omitted */ }
+    tableService = {
+      async list(
+        page: number,
+        limit: number,
+        activeOnly: boolean = false
+      ): Promise<PaginatedResponse<Table>> {
+        const skip = (page - 1) * limit;
+        const where = activeOnly ? { isActive: true } : {};
+    
+        const [tables, total] = await Promise.all([
+          prisma.table.findMany({
+            where,
+            skip,
+            take: limit,
+            orderBy: { name: "asc" },
+          }),
+          prisma.table.count({ where }),
+        ]);
+    
+        const totalPages = Math.ceil(total / limit);
+    
+        return {
+          data: tables.map(mapPrismaTable),
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages,
+            hasNext: page < totalPages,
+            hasPrev: page > 1,
+          },
+        };
+      },
+    
+      async getById(id: string): Promise<Table | null> {
+        const table = await prisma.table.findUnique({ where: { id } });
+        return table ? mapPrismaTable(table) : null;
+      },
+    
+      async create(data: CreateTableRequest): Promise<Table> {
+        const table = await prisma.table.create({
+          data: {
+            name: data.name,
+            tableNumber: data.tableNumber ?? null,
+            capacity: data.capacity,
+            minCovers: data.minCovers ?? 1,
+            maxCovers: data.maxCovers ?? null,
+            location: data.location ?? null,
+            priority: data.priority ?? 0,
+            venueId: data.venueId ?? null,
+            floorPlanId: data.floorPlanId ?? null,
+            shapeMetadata: data.shapeMetadata
+              ? (data.shapeMetadata as unknown as Prisma.InputJsonValue)
+              : Prisma.DbNull,
+          },
+        });
+        return mapPrismaTable(table);
+      },
+    
+      async update(id: string, data: UpdateTableRequest): Promise<Table | null> {
+        try {
+          const updateData: Prisma.TableUpdateInput = {};
+          if (data.name !== undefined) updateData.name = data.name;
+          if (data.tableNumber !== undefined) updateData.tableNumber = data.tableNumber;
+          if (data.capacity !== undefined) updateData.capacity = data.capacity;
+          if (data.minCovers !== undefined) updateData.minCovers = data.minCovers;
+          if (data.maxCovers !== undefined) updateData.maxCovers = data.maxCovers;
+          if (data.location !== undefined) updateData.location = data.location;
+          if (data.isActive !== undefined) updateData.isActive = data.isActive;
+          if (data.priority !== undefined) updateData.priority = data.priority;
+          if (data.floorPlanId !== undefined) {
+            updateData.floorPlan = data.floorPlanId
+              ? { connect: { id: data.floorPlanId } }
+              : { disconnect: true };
+          }
+          if (data.shapeMetadata !== undefined) {
+            updateData.shapeMetadata = data.shapeMetadata
+              ? (data.shapeMetadata as unknown as Prisma.InputJsonValue)
+              : Prisma.DbNull;
+          }
+    
+          const table = await prisma.table.update({
+            where: { id },
+            data: updateData,
+          });
+          return mapPrismaTable(table);
+        } catch {
+          return null;
+        }
+      },
+    
+      async updateStatus(id: string, status: string): Promise<Table | null> {
+        if (!VALID_TABLE_STATUSES.includes(status as TableStatus)) {
+          return null;
+        }
+        try {
+          const table = await prisma.table.update({
+            where: { id },
+            data: { status: status as TableStatus },
+          });
+          return mapPrismaTable(table);
+        } catch {
+          return null;
+        }
+      },
+    
+      async delete(id: string): Promise<boolean> {
+        try {
+          await prisma.table.delete({ where: { id } });
+          return true;
+        } catch {
+          return false;
+        }
+      },
+    }
+  </file>
+  <file path="src/services/reservation.ts">
+    type PrismaReservationWithTable = PrismaReservation & {
+      table?: PrismaTable;
+    };
+    function mapPrismaReservation(reservation: PrismaReservationWithTable): Reservation { /* implementation omitted */ }
+    export interface ListReservationsOptions {
+      page: number;
+      limit: number;
+      date?: string;
+      status?: ReservationStatus;
+      tableId?: string;
+      venueId?: string;
+    }
+    export interface CreateReservationResult {
+      success: boolean;
+      reservation?: Reservation;
+      error?: string;
+      conflict?: ConflictCheckResult;
+      pacing?: PacingCheckResult;
+    }
+    export interface UpdateReservationResult {
+      success: boolean;
+      reservation?: Reservation;
+      error?: string;
+      conflict?: ConflictCheckResult;
+    }
+    reservationService = {
+      async list(options: ListReservationsOptions): Promise<PaginatedResponse<Reservation>> {
+        const { page, limit, date, status, tableId, venueId } = options;
+        const skip = (page - 1) * limit;
+    
+        const where: Record<string, unknown> = {};
+        if (date) {
+          where.date = new Date(date);
+        }
+        if (status) {
+          where.status = status;
+        }
+        if (tableId) {
+          where.tableId = tableId;
+        }
+        if (venueId) {
+          where.venueId = venueId;
+        }
+    
+        const [reservations, total] = await Promise.all([
+          prisma.reservation.findMany({
+            where,
+            skip,
+            take: limit,
+            orderBy: [{ date: "asc" }, { startTime: "asc" }],
+            include: { table: true },
+          }),
+          prisma.reservation.count({ where }),
+        ]);
+    
+        const totalPages = Math.ceil(total / limit);
+    
+        return {
+          data: reservations.map(mapPrismaReservation),
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages,
+            hasNext: page < totalPages,
+            hasPrev: page > 1,
+          },
+        };
+      },
+    
+      async listByUserId(
+        userId: string,
+        page: number,
+        limit: number
+      ): Promise<PaginatedResponse<Reservation>> {
+        const skip = (page - 1) * limit;
+    
+        const [reservations, total] = await Promise.all([
+          prisma.reservation.findMany({
+            where: { userId },
+            skip,
+            take: limit,
+            orderBy: [{ date: "desc" }, { startTime: "desc" }],
+            include: { table: true },
+          }),
+          prisma.reservation.count({ where: { userId } }),
+        ]);
+    
+        const totalPages = Math.ceil(total / limit);
+    
+        return {
+          data: reservations.map(mapPrismaReservation),
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages,
+            hasNext: page < totalPages,
+            hasPrev: page > 1,
+          },
+        };
+      },
+    
+      async getById(id: string): Promise<Reservation | null> {
+        const reservation = await prisma.reservation.findUnique({
+          where: { id },
+          include: { table: true },
+        });
+        return reservation ? mapPrismaReservation(reservation) : null;
+      },
+    
+      async create(
+        data: CreateReservationRequest,
+        userId?: string
+      ): Promise<Reservation> {
+        const reservation = await prisma.reservation.create({
+          data: {
+            date: new Date(data.date),
+            startTime: new Date(data.startTime),
+            endTime: new Date(data.endTime),
+            partySize: data.partySize,
+            tableId: data.tableId,
+            notes: data.notes ?? null,
+            guestName: data.guestName ?? null,
+            guestEmail: data.guestEmail ?? null,
+            guestPhone: data.guestPhone ?? null,
+            guestId: data.guestId ?? null,
+            userId: userId ?? null,
+            venueId: data.venueId ?? null,
+          },
+          include: { table: true },
+        });
+        return mapPrismaReservation(reservation);
+      },
+    
+      /**
+       * Creates a reservation with conflict and pacing checks.
+       * Used for staff direct booking (bypassing hold flow).
+       */
+      async createWithConflictCheck(
+        data: CreateReservationRequest,
+        userId?: string
+      ): Promise<CreateReservationResult> {
+        const startTime = new Date(data.startTime);
+        const endTime = new Date(data.endTime);
+    
+        // Check for conflicts
+        const conflict = await availabilityService.checkConflict(
+          data.tableId,
+          data.date,
+          startTime,
+          endTime
+        );
+    
+        if (conflict.hasConflict) {
+          return {
+            success: false,
+            error: "Time slot has a conflict with an existing reservation or hold",
+            conflict,
+          };
+        }
+    
+        // Check pacing limits if venue is specified
+        if (data.venueId) {
+          const venue = await prisma.venue.findUnique({
+            where: { id: data.venueId },
+          });
+    
+          if (venue) {
+            const settings = venue.settings as VenueSettings | null;
+            const pacing = await availabilityService.checkPacing(
+              data.venueId,
+              startTime,
+              data.partySize,
+              settings
+            );
+    
+            if (!pacing.withinLimit) {
+              return {
+                success: false,
+                error: `Pacing limit exceeded. Maximum ${pacing.maxCovers} covers allowed per time window.`,
+                pacing,
+              };
+            }
+          }
+        }
+    
+        // Create the reservation
+        const reservation = await this.create(data, userId);
+        return { success: true, reservation };
+      },
+    
+      async update(
+        id: string,
+        data: UpdateReservationRequest
+      ): Promise<Reservation | null> {
+        try {
+          const reservation = await prisma.reservation.update({
+            where: { id },
+            data: {
+              ...(data.date !== undefined && { date: new Date(data.date) }),
+              ...(data.startTime !== undefined && {
+                startTime: new Date(data.startTime),
+              }),
+              ...(data.endTime !== undefined && { endTime: new Date(data.endTime) }),
+              ...(data.partySize !== undefined && { partySize: data.partySize }),
+              ...(data.tableId !== undefined && { tableId: data.tableId }),
+              ...(data.status !== undefined && { status: data.status }),
+              ...(data.notes !== undefined && { notes: data.notes }),
+            },
+            include: { table: true },
+          });
+          return mapPrismaReservation(reservation);
+        } catch {
+          return null;
+        }
+      },
+    
+      /**
+       * Updates a reservation with conflict checking.
+       * Checks for conflicts when time or table is changed.
+       */
+      async updateWithConflictCheck(
+        id: string,
+        data: UpdateReservationRequest
+      ): Promise<UpdateReservationResult> {
+        // Get the existing reservation
+        const existing = await prisma.reservation.findUnique({
+          where: { id },
+        });
+    
+        if (!existing) {
+          return { success: false, error: "Reservation not found" };
+        }
+    
+        // Determine if we need to check for conflicts
+        const timeOrTableChanged =
+          data.date !== undefined ||
+          data.startTime !== undefined ||
+          data.endTime !== undefined ||
+          data.tableId !== undefined;
+    
+        if (timeOrTableChanged) {
+          // Build the final values for conflict check
+          const date = data.date ?? existing.date.toISOString().split("T")[0];
+          const startTime = data.startTime
+            ? new Date(data.startTime)
+            : existing.startTime;
+          const endTime = data.endTime ? new Date(data.endTime) : existing.endTime;
+          const tableId = data.tableId ?? existing.tableId;
+    
+          // Check for conflicts, excluding the current reservation
+          const conflict = await availabilityService.checkConflict(
+            tableId,
+            date,
+            startTime,
+            endTime,
+            id // Exclude this reservation from conflict check
+          );
+    
+          if (conflict.hasConflict) {
+            return {
+              success: false,
+              error: "Time slot has a conflict with an existing reservation or hold",
+              conflict,
+            };
+          }
+        }
+    
+        // Perform the update
+        const reservation = await this.update(id, data);
+        if (!reservation) {
+          return { success: false, error: "Failed to update reservation" };
+        }
+    
+        return { success: true, reservation };
+      },
+    
+      async createWalkIn(
+        data: WalkInRequest,
+        userId?: string
+      ): Promise<CreateReservationResult> {
+        const now = new Date();
+        const durationMinutes = data.durationMinutes ?? 90;
+        const endTime = new Date(now.getTime() + durationMinutes * 60 * 1000);
+    
+        // Date only (no time component), normalized to midnight UTC
+        const dateOnly = new Date(
+          Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+        );
+    
+        const dateStr = dateOnly.toISOString().split("T")[0];
+    
+        // Conflict check + creation inside a transaction to prevent TOCTOU races
+        const conflict = await availabilityService.checkConflict(
+          data.tableId,
+          dateStr,
+          now,
+          endTime
+        );
+    
+        if (conflict.hasConflict) {
+          return {
+            success: false,
+            error: "Table is not available",
+            conflict,
+          };
+        }
+    
+        const reservation = await prisma.$transaction(async (tx) => {
+          // Re-check for conflicting reservations inside the transaction
+          const conflicting = await tx.reservation.findFirst({
+            where: {
+              tableId: data.tableId,
+              date: dateOnly,
+              status: { notIn: ["CANCELLED", "NO_SHOW"] },
+              AND: [{ startTime: { lt: endTime } }, { endTime: { gt: now } }],
+            },
+            select: { id: true },
+          });
+    
+          if (conflicting) {
+            return null;
+          }
+    
+          return tx.reservation.create({
+            data: {
+              date: dateOnly,
+              startTime: now,
+              endTime,
+              partySize: data.partySize,
+              tableId: data.tableId,
+              status: "CONFIRMED",
+              guestName: data.guestName ?? "Walk-in",
+              guestEmail: null,
+              guestPhone: null,
+              guestId: null,
+              userId: userId ?? null,
+              venueId: data.venueId ?? null,
+              notes: null,
+            },
+            include: { table: true },
+          });
+        });
+    
+        if (!reservation) {
+          return {
+            success: false,
+            error: "Table is not available",
+          };
+        }
+    
+        return { success: true, reservation: mapPrismaReservation(reservation) };
+      },
+    
+      async cancel(
+        id: string,
+        reason?: string,
+        note?: string
+      ): Promise<Reservation | null> {
+        try {
+          const reservation = await prisma.reservation.update({
+            where: { id },
+            data: {
+              status: "CANCELLED",
+              ...(reason !== undefined && { cancellationReason: reason }),
+              ...(note !== undefined && { cancellationNote: note }),
+            },
+            include: { table: true },
+          });
+          return mapPrismaReservation(reservation);
+        } catch {
+          return null;
+        }
+      },
+    }
+  </file>
+  <file path="src/services/hold.ts">
+    function mapPrismaHold(hold: PrismaHold): ReservationHold { /* implementation omitted */ }
+    export interface CreateHoldResult {
+      success: boolean;
+      hold?: ReservationHold;
+      error?: string;
+    }
+    export interface ConfirmHoldResult {
+      success: boolean;
+      reservation?: Reservation;
+      error?: string;
+    }
+    holdService = {
+      /**
+       * Creates a hold on a time slot for a session.
+       */
+      async create(
+        data: CreateHoldRequest,
+        sessionId: string
+      ): Promise<CreateHoldResult> {
+        const { venueId, date, time, partySize, tableId } = data;
+    
+        // Get venue settings for hold duration
+        const venue = await prisma.venue.findUnique({
+          where: { id: venueId },
+        });
+    
+        if (!venue) {
+          return { success: false, error: "Venue not found" };
+        }
+    
+        const settings = venue.settings as VenueSettings | null;
+        const holdDuration = settings?.holdDurationMinutes ?? DEFAULT_HOLD_DURATION;
+    
+        // Calculate times
+        const startTime = new Date(time);
+        const duration = availabilityService.estimateDuration(partySize, settings);
+        const endTime = new Date(startTime.getTime() + duration * 60 * 1000);
+        const expiresAt = new Date(Date.now() + holdDuration * 60 * 1000);
+    
+        // Find or validate table (pre-check outside transaction for auto-assign)
+        let selectedTableId = tableId;
+        if (!selectedTableId) {
+          // Auto-assign a table
+          const table = await availabilityService.findBestTable(
+            venueId,
+            date,
+            startTime,
+            endTime,
+            partySize
+          );
+    
+          if (!table) {
+            return { success: false, error: "No available tables for this time slot" };
+          }
+          selectedTableId = table.id;
+        } else {
+          // Pre-check: verify provided table is available
+          const conflict = await availabilityService.checkConflict(
+            selectedTableId!,
+            date,
+            startTime,
+            endTime
+          );
+    
+          if (conflict.hasConflict) {
+            return { success: false, error: "Table is not available for this time slot" };
+          }
+        }
+    
+        // Check pacing limits (pre-check)
+        const pacingCheck = await availabilityService.checkPacing(
+          venueId,
+          startTime,
+          partySize,
+          settings
+        );
+    
+        if (!pacingCheck.withinLimit) {
+          return {
+            success: false,
+            error: `Pacing limit reached. Maximum ${pacingCheck.maxCovers} covers per time window.`,
+          };
+        }
+    
+        // Wrap conflict re-check + hold creation in a transaction to prevent
+        // concurrent requests from both passing the check
+        const txResult = await prisma.$transaction(async (tx) => {
+          // Re-check for conflicting reservations inside the transaction
+          const conflictingReservation = await tx.reservation.findFirst({
+            where: {
+              tableId: selectedTableId,
+              date: new Date(date),
+              status: { notIn: ["CANCELLED", "NO_SHOW"] },
+              AND: [
+                { startTime: { lt: endTime } },
+                { endTime: { gt: startTime } },
+              ],
+            },
+            select: { id: true },
+          });
+    
+          if (conflictingReservation) {
+            return { conflict: true as const };
+          }
+    
+          // Re-check for conflicting holds inside the transaction
+          const conflictingHold = await tx.reservationHold.findFirst({
+            where: {
+              tableId: selectedTableId,
+              date: new Date(date),
+              expiresAt: { gt: new Date() },
+              sessionId: { not: sessionId }, // Don't conflict with own session
+              AND: [
+                { startTime: { lt: endTime } },
+                { endTime: { gt: startTime } },
+              ],
+            },
+            select: { id: true },
+          });
+    
+          if (conflictingHold) {
+            return { conflict: true as const };
+          }
+    
+          // Release any existing holds for this session at this venue
+          await tx.reservationHold.deleteMany({
+            where: { sessionId, venueId },
+          });
+    
+          // Create the hold
+          const hold = await tx.reservationHold.create({
+            data: {
+              venueId,
+              tableId: selectedTableId,
+              date: new Date(date),
+              startTime,
+              endTime,
+              partySize,
+              sessionId,
+              expiresAt,
+            },
+          });
+    
+          return { conflict: false as const, hold };
+        });
+    
+        if (txResult.conflict) {
+          return { success: false, error: "Table is not available for this time slot" };
+        }
+    
+        return { success: true, hold: mapPrismaHold(txResult.hold) };
+      },
+    
+      /**
+       * Gets a hold by ID.
+       */
+      async getById(id: string): Promise<ReservationHold | null> {
+        const hold = await prisma.reservationHold.findUnique({
+          where: { id },
+        });
+    
+        if (!hold) return null;
+    
+        // Check if expired
+        if (hold.expiresAt < new Date()) {
+          // Clean up expired hold
+          await prisma.reservationHold.delete({ where: { id } });
+          return null;
+        }
+    
+        return mapPrismaHold(hold);
+      },
+    
+      /**
+       * Gets a hold by session ID for a venue.
+       */
+      async getBySessionId(
+        sessionId: string,
+        venueId: string
+      ): Promise<ReservationHold | null> {
+        const hold = await prisma.reservationHold.findFirst({
+          where: {
+            sessionId,
+            venueId,
+            expiresAt: { gt: new Date() },
+          },
+        });
+    
+        return hold ? mapPrismaHold(hold) : null;
+      },
+    
+      /**
+       * Releases a hold.
+       */
+      async release(id: string, sessionId: string): Promise<boolean> {
+        try {
+          const result = await prisma.reservationHold.deleteMany({
+            where: { id, sessionId },
+          });
+          return result.count > 0;
+        } catch {
+          return false;
+        }
+      },
+    
+      /**
+       * Converts a hold to a reservation.
+       */
+      async convertToReservation(
+        holdId: string,
+        sessionId: string,
+        guestDetails: ConfirmHoldRequest,
+        userId?: string
+      ): Promise<ConfirmHoldResult> {
+        // Look up the hold by ID first, then diagnose failure separately
+        const hold = await prisma.reservationHold.findUnique({
+          where: { id: holdId },
+        });
+    
+        if (!hold) {
+          return { success: false, error: "Hold not found" };
+        }
+    
+        if (hold.expiresAt < new Date()) {
+          // Clean up the expired hold
+          await prisma.reservationHold.delete({ where: { id: holdId } }).catch(() => {});
+          return { success: false, error: "Hold has expired" };
+        }
+    
+        if (hold.sessionId !== sessionId) {
+          return { success: false, error: "Session ID does not match the hold" };
+        }
+    
+        // Check conflict + create reservation + delete hold atomically in a transaction
+        // to prevent TOCTOU race conditions where two simultaneous conversions both
+        // pass the conflict check and create overlapping reservations.
+        const txResult = await prisma.$transaction(async (tx) => {
+          // Verify the table is still available (inside transaction for atomicity)
+          const conflictingReservation = await tx.reservation.findFirst({
+            where: {
+              tableId: hold.tableId,
+              date: hold.date,
+              status: { notIn: ["CANCELLED", "NO_SHOW"] },
+              AND: [
+                { startTime: { lt: hold.endTime } },
+                { endTime: { gt: hold.startTime } },
+              ],
+            },
+            select: { id: true },
+          });
+    
+          if (conflictingReservation) {
+            // Clean up the hold since it's no longer valid
+            await tx.reservationHold.delete({ where: { id: holdId } });
+            return { conflict: true as const };
+          }
+    
+          const conflictingHold = await tx.reservationHold.findFirst({
+            where: {
+              tableId: hold.tableId,
+              date: hold.date,
+              expiresAt: { gt: new Date() },
+              id: { not: holdId },
+              AND: [
+                { startTime: { lt: hold.endTime } },
+                { endTime: { gt: hold.startTime } },
+              ],
+            },
+            select: { id: true },
+          });
+    
+          if (conflictingHold) {
+            // Clean up the hold since it's no longer valid
+            await tx.reservationHold.delete({ where: { id: holdId } });
+            return { conflict: true as const };
+          }
+    
+          // Create the reservation
+          const reservation = await tx.reservation.create({
+            data: {
+              date: hold.date,
+              startTime: hold.startTime,
+              endTime: hold.endTime,
+              partySize: hold.partySize,
+              tableId: hold.tableId,
+              venueId: hold.venueId,
+              guestName: guestDetails.guestName ?? null,
+              guestEmail: guestDetails.guestEmail ?? null,
+              guestPhone: guestDetails.guestPhone ?? null,
+              guestId: guestDetails.guestId ?? null,
+              notes: guestDetails.notes ?? null,
+              userId: userId ?? null,
+              status: "CONFIRMED",
+            },
+            include: { table: true },
+          });
+    
+          // Delete the hold
+          await tx.reservationHold.delete({ where: { id: holdId } });
+    
+          return { conflict: false as const, reservation };
+        });
+    
+        if (txResult.conflict) {
+          return { success: false, error: "Time slot is no longer available" };
+        }
+    
+        const result = txResult.reservation;
+        return {
+          success: true,
+          reservation: {
+            id: result.id,
+            date: result.date.toISOString().split("T")[0],
+            startTime: result.startTime.toISOString(),
+            endTime: result.endTime.toISOString(),
+            partySize: result.partySize,
+            status: result.status,
+            notes: result.notes,
+            cancellationReason: result.cancellationReason,
+            cancellationNote: result.cancellationNote,
+            guestName: result.guestName,
+            guestEmail: result.guestEmail,
+            guestPhone: result.guestPhone,
+            guestId: result.guestId,
+            userId: result.userId,
+            tableId: result.tableId,
+            table: result.table
+              ? {
+                  id: result.table.id,
+                  name: result.table.name,
+                  tableNumber: result.table.tableNumber,
+                  capacity: result.table.capacity,
+                  minCovers: result.table.minCovers,
+                  maxCovers: result.table.maxCovers,
+                  location: result.table.location,
+                  isActive: result.table.isActive,
+                  priority: result.table.priority,
+                  status: result.table.status as Table["status"],
+                  venueId: result.table.venueId,
+                  floorPlanId: result.table.floorPlanId,
+                  shapeMetadata: result.table.shapeMetadata as TableShapeMetadata | null,
+                  createdAt: result.table.createdAt.toISOString(),
+                  updatedAt: result.table.updatedAt.toISOString(),
+                }
+              : undefined,
+            venueId: result.venueId,
+            createdAt: result.createdAt.toISOString(),
+            updatedAt: result.updatedAt.toISOString(),
+          },
+        };
+      },
+    
+      /**
+       * Cleans up expired holds.
+       * Called opportunistically on ~1% of requests.
+       */
+      async cleanupExpired(): Promise<number> {
+        const result = await prisma.reservationHold.deleteMany({
+          where: {
+            expiresAt: { lt: new Date() },
+          },
+        });
+        return result.count;
+      },
+    
+      /**
+       * Should be called to opportunistically clean up expired holds.
+       * Returns true if cleanup was performed.
+       */
+      async maybeCleanup(): Promise<boolean> {
+        // 1% chance of cleanup
+        if (Math.random() > 0.01) {
+          return false;
+        }
+    
+        await this.cleanupExpired();
+        return true;
+      },
+    }
+  </file>
+  <file path="src/services/guest.ts">
+    function mapPrismaGuest(guest: {
+      id: string;
+      venueId: string;
+      email: string | null;
+      phone: string | null;
+      name: string;
+      notes: string | null;
+      visitCount: number;
+      lifetimeSpend: Prisma.Decimal | null;
+      lastVisit: Date | null;
+      tags: unknown;
+      createdAt: Date;
+      updatedAt: Date;
+    }): Guest { /* implementation omitted */ }
+    guestService = {
+      async list(
+        venueId: string,
+        page: number,
+        limit: number
+      ): Promise<PaginatedResponse<Guest>> {
+        const skip = (page - 1) * limit;
+    
+        const [guests, total] = await Promise.all([
+          prisma.guest.findMany({
+            where: { venueId },
+            skip,
+            take: limit,
+            orderBy: { name: "asc" },
+          }),
+          prisma.guest.count({ where: { venueId } }),
+        ]);
+    
+        const totalPages = Math.ceil(total / limit);
+    
+        return {
+          data: guests.map(mapPrismaGuest),
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages,
+            hasNext: page < totalPages,
+            hasPrev: page > 1,
+          },
+        };
+      },
+    
+      async getById(id: string): Promise<Guest | null> {
+        const guest = await prisma.guest.findUnique({ where: { id } });
+        return guest ? mapPrismaGuest(guest) : null;
+      },
+    
+      async findByEmail(venueId: string, email: string): Promise<Guest | null> {
+        const guest = await prisma.guest.findUnique({
+          where: { venueId_email: { venueId, email } },
+        });
+        return guest ? mapPrismaGuest(guest) : null;
+      },
+    
+      async findByPhone(venueId: string, phone: string): Promise<Guest | null> {
+        const guest = await prisma.guest.findUnique({
+          where: { venueId_phone: { venueId, phone } },
+        });
+        return guest ? mapPrismaGuest(guest) : null;
+      },
+    
+      /**
+       * Identity resolution: Find existing guest by email or phone, or create new one.
+       * This is the primary method for linking reservations to guests.
+       */
+      async findOrCreate(
+        venueId: string,
+        data: { email?: string; phone?: string; name: string }
+      ): Promise<Guest> {
+        // Try to find by email first
+        if (data.email) {
+          const existingByEmail = await prisma.guest.findUnique({
+            where: { venueId_email: { venueId, email: data.email } },
+          });
+          if (existingByEmail) {
+            // Update name if different and phone if provided
+            const updateData: Prisma.GuestUpdateInput = {};
+            if (existingByEmail.name !== data.name) {
+              updateData.name = data.name;
+            }
+            if (data.phone && existingByEmail.phone !== data.phone) {
+              updateData.phone = data.phone;
+            }
+            if (Object.keys(updateData).length > 0) {
+              const updated = await prisma.guest.update({
+                where: { id: existingByEmail.id },
+                data: updateData,
+              });
+              return mapPrismaGuest(updated);
+            }
+            return mapPrismaGuest(existingByEmail);
+          }
+        }
+    
+        // Try to find by phone
+        if (data.phone) {
+          const existingByPhone = await prisma.guest.findUnique({
+            where: { venueId_phone: { venueId, phone: data.phone } },
+          });
+          if (existingByPhone) {
+            // Update name if different and email if provided
+            const updateData: Prisma.GuestUpdateInput = {};
+            if (existingByPhone.name !== data.name) {
+              updateData.name = data.name;
+            }
+            if (data.email && existingByPhone.email !== data.email) {
+              updateData.email = data.email;
+            }
+            if (Object.keys(updateData).length > 0) {
+              const updated = await prisma.guest.update({
+                where: { id: existingByPhone.id },
+                data: updateData,
+              });
+              return mapPrismaGuest(updated);
+            }
+            return mapPrismaGuest(existingByPhone);
+          }
+        }
+    
+        // Create new guest
+        const guest = await prisma.guest.create({
+          data: {
+            venueId,
+            email: data.email,
+            phone: data.phone,
+            name: data.name,
+          },
+        });
+        return mapPrismaGuest(guest);
+      },
+    
+      async create(data: CreateGuestRequest): Promise<Guest> {
+        const guest = await prisma.guest.create({
+          data: {
+            venueId: data.venueId,
+            email: data.email,
+            phone: data.phone,
+            name: data.name,
+            notes: data.notes,
+            tags: data.tags as Prisma.InputJsonValue | undefined,
+          },
+        });
+        return mapPrismaGuest(guest);
+      },
+    
+      async update(id: string, data: UpdateGuestRequest): Promise<Guest | null> {
+        try {
+          const updateData: Prisma.GuestUpdateInput = {};
+          if (data.email !== undefined) updateData.email = data.email;
+          if (data.phone !== undefined) updateData.phone = data.phone;
+          if (data.name !== undefined) updateData.name = data.name;
+          if (data.notes !== undefined) updateData.notes = data.notes;
+          if (data.tags !== undefined) updateData.tags = data.tags as Prisma.InputJsonValue;
+    
+          const guest = await prisma.guest.update({
+            where: { id },
+            data: updateData,
+          });
+          return mapPrismaGuest(guest);
+        } catch {
+          return null;
+        }
+      },
+    
+      async delete(id: string): Promise<boolean> {
+        try {
+          await prisma.guest.delete({ where: { id } });
+          return true;
+        } catch {
+          return false;
+        }
+      },
+    
+      /**
+       * Update visit statistics after a completed reservation.
+       */
+      async recordVisit(
+        guestId: string,
+        visitDate: Date,
+        spendAmount?: number
+      ): Promise<Guest | null> {
+        try {
+          const guest = await prisma.guest.update({
+            where: { id: guestId },
+            data: {
+              visitCount: { increment: 1 },
+              lastVisit: visitDate,
+              ...(spendAmount !== undefined && {
+                lifetimeSpend: { increment: spendAmount },
+              }),
+            },
+          });
+          return mapPrismaGuest(guest);
+        } catch {
+          return null;
+        }
+      },
+    
+      /**
+       * Search guests by name, email, or phone.
+       */
+      async search(params: GuestSearchParams): Promise<PaginatedResponse<Guest>> {
+        const { venueId, query, tags, hasNotVisitedInDays, minVisitCount, maxVisitCount } = params;
+    
+        const where: Prisma.GuestWhereInput = { venueId };
+    
+        // Text search on name, email, phone
+        const conditions: Record<string, unknown>[] = [];
+    
+        if (query) {
+          conditions.push({
+            OR: [
+              { name: { contains: query, mode: "insensitive" } },
+              { email: { contains: query, mode: "insensitive" } },
+              { phone: { contains: query } },
+            ],
+          });
+        }
+    
+        // Filter by tags (JSON array contains)
+        if (tags && tags.length > 0) {
+          where.tags = { array_contains: tags };
+        }
+    
+        // Filter by last visit date
+        if (hasNotVisitedInDays) {
+          const cutoffDate = new Date();
+          cutoffDate.setDate(cutoffDate.getDate() - hasNotVisitedInDays);
+          conditions.push({
+            OR: [
+              { lastVisit: { lt: cutoffDate } },
+              { lastVisit: null },
+            ],
+          });
+        }
+    
+        if (conditions.length > 0) {
+          where.AND = conditions;
+        }
+    
+        // Filter by visit count
+        if (minVisitCount !== undefined) {
+          where.visitCount = { ...where.visitCount as object, gte: minVisitCount };
+        }
+        if (maxVisitCount !== undefined) {
+          where.visitCount = { ...where.visitCount as object, lte: maxVisitCount };
+        }
+    
+        const [guests, total] = await Promise.all([
+          prisma.guest.findMany({
+            where,
+            take: 50,
+            orderBy: { lastVisit: "desc" },
+          }),
+          prisma.guest.count({ where }),
+        ]);
+    
+        return {
+          data: guests.map(mapPrismaGuest),
+          pagination: {
+            page: 1,
+            limit: 50,
+            total,
+            totalPages: Math.ceil(total / 50),
+            hasNext: total > 50,
+            hasPrev: false,
+          },
+        };
+      },
+    
+      /**
+       * Get guest segments for a venue.
+       */
+      async getSegments(venueId: string): Promise<GuestSegment[]> {
+        const now = new Date();
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    
+        const [
+          totalGuests,
+          vipGuests,
+          recentVisitors,
+          atRiskGuests,
+          lapsedGuests,
+          newGuests,
+        ] = await Promise.all([
+          // Total guests
+          prisma.guest.count({ where: { venueId } }),
+    
+          // VIP: 5+ visits
+          prisma.guest.count({
+            where: { venueId, visitCount: { gte: 5 } },
+          }),
+    
+          // Recent: visited in last 30 days
+          prisma.guest.count({
+            where: { venueId, lastVisit: { gte: thirtyDaysAgo } },
+          }),
+    
+          // At-risk: no visit in 30-90 days
+          prisma.guest.count({
+            where: {
+              venueId,
+              lastVisit: { lt: thirtyDaysAgo, gte: ninetyDaysAgo },
+            },
+          }),
+    
+          // Lapsed: no visit in 90+ days
+          prisma.guest.count({
+            where: {
+              venueId,
+              OR: [
+                { lastVisit: { lt: ninetyDaysAgo } },
+                { lastVisit: null, visitCount: { gt: 0 } },
+              ],
+            },
+          }),
+    
+          // New: never visited (visitCount = 0)
+          prisma.guest.count({
+            where: { venueId, visitCount: 0 },
+          }),
+        ]);
+    
+        return [
+          {
+            name: "All Guests",
+            description: "Total guests in database",
+            count: totalGuests,
+          },
+          {
+            name: "VIP",
+            description: "Guests with 5+ visits",
+            count: vipGuests,
+          },
+          {
+            name: "Recent",
+            description: "Visited in the last 30 days",
+            count: recentVisitors,
+          },
+          {
+            name: "At Risk",
+            description: "No visit in 30-90 days",
+            count: atRiskGuests,
+          },
+          {
+            name: "Lapsed",
+            description: "No visit in 90+ days",
+            count: lapsedGuests,
+          },
+          {
+            name: "New",
+            description: "Booked but never visited",
+            count: newGuests,
+          },
+        ];
+      },
+    }
+  </file>
+  <file path="src/services/floor-plan.ts">
+    type PrismaFloorPlan = {
+      id: string;
+      venueId: string;
+      name: string;
+      isActive: boolean;
+      layoutJson: unknown;
+      createdAt: Date;
+      updatedAt: Date;
+      tables?: PrismaTable[];
+    };
+    type PrismaTable = {
+      id: string;
+      name: string;
+      tableNumber: string | null;
+      capacity: number;
+      minCovers: number;
+      maxCovers: number | null;
+      location: string | null;
+      isActive: boolean;
+      priority: number;
+      status: string;
+      venueId: string | null;
+      floorPlanId: string | null;
+      shapeMetadata: unknown;
+      createdAt: Date;
+      updatedAt: Date;
+    };
+    function mapPrismaTable(table: PrismaTable): Table { /* implementation omitted */ }
+    function mapPrismaFloorPlan(floorPlan: PrismaFloorPlan): FloorPlan { /* implementation omitted */ }
+    floorPlanService = {
+      async list(
+        page: number,
+        limit: number,
+        venueId?: string
+      ): Promise<PaginatedResponse<FloorPlan>> {
+        const skip = (page - 1) * limit;
+        const where = venueId ? { venueId } : {};
+    
+        const [floorPlans, total] = await Promise.all([
+          prisma.floorPlan.findMany({
+            where,
+            skip,
+            take: limit,
+            orderBy: { name: "asc" },
+            include: { tables: true },
+          }),
+          prisma.floorPlan.count({ where }),
+        ]);
+    
+        const totalPages = Math.ceil(total / limit);
+    
+        return {
+          data: floorPlans.map(mapPrismaFloorPlan),
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages,
+            hasNext: page < totalPages,
+            hasPrev: page > 1,
+          },
+        };
+      },
+    
+      async getById(id: string): Promise<FloorPlan | null> {
+        const floorPlan = await prisma.floorPlan.findUnique({
+          where: { id },
+          include: { tables: true },
+        });
+        return floorPlan ? mapPrismaFloorPlan(floorPlan) : null;
+      },
+    
+      async getActiveByVenueId(venueId: string): Promise<FloorPlan | null> {
+        const floorPlan = await prisma.floorPlan.findFirst({
+          where: { venueId, isActive: true },
+          include: { tables: true },
+        });
+        return floorPlan ? mapPrismaFloorPlan(floorPlan) : null;
+      },
+    
+      async create(data: CreateFloorPlanRequest): Promise<FloorPlan> {
+        const floorPlan = await prisma.floorPlan.create({
+          data: {
+            venueId: data.venueId,
+            name: data.name,
+            isActive: data.isActive ?? false,
+            layoutJson: data.layoutJson as unknown as Prisma.InputJsonValue,
+          },
+          include: { tables: true },
+        });
+        return mapPrismaFloorPlan(floorPlan);
+      },
+    
+      async update(id: string, data: UpdateFloorPlanRequest): Promise<FloorPlan | null> {
+        try {
+          const updateData: Prisma.FloorPlanUpdateInput = {};
+          if (data.name !== undefined) updateData.name = data.name;
+          if (data.isActive !== undefined) updateData.isActive = data.isActive;
+          if (data.layoutJson !== undefined) {
+            updateData.layoutJson = data.layoutJson as unknown as Prisma.InputJsonValue;
+          }
+    
+          const floorPlan = await prisma.floorPlan.update({
+            where: { id },
+            data: updateData,
+            include: { tables: true },
+          });
+          return mapPrismaFloorPlan(floorPlan);
+        } catch {
+          return null;
+        }
+      },
+    
+      async delete(id: string): Promise<boolean> {
+        try {
+          // First unlink any tables from this floor plan
+          await prisma.table.updateMany({
+            where: { floorPlanId: id },
+            data: { floorPlanId: null, shapeMetadata: Prisma.DbNull },
+          });
+          await prisma.floorPlan.delete({ where: { id } });
+          return true;
+        } catch {
+          return false;
+        }
+      },
+    
+      async setActive(id: string, venueId: string): Promise<FloorPlan | null> {
+        try {
+          // Wrap both writes in a transaction so a crash between them
+          // cannot leave the venue with no active floor plan
+          const floorPlan = await prisma.$transaction(async (tx) => {
+            // Deactivate all other floor plans for this venue
+            await tx.floorPlan.updateMany({
+              where: { venueId, isActive: true },
+              data: { isActive: false },
+            });
+    
+            // Activate the specified floor plan
+            return tx.floorPlan.update({
+              where: { id },
+              data: { isActive: true },
+              include: { tables: true },
+            });
+          });
+          return mapPrismaFloorPlan(floorPlan);
+        } catch {
+          return null;
+        }
+      },
+    
+      async updateTablePosition(
+        tableId: string,
+        shapeMetadata: TableShapeMetadata
+      ): Promise<Table | null> {
+        try {
+          const table = await prisma.table.update({
+            where: { id: tableId },
+            data: { shapeMetadata: shapeMetadata as unknown as Prisma.InputJsonValue },
+          });
+          return mapPrismaTable(table);
+        } catch {
+          return null;
+        }
+      },
+    
+      async bulkUpdateTablePositions(
+        floorPlanId: string,
+        positions: UpdateTablePositionRequest[]
+      ): Promise<Table[]> {
+        const updates = positions.map((pos) =>
+          prisma.table.update({
+            where: { id: pos.tableId },
+            data: {
+              floorPlanId,
+              shapeMetadata: pos.shapeMetadata as unknown as Prisma.InputJsonValue,
+            },
+          })
+        );
+    
+        const tables = await prisma.$transaction(updates);
+        return tables.map(mapPrismaTable);
+      },
+    
+      async assignTableToFloorPlan(
+        tableId: string,
+        floorPlanId: string,
+        shapeMetadata?: TableShapeMetadata
+      ): Promise<Table | null> {
+        try {
+          const table = await prisma.table.update({
+            where: { id: tableId },
+            data: {
+              floorPlanId,
+              shapeMetadata: shapeMetadata
+                ? (shapeMetadata as unknown as Prisma.InputJsonValue)
+                : undefined,
+            },
+          });
+          return mapPrismaTable(table);
+        } catch {
+          return null;
+        }
+      },
+    
+      async removeTableFromFloorPlan(tableId: string): Promise<Table | null> {
+        try {
+          const table = await prisma.table.update({
+            where: { id: tableId },
+            data: {
+              floorPlanId: null,
+              shapeMetadata: Prisma.DbNull,
+            },
+          });
+          return mapPrismaTable(table);
+        } catch {
+          return null;
+        }
+      },
+    }
+  </file>
+  <file path="src/services/events.ts">
+    export type ReservationEventType =
+      | "reservation:created"
+      | "reservation:updated"
+      | "reservation:cancelled"
+      | "hold:created"
+      | "hold:released"
+      | "hold:confirmed"
+      | "table:updated";
+    export interface ReservationEvent {
+      type: ReservationEventType;
+      venueId: string;
+      timestamp: string;
+      data: Reservation | Table | ReservationHold;
+    }
+    class ReservationEventEmitter {
+      emitChange(payload: ReservationEvent): boolean { /* implementation omitted */ }
+      onChange(listener: (payload: ReservationEvent) => void): this { /* implementation omitted */ }
+      offChange(listener: (payload: ReservationEvent) => void): this { /* implementation omitted */ }
+    }
+    export const reservationEvents: ReservationEventEmitter;
+    export function emitReservationCreated(reservation: Reservation): void { /* implementation omitted */ }
+    export function emitReservationUpdated(reservation: Reservation): void { /* implementation omitted */ }
+    export function emitReservationCancelled(reservation: Reservation): void { /* implementation omitted */ }
+    export function emitHoldCreated(hold: ReservationHold): void { /* implementation omitted */ }
+    export function emitHoldReleased(hold: ReservationHold): void { /* implementation omitted */ }
+    export function emitHoldConfirmed(reservation: Reservation): void { /* implementation omitted */ }
+    export function emitTableUpdated(table: Table): void { /* implementation omitted */ }
+  </file>
+  <file path="src/services/database.ts">
+    interface SlowQueryStats {
+      count5min: number;
+      slowestMs: number;
+      queries: { model: string; operation: string; duration: number; timestamp: number }[];
+    }
+    export function getSlowQueryStats(): { count5min: number; slowestMs: number } { /* implementation omitted */ }
+    export function getServiceStatus(): "ok" | "degraded" { /* implementation omitted */ }
+    export const prisma: import("/Users/mbutler/github/mattbutlerengineering/services/reservations/src/generated/prisma/index").PrismaClient<{ datasourceUrl: string; }, never, import("/Users/mbutler/github/mattbutlerengineering/services/reservations/src/generated/prisma/runtime/library").DefaultArgs>;
+    function appendConnectionLimit(url: string | undefined, limit: number): string | undefined { /* implementation omitted */ }
+  </file>
+  <file path="src/services/availability.ts">
+    interface VenueWithSettings {
+      id: string;
+      name: string;
+      slug: string;
+      ianaTimezone: string;
+      settings: VenueSettings | null;
+      operatingHours: OperatingHours | null;
+    }
+    export function estimateDuration(
+      partySize: number,
+      venueSettings?: VenueSettings | null
+    ): number { /* implementation omitted */ }
+    function getDaySchedule(
+      operatingHours: OperatingHours | null,
+      date: Date
+    ): DaySchedule | null { /* implementation omitted */ }
+    function parseTimeToMinutes(time: string): number { /* implementation omitted */ }
+    export async function generateTimeSlots(
+      venueId: string,
+      date: string,
+      partySize: number,
+      durationOverride?: number
+    ): Promise<TimeSlot[]> { /* implementation omitted */ }
+    export async function getAvailableDates(
+      venueId: string,
+      startDate: string,
+      endDate: string,
+      partySize: number
+    ): Promise<DateAvailability[]> { /* implementation omitted */ }
+    export async function findBestTable(
+      venueId: string,
+      date: string,
+      startTime: Date,
+      endTime: Date,
+      partySize: number
+    ): Promise<Table | null> { /* implementation omitted */ }
+    export async function checkConflict(
+      tableId: string,
+      date: string,
+      startTime: Date,
+      endTime: Date,
+      excludeReservationId?: string,
+      excludeHoldId?: string
+    ): Promise<ConflictCheckResult> { /* implementation omitted */ }
+    export async function checkPacing(
+      venueId: string,
+      startTime: Date,
+      partySize: number,
+      settings?: VenueSettings | null
+    ): Promise<PacingCheckResult> { /* implementation omitted */ }
+    async function findSuitableTables(
+      venueId: string,
+      partySize: number
+    ): Promise<Table[]> { /* implementation omitted */ }
+    interface ReservationSlim {
+      id: string;
+      tableId: string;
+      startTime: Date;
+      endTime: Date;
+      partySize: number;
+    }
+    interface HoldSlim {
+      id: string;
+      tableId: string;
+      startTime: Date;
+      endTime: Date;
+      partySize: number;
+      expiresAt: Date;
+    }
+    async function getReservationsForDate(
+      venueId: string,
+      date: string
+    ): Promise<ReservationSlim[]> { /* implementation omitted */ }
+    async function getHoldsForDate(
+      venueId: string,
+      date: string
+    ): Promise<HoldSlim[]> { /* implementation omitted */ }
+    function checkTableConflict(
+      tableId: string,
+      startTime: Date,
+      endTime: Date,
+      reservations: ReservationSlim[],
+      holds: HoldSlim[]
+    ): boolean { /* implementation omitted */ }
+    function checkPacingForSlot(
+      _venueId: string,
+      startTime: Date,
+      partySize: number,
+      settings: VenueSettings | null | undefined,
+      reservations: ReservationSlim[],
+      holds: HoldSlim[]
+    ): boolean { /* implementation omitted */ }
+    function createDateTimeFromMinutes(
+      dateStr: string,
+      minutes: number,
+      timezone: string
+    ): Date { /* implementation omitted */ }
+    availabilityService = {
+      generateTimeSlots,
+      getAvailableDates,
+      findBestTable,
+      checkConflict,
+      checkPacing,
+      estimateDuration,
+    }
+  </file>
+  <file path="src/schemas/index.ts">
+    export const TableShapeMetadataSchema: { readonly $id: "TableShapeMetadata"; readonly type: "object"; readonly description: "Position and shape metadata for a table on a floor plan canvas"; readonly required: readonly ["x", "y", "width", "height", "shape"]; readonly properties: { readonly x: { readonly type: "number"; readonly description: "X coordinate on the canvas"; }; readonly y: { readonly type: "number"; readonly description: "Y coordinate on the canvas"; }; readonly width: { readonly type: "number"; readonly description: "Width of the table shape"; }; readonly height: { readonly type: "number"; readonly description: "Height of the table shape"; }; readonly rotation: { readonly type: "number"; readonly description: "Rotation angle in degrees"; }; readonly shape: { readonly type: "string"; readonly enum: readonly ["rectangle", "circle", "square"]; readonly description: "Shape of the table"; }; readonly color: { readonly type: "string"; readonly description: "Color of the table on the floor plan"; }; }; };
+    export const TableSchema: { readonly $id: "Table"; readonly type: "object"; readonly description: "A table available for reservations"; readonly required: readonly ["id", "name", "capacity", "minCovers", "isActive", "priority", "createdAt", "updatedAt"]; readonly properties: { readonly id: { readonly type: "string"; readonly description: "Unique identifier for the table"; readonly example: "clx1234567890abcdef"; }; readonly name: { readonly type: "string"; readonly description: "Table name or number"; readonly example: "Table 1"; }; readonly tableNumber: { readonly type: "string"; readonly nullable: true; readonly description: "Human-readable table number (e.g., '41', '42B')"; readonly example: "41"; }; readonly capacity: { readonly type: "integer"; readonly description: "Maximum number of guests the table can seat"; readonly example: 4; }; readonly minCovers: { readonly type: "integer"; readonly description: "Minimum party size for this table"; readonly example: 1; }; readonly maxCovers: { readonly type: "integer"; readonly nullable: true; readonly description: "Maximum party size (null means same as capacity)"; readonly example: 6; }; readonly location: { readonly type: "string"; readonly nullable: true; readonly description: "Location description"; readonly example: "Main Floor"; }; readonly isActive: { readonly type: "boolean"; readonly description: "Whether the table is active and available for reservations"; readonly example: true; }; readonly priority: { readonly type: "integer"; readonly description: "Priority for auto-assignment (higher = preferred)"; readonly example: 0; }; readonly status: { readonly type: "string"; readonly enum: readonly ["AVAILABLE", "OCCUPIED", "DIRTY", "READY"]; readonly description: "Current operational status of the table"; readonly example: "AVAILABLE"; }; readonly venueId: { readonly type: "string"; readonly nullable: true; readonly description: "ID of the venue this table belongs to"; readonly example: "venue-123"; }; readonly floorPlanId: { readonly type: "string"; readonly nullable: true; readonly description: "ID of the floor plan this table is placed on"; readonly example: "floor-plan-123"; }; readonly shapeMetadata: { readonly oneOf: readonly [{ readonly $ref: "TableShapeMetadata#"; }, { readonly type: "null"; }]; readonly description: "Position and shape on the floor plan canvas"; }; readonly createdAt: { readonly type: "string"; readonly format: "date-time"; readonly description: "Timestamp when the table was created"; readonly example: "2024-01-15T10:30:00.000Z"; }; readonly updatedAt: { readonly type: "string"; readonly format: "date-time"; readonly description: "Timestamp when the table was last updated"; readonly example: "2024-01-20T14:45:00.000Z"; }; }; };
+    export const ReservationSchema: { readonly $id: "Reservation"; readonly type: "object"; readonly description: "A reservation for a table"; readonly required: readonly ["id", "date", "startTime", "endTime", "partySize", "status", "tableId", "createdAt", "updatedAt"]; readonly properties: { readonly id: { readonly type: "string"; readonly description: "Unique identifier for the reservation"; readonly example: "clx1234567890abcdef"; }; readonly date: { readonly type: "string"; readonly format: "date"; readonly description: "Reservation date (YYYY-MM-DD)"; readonly example: "2024-02-15"; }; readonly startTime: { readonly type: "string"; readonly format: "date-time"; readonly description: "Reservation start time"; readonly example: "2024-02-15T18:00:00.000Z"; }; readonly endTime: { readonly type: "string"; readonly format: "date-time"; readonly description: "Reservation end time"; readonly example: "2024-02-15T20:00:00.000Z"; }; readonly partySize: { readonly type: "integer"; readonly description: "Number of guests"; readonly example: 4; }; readonly status: { readonly type: "string"; readonly enum: readonly ["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED", "NO_SHOW"]; readonly description: "Current reservation status"; readonly example: "CONFIRMED"; }; readonly notes: { readonly type: "string"; readonly nullable: true; readonly description: "Special requests or notes"; readonly example: "Birthday celebration, need high chair"; }; readonly cancellationReason: { readonly type: "string"; readonly nullable: true; readonly description: "Reason for cancellation"; readonly example: "no_show"; }; readonly cancellationNote: { readonly type: "string"; readonly nullable: true; readonly description: "Additional cancellation notes"; readonly example: "Guest did not arrive"; }; readonly guestName: { readonly type: "string"; readonly nullable: true; readonly description: "Guest name (for unauthenticated reservations)"; readonly example: "John Doe"; }; readonly guestEmail: { readonly type: "string"; readonly format: "email"; readonly nullable: true; readonly description: "Guest email"; readonly example: "john@example.com"; }; readonly guestPhone: { readonly type: "string"; readonly nullable: true; readonly description: "Guest phone number"; readonly example: "+1-555-123-4567"; }; readonly userId: { readonly type: "string"; readonly nullable: true; readonly description: "User ID (for authenticated reservations)"; readonly example: "auth0|user123"; }; readonly tableId: { readonly type: "string"; readonly description: "ID of the reserved table"; readonly example: "clx1234567890abcdef"; }; readonly table: { readonly $ref: "Table#"; readonly description: "The reserved table (included when fetching reservations)"; }; readonly venueId: { readonly type: "string"; readonly nullable: true; readonly description: "ID of the venue for this reservation (denormalized for queries)"; readonly example: "venue-123"; }; readonly createdAt: { readonly type: "string"; readonly format: "date-time"; readonly description: "Timestamp when the reservation was created"; readonly example: "2024-01-15T10:30:00.000Z"; }; readonly updatedAt: { readonly type: "string"; readonly format: "date-time"; readonly description: "Timestamp when the reservation was last updated"; readonly example: "2024-01-20T14:45:00.000Z"; }; }; };
+    export const PaginationSchema: { readonly $id: "Pagination"; readonly type: "object"; readonly description: "Pagination metadata for list responses"; readonly required: readonly ["page", "limit", "total", "totalPages", "hasNext", "hasPrev"]; readonly properties: { readonly page: { readonly type: "number"; readonly description: "Current page number (1-indexed)"; readonly example: 1; }; readonly limit: { readonly type: "number"; readonly description: "Number of items per page"; readonly example: 10; }; readonly total: { readonly type: "number"; readonly description: "Total number of items across all pages"; readonly example: 42; }; readonly totalPages: { readonly type: "number"; readonly description: "Total number of pages"; readonly example: 5; }; readonly hasNext: { readonly type: "boolean"; readonly description: "Whether there is a next page"; readonly example: true; }; readonly hasPrev: { readonly type: "boolean"; readonly description: "Whether there is a previous page"; readonly example: false; }; }; };
+    export const ErrorSchema: { readonly $id: "Error"; readonly type: "object"; readonly description: "Standard error response"; readonly required: readonly ["error", "message", "statusCode"]; readonly properties: { readonly error: { readonly type: "string"; readonly description: "Error type or category"; readonly example: "Not Found"; }; readonly message: { readonly type: "string"; readonly description: "Human-readable error message"; readonly example: "Reservation not found"; }; readonly statusCode: { readonly type: "number"; readonly description: "HTTP status code"; readonly example: 404; }; }; };
+    export const VenueGroupSchema: { readonly $id: "VenueGroup"; readonly type: "object"; readonly description: "A group of venues under common ownership/management"; readonly required: readonly ["id", "name", "slug", "createdAt"]; readonly properties: { readonly id: { readonly type: "string"; readonly description: "Unique identifier for the venue group"; readonly example: "clx1234567890abcdef"; }; readonly name: { readonly type: "string"; readonly description: "Venue group name"; readonly example: "Downtown Restaurant Group"; }; readonly slug: { readonly type: "string"; readonly description: "URL-friendly identifier"; readonly example: "downtown-restaurant-group"; }; readonly settings: { readonly type: "object"; readonly nullable: true; readonly description: "Shared settings for all venues in the group"; }; readonly createdAt: { readonly type: "string"; readonly format: "date-time"; readonly description: "Timestamp when the venue group was created"; readonly example: "2024-01-15T10:30:00.000Z"; }; }; };
+    export const VenueSchema: { readonly $id: "Venue"; readonly type: "object"; readonly description: "A venue (restaurant, bar, etc.) that accepts reservations"; readonly required: readonly ["id", "name", "slug", "ianaTimezone", "currencyCode", "createdAt", "updatedAt"]; readonly properties: { readonly id: { readonly type: "string"; readonly description: "Unique identifier for the venue"; readonly example: "clx1234567890abcdef"; }; readonly venueGroupId: { readonly type: "string"; readonly nullable: true; readonly description: "ID of the venue group this venue belongs to"; readonly example: "clx9876543210fedcba"; }; readonly venueGroup: { readonly $ref: "VenueGroup#"; readonly description: "The venue group (included when fetching venues)"; }; readonly name: { readonly type: "string"; readonly description: "Venue name"; readonly example: "Chez Panisse"; }; readonly slug: { readonly type: "string"; readonly description: "URL-friendly identifier for public booking URLs"; readonly example: "chez-panisse"; }; readonly ianaTimezone: { readonly type: "string"; readonly description: "IANA timezone identifier"; readonly example: "America/Los_Angeles"; }; readonly currencyCode: { readonly type: "string"; readonly description: "ISO 4217 currency code"; readonly example: "USD"; }; readonly operatingHours: { readonly type: "object"; readonly nullable: true; readonly description: "Weekly operating schedule"; readonly properties: { readonly monday: { readonly $ref: "#/properties/daySchedule"; }; readonly tuesday: { readonly $ref: "#/properties/daySchedule"; }; readonly wednesday: { readonly $ref: "#/properties/daySchedule"; }; readonly thursday: { readonly $ref: "#/properties/daySchedule"; }; readonly friday: { readonly $ref: "#/properties/daySchedule"; }; readonly saturday: { readonly $ref: "#/properties/daySchedule"; }; readonly sunday: { readonly $ref: "#/properties/daySchedule"; }; }; }; readonly daySchedule: { readonly type: "object"; readonly properties: { readonly open: { readonly type: "string"; readonly example: "09:00"; }; readonly close: { readonly type: "string"; readonly example: "22:00"; }; readonly closed: { readonly type: "boolean"; }; }; }; readonly settings: { readonly type: "object"; readonly nullable: true; readonly description: "Venue-specific settings and feature flags"; }; readonly createdAt: { readonly type: "string"; readonly format: "date-time"; readonly description: "Timestamp when the venue was created"; readonly example: "2024-01-15T10:30:00.000Z"; }; readonly updatedAt: { readonly type: "string"; readonly format: "date-time"; readonly description: "Timestamp when the venue was last updated"; readonly example: "2024-01-20T14:45:00.000Z"; }; }; };
+    export const GuestSchema: { readonly $id: "Guest"; readonly type: "object"; readonly description: "A guest who makes reservations at a venue"; readonly required: readonly ["id", "venueId", "name", "visitCount", "createdAt", "updatedAt"]; readonly properties: { readonly id: { readonly type: "string"; readonly description: "Unique identifier for the guest"; readonly example: "clx1234567890abcdef"; }; readonly venueId: { readonly type: "string"; readonly description: "ID of the venue this guest belongs to"; readonly example: "venue-123"; }; readonly email: { readonly type: "string"; readonly format: "email"; readonly nullable: true; readonly description: "Guest email address"; readonly example: "john@example.com"; }; readonly phone: { readonly type: "string"; readonly nullable: true; readonly description: "Guest phone number"; readonly example: "+1-555-123-4567"; }; readonly name: { readonly type: "string"; readonly description: "Guest name"; readonly example: "John Doe"; }; readonly notes: { readonly type: "string"; readonly nullable: true; readonly description: "Internal notes about the guest"; readonly example: "Prefers window seating, allergic to shellfish"; }; readonly visitCount: { readonly type: "integer"; readonly description: "Number of completed visits"; readonly example: 5; }; readonly lifetimeSpend: { readonly type: "string"; readonly nullable: true; readonly description: "Total amount spent (as decimal string)"; readonly example: "1250.00"; }; readonly lastVisit: { readonly type: "string"; readonly format: "date-time"; readonly nullable: true; readonly description: "Date of last completed visit"; readonly example: "2024-01-15T19:00:00.000Z"; }; readonly tags: { readonly type: "array"; readonly items: { readonly type: "string"; }; readonly nullable: true; readonly description: "Tags for categorization"; readonly example: readonly ["VIP", "Birthday Club"]; }; readonly createdAt: { readonly type: "string"; readonly format: "date-time"; readonly description: "Timestamp when the guest was created"; readonly example: "2024-01-15T10:30:00.000Z"; }; readonly updatedAt: { readonly type: "string"; readonly format: "date-time"; readonly description: "Timestamp when the guest was last updated"; readonly example: "2024-01-20T14:45:00.000Z"; }; }; };
+    export const GuestSegmentSchema: { readonly $id: "GuestSegment"; readonly type: "object"; readonly description: "A segment of guests based on behavior"; readonly required: readonly ["name", "description", "count"]; readonly properties: { readonly name: { readonly type: "string"; readonly description: "Segment name"; readonly example: "VIP"; }; readonly description: { readonly type: "string"; readonly description: "What defines this segment"; readonly example: "Guests with 5+ visits"; }; readonly count: { readonly type: "integer"; readonly description: "Number of guests in this segment"; readonly example: 42; }; }; };
+    export const FloorPlanLayoutSchema: { readonly $id: "FloorPlanLayout"; readonly type: "object"; readonly description: "Layout configuration for a floor plan canvas"; readonly required: readonly ["width", "height"]; readonly properties: { readonly width: { readonly type: "number"; readonly description: "Canvas width in pixels"; }; readonly height: { readonly type: "number"; readonly description: "Canvas height in pixels"; }; readonly backgroundImage: { readonly type: "string"; readonly description: "URL of the background image (e.g., architectural drawing)"; }; readonly gridSize: { readonly type: "number"; readonly description: "Grid size for snapping in pixels"; }; readonly showGrid: { readonly type: "boolean"; readonly description: "Whether to display the grid"; }; }; };
+    export const FloorPlanSchema: { readonly $id: "FloorPlan"; readonly type: "object"; readonly description: "A floor plan representing a physical layout of tables"; readonly required: readonly ["id", "venueId", "name", "isActive", "layoutJson", "createdAt", "updatedAt"]; readonly properties: { readonly id: { readonly type: "string"; readonly description: "Unique identifier for the floor plan"; readonly example: "clx1234567890abcdef"; }; readonly venueId: { readonly type: "string"; readonly description: "ID of the venue this floor plan belongs to"; readonly example: "venue-123"; }; readonly name: { readonly type: "string"; readonly description: "Floor plan name (e.g., 'Main Dining', 'Patio')"; readonly example: "Main Dining"; }; readonly isActive: { readonly type: "boolean"; readonly description: "Whether this is the active floor plan for the venue"; readonly example: true; }; readonly layoutJson: { readonly $ref: "FloorPlanLayout#"; readonly description: "Canvas layout configuration"; }; readonly tables: { readonly type: "array"; readonly items: { readonly $ref: "Table#"; }; readonly description: "Tables placed on this floor plan"; }; readonly createdAt: { readonly type: "string"; readonly format: "date-time"; readonly description: "Timestamp when the floor plan was created"; readonly example: "2024-01-15T10:30:00.000Z"; }; readonly updatedAt: { readonly type: "string"; readonly format: "date-time"; readonly description: "Timestamp when the floor plan was last updated"; readonly example: "2024-01-20T14:45:00.000Z"; }; }; };
+    export function registerSchemas(fastify: FastifyInstance) { /* implementation omitted */ }
+  </file>
+  <file path="src/routes/venues.ts">
+    export const venueRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.3/node_modules/fastify/types/plugin").FastifyPluginAsync;
+  </file>
+  <file path="src/routes/tables.ts">
+    export const tableRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.3/node_modules/fastify/types/plugin").FastifyPluginAsync;
+  </file>
+  <file path="src/routes/reservations.ts">
+    export const reservationRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.3/node_modules/fastify/types/plugin").FastifyPluginAsync;
+  </file>
+  <file path="src/routes/holds.ts">
+    function getSessionId(request: FastifyRequest): string { /* implementation omitted */ }
+    export const holdRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.3/node_modules/fastify/types/plugin").FastifyPluginAsync;
+  </file>
+  <file path="src/routes/health.ts">
+    type HealthRouteHandler = RouteHandlerMethod<
+      RawServerDefault,
+      IncomingMessage,
+      ServerResponse,
+      { Reply: HealthResponse }
+    >;
+    export const healthRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.3/node_modules/fastify/types/plugin").FastifyPluginAsync;
+  </file>
+  <file path="src/routes/guests.ts">
+    export const guestRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.3/node_modules/fastify/types/plugin").FastifyPluginAsync;
+  </file>
+  <file path="src/routes/floor-plans.ts">
+    export const floorPlanRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.3/node_modules/fastify/types/plugin").FastifyPluginAsync;
+  </file>
+  <file path="src/routes/events.ts">
+    export async function eventRoutes(fastify: FastifyInstance): Promise<void> { /* implementation omitted */ }
+  </file>
+  <file path="src/routes/availability.ts">
+    export const availabilityRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.3/node_modules/fastify/types/plugin").FastifyPluginAsync;
+  </file>
+</codebase>

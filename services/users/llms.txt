@@ -1,0 +1,169 @@
+<codebase path="services/users">
+  <file path="src/index.ts">
+    async function main() { /* implementation omitted */ }
+  </file>
+  <file path="src/app.ts">
+    export interface AppOptions {
+      logger?: boolean | object;
+    }
+    export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> { /* implementation omitted */ }
+  </file>
+  <file path="src/services/user.ts">
+    function mapPrismaUser(user: {
+      id: string;
+      email: string;
+      name: string | null;
+      picture: string | null;
+      emailVerified: boolean;
+      preferences: unknown;
+      createdAt: Date;
+      updatedAt: Date;
+    }): User { /* implementation omitted */ }
+    userService = {
+      async list(page: number, limit: number): Promise<PaginatedResponse<User>> {
+        const skip = (page - 1) * limit;
+    
+        const [users, total] = await Promise.all([
+          prisma.user.findMany({
+            skip,
+            take: limit,
+            orderBy: { createdAt: "desc" },
+          }),
+          prisma.user.count(),
+        ]);
+    
+        const totalPages = Math.ceil(total / limit);
+    
+        return {
+          data: users.map(mapPrismaUser),
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages,
+            hasNext: page < totalPages,
+            hasPrev: page > 1,
+          },
+        };
+      },
+    
+      async getById(id: string): Promise<User | null> {
+        const user = await prisma.user.findUnique({ where: { id } });
+        return user ? mapPrismaUser(user) : null;
+      },
+    
+      async getByEmail(email: string): Promise<User | null> {
+        const user = await prisma.user.findUnique({ where: { email } });
+        return user ? mapPrismaUser(user) : null;
+      },
+    
+      async create(data: CreateUserRequest): Promise<User> {
+        const user = await prisma.user.create({
+          data: {
+            email: data.email,
+            name: data.name ?? null,
+            picture: data.picture ?? null,
+          },
+        });
+        return mapPrismaUser(user);
+      },
+    
+      /**
+       * Finds a user by email or creates one if not found.
+       * Uses upsert to prevent race conditions when two concurrent
+       * first-login requests arrive for the same email.
+       */
+      async findOrCreate(data: CreateUserRequest): Promise<User> {
+        const user = await prisma.user.upsert({
+          where: { email: data.email },
+          update: {}, // No-op if user already exists
+          create: {
+            email: data.email,
+            name: data.name ?? null,
+            picture: data.picture ?? null,
+          },
+        });
+        return mapPrismaUser(user);
+      },
+    
+      async update(id: string, data: UpdateUserRequest): Promise<User | null> {
+        try {
+          const user = await prisma.user.update({
+            where: { id },
+            data: {
+              ...(data.name !== undefined && { name: data.name }),
+              ...(data.picture !== undefined && { picture: data.picture }),
+            },
+          });
+          return mapPrismaUser(user);
+        } catch {
+          return null;
+        }
+      },
+    
+      async delete(id: string): Promise<boolean> {
+        try {
+          await prisma.user.delete({ where: { id } });
+          return true;
+        } catch (err: unknown) {
+          // Prisma P2025 = record not found
+          if (err && typeof err === "object" && "code" in err && err.code === "P2025") {
+            return false;
+          }
+          throw err;
+        }
+      },
+    
+      async updatePreferences(
+        id: string,
+        preferences: UpdatePreferencesRequest
+      ): Promise<User | null> {
+        try {
+          const user = await prisma.user.findUnique({ where: { id } });
+          if (!user) return null;
+    
+          const currentPrefs = (user.preferences as UserPreferences) ?? {};
+          const newPrefs = { ...currentPrefs, ...preferences };
+    
+          const updated = await prisma.user.update({
+            where: { id },
+            data: { preferences: newPrefs },
+          });
+          return mapPrismaUser(updated);
+        } catch {
+          return null;
+        }
+      },
+    }
+  </file>
+  <file path="src/services/database.ts">
+    interface SlowQueryStats {
+      count5min: number;
+      slowestMs: number;
+      queries: { model: string; operation: string; duration: number; timestamp: number }[];
+    }
+    export function getSlowQueryStats(): { count5min: number; slowestMs: number } { /* implementation omitted */ }
+    export function getServiceStatus(): "ok" | "degraded" { /* implementation omitted */ }
+    export const prisma: import("/Users/mbutler/github/mattbutlerengineering/services/users/src/generated/prisma/index").PrismaClient<{ datasourceUrl: string; }, never, import("/Users/mbutler/github/mattbutlerengineering/services/users/src/generated/prisma/runtime/library").DefaultArgs>;
+    function appendConnectionLimit(url: string | undefined, limit: number): string | undefined { /* implementation omitted */ }
+  </file>
+  <file path="src/schemas/index.ts">
+    export const UserPreferencesSchema: { readonly $id: "UserPreferences"; readonly type: "object"; readonly description: "User preference settings for UI and notifications"; readonly properties: { readonly theme: { readonly type: "string"; readonly enum: readonly ["light", "dark", "system"]; readonly description: "UI theme preference"; readonly example: "system"; }; readonly emailNotifications: { readonly type: "boolean"; readonly description: "Whether to receive email notifications for account activity"; readonly example: true; }; readonly marketingEmails: { readonly type: "boolean"; readonly description: "Whether to receive marketing and promotional emails"; readonly example: false; }; }; };
+    export const UserSchema: { readonly $id: "User"; readonly type: "object"; readonly description: "A user account in the system"; readonly required: readonly ["id", "email", "emailVerified", "createdAt", "updatedAt"]; readonly properties: { readonly id: { readonly type: "string"; readonly description: "Unique identifier for the user"; readonly example: "clx1234567890abcdef"; }; readonly email: { readonly type: "string"; readonly format: "email"; readonly description: "User's email address"; readonly example: "user@example.com"; }; readonly name: { readonly type: "string"; readonly nullable: true; readonly description: "User's display name"; readonly example: "John Doe"; }; readonly picture: { readonly type: "string"; readonly format: "uri"; readonly nullable: true; readonly description: "URL to the user's profile picture"; readonly example: "https://example.com/avatars/user.jpg"; }; readonly emailVerified: { readonly type: "boolean"; readonly description: "Whether the user's email has been verified"; readonly example: true; }; readonly preferences: { readonly $ref: "UserPreferences#"; readonly description: "User's preference settings"; }; readonly createdAt: { readonly type: "string"; readonly format: "date-time"; readonly description: "Timestamp when the user was created"; readonly example: "2024-01-15T10:30:00.000Z"; }; readonly updatedAt: { readonly type: "string"; readonly format: "date-time"; readonly description: "Timestamp when the user was last updated"; readonly example: "2024-01-20T14:45:00.000Z"; }; }; };
+    export const PaginationSchema: { readonly $id: "Pagination"; readonly type: "object"; readonly description: "Pagination metadata for list responses"; readonly required: readonly ["page", "limit", "total", "totalPages", "hasNext", "hasPrev"]; readonly properties: { readonly page: { readonly type: "number"; readonly description: "Current page number (1-indexed)"; readonly example: 1; }; readonly limit: { readonly type: "number"; readonly description: "Number of items per page"; readonly example: 10; }; readonly total: { readonly type: "number"; readonly description: "Total number of items across all pages"; readonly example: 42; }; readonly totalPages: { readonly type: "number"; readonly description: "Total number of pages"; readonly example: 5; }; readonly hasNext: { readonly type: "boolean"; readonly description: "Whether there is a next page"; readonly example: true; }; readonly hasPrev: { readonly type: "boolean"; readonly description: "Whether there is a previous page"; readonly example: false; }; }; };
+    export const ErrorSchema: { readonly $id: "Error"; readonly type: "object"; readonly description: "Standard error response"; readonly required: readonly ["error", "message", "statusCode"]; readonly properties: { readonly error: { readonly type: "string"; readonly description: "Error type or category"; readonly example: "Not Found"; }; readonly message: { readonly type: "string"; readonly description: "Human-readable error message"; readonly example: "User not found"; }; readonly statusCode: { readonly type: "number"; readonly description: "HTTP status code"; readonly example: 404; }; }; };
+    export function registerSchemas(fastify: FastifyInstance) { /* implementation omitted */ }
+  </file>
+  <file path="src/routes/users.ts">
+    export const userRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.3/node_modules/fastify/types/plugin").FastifyPluginAsync;
+  </file>
+  <file path="src/routes/health.ts">
+    type HealthRouteHandler = RouteHandlerMethod<
+      RawServerDefault,
+      IncomingMessage,
+      ServerResponse,
+      { Reply: HealthResponse }
+    >;
+    export const healthRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.3/node_modules/fastify/types/plugin").FastifyPluginAsync;
+  </file>
+</codebase>
