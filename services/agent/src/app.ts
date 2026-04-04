@@ -23,9 +23,40 @@ export interface AppOptions {
 }
 
 export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
+  const nodeEnv = process.env.NODE_ENV ?? "development";
+  const logLevel = process.env.LOG_LEVEL ?? (nodeEnv === "production" ? "info" : "debug");
+
   const fastify = Fastify({
     logger: options.logger ?? {
-      level: process.env.LOG_LEVEL ?? "info",
+      level: logLevel,
+      serializers: {
+        req(request) {
+          return {
+            method: request.method,
+            url: request.url,
+            path: request.routeOptions?.url,
+            parameters: request.params,
+            headers: { host: request.headers.host },
+          };
+        },
+        res(reply) {
+          return {
+            statusCode: reply.statusCode,
+          };
+        },
+      },
+      timestamp: () => `,"timestamp":"${new Date().toISOString()}"`,
+      formatters: {
+        log(level, args) {
+          return {
+            level,
+            service: "agent-service",
+            ...(args[0]?.requestId ? { requestId: args[0].requestId } : {}),
+            ...(args[0]?.userId ? { userId: args[0].userId } : {}),
+            ...(typeof args[0] === "object" ? args[0] : { message: args[0] }),
+          };
+        },
+      },
     },
   });
 
