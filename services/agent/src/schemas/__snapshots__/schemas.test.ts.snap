@@ -1,0 +1,275 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Agent service schemas > CreateSessionBodySchema matches snapshot 1`] = `
+{
+  "$id": "CreateSessionBody",
+  "properties": {
+    "baseBranch": {
+      "type": "string",
+    },
+    "createPr": {
+      "type": "boolean",
+    },
+    "maxBudgetUsd": {
+      "maximum": 10,
+      "minimum": 0.01,
+      "type": "number",
+    },
+    "maxTurns": {
+      "maximum": 200,
+      "minimum": 1,
+      "type": "number",
+    },
+    "model": {
+      "description": "Claude model to use",
+      "type": "string",
+    },
+    "parentId": {
+      "description": "Parent session ID for orchestrated child sessions",
+      "type": "string",
+    },
+    "taskDescription": {
+      "description": "Task for the agent",
+      "minLength": 1,
+      "type": "string",
+    },
+  },
+  "required": [
+    "taskDescription",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Agent service schemas > ErrorSchema matches snapshot 1`] = `
+{
+  "$id": "AgentError",
+  "properties": {
+    "error": {
+      "example": "Not Found",
+      "type": "string",
+    },
+    "message": {
+      "example": "Session not found",
+      "type": "string",
+    },
+    "statusCode": {
+      "example": 404,
+      "type": "number",
+    },
+  },
+  "required": [
+    "error",
+    "message",
+    "statusCode",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Agent service schemas > PaginationSchema matches snapshot 1`] = `
+{
+  "$id": "AgentPagination",
+  "properties": {
+    "hasNext": {
+      "example": true,
+      "type": "boolean",
+    },
+    "hasPrev": {
+      "example": false,
+      "type": "boolean",
+    },
+    "limit": {
+      "example": 10,
+      "type": "number",
+    },
+    "page": {
+      "example": 1,
+      "type": "number",
+    },
+    "total": {
+      "example": 42,
+      "type": "number",
+    },
+    "totalPages": {
+      "example": 5,
+      "type": "number",
+    },
+  },
+  "required": [
+    "page",
+    "limit",
+    "total",
+    "totalPages",
+    "hasNext",
+    "hasPrev",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Agent service schemas > SessionEventSchema matches snapshot 1`] = `
+{
+  "$id": "SessionEvent",
+  "properties": {
+    "createdAt": {
+      "format": "date-time",
+      "type": "string",
+    },
+    "data": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "id": {
+      "type": "string",
+    },
+    "sessionId": {
+      "type": "string",
+    },
+    "type": {
+      "type": "string",
+    },
+  },
+  "required": [
+    "id",
+    "sessionId",
+    "type",
+    "createdAt",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Agent service schemas > SessionSchema matches snapshot 1`] = `
+{
+  "$id": "Session",
+  "description": "An agent coding session",
+  "properties": {
+    "baseBranch": {
+      "description": "Base branch",
+      "example": "main",
+      "type": "string",
+    },
+    "branchName": {
+      "description": "Git branch name",
+      "nullable": true,
+      "type": "string",
+    },
+    "completedAt": {
+      "format": "date-time",
+      "nullable": true,
+      "type": "string",
+    },
+    "costUsd": {
+      "description": "Actual cost in USD",
+      "nullable": true,
+      "type": "number",
+    },
+    "createPr": {
+      "description": "Whether to create a PR",
+      "type": "boolean",
+    },
+    "createdAt": {
+      "format": "date-time",
+      "type": "string",
+    },
+    "durationMs": {
+      "description": "Duration in milliseconds",
+      "nullable": true,
+      "type": "number",
+    },
+    "errors": {
+      "items": {
+        "type": "string",
+      },
+      "type": "array",
+    },
+    "id": {
+      "description": "Unique identifier",
+      "example": "clx1234567890",
+      "type": "string",
+    },
+    "inputTokens": {
+      "nullable": true,
+      "type": "number",
+    },
+    "maxBudgetUsd": {
+      "description": "Budget cap in USD",
+      "example": 1,
+      "type": "number",
+    },
+    "maxTurns": {
+      "description": "Maximum conversation turns",
+      "example": 50,
+      "type": "number",
+    },
+    "model": {
+      "description": "Claude model used",
+      "example": "claude-sonnet-4-6",
+      "type": "string",
+    },
+    "numTurns": {
+      "description": "Actual turns used",
+      "nullable": true,
+      "type": "number",
+    },
+    "outputTokens": {
+      "nullable": true,
+      "type": "number",
+    },
+    "parentId": {
+      "nullable": true,
+      "type": "string",
+    },
+    "prNumber": {
+      "description": "Pull request number",
+      "nullable": true,
+      "type": "number",
+    },
+    "prUrl": {
+      "description": "Pull request URL",
+      "nullable": true,
+      "type": "string",
+    },
+    "resultText": {
+      "description": "Agent result text",
+      "nullable": true,
+      "type": "string",
+    },
+    "startedAt": {
+      "format": "date-time",
+      "nullable": true,
+      "type": "string",
+    },
+    "status": {
+      "description": "Current session status",
+      "enum": [
+        "PENDING",
+        "RUNNING",
+        "SUCCEEDED",
+        "FAILED",
+        "CANCELLED",
+      ],
+      "type": "string",
+    },
+    "taskDescription": {
+      "description": "Task the agent is working on",
+      "type": "string",
+    },
+    "updatedAt": {
+      "format": "date-time",
+      "type": "string",
+    },
+  },
+  "required": [
+    "id",
+    "status",
+    "taskDescription",
+    "baseBranch",
+    "model",
+    "createdAt",
+    "updatedAt",
+  ],
+  "type": "object",
+}
+`;

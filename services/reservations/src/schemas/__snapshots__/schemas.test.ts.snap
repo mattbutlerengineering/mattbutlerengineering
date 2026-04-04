@@ -1,0 +1,751 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Reservation service schemas > ErrorSchema matches snapshot 1`] = `
+{
+  "$id": "Error",
+  "description": "Standard error response",
+  "properties": {
+    "error": {
+      "description": "Error type or category",
+      "example": "Not Found",
+      "type": "string",
+    },
+    "message": {
+      "description": "Human-readable error message",
+      "example": "Reservation not found",
+      "type": "string",
+    },
+    "statusCode": {
+      "description": "HTTP status code",
+      "example": 404,
+      "type": "number",
+    },
+  },
+  "required": [
+    "error",
+    "message",
+    "statusCode",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Reservation service schemas > FloorPlanLayoutSchema matches snapshot 1`] = `
+{
+  "$id": "FloorPlanLayout",
+  "description": "Layout configuration for a floor plan canvas",
+  "properties": {
+    "backgroundImage": {
+      "description": "URL of the background image (e.g., architectural drawing)",
+      "type": "string",
+    },
+    "gridSize": {
+      "description": "Grid size for snapping in pixels",
+      "type": "number",
+    },
+    "height": {
+      "description": "Canvas height in pixels",
+      "type": "number",
+    },
+    "showGrid": {
+      "description": "Whether to display the grid",
+      "type": "boolean",
+    },
+    "width": {
+      "description": "Canvas width in pixels",
+      "type": "number",
+    },
+  },
+  "required": [
+    "width",
+    "height",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Reservation service schemas > FloorPlanSchema matches snapshot 1`] = `
+{
+  "$id": "FloorPlan",
+  "description": "A floor plan representing a physical layout of tables",
+  "properties": {
+    "createdAt": {
+      "description": "Timestamp when the floor plan was created",
+      "example": "2024-01-15T10:30:00.000Z",
+      "format": "date-time",
+      "type": "string",
+    },
+    "id": {
+      "description": "Unique identifier for the floor plan",
+      "example": "clx1234567890abcdef",
+      "type": "string",
+    },
+    "isActive": {
+      "description": "Whether this is the active floor plan for the venue",
+      "example": true,
+      "type": "boolean",
+    },
+    "layoutJson": {
+      "$ref": "FloorPlanLayout#",
+      "description": "Canvas layout configuration",
+    },
+    "name": {
+      "description": "Floor plan name (e.g., 'Main Dining', 'Patio')",
+      "example": "Main Dining",
+      "type": "string",
+    },
+    "tables": {
+      "description": "Tables placed on this floor plan",
+      "items": {
+        "$ref": "Table#",
+      },
+      "type": "array",
+    },
+    "updatedAt": {
+      "description": "Timestamp when the floor plan was last updated",
+      "example": "2024-01-20T14:45:00.000Z",
+      "format": "date-time",
+      "type": "string",
+    },
+    "venueId": {
+      "description": "ID of the venue this floor plan belongs to",
+      "example": "venue-123",
+      "type": "string",
+    },
+  },
+  "required": [
+    "id",
+    "venueId",
+    "name",
+    "isActive",
+    "layoutJson",
+    "createdAt",
+    "updatedAt",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Reservation service schemas > GuestSchema matches snapshot 1`] = `
+{
+  "$id": "Guest",
+  "description": "A guest who makes reservations at a venue",
+  "properties": {
+    "createdAt": {
+      "description": "Timestamp when the guest was created",
+      "example": "2024-01-15T10:30:00.000Z",
+      "format": "date-time",
+      "type": "string",
+    },
+    "email": {
+      "description": "Guest email address",
+      "example": "john@example.com",
+      "format": "email",
+      "nullable": true,
+      "type": "string",
+    },
+    "id": {
+      "description": "Unique identifier for the guest",
+      "example": "clx1234567890abcdef",
+      "type": "string",
+    },
+    "lastVisit": {
+      "description": "Date of last completed visit",
+      "example": "2024-01-15T19:00:00.000Z",
+      "format": "date-time",
+      "nullable": true,
+      "type": "string",
+    },
+    "lifetimeSpend": {
+      "description": "Total amount spent (as decimal string)",
+      "example": "1250.00",
+      "nullable": true,
+      "type": "string",
+    },
+    "name": {
+      "description": "Guest name",
+      "example": "John Doe",
+      "type": "string",
+    },
+    "notes": {
+      "description": "Internal notes about the guest",
+      "example": "Prefers window seating, allergic to shellfish",
+      "nullable": true,
+      "type": "string",
+    },
+    "phone": {
+      "description": "Guest phone number",
+      "example": "+1-555-123-4567",
+      "nullable": true,
+      "type": "string",
+    },
+    "tags": {
+      "description": "Tags for categorization",
+      "example": [
+        "VIP",
+        "Birthday Club",
+      ],
+      "items": {
+        "type": "string",
+      },
+      "nullable": true,
+      "type": "array",
+    },
+    "updatedAt": {
+      "description": "Timestamp when the guest was last updated",
+      "example": "2024-01-20T14:45:00.000Z",
+      "format": "date-time",
+      "type": "string",
+    },
+    "venueId": {
+      "description": "ID of the venue this guest belongs to",
+      "example": "venue-123",
+      "type": "string",
+    },
+    "visitCount": {
+      "description": "Number of completed visits",
+      "example": 5,
+      "type": "integer",
+    },
+  },
+  "required": [
+    "id",
+    "venueId",
+    "name",
+    "visitCount",
+    "createdAt",
+    "updatedAt",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Reservation service schemas > GuestSegmentSchema matches snapshot 1`] = `
+{
+  "$id": "GuestSegment",
+  "description": "A segment of guests based on behavior",
+  "properties": {
+    "count": {
+      "description": "Number of guests in this segment",
+      "example": 42,
+      "type": "integer",
+    },
+    "description": {
+      "description": "What defines this segment",
+      "example": "Guests with 5+ visits",
+      "type": "string",
+    },
+    "name": {
+      "description": "Segment name",
+      "example": "VIP",
+      "type": "string",
+    },
+  },
+  "required": [
+    "name",
+    "description",
+    "count",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Reservation service schemas > PaginationSchema matches snapshot 1`] = `
+{
+  "$id": "Pagination",
+  "description": "Pagination metadata for list responses",
+  "properties": {
+    "hasNext": {
+      "description": "Whether there is a next page",
+      "example": true,
+      "type": "boolean",
+    },
+    "hasPrev": {
+      "description": "Whether there is a previous page",
+      "example": false,
+      "type": "boolean",
+    },
+    "limit": {
+      "description": "Number of items per page",
+      "example": 10,
+      "type": "number",
+    },
+    "page": {
+      "description": "Current page number (1-indexed)",
+      "example": 1,
+      "type": "number",
+    },
+    "total": {
+      "description": "Total number of items across all pages",
+      "example": 42,
+      "type": "number",
+    },
+    "totalPages": {
+      "description": "Total number of pages",
+      "example": 5,
+      "type": "number",
+    },
+  },
+  "required": [
+    "page",
+    "limit",
+    "total",
+    "totalPages",
+    "hasNext",
+    "hasPrev",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Reservation service schemas > ReservationSchema matches snapshot 1`] = `
+{
+  "$id": "Reservation",
+  "description": "A reservation for a table",
+  "properties": {
+    "cancellationNote": {
+      "description": "Additional cancellation notes",
+      "example": "Guest did not arrive",
+      "nullable": true,
+      "type": "string",
+    },
+    "cancellationReason": {
+      "description": "Reason for cancellation",
+      "example": "no_show",
+      "nullable": true,
+      "type": "string",
+    },
+    "createdAt": {
+      "description": "Timestamp when the reservation was created",
+      "example": "2024-01-15T10:30:00.000Z",
+      "format": "date-time",
+      "type": "string",
+    },
+    "date": {
+      "description": "Reservation date (YYYY-MM-DD)",
+      "example": "2024-02-15",
+      "format": "date",
+      "type": "string",
+    },
+    "endTime": {
+      "description": "Reservation end time",
+      "example": "2024-02-15T20:00:00.000Z",
+      "format": "date-time",
+      "type": "string",
+    },
+    "guestEmail": {
+      "description": "Guest email",
+      "example": "john@example.com",
+      "format": "email",
+      "nullable": true,
+      "type": "string",
+    },
+    "guestName": {
+      "description": "Guest name (for unauthenticated reservations)",
+      "example": "John Doe",
+      "nullable": true,
+      "type": "string",
+    },
+    "guestPhone": {
+      "description": "Guest phone number",
+      "example": "+1-555-123-4567",
+      "nullable": true,
+      "type": "string",
+    },
+    "id": {
+      "description": "Unique identifier for the reservation",
+      "example": "clx1234567890abcdef",
+      "type": "string",
+    },
+    "notes": {
+      "description": "Special requests or notes",
+      "example": "Birthday celebration, need high chair",
+      "nullable": true,
+      "type": "string",
+    },
+    "partySize": {
+      "description": "Number of guests",
+      "example": 4,
+      "type": "integer",
+    },
+    "startTime": {
+      "description": "Reservation start time",
+      "example": "2024-02-15T18:00:00.000Z",
+      "format": "date-time",
+      "type": "string",
+    },
+    "status": {
+      "description": "Current reservation status",
+      "enum": [
+        "PENDING",
+        "CONFIRMED",
+        "CANCELLED",
+        "COMPLETED",
+        "NO_SHOW",
+      ],
+      "example": "CONFIRMED",
+      "type": "string",
+    },
+    "table": {
+      "$ref": "Table#",
+      "description": "The reserved table (included when fetching reservations)",
+    },
+    "tableId": {
+      "description": "ID of the reserved table",
+      "example": "clx1234567890abcdef",
+      "type": "string",
+    },
+    "updatedAt": {
+      "description": "Timestamp when the reservation was last updated",
+      "example": "2024-01-20T14:45:00.000Z",
+      "format": "date-time",
+      "type": "string",
+    },
+    "userId": {
+      "description": "User ID (for authenticated reservations)",
+      "example": "auth0|user123",
+      "nullable": true,
+      "type": "string",
+    },
+    "venueId": {
+      "description": "ID of the venue for this reservation (denormalized for queries)",
+      "example": "venue-123",
+      "nullable": true,
+      "type": "string",
+    },
+  },
+  "required": [
+    "id",
+    "date",
+    "startTime",
+    "endTime",
+    "partySize",
+    "status",
+    "tableId",
+    "createdAt",
+    "updatedAt",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Reservation service schemas > TableSchema matches snapshot 1`] = `
+{
+  "$id": "Table",
+  "description": "A table available for reservations",
+  "properties": {
+    "capacity": {
+      "description": "Maximum number of guests the table can seat",
+      "example": 4,
+      "type": "integer",
+    },
+    "createdAt": {
+      "description": "Timestamp when the table was created",
+      "example": "2024-01-15T10:30:00.000Z",
+      "format": "date-time",
+      "type": "string",
+    },
+    "floorPlanId": {
+      "description": "ID of the floor plan this table is placed on",
+      "example": "floor-plan-123",
+      "nullable": true,
+      "type": "string",
+    },
+    "id": {
+      "description": "Unique identifier for the table",
+      "example": "clx1234567890abcdef",
+      "type": "string",
+    },
+    "isActive": {
+      "description": "Whether the table is active and available for reservations",
+      "example": true,
+      "type": "boolean",
+    },
+    "location": {
+      "description": "Location description",
+      "example": "Main Floor",
+      "nullable": true,
+      "type": "string",
+    },
+    "maxCovers": {
+      "description": "Maximum party size (null means same as capacity)",
+      "example": 6,
+      "nullable": true,
+      "type": "integer",
+    },
+    "minCovers": {
+      "description": "Minimum party size for this table",
+      "example": 1,
+      "type": "integer",
+    },
+    "name": {
+      "description": "Table name or number",
+      "example": "Table 1",
+      "type": "string",
+    },
+    "priority": {
+      "description": "Priority for auto-assignment (higher = preferred)",
+      "example": 0,
+      "type": "integer",
+    },
+    "shapeMetadata": {
+      "description": "Position and shape on the floor plan canvas",
+      "oneOf": [
+        {
+          "$ref": "TableShapeMetadata#",
+        },
+        {
+          "type": "null",
+        },
+      ],
+    },
+    "status": {
+      "description": "Current operational status of the table",
+      "enum": [
+        "AVAILABLE",
+        "OCCUPIED",
+        "DIRTY",
+        "READY",
+      ],
+      "example": "AVAILABLE",
+      "type": "string",
+    },
+    "tableNumber": {
+      "description": "Human-readable table number (e.g., '41', '42B')",
+      "example": "41",
+      "nullable": true,
+      "type": "string",
+    },
+    "updatedAt": {
+      "description": "Timestamp when the table was last updated",
+      "example": "2024-01-20T14:45:00.000Z",
+      "format": "date-time",
+      "type": "string",
+    },
+    "venueId": {
+      "description": "ID of the venue this table belongs to",
+      "example": "venue-123",
+      "nullable": true,
+      "type": "string",
+    },
+  },
+  "required": [
+    "id",
+    "name",
+    "capacity",
+    "minCovers",
+    "isActive",
+    "priority",
+    "createdAt",
+    "updatedAt",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Reservation service schemas > TableShapeMetadataSchema matches snapshot 1`] = `
+{
+  "$id": "TableShapeMetadata",
+  "description": "Position and shape metadata for a table on a floor plan canvas",
+  "properties": {
+    "color": {
+      "description": "Color of the table on the floor plan",
+      "type": "string",
+    },
+    "height": {
+      "description": "Height of the table shape",
+      "type": "number",
+    },
+    "rotation": {
+      "description": "Rotation angle in degrees",
+      "type": "number",
+    },
+    "shape": {
+      "description": "Shape of the table",
+      "enum": [
+        "rectangle",
+        "circle",
+        "square",
+      ],
+      "type": "string",
+    },
+    "width": {
+      "description": "Width of the table shape",
+      "type": "number",
+    },
+    "x": {
+      "description": "X coordinate on the canvas",
+      "type": "number",
+    },
+    "y": {
+      "description": "Y coordinate on the canvas",
+      "type": "number",
+    },
+  },
+  "required": [
+    "x",
+    "y",
+    "width",
+    "height",
+    "shape",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Reservation service schemas > VenueGroupSchema matches snapshot 1`] = `
+{
+  "$id": "VenueGroup",
+  "description": "A group of venues under common ownership/management",
+  "properties": {
+    "createdAt": {
+      "description": "Timestamp when the venue group was created",
+      "example": "2024-01-15T10:30:00.000Z",
+      "format": "date-time",
+      "type": "string",
+    },
+    "id": {
+      "description": "Unique identifier for the venue group",
+      "example": "clx1234567890abcdef",
+      "type": "string",
+    },
+    "name": {
+      "description": "Venue group name",
+      "example": "Downtown Restaurant Group",
+      "type": "string",
+    },
+    "settings": {
+      "description": "Shared settings for all venues in the group",
+      "nullable": true,
+      "type": "object",
+    },
+    "slug": {
+      "description": "URL-friendly identifier",
+      "example": "downtown-restaurant-group",
+      "type": "string",
+    },
+  },
+  "required": [
+    "id",
+    "name",
+    "slug",
+    "createdAt",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Reservation service schemas > VenueSchema matches snapshot 1`] = `
+{
+  "$id": "Venue",
+  "description": "A venue (restaurant, bar, etc.) that accepts reservations",
+  "properties": {
+    "createdAt": {
+      "description": "Timestamp when the venue was created",
+      "example": "2024-01-15T10:30:00.000Z",
+      "format": "date-time",
+      "type": "string",
+    },
+    "currencyCode": {
+      "description": "ISO 4217 currency code",
+      "example": "USD",
+      "type": "string",
+    },
+    "daySchedule": {
+      "properties": {
+        "close": {
+          "example": "22:00",
+          "type": "string",
+        },
+        "closed": {
+          "type": "boolean",
+        },
+        "open": {
+          "example": "09:00",
+          "type": "string",
+        },
+      },
+      "type": "object",
+    },
+    "ianaTimezone": {
+      "description": "IANA timezone identifier",
+      "example": "America/Los_Angeles",
+      "type": "string",
+    },
+    "id": {
+      "description": "Unique identifier for the venue",
+      "example": "clx1234567890abcdef",
+      "type": "string",
+    },
+    "name": {
+      "description": "Venue name",
+      "example": "Chez Panisse",
+      "type": "string",
+    },
+    "operatingHours": {
+      "description": "Weekly operating schedule",
+      "nullable": true,
+      "properties": {
+        "friday": {
+          "$ref": "#/properties/daySchedule",
+        },
+        "monday": {
+          "$ref": "#/properties/daySchedule",
+        },
+        "saturday": {
+          "$ref": "#/properties/daySchedule",
+        },
+        "sunday": {
+          "$ref": "#/properties/daySchedule",
+        },
+        "thursday": {
+          "$ref": "#/properties/daySchedule",
+        },
+        "tuesday": {
+          "$ref": "#/properties/daySchedule",
+        },
+        "wednesday": {
+          "$ref": "#/properties/daySchedule",
+        },
+      },
+      "type": "object",
+    },
+    "settings": {
+      "description": "Venue-specific settings and feature flags",
+      "nullable": true,
+      "type": "object",
+    },
+    "slug": {
+      "description": "URL-friendly identifier for public booking URLs",
+      "example": "chez-panisse",
+      "type": "string",
+    },
+    "updatedAt": {
+      "description": "Timestamp when the venue was last updated",
+      "example": "2024-01-20T14:45:00.000Z",
+      "format": "date-time",
+      "type": "string",
+    },
+    "venueGroup": {
+      "$ref": "VenueGroup#",
+      "description": "The venue group (included when fetching venues)",
+    },
+    "venueGroupId": {
+      "description": "ID of the venue group this venue belongs to",
+      "example": "clx9876543210fedcba",
+      "nullable": true,
+      "type": "string",
+    },
+  },
+  "required": [
+    "id",
+    "name",
+    "slug",
+    "ianaTimezone",
+    "currencyCode",
+    "createdAt",
+    "updatedAt",
+  ],
+  "type": "object",
+}
+`;

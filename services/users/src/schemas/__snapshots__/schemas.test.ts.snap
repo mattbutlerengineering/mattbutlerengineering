@@ -1,0 +1,171 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`User service schemas > ErrorSchema matches snapshot 1`] = `
+{
+  "$id": "Error",
+  "description": "Standard error response",
+  "properties": {
+    "error": {
+      "description": "Error type or category",
+      "example": "Not Found",
+      "type": "string",
+    },
+    "message": {
+      "description": "Human-readable error message",
+      "example": "User not found",
+      "type": "string",
+    },
+    "statusCode": {
+      "description": "HTTP status code",
+      "example": 404,
+      "type": "number",
+    },
+  },
+  "required": [
+    "error",
+    "message",
+    "statusCode",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`User service schemas > PaginationSchema matches snapshot 1`] = `
+{
+  "$id": "Pagination",
+  "description": "Pagination metadata for list responses",
+  "properties": {
+    "hasNext": {
+      "description": "Whether there is a next page",
+      "example": true,
+      "type": "boolean",
+    },
+    "hasPrev": {
+      "description": "Whether there is a previous page",
+      "example": false,
+      "type": "boolean",
+    },
+    "limit": {
+      "description": "Number of items per page",
+      "example": 10,
+      "type": "number",
+    },
+    "page": {
+      "description": "Current page number (1-indexed)",
+      "example": 1,
+      "type": "number",
+    },
+    "total": {
+      "description": "Total number of items across all pages",
+      "example": 42,
+      "type": "number",
+    },
+    "totalPages": {
+      "description": "Total number of pages",
+      "example": 5,
+      "type": "number",
+    },
+  },
+  "required": [
+    "page",
+    "limit",
+    "total",
+    "totalPages",
+    "hasNext",
+    "hasPrev",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`User service schemas > UserPreferencesSchema matches snapshot 1`] = `
+{
+  "$id": "UserPreferences",
+  "description": "User preference settings for UI and notifications",
+  "properties": {
+    "emailNotifications": {
+      "description": "Whether to receive email notifications for account activity",
+      "example": true,
+      "type": "boolean",
+    },
+    "marketingEmails": {
+      "description": "Whether to receive marketing and promotional emails",
+      "example": false,
+      "type": "boolean",
+    },
+    "theme": {
+      "description": "UI theme preference",
+      "enum": [
+        "light",
+        "dark",
+        "system",
+      ],
+      "example": "system",
+      "type": "string",
+    },
+  },
+  "type": "object",
+}
+`;
+
+exports[`User service schemas > UserSchema matches snapshot 1`] = `
+{
+  "$id": "User",
+  "description": "A user account in the system",
+  "properties": {
+    "createdAt": {
+      "description": "Timestamp when the user was created",
+      "example": "2024-01-15T10:30:00.000Z",
+      "format": "date-time",
+      "type": "string",
+    },
+    "email": {
+      "description": "User's email address",
+      "example": "user@example.com",
+      "format": "email",
+      "type": "string",
+    },
+    "emailVerified": {
+      "description": "Whether the user's email has been verified",
+      "example": true,
+      "type": "boolean",
+    },
+    "id": {
+      "description": "Unique identifier for the user",
+      "example": "clx1234567890abcdef",
+      "type": "string",
+    },
+    "name": {
+      "description": "User's display name",
+      "example": "John Doe",
+      "nullable": true,
+      "type": "string",
+    },
+    "picture": {
+      "description": "URL to the user's profile picture",
+      "example": "https://example.com/avatars/user.jpg",
+      "format": "uri",
+      "nullable": true,
+      "type": "string",
+    },
+    "preferences": {
+      "$ref": "UserPreferences#",
+      "description": "User's preference settings",
+    },
+    "updatedAt": {
+      "description": "Timestamp when the user was last updated",
+      "example": "2024-01-20T14:45:00.000Z",
+      "format": "date-time",
+      "type": "string",
+    },
+  },
+  "required": [
+    "id",
+    "email",
+    "emailVerified",
+    "createdAt",
+    "updatedAt",
+  ],
+  "type": "object",
+}
+`;

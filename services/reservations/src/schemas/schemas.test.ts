@@ -1,0 +1,60 @@
+import { describe, it, expect } from "vitest";
+import {
+  TableShapeMetadataSchema,
+  TableSchema,
+  ReservationSchema,
+  PaginationSchema,
+  ErrorSchema,
+  VenueGroupSchema,
+  VenueSchema,
+  GuestSchema,
+  GuestSegmentSchema,
+  FloorPlanLayoutSchema,
+  FloorPlanSchema,
+} from "./index.js";
+
+describe("Reservation service schemas", () => {
+  it("TableShapeMetadataSchema matches snapshot", () => {
+    expect(TableShapeMetadataSchema).toMatchSnapshot();
+  });
+
+  it("TableSchema matches snapshot", () => {
+    expect(TableSchema).toMatchSnapshot();
+  });
+
+  it("ReservationSchema matches snapshot", () => {
+    expect(ReservationSchema).toMatchSnapshot();
+  });
+
+  it("PaginationSchema matches snapshot", () => {
+    expect(PaginationSchema).toMatchSnapshot();
+  });
+
+  it("ErrorSchema matches snapshot", () => {
+    expect(ErrorSchema).toMatchSnapshot();
+  });
+
+  it("VenueGroupSchema matches snapshot", () => {
+    expect(VenueGroupSchema).toMatchSnapshot();
+  });
+
+  it("VenueSchema matches snapshot", () => {
+    expect(VenueSchema).toMatchSnapshot();
+  });
+
+  it("GuestSchema matches snapshot", () => {
+    expect(GuestSchema).toMatchSnapshot();
+  });
+
+  it("GuestSegmentSchema matches snapshot", () => {
+    expect(GuestSegmentSchema).toMatchSnapshot();
+  });
+
+  it("FloorPlanLayoutSchema matches snapshot", () => {
+    expect(FloorPlanLayoutSchema).toMatchSnapshot();
+  });
+
+  it("FloorPlanSchema matches snapshot", () => {
+    expect(FloorPlanSchema).toMatchSnapshot();
+  });
+});

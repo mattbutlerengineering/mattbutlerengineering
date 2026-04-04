@@ -31,6 +31,30 @@ export default [
       ],
       // Warn on console.log in production source files
       "no-console": ["warn", { allow: ["warn", "error", "info"] }],
+      // Module boundary enforcement — block backend-only packages and entrypoints in frontend apps
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@mbe/agent-core", "@mbe/agent-core/*"],
+              message: "Backend-only package. Cannot import in frontend apps.",
+            },
+            {
+              group: ["@mbe/observability", "@mbe/observability/*"],
+              message: "Backend-only package. Cannot import in frontend apps.",
+            },
+            {
+              group: ["@mbe/auth/fastify"],
+              message: "Backend entrypoint. Use @mbe/auth/react in frontend apps.",
+            },
+            {
+              group: ["@mbe/sentry/node"],
+              message: "Backend entrypoint. Use @mbe/sentry/react in frontend apps.",
+            },
+          ],
+        },
+      ],
       // Warn on hardcoded hex colors in JSX — prefer Rialto CSS tokens (var(--rialto-*))
       "no-restricted-syntax": [
         "warn",
