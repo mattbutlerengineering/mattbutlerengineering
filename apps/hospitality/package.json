@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test --config playwright.config.ts"
+    "test:e2e": "playwright test --config playwright.config.ts",
+    "test:a11y": "playwright test --config playwright.config.ts e2e/a11y.test.ts"
   },
   "dependencies": {
     "@json-render/react": "^0.15.0",
@@ -28,6 +29,7 @@
     "react-router-dom": "^7.1.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.1",
     "@mbe/config": "workspace:*",
     "@sentry/vite-plugin": "^5.1.1",
     "@testing-library/jest-dom": "^6.6.3",
