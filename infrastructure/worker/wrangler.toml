@@ -30,4 +30,4 @@ service = "mattbutlerengineering-gen"
 # ID comes from: cd infrastructure/pulumi && pulumi stack output healthKvNamespaceId
 [[kv_namespaces]]
 binding = "HEALTH_STATE"
-id = "PLACEHOLDER_UNTIL_PULUMI_DEPLOY"
+id = "dda61075cc654b0a849046ae563d8d45"
