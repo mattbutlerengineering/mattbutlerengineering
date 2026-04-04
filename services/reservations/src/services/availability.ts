@@ -635,16 +635,48 @@ function checkPacingForSlot(
 /**
  * Creates a Date object from a date string and minutes since midnight.
  */
+/**
+ * Create a Date representing a local time in the venue's timezone.
+ * Uses Intl.DateTimeFormat to compute the UTC offset, avoiding external libraries.
+ */
 function createDateTimeFromMinutes(
   dateStr: string,
   minutes: number,
-  _timezone: string
+  timezone: string
 ): Date {
-  // For simplicity, we create the datetime as if in UTC
-  // In production, you'd use a library like date-fns-tz or luxon for proper timezone handling
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
-  return new Date(`${dateStr}T${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}:00.000Z`);
+  const localIso = `${dateStr}T${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}:00`;
+
+  // Build a Date assuming UTC, then compute the offset for the target timezone
+  const utcGuess = new Date(localIso + "Z");
+
+  // Format the same instant in the target timezone to find the local time there
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(utcGuess);
+
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "0";
+  const tzHour = parseInt(get("hour"), 10);
+  const tzMin = parseInt(get("minute"), 10);
+  const tzTotalMin = tzHour * 60 + tzMin;
+  const utcTotalMin = utcGuess.getUTCHours() * 60 + utcGuess.getUTCMinutes();
+
+  // Offset = how far ahead the timezone is from UTC (in minutes)
+  let offsetMin = tzTotalMin - utcTotalMin;
+  // Handle day boundary wrap
+  if (offsetMin > 720) offsetMin -= 1440;
+  if (offsetMin < -720) offsetMin += 1440;
+
+  // Subtract the offset to convert local time → UTC
+  return new Date(new Date(localIso + "Z").getTime() - offsetMin * 60 * 1000);
 }
 
 export const availabilityService = {
