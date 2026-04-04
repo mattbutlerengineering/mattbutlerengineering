@@ -219,6 +219,10 @@ Every JSON Schema object in `services/*/src/schemas/index.ts` is snapshot-tested
 
 `.husky/pre-commit` runs `pnpm turbo typecheck --filter='...[HEAD]'` after lint-staged. This typechecks only packages with uncommitted changes (plus their dependents). Turbo cache makes repeated runs fast (~12s).
 
+### Dockerfile Dependency Check
+
+`pnpm check:dockerfiles` (also runs in CI) verifies every `@mbe/*` dependency in each service's `package.json` has matching COPY steps in its Dockerfile. Catches the class of bug where a workspace package is added as a dependency but never included in the Docker build context.
+
 ## Code Style Guidelines
 
 ### Import/Export Conventions

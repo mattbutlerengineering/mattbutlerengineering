@@ -1,12 +1,14 @@
 {
   "name": "mattbutlerengineering",
   "private": true,
+  "type": "module",
   "packageManager": "pnpm@9.15.4",
   "scripts": {
     "dev": "turbo run dev",
     "dev:local": "docker compose -f infrastructure/docker-compose.yml up postgres -d --wait && pnpm env:init && pnpm db:push && turbo run dev",
     "env:init": "pnpm --filter './services/*' exec sh -c '[ -f .env ] || cp .env.example .env'",
     "db:push": "pnpm --filter './services/*' exec prisma db push --skip-generate",
+    "check:dockerfiles": "node scripts/check-dockerfile-deps.js",
     "build": "turbo run build",
     "test": "turbo run test",
     "lint": "turbo run lint",

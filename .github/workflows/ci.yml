@@ -90,6 +90,9 @@ jobs:
       - name: Build all packages
         run: pnpm build
 
+      - name: Check Dockerfile dependencies
+        run: node scripts/check-dockerfile-deps.js
+
       - name: Check registry.json is up to date
         run: |
           pnpm --filter @mbe/rialto build:registry
