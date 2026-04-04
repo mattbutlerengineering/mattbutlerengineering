@@ -37,6 +37,7 @@ import {
   fetchRecentPrExamples,
   formatPrExamples,
 } from "./task-intelligence.js";
+import { analyzeDiff } from "./diff-static-analyzer.js";
 import { mapSdkMessage } from "./event-mapper.js";
 import {
   recordFailure,
@@ -273,9 +274,32 @@ export async function runSession(
             }
           }
 
-          // 6c. Run AI security review on the diff
-          let securityReview: ReviewResult | undefined;
+          // 6c. Run fast static analysis on the diff (milliseconds, no AI)
+          let staticAnalysisClean = true;
           if (isSuccess && verificationPassed) {
+            const diff = await getGitDiff(worktree.path);
+            const staticResult = analyzeDiff(diff);
+            staticAnalysisClean = staticResult.clean;
+
+            const errorViolations = staticResult.violations.filter((v) => v.severity === "error");
+            if (errorViolations.length > 0) {
+              const formatted = errorViolations.map(
+                (v) => `${v.file}:${v.line} [${v.rule}] ${v.message}`
+              ).join("; ");
+              errors.push(`Static analysis errors: ${formatted}`);
+              emitEvent(onEvent, "session:verification", {
+                message: `Static analysis: ${errorViolations.length} error(s) — ${formatted}`,
+              });
+            } else if (!staticResult.clean) {
+              emitEvent(onEvent, "session:verification", {
+                message: `Static analysis: ${staticResult.violations.length} warning(s) (non-blocking)`,
+              });
+            }
+          }
+
+          // 6d. Run AI security review on the diff
+          let securityReview: ReviewResult | undefined;
+          if (isSuccess && verificationPassed && staticAnalysisClean) {
             const reviewSpan = tracer.startSpan("agent_core.security_review");
             try {
               const diff = await getGitDiff(worktree.path);
@@ -297,7 +321,7 @@ export async function runSession(
             }
           }
 
-          const allGatesPass = evaluationPassed && verificationPassed && (securityReview?.approved !== false);
+          const allGatesPass = evaluationPassed && verificationPassed && staticAnalysisClean && (securityReview?.approved !== false);
 
           if (config.createPr) {
             // Fast-path: trivial dependency bumps that passed tests are merged
@@ -383,6 +407,7 @@ export async function runSession(
               // Quality gates failed — create draft PR so humans can review
               const gateFailures: string[] = [];
               if (!verificationPassed) gateFailures.push("verification");
+              if (!staticAnalysisClean) gateFailures.push("static-analysis");
               if (!evaluationPassed) gateFailures.push("evaluation");
               if (securityReview?.approved === false) gateFailures.push("security-review");
 

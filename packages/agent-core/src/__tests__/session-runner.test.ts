@@ -32,6 +32,10 @@ vi.mock("../diff-reviewer.js", () => ({
   reviewDiff: vi.fn(),
 }));
 
+vi.mock("../diff-static-analyzer.js", () => ({
+  analyzeDiff: vi.fn(),
+}));
+
 vi.mock("../feedback-loop.js", () => ({
   runFeedbackLoop: vi.fn(),
 }));
@@ -63,6 +67,7 @@ import {
 import { createPullRequest, buildPrTitle, buildPrBody } from "../pr-creator.js";
 import { evaluateSuccess, getGitDiff } from "../success-evaluator.js";
 import { reviewDiff } from "../diff-reviewer.js";
+import { analyzeDiff } from "../diff-static-analyzer.js";
 import { runFeedbackLoop } from "../feedback-loop.js";
 import { loadMemory, queryPastFailures, buildFailureContext } from "../failure-memory.js";
 import { buildSystemPrompt } from "../prompt-builder.js";
@@ -137,6 +142,7 @@ describe("runSession", () => {
     });
 
     vi.mocked(reviewDiff).mockResolvedValue({ approved: true, issues: [] });
+    vi.mocked(analyzeDiff).mockReturnValue({ clean: true, violations: [], durationMs: 1 });
     vi.mocked(runFeedbackLoop).mockResolvedValue({ resolved: false, retriesUsed: 0 });
 
     vi.mocked(getGitDiff).mockResolvedValue("diff --git a/file.ts\n+change");
