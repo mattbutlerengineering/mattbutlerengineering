@@ -101,6 +101,9 @@ jobs:
       - name: Check circular dependencies
         run: node scripts/check-circular-deps.js
 
+      - name: Check service binding consistency
+        run: node scripts/check-service-bindings.js
+
       - name: Audit dependencies for vulnerabilities
         run: pnpm audit --audit-level=high || echo "::warning::Dependency audit found high/critical vulnerabilities — see output above"
 

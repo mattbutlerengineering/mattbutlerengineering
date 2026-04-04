@@ -9,6 +9,7 @@
     "env:init": "pnpm --filter './services/*' exec sh -c '[ -f .env ] || cp .env.example .env'",
     "db:push": "pnpm --filter './services/*' exec prisma db push --skip-generate",
     "check:circular-deps": "node scripts/check-circular-deps.js",
+    "check:service-bindings": "node scripts/check-service-bindings.js",
     "check:destructive-migrations": "node scripts/check-destructive-migrations.js",
     "check:dockerfiles": "node scripts/check-dockerfile-deps.js",
     "build": "turbo run build",
