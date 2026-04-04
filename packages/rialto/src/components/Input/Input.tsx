@@ -81,11 +81,11 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               ref={ref}
               id={inputId}
               className={inputClass}
-              aria-disabled={disabled || undefined}
+              disabled={disabled || undefined}
               aria-invalid={error || undefined}
               aria-describedby={hint ? `${inputId}-hint` : undefined}
               required={required}
-              readOnly={disabled || readOnly}
+              readOnly={readOnly}
               {...props}
             />
             {endIcon && (

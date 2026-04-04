@@ -32,7 +32,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma client
-        run: pnpm --filter @mbe/users-service db:generate
+        run: pnpm --filter @mbe/users-service db:generate && pnpm --filter @mbe/reservations-service db:generate && pnpm --filter @mbe/agent-service db:generate
 
       - name: Lint
         run: pnpm lint
@@ -58,7 +58,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma client
-        run: pnpm --filter @mbe/users-service db:generate
+        run: pnpm --filter @mbe/users-service db:generate && pnpm --filter @mbe/reservations-service db:generate && pnpm --filter @mbe/agent-service db:generate
 
       - name: Typecheck
         run: pnpm typecheck
@@ -85,10 +85,16 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma client
-        run: pnpm --filter @mbe/users-service db:generate
+        run: pnpm --filter @mbe/users-service db:generate && pnpm --filter @mbe/reservations-service db:generate && pnpm --filter @mbe/agent-service db:generate
 
       - name: Build all packages
         run: pnpm build
+
+      - name: Check circular dependencies
+        run: node scripts/check-circular-deps.js
+
+      - name: Audit dependencies for vulnerabilities
+        run: pnpm audit --audit-level=high || echo "::warning::Dependency audit found high/critical vulnerabilities — see output above"
 
       - name: Check Dockerfile dependencies
         run: node scripts/check-dockerfile-deps.js
@@ -127,7 +133,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma client
-        run: pnpm --filter @mbe/users-service db:generate
+        run: pnpm --filter @mbe/users-service db:generate && pnpm --filter @mbe/reservations-service db:generate && pnpm --filter @mbe/agent-service db:generate
 
       - name: Run tests with coverage
         run: pnpm turbo test:coverage
@@ -175,13 +181,29 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Apply migrations
+      - name: Check for destructive migrations
+        run: node scripts/check-destructive-migrations.js
+
+      - name: Apply migrations (users)
         run: pnpm --filter @mbe/users-service db:migrate:deploy
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/test
 
+      - name: Apply migrations (reservations)
+        run: pnpm --filter @mbe/reservations-service db:migrate:deploy
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
+
+      - name: Apply migrations (agent)
+        run: pnpm --filter @mbe/agent-service db:migrate:deploy
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
+
       - name: Verify schema is in sync
-        run: pnpm --filter @mbe/users-service db:migrate:status
+        run: |
+          pnpm --filter @mbe/users-service db:migrate:status
+          pnpm --filter @mbe/reservations-service db:migrate:status
+          pnpm --filter @mbe/agent-service db:migrate:status
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/test
 

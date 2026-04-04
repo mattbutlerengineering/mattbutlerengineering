@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useAuth as useOIDCAuth } from "react-oidc-context";
 import type { AuthUser, JWTPayload } from "../types/index.js";
 
@@ -54,9 +55,11 @@ export function useAccessToken(): string | null {
 export function useRequireAuth() {
   const auth = useAuth();
 
-  if (!auth.isLoading && !auth.isAuthenticated) {
-    auth.signIn();
-  }
+  useEffect(() => {
+    if (!auth.isLoading && !auth.isAuthenticated) {
+      auth.signIn();
+    }
+  }, [auth.isLoading, auth.isAuthenticated, auth.signIn]);
 
   return auth;
 }

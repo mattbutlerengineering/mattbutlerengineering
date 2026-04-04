@@ -9,6 +9,7 @@ vi.mock("../services/user.js", () => ({
     getById: vi.fn(),
     getByEmail: vi.fn(),
     create: vi.fn(),
+    findOrCreate: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
   },
@@ -243,7 +244,7 @@ describe("User Routes", () => {
 
   describe("DELETE /api/v1/users/:id", () => {
     it("deletes user and returns 204", async () => {
-      vi.mocked(userService.delete).mockResolvedValueOnce(undefined);
+      vi.mocked(userService.delete).mockResolvedValueOnce(true);
 
       const response = await app.inject({
         method: "DELETE",
@@ -283,7 +284,7 @@ describe("GET /api/v1/users/me", () => {
       protectedHeader: { alg: "RS256" },
     } as never);
 
-    vi.mocked(userService.getByEmail).mockResolvedValueOnce(mockUser);
+    vi.mocked(userService.findOrCreate).mockResolvedValueOnce(mockUser);
 
     const response = await app.inject({
       method: "GET",
@@ -296,8 +297,11 @@ describe("GET /api/v1/users/me", () => {
     expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.body);
     expect(body.data.email).toBe("test@example.com");
-    expect(userService.getByEmail).toHaveBeenCalledWith("test@example.com");
-    expect(userService.create).not.toHaveBeenCalled();
+    expect(userService.findOrCreate).toHaveBeenCalledWith({
+      email: "test@example.com",
+      name: "Test User",
+      picture: "https://example.com/pic.jpg",
+    });
   });
 
   it("creates user and returns data for valid token with new user", async () => {
@@ -306,8 +310,7 @@ describe("GET /api/v1/users/me", () => {
       protectedHeader: { alg: "RS256" },
     } as never);
 
-    vi.mocked(userService.getByEmail).mockResolvedValueOnce(null);
-    vi.mocked(userService.create).mockResolvedValueOnce(mockUser);
+    vi.mocked(userService.findOrCreate).mockResolvedValueOnce(mockUser);
 
     const response = await app.inject({
       method: "GET",
@@ -320,8 +323,7 @@ describe("GET /api/v1/users/me", () => {
     expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.body);
     expect(body.data.email).toBe("test@example.com");
-    expect(userService.getByEmail).toHaveBeenCalledWith("test@example.com");
-    expect(userService.create).toHaveBeenCalledWith({
+    expect(userService.findOrCreate).toHaveBeenCalledWith({
       email: "test@example.com",
       name: "Test User",
       picture: "https://example.com/pic.jpg",

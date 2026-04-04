@@ -17,8 +17,22 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Wait for CI to pass before deploying
+  ci-gate:
+    name: Wait for CI
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for CI workflow
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.sha }}
+          check-name: "Build"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 10
+
   deploy:
     name: Deploy API Services
+    needs: [ci-gate]
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true

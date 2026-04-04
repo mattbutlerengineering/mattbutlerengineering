@@ -394,7 +394,7 @@ describe("Hold Routes", () => {
     it("should return 404 for expired hold", async () => {
       vi.mocked(holdService.convertToReservation).mockResolvedValue({
         success: false,
-        error: "Hold not found or expired",
+        error: "Hold has expired",
       });
 
       const response = await app.inject({
@@ -411,6 +411,51 @@ describe("Hold Routes", () => {
       expect(response.statusCode).toBe(404);
       const body = JSON.parse(response.body);
       expect(body.error).toBe("Not Found");
+      expect(body.message).toBe("Hold has expired");
+    });
+
+    it("should return 404 for nonexistent hold", async () => {
+      vi.mocked(holdService.convertToReservation).mockResolvedValue({
+        success: false,
+        error: "Hold not found",
+      });
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/holds/hold-123/confirm",
+        headers: {
+          "x-session-id": "session-abc",
+        },
+        payload: {
+          guestName: "John Doe",
+        },
+      });
+
+      expect(response.statusCode).toBe(404);
+      const body = JSON.parse(response.body);
+      expect(body.message).toBe("Hold not found");
+    });
+
+    it("should return 403 for session ID mismatch", async () => {
+      vi.mocked(holdService.convertToReservation).mockResolvedValue({
+        success: false,
+        error: "Session ID does not match the hold",
+      });
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/holds/hold-123/confirm",
+        headers: {
+          "x-session-id": "wrong-session",
+        },
+        payload: {
+          guestName: "John Doe",
+        },
+      });
+
+      expect(response.statusCode).toBe(403);
+      const body = JSON.parse(response.body);
+      expect(body.error).toBe("Forbidden");
     });
 
     it("should return 409 when slot no longer available", async () => {

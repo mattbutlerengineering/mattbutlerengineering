@@ -10,9 +10,10 @@ interface LocationTimeStepProps {
   data: LocationTimeData;
   errors: Partial<Record<keyof LocationTimeData, string>>;
   onChange: (data: LocationTimeData) => void;
+  onValidate?: () => void;
 }
 
-const TIMEZONE_OPTIONS = [
+export const TIMEZONE_OPTIONS = [
   { value: "America/New_York", label: "Eastern Time (America/New_York)" },
   { value: "America/Chicago", label: "Central Time (America/Chicago)" },
   { value: "America/Denver", label: "Mountain Time (America/Denver)" },
@@ -39,7 +40,7 @@ const CURRENCY_OPTIONS = [
   { value: "AED", label: "AED - UAE Dirham" },
 ];
 
-export function LocationTimeStep({ data, errors, onChange }: LocationTimeStepProps) {
+export function LocationTimeStep({ data, errors, onChange, onValidate }: LocationTimeStepProps) {
   return (
     <div className={styles.stepContainer}>
       <Stack gap="md">
@@ -52,6 +53,7 @@ export function LocationTimeStep({ data, errors, onChange }: LocationTimeStepPro
             className={styles.select}
             value={data.ianaTimezone}
             onChange={(e) => onChange({ ...data, ianaTimezone: e.target.value })}
+            onBlur={onValidate}
           >
             <option value="">Select a timezone...</option>
             {TIMEZONE_OPTIONS.map((tz) => (
@@ -77,6 +79,7 @@ export function LocationTimeStep({ data, errors, onChange }: LocationTimeStepPro
             className={styles.select}
             value={data.currencyCode}
             onChange={(e) => onChange({ ...data, currencyCode: e.target.value })}
+            onBlur={onValidate}
           >
             {CURRENCY_OPTIONS.map((c) => (
               <option key={c.value} value={c.value}>

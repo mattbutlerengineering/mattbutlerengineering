@@ -30,8 +30,18 @@ vi.mock("@mbe/api-client", () => ({
   })),
 }));
 
+const mockRefetchVenues = vi.fn().mockResolvedValue(undefined);
+vi.mock("../contexts/VenueContext.js", () => ({
+  useVenue: () => ({
+    refetchVenues: mockRefetchVenues,
+  }),
+}));
+
+const mockToast = vi.fn();
+
 // Mock Rialto components to simplify testing
 vi.mock("@mbe/rialto", () => ({
+  useToast: () => ({ toast: mockToast, dismiss: vi.fn() }),
   Button: ({
     children,
     onClick,
@@ -169,6 +179,8 @@ describe("VenueOnboardingPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockCreate.mockReset();
+    mockRefetchVenues.mockReset().mockResolvedValue(undefined);
+    mockToast.mockReset();
   });
 
   it("should render step 1 (Basic Info) by default", () => {
@@ -223,6 +235,10 @@ describe("VenueOnboardingPage", () => {
     const nameInput = screen.getByLabelText("Venue Name") as HTMLInputElement;
     fireEvent.change(nameInput, { target: { value: "My Venue" } });
     fireEvent.click(screen.getByText("Next"));
+
+    // Clear the timezone (may be auto-detected from the environment)
+    const timezoneSelect = screen.getByLabelText("Timezone") as HTMLSelectElement;
+    fireEvent.change(timezoneSelect, { target: { value: "" } });
 
     // Try to proceed without selecting timezone
     fireEvent.click(screen.getByText("Next"));
@@ -308,7 +324,7 @@ describe("VenueOnboardingPage", () => {
     expect(payload.currencyCode).toBe("USD");
   });
 
-  it("should show success state after venue creation", async () => {
+  it("should show toast and redirect to /setup after venue creation", async () => {
     mockCreate.mockResolvedValueOnce({ id: "venue-456", name: "My Venue" });
 
     renderPage();
@@ -327,10 +343,16 @@ describe("VenueOnboardingPage", () => {
     fireEvent.click(screen.getByText("Create Venue"));
 
     await waitFor(() => {
-      expect(screen.getByText("Success!")).toBeTruthy();
+      expect(mockRefetchVenues).toHaveBeenCalledOnce();
     });
 
-    expect(screen.getByText(/venue-456/)).toBeTruthy();
+    expect(mockToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Venue created",
+        variant: "success",
+      })
+    );
+    expect(mockNavigate).toHaveBeenCalledWith("/setup", { replace: true });
   });
 
   it("should show error when API call fails", async () => {

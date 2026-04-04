@@ -294,7 +294,14 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      await userService.delete(request.params.id);
+      const deleted = await userService.delete(request.params.id);
+      if (!deleted) {
+        return reply.code(404).send({
+          error: "Not Found",
+          message: "User not found",
+          statusCode: 404,
+        });
+      }
       return reply.code(204).send();
     }
   );
@@ -342,15 +349,13 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      let user = await userService.getByEmail(authUser.email);
-      if (!user) {
-        // Auto-create user on first login
-        user = await userService.create({
-          email: authUser.email,
-          name: authUser.name,
-          picture: authUser.picture,
-        });
-      }
+      // Use findOrCreate (upsert) to prevent race conditions when two
+      // concurrent first-login requests both try to create the same user
+      const user = await userService.findOrCreate({
+        email: authUser.email,
+        name: authUser.name,
+        picture: authUser.picture,
+      });
       return { data: user };
     }
   );

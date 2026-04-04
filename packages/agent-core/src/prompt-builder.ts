@@ -58,7 +58,8 @@ function formatSourceFileSection(entries: readonly SourceFileEntry[]): string {
 
 export function buildSystemPrompt(
   taskDescription: string,
-  sourceFileEntries?: readonly SourceFileEntry[]
+  sourceFileEntries?: readonly SourceFileEntry[],
+  prExamplesSection?: string
 ): string {
   const base = [
     "You are an autonomous coding agent. Complete the following task in a single session.",
@@ -86,7 +87,7 @@ export function buildSystemPrompt(
     ? formatSourceFileSection(sourceFileEntries)
     : "";
 
-  return base + sourceSection;
+  return base + sourceSection + (prExamplesSection ?? "");
 }
 
 export async function loadProjectContext(repoPath: string): Promise<string | null> {

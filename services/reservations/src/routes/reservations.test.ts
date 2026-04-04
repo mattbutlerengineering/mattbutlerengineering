@@ -575,7 +575,10 @@ describe("Reservation Routes", () => {
         status: "CONFIRMED" as const,
         guestName: "Walk-in",
       };
-      vi.mocked(reservationService.createWalkIn).mockResolvedValueOnce(walkInReservation);
+      vi.mocked(reservationService.createWalkIn).mockResolvedValueOnce({
+        success: true,
+        reservation: walkInReservation,
+      });
       vi.mocked(tableService.updateStatus).mockResolvedValueOnce({
         ...mockTable,
         status: "OCCUPIED" as const,
@@ -617,7 +620,10 @@ describe("Reservation Routes", () => {
         status: "CONFIRMED" as const,
         guestName: "Jane Smith",
       };
-      vi.mocked(reservationService.createWalkIn).mockResolvedValueOnce(walkInReservation);
+      vi.mocked(reservationService.createWalkIn).mockResolvedValueOnce({
+        success: true,
+        reservation: walkInReservation,
+      });
       vi.mocked(tableService.updateStatus).mockResolvedValueOnce({
         ...mockTable,
         status: "OCCUPIED" as const,

@@ -154,7 +154,8 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(function Drawer(
               className={panelClasses}
               role="dialog"
               aria-modal="true"
-              aria-label={title}
+              aria-labelledby={title ? "rialto-drawer-title" : undefined}
+              aria-label={title ? undefined : "Drawer"}
               initial={slideHidden}
               animate={slideOpen[side]}
               exit={slideHidden}
@@ -164,7 +165,7 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(function Drawer(
               {(title || description) && (
                 <div className={styles.header}>
                   <div className={styles.headerContent}>
-                    {title && <h2 className={styles.title}>{title}</h2>}
+                    {title && <h2 id="rialto-drawer-title" className={styles.title}>{title}</h2>}
                     {description && <p className={styles.description}>{description}</p>}
                   </div>
                   <button

@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { Readable } from "node:stream";
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import type { ApiError } from "@mbe/types";
@@ -26,7 +27,7 @@ type AlertPayload = z.infer<typeof AlertPayloadSchema>;
 // ── Signature verification ───────────────────────────────────────────
 
 function verifyRemediationSignature(
-  payload: string,
+  payload: Buffer,
   signature: string | undefined,
   secret: string
 ): boolean {
@@ -41,6 +42,19 @@ function verifyRemediationSignature(
 // ── Route ────────────────────────────────────────────────────────────
 
 export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
+  // Capture raw request body before Fastify parses JSON.
+  // Webhook senders sign the original bytes; re-serializing via JSON.stringify
+  // can produce a different byte sequence and break HMAC verification.
+  fastify.addHook("preParsing", async (request, _reply, payload) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of payload) {
+      chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : (chunk as Buffer));
+    }
+    const rawBody = Buffer.concat(chunks);
+    (request as unknown as Record<string, unknown>).rawBody = rawBody;
+    return Readable.from(rawBody);
+  });
+
   fastify.post<{
     Body: unknown;
     Reply: { sessionId: string } | ApiError;
@@ -77,8 +91,9 @@ export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
+      // Verify signature against the original raw bytes (not re-serialized JSON)
       const signature = request.headers["x-remediation-signature"] as string | undefined;
-      const rawBody = JSON.stringify(request.body);
+      const rawBody = (request as unknown as Record<string, unknown>).rawBody as Buffer;
 
       if (!verifyRemediationSignature(rawBody, signature, secret)) {
         return reply.code(401).send({

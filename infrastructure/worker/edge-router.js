@@ -16,6 +16,7 @@ const SECURITY_HEADERS = {
   "X-Frame-Options": "DENY",
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
   "Content-Security-Policy": [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
@@ -222,9 +223,39 @@ function computeSystemStatus(services, staticSites, ci, deploys) {
 }
 
 /**
- * Handle GET /health/system — aggregate all subsystem health.
+ * Check whether the request carries a valid health token.
+ * Returns true only when HEALTH_TOKEN is configured and the request
+ * includes a matching `Authorization: Bearer <token>` header.
  */
-async function handleHealthSystem(env) {
+function isHealthAuthorized(request, env) {
+  if (!env.HEALTH_TOKEN) return false;
+  return request.headers.get("Authorization") === `Bearer ${env.HEALTH_TOKEN}`;
+}
+
+/**
+ * Return a coarse health response with no infrastructure details.
+ */
+function coarseHealthResponse(status, timestamp) {
+  return new Response(JSON.stringify({ status, timestamp }), {
+    status: 200,
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store",
+      "Access-Control-Allow-Origin": "*",
+    },
+  });
+}
+
+/**
+ * Handle GET /health/system — aggregate all subsystem health.
+ *
+ * Unauthenticated requests receive only a coarse { status, timestamp }
+ * response.  Detailed subsystem data (service names, latencies, commit
+ * SHAs, CI status) requires a valid Bearer token matching HEALTH_TOKEN.
+ * If HEALTH_TOKEN is not configured, all requests get the coarse response
+ * (safe by default).
+ */
+async function handleHealthSystem(request, env) {
   const now = Date.now();
 
   // Fan out all checks in parallel
@@ -265,11 +296,17 @@ async function handleHealthSystem(env) {
   );
 
   const status = computeSystemStatus(services, staticSites, ci, deploys);
+  const timestamp = new Date(now).toISOString();
+
+  // Gate detailed output behind token auth (safe by default)
+  if (!isHealthAuthorized(request, env)) {
+    return coarseHealthResponse(status, timestamp);
+  }
 
   return new Response(
     JSON.stringify({
       status,
-      timestamp: new Date(now).toISOString(),
+      timestamp,
       subsystems: { services, static_sites: staticSites, ci, deploys },
     }),
     {
@@ -289,7 +326,7 @@ export default {
 
     // ── Health aggregation endpoint ───────────────────────────────────
     if (url.pathname === "/health/system") {
-      return handleHealthSystem(env);
+      return handleHealthSystem(request, env);
     }
 
     // Redirect www → non-www
@@ -322,6 +359,7 @@ export default {
       const headers = new Headers(request.headers);
       headers.set("Host", target.host);
       headers.set("X-Forwarded-Host", url.host);
+      headers.set("X-Forwarded-For", request.headers.get("CF-Connecting-IP") ?? "");
 
       return fetch(
         new Request(target, {

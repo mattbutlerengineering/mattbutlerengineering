@@ -3,6 +3,7 @@ import {
   useContext,
   useState,
   useEffect,
+  useRef,
   useMemo,
   useCallback,
   type ReactNode,
@@ -18,6 +19,7 @@ interface VenueContextValue {
   setVenueId: (id: string) => void;
   isLoading: boolean;
   isMultiVenue: boolean;
+  refetchVenues: () => Promise<void>;
 }
 
 export type { VenueContextValue };
@@ -63,52 +65,48 @@ export function VenueProvider({ children }: VenueProviderProps) {
     readStoredVenueId
   );
   const [isLoading, setIsLoading] = useState(true);
+  const fetchVersionRef = useRef(0);
+
+  const fetchVenuesInner = useCallback(async () => {
+    const version = ++fetchVersionRef.current;
+    setIsLoading(true);
+    try {
+      const response = await api.venues.list({ limit: 100 });
+      if (version !== fetchVersionRef.current) return;
+
+      const fetched: readonly Venue[] = response.data;
+      setVenues(fetched);
+
+      // Auto-select logic: use stored ID if it matches a fetched venue,
+      // otherwise fall back to the first venue
+      const storedId = readStoredVenueId();
+      const storedExists = fetched.some((v) => v.id === storedId);
+
+      if (storedExists) {
+        setSelectedVenueId(storedId);
+      } else if (fetched.length > 0) {
+        const firstId = fetched[0].id;
+        setSelectedVenueId(firstId);
+        storeVenueId(firstId);
+      } else {
+        setSelectedVenueId(null);
+      }
+    } catch {
+      if (version === fetchVersionRef.current) {
+        setVenues([]);
+        setSelectedVenueId(null);
+      }
+    } finally {
+      if (version === fetchVersionRef.current) {
+        setIsLoading(false);
+      }
+    }
+  }, [api]);
 
   // Fetch venues on mount
   useEffect(() => {
-    let cancelled = false;
-
-    async function fetchVenues() {
-      setIsLoading(true);
-      try {
-        const response = await api.venues.list({ limit: 100 });
-        if (cancelled) return;
-
-        const fetched: readonly Venue[] = response.data;
-        setVenues(fetched);
-
-        // Auto-select logic: use stored ID if it matches a fetched venue,
-        // otherwise fall back to the first venue
-        const storedId = readStoredVenueId();
-        const storedExists = fetched.some((v) => v.id === storedId);
-
-        if (storedExists) {
-          setSelectedVenueId(storedId);
-        } else if (fetched.length > 0) {
-          const firstId = fetched[0].id;
-          setSelectedVenueId(firstId);
-          storeVenueId(firstId);
-        } else {
-          setSelectedVenueId(null);
-        }
-      } catch {
-        if (!cancelled) {
-          setVenues([]);
-          setSelectedVenueId(null);
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    fetchVenues();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [api]);
+    fetchVenuesInner();
+  }, [fetchVenuesInner]);
 
   const setVenueId = useCallback(
     (id: string) => {
@@ -135,8 +133,9 @@ export function VenueProvider({ children }: VenueProviderProps) {
       setVenueId,
       isLoading,
       isMultiVenue,
+      refetchVenues: fetchVenuesInner,
     }),
-    [venues, selectedVenueId, selectedVenue, setVenueId, isLoading, isMultiVenue]
+    [venues, selectedVenueId, selectedVenue, setVenueId, isLoading, isMultiVenue, fetchVenuesInner]
   );
 
   return (

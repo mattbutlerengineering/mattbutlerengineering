@@ -69,7 +69,7 @@ export const holdService = {
     const endTime = new Date(startTime.getTime() + duration * 60 * 1000);
     const expiresAt = new Date(Date.now() + holdDuration * 60 * 1000);
 
-    // Find or validate table
+    // Find or validate table (pre-check outside transaction for auto-assign)
     let selectedTableId = tableId;
     if (!selectedTableId) {
       // Auto-assign a table
@@ -86,7 +86,7 @@ export const holdService = {
       }
       selectedTableId = table.id;
     } else {
-      // Verify provided table is available
+      // Pre-check: verify provided table is available
       const conflict = await availabilityService.checkConflict(
         selectedTableId!,
         date,
@@ -99,7 +99,7 @@ export const holdService = {
       }
     }
 
-    // Check pacing limits
+    // Check pacing limits (pre-check)
     const pacingCheck = await availabilityService.checkPacing(
       venueId,
       startTime,
@@ -114,26 +114,73 @@ export const holdService = {
       };
     }
 
-    // Release any existing holds for this session at this venue
-    await prisma.reservationHold.deleteMany({
-      where: { sessionId, venueId },
+    // Wrap conflict re-check + hold creation in a transaction to prevent
+    // concurrent requests from both passing the check
+    const txResult = await prisma.$transaction(async (tx) => {
+      // Re-check for conflicting reservations inside the transaction
+      const conflictingReservation = await tx.reservation.findFirst({
+        where: {
+          tableId: selectedTableId,
+          date: new Date(date),
+          status: { notIn: ["CANCELLED", "NO_SHOW"] },
+          AND: [
+            { startTime: { lt: endTime } },
+            { endTime: { gt: startTime } },
+          ],
+        },
+        select: { id: true },
+      });
+
+      if (conflictingReservation) {
+        return { conflict: true as const };
+      }
+
+      // Re-check for conflicting holds inside the transaction
+      const conflictingHold = await tx.reservationHold.findFirst({
+        where: {
+          tableId: selectedTableId,
+          date: new Date(date),
+          expiresAt: { gt: new Date() },
+          sessionId: { not: sessionId }, // Don't conflict with own session
+          AND: [
+            { startTime: { lt: endTime } },
+            { endTime: { gt: startTime } },
+          ],
+        },
+        select: { id: true },
+      });
+
+      if (conflictingHold) {
+        return { conflict: true as const };
+      }
+
+      // Release any existing holds for this session at this venue
+      await tx.reservationHold.deleteMany({
+        where: { sessionId, venueId },
+      });
+
+      // Create the hold
+      const hold = await tx.reservationHold.create({
+        data: {
+          venueId,
+          tableId: selectedTableId,
+          date: new Date(date),
+          startTime,
+          endTime,
+          partySize,
+          sessionId,
+          expiresAt,
+        },
+      });
+
+      return { conflict: false as const, hold };
     });
 
-    // Create the hold
-    const hold = await prisma.reservationHold.create({
-      data: {
-        venueId,
-        tableId: selectedTableId,
-        date: new Date(date),
-        startTime,
-        endTime,
-        partySize,
-        sessionId,
-        expiresAt,
-      },
-    });
+    if (txResult.conflict) {
+      return { success: false, error: "Table is not available for this time slot" };
+    }
 
-    return { success: true, hold: mapPrismaHold(hold) };
+    return { success: true, hold: mapPrismaHold(txResult.hold) };
   },
 
   /**
@@ -197,17 +244,23 @@ export const holdService = {
     guestDetails: ConfirmHoldRequest,
     userId?: string
   ): Promise<ConfirmHoldResult> {
-    // Get the hold
-    const hold = await prisma.reservationHold.findFirst({
-      where: {
-        id: holdId,
-        sessionId,
-        expiresAt: { gt: new Date() },
-      },
+    // Look up the hold by ID first, then diagnose failure separately
+    const hold = await prisma.reservationHold.findUnique({
+      where: { id: holdId },
     });
 
     if (!hold) {
-      return { success: false, error: "Hold not found or expired" };
+      return { success: false, error: "Hold not found" };
+    }
+
+    if (hold.expiresAt < new Date()) {
+      // Clean up the expired hold
+      await prisma.reservationHold.delete({ where: { id: holdId } }).catch(() => {});
+      return { success: false, error: "Hold has expired" };
+    }
+
+    if (hold.sessionId !== sessionId) {
+      return { success: false, error: "Session ID does not match the hold" };
     }
 
     // Check conflict + create reservation + delete hold atomically in a transaction

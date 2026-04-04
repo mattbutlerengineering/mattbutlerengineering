@@ -32,6 +32,11 @@ import { evaluateSuccess, getGitDiff, shouldEvaluate } from "./success-evaluator
 import type { EvaluationResult } from "./success-evaluator.js";
 import { reviewDiff } from "./diff-reviewer.js";
 import type { ReviewResult } from "./diff-reviewer.js";
+import {
+  resolveSourceFiles,
+  fetchRecentPrExamples,
+  formatPrExamples,
+} from "./task-intelligence.js";
 import { mapSdkMessage } from "./event-mapper.js";
 import {
   recordFailure,
@@ -97,15 +102,23 @@ export async function runSession(
           wtSpan.end();
         }
 
-        // 2. Build system prompt with failure context and source files
+        // 2. Build system prompt with failure context, source files, and PR examples
         const failureMemory = await loadMemory(config.repoPath);
         const pastFailures = queryPastFailures(failureMemory, config.taskDescription);
         const failureContext = buildFailureContext(pastFailures);
-        const sourceFileEntries = config.sourceFiles
-          ? await loadSourceFiles(config.sourceFiles)
+
+        // Auto-resolve source files from task description if none provided
+        const resolvedSourcePaths = config.sourceFiles ?? resolveSourceFiles(config.taskDescription);
+        const sourceFileEntries = resolvedSourcePaths.length > 0
+          ? await loadSourceFiles(resolvedSourcePaths)
           : undefined;
+
+        // Fetch recent successful PRs as examples (non-blocking)
+        const prExamples = await fetchRecentPrExamples(config.repoPath).catch(() => []);
+        const prExamplesSection = formatPrExamples(prExamples);
+
         const systemPrompt =
-          buildSystemPrompt(config.taskDescription, sourceFileEntries) + failureContext;
+          buildSystemPrompt(config.taskDescription, sourceFileEntries, prExamplesSection) + failureContext;
 
         // 3. Run the agent via SDK query()
         emitEvent(onEvent, "session:start", {

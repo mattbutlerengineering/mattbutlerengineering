@@ -79,6 +79,24 @@ export const userService = {
     return mapPrismaUser(user);
   },
 
+  /**
+   * Finds a user by email or creates one if not found.
+   * Uses upsert to prevent race conditions when two concurrent
+   * first-login requests arrive for the same email.
+   */
+  async findOrCreate(data: CreateUserRequest): Promise<User> {
+    const user = await prisma.user.upsert({
+      where: { email: data.email },
+      update: {}, // No-op if user already exists
+      create: {
+        email: data.email,
+        name: data.name ?? null,
+        picture: data.picture ?? null,
+      },
+    });
+    return mapPrismaUser(user);
+  },
+
   async update(id: string, data: UpdateUserRequest): Promise<User | null> {
     try {
       const user = await prisma.user.update({
@@ -94,11 +112,16 @@ export const userService = {
     }
   },
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string): Promise<boolean> {
     try {
       await prisma.user.delete({ where: { id } });
-    } catch {
-      // User not found, no-op
+      return true;
+    } catch (err: unknown) {
+      // Prisma P2025 = record not found
+      if (err && typeof err === "object" && "code" in err && err.code === "P2025") {
+        return false;
+      }
+      throw err;
     }
   },
 

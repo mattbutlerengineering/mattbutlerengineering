@@ -173,17 +173,21 @@ export const floorPlanService = {
 
   async setActive(id: string, venueId: string): Promise<FloorPlan | null> {
     try {
-      // Deactivate all other floor plans for this venue
-      await prisma.floorPlan.updateMany({
-        where: { venueId, isActive: true },
-        data: { isActive: false },
-      });
+      // Wrap both writes in a transaction so a crash between them
+      // cannot leave the venue with no active floor plan
+      const floorPlan = await prisma.$transaction(async (tx) => {
+        // Deactivate all other floor plans for this venue
+        await tx.floorPlan.updateMany({
+          where: { venueId, isActive: true },
+          data: { isActive: false },
+        });
 
-      // Activate the specified floor plan
-      const floorPlan = await prisma.floorPlan.update({
-        where: { id },
-        data: { isActive: true },
-        include: { tables: true },
+        // Activate the specified floor plan
+        return tx.floorPlan.update({
+          where: { id },
+          data: { isActive: true },
+          include: { tables: true },
+        });
       });
       return mapPrismaFloorPlan(floorPlan);
     } catch {

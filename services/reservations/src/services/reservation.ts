@@ -338,7 +338,10 @@ export const reservationService = {
     return { success: true, reservation };
   },
 
-  async createWalkIn(data: WalkInRequest, userId?: string): Promise<Reservation> {
+  async createWalkIn(
+    data: WalkInRequest,
+    userId?: string
+  ): Promise<CreateReservationResult> {
     const now = new Date();
     const durationMinutes = data.durationMinutes ?? 90;
     const endTime = new Date(now.getTime() + durationMinutes * 60 * 1000);
@@ -348,25 +351,68 @@ export const reservationService = {
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
     );
 
-    const reservation = await prisma.reservation.create({
-      data: {
-        date: dateOnly,
-        startTime: now,
-        endTime,
-        partySize: data.partySize,
-        tableId: data.tableId,
-        status: "CONFIRMED",
-        guestName: data.guestName ?? "Walk-in",
-        guestEmail: null,
-        guestPhone: null,
-        guestId: null,
-        userId: userId ?? null,
-        venueId: data.venueId ?? null,
-        notes: null,
-      },
-      include: { table: true },
+    const dateStr = dateOnly.toISOString().split("T")[0];
+
+    // Conflict check + creation inside a transaction to prevent TOCTOU races
+    const conflict = await availabilityService.checkConflict(
+      data.tableId,
+      dateStr,
+      now,
+      endTime
+    );
+
+    if (conflict.hasConflict) {
+      return {
+        success: false,
+        error: "Table is not available",
+        conflict,
+      };
+    }
+
+    const reservation = await prisma.$transaction(async (tx) => {
+      // Re-check for conflicting reservations inside the transaction
+      const conflicting = await tx.reservation.findFirst({
+        where: {
+          tableId: data.tableId,
+          date: dateOnly,
+          status: { notIn: ["CANCELLED", "NO_SHOW"] },
+          AND: [{ startTime: { lt: endTime } }, { endTime: { gt: now } }],
+        },
+        select: { id: true },
+      });
+
+      if (conflicting) {
+        return null;
+      }
+
+      return tx.reservation.create({
+        data: {
+          date: dateOnly,
+          startTime: now,
+          endTime,
+          partySize: data.partySize,
+          tableId: data.tableId,
+          status: "CONFIRMED",
+          guestName: data.guestName ?? "Walk-in",
+          guestEmail: null,
+          guestPhone: null,
+          guestId: null,
+          userId: userId ?? null,
+          venueId: data.venueId ?? null,
+          notes: null,
+        },
+        include: { table: true },
+      });
     });
-    return mapPrismaReservation(reservation);
+
+    if (!reservation) {
+      return {
+        success: false,
+        error: "Table is not available",
+      };
+    }
+
+    return { success: true, reservation: mapPrismaReservation(reservation) };
   },
 
   async cancel(
