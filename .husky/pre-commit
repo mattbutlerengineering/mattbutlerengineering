@@ -1,6 +1,15 @@
 pnpm lint-staged
 pnpm turbo typecheck --filter='...[HEAD]'
 
+# Check for circular dependencies (~2s)
+node scripts/check-circular-deps.js
+
+# Check for service binding consistency (~1s)
+node scripts/check-service-bindings.js
+
+# Check env vars are documented (~1s)
+node scripts/check-env-sync.js
+
 # Check generated files are up to date (~4s total)
 pnpm --filter @mbe/rialto build:registry --silent
 if ! git diff --quiet packages/rialto/registry.json 2>/dev/null; then
