@@ -112,7 +112,7 @@ Full details: [milestones/v1.5-ROADMAP.md](milestones/v1.5-ROADMAP.md)
 - [x] **Phase 46: JIT Context Priming** — Automatic mbe pack on agent session start
 - [x] **Phase 47: Dependency Integrity Audit** — mbe check-deps for version consistency
 - [x] **Phase 48: Infrastructure MCP Servers & CLIs** — Standardized agent interfaces for infra
-- [ ] **Phase 49: Dependency Synchronization** — Fix mismatches using pnpm catalogs
+- [x] **Phase 49: Dependency Synchronization** — Fix mismatches using pnpm catalogs (completed 2026-04-05)
 
 Full details: [milestones/v1.6-ROADMAP.md](milestones/v1.6-ROADMAP.md)
 
@@ -128,4 +128,4 @@ Full details: [milestones/v1.6-ROADMAP.md](milestones/v1.6-ROADMAP.md)
 | 46. JIT Context Priming | v1.6 | 1/1 | Complete | 2026-04-04 |
 | 47. Dependency Integrity Audit | v1.6 | 1/1 | Complete | 2026-04-04 |
 | 48. Infrastructure MCP Servers | v1.6 | 1/1 | Complete | 2026-04-04 |
-| 49. Dependency Synchronization | v1.6 | 0/1 | Todo | - |
+| 49. Dependency Synchronization | 1/1 | Complete   | 2026-04-05 | - |
