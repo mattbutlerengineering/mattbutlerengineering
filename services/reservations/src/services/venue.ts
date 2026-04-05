@@ -10,6 +10,15 @@ import type {
 import type { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 
+function isPrismaNotFound(err: unknown): boolean {
+  return (
+    err !== null &&
+    typeof err === "object" &&
+    "code" in err &&
+    (err as { code: string }).code === "P2025"
+  );
+}
+
 function mapPrismaVenueGroup(group: {
   id: string;
   name: string;
@@ -121,8 +130,9 @@ export const venueGroupService = {
         data: updateData,
       });
       return mapPrismaVenueGroup(group);
-    } catch {
-      return null;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return null;
+      throw err;
     }
   },
 
@@ -130,8 +140,9 @@ export const venueGroupService = {
     try {
       await prisma.venueGroup.delete({ where: { id } });
       return true;
-    } catch {
-      return false;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return false;
+      throw err;
     }
   },
 };
@@ -228,8 +239,9 @@ export const venueService = {
         include: { venueGroup: true },
       });
       return mapPrismaVenue(venue);
-    } catch {
-      return null;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return null;
+      throw err;
     }
   },
 
@@ -237,8 +249,9 @@ export const venueService = {
     try {
       await prisma.venue.delete({ where: { id } });
       return true;
-    } catch {
-      return false;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return false;
+      throw err;
     }
   },
 };
