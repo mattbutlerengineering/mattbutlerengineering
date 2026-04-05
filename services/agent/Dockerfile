@@ -32,7 +32,7 @@ COPY packages/agent-core/tsconfig.json ./packages/agent-core/
 COPY packages/observability/tsconfig.json ./packages/observability/
 COPY packages/sentry/tsconfig.json ./packages/sentry/
 COPY packages/rialto/tsconfig.json ./packages/rialto/
-COPY packages/rialto-catalog/tsconfig.json ./packages/rialto-catalog/
+COPY packages/rialto-catalog/tsconfig.json packages/rialto-catalog/tsconfig.build.json ./packages/rialto-catalog/
 COPY services/agent/tsconfig.json ./services/agent/
 
 # Copy Prisma schema (needed for db:generate)
