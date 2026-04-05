@@ -62,7 +62,6 @@ pnpm clean          # Wipe artifacts and node_modules
 - **Patterns:** `*.test.ts` for unit/integration.
 - **Mandate:** All logic changes must be verified via automated tests.
 - **UI:** Playwright for E2E and visual regression.
-
 ## Model Governance
 To ensure cost-efficiency and technical integrity, follow this model tiering strategy:
 - **Tier 1: Haiku / Gemini Flash** - Lightweight chores, linting, dependency bumps, typos (< $0.05).
@@ -71,7 +70,14 @@ To ensure cost-efficiency and technical integrity, follow this model tiering str
 
 Use `mbe check-model "<directive>"` to verify the recommended tier before starting high-complexity work.
 
+## Performance Infrastructure
+The monorepo uses Turborepo for orchestration and caching. To maximize velocity:
+- **Remote Caching:** Run `npx turbo login` and `npx turbo link` to enable shared build artifacts. This prevents redundant compilation across local and CI environments.
+- **Selective Typechecking:** Use `pnpm turbo typecheck --filter='...[HEAD]'` to only check packages affected by current changes.
+- **Autonomous Refresh:** The `post-commit` hook automatically runs `mbe pack` to keep AI context skeletons (`llms.txt`) updated.
+
 ## RIPER Workflow
+...
 To maintain high-velocity engineering without sacrificing quality, agents follow the **RIPER** (Research, Innovate, Plan, Execute, Review) cycle:
 
 1.  **Research:** Explore the codebase, identify root causes, and gather requirements. **No file edits.**

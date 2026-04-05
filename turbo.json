@@ -3,6 +3,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
+      "inputs": ["src/**", "package.json", "tsconfig.json", "vite.config.ts", "prisma/schema.prisma"],
       "outputs": ["dist/**", "generated/**", ".next/**", "!.next/cache/**"]
     },
     "dev": {
@@ -10,13 +11,16 @@
       "persistent": true
     },
     "lint": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "inputs": ["src/**", "package.json", "eslint.config.js", "../../eslint.config.js"]
     },
     "typecheck": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "inputs": ["src/**", "package.json", "tsconfig.json", "../../packages/config/typescript/**"]
     },
     "test": {
-      "dependsOn": ["build"]
+      "dependsOn": ["build"],
+      "inputs": ["src/**", "package.json", "vitest.config.ts"]
     },
     "test:coverage": {
       "dependsOn": ["build"],
