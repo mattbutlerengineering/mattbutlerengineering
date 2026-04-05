@@ -14,7 +14,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@mbe/types": "workspace:*"
+    "@mbe/types": "workspace:*",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@mbe/config": "workspace:*",

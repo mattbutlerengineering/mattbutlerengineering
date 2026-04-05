@@ -358,6 +358,9 @@ importers:
       '@mbe/types':
         specifier: workspace:*
         version: link:../types
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
     devDependencies:
       '@mbe/config':
         specifier: workspace:*
@@ -685,6 +688,10 @@ importers:
         version: 5.9.3
 
   packages/types:
+    dependencies:
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
     devDependencies:
       '@mbe/config':
         specifier: workspace:*

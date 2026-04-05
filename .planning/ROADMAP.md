@@ -65,7 +65,7 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 - [ ] **Phase 25: Architecture Decision Records** — Systematic ADR tracking
 - [ ] **Phase 26: Automated AI Regression Testing** — CI validation for Gen UI pipeline
 - [x] **Phase 27: Custom ESLint AST Rules** — Enforce project-specific architectural patterns
-- [ ] **Phase 28: Strict Internal Zod Schema Enforcement** — Strongly typed and validated boundaries
+- [x] **Phase 28: Strict Internal Zod Schema Enforcement** — Strongly typed and validated boundaries
 - [ ] **Phase 29: Agent Success Rate Tracking** — Establish baseline for AI task completion
 - [ ] **Phase 30: CI Performance & Bundle Size Budgets** — Enforce strict performance budgets
 - [ ] **Phase 31: "Golden Path" CLI Generators** — Reduce boilerplate and match architecture
@@ -94,17 +94,9 @@ Full details: [milestones/v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md)
 |-------|-----------|----------------|--------|-----------|
 | 1. Rialto-Web Migration | v1.0 | 3/3 | Complete | 2026-02-28 |
 ...
-| 26. Automated AI Regression Testing | v1.3 | 0/1 | Todo | - |
 | 27. Custom ESLint AST Rules | v1.3 | 1/1 | Complete | 2026-04-04 |
-| 28. Strict Internal Zod Schema Enforcement | v1.3 | 1/1 | Todo | - |
+| 28. Strict Internal Zod Schema Enforcement | v1.3 | 1/1 | Complete | 2026-04-04 |
+| 29. Agent Success Rate Tracking | v1.3 | 0/1 | Todo | - |
 ...
-| 31. "Golden Path" CLI Generators | v1.3 | 0/1 | Todo | - |
-| 32. The Ralph Wiggum Loop | v1.4 | 1/1 | Complete | 2026-04-04 |
-| 33. RIPER Workflow | v1.4 | 1/1 | Complete | 2026-04-04 |
-| 34. Automated Rule Synchronizer | v1.4 | 1/1 | Complete | 2026-04-04 |
-| 35. Agentic Observability | v1.4 | 1/1 | Complete | 2026-04-04 |
-| 36. Parallel Execution Waves | v1.4 | 0/1 | Todo | - |
-| 37. Automated Performance Auditor | v1.4 | 1/1 | Complete | 2026-04-04 |
-| 38. The Context Guard | v1.4 | 1/1 | Complete | 2026-04-04 |
 | 39. Structured ADRs | v1.4 | 1/1 | Complete | 2026-04-04 |
 | 40. Model Governance & Verification | v1.4 | 1/1 | Complete | 2026-04-04 |

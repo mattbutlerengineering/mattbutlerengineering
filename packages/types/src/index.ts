@@ -98,3 +98,6 @@ export type {
   UpdateTablePositionRequest,
   BulkUpdateTablePositionsRequest,
 } from "./floor-plan.js";
+
+// Zod Schemas
+export * from "./schemas/index.js";
