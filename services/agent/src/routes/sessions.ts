@@ -8,6 +8,7 @@ import {
   type CreateAgentSessionRequest,
   createProblemDetails,
 } from "@mbe/types";
+import { requireAuth } from "@mbe/auth/fastify";
 import { sessionService } from "../services/session.js";
 import {
   executeSession,
@@ -23,6 +24,7 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
+      preHandler: [requireAuth],
       schema: {
         summary: "Create a new agent session",
         operationId: "createSession",
@@ -72,6 +74,7 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
+      preHandler: [requireAuth],
       schema: {
         summary: "List agent sessions",
         operationId: "listSessions",
@@ -124,6 +127,7 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
+      preHandler: [requireAuth],
       schema: {
         summary: "Get session by ID",
         operationId: "getSession",
@@ -158,6 +162,7 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id/cancel",
     {
+      preHandler: [requireAuth],
       schema: {
         summary: "Cancel a running session",
         operationId: "cancelSession",
@@ -208,6 +213,7 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
+      preHandler: [requireAuth],
       schema: {
         summary: "Delete a session",
         operationId: "deleteSession",

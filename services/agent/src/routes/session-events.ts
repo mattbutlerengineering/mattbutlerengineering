@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { type ApiError, createProblemDetails } from "@mbe/types";
+import { requireAuth } from "@mbe/auth/fastify";
 import { sessionService } from "../services/session.js";
 
 const SSE_POLL_INTERVAL_MS = 1000;
@@ -12,6 +13,7 @@ export const sessionEventsRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id/events",
     {
+      preHandler: [requireAuth],
       schema: {
         summary: "Stream session events (SSE)",
         operationId: "streamSessionEvents",
