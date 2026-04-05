@@ -226,6 +226,41 @@ describe("Edge Router", () => {
       const csp = response.headers.get("Content-Security-Policy");
       expect(csp).toContain("default-src 'self'");
       expect(csp).toContain("frame-ancestors 'none'");
+      expect(csp).toContain("base-uri 'self'");
+      expect(csp).toContain("form-action 'self'");
+    });
+
+    it("adds X-XSS-Protection: 0 (disable legacy XSS auditor)", async () => {
+      const response = await edgeRouter.fetch(makeRequest("/"), env);
+      expect(response.headers.get("X-XSS-Protection")).toBe("0");
+    });
+
+    it("adds Referrer-Policy", async () => {
+      const response = await edgeRouter.fetch(makeRequest("/"), env);
+      expect(response.headers.get("Referrer-Policy")).toBe(
+        "strict-origin-when-cross-origin"
+      );
+    });
+
+    it("adds Permissions-Policy", async () => {
+      const response = await edgeRouter.fetch(makeRequest("/"), env);
+      expect(response.headers.get("Permissions-Policy")).toContain("camera=()");
+      expect(response.headers.get("Permissions-Policy")).toContain("microphone=()");
+      expect(response.headers.get("Permissions-Policy")).toContain("geolocation=()");
+    });
+  });
+
+  describe("Source map blocking", () => {
+    it("blocks .js.map files with 404", async () => {
+      const response = await edgeRouter.fetch(makeRequest("/assets/main.abc123.js.map"), env);
+      expect(response.status).toBe(404);
+      expect(env.MARKETING.fetch).not.toHaveBeenCalled();
+    });
+
+    it("blocks .css.map files with 404", async () => {
+      const response = await edgeRouter.fetch(makeRequest("/hospitality/assets/style.css.map"), env);
+      expect(response.status).toBe(404);
+      expect(env.HOSPITALITY.fetch).not.toHaveBeenCalled();
     });
   });
 
