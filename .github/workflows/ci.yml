@@ -232,9 +232,22 @@ jobs:
       - name: Upload coverage reports
         uses: codecov/codecov-action@v6
         with:
-          files: ./packages/auth/coverage/coverage-final.json,./services/users/coverage/coverage-final.json
+          files: ./packages/auth/coverage/coverage-final.json,./packages/agent-core/coverage/coverage-final.json,./services/users/coverage/coverage-final.json,./services/reservations/coverage/coverage-final.json,./services/agent/coverage/coverage-final.json
           fail_ci_if_error: false
           verbose: true
+
+      - name: Upload coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            packages/auth/coverage/
+            packages/agent-core/coverage/
+            services/users/coverage/
+            services/reservations/coverage/
+            services/agent/coverage/
+          retention-days: 14
 
   migrations:
     name: Validate Migrations
