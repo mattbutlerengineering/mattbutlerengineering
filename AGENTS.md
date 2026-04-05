@@ -27,6 +27,54 @@ pnpm typecheck      # Run tsc across workspace
 pnpm clean          # Wipe artifacts and node_modules
 ```
 
+## Development Flow with Metrics & Continuous Improvement
+
+### Ship Loop (Recommended)
+Run the full automated improvement cycle locally:
+```bash
+mbe ship-loop          # Run 5-minute improvement cycle
+mbe ship-loop --mode aggressive  # Direct push to main (skip PR review)
+```
+
+This runs: audit site → fix issues → push → verify CI → deploy → close.
+
+### Progress Tracking
+Track engineering velocity and health metrics:
+```bash
+mbe progress           # Query GitHub for metrics
+mbe progress --trend  # Show daily/weekly trends
+```
+
+Metrics tracked:
+- Issues created vs closed
+- PRs merged
+- CI pass/fail rate
+- Average cycle time
+
+### Issue Worker (Autonomous)
+Pick up ready issues and implement them:
+```bash
+mbe issue-worker       # Pick up oldest ready issue
+mbe issue-worker --label security  # Filter by label
+```
+
+### Site Audit
+Audit the live site for issues:
+```bash
+mbe site-audit smoke   # Quick regression check
+mbe site-audit sweep   # Weekly full audit
+mbe site-audit scout   # Monthly improvement suggestions
+```
+
+### CI Monitor
+Monitor CI status and auto-fix failures:
+```bash
+mbe ci-monitor        # Check main branch CI
+mbe ci-monitor --fix  # Auto-fix simple failures
+```
+
+---
+
 ## Architecture & Conventions
 
 ### Routing & URLs
