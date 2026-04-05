@@ -50,7 +50,6 @@ Automated system that audits the live site, finds and fixes issues, builds featu
 | `/issue-worker` | Pick up ready issues, implement via `mbe agent run`, create PRs |
 | `/ci-monitor` | Check CI health, auto-fix simple failures, escalate complex ones |
 | `/progress-tracker` | Metrics, self-tuning circuit breaker, trend analysis |
-| `/decompose` | Break a feature into ordered, agent-sized issues for the loop |
 
 ### GitHub Labels (coordination state machine)
 
