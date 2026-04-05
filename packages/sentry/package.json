@@ -27,7 +27,7 @@
   },
   "peerDependencies": {
     "fastify": "^5.8.3",
-    "react": "^18.3.0 || ^19.0.0"
+    "react": "^19.0.0"
   },
   "peerDependenciesMeta": {
     "fastify": {
@@ -45,10 +45,10 @@
   },
   "devDependencies": {
     "@mbe/config": "workspace:*",
-    "@types/node": "^22.0.0",
-    "@types/react": "^19.0.0",
-    "fastify": "^5.8.3",
-    "react": "^19.0.0",
-    "typescript": "^5.9.3"
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "fastify": "catalog:",
+    "react": "catalog:",
+    "typescript": "catalog:"
   }
 }

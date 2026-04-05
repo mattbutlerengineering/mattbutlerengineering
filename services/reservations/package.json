@@ -32,17 +32,17 @@
     "@mbe/types": "workspace:*",
     "@prisma/client": "^6.0.0",
     "@scalar/fastify-api-reference": "^1.44.1",
-    "fastify": "^5.8.3",
+    "fastify": "catalog:",
     "jose": "^5.2.0",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@mbe/config": "workspace:*",
-    "@types/node": "^22.0.0",
-    "@vitest/coverage-v8": "^4.0.18",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "prisma": "^6.0.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.7.3",
-    "vitest": "^4.0.18"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

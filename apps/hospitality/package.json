@@ -37,25 +37,25 @@
     "@mbe/sentry": "workspace:^",
     "@mbe/types": "workspace:*",
     "konva": "^9.3.22",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "react": "catalog:",
+    "react-dom": "catalog:",
     "react-konva": "^19.0.0",
-    "react-router-dom": "^7.1.0"
+    "react-router-dom": "catalog:"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.1",
     "@mbe/config": "workspace:*",
     "@sentry/vite-plugin": "^5.1.1",
-    "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react": "^16.3.0",
+    "@testing-library/jest-dom": "catalog:",
+    "@testing-library/react": "catalog:",
     "@testing-library/user-event": "^14.6.1",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "@vitejs/plugin-react": "^5.0.0",
-    "jsdom": "^26.1.0",
-    "typescript": "^5.9.3",
-    "vite": "^7.0.0",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "jsdom": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
     "vite-plugin-pwa": "^1.2.0",
-    "vitest": "^4.0.18"
+    "vitest": "catalog:"
   }
 }

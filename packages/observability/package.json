@@ -33,11 +33,11 @@
     "@opentelemetry/sdk-node": "^0.200.0",
     "@opentelemetry/sdk-trace-base": "^2.0.0",
     "@opentelemetry/semantic-conventions": "^1.28.0",
-    "fastify": "^5.8.4",
+    "fastify": "catalog:",
     "fastify-plugin": "^5.0.0"
   },
   "devDependencies": {
     "@mbe/config": "workspace:*",
-    "typescript": "^5.9.3"
+    "typescript": "catalog:"
   }
 }
