@@ -51,6 +51,31 @@ Automated system that audits the live site, finds and fixes issues, builds featu
 | `/ci-monitor` | Check CI health, auto-fix simple failures, escalate complex ones |
 | `/progress-tracker` | Metrics, self-tuning circuit breaker, trend analysis |
 
+## mbe CLI Commands
+
+```bash
+# Agent — local (runs directly via @mbe/agent-core)
+mbe agent run "Fix the login bug"                 # Run agent → get PR
+  --model <model>                                 # default: claude-sonnet-4-6
+  --max-budget <usd>                              # default: 1.00
+  --max-turns <n>                                 # default: 50
+  --no-pr                                         # skip PR, keep worktree
+  -v, --verbose                                   # stream agent events
+
+# Agent — API-backed (requires agent service running on :3003)
+mbe agent start "Fix the login bug"               # Create session via API
+mbe agent list                                    # List all sessions
+mbe agent status <id>                             # Get session details
+mbe agent logs <id>                               # Stream SSE events
+mbe agent cancel <id>                             # Cancel running session
+mbe agent delete <id>                             # Delete session + cleanup
+mbe agent orchestrate "Big task"                  # Decompose → parallel sessions → PRs
+
+# Development
+mbe stats                                         # Agent performance metrics
+mbe up                                           # Start dev servers
+```
+
 ### GitHub Labels (coordination state machine)
 
 | Label | Meaning |
