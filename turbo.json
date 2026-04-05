@@ -3,6 +3,7 @@
   "globalDependencies": [
     "pnpm-lock.yaml",
     "tsconfig.base.json",
+    "eslint.config.js",
     "packages/config/**"
   ],
   "globalPassThroughEnv": [
@@ -13,12 +14,26 @@
     "AUTH_AUDIENCE",
     "ANTHROPIC_API_KEY"
   ],
+  "globalEnv": [
+    "TURBO_TOKEN",
+    "TURBO_TEAM"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "inputs": ["src/**", "package.json", "tsconfig.json", "vite.config.ts", "prisma/schema.prisma"],
+      "inputs": [
+        "src/**",
+        "!src/**/*.test.ts",
+        "!src/**/*.test.tsx",
+        "!src/**/*.spec.ts",
+        "!src/**/*.spec.tsx",
+        "package.json",
+        "tsconfig.json",
+        "vite.config.ts",
+        "prisma/schema.prisma"
+      ],
       "outputs": ["dist/**", "generated/**", ".next/**", "!.next/cache/**"],
-      "env": ["VITE_*"]
+      "env": ["VITE_*", "PUBLIC_*"]
     },
     "dev": {
       "cache": false,
@@ -26,11 +41,13 @@
     },
     "lint": {
       "dependsOn": ["^build"],
-      "inputs": ["src/**", "package.json", "eslint.config.js", "../../eslint.config.js"]
+      "inputs": ["src/**", "package.json", "eslint.config.js", "../../eslint.config.js"],
+      "outputs": [".eslintcache"]
     },
     "typecheck": {
       "dependsOn": ["^build"],
-      "inputs": ["src/**", "package.json", "tsconfig.json", "../../packages/config/typescript/**"]
+      "inputs": ["src/**", "package.json", "tsconfig.json", "../../packages/config/typescript/**"],
+      "outputs": ["*.tsbuildinfo"]
     },
     "test": {
       "dependsOn": ["build"],
