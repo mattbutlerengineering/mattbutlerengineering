@@ -1,1 +1,5 @@
+# Skip in worktrees or CI where node_modules may not exist
+command -v tsx >/dev/null 2>&1 || exit 0
+[ -d "node_modules" ] || exit 0
+
 pnpm --filter @mbe/cli start pack-changed --mode checkout
