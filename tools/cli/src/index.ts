@@ -11,6 +11,7 @@ import { statsCommand, logSessionCommand, auditPerfCommand } from "./commands/st
 import { syncRulesCommand } from "./commands/sync-rules.js";
 import { loopCommand } from "./commands/loop.js";
 import { checkAdrCommand } from "./commands/adr.js";
+import { upCommand } from "./commands/up.js";
 
 const program = new Command();
 
@@ -34,6 +35,7 @@ program.addCommand(loopCommand);
 
 // Scaffold commands
 program.addCommand(newCommand);
+program.addCommand(upCommand);
 
 // Context commands
 program.addCommand(packCommand);

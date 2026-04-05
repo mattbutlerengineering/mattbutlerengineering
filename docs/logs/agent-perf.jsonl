@@ -7,3 +7,4 @@
 {"timestamp":"2026-04-05T00:38:25.909Z","sessionId":"structured-adr-impl","milestone":"v1.4","modelId":"claude-sonnet-4-6","researchTurns":1,"executionTurns":10,"totalTurns":11,"firstPassSuccess":true,"humanInterventions":0,"costUsd":0.15}
 {"timestamp":"2026-04-05T00:39:56.110Z","sessionId":"custom-eslint-rules-impl","milestone":"v1.3","modelId":"claude-sonnet-4-6","researchTurns":2,"executionTurns":15,"totalTurns":17,"firstPassSuccess":true,"humanInterventions":0,"costUsd":0.22}
 {"timestamp":"2026-04-05T00:46:14.944Z","sessionId":"strict-zod-enforcement-impl","milestone":"v1.3","modelId":"claude-sonnet-4-6","researchTurns":2,"executionTurns":15,"totalTurns":17,"firstPassSuccess":true,"humanInterventions":0,"costUsd":0.22}
+{"timestamp":"2026-04-05T00:49:14.062Z","sessionId":"unified-up-and-adr-impl","milestone":"v1.3","modelId":"claude-sonnet-4-6","researchTurns":2,"executionTurns":12,"totalTurns":14,"firstPassSuccess":true,"humanInterventions":0,"costUsd":0.18}

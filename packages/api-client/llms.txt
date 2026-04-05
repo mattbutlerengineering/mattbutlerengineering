@@ -1,0 +1,221 @@
+<codebase path="packages/api-client">
+  <file path="src/venues.ts">
+    class VenuesClient {
+      constructor(private client: ApiClient) { /* implementation omitted */ }
+      async list(params: { page?: number; limit?: number; venueGroupId?: string } = {}): Promise<PaginatedResponse<Venue>> { /* implementation omitted */ }
+      async get(id: string): Promise<Venue> { /* implementation omitted */ }
+      async getBySlug(slug: string): Promise<Venue> { /* implementation omitted */ }
+      async create(data: CreateVenueRequest): Promise<Venue> { /* implementation omitted */ }
+      async update(id: string, data: UpdateVenueRequest): Promise<Venue> { /* implementation omitted */ }
+      async delete(id: string): Promise<void> { /* implementation omitted */ }
+    }
+    class VenueGroupsClient {
+      constructor(private client: ApiClient) { /* implementation omitted */ }
+      async list(page = 1, limit = 10): Promise<PaginatedResponse<VenueGroup>> { /* implementation omitted */ }
+      async get(id: string): Promise<VenueGroup> { /* implementation omitted */ }
+      async getBySlug(slug: string): Promise<VenueGroup> { /* implementation omitted */ }
+      async create(data: CreateVenueGroupRequest): Promise<VenueGroup> { /* implementation omitted */ }
+      async update(id: string, data: UpdateVenueGroupRequest): Promise<VenueGroup> { /* implementation omitted */ }
+      async delete(id: string): Promise<void> { /* implementation omitted */ }
+    }
+  </file>
+  <file path="src/users.ts">
+    class UsersClient {
+      constructor(private client: ApiClient) { /* implementation omitted */ }
+      async list(page = 1, limit = 10): Promise<PaginatedResponse<User>> { /* implementation omitted */ }
+      async get(id: string): Promise<User> { /* implementation omitted */ }
+      async me(): Promise<User> { /* implementation omitted */ }
+      async create(data: CreateUserRequest): Promise<User> { /* implementation omitted */ }
+      async update(id: string, data: UpdateUserRequest): Promise<User> { /* implementation omitted */ }
+      async delete(id: string): Promise<void> { /* implementation omitted */ }
+      async updatePreferences(preferences: UpdatePreferencesRequest): Promise<User> { /* implementation omitted */ }
+    }
+  </file>
+  <file path="src/tables.ts">
+    export interface ListTablesParams {
+      page?: number;
+      limit?: number;
+      venueId?: string;
+      activeOnly?: boolean;
+    }
+    class TablesClient {
+      constructor(private client: ApiClient) { /* implementation omitted */ }
+      async list(params: ListTablesParams = {}): Promise<PaginatedResponse<Table>> { /* implementation omitted */ }
+      async get(id: string): Promise<Table> { /* implementation omitted */ }
+      async create(data: CreateTableRequest): Promise<Table> { /* implementation omitted */ }
+      async update(id: string, data: UpdateTableRequest): Promise<Table> { /* implementation omitted */ }
+      async delete(id: string): Promise<void> { /* implementation omitted */ }
+      async updateStatus(id: string, status: string): Promise<Table> { /* implementation omitted */ }
+    }
+  </file>
+  <file path="src/reservations.ts">
+    export interface ListReservationsParams {
+      page?: number;
+      limit?: number;
+      date?: string;
+      status?: ReservationStatus;
+      tableId?: string;
+      venueId?: string;
+      guestId?: string;
+    }
+    class ReservationsClient {
+      constructor(private client: ApiClient) { /* implementation omitted */ }
+      async list(params: ListReservationsParams = {}): Promise<PaginatedResponse<Reservation>> { /* implementation omitted */ }
+      async me(page = 1, limit = 10): Promise<PaginatedResponse<Reservation>> { /* implementation omitted */ }
+      async get(id: string): Promise<Reservation> { /* implementation omitted */ }
+      async create(data: CreateReservationRequest): Promise<Reservation> { /* implementation omitted */ }
+      async update(id: string, data: UpdateReservationRequest): Promise<Reservation> { /* implementation omitted */ }
+      async cancel(id: string): Promise<Reservation> { /* implementation omitted */ }
+      async cancelWithReason(
+        id: string,
+        reason?: { cancellationReason?: string; cancellationNote?: string }
+      ): Promise<Reservation> { /* implementation omitted */ }
+      async walkIn(data: {
+        partySize: number;
+        tableId: string;
+        venueId: string;
+        guestName?: string;
+        durationMinutes?: number;
+      }): Promise<Reservation> { /* implementation omitted */ }
+    }
+  </file>
+  <file path="src/index.ts">
+    export function createApiClient(config: {
+      baseUrl?: string;
+      getAccessToken?: () => string | null | Promise<string | null>;
+      timeout?: number;
+      maxRetries?: number;
+    }) { /* implementation omitted */ }
+  </file>
+  <file path="src/guests.ts">
+    export interface FindOrCreateGuestRequest {
+      venueId: string;
+      email?: string;
+      phone?: string;
+      name: string;
+    }
+    export interface ListGuestsParams {
+      page?: number;
+      limit?: number;
+      venueId: string;
+    }
+    export interface SearchGuestsParams {
+      venueId: string;
+      query?: string;
+      hasNotVisitedInDays?: number;
+    }
+    class GuestsClient {
+      constructor(private client: ApiClient) { /* implementation omitted */ }
+      async list(params: ListGuestsParams): Promise<PaginatedResponse<Guest>> { /* implementation omitted */ }
+      async search(params: SearchGuestsParams): Promise<PaginatedResponse<Guest>> { /* implementation omitted */ }
+      async getSegments(venueId: string): Promise<GuestSegment[]> { /* implementation omitted */ }
+      async get(id: string): Promise<Guest> { /* implementation omitted */ }
+      async create(data: CreateGuestRequest): Promise<Guest> { /* implementation omitted */ }
+      async findOrCreate(data: FindOrCreateGuestRequest): Promise<Guest> { /* implementation omitted */ }
+      async update(id: string, data: UpdateGuestRequest): Promise<Guest> { /* implementation omitted */ }
+      async delete(id: string): Promise<void> { /* implementation omitted */ }
+    }
+  </file>
+  <file path="src/floor-plans.ts">
+    export interface ListFloorPlansParams {
+      page?: number;
+      limit?: number;
+      venueId?: string;
+    }
+    class FloorPlansClient {
+      constructor(private client: ApiClient) { /* implementation omitted */ }
+      async list(params: ListFloorPlansParams = {}): Promise<PaginatedResponse<FloorPlan>> { /* implementation omitted */ }
+      async get(id: string): Promise<FloorPlan> { /* implementation omitted */ }
+      async getActiveByVenueId(venueId: string): Promise<FloorPlan> { /* implementation omitted */ }
+      async create(data: CreateFloorPlanRequest): Promise<FloorPlan> { /* implementation omitted */ }
+      async update(id: string, data: UpdateFloorPlanRequest): Promise<FloorPlan> { /* implementation omitted */ }
+      async activate(id: string): Promise<FloorPlan> { /* implementation omitted */ }
+      async delete(id: string): Promise<void> { /* implementation omitted */ }
+      async bulkUpdatePositions(positions: UpdateTablePositionRequest[]): Promise<Table[]> { /* implementation omitted */ }
+      async assignTable(
+        tableId: string,
+        floorPlanId: string,
+        position: { x: number; y: number }
+      ): Promise<Table> { /* implementation omitted */ }
+      async removeTable(tableId: string): Promise<Table> { /* implementation omitted */ }
+    }
+  </file>
+  <file path="src/client.ts">
+    export interface ClientConfig {
+      baseUrl: string;
+      getAccessToken?: () => string | null | Promise<string | null>;
+      timeout?: number;
+      maxRetries?: number;
+    }
+    export interface RequestOptions extends RequestInit {
+      signal?: AbortSignal;
+    }
+    class ApiClient {
+      constructor(private config: ClientConfig) { /* implementation omitted */ }
+      async request<T>(
+        path: string, 
+        options: RequestOptions = {}, 
+        schema?: z.ZodSchema<T>
+      ): Promise<T> { /* implementation omitted */ }
+      get<T>(path: string, schema?: z.ZodSchema<T>): Promise<T> { /* implementation omitted */ }
+      post<T>(path: string, body: unknown, schema?: z.ZodSchema<T>): Promise<T> { /* implementation omitted */ }
+      patch<T>(path: string, body: unknown, schema?: z.ZodSchema<T>): Promise<T> { /* implementation omitted */ }
+      delete(path: string): Promise<void> { /* implementation omitted */ }
+    }
+    class ApiClientError {
+      constructor(
+        public response: ApiError,
+        public method?: string,
+        public path?: string
+      ) { /* implementation omitted */ }
+    }
+    class ApiValidationError {
+      constructor(
+        public error: z.ZodError,
+        public method?: string,
+        public path?: string
+      ) { /* implementation omitted */ }
+    }
+    function createCombinedSignal(
+      timeoutMs: number,
+      callerSignal?: AbortSignal | null
+    ): AbortSignal { /* implementation omitted */ }
+    function isRetryableError(error: unknown): boolean { /* implementation omitted */ }
+    function isRetryableStatus(status: number): boolean { /* implementation omitted */ }
+    function getBackoffMs(attempt: number): number { /* implementation omitted */ }
+    function sleep(ms: number): Promise<void> { /* implementation omitted */ }
+    async function fetchWithRetry(
+      url: string,
+      options: RequestInit,
+      maxRetries: number
+    ): Promise<Response> { /* implementation omitted */ }
+  </file>
+  <file path="src/availability.ts">
+    export interface GetTimeSlotsParams {
+      venueId: string;
+      date: string;
+      partySize: number;
+      duration?: number;
+    }
+    export interface GetDatesParams {
+      venueId: string;
+      startDate: string;
+      endDate: string;
+      partySize: number;
+    }
+    class AvailabilityClient {
+      constructor(private client: ApiClient) { /* implementation omitted */ }
+      async getTimeSlots(params: GetTimeSlotsParams): Promise<TimeSlot[]> { /* implementation omitted */ }
+      async getDates(params: GetDatesParams): Promise<DateAvailability[]> { /* implementation omitted */ }
+    }
+    class HoldsClient {
+      constructor(private client: ApiClient) { /* implementation omitted */ }
+      setSessionId(sessionId: string): void { /* implementation omitted */ }
+      getSessionId(): string | null { /* implementation omitted */ }
+      async create(data: CreateHoldRequest): Promise<{ hold: ReservationHold; sessionId: string }> { /* implementation omitted */ }
+      async get(id: string): Promise<ReservationHold> { /* implementation omitted */ }
+      async release(id: string): Promise<void> { /* implementation omitted */ }
+      async confirm(id: string, details: ConfirmHoldRequest): Promise<Reservation> { /* implementation omitted */ }
+    }
+  </file>
+</codebase>

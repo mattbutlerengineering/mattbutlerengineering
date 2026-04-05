@@ -61,8 +61,8 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 - [x] **Phase 21: Gemini Intelligence Context (GEMINI.md)** — Create high-density architectural and operational context
 - [x] **Phase 22: Service-Level LLM Context** — Service-specific llms.txt endpoints/schemas
 - [ ] **Phase 23: Standardized Agent Error Schema** — RFC 7807 problem details
-- [ ] **Phase 24: Unified "mbe up" Bootstrapping** — Orchestrated local dev setup
-- [ ] **Phase 25: Architecture Decision Records** — Systematic ADR tracking
+- [x] **Phase 24: Unified "mbe up" Bootstrapping** — Orchestrated local dev setup
+- [x] **Phase 25: Architecture Decision Records** — Systematic ADR tracking
 - [ ] **Phase 26: Automated AI Regression Testing** — CI validation for Gen UI pipeline
 - [x] **Phase 27: Custom ESLint AST Rules** — Enforce project-specific architectural patterns
 - [x] **Phase 28: Strict Internal Zod Schema Enforcement** — Strongly typed and validated boundaries
@@ -94,9 +94,14 @@ Full details: [milestones/v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md)
 |-------|-----------|----------------|--------|-----------|
 | 1. Rialto-Web Migration | v1.0 | 3/3 | Complete | 2026-02-28 |
 ...
+| 23. Standardized Agent Error Schema | v1.3 | 0/1 | Todo | - |
+| 24. Unified "mbe up" Bootstrapping | v1.3 | 1/1 | Complete | 2026-04-04 |
+| 25. Architecture Decision Records | v1.3 | 1/1 | Complete | 2026-04-04 |
+| 26. Automated AI Regression Testing | v1.3 | 0/1 | Todo | - |
 | 27. Custom ESLint AST Rules | v1.3 | 1/1 | Complete | 2026-04-04 |
 | 28. Strict Internal Zod Schema Enforcement | v1.3 | 1/1 | Complete | 2026-04-04 |
 | 29. Agent Success Rate Tracking | v1.3 | 0/1 | Todo | - |
 ...
+| 38. The Context Guard | v1.4 | 1/1 | Complete | 2026-04-04 |
 | 39. Structured ADRs | v1.4 | 1/1 | Complete | 2026-04-04 |
 | 40. Model Governance & Verification | v1.4 | 1/1 | Complete | 2026-04-04 |
