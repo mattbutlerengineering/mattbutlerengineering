@@ -14,8 +14,8 @@
   },
   "devDependencies": {
     "@mbe/config": "workspace:*",
-    "@types/node": "^22.0.0",
+    "@types/node": "catalog:",
     "tsx": "^4.19.0",
-    "typescript": "^5.6.0"
+    "typescript": "catalog:"
   }
 }
