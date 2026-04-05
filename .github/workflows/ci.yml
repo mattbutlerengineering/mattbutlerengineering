@@ -170,7 +170,9 @@ jobs:
         run: node scripts/check-env-sync.js
 
       - name: Audit dependencies for vulnerabilities
-        run: pnpm audit --audit-level=high || echo "::warning::Dependency audit found high/critical vulnerabilities — see output above"
+        run: |
+          pnpm audit --audit-level=critical || { echo "::error::Critical vulnerability found"; exit 1; }
+          pnpm audit --audit-level=high || echo "::warning::High-severity audit issues found — review before merging"
 
       - name: Check Dockerfile dependencies
         run: node scripts/check-dockerfile-deps.js
