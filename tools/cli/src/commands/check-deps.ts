@@ -29,7 +29,12 @@ export const checkDepsCommand = new Command("check-deps")
 
     const packageFiles = await glob("**/package.json", {
       cwd: root,
-      ignore: ["**/node_modules/**", "**/dist/**", "**/generated/**"],
+      ignore: [
+        "**/node_modules/**",
+        "**/dist/**",
+        "**/generated/**",
+        "**/.claude/worktrees/**",
+      ],
     });
 
     const dependencyMap = new Map<string, Map<string, string>>();
@@ -41,11 +46,13 @@ export const checkDepsCommand = new Command("check-deps")
       const allDeps = {
         ...pkg.dependencies,
         ...pkg.devDependencies,
-        ...pkg.peerDependencies,
+        // peerDependencies intentionally omitted: they express compatibility
+        // ranges for consumers, not resolved versions, so they should not be
+        // compared against other packages' pinned or catalog versions.
       };
 
       for (const [name, version] of Object.entries(allDeps as Record<string, string>)) {
-        if (version.startsWith("workspace:")) continue;
+        if (version.startsWith("workspace:") || version.startsWith("catalog:")) continue;
         
         if (!dependencyMap.has(name)) {
           dependencyMap.set(name, new Map());
