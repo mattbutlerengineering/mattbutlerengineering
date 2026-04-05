@@ -1,16 +1,12 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.2
-milestone_name: Generative UI
+milestone: v1.6
+milestone_name: Continuous Verification & DevEx
 status: completed
-stopped_at: Completed 18-01-PLAN.md
-last_updated: "2026-03-28T20:39:49.325Z"
+stopped_at: Completed 49-01-PLAN.md
+last_updated: "2026-04-05T04:09:36.311Z"
 last_activity: 2026-03-28 — Phase 18 complete, v1.2 Generative UI milestone complete
 progress:
-  total_phases: 7
-  completed_phases: 7
-  total_plans: 15
-  completed_plans: 15
   percent: 100
 ---
 
@@ -32,8 +28,8 @@ Last activity: 2026-03-28 — Phase 18 complete, v1.2 Generative UI milestone co
 
 Progress: [██████████] 100%
 
-Last session: 2026-03-28T18:53:18Z
-Stopped at: Completed 18-01-PLAN.md
+Last session: 2026-04-05T04:09:36.310Z
+Stopped at: Completed 49-01-PLAN.md
 
 ## Performance Metrics
 
@@ -60,6 +56,7 @@ Stopped at: Completed 18-01-PLAN.md
 | Phase 16-persistence-and-refinement P02 | 3 | 2 tasks | 6 files |
 | Phase 16-persistence-and-refinement P03 | 226 | 2 tasks | 8 files |
 | Phase 18 P01 | 4 | 2 tasks | 5 files |
+| Phase 49-dependency-synchronization P01 | 426 | 2 tasks | 23 files |
 
 ## Accumulated Context
 
@@ -124,6 +121,8 @@ Phase 15 Plan 01 decisions:
 - [Phase 18-01]: @pulumi/cloudflare v6 renames cloudflare.Record to cloudflare.DnsRecord and WorkersRoute scriptName to script
 - [Phase 18-01]: WorkersScript v6 uses unified bindings[] array with type field instead of separate plainTextBindings/serviceBindings
 - [Phase 18-01]: Gen Worker uses assets-only WorkersScript (no content/mainModule) with assets.directory relative to infrastructure/pulumi/
+- [Phase 49-dependency-synchronization]: peerDependencies excluded from check-deps drift audit — they express compatibility ranges, not resolved versions
+- [Phase 49-dependency-synchronization]: auth/sentry react peerDep narrowed from ^18.3.0 || ^19.0.0 to ^19.0.0 — monorepo is React 19 only
 
 ### Pending Todos
 
