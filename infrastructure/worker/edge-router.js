@@ -11,25 +11,32 @@
  * Static site Workers are called via Service Bindings (env.BINDING.fetch()),
  * which bypass the CDN entirely — eliminating stale HTML after deploys.
  */
-const SECURITY_HEADERS = {
-  "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
-  "X-Frame-Options": "DENY",
-  "X-Content-Type-Options": "nosniff",
-  "X-XSS-Protection": "0",
-  "Referrer-Policy": "strict-origin-when-cross-origin",
-  "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
-  "Content-Security-Policy": [
-    "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "img-src 'self' data: https:",
-    "font-src 'self' https://fonts.gstatic.com",
-    "connect-src 'self' https://dev-ytbgmz5ls3wh4xdx.us.auth0.com https://api.mattbutlerengineering.com https://cloudflareinsights.com",
-    "frame-ancestors 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-  ].join("; "),
-};
+/**
+ * Build security headers with a per-request nonce for CSP script-src.
+ * The nonce replaces 'unsafe-inline', preventing injected scripts from
+ * executing while allowing our own <script nonce="..."> tags to run.
+ */
+function buildSecurityHeaders(nonce) {
+  return {
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+    "X-Frame-Options": "DENY",
+    "X-Content-Type-Options": "nosniff",
+    "X-XSS-Protection": "0",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+    "Content-Security-Policy": [
+      "default-src 'self'",
+      `script-src 'nonce-${nonce}' 'self' https://static.cloudflareinsights.com`,
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "img-src 'self' data: https:",
+      "font-src 'self' https://fonts.gstatic.com",
+      "connect-src 'self' https://dev-ytbgmz5ls3wh4xdx.us.auth0.com https://api.mattbutlerengineering.com https://cloudflareinsights.com",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join("; "),
+  };
+}
 
 /**
  * Determine the correct Cache-Control header based on the request path.
@@ -47,13 +54,23 @@ function cacheControlFor(pathname) {
 }
 
 /**
- * Clone a response, append security headers, and set cache headers.
+ * Generate a cryptographically random nonce for CSP.
+ * Uses crypto.randomUUID() and strips hyphens for a compact base16 string.
+ */
+function generateNonce() {
+  return crypto.randomUUID().replace(/-/g, "");
+}
+
+/**
+ * Clone a response, append security headers, set cache headers,
+ * and inject nonce into <script> tags for HTML responses.
  * Used for static site responses only (not API proxy).
  */
-function addHeaders(response, pathname) {
+function addHeaders(response, pathname, nonce) {
+  const securityHeaders = buildSecurityHeaders(nonce);
   const headers = new Headers(response.headers);
 
-  for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
+  for (const [key, value] of Object.entries(securityHeaders)) {
     headers.set(key, value);
   }
 
@@ -68,6 +85,21 @@ function addHeaders(response, pathname) {
     }
   }
 
+  const contentType = headers.get("Content-Type") || "";
+  if (contentType.includes("text/html")) {
+    // Use HTMLRewriter to inject nonce into all <script> tags
+    const rewritten = new HTMLRewriter()
+      .on("script", new NonceInjector(nonce))
+      .transform(
+        new Response(response.body, {
+          status: response.status,
+          statusText: response.statusText,
+          headers,
+        })
+      );
+    return rewritten;
+  }
+
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -76,9 +108,24 @@ function addHeaders(response, pathname) {
 }
 
 /**
+ * HTMLRewriter element handler that adds a nonce attribute to <script> tags.
+ * This allows Vite-injected inline scripts (module preloads, etc.) to execute
+ * under the nonce-based CSP while blocking any attacker-injected scripts.
+ */
+class NonceInjector {
+  constructor(nonce) {
+    this.nonce = nonce;
+  }
+
+  element(el) {
+    el.setAttribute("nonce", this.nonce);
+  }
+}
+
+/**
  * Return a branded error page for service failures.
  */
-function brandedErrorPage(statusCode, message, requestId) {
+function brandedErrorPage(statusCode, message, requestId, nonce = "") {
   const statusMessages = {
     502: "Service temporarily unavailable",
     503: "Service temporarily unavailable",
@@ -162,15 +209,17 @@ function brandedErrorPage(statusCode, message, requestId) {
     <p><a href="/" class="link">Return to homepage</a></p>
     <p class="refresh">Refreshing automatically in 30 seconds...</p>
   </div>
-  <script>setTimeout(() => location.reload(), 30000);</script>
+  <script nonce="${nonce}">setTimeout(() => location.reload(), 30000);</script>
 </body>
 </html>`;
 
+  const securityHeaders = nonce ? buildSecurityHeaders(nonce) : {};
   return new Response(html, {
     status: statusCode,
     headers: {
       "Content-Type": "text/html; charset=UTF-8",
       "Cache-Control": "no-store",
+      ...securityHeaders,
     },
   });
 }
@@ -534,6 +583,9 @@ export default {
     const clientRequestId = request.headers.get("x-request-id");
     const requestId = clientRequestId || crypto.randomUUID();
 
+    // Generate a per-request nonce for CSP script-src
+    const nonce = generateNonce();
+
     // ── Health aggregation endpoint ───────────────────────────────────
     if (url.pathname === "/health/system") {
       return handleHealthSystem(request, env, requestId);
@@ -552,7 +604,8 @@ export default {
           `https://${bare}${url.pathname}${url.search}`,
           301
         ),
-        url.pathname
+        url.pathname,
+        nonce
       );
     }
 
@@ -564,7 +617,8 @@ export default {
           `https://${url.hostname}/hospitality${rest}`,
           301
         ),
-        url.pathname
+        url.pathname,
+        nonce
       );
     }
 
@@ -596,12 +650,12 @@ export default {
         );
       } catch (error) {
         console.error("API proxy error:", error.message);
-        return brandedErrorPage(503, "Service unreachable", requestId);
+        return brandedErrorPage(503, "Service unreachable", requestId, nonce);
       }
 
       // If API returns 5xx, show branded error
       if (apiResponse.status >= 500) {
-        return brandedErrorPage(apiResponse.status, "Service error", requestId);
+        return brandedErrorPage(apiResponse.status, "Service error", requestId, nonce);
       }
 
       // Pass through the response (including 4xx which should show app error pages)
@@ -624,7 +678,8 @@ export default {
           `https://${url.hostname}${url.pathname}/${url.search}`,
           301
         ),
-        url.pathname
+        url.pathname,
+        nonce
       );
     }
 
@@ -664,12 +719,12 @@ export default {
       response = await binding.fetch(appRequest);
     } catch (error) {
       console.error(`Static site error (${prefix || "marketing"}):`, error.message);
-      return brandedErrorPage(503, "Service temporarily unavailable", requestId);
+      return brandedErrorPage(503, "Service temporarily unavailable", requestId, nonce);
     }
 
     // If static site returns 5xx, show branded error
     if (response.status >= 500) {
-      return brandedErrorPage(response.status, "Service error", requestId);
+      return brandedErrorPage(response.status, "Service error", requestId, nonce);
     }
 
     // Rewrite Location headers so redirects use the public domain with prefix.
@@ -689,7 +744,8 @@ export default {
               statusText: response.statusText,
               headers: rewritten,
             }),
-            url.pathname
+            url.pathname,
+            nonce
           );
         }
       } catch {
@@ -697,6 +753,6 @@ export default {
       }
     }
 
-    return addHeaders(response, url.pathname);
+    return addHeaders(response, url.pathname, nonce);
   },
 };
