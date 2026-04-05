@@ -1,10 +1,20 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": [
+    "pnpm-lock.yaml",
+    "tsconfig.base.json",
+    "packages/config/**"
+  ],
+  "globalPassThroughEnv": [
+    "CI",
+    "NODE_ENV"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["src/**", "package.json", "tsconfig.json", "vite.config.ts", "prisma/schema.prisma"],
-      "outputs": ["dist/**", "generated/**", ".next/**", "!.next/cache/**"]
+      "outputs": ["dist/**", "generated/**", ".next/**", "!.next/cache/**"],
+      "env": ["VITE_*"]
     },
     "dev": {
       "cache": false,
@@ -28,7 +38,8 @@
     },
     "test:coverage": {
       "dependsOn": ["build"],
-      "outputs": ["coverage/**"]
+      "outputs": ["coverage/**"],
+      "passThroughEnv": ["DATABASE_URL"]
     },
     "clean": {
       "cache": false
