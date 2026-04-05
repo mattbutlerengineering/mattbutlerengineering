@@ -10,6 +10,7 @@
     "build": "tsc",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "start": "tsx src/index.ts"
   },
   "dependencies": {
@@ -27,6 +28,7 @@
     "@types/js-yaml": "^4.0.9",
     "@types/node": "catalog:",
     "tsx": "^4.19.0",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }
