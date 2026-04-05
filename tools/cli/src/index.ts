@@ -13,6 +13,7 @@ import { loopCommand } from "./commands/loop.js";
 import { checkAdrCommand } from "./commands/adr.js";
 import { upCommand } from "./commands/up.js";
 import { waveCommand } from "./commands/wave.js";
+import { generateCommand } from "./commands/generate.js";
 
 const program = new Command();
 
@@ -38,6 +39,7 @@ program.addCommand(waveCommand);
 // Scaffold commands
 program.addCommand(newCommand);
 program.addCommand(upCommand);
+program.addCommand(generateCommand);
 
 // Context commands
 program.addCommand(packCommand);
