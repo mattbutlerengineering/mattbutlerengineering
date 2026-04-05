@@ -3,3 +3,8 @@
 
 pnpm lint-staged
 pnpm --filter @mbe/cli start check-adr
+
+# Secret scanning — skip if gitleaks is not installed
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks protect --staged --config .gitleaks.toml --verbose
+fi
