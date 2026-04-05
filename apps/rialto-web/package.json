@@ -10,8 +10,22 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test:a11y": "playwright test --config playwright.config.ts e2e/a11y.test.ts"
+    "test:a11y": "playwright test --config playwright.config.ts e2e/a11y.test.ts",
+    "size": "size-limit",
+    "size:check": "size-limit"
   },
+  "size-limit": [
+    {
+      "name": "Rialto Web App (JS)",
+      "path": "dist/assets/index-*.js",
+      "limit": "700 kB"
+    },
+    {
+      "name": "Rialto Web App (CSS)",
+      "path": "dist/assets/index-*.css",
+      "limit": "30 kB"
+    }
+  ],
   "dependencies": {
     "@mbe/rialto": "workspace:*",
     "@mbe/sentry": "workspace:^",
