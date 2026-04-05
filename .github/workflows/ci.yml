@@ -33,6 +33,9 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  # ──────────────────────────────────────────────────────────────────────────
+  # Core CI — runs on push to main and all PRs
+  # ──────────────────────────────────────────────────────────────────────────
   prepare:
     name: Prepare
     runs-on: ubuntu-latest
@@ -340,3 +343,593 @@ jobs:
             -H "Authorization: Bearer ${CF_API_TOKEN}" \
             -H "Content-Type: application/json" \
             -d "$PAYLOAD"
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # PR-only: Static analysis (formerly pr-quality-check.yml)
+  # ──────────────────────────────────────────────────────────────────────────
+  static-analysis:
+    name: Static Analysis
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Get PR diff
+        id: diff
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh pr diff "$PR_NUMBER" > /tmp/pr.diff
+          ADDED=$(grep -c '^+[^+]' /tmp/pr.diff || true)
+          REMOVED=$(grep -c '^-[^-]' /tmp/pr.diff || true)
+          echo "added=$ADDED" >> "$GITHUB_OUTPUT"
+          echo "removed=$REMOVED" >> "$GITHUB_OUTPUT"
+
+      - name: Run static analysis rules
+        id: analysis
+        run: |
+          ERRORS=0
+          WARNINGS=0
+          REPORT=""
+
+          CURRENT_FILE=""
+          LINE_NUM=0
+
+          while IFS= read -r line; do
+            # Track current file
+            if [[ "$line" == "+++ b/"* ]]; then
+              CURRENT_FILE="${line#+++ b/}"
+              continue
+            fi
+
+            # Track line numbers from hunk headers
+            if [[ "$line" == "@@"* ]]; then
+              LINE_NUM=$(echo "$line" | grep -oP '\+\K\d+' | head -1)
+              continue
+            fi
+
+            # Only check added lines
+            if [[ "$line" != "+"* ]] || [[ "$line" == "+++"* ]]; then
+              if [[ "$line" != "-"* ]] && [[ "$line" != "diff "* ]]; then
+                LINE_NUM=$((LINE_NUM + 1))
+              fi
+              continue
+            fi
+
+            CONTENT="${line:1}"
+
+            # Rule: no-console-log (error) — .ts/.tsx/.js/.jsx only
+            if [[ "$CURRENT_FILE" =~ \.(ts|tsx|js|jsx)$ ]] && echo "$CONTENT" | grep -qP 'console\.log\('; then
+              REPORT="${REPORT}ERROR  ${CURRENT_FILE}:${LINE_NUM}  [no-console-log] Use proper logger\n"
+              ERRORS=$((ERRORS + 1))
+            fi
+
+            # Rule: no-hardcoded-url (error)
+            if [[ "$CURRENT_FILE" =~ \.(ts|tsx|js|jsx)$ ]] && echo "$CONTENT" | grep -qP 'https?://(localhost|127\.0\.0\.1)'; then
+              REPORT="${REPORT}ERROR  ${CURRENT_FILE}:${LINE_NUM}  [no-hardcoded-url] Use env vars\n"
+              ERRORS=$((ERRORS + 1))
+            fi
+
+            # Rule: no-empty-catch (error)
+            if [[ "$CURRENT_FILE" =~ \.(ts|tsx|js|jsx)$ ]] && echo "$CONTENT" | grep -qP 'catch\s*\([^)]*\)\s*\{\s*\}'; then
+              REPORT="${REPORT}ERROR  ${CURRENT_FILE}:${LINE_NUM}  [no-empty-catch] Log or rethrow\n"
+              ERRORS=$((ERRORS + 1))
+            fi
+
+            # Rule: img-missing-alt (error)
+            if echo "$CONTENT" | grep -qP '<img(?![^>]*\balt=)[^>]*>'; then
+              REPORT="${REPORT}ERROR  ${CURRENT_FILE}:${LINE_NUM}  [img-missing-alt] Add alt attribute\n"
+              ERRORS=$((ERRORS + 1))
+            fi
+
+            # Rule: no-any-type (warning) — .ts/.tsx only
+            if [[ "$CURRENT_FILE" =~ \.(ts|tsx)$ ]] && echo "$CONTENT" | grep -qP ':\s*any\b'; then
+              REPORT="${REPORT}WARN   ${CURRENT_FILE}:${LINE_NUM}  [no-any-type] Use specific type\n"
+              WARNINGS=$((WARNINGS + 1))
+            fi
+
+            LINE_NUM=$((LINE_NUM + 1))
+          done < /tmp/pr.diff
+
+          echo "errors=$ERRORS" >> "$GITHUB_OUTPUT"
+          echo "warnings=$WARNINGS" >> "$GITHUB_OUTPUT"
+
+          echo "### Static Analysis: ${ERRORS} error(s), ${WARNINGS} warning(s)" >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$REPORT" ]; then
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            echo -e "$REPORT" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No violations found." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          # Save report for comment step
+          if [ -n "$REPORT" ]; then
+            echo -e "$REPORT" > /tmp/violations.txt
+          fi
+
+      - name: Post review comment
+        if: steps.analysis.outputs.errors != '0' || steps.analysis.outputs.warnings != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          ERROR_COUNT: ${{ steps.analysis.outputs.errors }}
+          WARNING_COUNT: ${{ steps.analysis.outputs.warnings }}
+        run: |
+          VIOLATIONS=$(cat /tmp/violations.txt 2>/dev/null || echo "")
+          gh pr comment "$PR_NUMBER" --body "## Static Analysis
+
+          **${ERROR_COUNT} error(s), ${WARNING_COUNT} warning(s)**
+
+          \`\`\`
+          ${VIOLATIONS}
+          \`\`\`
+
+          Errors block merge. Warnings are informational.
+
+          *Automated by CI*"
+
+      - name: Fail on errors
+        if: steps.analysis.outputs.errors != '0'
+        env:
+          ERROR_COUNT: ${{ steps.analysis.outputs.errors }}
+        run: |
+          echo "::error::Static analysis found ${ERROR_COUNT} error(s)"
+          exit 1
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # PR-only: Detect which frontend apps changed (for Lighthouse gating)
+  # Formerly the first job in lighthouse-ci.yml
+  # ──────────────────────────────────────────────────────────────────────────
+  detect-changes:
+    name: Detect Changes
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      marketing: ${{ steps.result.outputs.marketing }}
+      hospitality: ${{ steps.result.outputs.hospitality }}
+      rialto-web: ${{ steps.result.outputs.rialto-web }}
+      frontend-changed: ${{ steps.result.outputs.marketing == 'true' || steps.result.outputs.hospitality == 'true' || steps.result.outputs.rialto-web == 'true' }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            marketing:
+              - 'apps/marketing/**'
+              - 'packages/rialto/**'
+            hospitality:
+              - 'apps/hospitality/**'
+              - 'packages/rialto/**'
+              - 'packages/auth/**'
+            rialto-web:
+              - 'apps/rialto-web/**'
+              - 'packages/rialto/**'
+              - 'packages/rialto-catalog/**'
+              - 'lighthouserc.js'
+
+      - name: Set outputs
+        id: result
+        run: |
+          echo "marketing=${{ steps.filter.outputs.marketing }}" >> "$GITHUB_OUTPUT"
+          echo "hospitality=${{ steps.filter.outputs.hospitality }}" >> "$GITHUB_OUTPUT"
+          echo "rialto-web=${{ steps.filter.outputs.rialto-web }}" >> "$GITHUB_OUTPUT"
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # PR-only: Build base-branch artifacts for bundle size comparison.
+  # Formerly build-base in lighthouse-ci.yml
+  # ──────────────────────────────────────────────────────────────────────────
+  build-base:
+    name: Build Base Branch
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: |
+      needs.detect-changes.outputs.marketing == 'true' ||
+      needs.detect-changes.outputs.hospitality == 'true' ||
+      needs.detect-changes.outputs.rialto-web == 'true'
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.base_ref }}
+          fetch-depth: 1
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build marketing (base)
+        if: needs.detect-changes.outputs.marketing == 'true'
+        run: pnpm build --filter=@mbe/marketing
+
+      - name: Build hospitality (base)
+        if: needs.detect-changes.outputs.hospitality == 'true'
+        run: pnpm build --filter=@mbe/hospitality
+        env:
+          VITE_AUTH_AUTHORITY: https://dev-ytbgmz5ls3wh4xdx.us.auth0.com
+          VITE_AUTH_CLIENT_ID: placeholder-for-bundle-size
+          VITE_AUTH_AUDIENCE: https://api.mattbutlerengineering.com
+          VITE_AUTH_REDIRECT_URI: https://mattbutlerengineering.com/hospitality/callback
+          VITE_API_URL: https://mattbutlerengineering.com
+
+      - name: Build rialto-web (base)
+        if: needs.detect-changes.outputs.rialto-web == 'true'
+        run: pnpm build --filter=@mbe/rialto-web
+
+      - name: Measure base bundle sizes
+        id: base-sizes
+        run: |
+          measure_size() {
+            local dir="$1"
+            local label="$2"
+            if [ -d "$dir/assets" ]; then
+              local total
+              total=$(find "$dir/assets" -name "*.js" -not -name "*.map" \
+                | xargs wc -c 2>/dev/null | tail -1 | awk '{print $1}')
+              echo "${label}=${total:-0}" >> "$GITHUB_OUTPUT"
+            else
+              echo "${label}=0" >> "$GITHUB_OUTPUT"
+            fi
+          }
+          measure_size apps/marketing/dist    marketing_base_bytes
+          measure_size apps/hospitality/dist  hospitality_base_bytes
+          measure_size apps/rialto-web/dist   rialto_web_base_bytes
+
+    outputs:
+      marketing_base_bytes: ${{ steps.base-sizes.outputs.marketing_base_bytes }}
+      hospitality_base_bytes: ${{ steps.base-sizes.outputs.hospitality_base_bytes }}
+      rialto_web_base_bytes: ${{ steps.base-sizes.outputs.rialto_web_base_bytes }}
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # PR-only: Lighthouse + bundle size (formerly lighthouse-ci.yml)
+  # ──────────────────────────────────────────────────────────────────────────
+  lighthouse-marketing:
+    name: Lighthouse — Marketing
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-base]
+    if: needs.detect-changes.outputs.marketing == 'true'
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build marketing (PR)
+        run: pnpm build --filter=@mbe/marketing
+
+      - name: Measure PR bundle size
+        id: pr-size
+        run: |
+          total=$(find apps/marketing/dist/assets -name "*.js" -not -name "*.map" \
+            | xargs wc -c 2>/dev/null | tail -1 | awk '{print $1}')
+          echo "pr_bytes=${total:-0}" >> "$GITHUB_OUTPUT"
+
+      - name: Check bundle size delta
+        env:
+          BASE_BYTES: ${{ needs.build-base.outputs.marketing_base_bytes }}
+          PR_BYTES: ${{ steps.pr-size.outputs.pr_bytes }}
+        run: |
+          node -e "
+            const base = parseInt(process.env.BASE_BYTES || '0');
+            const pr   = parseInt(process.env.PR_BYTES   || '0');
+            if (base === 0) { console.log('No base bundle found — skipping delta check.'); process.exit(0); }
+            const delta = (pr - base) / base;
+            const pct   = (delta * 100).toFixed(1);
+            console.log('Marketing bundle: base=' + base + 'B  pr=' + pr + 'B  delta=' + pct + '%');
+            if (delta > 0.10) {
+              console.error('ERROR: JS bundle grew ' + pct + '% (limit: 10%)');
+              process.exit(1);
+            }
+            console.log('Bundle size OK.');
+          "
+
+      - name: Run Lighthouse CI
+        run: |
+          pnpm exec lhci autorun \
+            --collect.staticDistDir=apps/marketing/dist \
+            --collect.url=http://localhost \
+            --config=lighthouserc.js
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Lighthouse results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lhci-marketing
+          path: .lighthouseci/
+          retention-days: 14
+
+  lighthouse-hospitality:
+    name: Lighthouse — Hospitality
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-base]
+    if: needs.detect-changes.outputs.hospitality == 'true'
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build hospitality (PR)
+        run: pnpm build --filter=@mbe/hospitality
+        env:
+          VITE_AUTH_AUTHORITY: https://dev-ytbgmz5ls3wh4xdx.us.auth0.com
+          VITE_AUTH_CLIENT_ID: placeholder-for-lighthouse
+          VITE_AUTH_AUDIENCE: https://api.mattbutlerengineering.com
+          VITE_AUTH_REDIRECT_URI: https://mattbutlerengineering.com/hospitality/callback
+          VITE_API_URL: https://mattbutlerengineering.com
+
+      - name: Measure PR bundle size
+        id: pr-size
+        run: |
+          total=$(find apps/hospitality/dist/assets -name "*.js" -not -name "*.map" \
+            | xargs wc -c 2>/dev/null | tail -1 | awk '{print $1}')
+          echo "pr_bytes=${total:-0}" >> "$GITHUB_OUTPUT"
+
+      - name: Check bundle size delta
+        env:
+          BASE_BYTES: ${{ needs.build-base.outputs.hospitality_base_bytes }}
+          PR_BYTES: ${{ steps.pr-size.outputs.pr_bytes }}
+        run: |
+          node -e "
+            const base = parseInt(process.env.BASE_BYTES || '0');
+            const pr   = parseInt(process.env.PR_BYTES   || '0');
+            if (base === 0) { console.log('No base bundle found — skipping delta check.'); process.exit(0); }
+            const delta = (pr - base) / base;
+            const pct   = (delta * 100).toFixed(1);
+            console.log('Hospitality bundle: base=' + base + 'B  pr=' + pr + 'B  delta=' + pct + '%');
+            if (delta > 0.10) {
+              console.error('ERROR: JS bundle grew ' + pct + '% (limit: 10%)');
+              process.exit(1);
+            }
+            console.log('Bundle size OK.');
+          "
+
+      - name: Run Lighthouse CI
+        run: |
+          pnpm exec lhci autorun \
+            --collect.staticDistDir=apps/hospitality/dist \
+            --collect.url=http://localhost/hospitality/ \
+            --config=lighthouserc.js
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Lighthouse results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lhci-hospitality
+          path: .lighthouseci/
+          retention-days: 14
+
+  lighthouse-rialto-web:
+    name: Lighthouse — Rialto Web
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-base]
+    if: needs.detect-changes.outputs.rialto-web == 'true'
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build rialto-web (PR)
+        run: pnpm build --filter=@mbe/rialto-web
+
+      - name: Measure PR bundle size
+        id: pr-size
+        run: |
+          total=$(find apps/rialto-web/dist/assets -name "*.js" -not -name "*.map" \
+            | xargs wc -c 2>/dev/null | tail -1 | awk '{print $1}')
+          echo "pr_bytes=${total:-0}" >> "$GITHUB_OUTPUT"
+
+      - name: Check bundle size delta
+        env:
+          BASE_BYTES: ${{ needs.build-base.outputs.rialto_web_base_bytes }}
+          PR_BYTES: ${{ steps.pr-size.outputs.pr_bytes }}
+        run: |
+          node -e "
+            const base = parseInt(process.env.BASE_BYTES || '0');
+            const pr   = parseInt(process.env.PR_BYTES   || '0');
+            if (base === 0) { console.log('No base bundle found — skipping delta check.'); process.exit(0); }
+            const delta = (pr - base) / base;
+            const pct   = (delta * 100).toFixed(1);
+            console.log('Rialto-web bundle: base=' + base + 'B  pr=' + pr + 'B  delta=' + pct + '%');
+            if (delta > 0.10) {
+              console.error('ERROR: JS bundle grew ' + pct + '% (limit: 10%)');
+              process.exit(1);
+            }
+            console.log('Bundle size OK.');
+          "
+
+      - name: Run Lighthouse CI
+        run: |
+          pnpm exec lhci autorun \
+            --collect.startServerCommand="pnpm --filter @mbe/rialto-web exec vite preview --port 9222" \
+            --collect.startServerReadyPattern="Local:" \
+            --collect.url=http://localhost:9222/rialto/ \
+            --config=lighthouserc.js
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Lighthouse results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lhci-rialto-web
+          path: .lighthouseci/
+          retention-days: 14
+
+  lighthouse-report:
+    name: Post PR Comment
+    runs-on: ubuntu-latest
+    needs:
+      - detect-changes
+      - build-base
+      - lighthouse-marketing
+      - lighthouse-hospitality
+      - lighthouse-rialto-web
+    if: always() && github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+
+    steps:
+      - name: Build PR comment body
+        id: comment
+        env:
+          MARKETING_RESULT: ${{ needs.lighthouse-marketing.result }}
+          HOSPITALITY_RESULT: ${{ needs.lighthouse-hospitality.result }}
+          RIALTO_WEB_RESULT: ${{ needs.lighthouse-rialto-web.result }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          format_status() {
+            local result="$1"
+            local name="$2"
+            if [ "$result" = "success" ]; then
+              echo "| $name | PASS |"
+            elif [ "$result" = "skipped" ]; then
+              echo "| $name | skipped (no changes) |"
+            else
+              echo "| $name | FAIL |"
+            fi
+          }
+
+          {
+            echo "## Lighthouse CI + Bundle Size Results"
+            echo ""
+            echo "| App | Status |"
+            echo "| --- | ------ |"
+            format_status "$MARKETING_RESULT"   "Marketing"
+            format_status "$HOSPITALITY_RESULT" "Hospitality"
+            format_status "$RIALTO_WEB_RESULT"  "Rialto Web"
+            echo ""
+            echo "_Full Lighthouse reports: [workflow artifacts](https://github.com/${REPO}/actions/runs/${RUN_ID})_"
+            echo ""
+            echo "> Thresholds: performance/a11y \`>= 0.9\` | bundle growth \`<= 10%\`"
+          } > comment.md
+
+      - name: Find existing comment
+        uses: peter-evans/find-comment@v4
+        id: find-comment
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: "github-actions[bot]"
+          body-includes: "Lighthouse CI + Bundle Size Results"
+
+      - name: Create or update PR comment
+        uses: peter-evans/create-or-update-comment@v5
+        with:
+          comment-id: ${{ steps.find-comment.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body-path: comment.md
+          edit-mode: replace
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # PR-only: Pulumi preview (formerly pulumi-preview.yml)
+  # ──────────────────────────────────────────────────────────────────────────
+  detect-infra-changes:
+    name: Detect Infra Changes
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      changed: ${{ steps.filter.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            changed:
+              - 'infrastructure/pulumi/**'
+              - 'infrastructure/worker/**'
+              - 'apps/gen/**'
+              - 'packages/rialto/**'
+              - 'packages/rialto-catalog/**'
+              - 'packages/auth/**'
+
+  pulumi-preview:
+    name: Preview Infrastructure Changes
+    runs-on: ubuntu-latest
+    needs: detect-infra-changes
+    if: needs.detect-infra-changes.outputs.changed == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Pulumi Preview
+        uses: pulumi/actions@v6
+        with:
+          command: preview
+          stack-name: prod
+          work-dir: infrastructure/pulumi
+          cloud-url: "s3://mattbutlerengineering-pulumi-state?endpoint=https://59d5bec2d6e979d474efe54ec76c3658.r2.cloudflarestorage.com&s3ForcePathStyle=true"
+          comment-on-pr: true
+          comment-on-summary: true
+        env:
+          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_REGION: auto
+          DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
+          AUTH0_DOMAIN: ${{ secrets.AUTH0_DOMAIN }}
+          AUTH0_CLIENT_ID: ${{ secrets.AUTH0_CLIENT_ID }}
+          AUTH0_CLIENT_SECRET: ${{ secrets.AUTH0_CLIENT_SECRET }}
