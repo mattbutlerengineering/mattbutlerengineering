@@ -1,0 +1,48 @@
+name: Agent Task
+description: Task for automated agent pickup (created by site-audit, decompose, ci-monitor)
+labels: ["ready"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What should the agent accomplish?
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: How do we know this is done?
+      placeholder: |
+        - [ ] Criterion 1
+        - [ ] Criterion 2
+    validations:
+      required: true
+
+  - type: dropdown
+    id: complexity
+    attributes:
+      label: Estimated complexity
+      options:
+        - "XS — < 1 hour, config change"
+        - "S — 1-2 hours, single file"
+        - "M — half day, multiple files"
+        - "L — full day, cross-cutting"
+        - "XL — multi-day, architectural"
+    validations:
+      required: true
+
+  - type: input
+    id: packages
+    attributes:
+      label: Affected packages
+      description: Comma-separated list of packages/services
+      placeholder: "services/users, packages/auth"
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Implementation hints
+      description: File paths, related issues, constraints
