@@ -325,11 +325,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
           error instanceof Error &&
           error.message.includes("Unique constraint")
         ) {
-          return reply.code(400).send({
-            error: "Bad Request",
-            message: "A guest with this email or phone already exists at this venue",
-            statusCode: 400,
-          });
+          return reply.code(400).send(createProblemDetails(400, "Bad Request", "A guest with this email or phone already exists at this venue"));
         }
         throw error;
       }
@@ -395,11 +391,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const { venueId, email, phone, name } = request.body;
       if (!email && !phone) {
-        return reply.code(400).send({
-          error: "Bad Request",
-          message: "Either email or phone is required",
-          statusCode: 400,
-        });
+        return reply.code(400).send(createProblemDetails(400, "Bad Request", "Either email or phone is required"));
       }
       const guest = await guestService.findOrCreate(venueId, { email, phone, name });
       return { data: guest };
@@ -463,11 +455,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const guest = await guestService.update(request.params.id, request.body);
       if (!guest) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "Guest not found",
-          statusCode: 404,
-        });
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
       }
       return { data: guest };
     }
@@ -515,11 +503,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const deleted = await guestService.delete(request.params.id);
       if (!deleted) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "Guest not found",
-          statusCode: 404,
-        });
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
       }
       return reply.code(204).send();
     }
