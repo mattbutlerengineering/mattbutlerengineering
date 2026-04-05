@@ -59,7 +59,7 @@ export {
 export type { SourceFileEntry } from "./prompt-builder.js";
 
 // Tool permissions
-export { createToolPermissionHandler } from "./tool-permissions.js";
+export { createToolPermissionHandler, normalizeBashCommand } from "./tool-permissions.js";
 
 // Cost tracking
 export {

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { createToolPermissionHandler } from "../tool-permissions.js";
+import { createToolPermissionHandler, normalizeBashCommand } from "../tool-permissions.js";
 
 describe("createToolPermissionHandler", () => {
   const worktreePath = "/tmp/test-worktree";
@@ -93,6 +93,127 @@ describe("createToolPermissionHandler", () => {
     });
   });
 
+  describe("shell encoding bypass prevention", () => {
+    it("blocks base64 decode piped to bash", async () => {
+      const result = await handler("Bash", {
+        command: 'echo "cm0gLXJmIC8=" | base64 -d | bash',
+      });
+      expect(result.behavior).toBe("deny");
+    });
+
+    it("blocks base64 decode piped to sh", async () => {
+      const result = await handler("Bash", {
+        command: 'echo "cm0gLXJmIC8=" | base64 --decode | sh',
+      });
+      expect(result.behavior).toBe("deny");
+    });
+
+    it("blocks hex encoding piped to shell", async () => {
+      const result = await handler("Bash", {
+        command: "printf '\\x72\\x6d\\x20\\x2d\\x72\\x66' | sh",
+      });
+      expect(result.behavior).toBe("deny");
+    });
+
+    it("blocks octal encoding piped to shell", async () => {
+      const result = await handler("Bash", {
+        command: "printf '\\0162\\0155' | bash",
+      });
+      expect(result.behavior).toBe("deny");
+    });
+
+    it("blocks ANSI-C quoting with hex piped to shell", async () => {
+      const result = await handler("Bash", {
+        command: "$'\\x72\\x6d\\x20\\x2d\\x72\\x66' | sh",
+      });
+      expect(result.behavior).toBe("deny");
+    });
+
+    it("blocks eval with variable expansion", async () => {
+      const result = await handler("Bash", {
+        command: 'eval "$cmd"',
+      });
+      expect(result.behavior).toBe("deny");
+    });
+
+    it("blocks eval with subshell", async () => {
+      const result = await handler("Bash", {
+        command: "eval $(echo rm -rf /)",
+      });
+      expect(result.behavior).toBe("deny");
+    });
+
+    it("blocks command substitution piped to shell", async () => {
+      const result = await handler("Bash", {
+        command: "$(echo rm) -rf /tmp/worktree/../.. | sh",
+      });
+      expect(result.behavior).toBe("deny");
+    });
+
+    it("blocks generic pipe to sh", async () => {
+      const result = await handler("Bash", {
+        command: "cat malicious.sh | sh",
+      });
+      expect(result.behavior).toBe("deny");
+    });
+
+    it("blocks generic pipe to bash", async () => {
+      const result = await handler("Bash", {
+        command: "cat malicious.sh | bash",
+      });
+      expect(result.behavior).toBe("deny");
+    });
+
+    it("blocks newline injection hiding sudo", async () => {
+      const result = await handler("Bash", {
+        command: "echo harmless\nsudo rm -rf /",
+      });
+      expect(result.behavior).toBe("deny");
+    });
+
+    it("blocks semicolon injection hiding sudo", async () => {
+      const result = await handler("Bash", {
+        command: "echo harmless; sudo rm -rf /",
+      });
+      expect(result.behavior).toBe("deny");
+    });
+
+    it("blocks variable expansion with -rf flags", async () => {
+      const result = await handler("Bash", {
+        command: 'cmd="rm"; $cmd -rf /',
+      });
+      expect(result.behavior).toBe("deny");
+    });
+
+    it("blocks echo -e hex piped to bash", async () => {
+      const result = await handler("Bash", {
+        command: "echo -e '\\x73\\x75\\x64\\x6f' | bash",
+      });
+      expect(result.behavior).toBe("deny");
+    });
+
+    it("allows safe pipe usage (e.g., grep)", async () => {
+      const result = await handler("Bash", {
+        command: "cat file.txt | grep pattern",
+      });
+      expect(result.behavior).toBe("allow");
+    });
+
+    it("allows safe base64 usage (not piped to shell)", async () => {
+      const result = await handler("Bash", {
+        command: "echo test | base64",
+      });
+      expect(result.behavior).toBe("allow");
+    });
+
+    it("allows safe printf usage (not piped to shell)", async () => {
+      const result = await handler("Bash", {
+        command: "printf '%s\\n' hello",
+      });
+      expect(result.behavior).toBe("allow");
+    });
+  });
+
   describe("filesystem sandboxing", () => {
     it("allows Write within worktree", async () => {
       const result = await handler("Write", {
@@ -142,5 +263,38 @@ describe("createToolPermissionHandler", () => {
       });
       expect(result.behavior).toBe("deny");
     });
+  });
+});
+
+describe("normalizeBashCommand", () => {
+  it("returns the original command as a variant", () => {
+    const variants = normalizeBashCommand("ls -la");
+    expect(variants).toContain("ls -la");
+  });
+
+  it("collapses escaped newlines (line continuations)", () => {
+    const variants = normalizeBashCommand("rm \\\n-rf /");
+    expect(variants.some((v) => v.includes("rm -rf /"))).toBe(true);
+  });
+
+  it("splits on newlines to detect injected commands", () => {
+    const variants = normalizeBashCommand("echo safe\nsudo rm -rf /");
+    expect(variants.some((v) => v.includes("sudo rm -rf /"))).toBe(true);
+  });
+
+  it("splits on semicolons to detect injected commands", () => {
+    const variants = normalizeBashCommand("echo safe; sudo rm -rf /");
+    expect(variants.some((v) => v.includes("sudo rm -rf /"))).toBe(true);
+  });
+
+  it("normalizes excess whitespace", () => {
+    const variants = normalizeBashCommand("rm   -rf   /");
+    expect(variants).toContain("rm -rf /");
+  });
+
+  it("deduplicates identical variants", () => {
+    const variants = normalizeBashCommand("ls");
+    const unique = new Set(variants);
+    expect(variants.length).toBe(unique.size);
   });
 });
