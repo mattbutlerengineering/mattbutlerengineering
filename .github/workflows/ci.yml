@@ -6,17 +6,23 @@ on:
     paths-ignore:
       - "**.md"
       - "docs/**"
+      - ".planning/**"
+      - "*.txt"
       - "*.png"
       - ".gitignore"
       - "LICENSE"
+      - ".github/ISSUE_TEMPLATE/**"
   pull_request:
     branches: [main]
     paths-ignore:
       - "**.md"
       - "docs/**"
+      - ".planning/**"
+      - "*.txt"
       - "*.png"
       - ".gitignore"
       - "LICENSE"
+      - ".github/ISSUE_TEMPLATE/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

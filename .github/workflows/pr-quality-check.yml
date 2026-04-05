@@ -3,6 +3,15 @@ name: PR Quality Check
 on:
   pull_request:
     branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".planning/**"
+      - "*.txt"
+      - "*.png"
+      - ".gitignore"
+      - "LICENSE"
+      - ".github/ISSUE_TEMPLATE/**"
 
 concurrency:
   group: pr-quality-${{ github.event.pull_request.number }}
