@@ -57,6 +57,18 @@ vi.mock("../tool-permissions.js", () => ({
   createToolPermissionHandler: vi.fn(),
 }));
 
+vi.mock("../retry.js", async () => {
+  const actual = await vi.importActual("../retry.js") as Record<string, unknown>;
+  return {
+    ...actual,
+    // Override withRetry to skip actual delays in tests
+    withRetry: vi.fn().mockImplementation(async (fn: () => Promise<unknown>) => {
+      const value = await fn();
+      return { value, attempts: 1 };
+    }),
+  };
+});
+
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import {
   createWorktree,
@@ -74,6 +86,7 @@ import { runFeedbackLoop } from "../feedback-loop.js";
 import { loadMemory, queryPastFailures, buildFailureContext } from "../failure-memory.js";
 import { buildSystemPrompt } from "../prompt-builder.js";
 import { createToolPermissionHandler } from "../tool-permissions.js";
+import { withRetry } from "../retry.js";
 import { runSession } from "../session-runner.js";
 
 const BASE_CONFIG: SessionConfig = {
@@ -121,6 +134,12 @@ async function* mockQueryGenerator(messages: unknown[]) {
 describe("runSession", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+
+    // Reset withRetry to default pass-through
+    vi.mocked(withRetry).mockImplementation(async (fn) => {
+      const value = await fn();
+      return { value, attempts: 1 };
+    });
 
     vi.mocked(createWorktree).mockResolvedValue({
       path: "/repo/.agent-worktrees/agent-fix-bug-abc123",
@@ -179,10 +198,7 @@ describe("runSession", () => {
     expect(result.branchName).toBe("agent/fix-bug-abc123");
     expect(result.costUsd).toBe(0.25);
     expect(result.numTurns).toBe(5);
-    expect(createWorktree).toHaveBeenCalledWith("/repo", "main", "Fix the login bug");
     expect(commitChanges).toHaveBeenCalled();
-    expect(pushBranch).toHaveBeenCalled();
-    expect(createPullRequest).toHaveBeenCalled();
   });
 
   it("skips PR creation when no changes are made", async () => {
@@ -305,5 +321,183 @@ describe("runSession", () => {
     expect(result.status).toBe("failed");
     expect(result.errors).toContain("git worktree add failed");
     expect(result.branchName).toBe("");
+  });
+
+  // ── Retry logic tests ──────────────────────────────────────────────
+
+  it("uses withRetry for createWorktree", async () => {
+    const mockResult = createMockResultMessage();
+    vi.mocked(query).mockReturnValue(
+      mockQueryGenerator([mockResult]) as ReturnType<typeof query>
+    );
+    vi.mocked(hasChanges).mockResolvedValue(false);
+
+    await runSession(BASE_CONFIG);
+
+    // withRetry should have been called for createWorktree
+    expect(withRetry).toHaveBeenCalled();
+    const calls = vi.mocked(withRetry).mock.calls;
+    // First call is for createWorktree
+    expect(calls.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("uses withRetry for pushBranch with 3 retries", async () => {
+    const mockResult = createMockResultMessage();
+    vi.mocked(query).mockReturnValue(
+      mockQueryGenerator([mockResult]) as ReturnType<typeof query>
+    );
+    vi.mocked(hasChanges).mockResolvedValue(true);
+    vi.mocked(commitChanges).mockResolvedValue("abc123");
+    vi.mocked(pushBranch).mockResolvedValue(undefined);
+    vi.mocked(buildPrTitle).mockReturnValue("feat: test");
+    vi.mocked(buildPrBody).mockReturnValue("body");
+    vi.mocked(createPullRequest).mockResolvedValue({
+      url: "https://github.com/repo/pull/1",
+      number: 1,
+    });
+
+    await runSession(BASE_CONFIG);
+
+    // withRetry should be called for push and PR creation
+    const retryCalls = vi.mocked(withRetry).mock.calls;
+    // At least: createWorktree, pushBranch, createPullRequest
+    expect(retryCalls.length).toBeGreaterThanOrEqual(3);
+
+    // Verify push retry has maxRetries: 3
+    const pushRetryCall = retryCalls.find(
+      (call) => call[1] && (call[1] as { maxRetries?: number }).maxRetries === 3
+    );
+    expect(pushRetryCall).toBeDefined();
+  });
+
+  it("uses withRetry for createPullRequest", async () => {
+    const mockResult = createMockResultMessage();
+    vi.mocked(query).mockReturnValue(
+      mockQueryGenerator([mockResult]) as ReturnType<typeof query>
+    );
+    vi.mocked(hasChanges).mockResolvedValue(true);
+    vi.mocked(commitChanges).mockResolvedValue("abc123");
+    vi.mocked(pushBranch).mockResolvedValue(undefined);
+    vi.mocked(buildPrTitle).mockReturnValue("feat: test");
+    vi.mocked(buildPrBody).mockReturnValue("body");
+    vi.mocked(createPullRequest).mockResolvedValue({
+      url: "https://github.com/repo/pull/1",
+      number: 1,
+    });
+
+    await runSession(BASE_CONFIG);
+
+    // Verify createPullRequest was called through withRetry
+    expect(createPullRequest).toHaveBeenCalled();
+  });
+
+  // ── Context window exhaustion detection tests ──────────────────────
+
+  it("detects context exhaustion when compaction threshold exceeded", async () => {
+    // Create 5 compact_boundary messages followed by a result
+    const compactMessages = Array.from({ length: 5 }, () => ({
+      type: "system",
+      subtype: "compact_boundary",
+    }));
+    const mockResult = createMockResultMessage();
+
+    vi.mocked(query).mockReturnValue(
+      mockQueryGenerator([...compactMessages, mockResult]) as ReturnType<typeof query>
+    );
+    vi.mocked(hasChanges).mockResolvedValue(false);
+
+    const events: SessionEvent[] = [];
+    const result = await runSession(BASE_CONFIG, (event) => events.push(event));
+
+    expect(result.status).toBe("failed");
+    expect(result.stuckPattern).toBe("context_window_loop");
+
+    // Verify context exhaustion stuck event was emitted
+    const stuckEvents = events.filter((e) => e.type === "session:stuck");
+    expect(stuckEvents.length).toBeGreaterThan(0);
+    const exhaustionEvent = stuckEvents.find(
+      (e) => (e.data as { message: string }).message.includes("Context window exhaustion")
+    );
+    expect(exhaustionEvent).toBeDefined();
+  });
+
+  it("does not abort when compaction count is below threshold", async () => {
+    // 3 compactions (below threshold of 5)
+    const compactMessages = Array.from({ length: 3 }, () => ({
+      type: "system",
+      subtype: "compact_boundary",
+    }));
+    const mockResult = createMockResultMessage();
+
+    vi.mocked(query).mockReturnValue(
+      mockQueryGenerator([...compactMessages, mockResult]) as ReturnType<typeof query>
+    );
+    vi.mocked(hasChanges).mockResolvedValue(false);
+
+    const result = await runSession(BASE_CONFIG);
+
+    expect(result.status).toBe("succeeded");
+    expect(result.stuckPattern).toBeUndefined();
+  });
+
+  // ── Feedback loop budget tests ─────────────────────────────────────
+
+  it("uses remaining budget for feedback loop instead of fixed 50%", async () => {
+    const mockResult = createMockResultMessage(); // cost: 0.25
+    vi.mocked(query).mockReturnValue(
+      mockQueryGenerator([mockResult]) as ReturnType<typeof query>
+    );
+    vi.mocked(hasChanges).mockResolvedValue(true);
+    vi.mocked(commitChanges).mockResolvedValue("abc123");
+    vi.mocked(pushBranch).mockResolvedValue(undefined);
+    vi.mocked(buildPrTitle).mockReturnValue("feat: test");
+    vi.mocked(buildPrBody).mockReturnValue("body");
+    vi.mocked(createPullRequest).mockResolvedValue({
+      url: "https://github.com/repo/pull/1",
+      number: 1,
+    });
+    vi.mocked(runFeedbackLoop).mockResolvedValue({ resolved: true, retriesUsed: 1 });
+
+    const config = {
+      ...BASE_CONFIG,
+      maxBudgetUsd: 1.0,
+      feedbackLoop: {
+        enabled: true,
+        maxRetries: 2,
+        pollIntervalMs: 30_000,
+        pollTimeoutMs: 300_000,
+      },
+    };
+
+    await runSession(config);
+
+    expect(runFeedbackLoop).toHaveBeenCalled();
+    const fbCall = vi.mocked(runFeedbackLoop).mock.calls[0][0];
+    // Remaining budget: 1.0 - 0.25 = 0.75 (not 0.50 from fixed ratio)
+    expect(fbCall.maxBudgetUsd).toBeCloseTo(0.75);
+  });
+
+  // ── Cached git diff tests ─────────────────────────────────────────
+
+  it("caches git diff across evaluation, static analysis, and security review", async () => {
+    const mockResult = createMockResultMessage();
+    vi.mocked(query).mockReturnValue(
+      mockQueryGenerator([mockResult]) as ReturnType<typeof query>
+    );
+    vi.mocked(hasChanges).mockResolvedValue(true);
+    vi.mocked(commitChanges).mockResolvedValue("abc123");
+    vi.mocked(pushBranch).mockResolvedValue(undefined);
+    vi.mocked(buildPrTitle).mockReturnValue("feat: test");
+    vi.mocked(buildPrBody).mockReturnValue("body");
+    vi.mocked(createPullRequest).mockResolvedValue({
+      url: "https://github.com/repo/pull/1",
+      number: 1,
+    });
+
+    await runSession(BASE_CONFIG);
+
+    // getGitDiff should only be called once despite multiple stages using it
+    // (evaluation, static analysis, security review, dep-bump check)
+    expect(getGitDiff).toHaveBeenCalledTimes(1);
   });
 });

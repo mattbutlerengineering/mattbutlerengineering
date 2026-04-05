@@ -215,6 +215,17 @@ export type {
 export { analyzeDiff, formatViolations, ANALYSIS_RULES } from "./diff-static-analyzer.js";
 export type { StaticAnalysisResult, Violation, AnalysisRule } from "./diff-static-analyzer.js";
 
+// Retry utilities
+export {
+  withRetry,
+  isTransientError,
+  isContextWindowExhausted,
+  calculateDelay,
+  ContextWindowExhaustedError,
+  DEFAULT_RETRY_CONFIG,
+} from "./retry.js";
+export type { RetryConfig, RetryResult } from "./retry.js";
+
 // Bundle size tracking
 export {
   measureAppBundleSize,

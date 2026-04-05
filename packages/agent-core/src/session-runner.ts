@@ -1,6 +1,8 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import type { SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
 import { trace, SpanStatusCode } from "@opentelemetry/api";
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import type {
   SessionConfig,
   SessionResult,
@@ -46,9 +48,13 @@ import {
   loadMemory,
 } from "./failure-memory.js";
 import { runFeedbackLoop } from "./feedback-loop.js";
+import { withRetry, ContextWindowExhaustedError } from "./retry.js";
 
 // OTel API is a noop when no SDK is registered (e.g., in tests or local CLI).
 const tracer = trace.getTracer("@mbe/agent-core");
+
+/** Maximum compaction events before treating the session as exhausted. */
+const MAX_COMPACTIONS = 5;
 
 function emitEvent(
   onEvent: SessionEventCallback | undefined,
@@ -65,6 +71,31 @@ function emitEvent(
 
 function sanitizeForCommitMessage(text: string): string {
   return text.replace(/[\n\r]/g, " ").slice(0, 72);
+}
+
+/**
+ * Store full verification output to a file so debugging failures
+ * is not limited to truncated 500-char snippets.
+ */
+async function storeVerificationLog(
+  worktreePath: string,
+  sections: readonly { readonly label: string; readonly output: string }[]
+): Promise<string> {
+  const logDir = join(worktreePath, ".agent-work");
+  const logPath = join(logDir, "verification.log");
+  const content = sections
+    .map((s) => `=== ${s.label} ===\n${s.output}\n`)
+    .join("\n");
+
+  try {
+    const { mkdir } = await import("node:fs/promises");
+    await mkdir(logDir, { recursive: true });
+    await writeFile(logPath, content, "utf-8");
+  } catch {
+    // Best-effort — don't fail the session over logging
+  }
+
+  return logPath;
 }
 
 export async function runSession(
@@ -86,17 +117,32 @@ export async function runSession(
       let worktree: WorktreeInfo | undefined;
       let stuckReason: StuckPattern | null = null;
 
+      // Cached git diff — computed once, reused across evaluation, static analysis,
+      // security review, dep-bump check, and PR body generation.
+      let cachedDiff: string | null = null;
+
+      async function getCachedDiff(worktreePath: string): Promise<string> {
+        if (cachedDiff === null) {
+          cachedDiff = await getGitDiff(worktreePath);
+        }
+        return cachedDiff;
+      }
+
       try {
-        // 1. Create isolated worktree
+        // 1. Create isolated worktree (with retry for transient git failures)
         emitEvent(onEvent, "session:start", { message: "Creating worktree..." });
 
         const wtSpan = tracer.startSpan("agent_core.create_worktree");
         try {
-          worktree = await createWorktree(
-            config.repoPath,
-            config.baseBranch,
-            config.taskDescription
+          const { value: wt } = await withRetry(
+            () => createWorktree(
+              config.repoPath,
+              config.baseBranch,
+              config.taskDescription
+            ),
+            { maxRetries: 2 }
           );
+          worktree = wt;
           wtSpan.setAttribute("worktree.branch", worktree.branchName);
           wtSpan.setAttribute("worktree.mode", worktree.mode);
         } finally {
@@ -157,10 +203,13 @@ export async function runSession(
           },
         });
 
-        // 4. Stream events with stuck detection and event mapping
+        // 4. Stream events with stuck detection, context exhaustion tracking,
+        //    and event mapping
         const querySpan = tracer.startSpan("agent_core.sdk_query", {
           attributes: { "sdk.model": config.model },
         });
+
+        let compactionCount = 0;
 
         try {
           for await (const message of conversation) {
@@ -169,6 +218,30 @@ export async function runSession(
             // Emit typed events for observability
             for (const mapped of mapSdkMessage(message)) {
               emitEvent(onEvent, mapped.type, { message: JSON.stringify(mapped) });
+            }
+
+            // Track compaction events for context window exhaustion detection
+            if (
+              message.type === "system" &&
+              "subtype" in message &&
+              message.subtype === "compact_boundary"
+            ) {
+              compactionCount++;
+              if (compactionCount >= MAX_COMPACTIONS) {
+                stuckReason = {
+                  type: "context_window_loop",
+                  count: compactionCount,
+                  threshold: MAX_COMPACTIONS,
+                  description: `Context window compacted ${compactionCount} times — session exhausted`,
+                  severity: "error",
+                };
+                emitEvent(onEvent, "session:stuck", {
+                  message: `Context window exhaustion: ${compactionCount} compactions reached limit of ${MAX_COMPACTIONS}`,
+                });
+                querySpan.setAttribute("sdk.compaction_count", compactionCount);
+                abortController.abort();
+                break;
+              }
             }
 
             if (message.type === "result") {
@@ -195,10 +268,25 @@ export async function runSession(
           }
 
           querySpan.setAttribute("sdk.turns_completed", resultMessage?.num_turns ?? 0);
+          querySpan.setAttribute("sdk.compaction_count", compactionCount);
         } catch (err) {
-          querySpan.recordException(err as Error);
-          querySpan.setStatus({ code: SpanStatusCode.ERROR });
-          throw err;
+          // Detect context window exhaustion from SDK errors
+          if (err instanceof ContextWindowExhaustedError) {
+            stuckReason = {
+              type: "context_window_loop",
+              count: compactionCount,
+              threshold: MAX_COMPACTIONS,
+              description: err.message,
+              severity: "error",
+            };
+            emitEvent(onEvent, "session:stuck", {
+              message: `Context window exhaustion: ${err.message}`,
+            });
+          } else {
+            querySpan.recordException(err as Error);
+            querySpan.setStatus({ code: SpanStatusCode.ERROR });
+            throw err;
+          }
         } finally {
           querySpan.end();
         }
@@ -221,26 +309,38 @@ export async function runSession(
         let evaluation: EvaluationResult | undefined;
 
         if (changed && worktree) {
+          // Capture narrowed worktree for use in closures (TS loses narrowing in callbacks)
+          const wt = worktree;
           const prefix = isSuccess ? "feat" : "wip";
           const commitMsg = `${prefix}: ${sanitizeForCommitMessage(config.taskDescription)}`;
-          await commitChanges(worktree.path, commitMsg);
+          await commitChanges(wt.path, commitMsg);
 
           // 6a. Run lint + typecheck + test verification before pushing
           let verificationPassed = true;
+          let verificationLogPath: string | undefined;
           if (isSuccess) {
             const verifySpan = tracer.startSpan("agent_core.verify_changes");
             try {
-              const verification = await runVerification(worktree.path);
+              const verification = await runVerification(wt.path);
               verificationPassed = verification.passed;
               verifySpan.setAttribute("verify.passed", verification.passed);
               verifySpan.setAttribute("verify.lint", verification.lintOk);
               verifySpan.setAttribute("verify.typecheck", verification.typecheckOk);
               verifySpan.setAttribute("verify.tests", verification.testsOk);
 
+              // Store full verification output (not truncated)
+              const logSections: { label: string; output: string }[] = [];
+              if (verification.lintOutput) logSections.push({ label: "Lint", output: verification.lintOutput });
+              if (verification.typecheckOutput) logSections.push({ label: "Typecheck", output: verification.typecheckOutput });
+              if (verification.testOutput) logSections.push({ label: "Tests", output: verification.testOutput });
+              if (logSections.length > 0) {
+                verificationLogPath = await storeVerificationLog(wt.path, logSections);
+              }
+
               emitEvent(onEvent, "session:verification", {
                 message: verification.passed
                   ? "Verification passed (lint + typecheck + tests)"
-                  : `Verification failed — lint: ${verification.lintOk ? "OK" : "FAIL"}, typecheck: ${verification.typecheckOk ? "OK" : "FAIL"}, tests: ${verification.testsOk ? "OK" : "FAIL"}`,
+                  : `Verification failed — lint: ${verification.lintOk ? "OK" : "FAIL"}, typecheck: ${verification.typecheckOk ? "OK" : "FAIL"}, tests: ${verification.testsOk ? "OK" : "FAIL"}${verificationLogPath ? ` (full log: ${verificationLogPath})` : ""}`,
               });
 
               if (!verification.passed) {
@@ -255,12 +355,16 @@ export async function runSession(
             }
           }
 
-          await pushBranch(worktree.path, worktree.branchName);
+          // Push with retry for transient network failures
+          await withRetry(
+            () => pushBranch(wt.path, wt.branchName),
+            { maxRetries: 3 }
+          );
 
           // 6b. Run LLM success evaluation on successful sessions
           let evaluationPassed = isSuccess;
           if (isSuccess && config.evaluateSuccess !== false) {
-            const diff = await getGitDiff(worktree.path);
+            const diff = await getCachedDiff(wt.path);
             if (!shouldEvaluate(diff, { commitTitle: commitMsg })) {
               emitEvent(onEvent, "session:evaluation", {
                 message: "Evaluation skipped — trivial diff",
@@ -289,7 +393,7 @@ export async function runSession(
           // 6c. Run fast static analysis on the diff (milliseconds, no AI)
           let staticAnalysisClean = true;
           if (isSuccess && verificationPassed) {
-            const diff = await getGitDiff(worktree.path);
+            const diff = await getCachedDiff(wt.path);
             const staticResult = analyzeDiff(diff);
             staticAnalysisClean = staticResult.clean;
 
@@ -314,7 +418,7 @@ export async function runSession(
           if (isSuccess && verificationPassed && staticAnalysisClean) {
             const reviewSpan = tracer.startSpan("agent_core.security_review");
             try {
-              const diff = await getGitDiff(worktree.path);
+              const diff = await getCachedDiff(wt.path);
               securityReview = await reviewDiff(diff);
               reviewSpan.setAttribute("review.approved", securityReview.approved);
               reviewSpan.setAttribute("review.issues_count", securityReview.issues.length);
@@ -339,13 +443,13 @@ export async function runSession(
             // Fast-path: trivial dependency bumps that passed tests are merged
             // directly without waiting for PR review.
             if (allGatesPass) {
-              const depBumpCheck = isTrivialDepBump(await getGitDiff(worktree.path));
+              const depBumpCheck = isTrivialDepBump(await getCachedDiff(wt.path));
               if (depBumpCheck.isTrivial) {
                 const commitTitle = buildPrTitle(config.taskDescription);
                 prUrl = await mergeDirectly({
-                  branchName: worktree.branchName,
+                  branchName: wt.branchName,
                   baseBranch: config.baseBranch,
-                  repoPath: worktree.path,
+                  repoPath: wt.path,
                   commitTitle,
                 });
                 emitEvent(onEvent, "session:result", {
@@ -365,14 +469,19 @@ export async function runSession(
                 const prSpan = tracer.startSpan("agent_core.create_pr");
                 let pr;
                 try {
-                  pr = await createPullRequest({
-                    title,
-                    body,
-                    baseBranch: config.baseBranch,
-                    branchName: worktree.branchName,
-                    repoPath: worktree.path,
-                    draft: false,
-                  });
+                  // Retry PR creation for transient GitHub API failures
+                  const { value: prResult } = await withRetry(
+                    () => createPullRequest({
+                      title,
+                      body,
+                      baseBranch: config.baseBranch,
+                      branchName: wt.branchName,
+                      repoPath: wt.path,
+                      draft: false,
+                    }),
+                    { maxRetries: 3 }
+                  );
+                  pr = prResult;
                   prSpan.setAttribute("pr.url", pr.url);
                   prSpan.setAttribute("pr.number", pr.number);
                   prSpan.setAttribute("pr.draft", false);
@@ -387,19 +496,23 @@ export async function runSession(
 
                 // Run feedback loop if enabled (poll for review comments / CI failures)
                 if (config.feedbackLoop?.enabled) {
+                  // Use remaining budget instead of fixed 50% ratio
+                  const sessionCost = resultMessage?.total_cost_usd ?? 0;
+                  const remainingBudget = Math.max(0, config.maxBudgetUsd - sessionCost);
+
                   const fbSpan = tracer.startSpan("agent_core.feedback_loop");
                   let feedbackResult;
                   try {
                     feedbackResult = await runFeedbackLoop(
                       {
                         prNumber: pr.number,
-                        branchName: worktree.branchName,
-                        repoPath: worktree.path,
+                        branchName: wt.branchName,
+                        repoPath: wt.path,
                         model: config.model,
                         maxRetries: config.feedbackLoop.maxRetries ?? 2,
                         pollIntervalMs: config.feedbackLoop.pollIntervalMs ?? 30_000,
                         pollTimeoutMs: config.feedbackLoop.pollTimeoutMs ?? 300_000,
-                        maxBudgetUsd: config.maxBudgetUsd * 0.5,
+                        maxBudgetUsd: remainingBudget,
                         allowedTools: config.allowedTools,
                       },
                       onEvent
@@ -430,14 +543,18 @@ export async function runSession(
                 stuckReason?.type
               );
 
-              const pr = await createPullRequest({
-                title,
-                body,
-                baseBranch: config.baseBranch,
-                branchName: worktree.branchName,
-                repoPath: worktree.path,
-                draft: true,
-              });
+              // Retry draft PR creation for transient failures
+              const { value: pr } = await withRetry(
+                () => createPullRequest({
+                  title,
+                  body,
+                  baseBranch: config.baseBranch,
+                  branchName: wt.branchName,
+                  repoPath: wt.path,
+                  draft: true,
+                }),
+                { maxRetries: 3 }
+              );
 
               prUrl = pr.url;
               emitEvent(onEvent, "session:result", {
@@ -519,21 +636,28 @@ export async function runSession(
         // Attempt to push partial work from failed sessions
         let prUrl: string | null = null;
         if (worktree && config.createPr) {
+          const failedWt = worktree;
           try {
-            const changed = await hasChanges(worktree.path);
+            const changed = await hasChanges(failedWt.path);
             if (changed) {
               const commitMsg = `wip: ${sanitizeForCommitMessage(config.taskDescription)}`;
-              await commitChanges(worktree.path, commitMsg);
-              await pushBranch(worktree.path, worktree.branchName);
+              await commitChanges(failedWt.path, commitMsg);
+              await withRetry(
+                () => pushBranch(failedWt.path, failedWt.branchName),
+                { maxRetries: 2 }
+              );
 
-              const pr = await createPullRequest({
-                title: `wip: ${config.taskDescription.slice(0, 57)}`,
-                body: buildFailurePrBody(config.taskDescription, [errorMessage], stuckReason?.type),
-                baseBranch: config.baseBranch,
-                branchName: worktree.branchName,
-                repoPath: worktree.path,
-                draft: true,
-              });
+              const { value: pr } = await withRetry(
+                () => createPullRequest({
+                  title: `wip: ${config.taskDescription.slice(0, 57)}`,
+                  body: buildFailurePrBody(config.taskDescription, [errorMessage], stuckReason?.type),
+                  baseBranch: config.baseBranch,
+                  branchName: failedWt.branchName,
+                  repoPath: failedWt.path,
+                  draft: true,
+                }),
+                { maxRetries: 2 }
+              );
               prUrl = pr.url;
               emitEvent(onEvent, "session:result", {
                 message: `Draft PR created from failed session: ${pr.url}`,
