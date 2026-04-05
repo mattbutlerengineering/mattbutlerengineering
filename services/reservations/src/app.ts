@@ -32,9 +32,19 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   registerSchemas(fastify);
 
   // Core plugins
+  const corsOrigins = process.env.CORS_ORIGINS?.split(",") || [
+    "http://localhost:3000",
+    "http://localhost:3004",
+    "http://localhost:3002",
+    "https://mattbutlerengineering.com",
+    "https://hospitality.mattbutlerengineering.com",
+  ];
+
   await fastify.register(cors, {
-    origin: true,
+    origin: corsOrigins,
     credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"],
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   });
 
   await fastify.register(swagger, {
