@@ -25,8 +25,8 @@
     "@mbe/config": "workspace:*",
     "@types/glob": "^9.0.0",
     "@types/js-yaml": "^4.0.9",
-    "@types/node": "^22.0.0",
+    "@types/node": "catalog:",
     "tsx": "^4.19.0",
-    "typescript": "^5.7.3"
+    "typescript": "catalog:"
   }
 }
