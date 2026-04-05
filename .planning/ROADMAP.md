@@ -7,7 +7,7 @@
 - ✅ **v1.2 Generative UI** — Phases 12-18 (shipped 2026-03-28)
 - ✅ **v1.3 AI Developer Velocity** — Phases 19-31 (shipped 2026-04-04)
 - ✅ **v1.4 Agentic Orchestration & Observability** — Phases 32-40 (shipped 2026-04-04)
-- ✅ **v1.5 Repository Health & Polish** — Phases 41-42 (shipped 2026-04-04)
+- ✅ **v1.5 Repository Health & Polish** — Phases 41-43 (shipped 2026-04-04)
 
 ## Phases
 
@@ -92,10 +92,11 @@ Full details: [milestones/v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md)
 </details>
 
 <details>
-<summary>✅ v1.5 Repository Health & Polish (Phases 41-42) — SHIPPED 2026-04-04</summary>
+<summary>✅ v1.5 Repository Health & Polish (Phases 41-43) — SHIPPED 2026-04-04</summary>
 
 - [x] Phase 41: Configuration Consolidation (Lighthouse) (1/1 plan) — completed 2026-04-04
 - [x] Phase 42: Project Status Badges (1/1 plan) — completed 2026-04-04
+- [x] Phase 43: Sentry Error Logging Enhancement (1/1 plan) — completed 2026-04-04
 
 Full details: [milestones/v1.5-ROADMAP.md](milestones/v1.5-ROADMAP.md)
 
@@ -110,3 +111,4 @@ Full details: [milestones/v1.5-ROADMAP.md](milestones/v1.5-ROADMAP.md)
 | 40. Model Governance & Verification | v1.4 | 1/1 | Complete | 2026-04-04 |
 | 41. Configuration Consolidation | v1.5 | 1/1 | Complete | 2026-04-04 |
 | 42. Project Status Badges | v1.5 | 1/1 | Complete | 2026-04-04 |
+| 43. Sentry Error Logging | v1.5 | 1/1 | Complete | 2026-04-04 |
