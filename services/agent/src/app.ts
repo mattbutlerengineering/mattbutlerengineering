@@ -12,7 +12,6 @@ import { healthRoutes } from "./routes/health.js";
 import { sessionRoutes } from "./routes/sessions.js";
 import { sessionEventsRoutes } from "./routes/session-events.js";
 import { orchestrateRoutes } from "./routes/orchestrate.js";
-import { webhookRoutes } from "./routes/webhooks.js";
 import { remediationRoutes } from "./routes/remediation.js";
 import { genUiRoutes } from "./routes/gen-ui.js";
 import { genChatRoutes } from "./routes/gen-chat.js";
@@ -22,72 +21,46 @@ export interface AppOptions {
   logger?: boolean | object;
 }
 
+/**
+ * Creates the Fastify application instance.
+ */
 export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
-  const nodeEnv = process.env.NODE_ENV ?? "development";
-  const logLevel = process.env.LOG_LEVEL ?? (nodeEnv === "production" ? "info" : "debug");
-
   const fastify = Fastify({
-    logger: options.logger ?? {
-      level: logLevel,
-      serializers: {
-        req(request) {
-          return {
-            method: request.method,
-            url: request.url,
-            path: request.routeOptions?.url,
-            parameters: request.params,
-            headers: { host: request.headers.host },
-          };
-        },
-        res(reply) {
-          return {
-            statusCode: reply.statusCode,
-          };
-        },
-      },
-      timestamp: () => `,"timestamp":"${new Date().toISOString()}"`,
-      formatters: {
-        log(level: unknown, args: unknown) {
-          const ctx = args as Record<string, unknown>;
-          return {
-            level,
-            service: "agent-service",
-            ...(ctx?.requestId ? { requestId: ctx.requestId } : {}),
-            ...(ctx?.userId ? { userId: ctx.userId } : {}),
-            ...(typeof ctx === "object" ? ctx : { message: String(ctx) }),
-          };
-        },
-      },
-    },
+    logger: options.logger ?? true,
+    disableRequestLogging: true,
   });
 
+  // Register schemas
+  registerSchemas(fastify);
+
+  // Core plugins
   await fastify.register(cors, {
-    origin: process.env.CORS_ORIGIN ?? true,
+    origin: true,
+    credentials: true,
+  });
+
+  await fastify.register(rateLimit, {
+    max: 100,
+    timeWindow: "1 minute",
   });
 
   await fastify.register(swagger, {
     openapi: {
       info: {
-        title: "Agent Service API",
-        description: "REST API for managing autonomous coding agent sessions",
+        title: "MBE Agent API",
+        description: "API for AI agent sessions and orchestration",
         version: "1.0.0",
       },
-      servers: [
-        ...(process.env.API_BASE_URL
-          ? [{ url: process.env.API_BASE_URL, description: "Production" }]
-          : []),
-        {
-          url: `http://localhost:${process.env.PORT ?? 3003}`,
-          description: "Local development",
+      servers: [{ url: "http://localhost:3003" }],
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: "http",
+            scheme: "bearer",
+            bearerFormat: "JWT",
+          },
         },
-      ],
-      tags: [
-        { name: "Health", description: "Service health endpoints" },
-        { name: "Sessions", description: "Agent session management" },
-        { name: "Events", description: "Session event streaming" },
-        { name: "Orchestration", description: "Task decomposition and multi-session orchestration" },
-        { name: "Webhooks", description: "External event triggers (GitHub, CI)" },
-      ],
+      },
     },
   });
 
@@ -100,43 +73,18 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   });
 
   await fastify.register(ScalarApiReference, {
-    routePrefix: "/scalar",
-    configuration: { title: "Agent Service API", theme: "deepSpace" },
+    routePrefix: "/reference",
+    configuration: {
+      spec: {
+        content: () => fastify.swagger(),
+      },
+    },
   });
 
-  fastify.addHook("onRequest", async (request) => {
-    request.log.info({
-      requestId: request.id,
-      method: request.method,
-      url: request.url,
-      remoteAddress: request.ip,
-      userAgent: request.headers["user-agent"],
-    }, "incoming request");
-  });
-
-  fastify.addHook("onSend", async (request, reply) => {
-    request.log.info({
-      requestId: request.id,
-      method: request.method,
-      url: request.url,
-      statusCode: reply.statusCode,
-      responseTime: reply.elapsedTime,
-    }, "request completed");
-  });
-
-  // Auth plugin — must be registered before rate limit so request.user is available
-  // Only register if auth env vars are present (skipped in test environments)
-  if (process.env.AUTH_AUTHORITY && process.env.AUTH_AUDIENCE) {
+  // Register Auth0 plugin
+  if (process.env.AUTH0_DOMAIN) {
     await fastify.register(authPlugin, getAuthPluginOptionsFromEnv());
   }
-
-  // GEN-04: per-user rate limiting — global default, gen routes override per-route
-  await fastify.register(rateLimit, {
-    hook: "preHandler", // runs after requireAuth so request.user is set
-    max: 100,
-    timeWindow: "1 minute",
-    keyGenerator: (req) => (req.user?.id ?? req.ip) as string,
-  });
 
   // Register Sentry error handler (no-op without SENTRY_DSN)
   await fastify.register(sentryFastifyPlugin);
@@ -148,12 +96,11 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
     sunsetMonthsFromNow: 6,
   });
 
-  registerSchemas(fastify);
+  // Register routes
   await fastify.register(healthRoutes);
   await fastify.register(sessionRoutes, { prefix: "/v1/sessions" });
   await fastify.register(sessionEventsRoutes, { prefix: "/v1/sessions" });
   await fastify.register(orchestrateRoutes, { prefix: "/v1/orchestrate" });
-  await fastify.register(webhookRoutes, { prefix: "/v1/webhooks" });
   await fastify.register(remediationRoutes, { prefix: "/v1/webhooks" });
   await fastify.register(genUiRoutes);
   await fastify.register(genChatRoutes);

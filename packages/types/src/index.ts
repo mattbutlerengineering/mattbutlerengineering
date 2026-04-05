@@ -16,6 +16,7 @@ export type {
   CiRunInfo,
   DeployHealth,
   DeployPipelineInfo,
+  ProblemDetails,
 } from "./api.js";
 
 // User types

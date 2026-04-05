@@ -36,13 +36,25 @@ export interface Pagination {
 }
 
 /**
- * API error response
+ * API error response (legacy)
  */
 export interface ApiError {
   error: string;
   message: string;
   statusCode: number;
   details?: Record<string, unknown>;
+}
+
+/**
+ * RFC 7807 Problem Details for HTTP APIs
+ */
+export interface ProblemDetails {
+  type: string;
+  title: string;
+  status: number;
+  detail: string;
+  instance?: string;
+  [key: string]: unknown;
 }
 
 /**

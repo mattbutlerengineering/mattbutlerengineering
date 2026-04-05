@@ -14,93 +14,38 @@ export interface AppOptions {
   logger?: boolean | object;
 }
 
+/**
+ * Creates the Fastify application instance.
+ */
 export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
-  const nodeEnv = process.env.NODE_ENV ?? "development";
-  const logLevel = process.env.LOG_LEVEL ?? (nodeEnv === "production" ? "info" : "debug");
-
   const fastify = Fastify({
-    logger: options.logger ?? {
-      level: logLevel,
-      serializers: {
-        req(request) {
-          return {
-            method: request.method,
-            url: request.url,
-            path: request.routeOptions?.url,
-            parameters: request.params,
-            headers: { host: request.headers.host },
-          };
-        },
-        res(reply) {
-          return {
-            statusCode: reply.statusCode,
-          };
-        },
-      },
-      timestamp: () => `,"timestamp":"${new Date().toISOString()}"`,
-      formatters: {
-        log(level: unknown, args: unknown) {
-          const ctx = args as Record<string, unknown>;
-          return {
-            level,
-            service: "users-service",
-            ...(ctx?.requestId ? { requestId: ctx.requestId } : {}),
-            ...(ctx?.userId ? { userId: ctx.userId } : {}),
-            ...(typeof ctx === "object" ? ctx : { message: String(ctx) }),
-          };
-        },
-      },
-    },
+    logger: options.logger ?? true,
+    disableRequestLogging: true,
   });
 
-  // Register plugins
+  // Register schemas
+  registerSchemas(fastify);
+
+  // Core plugins
   await fastify.register(cors, {
-    origin: process.env.CORS_ORIGIN ?? true,
+    origin: true,
+    credentials: true,
   });
 
   await fastify.register(swagger, {
     openapi: {
       info: {
-        title: "Users Service API",
-        description:
-          "RESTful API for user management including authentication, profile management, and user preferences.",
+        title: "MBE Users API",
+        description: "API for managing users and preferences",
         version: "1.0.0",
-        contact: {
-          name: "API Support",
-          email: "support@example.com",
-        },
       },
-      servers: [
-        ...(process.env.API_BASE_URL
-          ? [
-              {
-                url: process.env.API_BASE_URL,
-                description: "Production",
-              },
-            ]
-          : []),
-        {
-          url: `http://localhost:${process.env.PORT ?? 3001}`,
-          description: "Local development",
-        },
-      ],
-      tags: [
-        {
-          name: "Health",
-          description: "Service health and status endpoints",
-        },
-        {
-          name: "Users",
-          description: "User CRUD operations and authentication",
-        },
-      ],
+      servers: [{ url: "http://localhost:3001" }],
       components: {
         securitySchemes: {
           bearerAuth: {
             type: "http",
             scheme: "bearer",
             bearerFormat: "JWT",
-            description: "JWT token obtained from the authentication provider",
           },
         },
       },
@@ -116,31 +61,17 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   });
 
   await fastify.register(ScalarApiReference, {
-    routePrefix: "/scalar",
+    routePrefix: "/reference",
     configuration: {
-      title: "Users Service API",
-      theme: "deepSpace",
+      spec: {
+        content: () => fastify.swagger(),
+      },
     },
   });
 
-  // Register shared schemas
-  registerSchemas(fastify);
-
-  // Register auth plugin (permissive — populates request.user when token present)
-  const hasAuthVars = process.env.AUTH_AUTHORITY && process.env.AUTH_AUDIENCE;
-
-  if (hasAuthVars) {
+  // Register Auth0 plugin
+  if (process.env.AUTH0_DOMAIN) {
     await fastify.register(authPlugin, getAuthPluginOptionsFromEnv());
-  } else if (nodeEnv === "production") {
-    throw new Error(
-      "Fail-closed: AUTH_AUTHORITY and AUTH_AUDIENCE are required in production. " +
-        "Refusing to start without authentication."
-    );
-  } else {
-    fastify.log.warn(
-      "Auth plugin skipped — AUTH_AUTHORITY and AUTH_AUDIENCE not set. " +
-        "This is only acceptable in development/test environments."
-    );
   }
 
   // Register Sentry error handler (no-op without SENTRY_DSN)
