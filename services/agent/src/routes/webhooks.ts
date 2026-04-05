@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { Readable } from "node:stream";
 import type { FastifyPluginAsync } from "fastify";
-import type { ApiError } from "@mbe/types";
+import { type ApiError, createProblemDetails } from "@mbe/types";
 import { extractIssueIntent } from "@mbe/agent-core";
 import { sessionService } from "../services/session.js";
 import { executeSession } from "../services/session-executor.js";
@@ -130,11 +130,9 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
       const secret = process.env.GITHUB_WEBHOOK_SECRET;
       if (!secret) {
         fastify.log.warn("GITHUB_WEBHOOK_SECRET not configured — rejecting webhook");
-        return reply.code(401).send({
-          error: "Unauthorized",
-          message: "Webhook secret not configured",
-          statusCode: 401,
-        });
+        return reply
+          .code(401)
+          .send(createProblemDetails(401, "Unauthorized", "Webhook secret not configured"));
       }
 
       // Verify signature against the original raw bytes (not re-serialized JSON)
@@ -142,11 +140,9 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
       const rawBody = (request as unknown as Record<string, unknown>).rawBody as Buffer;
 
       if (!verifySignature(rawBody, signature, secret)) {
-        return reply.code(401).send({
-          error: "Unauthorized",
-          message: "Invalid webhook signature",
-          statusCode: 401,
-        });
+        return reply
+          .code(401)
+          .send(createProblemDetails(401, "Unauthorized", "Invalid webhook signature"));
       }
 
       const eventType = request.headers["x-github-event"] as string | undefined;

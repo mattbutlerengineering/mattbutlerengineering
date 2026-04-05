@@ -1,6 +1,7 @@
 import * as Sentry from "@sentry/node";
 import fp from "fastify-plugin";
 import type { FastifyInstance, FastifyError, FastifyRequest, FastifyReply } from "fastify";
+import { createProblemDetails } from "@mbe/types";
 import { resolveConfig } from "./config.js";
 
 export interface InitOptions {
@@ -31,7 +32,7 @@ function setSentryContext(scope: Sentry.Scope, request: FastifyRequest): void {
   scope.setTag("url", request.url);
   scope.setTag("requestId", (request as any).requestId ?? "unknown");
 
-  const user = (request as any).user as { id?: string; email?: string } | undefined;
+  const user = (request as any).user;
   if (user?.id) {
     scope.setUser({ id: user.id, email: user.email });
   }
@@ -56,13 +57,18 @@ export const sentryFastifyPlugin = fp(
         const statusCode = error.statusCode ?? 500;
         
         // If it's a 500, we obscure the message for the client but log the real one
+        const title = error.name || "Internal Server Error";
         const message = statusCode >= 500 ? "Internal Server Error" : error.message;
 
-        reply.status(statusCode).send({
-          error: error.name ?? "Internal Server Error",
-          message,
-          statusCode,
-        });
+        reply.status(statusCode).send(
+          createProblemDetails(
+            statusCode,
+            title,
+            message,
+            "about:blank",
+            request.url
+          )
+        );
       }
     );
 
@@ -70,13 +76,6 @@ export const sentryFastifyPlugin = fp(
     fastify.addHook("onResponse", async (request, reply) => {
       const status = reply.statusCode;
       if (status >= 400) {
-        // If an exception was already captured via setErrorHandler, we might get duplicates.
-        // Sentry deduplication usually handles this, but we can also check if the error was handled.
-        // However, onResponse doesn't easily know if an exception was already sent.
-        // We'll log it as a message if it's a 4xx/5xx that didn't go through the error handler.
-        
-        // Actually, Sentry.captureException is better if we have an error object.
-        // If we don't have an error (manual response), we log a message.
         if (status >= 500) {
             Sentry.withScope((scope) => {
                 setSentryContext(scope, request);

@@ -16,6 +16,7 @@
     "check:env-sync": "node scripts/check-env-sync.js",
     "build": "turbo run build",
     "test": "turbo run test",
+    "test:contract": "turbo run test:contract",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean && rm -rf node_modules",

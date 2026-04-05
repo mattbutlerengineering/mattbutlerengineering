@@ -77,11 +77,12 @@ The monorepo uses Turborepo for orchestration and caching. To maximize velocity:
 - **Autonomous Refresh:** The `post-commit` hook automatically runs `mbe pack` to keep AI context skeletons (`llms.txt`) updated.
 
 ## RIPER Workflow
-...
 To maintain high-velocity engineering without sacrificing quality, agents follow the **RIPER** (Research, Innovate, Plan, Execute, Review) cycle:
 
 1.  **Research:** Explore the codebase, identify root causes, and gather requirements. **No file edits.**
+    - **JIT Priming:** At the start of this phase, run `mbe prime "<directive>"` to ensure all relevant directories have fresh `llms.txt` context skeletons.
 2.  **Innovate:** Brainstorm multiple approaches, evaluate trade-offs, and select the optimal path.
+...
 3.  **Plan:** Create a detailed implementation plan (e.g., `.planning/quick/TASK-PLAN.md`) including file changes and verification steps.
 4.  **Execute:** Implement the approved plan using **Silent TDD Mode**. Break work into 5-minute micro-tasks.
 5.  **Review:** Run tests, linting, and typechecks. Perform a self-review of the changes against the plan.

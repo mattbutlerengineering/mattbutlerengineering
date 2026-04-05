@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { Readable } from "node:stream";
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
-import type { ApiError } from "@mbe/types";
+import { type ApiError, createProblemDetails } from "@mbe/types";
 import { sessionService } from "../services/session.js";
 import { executeSession } from "../services/session-executor.js";
 import {
@@ -84,11 +84,15 @@ export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
       const secret = process.env.REMEDIATION_WEBHOOK_SECRET;
       if (!secret) {
         fastify.log.warn("REMEDIATION_WEBHOOK_SECRET not configured — rejecting");
-        return reply.code(401).send({
-          error: "Unauthorized",
-          message: "Remediation webhook secret not configured",
-          statusCode: 401,
-        });
+        return reply
+          .code(401)
+          .send(
+            createProblemDetails(
+              401,
+              "Unauthorized",
+              "Remediation webhook secret not configured"
+            )
+          );
       }
 
       // Verify signature against the original raw bytes (not re-serialized JSON)
@@ -96,21 +100,23 @@ export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
       const rawBody = (request as unknown as Record<string, unknown>).rawBody as Buffer;
 
       if (!verifyRemediationSignature(rawBody, signature, secret)) {
-        return reply.code(401).send({
-          error: "Unauthorized",
-          message: "Invalid webhook signature",
-          statusCode: 401,
-        });
+        return reply
+          .code(401)
+          .send(createProblemDetails(401, "Unauthorized", "Invalid webhook signature"));
       }
 
       // 2. Validate payload
       const parseResult = AlertPayloadSchema.safeParse(request.body);
       if (!parseResult.success) {
-        return reply.code(400).send({
-          error: "Bad Request",
-          message: `Invalid alert payload: ${parseResult.error.message}`,
-          statusCode: 400,
-        });
+        return reply
+          .code(400)
+          .send(
+            createProblemDetails(
+              400,
+              "Bad Request",
+              `Invalid alert payload: ${parseResult.error.message}`
+            )
+          );
       }
 
       const payload: AlertPayload = parseResult.data;
@@ -131,11 +137,15 @@ export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
           { alertName: payload.alertName, reason: circuitCheck.reason },
           "Remediation circuit breaker is open"
         );
-        return reply.code(503).send({
-          error: "Service Unavailable",
-          message: circuitCheck.reason ?? "Circuit breaker open",
-          statusCode: 503,
-        });
+        return reply
+          .code(503)
+          .send(
+            createProblemDetails(
+              503,
+              "Service Unavailable",
+              circuitCheck.reason ?? "Circuit breaker open"
+            )
+          );
       }
 
       // 5. Build investigation task

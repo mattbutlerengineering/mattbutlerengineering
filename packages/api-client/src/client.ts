@@ -64,6 +64,10 @@ export class ApiClient {
         error: "Error",
         message: response.statusText,
         statusCode: response.status,
+        type: "about:blank",
+        title: "Error",
+        status: response.status,
+        detail: response.statusText,
       }))) as ApiError;
       throw new ApiClientError(error, method, path);
     }
@@ -115,12 +119,14 @@ export class ApiClientError extends Error {
     public path?: string
   ) {
     const prefix = method && path ? `${method} ${path} failed: ` : "";
-    super(`${prefix}${response.statusCode} ${response.message}`);
+    const status = response.status ?? response.statusCode;
+    const message = response.detail ?? response.message;
+    super(`${prefix}${status} ${message}`);
     this.name = "ApiClientError";
   }
 
   get statusCode(): number {
-    return this.response.statusCode;
+    return this.response.status ?? this.response.statusCode;
   }
 }
 

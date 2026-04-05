@@ -15,6 +15,9 @@ import { upCommand } from "./commands/up.js";
 import { waveCommand } from "./commands/wave.js";
 import { generateCommand } from "./commands/generate.js";
 import { visualCommand } from "./commands/visual.js";
+import { primeCommand } from "./commands/prime.js";
+import { checkDepsCommand } from "./commands/check-deps.js";
+import { mcpCommand } from "./commands/mcp.js";
 
 const program = new Command();
 
@@ -46,6 +49,7 @@ program.addCommand(generateCommand);
 program.addCommand(packCommand);
 program.addCommand(packChangedCommand);
 program.addCommand(syncRulesCommand);
+program.addCommand(primeCommand);
 
 // Observability commands
 program.addCommand(statsCommand);
@@ -54,6 +58,10 @@ program.addCommand(auditPerfCommand);
 
 // Architecture commands
 program.addCommand(checkAdrCommand);
+program.addCommand(checkDepsCommand);
+
+// Infrastructure commands
+program.addCommand(mcpCommand);
 
 // UI commands
 program.addCommand(visualCommand);

@@ -9,6 +9,7 @@
     "build:openapi": "tsx -e \"import { buildApp } from './src/app.js'; (async () => { const app = await buildApp({ logger: false }); await app.ready(); console.log(JSON.stringify(app.swagger(), null, 2)); })()\" > openapi.json",
     "start": "node dist/index.js",
     "test": "vitest run",
+    "test:contract": "vitest run src/routes/contract.test.ts",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint src/",

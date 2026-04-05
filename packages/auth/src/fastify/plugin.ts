@@ -1,6 +1,7 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import fp from "fastify-plugin";
-import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import type { FastifyInstance, FastifyRequest, FastifyReply, FastifyPluginAsync } from "fastify";
+import { createProblemDetails } from "@mbe/types";
 import type { JWTPayload, AuthUser } from "../types/index.js";
 
 declare module "fastify" {
@@ -75,17 +76,13 @@ async function authPluginImpl(
       };
     } catch (error) {
       fastify.log.warn({ error }, "JWT validation failed");
-      reply.code(401).send({
-        error: "Unauthorized",
-        message: "Invalid token",
-        statusCode: 401,
-      });
+      reply.code(401).send(createProblemDetails(401, "Unauthorized", "Invalid token"));
       return;
     }
   });
 }
 
-export const authPlugin = fp(authPluginImpl, {
+export const authPlugin: FastifyPluginAsync<AuthPluginOptions> = fp(authPluginImpl, {
   name: "@mbe/auth",
   fastify: "5.x",
 });
@@ -96,11 +93,7 @@ export const authPlugin = fp(authPluginImpl, {
  */
 export async function requireAuth(request: FastifyRequest, reply: FastifyReply) {
   if (!request.user) {
-    reply.code(401).send({
-      error: "Unauthorized",
-      message: "Missing or invalid authorization header",
-      statusCode: 401,
-    });
+    reply.code(401).send(createProblemDetails(401, "Unauthorized", "Missing or invalid authorization header"));
     return;
   }
 }

@@ -1,12 +1,13 @@
 import type { FastifyPluginAsync } from "fastify";
-import type {
-  User,
-  CreateUserRequest,
-  UpdateUserRequest,
-  UpdatePreferencesRequest,
-  ApiResponse,
-  ApiError,
-  PaginatedResponse,
+import {
+  type User,
+  type CreateUserRequest,
+  type UpdateUserRequest,
+  type UpdatePreferencesRequest,
+  type ApiResponse,
+  type ApiError,
+  type PaginatedResponse,
+  createProblemDetails,
 } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
 import { userService } from "../services/user.js";
@@ -112,11 +113,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const user = await userService.getById(request.params.id);
       if (!user) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "User not found",
-          statusCode: 404,
-        });
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "User not found"));
       }
       return { data: user };
     }
@@ -244,11 +241,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const user = await userService.update(request.params.id, request.body);
       if (!user) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "User not found",
-          statusCode: 404,
-        });
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "User not found"));
       }
       return { data: user };
     }
@@ -296,11 +289,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const deleted = await userService.delete(request.params.id);
       if (!deleted) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "User not found",
-          statusCode: 404,
-        });
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "User not found"));
       }
       return reply.code(204).send();
     }
@@ -342,11 +331,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const authUser = request.user;
       if (!authUser || !authUser.email) {
-        return reply.code(401).send({
-          error: "Unauthorized",
-          message: "Authentication required",
-          statusCode: 401,
-        });
+        return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Authentication required"));
       }
 
       // Use findOrCreate (upsert) to prevent race conditions when two
@@ -420,20 +405,12 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const authUser = request.user;
       if (!authUser || !authUser.email) {
-        return reply.code(401).send({
-          error: "Unauthorized",
-          message: "Authentication required",
-          statusCode: 401,
-        });
+        return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Authentication required"));
       }
 
       const existingUser = await userService.getByEmail(authUser.email);
       if (!existingUser) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "User not found",
-          statusCode: 404,
-        });
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "User not found"));
       }
 
       const user = await userService.updatePreferences(
@@ -441,11 +418,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
         request.body
       );
       if (!user) {
-        return reply.code(500).send({
-          error: "Internal Server Error",
-          message: "Failed to update preferences",
-          statusCode: 500,
-        });
+        return reply.code(500).send(createProblemDetails(500, "Internal Server Error", "Failed to update preferences"));
       }
       return { data: user };
     }

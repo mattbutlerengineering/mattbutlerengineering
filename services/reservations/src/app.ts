@@ -68,15 +68,15 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   await fastify.register(ScalarApiReference, {
     routePrefix: "/reference",
     configuration: {
-      spec: {
-        content: () => fastify.swagger(),
-      },
+      content: () => fastify.swagger(),
     },
   });
 
   // Register Auth0 plugin
   if (process.env.AUTH0_DOMAIN) {
     await fastify.register(authPlugin, getAuthPluginOptionsFromEnv());
+  } else if (process.env.NODE_ENV === "production") {
+    throw new Error("Fail-closed: AUTH_AUTHORITY and AUTH_AUDIENCE are required in production");
   }
 
   // Register Sentry error handler (no-op without SENTRY_DSN)

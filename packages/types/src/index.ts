@@ -18,6 +18,7 @@ export type {
   DeployPipelineInfo,
   ProblemDetails,
 } from "./api.js";
+export { createProblemDetails } from "./api.js";
 
 // User types
 export type {

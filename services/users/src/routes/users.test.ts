@@ -61,6 +61,7 @@ describe("User Routes", () => {
   beforeEach(async () => {
     process.env = {
       ...originalEnv,
+      AUTH0_DOMAIN: "test.auth0.com",
       AUTH_AUTHORITY: "https://test.auth0.com",
       AUTH_AUDIENCE: "https://api.example.com",
     };
@@ -265,6 +266,7 @@ describe("GET /api/v1/users/me", () => {
   beforeEach(async () => {
     process.env = {
       ...originalEnv,
+      AUTH0_DOMAIN: "test.auth0.com",
       AUTH_AUTHORITY: "https://test.auth0.com",
       AUTH_AUDIENCE: "https://api.example.com",
     };

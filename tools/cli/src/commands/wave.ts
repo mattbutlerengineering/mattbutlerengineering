@@ -112,7 +112,7 @@ export const waveCommand = new Command("wave")
             try {
                 console.log(`   Merging ${res.branchName}...`);
                 execSync(`git merge ${res.branchName}`, { cwd: root, stdio: "inherit" });
-            } catch (error) {
+            } catch {
                 console.error(`   ❌ Failed to merge ${res.branchName}. There might be conflicts.`);
             }
         }

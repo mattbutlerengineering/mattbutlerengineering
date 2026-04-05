@@ -5,6 +5,7 @@ import { streamText } from "ai";
 import type { FastifyRequest } from "fastify";
 import type { FastifyPluginAsync } from "fastify";
 import { requireAuth } from "@mbe/auth/fastify";
+import { createProblemDetails } from "@mbe/types";
 // Import directly from catalog (not index) to avoid pulling in registry.tsx (browser-only)
 import { catalog } from "@mbe/rialto-catalog/catalog";
 import { z } from "zod";
@@ -39,11 +40,13 @@ export const genChatRoutes: FastifyPluginAsync = async (fastify) => {
       // Validate request body
       const parseResult = GenChatBodySchema.safeParse(request.body);
       if (!parseResult.success) {
-        return reply.code(400).send({
-          error: "Bad Request",
-          message: parseResult.error.issues.map((i) => i.message).join(", "),
-          statusCode: 400,
-        });
+        return reply.code(400).send(
+          createProblemDetails(
+            400,
+            "Bad Request",
+            parseResult.error.issues.map((i) => i.message).join(", ")
+          )
+        );
       }
 
       const { messages } = parseResult.data;

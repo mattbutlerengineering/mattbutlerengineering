@@ -216,6 +216,12 @@ export const ReservationSchema = {
       description: "Guest phone number",
       example: "+1-555-123-4567",
     },
+    guestId: {
+      type: "string",
+      nullable: true,
+      description: "Guest ID (internal reference)",
+      example: "clx1234567890abcdef",
+    },
     userId: {
       type: "string",
       nullable: true,
