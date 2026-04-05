@@ -128,4 +128,4 @@ Full details: [milestones/v1.6-ROADMAP.md](milestones/v1.6-ROADMAP.md)
 | 46. JIT Context Priming | v1.6 | 1/1 | Complete | 2026-04-04 |
 | 47. Dependency Integrity Audit | v1.6 | 1/1 | Complete | 2026-04-04 |
 | 48. Infrastructure MCP Servers | v1.6 | 1/1 | Complete | 2026-04-04 |
-| 49. Dependency Synchronization | 1/1 | Complete   | 2026-04-05 | - |
+| 49. Dependency Synchronization | 1/1 | Complete    | 2026-04-05 | - |
