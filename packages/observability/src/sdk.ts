@@ -58,8 +58,14 @@ export function initTelemetry(config: OtelConfig): NodeSDK {
       ? []
       : [
           new HttpInstrumentation({
-            ignoreIncomingRequestHook: (req: IncomingMessage) =>
-              req.url === "/health",
+            ignoreIncomingRequestHook: (req: IncomingMessage) => {
+              const url = req.url ?? "";
+              return (
+                url.includes("/health") ||
+                url.startsWith("/docs") ||
+                url.startsWith("/reference")
+              );
+            },
           }),
           new FastifyInstrumentation(),
           new PinoInstrumentation(),
