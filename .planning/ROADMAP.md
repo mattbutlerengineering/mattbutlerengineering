@@ -8,7 +8,7 @@
 - ✅ **v1.3 AI Developer Velocity** — Phases 19-31 (shipped 2026-04-04)
 - ✅ **v1.4 Agentic Orchestration & Observability** — Phases 32-40 (shipped 2026-04-04)
 - ✅ **v1.5 Repository Health & Polish** — Phases 41-43 (shipped 2026-04-04)
-- 🚧 **v1.6 Continuous Verification & DevEx** — Phases 44-49 (in progress)
+- ✅ **v1.6 Continuous Verification & DevEx** — Phases 44-49 (shipped 2026-04-05)
 
 ## Phases
 
@@ -103,29 +103,16 @@ Full details: [milestones/v1.5-ROADMAP.md](milestones/v1.5-ROADMAP.md)
 
 </details>
 
-### 🚧 v1.6 Continuous Verification & DevEx (In Progress)
+<details>
+<summary>✅ v1.6 Continuous Verification & DevEx (Phases 44-49) — SHIPPED 2026-04-05</summary>
 
-**Milestone Goal:** Elevate developer and agent experience through tighter feedback loops, automated architectural enforcement, and standardized tool interfaces (MCP).
-
-- [x] **Phase 44: Architectural Enforcement Hook** — Add mbe check-adr to pre-commit hook
-- [x] **Phase 45: API Contract Regression Testing** — CI validation for service schemas
-- [x] **Phase 46: JIT Context Priming** — Automatic mbe pack on agent session start
-- [x] **Phase 47: Dependency Integrity Audit** — mbe check-deps for version consistency
-- [x] **Phase 48: Infrastructure MCP Servers & CLIs** — Standardized agent interfaces for infra
-- [x] **Phase 49: Dependency Synchronization** — Fix mismatches using pnpm catalogs (completed 2026-04-05)
+- [x] Phase 44: Architectural Enforcement Hook (1/1 plan) — completed 2026-04-04
+- [x] Phase 45: API Contract Regression Testing (1/1 plan) — completed 2026-04-04
+- [x] Phase 46: JIT Context Priming (1/1 plan) — completed 2026-04-04
+- [x] Phase 47: Dependency Integrity Audit (1/1 plan) — completed 2026-04-04
+- [x] Phase 48: Infrastructure MCP Servers & CLIs (1/1 plan) — completed 2026-04-04
+- [x] Phase 49: Dependency Synchronization (1/1 plan) — completed 2026-04-05
 
 Full details: [milestones/v1.6-ROADMAP.md](milestones/v1.6-ROADMAP.md)
 
-## Progress
-
-| Phase | Milestone | Plans Complete | Status | Completed |
-|-------|-----------|----------------|--------|-----------|
-| 1. Rialto-Web Migration | v1.0 | 3/3 | Complete | 2026-02-28 |
-...
-| 43. Sentry Error Logging | v1.5 | 1/1 | Complete | 2026-04-04 |
-| 44. Architectural Enforcement Hook | v1.6 | 1/1 | Complete | 2026-04-04 |
-| 45. API Contract Regression Testing | v1.6 | 1/1 | Complete | 2026-04-04 |
-| 46. JIT Context Priming | v1.6 | 1/1 | Complete | 2026-04-04 |
-| 47. Dependency Integrity Audit | v1.6 | 1/1 | Complete | 2026-04-04 |
-| 48. Infrastructure MCP Servers | v1.6 | 1/1 | Complete | 2026-04-04 |
-| 49. Dependency Synchronization | 1/1 | Complete    | 2026-04-05 | - |
+</details>
