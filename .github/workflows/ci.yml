@@ -36,6 +36,7 @@ jobs:
   prepare:
     name: Prepare
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v5
@@ -75,10 +76,24 @@ jobs:
           pnpm --filter @mbe/reservations-service db:generate
           pnpm --filter @mbe/agent-service db:generate
 
+      - name: Upload workspace artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace-deps
+          path: |
+            node_modules
+            packages/*/node_modules
+            services/*/node_modules
+            services/users/src/generated
+            services/reservations/src/generated
+            services/agent/src/generated
+          retention-days: 1
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
     needs: [prepare]
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v5
@@ -88,13 +103,11 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 22
-          cache: "pnpm"
 
-      - name: Restore node_modules
-        uses: actions/cache@v5
+      - name: Download workspace artifact
+        uses: actions/download-artifact@v4
         with:
-          path: node_modules
-          key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
+          name: workspace-deps
 
       - run: pnpm lint
 
@@ -102,6 +115,7 @@ jobs:
     name: Typecheck
     runs-on: ubuntu-latest
     needs: [prepare]
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v5
@@ -111,22 +125,11 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 22
-          cache: "pnpm"
 
-      - name: Restore node_modules
-        uses: actions/cache@v5
+      - name: Download workspace artifact
+        uses: actions/download-artifact@v4
         with:
-          path: node_modules
-          key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
-
-      - name: Restore Prisma clients
-        uses: actions/cache@v5
-        with:
-          path: |
-            services/users/src/generated
-            services/reservations/src/generated
-            services/agent/src/generated
-          key: prisma-clients-${{ hashFiles('services/users/prisma/schema.prisma', 'services/reservations/prisma/schema.prisma', 'services/agent/prisma/schema.prisma') }}
+          name: workspace-deps
 
       - name: Typecheck
         env:
@@ -138,6 +141,7 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     needs: [lint, typecheck]
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v5
@@ -147,22 +151,11 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 22
-          cache: "pnpm"
 
-      - name: Restore node_modules
-        uses: actions/cache@v5
+      - name: Download workspace artifact
+        uses: actions/download-artifact@v4
         with:
-          path: node_modules
-          key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
-
-      - name: Restore Prisma clients
-        uses: actions/cache@v5
-        with:
-          path: |
-            services/users/src/generated
-            services/reservations/src/generated
-            services/agent/src/generated
-          key: prisma-clients-${{ hashFiles('services/users/prisma/schema.prisma', 'services/reservations/prisma/schema.prisma', 'services/agent/prisma/schema.prisma') }}
+          name: workspace-deps
 
       - name: Build all packages
         env:
@@ -201,6 +194,7 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     needs: [lint, typecheck]
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v5
@@ -210,22 +204,11 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 22
-          cache: "pnpm"
 
-      - name: Restore node_modules
-        uses: actions/cache@v5
+      - name: Download workspace artifact
+        uses: actions/download-artifact@v4
         with:
-          path: node_modules
-          key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
-
-      - name: Restore Prisma clients
-        uses: actions/cache@v5
-        with:
-          path: |
-            services/users/src/generated
-            services/reservations/src/generated
-            services/agent/src/generated
-          key: prisma-clients-${{ hashFiles('services/users/prisma/schema.prisma', 'services/reservations/prisma/schema.prisma', 'services/agent/prisma/schema.prisma') }}
+          name: workspace-deps
 
       - name: Run tests with coverage
         env:
@@ -257,6 +240,7 @@ jobs:
     name: Validate Migrations
     runs-on: ubuntu-latest
     needs: [lint, typecheck]
+    timeout-minutes: 10
 
     services:
       postgres:
@@ -281,22 +265,11 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 22
-          cache: "pnpm"
 
-      - name: Restore node_modules
-        uses: actions/cache@v5
+      - name: Download workspace artifact
+        uses: actions/download-artifact@v4
         with:
-          path: node_modules
-          key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
-
-      - name: Restore Prisma clients
-        uses: actions/cache@v5
-        with:
-          path: |
-            services/users/src/generated
-            services/reservations/src/generated
-            services/agent/src/generated
-          key: prisma-clients-${{ hashFiles('services/users/prisma/schema.prisma', 'services/reservations/prisma/schema.prisma', 'services/agent/prisma/schema.prisma') }}
+          name: workspace-deps
 
       - name: Check for destructive migrations
         run: node scripts/check-destructive-migrations.js
@@ -329,6 +302,7 @@ jobs:
     needs: [lint, typecheck, build, test, migrations]
     if: always() && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     steps:
       - name: Write CI status to KV
