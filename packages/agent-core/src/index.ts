@@ -75,6 +75,7 @@ export type {
   StuckDetectorConfig,
   StuckPattern,
   StuckPatternType,
+  StuckSeverity,
 } from "./stuck-detector.js";
 
 // Success evaluation

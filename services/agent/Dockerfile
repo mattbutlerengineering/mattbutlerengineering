@@ -23,28 +23,42 @@ COPY services/agent/package.json ./services/agent/
 # Install all dependencies
 RUN pnpm install --frozen-lockfile
 
-# Copy source code
-COPY packages/types ./packages/types
-COPY packages/config ./packages/config
-COPY packages/auth ./packages/auth
-COPY packages/api-versioning ./packages/api-versioning
-COPY packages/agent-core ./packages/agent-core
-COPY packages/observability ./packages/observability
-COPY packages/sentry ./packages/sentry
-COPY packages/rialto ./packages/rialto
-COPY packages/rialto-catalog ./packages/rialto-catalog
-COPY services/agent ./services/agent
+# Copy tsconfig files (needed for build, changes rarely)
+COPY packages/types/tsconfig.json ./packages/types/
+COPY packages/config/typescript ./packages/config/typescript
+COPY packages/auth/tsconfig.json ./packages/auth/
+COPY packages/api-versioning/tsconfig.json ./packages/api-versioning/
+COPY packages/agent-core/tsconfig.json ./packages/agent-core/
+COPY packages/observability/tsconfig.json ./packages/observability/
+COPY packages/sentry/tsconfig.json ./packages/sentry/
+COPY packages/rialto/tsconfig.json ./packages/rialto/
+COPY packages/rialto-catalog/tsconfig.json ./packages/rialto-catalog/
+COPY services/agent/tsconfig.json ./services/agent/
 
-# Build workspace packages and service
-RUN pnpm --filter @mbe/types build
-RUN pnpm --filter @mbe/auth build
-RUN pnpm --filter @mbe/api-versioning build
-RUN pnpm --filter @mbe/observability build
-RUN pnpm --filter @mbe/sentry build
-RUN pnpm --filter @mbe/agent-core build
-RUN pnpm --filter @mbe/rialto-catalog build
-RUN pnpm --filter @mbe/agent-service db:generate
-RUN pnpm --filter @mbe/agent-service build
+# Copy Prisma schema (needed for db:generate)
+COPY services/agent/prisma ./services/agent/prisma
+
+# Copy source code (most frequently changing layer — last)
+COPY packages/types/src ./packages/types/src
+COPY packages/auth/src ./packages/auth/src
+COPY packages/api-versioning/src ./packages/api-versioning/src
+COPY packages/agent-core/src ./packages/agent-core/src
+COPY packages/observability/src ./packages/observability/src
+COPY packages/sentry/src ./packages/sentry/src
+COPY packages/rialto/src ./packages/rialto/src
+COPY packages/rialto-catalog/src ./packages/rialto-catalog/src
+COPY services/agent/src ./services/agent/src
+
+# Build workspace packages and service in a single layer
+RUN pnpm --filter @mbe/types build && \
+    pnpm --filter @mbe/auth build && \
+    pnpm --filter @mbe/api-versioning build && \
+    pnpm --filter @mbe/observability build && \
+    pnpm --filter @mbe/sentry build && \
+    pnpm --filter @mbe/agent-core build && \
+    pnpm --filter @mbe/rialto-catalog build && \
+    pnpm --filter @mbe/agent-service db:generate && \
+    pnpm --filter @mbe/agent-service build
 
 # Production stage
 FROM node:22-alpine3.19 AS runner

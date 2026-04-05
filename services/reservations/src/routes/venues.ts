@@ -10,6 +10,7 @@ import type {
   ApiError,
   PaginatedResponse,
 } from "@mbe/types";
+import { createProblemDetails } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
 import { venueService, venueGroupService } from "../services/venue.js";
 
@@ -109,11 +110,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const group = await venueGroupService.getById(request.params.id);
       if (!group) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "Venue group not found",
-          statusCode: 404,
-        });
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue group not found"));
       }
       return { data: group };
     }
@@ -180,11 +177,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
           error instanceof Error &&
           error.message.includes("Unique constraint")
         ) {
-          return reply.code(400).send({
-            error: "Bad Request",
-            message: "A venue group with this slug already exists",
-            statusCode: 400,
-          });
+          return reply.code(400).send(createProblemDetails(400, "Bad Request", "A venue group with this slug already exists"));
         }
         throw error;
       }
@@ -248,11 +241,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const group = await venueGroupService.update(request.params.id, request.body);
       if (!group) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "Venue group not found",
-          statusCode: 404,
-        });
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue group not found"));
       }
       return { data: group };
     }
@@ -305,11 +294,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const deleted = await venueGroupService.delete(request.params.id);
       if (!deleted) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "Venue group not found",
-          statusCode: 404,
-        });
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue group not found"));
       }
       return reply.code(204).send();
     }
@@ -415,11 +400,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const venue = await venueService.getById(request.params.id);
       if (!venue) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "Venue not found",
-          statusCode: 404,
-        });
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
       }
       return { data: venue };
     }
@@ -465,11 +446,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const venue = await venueService.getBySlug(request.params.slug);
       if (!venue) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "Venue not found",
-          statusCode: 404,
-        });
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
       }
       return { data: venue };
     }
@@ -553,11 +530,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
           error instanceof Error &&
           error.message.includes("Unique constraint")
         ) {
-          return reply.code(400).send({
-            error: "Bad Request",
-            message: "A venue with this slug already exists",
-            statusCode: 400,
-          });
+          return reply.code(400).send(createProblemDetails(400, "Bad Request", "A venue with this slug already exists"));
         }
         throw error;
       }
@@ -625,11 +598,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const venue = await venueService.update(request.params.id, request.body);
       if (!venue) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "Venue not found",
-          statusCode: 404,
-        });
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
       }
       return { data: venue };
     }
@@ -682,11 +651,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const deleted = await venueService.delete(request.params.id);
       if (!deleted) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "Venue not found",
-          statusCode: 404,
-        });
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
       }
       return reply.code(204).send();
     }

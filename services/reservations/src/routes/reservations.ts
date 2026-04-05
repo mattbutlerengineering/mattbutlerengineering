@@ -9,6 +9,7 @@ import type {
   ApiError,
   PaginatedResponse,
 } from "@mbe/types";
+import { createProblemDetails } from "@mbe/types";
 import { requireAuth, optionalAuth } from "@mbe/auth/fastify";
 import { reservationService } from "../services/reservation.js";
 import { emitReservationCancelled, emitReservationCreated, emitTableUpdated } from "../services/events.js";
@@ -157,11 +158,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const authUser = request.user;
       if (!authUser) {
-        return reply.code(401).send({
-          error: "Unauthorized",
-          message: "Authentication required",
-          statusCode: 401,
-        });
+        return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Authentication required"));
       }
 
       const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
@@ -241,11 +238,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       const userId = request.user?.id;
       const result = await reservationService.createWalkIn(request.body, userId);
       if (!result.success || !result.reservation) {
-        return reply.code(409).send({
-          error: "Conflict",
-          message: result.error ?? "Table is not available",
-          statusCode: 409,
-        });
+        return reply.code(409).send(createProblemDetails(409, "Conflict", result.error ?? "Table is not available"));
       }
       const updatedTable = await tableService.updateStatus(request.body.tableId, "OCCUPIED");
       emitReservationCreated(result.reservation);
@@ -300,11 +293,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const reservation = await reservationService.getById(request.params.id);
       if (!reservation) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "Reservation not found",
-          statusCode: 404,
-        });
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Reservation not found"));
       }
       return { data: reservation };
     }
@@ -318,6 +307,12 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
     "/",
     {
       preHandler: optionalAuth,
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: "1 minute",
+        },
+      },
       schema: {
         summary: "Create a new reservation",
         operationId: "createReservation",
@@ -408,11 +403,8 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
 
       if (!result.success) {
         const statusCode = result.conflict?.hasConflict ? 409 : 400;
-        return reply.code(statusCode).send({
-          error: statusCode === 409 ? "Conflict" : "Bad Request",
-          message: result.error ?? "Failed to create reservation",
-          statusCode,
-        });
+        const title = statusCode === 409 ? "Conflict" : "Bad Request";
+        return reply.code(statusCode).send(createProblemDetails(statusCode, title, result.error ?? "Failed to create reservation"));
       }
 
       return reply.code(201).send({ data: result.reservation! });
@@ -526,11 +518,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         );
 
         if (!reservation) {
-          return reply.code(404).send({
-            error: "Not Found",
-            message: "Reservation not found",
-            statusCode: 404,
-          });
+          return reply.code(404).send(createProblemDetails(404, "Not Found", "Reservation not found"));
         }
 
         emitReservationCancelled(reservation);
@@ -544,26 +532,14 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
 
       if (!result.success) {
         if (result.error === "Reservation not found") {
-          return reply.code(404).send({
-            error: "Not Found",
-            message: "Reservation not found",
-            statusCode: 404,
-          });
+          return reply.code(404).send(createProblemDetails(404, "Not Found", "Reservation not found"));
         }
 
         if (result.conflict?.hasConflict) {
-          return reply.code(409).send({
-            error: "Conflict",
-            message: result.error ?? "Time slot has a conflict",
-            statusCode: 409,
-          });
+          return reply.code(409).send(createProblemDetails(409, "Conflict", result.error ?? "Time slot has a conflict"));
         }
 
-        return reply.code(400).send({
-          error: "Bad Request",
-          message: result.error ?? "Failed to update reservation",
-          statusCode: 400,
-        });
+        return reply.code(400).send(createProblemDetails(400, "Bad Request", result.error ?? "Failed to update reservation"));
       }
 
       return { data: result.reservation! };
@@ -615,11 +591,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const reservation = await reservationService.cancel(request.params.id);
       if (!reservation) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "Reservation not found",
-          statusCode: 404,
-        });
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Reservation not found"));
       }
       return { data: reservation };
     }

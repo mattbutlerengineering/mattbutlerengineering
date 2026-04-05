@@ -136,7 +136,7 @@ export async function runSession(
 
         let resultMessage: SDKResultMessage | null = null;
 
-        const detector = createStuckDetector();
+        const detector = createStuckDetector(config.stuckDetectorConfig);
         const conversation = query({
           prompt: config.taskDescription,
           options: {
@@ -178,13 +178,19 @@ export async function runSession(
 
             const stuckPattern = detector.ingest(message);
             if (stuckPattern) {
-              stuckReason = stuckPattern;
+              if (stuckPattern.severity === "error") {
+                stuckReason = stuckPattern;
+                emitEvent(onEvent, "session:stuck", {
+                  message: `Stuck detected: ${stuckPattern.description}`,
+                });
+                querySpan.setAttribute("sdk.stuck_pattern", stuckPattern.type);
+                abortController.abort();
+                break;
+              }
+              // Warnings are emitted but don't abort the session
               emitEvent(onEvent, "session:stuck", {
-                message: `Stuck detected: ${stuckPattern.description}`,
+                message: `Stuck warning: ${stuckPattern.description}`,
               });
-              querySpan.setAttribute("sdk.stuck_pattern", stuckPattern.type);
-              abortController.abort();
-              break;
             }
           }
 

@@ -27,15 +27,31 @@ dist
 
 # Test
 coverage
+**/coverage
 **/*.test.ts
 **/*.spec.ts
+**/vitest.config.ts
 
 # Docs
 *.md
 docs/
+**/llms.txt
 
 # Infrastructure (not needed in app containers)
 infrastructure/
 
 # Tools
 tools/
+
+# Config files not needed in build
+**/.eslintrc*
+**/eslint.config.*
+**/.prettierrc*
+**/CLAUDE.md
+
+# Apps (not needed for service builds)
+apps/
+
+# Claude / AI config
+.claude/
+**/AGENTS.md

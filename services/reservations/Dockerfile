@@ -20,23 +20,34 @@ COPY services/reservations/package.json ./services/reservations/
 # Install all dependencies
 RUN pnpm install --frozen-lockfile
 
-# Copy source code
-COPY packages/types ./packages/types
-COPY packages/auth ./packages/auth
-COPY packages/api-versioning ./packages/api-versioning
-COPY packages/config ./packages/config
-COPY packages/observability ./packages/observability
-COPY packages/sentry ./packages/sentry
-COPY services/reservations ./services/reservations
+# Copy tsconfig files (needed for build, changes rarely)
+COPY packages/types/tsconfig.json ./packages/types/
+COPY packages/auth/tsconfig.json ./packages/auth/
+COPY packages/api-versioning/tsconfig.json ./packages/api-versioning/
+COPY packages/config/typescript ./packages/config/typescript
+COPY packages/observability/tsconfig.json ./packages/observability/
+COPY packages/sentry/tsconfig.json ./packages/sentry/
+COPY services/reservations/tsconfig.json ./services/reservations/
 
-# Build workspace packages and service
-RUN pnpm --filter @mbe/types build
-RUN pnpm --filter @mbe/auth build
-RUN pnpm --filter @mbe/api-versioning build
-RUN pnpm --filter @mbe/observability build
-RUN pnpm --filter @mbe/sentry build
-RUN pnpm --filter @mbe/reservations-service db:generate
-RUN pnpm --filter @mbe/reservations-service build
+# Copy Prisma schema (needed for db:generate)
+COPY services/reservations/prisma ./services/reservations/prisma
+
+# Copy source code (most frequently changing layer — last)
+COPY packages/types/src ./packages/types/src
+COPY packages/auth/src ./packages/auth/src
+COPY packages/api-versioning/src ./packages/api-versioning/src
+COPY packages/observability/src ./packages/observability/src
+COPY packages/sentry/src ./packages/sentry/src
+COPY services/reservations/src ./services/reservations/src
+
+# Build workspace packages and service in a single layer
+RUN pnpm --filter @mbe/types build && \
+    pnpm --filter @mbe/auth build && \
+    pnpm --filter @mbe/api-versioning build && \
+    pnpm --filter @mbe/observability build && \
+    pnpm --filter @mbe/sentry build && \
+    pnpm --filter @mbe/reservations-service db:generate && \
+    pnpm --filter @mbe/reservations-service build
 
 # Production stage
 FROM node:22-alpine3.19 AS runner

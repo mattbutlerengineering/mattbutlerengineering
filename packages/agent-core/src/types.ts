@@ -1,4 +1,5 @@
 import type { SDKMessage, SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
+import type { StuckDetectorConfig } from "./stuck-detector.js";
 
 // ── Session configuration ────────────────────────────────────────────
 
@@ -28,6 +29,7 @@ export interface SessionConfig {
   readonly evaluateSuccess?: boolean;
   readonly sourceFiles?: readonly string[];
   readonly feedbackLoop?: FeedbackLoopConfig;
+  readonly stuckDetectorConfig?: Partial<StuckDetectorConfig>;
 }
 
 export const DEFAULT_SESSION_CONFIG: Omit<SessionConfig, "taskDescription" | "repoPath"> = {

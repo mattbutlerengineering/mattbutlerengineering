@@ -15,6 +15,7 @@ const SECURITY_HEADERS = {
   "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
   "X-Frame-Options": "DENY",
   "X-Content-Type-Options": "nosniff",
+  "X-XSS-Protection": "0",
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
   "Content-Security-Policy": [
@@ -25,6 +26,8 @@ const SECURITY_HEADERS = {
     "font-src 'self' https://fonts.gstatic.com",
     "connect-src 'self' https://dev-ytbgmz5ls3wh4xdx.us.auth0.com https://api.mattbutlerengineering.com https://cloudflareinsights.com",
     "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
   ].join("; "),
 };
 
@@ -603,6 +606,13 @@ export default {
 
       // Pass through the response (including 4xx which should show app error pages)
       return apiResponse;
+    }
+
+    // ── Block source maps (defense-in-depth) ─────────────────────────
+    // Source maps are uploaded to Sentry during build and deleted from
+    // dist/, but block at the edge in case any slip through.
+    if (url.pathname.endsWith(".map")) {
+      return new Response("Not Found", { status: 404 });
     }
 
     // ── Trailing-slash redirects for SPA prefixes ────────────────────

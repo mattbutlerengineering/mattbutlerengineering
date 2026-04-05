@@ -58,6 +58,9 @@
     ]
   },
   "pnpm": {
+    "auditConfig": {
+      "ignoreCves": []
+    },
     "overrides": {
       "tar": ">=7.5.11",
       "undici": ">=7.24.0",
