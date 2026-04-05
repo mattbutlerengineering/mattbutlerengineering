@@ -5,8 +5,9 @@
 - ✅ **v1.0 Rialto Unification & Hosting** — Phases 1-5 (shipped 2026-03-04)
 - ✅ **v1.1 Rialto Accessibility & AI DX** — Phases 6-11 (shipped 2026-03-23)
 - ✅ **v1.2 Generative UI** — Phases 12-18 (shipped 2026-03-28)
-- 🚧 **v1.3 AI Developer Velocity** — Phases 19-31 (in progress)
-- 🚧 **v1.4 Agentic Orchestration & Observability** — Phases 32-40 (in progress)
+- ✅ **v1.3 AI Developer Velocity** — Phases 19-31 (shipped 2026-04-04)
+- ✅ **v1.4 Agentic Orchestration & Observability** — Phases 32-40 (shipped 2026-04-04)
+- ✅ **v1.5 Repository Health & Polish** — Phases 41-42 (shipped 2026-04-04)
 
 ## Phases
 
@@ -52,41 +53,53 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 
 </details>
 
-### 🚧 v1.3 AI Developer Velocity (In Progress)
+<details>
+<summary>✅ v1.3 AI Developer Velocity (Phases 19-31) — SHIPPED 2026-04-04</summary>
 
-**Milestone Goal:** Dramatically reduce latency in the Research and Execution phases by optimizing monorepo tooling and providing high-density context for AI agents.
-
-- [x] **Phase 19: Turbo Remote Caching** — Prevent redundant builds and type-checks via remote cache
-- [x] **Phase 20: Pre-commit Hook Optimization** — Parallelize local checks and move heavy global checks to CI
-- [x] **Phase 21: Gemini Intelligence Context (GEMINI.md)** — Create high-density architectural and operational context
-- [x] **Phase 22: Service-Level LLM Context** — Service-specific llms.txt endpoints/schemas
-- [x] **Phase 23: Standardized Agent Error Schema** — RFC 7807 problem details
-- [x] **Phase 24: Unified "mbe up" Bootstrapping** — Orchestrated local dev setup
-- [x] **Phase 25: Architecture Decision Records** — Systematic ADR tracking
-- [x] **Phase 26: Automated AI Regression Testing** — CI validation for Gen UI pipeline
-- [x] **Phase 27: Custom ESLint AST Rules** — Enforce project-specific architectural patterns
-- [x] **Phase 28: Strict Internal Zod Schema Enforcement** — Strongly typed and validated boundaries
-- [x] **Phase 29: Agent Success Rate Tracking** — Establish baseline for AI task completion
-- [x] **Phase 30: CI Performance & Bundle Size Budgets** — Enforce strict performance budgets
-- [x] **Phase 31: "Golden Path" CLI Generators** — Reduce boilerplate and match architecture
+- [x] Phase 19: Turbo Remote Caching (1/1 plan) — completed 2026-04-04
+- [x] Phase 20: Pre-commit Hook Optimization (1/1 plan) — completed 2026-04-04
+- [x] Phase 21: Gemini Intelligence Context (1/1 plan) — completed 2026-04-04
+- [x] Phase 22: Service-Level LLM Context (1/1 plan) — completed 2026-04-04
+- [x] Phase 23: Standardized Agent Error Schema (1/1 plan) — completed 2026-04-04
+- [x] Phase 24: Unified "mbe up" Bootstrapping (1/1 plan) — completed 2026-04-04
+- [x] Phase 25: Architecture Decision Records (1/1 plan) — completed 2026-04-04
+- [x] Phase 26: Automated AI Regression Testing (1/1 plan) — completed 2026-04-04
+- [x] Phase 27: Custom ESLint AST Rules (1/1 plan) — completed 2026-04-04
+- [x] Phase 28: Strict Internal Zod Schema Enforcement (1/1 plan) — completed 2026-04-04
+- [x] Phase 29: Agent Success Rate Tracking (1/1 plan) — completed 2026-04-04
+- [x] Phase 30: CI Performance & Bundle Size Budgets (1/1 plan) — completed 2026-04-04
+- [x] Phase 31: "Golden Path" CLI Generators (1/1 plan) — completed 2026-04-04
 
 Full details: [milestones/v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md)
 
-### 🚧 v1.4 Agentic Orchestration & Observability (In Progress)
+</details>
 
-**Milestone Goal:** Establish high-autonomy execution loops and deep performance visibility to transition from "AI as a chatbot" to "AI as a deterministic compiler."
+<details>
+<summary>✅ v1.4 Agentic Orchestration & Observability (Phases 32-40) — SHIPPED 2026-04-04</summary>
 
-- [x] **Phase 32: The Ralph Wiggum Loop (`mbe loop`)** — Autonomous brute-force iteration
-- [x] **Phase 33: RIPER Workflow Integration** — Research-Innovate-Plan-Execute-Review cycle
-- [x] **Phase 34: Automated Rule Synchronizer (Rulesync)** — Centralized AI rule management
-- [x] **Phase 35: Agentic Observability & Usage Dashboard** — Tracking costs and success rates
-- [x] **Phase 36: Parallel Wave Orchestrator (`mbe wave`)** — Multi-agent git worktree coordination
-- [x] **Phase 37: Automated Performance Auditor (`mbe audit-perf`)** — Analyze logs and suggest optimizations
-- [x] **Phase 38: The Context Guard (Autonomous JIT Context)** — Git hooks for mbe pack
-- [x] **Phase 39: Structured ADRs** — Machine-readable architectural decisions
-- [x] **Phase 40: Model Governance & Verification (`mbe check-model`)** — Ensure correct model selection
+- [x] Phase 32: The Ralph Wiggum Loop (1/1 plan) — completed 2026-04-04
+- [x] Phase 33: RIPER Workflow Integration (1/1 plan) — completed 2026-04-04
+- [x] Phase 34: Automated Rule Synchronizer (1/1 plan) — completed 2026-04-04
+- [x] Phase 35: Agentic Observability (1/1 plan) — completed 2026-04-04
+- [x] Phase 36: Parallel Execution Waves (1/1 plan) — completed 2026-04-04
+- [x] Phase 37: Automated Performance Auditor (1/1 plan) — completed 2026-04-04
+- [x] Phase 38: The Context Guard (1/1 plan) — completed 2026-04-04
+- [x] Phase 39: Structured ADRs (1/1 plan) — completed 2026-04-04
+- [x] Phase 40: Model Governance & Verification (1/1 plan) — completed 2026-04-04
 
 Full details: [milestones/v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md)
+
+</details>
+
+<details>
+<summary>✅ v1.5 Repository Health & Polish (Phases 41-42) — SHIPPED 2026-04-04</summary>
+
+- [x] Phase 41: Configuration Consolidation (Lighthouse) (1/1 plan) — completed 2026-04-04
+- [x] Phase 42: Project Status Badges (1/1 plan) — completed 2026-04-04
+
+Full details: [milestones/v1.5-ROADMAP.md](milestones/v1.5-ROADMAP.md)
+
+</details>
 
 ## Progress
 
@@ -94,26 +107,6 @@ Full details: [milestones/v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md)
 |-------|-----------|----------------|--------|-----------|
 | 1. Rialto-Web Migration | v1.0 | 3/3 | Complete | 2026-02-28 |
 ...
-| 18. Gen Worker Pulumi Resource | v1.2 | 1/1 | Complete | 2026-03-28 |
-| 19. Turbo Remote Caching | v1.3 | 1/1 | Complete | 2026-04-04 |
-| 20. Pre-commit Hook Optimization | v1.3 | 1/1 | Complete | 2026-04-04 |
-| 21. Gemini Intelligence Context | v1.3 | 1/1 | Complete | 2026-04-04 |
-| 22. Service-Level LLM Context | v1.3 | 1/1 | Complete | 2026-04-04 |
-| 23. Standardized Agent Error Schema | v1.3 | 1/1 | Complete | 2026-04-04 |
-| 24. Unified "mbe up" Bootstrapping | v1.3 | 1/1 | Complete | 2026-04-04 |
-| 25. Architecture Decision Records | v1.3 | 1/1 | Complete | 2026-04-04 |
-| 26. Automated AI Regression Testing | v1.3 | 1/1 | Complete | 2026-04-04 |
-| 27. Custom ESLint AST Rules | v1.3 | 1/1 | Complete | 2026-04-04 |
-| 28. Strict Internal Zod Schema Enforcement | v1.3 | 1/1 | Complete | 2026-04-04 |
-| 29. Agent Success Rate Tracking | v1.3 | 1/1 | Complete | 2026-04-04 |
-| 30. CI Performance & Bundle Size Budgets | v1.3 | 1/1 | Complete | 2026-04-04 |
-| 31. "Golden Path" CLI Generators | v1.3 | 1/1 | Complete | 2026-04-04 |
-| 32. The Ralph Wiggum Loop | v1.4 | 1/1 | Complete | 2026-04-04 |
-| 33. RIPER Workflow | v1.4 | 1/1 | Complete | 2026-04-04 |
-| 34. Automated Rule Synchronizer | v1.4 | 1/1 | Complete | 2026-04-04 |
-| 35. Agentic Observability | v1.4 | 1/1 | Complete | 2026-04-04 |
-| 36. Parallel Execution Waves | v1.4 | 1/1 | Complete | 2026-04-04 |
-| 37. Automated Performance Auditor | v1.4 | 1/1 | Complete | 2026-04-04 |
-| 38. The Context Guard | v1.4 | 1/1 | Complete | 2026-04-04 |
-| 39. Structured ADRs | v1.4 | 1/1 | Complete | 2026-04-04 |
 | 40. Model Governance & Verification | v1.4 | 1/1 | Complete | 2026-04-04 |
+| 41. Configuration Consolidation | v1.5 | 1/1 | Complete | 2026-04-04 |
+| 42. Project Status Badges | v1.5 | 1/1 | Complete | 2026-04-04 |
