@@ -27,6 +27,7 @@
     "lighthouse": "lhci autorun",
     "size": "turbo run size",
     "size:check": "turbo run size:check",
+    "pre-commit:full": "pnpm lint-staged && pnpm turbo typecheck --filter='...[HEAD]' && node scripts/check-circular-deps.js && node scripts/check-service-bindings.js && node scripts/check-env-sync.js",
     "prepare": "husky"
   },
   "devDependencies": {
