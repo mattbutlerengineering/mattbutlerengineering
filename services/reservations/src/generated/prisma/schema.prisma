@@ -39,7 +39,7 @@ model Venue {
   venueGroupId   String?           @map("venue_group_id")
   venueGroup     VenueGroup?       @relation(fields: [venueGroupId], references: [id])
   name           String
-  slug           String            @unique
+  slug           String
   ianaTimezone   String            @map("iana_timezone")
   currencyCode   String            @default("USD") @map("currency_code")
   operatingHours Json?             @map("operating_hours")
@@ -52,6 +52,7 @@ model Venue {
   createdAt      DateTime          @default(now()) @map("created_at")
   updatedAt      DateTime          @updatedAt @map("updated_at")
 
+  @@unique([venueGroupId, slug])
   @@map("venues")
 }
 
@@ -73,7 +74,7 @@ model FloorPlan {
 
 model Table {
   id            String            @id @default(cuid())
-  name          String            @unique
+  name          String
   tableNumber   String?           @map("table_number")
   capacity      Int
   minCovers     Int               @default(1) @map("min_covers")
@@ -92,6 +93,7 @@ model Table {
   reservations  Reservation[]
   holds         ReservationHold[]
 
+  @@unique([venueId, name])
   @@index([venueId])
   @@index([floorPlanId])
   @@map("tables")

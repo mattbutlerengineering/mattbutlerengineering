@@ -179,9 +179,9 @@ export const venueService = {
     return venue ? mapPrismaVenue(venue) : null;
   },
 
-  async getBySlug(slug: string): Promise<Venue | null> {
-    const venue = await prisma.venue.findUnique({
-      where: { slug },
+  async getBySlug(slug: string, venueGroupId?: string): Promise<Venue | null> {
+    const venue = await prisma.venue.findFirst({
+      where: { slug, ...(venueGroupId ? { venueGroupId } : {}) },
       include: { venueGroup: true },
     });
     return venue ? mapPrismaVenue(venue) : null;
