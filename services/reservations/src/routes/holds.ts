@@ -85,6 +85,12 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: "1 minute",
+        },
+      },
       schema: {
         summary: "Create a reservation hold",
         operationId: "createHold",

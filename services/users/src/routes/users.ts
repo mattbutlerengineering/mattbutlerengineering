@@ -127,6 +127,12 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
     "/",
     {
       preHandler: requireAuth,
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: "1 minute",
+        },
+      },
       schema: {
         summary: "Create a new user",
         operationId: "createUser",

@@ -318,6 +318,12 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
     "/",
     {
       preHandler: optionalAuth,
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: "1 minute",
+        },
+      },
       schema: {
         summary: "Create a new reservation",
         operationId: "createReservation",

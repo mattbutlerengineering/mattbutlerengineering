@@ -1,5 +1,6 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
+import rateLimit from "@fastify/rate-limit";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import ScalarApiReference from "@scalar/fastify-api-reference";
@@ -40,6 +41,11 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  });
+
+  await fastify.register(rateLimit, {
+    max: 100,
+    timeWindow: "1 minute",
   });
 
   await fastify.register(swagger, {
