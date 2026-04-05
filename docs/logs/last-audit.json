@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-04-05T00:20:06.790Z",
+  "improvements": [
+    {
+      "id": "discovery",
+      "msg": "High Research Turns detected (Avg: 10.0)",
+      "action": "Run 'mbe pack <directory>' on frequently touched directories to compress context.",
+      "priority": 1
+    }
+  ]
+}

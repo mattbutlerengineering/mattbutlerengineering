@@ -57,14 +57,38 @@ pnpm clean          # Wipe artifacts and node_modules
 ### Database (Prisma)
 - Use `pnpm db:migrate` (prod) or `pnpm db:push` (proto).
 - Migrations must be version-controlled in `prisma/migrations/`.
-
 ## Testing & Validation
 - **Framework:** Vitest.
 - **Patterns:** `*.test.ts` for unit/integration.
 - **Mandate:** All logic changes must be verified via automated tests.
 - **UI:** Playwright for E2E and visual regression.
 
+## Model Governance
+To ensure cost-efficiency and technical integrity, follow this model tiering strategy:
+- **Tier 1: Haiku / Gemini Flash** - Lightweight chores, linting, dependency bumps, typos (< $0.05).
+- **Tier 2: Sonnet / Gemini Pro** - Standard features, refactors, unit tests, logic fixes ($0.05 - $0.50).
+- **Tier 3: Opus / Gemini Ultra** - Architectural design, complex migrations, cross-cutting system changes (>$0.50).
+
+Use `mbe check-model "<directive>"` to verify the recommended tier before starting high-complexity work.
+
+## RIPER Workflow
+To maintain high-velocity engineering without sacrificing quality, agents follow the **RIPER** (Research, Innovate, Plan, Execute, Review) cycle:
+
+1.  **Research:** Explore the codebase, identify root causes, and gather requirements. **No file edits.**
+2.  **Innovate:** Brainstorm multiple approaches, evaluate trade-offs, and select the optimal path.
+3.  **Plan:** Create a detailed implementation plan (e.g., `.planning/quick/TASK-PLAN.md`) including file changes and verification steps.
+4.  **Execute:** Implement the approved plan using **Silent TDD Mode**. Break work into 5-minute micro-tasks.
+5.  **Review:** Run tests, linting, and typechecks. Perform a self-review of the changes against the plan.
+
+Agents must signal their current phase using the following tokens:
+- `<riper:research>`
+- `<riper:innovate>`
+- `<riper:plan>`
+- `<riper:execute>`
+- `<riper:review>`
+
 ## AI Context Catalog
+...
 - `llms.txt` — Rialto component catalog (UI patterns).
 - `llms-full.txt` — Detailed prop tables and advanced examples.
 - `GEMINI.md` — Gemini-specific mandates (Silent TDD, Extreme Speed).

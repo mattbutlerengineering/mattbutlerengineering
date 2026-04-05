@@ -7,6 +7,7 @@ import {
   DEFAULT_FEEDBACK_LOOP_CONFIG,
   resolveBudget,
   resolveModel,
+  routeModelWithReason,
 } from "@mbe/agent-core";
 import type {
   AgentSession,
@@ -148,6 +149,25 @@ function handleEvent(event: SessionEvent, verbose: boolean): void {
 }
 
 // ── Command definitions ──────────────────────────────────────────────────
+
+export const checkModelCommand = new Command("check-model")
+  .description("Dry-run model selection for a directive")
+  .argument("<directive>", "The task description")
+  .action(async (directive: string) => {
+    const result = routeModelWithReason({
+      title: directive,
+      labels: [], // No labels in dry-run
+      body: "",
+    });
+
+    console.log("\n🤖 Model Selection Dry-Run");
+    console.log("==========================");
+    console.log(`Directive:  "${directive}"`);
+    console.log(`Tier:       ${result.tier.toUpperCase()}`);
+    console.log(`Model ID:   ${result.modelId}`);
+    console.log(`Reason:     ${result.reason}`);
+    console.log("");
+  });
 
 export const agentCommand = new Command("agent").description(
   "Run autonomous coding agents"

@@ -3,6 +3,7 @@ import { existsSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { Project, Node } from "ts-morph";
 import { glob } from "glob";
+import { execSync } from "node:child_process";
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -24,7 +25,6 @@ function findMonorepoRoot(startDir: string): string {
  * Strips implementation details from a node but keeps signatures.
  */
 function getSkeleton(node: Node): string {
-  // Functions, methods, constructors
   if (Node.isFunctionDeclaration(node) || Node.isMethodDeclaration(node) || Node.isConstructorDeclaration(node)) {
     const body = node.getBody();
     if (body) {
@@ -59,9 +59,6 @@ function getSkeleton(node: Node): string {
       const declsText = declarations.map(d => {
         const name = d.getName();
         const type = d.getType().getText();
-        // For large objects (like schemas), we might want to keep them or stub them.
-        // For now, let's keep the whole declaration if it's an object/array, 
-        // as they are often schemas or configs that agents NEED.
         const initializer = d.getInitializer();
         if (initializer && (Node.isObjectLiteralExpression(initializer) || Node.isArrayLiteralExpression(initializer))) {
              return d.getText();
@@ -75,16 +72,12 @@ function getSkeleton(node: Node): string {
   return "";
 }
 
-export const packCommand = new Command("pack")
-  .description("Generate AI context (llms.txt) for a service or package")
-  .argument("<path>", "Path to the service or package (relative to monorepo root)")
-  .action(async (targetPath: string) => {
-    const root = findMonorepoRoot(process.cwd());
+async function packDirectory(targetPath: string, root: string): Promise<void> {
     const fullPath = resolve(root, targetPath);
 
     if (!existsSync(fullPath)) {
-      console.error(`Error: Path not found: ${fullPath}`);
-      process.exit(1);
+      console.warn(`Warning: Path not found: ${fullPath}`);
+      return;
     }
 
     console.log(`Packing context for: ${targetPath}...`);
@@ -99,7 +92,6 @@ export const packCommand = new Command("pack")
 
     for (const file of files) {
       const sourceFile = project.addSourceFileAtPath(join(fullPath, file));
-      
       output += `  <file path="${file}">\n`;
       
       const statements = sourceFile.getStatements();
@@ -118,7 +110,6 @@ export const packCommand = new Command("pack")
           }
         }
       }
-      
       output += `  </file>\n`;
     }
 
@@ -126,6 +117,61 @@ export const packCommand = new Command("pack")
 
     const outputPath = join(fullPath, "llms.txt");
     writeFileSync(outputPath, output);
-
     console.log(`Successfully generated context at: ${outputPath}`);
+}
+
+// ── Commands ──────────────────────────────────────────────────────────────
+
+export const packCommand = new Command("pack")
+  .description("Generate AI context (llms.txt) for a service or package")
+  .argument("<path>", "Path to the service or package (relative to monorepo root)")
+  .action(async (targetPath: string) => {
+    const root = findMonorepoRoot(process.cwd());
+    await packDirectory(targetPath, root);
+  });
+
+export const packChangedCommand = new Command("pack-changed")
+  .description("Automatically run mbe pack on changed directories")
+  .option("--mode <string>", "Mode: commit (HEAD~1..HEAD) or checkout", "commit")
+  .action(async (options) => {
+    const root = findMonorepoRoot(process.cwd());
+    let diffCmd = "git diff --name-only HEAD~1 HEAD";
+    
+    if (options.mode === "checkout") {
+        // In checkout, we look for changes between the previous HEAD and current HEAD
+        // This is slightly tricky in a generic way, but we'll try @{1}
+        diffCmd = "git diff --name-only @{1} HEAD";
+    }
+
+    try {
+        const diff = execSync(diffCmd, { cwd: root, encoding: "utf8" });
+        const changedFiles = diff.trim().split("\n").filter(Boolean);
+        
+        const packagesToPack = new Set<string>();
+        for (const file of changedFiles) {
+            // Only care about .ts changes in relevant root dirs
+            if (!file.endsWith(".ts")) continue;
+            
+            const parts = file.split("/");
+            if (parts.length >= 2) {
+                const baseDir = parts[0]; // apps, services, packages
+                const pkgName = parts[1];
+                if (["apps", "services", "packages"].includes(baseDir)) {
+                    packagesToPack.add(`${baseDir}/${pkgName}`);
+                }
+            }
+        }
+
+        if (packagesToPack.size === 0) {
+            console.log("No relevant code changes detected. Skipping context refresh.");
+            return;
+        }
+
+        console.log(`Detected changes in ${packagesToPack.size} packages. Refreshing context...`);
+        for (const pkg of packagesToPack) {
+            await packDirectory(pkg, root);
+        }
+    } catch (error) {
+        console.error("Error detecting changed files:", error instanceof Error ? error.message : error);
+    }
   });

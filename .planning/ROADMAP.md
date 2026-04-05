@@ -6,7 +6,7 @@
 - ✅ **v1.1 Rialto Accessibility & AI DX** — Phases 6-11 (shipped 2026-03-23)
 - ✅ **v1.2 Generative UI** — Phases 12-18 (shipped 2026-03-28)
 - 🚧 **v1.3 AI Developer Velocity** — Phases 19-31 (in progress)
-- 🚧 **v1.4 Agentic Orchestration & Observability** — Phases 32-36 (in progress)
+- 🚧 **v1.4 Agentic Orchestration & Observability** — Phases 32-40 (in progress)
 
 ## Phases
 
@@ -64,7 +64,7 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 - [ ] **Phase 24: Unified "mbe up" Bootstrapping** — Orchestrated local dev setup
 - [ ] **Phase 25: Architecture Decision Records** — Systematic ADR tracking
 - [ ] **Phase 26: Automated AI Regression Testing** — CI validation for Gen UI pipeline
-- [ ] **Phase 27: Custom ESLint AST Rules** — Enforce project-specific architectural patterns
+- [x] **Phase 27: Custom ESLint AST Rules** — Enforce project-specific architectural patterns
 - [ ] **Phase 28: Strict Internal Zod Schema Enforcement** — Strongly typed and validated boundaries
 - [ ] **Phase 29: Agent Success Rate Tracking** — Establish baseline for AI task completion
 - [ ] **Phase 30: CI Performance & Bundle Size Budgets** — Enforce strict performance budgets
@@ -76,11 +76,15 @@ Full details: [milestones/v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md)
 
 **Milestone Goal:** Establish high-autonomy execution loops and deep performance visibility to transition from "AI as a chatbot" to "AI as a deterministic compiler."
 
-- [ ] **Phase 32: The Ralph Wiggum Loop (`mbe loop`)** — Autonomous brute-force iteration
-- [ ] **Phase 33: RIPER Workflow Integration** — Research-Innovate-Plan-Execute-Review cycle
-- [ ] **Phase 34: Automated Rule Synchronizer (Rulesync)** — Centralized AI rule management
-- [ ] **Phase 35: Agentic Observability & Usage Dashboard** — Tracking costs and success rates
+- [x] **Phase 32: The Ralph Wiggum Loop (`mbe loop`)** — Autonomous brute-force iteration
+- [x] **Phase 33: RIPER Workflow Integration** — Research-Innovate-Plan-Execute-Review cycle
+- [x] **Phase 34: Automated Rule Synchronizer (Rulesync)** — Centralized AI rule management
+- [x] **Phase 35: Agentic Observability & Usage Dashboard** — Tracking costs and success rates
 - [ ] **Phase 36: Parallel Wave Orchestrator (`mbe wave`)** — Multi-agent git worktree coordination
+- [x] **Phase 37: Automated Performance Auditor (`mbe audit-perf`)** — Analyze logs and suggest optimizations
+- [x] **Phase 38: The Context Guard (Autonomous JIT Context)** — Git hooks for mbe pack
+- [x] **Phase 39: Structured ADRs** — Machine-readable architectural decisions
+- [x] **Phase 40: Model Governance & Verification (`mbe check-model`)** — Ensure correct model selection
 
 Full details: [milestones/v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md)
 
@@ -89,38 +93,18 @@ Full details: [milestones/v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md)
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1. Rialto-Web Migration | v1.0 | 3/3 | Complete | 2026-02-28 |
-| 2. Dashboard Rename | v1.0 | 2/2 | Complete | 2026-02-28 |
-| 3. Marketing Portfolio | v1.0 | 2/2 | Complete | 2026-02-28 |
-| 4. Hospitality Migration + Full Hosting | v1.0 | 5/5 | Complete | 2026-03-04 |
-| 5. Retroactive Verification & Gap Closure | v1.0 | 2/2 | Complete | 2026-03-04 |
-| 6. Accessibility Foundation | v1.1 | 5/5 | Complete | 2026-03-23 |
-| 7. Example Pages | v1.1 | 3/3 | Complete | 2026-03-23 |
-| 8. AI Developer Experience | v1.1 | 3/3 | Complete | 2026-03-23 |
-| 9. Polish and Documentation | v1.1 | 3/3 | Complete | 2026-03-23 |
-| 10. Documentation Reconciliation | v1.1 | 1/1 | Complete | 2026-03-23 |
-| 11. Registry Props & Verification | v1.1 | 2/2 | Complete | 2026-03-23 |
-| 12. Catalog Foundation | v1.2 | 3/3 | Complete | 2026-03-28 |
-| 13. AI Generation Endpoint | v1.2 | 3/3 | Complete | 2026-03-28 |
-| 14. Playground App | v1.2 | 3/3 | Complete | 2026-03-28 |
-| 15. Hospitality Copilot | v1.2 | 1/1 | Complete | 2026-03-28 |
-| 16. Persistence and Refinement | v1.2 | 3/3 | Complete | 2026-03-28 |
-| 17. Local Dev & Streaming Fixes | v1.2 | 1/1 | Complete | 2026-03-28 |
-| 18. Gen Worker Pulumi Resource | v1.2 | 1/1 | Complete | 2026-03-28 |
-| 19. Turbo Remote Caching | v1.3 | 0/1 | Todo | - |
-| 20. Pre-commit Hook Optimization | v1.3 | 0/1 | Todo | - |
-| 21. Gemini Intelligence Context | v1.3 | 1/1 | Complete | 2026-04-04 |
-| 22. Service-Level LLM Context | v1.3 | 1/1 | Complete | 2026-04-04 |
-| 23. Standardized Agent Error Schema | v1.3 | 0/1 | Todo | - |
-| 24. Unified "mbe up" Bootstrapping | v1.3 | 0/1 | Todo | - |
-| 25. Architecture Decision Records | v1.3 | 0/1 | Todo | - |
+...
 | 26. Automated AI Regression Testing | v1.3 | 0/1 | Todo | - |
-| 27. Custom ESLint AST Rules | v1.3 | 1/1 | Todo | - |
+| 27. Custom ESLint AST Rules | v1.3 | 1/1 | Complete | 2026-04-04 |
 | 28. Strict Internal Zod Schema Enforcement | v1.3 | 1/1 | Todo | - |
-| 29. Agent Success Rate Tracking | v1.3 | 0/1 | Todo | - |
-| 30. CI Performance & Bundle Size Budgets | v1.3 | 0/1 | Todo | - |
+...
 | 31. "Golden Path" CLI Generators | v1.3 | 0/1 | Todo | - |
-| 32. The Ralph Wiggum Loop | v1.4 | 0/1 | Todo | - |
-| 33. RIPER Workflow | v1.4 | 0/1 | Todo | - |
-| 34. Automated Rule Synchronizer | v1.4 | 0/1 | Todo | - |
-| 35. Agentic Observability | v1.4 | 0/1 | Todo | - |
+| 32. The Ralph Wiggum Loop | v1.4 | 1/1 | Complete | 2026-04-04 |
+| 33. RIPER Workflow | v1.4 | 1/1 | Complete | 2026-04-04 |
+| 34. Automated Rule Synchronizer | v1.4 | 1/1 | Complete | 2026-04-04 |
+| 35. Agentic Observability | v1.4 | 1/1 | Complete | 2026-04-04 |
 | 36. Parallel Execution Waves | v1.4 | 0/1 | Todo | - |
+| 37. Automated Performance Auditor | v1.4 | 1/1 | Complete | 2026-04-04 |
+| 38. The Context Guard | v1.4 | 1/1 | Complete | 2026-04-04 |
+| 39. Structured ADRs | v1.4 | 1/1 | Complete | 2026-04-04 |
+| 40. Model Governance & Verification | v1.4 | 1/1 | Complete | 2026-04-04 |
