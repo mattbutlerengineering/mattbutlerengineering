@@ -14,6 +14,7 @@ import { checkAdrCommand } from "./commands/adr.js";
 import { upCommand } from "./commands/up.js";
 import { waveCommand } from "./commands/wave.js";
 import { generateCommand } from "./commands/generate.js";
+import { visualCommand } from "./commands/visual.js";
 
 const program = new Command();
 
@@ -53,5 +54,8 @@ program.addCommand(auditPerfCommand);
 
 // Architecture commands
 program.addCommand(checkAdrCommand);
+
+// UI commands
+program.addCommand(visualCommand);
 
 program.parse();
