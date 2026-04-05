@@ -90,7 +90,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   });
 
   // Register Auth0 plugin
-  if (process.env.AUTH0_DOMAIN) {
+  if (process.env.AUTH_AUTHORITY) {
     await fastify.register(authPlugin, getAuthPluginOptionsFromEnv());
   } else if (process.env.NODE_ENV === "production") {
     throw new Error("Fail-closed: AUTH_AUTHORITY and AUTH_AUDIENCE are required in production");
