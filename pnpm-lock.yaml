@@ -514,7 +514,7 @@ importers:
         specifier: ^3.4.2
         version: 3.8.1
       typescript:
-        specifier: ^5.9.3
+        specifier: 'catalog:'
         version: 5.9.3
       typescript-eslint:
         specifier: ^8.56.1
@@ -526,10 +526,10 @@ importers:
         specifier: workspace:*
         version: link:../config
       '@types/node':
-        specifier: ^22.0.0
-        version: 22.19.7
+        specifier: 'catalog:'
+        version: 25.5.2
       typescript:
-        specifier: ^5.9.3
+        specifier: 'catalog:'
         version: 5.9.3
 
   packages/mcp-server:
@@ -3373,9 +3373,6 @@ packages:
 
   '@types/node@12.20.55':
     resolution: {integrity: sha512-J8xLz7q2OFulZ2cyGTLE1TbbZcjpno7FaN6zdJNrgAdrJ+DZzh/uFR6YrTb4C+nXakvud8Q4+rbhoIWlYQbUFQ==}
-
-  '@types/node@22.19.7':
-    resolution: {integrity: sha512-MciR4AKGHWl7xwxkBa6xUGxQJ4VBOmPTF7sL+iGzuahOFaO0jHCsuEfS80pan1ef4gWId1oWOweIhrDEYLuaOw==}
 
   '@types/node@25.5.2':
     resolution: {integrity: sha512-tO4ZIRKNC+MDWV4qKVZe3Ql/woTnmHDr5JD8UI5hn2pwBrHEwOEMZK7WlNb5RKB6EoJ02gwmQS9OrjuFnZYdpg==}
@@ -7010,9 +7007,6 @@ packages:
     resolution: {integrity: sha512-nWJ91DjeOkej/TA8pXQ3myruKpKEYgqvpw9lz4OPHj/NWFNluYrjbz9j01CJ8yKQd2g4jFoOkINCTW2I5LEEyw==}
     engines: {node: '>= 0.4'}
 
-  undici-types@6.21.0:
-    resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
-
   undici-types@7.18.2:
     resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
 
@@ -10357,7 +10351,7 @@ snapshots:
     dependencies:
       '@types/http-cache-semantics': 4.0.4
       '@types/keyv': 3.1.4
-      '@types/node': 22.19.7
+      '@types/node': 25.5.2
       '@types/responselike': 1.0.3
 
   '@types/chai@5.2.3':
@@ -10367,7 +10361,7 @@ snapshots:
 
   '@types/connect@3.4.38':
     dependencies:
-      '@types/node': 22.19.7
+      '@types/node': 25.5.2
 
   '@types/deep-eql@4.0.2': {}
 
@@ -10389,17 +10383,13 @@ snapshots:
 
   '@types/keyv@3.1.4':
     dependencies:
-      '@types/node': 22.19.7
+      '@types/node': 25.5.2
 
   '@types/mysql@2.15.26':
     dependencies:
-      '@types/node': 22.19.7
+      '@types/node': 25.5.2
 
   '@types/node@12.20.55': {}
-
-  '@types/node@22.19.7':
-    dependencies:
-      undici-types: 6.21.0
 
   '@types/node@25.5.2':
     dependencies:
@@ -10411,7 +10401,7 @@ snapshots:
 
   '@types/pg@8.6.1':
     dependencies:
-      '@types/node': 22.19.7
+      '@types/node': 25.5.2
       pg-protocol: 1.13.0
       pg-types: 2.2.0
 
@@ -10435,7 +10425,7 @@ snapshots:
 
   '@types/responselike@1.0.3':
     dependencies:
-      '@types/node': 22.19.7
+      '@types/node': 25.5.2
 
   '@types/semver@7.7.1': {}
 
@@ -10443,7 +10433,7 @@ snapshots:
 
   '@types/tedious@4.0.14':
     dependencies:
-      '@types/node': 22.19.7
+      '@types/node': 25.5.2
 
   '@types/tmp@0.2.6': {}
 
@@ -10451,7 +10441,7 @@ snapshots:
 
   '@types/yauzl@2.10.3':
     dependencies:
-      '@types/node': 22.19.7
+      '@types/node': 25.5.2
     optional: true
 
   '@typescript-eslint/eslint-plugin@8.56.1(@typescript-eslint/parser@8.56.1(eslint@9.39.3(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.3(jiti@2.6.1))(typescript@5.9.3)':
@@ -11098,7 +11088,7 @@ snapshots:
 
   chrome-launcher@0.13.4:
     dependencies:
-      '@types/node': 22.19.7
+      '@types/node': 25.5.2
       escape-string-regexp: 1.0.5
       is-wsl: 2.2.0
       lighthouse-logger: 1.2.0
@@ -11109,7 +11099,7 @@ snapshots:
 
   chrome-launcher@1.2.1:
     dependencies:
-      '@types/node': 22.19.7
+      '@types/node': 25.5.2
       escape-string-regexp: 4.0.0
       is-wsl: 2.2.0
       lighthouse-logger: 2.0.2
@@ -13562,7 +13552,7 @@ snapshots:
       '@protobufjs/path': 1.1.2
       '@protobufjs/pool': 1.1.0
       '@protobufjs/utf8': 1.1.0
-      '@types/node': 22.19.7
+      '@types/node': 25.5.2
       long: 5.3.2
 
   proxy-addr@2.0.7:
@@ -14128,7 +14118,7 @@ snapshots:
 
   speedline-core@1.4.3:
     dependencies:
-      '@types/node': 22.19.7
+      '@types/node': 25.5.2
       image-ssim: 0.2.0
       jpeg-js: 0.4.4
 
@@ -14538,8 +14528,6 @@ snapshots:
       has-bigints: 1.1.0
       has-symbols: 1.1.0
       which-boxed-primitive: 1.1.1
-
-  undici-types@6.21.0: {}
 
   undici-types@7.18.2: {}
 
