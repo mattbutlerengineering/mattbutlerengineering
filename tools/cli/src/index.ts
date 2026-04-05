@@ -12,6 +12,7 @@ import { syncRulesCommand } from "./commands/sync-rules.js";
 import { loopCommand } from "./commands/loop.js";
 import { checkAdrCommand } from "./commands/adr.js";
 import { upCommand } from "./commands/up.js";
+import { waveCommand } from "./commands/wave.js";
 
 const program = new Command();
 
@@ -32,6 +33,7 @@ program.addCommand(usersCommand);
 program.addCommand(agentCommand);
 program.addCommand(checkModelCommand);
 program.addCommand(loopCommand);
+program.addCommand(waveCommand);
 
 // Scaffold commands
 program.addCommand(newCommand);

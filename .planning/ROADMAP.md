@@ -80,7 +80,7 @@ Full details: [milestones/v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md)
 - [x] **Phase 33: RIPER Workflow Integration** — Research-Innovate-Plan-Execute-Review cycle
 - [x] **Phase 34: Automated Rule Synchronizer (Rulesync)** — Centralized AI rule management
 - [x] **Phase 35: Agentic Observability & Usage Dashboard** — Tracking costs and success rates
-- [ ] **Phase 36: Parallel Wave Orchestrator (`mbe wave`)** — Multi-agent git worktree coordination
+- [x] **Phase 36: Parallel Wave Orchestrator (`mbe wave`)** — Multi-agent git worktree coordination
 - [x] **Phase 37: Automated Performance Auditor (`mbe audit-perf`)** — Analyze logs and suggest optimizations
 - [x] **Phase 38: The Context Guard (Autonomous JIT Context)** — Git hooks for mbe pack
 - [x] **Phase 39: Structured ADRs** — Machine-readable architectural decisions
@@ -94,9 +94,7 @@ Full details: [milestones/v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md)
 |-------|-----------|----------------|--------|-----------|
 | 1. Rialto-Web Migration | v1.0 | 3/3 | Complete | 2026-02-28 |
 ...
-| 22. Service-Level LLM Context | v1.3 | 1/1 | Complete | 2026-04-04 |
-| 23. Standardized Agent Error Schema | v1.3 | 1/1 | Complete | 2026-04-04 |
-| 24. Unified "mbe up" Bootstrapping | v1.3 | 1/1 | Complete | 2026-04-04 |
+| 35. Agentic Observability | v1.4 | 1/1 | Complete | 2026-04-04 |
+| 36. Parallel Execution Waves | v1.4 | 1/1 | Complete | 2026-04-04 |
+| 37. Automated Performance Auditor | v1.4 | 1/1 | Complete | 2026-04-04 |
 ...
-| 39. Structured ADRs | v1.4 | 1/1 | Complete | 2026-04-04 |
-| 40. Model Governance & Verification | v1.4 | 1/1 | Complete | 2026-04-04 |
