@@ -4,8 +4,6 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { z } from "zod";
-import { execSync } from "node:child_process";
 
 const server = new Server(
   {

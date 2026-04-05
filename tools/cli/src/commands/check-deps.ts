@@ -1,5 +1,4 @@
 import { Command } from "commander";
-import { execSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { glob } from "glob";
@@ -56,7 +55,6 @@ export const checkDepsCommand = new Command("check-deps")
     }
 
     let inconsistencies = 0;
-    const corePackages = ["react", "react-dom", "framer-motion", "typescript", "vite", "vitest", "fastify"];
 
     console.log("\nFound version mismatches:");
     console.log("=========================");
