@@ -55,7 +55,7 @@ export const CreateSessionBodySchema = {
   type: "object",
   required: ["taskDescription"],
   properties: {
-    taskDescription: { type: "string", minLength: 1, description: "Task for the agent" },
+    taskDescription: { type: "string", minLength: 1, maxLength: 10_000, description: "Task for the agent" },
     model: { type: "string", description: "Claude model to use" },
     maxTurns: { type: "number", minimum: 1, maximum: 200 },
     maxBudgetUsd: { type: "number", minimum: 0.01, maximum: 10.0 },

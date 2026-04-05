@@ -30,6 +30,7 @@ exports[`Agent service schemas > CreateSessionBodySchema matches snapshot 1`] = 
     },
     "taskDescription": {
       "description": "Task for the agent",
+      "maxLength": 10000,
       "minLength": 1,
       "type": "string",
     },

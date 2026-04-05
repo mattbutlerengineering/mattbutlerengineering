@@ -27,4 +27,16 @@ describe("Agent service schemas", () => {
   it("ErrorSchema matches snapshot", () => {
     expect(ErrorSchema).toMatchSnapshot();
   });
+
+  describe("CreateSessionBodySchema taskDescription limits", () => {
+    it("enforces minLength of 1", () => {
+      const { minLength } = CreateSessionBodySchema.properties.taskDescription;
+      expect(minLength).toBe(1);
+    });
+
+    it("enforces maxLength of 10000", () => {
+      const { maxLength } = CreateSessionBodySchema.properties.taskDescription;
+      expect(maxLength).toBe(10_000);
+    });
+  });
 });
