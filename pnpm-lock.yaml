@@ -520,18 +520,6 @@ importers:
         specifier: ^8.56.1
         version: 8.56.1(eslint@10.2.0(jiti@2.6.1))(typescript@5.9.3)
 
-  packages/feature-flags:
-    devDependencies:
-      '@mbe/config':
-        specifier: workspace:*
-        version: link:../config
-      '@types/node':
-        specifier: 'catalog:'
-        version: 25.5.2
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-
   packages/mcp-server:
     dependencies:
       '@modelcontextprotocol/sdk':
