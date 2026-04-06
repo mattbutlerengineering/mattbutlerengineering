@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.92",
+    "@langfuse/tracing": "^5.0.2",
     "@mbe/types": "workspace:*",
     "@opentelemetry/api": "^1.9.1",
     "zod": "catalog:"
