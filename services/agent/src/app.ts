@@ -14,6 +14,7 @@ import { sessionRoutes } from "./routes/sessions.js";
 import { sessionEventsRoutes } from "./routes/session-events.js";
 import { orchestrateRoutes } from "./routes/orchestrate.js";
 import { remediationRoutes } from "./routes/remediation.js";
+import { webhookRoutes } from "./routes/webhooks.js";
 import { genUiRoutes } from "./routes/gen-ui.js";
 import { genChatRoutes } from "./routes/gen-chat.js";
 import { genSpecsRoutes } from "./routes/gen-specs.js";
@@ -35,16 +36,23 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   registerSchemas(fastify);
 
   // Core plugins
-  const corsOrigins = process.env.CORS_ORIGINS?.split(",") || [
+  const defaultDevOrigins = [
     "http://localhost:3000",
     "http://localhost:3002",
     "http://localhost:3003",
     "http://localhost:3004",
     "http://localhost:5173",
     "http://localhost:5174",
+  ];
+  const prodOrigins = [
     "https://mattbutlerengineering.com",
     "https://hospitality.mattbutlerengineering.com",
     "https://gen.mattbutlerengineering.com",
+  ];
+
+  const corsOrigins = process.env.CORS_ORIGINS?.split(",") || [
+    ...prodOrigins,
+    ...(process.env.NODE_ENV === "development" ? defaultDevOrigins : []),
   ];
 
   await fastify.register(cors, {
@@ -119,6 +127,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   await fastify.register(sessionRoutes, { prefix: "/v1/sessions" });
   await fastify.register(sessionEventsRoutes, { prefix: "/v1/sessions" });
   await fastify.register(orchestrateRoutes, { prefix: "/v1/orchestrate" });
+  await fastify.register(webhookRoutes, { prefix: "/v1/webhooks" });
   await fastify.register(remediationRoutes, { prefix: "/v1/webhooks" });
   await fastify.register(genUiRoutes);
   await fastify.register(genChatRoutes);

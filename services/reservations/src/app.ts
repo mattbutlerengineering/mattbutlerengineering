@@ -34,16 +34,23 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   registerSchemas(fastify);
 
   // Core plugins
-  const corsOrigins = process.env.CORS_ORIGINS?.split(",") || [
+  const defaultDevOrigins = [
     "http://localhost:3000",
     "http://localhost:3002",
     "http://localhost:3003",
     "http://localhost:3004",
     "http://localhost:5173",
     "http://localhost:5174",
+  ];
+  const prodOrigins = [
     "https://mattbutlerengineering.com",
     "https://hospitality.mattbutlerengineering.com",
     "https://gen.mattbutlerengineering.com",
+  ];
+
+  const corsOrigins = process.env.CORS_ORIGINS?.split(",") || [
+    ...prodOrigins,
+    ...(process.env.NODE_ENV === "development" ? defaultDevOrigins : []),
   ];
 
   await fastify.register(cors, {
