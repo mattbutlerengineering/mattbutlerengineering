@@ -5,6 +5,14 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
+import { pulumiStackOutputs } from "./tools/pulumi_stack_outputs.js";
+import { serviceHealthCheck } from "./tools/service_health_check.js";
+import { ciRunStatus } from "./tools/ci_run_status.js";
+import { deployStatus } from "./tools/deploy_status.js";
+import { gitWorkflowStatus } from "./tools/git_workflow_status.js";
+import { dbListTables } from "./tools/db_list_tables.js";
+import { dbMigrationStatus } from "./tools/db_migration_status.js";
+
 const server = new Server(
   {
     name: "mbe-infra-server",
@@ -17,12 +25,42 @@ const server = new Server(
   }
 );
 
-// ── Tool Definitions ──────────────────────────────────────────────────────
-
 const TOOLS = [
   {
-    name: "pulumi_preview",
-    description: "Run a Pulumi preview for the production stack",
+    name: "pulumi_stack_outputs",
+    description: "List outputs from Pulumi stack (infrastructure/pulumi)",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "service_health_check",
+    description: "Hit health endpoints across services (users, reservations, agent)",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "ci_run_status",
+    description: "Latest GitHub Actions run status per workflow",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "deploy_status",
+    description: "Current DigitalOcean App Platform deployment state",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "git_workflow_status",
+    description: "Current branch, pending changes, and CI status",
     inputSchema: {
       type: "object",
       properties: {},
@@ -30,15 +68,21 @@ const TOOLS = [
   },
   {
     name: "db_list_tables",
-    description: "List all tables in the database schema",
+    description: "List all tables in the database schema (requires DATABASE_URL)",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "db_migration_status",
+    description: "Show pending/applied migrations per service",
     inputSchema: {
       type: "object",
       properties: {},
     },
   },
 ];
-
-// ── Handlers ──────────────────────────────────────────────────────────────
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: TOOLS,
@@ -48,30 +92,42 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name } = request.params;
 
   try {
-    if (name === "pulumi_preview") {
-      // In a real implementation, we'd run 'pulumi preview'
-      return {
-        content: [
-          {
-            type: "text",
-            text: "Pulumi preview: 0 changes detected. Infrastructure is up to date.",
-          },
-        ],
-      };
+    let result: string;
+
+    switch (name) {
+      case "pulumi_stack_outputs":
+        result = await pulumiStackOutputs();
+        break;
+      case "service_health_check":
+        result = await serviceHealthCheck();
+        break;
+      case "ci_run_status":
+        result = await ciRunStatus();
+        break;
+      case "deploy_status":
+        result = await deployStatus();
+        break;
+      case "git_workflow_status":
+        result = await gitWorkflowStatus();
+        break;
+      case "db_list_tables":
+        result = await dbListTables();
+        break;
+      case "db_migration_status":
+        result = await dbMigrationStatus();
+        break;
+      default:
+        throw new Error(`Tool not found: ${name}`);
     }
 
-    if (name === "db_list_tables") {
-      return {
-        content: [
-          {
-            type: "text",
-            text: "Tables: User, AgentSession, Reservation, Table, Venue, Guest",
-          },
-        ],
-      };
-    }
-
-    throw new Error(`Tool not found: ${name}`);
+    return {
+      content: [
+        {
+          type: "text",
+          text: result,
+        },
+      ],
+    };
   } catch (error) {
     return {
       content: [
