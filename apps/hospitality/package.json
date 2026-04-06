@@ -29,17 +29,17 @@
     }
   ],
   "dependencies": {
-    "@json-render/react": "^0.15.0",
+    "@json-render/react": "^0.16.0",
     "@mbe/api-client": "workspace:*",
     "@mbe/auth": "workspace:*",
     "@mbe/rialto": "workspace:*",
     "@mbe/rialto-catalog": "workspace:*",
     "@mbe/sentry": "workspace:^",
     "@mbe/types": "workspace:*",
-    "konva": "^9.3.22",
+    "konva": "^10.2.3",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "react-konva": "^19.0.0",
+    "react-konva": "^19.2.3",
     "react-router-dom": "catalog:"
   },
   "devDependencies": {
