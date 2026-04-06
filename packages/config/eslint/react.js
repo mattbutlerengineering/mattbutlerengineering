@@ -7,21 +7,16 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import { fixupPluginRules } from "@eslint/compat";
 
 // ESLint 10 removed legacy rule context methods (getFilename, getScope, etc.).
-// eslint-plugin-react 7.37.x still uses these methods internally.
-// fixupPluginRules wraps each rule to provide backward-compatible context shims.
-// Once eslint-plugin-react ships ESLint 10 native support, remove @eslint/compat.
-const reactCompat = fixupPluginRules(reactPlugin);
-const hooksCompat = fixupPluginRules(reactHooksPlugin);
-const a11yCompat = fixupPluginRules(jsxA11y);
+// Once plugins ship ESLint 10 native support, remove @eslint/compat completely.
 
 export default [
   ...baseConfig,
   eslintReact.configs.recommended,
   {
     plugins: {
-      react: reactCompat,
-      "react-hooks": hooksCompat,
-      "jsx-a11y": a11yCompat,
+      react: reactPlugin,
+      "react-hooks": reactHooksPlugin,
+      "jsx-a11y": jsxA11y,
       "react-refresh": reactRefresh,
     },
     rules: {
