@@ -68,7 +68,7 @@ export function initSentry(options: InitOptions): void {
 function setSentryContext(scope: Sentry.Scope, request: FastifyRequest): void {
   scope.setTag("method", request.method);
   scope.setTag("url", request.url);
-<  scope.setTag("requestId", request.id ?? "unknown");
+  scope.setTag("requestId", request.id ?? "unknown");
 
   const user = getRequestUser(request);
   if (user?.id) {
