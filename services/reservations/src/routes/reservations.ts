@@ -30,6 +30,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
+      preHandler: requireAuth,
       schema: {
         summary: "List reservations",
         operationId: "listReservations",
@@ -88,7 +89,14 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request) => {
+    async (request, reply) => {
+      const authUser = request.user;
+      const isAdmin = authUser?.raw?.permissions?.includes("admin") ?? false;
+      
+      if (!isAdmin) {
+        return reply.code(403).send(createProblemDetails(403, "Forbidden", "Admin access required to list all reservations"));
+      }
+
       const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
       const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "10", 10) || 10));
       return reservationService.list({
@@ -256,6 +264,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
+      preHandler: requireAuth,
       schema: {
         summary: "Get reservation by ID",
         operationId: "getReservationById",
@@ -295,6 +304,15 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       if (!reservation) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Reservation not found"));
       }
+      
+      const authUser = request.user;
+      const isAdmin = authUser?.raw?.permissions?.includes("admin") ?? false;
+      const isOwner = reservation.guestEmail === authUser?.email;
+      
+      if (!isAdmin && !isOwner) {
+        return reply.code(403).send(createProblemDetails(403, "Forbidden", "You can only view your own reservations"));
+      }
+      
       return { data: reservation };
     }
   );
@@ -419,6 +437,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
+      preHandler: requireAuth,
       schema: {
         summary: "Update a reservation",
         operationId: "updateReservation",
@@ -510,6 +529,19 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
+      const reservation = await reservationService.getById(request.params.id);
+      if (!reservation) {
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Reservation not found"));
+      }
+
+      const authUser = request.user;
+      const isAdmin = authUser?.raw?.permissions?.includes("admin") ?? false;
+      const isOwner = authUser?.email && reservation.guestEmail === authUser.email;
+
+      if (!isAdmin && !isOwner) {
+        return reply.code(403).send(createProblemDetails(403, "Forbidden", "You can only update your own reservations"));
+      }
+
       if (request.body.status === "CANCELLED") {
         const reservation = await reservationService.cancel(
           request.params.id,
@@ -553,6 +585,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
+      preHandler: requireAuth,
       schema: {
         summary: "Cancel a reservation",
         operationId: "cancelReservation",
@@ -589,11 +622,24 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const reservation = await reservationService.cancel(request.params.id);
+      const reservation = await reservationService.getById(request.params.id);
       if (!reservation) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Reservation not found"));
       }
-      return { data: reservation };
+
+      const authUser = request.user;
+      const isAdmin = authUser?.raw?.permissions?.includes("admin") ?? false;
+      const isOwner = authUser?.email && reservation.guestEmail === authUser.email;
+
+      if (!isAdmin && !isOwner) {
+        return reply.code(403).send(createProblemDetails(403, "Forbidden", "You can only cancel your own reservations"));
+      }
+
+      const cancelled = await reservationService.cancel(request.params.id);
+      if (!cancelled) {
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Reservation not found"));
+      }
+      return { data: cancelled };
     }
   );
 };

@@ -91,10 +91,10 @@ export class FloorPlansClient {
   /**
    * Bulk update table positions
    */
-  async bulkUpdatePositions(positions: UpdateTablePositionRequest[]): Promise<Table[]> {
+  async bulkUpdatePositions(floorPlanId: string, positions: UpdateTablePositionRequest[]): Promise<Table[]> {
     const response = await this.client.post<ApiResponse<Table[]>>(
       "/api/v1/floor-plans/tables/positions",
-      { positions }
+      { floorPlanId, positions }
     );
     return response.data;
   }

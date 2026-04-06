@@ -1,7 +1,45 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { existsSync } from "node:fs";
 
 const execFileAsync = promisify(execFile);
+
+// ── Context Bundles ──────────────────────────────────────────────────
+const TASK_CONTEXT_PATTERNS: Record<string, string[]> = {
+  dependency: [".agent/contexts/dependency-bump.md"],
+  "type-safe": [".agent/contexts/type-safety.md"],
+  deploy: [".agent/contexts/deploy-fixes.md"],
+  security: [".agent/contexts/security-audit.md"],
+  test: [".agent/contexts/testing-patterns.md"],
+  audit: [".agent/contexts/security-audit.md"],
+};
+
+const TASK_KEYWORDS: Record<string, RegExp[]> = {
+  dependency: [/depend/i, /bump/i, /update dep/i, /upgrade/i],
+  "type-safe": [/type/i, /any/i, /typescript/i],
+  deploy: [/deploy/i, /wrangler/i, /digitalocean/i, /doctl/i],
+  security: [/security/i, /audit/i, /auth/i, /authorization/i],
+  test: [/test/i, /vitest/i, /mock/i],
+  audit: [/audit/i, /security/i],
+};
+
+function detectTaskContexts(taskDescription: string): string[] {
+  const contexts: string[] = [];
+  for (const [taskType, keywords] of Object.entries(TASK_KEYWORDS)) {
+    for (const keyword of keywords) {
+      if (keyword.test(taskDescription)) {
+        const contextFiles = TASK_CONTEXT_PATTERNS[taskType] ?? [];
+        for (const file of contextFiles) {
+          if (existsSync(file)) {
+            contexts.push(file);
+          }
+        }
+        break;
+      }
+    }
+  }
+  return contexts;
+}
 
 // ── Source File Resolution ──────────────────────────────────────────
 // Extract file paths mentioned in the task description and resolve
@@ -38,6 +76,12 @@ export function resolveSourceFiles(taskDescription: string): readonly string[] {
       const testFile = file.replace(/\.(\w+)$/, ".test.$1");
       withTests.add(testFile);
     }
+  }
+
+  // Add task-specific context bundles
+  const contexts = detectTaskContexts(taskDescription);
+  for (const ctx of contexts) {
+    withTests.add(ctx);
   }
 
   return [...withTests];

@@ -802,10 +802,10 @@ function writeStateMd(statePath, content, cwd) {
       break;
     } catch (err) {
       if (err.code === 'EEXIST') {
-        // Check for stale lock (> 10s old)
+        // Check for stale lock (> 30m old)
         try {
           const stat = fs.statSync(lockPath);
-          if (Date.now() - stat.mtimeMs > 10000) {
+          if (Date.now() - stat.mtimeMs > 1800000) {
             fs.unlinkSync(lockPath);
             continue; // retry immediately after clearing stale lock
           }

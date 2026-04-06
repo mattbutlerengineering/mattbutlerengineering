@@ -60,6 +60,7 @@ describe("User Service API Contract", () => {
         email_verified: true,
         name: "Test User",
         picture: "https://example.com/pic.jpg",
+        permissions: ["admin"],
       },
       protectedHeader: { alg: "RS256" },
     } as never);

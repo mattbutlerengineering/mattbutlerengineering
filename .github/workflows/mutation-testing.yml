@@ -1,0 +1,142 @@
+name: Mutation Testing
+
+on:
+  # Weekly schedule on Monday morning (adjusted to avoid common CI peaks)
+  schedule:
+    - cron: "23 9 * * 1"  # Monday 9:23 AM UTC
+  # Allow manual triggering via GitHub UI or API
+  workflow_dispatch:
+
+concurrency:
+  group: mutation-testing
+  cancel-in-progress: false
+
+jobs:
+  # ──────────────────────────────────────────────────────────────────────────
+  # Mutation Testing — periodic validation of test quality
+  # ──────────────────────────────────────────────────────────────────────────
+  prepare:
+    name: Prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Cache node_modules
+        id: cache-node-modules
+        uses: actions/cache@v5
+        with:
+          path: node_modules
+          key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install dependencies
+        if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache Prisma clients
+        id: cache-prisma
+        uses: actions/cache@v5
+        with:
+          path: |
+            services/users/src/generated
+            services/reservations/src/generated
+            services/agent/src/generated
+          key: prisma-clients-${{ hashFiles('services/users/prisma/schema.prisma', 'services/reservations/prisma/schema.prisma', 'services/agent/prisma/schema.prisma') }}
+
+      - name: Generate Prisma clients
+        if: steps.cache-prisma.outputs.cache-hit != 'true'
+        run: |
+          pnpm --filter @mbe/users-service db:generate
+          pnpm --filter @mbe/reservations-service db:generate
+          pnpm --filter @mbe/agent-service db:generate
+
+      - name: Upload workspace artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace-deps
+          path: |
+            node_modules
+            packages/*/node_modules
+            services/*/node_modules
+            services/users/src/generated
+            services/reservations/src/generated
+            services/agent/src/generated
+          retention-days: 1
+
+  mutation-test:
+    name: Run Mutation Tests
+    runs-on: ubuntu-latest
+    needs: [prepare]
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Download dependencies artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: workspace-deps
+
+      - name: Run mutation tests
+        run: pnpm test:mutations
+
+      - name: Upload mutation test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report
+          path: reports/mutation/
+          retention-days: 30
+
+      - name: Comment mutation score on PR
+        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = JSON.parse(fs.readFileSync('reports/mutation/mutation.json', 'utf8'));
+            const score = report.metrics?.mutationScore || 0;
+
+            const comment = `## Mutation Testing Results 🧬
+
+            **Mutation Score:** ${score.toFixed(2)}%
+            **Target:** > 80%
+            **Status:** ${score >= 80 ? '✅ PASS' : '⚠️ BELOW TARGET'}
+
+            Full report available in [Artifacts](${github.server_url}/${github.repository}/actions/runs/${github.run_id})`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: Fail if mutation score below threshold
+        run: |
+          if [ ! -f "reports/mutation/mutation.json" ]; then
+            echo "❌ Mutation testing failed to produce report"
+            exit 1
+          fi
+          SCORE=$(jq -r '.metrics.mutationScore' reports/mutation/mutation.json)
+          echo "Mutation Score: $SCORE%"
+          if (( $(echo "$SCORE < 80" | bc -l) )); then
+            echo "❌ Mutation score $SCORE% is below target of 80%"
+            exit 1
+          fi
+          echo "✅ Mutation score $SCORE% meets target"

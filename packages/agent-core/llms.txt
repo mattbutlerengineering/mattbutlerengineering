@@ -1,0 +1,970 @@
+<codebase path="packages/agent-core">
+  <file path="src/worktree-manager.ts">
+    function generateBranchName(taskDescription: string): string { /* implementation omitted */ }
+    async function git(args: readonly string[], cwd: string): Promise<string> { /* implementation omitted */ }
+    async function createFullWorktree(
+      repoPath: string,
+      baseBranch: string,
+      branchName: string
+    ): Promise<string> { /* implementation omitted */ }
+    async function createLightweightWorktree(
+      repoPath: string,
+      baseBranch: string,
+      branchName: string
+    ): Promise<string> { /* implementation omitted */ }
+    export interface CreateWorktreeOptions {
+      /**
+       * 'full'        – git worktree add (default; suited for multi-file changes)
+       * 'lightweight' – shallow clone (faster; suited for 1-2 file changes)
+       */
+      readonly mode?: WorktreeMode;
+    }
+    export async function createWorktree(
+      repoPath: string,
+      baseBranch: string,
+      taskDescription: string,
+      options: CreateWorktreeOptions = {}
+    ): Promise<WorktreeInfo> { /* implementation omitted */ }
+    export async function removeWorktree(
+      repoPath: string,
+      worktreePath: string,
+      mode: WorktreeMode = "full"
+    ): Promise<void> { /* implementation omitted */ }
+    export async function cleanupWorktrees(repoPath: string): Promise<void> { /* implementation omitted */ }
+    export async function commitChanges(
+      worktreePath: string,
+      message: string
+    ): Promise<string> { /* implementation omitted */ }
+    export async function pushBranch(
+      worktreePath: string,
+      branchName: string
+    ): Promise<void> { /* implementation omitted */ }
+    export async function hasChanges(worktreePath: string): Promise<boolean> { /* implementation omitted */ }
+    export interface VerificationResult {
+      passed: boolean;
+      lintOk: boolean;
+      typecheckOk: boolean;
+      testsOk: boolean;
+      lintOutput?: string;
+      typecheckOutput?: string;
+      testOutput?: string;
+    }
+    async function syncLockfileIfNeeded(worktreePath: string): Promise<void> { /* implementation omitted */ }
+    export async function runVerification(worktreePath: string): Promise<VerificationResult> { /* implementation omitted */ }
+  </file>
+  <file path="src/types.ts">
+    export interface FeedbackLoopConfig {
+      readonly enabled: boolean;
+      readonly maxRetries: number;
+      readonly pollIntervalMs: number;
+      readonly pollTimeoutMs: number;
+    }
+    DEFAULT_FEEDBACK_LOOP_CONFIG: FeedbackLoopConfig = {
+      enabled: true,
+      maxRetries: 2,
+      pollIntervalMs: 30_000,
+      pollTimeoutMs: 300_000,
+    }
+    export interface SessionConfig {
+      readonly taskDescription: string;
+      readonly repoPath: string;
+      readonly baseBranch: string;
+      readonly model: string;
+      readonly maxTurns: number;
+      readonly maxBudgetUsd: number;
+      readonly allowedTools: readonly string[];
+      readonly createPr: boolean;
+      readonly evaluateSuccess?: boolean;
+      readonly sourceFiles?: readonly string[];
+      readonly feedbackLoop?: FeedbackLoopConfig;
+      readonly stuckDetectorConfig?: Partial<StuckDetectorConfig>;
+    }
+    DEFAULT_SESSION_CONFIG: Omit<SessionConfig, "taskDescription" | "repoPath"> = {
+      baseBranch: "main",
+      model: "claude-sonnet-4-6",
+      maxTurns: 50,
+      maxBudgetUsd: 1.0,
+      allowedTools: [
+        "Read",
+        "Write",
+        "Edit",
+        "Glob",
+        "Grep",
+        "Bash",
+        "NotebookEdit",
+      ],
+      createPr: true,
+    }
+    export type SessionStatus =
+      | "pending"
+      | "running"
+      | "succeeded"
+      | "failed"
+      | "cancelled";
+    export interface TokenUsage {
+      readonly inputTokens: number;
+      readonly outputTokens: number;
+    }
+    export interface SessionResult {
+      readonly sessionId: string;
+      readonly status: SessionStatus;
+      readonly branchName: string;
+      readonly prUrl: string | null;
+      readonly costUsd: number;
+      readonly tokenUsage: TokenUsage;
+      readonly durationMs: number;
+      readonly numTurns: number;
+      readonly resultText: string;
+      readonly errors: readonly string[];
+      readonly stuckPattern?: string;
+      readonly evaluation?: {
+        readonly passed: boolean;
+        readonly confidence: number;
+        readonly reasoning: string;
+      };
+    }
+    export type SessionEventType =
+      | "session:start"
+      | "session:message"
+      | "session:tool_use"
+      | "session:assistant"
+      | "session:result"
+      | "session:error"
+      | "session:stuck"
+      | "session:evaluation"
+      | "session:verification"
+      | "session:review"
+      | "session:tool_result";
+    export interface SessionEvent {
+      readonly type: SessionEventType;
+      readonly timestamp: string;
+      readonly data: SDKMessage | SDKResultMessage | { message: string };
+    }
+    export type SessionEventCallback = (event: SessionEvent) => void;
+    export type WorktreeMode = "full" | "lightweight";
+    export interface WorktreeInfo {
+      readonly path: string;
+      readonly branchName: string;
+      readonly mode: WorktreeMode;
+    }
+    export interface PrResult {
+      readonly url: string;
+      readonly number: number;
+    }
+    export interface PrOptions {
+      readonly title: string;
+      readonly body: string;
+      readonly baseBranch: string;
+      readonly branchName: string;
+      readonly repoPath: string;
+      readonly draft?: boolean;
+    }
+  </file>
+  <file path="src/tool-permissions.ts">
+    export function normalizeBashCommand(command: string): readonly string[] { /* implementation omitted */ }
+    function isBashCommandBlocked(command: string): string | null { /* implementation omitted */ }
+    function isPathWithinWorktree(filePath: string, worktreePath: string): boolean { /* implementation omitted */ }
+    export function createToolPermissionHandler(worktreePath: string) { /* implementation omitted */ }
+  </file>
+  <file path="src/task-intelligence.ts">
+    function detectTaskContexts(taskDescription: string): string[] { /* implementation omitted */ }
+    export function resolveSourceFiles(taskDescription: string): readonly string[] { /* implementation omitted */ }
+    interface BudgetConfig {
+      readonly budgetUsd: number;
+      readonly maxTurns: number;
+      readonly reason: string;
+    }
+    export function resolveBudget(taskDescription: string): BudgetConfig { /* implementation omitted */ }
+    export function resolveModel(taskDescription: string): string { /* implementation omitted */ }
+    interface PrExample {
+      readonly title: string;
+      readonly body: string;
+      readonly filesChanged: number;
+    }
+    export async function fetchRecentPrExamples(
+      repoPath: string,
+      limit = 3
+    ): Promise<readonly PrExample[]> { /* implementation omitted */ }
+    export function formatPrExamples(examples: readonly PrExample[]): string { /* implementation omitted */ }
+  </file>
+  <file path="src/task-decomposer.ts">
+    export interface OrchestratorConfig {
+      readonly taskDescription: string;
+      readonly apiBaseUrl: string;
+      readonly model: string;
+      readonly sessionModel: string;
+      readonly maxBudgetPerSession: number;
+      readonly maxTurnsPerSession: number;
+      readonly baseBranch: string;
+      readonly maxConcurrentSessions: number;
+      readonly parentSessionId?: string;
+    }
+    DEFAULT_ORCHESTRATOR_CONFIG: Omit<OrchestratorConfig, "taskDescription"> = {
+      apiBaseUrl: "http://localhost:3003",
+      model: "claude-sonnet-4-6",
+      sessionModel: "claude-sonnet-4-6",
+      maxBudgetPerSession: 1.0,
+      maxTurnsPerSession: 50,
+      baseBranch: "main",
+      maxConcurrentSessions: 3,
+    }
+    export interface OrchestratorResult {
+      readonly status: "succeeded" | "failed" | "partially_succeeded";
+      readonly childSessionIds: readonly string[];
+      readonly summary: string;
+      readonly totalCostUsd: number;
+      readonly durationMs: number;
+    }
+    export function buildOrchestratorPrompt(config: OrchestratorConfig): string { /* implementation omitted */ }
+  </file>
+  <file path="src/success-evaluator.ts">
+    export interface EvaluationResult {
+      readonly passed: boolean;
+      readonly confidence: number;
+      readonly reasoning: string;
+      readonly issues: readonly string[];
+    }
+    export interface EvaluationConfig {
+      readonly model: string;
+      readonly maxBudgetUsd: number;
+    }
+    DEFAULT_EVALUATION_CONFIG: EvaluationConfig = {
+      model: "claude-haiku-4-5-20250929",
+      maxBudgetUsd: 0.05,
+    }
+    export interface ShouldEvaluateConfig {
+      /** Whether tests passed during the agent run */
+      readonly testsPassed?: boolean;
+      /** Commit title, used for dependency bump detection */
+      readonly commitTitle?: string;
+    }
+    function countDiffLines(diff: string): number { /* implementation omitted */ }
+    export function shouldEvaluate(diff: string, config: ShouldEvaluateConfig = {}): boolean { /* implementation omitted */ }
+    export function extractAcceptanceCriteria(taskDescription: string): readonly string[] { /* implementation omitted */ }
+    export function extractExpectedFiles(taskDescription: string): readonly string[] { /* implementation omitted */ }
+    function buildEvaluationPrompt(
+      taskDescription: string,
+      gitDiff: string
+    ): string { /* implementation omitted */ }
+    export async function getGitDiff(worktreePath: string): Promise<string> { /* implementation omitted */ }
+    export async function evaluateSuccess(
+      taskDescription: string,
+      gitDiff: string,
+      configOverrides?: Partial<EvaluationConfig>
+    ): Promise<EvaluationResult> { /* implementation omitted */ }
+  </file>
+  <file path="src/stuck-detector.ts">
+    export type StuckPatternType =
+      | "repeated_action_observation"
+      | "repeated_error"
+      | "self_message_loop"
+      | "alternating_pairs"
+      | "context_window_loop"
+      | "context_window_warning"
+      | "zero_progress"
+      | "silent_failure_loop";
+    export type StuckSeverity = "warning" | "error";
+    export interface StuckPattern {
+      readonly type: StuckPatternType;
+      readonly count: number;
+      readonly threshold: number;
+      readonly description: string;
+      readonly severity: StuckSeverity;
+    }
+    export interface StuckDetectorConfig {
+      readonly repeatedActionThreshold: number;
+      readonly repeatedErrorThreshold: number;
+      readonly selfMessageThreshold: number;
+      readonly alternatingPairThreshold: number;
+      readonly contextWindowLoopThreshold: number;
+      readonly contextWindowWarningThreshold: number;
+      readonly zeroProgressThreshold: number;
+      readonly zeroProgressMinOutputChars: number;
+      readonly silentFailureTurnWindow: number;
+    }
+    export interface StuckDetector {
+      ingest(message: SDKMessage): StuckPattern | null;
+      reset(): void;
+    }
+    DEFAULT_STUCK_CONFIG: StuckDetectorConfig = {
+      repeatedActionThreshold: 4,
+      repeatedErrorThreshold: 3,
+      selfMessageThreshold: 3,
+      alternatingPairThreshold: 3,
+      contextWindowLoopThreshold: 5,
+      contextWindowWarningThreshold: 2,
+      zeroProgressThreshold: 5,
+      zeroProgressMinOutputChars: 500,
+      silentFailureTurnWindow: 3,
+    }
+    function normalizeOutput(text: string): string { /* implementation omitted */ }
+    function fingerprintToolUse(block: { name: string; input: unknown }): string { /* implementation omitted */ }
+    function fingerprintAssistantText(
+      contentBlocks: Array<{ type: string; text?: string }>
+    ): string { /* implementation omitted */ }
+    function extractAssistantTextLength(
+      contentBlocks: Array<{ type: string; text?: string }>
+    ): number { /* implementation omitted */ }
+    function extractToolUseFingerprints(
+      message: SDKMessage
+    ): readonly string[] { /* implementation omitted */ }
+    function extractToolNames(message: SDKMessage): readonly string[] { /* implementation omitted */ }
+    function extractObservationFingerprint(message: SDKMessage): string | null { /* implementation omitted */ }
+    function isErrorObservation(message: SDKMessage): boolean { /* implementation omitted */ }
+    function isFileModifyingTool(toolName: string): boolean { /* implementation omitted */ }
+    export function createStuckDetector(
+      configOverrides?: Partial<StuckDetectorConfig>
+    ): StuckDetector { /* implementation omitted */ }
+  </file>
+  <file path="src/session-runner.ts">
+    function emitEvent(
+      onEvent: SessionEventCallback | undefined,
+      type: SessionEvent["type"],
+      data: SessionEvent["data"]
+    ): void { /* implementation omitted */ }
+    function sanitizeForCommitMessage(text: string): string { /* implementation omitted */ }
+    async function storeVerificationLog(
+      worktreePath: string,
+      sections: readonly { readonly label: string; readonly output: string }[]
+    ): Promise<string> { /* implementation omitted */ }
+    export async function runSession(
+      config: SessionConfig,
+      onEvent?: SessionEventCallback
+    ): Promise<SessionResult> { /* implementation omitted */ }
+  </file>
+  <file path="src/retry.ts">
+    export interface RetryConfig {
+      /** Maximum number of retry attempts (default: 3) */
+      readonly maxRetries: number;
+      /** Base delay in milliseconds before first retry (default: 1000) */
+      readonly baseDelayMs: number;
+      /** Maximum delay in milliseconds (default: 30000) */
+      readonly maxDelayMs: number;
+      /** Predicate to determine if an error is retryable (default: isTransientError) */
+      readonly isRetryable: (error: unknown) => boolean;
+    }
+    export interface RetryResult<T> {
+      readonly value: T;
+      readonly attempts: number;
+    }
+    DEFAULT_RETRY_CONFIG: RetryConfig = {
+      maxRetries: 3,
+      baseDelayMs: 1_000,
+      maxDelayMs: 30_000,
+      isRetryable: isTransientError,
+    }
+    export function isTransientError(error: unknown): boolean { /* implementation omitted */ }
+    export function isContextWindowExhausted(error: unknown): boolean { /* implementation omitted */ }
+    export function calculateDelay(
+      attempt: number,
+      baseDelayMs: number,
+      maxDelayMs: number
+    ): number { /* implementation omitted */ }
+    export async function withRetry<T>(
+      fn: () => Promise<T>,
+      configOverrides: Partial<RetryConfig> = {}
+    ): Promise<RetryResult<T>> { /* implementation omitted */ }
+    class ContextWindowExhaustedError {
+      constructor(originalMessage: string) { /* implementation omitted */ }
+    }
+    function sleep(ms: number): Promise<void> { /* implementation omitted */ }
+  </file>
+  <file path="src/prompt-builder.ts">
+    export interface SourceFileEntry {
+      readonly path: string;
+      readonly content: string;
+    }
+    export async function loadSourceFiles(
+      paths: readonly string[]
+    ): Promise<readonly SourceFileEntry[]> { /* implementation omitted */ }
+    function formatSourceFileSection(entries: readonly SourceFileEntry[]): string { /* implementation omitted */ }
+    export function buildSystemPrompt(
+      taskDescription: string,
+      sourceFileEntries?: readonly SourceFileEntry[],
+      prExamplesSection?: string
+    ): string { /* implementation omitted */ }
+    export async function loadProjectContext(repoPath: string): Promise<string | null> { /* implementation omitted */ }
+  </file>
+  <file path="src/pr-risk-classifier.ts">
+    export function isLowRiskPR(files: readonly string[]): boolean { /* implementation omitted */ }
+  </file>
+  <file path="src/pr-feedback-poller.ts">
+    export interface ReviewComment {
+      readonly threadId: string;
+      readonly author: string;
+      readonly body: string;
+      readonly path: string | null;
+      readonly line: number | null;
+    }
+    export interface CIFailure {
+      readonly checkName: string;
+      readonly conclusion: string;
+      readonly logSnippet: string;
+    }
+    export interface FeedbackContext {
+      readonly prNumber: number;
+      readonly reviewComments: readonly ReviewComment[];
+      readonly ciFailures: readonly CIFailure[];
+      readonly reviewDecision: string;
+    }
+    export interface PollResult {
+      readonly context: FeedbackContext;
+      readonly fingerprint: string;
+    }
+    interface GraphQLThreadNode {
+      readonly id: string;
+      readonly isResolved: boolean;
+      readonly comments: {
+        readonly nodes: ReadonlyArray<{
+          readonly body: string;
+          readonly path: string | null;
+          readonly line: number | null;
+          readonly author: { readonly login: string };
+        }>;
+      };
+    }
+    interface GraphQLResponse {
+      readonly data: {
+        readonly repository: {
+          readonly pullRequest: {
+            readonly reviewDecision: string | null;
+            readonly reviewThreads: {
+              readonly nodes: readonly GraphQLThreadNode[];
+            };
+          };
+        };
+      };
+    }
+    export async function fetchUnresolvedComments(
+      owner: string,
+      repo: string,
+      prNumber: number,
+      repoPath: string
+    ): Promise<{ comments: readonly ReviewComment[]; reviewDecision: string }> { /* implementation omitted */ }
+    interface CheckResult {
+      readonly name: string;
+      readonly state: string;
+      readonly conclusion: string;
+    }
+    export async function fetchCIFailures(
+      prNumber: number,
+      repoPath: string,
+      tailLines = 100
+    ): Promise<readonly CIFailure[]> { /* implementation omitted */ }
+    function computeFingerprint(comments: readonly ReviewComment[]): string { /* implementation omitted */ }
+    export async function pollForFeedback(
+      owner: string,
+      repo: string,
+      prNumber: number,
+      repoPath: string,
+      lastFingerprint: string
+    ): Promise<PollResult | null> { /* implementation omitted */ }
+  </file>
+  <file path="src/pr-creator.ts">
+    export async function createPullRequest(options: PrOptions): Promise<PrResult> { /* implementation omitted */ }
+    export function buildPrTitle(taskDescription: string): string { /* implementation omitted */ }
+    export function buildPrBody(
+      taskDescription: string,
+      sessionId: string,
+      costUsd: number,
+      numTurns: number
+    ): string { /* implementation omitted */ }
+    export function buildFailurePrBody(
+      taskDescription: string,
+      errors: readonly string[],
+      stuckPattern?: string
+    ): string { /* implementation omitted */ }
+  </file>
+  <file path="src/orchestrator.ts">
+    interface SessionApiResponse<T> {
+      readonly data: T;
+    }
+    interface SessionSummary {
+      readonly id: string;
+      readonly status: string;
+      readonly taskDescription: string;
+      readonly branchName: string | null;
+      readonly prUrl: string | null;
+      readonly costUsd: number | null;
+      readonly errors: readonly string[];
+    }
+    interface PaginatedSessions {
+      readonly data: readonly SessionSummary[];
+      readonly pagination: {
+        readonly page: number;
+        readonly total: number;
+        readonly totalPages: number;
+      };
+    }
+    async function apiCall<T>(baseUrl: string, path: string, options: RequestInit = {}): Promise<T> { /* implementation omitted */ }
+    function createSessionTools(config: OrchestratorConfig) { /* implementation omitted */ }
+    function extractSessionIds(obj: unknown): string[] { /* implementation omitted */ }
+    export async function runOrchestrator(
+      config: OrchestratorConfig,
+      onEvent?: (event: { type: string; message: string }) => void
+    ): Promise<OrchestratorResult> { /* implementation omitted */ }
+  </file>
+  <file path="src/model-router.ts">
+    export type ModelTier = "haiku" | "sonnet" | "opus";
+    export interface IssueInput {
+      readonly title: string;
+      readonly labels: string[];
+      readonly body: string;
+    }
+    export interface ModelRoutingResult {
+      readonly tier: ModelTier;
+      readonly modelId: string;
+      readonly reason: string;
+    }
+    export function routeModel(issue: IssueInput): ModelTier { /* implementation omitted */ }
+    export function routeModelWithReason(issue: IssueInput): ModelRoutingResult { /* implementation omitted */ }
+    export function resolveModelId(tier: ModelTier): string { /* implementation omitted */ }
+    function buildResult(tier: ModelTier, reason: string): ModelRoutingResult { /* implementation omitted */ }
+  </file>
+  <file path="src/intent-extractor.ts">
+    interface ContentBlock {
+      readonly type: string;
+      readonly input?: unknown;
+    }
+    interface AnthropicMessagesResponse {
+      readonly content: readonly ContentBlock[];
+    }
+    interface AnthropicClient {
+      readonly messages: {
+        create(params: Record<string, unknown>): Promise<AnthropicMessagesResponse>;
+      };
+    }
+    interface AnthropicSDKModule {
+      default: new () => AnthropicClient;
+    }
+    export const IssueIntentSchema: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodObject<{ summary: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; acceptanceCriteria: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodArray<import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; affectedFiles: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodOptional<import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodArray<import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>>; estimatedScope: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodEnum<{ trivial: "trivial"; small: "small"; medium: "medium"; large: "large"; }>; taskDescription: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; }, import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/core/schemas").$strip>;
+    export type IssueIntent = z.infer<typeof IssueIntentSchema>;
+    export async function extractIssueIntent(
+      issueTitle: string,
+      issueBody: string,
+      issueNumber: number
+    ): Promise<IssueIntent | null> { /* implementation omitted */ }
+  </file>
+  <file path="src/index.ts">
+  </file>
+  <file path="src/feedback-prompt-builder.ts">
+    export function buildReviewFixPrompt(context: FeedbackContext): string { /* implementation omitted */ }
+  </file>
+  <file path="src/feedback-loop.ts">
+    export interface FeedbackLoopParams {
+      readonly prNumber: number;
+      readonly branchName: string;
+      readonly repoPath: string;
+      readonly model: string;
+      readonly maxRetries: number;
+      readonly pollIntervalMs: number;
+      readonly pollTimeoutMs: number;
+      readonly maxBudgetUsd: number;
+      readonly allowedTools: readonly string[];
+    }
+    export interface FeedbackLoopResult {
+      readonly retriesUsed: number;
+      readonly resolved: boolean;
+      readonly lastFingerprint: string | null;
+    }
+    function emitEvent(
+      onEvent: SessionEventCallback | undefined,
+      type: SessionEvent["type"],
+      data: SessionEvent["data"]
+    ): void { /* implementation omitted */ }
+    function delay(ms: number): Promise<void> { /* implementation omitted */ }
+    async function parseOwnerRepo(repoPath: string): Promise<{ owner: string; repo: string }> { /* implementation omitted */ }
+    async function commitAndPush(repoPath: string, message: string): Promise<void> { /* implementation omitted */ }
+    export async function runFeedbackLoop(
+      config: FeedbackLoopParams,
+      onEvent?: SessionEventCallback
+    ): Promise<FeedbackLoopResult> { /* implementation omitted */ }
+  </file>
+  <file path="src/failure-memory.ts">
+    export interface FailureRecord {
+      readonly taskDescription: string;
+      readonly timestamp: string;
+      readonly stuckPattern?: string;
+      readonly errors: readonly string[];
+      readonly approach: string;
+    }
+    export interface FailureMemory {
+      readonly records: readonly FailureRecord[];
+    }
+    async function loadMemory(repoPath: string): Promise<FailureMemory> { /* implementation omitted */ }
+    async function saveMemory(
+      repoPath: string,
+      memory: FailureMemory
+    ): Promise<void> { /* implementation omitted */ }
+    export async function recordFailure(
+      repoPath: string,
+      record: FailureRecord
+    ): Promise<void> { /* implementation omitted */ }
+    export function queryPastFailures(
+      memory: FailureMemory,
+      taskDescription: string,
+      maxResults = 3
+    ): readonly FailureRecord[] { /* implementation omitted */ }
+    export function buildFailureContext(
+      pastFailures: readonly FailureRecord[]
+    ): string { /* implementation omitted */ }
+  </file>
+  <file path="src/event-mapper.ts">
+    export interface ToolUseEvent {
+      readonly type: "session:tool_use";
+      readonly toolName: string;
+      readonly toolInput: Record<string, unknown>;
+      readonly toolUseId: string;
+    }
+    export interface ToolResultEvent {
+      readonly type: "session:tool_result";
+      readonly toolUseId: string;
+      readonly isError: boolean;
+    }
+    export interface AssistantTextEvent {
+      readonly type: "session:assistant";
+      readonly text: string;
+    }
+    export type MappedEvent = ToolUseEvent | ToolResultEvent | AssistantTextEvent;
+    interface ToolUseBlock {
+      readonly type: "tool_use";
+      readonly id: string;
+      readonly name: string;
+      readonly input: Record<string, unknown>;
+    }
+    interface TextBlock {
+      readonly type: "text";
+      readonly text: string;
+    }
+    interface ToolResultBlock {
+      readonly type: "tool_result";
+      readonly tool_use_id: string;
+      readonly is_error?: boolean;
+    }
+    type ContentBlock = ToolUseBlock | TextBlock | ToolResultBlock | { type: string };
+    function mapAssistantMessage(
+      content: readonly ContentBlock[]
+    ): readonly MappedEvent[] { /* implementation omitted */ }
+    function mapUserMessage(
+      content: unknown
+    ): readonly MappedEvent[] { /* implementation omitted */ }
+    export function mapSdkMessage(
+      message: SDKMessage
+    ): readonly MappedEvent[] { /* implementation omitted */ }
+  </file>
+  <file path="src/diff-static-analyzer.ts">
+    export interface Violation {
+      readonly rule: string;
+      readonly file: string;
+      readonly line: number;
+      readonly message: string;
+      readonly severity: "warning" | "error";
+    }
+    export interface StaticAnalysisResult {
+      readonly clean: boolean;
+      readonly violations: readonly Violation[];
+      readonly durationMs: number;
+    }
+    export interface AnalysisRule {
+      readonly id: string;
+      readonly pattern: RegExp;
+      readonly message: string;
+      readonly severity: "warning" | "error";
+      readonly fileGlob?: string;
+    }
+    export const ANALYSIS_RULES: readonly import("/Users/mbutler/github/mattbutlerengineering/packages/agent-core/src/diff-static-analyzer").AnalysisRule[];
+    function matchesFileGlob(filePath: string, glob: string | undefined): boolean { /* implementation omitted */ }
+    function parseHunkHeader(line: string): number | null { /* implementation omitted */ }
+    export function analyzeDiff(diff: string): StaticAnalysisResult { /* implementation omitted */ }
+    export function formatViolations(violations: readonly Violation[]): string { /* implementation omitted */ }
+  </file>
+  <file path="src/diff-reviewer.ts">
+    export interface ReviewResult {
+      readonly approved: boolean;
+      readonly issues: readonly string[];
+    }
+    export interface ReviewConfig {
+      readonly model: string;
+      readonly maxBudgetUsd: number;
+    }
+    DEFAULT_REVIEW_CONFIG: ReviewConfig = {
+      model: "claude-haiku-4-5-20250929",
+      maxBudgetUsd: 0.05,
+    }
+    function buildReviewPrompt(diff: string): string { /* implementation omitted */ }
+    export async function reviewDiff(
+      diff: string,
+      configOverrides?: Partial<ReviewConfig>
+    ): Promise<ReviewResult> { /* implementation omitted */ }
+  </file>
+  <file path="src/deploy-verifier.ts">
+    export interface HealthCheck {
+      readonly name: string;
+      readonly url: string;
+      readonly type: "http_status" | "json_health";
+    }
+    export interface HealthCheckResult {
+      readonly name: string;
+      readonly url: string;
+      readonly passed: boolean;
+      readonly status: string;
+      readonly attempts: number;
+    }
+    export interface VerificationResult {
+      readonly passed: boolean;
+      readonly checks: readonly HealthCheckResult[];
+      readonly failedChecks: readonly string[];
+    }
+    export interface VerificationConfig {
+      readonly maxRetries: number;
+      readonly retryDelayMs: number;
+      readonly timeoutMs: number;
+    }
+    DEFAULT_VERIFICATION_CONFIG: VerificationConfig = {
+      maxRetries: 5,
+      retryDelayMs: 3000,
+      timeoutMs: 10000,
+    }
+    DEFAULT_HEALTH_CHECKS: readonly HealthCheck[] = [
+      { name: "Marketing", url: "https://mattbutlerengineering.com/", type: "http_status" },
+      { name: "Hospitality", url: "https://mattbutlerengineering.com/hospitality", type: "http_status" },
+      { name: "Rialto Web", url: "https://mattbutlerengineering.com/rialto", type: "http_status" },
+      { name: "Users API", url: "https://mattbutlerengineering.com/api/v1/users/health", type: "json_health" },
+      { name: "Reservations API", url: "https://mattbutlerengineering.com/api/health", type: "json_health" },
+    ]
+    function sleep(ms: number): Promise<void> { /* implementation omitted */ }
+    async function checkHttpStatus(
+      url: string,
+      timeoutMs: number
+    ): Promise<{ passed: boolean; status: string }> { /* implementation omitted */ }
+    async function checkJsonHealth(
+      url: string,
+      timeoutMs: number
+    ): Promise<{ passed: boolean; status: string }> { /* implementation omitted */ }
+    async function runSingleCheck(
+      check: HealthCheck,
+      config: VerificationConfig
+    ): Promise<HealthCheckResult> { /* implementation omitted */ }
+    export async function verifyDeployment(
+      checks: readonly HealthCheck[] = DEFAULT_HEALTH_CHECKS,
+      configOverrides?: Partial<VerificationConfig>
+    ): Promise<VerificationResult> { /* implementation omitted */ }
+    export async function rollbackCloudflareWorker(
+      workerName: string,
+      versionId: string,
+      reason: string
+    ): Promise<boolean> { /* implementation omitted */ }
+    export async function getCloudflareWorkerVersion(
+      workerName: string
+    ): Promise<string | null> { /* implementation omitted */ }
+  </file>
+  <file path="src/dep-bump-merger.ts">
+    export interface TrivialDepBumpResult {
+      readonly isTrivial: boolean;
+      /** Reason the bump was deemed non-trivial (undefined when isTrivial=true). */
+      readonly reason?: string;
+    }
+    function extractChangedFiles(diff: string): readonly string[] { /* implementation omitted */ }
+    function countDiffLines(diff: string): number { /* implementation omitted */ }
+    function extractNonLockfileDiff(diff: string): string { /* implementation omitted */ }
+    export function isTrivialDepBump(diff: string): TrivialDepBumpResult { /* implementation omitted */ }
+    export async function mergeDirectly(options: {
+      readonly branchName: string;
+      readonly baseBranch: string;
+      readonly repoPath: string;
+      readonly commitTitle: string;
+    }): Promise<string> { /* implementation omitted */ }
+  </file>
+  <file path="src/cost-tracker.ts">
+    export function extractTokenUsage(result: SDKResultMessage): TokenUsage { /* implementation omitted */ }
+    export function extractCost(result: SDKResultMessage): number { /* implementation omitted */ }
+    function mapSubtypeToStatus(subtype: string): SessionStatus { /* implementation omitted */ }
+    function getResultText(result: SDKResultMessage): string { /* implementation omitted */ }
+    function getErrors(result: SDKResultMessage): readonly string[] { /* implementation omitted */ }
+    export function buildSessionResult(
+      result: SDKResultMessage,
+      branchName: string,
+      prUrl: string | null
+    ): SessionResult { /* implementation omitted */ }
+  </file>
+  <file path="src/change-type-classifier.ts">
+    export type ChangeType =
+      | "dependency"
+      | "docs"
+      | "config"
+      | "test"
+      | "infrastructure"
+      | "frontend"
+      | "backend"
+      | "mixed";
+    export type SkippablePhase = "smoke-audit" | "deploy-verify" | "lighthouse" | "e2e";
+    export interface ChangeClassification {
+      readonly type: ChangeType;
+      readonly files: readonly string[];
+      readonly skipPhases: readonly SkippablePhase[];
+      readonly reason: string;
+    }
+    interface ClassificationRule {
+      readonly type: ChangeType;
+      readonly matches: (file: string) => boolean;
+      readonly skipPhases: readonly SkippablePhase[];
+    }
+    export function classifyChanges(files: readonly string[]): ChangeClassification { /* implementation omitted */ }
+    export function shouldSkipPhase(
+      classification: ChangeClassification,
+      phase: SkippablePhase
+    ): boolean { /* implementation omitted */ }
+    export function formatClassification(classification: ChangeClassification): string { /* implementation omitted */ }
+    function buildReason(
+      type: ChangeType,
+      fileCount: number,
+      skipPhases: readonly SkippablePhase[]
+    ): string { /* implementation omitted */ }
+  </file>
+  <file path="src/bundle-size-tracker.ts">
+    export interface FileSize {
+      readonly path: string;
+      readonly bytes: number;
+    }
+    export interface BundleSizeEntry {
+      readonly app: string;
+      readonly totalBytes: number;
+      readonly files: readonly FileSize[];
+      readonly timestamp: string;
+    }
+    export interface BundleSizeBaseline {
+      readonly entries: readonly BundleSizeEntry[];
+      readonly updatedAt: string;
+      readonly version: number;
+    }
+    export interface BundleSizeComparison {
+      readonly app: string;
+      readonly previousBytes: number;
+      readonly currentBytes: number;
+      readonly deltaBytes: number;
+      readonly deltaPercent: number;
+      readonly regression: boolean;
+    }
+    export interface BundleSizeReport {
+      readonly comparisons: readonly BundleSizeComparison[];
+      readonly hasRegressions: boolean;
+      readonly summary: string;
+    }
+    export async function measureAppBundleSize(
+      distPath: string,
+      appName: string
+    ): Promise<BundleSizeEntry> { /* implementation omitted */ }
+    export async function measureAllBundles(
+      rootDir: string
+    ): Promise<readonly BundleSizeEntry[]> { /* implementation omitted */ }
+    export async function loadBaseline(
+      baselinePath: string
+    ): Promise<BundleSizeBaseline | null> { /* implementation omitted */ }
+    export async function saveBaseline(
+      baselinePath: string,
+      entries: readonly BundleSizeEntry[]
+    ): Promise<void> { /* implementation omitted */ }
+    function buildComparison(
+      app: string,
+      currentBytes: number,
+      previousBytes: number,
+      thresholdPercent: number
+    ): BundleSizeComparison { /* implementation omitted */ }
+    export function compareWithBaseline(
+      current: readonly BundleSizeEntry[],
+      baseline: BundleSizeBaseline | null,
+      thresholdPercent: number = DEFAULT_THRESHOLD_PERCENT
+    ): BundleSizeReport { /* implementation omitted */ }
+    export function formatReport(report: BundleSizeReport): string { /* implementation omitted */ }
+    function formatKB(bytes: number): string { /* implementation omitted */ }
+  </file>
+  <file path="src/audit-inventory.ts">
+    export type Zone =
+      | "marketing"
+      | "hospitality"
+      | "rialto"
+      | "gen"
+      | "api:users"
+      | "api:reservations"
+      | "api:agent";
+    ZONES: readonly Zone[] = [
+      "marketing",
+      "hospitality",
+      "rialto",
+      "gen",
+      "api:users",
+      "api:reservations",
+      "api:agent",
+    ]
+    export const BASE_URL: "https://mattbutlerengineering.com";
+    export const INVENTORY_VERSION: 1;
+    export interface LighthouseScores {
+      readonly performance: number;
+      readonly accessibility: number;
+      readonly bestPractices: number;
+      readonly seo: number;
+    }
+    export interface ScoreEntry {
+      readonly timestamp: string;
+      readonly scores: LighthouseScores;
+    }
+    export interface AuditSurface {
+      readonly id: string;
+      readonly zone: Zone;
+      readonly type: "page" | "api_endpoint";
+      readonly url: string;
+      readonly sourceFiles: readonly string[];
+      readonly auth: "none" | "auth0";
+      readonly lastChecked: string | null;
+      readonly lastScore: LighthouseScores | null;
+      readonly checkHistory: readonly ScoreEntry[];
+      readonly checkCount: number;
+    }
+    export interface AuditInventory {
+      readonly surfaces: readonly AuditSurface[];
+      readonly lastUpdated: string;
+      readonly version: number;
+    }
+    export interface Regression {
+      readonly surfaceId: string;
+      readonly category: keyof LighthouseScores;
+      readonly previousScore: number;
+      readonly currentScore: number;
+      readonly drop: number;
+    }
+    function surface(
+      id: string,
+      zone: Zone,
+      type: "page" | "api_endpoint",
+      path: string,
+      sourceFiles: readonly string[],
+      auth: "none" | "auth0" = "none"
+    ): AuditSurface { /* implementation omitted */ }
+    export function buildInventory(): AuditInventory { /* implementation omitted */ }
+    export function mergeInventory(
+      fresh: AuditInventory,
+      existing: AuditInventory
+    ): AuditInventory { /* implementation omitted */ }
+    export async function loadInventory(repoPath: string): Promise<AuditInventory> { /* implementation omitted */ }
+    export async function saveInventory(
+      repoPath: string,
+      inventory: AuditInventory
+    ): Promise<void> { /* implementation omitted */ }
+    export function isNonAuditableFile(filePath: string): boolean { /* implementation omitted */ }
+    export function allFilesNonAuditable(changedFiles: readonly string[]): boolean { /* implementation omitted */ }
+    function fileToZones(filePath: string): readonly Zone[] | "all" | null { /* implementation omitted */ }
+    export function mapFilesToSurfaces(
+      inventory: AuditInventory,
+      changedFiles: readonly string[]
+    ): readonly AuditSurface[] { /* implementation omitted */ }
+    export function findStalestZone(inventory: AuditInventory): Zone { /* implementation omitted */ }
+    export function updateSurfaceScore(
+      s: AuditSurface,
+      scores: LighthouseScores
+    ): AuditSurface { /* implementation omitted */ }
+    export function detectRegression(
+      s: AuditSurface,
+      newScores: LighthouseScores
+    ): Regression | null { /* implementation omitted */ }
+  </file>
+</codebase>

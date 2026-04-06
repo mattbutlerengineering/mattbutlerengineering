@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import type { Reservation, Table, TableStatus } from "@mbe/types";
+import { toDateString, type Reservation, type Table, type TableStatus } from "@mbe/types";
 import { ReservationBlock } from "./ReservationBlock";
 import { TableStatusBadge } from "../TableStatusBadge.js";
 import styles from "./TimelineGrid.module.css";
@@ -77,7 +77,7 @@ export function TimelineGrid({
     return () => clearInterval(interval);
   }, []);
 
-  const isToday = date === currentTime.toISOString().split("T")[0];
+  const isToday = date === toDateString(currentTime);
   const currentTimeOffset = useMemo(() => {
     if (!isToday) return null;
     const minutes = currentTime.getHours() * 60 + currentTime.getMinutes();

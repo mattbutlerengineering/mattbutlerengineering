@@ -8,12 +8,21 @@
     export function handleErrorBoundary(error: Error, errorInfo: ErrorInfo): void { /* implementation omitted */ }
   </file>
   <file path="src/node.ts">
+    interface SentryUser {
+      readonly id: string;
+      readonly email?: string;
+    }
+    function isSentryUser(value: unknown): value is SentryUser { /* implementation omitted */ }
+    function getRequestUser(request: FastifyRequest): SentryUser | undefined { /* implementation omitted */ }
     export interface InitOptions {
       readonly serviceName: string;
     }
+    interface SentryReplyMeta {
+      readonly __sentryErrorCaptured?: boolean;
+    }
     export function initSentry(options: InitOptions): void { /* implementation omitted */ }
     function setSentryContext(scope: Sentry.Scope, request: FastifyRequest): void { /* implementation omitted */ }
-    export const sentryFastifyPlugin: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginCallback<Record<never, never>, import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/utils").RawServerDefault, import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/type-provider").FastifyTypeProviderDefault, import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/logger").FastifyBaseLogger>;
+    export const sentryFastifyPlugin: (fastify: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/instance").FastifyInstance<import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/utils").RawServerDefault, import("node:http").IncomingMessage, import("node:http").ServerResponse<import("node:http").IncomingMessage>, import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/logger").FastifyBaseLogger, import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/type-provider").FastifyTypeProviderDefault>) => Promise<void>;
   </file>
   <file path="src/index.ts">
   </file>
