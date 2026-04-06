@@ -581,4 +581,57 @@ describe("Langfuse tracing", () => {
       expect.any(Function)
     );
   });
+
+  it("creates generation observations for assistant messages", async () => {
+    vi.mocked(createWorktree).mockResolvedValue({
+      path: "/worktree",
+      branchName: "agent/fix-login",
+      mode: "full",
+    });
+    vi.mocked(loadMemory).mockResolvedValue({ failures: [] });
+    vi.mocked(queryPastFailures).mockReturnValue([]);
+    vi.mocked(buildFailureContext).mockReturnValue("");
+    vi.mocked(buildSystemPrompt).mockReturnValue("system prompt");
+    vi.mocked(createToolPermissionHandler).mockReturnValue(async () => true);
+    vi.mocked(hasChanges).mockResolvedValue(false);
+
+    const assistantMessage = {
+      type: "assistant" as const,
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "I'll fix the bug" }],
+        usage: { input_tokens: 50, output_tokens: 25 },
+      },
+    };
+
+    const resultMessage = {
+      type: "result" as const,
+      subtype: "success" as const,
+      uuid: "test-uuid",
+      session_id: "sess-1",
+      result: "Done",
+      total_cost_usd: 0.05,
+      duration_ms: 1000,
+      duration_api_ms: 800,
+      is_error: false,
+      num_turns: 3,
+      stop_reason: "end_turn",
+      usage: { input_tokens: 100, output_tokens: 50, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+    };
+
+    vi.mocked(query).mockReturnValue(
+      (async function* () {
+        yield assistantMessage;
+        yield resultMessage;
+      })() as ReturnType<typeof query>
+    );
+
+    await runSession(BASE_CONFIG);
+
+    expect(startObservation).toHaveBeenCalledWith(
+      "llm-turn-0",
+      expect.objectContaining({ model: BASE_CONFIG.model }),
+      { asType: "generation" }
+    );
+  });
 });

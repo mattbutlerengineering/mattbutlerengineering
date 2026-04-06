@@ -51,6 +51,7 @@ import { runFeedbackLoop } from "./feedback-loop.js";
 import { withRetry, ContextWindowExhaustedError } from "./retry.js";
 import {
   startActiveObservation,
+  startObservation,
   propagateAttributes,
 } from "@langfuse/tracing";
 
@@ -223,11 +224,33 @@ export async function runSession(
           attributes: { "sdk.model": config.model },
         });
 
+        let turnCount = 0;
         let compactionCount = 0;
 
         try {
           for await (const message of conversation) {
             emitEvent(onEvent, "session:message", message);
+
+            // Track assistant messages as Langfuse generation observations
+            if (message.type === "assistant" && "message" in message) {
+              const msg = message.message as {
+                role: string;
+                content: unknown;
+                usage?: { input_tokens?: number; output_tokens?: number };
+              };
+              const gen = startObservation(
+                `llm-turn-${turnCount++}`,
+                { model: config.model, input: msg.content },
+                { asType: "generation" }
+              );
+              gen.update({
+                output: msg.content,
+                usageDetails: {
+                  input: msg.usage?.input_tokens ?? 0,
+                  output: msg.usage?.output_tokens ?? 0,
+                },
+              }).end();
+            }
 
             // Emit typed events for observability
             for (const mapped of mapSdkMessage(message)) {
