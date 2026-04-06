@@ -1,13 +1,14 @@
-import type {
-  TimeSlot,
-  AvailableTable,
-  DateAvailability,
-  ConflictCheckResult,
-  PacingCheckResult,
-  VenueSettings,
-  OperatingHours,
-  DaySchedule,
-  DurationRule,
+import {
+  toDateString,
+  type TimeSlot,
+  type AvailableTable,
+  type DateAvailability,
+  type ConflictCheckResult,
+  type PacingCheckResult,
+  type VenueSettings,
+  type OperatingHours,
+  type DaySchedule,
+  type DurationRule,
 } from "@mbe/types";
 import type { Table } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
@@ -243,7 +244,7 @@ export async function getAvailableDates(
     // No venue or no tables — every date is unavailable
     const results: DateAvailability[] = [];
     for (let d = new Date(start); d <= actualEnd; d.setDate(d.getDate() + 1)) {
-      results.push({ date: d.toISOString().split("T")[0], hasAvailability: false, slotCount: 0 });
+      results.push({ date: toDateString(d), hasAvailability: false, slotCount: 0 });
     }
     return results;
   }
@@ -285,7 +286,7 @@ export async function getAvailableDates(
   const results: DateAvailability[] = [];
 
   for (let d = new Date(start); d <= actualEnd; d.setDate(d.getDate() + 1)) {
-    const dateStr = d.toISOString().split("T")[0];
+    const dateStr = toDateString(d);
     const schedule = getDaySchedule(venue.operatingHours, d);
 
     if (!schedule) {
@@ -295,10 +296,10 @@ export async function getAvailableDates(
 
     // Filter reservations and holds for this specific date
     const dateReservations = allReservations.filter(
-      (r) => r.startTime.toISOString().split("T")[0] === dateStr
+      (r) => toDateString(r.startTime) === dateStr
     );
     const dateHolds = allHolds.filter(
-      (h) => h.startTime.toISOString().split("T")[0] === dateStr
+      (h) => toDateString(h.startTime) === dateStr
     );
 
     const openMinutes = parseTimeToMinutes(schedule.open);
@@ -457,7 +458,7 @@ export async function checkPacing(
   // Define the time window
   const windowStart = startTime;
   const windowEnd = new Date(startTime.getTime() + windowMinutes * 60 * 1000);
-  const dateStr = startTime.toISOString().split("T")[0];
+  const dateStr = toDateString(startTime);
 
   // Count covers in reservations starting in this window
   const reservationCovers = await prisma.reservation.aggregate({
