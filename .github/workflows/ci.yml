@@ -193,6 +193,12 @@ jobs:
           git diff --exit-code packages/rialto-catalog/src/generated-schemas.ts || \
             (echo "ERROR: generated-schemas.ts is stale. Run 'pnpm --filter @mbe/rialto-catalog generate' locally and commit the result." && exit 1)
 
+      - name: Check dependency graph drift
+        run: |
+          pnpm graph
+          git diff --exit-code docs/architecture/dependency-graph.md || \
+            (echo "ERROR: dependency-graph.md is stale. Run 'pnpm graph' locally and commit the result." && exit 1)
+
       - name: Record bundle sizes
         if: github.ref == 'refs/heads/main'
         run: node scripts/record-bundle-sizes.js --output bundle-sizes.json
