@@ -1,20 +1,36 @@
 import baseConfig from "./base.js";
+import reactPlugin from "eslint-plugin-react";
+import reactHooksPlugin from "eslint-plugin-react-hooks";
 import eslintReact from "@eslint-react/eslint-plugin";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import reactRefresh from "eslint-plugin-react-refresh";
+import { fixupPluginRules } from "@eslint/compat";
+
+// ESLint 10 removed legacy rule context methods (getFilename, getScope, etc.).
+// eslint-plugin-react 7.37.x still uses these methods internally.
+// fixupPluginRules wraps each rule to provide backward-compatible context shims.
+// Once eslint-plugin-react ships ESLint 10 native support, remove @eslint/compat.
+const reactCompat = fixupPluginRules(reactPlugin);
+const hooksCompat = fixupPluginRules(reactHooksPlugin);
+const a11yCompat = fixupPluginRules(jsxA11y);
 
 export default [
   ...baseConfig,
   eslintReact.configs.recommended,
   {
     plugins: {
-      "jsx-a11y": jsxA11y,
+      react: reactCompat,
+      "react-hooks": hooksCompat,
+      "jsx-a11y": a11yCompat,
       "react-refresh": reactRefresh,
     },
     rules: {
+      ...reactPlugin.configs.flat.recommended.rules,
+      ...reactPlugin.configs.flat["jsx-runtime"].rules,
+      ...reactHooksPlugin.configs.flat.recommended.rules,
       ...jsxA11y.flatConfigs.recommended.rules,
-      // Allow defining test helper components inside functions (common in test files)
       "@eslint-react/component-hook-factories": "warn",
+      "react/prop-types": "off",
       "react-refresh/only-export-components": [
         "warn",
         { allowConstantExport: true },
