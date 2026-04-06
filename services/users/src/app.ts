@@ -5,6 +5,7 @@ import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import ScalarApiReference from "@scalar/fastify-api-reference";
 import { authPlugin, getAuthPluginOptionsFromEnv } from "@mbe/auth/fastify";
+import { createRequestIdMiddleware } from "@mbe/observability";
 import { sentryFastifyPlugin } from "@mbe/sentry/node";
 import { apiVersioningPlugin } from "@mbe/api-versioning/fastify";
 import { registerSchemas } from "./schemas/index.js";
@@ -30,10 +31,14 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   // Core plugins
   const corsOrigins = process.env.CORS_ORIGINS?.split(",") || [
     "http://localhost:3000",
-    "http://localhost:3001",
     "http://localhost:3002",
+    "http://localhost:3003",
+    "http://localhost:3004",
+    "http://localhost:5173",
+    "http://localhost:5174",
     "https://mattbutlerengineering.com",
     "https://hospitality.mattbutlerengineering.com",
+    "https://gen.mattbutlerengineering.com",
   ];
 
   await fastify.register(cors, {
@@ -42,6 +47,9 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
     allowedHeaders: ["Content-Type", "Authorization"],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   });
+
+  // Propagate X-Request-ID from edge router for distributed tracing
+  await fastify.register(createRequestIdMiddleware());
 
   await fastify.register(rateLimit, {
     max: 100,

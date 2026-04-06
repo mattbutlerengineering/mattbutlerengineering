@@ -1,0 +1,59 @@
+name: Dependency Freshness
+
+on:
+  schedule:
+    - cron: "0 0 1 * *"
+  workflow_dispatch:
+
+jobs:
+  check-outdated:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check outdated
+        id: check
+        run: |
+          OUTPUT=$(pnpm outdated --json 2>/dev/null || echo "{}")
+          echo "outdated=$OUTPUT" >> "$GITHUB_OUTPUT"
+          
+          # Count outdated
+          COUNT=$(echo "$OUTPUT" | jq 'if type == "object" then keys | length else 0 end')
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+
+      - name: Create issue
+        if: steps.check.outputs.count != '0'
+        run: |
+          DATE=$(date "+%B %Y")
+          
+          ISSUE_BODY="## Outdated Dependencies ($DATE)
+          
+The following dependencies have updates available:
+          
+\`\`\`
+${{ steps.check.outputs.outdated }}
+\`\`\`
+          
+Consider updating these dependencies to stay current.
+"
+          
+          gh issue create \
+            --title "Dependency freshness: $DATE" \
+            --body "$ISSUE_BODY" \
+            --label "dependencies"
+
+      - name: Update existing issue
+        if: steps.check.outputs.count == '0'
+        run: |
+          DATE=$(date "+%B %Y")
+          gh issue close "Dependency freshness: $DATE" 2>/dev/null || true

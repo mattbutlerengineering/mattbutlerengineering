@@ -15,7 +15,7 @@ export function useAuth() {
         name: auth.user.profile.name,
         picture: auth.user.profile.picture,
         emailVerified: auth.user.profile.email_verified,
-        raw: auth.user.profile as unknown as JWTPayload,
+        raw: auth.user.profile as JWTPayload,
       }
     : null;
 

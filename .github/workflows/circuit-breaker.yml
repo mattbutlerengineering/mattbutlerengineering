@@ -1,0 +1,108 @@
+name: Circuit Breaker
+
+on:
+  workflow_run:
+    workflows: ["Deploy Services", "Deploy Static"]
+    types: [completed]
+    branches: [main]
+
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force deploy (reset circuit breaker)'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  circuit-breaker:
+    runs-on: ubuntu-latest
+    outputs:
+      blocked: ${{ steps.check.outputs.blocked }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            .github/circuit-breaker-state
+          sparse-checkout-cone-mode: false
+
+      - name: Configure GitHub CLI
+        run: gh config set prompt disabled
+
+      - name: Check circuit breaker state
+        id: check
+        run: |
+          FORCE=${{ github.event.inputs.force }}
+          
+          if [ "$FORCE" = "true" ]; then
+            echo "Force flag set - resetting circuit breaker"
+            echo "closed" > .github/circuit-breaker-state
+            echo "blocked=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          
+          if [ -f ".github/circuit-breaker-state" ]; then
+            STATE=$(cat .github/circuit-breaker-state)
+          else
+            STATE="closed"
+          fi
+          
+          echo "Current state: $STATE"
+          if [ "$STATE" = "open" ]; then
+            echo "blocked=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "blocked=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Analyze deploy results
+        if: github.event.workflow_run.conclusion != ''
+        run: |
+          # Get recent deploy workflow runs (skip the current one)
+          RUNS=$(gh run list --workflow "Deploy Services" --limit 5 --json conclusion --jq '.[].conclusion')
+          
+          FAIL_COUNT=0
+          for RUN in $RUNS; do
+            if [ "$RUN" = "failure" ] || [ "$RUN" = "timed_out" ]; then
+              FAIL_COUNT=$((FAIL_COUNT + 1))
+            else
+              break
+            fi
+          done
+          
+          echo "Recent consecutive failures: $FAIL_COUNT"
+          
+          # Update state based on failure count
+          if [ "$FAIL_COUNT" -ge 2 ]; then
+            echo "open" > .github/circuit-breaker-state
+            echo "blocked=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "closed" > .github/circuit-breaker-state
+            echo "blocked=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create issue on circuit trip
+        if: steps.check.outputs.blocked == 'true'
+        run: |
+          gh issue create \
+            --title "Circuit breaker tripped - deploys blocked" \
+            --label "ci-fix,blocking" \
+            --body "The deploy circuit breaker has tripped after 2+ consecutive failures.
+
+Deployments are blocked until manually approved.
+
+To force a deploy, run:
+```
+gh workflow run circuit-breaker.yml -f force=true
+```
+"
+
+  block-deploy:
+    needs: [circuit-breaker]
+    if: needs.circuit-breaker.outputs.blocked == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Block deploy
+        run: |
+          echo "::warning::Deploy blocked by circuit breaker. Run 'gh workflow run circuit-breaker.yml -f force=true' to override."
+          exit 1

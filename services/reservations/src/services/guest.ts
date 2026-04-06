@@ -9,6 +9,15 @@ import type {
 import type { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 
+function isPrismaNotFound(err: unknown): boolean {
+  return (
+    err !== null &&
+    typeof err === "object" &&
+    "code" in err &&
+    (err as { code: string }).code === "P2025"
+  );
+}
+
 function mapPrismaGuest(guest: {
   id: string;
   venueId: string;
@@ -189,8 +198,9 @@ export const guestService = {
         data: updateData,
       });
       return mapPrismaGuest(guest);
-    } catch {
-      return null;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return null;
+      throw err;
     }
   },
 
@@ -198,8 +208,9 @@ export const guestService = {
     try {
       await prisma.guest.delete({ where: { id } });
       return true;
-    } catch {
-      return false;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return false;
+      throw err;
     }
   },
 
@@ -223,8 +234,9 @@ export const guestService = {
         },
       });
       return mapPrismaGuest(guest);
-    } catch {
-      return null;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return null;
+      throw err;
     }
   },
 

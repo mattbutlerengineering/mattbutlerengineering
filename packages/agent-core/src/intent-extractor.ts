@@ -4,6 +4,35 @@ import { trace } from "@opentelemetry/api";
 const tracer = trace.getTracer("@mbe/agent-core");
 
 /**
+ * Minimal type for Anthropic SDK message content blocks used in tool_use responses.
+ * Avoids depending on @anthropic-ai/sdk as a direct dependency.
+ */
+interface ContentBlock {
+  readonly type: string;
+  readonly input?: unknown;
+}
+
+/**
+ * Minimal type for the Anthropic SDK messages.create() response.
+ */
+interface AnthropicMessagesResponse {
+  readonly content: readonly ContentBlock[];
+}
+
+/**
+ * Minimal type for the Anthropic SDK client constructor and messages API.
+ */
+interface AnthropicClient {
+  readonly messages: {
+    create(params: Record<string, unknown>): Promise<AnthropicMessagesResponse>;
+  };
+}
+
+interface AnthropicSDKModule {
+  default: new () => AnthropicClient;
+}
+
+/**
  * Structured intent extracted from a GitHub issue.
  *
  * The schema is used both for Zod validation and as the tool input_schema
@@ -85,9 +114,10 @@ export async function extractIssueIntent(
   try {
     // Dynamic import to avoid requiring @anthropic-ai/sdk as a direct dependency.
     // The SDK is available at runtime when called from the agent service.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const Anthropic = (await import("@anthropic-ai/sdk" as any)).default as any;
-    const client = new Anthropic();
+    // Using a variable prevents TypeScript from resolving the module at compile time.
+    const sdkModuleName = "@anthropic-ai/sdk";
+    const sdkModule: AnthropicSDKModule = await import(sdkModuleName);
+    const client = new sdkModule.default();
 
     const response = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
@@ -113,8 +143,9 @@ export async function extractIssueIntent(
       tool_choice: { type: "tool" as const, name: "extract_intent" },
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const toolUse = (response.content as any[]).find((b: any) => b.type === "tool_use");
+    const toolUse = response.content.find(
+      (b: ContentBlock) => b.type === "tool_use"
+    );
     if (!toolUse || toolUse.type !== "tool_use") {
       span.setAttribute("extraction.success", false);
       return null;

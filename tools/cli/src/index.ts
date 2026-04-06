@@ -18,6 +18,7 @@ import { visualCommand } from "./commands/visual.js";
 import { primeCommand } from "./commands/prime.js";
 import { checkDepsCommand } from "./commands/check-deps.js";
 import { mcpCommand } from "./commands/mcp.js";
+import { cleanupWorktreesCommand } from "./commands/cleanup-worktrees.js";
 
 const program = new Command();
 
@@ -62,6 +63,7 @@ program.addCommand(checkDepsCommand);
 
 // Infrastructure commands
 program.addCommand(mcpCommand);
+program.addCommand(cleanupWorktreesCommand);
 
 // UI commands
 program.addCommand(visualCommand);

@@ -1,4 +1,4 @@
-import { Stack, Text } from "@mbe/rialto";
+import { Stack, Text, Input } from "@mbe/rialto";
 import styles from "./venue-onboarding.module.css";
 
 export interface SettingsData {
@@ -6,6 +6,13 @@ export interface SettingsData {
   maxPartySize: string;
   advanceBookingDays: string;
 }
+
+/** Default values used by the backend when no explicit value is set. */
+const DEFAULTS = {
+  defaultReservationDuration: 90,
+  maxPartySize: 12,
+  advanceBookingDays: 30,
+} as const;
 
 interface SettingsStepProps {
   data: SettingsData;
@@ -18,73 +25,49 @@ export function SettingsStep({ data, errors, onChange, onValidate }: SettingsSte
   return (
     <div className={styles.stepContainer}>
       <Text variant="caption" color="secondary">
-        All settings are optional. You can configure them later.
+        All settings are optional. Leave blank to use the defaults shown.
       </Text>
 
       <Stack gap="md">
-        <div className={styles.fieldGroup}>
-          <label htmlFor="duration" className={styles.label}>
-            Default Reservation Duration (minutes)
-          </label>
-          <input
-            id="duration"
-            type="number"
-            className={styles.numberInput}
-            value={data.defaultReservationDuration}
-            onChange={(e) =>
-              onChange({ ...data, defaultReservationDuration: e.target.value })
-            }
-            onBlur={onValidate}
-            placeholder="90"
-            min="1"
-          />
-          {errors.defaultReservationDuration && (
-            <span className={styles.errorText}>{errors.defaultReservationDuration}</span>
-          )}
-        </div>
+        <Input
+          label="Default Reservation Duration (minutes)"
+          type="number"
+          value={data.defaultReservationDuration}
+          onChange={(e) =>
+            onChange({ ...data, defaultReservationDuration: e.target.value })
+          }
+          onBlur={onValidate}
+          placeholder={`Default: ${DEFAULTS.defaultReservationDuration}`}
+          error={errors.defaultReservationDuration !== undefined}
+          hint={errors.defaultReservationDuration ?? `If left blank, defaults to ${DEFAULTS.defaultReservationDuration} minutes`}
+          showOptional
+        />
 
-        <div className={styles.fieldGroup}>
-          <label htmlFor="maxParty" className={styles.label}>
-            Maximum Party Size
-          </label>
-          <input
-            id="maxParty"
-            type="number"
-            className={styles.numberInput}
-            value={data.maxPartySize}
-            onChange={(e) => onChange({ ...data, maxPartySize: e.target.value })}
-            onBlur={onValidate}
-            placeholder="12"
-            min="1"
-          />
-          {errors.maxPartySize && (
-            <span className={styles.errorText}>{errors.maxPartySize}</span>
-          )}
-        </div>
+        <Input
+          label="Maximum Party Size"
+          type="number"
+          value={data.maxPartySize}
+          onChange={(e) => onChange({ ...data, maxPartySize: e.target.value })}
+          onBlur={onValidate}
+          placeholder={`Default: ${DEFAULTS.maxPartySize}`}
+          error={errors.maxPartySize !== undefined}
+          hint={errors.maxPartySize ?? `If left blank, defaults to ${DEFAULTS.maxPartySize} guests`}
+          showOptional
+        />
 
-        <div className={styles.fieldGroup}>
-          <label htmlFor="advanceDays" className={styles.label}>
-            Advance Booking Window (days)
-          </label>
-          <input
-            id="advanceDays"
-            type="number"
-            className={styles.numberInput}
-            value={data.advanceBookingDays}
-            onChange={(e) =>
-              onChange({ ...data, advanceBookingDays: e.target.value })
-            }
-            onBlur={onValidate}
-            placeholder="30"
-            min="1"
-          />
-          {errors.advanceBookingDays && (
-            <span className={styles.errorText}>{errors.advanceBookingDays}</span>
-          )}
-          <Text variant="caption" color="secondary">
-            How far in advance guests can book
-          </Text>
-        </div>
+        <Input
+          label="Advance Booking Window (days)"
+          type="number"
+          value={data.advanceBookingDays}
+          onChange={(e) =>
+            onChange({ ...data, advanceBookingDays: e.target.value })
+          }
+          onBlur={onValidate}
+          placeholder={`Default: ${DEFAULTS.advanceBookingDays}`}
+          error={errors.advanceBookingDays !== undefined}
+          hint={errors.advanceBookingDays ?? `If left blank, guests can book up to ${DEFAULTS.advanceBookingDays} days ahead`}
+          showOptional
+        />
       </Stack>
     </div>
   );

@@ -22,26 +22,26 @@
     "db:studio": "prisma studio"
   },
   "dependencies": {
-    "@fastify/cors": "^10.0.0",
+    "@fastify/cors": "^11.2.0",
     "@fastify/rate-limit": "^10.3.0",
-    "@fastify/swagger": "^9.0.0",
+    "@fastify/swagger": "^9.7.0",
     "@fastify/swagger-ui": "^5.2.5",
     "@mbe/api-versioning": "workspace:*",
     "@mbe/auth": "workspace:*",
     "@mbe/observability": "workspace:*",
     "@mbe/sentry": "workspace:^",
     "@mbe/types": "workspace:*",
-    "@prisma/client": "^6.0.0",
-    "@scalar/fastify-api-reference": "^1.44.1",
+    "@prisma/client": "^7.6.0",
+    "@scalar/fastify-api-reference": "^1.51.0",
     "fastify": "catalog:",
-    "jose": "^5.2.0",
+    "jose": "^6.2.2",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@mbe/config": "workspace:*",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
-    "prisma": "^6.0.0",
+    "prisma": "^7.6.0",
     "tsx": "^4.19.0",
     "typescript": "catalog:",
     "vitest": "catalog:"
