@@ -111,3 +111,26 @@ pnpm lint        # Check code style
 pnpm typecheck   # Verify types
 pnpm test        # Run all tests
 ```
+
+## AI Observability (Langfuse)
+
+Agent sessions are traced to [Langfuse Cloud](https://cloud.langfuse.com) for LLM-specific observability.
+
+### What's traced
+- **Session traces** — one per `runSession()` call, with task description, model, and budget metadata
+- **Generation spans** — one per SDK turn, with model, input/output, and token usage
+- **Session metrics** — success (0/1), cost_usd, num_turns, stuck (0/1), evaluation_confidence
+
+### Environment variables
+```bash
+LANGFUSE_PUBLIC_KEY=pk-lf-...    # Required for Langfuse tracing
+LANGFUSE_SECRET_KEY=sk-lf-...    # Required for Langfuse tracing
+LANGFUSE_BASEURL=https://cloud.langfuse.com  # Default
+```
+
+When `LANGFUSE_PUBLIC_KEY` is unset, Langfuse is not loaded — zero overhead.
+
+### MCP Server
+The Langfuse MCP server (`.mcp.json`) gives Claude Code access to:
+- `get-prompts` — List prompts in the Langfuse project
+- `get-prompt` — Fetch a specific prompt by name

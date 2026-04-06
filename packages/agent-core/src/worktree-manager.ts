@@ -179,9 +179,9 @@ export async function runVerification(worktreePath: string): Promise<Verificatio
   let lintOk = false;
   let typecheckOk = false;
   let testsOk = false;
-  let lintOutput = "";
-  let typecheckOutput = "";
-  let testOutput = "";
+  let lintOutput: string;
+  let typecheckOutput: string;
+  let testOutput: string;
 
   try {
     const { stdout, stderr } = await execFileAsync(
