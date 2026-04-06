@@ -148,7 +148,20 @@ export type {
   ToolUseEvent,
   ToolResultEvent,
   AssistantTextEvent,
+  TurnMetricsEvent,
 } from "./event-mapper.js";
+
+// Observability — failure categorization, OTel spans, metrics builders
+export {
+  categorizeFailure,
+  buildTurnMetricsList,
+  buildToolCallMetricsList,
+  withModelSelectionSpan,
+  withToolPermissionSpan,
+  withStuckDetectionSpan,
+  withSuccessEvaluationSpan,
+  observabilityTracer,
+} from "./observability.js";
 
 // Types
 export type {
@@ -164,6 +177,9 @@ export type {
   PrResult,
   PrOptions,
   FeedbackLoopConfig,
+  FailureCategory,
+  TurnMetrics,
+  ToolCallMetrics,
 } from "./types.js";
 
 export { DEFAULT_SESSION_CONFIG, DEFAULT_FEEDBACK_LOOP_CONFIG } from "./types.js";
