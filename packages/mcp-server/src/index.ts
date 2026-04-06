@@ -9,6 +9,7 @@ import { serviceHealthCheck } from "./tools/health.js";
 import { ciRunStatus } from "./tools/ci.js";
 import { gitWorkflowStatus } from "./tools/git.js";
 import { dbListTables, dbMigrationStatus } from "./tools/database.js";
+import { deployStatus } from "./tools/deploy_status.js";
 
 const server = new Server(
   {
@@ -36,6 +37,11 @@ const TOOLS = [
   {
     name: "ci_run_status",
     description: "Get latest GitHub Actions run status for all workflows",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "deploy_status",
+    description: "Get current DigitalOcean App Platform deployment status",
     inputSchema: { type: "object", properties: {} },
   },
   {
@@ -75,6 +81,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     if (name === "ci_run_status") {
       const result = await ciRunStatus();
+      return { content: [{ type: "text", text: result }] };
+    }
+
+    if (name === "deploy_status") {
+      const result = await deployStatus();
       return { content: [{ type: "text", text: result }] };
     }
 
