@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
@@ -14,9 +14,9 @@ import {
   Stat,
   Text,
 } from "@mbe/rialto";
-import type { Reservation, ReservationStatus } from "@mbe/types";
+import type { ReservationStatus } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";
-import { useReservationEvents } from "../hooks/useReservationEvents.js";
+import { useReservationData } from "../contexts/ReservationDataContext.js";
 import { PageHeader } from "../components/PageHeader";
 import styles from "./ReservationsPage.module.css";
 
@@ -79,7 +79,11 @@ export function ReservationsPage() {
   const navigate = useNavigate();
   const { accessToken } = useAuth();
   const { selectedVenueId } = useVenue();
-  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const {
+    reservations: sharedReservations,
+    isConnected,
+    setReservations: setSharedReservations,
+  } = useReservationData();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -113,35 +117,11 @@ export function ReservationsPage() {
     return () => clearInterval(id);
   }, [lastUpdated]);
 
-  /* ── Real-time SSE updates ─────────────────── */
-
-  const handleCreated = useCallback(
-    (reservation: Reservation) => {
-      if (reservation.date === selectedDate) {
-        setReservations((prev) => [...prev, reservation]);
-        setLastUpdated(new Date());
-      }
-    },
-    [selectedDate]
+  // Filter shared reservations to the selected date
+  const reservations = useMemo(
+    () => sharedReservations.filter((r) => r.date === selectedDate),
+    [sharedReservations, selectedDate]
   );
-
-  const handleUpdated = useCallback((reservation: Reservation) => {
-    setReservations((prev) => prev.map((r) => (r.id === reservation.id ? reservation : r)));
-    setLastUpdated(new Date());
-  }, []);
-
-  const handleCancelled = useCallback((reservation: Reservation) => {
-    setReservations((prev) => prev.map((r) => (r.id === reservation.id ? reservation : r)));
-    setLastUpdated(new Date());
-  }, []);
-
-  const { isConnected } = useReservationEvents({
-    venueId: selectedVenueId ?? undefined,
-    enabled: true,
-    onReservationCreated: handleCreated,
-    onReservationUpdated: handleUpdated,
-    onReservationCancelled: handleCancelled,
-  });
 
   const stats = useMemo(() => {
     const confirmed = reservations.filter((r) => r.status === "CONFIRMED").length;
@@ -180,7 +160,7 @@ export function ReservationsPage() {
           limit: 50,
         });
 
-        setReservations(response.data);
+        setSharedReservations(response.data);
         setLastUpdated(new Date());
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load reservations");
@@ -190,7 +170,7 @@ export function ReservationsPage() {
     }
 
     fetchReservations();
-  }, [api, selectedDate, selectedVenueId]);
+  }, [api, selectedDate, selectedVenueId, setSharedReservations]);
 
   const formatTime = (isoString: string) => {
     return new Date(isoString).toLocaleTimeString([], {
