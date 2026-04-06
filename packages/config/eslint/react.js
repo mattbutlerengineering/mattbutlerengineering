@@ -5,13 +5,21 @@ import reactHooksPlugin from "eslint-plugin-react-hooks";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import reactRefresh from "eslint-plugin-react-refresh";
 
+// ESLint 10 removed legacy rule context methods (getFilename, getScope, etc.).
+// eslint-plugin-react 7.37.x still uses these methods internally.
+// fixupPluginRules wraps each rule to provide backward-compatible context shims.
+// Once eslint-plugin-react ships ESLint 10 native support, remove @eslint/compat.
+const reactCompat = fixupPluginRules(reactPlugin);
+const hooksCompat = fixupPluginRules(reactHooksPlugin);
+const a11yCompat = fixupPluginRules(jsxA11y);
+
 export default [
   ...baseConfig,
   {
     plugins: {
-      react: fixupPluginRules(reactPlugin),
-      "react-hooks": fixupPluginRules(reactHooksPlugin),
-      "jsx-a11y": fixupPluginRules(jsxA11y),
+      react: reactCompat,
+      "react-hooks": hooksCompat,
+      "jsx-a11y": a11yCompat,
       "react-refresh": reactRefresh,
     },
     settings: {
@@ -20,10 +28,10 @@ export default [
       },
     },
     rules: {
-      ...reactPlugin.configs.recommended.rules,
-      ...reactHooksPlugin.configs.recommended.rules,
+      ...reactPlugin.configs.flat.recommended.rules,
+      ...reactPlugin.configs.flat["jsx-runtime"].rules,
+      ...reactHooksPlugin.configs.flat.recommended.rules,
       ...jsxA11y.flatConfigs.recommended.rules,
-      "react/react-in-jsx-scope": "off",
       "react/prop-types": "off",
       "react-refresh/only-export-components": [
         "warn",
