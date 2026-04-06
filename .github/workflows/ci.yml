@@ -199,6 +199,9 @@ jobs:
           git diff --exit-code docs/architecture/dependency-graph.md || \
             (echo "ERROR: dependency-graph.md is stale. Run 'pnpm graph' locally and commit the result." && exit 1)
 
+      - name: Check bundle size budgets
+        run: pnpm size:check
+
       - name: Record bundle sizes
         if: github.ref == 'refs/heads/main'
         run: node scripts/record-bundle-sizes.js --output bundle-sizes.json
