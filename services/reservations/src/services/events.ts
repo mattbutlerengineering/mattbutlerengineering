@@ -17,16 +17,44 @@ export interface ReservationEvent {
   data: Reservation | Table | ReservationHold;
 }
 
+/** Maximum concurrent SSE connections before Node emits a warning. */
+const MAX_SSE_LISTENERS = 100;
+
+/** Threshold (percentage of MAX_SSE_LISTENERS) at which we log a warning. */
+const LISTENER_WARNING_THRESHOLD = 0.8;
+
 class ReservationEventEmitter extends EventEmitter {
+  private connectionCount = 0;
+
+  constructor() {
+    super();
+    this.setMaxListeners(MAX_SSE_LISTENERS);
+  }
+
+  /** Current number of active SSE connections. */
+  getConnectionCount(): number {
+    return this.connectionCount;
+  }
+
   emitChange(payload: ReservationEvent): boolean {
     return super.emit("change", payload);
   }
 
   onChange(listener: (payload: ReservationEvent) => void): this {
+    this.connectionCount += 1;
+
+    if (this.connectionCount >= MAX_SSE_LISTENERS * LISTENER_WARNING_THRESHOLD) {
+      // Use process.stderr so this surfaces even without a logger instance
+      process.stderr.write(
+        `[reservationEvents] WARNING: ${this.connectionCount}/${MAX_SSE_LISTENERS} SSE listeners active — approaching limit\n`
+      );
+    }
+
     return super.on("change", listener);
   }
 
   offChange(listener: (payload: ReservationEvent) => void): this {
+    this.connectionCount = Math.max(0, this.connectionCount - 1);
     return super.off("change", listener);
   }
 }

@@ -67,12 +67,19 @@ export async function eventRoutes(fastify: FastifyInstance): Promise<void> {
 
       // Subscribe to events
       reservationEvents.onChange(handleEvent);
+      fastify.log.info(
+        { connections: reservationEvents.getConnectionCount() },
+        "SSE client connected"
+      );
 
       // Cleanup on disconnect
       request.raw.on("close", () => {
         clearInterval(pingInterval);
         reservationEvents.offChange(handleEvent);
-        fastify.log.info("SSE client disconnected");
+        fastify.log.info(
+          { connections: reservationEvents.getConnectionCount() },
+          "SSE client disconnected"
+        );
       });
 
       // Don't end the response - keep the connection open
