@@ -1,0 +1,31 @@
+<codebase path="packages/observability">
+  <file path="src/sdk.ts">
+    export interface OtelConfig {
+      readonly serviceName: string;
+      readonly serviceVersion?: string;
+    }
+    export function initTelemetry(config: OtelConfig): NodeSDK { /* implementation omitted */ }
+  </file>
+  <file path="src/request-id.ts">
+    export interface RequestIdOptions {
+      headerName?: string;
+      generator?: () => string;
+    }
+    export function createRequestIdMiddleware(options: RequestIdOptions = {}) { /* implementation omitted */ }
+    export function getRequestId(request: { id?: string }): string { /* implementation omitted */ }
+    export function logWithRequestId(logger: { info: (msg: string, ctx: Record<string, unknown>) => void }, requestId: string, message: string, ctx: Record<string, unknown> = {}) { /* implementation omitted */ }
+  </file>
+  <file path="src/index.ts">
+  </file>
+  <file path="src/baggage.ts">
+    export const BAGGAGE_KEYS: { readonly SESSION_ID: "agent.session_id"; readonly PR_NUMBER: "agent.pr_number"; readonly ISSUE_NUMBER: "agent.issue_number"; readonly DEPLOY_SHA: "deploy.sha"; };
+    export interface AgentBaggage {
+      readonly sessionId?: string;
+      readonly prNumber?: string;
+      readonly issueNumber?: string;
+      readonly deploySha?: string;
+    }
+    export function createBaggageContext(bag: AgentBaggage): ReturnType<typeof context.active> { /* implementation omitted */ }
+    export function extractAgentBaggage(): AgentBaggage { /* implementation omitted */ }
+  </file>
+</codebase>

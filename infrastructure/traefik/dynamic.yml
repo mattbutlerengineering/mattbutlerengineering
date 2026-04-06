@@ -10,6 +10,18 @@ http:
         prefixes:
           - "/api/v1/users"
 
+    # Strip /api/v1/reservations prefix
+    strip-reservations-prefix:
+      stripPrefix:
+        prefixes:
+          - "/api/v1/reservations"
+
+    # Strip /api prefix for agent
+    strip-agent-prefix:
+      stripPrefix:
+        prefixes:
+          - "/api"
+
     # Security headers
     security-headers:
       headers:
@@ -26,33 +38,36 @@ http:
         average: 100
         burst: 50
 
-  # Routers and Services for API services
+  # Routers
   routers:
     users-router:
-      rule: "PathPrefix(`/api/v1/users`)"
+      rule: "PathPrefix(/api/v1/users)"
       service: users-service
       middlewares:
         - strip-users-prefix
         - security-headers
-      entrypoints:
+      entryPoints:
         - web
 
     reservations-router:
-      rule: "PathPrefix(`/api/reservations`)"
+      rule: "PathPrefix(/api/v1/reservations)"
       service: reservations-service
       middlewares:
+        - strip-reservations-prefix
         - security-headers
-      entrypoints:
+      entryPoints:
         - web
 
     agent-router:
-      rule: "PathPrefix(`/api/gen`)"
+      rule: "PathPrefix(/api/gen)"
       service: agent-service
       middlewares:
+        - strip-agent-prefix
         - security-headers
-      entrypoints:
+      entryPoints:
         - web
 
+  # Services
   services:
     users-service:
       loadBalancer:

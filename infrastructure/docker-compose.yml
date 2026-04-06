@@ -18,6 +18,60 @@ services:
       timeout: 5s
       retries: 5
 
+  # Users API Service
+  users-api:
+    build:
+      context: ..
+      dockerfile: services/users/Dockerfile
+    restart: unless-stopped
+    environment:
+      - PORT=3001
+      - DATABASE_URL=postgresql://mbe:mbe_dev_password@postgres:5432/mbe
+      - AUTH_AUTHORITY=https://mattbutlerengineering.auth0.com
+      - AUTH_AUDIENCE=https://api.mattbutlerengineering.com
+      - NODE_ENV=development
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Reservations API Service
+  reservations-api:
+    build:
+      context: ..
+      dockerfile: services/reservations/Dockerfile
+    restart: unless-stopped
+    environment:
+      - PORT=3004
+      - DATABASE_URL=postgresql://mbe:mbe_dev_password@postgres:5432/mbe
+      - AUTH_AUTHORITY=https://mattbutlerengineering.auth0.com
+      - AUTH_AUDIENCE=https://api.mattbutlerengineering.com
+      - NODE_ENV=development
+    ports:
+      - "3004:3004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Agent API Service
+  agent-api:
+    build:
+      context: ..
+      dockerfile: services/agent/Dockerfile
+    restart: unless-stopped
+    environment:
+      - PORT=3003
+      - DATABASE_URL=postgresql://mbe:mbe_dev_password@postgres:5432/mbe_agent
+      - AUTH_AUTHORITY=https://mattbutlerengineering.auth0.com
+      - AUTH_AUDIENCE=https://api.mattbutlerengineering.com
+      - NODE_ENV=development
+    ports:
+      - "3003:3003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   # Traefik reverse proxy
   traefik:
     image: traefik:v3.0

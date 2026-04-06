@@ -9,14 +9,11 @@ jobs:
   check-outdated:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v5
+      - uses: pnpm/action-setup@v5
 
-      - name: Setup Node
-        uses: actions/setup-node@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: "pnpm"
@@ -25,63 +22,38 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Check outdated
-        id: outdated
+        id: check
         run: |
           OUTPUT=$(pnpm outdated --json 2>/dev/null || echo "{}")
           echo "outdated=$OUTPUT" >> "$GITHUB_OUTPUT"
-
-      - name: Check if outdated exists
-        id: has-outdated
-        run: |
-          OUTPUT="${{ steps.outdated.outputs.outdated }}"
-          if [ "$OUTPUT" = "{}" ] || [ -z "$OUTPUT" ]; then
-            echo "has_outdated=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_outdated=true" >> "$GITHUB_OUTPUT"
-          fi
+          
+          # Count outdated
+          COUNT=$(echo "$OUTPUT" | jq 'if type == "object" then keys | length else 0 end')
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
 
       - name: Create issue
-        if: steps.has-outdated.outputs.has_outdated == 'true'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const output = `${{ steps.outdated.outputs.outdated }}`;
-            const outdated = JSON.parse(output);
-            const month = new Date().toLocaleString('default', { month: 'long' });
-            const year = new Date().getFullYear();
-            const title = `Dependency freshness: ${month} ${year}`;
-            
-            const body = `## Outdated Dependencies\n\nThe following dependencies have newer versions available:\n\n| Package | Current | Wanted | Latest |\n|---------|---------|--------|--------|\n` +
-              Object.entries(outdated).map(([pkg, info]) => 
-                `| \`${pkg}\` | ${info.current} | ${info.wanted} | ${info.latest} |`
-              ).join('\n') + `\n\nPlease review and update as needed.`;
+        if: steps.check.outputs.count != '0'
+        run: |
+          DATE=$(date "+%B %Y")
+          
+          ISSUE_BODY="## Outdated Dependencies ($DATE)
+          
+The following dependencies have updates available:
+          
+\`\`\`
+${{ steps.check.outputs.outdated }}
+\`\`\`
+          
+Consider updating these dependencies to stay current.
+"
+          
+          gh issue create \
+            --title "Dependency freshness: $DATE" \
+            --body "$ISSUE_BODY" \
+            --label "dependencies"
 
-            const { data: existing } = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: 'dependencies',
-              state: 'open'
-            });
-            
-            const existingIssue = existing.find(issue => issue.title === title);
-            
-            if (!existingIssue) {
-              await github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title: title,
-                body: body,
-                labels: ['dependencies']
-              });
-            } else {
-              await github.rest.issues.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: existingIssue.number,
-                body: body
-              });
-            }
-
-      - name: No outdated
-        if: steps.has-outdated.outputs.has_outdated == 'false'
-        run: echo "No outdated dependencies found"
+      - name: Update existing issue
+        if: steps.check.outputs.count == '0'
+        run: |
+          DATE=$(date "+%B %Y")
+          gh issue close "Dependency freshness: $DATE" 2>/dev/null || true

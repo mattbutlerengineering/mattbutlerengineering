@@ -8,6 +8,15 @@ import type {
 } from "@mbe/types";
 import { prisma } from "./database.js";
 
+function isPrismaNotFound(err: unknown): boolean {
+  return (
+    err !== null &&
+    typeof err === "object" &&
+    "code" in err &&
+    (err as { code: string }).code === "P2025"
+  );
+}
+
 function mapPrismaUser(user: {
   id: string;
   email: string;
@@ -107,8 +116,9 @@ export const userService = {
         },
       });
       return mapPrismaUser(user);
-    } catch {
-      return null;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return null;
+      throw err;
     }
   },
 
@@ -117,10 +127,7 @@ export const userService = {
       await prisma.user.delete({ where: { id } });
       return true;
     } catch (err: unknown) {
-      // Prisma P2025 = record not found
-      if (err && typeof err === "object" && "code" in err && err.code === "P2025") {
-        return false;
-      }
+      if (isPrismaNotFound(err)) return false;
       throw err;
     }
   },
@@ -141,8 +148,9 @@ export const userService = {
         data: { preferences: newPrefs },
       });
       return mapPrismaUser(updated);
-    } catch {
-      return null;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return null;
+      throw err;
     }
   },
 };
