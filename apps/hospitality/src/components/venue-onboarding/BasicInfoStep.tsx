@@ -1,4 +1,4 @@
-import { Text, Stack } from "@mbe/rialto";
+import { Stack, Input } from "@mbe/rialto";
 import { generateSlug } from "./generate-slug.js";
 import styles from "./venue-onboarding.module.css";
 
@@ -17,19 +17,14 @@ interface BasicInfoStepProps {
 }
 
 export function BasicInfoStep({ data, errors, onChange, onValidate, slugStatus }: BasicInfoStepProps) {
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
+  const handleNameChange = (value: string) => {
     const currentSlugIsAuto = data.slug === generateSlug(data.name);
     const newSlug = currentSlugIsAuto || data.slug === "" ? generateSlug(value) : data.slug;
     onChange({ ...data, name: value, slug: newSlug });
   };
 
-  const handleSlugChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onChange({ ...data, slug: e.target.value });
-  };
-
-  const handleGroupChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    onChange({ ...data, venueGroupId: e.target.value });
+  const handleSlugChange = (value: string) => {
+    onChange({ ...data, slug: value });
   };
 
   const slugHint =
@@ -41,67 +36,32 @@ export function BasicInfoStep({ data, errors, onChange, onValidate, slugStatus }
           ? undefined // shown as error instead
           : "URL-friendly identifier (auto-generated from name)";
 
-  const slugHintColor =
-    slugStatus === "available" ? "primary" : "secondary";
+  const slugError = errors.slug !== undefined;
 
   return (
     <div className={styles.stepContainer}>
       <Stack gap="md">
-        <div className={styles.fieldGroup}>
-          <label htmlFor="venue-name" className={styles.label}>
-            Venue Name
-          </label>
-          <input
-            id="venue-name"
-            type="text"
-            className={styles.select}
-            placeholder="e.g. The Grand Ballroom"
-            value={data.name}
-            onChange={handleNameChange}
-            onBlur={onValidate}
-            aria-label="Venue Name"
-          />
-          {errors.name && <span className={styles.errorText}>{errors.name}</span>}
-        </div>
+        <Input
+          label="Venue Name"
+          placeholder="e.g. The Grand Ballroom"
+          value={data.name}
+          onChange={(e) => handleNameChange(e.target.value)}
+          onBlur={onValidate}
+          error={errors.name !== undefined}
+          hint={errors.name}
+          required
+        />
 
-        <div className={styles.fieldGroup}>
-          <label htmlFor="venue-slug" className={styles.label}>
-            Slug
-          </label>
-          <input
-            id="venue-slug"
-            type="text"
-            className={styles.select}
-            placeholder="e.g. the-grand-ballroom"
-            value={data.slug}
-            onChange={handleSlugChange}
-            onBlur={onValidate}
-            aria-label="Slug"
-          />
-          {slugHint && (
-            <Text variant="caption" color={slugHintColor}>
-              {slugHint}
-            </Text>
-          )}
-          {errors.slug && <span className={styles.errorText}>{errors.slug}</span>}
-        </div>
-
-        <div className={styles.fieldGroup}>
-          <label htmlFor="venue-group" className={styles.label}>
-            Venue Group (optional)
-          </label>
-          <select
-            id="venue-group"
-            className={styles.select}
-            value={data.venueGroupId}
-            onChange={handleGroupChange}
-          >
-            <option value="">None</option>
-          </select>
-          <Text variant="caption" color="secondary">
-            Assign this venue to an existing group
-          </Text>
-        </div>
+        <Input
+          label="Slug"
+          placeholder="e.g. the-grand-ballroom"
+          value={data.slug}
+          onChange={(e) => handleSlugChange(e.target.value)}
+          onBlur={onValidate}
+          error={slugError}
+          hint={slugError ? errors.slug : slugHint}
+          required
+        />
       </Stack>
     </div>
   );

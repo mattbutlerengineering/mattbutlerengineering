@@ -1,10 +1,12 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
+import { Button, Stack, Text } from "@mbe/rialto";
 import { createApiClient } from "@mbe/api-client";
 import type { OperatingHours } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";
-import { OperatingHoursStep } from "../components/venue-onboarding/OperatingHoursStep.js";
+import { OperatingHoursStep, validateOperatingHours } from "../components/venue-onboarding/OperatingHoursStep.js";
+import type { OperatingHoursValidationErrors } from "../components/venue-onboarding/OperatingHoursStep.js";
 import { PageHeader } from "../components/PageHeader.js";
 import styles from "./SetupHoursPage.module.css";
 
@@ -18,6 +20,7 @@ export function SetupHoursPage() {
   );
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hoursErrors, setHoursErrors] = useState<OperatingHoursValidationErrors | null>(null);
 
   const api = useMemo(
     () =>
@@ -30,6 +33,12 @@ export function SetupHoursPage() {
 
   const handleSave = async () => {
     if (!selectedVenueId) return;
+
+    const validationErrors = validateOperatingHours(hours);
+    if (validationErrors) {
+      setHoursErrors(validationErrors);
+      return;
+    }
 
     setIsSaving(true);
     setError(null);
@@ -53,32 +62,37 @@ export function SetupHoursPage() {
 
       {error && (
         <div className={styles.errorBanner} role="alert">
-          {error}
+          <Text variant="body" color="error">{error}</Text>
         </div>
       )}
 
       <div className={styles.form}>
-        <OperatingHoursStep data={hours} onChange={setHours} />
+        <OperatingHoursStep
+          data={hours}
+          errors={hoursErrors ?? undefined}
+          onChange={(newHours) => {
+            setHours(newHours);
+            setHoursErrors(null);
+          }}
+        />
       </div>
 
-      <div className={styles.actions}>
-        <button
-          type="button"
-          className={styles.cancelButton}
+      <Stack direction="row" gap="sm" justify="end">
+        <Button
+          variant="secondary"
           onClick={() => navigate("/setup")}
           disabled={isSaving}
         >
           Cancel
-        </button>
-        <button
-          type="button"
-          className={styles.saveButton}
+        </Button>
+        <Button
+          variant="primary"
           onClick={handleSave}
           disabled={isSaving}
         >
-          {isSaving ? "Saving…" : "Save Hours"}
-        </button>
-      </div>
+          {isSaving ? "Saving..." : "Save Hours"}
+        </Button>
+      </Stack>
     </div>
   );
 }
