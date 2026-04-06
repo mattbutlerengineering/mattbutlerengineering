@@ -27,6 +27,10 @@ vi.mock("../services/database.js", () => ({
   },
 }));
 
+vi.stubGlobal("fetch", vi.fn());
+
+const mockFetch = vi.mocked(fetch);
+
 import { sessionService } from "../services/session.js";
 import { executeSession } from "../services/session-executor.js";
 import { buildApp } from "../app.js";
@@ -64,17 +68,18 @@ function signPayload(payload: string, secret: string): string {
 
 describe("Webhook Routes", () => {
   let app: FastifyInstance;
-  const originalEnv = process.env.GITHUB_WEBHOOK_SECRET;
+  const originalEnv = { ...process.env };
 
   beforeEach(async () => {
     process.env.GITHUB_WEBHOOK_SECRET = WEBHOOK_SECRET;
+    process.env.GITHUB_TOKEN = "test-github-token";
     app = await buildApp({ logger: false });
     await app.ready();
     vi.mocked(sessionService.create).mockResolvedValue(mockSession);
   });
 
   afterEach(async () => {
-    process.env.GITHUB_WEBHOOK_SECRET = originalEnv;
+    process.env = originalEnv;
     await app.close();
     vi.clearAllMocks();
   });
@@ -137,9 +142,15 @@ describe("Webhook Routes", () => {
           full_name: "org/repo",
           default_branch: "main",
         },
+        sender: { login: "collaborator", type: "User" },
       };
 
       it("creates a session when issue is labeled 'agent'", async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ permission: "write" }),
+        } as Response);
+
         const payloadStr = JSON.stringify(issuePayload);
         const signature = signPayload(payloadStr, WEBHOOK_SECRET);
 
@@ -221,9 +232,15 @@ describe("Webhook Routes", () => {
           full_name: "org/repo",
           default_branch: "main",
         },
+        sender: { login: "alice", type: "User" },
       };
 
       it("creates a session from /agent command in PR comment", async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ permission: "write" }),
+        } as Response);
+
         const payloadStr = JSON.stringify(commentPayload);
         const signature = signPayload(payloadStr, WEBHOOK_SECRET);
 
