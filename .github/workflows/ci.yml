@@ -89,6 +89,31 @@ jobs:
         with:
           dockerfile: "infrastructure/migrate/Dockerfile"
 
+  trivy:
+    name: Container Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    strategy:
+      matrix:
+        dockerfile:
+          - { path: "services/users/Dockerfile", name: "users" }
+          - { path: "services/reservations/Dockerfile", name: "reservations" }
+          - { path: "services/agent/Dockerfile", name: "agent" }
+          - { path: "infrastructure/migrate/Dockerfile", name: "migrate" }
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: "fs"
+          scan-ref: ${{ matrix.dockerfile.path }}
+          severity: "CRITICAL,HIGH"
+          exit-code: "0"
+          format: "table"
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
