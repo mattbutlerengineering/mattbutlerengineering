@@ -96,17 +96,31 @@
   cursor: not-allowed;
 }
 
+.timeInputError {
+  border-color: var(--rialto-error);
+}
+
+.timeInputError:focus {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--rialto-error) 30%, transparent);
+}
+
 .closedText {
   color: var(--rialto-text-secondary);
   font-size: var(--rialto-text-sm);
   font-style: italic;
 }
 
-.checkbox {
-  width: 1rem;
-  height: 1rem;
+.dayCheckbox {
+  width: 7rem;
   flex-shrink: 0;
-  accent-color: var(--rialto-accent);
+  text-transform: capitalize;
+}
+
+.dayTimesColumn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+  flex: 1;
 }
 
 .reviewSection {
@@ -183,6 +197,18 @@
 
 .stepDotCompleted:hover {
   opacity: 1;
+}
+
+.stepDotReachable {
+  background: var(--rialto-surface-elevated);
+  color: var(--rialto-text-primary);
+  border: 1px solid var(--rialto-border-strong);
+}
+
+.stepDotReachable:hover {
+  background: var(--rialto-accent);
+  color: var(--rialto-text-on-accent);
+  opacity: 0.7;
 }
 
 .stepDotPending {

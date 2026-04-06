@@ -40,39 +40,42 @@ export function getServiceStatus(): "ok" | "degraded" {
 // total connections; with 3 services sharing the pooler, each gets ~7.
 const CONNECTION_LIMIT = parseInt(process.env.PRISMA_CONNECTION_LIMIT ?? "5", 10);
 
-export const prisma = new PrismaClient({
+const basePrisma = new PrismaClient({
   datasourceUrl: appendConnectionLimit(process.env.DATABASE_URL, CONNECTION_LIMIT),
 });
 
-// @ts-expect-error - Prisma middleware for query timing
-prisma.$use(async (params, next) => {
-  const start = Date.now();
-  const result = await next(params);
-  const duration = Date.now() - start;
+export const prisma = basePrisma.$extends({
+  query: {
+    $allOperations: async ({ model, operation, args, query }) => {
+      const start = Date.now();
+      const result = await query(args);
+      const duration = Date.now() - start;
 
-  if (duration > SLOW_QUERY_THRESHOLD_MS) {
-    const sanitizedModel = params.model ?? "unknown";
-    const sanitizedOperation = params.action ?? "unknown";
-    
-    console.warn(
-      JSON.stringify({
-        type: "slow_query",
-        model: sanitizedModel,
-        operation: sanitizedOperation,
-        duration,
-        timestamp: new Date().toISOString(),
-      })
-    );
+      if (duration > SLOW_QUERY_THRESHOLD_MS) {
+        const sanitizedModel = model ?? "unknown";
+        const sanitizedOperation = operation ?? "unknown";
 
-    slowQueryStats.queries.push({
-      model: sanitizedModel,
-      operation: sanitizedOperation,
-      duration,
-      timestamp: Date.now(),
-    });
-  }
+        console.warn(
+          JSON.stringify({
+            type: "slow_query",
+            model: sanitizedModel,
+            operation: sanitizedOperation,
+            duration,
+            timestamp: new Date().toISOString(),
+          })
+        );
 
-  return result;
+        slowQueryStats.queries.push({
+          model: sanitizedModel,
+          operation: sanitizedOperation,
+          duration,
+          timestamp: Date.now(),
+        });
+      }
+
+      return result;
+    },
+  },
 });
 
 function appendConnectionLimit(url: string | undefined, limit: number): string | undefined {
@@ -84,5 +87,5 @@ function appendConnectionLimit(url: string | undefined, limit: number): string |
 
 // Graceful shutdown
 process.on("beforeExit", async () => {
-  await prisma.$disconnect();
+  await basePrisma.$disconnect();
 });

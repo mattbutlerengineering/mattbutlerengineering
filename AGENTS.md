@@ -41,15 +41,9 @@ This runs: audit site → fix issues → push → verify CI → deploy → close
 ### Progress Tracking
 Track engineering velocity and health metrics:
 ```bash
-mbe progress           # Query GitHub for metrics
-mbe progress --trend  # Show daily/weekly trends
+mbe stats            # Query GitHub for metrics and agent performance
+mbe stats --report   # Show detailed reports
 ```
-
-Metrics tracked:
-- Issues created vs closed
-- PRs merged
-- CI pass/fail rate
-- Average cycle time
 
 ### Issue Worker (Autonomous)
 Pick up ready issues and implement them:

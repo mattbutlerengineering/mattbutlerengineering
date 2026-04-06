@@ -64,7 +64,24 @@ async function authPluginImpl(
         audience,
       });
 
-      const jwtPayload = payload as unknown as JWTPayload;
+      if (typeof payload.sub !== "string") {
+        fastify.log.warn("JWT missing required 'sub' claim");
+        reply.code(401).send(createProblemDetails(401, "Unauthorized", "Invalid token: missing sub"));
+        return;
+      }
+
+      const jwtPayload: JWTPayload = {
+        ...payload,
+        sub: payload.sub,
+        iss: payload.iss ?? "",
+        aud: payload.aud ?? "",
+        exp: payload.exp ?? 0,
+        iat: payload.iat ?? 0,
+        email: payload.email as string | undefined,
+        email_verified: payload.email_verified as boolean | undefined,
+        name: payload.name as string | undefined,
+        picture: payload.picture as string | undefined,
+      };
 
       request.user = {
         id: jwtPayload.sub,

@@ -45,6 +45,7 @@ function parseADR(filePath: string): ADRFrontmatter | null {
 export const checkAdrCommand = new Command("check-adr")
   .description("Validate codebase against active Architecture Decision Records (ADRs)")
   .option("--path <string>", "Path to scan", ".")
+  .option("--staged", "Only check staged files", false)
   .action(async (options) => {
     const root = findMonorepoRoot(process.cwd());
     const adrDir = join(root, "docs/adr");
@@ -72,10 +73,30 @@ export const checkAdrCommand = new Command("check-adr")
     console.log(`Checking codebase against ${activeADRs.length} active ADRs...`);
 
     const scanPath = resolve(root, options.path);
-    const files = await glob("**/*.{ts,tsx}", {
-      cwd: scanPath,
-      ignore: ["**/node_modules/**", "**/dist/**", "**/generated/**"],
-    });
+
+    let files: string[];
+
+    if (options.staged) {
+      const { execSync } = await import("node:child_process");
+      try {
+        const stagedFiles = execSync("git diff --cached --name-only --diff-filter=ACM", {
+          cwd: root,
+          encoding: "utf-8",
+        });
+        files = stagedFiles
+          .split("\n")
+          .filter((f) => f.endsWith(".ts") || f.endsWith(".tsx"))
+          .filter((f) => !f.includes("node_modules") && !f.includes("dist") && !f.includes("generated"));
+      } catch {
+        files = [];
+      }
+    } else {
+      const globResult = await glob("**/*.{ts,tsx}", {
+        cwd: scanPath,
+        ignore: ["**/node_modules/**", "**/dist/**", "**/generated/**"],
+      });
+      files = globResult;
+    }
 
     let totalViolations = 0;
 
