@@ -1,4 +1,5 @@
 import { Input, Button } from "@mbe/rialto";
+import { toDateString } from "@mbe/types";
 import styles from "./DatePartySelector.module.css";
 
 export interface DatePartySelectorProps {
@@ -25,13 +26,13 @@ export function DatePartySelector({
   maxPartySize = 8,
 }: DatePartySelectorProps) {
   // Default min date to today
-  const today = new Date().toISOString().split("T")[0];
+  const today = toDateString(new Date());
   const effectiveMinDate = minDate ?? today;
 
   // Default max date to 30 days from now
   const thirtyDaysFromNow = new Date();
   thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-  const effectiveMaxDate = maxDate ?? thirtyDaysFromNow.toISOString().split("T")[0];
+  const effectiveMaxDate = maxDate ?? toDateString(thirtyDaysFromNow);
 
   const partySizes = PARTY_SIZE_OPTIONS.filter((size) => size <= maxPartySize);
 
