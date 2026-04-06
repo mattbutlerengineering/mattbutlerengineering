@@ -53,6 +53,7 @@ import {
   startActiveObservation,
   startObservation,
   propagateAttributes,
+  updateActiveObservation,
 } from "@langfuse/tracing";
 
 // OTel API is a noop when no SDK is registered (e.g., in tests or local CLI).
@@ -644,6 +645,20 @@ export async function runSession(
 
           emitEvent(onEvent, "session:result", {
             message: `Session completed: ${finalResult.status}`,
+          });
+
+          // Attach session metrics to the Langfuse trace as metadata
+          updateActiveObservation({
+            metadata: {
+              success: String(finalResult.status === "succeeded" ? 1 : 0),
+              cost_usd: String(finalResult.costUsd),
+              num_turns: String(finalResult.numTurns),
+              stuck: String(stuckReason ? 1 : 0),
+              ...(evalSummary ? {
+                evaluation_confidence: String(evalSummary.confidence),
+                evaluation_reasoning: evalSummary.reasoning,
+              } : {}),
+            },
           });
 
           return finalResult;
