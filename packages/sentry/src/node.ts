@@ -4,6 +4,39 @@ import type { FastifyInstance, FastifyError, FastifyRequest, FastifyReply } from
 import { createProblemDetails } from "@mbe/types";
 import { resolveConfig } from "./config.js";
 
+/**
+ * Minimal user shape expected by Sentry context.
+ * The actual `request.user` is populated by @mbe/auth's Fastify plugin at runtime
+ * and typed via module augmentation in consuming services.
+ */
+interface SentryUser {
+  readonly id: string;
+  readonly email?: string;
+}
+
+/**
+ * Type guard: checks whether an unknown value conforms to the SentryUser shape.
+ */
+function isSentryUser(value: unknown): value is SentryUser {
+  return (
+    value != null &&
+    typeof value === "object" &&
+    "id" in value &&
+    typeof (value as SentryUser).id === "string"
+  );
+}
+
+/**
+ * Safely extracts user from request without depending on @mbe/auth types.
+ * At runtime, request.user is set by the auth plugin when a valid JWT is present.
+ */
+function getRequestUser(request: FastifyRequest): SentryUser | undefined {
+  // The user property is added at runtime by @mbe/auth's Fastify plugin.
+  // We extract it through an intersection type to avoid module augmentation conflicts.
+  const { user } = request as FastifyRequest & { user?: unknown };
+  return isSentryUser(user) ? user : undefined;
+}
+
 export interface InitOptions {
   readonly serviceName: string;
 }
@@ -30,9 +63,9 @@ export function initSentry(options: InitOptions): void {
 function setSentryContext(scope: Sentry.Scope, request: FastifyRequest): void {
   scope.setTag("method", request.method);
   scope.setTag("url", request.url);
-  scope.setTag("requestId", (request as any).requestId ?? "unknown");
+  scope.setTag("requestId", request.id ?? "unknown");
 
-  const user = (request as any).user;
+  const user = getRequestUser(request);
   if (user?.id) {
     scope.setUser({ id: user.id, email: user.email });
   }
