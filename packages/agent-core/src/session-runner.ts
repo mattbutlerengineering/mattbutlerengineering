@@ -49,6 +49,10 @@ import {
 } from "./failure-memory.js";
 import { runFeedbackLoop } from "./feedback-loop.js";
 import { withRetry, ContextWindowExhaustedError } from "./retry.js";
+import {
+  startActiveObservation,
+  propagateAttributes,
+} from "@langfuse/tracing";
 
 // OTel API is a noop when no SDK is registered (e.g., in tests or local CLI).
 const tracer = trace.getTracer("@mbe/agent-core");
@@ -102,6 +106,16 @@ export async function runSession(
   config: SessionConfig,
   onEvent?: SessionEventCallback
 ): Promise<SessionResult> {
+  return startActiveObservation("agent-session", async (_lfTrace): Promise<SessionResult> => {
+    return propagateAttributes(
+      {
+        metadata: {
+          task: config.taskDescription,
+          model: config.model,
+          maxBudgetUsd: String(config.maxBudgetUsd),
+        },
+      },
+      async (): Promise<SessionResult> => {
   const rootSpan = tracer.startSpan("agent_core.run_session", {
     attributes: {
       "session.task": config.taskDescription.slice(0, 200),
@@ -695,4 +709,7 @@ export async function runSession(
         rootSpan.end();
       }
   }
+      },
+    );
+  });
 }

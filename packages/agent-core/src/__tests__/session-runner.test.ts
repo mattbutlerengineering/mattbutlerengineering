@@ -57,6 +57,32 @@ vi.mock("../tool-permissions.js", () => ({
   createToolPermissionHandler: vi.fn(),
 }));
 
+vi.mock("@langfuse/tracing", () => ({
+  startActiveObservation: vi.fn().mockImplementation(
+    async (_name: string, fn: (span: unknown) => Promise<unknown>) => {
+      const mockSpan = {
+        update: vi.fn().mockReturnThis(),
+        end: vi.fn(),
+        score: vi.fn(),
+        startObservation: vi.fn().mockReturnValue({
+          update: vi.fn().mockReturnThis(),
+          end: vi.fn(),
+        }),
+      };
+      return fn(mockSpan);
+    }
+  ),
+  startObservation: vi.fn().mockReturnValue({
+    update: vi.fn().mockReturnThis(),
+    end: vi.fn(),
+  }),
+  propagateAttributes: vi.fn().mockImplementation(
+    async (_attrs: unknown, fn: () => Promise<unknown>) => {
+      return fn();
+    }
+  ),
+}));
+
 vi.mock("../retry.js", async () => {
   const actual = await vi.importActual("../retry.js") as Record<string, unknown>;
   return {
@@ -87,6 +113,7 @@ import { loadMemory, queryPastFailures, buildFailureContext } from "../failure-m
 import { buildSystemPrompt } from "../prompt-builder.js";
 import { createToolPermissionHandler } from "../tool-permissions.js";
 import { withRetry } from "../retry.js";
+import { startActiveObservation, startObservation, propagateAttributes } from "@langfuse/tracing";
 import { runSession } from "../session-runner.js";
 
 const BASE_CONFIG: SessionConfig = {
@@ -499,5 +526,59 @@ describe("runSession", () => {
     // getGitDiff should only be called once despite multiple stages using it
     // (evaluation, static analysis, security review, dep-bump check)
     expect(getGitDiff).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("Langfuse tracing", () => {
+  it("wraps session with startActiveObservation", async () => {
+    vi.mocked(createWorktree).mockResolvedValue({
+      path: "/worktree",
+      branchName: "agent/fix-login",
+      mode: "full",
+    });
+    vi.mocked(loadMemory).mockResolvedValue({ failures: [] });
+    vi.mocked(queryPastFailures).mockReturnValue([]);
+    vi.mocked(buildFailureContext).mockReturnValue("");
+    vi.mocked(buildSystemPrompt).mockReturnValue("system prompt");
+    vi.mocked(createToolPermissionHandler).mockReturnValue(async () => true);
+    vi.mocked(hasChanges).mockResolvedValue(false);
+
+    const resultMessage = {
+      type: "result" as const,
+      subtype: "success" as const,
+      uuid: "test-uuid",
+      session_id: "sess-1",
+      result: "Done",
+      total_cost_usd: 0.05,
+      duration_ms: 1000,
+      duration_api_ms: 800,
+      is_error: false,
+      num_turns: 3,
+      stop_reason: "end_turn",
+      usage: { input_tokens: 100, output_tokens: 50, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+    };
+
+    vi.mocked(query).mockReturnValue(
+      (async function* () {
+        yield resultMessage;
+      })() as ReturnType<typeof query>
+    );
+
+    await runSession(BASE_CONFIG);
+
+    expect(startActiveObservation).toHaveBeenCalledWith(
+      "agent-session",
+      expect.any(Function)
+    );
+    expect(propagateAttributes).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          task: BASE_CONFIG.taskDescription,
+          model: BASE_CONFIG.model,
+          maxBudgetUsd: String(BASE_CONFIG.maxBudgetUsd),
+        }),
+      }),
+      expect.any(Function)
+    );
   });
 });
