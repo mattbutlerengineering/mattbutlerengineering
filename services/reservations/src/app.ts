@@ -35,10 +35,14 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   // Core plugins
   const corsOrigins = process.env.CORS_ORIGINS?.split(",") || [
     "http://localhost:3000",
-    "http://localhost:3004",
     "http://localhost:3002",
+    "http://localhost:3003",
+    "http://localhost:3004",
+    "http://localhost:5173",
+    "http://localhost:5174",
     "https://mattbutlerengineering.com",
     "https://hospitality.mattbutlerengineering.com",
+    "https://gen.mattbutlerengineering.com",
   ];
 
   await fastify.register(cors, {
