@@ -151,6 +151,12 @@
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+}
+
 .contentHidden {
   opacity: 0.8;
 }
