@@ -29,10 +29,6 @@ export function ConfirmationStep({
   settings,
 }: ConfirmationStepProps) {
   const hasOperatingHours = Object.keys(operatingHours).length > 0;
-  const hasSettings =
-    settings.defaultReservationDuration !== "" ||
-    settings.maxPartySize !== "" ||
-    settings.advanceBookingDays !== "";
 
   return (
     <div className={styles.stepContainer}>
@@ -50,12 +46,7 @@ export function ConfirmationStep({
             <span className={styles.reviewLabel}>Slug</span>
             <span className={styles.reviewValue}>{basicInfo.slug}</span>
           </div>
-          {basicInfo.venueGroupId && (
-            <div className={styles.reviewSection}>
-              <span className={styles.reviewLabel}>Venue Group</span>
-              <span className={styles.reviewValue}>{basicInfo.venueGroupId}</span>
-            </div>
-          )}
+          {/* Venue group hidden — feature not yet available */}
         </Card>
 
         <Card title="Location & Time" variant="flat">
@@ -90,36 +81,33 @@ export function ConfirmationStep({
         </Card>
 
         <Card title="Settings" variant="flat">
-          {hasSettings ? (
-            <>
-              {settings.defaultReservationDuration && (
-                <div className={styles.reviewSection}>
-                  <span className={styles.reviewLabel}>Default Duration</span>
-                  <span className={styles.reviewValue}>
-                    {settings.defaultReservationDuration} minutes
-                  </span>
-                </div>
+          <div className={styles.reviewSection}>
+            <span className={styles.reviewLabel}>Default Duration</span>
+            <span className={styles.reviewValue}>
+              {settings.defaultReservationDuration || "90"} minutes
+              {!settings.defaultReservationDuration && (
+                <Text variant="caption" color="secondary"> (default)</Text>
               )}
-              {settings.maxPartySize && (
-                <div className={styles.reviewSection}>
-                  <span className={styles.reviewLabel}>Max Party Size</span>
-                  <span className={styles.reviewValue}>{settings.maxPartySize}</span>
-                </div>
+            </span>
+          </div>
+          <div className={styles.reviewSection}>
+            <span className={styles.reviewLabel}>Max Party Size</span>
+            <span className={styles.reviewValue}>
+              {settings.maxPartySize || "12"} guests
+              {!settings.maxPartySize && (
+                <Text variant="caption" color="secondary"> (default)</Text>
               )}
-              {settings.advanceBookingDays && (
-                <div className={styles.reviewSection}>
-                  <span className={styles.reviewLabel}>Advance Booking</span>
-                  <span className={styles.reviewValue}>
-                    {settings.advanceBookingDays} days
-                  </span>
-                </div>
+            </span>
+          </div>
+          <div className={styles.reviewSection}>
+            <span className={styles.reviewLabel}>Advance Booking</span>
+            <span className={styles.reviewValue}>
+              {settings.advanceBookingDays || "30"} days
+              {!settings.advanceBookingDays && (
+                <Text variant="caption" color="secondary"> (default)</Text>
               )}
-            </>
-          ) : (
-            <Text variant="caption" color="secondary">
-              Using defaults
-            </Text>
-          )}
+            </span>
+          </div>
         </Card>
       </Stack>
     </div>

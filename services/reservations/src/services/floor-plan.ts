@@ -11,6 +11,15 @@ import type {
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 
+function isPrismaNotFound(err: unknown): boolean {
+  return (
+    err !== null &&
+    typeof err === "object" &&
+    "code" in err &&
+    (err as { code: string }).code === "P2025"
+  );
+}
+
 type PrismaFloorPlan = {
   id: string;
   venueId: string;
@@ -152,8 +161,9 @@ export const floorPlanService = {
         include: { tables: true },
       });
       return mapPrismaFloorPlan(floorPlan);
-    } catch {
-      return null;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return null;
+      throw err;
     }
   },
 
@@ -166,8 +176,9 @@ export const floorPlanService = {
       });
       await prisma.floorPlan.delete({ where: { id } });
       return true;
-    } catch {
-      return false;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return false;
+      throw err;
     }
   },
 
@@ -190,8 +201,9 @@ export const floorPlanService = {
         });
       });
       return mapPrismaFloorPlan(floorPlan);
-    } catch {
-      return null;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return null;
+      throw err;
     }
   },
 
@@ -205,8 +217,9 @@ export const floorPlanService = {
         data: { shapeMetadata: shapeMetadata as unknown as Prisma.InputJsonValue },
       });
       return mapPrismaTable(table);
-    } catch {
-      return null;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return null;
+      throw err;
     }
   },
 
@@ -244,8 +257,9 @@ export const floorPlanService = {
         },
       });
       return mapPrismaTable(table);
-    } catch {
-      return null;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return null;
+      throw err;
     }
   },
 
@@ -259,8 +273,9 @@ export const floorPlanService = {
         },
       });
       return mapPrismaTable(table);
-    } catch {
-      return null;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return null;
+      throw err;
     }
   },
 };

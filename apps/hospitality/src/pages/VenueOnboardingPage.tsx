@@ -8,13 +8,13 @@ import { useVenue } from "../contexts/VenueContext.js";
 import { PageHeader } from "../components/PageHeader";
 import { StepIndicator } from "../components/venue-onboarding/StepIndicator";
 import { BasicInfoStep } from "../components/venue-onboarding/BasicInfoStep";
-import { LocationTimeStep } from "../components/venue-onboarding/LocationTimeStep";
-import { OperatingHoursStep } from "../components/venue-onboarding/OperatingHoursStep";
+import { LocationTimeStep, detectTimezone } from "../components/venue-onboarding/LocationTimeStep";
+import { OperatingHoursStep, validateOperatingHours } from "../components/venue-onboarding/OperatingHoursStep";
+import type { OperatingHoursValidationErrors } from "../components/venue-onboarding/OperatingHoursStep";
 import { SettingsStep } from "../components/venue-onboarding/SettingsStep";
 import { ConfirmationStep } from "../components/venue-onboarding/ConfirmationStep";
 import type { BasicInfoData } from "../components/venue-onboarding/BasicInfoStep";
 import type { LocationTimeData } from "../components/venue-onboarding/LocationTimeStep";
-import { TIMEZONE_OPTIONS } from "../components/venue-onboarding/LocationTimeStep";
 import type { SettingsData } from "../components/venue-onboarding/SettingsStep";
 import styles from "./VenueOnboardingPage.module.css";
 
@@ -25,17 +25,6 @@ const INITIAL_BASIC_INFO: BasicInfoData = {
   slug: "",
   venueGroupId: "",
 };
-
-/** Use the browser's timezone as the default, only if it's in the supported options list. */
-function detectTimezone(): string {
-  try {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const supported = TIMEZONE_OPTIONS.map((o) => o.value);
-    return supported.includes(tz) ? tz : "";
-  } catch {
-    return "";
-  }
-}
 
 const INITIAL_LOCATION_TIME: LocationTimeData = {
   ianaTimezone: detectTimezone(),
@@ -81,6 +70,10 @@ export function VenueOnboardingPage() {
   const [settingsErrors, setSettingsErrors] = useState<
     Partial<Record<keyof SettingsData, string>>
   >({});
+  const [operatingHoursErrors, setOperatingHoursErrors] = useState<OperatingHoursValidationErrors | null>(null);
+
+  // Track which steps have been completed (for step navigation)
+  const [highestStepReached, setHighestStepReached] = useState(1);
 
   // Slug uniqueness check (debounced)
   const [slugStatus, setSlugStatus] = useState<"idle" | "checking" | "available" | "taken">("idle");
@@ -187,6 +180,12 @@ export function VenueOnboardingPage() {
     return Object.keys(errors).length === 0;
   }, [settings]);
 
+  const validateOperatingHoursStep = useCallback((): boolean => {
+    const errors = validateOperatingHours(operatingHours);
+    setOperatingHoursErrors(errors);
+    return errors === null;
+  }, [operatingHours]);
+
   const validateCurrentStep = useCallback((): boolean => {
     switch (currentStep) {
       case 1:
@@ -194,7 +193,7 @@ export function VenueOnboardingPage() {
       case 2:
         return validateLocationTime();
       case 3:
-        return true; // Operating hours are optional
+        return validateOperatingHoursStep();
       case 4:
         return validateSettings();
       case 5:
@@ -202,16 +201,25 @@ export function VenueOnboardingPage() {
       default:
         return true;
     }
-  }, [currentStep, validateBasicInfo, validateLocationTime, validateSettings]);
+  }, [currentStep, validateBasicInfo, validateLocationTime, validateOperatingHoursStep, validateSettings]);
 
   const handleNext = () => {
     if (validateCurrentStep()) {
-      setCurrentStep((prev) => Math.min(prev + 1, TOTAL_STEPS));
+      const nextStep = Math.min(currentStep + 1, TOTAL_STEPS);
+      setCurrentStep(nextStep);
+      setHighestStepReached((prev) => Math.max(prev, nextStep));
     }
   };
 
   const handleBack = () => {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
+  };
+
+  const handleStepClick = (step: number) => {
+    // Allow jumping to any completed step (up to highestStepReached)
+    if (step <= highestStepReached) {
+      setCurrentStep(step);
+    }
   };
 
   const buildPayload = (): CreateVenueRequest => {
@@ -289,7 +297,8 @@ export function VenueOnboardingPage() {
         <StepIndicator
           currentStep={currentStep}
           totalSteps={TOTAL_STEPS}
-          onStepClick={(step) => setCurrentStep(step)}
+          highestStepReached={highestStepReached}
+          onStepClick={handleStepClick}
         />
 
         <Card>
@@ -328,7 +337,15 @@ export function VenueOnboardingPage() {
                 <Text variant="label">
                   Operating Hours
                 </Text>
-                <OperatingHoursStep data={operatingHours} onChange={setOperatingHours} />
+                <OperatingHoursStep
+                  data={operatingHours}
+                  errors={operatingHoursErrors ?? undefined}
+                  onChange={(newHours) => {
+                    setOperatingHours(newHours);
+                    // Clear errors when user makes changes
+                    setOperatingHoursErrors(null);
+                  }}
+                />
               </>
             )}
 

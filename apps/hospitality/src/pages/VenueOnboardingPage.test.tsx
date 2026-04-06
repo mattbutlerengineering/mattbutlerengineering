@@ -23,11 +23,15 @@ vi.mock("@mbe/auth/react", () => ({
 }));
 
 const mockCreate = vi.fn();
+const mockGetBySlug = vi.fn();
 vi.mock("@mbe/api-client", () => ({
-  ApiClient: vi.fn().mockImplementation(() => ({})),
-  VenuesClient: vi.fn().mockImplementation(() => ({
-    create: mockCreate,
-  })),
+  ApiClient: vi.fn().mockImplementation(function () { return {}; }),
+  VenuesClient: vi.fn().mockImplementation(function () {
+    return {
+      create: mockCreate,
+      getBySlug: mockGetBySlug,
+    };
+  }),
 }));
 
 const mockRefetchVenues = vi.fn().mockResolvedValue(undefined);
@@ -64,10 +68,12 @@ vi.mock("@mbe/rialto", () => ({
     children,
     title,
     padding: _padding,
+    variant: _variant,
   }: {
     children: React.ReactNode;
     title?: string;
     padding?: string;
+    variant?: string;
   }) => (
     <div>
       {title && <h2>{title}</h2>}
@@ -104,19 +110,30 @@ vi.mock("@mbe/rialto", () => ({
     error,
     hint,
     placeholder: _placeholder,
+    showOptional: _showOptional,
+    required: _required,
+    type: _type,
+    onBlur: _onBlur,
   }: {
     label?: string;
     value?: string;
-    onChange?: (value: string) => void;
-    error?: string;
+    onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    error?: boolean;
     hint?: string;
     placeholder?: string;
+    showOptional?: boolean;
+    required?: boolean;
+    type?: string;
+    onBlur?: () => void;
   }) => (
     <div>
       {label && <label>{label}</label>}
-      <input value={value} onChange={(e) => onChange?.(e.target.value)} aria-label={label} />
-      {hint && <span>{hint}</span>}
-      {error && <span role="alert">{error}</span>}
+      <input value={value} onChange={onChange} aria-label={label} />
+      {error && hint ? (
+        <span role="alert">{hint}</span>
+      ) : hint ? (
+        <span>{hint}</span>
+      ) : null}
     </div>
   ),
   Select: ({
@@ -133,8 +150,8 @@ vi.mock("@mbe/rialto", () => ({
     placeholder?: string;
   }) => (
     <div>
-      {label && <label>{label}</label>}
-      <select value={value} onChange={(e) => onChange?.(e.target.value)}>
+      {label && <label htmlFor={`select-${label}`}>{label}</label>}
+      <select id={`select-${label}`} value={value} onChange={(e) => onChange?.(e.target.value)} aria-label={label}>
         {options?.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
@@ -143,6 +160,96 @@ vi.mock("@mbe/rialto", () => ({
       </select>
     </div>
   ),
+  Autocomplete: ({
+    label,
+    options,
+    value,
+    onChange,
+    onSelect,
+    placeholder: _placeholder,
+    emptyText: _emptyText,
+    required: _required,
+  }: {
+    label?: string;
+    options?: { value: string; label: string }[];
+    value?: string;
+    onChange?: (value: string) => void;
+    onSelect?: (option: { value: string; label: string }) => void;
+    placeholder?: string;
+    emptyText?: string;
+    required?: boolean;
+  }) => (
+    <div>
+      {label && <label htmlFor={`autocomplete-${label}`}>{label}</label>}
+      <select
+        id={`autocomplete-${label}`}
+        value={options?.find((o) => o.label === value)?.value ?? ""}
+        onChange={(e) => {
+          const option = options?.find((o) => o.value === e.target.value);
+          if (option) {
+            onChange?.(option.label);
+            onSelect?.(option);
+          } else {
+            onChange?.("");
+          }
+        }}
+        aria-label={label}
+      >
+        <option value="">Select...</option>
+        {options?.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  ),
+  Checkbox: ({
+    label,
+    checked,
+    onCheckedChange,
+    className: _className,
+  }: {
+    label: string;
+    checked?: boolean;
+    onCheckedChange?: (checked: boolean) => void;
+    className?: string;
+  }) => (
+    <label>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={() => onCheckedChange?.(!checked)}
+        aria-label={`${label} open`}
+      />
+      {label}
+    </label>
+  ),
+  ConfirmDialog: ({
+    open,
+    onConfirm,
+    onCancel,
+    title,
+    description: _description,
+    confirmLabel,
+    cancelLabel,
+  }: {
+    open: boolean;
+    onConfirm: () => void;
+    onCancel: () => void;
+    title: string;
+    description?: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    variant?: string;
+  }) =>
+    open ? (
+      <div role="dialog" aria-label={title}>
+        <span>{title}</span>
+        <button onClick={onCancel}>{cancelLabel ?? "Cancel"}</button>
+        <button onClick={onConfirm}>{confirmLabel ?? "Confirm"}</button>
+      </div>
+    ) : null,
 }));
 
 function renderPage() {
@@ -205,6 +312,7 @@ describe("VenueOnboardingPage", () => {
 
     fireEvent.click(screen.getByText("Next"));
     expect(screen.getByText("Location & Time")).toBeTruthy();
+    expect(screen.getByLabelText("Timezone")).toBeTruthy();
   });
 
   it("should navigate back from step 2 to step 1", () => {
@@ -236,7 +344,7 @@ describe("VenueOnboardingPage", () => {
     fireEvent.change(nameInput, { target: { value: "My Venue" } });
     fireEvent.click(screen.getByText("Next"));
 
-    // Clear the timezone (may be auto-detected from the environment)
+    // Clear the timezone (mock Autocomplete renders as select)
     const timezoneSelect = screen.getByLabelText("Timezone") as HTMLSelectElement;
     fireEvent.change(timezoneSelect, { target: { value: "" } });
 
@@ -258,8 +366,10 @@ describe("VenueOnboardingPage", () => {
     fireEvent.change(timezoneSelect, { target: { value: "America/New_York" } });
     fireEvent.click(screen.getByText("Next"));
 
-    // Step 3 — operating hours (optional, just proceed)
+    // Step 3 — operating hours (must toggle at least one day)
     expect(screen.getByText("Operating Hours")).toBeTruthy();
+    const mondayToggle = screen.getByLabelText("monday open") as HTMLInputElement;
+    fireEvent.click(mondayToggle);
     fireEvent.click(screen.getByText("Next"));
 
     // Step 4 — settings (optional, just proceed)
@@ -269,6 +379,23 @@ describe("VenueOnboardingPage", () => {
     // Step 5 — review
     expect(screen.getByText("Review & Confirm")).toBeTruthy();
     expect(screen.getByText("Create Venue")).toBeTruthy();
+  });
+
+  it("should show validation error on step 3 when no days are open", () => {
+    renderPage();
+
+    // Navigate to step 3
+    const nameInput = screen.getByLabelText("Venue Name") as HTMLInputElement;
+    fireEvent.change(nameInput, { target: { value: "My Venue" } });
+    fireEvent.click(screen.getByText("Next"));
+
+    const tz = screen.getByLabelText("Timezone") as HTMLSelectElement;
+    fireEvent.change(tz, { target: { value: "America/New_York" } });
+    fireEvent.click(screen.getByText("Next"));
+
+    // Try to proceed with no days open
+    fireEvent.click(screen.getByText("Next"));
+    expect(screen.getByText("At least one day must be open")).toBeTruthy();
   });
 
   it("should validate settings step when values are provided but invalid", () => {
@@ -282,7 +409,11 @@ describe("VenueOnboardingPage", () => {
     const tz = screen.getByLabelText("Timezone") as HTMLSelectElement;
     fireEvent.change(tz, { target: { value: "America/New_York" } });
     fireEvent.click(screen.getByText("Next"));
-    fireEvent.click(screen.getByText("Next")); // skip hours
+
+    // Step 3 — toggle a day then proceed
+    const mondayToggle = screen.getByLabelText("monday open") as HTMLInputElement;
+    fireEvent.click(mondayToggle);
+    fireEvent.click(screen.getByText("Next"));
 
     // Step 4 — enter invalid data
     const durationInput = screen.getByLabelText(
@@ -307,7 +438,10 @@ describe("VenueOnboardingPage", () => {
     const tz = screen.getByLabelText("Timezone") as HTMLSelectElement;
     fireEvent.change(tz, { target: { value: "America/New_York" } });
     fireEvent.click(screen.getByText("Next"));
-    fireEvent.click(screen.getByText("Next")); // skip hours
+
+    // Toggle monday on for operating hours validation
+    fireEvent.click(screen.getByLabelText("monday open"));
+    fireEvent.click(screen.getByText("Next"));
     fireEvent.click(screen.getByText("Next")); // skip settings
 
     // Submit
@@ -337,6 +471,8 @@ describe("VenueOnboardingPage", () => {
     const tz = screen.getByLabelText("Timezone") as HTMLSelectElement;
     fireEvent.change(tz, { target: { value: "America/New_York" } });
     fireEvent.click(screen.getByText("Next"));
+
+    fireEvent.click(screen.getByLabelText("monday open"));
     fireEvent.click(screen.getByText("Next"));
     fireEvent.click(screen.getByText("Next"));
 
@@ -368,6 +504,8 @@ describe("VenueOnboardingPage", () => {
     const tz = screen.getByLabelText("Timezone") as HTMLSelectElement;
     fireEvent.change(tz, { target: { value: "America/New_York" } });
     fireEvent.click(screen.getByText("Next"));
+
+    fireEvent.click(screen.getByLabelText("monday open"));
     fireEvent.click(screen.getByText("Next"));
     fireEvent.click(screen.getByText("Next"));
 

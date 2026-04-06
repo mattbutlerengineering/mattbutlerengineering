@@ -17,8 +17,39 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  circuit-check:
+    name: Circuit Breaker Check
+    runs-on: ubuntu-latest
+    outputs:
+      blocked: ${{ steps.check.outputs.blocked }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            .github/circuit-breaker-state
+          sparse-checkout-cone-mode: false
+
+      - name: Check state
+        id: check
+        run: |
+          if [ -f ".github/circuit-breaker-state" ]; then
+            STATE=$(cat .github/circuit-breaker-state)
+          else
+            STATE="closed"
+          fi
+          
+          echo "Circuit state: $STATE"
+          if [ "$STATE" = "open" ]; then
+            echo "blocked=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "blocked=false" >> "$GITHUB_OUTPUT"
+          fi
+
   detect-changes:
     name: Detect Changes
+    needs: [circuit-check]
+    if: needs.circuit-check.outputs.blocked != 'true'
     runs-on: ubuntu-latest
     outputs:
       marketing: ${{ steps.result.outputs.marketing }}
@@ -53,6 +84,16 @@ jobs:
             echo "hospitality=${{ steps.filter.outputs.hospitality }}" >> "$GITHUB_OUTPUT"
             echo "rialto-web=${{ steps.filter.outputs.rialto-web }}" >> "$GITHUB_OUTPUT"
           fi
+
+  blocked:
+    needs: [circuit-check]
+    if: needs.circuit-check.outputs.blocked == 'true'
+    name: Deploy Blocked
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify blocked
+        run: |
+          echo "::warning::Deploy blocked by circuit breaker"
 
   deploy-marketing:
     name: Deploy Marketing

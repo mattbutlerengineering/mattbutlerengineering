@@ -10,6 +10,67 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+// ── HTMLRewriter mock (Cloudflare Workers API, not available in Node) ─
+// Simulates the HTMLRewriter transform by doing a regex-based nonce
+// injection into <script> tags — good enough for testing header logic
+// and verifying that nonce values appear in the transformed HTML.
+class MockHTMLRewriter {
+  constructor() {
+    this.handlers = [];
+  }
+
+  on(selector, handler) {
+    this.handlers.push({ selector, handler });
+    return this;
+  }
+
+  transform(response) {
+    // Find the script handler's nonce value
+    const scriptHandler = this.handlers.find((h) => h.selector === "script");
+    if (!scriptHandler) return response;
+
+    // Extract nonce by calling element() with a mock element
+    let nonce = "";
+    const mockElement = {
+      setAttribute(attr, value) {
+        if (attr === "nonce") nonce = value;
+      },
+    };
+    scriptHandler.handler.element(mockElement);
+
+    if (!nonce) return response;
+
+    // Read the body and inject nonce into <script> tags
+    const reader = response.body?.getReader();
+    if (!reader) return response;
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        const chunks = [];
+        let done = false;
+        while (!done) {
+          const result = await reader.read();
+          done = result.done;
+          if (result.value) chunks.push(result.value);
+        }
+        const decoder = new TextDecoder();
+        const text = chunks.map((c) => decoder.decode(c, { stream: true })).join("");
+        const rewritten = text.replace(/<script/g, `<script nonce="${nonce}"`);
+        controller.enqueue(new TextEncoder().encode(rewritten));
+        controller.close();
+      },
+    });
+
+    return new Response(stream, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    });
+  }
+}
+
+globalThis.HTMLRewriter = MockHTMLRewriter;
+
 // Import the default export (the Worker module)
 import edgeRouter from "./edge-router.js";
 
@@ -221,13 +282,18 @@ describe("Edge Router", () => {
       expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
     });
 
-    it("adds Content-Security-Policy", async () => {
+    it("adds Content-Security-Policy with nonce for script-src", async () => {
       const response = await edgeRouter.fetch(makeRequest("/"), env);
       const csp = response.headers.get("Content-Security-Policy");
       expect(csp).toContain("default-src 'self'");
       expect(csp).toContain("frame-ancestors 'none'");
       expect(csp).toContain("base-uri 'self'");
       expect(csp).toContain("form-action 'self'");
+      // Nonce-based CSP for scripts — no unsafe-inline
+      expect(csp).not.toContain("script-src 'self' 'unsafe-inline'");
+      expect(csp).toMatch(/script-src 'nonce-[a-f0-9]{32}' 'self'/);
+      // Style-src still allows unsafe-inline (CSS nonces are less critical)
+      expect(csp).toContain("style-src 'self' 'unsafe-inline'");
     });
 
     it("adds X-XSS-Protection: 0 (disable legacy XSS auditor)", async () => {
@@ -247,6 +313,44 @@ describe("Edge Router", () => {
       expect(response.headers.get("Permissions-Policy")).toContain("camera=()");
       expect(response.headers.get("Permissions-Policy")).toContain("microphone=()");
       expect(response.headers.get("Permissions-Policy")).toContain("geolocation=()");
+    });
+
+    it("generates unique nonce per request", async () => {
+      const response1 = await edgeRouter.fetch(makeRequest("/"), env);
+      const response2 = await edgeRouter.fetch(makeRequest("/"), env);
+      const csp1 = response1.headers.get("Content-Security-Policy");
+      const csp2 = response2.headers.get("Content-Security-Policy");
+      const nonce1 = csp1.match(/nonce-([a-f0-9]+)/)[1];
+      const nonce2 = csp2.match(/nonce-([a-f0-9]+)/)[1];
+      expect(nonce1).not.toBe(nonce2);
+    });
+
+    it("injects nonce into script tags in HTML responses", async () => {
+      env.MARKETING.fetch.mockResolvedValueOnce(
+        new Response('<html><head><script type="module">console.log("hi")</script></head></html>', {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        })
+      );
+      const response = await edgeRouter.fetch(makeRequest("/"), env);
+      const body = await response.text();
+      const csp = response.headers.get("Content-Security-Policy");
+      const nonce = csp.match(/nonce-([a-f0-9]+)/)[1];
+      expect(body).toContain(`nonce="${nonce}"`);
+      expect(body).toContain("<script");
+    });
+
+    it("does not inject nonce into non-HTML responses", async () => {
+      env.MARKETING.fetch.mockResolvedValueOnce(
+        new Response("body { color: red; }", {
+          status: 200,
+          headers: { "Content-Type": "text/css" },
+        })
+      );
+      const response = await edgeRouter.fetch(makeRequest("/style.css"), env);
+      const body = await response.text();
+      expect(body).toBe("body { color: red; }");
+      expect(body).not.toContain("nonce");
     });
   });
 

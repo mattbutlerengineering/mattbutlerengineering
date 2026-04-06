@@ -9,6 +9,15 @@ import type {
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 
+function isPrismaNotFound(err: unknown): boolean {
+  return (
+    err !== null &&
+    typeof err === "object" &&
+    "code" in err &&
+    (err as { code: string }).code === "P2025"
+  );
+}
+
 const VALID_TABLE_STATUSES: TableStatus[] = ["AVAILABLE", "OCCUPIED", "DIRTY", "READY"];
 
 function mapPrismaTable(table: {
@@ -133,8 +142,9 @@ export const tableService = {
         data: updateData,
       });
       return mapPrismaTable(table);
-    } catch {
-      return null;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return null;
+      throw err;
     }
   },
 
@@ -148,8 +158,9 @@ export const tableService = {
         data: { status: status as TableStatus },
       });
       return mapPrismaTable(table);
-    } catch {
-      return null;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return null;
+      throw err;
     }
   },
 
@@ -157,8 +168,9 @@ export const tableService = {
     try {
       await prisma.table.delete({ where: { id } });
       return true;
-    } catch {
-      return false;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return false;
+      throw err;
     }
   },
 };

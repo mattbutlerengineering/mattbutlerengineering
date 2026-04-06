@@ -213,7 +213,7 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
             e.preventDefault();
             handleTriggerClick();
           } else if (open) {
-            handleKeyDown(e as unknown as React.KeyboardEvent<HTMLDivElement>);
+            handleKeyDown(e);
           }
         }}
       >

@@ -19,6 +19,27 @@ export interface OtelConfig {
 }
 
 /**
+ * Paths that generate trace spam with no diagnostic value.
+ * Swagger UI (/docs), Scalar API Reference (/reference), and health checks.
+ */
+const IGNORED_PATH_PREFIXES: readonly string[] = [
+  "/health",
+  "/docs",
+  "/reference",
+] as const;
+
+/**
+ * Returns true when the incoming request URL matches a path that should
+ * be excluded from tracing (documentation assets, health checks, etc.).
+ */
+export function shouldIgnoreRequest(req: IncomingMessage): boolean {
+  const url = req.url ?? "";
+  return IGNORED_PATH_PREFIXES.some(
+    (prefix) => url === prefix || url.startsWith(`${prefix}/`),
+  );
+}
+
+/**
  * Initialize OpenTelemetry with OTLP/HTTP exporters and selective instrumentation.
  *
  * Must be called BEFORE importing any Fastify or HTTP modules — the SDK
@@ -58,14 +79,7 @@ export function initTelemetry(config: OtelConfig): NodeSDK {
       ? []
       : [
           new HttpInstrumentation({
-            ignoreIncomingRequestHook: (req: IncomingMessage) => {
-              const url = req.url ?? "";
-              return (
-                url.includes("/health") ||
-                url.startsWith("/docs") ||
-                url.startsWith("/reference")
-              );
-            },
+            ignoreIncomingRequestHook: shouldIgnoreRequest,
           }),
           new FastifyInstrumentation(),
           new PinoInstrumentation(),

@@ -2,7 +2,7 @@
 . "$(dirname "$0")/_/husky.sh"
 
 pnpm lint-staged
-pnpm --filter @mbe/cli start check-adr
+pnpm --filter @mbe/cli start check-adr --staged
 
 # Secret scanning — skip if gitleaks is not installed
 if command -v gitleaks >/dev/null 2>&1; then

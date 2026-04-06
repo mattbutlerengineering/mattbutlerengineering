@@ -15,6 +15,15 @@ import type { Reservation as PrismaReservation, Table as PrismaTable } from "../
 import { prisma } from "./database.js";
 import { availabilityService } from "./availability.js";
 
+function isPrismaNotFound(err: unknown): boolean {
+  return (
+    err !== null &&
+    typeof err === "object" &&
+    "code" in err &&
+    (err as { code: string }).code === "P2025"
+  );
+}
+
 type PrismaReservationWithTable = PrismaReservation & {
   table?: PrismaTable;
 };
@@ -273,8 +282,9 @@ export const reservationService = {
         include: { table: true },
       });
       return mapPrismaReservation(reservation);
-    } catch {
-      return null;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return null;
+      throw err;
     }
   },
 
@@ -431,8 +441,9 @@ export const reservationService = {
         include: { table: true },
       });
       return mapPrismaReservation(reservation);
-    } catch {
-      return null;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return null;
+      throw err;
     }
   },
 };

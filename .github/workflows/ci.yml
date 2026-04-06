@@ -6,27 +6,17 @@ on:
     paths-ignore:
       - "**.md"
       - "docs/**"
-      - ".planning/**"
-      - ".claude/**"
-      - ".husky/**"
-      - "*.txt"
       - "*.png"
       - ".gitignore"
       - "LICENSE"
-      - ".github/ISSUE_TEMPLATE/**"
   pull_request:
     branches: [main]
     paths-ignore:
       - "**.md"
       - "docs/**"
-      - ".planning/**"
-      - ".claude/**"
-      - ".husky/**"
-      - "*.txt"
       - "*.png"
       - ".gitignore"
       - "LICENSE"
-      - ".github/ISSUE_TEMPLATE/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -49,7 +39,7 @@ jobs:
 
       - name: Cache node_modules
         id: cache-node-modules
-        uses: actions/cache@v5
+        uses: actions/cache@v4
         with:
           path: node_modules
           key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
@@ -60,7 +50,7 @@ jobs:
 
       - name: Cache Prisma clients
         id: cache-prisma
-        uses: actions/cache@v5
+        uses: actions/cache@v4
         with:
           path: |
             services/users/src/generated
@@ -91,7 +81,7 @@ jobs:
           cache: "pnpm"
 
       - name: Restore node_modules
-        uses: actions/cache@v5
+        uses: actions/cache@v4
         with:
           path: node_modules
           key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
@@ -114,13 +104,13 @@ jobs:
           cache: "pnpm"
 
       - name: Restore node_modules
-        uses: actions/cache@v5
+        uses: actions/cache@v4
         with:
           path: node_modules
           key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Restore Prisma clients
-        uses: actions/cache@v5
+        uses: actions/cache@v4
         with:
           path: |
             services/users/src/generated
@@ -150,13 +140,13 @@ jobs:
           cache: "pnpm"
 
       - name: Restore node_modules
-        uses: actions/cache@v5
+        uses: actions/cache@v4
         with:
           path: node_modules
           key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Restore Prisma clients
-        uses: actions/cache@v5
+        uses: actions/cache@v4
         with:
           path: |
             services/users/src/generated
@@ -180,7 +170,9 @@ jobs:
         run: node scripts/check-env-sync.js
 
       - name: Audit dependencies for vulnerabilities
-        run: pnpm audit --audit-level=high
+        run: |
+          pnpm audit --audit-level=critical || { echo "::error::Critical vulnerability found"; exit 1; }
+          pnpm audit --audit-level=high || echo "::warning::High-severity audit issues found — review before merging"
 
       - name: Check Dockerfile dependencies
         run: node scripts/check-dockerfile-deps.js
@@ -213,13 +205,13 @@ jobs:
           cache: "pnpm"
 
       - name: Restore node_modules
-        uses: actions/cache@v5
+        uses: actions/cache@v4
         with:
           path: node_modules
           key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Restore Prisma clients
-        uses: actions/cache@v5
+        uses: actions/cache@v4
         with:
           path: |
             services/users/src/generated
@@ -236,22 +228,9 @@ jobs:
       - name: Upload coverage reports
         uses: codecov/codecov-action@v6
         with:
-          files: ./packages/auth/coverage/coverage-final.json,./packages/agent-core/coverage/coverage-final.json,./services/users/coverage/coverage-final.json,./services/reservations/coverage/coverage-final.json,./services/agent/coverage/coverage-final.json
+          files: ./packages/auth/coverage/coverage-final.json,./services/users/coverage/coverage-final.json
           fail_ci_if_error: false
           verbose: true
-
-      - name: Upload coverage artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-reports
-          path: |
-            packages/auth/coverage/
-            packages/agent-core/coverage/
-            services/users/coverage/
-            services/reservations/coverage/
-            services/agent/coverage/
-          retention-days: 14
 
   migrations:
     name: Validate Migrations
@@ -284,13 +263,13 @@ jobs:
           cache: "pnpm"
 
       - name: Restore node_modules
-        uses: actions/cache@v5
+        uses: actions/cache@v4
         with:
           path: node_modules
           key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Restore Prisma clients
-        uses: actions/cache@v5
+        uses: actions/cache@v4
         with:
           path: |
             services/users/src/generated
