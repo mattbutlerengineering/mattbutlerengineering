@@ -1,4 +1,6 @@
 import { randomUUID } from "crypto";
+import type { FastifyInstance } from "fastify";
+import fp from "fastify-plugin";
 
 export interface RequestIdOptions {
   headerName?: string;
@@ -13,12 +15,19 @@ const DEFAULT_OPTIONS: Required<RequestIdOptions> = {
 export function createRequestIdMiddleware(options: RequestIdOptions = {}) {
   const { headerName, generator } = { ...DEFAULT_OPTIONS, ...options };
 
-  return function requestIdHook(fastify: { addHook: (name: string, fn: (req: { headers: Record<string, string>; id: string }) => void) => void }) {
-    fastify.addHook("onRequest", async (request) => {
-      const clientRequestId = request.headers[headerName];
-      request.id = clientRequestId || generator();
-    });
-  };
+  return fp(
+    async function requestIdPlugin(fastify: FastifyInstance) {
+      fastify.addHook("onRequest", async (request) => {
+        const clientRequestId = request.headers[headerName];
+        if (typeof clientRequestId === "string" && clientRequestId.length > 0) {
+          request.id = clientRequestId;
+        } else {
+          request.id = generator();
+        }
+      });
+    },
+    { name: "request-id-middleware" },
+  );
 }
 
 export function getRequestId(request: { id?: string }): string {
