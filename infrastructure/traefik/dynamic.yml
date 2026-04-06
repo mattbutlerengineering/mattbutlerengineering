@@ -26,8 +26,45 @@ http:
         average: 100
         burst: 50
 
-  # Routers (defined here or via Docker labels)
-  routers: {}
+  # Routers and Services for API services
+  routers:
+    users-router:
+      rule: "PathPrefix(`/api/v1/users`)"
+      service: users-service
+      middlewares:
+        - strip-users-prefix
+        - security-headers
+      entrypoints:
+        - web
 
-  # Services (defined here or via Docker labels)
-  services: {}
+    reservations-router:
+      rule: "PathPrefix(`/api/reservations`)"
+      service: reservations-service
+      middlewares:
+        - security-headers
+      entrypoints:
+        - web
+
+    agent-router:
+      rule: "PathPrefix(`/api/gen`)"
+      service: agent-service
+      middlewares:
+        - security-headers
+      entrypoints:
+        - web
+
+  services:
+    users-service:
+      loadBalancer:
+        servers:
+          - url: "http://users-api:3001"
+
+    reservations-service:
+      loadBalancer:
+        servers:
+          - url: "http://reservations-api:3004"
+
+    agent-service:
+      loadBalancer:
+        servers:
+          - url: "http://agent-api:3003"

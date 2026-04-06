@@ -31,10 +31,76 @@ services:
       - "--providers.file.watch=true"
     ports:
       - "80:80"
-      - "8080:8080"  # Traefik dashboard
+      - "8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik:/etc/traefik/dynamic:ro
+    depends_on:
+      - users-api
+      - reservations-api
+      - agent-api
+
+  # Users API Service
+  users-api:
+    build:
+      context: ..
+      dockerfile: services/users/Dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-mbe}:${POSTGRES_PASSWORD:-mbe_dev_password}@postgres:5432/${POSTGRES_DB:-mbe}
+      LOG_LEVEL: info
+      NODE_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.users-api.rule=PathPrefix(`/api/v1/users`)"
+      - "traefik.http.routers.users-api.entrypoints=web"
+      - "traefik.http.middlewares.users-api-strip.stripprefix.prefixes=/api/v1/users"
+      - "traefik.http.routers.users-api.middlewares=users-api-strip"
+      - "traefik.http.services.users-api.loadbalancer.server.port=3001"
+
+  # Reservations API Service
+  reservations-api:
+    build:
+      context: ..
+      dockerfile: services/reservations/Dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: 3004
+      DATABASE_URL: postgresql://${POSTGRES_USER:-mbe}:${POSTGRES_PASSWORD:-mbe_dev_password}@postgres:5432/${POSTGRES_DB:-mbe}
+      LOG_LEVEL: info
+      NODE_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.reservations-api.rule=PathPrefix(`/api/reservations`)"
+      - "traefik.http.routers.reservations-api.entrypoints=web"
+      - "traefik.http.services.reservations-api.loadbalancer.server.port=3004"
+
+  # Agent API Service
+  agent-api:
+    build:
+      context: ..
+      dockerfile: services/agent/Dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: 3003
+      DATABASE_URL: postgresql://${POSTGRES_USER:-mbe}:${POSTGRES_PASSWORD:-mbe_dev_password}@postgres:5432/mbe_agent
+      LOG_LEVEL: info
+      NODE_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.agent-api.rule=PathPrefix(`/api/gen`)"
+      - "traefik.http.routers.agent-api.entrypoints=web"
+      - "traefik.http.services.agent-api.loadbalancer.server.port=3003"
 
 volumes:
   postgres_data:
