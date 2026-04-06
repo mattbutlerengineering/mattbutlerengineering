@@ -88,7 +88,7 @@ export const genChatRoutes: FastifyPluginAsync = async (fastify) => {
       });
 
       // GEN-07: SSE passthrough headers
-      reply.header("Content-Type", "text/plain; charset=utf-8");
+      reply.header("Content-Type", "application/x-ndjson");
       reply.header("Cache-Control", "no-cache");
       reply.header("Connection", "keep-alive");
       reply.header("X-Accel-Buffering", "no");
