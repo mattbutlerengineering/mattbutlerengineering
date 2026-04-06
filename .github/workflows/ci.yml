@@ -92,6 +92,30 @@ jobs:
             services/agent/src/generated
           retention-days: 1
 
+  hadolint:
+    name: Dockerfile Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: "services/users/Dockerfile"
+
+      - uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: "services/reservations/Dockerfile"
+
+      - uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: "services/agent/Dockerfile"
+
+      - uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: "infrastructure/migrate/Dockerfile"
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
