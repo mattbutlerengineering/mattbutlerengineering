@@ -171,8 +171,7 @@ jobs:
 
       - name: Audit dependencies for vulnerabilities
         run: |
-          pnpm audit --audit-level=critical || { echo "::error::Critical vulnerability found"; exit 1; }
-          pnpm audit --audit-level=high || echo "::warning::High-severity audit issues found — review before merging"
+          pnpm audit --audit-level=high || { echo "::error::High or Critical vulnerability found"; exit 1; }
 
       - name: Check Dockerfile dependencies
         run: node scripts/check-dockerfile-deps.js
