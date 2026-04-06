@@ -97,6 +97,8 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-mbe}:${POSTGRES_PASSWORD}@postgres:5432/mbe_agent
       AUTH_AUTHORITY: https://mattbutlerengineering.auth0.com
       AUTH_AUDIENCE: https://api.mattbutlerengineering.com
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET}
       LOG_LEVEL: info
       NODE_ENV: development
     depends_on:
