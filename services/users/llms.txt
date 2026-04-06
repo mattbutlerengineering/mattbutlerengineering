@@ -9,7 +9,6 @@
     export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> { /* implementation omitted */ }
   </file>
   <file path="src/services/user.ts">
-    function isPrismaNotFound(err: unknown): boolean { /* implementation omitted */ }
     function mapPrismaUser(user: {
       id: string;
       email: string;
@@ -97,9 +96,8 @@
             },
           });
           return mapPrismaUser(user);
-        } catch (err: unknown) {
-          if (isPrismaNotFound(err)) return null;
-          throw err;
+        } catch {
+          return null;
         }
       },
     
@@ -108,7 +106,10 @@
           await prisma.user.delete({ where: { id } });
           return true;
         } catch (err: unknown) {
-          if (isPrismaNotFound(err)) return false;
+          // Prisma P2025 = record not found
+          if (err && typeof err === "object" && "code" in err && err.code === "P2025") {
+            return false;
+          }
           throw err;
         }
       },
@@ -129,9 +130,8 @@
             data: { preferences: newPrefs },
           });
           return mapPrismaUser(updated);
-        } catch (err: unknown) {
-          if (isPrismaNotFound(err)) return null;
-          throw err;
+        } catch {
+          return null;
         }
       },
     }
@@ -144,7 +144,7 @@
     }
     export function getSlowQueryStats(): { count5min: number; slowestMs: number } { /* implementation omitted */ }
     export function getServiceStatus(): "ok" | "degraded" { /* implementation omitted */ }
-    export const prisma: import("/Users/mbutler/github/mattbutlerengineering/services/users/src/generated/prisma/runtime/library").DynamicClientExtensionThis<import("/Users/mbutler/github/mattbutlerengineering/services/users/src/generated/prisma/index").Prisma.TypeMap<import("/Users/mbutler/github/mattbutlerengineering/services/users/src/generated/prisma/runtime/library").InternalArgs & { result: {}; model: {}; query: {}; client: {}; }, {}>, import("/Users/mbutler/github/mattbutlerengineering/services/users/src/generated/prisma/index").Prisma.TypeMapCb<{ datasourceUrl: string; }>, { result: {}; model: {}; query: {}; client: {}; }>;
+    export const prisma: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/services/users/src/generated/prisma/runtime/library").DynamicClientExtensionThis<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/services/users/src/generated/prisma/index").Prisma.TypeMap<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/services/users/src/generated/prisma/runtime/library").InternalArgs & { result: {}; model: {}; query: {}; client: {}; }, {}>, import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/services/users/src/generated/prisma/index").Prisma.TypeMapCb<{ datasourceUrl: string; }>, { result: {}; model: {}; query: {}; client: {}; }>;
     function appendConnectionLimit(url: string | undefined, limit: number): string | undefined { /* implementation omitted */ }
   </file>
   <file path="src/schemas/index.ts">
@@ -155,8 +155,7 @@
     export function registerSchemas(fastify: FastifyInstance) { /* implementation omitted */ }
   </file>
   <file path="src/routes/users.ts">
-    function isAdmin(user: AuthUser | undefined): boolean { /* implementation omitted */ }
-    export const userRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
+    export const userRoutes: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
   </file>
   <file path="src/routes/health.ts">
     type HealthRouteHandler = RouteHandlerMethod<
@@ -165,6 +164,6 @@
       ServerResponse,
       { Reply: HealthResponse }
     >;
-    export const healthRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
+    export const healthRoutes: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
   </file>
 </codebase>
