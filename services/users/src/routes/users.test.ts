@@ -41,6 +41,7 @@ const mockJWTPayload = {
   email_verified: true,
   name: "Test User",
   picture: "https://example.com/pic.jpg",
+  permissions: ["admin"],
 };
 
 const mockUser = {

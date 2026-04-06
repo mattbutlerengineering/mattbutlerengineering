@@ -41,6 +41,11 @@ export interface InitOptions {
   readonly serviceName: string;
 }
 
+/** Marker added to reply after error handler captures the exception. */
+interface SentryReplyMeta {
+  readonly __sentryErrorCaptured?: boolean;
+}
+
 export function initSentry(options: InitOptions): void {
   const config = resolveConfig(process.env.SENTRY_DSN);
   if (!config.enabled) {
@@ -87,6 +92,9 @@ export const sentryFastifyPlugin = fp(
           Sentry.captureException(error);
         });
 
+        // Flag reply so onResponse hook doesn't double-capture this error
+        (reply as unknown as Record<string, unknown>).__sentryErrorCaptured = true;
+
         const statusCode = error.statusCode ?? 500;
         
         // If it's a 500, we obscure the message for the client but log the real one
@@ -105,24 +113,27 @@ export const sentryFastifyPlugin = fp(
       }
     );
 
+    // 4xx statuses that indicate unexpected server-side issues worth tracking
+    const NOTABLE_4XX = new Set([409, 422, 429]);
+
     // 2. Response Hook for status-based logging (catches manual code(4xx).send())
     fastify.addHook("onResponse", async (request, reply) => {
       const status = reply.statusCode;
-      if (status >= 400) {
-        if (status >= 500) {
-            Sentry.withScope((scope) => {
-                setSentryContext(scope, request);
-                scope.setLevel("error");
-                Sentry.captureMessage(`HTTP ${status}: ${request.method} ${request.url}`);
-            });
-        } else if (status >= 400) {
-            // 4xx are warnings or info
-            Sentry.withScope((scope) => {
-                setSentryContext(scope, request);
-                scope.setLevel("warning");
-                Sentry.captureMessage(`HTTP ${status}: ${request.method} ${request.url}`);
-            });
-        }
+
+      if (status >= 500 && !(reply as unknown as SentryReplyMeta).__sentryErrorCaptured) {
+        // Only capture 5xx if not already captured by the error handler
+        Sentry.withScope((scope) => {
+          setSentryContext(scope, request);
+          scope.setLevel("error");
+          Sentry.captureMessage(`HTTP ${status}: ${request.method} ${request.url}`);
+        });
+      } else if (status >= 400 && status < 500 && NOTABLE_4XX.has(status)) {
+        // Only capture notable 4xx — skip expected client errors (400, 401, 403, 404)
+        Sentry.withScope((scope) => {
+          setSentryContext(scope, request);
+          scope.setLevel("warning");
+          Sentry.captureMessage(`HTTP ${status}: ${request.method} ${request.url}`);
+        });
       }
     });
   },

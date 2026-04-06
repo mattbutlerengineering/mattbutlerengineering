@@ -101,5 +101,8 @@ export type {
   BulkUpdateTablePositionsRequest,
 } from "./floor-plan.js";
 
+// Date utilities
+export { toDateString } from "./date.js";
+
 // Zod Schemas
 export * from "./schemas/index.js";

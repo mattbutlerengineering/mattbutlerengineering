@@ -121,7 +121,7 @@ export function FloorPlanEditorPage() {
         };
       });
 
-      await api.floorPlans.bulkUpdatePositions(positions);
+      await api.floorPlans.bulkUpdatePositions(floorPlan.id, positions);
       setPendingUpdates(new Map());
       setHasChanges(false);
     } catch (err) {

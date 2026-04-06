@@ -1,11 +1,12 @@
-import type {
-  ReservationHold,
-  CreateHoldRequest,
-  ConfirmHoldRequest,
-  Reservation,
-  Table,
-  VenueSettings,
-  TableShapeMetadata,
+import {
+  toDateString,
+  type ReservationHold,
+  type CreateHoldRequest,
+  type ConfirmHoldRequest,
+  type Reservation,
+  type Table,
+  type VenueSettings,
+  type TableShapeMetadata,
 } from "@mbe/types";
 import type { ReservationHold as PrismaHold } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
@@ -19,7 +20,7 @@ function mapPrismaHold(hold: PrismaHold): ReservationHold {
     id: hold.id,
     venueId: hold.venueId,
     tableId: hold.tableId,
-    date: hold.date.toISOString().split("T")[0],
+    date: toDateString(hold.date),
     startTime: hold.startTime.toISOString(),
     endTime: hold.endTime.toISOString(),
     partySize: hold.partySize,
@@ -342,7 +343,7 @@ export const holdService = {
       success: true,
       reservation: {
         id: result.id,
-        date: result.date.toISOString().split("T")[0],
+        date: toDateString(result.date),
         startTime: result.startTime.toISOString(),
         endTime: result.endTime.toISOString(),
         partySize: result.partySize,

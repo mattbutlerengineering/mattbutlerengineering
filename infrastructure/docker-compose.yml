@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-mbe}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mbe_dev_password}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-mbe}
     ports:
       - "5432:5432"
@@ -17,60 +17,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
-  # Users API Service
-  users-api:
-    build:
-      context: ..
-      dockerfile: services/users/Dockerfile
-    restart: unless-stopped
-    environment:
-      - PORT=3001
-      - DATABASE_URL=postgresql://mbe:mbe_dev_password@postgres:5432/mbe
-      - AUTH_AUTHORITY=https://mattbutlerengineering.auth0.com
-      - AUTH_AUDIENCE=https://api.mattbutlerengineering.com
-      - NODE_ENV=development
-    ports:
-      - "3001:3001"
-    depends_on:
-      postgres:
-        condition: service_healthy
-
-  # Reservations API Service
-  reservations-api:
-    build:
-      context: ..
-      dockerfile: services/reservations/Dockerfile
-    restart: unless-stopped
-    environment:
-      - PORT=3004
-      - DATABASE_URL=postgresql://mbe:mbe_dev_password@postgres:5432/mbe
-      - AUTH_AUTHORITY=https://mattbutlerengineering.auth0.com
-      - AUTH_AUDIENCE=https://api.mattbutlerengineering.com
-      - NODE_ENV=development
-    ports:
-      - "3004:3004"
-    depends_on:
-      postgres:
-        condition: service_healthy
-
-  # Agent API Service
-  agent-api:
-    build:
-      context: ..
-      dockerfile: services/agent/Dockerfile
-    restart: unless-stopped
-    environment:
-      - PORT=3003
-      - DATABASE_URL=postgresql://mbe:mbe_dev_password@postgres:5432/mbe_agent
-      - AUTH_AUTHORITY=https://mattbutlerengineering.auth0.com
-      - AUTH_AUDIENCE=https://api.mattbutlerengineering.com
-      - NODE_ENV=development
-    ports:
-      - "3003:3003"
-    depends_on:
-      postgres:
-        condition: service_healthy
 
   # Traefik reverse proxy
   traefik:
@@ -102,7 +48,9 @@ services:
     restart: unless-stopped
     environment:
       PORT: 3001
-      DATABASE_URL: postgresql://${POSTGRES_USER:-mbe}:${POSTGRES_PASSWORD:-mbe_dev_password}@postgres:5432/${POSTGRES_DB:-mbe}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-mbe}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-mbe}
+      AUTH_AUTHORITY: https://mattbutlerengineering.auth0.com
+      AUTH_AUDIENCE: https://api.mattbutlerengineering.com
       LOG_LEVEL: info
       NODE_ENV: development
     depends_on:
@@ -124,7 +72,9 @@ services:
     restart: unless-stopped
     environment:
       PORT: 3004
-      DATABASE_URL: postgresql://${POSTGRES_USER:-mbe}:${POSTGRES_PASSWORD:-mbe_dev_password}@postgres:5432/${POSTGRES_DB:-mbe}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-mbe}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-mbe}
+      AUTH_AUTHORITY: https://mattbutlerengineering.auth0.com
+      AUTH_AUDIENCE: https://api.mattbutlerengineering.com
       LOG_LEVEL: info
       NODE_ENV: development
     depends_on:
@@ -144,7 +94,11 @@ services:
     restart: unless-stopped
     environment:
       PORT: 3003
-      DATABASE_URL: postgresql://${POSTGRES_USER:-mbe}:${POSTGRES_PASSWORD:-mbe_dev_password}@postgres:5432/mbe_agent
+      DATABASE_URL: postgresql://${POSTGRES_USER:-mbe}:${POSTGRES_PASSWORD}@postgres:5432/mbe_agent
+      AUTH_AUTHORITY: https://mattbutlerengineering.auth0.com
+      AUTH_AUDIENCE: https://api.mattbutlerengineering.com
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET}
       LOG_LEVEL: info
       NODE_ENV: development
     depends_on:

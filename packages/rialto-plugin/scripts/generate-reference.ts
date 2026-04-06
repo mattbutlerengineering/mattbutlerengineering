@@ -201,7 +201,7 @@ function generate(): void {
   const header = [
     "# Rialto Component Reference",
     "",
-    `> Auto-generated from manifest v${manifest.version} on ${new Date().toISOString().split("T")[0]}`,
+    `> Auto-generated from manifest v${manifest.version} on ${new Date().toISOString().substring(0, 10)}`,
     "> Do not edit — run `pnpm generate` to regenerate.",
     "",
     "---",

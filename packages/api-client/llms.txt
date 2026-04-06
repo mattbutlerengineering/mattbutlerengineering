@@ -131,7 +131,7 @@
       async update(id: string, data: UpdateFloorPlanRequest): Promise<FloorPlan> { /* implementation omitted */ }
       async activate(id: string): Promise<FloorPlan> { /* implementation omitted */ }
       async delete(id: string): Promise<void> { /* implementation omitted */ }
-      async bulkUpdatePositions(positions: UpdateTablePositionRequest[]): Promise<Table[]> { /* implementation omitted */ }
+      async bulkUpdatePositions(floorPlanId: string, positions: UpdateTablePositionRequest[]): Promise<Table[]> { /* implementation omitted */ }
       async assignTable(
         tableId: string,
         floorPlanId: string,

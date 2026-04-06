@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { createApiClient } from "@mbe/api-client";
 import { useAuth } from "@mbe/auth/react";
 import { useVenue } from "../contexts/VenueContext.js";
-import type { Reservation } from "@mbe/types";
+import { toDateString, type Reservation } from "@mbe/types";
 
 export interface DashboardStats {
   totalReservations: number;
@@ -29,7 +29,7 @@ const FALLBACK_STATS: DashboardStats = {
 };
 
 function getTodayString(): string {
-  return new Date().toISOString().split("T")[0];
+  return toDateString(new Date());
 }
 
 function computeUpcoming(reservations: readonly Reservation[]): number {

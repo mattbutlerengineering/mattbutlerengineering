@@ -159,6 +159,7 @@ const mockJWTPayload = {
   email_verified: true,
   name: "Test User",
   picture: "https://example.com/pic.jpg",
+  permissions: ["admin"],
 };
 
 describe("Reservation Routes", () => {
@@ -171,6 +172,10 @@ describe("Reservation Routes", () => {
       AUTH_AUTHORITY: "https://test.auth0.com",
       AUTH_AUDIENCE: "https://api.example.com",
     };
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: mockJWTPayload,
+      protectedHeader: { alg: "RS256" },
+    } as never);
     app = await buildApp({ logger: false });
     await app.ready();
   });
@@ -198,6 +203,7 @@ describe("Reservation Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/reservations",
+        headers: { authorization: "Bearer valid-token" },
       });
 
       expect(response.statusCode).toBe(200);
@@ -223,6 +229,7 @@ describe("Reservation Routes", () => {
       await app.inject({
         method: "GET",
         url: "/api/v1/reservations?date=2026-02-15&status=CONFIRMED&tableId=table-123",
+        headers: { authorization: "Bearer valid-token" },
       });
 
       expect(reservationService.list).toHaveBeenCalledWith({
@@ -285,6 +292,13 @@ describe("Reservation Routes", () => {
 
   describe("GET /v1/reservations/:id", () => {
     it("returns reservation by ID", async () => {
+      // Use admin user so ownership check passes
+      const adminPayload = { ...mockJWTPayload, permissions: ["admin"] };
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: adminPayload,
+        protectedHeader: { alg: "RS256" },
+      } as never);
+
       vi.mocked(reservationService.getById).mockResolvedValueOnce(
         mockReservation
       );
@@ -292,6 +306,7 @@ describe("Reservation Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/reservations/res-123",
+        headers: { authorization: "Bearer valid-token" },
       });
 
       expect(response.statusCode).toBe(200);
@@ -301,11 +316,18 @@ describe("Reservation Routes", () => {
     });
 
     it("returns 404 when reservation not found", async () => {
+      const adminPayload = { ...mockJWTPayload, permissions: ["admin"] };
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: adminPayload,
+        protectedHeader: { alg: "RS256" },
+      } as never);
+
       vi.mocked(reservationService.getById).mockResolvedValueOnce(null);
 
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/reservations/nonexistent",
+        headers: { authorization: "Bearer valid-token" },
       });
 
       expect(response.statusCode).toBe(404);

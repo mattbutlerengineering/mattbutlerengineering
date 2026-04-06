@@ -119,6 +119,17 @@ export function useGenStream({
             try {
               const parsed = JSON.parse(trimmed) as Record<string, unknown>;
 
+              // CONTENT-01: Sanitize element props to prevent XSS
+              if (parsed.props && typeof parsed.props === "object") {
+                const props = parsed.props as Record<string, unknown>;
+                for (const key of Object.keys(props)) {
+                  // Block dangerous event handlers and internal React props
+                  if (key.startsWith("on") || key === "dangerouslySetInnerHTML" || key === "ref") {
+                    delete props[key];
+                  }
+                }
+              }
+
               // Treat as a flat element; cast to FlatElement for spec assembly
               accumulatedElements.push(parsed as unknown as FlatElement);
               const updatedSpec = flatToTree([...accumulatedElements]);
@@ -136,6 +147,17 @@ export function useGenStream({
           setRawLines((prev) => [...prev, trimmedBuffer]);
           try {
             const parsed = JSON.parse(trimmedBuffer) as Record<string, unknown>;
+
+            // CONTENT-01: Sanitize element props to prevent XSS
+            if (parsed.props && typeof parsed.props === "object") {
+              const props = parsed.props as Record<string, unknown>;
+              for (const key of Object.keys(props)) {
+                if (key.startsWith("on") || key === "dangerouslySetInnerHTML" || key === "ref") {
+                  delete props[key];
+                }
+              }
+            }
+
             accumulatedElements.push(parsed as unknown as FlatElement);
             const finalSpec = flatToTree([...accumulatedElements]);
             setSpec(finalSpec);

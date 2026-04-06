@@ -23,6 +23,11 @@
       "types": "./src/agent.ts",
       "production": "./dist/agent.js",
       "default": "./src/agent.ts"
+    },
+    "./schema-compat": {
+      "types": "./src/schema-compat.ts",
+      "production": "./dist/schema-compat.js",
+      "default": "./src/schema-compat.ts"
     }
   },
   "scripts": {
