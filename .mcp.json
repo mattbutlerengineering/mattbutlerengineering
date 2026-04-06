@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "langfuse": {
+      "command": "npx",
+      "args": ["mcp-server-langfuse"],
+      "env": {
+        "LANGFUSE_PUBLIC_KEY": "",
+        "LANGFUSE_SECRET_KEY": "",
+        "LANGFUSE_BASEURL": "https://cloud.langfuse.com"
+      }
+    }
+  }
+}
