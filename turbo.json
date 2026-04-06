@@ -62,6 +62,16 @@
       "outputs": ["coverage/**"],
       "passThroughEnv": ["DATABASE_URL"]
     },
+    "size": {
+      "dependsOn": ["build"],
+      "inputs": ["dist/**"],
+      "cache": false
+    },
+    "size:check": {
+      "dependsOn": ["build"],
+      "inputs": ["dist/**"],
+      "cache": false
+    },
     "clean": {
       "cache": false
     },
