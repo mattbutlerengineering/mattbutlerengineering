@@ -151,6 +151,12 @@ jobs:
 
       - name: Create health alert issue
         if: steps.health.outputs.status != 'healthy' && steps.existing.outputs.count == '0'
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: docs/runbooks
+
+      - name: Create health alert issue (cont.)
+        if: steps.health.outputs.status != 'healthy' && steps.existing.outputs.count == '0'
         env:
           GH_TOKEN: ${{ github.token }}
           HEALTH_STATUS: ${{ steps.health.outputs.status }}
@@ -166,39 +172,59 @@ jobs:
           DEPLOY_STATUS=$(echo "$HEALTH_RESPONSE" | jq -r '.subsystems.deploys.status')
 
           SUMMARY=""
+          RUNBOOKS=""
+
           if [ -n "$FAILED_SERVICES" ]; then
             SUMMARY="${SUMMARY}Services down: ${FAILED_SERVICES}. "
+            if [ -f docs/runbooks/services-unhealthy.md ]; then
+              RUNBOOKS="${RUNBOOKS}$(cat docs/runbooks/services-unhealthy.md)
+
+"
+            fi
           fi
           if [ -n "$FAILED_SITES" ]; then
             SUMMARY="${SUMMARY}Static sites down: ${FAILED_SITES}. "
+            if [ -f docs/runbooks/static-sites-unhealthy.md ]; then
+              RUNBOOKS="${RUNBOOKS}$(cat docs/runbooks/static-sites-unhealthy.md)
+
+"
+            fi
           fi
           if [ "$CI_STATUS" != "healthy" ]; then
             SUMMARY="${SUMMARY}CI: ${CI_STATUS}. "
+            if [ -f docs/runbooks/ci-unhealthy.md ]; then
+              RUNBOOKS="${RUNBOOKS}$(cat docs/runbooks/ci-unhealthy.md)
+
+"
+            fi
           fi
           if [ "$DEPLOY_STATUS" != "healthy" ]; then
             SUMMARY="${SUMMARY}Deploys: ${DEPLOY_STATUS}. "
+            if [ -f docs/runbooks/deploys-unhealthy.md ]; then
+              RUNBOOKS="${RUNBOOKS}$(cat docs/runbooks/deploys-unhealthy.md)
+
+"
+            fi
           fi
 
           TITLE="System health ${HEALTH_STATUS}: ${SUMMARY}"
-          # Truncate title to 256 chars
           TITLE="${TITLE:0:256}"
+          DETECTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-          BODY=$(cat <<'BODY_EOF'
-          ## System Health Alert
+          BODY="## System Health Alert
 
-          **Status:** `PLACEHOLDER_STATUS`
-          **Detected:** PLACEHOLDER_TIME
-          **Source:** Synthetic monitoring (twice daily)
+**Status:** \`${HEALTH_STATUS}\`
+**Detected:** ${DETECTED}
+**Source:** Synthetic monitoring (twice daily)
 
-          ### Resolution
+To check current status: \`curl -s https://mattbutlerengineering.com/health/system | jq .\`
 
-          This issue was auto-created by synthetic monitoring. It will be picked up by the ship-loop or issue-worker.
+---
 
-          To check current status: `curl -s https://mattbutlerengineering.com/health/system | jq .`
-          BODY_EOF
-          )
-          BODY="${BODY//PLACEHOLDER_STATUS/$HEALTH_STATUS}"
-          BODY="${BODY//PLACEHOLDER_TIME/$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
+${RUNBOOKS}
+
+---
+*This issue was auto-created by synthetic monitoring. It will be picked up by the ship-loop or issue-worker.*"
 
           gh issue create \
             --repo "$GITHUB_REPOSITORY" \
