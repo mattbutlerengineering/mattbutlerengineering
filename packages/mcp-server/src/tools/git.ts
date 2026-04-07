@@ -11,7 +11,9 @@ export async function gitWorkflowStatus(): Promise<string> {
       const run = execSync("gh run list --branch main --limit 1 --json conclusion", { encoding: "utf-8" });
       const result = JSON.parse(run);
       ciStatus = result[0]?.conclusion || "unknown";
-    } catch {}
+    } catch {
+      // gh CLI not available or failed - ciStatus remains "unknown"
+    }
 
     return JSON.stringify({
       currentBranch: branch,

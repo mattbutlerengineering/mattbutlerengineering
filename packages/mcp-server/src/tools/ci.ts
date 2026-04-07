@@ -1,7 +1,5 @@
 import { execSync } from "node:child_process";
 
-const WORKFLOWS = ["CI", "Deploy Services", "Deploy Static", "Secret Scan"];
-
 export async function ciRunStatus(): Promise<string> {
   try {
     const output = execSync(`gh run list --limit 10 --json name,status,conclusion,workflowName`, {
