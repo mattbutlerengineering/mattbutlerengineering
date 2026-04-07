@@ -11,6 +11,15 @@ import type {
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 
+function isPrismaNotFound(err: unknown): boolean {
+  return (
+    err !== null &&
+    typeof err === "object" &&
+    "code" in err &&
+    (err as { code: string }).code === "P2025"
+  );
+}
+
 type PrismaFloorPlan = {
   id: string;
   venueId: string;
@@ -152,8 +161,9 @@ export const floorPlanService = {
         include: { tables: true },
       });
       return mapPrismaFloorPlan(floorPlan);
-    } catch {
-      return null;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return null;
+      throw err;
     }
   },
 
@@ -166,28 +176,34 @@ export const floorPlanService = {
       });
       await prisma.floorPlan.delete({ where: { id } });
       return true;
-    } catch {
-      return false;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return false;
+      throw err;
     }
   },
 
   async setActive(id: string, venueId: string): Promise<FloorPlan | null> {
     try {
-      // Deactivate all other floor plans for this venue
-      await prisma.floorPlan.updateMany({
-        where: { venueId, isActive: true },
-        data: { isActive: false },
-      });
+      // Wrap both writes in a transaction so a crash between them
+      // cannot leave the venue with no active floor plan
+      const floorPlan = await prisma.$transaction(async (tx) => {
+        // Deactivate all other floor plans for this venue
+        await tx.floorPlan.updateMany({
+          where: { venueId, isActive: true },
+          data: { isActive: false },
+        });
 
-      // Activate the specified floor plan
-      const floorPlan = await prisma.floorPlan.update({
-        where: { id },
-        data: { isActive: true },
-        include: { tables: true },
+        // Activate the specified floor plan
+        return tx.floorPlan.update({
+          where: { id },
+          data: { isActive: true },
+          include: { tables: true },
+        });
       });
       return mapPrismaFloorPlan(floorPlan);
-    } catch {
-      return null;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return null;
+      throw err;
     }
   },
 
@@ -201,8 +217,9 @@ export const floorPlanService = {
         data: { shapeMetadata: shapeMetadata as unknown as Prisma.InputJsonValue },
       });
       return mapPrismaTable(table);
-    } catch {
-      return null;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return null;
+      throw err;
     }
   },
 
@@ -240,8 +257,9 @@ export const floorPlanService = {
         },
       });
       return mapPrismaTable(table);
-    } catch {
-      return null;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return null;
+      throw err;
     }
   },
 
@@ -255,8 +273,9 @@ export const floorPlanService = {
         },
       });
       return mapPrismaTable(table);
-    } catch {
-      return null;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return null;
+      throw err;
     }
   },
 };

@@ -10525,12 +10525,13 @@ export namespace Prisma {
 
   export type VenueWhereUniqueInput = Prisma.AtLeast<{
     id?: string
-    slug?: string
+    venueGroupId_slug?: VenueVenueGroupIdSlugCompoundUniqueInput
     AND?: VenueWhereInput | VenueWhereInput[]
     OR?: VenueWhereInput[]
     NOT?: VenueWhereInput | VenueWhereInput[]
     venueGroupId?: StringNullableFilter<"Venue"> | string | null
     name?: StringFilter<"Venue"> | string
+    slug?: StringFilter<"Venue"> | string
     ianaTimezone?: StringFilter<"Venue"> | string
     currencyCode?: StringFilter<"Venue"> | string
     operatingHours?: JsonNullableFilter<"Venue">
@@ -10543,7 +10544,7 @@ export namespace Prisma {
     guests?: GuestListRelationFilter
     floorPlans?: FloorPlanListRelationFilter
     holds?: ReservationHoldListRelationFilter
-  }, "id" | "slug">
+  }, "id" | "venueGroupId_slug">
 
   export type VenueOrderByWithAggregationInput = {
     id?: SortOrder
@@ -10694,10 +10695,11 @@ export namespace Prisma {
 
   export type TableWhereUniqueInput = Prisma.AtLeast<{
     id?: string
-    name?: string
+    venueId_name?: TableVenueIdNameCompoundUniqueInput
     AND?: TableWhereInput | TableWhereInput[]
     OR?: TableWhereInput[]
     NOT?: TableWhereInput | TableWhereInput[]
+    name?: StringFilter<"Table"> | string
     tableNumber?: StringNullableFilter<"Table"> | string | null
     capacity?: IntFilter<"Table"> | number
     minCovers?: IntFilter<"Table"> | number
@@ -10715,7 +10717,7 @@ export namespace Prisma {
     floorPlan?: XOR<FloorPlanNullableScalarRelationFilter, FloorPlanWhereInput> | null
     reservations?: ReservationListRelationFilter
     holds?: ReservationHoldListRelationFilter
-  }, "id" | "name">
+  }, "id" | "venueId_name">
 
   export type TableOrderByWithAggregationInput = {
     id?: SortOrder
@@ -12001,6 +12003,11 @@ export namespace Prisma {
     _count?: SortOrder
   }
 
+  export type VenueVenueGroupIdSlugCompoundUniqueInput = {
+    venueGroupId: string
+    slug: string
+  }
+
   export type VenueCountOrderByAggregateInput = {
     id?: SortOrder
     venueGroupId?: SortOrder
@@ -12186,6 +12193,11 @@ export namespace Prisma {
   export type FloorPlanNullableScalarRelationFilter = {
     is?: FloorPlanWhereInput | null
     isNot?: FloorPlanWhereInput | null
+  }
+
+  export type TableVenueIdNameCompoundUniqueInput = {
+    venueId: string
+    name: string
   }
 
   export type TableCountOrderByAggregateInput = {

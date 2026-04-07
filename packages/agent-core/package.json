@@ -19,15 +19,17 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.1.0",
+    "@anthropic-ai/claude-agent-sdk": "^0.2.92",
+    "@langfuse/tracing": "^5.0.2",
     "@mbe/types": "workspace:*",
+    "@opentelemetry/api": "^1.9.1",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@mbe/config": "workspace:*",
-    "@types/node": "^22.0.0",
-    "@vitest/coverage-v8": "^4.0.18",
-    "typescript": "^5.9.3",
-    "vitest": "^4.0.18"
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

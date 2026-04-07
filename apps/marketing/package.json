@@ -8,21 +8,40 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint src/",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:a11y": "playwright test --config playwright.config.ts e2e/a11y.test.ts",
+    "size": "size-limit",
+    "size:check": "size-limit"
   },
+  "size-limit": [
+    {
+      "name": "Marketing App (JS)",
+      "path": "dist/assets/index-*.js",
+      "limit": "750 kB"
+    },
+    {
+      "name": "Marketing App (CSS)",
+      "path": "dist/assets/index-*.css",
+      "limit": "50 kB"
+    }
+  ],
   "dependencies": {
     "@mbe/rialto": "workspace:*",
-    "framer-motion": "^12.36.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-router-dom": "^7.1.0"
+    "@mbe/sentry": "workspace:^",
+    "framer-motion": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "react-router-dom": "catalog:"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.1",
     "@mbe/config": "workspace:*",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "@vitejs/plugin-react": "^5.0.0",
-    "typescript": "^5.9.3",
-    "vite": "^7.0.0"
+    "@playwright/test": "^1.59.1",
+    "@sentry/vite-plugin": "^5.1.1",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:"
   }
 }

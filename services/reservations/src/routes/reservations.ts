@@ -9,6 +9,7 @@ import type {
   ApiError,
   PaginatedResponse,
 } from "@mbe/types";
+import { createProblemDetails } from "@mbe/types";
 import { requireAuth, optionalAuth } from "@mbe/auth/fastify";
 import { reservationService } from "../services/reservation.js";
 import { emitReservationCancelled, emitReservationCreated, emitTableUpdated } from "../services/events.js";
@@ -29,6 +30,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
+      preHandler: requireAuth,
       schema: {
         summary: "List reservations",
         operationId: "listReservations",
@@ -87,7 +89,14 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request) => {
+    async (request, reply) => {
+      const authUser = request.user;
+      const isAdmin = authUser?.raw?.permissions?.includes("admin") ?? false;
+      
+      if (!isAdmin) {
+        return reply.code(403).send(createProblemDetails(403, "Forbidden", "Admin access required to list all reservations"));
+      }
+
       const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
       const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "10", 10) || 10));
       return reservationService.list({
@@ -157,11 +166,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const authUser = request.user;
       if (!authUser) {
-        return reply.code(401).send({
-          error: "Unauthorized",
-          message: "Authentication required",
-          statusCode: 401,
-        });
+        return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Authentication required"));
       }
 
       const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
@@ -226,6 +231,10 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
             description: "Authentication required",
             $ref: "Error#",
           },
+          409: {
+            description: "Table is not available",
+            $ref: "Error#",
+          },
           500: {
             description: "Internal server error",
             $ref: "Error#",
@@ -235,13 +244,16 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request, reply) => {
       const userId = request.user?.id;
-      const reservation = await reservationService.createWalkIn(request.body, userId);
+      const result = await reservationService.createWalkIn(request.body, userId);
+      if (!result.success || !result.reservation) {
+        return reply.code(409).send(createProblemDetails(409, "Conflict", result.error ?? "Table is not available"));
+      }
       const updatedTable = await tableService.updateStatus(request.body.tableId, "OCCUPIED");
-      emitReservationCreated(reservation);
+      emitReservationCreated(result.reservation);
       if (updatedTable) {
         emitTableUpdated(updatedTable);
       }
-      return reply.code(201).send({ data: reservation });
+      return reply.code(201).send({ data: result.reservation });
     }
   );
 
@@ -252,6 +264,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
+      preHandler: requireAuth,
       schema: {
         summary: "Get reservation by ID",
         operationId: "getReservationById",
@@ -289,12 +302,17 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const reservation = await reservationService.getById(request.params.id);
       if (!reservation) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "Reservation not found",
-          statusCode: 404,
-        });
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Reservation not found"));
       }
+      
+      const authUser = request.user;
+      const isAdmin = authUser?.raw?.permissions?.includes("admin") ?? false;
+      const isOwner = reservation.guestEmail === authUser?.email;
+      
+      if (!isAdmin && !isOwner) {
+        return reply.code(403).send(createProblemDetails(403, "Forbidden", "You can only view your own reservations"));
+      }
+      
       return { data: reservation };
     }
   );
@@ -307,6 +325,12 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
     "/",
     {
       preHandler: optionalAuth,
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: "1 minute",
+        },
+      },
       schema: {
         summary: "Create a new reservation",
         operationId: "createReservation",
@@ -397,11 +421,8 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
 
       if (!result.success) {
         const statusCode = result.conflict?.hasConflict ? 409 : 400;
-        return reply.code(statusCode).send({
-          error: statusCode === 409 ? "Conflict" : "Bad Request",
-          message: result.error ?? "Failed to create reservation",
-          statusCode,
-        });
+        const title = statusCode === 409 ? "Conflict" : "Bad Request";
+        return reply.code(statusCode).send(createProblemDetails(statusCode, title, result.error ?? "Failed to create reservation"));
       }
 
       return reply.code(201).send({ data: result.reservation! });
@@ -416,6 +437,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
+      preHandler: requireAuth,
       schema: {
         summary: "Update a reservation",
         operationId: "updateReservation",
@@ -507,6 +529,19 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
+      const reservation = await reservationService.getById(request.params.id);
+      if (!reservation) {
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Reservation not found"));
+      }
+
+      const authUser = request.user;
+      const isAdmin = authUser?.raw?.permissions?.includes("admin") ?? false;
+      const isOwner = authUser?.email && reservation.guestEmail === authUser.email;
+
+      if (!isAdmin && !isOwner) {
+        return reply.code(403).send(createProblemDetails(403, "Forbidden", "You can only update your own reservations"));
+      }
+
       if (request.body.status === "CANCELLED") {
         const reservation = await reservationService.cancel(
           request.params.id,
@@ -515,11 +550,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         );
 
         if (!reservation) {
-          return reply.code(404).send({
-            error: "Not Found",
-            message: "Reservation not found",
-            statusCode: 404,
-          });
+          return reply.code(404).send(createProblemDetails(404, "Not Found", "Reservation not found"));
         }
 
         emitReservationCancelled(reservation);
@@ -533,26 +564,14 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
 
       if (!result.success) {
         if (result.error === "Reservation not found") {
-          return reply.code(404).send({
-            error: "Not Found",
-            message: "Reservation not found",
-            statusCode: 404,
-          });
+          return reply.code(404).send(createProblemDetails(404, "Not Found", "Reservation not found"));
         }
 
         if (result.conflict?.hasConflict) {
-          return reply.code(409).send({
-            error: "Conflict",
-            message: result.error ?? "Time slot has a conflict",
-            statusCode: 409,
-          });
+          return reply.code(409).send(createProblemDetails(409, "Conflict", result.error ?? "Time slot has a conflict"));
         }
 
-        return reply.code(400).send({
-          error: "Bad Request",
-          message: result.error ?? "Failed to update reservation",
-          statusCode: 400,
-        });
+        return reply.code(400).send(createProblemDetails(400, "Bad Request", result.error ?? "Failed to update reservation"));
       }
 
       return { data: result.reservation! };
@@ -566,6 +585,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
+      preHandler: requireAuth,
       schema: {
         summary: "Cancel a reservation",
         operationId: "cancelReservation",
@@ -602,15 +622,24 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const reservation = await reservationService.cancel(request.params.id);
+      const reservation = await reservationService.getById(request.params.id);
       if (!reservation) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "Reservation not found",
-          statusCode: 404,
-        });
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Reservation not found"));
       }
-      return { data: reservation };
+
+      const authUser = request.user;
+      const isAdmin = authUser?.raw?.permissions?.includes("admin") ?? false;
+      const isOwner = authUser?.email && reservation.guestEmail === authUser.email;
+
+      if (!isAdmin && !isOwner) {
+        return reply.code(403).send(createProblemDetails(403, "Forbidden", "You can only cancel your own reservations"));
+      }
+
+      const cancelled = await reservationService.cancel(request.params.id);
+      if (!cancelled) {
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Reservation not found"));
+      }
+      return { data: cancelled };
     }
   );
 };

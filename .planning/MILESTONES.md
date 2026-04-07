@@ -1,5 +1,14 @@
 # Milestones
 
+## v1.6 Continuous Verification & DevEx (Shipped: 2026-04-05)
+
+**Phases completed:** 0 phases, 0 plans, 0 tasks
+
+**Key accomplishments:**
+- (none recorded)
+
+---
+
 ## v1.2 Generative UI (Shipped: 2026-03-28)
 
 **Delivered:** AI-powered interface generation using Rialto components — from natural language prompts to rendered, interactive UIs via a standalone playground at /gen and an embedded copilot in the hospitality app.

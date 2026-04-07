@@ -136,3 +136,99 @@ export async function hasChanges(worktreePath: string): Promise<boolean> {
   const status = await git(["status", "--porcelain"], worktreePath);
   return status.length > 0;
 }
+
+export interface VerificationResult {
+  passed: boolean;
+  lintOk: boolean;
+  typecheckOk: boolean;
+  testsOk: boolean;
+  lintOutput?: string;
+  typecheckOutput?: string;
+  testOutput?: string;
+}
+
+/**
+ * Ensure pnpm-lock.yaml is in sync with any package.json changes.
+ * If out of sync, runs `pnpm install` and amends the commit to include the lockfile.
+ */
+async function syncLockfileIfNeeded(worktreePath: string): Promise<void> {
+  try {
+    await execFileAsync("pnpm", ["install", "--frozen-lockfile"], {
+      cwd: worktreePath,
+      timeout: 60_000,
+    });
+  } catch {
+    // Lockfile out of sync — regenerate and amend the commit
+    await execFileAsync("pnpm", ["install"], {
+      cwd: worktreePath,
+      timeout: 60_000,
+    });
+    await git(["add", "pnpm-lock.yaml"], worktreePath);
+    await git(["commit", "--amend", "--no-edit"], worktreePath);
+  }
+}
+
+/**
+ * Run lint, typecheck, and tests in a worktree to verify changes before creating a PR.
+ * Uses Turborepo's `--filter=...[HEAD~1]` to only check affected packages.
+ * All three must pass for verification to succeed.
+ */
+export async function runVerification(worktreePath: string): Promise<VerificationResult> {
+  // Ensure lockfile is in sync before running checks
+  await syncLockfileIfNeeded(worktreePath);
+  let lintOk = false;
+  let typecheckOk = false;
+  let testsOk = false;
+  let lintOutput: string;
+  let typecheckOutput: string;
+  let testOutput: string;
+
+  try {
+    const { stdout, stderr } = await execFileAsync(
+      "pnpm",
+      ["turbo", "lint", "--filter=...[HEAD~1]"],
+      { cwd: worktreePath, timeout: 120_000 }
+    );
+    lintOk = true;
+    lintOutput = (stdout + stderr).slice(-500);
+  } catch (err: unknown) {
+    const e = err as { stdout?: string; stderr?: string };
+    lintOutput = ((e.stdout ?? "") + (e.stderr ?? "")).slice(-500);
+  }
+
+  try {
+    const { stdout, stderr } = await execFileAsync(
+      "pnpm",
+      ["turbo", "typecheck", "--filter=...[HEAD~1]"],
+      { cwd: worktreePath, timeout: 120_000 }
+    );
+    typecheckOk = true;
+    typecheckOutput = (stdout + stderr).slice(-500);
+  } catch (err: unknown) {
+    const e = err as { stdout?: string; stderr?: string };
+    typecheckOutput = ((e.stdout ?? "") + (e.stderr ?? "")).slice(-500);
+  }
+
+  try {
+    const { stdout, stderr } = await execFileAsync(
+      "pnpm",
+      ["turbo", "test", "--filter=...[HEAD~1]"],
+      { cwd: worktreePath, timeout: 180_000 }
+    );
+    testsOk = true;
+    testOutput = (stdout + stderr).slice(-500);
+  } catch (err: unknown) {
+    const e = err as { stdout?: string; stderr?: string };
+    testOutput = ((e.stdout ?? "") + (e.stderr ?? "")).slice(-500);
+  }
+
+  return {
+    passed: lintOk && typecheckOk && testsOk,
+    lintOk,
+    typecheckOk,
+    testsOk,
+    lintOutput,
+    typecheckOutput,
+    testOutput,
+  };
+}

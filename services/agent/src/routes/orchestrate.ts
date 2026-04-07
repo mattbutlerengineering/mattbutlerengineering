@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { ApiResponse, ApiError } from "@mbe/types";
 import type { OrchestratorResult } from "@mbe/agent-core";
+import { requireAuth } from "@mbe/auth/fastify";
 import { runOrchestrator, DEFAULT_ORCHESTRATOR_CONFIG } from "@mbe/agent-core";
 import { sessionService } from "../services/session.js";
 
@@ -31,6 +32,7 @@ export const orchestrateRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
+      preHandler: [requireAuth],
       schema: {
         summary: "Orchestrate a complex task",
         operationId: "orchestrateTask",

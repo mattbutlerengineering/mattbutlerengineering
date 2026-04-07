@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
-import type { ApiError } from "@mbe/types";
+import { type ApiError, createProblemDetails } from "@mbe/types";
+import { requireAuth } from "@mbe/auth/fastify";
 import { sessionService } from "../services/session.js";
 
 const SSE_POLL_INTERVAL_MS = 1000;
@@ -12,6 +13,7 @@ export const sessionEventsRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id/events",
     {
+      preHandler: [requireAuth],
       schema: {
         summary: "Stream session events (SSE)",
         operationId: "streamSessionEvents",
@@ -36,11 +38,7 @@ export const sessionEventsRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const session = await sessionService.getById(request.params.id);
       if (!session) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "Session not found",
-          statusCode: 404,
-        });
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Session not found"));
       }
 
       reply.raw.writeHead(200, {

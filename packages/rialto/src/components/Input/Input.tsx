@@ -73,7 +73,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           )}
           <div className={styles.inputContainer}>
             {startIcon && (
-              <span className={styles.startIcon} aria-hidden>
+              <span className={styles.startIcon}>
                 {startIcon}
               </span>
             )}
@@ -81,15 +81,15 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               ref={ref}
               id={inputId}
               className={inputClass}
-              aria-disabled={disabled || undefined}
+              disabled={disabled || undefined}
               aria-invalid={error || undefined}
               aria-describedby={hint ? `${inputId}-hint` : undefined}
               required={required}
-              readOnly={disabled || readOnly}
+              readOnly={readOnly}
               {...props}
             />
             {endIcon && (
-              <span className={styles.endIcon} aria-hidden>
+              <span className={styles.endIcon}>
                 {endIcon}
               </span>
             )}

@@ -1,22 +1,144 @@
-# AGENTS.md - Development Guidelines for AI Coding Agents
+# AGENTS.md - Core Development Guidelines for AI Coding Agents
 
-> **For Claude Code users**: The primary source of truth is [CLAUDE.md](./CLAUDE.md), which is auto-loaded into every session.
->
-> This file exists as an alias for non-Claude AI tools (Cursor, GitHub Copilot, etc.) that look for AGENTS.md. Both files contain identical guidelines.
+> This file is the primary source of project context for all AI agents (Gemini, Claude, Cursor, etc.).
+> For tool-specific mandates, see [CLAUDE.md](./CLAUDE.md) or [GEMINI.md](./GEMINI.md).
 
-Please refer to [CLAUDE.md](./CLAUDE.md) for complete documentation on:
-- Build/lint/test commands
-- Code style guidelines
-- Testing patterns
-- API development conventions
-- Local development setup
-- Project architecture
-- Continuous improvement loop (skills, labels, RemoteTriggers)
+## Project Identity
+- **Name:** mattbutlerengineering
+- **Type:** Monorepo (Turborepo + pnpm)
+- **Package Prefix:** `@mbe/`
+- **External Prefix:** `mattbutlerengineering-` (for Auth0, DigitalOcean, DBs)
 
-## Package-Level Context
+## Project Structure
+- `apps/` — Frontend React (Vite) applications: `marketing` (/), `hospitality` (/hospitality), `rialto-web` (/rialto), `gen` (/gen).
+- `services/` — Backend Fastify/Node APIs: `users` (3001), `agent` (3003), `reservations` (3004).
+- `packages/` — Shared libraries: `rialto` (Design System), `api-client`, `types`, `auth`, `config`.
+- `infrastructure/` — Pulumi (IaC) and Docker configuration.
+- `tools/` — Developer CLI (`mbe`).
 
-Each service/package has its own CLAUDE.md with domain-specific context:
-- `services/users/CLAUDE.md` — User model, auth, env vars
-- `services/agent/CLAUDE.md` — Agent sessions, SSE streaming, orchestration
-- `services/reservations/CLAUDE.md` — Venues, tables, reservations
-- `packages/rialto/CLAUDE.md` — Design system tokens, component APIs
+## Core Commands (Root Level)
+```bash
+pnpm dev:local      # Start DB + sync + all dev servers
+pnpm dev            # Start all dev servers
+pnpm build          # Turbo build all
+pnpm test           # Run all Vitest suites
+pnpm lint           # Run ESLint across workspace
+pnpm typecheck      # Run tsc across workspace
+pnpm clean          # Wipe artifacts and node_modules
+```
+
+## Development Flow with Metrics & Continuous Improvement
+
+### Ship Loop (Recommended)
+Run the full automated improvement cycle locally:
+```bash
+mbe ship-loop          # Run 5-minute improvement cycle
+mbe ship-loop --mode aggressive  # Direct push to main (skip PR review)
+```
+
+This runs: audit site → fix issues → push → verify CI → deploy → close.
+
+### Progress Tracking
+Track engineering velocity and health metrics:
+```bash
+mbe stats            # Query GitHub for metrics and agent performance
+mbe stats --report   # Show detailed reports
+```
+
+### Issue Worker (Autonomous)
+Pick up ready issues and implement them:
+```bash
+mbe issue-worker       # Pick up oldest ready issue
+mbe issue-worker --label security  # Filter by label
+```
+
+### Site Audit
+Audit the live site for issues:
+```bash
+mbe site-audit smoke   # Quick regression check
+mbe site-audit sweep   # Weekly full audit
+mbe site-audit scout   # Monthly improvement suggestions
+```
+
+### CI Monitor
+Monitor CI status and auto-fix failures:
+```bash
+mbe ci-monitor        # Check main branch CI
+mbe ci-monitor --fix  # Auto-fix simple failures
+```
+
+---
+
+## Architecture & Conventions
+
+### Routing & URLs
+- Served via Cloudflare Worker `edge-router` at `mattbutlerengineering.com`.
+- Apps use path-prefix routing (e.g., `apps/foo` -> `/foo`).
+- API services at `api.mattbutlerengineering.com` (DO App Platform).
+
+### Auth0 Configuration
+- Domain: `dev-ytbgmz5ls3wh4xdx.us.auth0.com`
+- API Identifier: `https://api.mattbutlerengineering.com`
+
+### Deployment
+- Static sites (`apps/*`): `wrangler deploy` to Workers Static Assets.
+- API Services (`services/*`): DO App Platform via `doctl`.
+- Infrastructure: Pulumi (TypeScript).
+
+### Code Style
+- **Components:** Functional React + Hooks.
+- **Styling:** CSS Modules with Rialto tokens (`var(--rialto-*)`). **No Tailwind.**
+- **Imports:** Explicit extensions (`.js/.ts`), `import type` for types.
+- **Naming:** kebab-case for files, camelCase for functions/vars, PascalCase for types.
+
+### API Development
+- **Standardized Errors:** Use RFC 7807 (Problem Details).
+- **Validation:** Strict Zod schema enforcement on all service boundaries.
+- **Fastify:** Route structure with shared JSON schemas.
+
+### Database (Prisma)
+- Use `pnpm db:migrate` (prod) or `pnpm db:push` (proto).
+- Migrations must be version-controlled in `prisma/migrations/`.
+## Testing & Validation
+- **Framework:** Vitest.
+- **Patterns:** `*.test.ts` for unit/integration.
+- **Mandate:** All logic changes must be verified via automated tests.
+- **UI:** Playwright for E2E and visual regression.
+## Model Governance
+To ensure cost-efficiency and technical integrity, follow this model tiering strategy:
+- **Tier 1: Haiku / Gemini Flash** - Lightweight chores, linting, dependency bumps, typos (< $0.05).
+- **Tier 2: Sonnet / Gemini Pro** - Standard features, refactors, unit tests, logic fixes ($0.05 - $0.50).
+- **Tier 3: Opus / Gemini Ultra** - Architectural design, complex migrations, cross-cutting system changes (>$0.50).
+
+Use `mbe check-model "<directive>"` to verify the recommended tier before starting high-complexity work.
+
+## Performance Infrastructure
+The monorepo uses Turborepo for orchestration and caching. To maximize velocity:
+- **Remote Caching:** Configured via Vercel Remote Cache. See [docs/TURBO.md](docs/TURBO.md) for setup instructions. CI authenticates automatically using `TURBO_TOKEN` and `TURBO_TEAM` variables.
+- **Selective Typechecking:** Use `pnpm turbo typecheck --filter='...[HEAD]'` to only check packages affected by current changes.
+- **Autonomous Refresh:** The `post-commit` hook automatically runs `mbe pack` to keep AI context skeletons (`llms.txt`) updated.
+
+## RIPER Workflow
+To maintain high-velocity engineering without sacrificing quality, agents follow the **RIPER** (Research, Innovate, Plan, Execute, Review) cycle:
+
+1.  **Research:** Explore the codebase, identify root causes, and gather requirements. **No file edits.**
+    - **JIT Priming:** At the start of this phase, run `mbe prime "<directive>"` to ensure all relevant directories have fresh `llms.txt` context skeletons.
+2.  **Innovate:** Brainstorm multiple approaches, evaluate trade-offs, and select the optimal path.
+...
+3.  **Plan:** Create a detailed implementation plan (e.g., `.planning/quick/TASK-PLAN.md`) including file changes and verification steps.
+4.  **Execute:** Implement the approved plan using **Silent TDD Mode**. Break work into 5-minute micro-tasks.
+5.  **Review:** Run tests, linting, and typechecks. Perform a self-review of the changes against the plan.
+
+Agents must signal their current phase using the following tokens:
+- `<riper:research>`
+- `<riper:innovate>`
+- `<riper:plan>`
+- `<riper:execute>`
+- `<riper:review>`
+
+## AI Context Catalog
+...
+- `llms.txt` — Rialto component catalog (UI patterns).
+- `llms-full.txt` — Detailed prop tables and advanced examples.
+- `GEMINI.md` — Gemini-specific mandates (Silent TDD, Extreme Speed).
+- `CLAUDE.md` — Claude-specific commands and continuous improvement loops.

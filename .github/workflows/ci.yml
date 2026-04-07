@@ -3,64 +3,187 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "*.png"
+      - ".gitignore"
+      - "LICENSE"
   pull_request:
     branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "*.png"
+      - ".gitignore"
+      - "LICENSE"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  lint:
-    name: Lint
+  prepare:
+    name: Prepare
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v5
+      - uses: pnpm/action-setup@v5
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: "pnpm"
 
+      - name: Cache node_modules
+        id: cache-node-modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
+
       - name: Install dependencies
+        if: steps.cache-node-modules.outputs.cache-hit != 'true'
         run: pnpm install --frozen-lockfile
 
-      - name: Generate Prisma client
-        run: pnpm --filter @mbe/users-service db:generate
+      - name: Cache Prisma clients
+        id: cache-prisma
+        uses: actions/cache@v4
+        with:
+          path: |
+            services/users/src/generated
+            services/reservations/src/generated
+            services/agent/src/generated
+          key: prisma-clients-${{ hashFiles('services/users/prisma/schema.prisma', 'services/reservations/prisma/schema.prisma', 'services/agent/prisma/schema.prisma') }}
 
-      - name: Lint
-        run: pnpm lint
+      - name: Generate Prisma clients
+        if: steps.cache-prisma.outputs.cache-hit != 'true'
+        run: |
+          pnpm --filter @mbe/users-service db:generate
+          pnpm --filter @mbe/reservations-service db:generate
+          pnpm --filter @mbe/agent-service db:generate
+
+      - name: Login to Turborepo Remote Cache
+        if: secrets.TURBO_TOKEN != ''
+        env:
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+        run: pnpm turbo login --token "$TURBO_TOKEN"
+
+      - name: Link to Turborepo Remote Cache
+        if: secrets.TURBO_TOKEN != ''
+        env:
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+          TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+        run: pnpm turbo link --team "$TURBO_TEAM" --token "$TURBO_TOKEN"
+
+  hadolint:
+    name: Dockerfile Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: "services/users/Dockerfile"
+
+      - uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: "services/reservations/Dockerfile"
+
+      - uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: "services/agent/Dockerfile"
+
+      - uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: "infrastructure/migrate/Dockerfile"
+
+  trivy:
+    name: Container Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    strategy:
+      matrix:
+        dockerfile:
+          - { path: "services/users/Dockerfile", name: "users" }
+          - { path: "services/reservations/Dockerfile", name: "reservations" }
+          - { path: "services/agent/Dockerfile", name: "agent" }
+          - { path: "infrastructure/migrate/Dockerfile", name: "migrate" }
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: "fs"
+          scan-ref: ${{ matrix.dockerfile.path }}
+          severity: "CRITICAL,HIGH"
+          exit-code: "0"
+          format: "table"
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    needs: [prepare]
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Restore node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - run: pnpm lint
 
   typecheck:
     name: Typecheck
     runs-on: ubuntu-latest
+    needs: [prepare]
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v5
+      - uses: pnpm/action-setup@v5
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: "pnpm"
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Restore node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
 
-      - name: Generate Prisma client
-        run: pnpm --filter @mbe/users-service db:generate
+      - name: Restore Prisma clients
+        uses: actions/cache@v4
+        with:
+          path: |
+            services/users/src/generated
+            services/reservations/src/generated
+            services/agent/src/generated
+          key: prisma-clients-${{ hashFiles('services/users/prisma/schema.prisma', 'services/reservations/prisma/schema.prisma', 'services/agent/prisma/schema.prisma') }}
 
       - name: Typecheck
+        env:
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+          TURBO_TEAM: ${{ vars.TURBO_TEAM }}
         run: pnpm typecheck
 
   build:
@@ -69,26 +192,51 @@ jobs:
     needs: [lint, typecheck]
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v5
+      - uses: pnpm/action-setup@v5
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: "pnpm"
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Restore node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
 
-      - name: Generate Prisma client
-        run: pnpm --filter @mbe/users-service db:generate
+      - name: Restore Prisma clients
+        uses: actions/cache@v4
+        with:
+          path: |
+            services/users/src/generated
+            services/reservations/src/generated
+            services/agent/src/generated
+          key: prisma-clients-${{ hashFiles('services/users/prisma/schema.prisma', 'services/reservations/prisma/schema.prisma', 'services/agent/prisma/schema.prisma') }}
 
       - name: Build all packages
+        env:
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+          TURBO_TEAM: ${{ vars.TURBO_TEAM }}
         run: pnpm build
+
+      - name: Check circular dependencies
+        run: node scripts/check-circular-deps.js
+
+      - name: Check service binding consistency
+        run: node scripts/check-service-bindings.js
+
+      - name: Check env var documentation
+        run: node scripts/check-env-sync.js
+
+      - name: Audit dependencies for vulnerabilities
+        run: |
+          pnpm audit --audit-level=high || { echo "::error::High or Critical vulnerability found"; exit 1; }
+
+      - name: Check Dockerfile dependencies
+        run: node scripts/check-dockerfile-deps.js
 
       - name: Check registry.json is up to date
         run: |
@@ -102,31 +250,49 @@ jobs:
           git diff --exit-code packages/rialto-catalog/src/generated-schemas.ts || \
             (echo "ERROR: generated-schemas.ts is stale. Run 'pnpm --filter @mbe/rialto-catalog generate' locally and commit the result." && exit 1)
 
+      - name: Check dependency graph drift
+        run: |
+          pnpm graph
+          git diff --exit-code docs/architecture/dependency-graph.md || \
+            (echo "ERROR: dependency-graph.md is stale. Run 'pnpm graph' locally and commit the result." && exit 1)
+
+      - name: Check bundle size budgets
+        run: pnpm size:check
+
   test:
     name: Test
     runs-on: ubuntu-latest
     needs: [lint, typecheck]
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v5
+      - uses: pnpm/action-setup@v5
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: "pnpm"
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Restore node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
 
-      - name: Generate Prisma client
-        run: pnpm --filter @mbe/users-service db:generate
+      - name: Restore Prisma clients
+        uses: actions/cache@v4
+        with:
+          path: |
+            services/users/src/generated
+            services/reservations/src/generated
+            services/agent/src/generated
+          key: prisma-clients-${{ hashFiles('services/users/prisma/schema.prisma', 'services/reservations/prisma/schema.prisma', 'services/agent/prisma/schema.prisma') }}
 
       - name: Run tests with coverage
+        env:
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+          TURBO_TEAM: ${{ vars.TURBO_TEAM }}
         run: pnpm turbo test:coverage
 
       - name: Upload coverage reports
@@ -157,27 +323,95 @@ jobs:
           - 5432:5432
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v5
+      - uses: pnpm/action-setup@v5
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: "pnpm"
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Restore node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
 
-      - name: Apply migrations
+      - name: Restore Prisma clients
+        uses: actions/cache@v4
+        with:
+          path: |
+            services/users/src/generated
+            services/reservations/src/generated
+            services/agent/src/generated
+          key: prisma-clients-${{ hashFiles('services/users/prisma/schema.prisma', 'services/reservations/prisma/schema.prisma', 'services/agent/prisma/schema.prisma') }}
+
+      - name: Check for destructive migrations
+        run: node scripts/check-destructive-migrations.js
+
+      - name: Apply migrations (users)
         run: pnpm --filter @mbe/users-service db:migrate:deploy
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/test
 
-      - name: Verify schema is in sync
-        run: pnpm --filter @mbe/users-service db:migrate:status
+      - name: Apply migrations (reservations)
+        run: pnpm --filter @mbe/reservations-service db:migrate:deploy
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/test
+
+      - name: Apply migrations (agent)
+        run: pnpm --filter @mbe/agent-service db:migrate:deploy
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
+
+      - name: Verify schema is in sync
+        run: |
+          pnpm --filter @mbe/users-service db:migrate:status
+          pnpm --filter @mbe/reservations-service db:migrate:status
+          pnpm --filter @mbe/agent-service db:migrate:status
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
+
+  report-health:
+    name: Report CI Health
+    needs: [lint, typecheck, build, test, migrations]
+    if: always() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Write CI status to KV
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
+          KV_NS_ID: ${{ secrets.HEALTH_KV_NAMESPACE_ID }}
+          GH_RUN_ID: ${{ github.run_id }}
+          GH_REF_NAME: ${{ github.ref_name }}
+          GH_SHA: ${{ github.sha }}
+          LINT_RESULT: ${{ needs.lint.result }}
+          TYPECHECK_RESULT: ${{ needs.typecheck.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+          MIGRATIONS_RESULT: ${{ needs.migrations.result }}
+        run: |
+          CONCLUSION="success"
+          for RESULT in "$LINT_RESULT" "$TYPECHECK_RESULT" "$BUILD_RESULT" "$TEST_RESULT" "$MIGRATIONS_RESULT"; do
+            if [ "$RESULT" = "failure" ]; then
+              CONCLUSION="failure"
+              break
+            elif [ "$RESULT" = "cancelled" ]; then
+              CONCLUSION="cancelled"
+            fi
+          done
+          PAYLOAD=$(jq -n \
+            --argjson id "$GH_RUN_ID" \
+            --arg conclusion "$CONCLUSION" \
+            --arg branch "$GH_REF_NAME" \
+            --arg sha "$GH_SHA" \
+            --arg updated_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{id: $id, conclusion: $conclusion, branch: $branch, sha: $sha, updated_at: $updated_at}')
+          curl -sf -X PUT \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/values/ci%2Flatest" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD"

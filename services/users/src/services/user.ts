@@ -8,6 +8,15 @@ import type {
 } from "@mbe/types";
 import { prisma } from "./database.js";
 
+function isPrismaNotFound(err: unknown): boolean {
+  return (
+    err !== null &&
+    typeof err === "object" &&
+    "code" in err &&
+    (err as { code: string }).code === "P2025"
+  );
+}
+
 function mapPrismaUser(user: {
   id: string;
   email: string;
@@ -79,6 +88,24 @@ export const userService = {
     return mapPrismaUser(user);
   },
 
+  /**
+   * Finds a user by email or creates one if not found.
+   * Uses upsert to prevent race conditions when two concurrent
+   * first-login requests arrive for the same email.
+   */
+  async findOrCreate(data: CreateUserRequest): Promise<User> {
+    const user = await prisma.user.upsert({
+      where: { email: data.email },
+      update: {}, // No-op if user already exists
+      create: {
+        email: data.email,
+        name: data.name ?? null,
+        picture: data.picture ?? null,
+      },
+    });
+    return mapPrismaUser(user);
+  },
+
   async update(id: string, data: UpdateUserRequest): Promise<User | null> {
     try {
       const user = await prisma.user.update({
@@ -89,16 +116,19 @@ export const userService = {
         },
       });
       return mapPrismaUser(user);
-    } catch {
-      return null;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return null;
+      throw err;
     }
   },
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string): Promise<boolean> {
     try {
       await prisma.user.delete({ where: { id } });
-    } catch {
-      // User not found, no-op
+      return true;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return false;
+      throw err;
     }
   },
 
@@ -118,8 +148,9 @@ export const userService = {
         data: { preferences: newPrefs },
       });
       return mapPrismaUser(updated);
-    } catch {
-      return null;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return null;
+      throw err;
     }
   },
 };

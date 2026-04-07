@@ -1,0 +1,90 @@
+/* ── SetupHoursPage ──────────────────────────── */
+
+.root {
+  padding: var(--rialto-space-xl);
+  max-width: 560px;
+}
+
+/* ── Error banner ─────────────────────────────── */
+
+.errorBanner {
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  background: var(--rialto-error-muted, #fee2e2);
+  color: var(--rialto-error, #dc2626);
+  border-radius: var(--rialto-radius-default);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  margin-block-end: var(--rialto-space-lg);
+}
+
+/* ── Form wrapper ─────────────────────────────── */
+
+.form {
+  background: var(--rialto-surface-elevated);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  padding: var(--rialto-space-lg);
+  margin-block: var(--rialto-space-lg);
+}
+
+/* ── Actions ──────────────────────────────────── */
+
+.actions {
+  display: flex;
+  gap: var(--rialto-space-sm);
+  justify-content: flex-end;
+}
+
+.cancelButton {
+  padding: var(--rialto-space-xs) var(--rialto-space-md);
+  background: transparent;
+  color: var(--rialto-text-secondary);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.cancelButton:hover:not(:disabled) {
+  background: var(--rialto-surface-recessed);
+  color: var(--rialto-text-primary);
+}
+
+.cancelButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cancelButton:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+}
+
+.saveButton {
+  padding: var(--rialto-space-xs) var(--rialto-space-md);
+  background: var(--rialto-accent);
+  color: var(--rialto-text-on-accent, #fff);
+  border: none;
+  border-radius: var(--rialto-radius-default);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.saveButton:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.saveButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.saveButton:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+}

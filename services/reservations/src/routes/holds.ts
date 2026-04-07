@@ -7,6 +7,7 @@ import type {
   ApiResponse,
   ApiError,
 } from "@mbe/types";
+import { createProblemDetails } from "@mbe/types";
 import { randomUUID } from "crypto";
 import { holdService } from "../services/hold.js";
 
@@ -85,6 +86,12 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: "1 minute",
+        },
+      },
       schema: {
         summary: "Create a reservation hold",
         operationId: "createHold",
@@ -122,6 +129,12 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
               type: "string",
               description: "Optional specific table to hold. If not provided, best available table is assigned.",
             },
+            holdDurationMinutes: {
+              type: "integer",
+              minimum: 1,
+              maximum: 60,
+              description: "Override hold duration in minutes. Defaults to venue setting or 10 minutes.",
+            },
           },
         },
         response: {
@@ -142,11 +155,8 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
 
       if (!result.success) {
         const statusCode = result.error?.includes("not found") ? 404 : 409;
-        return reply.code(statusCode).send({
-          error: statusCode === 404 ? "Not Found" : "Conflict",
-          message: result.error ?? "Failed to create hold",
-          statusCode,
-        });
+        const title = statusCode === 404 ? "Not Found" : "Conflict";
+        return reply.code(statusCode).send(createProblemDetails(statusCode, title, result.error ?? "Failed to create hold"));
       }
 
       // Set the session ID header in response
@@ -189,11 +199,7 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
       const hold = await holdService.getById(request.params.id);
 
       if (!hold) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "Hold not found or expired",
-          statusCode: 404,
-        });
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Hold not found or expired"));
       }
 
       return { data: hold };
@@ -246,21 +252,13 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
       const sessionId = request.headers[SESSION_ID_HEADER];
 
       if (typeof sessionId !== "string" || sessionId.length === 0) {
-        return reply.code(401).send({
-          error: "Unauthorized",
-          message: `Missing ${SESSION_ID_HEADER} header`,
-          statusCode: 401,
-        });
+        return reply.code(401).send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
       }
 
       const released = await holdService.release(request.params.id, sessionId);
 
       if (!released) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "Hold not found or not owned by this session",
-          statusCode: 404,
-        });
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Hold not found or not owned by this session"));
       }
 
       return { success: true };
@@ -337,11 +335,7 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
       const sessionId = request.headers[SESSION_ID_HEADER];
 
       if (typeof sessionId !== "string" || sessionId.length === 0) {
-        return reply.code(401).send({
-          error: "Unauthorized",
-          message: `Missing ${SESSION_ID_HEADER} header`,
-          statusCode: 401,
-        });
+        return reply.code(401).send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
       }
 
       const result = await holdService.convertToReservation(
@@ -351,16 +345,22 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
       );
 
       if (!result.success) {
-        const isNotFound =
-          result.error?.includes("not found") ||
-          result.error?.includes("expired");
-        const statusCode = isNotFound ? 404 : 409;
+        const error = result.error ?? "Failed to confirm hold";
+        let statusCode: number;
+        let title: string;
 
-        return reply.code(statusCode).send({
-          error: isNotFound ? "Not Found" : "Conflict",
-          message: result.error ?? "Failed to confirm hold",
-          statusCode,
-        });
+        if (error.includes("not found") || error.includes("expired")) {
+          statusCode = 404;
+          title = "Not Found";
+        } else if (error.includes("Session ID")) {
+          statusCode = 403;
+          title = "Forbidden";
+        } else {
+          statusCode = 409;
+          title = "Conflict";
+        }
+
+        return reply.code(statusCode).send(createProblemDetails(statusCode, title, error));
       }
 
       return reply.code(201).send({ data: result.reservation! });

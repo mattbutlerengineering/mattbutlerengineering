@@ -6,8 +6,10 @@
   "scripts": {
     "dev": "tsx watch --env-file=.env src/index.ts",
     "build": "tsc",
+    "build:openapi": "tsx -e \"import { buildApp } from './src/app.js'; (async () => { const app = await buildApp({ logger: false }); await app.ready(); console.log(JSON.stringify(app.swagger(), null, 2)); })()\" > openapi.json",
     "start": "node dist/index.js",
     "test": "vitest run",
+    "test:contract": "vitest run src/routes/contract.test.ts",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint src/",
@@ -20,26 +22,33 @@
     "db:studio": "prisma studio"
   },
   "dependencies": {
-    "@fastify/cors": "^10.0.0",
+    "@fastify/cors": "^11.2.0",
     "@fastify/rate-limit": "^10.3.0",
-    "@fastify/swagger": "^9.0.0",
+    "@fastify/swagger": "^9.7.0",
+    "@fastify/swagger-ui": "^5.2.5",
     "@mbe/agent-core": "workspace:*",
+    "@mbe/api-versioning": "workspace:*",
     "@mbe/auth": "workspace:^",
+    "@mbe/observability": "workspace:*",
     "@mbe/rialto-catalog": "workspace:^",
+    "@mbe/sentry": "workspace:^",
     "@mbe/types": "workspace:*",
-    "@prisma/client": "^6.0.0",
-    "@scalar/fastify-api-reference": "^1.44.1",
-    "ai": "^6.0.141",
-    "fastify": "^5.8.3",
+    "@prisma/client": "^7.6.0",
+    "@scalar/fastify-api-reference": "^1.51.0",
+    "ai": "^6.0.149",
+    "fastify": "catalog:",
     "zod": "catalog:"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "devDependencies": {
     "@mbe/config": "workspace:*",
-    "@types/node": "^22.0.0",
-    "@vitest/coverage-v8": "^4.0.18",
-    "prisma": "^6.0.0",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "prisma": "^7.6.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.9.3",
-    "vitest": "^4.0.18"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

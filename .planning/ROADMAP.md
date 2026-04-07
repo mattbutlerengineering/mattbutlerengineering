@@ -5,6 +5,10 @@
 - ✅ **v1.0 Rialto Unification & Hosting** — Phases 1-5 (shipped 2026-03-04)
 - ✅ **v1.1 Rialto Accessibility & AI DX** — Phases 6-11 (shipped 2026-03-23)
 - ✅ **v1.2 Generative UI** — Phases 12-18 (shipped 2026-03-28)
+- ✅ **v1.3 AI Developer Velocity** — Phases 19-31 (shipped 2026-04-04)
+- ✅ **v1.4 Agentic Orchestration & Observability** — Phases 32-40 (shipped 2026-04-04)
+- ✅ **v1.5 Repository Health & Polish** — Phases 41-43 (shipped 2026-04-04)
+- ✅ **v1.6 Continuous Verification & DevEx** — Phases 44-49 (shipped 2026-04-05)
 
 ## Phases
 
@@ -50,25 +54,65 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 
 </details>
 
-## Progress
+<details>
+<summary>✅ v1.3 AI Developer Velocity (Phases 19-31) — SHIPPED 2026-04-04</summary>
 
-| Phase | Milestone | Plans Complete | Status | Completed |
-|-------|-----------|----------------|--------|-----------|
-| 1. Rialto-Web Migration | v1.0 | 3/3 | Complete | 2026-02-28 |
-| 2. Dashboard Rename | v1.0 | 2/2 | Complete | 2026-02-28 |
-| 3. Marketing Portfolio | v1.0 | 2/2 | Complete | 2026-02-28 |
-| 4. Hospitality Migration + Full Hosting | v1.0 | 5/5 | Complete | 2026-03-04 |
-| 5. Retroactive Verification & Gap Closure | v1.0 | 2/2 | Complete | 2026-03-04 |
-| 6. Accessibility Foundation | v1.1 | 5/5 | Complete | 2026-03-23 |
-| 7. Example Pages | v1.1 | 3/3 | Complete | 2026-03-23 |
-| 8. AI Developer Experience | v1.1 | 3/3 | Complete | 2026-03-23 |
-| 9. Polish and Documentation | v1.1 | 3/3 | Complete | 2026-03-23 |
-| 10. Documentation Reconciliation | v1.1 | 1/1 | Complete | 2026-03-23 |
-| 11. Registry Props & Verification | v1.1 | 2/2 | Complete | 2026-03-23 |
-| 12. Catalog Foundation | v1.2 | 3/3 | Complete | 2026-03-28 |
-| 13. AI Generation Endpoint | v1.2 | 3/3 | Complete | 2026-03-28 |
-| 14. Playground App | v1.2 | 3/3 | Complete | 2026-03-28 |
-| 15. Hospitality Copilot | v1.2 | 1/1 | Complete | 2026-03-28 |
-| 16. Persistence and Refinement | v1.2 | 3/3 | Complete | 2026-03-28 |
-| 17. Local Dev & Streaming Fixes | v1.2 | 1/1 | Complete | 2026-03-28 |
-| 18. Gen Worker Pulumi Resource | v1.2 | 1/1 | Complete | 2026-03-28 |
+- [x] Phase 19: Turbo Remote Caching (1/1 plan) — completed 2026-04-04
+- [x] Phase 20: Pre-commit Hook Optimization (1/1 plan) — completed 2026-04-04
+- [x] Phase 21: Gemini Intelligence Context (1/1 plan) — completed 2026-04-04
+- [x] Phase 22: Service-Level LLM Context (1/1 plan) — completed 2026-04-04
+- [x] Phase 23: Standardized Agent Error Schema (1/1 plan) — completed 2026-04-04
+- [x] Phase 24: Unified "mbe up" Bootstrapping (1/1 plan) — completed 2026-04-04
+- [x] Phase 25: Architecture Decision Records (1/1 plan) — completed 2026-04-04
+- [x] Phase 26: Automated AI Regression Testing (1/1 plan) — completed 2026-04-04
+- [x] Phase 27: Custom ESLint AST Rules (1/1 plan) — completed 2026-04-04
+- [x] Phase 28: Strict Internal Zod Schema Enforcement (1/1 plan) — completed 2026-04-04
+- [x] Phase 29: Agent Success Rate Tracking (1/1 plan) — completed 2026-04-04
+- [x] Phase 30: CI Performance & Bundle Size Budgets (1/1 plan) — completed 2026-04-04
+- [x] Phase 31: "Golden Path" CLI Generators (1/1 plan) — completed 2026-04-04
+
+Full details: [milestones/v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md)
+
+</details>
+
+<details>
+<summary>✅ v1.4 Agentic Orchestration & Observability (Phases 32-40) — SHIPPED 2026-04-04</summary>
+
+- [x] Phase 32: The Ralph Wiggum Loop (1/1 plan) — completed 2026-04-04
+- [x] Phase 33: RIPER Workflow Integration (1/1 plan) — completed 2026-04-04
+- [x] Phase 34: Automated Rule Synchronizer (1/1 plan) — completed 2026-04-04
+- [x] Phase 35: Agentic Observability (1/1 plan) — completed 2026-04-04
+- [x] Phase 36: Parallel Execution Waves (1/1 plan) — completed 2026-04-04
+- [x] Phase 37: Automated Performance Auditor (1/1 plan) — completed 2026-04-04
+- [x] Phase 38: The Context Guard (1/1 plan) — completed 2026-04-04
+- [x] Phase 39: Structured ADRs (1/1 plan) — completed 2026-04-04
+- [x] Phase 40: Model Governance & Verification (1/1 plan) — completed 2026-04-04
+
+Full details: [milestones/v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md)
+
+</details>
+
+<details>
+<summary>✅ v1.5 Repository Health & Polish (Phases 41-43) — SHIPPED 2026-04-04</summary>
+
+- [x] Phase 41: Configuration Consolidation (Lighthouse) (1/1 plan) — completed 2026-04-04
+- [x] Phase 42: Project Status Badges (1/1 plan) — completed 2026-04-04
+- [x] Phase 43: Sentry Error Logging Enhancement (1/1 plan) — completed 2026-04-04
+
+Full details: [milestones/v1.5-ROADMAP.md](milestones/v1.5-ROADMAP.md)
+
+</details>
+
+<details>
+<summary>✅ v1.6 Continuous Verification & DevEx (Phases 44-49) — SHIPPED 2026-04-05</summary>
+
+- [x] Phase 44: Architectural Enforcement Hook (1/1 plan) — completed 2026-04-04
+- [x] Phase 45: API Contract Regression Testing (1/1 plan) — completed 2026-04-04
+- [x] Phase 46: JIT Context Priming (1/1 plan) — completed 2026-04-04
+- [x] Phase 47: Dependency Integrity Audit (1/1 plan) — completed 2026-04-04
+- [x] Phase 48: Infrastructure MCP Servers & CLIs (1/1 plan) — completed 2026-04-04
+- [x] Phase 49: Dependency Synchronization (1/1 plan) — completed 2026-04-05
+
+Full details: [milestones/v1.6-ROADMAP.md](milestones/v1.6-ROADMAP.md)
+
+</details>

@@ -17,8 +17,39 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  circuit-check:
+    name: Circuit Breaker Check
+    runs-on: ubuntu-latest
+    outputs:
+      blocked: ${{ steps.check.outputs.blocked }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            .github/circuit-breaker-state
+          sparse-checkout-cone-mode: false
+
+      - name: Check state
+        id: check
+        run: |
+          if [ -f ".github/circuit-breaker-state" ]; then
+            STATE=$(cat .github/circuit-breaker-state)
+          else
+            STATE="closed"
+          fi
+          
+          echo "Circuit state: $STATE"
+          if [ "$STATE" = "open" ]; then
+            echo "blocked=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "blocked=false" >> "$GITHUB_OUTPUT"
+          fi
+
   detect-changes:
     name: Detect Changes
+    needs: [circuit-check]
+    if: needs.circuit-check.outputs.blocked != 'true'
     runs-on: ubuntu-latest
     outputs:
       marketing: ${{ steps.result.outputs.marketing }}
@@ -54,14 +85,21 @@ jobs:
             echo "rialto-web=${{ steps.filter.outputs.rialto-web }}" >> "$GITHUB_OUTPUT"
           fi
 
-  # ── Canary: Marketing ──────────────────────────────────────────────────────
-  canary-marketing:
-    name: Canary Deploy — Marketing
+  blocked:
+    needs: [circuit-check]
+    if: needs.circuit-check.outputs.blocked == 'true'
+    name: Deploy Blocked
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify blocked
+        run: |
+          echo "::warning::Deploy blocked by circuit breaker"
+
+  deploy-marketing:
+    name: Deploy Marketing
     needs: detect-changes
     if: needs.detect-changes.outputs.marketing == 'true'
     runs-on: ubuntu-latest
-    outputs:
-      passed: ${{ steps.verify.outputs.passed }}
     steps:
       - uses: actions/checkout@v5
 
@@ -76,85 +114,17 @@ jobs:
 
       - run: pnpm build --filter=@mbe/marketing
 
-      - name: Deploy to Canary Worker
-        run: npx wrangler@3 deploy --config apps/marketing/wrangler.canary.toml
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-      - name: Verify canary
-        id: verify
-        run: |
-          # Give the Worker a moment to propagate
-          sleep 5
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 \
-            https://mattbutlerengineering.com/canary/marketing/)
-          echo "Canary HTTP status: $STATUS"
-          if [ "$STATUS" = "200" ]; then
-            echo "passed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "passed=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Marketing canary returned HTTP $STATUS — skipping promotion"
-          fi
-
-      - name: Report canary failure
-        if: steps.verify.outputs.passed == 'false'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: "Canary deploy failed: marketing (${{ github.sha }})",
-              body: [
-                "## Canary Verification Failed",
-                "",
-                "The marketing canary deploy did not pass health checks and was **not promoted to production**.",
-                "",
-                "| Field | Value |",
-                "|-------|-------|",
-                `| Commit | ${{ github.sha }} |`,
-                `| Run | [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |`,
-                `| Canary URL | https://mattbutlerengineering.com/canary/marketing/ |`,
-                "",
-                "The previous production version remains live. Investigate the commit above before re-deploying.",
-              ].join("\n"),
-              labels: ["ci-fix"],
-            });
-
-  promote-marketing:
-    name: Promote Marketing to Production
-    needs: [detect-changes, canary-marketing]
-    if: needs.detect-changes.outputs.marketing == 'true' && needs.canary-marketing.outputs.passed == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: pnpm/action-setup@v5
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 22
-          cache: "pnpm"
-
-      - run: pnpm install --frozen-lockfile
-
-      - run: pnpm build --filter=@mbe/marketing
-
-      - name: Promote to Production Worker
+      - name: Deploy to Workers Static Assets
         run: npx wrangler@3 deploy --config apps/marketing/wrangler.toml
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-  # ── Canary: Hospitality ────────────────────────────────────────────────────
-  canary-hospitality:
-    name: Canary Deploy — Hospitality
+  deploy-hospitality:
+    name: Deploy Hospitality
     needs: detect-changes
     if: needs.detect-changes.outputs.hospitality == 'true'
     runs-on: ubuntu-latest
-    outputs:
-      passed: ${{ steps.verify.outputs.passed }}
     steps:
       - uses: actions/checkout@v5
 
@@ -176,91 +146,17 @@ jobs:
           VITE_AUTH_REDIRECT_URI: https://mattbutlerengineering.com/hospitality/callback
           VITE_API_URL: https://mattbutlerengineering.com
 
-      - name: Deploy to Canary Worker
-        run: npx wrangler@3 deploy --config apps/hospitality/wrangler.canary.toml
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-      - name: Verify canary
-        id: verify
-        run: |
-          sleep 5
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 \
-            https://mattbutlerengineering.com/canary/hospitality/)
-          echo "Canary HTTP status: $STATUS"
-          if [ "$STATUS" = "200" ]; then
-            echo "passed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "passed=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Hospitality canary returned HTTP $STATUS — skipping promotion"
-          fi
-
-      - name: Report canary failure
-        if: steps.verify.outputs.passed == 'false'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: "Canary deploy failed: hospitality (${{ github.sha }})",
-              body: [
-                "## Canary Verification Failed",
-                "",
-                "The hospitality canary deploy did not pass health checks and was **not promoted to production**.",
-                "",
-                "| Field | Value |",
-                "|-------|-------|",
-                `| Commit | ${{ github.sha }} |`,
-                `| Run | [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |`,
-                `| Canary URL | https://mattbutlerengineering.com/canary/hospitality/ |`,
-                "",
-                "The previous production version remains live. Investigate the commit above before re-deploying.",
-              ].join("\n"),
-              labels: ["ci-fix"],
-            });
-
-  promote-hospitality:
-    name: Promote Hospitality to Production
-    needs: [detect-changes, canary-hospitality]
-    if: needs.detect-changes.outputs.hospitality == 'true' && needs.canary-hospitality.outputs.passed == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: pnpm/action-setup@v5
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 22
-          cache: "pnpm"
-
-      - run: pnpm install --frozen-lockfile
-
-      - name: Build hospitality
-        run: pnpm build --filter=@mbe/hospitality
-        env:
-          VITE_AUTH_AUTHORITY: https://dev-ytbgmz5ls3wh4xdx.us.auth0.com
-          VITE_AUTH_CLIENT_ID: ${{ secrets.AUTH0_HOSPITALITY_CLIENT_ID }}
-          VITE_AUTH_AUDIENCE: https://api.mattbutlerengineering.com
-          VITE_AUTH_REDIRECT_URI: https://mattbutlerengineering.com/hospitality/callback
-          VITE_API_URL: https://mattbutlerengineering.com
-
-      - name: Promote to Production Worker
+      - name: Deploy to Workers Static Assets
         run: npx wrangler@3 deploy --config apps/hospitality/wrangler.toml
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-  # ── Canary: Rialto Web ─────────────────────────────────────────────────────
-  canary-rialto-web:
-    name: Canary Deploy — Rialto Web
+  deploy-rialto-web:
+    name: Deploy Rialto Web
     needs: detect-changes
     if: needs.detect-changes.outputs.rialto-web == 'true'
     runs-on: ubuntu-latest
-    outputs:
-      passed: ${{ steps.verify.outputs.passed }}
     steps:
       - uses: actions/checkout@v5
 
@@ -275,93 +171,24 @@ jobs:
 
       - run: pnpm build --filter=@mbe/rialto-web
 
-      - name: Deploy to Canary Worker
-        run: npx wrangler@3 deploy --config apps/rialto-web/wrangler.canary.toml
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-      - name: Verify canary
-        id: verify
-        run: |
-          sleep 5
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 \
-            https://mattbutlerengineering.com/canary/rialto/)
-          echo "Canary HTTP status: $STATUS"
-          if [ "$STATUS" = "200" ]; then
-            echo "passed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "passed=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Rialto web canary returned HTTP $STATUS — skipping promotion"
-          fi
-
-      - name: Report canary failure
-        if: steps.verify.outputs.passed == 'false'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: "Canary deploy failed: rialto-web (${{ github.sha }})",
-              body: [
-                "## Canary Verification Failed",
-                "",
-                "The rialto-web canary deploy did not pass health checks and was **not promoted to production**.",
-                "",
-                "| Field | Value |",
-                "|-------|-------|",
-                `| Commit | ${{ github.sha }} |`,
-                `| Run | [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |`,
-                `| Canary URL | https://mattbutlerengineering.com/canary/rialto/ |`,
-                "",
-                "The previous production version remains live. Investigate the commit above before re-deploying.",
-              ].join("\n"),
-              labels: ["ci-fix"],
-            });
-
-  promote-rialto-web:
-    name: Promote Rialto Web to Production
-    needs: [detect-changes, canary-rialto-web]
-    if: needs.detect-changes.outputs.rialto-web == 'true' && needs.canary-rialto-web.outputs.passed == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: pnpm/action-setup@v5
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 22
-          cache: "pnpm"
-
-      - run: pnpm install --frozen-lockfile
-
-      - run: pnpm build --filter=@mbe/rialto-web
-
-      - name: Promote to Production Worker
+      - name: Deploy to Workers Static Assets
         run: npx wrangler@3 deploy --config apps/rialto-web/wrangler.toml
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-  # ── Post-Deploy Verification ───────────────────────────────────────────────
   verify:
     name: Post-Deploy Verification
     runs-on: ubuntu-latest
-    needs:
-      - detect-changes
-      - promote-marketing
-      - promote-hospitality
-      - promote-rialto-web
+    needs: [detect-changes, deploy-marketing, deploy-hospitality, deploy-rialto-web]
     if: |
       always() &&
-      (needs.promote-marketing.result == 'success' ||
-       needs.promote-hospitality.result == 'success' ||
-       needs.promote-rialto-web.result == 'success')
+      (needs.deploy-marketing.result == 'success' ||
+       needs.deploy-hospitality.result == 'success' ||
+       needs.deploy-rialto-web.result == 'success')
     steps:
       - name: Verify marketing site
-        if: needs.detect-changes.outputs.marketing == 'true' && needs.promote-marketing.result == 'success'
+        if: needs.detect-changes.outputs.marketing == 'true'
         run: |
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 https://mattbutlerengineering.com/)
           if [ "$STATUS" != "200" ]; then
@@ -371,7 +198,7 @@ jobs:
           echo "Marketing site OK (HTTP $STATUS)"
 
       - name: Verify hospitality app
-        if: needs.detect-changes.outputs.hospitality == 'true' && needs.promote-hospitality.result == 'success'
+        if: needs.detect-changes.outputs.hospitality == 'true'
         run: |
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 https://mattbutlerengineering.com/hospitality/)
           if [ "$STATUS" != "200" ]; then
@@ -381,7 +208,7 @@ jobs:
           echo "Hospitality app OK (HTTP $STATUS)"
 
       - name: Verify rialto web
-        if: needs.detect-changes.outputs.rialto-web == 'true' && needs.promote-rialto-web.result == 'success'
+        if: needs.detect-changes.outputs.rialto-web == 'true'
         run: |
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 https://mattbutlerengineering.com/rialto/)
           if [ "$STATUS" != "200" ]; then
@@ -389,3 +216,89 @@ jobs:
             exit 1
           fi
           echo "Rialto web OK (HTTP $STATUS)"
+
+  rollback:
+    name: Rollback Failed Deploys
+    runs-on: ubuntu-latest
+    needs: [detect-changes, deploy-marketing, deploy-hospitality, deploy-rialto-web, verify]
+    if: failure() && needs.verify.result == 'failure'
+    steps:
+      - name: Rollback marketing
+        if: needs.detect-changes.outputs.marketing == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          echo "::warning::Rolling back mattbutlerengineering-marketing"
+          npx wrangler@3 rollback --name mattbutlerengineering-marketing --message "Auto-rollback: post-deploy verification failed"
+
+      - name: Rollback hospitality
+        if: needs.detect-changes.outputs.hospitality == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          echo "::warning::Rolling back mattbutlerengineering-hospitality"
+          npx wrangler@3 rollback --name mattbutlerengineering-hospitality --message "Auto-rollback: post-deploy verification failed"
+
+      - name: Rollback rialto-web
+        if: needs.detect-changes.outputs.rialto-web == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          echo "::warning::Rolling back mattbutlerengineering-rialto-web"
+          npx wrangler@3 rollback --name mattbutlerengineering-rialto-web --message "Auto-rollback: post-deploy verification failed"
+
+      - name: Re-verify after rollback
+        run: |
+          sleep 5
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "https://mattbutlerengineering.com/health/system")
+          HEALTH=$(curl -s --max-time 15 "https://mattbutlerengineering.com/health/system" | jq -r '.subsystems.static_sites.status')
+          echo "Post-rollback: HTTP $STATUS, static_sites=$HEALTH"
+          if [ "$HEALTH" != "healthy" ]; then
+            echo "::error::Static sites still unhealthy after rollback — manual intervention required"
+            exit 1
+          fi
+          echo "Rollback successful — static sites healthy"
+
+  report-health:
+    name: Report Deploy Health
+    needs: [detect-changes, deploy-marketing, deploy-hospitality, deploy-rialto-web, verify, rollback]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write deploy/static status to KV
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
+          KV_NS_ID: ${{ secrets.HEALTH_KV_NAMESPACE_ID }}
+          GH_SHA: ${{ github.sha }}
+          VERIFY_RESULT: ${{ needs.verify.result }}
+          ROLLBACK_RESULT: ${{ needs.rollback.result }}
+          MARKETING_DEPLOYED: ${{ needs.detect-changes.outputs.marketing }}
+          HOSPITALITY_DEPLOYED: ${{ needs.detect-changes.outputs.hospitality }}
+          RIALTO_DEPLOYED: ${{ needs.detect-changes.outputs.rialto-web }}
+        run: |
+          CONCLUSION="success"
+          if [ "$ROLLBACK_RESULT" = "success" ]; then
+            CONCLUSION="rolled_back"
+          elif [ "$VERIFY_RESULT" = "failure" ]; then
+            CONCLUSION="failure"
+          elif [ "$VERIFY_RESULT" = "cancelled" ] || [ "$VERIFY_RESULT" = "skipped" ]; then
+            CONCLUSION="cancelled"
+          fi
+          PAYLOAD=$(jq -n \
+            --arg conclusion "$CONCLUSION" \
+            --arg sha "$GH_SHA" \
+            --arg updated_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg marketing "$MARKETING_DEPLOYED" \
+            --arg hospitality "$HOSPITALITY_DEPLOYED" \
+            --arg rialto "$RIALTO_DEPLOYED" \
+            '{conclusion: $conclusion, sha: $sha, updated_at: $updated_at, apps_deployed: {marketing: $marketing, hospitality: $hospitality, rialto: $rialto}}')
+          curl -sf -X PUT \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/values/deploy%2Fstatic" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD"
+

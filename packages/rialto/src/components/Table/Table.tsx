@@ -192,7 +192,7 @@ function TableInner<T extends Record<string, unknown>>(
                       ? "none"
                       : undefined
                 }
-                role={col.sortable ? "columnheader" : undefined}
+                role="columnheader"
               >
                 {col.header}
                 {col.sortable && (

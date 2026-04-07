@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useRef, type ReactNode } from "react";
+import { forwardRef, useEffect, useId, useRef, type ReactNode } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { springGentle, precision } from "../../tokens/motion";
 import styles from "./Dialog.module.css";
@@ -28,6 +28,7 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
     const shouldReduceMotion = useReducedMotion();
     const panelRef = useRef<HTMLDivElement>(null);
     const triggerRef = useRef<Element | null>(null);
+    const titleId = useId();
 
     // Capture trigger element on open; restore focus to it on close
     useEffect(() => {
@@ -114,12 +115,13 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
               className={styles.panel}
               role="dialog"
               aria-modal
-              aria-label={title}
+              aria-labelledby={title ? titleId : undefined}
+              aria-label={title ? undefined : "Dialog"}
               transition={shouldReduceMotion ? { duration: 0 } : springGentle}
               {...motionProps}
             >
               <div className={styles.header}>
-                {title && <h2 className={styles.title}>{title}</h2>}
+                {title && <h2 id={titleId} className={styles.title}>{title}</h2>}
                 <button className={styles.close} onClick={onClose} aria-label="Close dialog">
                   <svg
                     width="14"

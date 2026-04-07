@@ -1,6 +1,7 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import fp from "fastify-plugin";
-import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import type { FastifyInstance, FastifyRequest, FastifyReply, FastifyPluginAsync } from "fastify";
+import { createProblemDetails } from "@mbe/types";
 import type { JWTPayload, AuthUser } from "../types/index.js";
 
 declare module "fastify" {
@@ -63,7 +64,24 @@ async function authPluginImpl(
         audience,
       });
 
-      const jwtPayload = payload as unknown as JWTPayload;
+      if (typeof payload.sub !== "string") {
+        fastify.log.warn("JWT missing required 'sub' claim");
+        reply.code(401).send(createProblemDetails(401, "Unauthorized", "Invalid token: missing sub"));
+        return;
+      }
+
+      const jwtPayload: JWTPayload = {
+        ...payload,
+        sub: payload.sub,
+        iss: payload.iss ?? "",
+        aud: payload.aud ?? "",
+        exp: payload.exp ?? 0,
+        iat: payload.iat ?? 0,
+        email: payload.email as string | undefined,
+        email_verified: payload.email_verified as boolean | undefined,
+        name: payload.name as string | undefined,
+        picture: payload.picture as string | undefined,
+      };
 
       request.user = {
         id: jwtPayload.sub,
@@ -75,17 +93,13 @@ async function authPluginImpl(
       };
     } catch (error) {
       fastify.log.warn({ error }, "JWT validation failed");
-      reply.code(401).send({
-        error: "Unauthorized",
-        message: "Invalid token",
-        statusCode: 401,
-      });
+      reply.code(401).send(createProblemDetails(401, "Unauthorized", "Invalid token"));
       return;
     }
   });
 }
 
-export const authPlugin = fp(authPluginImpl, {
+export const authPlugin: FastifyPluginAsync<AuthPluginOptions> = fp(authPluginImpl, {
   name: "@mbe/auth",
   fastify: "5.x",
 });
@@ -96,11 +110,7 @@ export const authPlugin = fp(authPluginImpl, {
  */
 export async function requireAuth(request: FastifyRequest, reply: FastifyReply) {
   if (!request.user) {
-    reply.code(401).send({
-      error: "Unauthorized",
-      message: "Missing or invalid authorization header",
-      statusCode: 401,
-    });
+    reply.code(401).send(createProblemDetails(401, "Unauthorized", "Missing or invalid authorization header"));
     return;
   }
 }

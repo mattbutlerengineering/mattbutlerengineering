@@ -10,14 +10,78 @@ on:
       - "packages/types/**"
       - "packages/auth/**"
       - "packages/agent-core/**"
+      - "packages/observability/**"
 
 concurrency:
   group: deploy-services-${{ github.ref }}
   cancel-in-progress: false
 
+permissions:
+  contents: read
+  checks: read
+  statuses: read
+
 jobs:
+  # Check circuit breaker before deploying
+  circuit-check:
+    name: Circuit Breaker Check
+    runs-on: ubuntu-latest
+    outputs:
+      blocked: ${{ steps.check.outputs.blocked }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            .github/circuit-breaker-state
+          sparse-checkout-cone-mode: false
+
+      - name: Check state
+        id: check
+        run: |
+          if [ -f ".github/circuit-breaker-state" ]; then
+            STATE=$(cat .github/circuit-breaker-state)
+          else
+            STATE="closed"
+          fi
+          
+          echo "Circuit state: $STATE"
+          if [ "$STATE" = "open" ]; then
+            echo "blocked=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::Circuit breaker is open - deploys blocked"
+          else
+            echo "blocked=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Wait for CI to pass before deploying
+  ci-gate:
+    name: Wait for CI
+    needs: [circuit-check]
+    if: needs.circuit-check.outputs.blocked != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for CI workflow
+        uses: lewagon/wait-on-check-action@v1.6.0
+        with:
+          ref: ${{ github.sha }}
+          check-name: "Build"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 10
+
+  blocked:
+    needs: [circuit-check]
+    if: needs.circuit-check.outputs.blocked == 'true'
+    name: Deploy Blocked
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify blocked
+        run: |
+          echo "::warning::Deploy blocked by circuit breaker"
+          echo "Run 'gh workflow run circuit-breaker.yml -f force=true' to override"
+
   deploy:
     name: Deploy API Services
+    needs: [ci-gate]
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -27,6 +91,33 @@ jobs:
         uses: digitalocean/action-doctl@v2
         with:
           token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+
+      - name: Inject deploy metadata into app spec
+        env:
+          DEPLOY_SHA: ${{ github.sha }}
+          DEPLOY_PR_NUMBER: ${{ github.event.number }}
+          DEPLOY_AUTHOR: ${{ github.actor }}
+        run: |
+          APP_ID=$(doctl apps list --format ID,Spec.Name --no-header | grep mattbutlerengineering-api | awk '{print $1}')
+          if [ -z "$APP_ID" ]; then
+            echo "::error::Could not find mattbutlerengineering-api app"
+            exit 1
+          fi
+
+          # Fetch current spec
+          doctl apps spec get "$APP_ID" > /tmp/spec.yaml
+
+          # Upsert DEPLOY_SHA, DEPLOY_PR_NUMBER, DEPLOY_AUTHOR into each service's envs
+          for SVC in users-api reservations-api agent-api; do
+            yq -i "(.services[] | select(.name == \"$SVC\").envs) |=
+              (map(select(.key != \"DEPLOY_SHA\" and .key != \"DEPLOY_PR_NUMBER\" and .key != \"DEPLOY_AUTHOR\")) +
+              [{\"key\":\"DEPLOY_SHA\",\"value\":\"${DEPLOY_SHA}\"},
+               {\"key\":\"DEPLOY_PR_NUMBER\",\"value\":\"${DEPLOY_PR_NUMBER}\"},
+               {\"key\":\"DEPLOY_AUTHOR\",\"value\":\"${DEPLOY_AUTHOR}\"}])" /tmp/spec.yaml
+          done
+
+          echo "Updating app spec with deploy metadata"
+          doctl apps update "$APP_ID" --spec /tmp/spec.yaml
 
       - name: Trigger deployment
         run: |
@@ -60,3 +151,35 @@ jobs:
             exit 1
           fi
           echo "Reservations API health OK (HTTP $STATUS)"
+
+  report-health:
+    name: Report Deploy Health
+    needs: [deploy, verify]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write deploy/services status to KV
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
+          KV_NS_ID: ${{ secrets.HEALTH_KV_NAMESPACE_ID }}
+          GH_SHA: ${{ github.sha }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          VERIFY_RESULT: ${{ needs.verify.result }}
+        run: |
+          CONCLUSION="success"
+          if [ "$DEPLOY_RESULT" = "failure" ] || [ "$VERIFY_RESULT" = "failure" ]; then
+            CONCLUSION="failure"
+          elif [ "$DEPLOY_RESULT" = "cancelled" ] || [ "$VERIFY_RESULT" = "cancelled" ]; then
+            CONCLUSION="cancelled"
+          fi
+          PAYLOAD=$(jq -n \
+            --arg conclusion "$CONCLUSION" \
+            --arg sha "$GH_SHA" \
+            --arg updated_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{conclusion: $conclusion, sha: $sha, updated_at: $updated_at}')
+          curl -sf -X PUT \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/values/deploy%2Fservices" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD"

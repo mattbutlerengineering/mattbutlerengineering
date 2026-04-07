@@ -151,6 +151,13 @@
   }
 }
 
+/* ── Reduced motion ──────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .connectingDot {
+    animation: none;
+  }
+}
+
 /* ── Skeleton Placeholders ─────────────────── */
 
 .skeletonStats {

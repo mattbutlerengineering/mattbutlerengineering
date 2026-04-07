@@ -13,9 +13,76 @@ const cloudflareAccountId = config.require("cloudflareAccountId");
 const databaseUrl = config.requireSecret("databaseUrl");
 const aiGatewayApiKey = config.getSecret("aiGatewayApiKey");
 
+// ── Observability (Grafana Cloud OTLP) ─────────────────────────────
+const otelEndpoint = config.get("otelEndpoint") ?? "";
+const otelHeaders = config.getSecret("otelHeaders");
+
+// ── Remediation webhook ────────────────────────────────────────────
+const remediationWebhookSecret = config.getSecret("remediationWebhookSecret");
+
+const otelEnvs: digitalocean.types.input.AppSpecServiceEnv[] = [
+  ...(otelEndpoint
+    ? [{ key: "OTEL_EXPORTER_OTLP_ENDPOINT", value: otelEndpoint }]
+    : []),
+  ...(otelHeaders
+    ? [{ key: "OTEL_EXPORTER_OTLP_HEADERS", value: otelHeaders, type: "SECRET" as const }]
+    : []),
+];
+
 // ── Auth0 Exports ───────────────────────────────────────────────────
 export const auth0ApiIdentifier = auth0Outputs.apiIdentifier;
 export const auth0ClientId = auth0Outputs.hospitalityClientId;
+
+// ── Cloudflare R2 State Bucket ───────────────────────────────────────
+// Bucket for storing Pulumi state backend (S3-compatible).
+// Note: Pulumi is pre-configured to use this bucket via AWS_ACCESS_KEY_ID
+// and AWS_SECRET_ACCESS_KEY env vars pointing to R2's S3 API.
+const pulumiStateBucket = new cloudflare.R2Bucket("mattbutlerengineering-pulumi-state", {
+  accountId: cloudflareAccountId,
+  name: "mattbutlerengineering-pulumi-state",
+  location: "enam",
+});
+
+// ── Cloudflare KV Namespaces ──────────────────────────────────────────
+// Additional KV namespaces beyond the health-state namespace.
+const sessionsKv = new cloudflare.WorkersKvNamespace("mattbutlerengineering-sessions", {
+  accountId: cloudflareAccountId,
+  title: "mattbutlerengineering-sessions",
+});
+
+const cacheKv = new cloudflare.WorkersKvNamespace("mattbutlerengineering-cache", {
+  accountId: cloudflareAccountId,
+  title: "mattbutlerengineering-cache",
+});
+
+// ── Exports ─────────────────────────────────────────────────────────
+export const pulumiStateBucketId = pulumiStateBucket.id;
+export const sessionsKvNamespaceId = sessionsKv.id;
+export const cacheKvNamespaceId = cacheKv.id;
+
+// ── Per-Service Migration Jobs ──────────────────────────────────────
+// Each service gets its own pre-deploy job so a failure in one service's
+// migrations does not block unrelated services from deploying.
+const MIGRATED_SERVICES = ["users", "reservations", "agent"] as const;
+
+const migrationJobs: digitalocean.types.input.AppSpecJob[] = MIGRATED_SERVICES.map(
+  (service) => ({
+    name: `db-migrate-${service}`,
+    kind: "PRE_DEPLOY" as const,
+    github: {
+      repo: "mattbutlerengineering/mattbutlerengineering",
+      branch: "main",
+      deployOnPush: false, // CI triggers deploys via doctl
+    },
+    sourceDir: "/",
+    dockerfilePath: "infrastructure/migrate/Dockerfile",
+    envs: [
+      { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" as const },
+      { key: "SERVICE_NAME", value: service },
+    ],
+    runCommand: "/migrate.sh",
+  })
+);
 
 // ── DO App Platform (API services only) ─────────────────────────────
 // Services + migration jobs. Static sites are on CF Pages.
@@ -66,25 +133,10 @@ const apiApp = new digitalocean.App("mattbutlerengineering-api-app", {
       ],
     },
 
-    // Single pre-deploy job runs both migrations sequentially to avoid
-    // concurrent lock conflicts on the shared _prisma_migrations table.
-    jobs: [
-      {
-        name: "db-migrate",
-        kind: "PRE_DEPLOY",
-        github: {
-          repo: "mattbutlerengineering/mattbutlerengineering",
-          branch: "main",
-          deployOnPush: false, // CI triggers deploys via doctl
-        },
-        sourceDir: "/",
-        dockerfilePath: "infrastructure/migrate/Dockerfile",
-        envs: [
-          { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" },
-        ],
-        runCommand: "/migrate.sh",
-      },
-    ],
+    // Per-service pre-deploy migration jobs — each service's deployment
+    // depends only on its own migration succeeding (failure isolation).
+    // Parameterized via SERVICE_NAME Docker build arg.
+    jobs: migrationJobs,
 
     services: [
       {
@@ -107,6 +159,7 @@ const apiApp = new digitalocean.App("mattbutlerengineering-api-app", {
           { key: "AUTH_AUTHORITY", value: "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com" },
           { key: "AUTH_AUDIENCE", value: `https://api.${domain}` },
           { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" },
+          ...otelEnvs,
         ],
         healthCheck: {
           httpPath: "/health",
@@ -137,6 +190,7 @@ const apiApp = new digitalocean.App("mattbutlerengineering-api-app", {
           { key: "AUTH_AUTHORITY", value: "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com" },
           { key: "AUTH_AUDIENCE", value: `https://api.${domain}` },
           { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" },
+          ...otelEnvs,
         ],
         healthCheck: {
           httpPath: "/health",
@@ -171,6 +225,10 @@ const apiApp = new digitalocean.App("mattbutlerengineering-api-app", {
             ? [{ key: "AI_GATEWAY_API_KEY", value: aiGatewayApiKey, type: "SECRET" as const }]
             : []),
           { key: "DEFAULT_MODEL", value: "anthropic/claude-haiku-4.5" },
+          ...(remediationWebhookSecret
+            ? [{ key: "REMEDIATION_WEBHOOK_SECRET", value: remediationWebhookSecret, type: "SECRET" as const }]
+            : []),
+          ...otelEnvs,
         ],
         healthCheck: {
           httpPath: "/health",
@@ -195,6 +253,14 @@ const apiDns = new cloudflare.DnsRecord("mattbutlerengineering-api-dns", {
   ttl: 300,
 });
 
+// ── Health State KV Namespace ────────────────────────────────────────
+// Stores CI and deploy status written by GitHub Actions workflows.
+// Read by the edge router's /health/system aggregation endpoint.
+const healthKv = new cloudflare.WorkersKvNamespace("mattbutlerengineering-health-state", {
+  accountId: cloudflareAccountId,
+  title: "mattbutlerengineering-health-state",
+});
+
 // ── Cloudflare Worker Edge Router ────────────────────────────────────
 // Routes traffic by path prefix to Workers Static Assets (via Service
 // Bindings) or DO API app (via HTTP subrequest).
@@ -215,6 +281,7 @@ const workerScript = new cloudflare.WorkersScript("mattbutlerengineering-edge-ro
     { name: "HOSPITALITY", service: "mattbutlerengineering-hospitality", type: "service" },
     { name: "RIALTO", service: "mattbutlerengineering-rialto-web", type: "service" },
     { name: "GEN", service: "mattbutlerengineering-gen", type: "service" },
+    { name: "HEALTH_STATE", namespaceId: healthKv.id, type: "kv_namespace" },
   ],
 });
 
@@ -279,3 +346,4 @@ export const apiUrl = pulumi.interpolate`https://api.${domain}/api`;
 export const hospitalityUrl = pulumi.interpolate`https://${domain}/hospitality`;
 export const rialtoUrl = pulumi.interpolate`https://${domain}/rialto`;
 export const genUrl = pulumi.interpolate`https://${domain}/gen`;
+export const healthKvNamespaceId = healthKv.id;

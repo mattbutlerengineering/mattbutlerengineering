@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "langfuse": {
+      "command": "npx",
+      "args": ["mcp-server-langfuse"],
+      "env": {
+        "LANGFUSE_PUBLIC_KEY": "",
+        "LANGFUSE_SECRET_KEY": "",
+        "LANGFUSE_BASEURL": "https://cloud.langfuse.com"
+      }
+    },
+    "root-signals": {
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/root-signals/root-signals-mcp", "root-signals-mcp"],
+      "env": {
+        "ROOT_SIGNALS_API_KEY": ""
+      }
+    }
+  }
+}

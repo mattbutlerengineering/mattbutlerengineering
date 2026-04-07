@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { requireAuth } from "@mbe/auth/fastify";
+import { createProblemDetails } from "@mbe/types";
 import { z } from "zod";
 import { storedSpecService, mapStoredSpec } from "../services/stored-spec.js";
 
@@ -19,11 +20,13 @@ export const genSpecsRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const parseResult = CreateSpecBodySchema.safeParse(request.body);
       if (!parseResult.success) {
-        return reply.code(400).send({
-          error: "Bad Request",
-          message: parseResult.error.issues.map((i) => i.message).join(", "),
-          statusCode: 400,
-        });
+        return reply.code(400).send(
+          createProblemDetails(
+            400,
+            "Bad Request",
+            parseResult.error.issues.map((i) => i.message).join(", ")
+          )
+        );
       }
 
       const { prompt, spec, rawLines } = parseResult.data;
@@ -59,11 +62,7 @@ export const genSpecsRoutes: FastifyPluginAsync = async (fastify) => {
       const result = await storedSpecService.getById(id);
 
       if (!result) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "Spec not found",
-          statusCode: 404,
-        });
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Spec not found"));
       }
 
       return reply.code(200).send({ data: mapStoredSpec(result) });
@@ -84,11 +83,7 @@ export const genSpecsRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(200).send({ data: mapStoredSpec(result) });
       } catch (err) {
         if (err instanceof Error && err.message === "Not found") {
-          return reply.code(404).send({
-            error: "Not Found",
-            message: "Spec not found",
-            statusCode: 404,
-          });
+          return reply.code(404).send(createProblemDetails(404, "Not Found", "Spec not found"));
         }
         throw err;
       }
@@ -109,11 +104,7 @@ export const genSpecsRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(204).send();
       } catch (err) {
         if (err instanceof Error && err.message === "Not found") {
-          return reply.code(404).send({
-            error: "Not Found",
-            message: "Spec not found",
-            statusCode: 404,
-          });
+          return reply.code(404).send(createProblemDetails(404, "Not Found", "Spec not found"));
         }
         throw err;
       }

@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef } from "react";
 import { useAuth as useOIDCAuth } from "react-oidc-context";
 import type { AuthUser, JWTPayload } from "../types/index.js";
 
@@ -14,7 +15,7 @@ export function useAuth() {
         name: auth.user.profile.name,
         picture: auth.user.profile.picture,
         emailVerified: auth.user.profile.email_verified,
-        raw: auth.user.profile as unknown as JWTPayload,
+        raw: auth.user.profile as JWTPayload,
       }
     : null;
 
@@ -40,11 +41,26 @@ export function useAuth() {
 
 /**
  * Hook to get access token for API calls
- * Automatically handles token refresh
+ * Proactively refreshes token when within 5 minutes of expiry
  */
 export function useAccessToken(): string | null {
-  const { accessToken } = useAuth();
-  return accessToken;
+  const auth = useOIDCAuth();
+  const expiresAt = auth.user?.expires_at;
+  const signinSilent = auth.signinSilent;
+
+  useEffect(() => {
+    if (!expiresAt) return;
+
+    const msUntilExpiry = expiresAt * 1000 - Date.now();
+    // Proactively refresh when within 5 minutes of expiry
+    if (msUntilExpiry > 0 && msUntilExpiry < 5 * 60 * 1000) {
+      signinSilent().catch(() => {
+        // Silent refresh failed — token may have fully expired
+      });
+    }
+  }, [expiresAt, signinSilent]);
+
+  return auth.user?.access_token ?? null;
 }
 
 /**
@@ -53,10 +69,21 @@ export function useAccessToken(): string | null {
  */
 export function useRequireAuth() {
   const auth = useAuth();
+  const signInRef = useRef(auth.signIn);
 
-  if (!auth.isLoading && !auth.isAuthenticated) {
-    auth.signIn();
-  }
+  useEffect(() => {
+    signInRef.current = auth.signIn;
+  }, [auth.signIn]);
+
+  const stableSignIn = useCallback(() => {
+    signInRef.current();
+  }, []);
+
+  useEffect(() => {
+    if (!auth.isLoading && !auth.isAuthenticated) {
+      stableSignIn();
+    }
+  }, [auth.isLoading, auth.isAuthenticated, stableSignIn]);
 
   return auth;
 }

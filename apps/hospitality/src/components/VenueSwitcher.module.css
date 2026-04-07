@@ -1,0 +1,155 @@
+/* ── VenueSwitcher ───────────────────────────── */
+
+.root {
+  position: relative;
+  padding: var(--rialto-space-sm);
+  border-block-end: 1px solid var(--rialto-border);
+}
+
+/* ── Trigger button ──────────────────────────── */
+
+.trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--rialto-space-xs) var(--rialto-space-sm);
+  background: var(--rialto-surface-recessed);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  color: var(--rialto-text-primary);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  cursor: default;
+  text-align: start;
+}
+
+.triggerInteractive {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.triggerInteractive:hover {
+  background: var(--rialto-surface-matte);
+}
+
+.triggerInteractive:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+}
+
+/* ── Venue name ──────────────────────────────── */
+
+.venueName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Chevron icon ────────────────────────────── */
+
+.chevron {
+  flex-shrink: 0;
+  color: var(--rialto-text-tertiary);
+  transition: transform 0.2s ease;
+  margin-inline-start: var(--rialto-space-xs);
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+/* ── Dropdown ────────────────────────────────── */
+
+.dropdown {
+  position: absolute;
+  inset-inline-start: var(--rialto-space-sm);
+  inset-inline-end: var(--rialto-space-sm);
+  inset-block-start: calc(100% - var(--rialto-space-xs));
+  z-index: 100;
+  background: var(--rialto-surface-elevated);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  box-shadow: var(--rialto-shadow-md, 0 4px 12px rgba(0, 0, 0, 0.15));
+  overflow: hidden;
+}
+
+/* ── Option ──────────────────────────────────── */
+
+.option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--rialto-space-xs) var(--rialto-space-sm);
+  background: transparent;
+  border: none;
+  color: var(--rialto-text-secondary);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  text-align: start;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.option:hover {
+  background: var(--rialto-surface-recessed);
+  color: var(--rialto-text-primary);
+}
+
+.option:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+  position: relative;
+  z-index: 1;
+}
+
+.optionSelected {
+  color: var(--rialto-accent);
+  font-weight: var(--rialto-weight-medium);
+}
+
+.checkmark {
+  flex-shrink: 0;
+  color: var(--rialto-accent);
+}
+
+/* ── Divider ─────────────────────────────────── */
+
+.divider {
+  height: 1px;
+  background: var(--rialto-border);
+  margin-block: var(--rialto-space-2xs);
+}
+
+/* ── Add Venue action ────────────────────────── */
+
+.addVenue {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+  width: 100%;
+  padding: var(--rialto-space-xs) var(--rialto-space-sm);
+  background: transparent;
+  border: none;
+  color: var(--rialto-text-tertiary);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  text-align: start;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.addVenue:hover {
+  background: var(--rialto-surface-recessed);
+  color: var(--rialto-text-primary);
+}
+
+.addVenue:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+  position: relative;
+  z-index: 1;
+}

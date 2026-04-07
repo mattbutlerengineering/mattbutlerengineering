@@ -196,6 +196,27 @@
   margin-inline-start: auto;
 }
 
+/* ── Reduced motion ──────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .suggestionCard {
+    animation: none;
+    transition: none;
+  }
+
+  .suggestionCard:hover {
+    transform: none;
+  }
+
+  .pulse {
+    animation: none;
+    opacity: 0.35;
+  }
+
+  .viewportFrame {
+    transition: none;
+  }
+}
+
 /* Error state */
 .errorState {
   display: flex;

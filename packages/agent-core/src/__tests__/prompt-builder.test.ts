@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { buildSystemPrompt, loadProjectContext, loadSourceFiles } from "../prompt-builder.js";
-import type { SourceFileEntry } from "../prompt-builder.js";
+import type { SourceFileEntry, PromptBuilderConfig } from "../prompt-builder.js";
 
 // Mock fs modules
 vi.mock("node:fs/promises", () => ({
@@ -19,35 +19,36 @@ beforeEach(() => {
 });
 
 describe("buildSystemPrompt", () => {
-  it("includes the task description", () => {
-    const prompt = buildSystemPrompt("Fix the login bug");
+  it("includes the task description", async () => {
+    const prompt = await buildSystemPrompt("Fix the login bug");
     expect(prompt).toContain("Fix the login bug");
   });
 
-  it("includes quality checklist items", () => {
-    const prompt = buildSystemPrompt("Any task");
+  it("includes quality checklist items", async () => {
+    const prompt = await buildSystemPrompt("Any task");
     expect(prompt).toContain("Write clean, readable code");
     expect(prompt).toContain("Handle errors explicitly");
     expect(prompt).toContain("Use immutable data patterns");
   });
 
-  it("includes rules about worktree restrictions", () => {
-    const prompt = buildSystemPrompt("Any task");
+  it("includes rules about worktree restrictions", async () => {
+    const prompt = await buildSystemPrompt("Any task");
     expect(prompt).toContain("Work within the current worktree only");
     expect(prompt).toContain("Do not push to remote or create PRs");
   });
 
-  it("includes instruction about committing changes", () => {
-    const prompt = buildSystemPrompt("Any task");
+  it("includes instruction about committing changes", async () => {
+    const prompt = await buildSystemPrompt("Any task");
     expect(prompt).toContain("Commit your changes");
   });
 
-  it("appends source file context when entries are provided", () => {
+  it("appends source file context when entries are provided", async () => {
     const entries: readonly SourceFileEntry[] = [
       { path: "src/app.ts", content: "const x = 1;" },
       { path: "src/utils.ts", content: "export function add(a: number, b: number) { return a + b; }" },
     ];
-    const prompt = buildSystemPrompt("Fix bug", entries);
+    const config: PromptBuilderConfig = { sourceFileEntries: entries };
+    const prompt = await buildSystemPrompt("Fix bug", config);
     expect(prompt).toContain("## Source File Context");
     expect(prompt).toContain("### `src/app.ts`");
     expect(prompt).toContain("const x = 1;");
@@ -55,14 +56,57 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("export function add");
   });
 
-  it("does not include source file section when no entries provided", () => {
-    const prompt = buildSystemPrompt("Fix bug");
+  it("does not include source file section when no entries provided", async () => {
+    const prompt = await buildSystemPrompt("Fix bug");
     expect(prompt).not.toContain("## Source File Context");
   });
 
-  it("does not include source file section when entries array is empty", () => {
-    const prompt = buildSystemPrompt("Fix bug", []);
+  it("does not include source file section when entries array is empty", async () => {
+    const config: PromptBuilderConfig = { sourceFileEntries: [] };
+    const prompt = await buildSystemPrompt("Fix bug", config);
     expect(prompt).not.toContain("## Source File Context");
+  });
+
+  it("includes issue context when provided", async () => {
+    const config: PromptBuilderConfig = {
+      relevantIssueContext: "This bug affects the login flow",
+    };
+    const prompt = await buildSystemPrompt("Fix bug", config);
+    expect(prompt).toContain("## GitHub Issue Context");
+    expect(prompt).toContain("This bug affects the login flow");
+  });
+
+  it("includes failure context when provided", async () => {
+    const config: PromptBuilderConfig = {
+      failureContext: "Previous attempt failed with max_turns",
+    };
+    const prompt = await buildSystemPrompt("Fix bug", config);
+    expect(prompt).toContain("## Past Failure Context");
+    expect(prompt).toContain("Previous attempt failed");
+  });
+
+  it("includes Haiku-specific constraints", async () => {
+    const config: PromptBuilderConfig = { model: "claude-haiku-4-5" };
+    const prompt = await buildSystemPrompt("Fix bug", config);
+    expect(prompt).toContain("## Constraints (Haiku)");
+    expect(prompt).toContain("Max 15 turns");
+  });
+
+  it("includes Opus-specific focus", async () => {
+    const config: PromptBuilderConfig = { model: "claude-opus-4-6" };
+    const prompt = await buildSystemPrompt("Fix bug", config);
+    expect(prompt).toContain("## Focus (Opus)");
+    expect(prompt).toContain("system-wide impact");
+  });
+
+  it("includes verification steps when provided", async () => {
+    const config: PromptBuilderConfig = {
+      verificationSteps: ["Run npm test", "Check lint passes"],
+    };
+    const prompt = await buildSystemPrompt("Fix bug", config);
+    expect(prompt).toContain("## Verification Steps");
+    expect(prompt).toContain("Run npm test");
+    expect(prompt).toContain("Check lint passes");
   });
 });
 

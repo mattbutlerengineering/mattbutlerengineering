@@ -1,0 +1,11 @@
+---
+# Hadolint configuration
+# See: https://github.com/hadolint/hadolint#configure
+
+ignored:
+  # DL3018: Pin versions in apk add — not applicable (no apk add in our Dockerfiles)
+  # DL3016: Pin versions in npm install — migrate Dockerfile uses prisma@6 (pinned to major)
+  - DL3016
+
+trustedRegistries:
+  - docker.io

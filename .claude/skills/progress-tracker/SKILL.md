@@ -35,7 +35,20 @@ gh run list --branch main --limit 20 --json conclusion,createdAt
 
 # Meta-improvement suggestions created
 gh issue list --label "meta-improvement" --state all --json number,title,state
+
+# Agent spend (from local cost log)
+# Read .claude/agent-spend.jsonl and aggregate by date
+cat .claude/agent-spend.jsonl 2>/dev/null | tail -100
 ```
+
+#### Cost Log Format
+
+The file `.claude/agent-spend.jsonl` contains one JSON object per line:
+```json
+{"date":"2026-04-06","timestamp":"2026-04-06T12:00:00Z","costUsd":0.45,"issueNumber":199,"model":"claude-sonnet-4-6"}
+```
+
+Log entries are written by `pnpm log:cost -- --cost <usd> --issue <num>` after each agent session.
 
 ### Step 2: Compute Metrics
 
@@ -52,6 +65,9 @@ Calculate these key indicators:
 | **Queue Depth** | Count of issues with `ready` label (target: < 5) |
 | **Stale Issues** | Issues with `ready` label open > 7 days |
 | **Blocked Issues** | Issues with `agent-failed` label not re-queued |
+| **Daily Agent Spend** | Sum of costUsd from .claude/agent-spend.jsonl for today (target: < $10) |
+| **7d Agent Spend** | Sum of costUsd from last 7 days of entries |
+| **Avg Cost/Issue** | 7d spend / issues closed in 7d |
 
 ### Step 3: Analyze Patterns
 
@@ -90,6 +106,9 @@ Append a dated entry to `.claude/improvement-loop/log.md`:
 | CI Pass Rate | N% | >95% | ✅/⚠️/❌ |
 | Queue Depth | N | <5 | ✅/⚠️/❌ |
 | Stale Issues | N | 0 | ✅/⚠️/❌ |
+| Daily Agent Spend | $N.NN | <$10 | ✅/⚠️/❌ |
+| 7d Agent Spend | $N.NN | <$50 | ✅/⚠️/❌ |
+| Avg Cost/Issue | $N.NN | <$2 | ✅/⚠️/❌ |
 
 ### Patterns
 - [Notable patterns observed]
@@ -135,6 +154,9 @@ Only create improvement issues for patterns seen **consistently over 3+ days**. 
 | CI Pass Rate | > 95% | 85-95% | < 85% |
 | Queue Depth | < 5 | 5-10 | > 10 |
 | Avg Time-to-Close | < 24h | 24-72h | > 72h |
+| Daily Agent Spend | < $10 | $10-$20 | > $20 |
+| 7d Agent Spend | < $50 | $50-$100 | > $100 |
+| Avg Cost/Issue | < $2 | $2-$5 | > $5 |
 
 ## Self-Tuning Actions
 
@@ -213,5 +235,5 @@ If reverts > 3 in a week, flag it — the loop may be pushing broken code.
 - **Max 2 meta-improvement issues per run** — avoid flooding the queue
 - **Max 2 auto-retries per run** — don't flood the ready queue
 - **Append-only log** — never delete or modify previous log entries
-- **No cost data** — do not attempt to query API costs (not available via gh CLI)
+- **Cost data** — read from `.claude/agent-spend.jsonl` (logged by `pnpm log:cost` after each agent session)
 - **Circuit breaker threshold** — only pause at 50% failure rate over 3+ days, not single bad days

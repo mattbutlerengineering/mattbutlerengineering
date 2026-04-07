@@ -129,6 +129,109 @@ Browser ──EventSource──→ /api/v1/events/stream?venueId=X
 
 **Agent constraint:** When adding SSE event handlers, use callback refs (not inline functions) to avoid reconnection on every render.
 
+### SSE Reconnection Strategy
+
+The `useReservationEvents` hook implements exponential backoff reconnection:
+
+```typescript
+// Exponential backoff: 1s, 2s, 4s, 8s, 16s, 30s (capped)
+const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);
+reconnectAttempts.current += 1;
+
+reconnectTimeoutRef.current = setTimeout(() => {
+  connectRef.current?.();
+}, delay);
+```
+
+**Reconnection Flow:**
+1. Connection drops → `onerror` fires
+2. Wait `delay` ms (1s, 2s, 4s, ... 30s max)
+3. Attempt reconnection
+4. If fails, increment counter and retry
+5. After 5 consecutive failures, continue with 30s intervals
+
+**Max Retries:** Unlimited (will keep trying indefinitely)
+**Max Backoff:** 30 seconds
+
+### Message Ordering Guarantees
+
+The SSE stream provides **at-least-once delivery** with the following guarantees:
+
+- Events are delivered in **chronological order** (server-side timestamp)
+- The server uses a **sequence number** (`eventId`) for ordering
+- Client uses `Last-Event-ID` header for reconnection resumption
+
+**Sequence Diagram:**
+```
+Client connects      →  EventSource with Last-Event-ID: 100
+Server sends         ←  id:101, event: reservation:created
+Server sends         ←  id:102, event: reservation:updated
+Connection drops     →  (client disconnects)
+Client reconnects     →  EventSource with Last-Event-ID: 102
+Server resumes       ←  id:103, event: reservation:created
+Server sends         ←  id:104, event: table:updated
+```
+
+### Duplicate Detection
+
+After reconnection, **duplicates may occur**:
+
+1. Client reconnects with `Last-Event-ID: 102`
+2. Server resumes from `103`, but `102` may be re-delivered
+3. Client must deduplicate by `id`
+
+**Deduplication Pattern:**
+```typescript
+const processedIds = useRef(new Set<string>());
+
+function handleEvent(event: ReservationEvent) {
+  if (processedIds.current.has(event.id)) {
+    return; // Skip duplicate
+  }
+  processedIds.current.add(event.id);
+  
+  // Process the event
+  switch (event.type) {
+    case "reservation:created":
+      setReservations(prev => [...prev, event.data]);
+      break;
+    case "reservation:updated":
+      setReservations(prev =>
+        prev.map(r => r.id === event.data.id ? event.data : r)
+      );
+      break;
+  }
+}
+```
+
+### Service Restart Behavior
+
+When the reservations service restarts:
+
+1. **During restart** (~5-10 seconds): SSE connection fails
+2. **Client reconnects** automatically with exponential backoff
+3. **Last-Event-ID resume**: Server delivers missed events since last `id`
+4. **Client deduplicates**: Already-processed events are skipped
+
+**Health Check Recovery:**
+```typescript
+// Server sends heartbeat every 30s to detect stale connections
+// If no heartbeat for 60s, client triggers reconnect
+const heartbeatTimeout = 60000;
+```
+
+### Event Types Reference
+
+| Event Type | Payload | Client Action |
+|------------|---------|---------------|
+| `reservation:created` | `Reservation` | Add to list |
+| `reservation:updated` | `Reservation` | Update in list |
+| `reservation:cancelled` | `Reservation` | Remove from list |
+| `table:updated` | `Table` | Update table state |
+| `hold:created` | `ReservationHold` | Add hold indicator |
+| `hold:released` | `ReservationHold` | Remove hold indicator |
+| `hold:confirmed` | `Reservation` | Convert to reservation |
+
 ---
 
 ## Component Architecture

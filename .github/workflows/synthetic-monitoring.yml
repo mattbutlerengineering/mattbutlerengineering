@@ -2,8 +2,8 @@ name: Synthetic Monitoring
 
 on:
   schedule:
-    # Every 5 minutes
-    - cron: "*/5 * * * *"
+    # Twice daily (8 AM and 8 PM UTC)
+    - cron: "0 8,20 * * *"
   workflow_dispatch:
 
 concurrency:
@@ -11,87 +11,307 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  health-pings:
-    name: Health Pings
+  health-check:
+    name: System Health Check
     runs-on: ubuntu-latest
     timeout-minutes: 3
 
     steps:
-      - name: Ping marketing site
+      - name: Query /health/system
+        id: health
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://mattbutlerengineering.com/")
-          echo "marketing: HTTP $STATUS"
-          if [ "$STATUS" != "200" ]; then
-            echo "::error::Marketing site returned HTTP $STATUS (expected 200)"
-            exit 1
+          RESPONSE=$(curl -sf --max-time 15 "https://mattbutlerengineering.com/health/system")
+          STATUS=$(echo "$RESPONSE" | jq -r '.status')
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          echo "response<<HEALTH_EOF" >> "$GITHUB_OUTPUT"
+          echo "$RESPONSE" | jq '.' >> "$GITHUB_OUTPUT"
+          echo "HEALTH_EOF" >> "$GITHUB_OUTPUT"
+
+          echo "### System Health: $STATUS" >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          echo "$RESPONSE" | jq '.' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$STATUS" = "unhealthy" ]; then
+            echo "::error::System health is UNHEALTHY"
+          elif [ "$STATUS" = "degraded" ]; then
+            echo "::warning::System health is DEGRADED"
+          else
+            echo "All systems healthy."
           fi
 
-      - name: Ping hospitality app
+      - name: Record latency samples to KV
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
+          KV_NS_ID: ${{ secrets.HEALTH_KV_NAMESPACE_ID }}
+          HEALTH_RESPONSE: ${{ steps.health.outputs.response }}
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://mattbutlerengineering.com/hospitality/")
-          echo "hospitality: HTTP $STATUS"
-          if [ "$STATUS" != "200" ]; then
-            echo "::error::Hospitality app returned HTTP $STATUS (expected 200)"
-            exit 1
+          HOUR_KEY=$(date -u +%Y-%m-%d-%H)
+
+          # Extract per-service latencies from the health response
+          LATENCIES=$(echo "$HEALTH_RESPONSE" | jq -c '{
+            timestamp: now | todate,
+            services: (
+              [.services // {} | to_entries[] | {key: .key, value: {latency: (.value.latency // .value.checks[0].latency // null), status: .value.status}}]
+              | from_entries
+            )
+          }' 2>/dev/null || echo '{}')
+
+          if [ "$LATENCIES" != "{}" ]; then
+            curl -sf -X PUT \
+              "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/values/latency%2F${HOUR_KEY}" \
+              -H "Authorization: Bearer ${CF_API_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "$LATENCIES"
+            echo "Recorded latency sample for $HOUR_KEY"
           fi
 
-      - name: Ping rialto showcase
+      - name: Notify webhook on status change
+        if: vars.HEALTH_WEBHOOK_URL != ''
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
+          KV_NS_ID: ${{ secrets.HEALTH_KV_NAMESPACE_ID }}
+          WEBHOOK_URL: ${{ vars.HEALTH_WEBHOOK_URL }}
+          CURRENT_STATUS: ${{ steps.health.outputs.status }}
+          HEALTH_RESPONSE: ${{ steps.health.outputs.response }}
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://mattbutlerengineering.com/rialto/")
-          echo "rialto: HTTP $STATUS"
-          if [ "$STATUS" != "200" ]; then
-            echo "::error::Rialto showcase returned HTTP $STATUS (expected 200)"
-            exit 1
+          # Read previous status from KV
+          PREV=$(curl -sf \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/values/health%2Fprevious-status" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" 2>/dev/null || echo "unknown")
+
+          echo "Previous: $PREV → Current: $CURRENT_STATUS"
+
+          # Store current status for next comparison
+          curl -sf -X PUT \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/values/health%2Fprevious-status" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" \
+            -H "Content-Type: text/plain" \
+            -d "$CURRENT_STATUS"
+
+          # Only fire webhook on status transitions
+          if [ "$PREV" = "$CURRENT_STATUS" ]; then
+            echo "No status change — skipping webhook."
+            exit 0
           fi
 
-      - name: Ping users API health
+          case "$CURRENT_STATUS" in
+            healthy)  EMOJI="✅"; COLOR=65280 ;;
+            degraded) EMOJI="⚠️"; COLOR=16776960 ;;
+            *)        EMOJI="🔴"; COLOR=16711680 ;;
+          esac
+
+          TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          FAILING=$(echo "$HEALTH_RESPONSE" | jq -r '
+            [(.services // {} | to_entries[] | select(.value.status != "healthy" and .value.status != "ok") | .key)] | join(", ")' 2>/dev/null || echo "")
+
+          PAYLOAD=$(jq -nc \
+            --arg emoji "$EMOJI" \
+            --arg prev "$PREV" \
+            --arg curr "$CURRENT_STATUS" \
+            --arg ts "$TIMESTAMP" \
+            --arg failing "$FAILING" \
+            --argjson color "$COLOR" \
+            '{
+              content: "\($emoji) **Health status changed: \($prev) → \($curr)**\nTime: \($ts)\nFailing: \(if $failing == "" then "none" else $failing end)\nDashboard: https://mattbutlerengineering.com/status",
+              embeds: [{
+                title: "\($emoji) Health: \($prev) → \($curr)",
+                color: $color,
+                fields: [
+                  {name: "Previous", value: $prev, inline: true},
+                  {name: "Current", value: $curr, inline: true},
+                  {name: "Failing", value: (if $failing == "" then "none" else $failing end), inline: false}
+                ],
+                timestamp: $ts
+              }]
+            }')
+
+          curl -sf -X POST "$WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD"
+
+          echo "Webhook fired: $PREV → $CURRENT_STATUS"
+
+      - name: Record status transition to KV
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
+          KV_NS_ID: ${{ secrets.HEALTH_KV_NAMESPACE_ID }}
+          CURRENT_STATUS: ${{ steps.health.outputs.status }}
         run: |
-          RESPONSE=$(curl -s --max-time 10 "https://api.mattbutlerengineering.com/health")
-          STATUS_HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://api.mattbutlerengineering.com/health")
-          echo "users-api: HTTP $STATUS_HTTP — $RESPONSE"
-          if [ "$STATUS_HTTP" != "200" ]; then
-            echo "::error::Users API health returned HTTP $STATUS_HTTP (expected 200)"
-            exit 1
-          fi
-          STATUS_BODY=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status','unknown'))" 2>/dev/null || echo "parse-error")
-          echo "users-api status: $STATUS_BODY"
-          if [ "$STATUS_BODY" = "error" ]; then
-            echo "::error::Users API health status is 'error': $RESPONSE"
-            exit 1
+          KV_BASE="https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/values"
+          AUTH="-H \"Authorization: Bearer ${CF_API_TOKEN}\""
+
+          # Read previous status
+          PREV=$(curl -sf "${KV_BASE}/health%2Fprevious-status" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" 2>/dev/null || echo "unknown")
+
+          # Only record if status actually changed
+          if [ "$PREV" = "$CURRENT_STATUS" ]; then
+            echo "No transition — skipping."
+            exit 0
           fi
 
-      - name: Ping reservations API health
+          # Read existing transitions (max 20 entries)
+          EXISTING=$(curl -sf "${KV_BASE}/health%2Ftransitions" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" 2>/dev/null || echo "[]")
+
+          # Append new transition and keep last 20
+          UPDATED=$(echo "$EXISTING" | jq -c \
+            --arg from "$PREV" \
+            --arg to "$CURRENT_STATUS" \
+            --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '. + [{from: $from, to: $to, timestamp: $ts}] | .[-20:]')
+
+          curl -sf -X PUT "${KV_BASE}/health%2Ftransitions" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$UPDATED"
+
+          echo "Recorded transition: $PREV → $CURRENT_STATUS"
+        id: transitions
+
+      - name: Load recent transitions for issue body
+        if: steps.health.outputs.status != 'healthy'
+        id: timeline
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
+          KV_NS_ID: ${{ secrets.HEALTH_KV_NAMESPACE_ID }}
         run: |
-          RESPONSE=$(curl -s --max-time 10 "https://api.mattbutlerengineering.com/api/v1/reservations/health")
-          STATUS_HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://api.mattbutlerengineering.com/api/v1/reservations/health")
-          echo "reservations-api: HTTP $STATUS_HTTP — $RESPONSE"
-          if [ "$STATUS_HTTP" != "200" ]; then
-            echo "::error::Reservations API health returned HTTP $STATUS_HTTP (expected 200)"
-            exit 1
+          TRANSITIONS=$(curl -sf \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/values/health%2Ftransitions" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" 2>/dev/null || echo "[]")
+
+          # Format last 5 as markdown list
+          TIMELINE=$(echo "$TRANSITIONS" | jq -r '.[-5:] | reverse | .[] | "- \(.from) → \(.to) at \(.timestamp)"')
+
+          echo "timeline<<TIMELINE_EOF" >> "$GITHUB_OUTPUT"
+          echo "$TIMELINE" >> "$GITHUB_OUTPUT"
+          echo "TIMELINE_EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Check for existing health issue
+        if: steps.health.outputs.status != 'healthy'
+        id: existing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEALTH_STATUS: ${{ steps.health.outputs.status }}
+        run: |
+          LABEL="ci-fix"
+          if [ "$HEALTH_STATUS" = "degraded" ]; then
+            LABEL="audit"
           fi
-          STATUS_BODY=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status','unknown'))" 2>/dev/null || echo "parse-error")
-          echo "reservations-api status: $STATUS_BODY"
-          if [ "$STATUS_BODY" = "error" ]; then
-            echo "::error::Reservations API health status is 'error': $RESPONSE"
-            exit 1
+          COUNT=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --label "$LABEL" --label "auto-health" --json number --jq 'length')
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "label=$LABEL" >> "$GITHUB_OUTPUT"
+
+      - name: Create health alert issue
+        if: steps.health.outputs.status != 'healthy' && steps.existing.outputs.count == '0'
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: docs/runbooks
+
+      - name: Create health alert issue (cont.)
+        if: steps.health.outputs.status != 'healthy' && steps.existing.outputs.count == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEALTH_STATUS: ${{ steps.health.outputs.status }}
+          HEALTH_RESPONSE: ${{ steps.health.outputs.response }}
+          ISSUE_LABEL: ${{ steps.existing.outputs.label }}
+          TIMELINE: ${{ steps.timeline.outputs.timeline }}
+        run: |
+          # Build a concise summary of what's wrong
+          FAILED_SERVICES=$(echo "$HEALTH_RESPONSE" | jq -r '
+            [.subsystems.services.checks | to_entries[] | select(.value.status != "ok") | .key] | join(", ")')
+          FAILED_SITES=$(echo "$HEALTH_RESPONSE" | jq -r '
+            [.subsystems.static_sites.checks | to_entries[] | select(.value.status != "ok") | .key] | join(", ")')
+          CI_STATUS=$(echo "$HEALTH_RESPONSE" | jq -r '.subsystems.ci.status')
+          DEPLOY_STATUS=$(echo "$HEALTH_RESPONSE" | jq -r '.subsystems.deploys.status')
+
+          SUMMARY=""
+          RUNBOOKS=""
+
+          if [ -n "$FAILED_SERVICES" ]; then
+            SUMMARY="${SUMMARY}Services down: ${FAILED_SERVICES}. "
+            if [ -f docs/runbooks/services-unhealthy.md ]; then
+              RUNBOOKS="${RUNBOOKS}$(cat docs/runbooks/services-unhealthy.md)
+
+"
+            fi
+          fi
+          if [ -n "$FAILED_SITES" ]; then
+            SUMMARY="${SUMMARY}Static sites down: ${FAILED_SITES}. "
+            if [ -f docs/runbooks/static-sites-unhealthy.md ]; then
+              RUNBOOKS="${RUNBOOKS}$(cat docs/runbooks/static-sites-unhealthy.md)
+
+"
+            fi
+          fi
+          if [ "$CI_STATUS" != "healthy" ]; then
+            SUMMARY="${SUMMARY}CI: ${CI_STATUS}. "
+            if [ -f docs/runbooks/ci-unhealthy.md ]; then
+              RUNBOOKS="${RUNBOOKS}$(cat docs/runbooks/ci-unhealthy.md)
+
+"
+            fi
+          fi
+          if [ "$DEPLOY_STATUS" != "healthy" ]; then
+            SUMMARY="${SUMMARY}Deploys: ${DEPLOY_STATUS}. "
+            if [ -f docs/runbooks/deploys-unhealthy.md ]; then
+              RUNBOOKS="${RUNBOOKS}$(cat docs/runbooks/deploys-unhealthy.md)
+
+"
+            fi
           fi
 
-      - name: Ping agent API health
-        run: |
-          RESPONSE=$(curl -s --max-time 10 "https://api.mattbutlerengineering.com/api/gen/health")
-          STATUS_HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://api.mattbutlerengineering.com/api/gen/health")
-          echo "agent-api: HTTP $STATUS_HTTP — $RESPONSE"
-          if [ "$STATUS_HTTP" != "200" ]; then
-            echo "::error::Agent API health returned HTTP $STATUS_HTTP (expected 200)"
-            exit 1
-          fi
-          STATUS_BODY=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status','unknown'))" 2>/dev/null || echo "parse-error")
-          echo "agent-api status: $STATUS_BODY"
-          if [ "$STATUS_BODY" = "error" ]; then
-            echo "::error::Agent API health status is 'error': $RESPONSE"
-            exit 1
+          TITLE="System health ${HEALTH_STATUS}: ${SUMMARY}"
+          TITLE="${TITLE:0:256}"
+          DETECTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          # Build timeline section
+          TIMELINE_SECTION=""
+          if [ -n "$TIMELINE" ]; then
+            TIMELINE_SECTION="### Recent Status Transitions
+
+${TIMELINE}
+
+"
           fi
 
-      - name: Summarize results
-        if: success()
-        run: echo "All endpoints healthy."
+          BODY="## System Health Alert
+
+**Status:** \`${HEALTH_STATUS}\`
+**Detected:** ${DETECTED}
+**Source:** Synthetic monitoring (twice daily)
+
+To check current status: \`curl -s https://mattbutlerengineering.com/health/system | jq .\`
+
+${TIMELINE_SECTION}---
+
+${RUNBOOKS}
+
+---
+*This issue was auto-created by synthetic monitoring. It will be picked up by the ship-loop or issue-worker.*"
+
+          gh issue create \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$TITLE" \
+            --body "$BODY" \
+            --label "$ISSUE_LABEL" \
+            --label "auto-health" \
+            --label "ready"
+
+      - name: Auto-close resolved health issues
+        if: steps.health.outputs.status == 'healthy'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ISSUES=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --label "auto-health" --json number --jq '.[].number')
+          for ISSUE_NUM in $ISSUES; do
+            gh issue close "$ISSUE_NUM" \
+              --repo "$GITHUB_REPOSITORY" \
+              --comment "Auto-closed: system health returned to **healthy** at $(date -u +%Y-%m-%dT%H:%M:%SZ)."
+            echo "Closed issue #$ISSUE_NUM"
+          done

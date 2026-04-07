@@ -54,6 +54,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   padding: var(--rialto-space-xl);
+  outline: none;
 }
 
 /* ── Content footer (inside scroll area) ─────── */

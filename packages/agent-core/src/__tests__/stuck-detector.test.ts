@@ -107,6 +107,7 @@ describe("StuckDetector", () => {
       expect(result).not.toBeNull();
       expect(result!.type).toBe("repeated_action_observation");
       expect(result!.count).toBe(4);
+      expect(result!.severity).toBe("error");
     });
 
     it("does not trigger when observations differ", () => {
@@ -116,6 +117,36 @@ describe("StuckDetector", () => {
         result = detector.ingest(makeUserToolResult(`content ${i}`));
       }
 
+      expect(result).toBeNull();
+    });
+
+    it("does not trigger when context changed between retries", () => {
+      // Simulate: agent tries command, fails, edits file, retries same command
+      // The observation fingerprints change between the repeated actions
+      const d = createStuckDetector({ repeatedActionThreshold: 3 });
+
+      // Attempt 1
+      d.ingest(makeAssistantToolUse("Bash", { command: "pnpm build" }));
+      d.ingest(makeUserToolResult("build failed: missing dep"));
+
+      // Agent fixes the issue (different observation fingerprint injected)
+      d.ingest(makeAssistantToolUse("Edit", { file_path: "/package.json", old_string: "a", new_string: "b" }));
+      d.ingest(makeUserToolResult("edit applied"));
+
+      // Attempt 2 — same command but context changed
+      d.ingest(makeAssistantToolUse("Bash", { command: "pnpm build" }));
+      d.ingest(makeUserToolResult("build failed: missing dep"));
+
+      // Agent fixes again
+      d.ingest(makeAssistantToolUse("Edit", { file_path: "/tsconfig.json", old_string: "x", new_string: "y" }));
+      d.ingest(makeUserToolResult("edit applied"));
+
+      // Attempt 3
+      d.ingest(makeAssistantToolUse("Bash", { command: "pnpm build" }));
+      const result = d.ingest(makeUserToolResult("build failed: missing dep"));
+
+      // Should not trigger because other actions happened between repeats
+      // The action fingerprints aren't consecutive identical ones
       expect(result).toBeNull();
     });
   });
@@ -135,6 +166,7 @@ describe("StuckDetector", () => {
       expect(result).not.toBeNull();
       expect(result!.type).toBe("repeated_error");
       expect(result!.count).toBe(3);
+      expect(result!.severity).toBe("error");
     });
 
     it("resets error count on non-error observation", () => {
@@ -177,6 +209,7 @@ describe("StuckDetector", () => {
       expect(result).not.toBeNull();
       expect(result!.type).toBe("self_message_loop");
       expect(result!.count).toBe(3);
+      expect(result!.severity).toBe("error");
     });
 
     it("does not trigger for different text messages", () => {
@@ -201,6 +234,7 @@ describe("StuckDetector", () => {
       expect(result).not.toBeNull();
       expect(result!.type).toBe("alternating_pairs");
       expect(result!.count).toBe(3);
+      expect(result!.severity).toBe("error");
     });
 
     it("does not trigger for non-alternating patterns", () => {
@@ -216,46 +250,61 @@ describe("StuckDetector", () => {
   });
 
   describe("context_window_loop", () => {
-    it("detects excessive compact boundary messages", () => {
+    it("emits warning at threshold 2 compactions", () => {
       let result = null;
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 2; i++) {
+        result = detector.ingest(makeCompactBoundary());
+      }
+
+      expect(result).not.toBeNull();
+      expect(result!.type).toBe("context_window_warning");
+      expect(result!.severity).toBe("warning");
+      expect(result!.count).toBe(2);
+    });
+
+    it("detects error at 5 compact boundary messages (lowered threshold)", () => {
+      let result = null;
+      for (let i = 0; i < 5; i++) {
         result = detector.ingest(makeCompactBoundary());
       }
 
       expect(result).not.toBeNull();
       expect(result!.type).toBe("context_window_loop");
-      expect(result!.count).toBe(10);
+      expect(result!.severity).toBe("error");
+      expect(result!.count).toBe(5);
     });
 
-    it("does not trigger below threshold", () => {
+    it("does not trigger error below threshold", () => {
       let result = null;
-      for (let i = 0; i < 9; i++) {
+      for (let i = 0; i < 4; i++) {
         result = detector.ingest(makeCompactBoundary());
       }
 
-      expect(result).toBeNull();
+      // Should be a warning, not an error
+      expect(result).not.toBeNull();
+      expect(result!.type).toBe("context_window_warning");
+      expect(result!.severity).toBe("warning");
     });
   });
 
   describe("zero_progress", () => {
-    it("detects no tool use over N consecutive text turns", () => {
+    it("detects no tool use over 5 consecutive text turns (lowered threshold)", () => {
       let result = null;
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 5; i++) {
         result = detector.ingest(
           makeAssistantText(`Thinking about step ${i}...`)
         );
       }
 
-      // The self-message loop check fires first if messages are identical,
-      // but these are all different, so zero_progress should fire
       expect(result).not.toBeNull();
       expect(result!.type).toBe("zero_progress");
-      expect(result!.count).toBe(10);
+      expect(result!.count).toBe(5);
+      expect(result!.severity).toBe("error");
     });
 
     it("resets counter when tool is used", () => {
-      // 5 text turns
-      for (let i = 0; i < 5; i++) {
+      // 3 text turns
+      for (let i = 0; i < 3; i++) {
         detector.ingest(makeAssistantText(`Step ${i}`));
       }
 
@@ -263,10 +312,80 @@ describe("StuckDetector", () => {
       detector.ingest(makeAssistantToolUse("Read", { file_path: "/a.ts" }));
       detector.ingest(makeUserToolResult("content"));
 
-      // 5 more text turns — total is 5, not 10
+      // 3 more text turns — total is 3, not 6
+      let result = null;
+      for (let i = 0; i < 3; i++) {
+        result = detector.ingest(makeAssistantText(`Step ${i + 3}`));
+      }
+
+      expect(result).toBeNull();
+    });
+
+    it("does not trigger when output is substantial (genuine reasoning)", () => {
+      const longText = "A".repeat(600); // > 500 chars threshold
+      let result = null;
+      for (let i = 0; i < 6; i++) {
+        result = detector.ingest(
+          makeAssistantText(`${longText} step ${i}`)
+        );
+      }
+
+      // Should not trigger because output exceeds zeroProgressMinOutputChars
+      expect(result).toBeNull();
+    });
+
+    it("triggers when output is short even after threshold", () => {
       let result = null;
       for (let i = 0; i < 5; i++) {
-        result = detector.ingest(makeAssistantText(`Step ${i + 5}`));
+        result = detector.ingest(
+          makeAssistantText(`Thinking step ${i}...`)
+        );
+      }
+
+      expect(result).not.toBeNull();
+      expect(result!.type).toBe("zero_progress");
+    });
+  });
+
+  describe("silent_failure_loop", () => {
+    it("detects tool success with no file modifications over window", () => {
+      // First, establish that agent has used file-modifying tools
+      detector.ingest(makeAssistantToolUse("Edit", { file_path: "/a.ts", old_string: "x", new_string: "y" }));
+      detector.ingest(makeUserToolResult("edit applied"));
+
+      // Now: 3 consecutive Read calls that succeed but don't modify files
+      let result = null;
+      for (let i = 0; i < 3; i++) {
+        detector.ingest(makeAssistantToolUse("Read", { file_path: `/file${i}.ts` }));
+        result = detector.ingest(makeUserToolResult("file content"));
+      }
+
+      expect(result).not.toBeNull();
+      expect(result!.type).toBe("silent_failure_loop");
+      expect(result!.severity).toBe("warning");
+    });
+
+    it("does not trigger when file-modifying tools are used", () => {
+      detector.ingest(makeAssistantToolUse("Edit", { file_path: "/a.ts", old_string: "x", new_string: "y" }));
+      detector.ingest(makeUserToolResult("edit applied"));
+
+      // Mix of Read and Edit — Edit resets the counter
+      detector.ingest(makeAssistantToolUse("Read", { file_path: "/b.ts" }));
+      detector.ingest(makeUserToolResult("content"));
+      detector.ingest(makeAssistantToolUse("Edit", { file_path: "/b.ts", old_string: "a", new_string: "b" }));
+      detector.ingest(makeUserToolResult("edit applied"));
+      detector.ingest(makeAssistantToolUse("Read", { file_path: "/c.ts" }));
+      const result = detector.ingest(makeUserToolResult("content"));
+
+      expect(result).toBeNull();
+    });
+
+    it("does not trigger when no file-modifying tools were ever used", () => {
+      // Agent only reads files — no expectation of file modifications
+      let result = null;
+      for (let i = 0; i < 5; i++) {
+        detector.ingest(makeAssistantToolUse("Read", { file_path: `/file${i}.ts` }));
+        result = detector.ingest(makeUserToolResult("content"));
       }
 
       expect(result).toBeNull();
@@ -305,6 +424,112 @@ describe("StuckDetector", () => {
       expect(result).not.toBeNull();
       expect(result!.type).toBe("repeated_action_observation");
       expect(result!.threshold).toBe(2);
+    });
+
+    it("respects custom contextWindowLoopThreshold", () => {
+      const customDetector = createStuckDetector({
+        contextWindowLoopThreshold: 3,
+        contextWindowWarningThreshold: 1,
+      });
+
+      // 1 compact → warning
+      let result = customDetector.ingest(makeCompactBoundary());
+      expect(result).not.toBeNull();
+      expect(result!.type).toBe("context_window_warning");
+
+      // 3 compacts → error
+      customDetector.ingest(makeCompactBoundary());
+      result = customDetector.ingest(makeCompactBoundary());
+      expect(result).not.toBeNull();
+      expect(result!.type).toBe("context_window_loop");
+    });
+
+    it("respects custom zeroProgressThreshold", () => {
+      const customDetector = createStuckDetector({
+        zeroProgressThreshold: 3,
+      });
+
+      let result = null;
+      for (let i = 0; i < 3; i++) {
+        result = customDetector.ingest(
+          makeAssistantText(`Step ${i}`)
+        );
+      }
+
+      expect(result).not.toBeNull();
+      expect(result!.type).toBe("zero_progress");
+      expect(result!.threshold).toBe(3);
+    });
+
+    it("respects custom zeroProgressMinOutputChars", () => {
+      const customDetector = createStuckDetector({
+        zeroProgressThreshold: 3,
+        zeroProgressMinOutputChars: 100,
+      });
+
+      // Text longer than 100 chars should not trigger
+      const longText = "A".repeat(150);
+      let result = null;
+      for (let i = 0; i < 4; i++) {
+        result = customDetector.ingest(makeAssistantText(longText));
+      }
+
+      // Should trigger self_message_loop instead (same text), not zero_progress
+      // because the text exceeds the char threshold
+      expect(result).not.toBeNull();
+      expect(result!.type).toBe("self_message_loop");
+    });
+
+    it("respects custom silentFailureTurnWindow", () => {
+      const customDetector = createStuckDetector({
+        silentFailureTurnWindow: 2,
+      });
+
+      // Establish file-modifying context
+      customDetector.ingest(makeAssistantToolUse("Write", { file_path: "/a.ts", content: "x" }));
+      customDetector.ingest(makeUserToolResult("written"));
+
+      // 2 non-modifying turns
+      customDetector.ingest(makeAssistantToolUse("Read", { file_path: "/b.ts" }));
+      customDetector.ingest(makeUserToolResult("content"));
+      customDetector.ingest(makeAssistantToolUse("Glob", { pattern: "*.ts" }));
+      const result = customDetector.ingest(makeUserToolResult("file list"));
+
+      expect(result).not.toBeNull();
+      expect(result!.type).toBe("silent_failure_loop");
+    });
+  });
+
+  describe("severity levels", () => {
+    it("returns error severity for stuck patterns", () => {
+      // repeated_action_observation
+      const d = createStuckDetector({ repeatedActionThreshold: 2 });
+      d.ingest(makeAssistantToolUse("Read", { file_path: "/a.ts" }));
+      d.ingest(makeUserToolResult("same"));
+      d.ingest(makeAssistantToolUse("Read", { file_path: "/a.ts" }));
+      const result = d.ingest(makeUserToolResult("same"));
+
+      expect(result!.severity).toBe("error");
+    });
+
+    it("returns warning severity for context_window_warning", () => {
+      const d = createStuckDetector();
+      d.ingest(makeCompactBoundary());
+      const result = d.ingest(makeCompactBoundary());
+
+      expect(result!.severity).toBe("warning");
+    });
+
+    it("returns warning severity for silent_failure_loop", () => {
+      const d = createStuckDetector({ silentFailureTurnWindow: 2 });
+      d.ingest(makeAssistantToolUse("Edit", { file_path: "/a.ts", old_string: "x", new_string: "y" }));
+      d.ingest(makeUserToolResult("applied"));
+      d.ingest(makeAssistantToolUse("Read", { file_path: "/b.ts" }));
+      d.ingest(makeUserToolResult("content"));
+      d.ingest(makeAssistantToolUse("Grep", { pattern: "foo" }));
+      const result = d.ingest(makeUserToolResult("matches"));
+
+      expect(result!.severity).toBe("warning");
     });
   });
 

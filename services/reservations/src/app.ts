@@ -1,15 +1,18 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
+import rateLimit from "@fastify/rate-limit";
 import swagger from "@fastify/swagger";
+import swaggerUi from "@fastify/swagger-ui";
 import ScalarApiReference from "@scalar/fastify-api-reference";
 import { authPlugin, getAuthPluginOptionsFromEnv } from "@mbe/auth/fastify";
+import { createRequestIdMiddleware } from "@mbe/observability";
+import { sentryFastifyPlugin } from "@mbe/sentry/node";
+import { apiVersioningPlugin } from "@mbe/api-versioning/fastify";
 import { registerSchemas } from "./schemas/index.js";
 import { healthRoutes } from "./routes/health.js";
 import { tableRoutes } from "./routes/tables.js";
 import { reservationRoutes } from "./routes/reservations.js";
 import { venueRoutes } from "./routes/venues.js";
-import { guestRoutes } from "./routes/guests.js";
-import { floorPlanRoutes } from "./routes/floor-plans.js";
 import { availabilityRoutes } from "./routes/availability.js";
 import { holdRoutes } from "./routes/holds.js";
 import { eventRoutes } from "./routes/events.js";
@@ -18,122 +21,110 @@ export interface AppOptions {
   logger?: boolean | object;
 }
 
+/**
+ * Creates the Fastify application instance.
+ */
 export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
   const fastify = Fastify({
-    logger: options.logger ?? {
-      level: process.env.LOG_LEVEL ?? "info",
-    },
+    logger: options.logger ?? true,
+    disableRequestLogging: true,
   });
 
-  // Register plugins
+  // Register schemas
+  registerSchemas(fastify);
+
+  // Core plugins
+  const defaultDevOrigins = [
+    "http://localhost:3000",
+    "http://localhost:3002",
+    "http://localhost:3003",
+    "http://localhost:3004",
+    "http://localhost:5173",
+    "http://localhost:5174",
+  ];
+  const prodOrigins = [
+    "https://mattbutlerengineering.com",
+    "https://hospitality.mattbutlerengineering.com",
+    "https://gen.mattbutlerengineering.com",
+  ];
+
+  const corsOrigins = process.env.CORS_ORIGINS?.split(",") || [
+    ...prodOrigins,
+    ...(process.env.NODE_ENV === "development" ? defaultDevOrigins : []),
+  ];
+
   await fastify.register(cors, {
-    origin: process.env.CORS_ORIGIN ?? true,
+    origin: corsOrigins,
+    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"],
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  });
+
+  // Propagate X-Request-ID from edge router for distributed tracing
+  await fastify.register(createRequestIdMiddleware());
+
+  await fastify.register(rateLimit, {
+    max: 100,
+    timeWindow: "1 minute",
   });
 
   await fastify.register(swagger, {
     openapi: {
       info: {
-        title: "Reservations Service API",
-        description:
-          "RESTful API for restaurant table reservations. Supports both authenticated users and guest reservations.",
+        title: "MBE Reservations API",
+        description: "API for managing table reservations and availability",
         version: "1.0.0",
-        contact: {
-          name: "API Support",
-          email: "support@example.com",
-        },
       },
-      servers: [
-        ...(process.env.API_BASE_URL
-          ? [
-              {
-                url: process.env.API_BASE_URL,
-                description: "Production",
-              },
-            ]
-          : []),
-        {
-          url: `http://localhost:${process.env.PORT ?? 3004}`,
-          description: "Local development",
-        },
-      ],
-      tags: [
-        {
-          name: "Health",
-          description: "Service health and status endpoints",
-        },
-        {
-          name: "Venue Groups",
-          description: "Venue group management endpoints",
-        },
-        {
-          name: "Venues",
-          description: "Venue management endpoints",
-        },
-        {
-          name: "Guests",
-          description: "Guest CRM endpoints",
-        },
-        {
-          name: "Tables",
-          description: "Table management endpoints",
-        },
-        {
-          name: "Floor Plans",
-          description: "Floor plan and table positioning endpoints",
-        },
-        {
-          name: "Reservations",
-          description: "Reservation CRUD operations",
-        },
-        {
-          name: "Availability",
-          description: "Availability checking and time slot generation",
-        },
-        {
-          name: "Holds",
-          description: "Reservation hold management for the booking flow",
-        },
-        {
-          name: "Events",
-          description: "Server-Sent Events for real-time updates",
-        },
-      ],
+      servers: [{ url: "http://localhost:3004" }],
       components: {
         securitySchemes: {
           bearerAuth: {
             type: "http",
             scheme: "bearer",
             bearerFormat: "JWT",
-            description: "JWT token obtained from the authentication provider",
           },
         },
       },
     },
   });
 
-  await fastify.register(ScalarApiReference, {
+  await fastify.register(swaggerUi, {
     routePrefix: "/docs",
-    configuration: {
-      title: "Reservations Service API",
-      theme: "deepSpace",
+    uiConfig: {
+      docExpansion: "list",
+      deepLinking: false,
     },
   });
 
-  // Register shared schemas
-  registerSchemas(fastify);
+  await fastify.register(ScalarApiReference, {
+    routePrefix: "/reference",
+    configuration: {
+      content: () => fastify.swagger(),
+    },
+  });
 
-  // Register auth plugin (permissive — populates request.user when token present)
-  if (process.env.AUTH_AUTHORITY && process.env.AUTH_AUDIENCE) {
+  // Register Auth0 plugin
+  if (process.env.AUTH_AUTHORITY) {
     await fastify.register(authPlugin, getAuthPluginOptionsFromEnv());
+  } else if (process.env.NODE_ENV === "production") {
+    throw new Error("Fail-closed: AUTH_AUTHORITY and AUTH_AUDIENCE are required in production");
   }
+
+  // Register Sentry error handler (no-op without SENTRY_DSN)
+  await fastify.register(sentryFastifyPlugin);
+
+  // Register API versioning headers
+  await fastify.register(apiVersioningPlugin, {
+    currentVersion: "v1",
+    successorVersion: "v2",
+    sunsetMonthsFromNow: 6,
+  });
 
   // Register routes
   await fastify.register(healthRoutes);
-  await fastify.register(venueRoutes, { prefix: "/api/v1/venues" });
-  await fastify.register(guestRoutes, { prefix: "/api/v1/guests" });
   await fastify.register(tableRoutes, { prefix: "/api/v1/tables" });
-  await fastify.register(floorPlanRoutes, { prefix: "/api/v1/floor-plans" });
   await fastify.register(reservationRoutes, { prefix: "/api/v1/reservations" });
+  await fastify.register(venueRoutes, { prefix: "/api/v1/venues" });
   await fastify.register(availabilityRoutes, { prefix: "/api/v1/availability" });
   await fastify.register(holdRoutes, { prefix: "/api/v1/holds" });
   await fastify.register(eventRoutes, { prefix: "/api/v1/events" });

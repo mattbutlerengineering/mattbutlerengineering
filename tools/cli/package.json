@@ -10,18 +10,25 @@
     "build": "tsc",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "start": "tsx src/index.ts"
   },
   "dependencies": {
     "@mbe/agent-core": "workspace:*",
     "@mbe/types": "workspace:*",
-    "commander": "^12.0.0",
-    "conf": "^13.0.0"
+    "commander": "^14.0.3",
+    "conf": "^15.1.0",
+    "glob": "^13.0.6",
+    "js-yaml": "^4.1.1",
+    "ts-morph": "^27.0.2"
   },
   "devDependencies": {
     "@mbe/config": "workspace:*",
-    "@types/node": "^22.0.0",
+    "@types/glob": "^9.0.0",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "catalog:",
     "tsx": "^4.19.0",
-    "typescript": "^5.7.3"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

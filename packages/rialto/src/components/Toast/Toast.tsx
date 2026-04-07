@@ -157,7 +157,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           </AnimatePresence>
         </div>
         {/* Assertive region — error (interrupts user immediately) */}
-        <div aria-live="assertive" aria-atomic="true">
+        <div aria-live="assertive" aria-atomic="false">
           <AnimatePresence mode="popLayout">
             {assertiveToasts.map((t) => (
               <ToastItem key={t.id} toast={t} onDismiss={dismiss} />

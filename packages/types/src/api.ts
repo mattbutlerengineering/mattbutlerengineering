@@ -15,16 +15,67 @@ export interface ApiMeta {
 }
 
 /**
- * Paginated API response
+ * API error response (legacy + RFC 7807 fields for transition)
  */
-export interface PaginatedResponse<T> {
-  data: T[];
-  pagination: Pagination;
-  meta?: ApiMeta;
+export interface ApiError {
+  error: string;
+  message: string;
+  statusCode: number;
+  details?: Record<string, unknown>;
+  // RFC 7807 compatibility
+  type?: string;
+  title?: string;
+  status?: number;
+  detail?: string;
+  instance?: string;
 }
 
 /**
- * Pagination info
+ * RFC 7807 Problem Details for HTTP APIs
+ */
+export interface ProblemDetails {
+  type: string;
+  title: string;
+  status: number;
+  detail: string;
+  instance?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Creates a standard RFC 7807 Problem Details object.
+ * Returns a combined type for backward compatibility.
+ */
+export function createProblemDetails(
+  status: number,
+  title: string,
+  detail: string,
+  type = "about:blank",
+  instance?: string,
+  extensions?: Record<string, unknown>
+): ProblemDetails & ApiError {
+  return {
+    type,
+    title,
+    status,
+    detail,
+    instance,
+    error: title,
+    message: detail,
+    statusCode: status,
+    ...extensions,
+  };
+}
+
+/**
+ * Paginated API response
+ */
+export interface PaginatedResponse<T> extends ApiResponse<T[]> {
+  pagination: Pagination;
+}
+
+/**
+ * Pagination metadata
  */
 export interface Pagination {
   page: number;
@@ -36,30 +87,105 @@ export interface Pagination {
 }
 
 /**
- * API error response
- */
-export interface ApiError {
-  error: string;
-  message: string;
-  statusCode: number;
-  details?: Record<string, unknown>;
-}
-
-/**
  * Health check response
  */
 export interface HealthResponse {
   status: "ok" | "degraded" | "error";
   version: string;
   timestamp: string;
-  checks?: Record<string, HealthCheck>;
+  service?: string;
+  checks?: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 /**
- * Individual health check
+ * Individual health check result
  */
 export interface HealthCheck {
+  name: string;
   status: "ok" | "error";
   message?: string;
-  latency?: number;
+  durationMs?: number;
+}
+
+/**
+ * Global system status
+ */
+export type SystemStatus = "healthy" | "degraded" | "unhealthy" | "unknown";
+
+/**
+ * Full system health overview
+ */
+export interface SystemHealthResponse {
+  status: SystemStatus;
+  timestamp: string;
+  services: Record<string, SubsystemHealth>;
+  staticSites: Record<string, StaticSiteCheck>;
+  ci: CiHealth;
+  deploy: DeployHealth;
+  migrations: MigrationHealth;
+}
+
+export interface SubsystemHealth {
+  status: SystemStatus;
+  version: string;
+  url: string;
+  checks: ServiceCheck[];
+  updated_at: string;
+}
+
+export interface ServiceCheck {
+  name: string;
+  status: SystemStatus;
+  message?: string;
+  updated_at: string;
+}
+
+export interface StaticSiteCheck {
+  status: SystemStatus;
+  url: string;
+  updated_at: string;
+}
+
+export interface CiHealth {
+  status: SystemStatus;
+  latest_runs: Record<string, CiRunInfo | null>;
+}
+
+export interface CiRunInfo {
+  id: number;
+  conclusion: string;
+  branch: string;
+  sha: string;
+  updated_at: string;
+}
+
+export interface DeployHealth {
+  status: SystemStatus;
+  pipelines: Record<string, DeployPipelineInfo | null>;
+}
+
+export interface DeployPipelineInfo {
+  conclusion: string;
+  sha: string;
+  updated_at: string;
+}
+
+/**
+ * Per-service migration health
+ */
+export interface MigrationHealth {
+  status: SystemStatus;
+  checks: Record<string, MigrationServiceCheck>;
+}
+
+export interface MigrationServiceCheck {
+  status: "ok" | "error" | "stale" | "unknown";
+  last_run?: MigrationRunInfo | null;
+}
+
+export interface MigrationRunInfo {
+  conclusion: string;
+  service: string;
+  updated_at: string;
 }

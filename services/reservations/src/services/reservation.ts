@@ -1,19 +1,29 @@
-import type {
-  Reservation,
-  ReservationStatus,
-  Table,
-  CreateReservationRequest,
-  UpdateReservationRequest,
-  WalkInRequest,
-  PaginatedResponse,
-  ConflictCheckResult,
-  PacingCheckResult,
-  TableShapeMetadata,
-  VenueSettings,
+import {
+  toDateString,
+  type Reservation,
+  type ReservationStatus,
+  type Table,
+  type CreateReservationRequest,
+  type UpdateReservationRequest,
+  type WalkInRequest,
+  type PaginatedResponse,
+  type ConflictCheckResult,
+  type PacingCheckResult,
+  type TableShapeMetadata,
+  type VenueSettings,
 } from "@mbe/types";
 import type { Reservation as PrismaReservation, Table as PrismaTable } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { availabilityService } from "./availability.js";
+
+function isPrismaNotFound(err: unknown): boolean {
+  return (
+    err !== null &&
+    typeof err === "object" &&
+    "code" in err &&
+    (err as { code: string }).code === "P2025"
+  );
+}
 
 type PrismaReservationWithTable = PrismaReservation & {
   table?: PrismaTable;
@@ -22,7 +32,7 @@ type PrismaReservationWithTable = PrismaReservation & {
 function mapPrismaReservation(reservation: PrismaReservationWithTable): Reservation {
   return {
     id: reservation.id,
-    date: reservation.date.toISOString().split("T")[0],
+    date: toDateString(reservation.date),
     startTime: reservation.startTime.toISOString(),
     endTime: reservation.endTime.toISOString(),
     partySize: reservation.partySize,
@@ -273,8 +283,9 @@ export const reservationService = {
         include: { table: true },
       });
       return mapPrismaReservation(reservation);
-    } catch {
-      return null;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return null;
+      throw err;
     }
   },
 
@@ -304,7 +315,7 @@ export const reservationService = {
 
     if (timeOrTableChanged) {
       // Build the final values for conflict check
-      const date = data.date ?? existing.date.toISOString().split("T")[0];
+      const date = data.date ?? toDateString(existing.date);
       const startTime = data.startTime
         ? new Date(data.startTime)
         : existing.startTime;
@@ -338,7 +349,10 @@ export const reservationService = {
     return { success: true, reservation };
   },
 
-  async createWalkIn(data: WalkInRequest, userId?: string): Promise<Reservation> {
+  async createWalkIn(
+    data: WalkInRequest,
+    userId?: string
+  ): Promise<CreateReservationResult> {
     const now = new Date();
     const durationMinutes = data.durationMinutes ?? 90;
     const endTime = new Date(now.getTime() + durationMinutes * 60 * 1000);
@@ -348,25 +362,68 @@ export const reservationService = {
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
     );
 
-    const reservation = await prisma.reservation.create({
-      data: {
-        date: dateOnly,
-        startTime: now,
-        endTime,
-        partySize: data.partySize,
-        tableId: data.tableId,
-        status: "CONFIRMED",
-        guestName: data.guestName ?? "Walk-in",
-        guestEmail: null,
-        guestPhone: null,
-        guestId: null,
-        userId: userId ?? null,
-        venueId: data.venueId ?? null,
-        notes: null,
-      },
-      include: { table: true },
+    const dateStr = toDateString(dateOnly);
+
+    // Conflict check + creation inside a transaction to prevent TOCTOU races
+    const conflict = await availabilityService.checkConflict(
+      data.tableId,
+      dateStr,
+      now,
+      endTime
+    );
+
+    if (conflict.hasConflict) {
+      return {
+        success: false,
+        error: "Table is not available",
+        conflict,
+      };
+    }
+
+    const reservation = await prisma.$transaction(async (tx) => {
+      // Re-check for conflicting reservations inside the transaction
+      const conflicting = await tx.reservation.findFirst({
+        where: {
+          tableId: data.tableId,
+          date: dateOnly,
+          status: { notIn: ["CANCELLED", "NO_SHOW"] },
+          AND: [{ startTime: { lt: endTime } }, { endTime: { gt: now } }],
+        },
+        select: { id: true },
+      });
+
+      if (conflicting) {
+        return null;
+      }
+
+      return tx.reservation.create({
+        data: {
+          date: dateOnly,
+          startTime: now,
+          endTime,
+          partySize: data.partySize,
+          tableId: data.tableId,
+          status: "CONFIRMED",
+          guestName: data.guestName ?? "Walk-in",
+          guestEmail: null,
+          guestPhone: null,
+          guestId: null,
+          userId: userId ?? null,
+          venueId: data.venueId ?? null,
+          notes: null,
+        },
+        include: { table: true },
+      });
     });
-    return mapPrismaReservation(reservation);
+
+    if (!reservation) {
+      return {
+        success: false,
+        error: "Table is not available",
+      };
+    }
+
+    return { success: true, reservation: mapPrismaReservation(reservation) };
   },
 
   async cancel(
@@ -385,8 +442,9 @@ export const reservationService = {
         include: { table: true },
       });
       return mapPrismaReservation(reservation);
-    } catch {
-      return null;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return null;
+      throw err;
     }
   },
 };

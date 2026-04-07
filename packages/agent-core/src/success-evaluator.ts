@@ -120,6 +120,42 @@ const EVALUATION_SCHEMA = {
   additionalProperties: false as const,
 };
 
+/**
+ * Extract acceptance criteria from an issue body.
+ * Looks for "## Acceptance Criteria" section with checkbox items.
+ */
+export function extractAcceptanceCriteria(taskDescription: string): readonly string[] {
+  const criteriaSection = taskDescription.match(
+    /##\s*Acceptance\s*Criteria\s*\n([\s\S]*?)(?=\n##|\n---|$)/i
+  );
+  if (!criteriaSection) return [];
+
+  return criteriaSection[1]
+    .split("\n")
+    .filter((line) => /^\s*-\s*\[[ x]\]/.test(line))
+    .map((line) => line.replace(/^\s*-\s*\[[ x]\]\s*/, "").trim())
+    .filter(Boolean);
+}
+
+/**
+ * Extract file paths mentioned in the task description.
+ * Looks for "## Files to Modify" section or inline backtick paths.
+ */
+export function extractExpectedFiles(taskDescription: string): readonly string[] {
+  const filesSection = taskDescription.match(
+    /##\s*Files\s*to\s*(?:Modify|Create)[^\n]*\n([\s\S]*?)(?=\n##|\n---|$)/i
+  );
+  if (!filesSection) return [];
+
+  return filesSection[1]
+    .split("\n")
+    .map((line) => {
+      const match = line.match(/`([^`]+\.\w+)`/);
+      return match ? match[1] : "";
+    })
+    .filter(Boolean);
+}
+
 function buildEvaluationPrompt(
   taskDescription: string,
   gitDiff: string
@@ -128,6 +164,31 @@ function buildEvaluationPrompt(
     gitDiff.length > MAX_DIFF_LENGTH
       ? gitDiff.slice(0, MAX_DIFF_LENGTH) + "\n\n... (diff truncated)"
       : gitDiff;
+
+  const criteria = extractAcceptanceCriteria(taskDescription);
+  const expectedFiles = extractExpectedFiles(taskDescription);
+
+  const criteriaSection = criteria.length > 0
+    ? [
+        "",
+        "## Acceptance Criteria (from the issue)",
+        "Check each of these specifically against the diff:",
+        ...criteria.map((c, i) => `${i + 1}. ${c}`),
+        "",
+        "If any acceptance criterion is NOT met by the diff, set passed=false and list the unmet criteria in issues.",
+      ].join("\n")
+    : "";
+
+  const filesSection = expectedFiles.length > 0
+    ? [
+        "",
+        "## Expected Files",
+        "The task specified these files should be modified/created:",
+        ...expectedFiles.map((f) => `- \`${f}\``),
+        "",
+        "Verify that the diff touches these files. If key files are missing from the diff, note it.",
+      ].join("\n")
+    : "";
 
   return [
     "You are evaluating whether a code change addresses a given task.",
@@ -140,8 +201,10 @@ function buildEvaluationPrompt(
     "```diff",
     truncatedDiff,
     "```",
+    criteriaSection,
+    filesSection,
     "",
-    "## Evaluation Criteria",
+    "## General Evaluation Criteria",
     "- Does the diff make changes relevant to the task?",
     "- Are there obvious bugs or incomplete implementations?",
     "- Are there security issues introduced?",

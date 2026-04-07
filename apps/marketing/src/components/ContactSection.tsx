@@ -1,10 +1,33 @@
-import { Stack, useScrollReveal, staggerReveal, boop } from "@mbe/rialto";
+import { useState } from "react";
+import { Stack, useScrollReveal, staggerReveal, boop, useToast } from "@mbe/rialto";
 import { motion, useReducedMotion } from "framer-motion";
 import styles from "../pages/HomePage.module.css";
+
+const EMAIL = "mattbutlerengineering+webapp@gmail.com";
+
+const EXTERNAL_LINKS = [
+  { href: "https://github.com/mattbutlerengineering", label: "GitHub" },
+  { href: "https://www.linkedin.com/in/matt-butler-66496a68/", label: "LinkedIn" },
+] as const;
 
 export function ContactSection() {
   const { ref, controls } = useScrollReveal();
   const shouldReduceMotion = useReducedMotion();
+  const { toast } = useToast();
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyEmail = async () => {
+    try {
+      await navigator.clipboard.writeText(EMAIL);
+      toast({ title: "Email copied!", variant: "success", duration: 2000 });
+    } catch {
+      toast({ title: "Could not copy — try selecting the address manually", variant: "error", duration: 3000 });
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const hoverEffect = shouldReduceMotion ? undefined : { scale: boop.scale };
 
   return (
     <section id="contact" className={styles.section}>
@@ -18,25 +41,45 @@ export function ContactSection() {
             animate={controls}
           >
             <Stack direction="row" gap="md" wrap>
-              {[
-                { href: "https://github.com/mattbutlerengineering", label: "GitHub", external: true },
-                { href: "https://www.linkedin.com/in/matt-butler-66496a68/", label: "LinkedIn", external: true },
-                { href: "mailto:mattbutlerengineering+webapp@gmail.com", label: "Email", external: false },
-              ].map((link) => (
+              {EXTERNAL_LINKS.map((link) => (
                 <motion.a
                   key={link.label}
                   href={link.href}
-                  target={link.external ? "_blank" : undefined}
-                  rel={link.external ? "noopener noreferrer" : undefined}
-                  aria-label={link.external ? `${link.label} (opens in new tab)` : undefined}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`${link.label} (opens in new tab)`}
                   className={styles.contactLink}
                   variants={staggerReveal.item}
-                  whileHover={shouldReduceMotion ? undefined : { scale: boop.scale }}
+                  whileHover={hoverEffect}
                   transition={boop.transition}
                 >
                   {link.label}
                 </motion.a>
               ))}
+
+              <motion.span
+                className={styles.contactEmailGroup}
+                variants={staggerReveal.item}
+              >
+                <motion.a
+                  href={`mailto:${EMAIL}`}
+                  className={styles.contactLink}
+                  whileHover={hoverEffect}
+                  transition={boop.transition}
+                >
+                  Email
+                </motion.a>
+                <motion.button
+                  type="button"
+                  onClick={handleCopyEmail}
+                  aria-label="Copy email address to clipboard"
+                  className={styles.copyEmailButton}
+                  whileHover={hoverEffect}
+                  transition={boop.transition}
+                >
+                  {copied ? "Copied!" : "Copy"}
+                </motion.button>
+              </motion.span>
             </Stack>
           </motion.div>
         </Stack>

@@ -5,24 +5,30 @@ import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
 import { RialtoProvider, ErrorBoundary, ToastProvider } from "@mbe/rialto";
 import { AuthProvider } from "@mbe/auth/react";
+import { initSentry, handleErrorBoundary } from "@mbe/sentry/react";
 import { ThemeContext, useThemeState } from "./hooks/use-theme";
 import { App, CallbackRedirect } from "./App";
 import { AuthConfigError } from "./components/AuthConfigError";
 import { LoadingPage } from "./pages/LoadingPage";
 import { validateAuthConfig } from "./constants/auth";
 
+initSentry({
+  appName: "hospitality",
+  dsn: import.meta.env.VITE_SENTRY_DSN,
+});
+
 // Lazy-loaded route components — each becomes its own chunk
 const DashboardLayout = lazy(() =>
   import("./components/DashboardLayout.js").then((m) => ({ default: m.DashboardLayout }))
+);
+const TimelinePage = lazy(() =>
+  import("./pages/TimelinePage.js").then((m) => ({ default: m.TimelinePage }))
 );
 const HomePage = lazy(() =>
   import("./pages/HomePage.js").then((m) => ({ default: m.HomePage }))
 );
 const ReservationsPage = lazy(() =>
   import("./pages/ReservationsPage.js").then((m) => ({ default: m.ReservationsPage }))
-);
-const TimelinePage = lazy(() =>
-  import("./pages/TimelinePage.js").then((m) => ({ default: m.TimelinePage }))
 );
 const GuestsPage = lazy(() =>
   import("./pages/GuestsPage.js").then((m) => ({ default: m.GuestsPage }))
@@ -48,6 +54,12 @@ const AdminPage = lazy(() =>
 const VenueOnboardingPage = lazy(() =>
   import("./pages/VenueOnboardingPage.js").then((m) => ({ default: m.VenueOnboardingPage }))
 );
+const SetupPage = lazy(() =>
+  import("./pages/SetupPage.js").then((m) => ({ default: m.SetupPage }))
+);
+const SetupHoursPage = lazy(() =>
+  import("./pages/SetupHoursPage.js").then((m) => ({ default: m.SetupHoursPage }))
+);
 
 // Validate auth config at startup — fail fast with a user-friendly error
 const authConfigResult = validateAuthConfig();
@@ -64,6 +76,10 @@ const authConfigResult = validateAuthConfig();
  * DashboardLayout so it doesn't compete with the pathless layout route —
  * React Router v7 can misroute when pathless layouts and named routes
  * coexist at the same level.
+ *
+ * Index route: TimelinePage (was HomePage/Dashboard).
+ * Dashboard moves to /dashboard.
+ * Setup pages: /setup, /setup/hours.
  */
 const router = createBrowserRouter(
   [
@@ -79,7 +95,25 @@ const router = createBrowserRouter(
           ),
           children: [
             {
+              // Index: Timeline is the default landing page in operational mode.
+              // DashboardLayout redirects to /setup for new venues or /timeline for operational ones.
               index: true,
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <TimelinePage />
+                </Suspense>
+              ),
+            },
+            {
+              path: "timeline",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <TimelinePage />
+                </Suspense>
+              ),
+            },
+            {
+              path: "dashboard",
               element: (
                 <Suspense fallback={<LoadingPage />}>
                   <HomePage />
@@ -91,14 +125,6 @@ const router = createBrowserRouter(
               element: (
                 <Suspense fallback={<LoadingPage />}>
                   <ReservationsPage />
-                </Suspense>
-              ),
-            },
-            {
-              path: "timeline",
-              element: (
-                <Suspense fallback={<LoadingPage />}>
-                  <TimelinePage />
                 </Suspense>
               ),
             },
@@ -166,7 +192,23 @@ const router = createBrowserRouter(
                 </Suspense>
               ),
             },
-            { path: "*", element: <Navigate to="/" replace /> },
+            {
+              path: "setup",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <SetupPage />
+                </Suspense>
+              ),
+            },
+            {
+              path: "setup/hours",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <SetupHoursPage />
+                </Suspense>
+              ),
+            },
+            { path: "*", element: <Navigate to="/timeline" replace /> },
           ],
         },
       ],
@@ -197,7 +239,7 @@ function Root() {
     <ThemeContext.Provider value={themeState}>
       <RialtoProvider theme={themeState.theme}>
         <ToastProvider>
-          <ErrorBoundary>
+          <ErrorBoundary onError={handleErrorBoundary}>
             <AuthProvider config={authConfigResult.config}>
               <RouterProvider router={router} />
             </AuthProvider>

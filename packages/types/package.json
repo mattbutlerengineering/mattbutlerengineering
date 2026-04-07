@@ -23,6 +23,16 @@
       "types": "./src/agent.ts",
       "production": "./dist/agent.js",
       "default": "./src/agent.ts"
+    },
+    "./schemas": {
+      "types": "./src/schemas/index.ts",
+      "production": "./dist/schemas/index.js",
+      "default": "./src/schemas/index.ts"
+    },
+    "./schema-compat": {
+      "types": "./src/schema-compat.ts",
+      "production": "./dist/schema-compat.js",
+      "default": "./src/schema-compat.ts"
     }
   },
   "scripts": {
@@ -32,6 +42,9 @@
   },
   "devDependencies": {
     "@mbe/config": "workspace:*",
-    "typescript": "^5.9.3"
+    "typescript": "catalog:"
+  },
+  "dependencies": {
+    "zod": "catalog:"
   }
 }

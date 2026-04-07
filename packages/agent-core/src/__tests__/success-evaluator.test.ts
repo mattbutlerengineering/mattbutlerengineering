@@ -14,7 +14,13 @@ vi.mock("node:util", () => ({
 
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { execFile } from "node:child_process";
-import { evaluateSuccess, getGitDiff, shouldEvaluate } from "../success-evaluator.js";
+import {
+  evaluateSuccess,
+  getGitDiff,
+  shouldEvaluate,
+  extractAcceptanceCriteria,
+  extractExpectedFiles,
+} from "../success-evaluator.js";
 
 async function* mockQueryGenerator(messages: unknown[]) {
   for (const msg of messages) {
@@ -340,5 +346,47 @@ describe("shouldEvaluate", () => {
     // A diff with changes but no 'diff --git' header — can't classify as test-only
     const diff = "+some change\n-old line";
     expect(shouldEvaluate(diff, {})).toBe(true);
+  });
+});
+
+// ── extractAcceptanceCriteria ──────────────────────────────────────
+
+describe("extractAcceptanceCriteria", () => {
+  it("extracts checkbox items from acceptance criteria section", () => {
+    const body = `## Task\n\nDo something\n\n## Acceptance Criteria\n\n- [ ] Tests pass\n- [ ] Lint clean\n- [x] Already done\n\n## Dependencies`;
+    const criteria = extractAcceptanceCriteria(body);
+    expect(criteria).toEqual(["Tests pass", "Lint clean", "Already done"]);
+  });
+
+  it("returns empty array when no acceptance criteria section", () => {
+    const body = "## Task\n\nJust do the thing\n\n## Notes\n\nSome notes";
+    expect(extractAcceptanceCriteria(body)).toEqual([]);
+  });
+
+  it("handles criteria at end of body (no following section)", () => {
+    const body = "## Acceptance Criteria\n\n- [ ] Single criterion";
+    const criteria = extractAcceptanceCriteria(body);
+    expect(criteria).toEqual(["Single criterion"]);
+  });
+});
+
+// ── extractExpectedFiles ──────────────────────────────────────────
+
+describe("extractExpectedFiles", () => {
+  it("extracts backtick-wrapped file paths from files section", () => {
+    const body = "## Files to Modify\n\n- `src/routes/users.ts` — add endpoint\n- `src/routes/users.test.ts` — add test";
+    const files = extractExpectedFiles(body);
+    expect(files).toEqual(["src/routes/users.ts", "src/routes/users.test.ts"]);
+  });
+
+  it("returns empty array when no files section", () => {
+    const body = "## Task\n\nDo something";
+    expect(extractExpectedFiles(body)).toEqual([]);
+  });
+
+  it("handles Files to Create variant", () => {
+    const body = "## Files to Create\n\n- `src/new-file.ts` — new module";
+    const files = extractExpectedFiles(body);
+    expect(files).toEqual(["src/new-file.ts"]);
   });
 });

@@ -1,0 +1,47 @@
+{
+  "name": "@mbe/observability",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "production": "./dist/index.js",
+      "default": "./src/index.ts"
+    },
+    "./baggage": {
+      "types": "./src/baggage.ts",
+      "production": "./dist/baggage.js",
+      "default": "./src/baggage.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint src/",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@langfuse/otel": "^5.0.2",
+    "@mbe/types": "workspace:^",
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.214.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.214.0",
+    "@opentelemetry/instrumentation-fastify": "^0.57.0",
+    "@opentelemetry/instrumentation-http": "^0.214.0",
+    "@opentelemetry/instrumentation-pino": "^0.60.0",
+    "@opentelemetry/resources": "^2.0.0",
+    "@opentelemetry/sdk-metrics": "^2.0.0",
+    "@opentelemetry/sdk-node": "^0.214.0",
+    "@opentelemetry/sdk-trace-base": "^2.0.0",
+    "@opentelemetry/semantic-conventions": "^1.40.0",
+    "fastify": "catalog:",
+    "fastify-plugin": "^5.0.0",
+    "langfuse": "^3.38.20"
+  },
+  "devDependencies": {
+    "@mbe/config": "workspace:*",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

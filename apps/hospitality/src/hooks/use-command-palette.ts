@@ -1,11 +1,11 @@
 import { useState, useMemo, useCallback } from "react";
 import type { CommandItem } from "@mbe/rialto";
-import { NAV_SECTIONS } from "../nav-sections.js";
 import type { NavSection } from "../nav-sections.js";
 
 /* ── Types ──────────────────────────────────────── */
 
 interface UseCommandPaletteOptions {
+  sections: readonly NavSection[];
   navigate: (path: string) => void;
   toggleTheme: () => void;
   signOut: () => void;
@@ -95,6 +95,7 @@ function buildGroups(sections: readonly NavSection[]): string[] {
  * ⌘K / Ctrl+K keyboard shortcut internally.
  */
 export function useCommandPalette({
+  sections,
   navigate,
   toggleTheme,
   signOut,
@@ -103,13 +104,13 @@ export function useCommandPalette({
 
   const items = useMemo(
     () => [
-      ...buildNavItems(NAV_SECTIONS, navigate),
+      ...buildNavItems(sections, navigate),
       ...buildActionItems(navigate, toggleTheme, signOut),
     ],
-    [navigate, toggleTheme, signOut]
+    [sections, navigate, toggleTheme, signOut]
   );
 
-  const groups = useMemo(() => buildGroups(NAV_SECTIONS), []);
+  const groups = useMemo(() => buildGroups(sections), [sections]);
 
   const stableSetOpen = useCallback((next: boolean) => {
     setOpen(next);

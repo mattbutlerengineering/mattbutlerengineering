@@ -1,0 +1,374 @@
+<codebase path="packages/agent-core">
+  <section priority="medium" role="src">
+  <file path="src/worktree-manager.ts">
+    <item priority="medium">
+      function generateBranchName(taskDescription: string): string { /* ... */ }
+    </item>
+    <item priority="low">
+      async function git(args: readonly string[], cwd: string): Promise<string> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/types.ts">
+    <item priority="low">
+      type FailureCategory = "api_error" | "rate_limited" | "stuck_loop" | "budget_exceeded" | "tool_error" | "logic_error";
+    </item>
+    <item priority="low">
+      interface TurnMetrics {
+        turnIndex: number;
+        startedAt: string;
+        inputTokens: number;
+        outputTokens: number;
+        thinkingTokens: number;
+      }
+    </item>
+  </file>
+  <file path="src/tool-permissions.ts">
+    <item priority="high">
+      export function normalizeBashCommand(command: string): readonly string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isBashCommandBlocked(command: string): string | null { /* ... */ }
+    </item>
+  </file>
+  <file path="src/task-intelligence.ts">
+    <item priority="medium">
+      function detectTaskContexts(taskDescription: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resolveSourceFiles(taskDescription: string): readonly string[] { /* ... */ }
+    </item>
+  </file>
+  <file path="src/task-decomposer.ts">
+    <item priority="low">
+      interface OrchestratorConfig {
+        taskDescription: string;
+        apiBaseUrl: string;
+        model: string;
+        sessionModel: string;
+        maxBudgetPerSession: number;
+      }
+    </item>
+    <item priority="high">
+      export const DEFAULT_ORCHESTRATOR_CONFIG: Omit<import("/Users/mbutler/github/mattbutlerengineering/...;
+    </item>
+  </file>
+  <file path="src/success-evaluator.ts">
+    <item priority="low">
+      interface EvaluationResult {
+        passed: boolean;
+        confidence: number;
+        reasoning: string;
+        issues: readonly string[];
+      }
+    </item>
+    <item priority="low">
+      interface EvaluationConfig {
+        model: string;
+        maxBudgetUsd: number;
+      }
+    </item>
+  </file>
+  <file path="src/stuck-detector.ts">
+    <item priority="low">
+      type StuckPatternType = "repeated_action_observation" | "repeated_error" | "self_message_loop" | "alternating_pairs" | "context_window_loop" | "context_window_warning" | "zero_progress" | "silent_failure_loop";
+    </item>
+    <item priority="low">
+      type StuckSeverity = "warning" | "error";
+    </item>
+  </file>
+  <file path="src/session-runner.ts">
+    <item priority="medium">
+      function emitEvent(
+        onEvent: SessionEventCallback | undefined,
+        type: SessionEvent["type"],
+        data: SessionEvent["data"]
+      ): void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function sanitizeForCommitMessage(text: string): string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/sanitize-output.ts">
+    <item priority="high">
+      export function escapeHtml(text: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function sanitizeStreamChunk(chunk: string): string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/retry.ts">
+    <item priority="low">
+      interface RetryConfig {
+        maxRetries: number;
+        baseDelayMs: number;
+        maxDelayMs: number;
+        isRetryable: (error: unknown) => boolean;
+      }
+    </item>
+    <item priority="low">
+      interface RetryResult {
+        value: T;
+        attempts: number;
+      }
+    </item>
+  </file>
+  <file path="src/prompt-builder.ts">
+    <item priority="low">
+      interface SourceFileEntry {
+        path: string;
+        content: string;
+      }
+    </item>
+    <item priority="high">
+      export async function loadSourceFiles(
+        paths: readonly string[]
+      ): Promise<readonly SourceFileEntry[]> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/pr-risk-classifier.ts">
+    <item priority="high">
+      export function isLowRiskPR(files: readonly string[]): boolean { /* ... */ }
+    </item>
+  </file>
+  <file path="src/pr-feedback-poller.ts">
+    <item priority="low">
+      interface ReviewComment {
+        threadId: string;
+        author: string;
+        body: string;
+        path: string;
+        line: number;
+      }
+    </item>
+    <item priority="low">
+      interface CIFailure {
+        checkName: string;
+        conclusion: string;
+        logSnippet: string;
+      }
+    </item>
+  </file>
+  <file path="src/pr-creator.ts">
+    <item priority="high">
+      export async function createPullRequest(options: PrOptions): Promise<PrResult> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildPrTitle(taskDescription: string): string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/orchestrator.ts">
+    <item priority="high">
+      interface SessionApiResponse {
+        data: T;
+      }
+    </item>
+    <item priority="high">
+      interface SessionSummary {
+        id: string;
+        status: string;
+        taskDescription: string;
+        branchName: string;
+        prUrl: string;
+      }
+    </item>
+  </file>
+  <file path="src/observability.ts">
+    <item priority="high">
+      export const observabilityTracer: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+    <item priority="high">
+      export function categorizeFailure(
+        errors: readonly string[],
+        stuckPattern?: StuckPatternType
+      ): FailureCategory | undefined { /* ... */ }
+    </item>
+  </file>
+  <file path="src/model-router.ts">
+    <item priority="low">
+      type ModelTier = "haiku" | "sonnet" | "opus";
+    </item>
+    <item priority="low">
+      interface IssueInput {
+        title: string;
+        labels: string[];
+        body: string;
+      }
+    </item>
+  </file>
+  <file path="src/intent-extractor.ts">
+    <item priority="high">
+      interface ContentBlock {
+        type: string;
+        input?: unknown;
+      }
+    </item>
+    <item priority="high">
+      interface AnthropicMessagesResponse {
+        content: readonly ContentBlock[];
+      }
+    </item>
+  </file>
+  <file path="src/feedback-prompt-builder.ts">
+    <item priority="high">
+      export const CI_LOG_MAX_CHARS: 500;
+    </item>
+    <item priority="low">
+      interface BuildReviewFixPromptOptions {
+        ciLogMaxChars?: number;
+      }
+    </item>
+  </file>
+  <file path="src/feedback-loop.ts">
+    <item priority="low">
+      interface FeedbackLoopParams {
+        prNumber: number;
+        branchName: string;
+        repoPath: string;
+        model: string;
+        maxRetries: number;
+      }
+    </item>
+    <item priority="low">
+      interface FeedbackLoopResult {
+        retriesUsed: number;
+        resolved: boolean;
+        lastFingerprint: string;
+      }
+    </item>
+  </file>
+  <file path="src/failure-memory.ts">
+    <item priority="low">
+      interface FailureRecord {
+        taskDescription: string;
+        timestamp: string;
+        stuckPattern?: string;
+        errors: readonly string[];
+        approach: string;
+      }
+    </item>
+    <item priority="low">
+      interface FailureMemory {
+        records: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+      }
+    </item>
+  </file>
+  <file path="src/event-mapper.ts">
+    <item priority="low">
+      interface ToolUseEvent {
+        type: "session:tool_use";
+        toolName: string;
+        toolInput: Record<string, unknown>;
+        toolUseId: string;
+      }
+    </item>
+    <item priority="low">
+      interface ToolResultEvent {
+        type: "session:tool_result";
+        toolUseId: string;
+        isError: boolean;
+      }
+    </item>
+  </file>
+  <file path="src/diff-static-analyzer.ts">
+    <item priority="low">
+      interface Violation {
+        rule: string;
+        file: string;
+        line: number;
+        message: string;
+        severity: "warning" | "error";
+      }
+    </item>
+    <item priority="low">
+      interface StaticAnalysisResult {
+        clean: boolean;
+        violations: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        durationMs: number;
+      }
+    </item>
+  </file>
+  <file path="src/diff-reviewer.ts">
+    <item priority="low">
+      interface ReviewResult {
+        approved: boolean;
+        issues: readonly string[];
+      }
+    </item>
+    <item priority="low">
+      interface ReviewConfig {
+        model: string;
+        maxBudgetUsd: number;
+      }
+    </item>
+  </file>
+  <file path="src/deploy-verifier.ts">
+    <item priority="low">
+      interface HealthCheck {
+        name: string;
+        url: string;
+        type: "http_status" | "json_health";
+      }
+    </item>
+    <item priority="low">
+      interface HealthCheckResult {
+        name: string;
+        url: string;
+        passed: boolean;
+        status: string;
+        attempts: number;
+      }
+    </item>
+  </file>
+  <file path="src/dep-bump-merger.ts">
+    <item priority="low">
+      interface TrivialDepBumpResult {
+        isTrivial: boolean;
+        reason?: string;
+      }
+    </item>
+    <item priority="medium">
+      function extractChangedFiles(diff: string): readonly string[] { /* ... */ }
+    </item>
+  </file>
+  <file path="src/cost-tracker.ts">
+    <item priority="high">
+      export function extractTokenUsage(result: SDKResultMessage): TokenUsage { /* ... */ }
+    </item>
+    <item priority="high">
+      export function extractCost(result: SDKResultMessage): number { /* ... */ }
+    </item>
+  </file>
+  <file path="src/change-type-classifier.ts">
+    <item priority="low">
+      type ChangeType = "dependency" | "docs" | "config" | "test" | "infrastructure" | "frontend" | "backend" | "mixed";
+    </item>
+    <item priority="low">
+      type SkippablePhase = "smoke-audit" | "deploy-verify" | "lighthouse" | "e2e";
+    </item>
+  </file>
+  <file path="src/bundle-size-tracker.ts">
+    <item priority="low">
+      interface FileSize {
+        path: string;
+        bytes: number;
+      }
+    </item>
+    <item priority="low">
+      interface BundleSizeEntry {
+        app: string;
+        totalBytes: number;
+        files: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        timestamp: string;
+      }
+    </item>
+  </file>
+  <file path="src/audit-inventory.ts">
+    <item priority="low">
+      type Zone = "marketing" | "hospitality" | "rialto" | "gen" | "api:users" | "api:reservations" | "api:agent";
+    </item>
+    <item priority="high">
+      export const ZONES: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+    </item>
+  </file>
+  </section>
+</codebase>
