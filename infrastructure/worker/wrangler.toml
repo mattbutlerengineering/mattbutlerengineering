@@ -20,3 +20,16 @@ service = "mattbutlerengineering-rialto-web"
 [[services]]
 binding = "GEN"
 service = "mattbutlerengineering-gen"
+
+# Canary Workers — serve at /canary/<app>/* for pre-promotion verification
+[[services]]
+binding = "MARKETING_CANARY"
+service = "mattbutlerengineering-marketing-canary"
+
+[[services]]
+binding = "HOSPITALITY_CANARY"
+service = "mattbutlerengineering-hospitality-canary"
+
+[[services]]
+binding = "RIALTO_CANARY"
+service = "mattbutlerengineering-rialto-web-canary"

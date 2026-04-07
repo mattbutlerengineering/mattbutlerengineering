@@ -2,14 +2,21 @@
  * Cloudflare Worker edge router for mattbutlerengineering.com
  *
  * Routes requests based on path prefix:
- *   /api/*          → DO App Platform (HTTP subrequest)
- *   /gen/*          → Workers Static Assets (Service Binding, CDN-free)
- *   /hospitality/*  → Workers Static Assets (Service Binding, CDN-free)
- *   /rialto/*       → Workers Static Assets (Service Binding, CDN-free)
- *   /*              → Workers Static Assets (Service Binding, CDN-free)
+ *   /api/*                   → DO App Platform (HTTP subrequest)
+ *   /canary/marketing/*      → Canary Workers Static Assets (Service Binding, CDN-free)
+ *   /canary/hospitality/*    → Canary Workers Static Assets (Service Binding, CDN-free)
+ *   /canary/rialto/*         → Canary Workers Static Assets (Service Binding, CDN-free)
+ *   /gen/*                   → Workers Static Assets (Service Binding, CDN-free)
+ *   /hospitality/*           → Workers Static Assets (Service Binding, CDN-free)
+ *   /rialto/*                → Workers Static Assets (Service Binding, CDN-free)
+ *   /*                       → Workers Static Assets (Service Binding, CDN-free)
  *
  * Static site Workers are called via Service Bindings (env.BINDING.fetch()),
  * which bypass the CDN entirely — eliminating stale HTML after deploys.
+ *
+ * Canary routes expose freshly-deployed canary Workers for pre-promotion
+ * verification. They are stripped of the /canary/<app> prefix before
+ * forwarding so the app Worker receives the same paths as production.
  */
 const SECURITY_HEADERS = {
   "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
@@ -127,6 +134,36 @@ export default {
         ),
         url.pathname
       );
+    }
+
+    // ── Canary routes → Canary Workers (CDN-free) ───────────────────
+    // /canary/<app>[/rest] → strips /canary/<app> and forwards to canary Worker.
+    // Canary Workers are accessible only through this router, never directly.
+    if (url.pathname.startsWith("/canary/")) {
+      let canaryBinding;
+      let canaryPrefix = "";
+
+      if (url.pathname.startsWith("/canary/marketing")) {
+        canaryBinding = env.MARKETING_CANARY;
+        canaryPrefix = "/canary/marketing";
+      } else if (url.pathname.startsWith("/canary/hospitality")) {
+        canaryBinding = env.HOSPITALITY_CANARY;
+        canaryPrefix = "/canary/hospitality";
+      } else if (url.pathname.startsWith("/canary/rialto")) {
+        canaryBinding = env.RIALTO_CANARY;
+        canaryPrefix = "/canary/rialto";
+      }
+
+      if (canaryBinding) {
+        const strippedCanaryPath = url.pathname.slice(canaryPrefix.length) || "/";
+        const canaryUrl = new URL(strippedCanaryPath + url.search, url.origin);
+        const canaryRequest = new Request(canaryUrl, request);
+        const canaryResponse = await canaryBinding.fetch(canaryRequest);
+        return addHeaders(canaryResponse, url.pathname);
+      }
+
+      // Unknown /canary/* path — 404
+      return new Response("Not Found", { status: 404 });
     }
 
     // ── Static sites → Service Binding (CDN-free) ───────────────────
