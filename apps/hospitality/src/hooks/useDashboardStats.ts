@@ -44,7 +44,7 @@ function computeUpcoming(reservations: readonly Reservation[]): number {
   }).length;
 }
 
-function computeStats(reservations: readonly Reservation[]): DashboardStats {
+export function computeStats(reservations: readonly Reservation[]): DashboardStats {
   if (reservations.length === 0) return FALLBACK_STATS;
 
   const active = reservations.filter(
