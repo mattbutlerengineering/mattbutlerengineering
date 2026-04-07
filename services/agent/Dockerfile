@@ -5,35 +5,21 @@ RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
 WORKDIR /app
 
-# Copy workspace config
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+# Copy turbo.json for prune configuration
+COPY turbo.json ./
 
-# Copy package.json files for all workspace packages we depend on
-COPY packages/types/package.json ./packages/types/
-COPY packages/config/package.json ./packages/config/
-COPY packages/auth/package.json ./packages/auth/
-COPY packages/api-versioning/package.json ./packages/api-versioning/
-COPY packages/agent-core/package.json ./packages/agent-core/
-COPY packages/observability/package.json ./packages/observability/
-COPY packages/sentry/package.json ./packages/sentry/
-COPY packages/rialto/package.json ./packages/rialto/
-COPY packages/rialto-catalog/package.json ./packages/rialto-catalog/
-COPY services/agent/package.json ./services/agent/
+# Generate pruned monorepo for Docker (only includes dependencies needed for this service)
+RUN pnpm turbo prune --docker @mbe/agent-service
 
-# Install all dependencies
-RUN pnpm install --frozen-lockfile
+# Copy pruned workspace files from out/ directory
+COPY out/pnpm-lock.yaml ./
+COPY out/pnpm-workspace.yaml ./
+COPY out/package.json ./
+COPY out/packages ./packages
+COPY out/services ./services
 
 # Copy tsconfig files (needed for build, changes rarely)
-COPY packages/types/tsconfig.json ./packages/types/
 COPY packages/config/typescript ./packages/config/typescript
-COPY packages/auth/tsconfig.json ./packages/auth/
-COPY packages/api-versioning/tsconfig.json ./packages/api-versioning/
-COPY packages/agent-core/tsconfig.json ./packages/agent-core/
-COPY packages/observability/tsconfig.json ./packages/observability/
-COPY packages/sentry/tsconfig.json ./packages/sentry/
-COPY packages/rialto/tsconfig.json ./packages/rialto/
-COPY packages/rialto-catalog/tsconfig.json packages/rialto-catalog/tsconfig.build.json ./packages/rialto-catalog/
-COPY services/agent/tsconfig.json ./services/agent/
 
 # Copy Prisma schema (needed for db:generate)
 COPY services/agent/prisma ./services/agent/prisma
@@ -48,6 +34,9 @@ COPY packages/sentry/src ./packages/sentry/src
 COPY packages/rialto/src ./packages/rialto/src
 COPY packages/rialto-catalog/src ./packages/rialto-catalog/src
 COPY services/agent/src ./services/agent/src
+
+# Install all dependencies
+RUN pnpm install --frozen-lockfile
 
 # Build workspace packages and service in a single layer
 RUN pnpm --filter @mbe/types build && \
@@ -71,23 +60,15 @@ WORKDIR /app
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 app
 
-# Copy workspace config
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+# Copy pruned workspace files from builder stage
+COPY --from=builder /app/out/pnpm-lock.yaml ./
+COPY --from=builder /app/out/pnpm-workspace.yaml ./
+COPY --from=builder /app/out/package.json ./
+COPY --from=builder /app/out/packages ./packages
+COPY --from=builder /app/out/services ./services
 
-# Copy package.json files
-COPY packages/types/package.json ./packages/types/
-COPY packages/config/package.json ./packages/config/
-COPY packages/auth/package.json ./packages/auth/
-COPY packages/api-versioning/package.json ./packages/api-versioning/
-COPY packages/agent-core/package.json ./packages/agent-core/
-COPY packages/observability/package.json ./packages/observability/
-COPY packages/sentry/package.json ./packages/sentry/
-COPY packages/rialto/package.json ./packages/rialto/
-COPY packages/rialto-catalog/package.json ./packages/rialto-catalog/
-COPY services/agent/package.json ./services/agent/
-
-# Copy Prisma schema first (needed for generate)
-COPY services/agent/prisma ./services/agent/prisma
+# Copy Prisma schema (needed for generate)
+COPY --from=builder /app/services/agent/prisma ./services/agent/prisma
 
 # Install all dependencies (NODE_ENV unset to include devDeps for prisma CLI)
 RUN pnpm install --frozen-lockfile
