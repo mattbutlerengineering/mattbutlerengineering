@@ -95,6 +95,7 @@
     }
   ],
   "dependencies": {
-    "@json-render/react": "^0.16.0"
+    "@json-render/react": "^0.16.0",
+    "@mbe/api-client": "workspace:*"
   }
 }
