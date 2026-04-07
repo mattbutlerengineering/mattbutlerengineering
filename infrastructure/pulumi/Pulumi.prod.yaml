@@ -6,6 +6,8 @@ config:
   # AUTH0_DOMAIN, AUTH0_CLIENT_ID, AUTH0_CLIENT_SECRET
   # DIGITALOCEAN_TOKEN
   # CLOUDFLARE_API_TOKEN
+  # GITHUB_TOKEN
+  github:owner: mattbutlerengineering
   mbe-infrastructure:cloudflareZoneId: dfed09378e547f95a3bd645c55ef777d
   mbe-infrastructure:databaseUrl:
     secure: v1:0RzZY3eW9IeiS01y:Kd6Wfxp4JgeBYwuwaJAzdzybDdtEB/Oe7malwhpy4bjn3fj0rMrAFgH0PzpI2cEblybnAu7+B1K3VOVZBuwq8MhN1iiLEXEuOXaAeX0ydf56Yia5NJopxo03MOhWbXijn9iaveUsiPro5GgTfW03ABMEfZ/UONRJ9JKwAw==

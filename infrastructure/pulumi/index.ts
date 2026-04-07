@@ -3,6 +3,7 @@ import * as digitalocean from "@pulumi/digitalocean";
 import * as cloudflare from "@pulumi/cloudflare";
 import { readFileSync } from "node:fs";
 import { auth0Outputs } from "./auth0";
+import { branchProtectionId } from "./github";
 
 // ── Configuration ───────────────────────────────────────────────────
 const config = new pulumi.Config();
@@ -347,3 +348,4 @@ export const hospitalityUrl = pulumi.interpolate`https://${domain}/hospitality`;
 export const rialtoUrl = pulumi.interpolate`https://${domain}/rialto`;
 export const genUrl = pulumi.interpolate`https://${domain}/gen`;
 export const healthKvNamespaceId = healthKv.id;
+export { branchProtectionId };
