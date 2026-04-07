@@ -9,6 +9,8 @@
     "preview": "vite preview",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "test:a11y": "playwright test --config playwright.config.ts e2e/a11y.test.ts",
     "size": "size-limit",
     "size:check": "size-limit"
@@ -39,10 +41,14 @@
     "@axe-core/playwright": "^4.11.1",
     "@mbe/config": "workspace:*",
     "@playwright/test": "^1.59.1",
+    "@testing-library/jest-dom": "catalog:",
+    "@testing-library/react": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "jsdom": "catalog:",
     "typescript": "catalog:",
-    "vite": "catalog:"
+    "vite": "catalog:",
+    "vitest": "catalog:"
   }
 }
