@@ -1,6 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
+import {
+  createMockReservation,
+  createMockJWTPayload,
+  createMockPagination,
+  createMockTable,
+  ERROR_NOT_FOUND,
+  ERROR_UNAUTHORIZED,
+  ERROR_CONFLICT,
+} from "../test/mocks.js";
 
 // Mock the reservation service
 vi.mock("../services/reservation.js", () => ({
@@ -109,62 +118,14 @@ import { tableService } from "../services/table.js";
 import { emitReservationCancelled, emitReservationCreated } from "../services/events.js";
 import { jwtVerify } from "jose";
 
-const mockTable = {
-  id: "table-123",
-  name: "Table 1",
-  tableNumber: "1",
-  capacity: 4,
-  minCovers: 1,
-  maxCovers: null,
-  location: "Main Floor",
-  isActive: true,
-  priority: 0,
-  status: "AVAILABLE" as const,
-  venueId: null,
-  floorPlanId: null,
-  shapeMetadata: null,
-  createdAt: "2026-01-25T00:00:00.000Z",
-  updatedAt: "2026-01-25T00:00:00.000Z",
-};
-
-const mockReservation = {
-  id: "res-123",
-  date: "2026-02-15",
-  startTime: "2026-02-15T18:00:00.000Z",
-  endTime: "2026-02-15T20:00:00.000Z",
-  partySize: 4,
-  status: "PENDING" as const,
-  notes: null,
-  cancellationReason: null,
-  cancellationNote: null,
-  guestName: "John Doe",
-  guestEmail: "john@example.com",
-  guestPhone: null,
-  guestId: null,
-  userId: null,
-  tableId: "table-123",
-  table: mockTable,
-  venueId: null,
-  createdAt: "2026-01-25T00:00:00.000Z",
-  updatedAt: "2026-01-25T00:00:00.000Z",
-};
-
-const mockJWTPayload = {
-  sub: "auth0|user-123",
-  iss: "https://test.auth0.com/",
-  aud: "https://api.example.com",
-  exp: Math.floor(Date.now() / 1000) + 3600,
-  iat: Math.floor(Date.now() / 1000),
-  email: "test@example.com",
-  email_verified: true,
-  name: "Test User",
-  picture: "https://example.com/pic.jpg",
-  permissions: ["admin"],
-};
-
 describe("Reservation Routes", () => {
   let app: FastifyInstance;
   const originalEnv = process.env;
+
+  // Fresh fixtures per test — factories return frozen objects,
+  // so spreading into new objects is required for mutation.
+  const mockReservation = createMockReservation();
+  const mockJWTPayload = createMockJWTPayload();
 
   beforeEach(async () => {
     process.env = {
@@ -190,14 +151,7 @@ describe("Reservation Routes", () => {
     it("returns paginated list of reservations", async () => {
       vi.mocked(reservationService.list).mockResolvedValueOnce({
         data: [mockReservation],
-        pagination: {
-          page: 1,
-          limit: 10,
-          total: 1,
-          totalPages: 1,
-          hasNext: false,
-          hasPrev: false,
-        },
+        pagination: createMockPagination({ total: 1, totalPages: 1 }),
       });
 
       const response = await app.inject({
@@ -216,14 +170,7 @@ describe("Reservation Routes", () => {
     it("respects filter query params", async () => {
       vi.mocked(reservationService.list).mockResolvedValueOnce({
         data: [],
-        pagination: {
-          page: 1,
-          limit: 10,
-          total: 0,
-          totalPages: 0,
-          hasNext: false,
-          hasPrev: false,
-        },
+        pagination: createMockPagination(),
       });
 
       await app.inject({
@@ -240,6 +187,98 @@ describe("Reservation Routes", () => {
         tableId: "table-123",
       });
     });
+
+    it("clamps page=0 to page 1", async () => {
+      vi.mocked(reservationService.list).mockResolvedValueOnce({
+        data: [],
+        pagination: createMockPagination(),
+      });
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/reservations?page=0",
+        headers: { authorization: "Bearer valid-token" },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(reservationService.list).toHaveBeenCalledWith(
+        expect.objectContaining({ page: 1 }),
+      );
+    });
+
+    it("clamps negative page to page 1", async () => {
+      vi.mocked(reservationService.list).mockResolvedValueOnce({
+        data: [],
+        pagination: createMockPagination(),
+      });
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/reservations?page=-5",
+        headers: { authorization: "Bearer valid-token" },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(reservationService.list).toHaveBeenCalledWith(
+        expect.objectContaining({ page: 1 }),
+      );
+    });
+
+    it("defaults limit=0 to the fallback value", async () => {
+      vi.mocked(reservationService.list).mockResolvedValueOnce({
+        data: [],
+        pagination: createMockPagination(),
+      });
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/reservations?limit=0",
+        headers: { authorization: "Bearer valid-token" },
+      });
+
+      expect(response.statusCode).toBe(200);
+      // 0 is falsy so `|| 10` kicks in, then Math.max(1, ...) = 10
+      expect(reservationService.list).toHaveBeenCalledWith(
+        expect.objectContaining({ limit: 10 }),
+      );
+    });
+
+    it("caps limit=1000 to 100", async () => {
+      vi.mocked(reservationService.list).mockResolvedValueOnce({
+        data: [],
+        pagination: createMockPagination(),
+      });
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/reservations?limit=1000",
+        headers: { authorization: "Bearer valid-token" },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(reservationService.list).toHaveBeenCalledWith(
+        expect.objectContaining({ limit: 100 }),
+      );
+    });
+
+    it("handles non-numeric page gracefully", async () => {
+      vi.mocked(reservationService.list).mockResolvedValueOnce({
+        data: [],
+        pagination: createMockPagination(),
+      });
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/reservations?page=abc",
+        headers: { authorization: "Bearer valid-token" },
+      });
+
+      expect(response.statusCode).toBe(200);
+      // parseInt("abc") is NaN, NaN || 1 = 1, Math.max(1, 1) = 1
+      expect(reservationService.list).toHaveBeenCalledWith(
+        expect.objectContaining({ page: 1 }),
+      );
+    });
   });
 
   describe("GET /v1/reservations/me", () => {
@@ -249,17 +288,10 @@ describe("Reservation Routes", () => {
         protectedHeader: { alg: "RS256" },
       } as never);
 
-      const userReservation = { ...mockReservation, userId: "auth0|user-123" };
+      const userReservation = createMockReservation({ userId: "auth0|user-123" });
       vi.mocked(reservationService.listByUserId).mockResolvedValueOnce({
         data: [userReservation],
-        pagination: {
-          page: 1,
-          limit: 10,
-          total: 1,
-          totalPages: 1,
-          hasNext: false,
-          hasPrev: false,
-        },
+        pagination: createMockPagination({ total: 1, totalPages: 1 }),
       });
 
       const response = await app.inject({
@@ -293,7 +325,7 @@ describe("Reservation Routes", () => {
   describe("GET /v1/reservations/:id", () => {
     it("returns reservation by ID", async () => {
       // Use admin user so ownership check passes
-      const adminPayload = { ...mockJWTPayload, permissions: ["admin"] };
+      const adminPayload = createMockJWTPayload({ permissions: ["admin"] });
       vi.mocked(jwtVerify).mockResolvedValueOnce({
         payload: adminPayload,
         protectedHeader: { alg: "RS256" },
@@ -316,7 +348,7 @@ describe("Reservation Routes", () => {
     });
 
     it("returns 404 when reservation not found", async () => {
-      const adminPayload = { ...mockJWTPayload, permissions: ["admin"] };
+      const adminPayload = createMockJWTPayload({ permissions: ["admin"] });
       vi.mocked(jwtVerify).mockResolvedValueOnce({
         payload: adminPayload,
         protectedHeader: { alg: "RS256" },
@@ -332,7 +364,7 @@ describe("Reservation Routes", () => {
 
       expect(response.statusCode).toBe(404);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Not Found");
+      expect(body.error).toBe(ERROR_NOT_FOUND);
     });
   });
 
@@ -374,7 +406,7 @@ describe("Reservation Routes", () => {
         protectedHeader: { alg: "RS256" },
       } as never);
 
-      const userReservation = { ...mockReservation, userId: "auth0|user-123" };
+      const userReservation = createMockReservation({ userId: "auth0|user-123" });
       vi.mocked(reservationService.createWithConflictCheck).mockResolvedValueOnce({
         success: true,
         reservation: userReservation,
@@ -423,7 +455,7 @@ describe("Reservation Routes", () => {
 
       expect(response.statusCode).toBe(401);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Unauthorized");
+      expect(body.error).toBe(ERROR_UNAUTHORIZED);
       expect(body.message).toBe("Invalid token");
       expect(reservationService.createWithConflictCheck).not.toHaveBeenCalled();
     });
@@ -449,13 +481,15 @@ describe("Reservation Routes", () => {
 
       expect(response.statusCode).toBe(409);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Conflict");
+      expect(body.error).toBe(ERROR_CONFLICT);
     });
   });
 
   describe("PATCH /v1/reservations/:id", () => {
     it("updates reservation", async () => {
-      const updatedReservation = { ...mockReservation, partySize: 6 };
+      // getById is called first for ownership check
+      vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
+      const updatedReservation = createMockReservation({ partySize: 6 });
       vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
         success: true,
         reservation: updatedReservation,
@@ -464,6 +498,7 @@ describe("Reservation Routes", () => {
       const response = await app.inject({
         method: "PATCH",
         url: "/api/v1/reservations/res-123",
+        headers: { authorization: "Bearer valid-token" },
         payload: {
           partySize: 6,
         },
@@ -475,23 +510,24 @@ describe("Reservation Routes", () => {
     });
 
     it("returns 404 when updating nonexistent reservation", async () => {
-      vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
-        success: false,
-        error: "Reservation not found",
-      });
+      // getById returns null — route returns 404 before calling updateWithConflictCheck
+      vi.mocked(reservationService.getById).mockResolvedValueOnce(null);
 
       const response = await app.inject({
         method: "PATCH",
         url: "/api/v1/reservations/nonexistent",
+        headers: { authorization: "Bearer valid-token" },
         payload: {
           partySize: 6,
         },
       });
 
       expect(response.statusCode).toBe(404);
+      expect(reservationService.updateWithConflictCheck).not.toHaveBeenCalled();
     });
 
     it("returns 409 when update has conflict", async () => {
+      vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
       vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
         success: false,
         error: "Time slot has a conflict with an existing reservation or hold",
@@ -501,6 +537,7 @@ describe("Reservation Routes", () => {
       const response = await app.inject({
         method: "PATCH",
         url: "/api/v1/reservations/res-123",
+        headers: { authorization: "Bearer valid-token" },
         payload: {
           startTime: "2026-02-15T19:00:00.000Z",
         },
@@ -508,23 +545,36 @@ describe("Reservation Routes", () => {
 
       expect(response.statusCode).toBe(409);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Conflict");
+      expect(body.error).toBe(ERROR_CONFLICT);
+    });
+
+    it("returns 401 without auth", async () => {
+      const response = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/reservations/res-123",
+        payload: {
+          partySize: 6,
+        },
+      });
+
+      expect(response.statusCode).toBe(401);
     });
   });
 
-  describe("PATCH /v1/reservations/:id — cancellation", () => {
+  describe("PATCH /v1/reservations/:id -- cancellation", () => {
     it("cancels reservation with reason via PATCH status=CANCELLED", async () => {
-      const cancelledReservation = {
-        ...mockReservation,
-        status: "CANCELLED" as const,
+      vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
+      const cancelledReservation = createMockReservation({
+        status: "CANCELLED",
         cancellationReason: "no_show",
         cancellationNote: "Guest did not arrive",
-      };
+      });
       vi.mocked(reservationService.cancel).mockResolvedValueOnce(cancelledReservation);
 
       const response = await app.inject({
         method: "PATCH",
         url: "/api/v1/reservations/res-123",
+        headers: { authorization: "Bearer valid-token" },
         payload: {
           status: "CANCELLED",
           cancellationReason: "no_show",
@@ -546,17 +596,18 @@ describe("Reservation Routes", () => {
     });
 
     it("cancels reservation without reason", async () => {
-      const cancelledReservation = {
-        ...mockReservation,
-        status: "CANCELLED" as const,
+      vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
+      const cancelledReservation = createMockReservation({
+        status: "CANCELLED",
         cancellationReason: null,
         cancellationNote: null,
-      };
+      });
       vi.mocked(reservationService.cancel).mockResolvedValueOnce(cancelledReservation);
 
       const response = await app.inject({
         method: "PATCH",
         url: "/api/v1/reservations/res-123",
+        headers: { authorization: "Bearer valid-token" },
         payload: {
           status: "CANCELLED",
         },
@@ -571,11 +622,13 @@ describe("Reservation Routes", () => {
     });
 
     it("returns 404 when cancelling nonexistent reservation via PATCH", async () => {
-      vi.mocked(reservationService.cancel).mockResolvedValueOnce(null);
+      // getById returns null — route returns 404 before calling cancel
+      vi.mocked(reservationService.getById).mockResolvedValueOnce(null);
 
       const response = await app.inject({
         method: "PATCH",
         url: "/api/v1/reservations/nonexistent",
+        headers: { authorization: "Bearer valid-token" },
         payload: {
           status: "CANCELLED",
         },
@@ -592,19 +645,17 @@ describe("Reservation Routes", () => {
         protectedHeader: { alg: "RS256" },
       } as never);
 
-      const walkInReservation = {
-        ...mockReservation,
-        status: "CONFIRMED" as const,
+      const walkInReservation = createMockReservation({
+        status: "CONFIRMED",
         guestName: "Walk-in",
-      };
+      });
       vi.mocked(reservationService.createWalkIn).mockResolvedValueOnce({
         success: true,
         reservation: walkInReservation,
       });
-      vi.mocked(tableService.updateStatus).mockResolvedValueOnce({
-        ...mockTable,
-        status: "OCCUPIED" as const,
-      });
+      vi.mocked(tableService.updateStatus).mockResolvedValueOnce(
+        createMockTable({ status: "OCCUPIED" }),
+      );
 
       const response = await app.inject({
         method: "POST",
@@ -637,19 +688,17 @@ describe("Reservation Routes", () => {
         protectedHeader: { alg: "RS256" },
       } as never);
 
-      const walkInReservation = {
-        ...mockReservation,
-        status: "CONFIRMED" as const,
+      const walkInReservation = createMockReservation({
+        status: "CONFIRMED",
         guestName: "Jane Smith",
-      };
+      });
       vi.mocked(reservationService.createWalkIn).mockResolvedValueOnce({
         success: true,
         reservation: walkInReservation,
       });
-      vi.mocked(tableService.updateStatus).mockResolvedValueOnce({
-        ...mockTable,
-        status: "OCCUPIED" as const,
-      });
+      vi.mocked(tableService.updateStatus).mockResolvedValueOnce(
+        createMockTable({ status: "OCCUPIED" }),
+      );
 
       const response = await app.inject({
         method: "POST",
@@ -693,10 +742,10 @@ describe("Reservation Routes", () => {
 
   describe("DELETE /v1/reservations/:id", () => {
     it("cancels reservation and returns 200 with cancelled reservation", async () => {
-      const cancelledReservation = {
-        ...mockReservation,
-        status: "CANCELLED" as const,
-      };
+      vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
+      const cancelledReservation = createMockReservation({
+        status: "CANCELLED",
+      });
       vi.mocked(reservationService.cancel).mockResolvedValueOnce(
         cancelledReservation
       );
@@ -704,6 +753,7 @@ describe("Reservation Routes", () => {
       const response = await app.inject({
         method: "DELETE",
         url: "/api/v1/reservations/res-123",
+        headers: { authorization: "Bearer valid-token" },
       });
 
       expect(response.statusCode).toBe(200);
@@ -713,14 +763,24 @@ describe("Reservation Routes", () => {
     });
 
     it("returns 404 when cancelling nonexistent reservation", async () => {
-      vi.mocked(reservationService.cancel).mockResolvedValueOnce(null);
+      vi.mocked(reservationService.getById).mockResolvedValueOnce(null);
 
       const response = await app.inject({
         method: "DELETE",
         url: "/api/v1/reservations/nonexistent",
+        headers: { authorization: "Bearer valid-token" },
       });
 
       expect(response.statusCode).toBe(404);
+    });
+
+    it("returns 401 without auth", async () => {
+      const response = await app.inject({
+        method: "DELETE",
+        url: "/api/v1/reservations/res-123",
+      });
+
+      expect(response.statusCode).toBe(401);
     });
   });
 });
