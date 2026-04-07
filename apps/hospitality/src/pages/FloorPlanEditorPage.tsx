@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useNavigate, useBlocker } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
@@ -26,6 +26,9 @@ export function FloorPlanEditorPage() {
   const [pendingUpdates, setPendingUpdates] = useState<Map<string, { x: number; y: number }>>(
     new Map()
   );
+
+  // Store previous table state for rollback on save failure
+  const previousTablesRef = useRef<Table[]>([]);
 
   // Warn on browser tab close / refresh when unsaved changes exist
   useEffect(() => {
@@ -98,8 +101,11 @@ export function FloorPlanEditorPage() {
     setHasChanges(true);
   }, []);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (pendingUpdates.size === 0) return;
+
+    // Snapshot current tables for rollback on failure
+    previousTablesRef.current = [...tables];
 
     setIsSaving(true);
     try {
@@ -121,15 +127,90 @@ export function FloorPlanEditorPage() {
         };
       });
 
-      await api.floorPlans.bulkUpdatePositions(floorPlan.id, positions);
+      await api.floorPlans.bulkUpdatePositions(floorPlan!.id, positions);
       setPendingUpdates(new Map());
       setHasChanges(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save changes");
+      // Rollback to previous table positions on failure
+      setTables(previousTablesRef.current);
+      setPendingUpdates(new Map());
+      setError(err instanceof Error ? err.message : "Failed to save changes — positions reverted");
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [pendingUpdates, tables, api, floorPlan]);
+
+  const handleDeleteTable = useCallback(async (tableId: string) => {
+    const confirmed = window.confirm("Delete this table? This action cannot be undone.");
+    if (!confirmed) return;
+
+    try {
+      await api.tables.delete(tableId);
+      setTables((prev) => prev.filter((t) => t.id !== tableId));
+      setSelectedTableId((prev) => (prev === tableId ? null : prev));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete table");
+    }
+  }, [api]);
+
+  // Auto-save with 1s debounce after changes
+  useEffect(() => {
+    if (!hasChanges || pendingUpdates.size === 0) return;
+    const timer = setTimeout(() => {
+      handleSave();
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [hasChanges, pendingUpdates, handleSave]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      // Don't capture shortcuts when typing in inputs/dialogs
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
+        return;
+      }
+
+      // Ctrl+S / Cmd+S — save
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        handleSave();
+        return;
+      }
+
+      // Delete / Backspace — remove selected table
+      if (e.key === "Delete" || e.key === "Backspace") {
+        if (selectedTableId) {
+          handleDeleteTable(selectedTableId);
+        }
+        return;
+      }
+
+      // Escape — deselect
+      if (e.key === "Escape") {
+        setSelectedTableId(null);
+        return;
+      }
+
+      // Arrow keys — nudge selected table by 1 grid unit (20px)
+      if (
+        selectedTableId &&
+        ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)
+      ) {
+        e.preventDefault();
+        const selectedTable = tables.find((t) => t.id === selectedTableId);
+        if (!selectedTable) return;
+        const currentX = selectedTable.shapeMetadata?.x ?? 100;
+        const currentY = selectedTable.shapeMetadata?.y ?? 100;
+        const dx = e.key === "ArrowRight" ? 20 : e.key === "ArrowLeft" ? -20 : 0;
+        const dy = e.key === "ArrowDown" ? 20 : e.key === "ArrowUp" ? -20 : 0;
+        handleTableMove(selectedTableId, currentX + dx, currentY + dy);
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [selectedTableId, tables, handleSave, handleDeleteTable, handleTableMove]);
 
   const handleActivate = async () => {
     if (!floorPlan) return;
@@ -146,21 +227,6 @@ export function FloorPlanEditorPage() {
     const newTable = await api.tables.create(data);
     setTables((prev) => [...prev, newTable]);
     setShowAddDialog(false);
-  };
-
-  const handleDeleteTable = async (tableId: string) => {
-    const confirmed = window.confirm("Delete this table? This action cannot be undone.");
-    if (!confirmed) return;
-
-    try {
-      await api.tables.delete(tableId);
-      setTables((prev) => prev.filter((t) => t.id !== tableId));
-      if (selectedTableId === tableId) {
-        setSelectedTableId(null);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete table");
-    }
   };
 
   const selectedTable = tables.find((t) => t.id === selectedTableId);
