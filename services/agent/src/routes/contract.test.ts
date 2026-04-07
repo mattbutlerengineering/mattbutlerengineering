@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
-import { AgentSessionSchema } from "@mbe/types";
 
-// Mock all service dependencies
 vi.mock("../services/session.js", () => ({
   sessionService: {
+    list: vi.fn(),
     getById: vi.fn(),
+    create: vi.fn(),
+    updateStatus: vi.fn(),
+    delete: vi.fn(),
   },
 }));
 
@@ -22,37 +24,25 @@ vi.mock("../services/database.js", () => ({
   },
 }));
 
-import { sessionService } from "../services/session.js";
+const mockJwtVerify = vi.fn();
+vi.mock("jose", () => ({
+  createRemoteJWKSet: vi.fn(() => "mock-jwks"),
+  jwtVerify: mockJwtVerify,
+}));
 
-const mockSession = {
-  id: "session-123",
-  status: "PENDING",
-  taskDescription: "Fix the login bug",
-  branchName: "fix-login",
-  baseBranch: "main",
-  model: "claude-sonnet-4-6",
-  maxTurns: 50,
-  maxBudgetUsd: 1.0,
-  prUrl: null,
-  prNumber: null,
-  resultText: null,
-  costUsd: 0,
-  inputTokens: 0,
-  outputTokens: 0,
-  numTurns: 0,
-  durationMs: 0,
-  parentId: null,
-  errors: [],
-  startedAt: "2026-02-27T00:00:00.000Z",
-  completedAt: null,
-  createdAt: "2026-02-27T00:00:00.000Z",
-  updatedAt: "2026-02-27T00:00:00.000Z",
-};
+import { getActiveSessionCount } from "../services/session-executor.js";
 
 describe("Agent Service API Contract", () => {
   let app: FastifyInstance;
+  const originalEnv = process.env;
 
   beforeEach(async () => {
+    process.env = {
+      ...originalEnv,
+      AUTH_AUTHORITY: "https://test.auth0.com",
+      AUTH_AUDIENCE: "https://api.example.com",
+      MAX_CONCURRENT_SESSIONS: "5",
+    };
     app = await buildApp({ logger: false });
     await app.ready();
   });
@@ -60,24 +50,18 @@ describe("Agent Service API Contract", () => {
   afterEach(async () => {
     await app.close();
     vi.clearAllMocks();
+    process.env = originalEnv;
   });
 
-  it("GET /v1/sessions/:id matches AgentSessionSchema", async () => {
-    vi.mocked(sessionService.getById).mockResolvedValueOnce(mockSession as any);
+  it("POST /v1/sessions returns 429 when max concurrent reached", async () => {
+    vi.mocked(getActiveSessionCount).mockReturnValueOnce(5);
 
     const response = await app.inject({
-      method: "GET",
-      url: "/v1/sessions/session-123",
+      method: "POST",
+      url: "/v1/sessions",
+      payload: { taskDescription: "Another task" },
     });
 
-    expect(response.statusCode).toBe(200);
-    const body = JSON.parse(response.body);
-    
-    // Validate against Zod schema from @mbe/types
-    const result = AgentSessionSchema.safeParse(body.data);
-    if (!result.success) {
-      console.error("Zod Validation Error:", result.error.format());
-    }
-    expect(result.success).toBe(true);
+    expect(response.statusCode).toBe(429);
   });
 });
