@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import type { HealthResponse } from "@mbe/types";
 import { prisma, getSlowQueryStats, getServiceStatus } from "../services/database.js";
+import { checkAuth0, checkLatencyAnomaly, recordDbLatency } from "../services/health-checks.js";
 
 export const healthRoutes: FastifyPluginAsync = async (fastify) => {
   const healthSchema = {
@@ -42,9 +43,15 @@ const healthHandler = async (request: FastifyRequest): Promise<HealthResponse> =
   const dbStart = Date.now();
   try {
     await prisma.$queryRaw`SELECT 1`;
+    const dbLatency = Date.now() - dbStart;
+    const anomaly = checkLatencyAnomaly(dbLatency);
+    recordDbLatency(dbLatency);
     checks.database = {
-      status: "ok",
-      latency: Date.now() - dbStart,
+      status: anomaly.isAnomaly ? "error" : "ok",
+      latency: dbLatency,
+      ...(anomaly.isAnomaly && {
+        message: `Latency anomaly: ${dbLatency}ms vs rolling avg ${anomaly.rollingAvg}ms`,
+      }),
     };
   } catch (error) {
     checks.database = {
@@ -64,7 +71,14 @@ const healthHandler = async (request: FastifyRequest): Promise<HealthResponse> =
     latency: slowQueries.slowestMs,
   };
 
-  const hasErrors = dbStatus === "error" || slowQueryStatus === "degraded";
+  const auth0Result = await checkAuth0();
+  checks.auth0 = {
+    status: auth0Result.status,
+    latency: auth0Result.latency,
+    ...(auth0Result.message && { message: auth0Result.message }),
+  };
+
+  const hasErrors = dbStatus === "error" || slowQueryStatus === "degraded" || auth0Result.status === "degraded";
 
   return {
     status: hasErrors ? "degraded" : "ok",
