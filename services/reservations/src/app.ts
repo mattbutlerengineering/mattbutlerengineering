@@ -5,7 +5,7 @@ import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import ScalarApiReference from "@scalar/fastify-api-reference";
 import { authPlugin, getAuthPluginOptionsFromEnv } from "@mbe/auth/fastify";
-import { createRequestIdMiddleware } from "@mbe/observability";
+import { createRequestIdMiddleware, errorRatePlugin_ } from "@mbe/observability";
 import { sentryFastifyPlugin } from "@mbe/sentry/node";
 import { apiVersioningPlugin } from "@mbe/api-versioning/fastify";
 import { registerSchemas } from "./schemas/index.js";
@@ -63,6 +63,9 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
 
   // Propagate X-Request-ID from edge router for distributed tracing
   await fastify.register(createRequestIdMiddleware());
+
+  // Track per-endpoint error rates (exposed via health check)
+  await fastify.register(errorRatePlugin_);
 
   await fastify.register(rateLimit, {
     max: 100,
