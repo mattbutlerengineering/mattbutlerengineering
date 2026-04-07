@@ -1,0 +1,65 @@
+name: Uptime Snapshot
+
+on:
+  schedule:
+    - cron: "17 0 * * *" # Daily at 00:17 UTC (off-minute to avoid fleet congestion)
+  workflow_dispatch: # Manual trigger
+
+jobs:
+  snapshot:
+    name: Record Health Snapshot
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Fetch system health
+        id: health
+        run: |
+          RESPONSE=$(curl -sf --max-time 30 \
+            "https://mattbutlerengineering.com/health/system" || echo '{"status":"error"}')
+          echo "response=$RESPONSE" >> "$GITHUB_OUTPUT"
+          echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Write snapshot to KV
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
+          KV_NS_ID: ${{ secrets.HEALTH_KV_NAMESPACE_ID }}
+          SNAPSHOT_DATE: ${{ steps.health.outputs.date }}
+          HEALTH_DATA: ${{ steps.health.outputs.response }}
+        run: |
+          PAYLOAD=$(jq -nc --arg data "$HEALTH_DATA" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{snapshot: ($data | fromjson), timestamp: $ts}')
+
+          curl -sf -X PUT \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/values/uptime%2F${SNAPSHOT_DATE}" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD"
+
+          echo "Wrote snapshot for ${SNAPSHOT_DATE}"
+
+      - name: Cleanup old snapshots (>90 days)
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
+          KV_NS_ID: ${{ secrets.HEALTH_KV_NAMESPACE_ID }}
+        run: |
+          CUTOFF=$(date -u -d "90 days ago" +%Y-%m-%d 2>/dev/null || date -u -v-90d +%Y-%m-%d)
+
+          KEYS=$(curl -sf \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/keys?prefix=uptime%2F&limit=1000" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" | jq -r '.result[].name')
+
+          DELETED=0
+          for KEY in $KEYS; do
+            DATE_PART="${KEY#uptime/}"
+            if [[ "$DATE_PART" < "$CUTOFF" ]]; then
+              curl -sf -X DELETE \
+                "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/values/${KEY}" \
+                -H "Authorization: Bearer ${CF_API_TOKEN}"
+              DELETED=$((DELETED + 1))
+            fi
+          done
+
+          echo "Cleaned up $DELETED snapshots older than $CUTOFF"
