@@ -35,7 +35,7 @@ export default [
   // Health routes are exempt since they need direct DB access for connectivity checks.
   {
     files: ["**/routes/**/*.ts"],
-    ignores: ["**/routes/health.ts", "**/routes/health.test.ts", "**/routes/**/*.test.ts"],
+    ignores: ["**/routes/health.ts", "**/routes/health.test.ts", "**/routes/ready.ts", "**/routes/ready.test.ts", "**/routes/**/*.test.ts"],
     rules: {
       "no-restricted-imports": [
         "error",

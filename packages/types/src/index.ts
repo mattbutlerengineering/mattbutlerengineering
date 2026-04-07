@@ -6,6 +6,8 @@ export type {
   Pagination,
   ApiError,
   HealthResponse,
+  ReadinessResponse,
+  ReadinessCheckStatus,
   HealthCheck,
   SystemStatus,
   SystemHealthResponse,

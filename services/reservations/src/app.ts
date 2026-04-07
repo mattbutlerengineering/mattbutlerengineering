@@ -10,6 +10,7 @@ import { sentryFastifyPlugin } from "@mbe/sentry/node";
 import { apiVersioningPlugin } from "@mbe/api-versioning/fastify";
 import { registerSchemas } from "./schemas/index.js";
 import { healthRoutes } from "./routes/health.js";
+import { readinessRoutes } from "./routes/ready.js";
 import { tableRoutes } from "./routes/tables.js";
 import { reservationRoutes } from "./routes/reservations.js";
 import { venueRoutes } from "./routes/venues.js";
@@ -122,6 +123,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
 
   // Register routes
   await fastify.register(healthRoutes);
+  await fastify.register(readinessRoutes);
   await fastify.register(tableRoutes, { prefix: "/api/v1/tables" });
   await fastify.register(reservationRoutes, { prefix: "/api/v1/reservations" });
   await fastify.register(venueRoutes, { prefix: "/api/v1/venues" });
