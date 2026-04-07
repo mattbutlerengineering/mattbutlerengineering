@@ -180,9 +180,14 @@ export type {
   FailureCategory,
   TurnMetrics,
   ToolCallMetrics,
+  HeartbeatConfig,
 } from "./types.js";
 
-export { DEFAULT_SESSION_CONFIG, DEFAULT_FEEDBACK_LOOP_CONFIG } from "./types.js";
+export {
+  DEFAULT_SESSION_CONFIG,
+  DEFAULT_FEEDBACK_LOOP_CONFIG,
+  DEFAULT_HEARTBEAT_CONFIG,
+} from "./types.js";
 
 // Orchestrator
 export { runOrchestrator } from "./orchestrator.js";
