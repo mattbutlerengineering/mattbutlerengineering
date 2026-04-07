@@ -3,3 +3,7 @@ export * from "./reservation.js";
 export * from "./floor-plan.js";
 export * from "./api.js";
 export * from "./agent.js";
+export * from "./venue.js";
+export * from "./guest.js";
+export * from "./common.js";
+export * from "./json-schema.js";

@@ -21,15 +21,12 @@ exports[`Agent service schemas > CreateSessionBodySchema matches snapshot 1`] = 
       "type": "number",
     },
     "model": {
-      "description": "Claude model to use",
       "type": "string",
     },
     "parentId": {
-      "description": "Parent session ID for orchestrated child sessions",
       "type": "string",
     },
     "taskDescription": {
-      "description": "Task for the agent",
       "maxLength": 10000,
       "minLength": 1,
       "type": "string",
@@ -114,11 +111,12 @@ exports[`Agent service schemas > SessionEventSchema matches snapshot 1`] = `
   "$id": "SessionEvent",
   "properties": {
     "createdAt": {
-      "format": "date-time",
       "type": "string",
     },
     "data": {
-      "additionalProperties": true,
+      "propertyNames": {
+        "type": "string",
+      },
       "type": "object",
     },
     "id": {
@@ -144,40 +142,55 @@ exports[`Agent service schemas > SessionEventSchema matches snapshot 1`] = `
 exports[`Agent service schemas > SessionSchema matches snapshot 1`] = `
 {
   "$id": "Session",
-  "description": "An agent coding session",
   "properties": {
     "baseBranch": {
-      "description": "Base branch",
-      "example": "main",
       "type": "string",
     },
     "branchName": {
-      "description": "Git branch name",
-      "nullable": true,
-      "type": "string",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
+      ],
     },
     "completedAt": {
-      "format": "date-time",
-      "nullable": true,
-      "type": "string",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
+      ],
     },
     "costUsd": {
-      "description": "Actual cost in USD",
-      "nullable": true,
-      "type": "number",
+      "anyOf": [
+        {
+          "type": "number",
+        },
+        {
+          "type": "null",
+        },
+      ],
     },
     "createPr": {
-      "description": "Whether to create a PR",
       "type": "boolean",
     },
     "createdAt": {
-      "format": "date-time",
       "type": "string",
     },
     "durationMs": {
-      "description": "Duration in milliseconds",
-      "nullable": true,
-      "type": "number",
+      "anyOf": [
+        {
+          "type": "number",
+        },
+        {
+          "type": "null",
+        },
+      ],
     },
     "errors": {
       "items": {
@@ -186,64 +199,98 @@ exports[`Agent service schemas > SessionSchema matches snapshot 1`] = `
       "type": "array",
     },
     "id": {
-      "description": "Unique identifier",
-      "example": "clx1234567890",
       "type": "string",
     },
     "inputTokens": {
-      "nullable": true,
-      "type": "number",
+      "anyOf": [
+        {
+          "type": "number",
+        },
+        {
+          "type": "null",
+        },
+      ],
     },
     "maxBudgetUsd": {
-      "description": "Budget cap in USD",
-      "example": 1,
       "type": "number",
     },
     "maxTurns": {
-      "description": "Maximum conversation turns",
-      "example": 50,
       "type": "number",
     },
     "model": {
-      "description": "Claude model used",
-      "example": "claude-sonnet-4-6",
       "type": "string",
     },
     "numTurns": {
-      "description": "Actual turns used",
-      "nullable": true,
-      "type": "number",
+      "anyOf": [
+        {
+          "type": "number",
+        },
+        {
+          "type": "null",
+        },
+      ],
     },
     "outputTokens": {
-      "nullable": true,
-      "type": "number",
+      "anyOf": [
+        {
+          "type": "number",
+        },
+        {
+          "type": "null",
+        },
+      ],
     },
     "parentId": {
-      "nullable": true,
-      "type": "string",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
+      ],
     },
     "prNumber": {
-      "description": "Pull request number",
-      "nullable": true,
-      "type": "number",
+      "anyOf": [
+        {
+          "type": "number",
+        },
+        {
+          "type": "null",
+        },
+      ],
     },
     "prUrl": {
-      "description": "Pull request URL",
-      "nullable": true,
-      "type": "string",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
+      ],
     },
     "resultText": {
-      "description": "Agent result text",
-      "nullable": true,
-      "type": "string",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
+      ],
     },
     "startedAt": {
-      "format": "date-time",
-      "nullable": true,
-      "type": "string",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
+      ],
     },
     "status": {
-      "description": "Current session status",
       "enum": [
         "PENDING",
         "RUNNING",
@@ -254,11 +301,9 @@ exports[`Agent service schemas > SessionSchema matches snapshot 1`] = `
       "type": "string",
     },
     "taskDescription": {
-      "description": "Task the agent is working on",
       "type": "string",
     },
     "updatedAt": {
-      "format": "date-time",
       "type": "string",
     },
   },
@@ -266,8 +311,23 @@ exports[`Agent service schemas > SessionSchema matches snapshot 1`] = `
     "id",
     "status",
     "taskDescription",
+    "branchName",
     "baseBranch",
     "model",
+    "maxTurns",
+    "maxBudgetUsd",
+    "prUrl",
+    "prNumber",
+    "resultText",
+    "costUsd",
+    "inputTokens",
+    "outputTokens",
+    "numTurns",
+    "durationMs",
+    "parentId",
+    "errors",
+    "startedAt",
+    "completedAt",
     "createdAt",
     "updatedAt",
   ],

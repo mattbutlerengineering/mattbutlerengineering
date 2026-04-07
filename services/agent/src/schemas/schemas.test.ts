@@ -46,30 +46,33 @@ describe("Agent service schemas", () => {
   });
 
   describe("CreateSessionBodySchema taskDescription limits", () => {
+    const schemaObj = CreateSessionBodySchema as Record<string, unknown>;
+    const props = schemaObj.properties as Record<string, Record<string, unknown>>;
+
     it("enforces minLength of 1", () => {
-      const { minLength } = CreateSessionBodySchema.properties.taskDescription;
-      expect(minLength).toBe(1);
+      expect(props.taskDescription.minLength).toBe(1);
     });
 
     it("enforces maxLength of 10000", () => {
-      const { maxLength } = CreateSessionBodySchema.properties.taskDescription;
-      expect(maxLength).toBe(10_000);
+      expect(props.taskDescription.maxLength).toBe(10_000);
     });
   });
 });
 
 describe("Agent service schema backward compatibility", () => {
   for (const [name, schema] of Object.entries(allSchemas)) {
-    const schemaId = schema.$id;
+    const schemaObj = schema as Record<string, unknown>;
+    const schemaId = schemaObj.$id as string;
 
     it(`${name} has no breaking changes`, () => {
       const base = baseline[schemaId];
       if (!base) return; // New schema, no baseline to compare
 
-      const { breaking } = compareSchema(schemaId, base, schema);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { breaking } = compareSchema(schemaId, base, schemaObj as any);
       if (breaking.length > 0) {
         throw new Error(
-          `Breaking schema changes detected:\n${breaking.map((b) => `  - ${b}`).join("\n")}` +
+          `Breaking schema changes detected:\n${breaking.map((b: string) => `  - ${b}`).join("\n")}` +
             "\n\nIf intentional, update baselines: pnpm schema:baseline"
         );
       }
