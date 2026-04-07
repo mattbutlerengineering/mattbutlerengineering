@@ -22,14 +22,19 @@ module.exports = {
       },
     },
     assert: {
-      // Block merge if any score falls below these minimums.
-      // The workflow also enforces a delta check (>0.05 drop from base branch).
-      preset: "lighthouse:no-pwa",
+      // Block merge if any category score falls below these minimums.
       assertions: {
         "categories:performance": ["error", { minScore: 0.9 }],
         "categories:accessibility": ["error", { minScore: 0.9 }],
         "categories:best-practices": ["error", { minScore: 0.9 }],
         "categories:seo": ["error", { minScore: 0.9 }],
+
+        // Core Web Vitals — "good" thresholds per web.dev guidelines.
+        // FCP < 1.8s, LCP < 2.5s, CLS < 0.1, TBT < 200ms (lab proxy for INP).
+        "first-contentful-paint": ["error", { maxNumericValue: 1800 }],
+        "largest-contentful-paint": ["error", { maxNumericValue: 2500 }],
+        "cumulative-layout-shift": ["error", { maxNumericValue: 0.1 }],
+        "total-blocking-time": ["error", { maxNumericValue: 200 }],
       },
     },
     upload: {

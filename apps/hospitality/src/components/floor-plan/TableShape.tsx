@@ -4,6 +4,9 @@ import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type { Table } from "@mbe/types";
 
+/* Canvas (Konva) doesn't support CSS custom properties — use JS constants */
+const TABLE_LABEL_COLOR = "#ffffff";
+
 export interface TableShapeProps {
   table: Table;
   isSelected: boolean;
@@ -132,7 +135,7 @@ export function TableShape({
         text={table.tableNumber || table.name}
         fontSize={14}
         fontStyle="bold"
-        fill="#ffffff"
+        fill={TABLE_LABEL_COLOR}
         align="center"
         verticalAlign="middle"
         offsetX={20}
@@ -142,7 +145,7 @@ export function TableShape({
       <Text
         text={`${table.minCovers}-${table.maxCovers ?? table.capacity}`}
         fontSize={10}
-        fill="#ffffff"
+        fill={TABLE_LABEL_COLOR}
         align="center"
         offsetX={15}
         offsetY={-8}

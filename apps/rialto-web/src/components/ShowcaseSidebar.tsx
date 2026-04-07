@@ -92,13 +92,41 @@ export function ShowcaseSidebar({
     saveCollapsed(collapsed);
   }, [collapsed]);
 
-  // Close mobile drawer on Escape key
+  // Focus trap + Escape handling for mobile drawer
   useEffect(() => {
     if (!isMobileOpen) return;
+
+    const sidebar = sidebarRef.current;
+    if (!sidebar) return;
+
+    // Move focus into the sidebar when it opens
+    const firstFocusable = sidebar.querySelector<HTMLElement>(
+      'input, button, [href], [tabindex]:not([tabindex="-1"])'
+    );
+    firstFocusable?.focus();
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         onMobileClose?.();
+        return;
+      }
+
+      if (e.key !== "Tab") return;
+
+      const focusableElements = sidebar.querySelectorAll<HTMLElement>(
+        'input, button, [href], [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusableElements.length === 0) return;
+
+      const first = focusableElements[0]!;
+      const last = focusableElements[focusableElements.length - 1]!;
+
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
       }
     };
 

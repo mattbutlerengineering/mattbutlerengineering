@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, Fragment } from "react";
 import { useAuth } from "@mbe/auth/react";
 import {
   Alert,
@@ -277,9 +277,8 @@ export function AdminPage() {
             </thead>
             <tbody>
               {filteredUsers.map((user, index) => (
-                <>
+                <Fragment key={user.id}>
                   <tr
-                    key={user.id}
                     className={[
                       styles.row,
                       index % 2 === 1 ? styles.rowAlt : "",
@@ -335,7 +334,7 @@ export function AdminPage() {
                   {expandedUserId === user.id && (
                     <UserDetailRow key={`${user.id}-detail`} user={user} />
                   )}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>

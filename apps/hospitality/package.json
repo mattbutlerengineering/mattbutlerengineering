@@ -11,32 +11,51 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test --config playwright.config.ts"
+    "test:e2e": "playwright test --config playwright.config.ts",
+    "test:a11y": "playwright test --config playwright.config.ts e2e/a11y.test.ts",
+    "size": "size-limit",
+    "size:check": "size-limit"
   },
+  "size-limit": [
+    {
+      "name": "Hospitality App (JS)",
+      "path": "dist/assets/index-*.js",
+      "limit": "500 kB"
+    },
+    {
+      "name": "Hospitality App (CSS)",
+      "path": "dist/assets/index-*.css",
+      "limit": "150 kB"
+    }
+  ],
   "dependencies": {
-    "@json-render/react": "^0.15.0",
+    "@json-render/react": "^0.16.0",
     "@mbe/api-client": "workspace:*",
     "@mbe/auth": "workspace:*",
     "@mbe/rialto": "workspace:*",
     "@mbe/rialto-catalog": "workspace:*",
+    "@mbe/sentry": "workspace:^",
     "@mbe/types": "workspace:*",
-    "konva": "^9.3.22",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-konva": "^19.0.0",
-    "react-router-dom": "^7.1.0"
+    "konva": "^10.2.3",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "react-konva": "^19.2.3",
+    "react-router-dom": "catalog:"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.1",
     "@mbe/config": "workspace:*",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "@vitejs/plugin-react": "^5.0.0",
-    "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react": "^16.3.0",
-    "jsdom": "^26.1.0",
-    "typescript": "^5.9.3",
-    "vitest": "^3.2.1",
-    "vite": "^7.0.0",
-    "vite-plugin-pwa": "^1.2.0"
+    "@sentry/vite-plugin": "^5.1.1",
+    "@testing-library/jest-dom": "catalog:",
+    "@testing-library/react": "catalog:",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "jsdom": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plugin-pwa": "^1.2.0",
+    "vitest": "catalog:"
   }
 }

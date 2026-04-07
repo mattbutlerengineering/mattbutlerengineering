@@ -1,0 +1,95 @@
+<codebase path="apps/gen">
+  <file path="vite.config.ts">
+  </file>
+  <file path="playwright.config.ts">
+  </file>
+  <file path="src/vite-env.d.ts">
+    interface ImportMetaEnv {
+      readonly VITE_AUTH_AUTHORITY: string;
+      readonly VITE_AUTH_CLIENT_ID: string;
+      readonly VITE_AUTH_REDIRECT_URI: string;
+      readonly VITE_AUTH_AUDIENCE: string;
+    }
+    interface ImportMeta {
+      readonly env: ImportMetaEnv;
+    }
+  </file>
+  <file path="src/types.ts">
+    export interface HistoryEntry {
+      id: string;
+      prompt: string;
+      spec: Spec;
+      rawLines: string[];
+      timestamp: Date;
+    }
+    export interface StoredSpec {
+      id: string;
+      userId: string;
+      prompt: string;
+      spec: unknown;
+      rawLines: string[];
+      isFavorite: boolean;
+      createdAt: string;
+      updatedAt: string;
+    }
+  </file>
+  <file path="src/utils/relative-time.ts">
+    export function relativeTime(date: Date): string { /* implementation omitted */ }
+  </file>
+  <file path="src/hooks/useSpecsApi.ts">
+    export interface SaveSpecData {
+      prompt: string;
+      spec: unknown;
+      rawLines: string[];
+    }
+    export interface UseSpecsApiReturn {
+      specs: StoredSpec[];
+      isLoading: boolean;
+      fetchSpecs: () => Promise<void>;
+      saveSpec: (data: SaveSpecData) => Promise<StoredSpec>;
+      toggleFavorite: (id: string) => Promise<void>;
+      deleteSpec: (id: string) => Promise<void>;
+    }
+    export function useSpecsApi(): UseSpecsApiReturn { /* implementation omitted */ }
+  </file>
+  <file path="src/hooks/usePanelLayout.ts">
+    type Breakpoint = "mobile" | "tablet" | "desktop";
+    interface PanelState {
+      historyVisible: boolean;
+      inspectorVisible: boolean;
+    }
+    interface PanelLayout extends PanelState {
+      breakpoint: Breakpoint;
+      toggleHistory: () => void;
+      toggleInspector: () => void;
+      closeOverlays: () => void;
+    }
+    function getBreakpoint(): Breakpoint { /* implementation omitted */ }
+    function getDefaults(bp: Breakpoint): PanelState { /* implementation omitted */ }
+    function loadPrefs(bp: Breakpoint): PanelState { /* implementation omitted */ }
+    function savePrefs(bp: Breakpoint, state: PanelState): void { /* implementation omitted */ }
+    export function usePanelLayout(): PanelLayout { /* implementation omitted */ }
+  </file>
+  <file path="src/hooks/useGenStream.ts">
+    type FlatElement = Parameters<typeof flatToTree>[0][number];
+    export interface UseGenStreamOptions {
+      api: string;
+      onComplete?: (spec: Spec, rawLines: string[]) => void;
+      onError?: (error: Error) => void;
+    }
+    export interface UseGenStreamReturn {
+      spec: Spec | null;
+      isStreaming: boolean;
+      error: Error | null;
+      rawLines: string[];
+      send: (prompt: string, context?: Record<string, unknown>) => Promise<void>;
+      clear: () => void;
+      stop: () => void;
+    }
+    export function useGenStream({
+      api,
+      onComplete,
+      onError,
+    }: UseGenStreamOptions): UseGenStreamReturn { /* implementation omitted */ }
+  </file>
+</codebase>

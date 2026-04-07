@@ -1,8 +1,18 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { Readable } from "node:stream";
 import type { FastifyPluginAsync } from "fastify";
-import type { ApiError } from "@mbe/types";
+import { type ApiError, createProblemDetails } from "@mbe/types";
+import { extractIssueIntent } from "@mbe/agent-core";
 import { sessionService } from "../services/session.js";
 import { executeSession } from "../services/session-executor.js";
+
+const GITHUB_API_BASE = "https://api.github.com";
+const REQUIRED_PERMISSION = "write";
+
+interface CollaboratorPermission {
+  permission: string;
+  role_name: string;
+}
 
 // ── Types for GitHub webhook payloads ────────────────────────────────
 
@@ -20,6 +30,7 @@ interface GitHubIssueEvent {
     full_name: string;
     default_branch: string;
   };
+  sender: { login: string; type: string };
 }
 
 interface GitHubIssueCommentEvent {
@@ -39,6 +50,7 @@ interface GitHubIssueCommentEvent {
     full_name: string;
     default_branch: string;
   };
+  sender: { login: string; type: string };
 }
 
 interface GitHubCheckRunEvent {
@@ -60,7 +72,7 @@ interface GitHubCheckRunEvent {
 // ── Signature verification ───────────────────────────────────────────
 
 function verifySignature(
-  payload: string,
+  payload: Buffer,
   signature: string | undefined,
   secret: string
 ): boolean {
@@ -85,9 +97,63 @@ const AGENT_COMMAND_PATTERN = /^\/agent\s+(.+)/i;
 const MAX_CI_RETRIES = 3;
 const AGENT_BRANCH_PREFIX = "agent/";
 
+async function checkCollaboratorPermission(
+  username: string,
+  repository: string,
+  githubToken: string
+): Promise<boolean> {
+  try {
+    const response = await fetch(
+      `${GITHUB_API_BASE}/repos/${repository}/collaborators/${username}/permission`,
+      {
+        headers: {
+          Authorization: `Bearer ${githubToken}`,
+          Accept: "application/vnd.github.v3+json",
+          "User-Agent": "mattbutlerengineering-agent-service",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      return false;
+    }
+
+    const data = (await response.json()) as CollaboratorPermission;
+    const permissionLevel = data.permission || data.role_name;
+
+    const permissionHierarchy: Record<string, number> = {
+      admin: 4,
+      maintain: 3,
+      write: 2,
+      read: 1,
+      none: 0,
+    };
+
+    const userLevel = permissionHierarchy[permissionLevel] ?? 0;
+    const requiredLevel = permissionHierarchy[REQUIRED_PERMISSION] ?? 2;
+
+    return userLevel >= requiredLevel;
+  } catch {
+    return false;
+  }
+}
+
 // ── Routes ───────────────────────────────────────────────────────────
 
 export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
+  // Capture raw request body before Fastify parses JSON.
+  // GitHub signs the original bytes; re-serializing via JSON.stringify
+  // can produce a different byte sequence and break HMAC verification.
+  fastify.addHook("preParsing", async (request, _reply, payload) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of payload) {
+      chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : (chunk as Buffer));
+    }
+    const rawBody = Buffer.concat(chunks);
+    (request as unknown as Record<string, unknown>).rawBody = rawBody;
+    return Readable.from(rawBody);
+  });
+
   // POST /v1/webhooks/github — Handle GitHub webhook events
   fastify.post<{
     Body: unknown;
@@ -115,34 +181,38 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
       const secret = process.env.GITHUB_WEBHOOK_SECRET;
       if (!secret) {
         fastify.log.warn("GITHUB_WEBHOOK_SECRET not configured — rejecting webhook");
-        return reply.code(401).send({
-          error: "Unauthorized",
-          message: "Webhook secret not configured",
-          statusCode: 401,
-        });
+        return reply
+          .code(401)
+          .send(createProblemDetails(401, "Unauthorized", "Webhook secret not configured"));
       }
 
-      // Verify signature
+      // Verify signature against the original raw bytes (not re-serialized JSON)
       const signature = request.headers["x-hub-signature-256"] as string | undefined;
-      const rawBody = JSON.stringify(request.body);
+      const rawBody = (request as unknown as Record<string, unknown>).rawBody as Buffer;
 
       if (!verifySignature(rawBody, signature, secret)) {
-        return reply.code(401).send({
-          error: "Unauthorized",
-          message: "Invalid webhook signature",
-          statusCode: 401,
-        });
+        return reply
+          .code(401)
+          .send(createProblemDetails(401, "Unauthorized", "Invalid webhook signature"));
+      }
+
+      const githubToken = process.env.GITHUB_TOKEN;
+      if (!githubToken) {
+        fastify.log.warn("GITHUB_TOKEN not configured — cannot verify collaborator permissions");
+        return reply
+          .code(401)
+          .send(createProblemDetails(401, "Unauthorized", "GitHub token not configured"));
       }
 
       const eventType = request.headers["x-github-event"] as string | undefined;
 
       switch (eventType) {
         case "issues":
-          await handleIssueEvent(fastify, request.body as GitHubIssueEvent);
+          await handleIssueEvent(fastify, request.body as GitHubIssueEvent, githubToken);
           break;
 
         case "issue_comment":
-          await handleIssueCommentEvent(fastify, request.body as GitHubIssueCommentEvent);
+          await handleIssueCommentEvent(fastify, request.body as GitHubIssueCommentEvent, githubToken);
           break;
 
         case "check_run":
@@ -161,25 +231,56 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
 // ── Event handlers ───────────────────────────────────────────────────
 
 async function handleIssueEvent(
-  fastify: { log: { info: (...args: unknown[]) => void; error: (...args: unknown[]) => void } },
-  event: GitHubIssueEvent
+  fastify: { log: { info: (...args: unknown[]) => void; warn: (...args: unknown[]) => void; error: (...args: unknown[]) => void } },
+  event: GitHubIssueEvent,
+  githubToken: string
 ): Promise<void> {
   // Only handle "labeled" action with the agent label
   if (event.action !== "labeled") return;
   if (event.label?.name !== AGENT_LABEL) return;
 
-  const taskDescription =
-    `Issue #${event.issue.number}: ${event.issue.title}\n\n` +
-    `${event.issue.body ?? "No description provided."}\n\n` +
-    `Source: ${event.issue.html_url}`;
-
-  fastify.log.info(
-    { issueNumber: event.issue.number },
-    "Creating session from issue label"
+  const hasPermission = await checkCollaboratorPermission(
+    event.sender.login,
+    event.repository.full_name,
+    githubToken
   );
 
+  if (!hasPermission) {
+    fastify.log.warn(
+      { user: event.sender.login, issue: event.issue.number },
+      "Unauthorized user attempted to trigger agent session"
+    );
+    return;
+  }
+
+  // Attempt structured intent extraction via Haiku
+  const intent = await extractIssueIntent(
+    event.issue.title,
+    event.issue.body ?? "",
+    event.issue.number
+  );
+
+  let taskDescription: string;
+  if (intent) {
+    taskDescription = intent.taskDescription;
+    fastify.log.info(
+      { issueNumber: event.issue.number, scope: intent.estimatedScope },
+      "Issue intent extracted"
+    );
+  } else {
+    // Fall back to raw concatenation if extraction fails
+    taskDescription =
+      `Issue #${event.issue.number}: ${event.issue.title}\n\n` +
+      `${event.issue.body ?? "No description provided."}\n\n` +
+      `Source: ${event.issue.html_url}`;
+    fastify.log.warn(
+      { issueNumber: event.issue.number },
+      "Intent extraction failed — using raw issue text"
+    );
+  }
+
   const session = await sessionService.create({
-    taskDescription,
+    taskDescription: `<task>\n${taskDescription}\n</task>`,
     baseBranch: event.repository.default_branch,
   });
 
@@ -190,7 +291,8 @@ async function handleIssueEvent(
 
 async function handleIssueCommentEvent(
   fastify: { log: { info: (...args: unknown[]) => void; error: (...args: unknown[]) => void } },
-  event: GitHubIssueCommentEvent
+  event: GitHubIssueCommentEvent,
+  githubToken: string
 ): Promise<void> {
   if (event.action !== "created") return;
 
@@ -199,6 +301,20 @@ async function handleIssueCommentEvent(
 
   const match = event.comment.body.match(AGENT_COMMAND_PATTERN);
   if (!match) return;
+
+  const hasPermission = await checkCollaboratorPermission(
+    event.comment.user.login,
+    event.repository.full_name,
+    githubToken
+  );
+
+  if (!hasPermission) {
+    fastify.log.warn(
+      { user: event.comment.user.login, pr: event.issue.number },
+      "Unauthorized user attempted to trigger agent session via comment"
+    );
+    return;
+  }
 
   const taskInstruction = match[1]!.trim();
 
@@ -213,7 +329,7 @@ async function handleIssueCommentEvent(
   );
 
   const session = await sessionService.create({
-    taskDescription,
+    taskDescription: `<task>\n${taskDescription}\n</task>`,
     baseBranch: event.repository.default_branch,
   });
 
@@ -261,7 +377,7 @@ async function handleCheckRunEvent(
   );
 
   const session = await sessionService.create({
-    taskDescription,
+    taskDescription: `<task>\n${taskDescription}\n</task>`,
     baseBranch: event.repository.default_branch,
   });
 

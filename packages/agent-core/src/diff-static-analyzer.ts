@@ -58,6 +58,41 @@ export const ANALYSIS_RULES: readonly AnalysisRule[] = [
     message: "Resolve TODO/FIXME before committing or create a tracking issue",
     severity: "warning",
   },
+  {
+    id: "no-any-type",
+    pattern: /:\s*any\b(?!\s*\*\/)/,
+    message: "Avoid `any` type — use a specific type or `unknown`",
+    severity: "warning",
+    fileGlob: "*.{ts,tsx}",
+  },
+  {
+    id: "no-object-mutation",
+    pattern: /\b(?:Object\.assign|\.push|\.splice|\.sort|\.reverse)\s*\(/,
+    message: "Prefer immutable patterns — use spread, concat, toSorted, toReversed, or toSpliced",
+    severity: "warning",
+    fileGlob: "*.{ts,tsx,js,jsx}",
+  },
+  {
+    id: "no-hardcoded-url",
+    pattern: /(?:https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0)|:\d{4,5}\/)/,
+    message: "Use environment variables or constants instead of hardcoded URLs/ports",
+    severity: "error",
+    fileGlob: "*.{ts,tsx,js,jsx}",
+  },
+  {
+    id: "no-empty-catch",
+    pattern: /catch\s*(?:\([^)]*\))?\s*\{\s*\}/,
+    message: "Empty catch block silently swallows errors — log or rethrow",
+    severity: "error",
+    fileGlob: "*.{ts,tsx,js,jsx}",
+  },
+  {
+    id: "no-non-null-assertion",
+    pattern: /\w+!/,
+    message: "Avoid non-null assertion (!) — use optional chaining or type narrowing",
+    severity: "warning",
+    fileGlob: "*.{ts,tsx}",
+  },
 ] as const;
 
 // ── Helpers ─────────────────────────────────────────────────────────

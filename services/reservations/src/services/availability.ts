@@ -1,13 +1,14 @@
-import type {
-  TimeSlot,
-  AvailableTable,
-  DateAvailability,
-  ConflictCheckResult,
-  PacingCheckResult,
-  VenueSettings,
-  OperatingHours,
-  DaySchedule,
-  DurationRule,
+import {
+  toDateString,
+  type TimeSlot,
+  type AvailableTable,
+  type DateAvailability,
+  type ConflictCheckResult,
+  type PacingCheckResult,
+  type VenueSettings,
+  type OperatingHours,
+  type DaySchedule,
+  type DurationRule,
 } from "@mbe/types";
 import type { Table } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
@@ -221,7 +222,6 @@ export async function getAvailableDates(
   endDate: string,
   partySize: number
 ): Promise<DateAvailability[]> {
-  const results: DateAvailability[] = [];
   const start = new Date(startDate);
   const end = new Date(endDate);
 
@@ -234,15 +234,97 @@ export async function getAvailableDates(
     start.getTime() + Math.min(daysDiff, maxDays) * 24 * 60 * 60 * 1000
   );
 
+  // Hoist venue + tables queries outside the loop (same for every date)
+  const [prismaVenue, suitableTables] = await Promise.all([
+    prisma.venue.findUnique({ where: { id: venueId } }),
+    findSuitableTables(venueId, partySize),
+  ]);
+
+  if (!prismaVenue || suitableTables.length === 0) {
+    // No venue or no tables — every date is unavailable
+    const results: DateAvailability[] = [];
+    for (let d = new Date(start); d <= actualEnd; d.setDate(d.getDate() + 1)) {
+      results.push({ date: toDateString(d), hasAvailability: false, slotCount: 0 });
+    }
+    return results;
+  }
+
+  const venue: VenueWithSettings = {
+    id: prismaVenue.id,
+    name: prismaVenue.name,
+    slug: prismaVenue.slug,
+    ianaTimezone: prismaVenue.ianaTimezone,
+    settings: prismaVenue.settings as VenueSettings | null,
+    operatingHours: prismaVenue.operatingHours as OperatingHours | null,
+  };
+
+  // Bulk-fetch reservations and holds for the entire date range (2 queries total)
+  const [allReservations, allHolds] = await Promise.all([
+    prisma.reservation.findMany({
+      where: {
+        venueId,
+        date: { gte: start, lte: actualEnd },
+        status: { notIn: ["CANCELLED", "NO_SHOW"] },
+      },
+      select: { id: true, tableId: true, startTime: true, endTime: true, partySize: true },
+    }),
+    prisma.reservationHold.findMany({
+      where: {
+        venueId,
+        date: { gte: start, lte: actualEnd },
+        expiresAt: { gt: new Date() },
+      },
+      select: { id: true, tableId: true, startTime: true, endTime: true, partySize: true, expiresAt: true },
+    }),
+  ]);
+
+  const settings = venue.settings;
+  const slotInterval = settings?.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
+  const lastSeatingBuffer = settings?.lastSeatingBuffer ?? DEFAULT_LAST_SEATING_BUFFER;
+  const duration = estimateDuration(partySize, settings);
+
+  const results: DateAvailability[] = [];
+
   for (let d = new Date(start); d <= actualEnd; d.setDate(d.getDate() + 1)) {
-    const dateStr = d.toISOString().split("T")[0];
-    const slots = await generateTimeSlots(venueId, dateStr, partySize);
-    const availableSlots = slots.filter((s) => s.available);
+    const dateStr = toDateString(d);
+    const schedule = getDaySchedule(venue.operatingHours, d);
+
+    if (!schedule) {
+      results.push({ date: dateStr, hasAvailability: false, slotCount: 0 });
+      continue;
+    }
+
+    // Filter reservations and holds for this specific date
+    const dateReservations = allReservations.filter(
+      (r) => toDateString(r.startTime) === dateStr
+    );
+    const dateHolds = allHolds.filter(
+      (h) => toDateString(h.startTime) === dateStr
+    );
+
+    const openMinutes = parseTimeToMinutes(schedule.open);
+    const closeMinutes = parseTimeToMinutes(schedule.close);
+    const lastSeatingMinutes = closeMinutes - lastSeatingBuffer;
+
+    let availableCount = 0;
+
+    for (let minutes = openMinutes; minutes <= lastSeatingMinutes; minutes += slotInterval) {
+      const slotStart = createDateTimeFromMinutes(dateStr, minutes, venue.ianaTimezone);
+      const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000);
+
+      const hasAvailableTable = suitableTables.some(
+        (table) => !checkTableConflict(table.id, slotStart, slotEnd, dateReservations, dateHolds)
+      );
+
+      if (hasAvailableTable) {
+        availableCount++;
+      }
+    }
 
     results.push({
       date: dateStr,
-      hasAvailability: availableSlots.length > 0,
-      slotCount: availableSlots.length,
+      hasAvailability: availableCount > 0,
+      slotCount: availableCount,
     });
   }
 
@@ -376,7 +458,7 @@ export async function checkPacing(
   // Define the time window
   const windowStart = startTime;
   const windowEnd = new Date(startTime.getTime() + windowMinutes * 60 * 1000);
-  const dateStr = startTime.toISOString().split("T")[0];
+  const dateStr = toDateString(startTime);
 
   // Count covers in reservations starting in this window
   const reservationCovers = await prisma.reservation.aggregate({
@@ -554,16 +636,48 @@ function checkPacingForSlot(
 /**
  * Creates a Date object from a date string and minutes since midnight.
  */
+/**
+ * Create a Date representing a local time in the venue's timezone.
+ * Uses Intl.DateTimeFormat to compute the UTC offset, avoiding external libraries.
+ */
 function createDateTimeFromMinutes(
   dateStr: string,
   minutes: number,
-  _timezone: string
+  timezone: string
 ): Date {
-  // For simplicity, we create the datetime as if in UTC
-  // In production, you'd use a library like date-fns-tz or luxon for proper timezone handling
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
-  return new Date(`${dateStr}T${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}:00.000Z`);
+  const localIso = `${dateStr}T${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}:00`;
+
+  // Build a Date assuming UTC, then compute the offset for the target timezone
+  const utcGuess = new Date(localIso + "Z");
+
+  // Format the same instant in the target timezone to find the local time there
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(utcGuess);
+
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "0";
+  const tzHour = parseInt(get("hour"), 10);
+  const tzMin = parseInt(get("minute"), 10);
+  const tzTotalMin = tzHour * 60 + tzMin;
+  const utcTotalMin = utcGuess.getUTCHours() * 60 + utcGuess.getUTCMinutes();
+
+  // Offset = how far ahead the timezone is from UTC (in minutes)
+  let offsetMin = tzTotalMin - utcTotalMin;
+  // Handle day boundary wrap
+  if (offsetMin > 720) offsetMin -= 1440;
+  if (offsetMin < -720) offsetMin += 1440;
+
+  // Subtract the offset to convert local time → UTC
+  return new Date(new Date(localIso + "Z").getTime() - offsetMin * 60 * 1000);
 }
 
 export const availabilityService = {

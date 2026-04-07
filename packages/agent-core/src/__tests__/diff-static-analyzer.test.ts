@@ -204,9 +204,47 @@ describe("analyzeDiff", () => {
 
 // ── ANALYSIS_RULES ──────────────────────────────────────────────────
 
+describe("new rules", () => {
+  it("detects any type annotation", () => {
+    const diff = makeDiff("src/utils.ts", ["const data: any = fetch();"]);
+    const result = analyzeDiff(diff);
+    expect(result.violations.some((v) => v.rule === "no-any-type")).toBe(true);
+  });
+
+  it("detects Object.assign mutation", () => {
+    const diff = makeDiff("src/utils.ts", ["Object.assign(target, source);"]);
+    const result = analyzeDiff(diff);
+    expect(result.violations.some((v) => v.rule === "no-object-mutation")).toBe(true);
+  });
+
+  it("detects array.push mutation", () => {
+    const diff = makeDiff("src/utils.ts", ["items.push(newItem);"]);
+    const result = analyzeDiff(diff);
+    expect(result.violations.some((v) => v.rule === "no-object-mutation")).toBe(true);
+  });
+
+  it("detects hardcoded localhost URL", () => {
+    const diff = makeDiff("src/api.ts", ['const url = "http://localhost:3000/api";']);
+    const result = analyzeDiff(diff);
+    expect(result.violations.some((v) => v.rule === "no-hardcoded-url")).toBe(true);
+  });
+
+  it("detects empty catch block", () => {
+    const diff = makeDiff("src/utils.ts", ["} catch (e) {}"]);
+    const result = analyzeDiff(diff);
+    expect(result.violations.some((v) => v.rule === "no-empty-catch")).toBe(true);
+  });
+
+  it("does not flag catch with body", () => {
+    const diff = makeDiff("src/utils.ts", ['} catch (e) { logger.error(e); }']);
+    const result = analyzeDiff(diff);
+    expect(result.violations.some((v) => v.rule === "no-empty-catch")).toBe(false);
+  });
+});
+
 describe("ANALYSIS_RULES", () => {
-  it("has 5 rules defined", () => {
-    expect(ANALYSIS_RULES).toHaveLength(5);
+  it("has 10 rules defined", () => {
+    expect(ANALYSIS_RULES).toHaveLength(10);
   });
 
   it("each rule has required fields", () => {

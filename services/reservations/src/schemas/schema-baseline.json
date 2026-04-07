@@ -1,0 +1,1022 @@
+{
+  "TableShapeMetadata": {
+    "$id": "TableShapeMetadata",
+    "type": "object",
+    "properties": {
+      "x": {
+        "type": "number"
+      },
+      "y": {
+        "type": "number"
+      },
+      "width": {
+        "type": "number"
+      },
+      "height": {
+        "type": "number"
+      },
+      "rotation": {
+        "type": "number"
+      },
+      "shape": {
+        "type": "string",
+        "enum": [
+          "rectangle",
+          "circle",
+          "square"
+        ]
+      },
+      "color": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "x",
+      "y",
+      "width",
+      "height",
+      "shape"
+    ]
+  },
+  "Table": {
+    "$id": "Table",
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string"
+      },
+      "name": {
+        "type": "string"
+      },
+      "tableNumber": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "capacity": {
+        "type": "number"
+      },
+      "minCovers": {
+        "type": "number"
+      },
+      "maxCovers": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "location": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "isActive": {
+        "type": "boolean"
+      },
+      "priority": {
+        "type": "number"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "AVAILABLE",
+          "OCCUPIED",
+          "DIRTY",
+          "READY"
+        ]
+      },
+      "venueId": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "floorPlanId": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "shapeMetadata": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "width": {
+                "type": "number"
+              },
+              "height": {
+                "type": "number"
+              },
+              "rotation": {
+                "type": "number"
+              },
+              "shape": {
+                "type": "string",
+                "enum": [
+                  "rectangle",
+                  "circle",
+                  "square"
+                ]
+              },
+              "color": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "width",
+              "height",
+              "shape"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "createdAt": {
+        "type": "string"
+      },
+      "updatedAt": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "id",
+      "name",
+      "tableNumber",
+      "capacity",
+      "minCovers",
+      "maxCovers",
+      "location",
+      "isActive",
+      "priority",
+      "status",
+      "venueId",
+      "floorPlanId",
+      "shapeMetadata",
+      "createdAt",
+      "updatedAt"
+    ]
+  },
+  "Reservation": {
+    "$id": "Reservation",
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string"
+      },
+      "date": {
+        "type": "string"
+      },
+      "startTime": {
+        "type": "string"
+      },
+      "endTime": {
+        "type": "string"
+      },
+      "partySize": {
+        "type": "number"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "PENDING",
+          "CONFIRMED",
+          "CANCELLED",
+          "COMPLETED",
+          "NO_SHOW"
+        ]
+      },
+      "notes": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "cancellationReason": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "cancellationNote": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "guestName": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "guestEmail": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "guestPhone": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "guestId": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "userId": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "tableId": {
+        "type": "string"
+      },
+      "table": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "tableNumber": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "capacity": {
+            "type": "number"
+          },
+          "minCovers": {
+            "type": "number"
+          },
+          "maxCovers": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "priority": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "AVAILABLE",
+              "OCCUPIED",
+              "DIRTY",
+              "READY"
+            ]
+          },
+          "venueId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "floorPlanId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "shapeMetadata": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "type": "number"
+                  },
+                  "y": {
+                    "type": "number"
+                  },
+                  "width": {
+                    "type": "number"
+                  },
+                  "height": {
+                    "type": "number"
+                  },
+                  "rotation": {
+                    "type": "number"
+                  },
+                  "shape": {
+                    "type": "string",
+                    "enum": [
+                      "rectangle",
+                      "circle",
+                      "square"
+                    ]
+                  },
+                  "color": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "x",
+                  "y",
+                  "width",
+                  "height",
+                  "shape"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "tableNumber",
+          "capacity",
+          "minCovers",
+          "maxCovers",
+          "location",
+          "isActive",
+          "priority",
+          "status",
+          "venueId",
+          "floorPlanId",
+          "shapeMetadata",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "venueId": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "createdAt": {
+        "type": "string"
+      },
+      "updatedAt": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "id",
+      "date",
+      "startTime",
+      "endTime",
+      "partySize",
+      "status",
+      "notes",
+      "cancellationReason",
+      "cancellationNote",
+      "guestName",
+      "guestEmail",
+      "guestPhone",
+      "guestId",
+      "userId",
+      "tableId",
+      "venueId",
+      "createdAt",
+      "updatedAt"
+    ]
+  },
+  "Pagination": {
+    "$id": "Pagination",
+    "type": "object",
+    "properties": {
+      "page": {
+        "type": "number"
+      },
+      "limit": {
+        "type": "number"
+      },
+      "total": {
+        "type": "number"
+      },
+      "totalPages": {
+        "type": "number"
+      },
+      "hasNext": {
+        "type": "boolean"
+      },
+      "hasPrev": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "page",
+      "limit",
+      "total",
+      "totalPages",
+      "hasNext",
+      "hasPrev"
+    ]
+  },
+  "Error": {
+    "$id": "Error",
+    "type": "object",
+    "properties": {
+      "error": {
+        "type": "string"
+      },
+      "message": {
+        "type": "string"
+      },
+      "statusCode": {
+        "type": "number"
+      }
+    },
+    "required": [
+      "error",
+      "message",
+      "statusCode"
+    ]
+  },
+  "VenueGroup": {
+    "$id": "VenueGroup",
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string"
+      },
+      "name": {
+        "type": "string"
+      },
+      "slug": {
+        "type": "string"
+      },
+      "settings": {
+        "anyOf": [
+          {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "createdAt": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "id",
+      "name",
+      "slug",
+      "settings",
+      "createdAt"
+    ]
+  },
+  "Venue": {
+    "$id": "Venue",
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string"
+      },
+      "venueGroupId": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "venueGroup": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "settings": {
+            "anyOf": [
+              {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "settings",
+          "createdAt"
+        ]
+      },
+      "name": {
+        "type": "string"
+      },
+      "slug": {
+        "type": "string"
+      },
+      "ianaTimezone": {
+        "type": "string"
+      },
+      "currencyCode": {
+        "type": "string"
+      },
+      "operatingHours": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "monday": {
+                "type": "object",
+                "properties": {
+                  "open": {
+                    "type": "string"
+                  },
+                  "close": {
+                    "type": "string"
+                  },
+                  "closed": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "open",
+                  "close"
+                ]
+              },
+              "tuesday": {
+                "type": "object",
+                "properties": {
+                  "open": {
+                    "type": "string"
+                  },
+                  "close": {
+                    "type": "string"
+                  },
+                  "closed": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "open",
+                  "close"
+                ]
+              },
+              "wednesday": {
+                "type": "object",
+                "properties": {
+                  "open": {
+                    "type": "string"
+                  },
+                  "close": {
+                    "type": "string"
+                  },
+                  "closed": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "open",
+                  "close"
+                ]
+              },
+              "thursday": {
+                "type": "object",
+                "properties": {
+                  "open": {
+                    "type": "string"
+                  },
+                  "close": {
+                    "type": "string"
+                  },
+                  "closed": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "open",
+                  "close"
+                ]
+              },
+              "friday": {
+                "type": "object",
+                "properties": {
+                  "open": {
+                    "type": "string"
+                  },
+                  "close": {
+                    "type": "string"
+                  },
+                  "closed": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "open",
+                  "close"
+                ]
+              },
+              "saturday": {
+                "type": "object",
+                "properties": {
+                  "open": {
+                    "type": "string"
+                  },
+                  "close": {
+                    "type": "string"
+                  },
+                  "closed": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "open",
+                  "close"
+                ]
+              },
+              "sunday": {
+                "type": "object",
+                "properties": {
+                  "open": {
+                    "type": "string"
+                  },
+                  "close": {
+                    "type": "string"
+                  },
+                  "closed": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "open",
+                  "close"
+                ]
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "settings": {
+        "anyOf": [
+          {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "createdAt": {
+        "type": "string"
+      },
+      "updatedAt": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "id",
+      "venueGroupId",
+      "name",
+      "slug",
+      "ianaTimezone",
+      "currencyCode",
+      "operatingHours",
+      "settings",
+      "createdAt",
+      "updatedAt"
+    ]
+  },
+  "Guest": {
+    "$id": "Guest",
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string"
+      },
+      "venueId": {
+        "type": "string"
+      },
+      "email": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "phone": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "name": {
+        "type": "string"
+      },
+      "notes": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "visitCount": {
+        "type": "number"
+      },
+      "lifetimeSpend": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "lastVisit": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "tags": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "createdAt": {
+        "type": "string"
+      },
+      "updatedAt": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "id",
+      "venueId",
+      "email",
+      "phone",
+      "name",
+      "notes",
+      "visitCount",
+      "lifetimeSpend",
+      "lastVisit",
+      "tags",
+      "createdAt",
+      "updatedAt"
+    ]
+  },
+  "GuestSegment": {
+    "$id": "GuestSegment",
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string"
+      },
+      "description": {
+        "type": "string"
+      },
+      "count": {
+        "type": "number"
+      }
+    },
+    "required": [
+      "name",
+      "description",
+      "count"
+    ]
+  },
+  "FloorPlanLayout": {
+    "$id": "FloorPlanLayout",
+    "type": "object",
+    "properties": {
+      "width": {
+        "type": "number"
+      },
+      "height": {
+        "type": "number"
+      },
+      "backgroundImage": {
+        "type": "string"
+      },
+      "gridSize": {
+        "type": "number"
+      },
+      "showGrid": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "width",
+      "height"
+    ]
+  },
+  "FloorPlan": {
+    "$id": "FloorPlan",
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string"
+      },
+      "venueId": {
+        "type": "string"
+      },
+      "name": {
+        "type": "string"
+      },
+      "isActive": {
+        "type": "boolean"
+      },
+      "layoutJson": {
+        "type": "object",
+        "properties": {
+          "width": {
+            "type": "number"
+          },
+          "height": {
+            "type": "number"
+          },
+          "backgroundImage": {
+            "type": "string"
+          },
+          "gridSize": {
+            "type": "number"
+          },
+          "showGrid": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "width",
+          "height"
+        ]
+      },
+      "createdAt": {
+        "type": "string"
+      },
+      "updatedAt": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "id",
+      "venueId",
+      "name",
+      "isActive",
+      "layoutJson",
+      "createdAt",
+      "updatedAt"
+    ]
+  }
+}

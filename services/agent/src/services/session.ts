@@ -2,6 +2,15 @@ import type { Prisma, Session, SessionEvent, SessionStatus } from "../generated/
 import type { AgentSession, AgentSessionEvent, Pagination } from "@mbe/types";
 import { prisma } from "./database.js";
 
+function isPrismaNotFound(err: unknown): boolean {
+  return (
+    err !== null &&
+    typeof err === "object" &&
+    "code" in err &&
+    (err as { code: string }).code === "P2025"
+  );
+}
+
 function mapPrismaSession(session: Session): AgentSession {
   return {
     id: session.id,
@@ -148,8 +157,9 @@ export const sessionService = {
         },
       });
       return mapPrismaSession(session);
-    } catch {
-      return null;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return null;
+      throw err;
     }
   },
 
@@ -157,9 +167,26 @@ export const sessionService = {
     try {
       await prisma.session.delete({ where: { id } });
       return true;
-    } catch {
-      return false;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return false;
+      throw err;
     }
+  },
+
+  async findByStatus(status: SessionStatus): Promise<AgentSession[]> {
+    const sessions = await prisma.session.findMany({
+      where: { status },
+      orderBy: { updatedAt: "asc" },
+    });
+    return sessions.map(mapPrismaSession);
+  },
+
+  async getLastEvent(sessionId: string): Promise<AgentSessionEvent | null> {
+    const event = await prisma.sessionEvent.findFirst({
+      where: { sessionId },
+      orderBy: { createdAt: "desc" },
+    });
+    return event ? mapPrismaEvent(event) : null;
   },
 
   async addEvent(

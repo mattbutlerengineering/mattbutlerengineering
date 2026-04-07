@@ -9,6 +9,15 @@ import type {
 import type { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 
+function isPrismaNotFound(err: unknown): boolean {
+  return (
+    err !== null &&
+    typeof err === "object" &&
+    "code" in err &&
+    (err as { code: string }).code === "P2025"
+  );
+}
+
 function mapPrismaGuest(guest: {
   id: string;
   venueId: string;
@@ -189,8 +198,9 @@ export const guestService = {
         data: updateData,
       });
       return mapPrismaGuest(guest);
-    } catch {
-      return null;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return null;
+      throw err;
     }
   },
 
@@ -198,8 +208,9 @@ export const guestService = {
     try {
       await prisma.guest.delete({ where: { id } });
       return true;
-    } catch {
-      return false;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return false;
+      throw err;
     }
   },
 
@@ -223,8 +234,9 @@ export const guestService = {
         },
       });
       return mapPrismaGuest(guest);
-    } catch {
-      return null;
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return null;
+      throw err;
     }
   },
 
@@ -237,12 +249,16 @@ export const guestService = {
     const where: Prisma.GuestWhereInput = { venueId };
 
     // Text search on name, email, phone
+    const conditions: Record<string, unknown>[] = [];
+
     if (query) {
-      where.OR = [
-        { name: { contains: query, mode: "insensitive" } },
-        { email: { contains: query, mode: "insensitive" } },
-        { phone: { contains: query } },
-      ];
+      conditions.push({
+        OR: [
+          { name: { contains: query, mode: "insensitive" } },
+          { email: { contains: query, mode: "insensitive" } },
+          { phone: { contains: query } },
+        ],
+      });
     }
 
     // Filter by tags (JSON array contains)
@@ -254,10 +270,16 @@ export const guestService = {
     if (hasNotVisitedInDays) {
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - hasNotVisitedInDays);
-      where.OR = [
-        { lastVisit: { lt: cutoffDate } },
-        { lastVisit: null },
-      ];
+      conditions.push({
+        OR: [
+          { lastVisit: { lt: cutoffDate } },
+          { lastVisit: null },
+        ],
+      });
+    }
+
+    if (conditions.length > 0) {
+      where.AND = conditions;
     }
 
     // Filter by visit count

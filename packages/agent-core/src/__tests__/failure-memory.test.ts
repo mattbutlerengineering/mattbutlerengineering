@@ -12,6 +12,8 @@ import {
   queryPastFailures,
   buildFailureContext,
   loadMemory,
+  inferPreventionTactic,
+  buildPreventionHint,
 } from "../failure-memory.js";
 import type { FailureRecord, FailureMemory } from "../failure-memory.js";
 
@@ -174,5 +176,88 @@ describe("loadMemory", () => {
 
     expect(memory.records).toHaveLength(1);
     expect(memory.records[0].taskDescription).toBe("Fix the login button styling");
+  });
+});
+
+describe("inferPreventionTactic", () => {
+  it("returns reduce_scope for max_turns stuck pattern", () => {
+    const failure: FailureRecord = {
+      taskDescription: "Refactor auth system",
+      timestamp: "2026-03-29T10:00:00Z",
+      stuckPattern: "max_turns",
+      errors: [],
+      approach: "single session",
+    };
+    expect(inferPreventionTactic(failure)).toBe("reduce_scope");
+  });
+
+  it("returns check_auth for permission errors", () => {
+    const failure: FailureRecord = {
+      taskDescription: "Deploy to prod",
+      timestamp: "2026-03-29T10:00:00Z",
+      errors: ["Permission denied: unauthorized access"],
+      approach: "direct deploy",
+    };
+    expect(inferPreventionTactic(failure)).toBe("check_auth");
+  });
+
+  it("returns break_into_steps for repeated errors", () => {
+    const failure: FailureRecord = {
+      taskDescription: "Migrate database schema",
+      timestamp: "2026-03-29T10:00:00Z",
+      stuckPattern: "repeated_error",
+      errors: ["Error 1", "Error 2", "Error 3", "Error 4"],
+      approach: "single migration",
+    };
+    expect(inferPreventionTactic(failure)).toBe("break_into_steps");
+  });
+
+  it("returns add_context for zero_progress", () => {
+    const failure: FailureRecord = {
+      taskDescription: "Implement feature",
+      timestamp: "2026-03-29T10:00:00Z",
+      stuckPattern: "zero_progress",
+      errors: [],
+      approach: "default approach",
+    };
+    expect(inferPreventionTactic(failure)).toBe("add_context");
+  });
+
+  it("returns use_sonnet for context window errors", () => {
+    const failure: FailureRecord = {
+      taskDescription: "Analyze large codebase",
+      timestamp: "2026-03-29T10:00:00Z",
+      errors: ["ContextWindowExhaustedError", "token limit exceeded"],
+      approach: "single prompt",
+    };
+    expect(inferPreventionTactic(failure)).toBe("use_sonnet");
+  });
+
+  it("defaults to increase_budget", () => {
+    const failure: FailureRecord = {
+      taskDescription: "Complex task",
+      timestamp: "2026-03-29T10:00:00Z",
+      errors: ["Some other error"],
+      approach: "default",
+    };
+    expect(inferPreventionTactic(failure)).toBe("increase_budget");
+  });
+});
+
+describe("buildPreventionHint", () => {
+  it("returns relevant hint for reduce_scope", () => {
+    const hint = buildPreventionHint("reduce_scope");
+    expect(hint).toContain("smaller");
+    expect(hint).toContain("focused");
+  });
+
+  it("returns relevant hint for check_auth", () => {
+    const hint = buildPreventionHint("check_auth");
+    expect(hint).toContain("authentication");
+  });
+
+  it("returns relevant hint for use_sonnet", () => {
+    const hint = buildPreventionHint("use_sonnet");
+    expect(hint).toContain("smaller model");
   });
 });

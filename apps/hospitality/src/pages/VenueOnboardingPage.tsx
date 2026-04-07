@@ -1,14 +1,16 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
-import { Button, Card, Text, Stack } from "@mbe/rialto";
+import { Button, Card, Text, Stack, useToast } from "@mbe/rialto";
 import { ApiClient, VenuesClient } from "@mbe/api-client";
 import type { OperatingHours, CreateVenueRequest, VenueSettings } from "@mbe/types";
+import { useVenue } from "../contexts/VenueContext.js";
 import { PageHeader } from "../components/PageHeader";
 import { StepIndicator } from "../components/venue-onboarding/StepIndicator";
 import { BasicInfoStep } from "../components/venue-onboarding/BasicInfoStep";
-import { LocationTimeStep } from "../components/venue-onboarding/LocationTimeStep";
-import { OperatingHoursStep } from "../components/venue-onboarding/OperatingHoursStep";
+import { LocationTimeStep, detectTimezone } from "../components/venue-onboarding/LocationTimeStep";
+import { OperatingHoursStep, validateOperatingHours } from "../components/venue-onboarding/OperatingHoursStep";
+import type { OperatingHoursValidationErrors } from "../components/venue-onboarding/OperatingHoursStep";
 import { SettingsStep } from "../components/venue-onboarding/SettingsStep";
 import { ConfirmationStep } from "../components/venue-onboarding/ConfirmationStep";
 import type { BasicInfoData } from "../components/venue-onboarding/BasicInfoStep";
@@ -25,7 +27,7 @@ const INITIAL_BASIC_INFO: BasicInfoData = {
 };
 
 const INITIAL_LOCATION_TIME: LocationTimeData = {
-  ianaTimezone: "",
+  ianaTimezone: detectTimezone(),
   currencyCode: "USD",
 };
 
@@ -45,11 +47,12 @@ function isValidSlug(slug: string): boolean {
 export function VenueOnboardingPage() {
   const navigate = useNavigate();
   const { accessToken } = useAuth();
+  const { refetchVenues } = useVenue();
+  const { toast } = useToast();
 
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [createdVenueId, setCreatedVenueId] = useState<string | null>(null);
 
   // Step data — each piece of state is immutable (replaced, never mutated)
   const [basicInfo, setBasicInfo] = useState<BasicInfoData>(INITIAL_BASIC_INFO);
@@ -67,6 +70,52 @@ export function VenueOnboardingPage() {
   const [settingsErrors, setSettingsErrors] = useState<
     Partial<Record<keyof SettingsData, string>>
   >({});
+  const [operatingHoursErrors, setOperatingHoursErrors] = useState<OperatingHoursValidationErrors | null>(null);
+
+  // Track which steps have been completed (for step navigation)
+  const [highestStepReached, setHighestStepReached] = useState(1);
+
+  // Slug uniqueness check (debounced)
+  const [slugStatus, setSlugStatus] = useState<"idle" | "checking" | "available" | "taken">("idle");
+  const slugCheckTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(() => {
+    const slug = basicInfo.slug.trim();
+
+    // Reset if empty or invalid format
+    if (!slug || !isValidSlug(slug)) {
+      setSlugStatus("idle");
+      return;
+    }
+
+    // Debounce: wait 500ms after last change
+    clearTimeout(slugCheckTimerRef.current);
+    setSlugStatus("checking");
+
+    slugCheckTimerRef.current = setTimeout(async () => {
+      if (!accessToken) return;
+      try {
+        const apiClient = new ApiClient({
+          baseUrl: import.meta.env.VITE_API_URL ?? "",
+          getAccessToken: () => accessToken,
+        });
+        const venuesClient = new VenuesClient(apiClient);
+        await venuesClient.getBySlug(slug);
+        // If it returns successfully, the slug is taken
+        setSlugStatus("taken");
+        setBasicInfoErrors((prev) => ({ ...prev, slug: "A venue with this slug already exists" }));
+      } catch {
+        // 404 means slug is available
+        setSlugStatus("available");
+        setBasicInfoErrors((prev) => {
+          const { slug: _removed, ...rest } = prev;
+          return rest;
+        });
+      }
+    }, 500);
+
+    return () => clearTimeout(slugCheckTimerRef.current);
+  }, [basicInfo.slug, accessToken]);
 
   const validateBasicInfo = useCallback((): boolean => {
     const errors: Partial<Record<keyof BasicInfoData, string>> = {};
@@ -80,11 +129,13 @@ export function VenueOnboardingPage() {
       errors.slug = "Slug is required";
     } else if (!isValidSlug(slug)) {
       errors.slug = "Slug must be URL-safe (lowercase letters, numbers, hyphens)";
+    } else if (slugStatus === "taken") {
+      errors.slug = "A venue with this slug already exists";
     }
 
     setBasicInfoErrors(errors);
     return Object.keys(errors).length === 0;
-  }, [basicInfo]);
+  }, [basicInfo, slugStatus]);
 
   const validateLocationTime = useCallback((): boolean => {
     const errors: Partial<Record<keyof LocationTimeData, string>> = {};
@@ -129,6 +180,12 @@ export function VenueOnboardingPage() {
     return Object.keys(errors).length === 0;
   }, [settings]);
 
+  const validateOperatingHoursStep = useCallback((): boolean => {
+    const errors = validateOperatingHours(operatingHours);
+    setOperatingHoursErrors(errors);
+    return errors === null;
+  }, [operatingHours]);
+
   const validateCurrentStep = useCallback((): boolean => {
     switch (currentStep) {
       case 1:
@@ -136,7 +193,7 @@ export function VenueOnboardingPage() {
       case 2:
         return validateLocationTime();
       case 3:
-        return true; // Operating hours are optional
+        return validateOperatingHoursStep();
       case 4:
         return validateSettings();
       case 5:
@@ -144,16 +201,25 @@ export function VenueOnboardingPage() {
       default:
         return true;
     }
-  }, [currentStep, validateBasicInfo, validateLocationTime, validateSettings]);
+  }, [currentStep, validateBasicInfo, validateLocationTime, validateOperatingHoursStep, validateSettings]);
 
   const handleNext = () => {
     if (validateCurrentStep()) {
-      setCurrentStep((prev) => Math.min(prev + 1, TOTAL_STEPS));
+      const nextStep = Math.min(currentStep + 1, TOTAL_STEPS);
+      setCurrentStep(nextStep);
+      setHighestStepReached((prev) => Math.max(prev, nextStep));
     }
   };
 
   const handleBack = () => {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
+  };
+
+  const handleStepClick = (step: number) => {
+    // Allow jumping to any completed step (up to highestStepReached)
+    if (step <= highestStepReached) {
+      setCurrentStep(step);
+    }
   };
 
   const buildPayload = (): CreateVenueRequest => {
@@ -205,8 +271,15 @@ export function VenueOnboardingPage() {
         getAccessToken: () => accessToken,
       });
       const venuesClient = new VenuesClient(apiClient);
-      const venue = await venuesClient.create(buildPayload());
-      setCreatedVenueId(venue.id);
+      await venuesClient.create(buildPayload());
+      await refetchVenues();
+      toast({
+        title: "Venue created",
+        description: `"${basicInfo.name.trim()}" is ready for setup`,
+        variant: "success",
+        duration: 5000,
+      });
+      navigate("/setup", { replace: true });
     } catch (err) {
       setSubmitError(
         err instanceof Error ? err.message : "Failed to create venue. Please try again."
@@ -216,34 +289,17 @@ export function VenueOnboardingPage() {
     }
   };
 
-  // Success state
-  if (createdVenueId) {
-    return (
-      <div>
-        <PageHeader title="Venue Created" description="Your new venue is ready" />
-        <Card>
-          <Stack gap="md" align="center">
-            <Text variant="label" color="primary">
-              Success!
-            </Text>
-            <Text variant="body" color="secondary">
-              Venue &quot;{basicInfo.name}&quot; has been created (ID: {createdVenueId}).
-            </Text>
-            <Button variant="primary" onClick={() => navigate("/")}>
-              Go to Dashboard
-            </Button>
-          </Stack>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div>
       <PageHeader title="New Venue" description="Set up your venue in a few steps" />
 
       <div className={styles.wizardContainer}>
-        <StepIndicator currentStep={currentStep} totalSteps={TOTAL_STEPS} />
+        <StepIndicator
+          currentStep={currentStep}
+          totalSteps={TOTAL_STEPS}
+          highestStepReached={highestStepReached}
+          onStepClick={handleStepClick}
+        />
 
         <Card>
           <Stack gap="lg">
@@ -256,6 +312,8 @@ export function VenueOnboardingPage() {
                   data={basicInfo}
                   errors={basicInfoErrors}
                   onChange={setBasicInfo}
+                  onValidate={validateBasicInfo}
+                  slugStatus={slugStatus}
                 />
               </>
             )}
@@ -269,6 +327,7 @@ export function VenueOnboardingPage() {
                   data={locationTime}
                   errors={locationTimeErrors}
                   onChange={setLocationTime}
+                  onValidate={validateLocationTime}
                 />
               </>
             )}
@@ -278,7 +337,15 @@ export function VenueOnboardingPage() {
                 <Text variant="label">
                   Operating Hours
                 </Text>
-                <OperatingHoursStep data={operatingHours} onChange={setOperatingHours} />
+                <OperatingHoursStep
+                  data={operatingHours}
+                  errors={operatingHoursErrors ?? undefined}
+                  onChange={(newHours) => {
+                    setOperatingHours(newHours);
+                    // Clear errors when user makes changes
+                    setOperatingHoursErrors(null);
+                  }}
+                />
               </>
             )}
 
@@ -291,6 +358,7 @@ export function VenueOnboardingPage() {
                   data={settings}
                   errors={settingsErrors}
                   onChange={setSettings}
+                  onValidate={validateSettings}
                 />
               </>
             )}

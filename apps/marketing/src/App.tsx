@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Routes, Route } from "react-router-dom";
 import { Footer, GlobalNav } from "@mbe/rialto";
 import { HomePage } from "./pages/HomePage";
+import { StatusPage } from "./pages/StatusPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import styles from "./App.module.css";
 
@@ -35,6 +36,7 @@ export function App({ theme, onThemeToggle }: AppProps) {
       <main id="main-content" tabIndex={-1} className={styles.main}>
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/status" element={<StatusPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>

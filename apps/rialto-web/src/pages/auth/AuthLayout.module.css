@@ -133,6 +133,12 @@
   width: 100%;
 }
 
+.passwordToggle {
+  height: 28px !important;
+  padding: 0 var(--rialto-space-xs) !important;
+  margin-right: calc(-1 * var(--rialto-space-2xs));
+}
+
 .terms {
   font-family: var(--rialto-font-sans);
   font-size: var(--rialto-text-xs);

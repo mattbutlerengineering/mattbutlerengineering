@@ -750,3 +750,297 @@ import styles from "./MyPage.module.css";
 ```
 
 **Import order:** React -> external packages -> `@mbe/*` -> local components -> local hooks/contexts -> CSS modules. Use `import type` for type-only imports. Local imports within the app use `.js` extensions.
+
+---
+
+## 11. Responsive Strategy
+
+**When:** Building layouts that need to adapt to different screen sizes.
+
+The app targets three primary breakpoints:
+
+| Breakpoint | Width | Target Devices |
+|------------|-------|----------------|
+| Desktop | 1440px+ | Large monitors, admin stations |
+| Tablet | 768px - 1439px | iPads, smaller laptops |
+| Mobile | < 768px | Phones, small tablets |
+
+### CSS Breakpoint Tokens
+
+Use these CSS custom properties defined in the design system:
+
+```css
+/* From Rialto design tokens */
+@media (max-width: 1440px) {
+  /* Desktop-specific adjustments */
+}
+
+@media (max-width: 768px) {
+  /* Tablet and below */
+  .desktopOnly {
+    display: none;
+  }
+  .mobileCard {
+    display: block;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Mobile-specific adjustments */
+  .container {
+    padding: var(--rialto-space-md);
+  }
+}
+```
+
+### Layout Changes by Breakpoint
+
+**Timeline Page:**
+- **Desktop:** Full timeline grid with sidebar showing reservation details
+- **Tablet:** Timeline grid with bottom sheet for details
+- **Mobile:** List view instead of timeline grid
+
+**Reservations Page:**
+- **Desktop:** Data table with filters
+- **Tablet:** Card grid with horizontal scroll
+- **Mobile:** Vertical card list, accordion for details
+
+**Floor Plan Editor:**
+- **Desktop:** Side-by-side floor plan and table list
+- **Tablet:** Tabbed view (floor plan | tables)
+- **Mobile:** Floor plan only with floating action button for adding tables
+
+### Responsive Pattern (From FloorPlansPage.tsx)
+
+```tsx
+import styles from "./FloorPlansPage.module.css";
+
+export function FloorPlansPage() {
+  return (
+    <div className={styles.container}>
+      <PageHeader title="Floor Plans" description="Manage your restaurant layouts" />
+      
+      {/* Desktop: Side-by-side layout */}
+      <div className={styles.desktopLayout}>
+        <div className={styles.floorPlanPreview}>
+          {/* Floor plan visualization */}
+        </div>
+        <div className={styles.tableList}>
+          {/* Table configuration */}
+        </div>
+      </div>
+      
+      {/* Mobile: Stacked layout */}
+      <div className={styles.mobileLayout}>
+        {/* ... */}
+      </div>
+    </div>
+  );
+}
+```
+
+**Constraints:**
+- Use Rialto `Stack` and `Grid` components for responsive layouts
+- Test at 1440px, 768px, and 375px widths
+- Never use `position: fixed` for primary content — use flexbox/grid
+- Mobile touch targets must be at least 44x44px
+- Use `gap` property instead of margins for spacing between items
+
+---
+
+## 12. Accessibility Patterns
+
+**When:** Building interactive components that need keyboard and screen reader support.
+
+### Keyboard Navigation
+
+**Timeline:**
+- Arrow keys navigate between time slots
+- Enter/Space opens reservation details
+- Escape closes dialogs/drawers
+- Tab moves between major regions (sidebar, timeline, actions)
+
+**Dialogs (Command Palette, Edit Drawer):**
+```tsx
+function EditReservationDrawer({ open, onClose }: EditReservationDrawerProps) {
+  const firstFocusableRef = useRef<HTMLInputElement>(null);
+  
+  useEffect(() => {
+    if (open && firstFocusableRef.current) {
+      firstFocusableRef.current.focus();
+    }
+  }, [open]);
+  
+  return (
+    <Drawer open={open} onClose={onClose}>
+      <form onKeyDown={(e) => {
+        if (e.key === "Escape") onClose();
+      }}>
+        <input ref={firstFocusableRef} />
+        {/* ... */}
+      </form>
+    </Drawer>
+  );
+}
+```
+
+**Command Palette:**
+- `/` opens command palette (global)
+- Escape closes
+- Arrow keys navigate commands
+- Enter executes selected command
+
+### ARIA Patterns
+
+**Live Regions for Dynamic Content:**
+
+```tsx
+<div aria-live="polite" aria-atomic="true">
+  {statusMessage && (
+    <span role="status">{statusMessage}</span>
+  )}
+</div>
+```
+
+**Dialog/Modal:**
+
+```tsx
+<Dialog 
+  open={isOpen} 
+  onClose={onClose}
+  aria-labelledby="dialog-title"
+  aria-describedby="dialog-description"
+>
+  <h2 id="dialog-title">Confirm Reservation</h2>
+  <p id="dialog-description">
+    This will confirm the reservation for {guestName}.
+  </p>
+  {/* ... */}
+</Dialog>
+```
+
+**Data Tables with Sorting:**
+
+```tsx
+<table 
+  aria-label="Reservations"
+  role="grid"
+>
+  <thead>
+    <tr>
+      <th 
+        scope="col"
+        aria-sort={sortColumn === "time" ? sortDirection : "none"}
+      >
+        <button 
+          onClick={() => toggleSort("time")}
+          aria-label="Sort by time"
+        >
+          Time
+        </button>
+      </th>
+    </tr>
+  </thead>
+</table>
+```
+
+**Status Badges:**
+
+```tsx
+<Badge 
+  variant={statusVariants[status]}
+  role="status"
+  aria-label={`Reservation status: ${status}`}
+>
+  {status}
+</Badge>
+```
+
+**Skip Links:**
+
+```tsx
+function App() {
+  return (
+    <>
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
+      {/* ... */}
+      <main id="main-content" tabIndex={-1}>
+        {/* ... */}
+      </main>
+    </>
+  );
+}
+
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  padding: 8px 16px;
+  background: var(--rialto-accent);
+  color: white;
+  z-index: 100;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+```
+
+### Focus Management
+
+```tsx
+function ReservationDrawer({ reservation, onClose }: ReservationDrawerProps) {
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  
+  useEffect(() => {
+    if (reservation) {
+      // Store the previously focused element
+      previousFocusRef.current = document.activeElement as HTMLElement;
+    } else {
+      // Restore focus when drawer closes
+      previousFocusRef.current?.focus();
+    }
+  }, [reservation]);
+  
+  return (
+    <Drawer open={!!reservation} onClose={onClose}>
+      {/* ... */}
+    </Drawer>
+  );
+}
+```
+
+**Constraints:**
+- All interactive elements must be keyboard accessible
+- Focus must be visible (use `var(--rialto-shadow-focus)`)
+- Modal dialogs trap focus within the dialog
+- Screen reader announcements for dynamic content use `aria-live`
+- Form errors are announced immediately: `aria-describedby` on inputs
+- Tables have proper `scope` attributes on headers
+- Color is never the only indicator of state (use icons/text alongside)
+
+---
+
+## Quick Reference: Breakpoints & Accessibility
+
+### Breakpoint Reference
+
+```css
+/* Desktop: 1440px+ */
+/* Tablet: 768px - 1439px */
+/* Mobile: < 768px */
+```
+
+### ARIA Reference
+
+| Pattern | ARIA Attributes |
+|---------|-----------------|
+| Live region | `aria-live="polite"` |
+| Dialog | `aria-labelledby`, `aria-describedby` |
+| Loading | `role="status"`, `aria-busy="true"` |
+| Sortable column | `aria-sort="ascending\|descending\|none"` |
+| Hidden label | `aria-label` |
+| Expanded state | `aria-expanded` |
+| Error message | `aria-describedby` on input |

@@ -1,14 +1,28 @@
 {
   "name": "mattbutlerengineering",
   "private": true,
+  "type": "module",
   "packageManager": "pnpm@9.15.4",
   "scripts": {
     "dev": "turbo run dev",
     "dev:local": "docker compose -f infrastructure/docker-compose.yml up postgres -d --wait && pnpm env:init && pnpm db:push && turbo run dev",
     "env:init": "pnpm --filter './services/*' exec sh -c '[ -f .env ] || cp .env.example .env'",
     "db:push": "pnpm --filter './services/*' exec prisma db push --skip-generate",
+    "check:circular-deps": "node scripts/check-circular-deps.js",
+    "check:dep-versions": "node scripts/check-dep-versions.js",
+    "check:service-bindings": "node scripts/check-service-bindings.js",
+    "check:destructive-migrations": "node scripts/check-destructive-migrations.js",
+    "check:dockerfiles": "node scripts/check-dockerfile-deps.js",
+    "check:env-sync": "node scripts/check-env-sync.js",
+    "graph": "node scripts/generate-dep-graph.js",
+    "check:schema-compat": "node scripts/check-schema-compat.js",
+    "schema:baseline": "tsx scripts/update-schema-baselines.js",
+    "log:cost": "node scripts/log-agent-cost.js",
+    "generate:audit-inventory": "node scripts/generate-audit-inventory.mjs",
     "build": "turbo run build",
     "test": "turbo run test",
+    "test:contract": "turbo run test:contract",
+    "test:mutations": "stryker run",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean && rm -rf node_modules",
@@ -18,37 +32,42 @@
     "test:visual": "playwright test --config apps/rialto-web/playwright.config.ts",
     "test:e2e:hospitality": "playwright test --config apps/hospitality/playwright.config.ts",
     "lighthouse": "lhci autorun",
-    "size": "pnpm --filter @mbe/rialto exec size-limit",
-    "size:check": "pnpm --filter @mbe/rialto exec size-limit --limit",
+    "size": "turbo run size",
+    "size:check": "turbo run size:check",
+    "pre-commit:full": "pnpm lint-staged && pnpm turbo typecheck --filter='...[HEAD]' && node scripts/check-circular-deps.js && node scripts/check-service-bindings.js && node scripts/check-env-sync.js",
     "prepare": "husky"
   },
   "devDependencies": {
-    "@changesets/changelog-github": "^0.5.2",
-    "@changesets/cli": "^2.29.8",
+    "@changesets/changelog-github": "^0.6.0",
+    "@changesets/cli": "^2.30.0",
     "@lhci/cli": "^0.15.1",
-    "@playwright/test": "^1.58.2",
-    "@size-limit/file": "^12.0.0",
+    "@playwright/test": "^1.59.1",
+    "@size-limit/file": "^12.0.1",
+    "@stryker-mutator/core": "^9.6.0",
+    "@stryker-mutator/vitest-runner": "^9.6.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
-    "size-limit": "^12.0.0",
-    "turbo": "^2.9.1"
+    "size-limit": "^12.0.1",
+    "turbo": "^2.9.4",
+    "vitest": "catalog:"
   },
   "lint-staged": {
     "apps/**/*.{ts,tsx}": [
-      "eslint --fix --flag v10_config_lookup_from_file"
+      "eslint --fix"
     ],
     "packages/**/*.{ts,tsx}": [
-      "eslint --fix --flag v10_config_lookup_from_file"
+      "eslint --fix"
     ],
     "services/**/*.{ts,tsx}": [
-      "eslint --fix --flag v10_config_lookup_from_file"
+      "eslint --fix"
     ],
     "tools/**/*.{ts,tsx}": [
-      "eslint --fix --flag v10_config_lookup_from_file"
+      "eslint --fix"
     ]
   },
-  "pnpm": {
+"pnpm": {
     "overrides": {
+      "@anthropic-ai/sdk": ">=0.81.0",
       "tar": ">=7.5.11",
       "undici": ">=7.24.0",
       "flatted": ">=3.4.2",
@@ -64,7 +83,10 @@
       "minimatch@<3.1.4": "3.1.4",
       "minimatch@>=5.0.0 <5.1.8": "5.1.8",
       "minimatch@>=9.0.0 <9.0.7": "9.0.7",
-      "minimatch@>=10.0.0 <10.2.3": "10.2.3"
+      "minimatch@>=10.0.0 <10.2.3": "10.2.3",
+      "lodash": ">=4.18.0",
+      "lodash-es": ">=4.18.0",
+      "@anthropic-ai/sdk": ">=0.81.0"
     }
   }
 }

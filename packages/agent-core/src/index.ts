@@ -34,8 +34,9 @@ export {
   commitChanges,
   pushBranch,
   hasChanges,
+  runVerification,
 } from "./worktree-manager.js";
-export type { CreateWorktreeOptions } from "./worktree-manager.js";
+export type { CreateWorktreeOptions, VerificationResult as PrePushVerification } from "./worktree-manager.js";
 
 // PR creation
 export {
@@ -58,7 +59,7 @@ export {
 export type { SourceFileEntry } from "./prompt-builder.js";
 
 // Tool permissions
-export { createToolPermissionHandler } from "./tool-permissions.js";
+export { createToolPermissionHandler, normalizeBashCommand } from "./tool-permissions.js";
 
 // Cost tracking
 export {
@@ -74,6 +75,7 @@ export type {
   StuckDetectorConfig,
   StuckPattern,
   StuckPatternType,
+  StuckSeverity,
 } from "./stuck-detector.js";
 
 // Success evaluation
@@ -146,7 +148,20 @@ export type {
   ToolUseEvent,
   ToolResultEvent,
   AssistantTextEvent,
+  TurnMetricsEvent,
 } from "./event-mapper.js";
+
+// Observability — failure categorization, OTel spans, metrics builders
+export {
+  categorizeFailure,
+  buildTurnMetricsList,
+  buildToolCallMetricsList,
+  withModelSelectionSpan,
+  withToolPermissionSpan,
+  withStuckDetectionSpan,
+  withSuccessEvaluationSpan,
+  observabilityTracer,
+} from "./observability.js";
 
 // Types
 export type {
@@ -162,9 +177,17 @@ export type {
   PrResult,
   PrOptions,
   FeedbackLoopConfig,
+  FailureCategory,
+  TurnMetrics,
+  ToolCallMetrics,
+  HeartbeatConfig,
 } from "./types.js";
 
-export { DEFAULT_SESSION_CONFIG, DEFAULT_FEEDBACK_LOOP_CONFIG } from "./types.js";
+export {
+  DEFAULT_SESSION_CONFIG,
+  DEFAULT_FEEDBACK_LOOP_CONFIG,
+  DEFAULT_HEARTBEAT_CONFIG,
+} from "./types.js";
 
 // Orchestrator
 export { runOrchestrator } from "./orchestrator.js";
@@ -180,6 +203,19 @@ export type {
 } from "./task-decomposer.js";
 
 export { DEFAULT_ORCHESTRATOR_CONFIG } from "./task-decomposer.js";
+
+// Task intelligence (source files, budget, model, PR examples)
+export {
+  resolveSourceFiles,
+  resolveBudget,
+  resolveModel,
+  fetchRecentPrExamples,
+  formatPrExamples,
+} from "./task-intelligence.js";
+
+// Intent extraction
+export { extractIssueIntent, IssueIntentSchema } from "./intent-extractor.js";
+export type { IssueIntent } from "./intent-extractor.js";
 
 // Model routing
 export { routeModel, routeModelWithReason, resolveModelId } from "./model-router.js";
@@ -199,6 +235,20 @@ export type {
 // Static diff analysis (fast pre-check)
 export { analyzeDiff, formatViolations, ANALYSIS_RULES } from "./diff-static-analyzer.js";
 export type { StaticAnalysisResult, Violation, AnalysisRule } from "./diff-static-analyzer.js";
+
+// Retry utilities
+export {
+  withRetry,
+  isTransientError,
+  isContextWindowExhausted,
+  calculateDelay,
+  ContextWindowExhaustedError,
+  DEFAULT_RETRY_CONFIG,
+} from "./retry.js";
+export type { RetryConfig, RetryResult } from "./retry.js";
+
+// Output sanitization (XSS prevention for AI-generated content)
+export { escapeHtml, sanitizeStreamChunk, createSanitizedStream } from "./sanitize-output.js";
 
 // Bundle size tracking
 export {

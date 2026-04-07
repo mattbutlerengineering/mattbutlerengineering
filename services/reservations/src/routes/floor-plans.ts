@@ -10,6 +10,7 @@ import type {
   ApiError,
   PaginatedResponse,
 } from "@mbe/types";
+import { createProblemDetails } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
 import { floorPlanService } from "../services/floor-plan.js";
 
@@ -112,11 +113,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const floorPlan = await floorPlanService.getById(request.params.id);
       if (!floorPlan) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "Floor plan not found",
-          statusCode: 404,
-        });
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
       }
       return { data: floorPlan };
     }
@@ -162,11 +159,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const floorPlan = await floorPlanService.getActiveByVenueId(request.params.venueId);
       if (!floorPlan) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "No active floor plan for this venue",
-          statusCode: 404,
-        });
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "No active floor plan for this venue"));
       }
       return { data: floorPlan };
     }
@@ -308,11 +301,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const floorPlan = await floorPlanService.update(request.params.id, request.body);
       if (!floorPlan) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "Floor plan not found",
-          statusCode: 404,
-        });
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
       }
       return { data: floorPlan };
     }
@@ -379,11 +368,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
         request.body.venueId
       );
       if (!floorPlan) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "Floor plan not found",
-          statusCode: 404,
-        });
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
       }
       return { data: floorPlan };
     }
@@ -432,11 +417,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const deleted = await floorPlanService.delete(request.params.id);
       if (!deleted) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "Floor plan not found",
-          statusCode: 404,
-        });
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
       }
       return reply.code(204).send();
     }
@@ -573,11 +554,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
         request.body.shapeMetadata
       );
       if (!table) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "Table not found",
-          statusCode: 404,
-        });
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
       }
       return { data: table };
     }
@@ -630,11 +607,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const table = await floorPlanService.removeTableFromFloorPlan(request.params.tableId);
       if (!table) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "Table not found",
-          statusCode: 404,
-        });
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
       }
       return { data: table };
     }

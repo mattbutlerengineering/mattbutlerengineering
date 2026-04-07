@@ -11,6 +11,11 @@ const STATUS_VARIANT: Record<string, "neutral" | "success" | "warning" | "error"
 };
 
 function formatTime(time: string): string {
+  const date = new Date(time);
+  if (!isNaN(date.getTime())) {
+    return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  }
+  // Fallback for plain HH:mm strings
   const [hours, minutes] = time.split(":");
   const h = parseInt(hours, 10);
   const suffix = h >= 12 ? "pm" : "am";

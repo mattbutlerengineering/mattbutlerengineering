@@ -5,9 +5,16 @@ import styles from "./ConfirmationView.module.css";
 export interface ConfirmationViewProps {
   reservation: Reservation;
   onNewBooking: () => void;
+  cancellationUrl?: string;
+  onCancellation?: () => void;
 }
 
-export function ConfirmationView({ reservation, onNewBooking }: ConfirmationViewProps) {
+export function ConfirmationView({
+  reservation,
+  onNewBooking,
+  cancellationUrl,
+  onCancellation,
+}: ConfirmationViewProps) {
   // Format date for display
   const formattedDate = new Date(reservation.date + "T00:00:00").toLocaleDateString("en-US", {
     weekday: "long",
@@ -130,6 +137,22 @@ export function ConfirmationView({ reservation, onNewBooking }: ConfirmationView
 
       {/* Actions */}
       <div className={styles.actions}>
+        {(cancellationUrl || onCancellation) && (
+          <Button
+            variant="ghost"
+            onClick={() => {
+              if (onCancellation) {
+                onCancellation();
+              }
+              if (cancellationUrl) {
+                window.location.href = cancellationUrl;
+              }
+            }}
+            className={styles.fullWidth}
+          >
+            Cancel Reservation
+          </Button>
+        )}
         <Button variant="secondary" onClick={onNewBooking} className={styles.fullWidth}>
           Make Another Reservation
         </Button>

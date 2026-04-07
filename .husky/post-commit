@@ -1,0 +1,1 @@
+pnpm --filter @mbe/cli start pack-changed --mode commit

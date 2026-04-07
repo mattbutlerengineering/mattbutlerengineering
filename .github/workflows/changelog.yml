@@ -1,0 +1,60 @@
+name: Generate Changelog
+
+on:
+  schedule:
+    # 1st of each month at 9:07am UTC
+    - cron: "7 9 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  changelog:
+    name: Generate Changelog
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Install changelogen
+        run: pnpm add -g changelogen
+
+      - name: Generate changelog
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: changelogen --output CHANGELOG.md
+
+      - name: Create PR with changelog
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MONTH_LABEL: ${{ github.event_name == 'schedule' && 'monthly' || 'manual' }}
+        run: |
+          if git diff --quiet CHANGELOG.md 2>/dev/null; then
+            echo "No changelog changes detected"
+            exit 0
+          fi
+
+          BRANCH="chore/changelog-$(date +%Y-%m)"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add CHANGELOG.md
+          git commit -m "docs: update changelog (${MONTH_LABEL})"
+          git push -u origin "$BRANCH"
+          gh pr create \
+            --title "docs: update changelog ($(date +%B\ %Y))" \
+            --body "Auto-generated changelog from conventional commits.
+
+          Triggered: ${MONTH_LABEL}" \
+            --label "docs"

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { Footer, GlobalNav } from "@mbe/rialto";
 import { ShowcaseSidebar } from "../components/ShowcaseSidebar";
@@ -35,9 +35,11 @@ export function ShowcaseLayout(props: ShowcaseLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const toggleButtonRef = useRef<HTMLButtonElement>(null);
 
   const handleMobileClose = useCallback(() => {
     setIsMobileMenuOpen(false);
+    toggleButtonRef.current?.focus();
   }, []);
 
   const handleMobileToggle = useCallback(() => {
@@ -53,6 +55,7 @@ export function ShowcaseLayout(props: ShowcaseLayoutProps) {
 
       {/* ── Mobile sidebar toggle (visible < 768px only) ── */}
       <button
+        ref={toggleButtonRef}
         className={styles.mobileSidebarToggle}
         onClick={handleMobileToggle}
         aria-label={isMobileMenuOpen ? "Close sidebar" : "Open sidebar"}

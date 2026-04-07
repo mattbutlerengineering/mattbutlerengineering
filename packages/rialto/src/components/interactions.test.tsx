@@ -65,11 +65,10 @@ describe("Interaction tests", () => {
     expect(screen.getByRole("button", { name: /third/i })).toHaveFocus();
   });
 
-  it("Input with disabledReason renders aria-disabled and readOnly", () => {
+  it("Input with disabledReason renders native disabled attribute", () => {
     render(<Input label="Email" disabled disabledReason="Account locked" />);
     const input = screen.getByLabelText("Email");
-    expect(input).toHaveAttribute("aria-disabled", "true");
-    expect(input).toHaveAttribute("readOnly");
+    expect(input).toBeDisabled();
   });
 
   it("Checkbox toggles on click", async () => {

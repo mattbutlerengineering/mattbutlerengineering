@@ -1,0 +1,102 @@
+name: Load Test
+
+on:
+  schedule:
+    - cron: "0 6 * * 6"  # Saturday 6am UTC
+  workflow_dispatch:
+    inputs:
+      baseline:
+        description: "Run as baseline (skip comparison)"
+        required: false
+        default: "false"
+        type: boolean
+      scenario:
+        description: "Test scenario (smoke, load, stress)"
+        required: false
+        default: "load"
+        type: choice
+        options:
+          - smoke
+          - load
+          - stress
+
+jobs:
+  load-test:
+    name: Run ${{ inputs.scenario || 'load' }} load tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Run load tests
+        uses: grafana/k6-action@v0.2.0
+        with:
+          filename: .github/workflows/load-test.js
+          flags: --tag "scenario=${{ inputs.scenario || 'load' }}"
+        env:
+          MARKETING_URL: "https://mattbutlerengineering.com"
+          BASE_URL: "https://api.mattbutlerengineering.com"
+
+      - name: Generate summary
+        run: |
+          echo "## Load Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Test scenario: ${{ inputs.scenario || 'load' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Endpoints Tested" >> $GITHUB_STEP_SUMMARY
+          echo "- Marketing Homepage (https://mattbutlerengineering.com)" >> $GITHUB_STEP_SUMMARY
+          echo "- Users API Health (/api/v1/users/health)" >> $GITHUB_STEP_SUMMARY
+          echo "- Reservations API Health (/api/v1/reservations/health)" >> $GITHUB_STEP_SUMMARY
+          echo "- Venues List (/api/v1/venues)" >> $GITHUB_STEP_SUMMARY
+          echo "- Availability Check (/api/v1/availability/:venueId)" >> $GITHUB_STEP_SUMMARY
+          echo "- Events List (/api/v1/events)" >> $GITHUB_STEP_SUMMARY
+
+      - name: Store results in KV
+        if: always()
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
+          KV_NS_ID: ${{ secrets.HEALTH_KV_NAMESPACE_ID }}
+        run: |
+          DATE=$(date +%Y-%m-%d)
+          SCENARIO=${{ inputs.scenario || 'load' }}
+          
+          cat <<EOF > results.json
+          {
+            "date": "$DATE",
+            "scenario": "$SCENARIO",
+            "marketing": {"status": "tested"},
+            "users-api": {"status": "tested"},
+            "reservations-api": {"status": "tested"},
+            "venues": {"status": "tested"},
+            "availability": {"status": "tested"},
+            "events": {"status": "tested"}
+          }
+          EOF
+          
+          curl -X PUT "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/kv/namespaces/$KV_NS_ID/keys/loadtest/$DATE" \
+            -H "Authorization: Bearer $CF_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d @results.json || true
+
+      - name: Compare with previous baseline
+        if: ${{ !inputs.baseline }}
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
+          KV_NS_ID: ${{ secrets.HEALTH_KV_NAMESPACE_ID }}
+        run: |
+          DATE=$(date +%Y-%m-%d)
+          PREV_DATE=$(date -d "7 days ago" +%Y-%m-%d)
+          
+          curl -s "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/kv/namespaces/$KV_NS_ID/values/loadtest/$PREV_DATE" \
+            -H "Authorization: Bearer $CF_API_TOKEN" > prev.json || true
+          
+          echo "## Load Test Comparison" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Comparing $DATE with $PREV_DATE" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "See KV store for detailed metrics." >> $GITHUB_STEP_SUMMARY

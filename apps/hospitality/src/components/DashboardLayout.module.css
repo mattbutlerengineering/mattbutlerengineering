@@ -109,6 +109,10 @@
 /* ── Breadcrumb bar ─────────────────────────── */
 
 .breadcrumbBar {
+  /* Pull out to the edges of .content's padding so the bar spans full width,
+     then re-apply the same inline padding to align text with page content. */
+  margin-inline: calc(-1 * var(--rialto-space-lg));
+  margin-block-start: calc(-1 * var(--rialto-space-lg));
   padding-inline: var(--rialto-space-lg);
   padding-block: var(--rialto-space-sm);
   border-block-end: 1px solid var(--rialto-border);
@@ -135,6 +139,12 @@
 
   .content {
     padding: var(--rialto-space-md);
+  }
+
+  .breadcrumbBar {
+    margin-inline: calc(-1 * var(--rialto-space-md));
+    margin-block-start: calc(-1 * var(--rialto-space-md));
+    padding-inline: var(--rialto-space-md);
   }
 
   .commandHint {

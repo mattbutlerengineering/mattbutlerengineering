@@ -1,4 +1,5 @@
 import type { ApiError } from "@mbe/types";
+import type { z } from "zod";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_MAX_RETRIES = 3;
@@ -27,7 +28,11 @@ export class ApiClient {
     this.maxRetries = config.maxRetries ?? DEFAULT_MAX_RETRIES;
   }
 
-  async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  async request<T>(
+    path: string, 
+    options: RequestOptions = {}, 
+    schema?: z.ZodSchema<T>
+  ): Promise<T> {
     const { baseUrl, getAccessToken } = this.config;
     const method = options.method ?? "GET";
 
@@ -59,6 +64,10 @@ export class ApiClient {
         error: "Error",
         message: response.statusText,
         statusCode: response.status,
+        type: "about:blank",
+        title: "Error",
+        status: response.status,
+        detail: response.statusText,
       }))) as ApiError;
       throw new ApiClientError(error, method, path);
     }
@@ -67,25 +76,35 @@ export class ApiClient {
       return undefined as T;
     }
 
-    return response.json() as Promise<T>;
+    const data = await response.json();
+
+    if (schema) {
+      const result = schema.safeParse(data);
+      if (!result.success) {
+        throw new ApiValidationError(result.error, method, path);
+      }
+      return result.data;
+    }
+
+    return data as T;
   }
 
-  get<T>(path: string): Promise<T> {
-    return this.request<T>(path, { method: "GET" });
+  get<T>(path: string, schema?: z.ZodSchema<T>): Promise<T> {
+    return this.request<T>(path, { method: "GET" }, schema);
   }
 
-  post<T>(path: string, body: unknown): Promise<T> {
+  post<T>(path: string, body: unknown, schema?: z.ZodSchema<T>): Promise<T> {
     return this.request<T>(path, {
       method: "POST",
       body: JSON.stringify(body),
-    });
+    }, schema);
   }
 
-  patch<T>(path: string, body: unknown): Promise<T> {
+  patch<T>(path: string, body: unknown, schema?: z.ZodSchema<T>): Promise<T> {
     return this.request<T>(path, {
       method: "PATCH",
       body: JSON.stringify(body),
-    });
+    }, schema);
   }
 
   delete(path: string): Promise<void> {
@@ -100,12 +119,26 @@ export class ApiClientError extends Error {
     public path?: string
   ) {
     const prefix = method && path ? `${method} ${path} failed: ` : "";
-    super(`${prefix}${response.statusCode} ${response.message}`);
+    const status = response.status ?? response.statusCode;
+    const message = response.detail ?? response.message;
+    super(`${prefix}${status} ${message}`);
     this.name = "ApiClientError";
   }
 
   get statusCode(): number {
-    return this.response.statusCode;
+    return this.response.status ?? this.response.statusCode;
+  }
+}
+
+export class ApiValidationError extends Error {
+  constructor(
+    public error: z.ZodError,
+    public method?: string,
+    public path?: string
+  ) {
+    const prefix = method && path ? `${method} ${path} failed validation: ` : "";
+    super(`${prefix}${error.message}`);
+    this.name = "ApiValidationError";
   }
 }
 

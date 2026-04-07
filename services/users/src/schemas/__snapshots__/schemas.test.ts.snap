@@ -1,0 +1,157 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`User service schemas > ErrorSchema matches snapshot 1`] = `
+{
+  "$id": "Error",
+  "properties": {
+    "error": {
+      "type": "string",
+    },
+    "message": {
+      "type": "string",
+    },
+    "statusCode": {
+      "type": "number",
+    },
+  },
+  "required": [
+    "error",
+    "message",
+    "statusCode",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`User service schemas > PaginationSchema matches snapshot 1`] = `
+{
+  "$id": "Pagination",
+  "properties": {
+    "hasNext": {
+      "type": "boolean",
+    },
+    "hasPrev": {
+      "type": "boolean",
+    },
+    "limit": {
+      "type": "number",
+    },
+    "page": {
+      "type": "number",
+    },
+    "total": {
+      "type": "number",
+    },
+    "totalPages": {
+      "type": "number",
+    },
+  },
+  "required": [
+    "page",
+    "limit",
+    "total",
+    "totalPages",
+    "hasNext",
+    "hasPrev",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`User service schemas > UserPreferencesSchema matches snapshot 1`] = `
+{
+  "$id": "UserPreferences",
+  "properties": {
+    "emailNotifications": {
+      "type": "boolean",
+    },
+    "marketingEmails": {
+      "type": "boolean",
+    },
+    "theme": {
+      "enum": [
+        "light",
+        "dark",
+        "system",
+      ],
+      "type": "string",
+    },
+  },
+  "type": "object",
+}
+`;
+
+exports[`User service schemas > UserSchema matches snapshot 1`] = `
+{
+  "$id": "User",
+  "properties": {
+    "createdAt": {
+      "type": "string",
+    },
+    "email": {
+      "format": "email",
+      "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+      "type": "string",
+    },
+    "emailVerified": {
+      "type": "boolean",
+    },
+    "id": {
+      "type": "string",
+    },
+    "name": {
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
+      ],
+    },
+    "picture": {
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
+      ],
+    },
+    "preferences": {
+      "properties": {
+        "emailNotifications": {
+          "type": "boolean",
+        },
+        "marketingEmails": {
+          "type": "boolean",
+        },
+        "theme": {
+          "enum": [
+            "light",
+            "dark",
+            "system",
+          ],
+          "type": "string",
+        },
+      },
+      "type": "object",
+    },
+    "updatedAt": {
+      "type": "string",
+    },
+  },
+  "required": [
+    "id",
+    "email",
+    "name",
+    "picture",
+    "emailVerified",
+    "preferences",
+    "createdAt",
+    "updatedAt",
+  ],
+  "type": "object",
+}
+`;

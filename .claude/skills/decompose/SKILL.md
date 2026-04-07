@@ -96,6 +96,19 @@ Part N of M for: **<feature name>**
 - [ ] <Another criteria>
 - [ ] Tests pass: `pnpm lint && pnpm typecheck && pnpm test`
 
+## Verification Commands
+
+Run these after implementation to confirm the work is correct:
+
+```bash
+# Type-check and test affected packages
+pnpm turbo typecheck test --filter=...[HEAD~1]
+
+# <Add task-specific verification, e.g.:>
+# curl -s https://localhost:3001/api/v1/users | jq '.data | length'
+# npx vitest run src/routes/users.test.ts --grep "GET /api/v1/users"
+```
+
 ## Dependencies
 
 - Depends on: #<previous issue number> (if applicable)
@@ -104,7 +117,10 @@ Part N of M for: **<feature name>**
 
 ## Patterns to Follow
 
-<Reference existing code patterns, e.g. "Follow the pattern in services/users/src/routes/users.ts">
+<Reference a SPECIFIC existing file as a template, e.g.:>
+- Route handler: follow `services/users/src/routes/users.ts` (schema + handler + test pattern)
+- React component: follow `apps/hospitality/src/pages/ReservationsPage.tsx` (Rialto + API client pattern)
+- Test file: follow the adjacent `*.test.ts` in the same directory
 
 ---
 *Created by /decompose for feature: <feature name>*
@@ -185,5 +201,6 @@ Issues 1 and 2 are parallel-safe. Issues 3-5 depend on their predecessors.
 - **Max 10 issues per feature** — if more are needed, decompose into sub-features
 - **Always check the codebase first** — don't create issues for things that already exist
 - **Include file paths** — the agent needs to know WHERE to work, not just WHAT
-- **Include patterns** — reference existing code so the agent follows conventions
+- **Include patterns** — reference SPECIFIC existing files as templates, not just "follow patterns"
+- **Include verification commands** — every issue MUST have at least one executable command the agent can run to verify its work (curl, vitest --grep, etc.). The agent's orchestrator instructs it to run these.
 - **Don't over-specify** — give the agent room to make implementation decisions

@@ -7,9 +7,19 @@ vi.mock("../services/database.js", () => ({
   prisma: {
     $queryRaw: vi.fn(),
   },
+  getSlowQueryStats: vi.fn().mockReturnValue({ count5min: 0, slowestMs: 0 }),
+  getServiceStatus: vi.fn().mockReturnValue("ok"),
+}));
+
+// Mock health checks
+vi.mock("../services/health-checks.js", () => ({
+  checkAuth0: vi.fn().mockResolvedValue({ status: "ok", latency: 50 }),
+  checkLatencyAnomaly: vi.fn().mockReturnValue({ isAnomaly: false, rollingAvg: 0 }),
+  recordDbLatency: vi.fn(),
 }));
 
 import { prisma } from "../services/database.js";
+import { checkAuth0, checkLatencyAnomaly } from "../services/health-checks.js";
 
 describe("Health Routes", () => {
   let app: FastifyInstance;
@@ -40,6 +50,8 @@ describe("Health Routes", () => {
       expect(body.timestamp).toBeDefined();
       expect(body.checks.database.status).toBe("ok");
       expect(body.checks.database.latency).toBeGreaterThanOrEqual(0);
+      expect(body.checks.auth0.status).toBe("ok");
+      expect(body.checks.auth0.latency).toBe(50);
     });
 
     it("returns degraded status when database is unhealthy", async () => {
@@ -55,6 +67,42 @@ describe("Health Routes", () => {
       expect(body.status).toBe("degraded");
       expect(body.checks.database.status).toBe("error");
       expect(body.checks.database.message).toBe("Connection failed");
+    });
+
+    it("returns degraded status when Auth0 is unreachable", async () => {
+      vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([{ "?column?": 1 }]);
+      vi.mocked(checkAuth0).mockResolvedValueOnce({
+        status: "degraded",
+        latency: 2100,
+        message: "Auth0 JWKS unreachable (timeout >2s)",
+      });
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/health",
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.status).toBe("degraded");
+      expect(body.checks.auth0.status).toBe("degraded");
+      expect(body.checks.auth0.message).toContain("timeout");
+    });
+
+    it("returns degraded status when latency anomaly detected", async () => {
+      vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([{ "?column?": 1 }]);
+      vi.mocked(checkLatencyAnomaly).mockReturnValueOnce({ isAnomaly: true, rollingAvg: 10 });
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/health",
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.status).toBe("degraded");
+      expect(body.checks.database.status).toBe("error");
+      expect(body.checks.database.message).toContain("Latency anomaly");
     });
   });
 
@@ -74,6 +122,7 @@ describe("Health Routes", () => {
       expect(body.timestamp).toBeDefined();
       expect(body.checks.database.status).toBe("ok");
       expect(body.checks.database.latency).toBeGreaterThanOrEqual(0);
+      expect(body.checks.auth0).toBeDefined();
     });
 
     it("returns degraded status when database is unhealthy (ingress-prefixed path)", async () => {

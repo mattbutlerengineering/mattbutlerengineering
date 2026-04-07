@@ -1,5 +1,11 @@
 # Matt Butler Engineering
 
+[![CI](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/ci.yml/badge.svg)](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/ci.yml)
+[![Lighthouse](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/lighthouse-ci.yml/badge.svg)](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/lighthouse-ci.yml)
+[![Coverage](https://codecov.io/gh/mattbutlerengineering/mattbutlerengineering/branch/main/graph/badge.svg)](https://codecov.io/gh/mattbutlerengineering/mattbutlerengineering)
+[![Deploy Static](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/deploy-static.yml/badge.svg)](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/deploy-static.yml)
+[![Deploy Services](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/deploy-services.yml/badge.svg)](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/deploy-services.yml)
+
 Monorepo for [mattbutlerengineering.com](https://mattbutlerengineering.com) -- a hospitality management platform with a design system, multiple frontend apps, and backend API services.
 
 ## Tech Stack

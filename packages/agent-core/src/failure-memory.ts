@@ -117,4 +117,48 @@ export function buildFailureContext(
   return lines.join("\n");
 }
 
+export type PreventionTactic =
+  | "reduce_scope"
+  | "check_auth"
+  | "increase_budget"
+  | "break_into_steps"
+  | "use_sonnet"
+  | "add_context";
+
+export function inferPreventionTactic(failure: FailureRecord): PreventionTactic {
+  if (failure.stuckPattern?.includes("max_turns")) {
+    return "reduce_scope";
+  }
+  if (failure.errors.some((e) => e.includes("permission") || e.includes("unauthorized"))) {
+    return "check_auth";
+  }
+  if (failure.stuckPattern?.includes("repeated_error") && failure.errors.length > 3) {
+    return "break_into_steps";
+  }
+  if (failure.stuckPattern?.includes("zero_progress")) {
+    return "add_context";
+  }
+  if (failure.errors.some((e) => e.includes("ContextWindow") || e.includes("token limit"))) {
+    return "use_sonnet";
+  }
+  return "increase_budget";
+}
+
+export function buildPreventionHint(tactic: PreventionTactic): string {
+  switch (tactic) {
+    case "reduce_scope":
+      return "Break the task into smaller, focused changes. Do one thing at a time.";
+    case "check_auth":
+      return "Check that you have proper authentication and permissions before proceeding.";
+    case "increase_budget":
+      return "Consider increasing max_budget or max_turns for this task.";
+    case "break_into_steps":
+      return "This error pattern suggests the task is too complex. Break it into multiple steps.";
+    case "use_sonnet":
+      return "Context window limits reached. Switch to a smaller model or reduce context.";
+    case "add_context":
+      return "No progress detected. Add more source file context or break the problem differently.";
+  }
+}
+
 export { loadMemory };

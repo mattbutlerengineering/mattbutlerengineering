@@ -6,8 +6,21 @@ export type {
   Pagination,
   ApiError,
   HealthResponse,
+  ReadinessResponse,
+  ReadinessCheckStatus,
   HealthCheck,
+  SystemStatus,
+  SystemHealthResponse,
+  SubsystemHealth,
+  ServiceCheck,
+  StaticSiteCheck,
+  CiHealth,
+  CiRunInfo,
+  DeployHealth,
+  DeployPipelineInfo,
+  ProblemDetails,
 } from "./api.js";
+export { createProblemDetails } from "./api.js";
 
 // User types
 export type {
@@ -89,3 +102,9 @@ export type {
   UpdateTablePositionRequest,
   BulkUpdateTablePositionsRequest,
 } from "./floor-plan.js";
+
+// Date utilities
+export { toDateString } from "./date.js";
+
+// Zod Schemas
+export * from "./schemas/index.js";

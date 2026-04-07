@@ -26,7 +26,7 @@ export function OverviewPage() {
           Ri<span className={styles.heroLogoAccent}>a</span>lto
         </div>
         <Stack gap="sm" align="center">
-          <Text variant="display" color="primary" align="center">
+          <Text variant="display" color="primary" align="center" as="h1">
             Precision-crafted React components
           </Text>
           <Text variant="body" color="secondary" align="center">

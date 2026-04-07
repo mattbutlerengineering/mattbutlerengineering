@@ -51,6 +51,13 @@ Every web app uses Rialto as the single design system and is accessible at mattb
 - ✓ Gen Worker managed by Pulumi with @pulumi/cloudflare v6 — v1.2
 - ✓ Four apps at / (marketing), /rialto (showcase), /hospitality (app), /gen (playground) — v1.2
 
+- ✓ ADR enforcement in pre-commit hook (mbe check-adr) — v1.6
+- ✓ API contract regression testing in CI — v1.6
+- ✓ JIT context priming (mbe prime) — v1.6
+- ✓ Dependency integrity audit (mbe check-deps) — v1.6
+- ✓ Infrastructure MCP servers (Pulumi, DB, Auth0) — v1.6
+- ✓ Monorepo dependency synchronization via pnpm catalogs (18 deps) — v1.6
+
 ### Active
 
 (No active requirements — next milestone not yet defined)
@@ -70,13 +77,14 @@ Every web app uses Rialto as the single design system and is accessible at mattb
 
 ## Context
 
-Shipped v1.2 with 100,402 LOC TypeScript across 155+ modified files.
+Shipped v1.6 with ~103K LOC TypeScript across 83 files changed in this milestone.
 Tech stack: React 19, Vite 7, TypeScript, Pulumi, Auth0, DigitalOcean App Platform, AI SDK + Anthropic.
 Four apps live at mattbutlerengineering.com: marketing (/), rialto-web (/rialto), hospitality (/hospitality), gen (/gen).
 Rialto is the sole design system — WCAG AA accessible, with axe-core CI, Zod catalog (26 components), registry.json, and llms.txt.
 Agent service (port 3003) now serves both claude-agent-sdk sessions and AI generation endpoints (gen-ui, gen-chat).
-Gen app uses json-render with Rialto catalog for constrained UI generation from LLM output.
-Prompt caching achieves ~$0.001/generation with Haiku 4.5 default model.
+Dev tooling: mbe CLI with check-adr, check-deps, prime, mcp, pack, generate commands.
+All 18 shared external dependencies unified via pnpm catalog — zero version drift.
+Infrastructure MCP servers provide standardized agent interfaces for Pulumi, database, and Auth0.
 All CF Workers (marketing, hospitality, rialto-web, gen) managed by Pulumi with @pulumi/cloudflare v6.
 
 ## Constraints
@@ -111,6 +119,8 @@ All CF Workers (marketing, hospitality, rialto-web, gen) managed by Pulumi with 
 | Conditional mount pattern for GenCopilot | Consumer uses `{open && <GenCopilot>}` for fresh state on every open | ✓ Good — simpler than controlled open prop, natural React pattern |
 | @pulumi/cloudflare v5→v6 upgrade | Required for gen Worker resource; unified bindings[] array, DnsRecord rename | ✓ Good — all 4 Workers managed by Pulumi, CI deploys via Pulumi |
 | Audit-driven gap closure (Phases 17-18) | Milestone audit found proxy routing bug and missing Pulumi resource | ✓ Good — 34/34 requirements satisfied |
+| pnpm catalog for dependency sync | Centralize version management; eliminate drift across 22 workspace packages | ✓ Good — 18 deps cataloged, mbe check-deps exits 0 |
+| Exclude peerDeps from drift audit | peerDeps express compatibility ranges, not resolved versions | ✓ Good — prevents false positives in auth/sentry React peer ranges |
 
 ---
-*Last updated: 2026-03-28 after v1.2 milestone*
+*Last updated: 2026-04-05 after v1.6 milestone*

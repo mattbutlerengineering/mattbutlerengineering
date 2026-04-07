@@ -1,0 +1,34 @@
+# Gitleaks configuration — secret scanning for pre-commit and CI
+# https://github.com/gitleaks/gitleaks
+
+title = "mattbutlerengineering gitleaks config"
+
+[extend]
+# Use the default gitleaks rules as a base
+useDefault = true
+
+# Allowlist patterns that are not secrets
+[allowlist]
+  description = "Known non-secret patterns"
+
+  paths = [
+    '''node_modules''',
+    '''\.claude/worktrees''',
+    '''pnpm-lock\.yaml''',
+    '''coverage''',
+    '''dist''',
+    '''\.git''',
+  ]
+
+  regexTarget = "match"
+  regexes = [
+    # Auth0 domain (public, not a secret)
+    '''dev-[a-z0-9]+\.us\.auth0\.com''',
+    # Test/example values
+    '''test-api-key''',
+    '''example[-_]?(key|token|secret)''',
+    '''placeholder''',
+    '''your[-_]?(api[-_]?key|token|secret)''',
+    # Sentry DSN format (public DSN, not a secret)
+    '''https://[a-f0-9]+@o\d+\.ingest\.\w+\.sentry\.io/\d+''',
+  ]

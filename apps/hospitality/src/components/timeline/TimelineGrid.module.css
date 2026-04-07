@@ -110,3 +110,48 @@
   background: var(--rialto-error);
   border-radius: 50%;
 }
+
+.mobileNavHint {
+  display: none;
+  position: fixed;
+  bottom: var(--rialto-space-md);
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
+  padding: var(--rialto-space-xs) var(--rialto-space-sm);
+  background: var(--rialto-surface-recessed);
+  border-radius: var(--rialto-radius-round);
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-secondary);
+  z-index: 100;
+}
+
+.gridWrapperMobile {
+  touch-action: pan-x pan-y;
+}
+
+@media (max-width: 767px) {
+  .gridWrapper {
+    font-size: var(--rialto-text-xs);
+  }
+
+  .tableColumnHeader {
+    padding-inline: var(--rialto-space-2xs);
+    font-size: var(--rialto-text-xs);
+  }
+
+  .hourHeader {
+    font-size: var(--rialto-text-xs);
+  }
+
+  .tableName {
+    font-size: var(--rialto-text-xs);
+  }
+
+  .tableCapacity {
+    display: none;
+  }
+
+  .mobileNavHint {
+    display: block;
+  }
+}

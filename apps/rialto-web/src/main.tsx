@@ -5,8 +5,14 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import "@mbe/rialto/styles";
 import "./global.css";
 import { RialtoProvider, ToastProvider, ErrorBoundary } from "@mbe/rialto";
+import { initSentry, handleErrorBoundary } from "@mbe/sentry/react";
 import { ThemeContext } from "./ThemeContext";
 import { routeTree } from "./routes";
+
+initSentry({
+  appName: "rialto-web",
+  dsn: import.meta.env.VITE_SENTRY_DSN,
+});
 
 // Unregister stale service workers. A previous build registered the hospitality
 // SW at scope "/" instead of "/hospitality/", causing rialto pages to redirect
@@ -75,7 +81,7 @@ function Root() {
   return (
     // RialtoProvider MUST wrap RouterProvider (outside it)
     <RialtoProvider theme={resolved}>
-      <ErrorBoundary>
+      <ErrorBoundary onError={handleErrorBoundary}>
         <ThemeContext value={themeContextValue}>
           <ToastProvider>
             <RouterProvider router={router} />

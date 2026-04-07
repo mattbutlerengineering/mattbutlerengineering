@@ -1,18 +1,24 @@
 import eslint from "@eslint/js";
 import tseslint from "typescript-eslint";
 import prettier from "eslint-config-prettier";
+import localRules from "./local-rules.js";
 
 export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   prettier,
   {
+    plugins: {
+      "mbe-local": localRules,
+    },
     rules: {
       "@typescript-eslint/no-unused-vars": [
         "error",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
       "@typescript-eslint/consistent-type-imports": "error",
+      "mbe-local/no-tailwind-classes": "error",
+      "mbe-local/require-rfc-7807-errors": "error",
     },
   },
   {

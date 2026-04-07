@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
 import {
@@ -14,9 +14,9 @@ import {
   Stat,
   Text,
 } from "@mbe/rialto";
-import type { Reservation, ReservationStatus } from "@mbe/types";
+import type { ReservationStatus } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";
-import { useReservationEvents } from "../hooks/useReservationEvents.js";
+import { useReservationData } from "../contexts/ReservationDataContext.js";
 import { PageHeader } from "../components/PageHeader";
 import styles from "./ReservationsPage.module.css";
 
@@ -76,13 +76,18 @@ function formatRelativeTime(date: Date): string {
 /* ── Main component ─────────────────────────── */
 
 export function ReservationsPage() {
+  const navigate = useNavigate();
   const { accessToken } = useAuth();
   const { selectedVenueId } = useVenue();
-  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const {
+    reservations: sharedReservations,
+    isConnected,
+    setReservations: setSharedReservations,
+  } = useReservationData();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
-  const selectedDate = searchParams.get("date") ?? new Date().toISOString().split("T")[0];
+  const selectedDate = searchParams.get("date") ?? new Date().toLocaleDateString("en-CA");
   const statusFilter = searchParams.get("status") ?? "all";
   const [searchQuery, setSearchQuery] = useState("");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -112,35 +117,11 @@ export function ReservationsPage() {
     return () => clearInterval(id);
   }, [lastUpdated]);
 
-  /* ── Real-time SSE updates ─────────────────── */
-
-  const handleCreated = useCallback(
-    (reservation: Reservation) => {
-      if (reservation.date === selectedDate) {
-        setReservations((prev) => [...prev, reservation]);
-        setLastUpdated(new Date());
-      }
-    },
-    [selectedDate]
+  // Filter shared reservations to the selected date
+  const reservations = useMemo(
+    () => sharedReservations.filter((r) => r.date === selectedDate),
+    [sharedReservations, selectedDate]
   );
-
-  const handleUpdated = useCallback((reservation: Reservation) => {
-    setReservations((prev) => prev.map((r) => (r.id === reservation.id ? reservation : r)));
-    setLastUpdated(new Date());
-  }, []);
-
-  const handleCancelled = useCallback((reservation: Reservation) => {
-    setReservations((prev) => prev.map((r) => (r.id === reservation.id ? reservation : r)));
-    setLastUpdated(new Date());
-  }, []);
-
-  const { isConnected } = useReservationEvents({
-    venueId: selectedVenueId ?? undefined,
-    enabled: true,
-    onReservationCreated: handleCreated,
-    onReservationUpdated: handleUpdated,
-    onReservationCancelled: handleCancelled,
-  });
 
   const stats = useMemo(() => {
     const confirmed = reservations.filter((r) => r.status === "CONFIRMED").length;
@@ -179,7 +160,7 @@ export function ReservationsPage() {
           limit: 50,
         });
 
-        setReservations(response.data);
+        setSharedReservations(response.data);
         setLastUpdated(new Date());
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load reservations");
@@ -189,7 +170,7 @@ export function ReservationsPage() {
     }
 
     fetchReservations();
-  }, [api, selectedDate, selectedVenueId]);
+  }, [api, selectedDate, selectedVenueId, setSharedReservations]);
 
   const formatTime = (isoString: string) => {
     return new Date(isoString).toLocaleTimeString([], {
@@ -301,7 +282,20 @@ export function ReservationsPage() {
               </thead>
               <tbody className={styles.tbody}>
                 {filteredReservations.map((reservation) => (
-                  <tr key={reservation.id}>
+                  <tr
+                    key={reservation.id}
+                    onClick={() => navigate(`/timeline?date=${reservation.date}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        navigate(`/timeline?date=${reservation.date}`);
+                      }
+                    }}
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`View ${reservation.guestName ?? "Guest"} reservation on timeline`}
+                    style={{ cursor: "pointer" }}
+                  >
                     <td className={styles.td}>
                       {formatTime(reservation.startTime)} - {formatTime(reservation.endTime)}
                     </td>

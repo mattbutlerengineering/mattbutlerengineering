@@ -187,13 +187,14 @@ function GuestDetailDrawer({ guest, open, onClose, onSave, api }: GuestDetailDra
   }, [guest, open]);
 
   // Fetch reservation history when drawer opens
+  const guestId = guest?.id ?? null;
   useEffect(() => {
-    if (!guest || !open || !api) return;
+    if (!guestId || !open || !api) return;
     let cancelled = false;
 
     setHistoryLoading(true);
     api.reservations
-      .list({ guestId: guest.id, limit: 10 })
+      .list({ guestId, limit: 10 })
       .then((response) => {
         if (!cancelled) setReservationHistory(response.data);
       })
@@ -207,7 +208,7 @@ function GuestDetailDrawer({ guest, open, onClose, onSave, api }: GuestDetailDra
     return () => {
       cancelled = true;
     };
-  }, [guest?.id, open, api]);
+  }, [guestId, open, api]);
 
   const handleFieldChange = useCallback(
     (field: keyof GuestEditFormData) =>
@@ -651,6 +652,15 @@ export function GuestsPage() {
                         .filter(Boolean)
                         .join(" ")}
                       onClick={() => handleRowClick(guest.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          handleRowClick(guest.id);
+                        }
+                      }}
+                      tabIndex={0}
+                      role="button"
+                      aria-label={`View details for ${guest.name}`}
                     >
                       <td className={styles.td}>
                         <Text variant="body" color="primary" className={styles.guestName}>

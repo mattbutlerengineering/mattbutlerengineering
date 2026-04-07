@@ -1,0 +1,61 @@
+name: Lighthouse Score Tracking
+
+on:
+  schedule:
+    - cron: "43 6 * * 1" # Weekly Monday 6:43 AM UTC
+  workflow_dispatch:
+
+jobs:
+  lighthouse:
+    name: Lighthouse Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    strategy:
+      matrix:
+        app:
+          - { name: "marketing", url: "https://mattbutlerengineering.com/" }
+          - { name: "hospitality", url: "https://mattbutlerengineering.com/hospitality" }
+          - { name: "rialto", url: "https://mattbutlerengineering.com/rialto" }
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Run Lighthouse
+        id: lh
+        uses: treosh/lighthouse-ci-action@v12
+        with:
+          urls: ${{ matrix.app.url }}
+          temporaryPublicStorage: true
+
+      - name: Extract and store scores
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
+          KV_NS_ID: ${{ secrets.HEALTH_KV_NAMESPACE_ID }}
+          APP_NAME: ${{ matrix.app.name }}
+          LH_MANIFEST: ${{ steps.lh.outputs.manifest }}
+        run: |
+          DATE=$(date -u +%Y-%m-%d)
+
+          PERF=$(echo "$LH_MANIFEST" | jq -r '.[0].summary.performance // 0' | awk '{printf "%.0f", $1 * 100}')
+          A11Y=$(echo "$LH_MANIFEST" | jq -r '.[0].summary.accessibility // 0' | awk '{printf "%.0f", $1 * 100}')
+          BP=$(echo "$LH_MANIFEST" | jq -r '.[0].summary."best-practices" // 0' | awk '{printf "%.0f", $1 * 100}')
+          SEO=$(echo "$LH_MANIFEST" | jq -r '.[0].summary.seo // 0' | awk '{printf "%.0f", $1 * 100}')
+
+          PAYLOAD=$(jq -nc \
+            --arg app "$APP_NAME" \
+            --arg date "$DATE" \
+            --argjson perf "${PERF:-0}" \
+            --argjson a11y "${A11Y:-0}" \
+            --argjson bp "${BP:-0}" \
+            --argjson seo "${SEO:-0}" \
+            '{app: $app, date: $date, performance: $perf, accessibility: $a11y, bestPractices: $bp, seo: $seo}')
+
+          curl -sf -X PUT \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/values/lighthouse%2F${DATE}-${APP_NAME}" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD"
+
+          echo "Stored: $APP_NAME perf=$PERF a11y=$A11Y bp=$BP seo=$SEO"

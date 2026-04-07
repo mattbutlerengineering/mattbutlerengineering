@@ -2,6 +2,11 @@ name = "mattbutlerengineering-edge-router"
 main = "edge-router.js"
 compatibility_date = "2026-03-25"
 
+routes = [
+  { pattern = "mattbutlerengineering.com/*", zone_name = "mattbutlerengineering.com" },
+  { pattern = "www.mattbutlerengineering.com/*", zone_name = "mattbutlerengineering.com" },
+]
+
 [vars]
 API_ORIGIN = "https://api.mattbutlerengineering.com"
 
@@ -20,3 +25,22 @@ service = "mattbutlerengineering-rialto-web"
 [[services]]
 binding = "GEN"
 service = "mattbutlerengineering-gen"
+
+# Canary Workers — serve at /canary/<app>/* for pre-promotion verification
+[[services]]
+binding = "MARKETING_CANARY"
+service = "mattbutlerengineering-marketing-canary"
+
+[[services]]
+binding = "HOSPITALITY_CANARY"
+service = "mattbutlerengineering-hospitality-canary"
+
+[[services]]
+binding = "RIALTO_CANARY"
+service = "mattbutlerengineering-rialto-web-canary"
+
+# Health state KV — stores CI/deploy status written by GitHub Actions.
+# ID comes from: cd infrastructure/pulumi && pulumi stack output healthKvNamespaceId
+[[kv_namespaces]]
+binding = "HEALTH_STATE"
+id = "dda61075cc654b0a849046ae563d8d45"

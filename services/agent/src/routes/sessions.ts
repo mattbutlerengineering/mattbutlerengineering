@@ -1,14 +1,20 @@
 import type { FastifyPluginAsync } from "fastify";
-import type {
-  AgentSession,
-  AgentSessionStatus,
-  ApiResponse,
-  ApiError,
-  PaginatedResponse,
-  CreateAgentSessionRequest,
+import {
+  type AgentSession,
+  type AgentSessionStatus,
+  type ApiResponse,
+  type ApiError,
+  type PaginatedResponse,
+  type CreateAgentSessionRequest,
+  createProblemDetails,
 } from "@mbe/types";
+import { requireAuth } from "@mbe/auth/fastify";
 import { sessionService } from "../services/session.js";
-import { executeSession, cancelSession, getActiveSessionCount } from "../services/session-executor.js";
+import {
+  executeSession,
+  cancelSession,
+  getActiveSessionCount,
+} from "../services/session-executor.js";
 
 export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /v1/sessions — Create + start a new session
@@ -18,6 +24,7 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
+      preHandler: [requireAuth],
       schema: {
         summary: "Create a new agent session",
         operationId: "createSession",
@@ -38,11 +45,15 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const maxConcurrent = parseInt(process.env.MAX_CONCURRENT_SESSIONS ?? "5", 10);
       if (getActiveSessionCount() >= maxConcurrent) {
-        return reply.code(429).send({
-          error: "Too Many Requests",
-          message: `Maximum concurrent sessions (${maxConcurrent}) reached. Try again later.`,
-          statusCode: 429,
-        });
+        return reply
+          .code(429)
+          .send(
+            createProblemDetails(
+              429,
+              "Too Many Requests",
+              `Maximum concurrent sessions (${maxConcurrent}) reached. Try again later.`
+            )
+          );
       }
 
       const session = await sessionService.create(request.body);
@@ -63,6 +74,7 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
+      preHandler: [requireAuth],
       schema: {
         summary: "List agent sessions",
         operationId: "listSessions",
@@ -115,6 +127,7 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
+      preHandler: [requireAuth],
       schema: {
         summary: "Get session by ID",
         operationId: "getSession",
@@ -136,11 +149,7 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const session = await sessionService.getById(request.params.id);
       if (!session) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "Session not found",
-          statusCode: 404,
-        });
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Session not found"));
       }
       return { data: session };
     }
@@ -153,6 +162,7 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id/cancel",
     {
+      preHandler: [requireAuth],
       schema: {
         summary: "Cancel a running session",
         operationId: "cancelSession",
@@ -175,28 +185,20 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const session = await sessionService.getById(request.params.id);
       if (!session) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "Session not found",
-          statusCode: 404,
-        });
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Session not found"));
       }
 
       if (session.status !== "running") {
-        return reply.code(409).send({
-          error: "Conflict",
-          message: `Session is ${session.status}, not running`,
-          statusCode: 409,
-        });
+        return reply
+          .code(409)
+          .send(createProblemDetails(409, "Conflict", `Session is ${session.status}, not running`));
       }
 
       const cancelled = await cancelSession(session.id);
       if (!cancelled) {
-        return reply.code(409).send({
-          error: "Conflict",
-          message: "Session is not actively executing",
-          statusCode: 409,
-        });
+        return reply
+          .code(409)
+          .send(createProblemDetails(409, "Conflict", "Session is not actively executing"));
       }
 
       const updated = await sessionService.getById(session.id);
@@ -211,6 +213,7 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
+      preHandler: [requireAuth],
       schema: {
         summary: "Delete a session",
         operationId: "deleteSession",
@@ -229,11 +232,7 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const deleted = await sessionService.delete(request.params.id);
       if (!deleted) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "Session not found",
-          statusCode: 404,
-        });
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Session not found"));
       }
       return reply.code(204).send();
     }

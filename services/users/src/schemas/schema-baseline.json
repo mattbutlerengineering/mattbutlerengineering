@@ -1,0 +1,146 @@
+{
+  "UserPreferences": {
+    "$id": "UserPreferences",
+    "type": "object",
+    "properties": {
+      "theme": {
+        "type": "string",
+        "enum": [
+          "light",
+          "dark",
+          "system"
+        ]
+      },
+      "emailNotifications": {
+        "type": "boolean"
+      },
+      "marketingEmails": {
+        "type": "boolean"
+      }
+    }
+  },
+  "User": {
+    "$id": "User",
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string"
+      },
+      "email": {
+        "type": "string",
+        "format": "email",
+        "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+      },
+      "name": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "picture": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "emailVerified": {
+        "type": "boolean"
+      },
+      "preferences": {
+        "type": "object",
+        "properties": {
+          "theme": {
+            "type": "string",
+            "enum": [
+              "light",
+              "dark",
+              "system"
+            ]
+          },
+          "emailNotifications": {
+            "type": "boolean"
+          },
+          "marketingEmails": {
+            "type": "boolean"
+          }
+        }
+      },
+      "createdAt": {
+        "type": "string"
+      },
+      "updatedAt": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "id",
+      "email",
+      "name",
+      "picture",
+      "emailVerified",
+      "preferences",
+      "createdAt",
+      "updatedAt"
+    ]
+  },
+  "Pagination": {
+    "$id": "Pagination",
+    "type": "object",
+    "properties": {
+      "page": {
+        "type": "number"
+      },
+      "limit": {
+        "type": "number"
+      },
+      "total": {
+        "type": "number"
+      },
+      "totalPages": {
+        "type": "number"
+      },
+      "hasNext": {
+        "type": "boolean"
+      },
+      "hasPrev": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "page",
+      "limit",
+      "total",
+      "totalPages",
+      "hasNext",
+      "hasPrev"
+    ]
+  },
+  "Error": {
+    "$id": "Error",
+    "type": "object",
+    "properties": {
+      "error": {
+        "type": "string"
+      },
+      "message": {
+        "type": "string"
+      },
+      "statusCode": {
+        "type": "number"
+      }
+    },
+    "required": [
+      "error",
+      "message",
+      "statusCode"
+    ]
+  }
+}

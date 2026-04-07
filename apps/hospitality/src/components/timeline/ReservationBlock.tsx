@@ -5,6 +5,7 @@ export interface ReservationBlockProps {
   reservation: Reservation;
   style: { left: number; width: number };
   isSelected?: boolean;
+  isFocused?: boolean;
   onClick?: () => void;
 }
 
@@ -20,11 +21,11 @@ export function ReservationBlock({
   reservation,
   style,
   isSelected = false,
+  isFocused = false,
   onClick,
 }: ReservationBlockProps) {
   const statusClass = STATUS_CLASS[reservation.status];
 
-  // Format time for display
   const formatTime = (isoTime: string) => {
     return new Date(isoTime).toLocaleTimeString("en-US", {
       hour: "numeric",
@@ -40,10 +41,10 @@ export function ReservationBlock({
     <button
       type="button"
       onClick={onClick}
-      className={[styles.block, statusClass, isSelected ? styles.blockSelected : ""].join(" ")}
+      className={[styles.block, statusClass, isSelected ? styles.blockSelected : "", isFocused ? styles.blockFocused : ""].join(" ")}
       style={{
         left: style.left,
-        width: Math.max(style.width - 4, 40), // Minimum width for visibility
+        width: style.width,
       }}
       title={`${guestName} - ${reservation.partySize} guests at ${startTime}`}
       aria-label={`${guestName}, party of ${reservation.partySize}, ${startTime}, ${reservation.status.toLowerCase()}`}

@@ -28,6 +28,13 @@
   }
 }
 
+/* ── Reduced motion ──────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+}
+
 /* Error state */
 .errorContainer {
   padding: var(--rialto-space-lg);

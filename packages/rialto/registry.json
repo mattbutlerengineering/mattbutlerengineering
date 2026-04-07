@@ -6384,6 +6384,18 @@
           "required": false
         },
         {
+          "name": "isLoading",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "When true, shows a spinner and disables the button"
+        },
+        {
+          "name": "loadingText",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Optional text to show while loading. If omitted, original children are shown."
+        },
+        {
           "name": "id",
           "type": "string | undefined",
           "required": false
@@ -11363,6 +11375,12 @@
           "type": "ReactNode",
           "required": false,
           "description": "Optional custom fallback UI. When omitted, a default \"Something went wrong\" message is shown."
+        },
+        {
+          "name": "onError",
+          "type": "((error: Error, errorInfo: ErrorInfo) => void) | undefined",
+          "required": false,
+          "description": "Optional callback invoked when an error is caught. Use to report errors to external services."
         }
       ],
       "slots": [

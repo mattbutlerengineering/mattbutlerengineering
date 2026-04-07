@@ -58,6 +58,37 @@
   border-color: var(--rialto-border-strong);
 }
 
+.contactEmailGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+}
+
+.copyEmailButton {
+  color: var(--rialto-text-secondary);
+  background: transparent;
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  font-family: var(--rialto-font-sans);
+  padding-block: var(--rialto-space-xs);
+  padding-inline: var(--rialto-space-sm);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  cursor: pointer;
+  transition: color 150ms var(--rialto-ease-precision),
+              border-color 150ms var(--rialto-ease-precision);
+}
+
+.copyEmailButton:hover {
+  color: var(--rialto-text-primary);
+  border-color: var(--rialto-border-strong);
+}
+
+.copyEmailButton:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+}
+
 @media (max-width: 640px) {
   .projectGrid {
     grid-template-columns: 1fr;

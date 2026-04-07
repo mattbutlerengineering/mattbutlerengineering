@@ -5,20 +5,23 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./users": "./src/users.ts"
+    "./users": "./src/users.ts",
+    "./streaming": "./src/streaming.ts"
   },
   "scripts": {
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:contract": "vitest run src/contract.test.ts",
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@mbe/types": "workspace:*"
+    "@mbe/types": "workspace:*",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@mbe/config": "workspace:*",
-    "typescript": "^5.9.3",
-    "vitest": "^4.1.2"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }
