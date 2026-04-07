@@ -1,141 +1,251 @@
-# services/reservations — Lean Context (see llms-full.txt for implementation details)
-
-Fastify + Prisma reservation management service. Port 3004.
-
-## Entity Hierarchy
-
-VenueGroup (1) --> Venue (many) --> Table, Reservation, Guest, ReservationHold, FloorPlan
-
-## Key Types (from @mbe/types)
-
-type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW"
-type TableStatus = "AVAILABLE" | "OCCUPIED" | "DIRTY" | "READY"
-type ReservationEventType = "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:created" | "hold:released" | "hold:confirmed" | "table:updated"
-
-## Services
-
-### venueGroupService (src/services/venue.ts)
-- list(page, limit): PaginatedResponse<VenueGroup>
-- getById(id): VenueGroup | null
-- getBySlug(slug): VenueGroup | null
-- create(data: CreateVenueGroupRequest): VenueGroup
-- update(id, data: UpdateVenueGroupRequest): VenueGroup | null
-- delete(id): boolean
-
-### venueService (src/services/venue.ts)
-- list(page, limit, venueGroupId?): PaginatedResponse<Venue>
-- getById(id): Venue | null
-- getBySlug(slug, venueGroupId?): Venue | null
-- create(data: CreateVenueRequest): Venue
-- update(id, data: UpdateVenueRequest): Venue | null
-- delete(id): boolean
-
-### tableService (src/services/table.ts)
-- list(page, limit, activeOnly?): PaginatedResponse<Table>
-- getById(id): Table | null
-- create(data: CreateTableRequest): Table
-- update(id, data: UpdateTableRequest): Table | null
-- updateStatus(id, status): Table | null
-- delete(id): boolean
-
-### reservationService (src/services/reservation.ts)
-- list(options: ListReservationsOptions): PaginatedResponse<Reservation>
-- listByUserId(userId, page, limit): PaginatedResponse<Reservation>
-- getById(id): Reservation | null
-- create(data: CreateReservationRequest, userId?): Reservation
-- createWithConflictCheck(data, userId?): CreateReservationResult
-- update(id, data: UpdateReservationRequest): Reservation | null
-- updateWithConflictCheck(id, data): UpdateReservationResult
-- createWalkIn(data: WalkInRequest, userId?): CreateReservationResult
-- cancel(id, reason?, note?): Reservation | null
-
-### holdService (src/services/hold.ts)
-- create(data: CreateHoldRequest, sessionId): CreateHoldResult
-- getById(id): ReservationHold | null
-- getBySessionId(sessionId, venueId): ReservationHold | null
-- release(id, sessionId): boolean
-- convertToReservation(holdId, sessionId, guestDetails, userId?): ConfirmHoldResult
-- cleanupExpired(): number
-- maybeCleanup(): boolean
-
-### guestService (src/services/guest.ts)
-- list(venueId, page, limit): PaginatedResponse<Guest>
-- getById(id): Guest | null
-- findByEmail(venueId, email): Guest | null
-- findByPhone(venueId, phone): Guest | null
-- findOrCreate(venueId, data): Guest
-- create(data: CreateGuestRequest): Guest
-- update(id, data: UpdateGuestRequest): Guest | null
-- delete(id): boolean
-- recordVisit(guestId, visitDate, spendAmount?): Guest | null
-- search(params: GuestSearchParams): PaginatedResponse<Guest>
-- getSegments(venueId): GuestSegment[]
-
-### floorPlanService (src/services/floor-plan.ts)
-- list(page, limit, venueId?): PaginatedResponse<FloorPlan>
-- getById(id): FloorPlan | null
-- getActiveByVenueId(venueId): FloorPlan | null
-- create(data: CreateFloorPlanRequest): FloorPlan
-- update(id, data: UpdateFloorPlanRequest): FloorPlan | null
-- delete(id): boolean
-- setActive(id, venueId): FloorPlan | null
-- updateTablePosition(tableId, shapeMetadata): Table | null
-- bulkUpdateTablePositions(floorPlanId, positions): Table[]
-- assignTableToFloorPlan(tableId, floorPlanId, shapeMetadata?): Table | null
-- removeTableFromFloorPlan(tableId): Table | null
-
-### availabilityService (src/services/availability.ts)
-- generateTimeSlots(venueId, date, partySize, durationOverride?): TimeSlot[]
-- getAvailableDates(venueId, startDate, endDate, partySize): DateAvailability[]
-- findBestTable(venueId, date, startTime, endTime, partySize): Table | null
-- checkConflict(tableId, date, startTime, endTime, excludeReservationId?, excludeHoldId?): ConflictCheckResult
-- checkPacing(venueId, startTime, partySize, settings?): PacingCheckResult
-- estimateDuration(partySize, venueSettings?): number
-
-### reservationEvents (src/services/events.ts)
-- emitReservationCreated(reservation): void
-- emitReservationUpdated(reservation): void
-- emitReservationCancelled(reservation): void
-- emitHoldCreated(hold): void
-- emitHoldReleased(hold): void
-- emitHoldConfirmed(reservation): void
-- emitTableUpdated(table): void
-
-### database (src/services/database.ts)
-- prisma: PrismaClient
-- getSlowQueryStats(): { count5min, slowestMs }
-- getServiceStatus(): "ok" | "degraded"
-
-## Routes
-
-### Venues: src/routes/venues.ts
-GET /api/v1/venues, GET /api/v1/venues/:id, POST /api/v1/venues, PUT /api/v1/venues/:id
-
-### Tables: src/routes/tables.ts
-GET /api/v1/tables, POST /api/v1/tables, PUT /api/v1/tables/:id, PUT /api/v1/tables/:id/status, DELETE /api/v1/tables/:id
-
-### Reservations: src/routes/reservations.ts
-GET /api/v1/reservations, GET /api/v1/reservations/:id, POST /api/v1/reservations, PUT /api/v1/reservations/:id, PUT /api/v1/reservations/:id/cancel
-
-### Holds: src/routes/holds.ts
-POST /api/v1/holds, GET /api/v1/holds/:id, PUT /api/v1/holds/:id/confirm, DELETE /api/v1/holds/:id
-
-### Guests: src/routes/guests.ts
-Full CRUD + search + segments
-
-### Floor Plans: src/routes/floor-plans.ts
-Full CRUD + setActive + table positioning
-
-### Availability: src/routes/availability.ts
-GET /api/v1/availability (time slots), GET /api/v1/availability/dates (date range)
-
-### Events: src/routes/events.ts
-GET /api/v1/events/stream (SSE)
-
-### Health: src/routes/health.ts
-GET /health
-
-## App Entry
-
-src/app.ts: buildApp(options?: AppOptions): FastifyInstance
-src/index.ts: main() — starts server
+<codebase path="services/reservations">
+  <section priority="medium" role="prisma.config.ts">
+  <file path="prisma.config.ts">
+    <item priority="high">
+      type Env = {
+        DATABASE_URL: string;
+      };
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="src">
+  <file path="src/index.ts">
+    <item priority="low">
+      async function main() { /* ... */ }
+    </item>
+  </file>
+  <file path="src/app.ts">
+    <item priority="low">
+      interface AppOptions {
+        logger?: boolean | object;
+      }
+    </item>
+    <item priority="high">
+      export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="prisma">
+  <file path="prisma/seed.ts">
+    <item priority="medium">
+      function todayAt(hours: number, minutes: number): Date { /* ... */ }
+    </item>
+    <item priority="medium">
+      function todayDate(): Date { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="services">
+  <file path="src/services/venue.ts">
+    <item priority="medium">
+      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function mapPrismaVenueGroup(group: {
+        id: string;
+        name: string;
+        slug: string;
+        settings: unknown;
+        createdAt: Date;
+      }): VenueGroup { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/table.ts">
+    <item priority="medium">
+      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function mapPrismaTable(table: {
+        id: string;
+        name: string;
+        tableNumber: string | null;
+        capacity: number;
+        minCovers: number;
+        maxCovers: number | null;
+        location: string | null;
+        isActive: boolean;
+        priority: number;
+        status: string;
+        venueId: string | null;
+        floorPlanId: string | null;
+        shapeMetadata: unknown;
+        createdAt: Date;
+        updatedAt: Date;
+      }): Table { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/reservation.ts">
+    <item priority="medium">
+      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      type PrismaReservationWithTable = PrismaReservation & {
+        table?: PrismaTable;
+      };
+    </item>
+  </file>
+  <file path="src/services/hold.ts">
+    <item priority="medium">
+      function mapPrismaHold(hold: PrismaHold): ReservationHold { /* ... */ }
+    </item>
+    <item priority="low">
+      interface CreateHoldResult {
+        success: boolean;
+        hold?: ReservationHold;
+        error?: string;
+      }
+    </item>
+  </file>
+  <file path="src/services/health-checks.ts">
+    <item priority="high">
+      export function recordDbLatency(ms: number): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function checkLatencyAnomaly(currentMs: number): {
+        isAnomaly: boolean;
+        rollingAvg: number;
+      } { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/guest.ts">
+    <item priority="medium">
+      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function mapPrismaGuest(guest: {
+        id: string;
+        venueId: string;
+        email: string | null;
+        phone: string | null;
+        name: string;
+        notes: string | null;
+        visitCount: number;
+        lifetimeSpend: Prisma.Decimal | null;
+        lastVisit: Date | null;
+        tags: unknown;
+        createdAt: Date;
+        updatedAt: Date;
+      }): Guest { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/floor-plan.ts">
+    <item priority="medium">
+      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      type PrismaFloorPlan = {
+        id: string;
+        venueId: string;
+        name: string;
+        isAc...;
+    </item>
+  </file>
+  <file path="src/services/events.ts">
+    <item priority="low">
+      type ReservationEventType = "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:created" | "hold:released" | "hold:confirmed" | "table:updated";
+    </item>
+    <item priority="low">
+      interface ReservationEvent {
+        type: import("/Users/mbutler/github/mattbutlerengineering/servi...;
+        venueId: string;
+        timestamp: string;
+        data: any;
+      }
+    </item>
+  </file>
+  <file path="src/services/database.ts">
+    <item priority="high">
+      interface SlowQueryStats {
+        count5min: number;
+        slowestMs: number;
+        queries: { model: string; operation: string; duration: number; tim...;
+      }
+    </item>
+    <item priority="high">
+      export function getSlowQueryStats(): { count5min: number; slowestMs: number } { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/availability.ts">
+    <item priority="high">
+      interface VenueWithSettings {
+        id: string;
+        name: string;
+        slug: string;
+        ianaTimezone: string;
+        settings: any;
+      }
+    </item>
+    <item priority="high">
+      export function estimateDuration(
+        partySize: number,
+        venueSettings?: VenueSettings | null
+      ): number { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="schemas">
+  <file path="src/schemas/index.ts">
+    <item priority="high">
+      export const TableShapeMetadataSchema: any;
+    </item>
+    <item priority="high">
+      export const TableSchema: any;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="routes">
+  <file path="src/routes/venues.ts">
+    <item priority="high">
+      export const venueRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="src/routes/tables.ts">
+    <item priority="high">
+      export const tableRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="src/routes/reservations.ts">
+    <item priority="high">
+      export const reservationRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="src/routes/holds.ts">
+    <item priority="medium">
+      function getSessionId(request: FastifyRequest): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export const holdRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="src/routes/health.ts">
+    <item priority="high">
+      type HealthRouteHandler = RouteHandlerMethod<
+        RawServerDefault,
+        IncomingMessage...;
+    </item>
+    <item priority="high">
+      export const healthRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="src/routes/guests.ts">
+    <item priority="high">
+      export const guestRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="src/routes/floor-plans.ts">
+    <item priority="high">
+      export const floorPlanRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="src/routes/events.ts">
+    <item priority="high">
+      export async function eventRoutes(fastify: FastifyInstance): Promise<void> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/routes/availability.ts">
+    <item priority="high">
+      export const availabilityRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  </section>
+</codebase>

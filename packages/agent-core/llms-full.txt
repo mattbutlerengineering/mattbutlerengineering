@@ -1,0 +1,589 @@
+<codebase path="packages/agent-core">
+  <section priority="medium" role="src">
+  <file path="src/worktree-manager.ts">
+    function generateBranchName(taskDescription: string): string {
+      const slug = taskDescription
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "")
+        .slice(0, 40);
+      const suffix = randomBytes(3).toString("hex");
+      return `agent/${slug}-${suffix}`;
+    }
+    async function git(args: readonly string[], cwd: string): Promise<string> {
+      const { stdout } = await execFileAsync("git", [...args], { cwd });
+      return stdout.trim();
+    }
+  </file>
+  <file path="src/types.ts">
+    export type FailureCategory =
+      | "api_error"
+      | "rate_limited"
+      | "stuck_loop"
+      | "budget_exceeded"
+      | "tool_error"
+      | "logic_error";
+    export interface TurnMetrics {
+      /** 1-based turn index within the session */
+      readonly turnIndex: number;
+      /** ISO timestamp when this turn started */
+      readonly startedAt: string;
+      /** Input tokens consumed in this turn */
+      readonly inputTokens: number;
+      /** Output tokens produced in this turn */
+      readonly outputTokens: number;
+      /** Extended-thinking tokens (if applicable) */
+      readonly thinkingTokens: number;
+      /** Incremental cost in USD for this turn */
+      readonly costUsd: number;
+      /** Model ID that handled this turn */
+      readonly modelId: string;
+    }
+  </file>
+  <file path="src/tool-permissions.ts">
+    export function normalizeBashCommand(command: string): readonly string[] {
+      const variants: string[] = [command];
+    
+      // Collapse escaped newlines (line continuations)
+      const collapsed = command.replace(/\\\n/g, "");
+      if (collapsed !== command) {
+        variants.push(collapsed);
+      }
+    
+      // Split on unescaped newlines and semicolons to catch injection
+      const lines = command.split(/(?<!\\)[;\n]+/).map((l) => l.trim()).filter(Boolean);
+      if (lines.length > 1) {
+        for (const line of lines) {
+          variants.push(line);
+        }
+      }
+    
+      // Collapse excess whitespace in each variant
+      const withNormalizedSpace = variants.map((v) => v.replace(/\s+/g, " ").trim());
+      const allVariants = [...new Set([...variants, ...withNormalizedSpace])];
+    
+      return allVariants;
+    }
+    function isBashCommandBlocked(command: string): string | null {
+      const variants = normalizeBashCommand(command);
+    
+      for (const variant of variants) {
+        // Check structural encoding bypass patterns first
+        for (const pattern of ENCODING_BYPASS_PATTERNS) {
+          if (pattern.test(variant)) {
+            return `Blocked: command uses shell encoding bypass (${pattern.source})`;
+          }
+        }
+    
+        // Check standard blocked patterns
+        for (const pattern of BLOCKED_BASH_PATTERNS) {
+          if (pattern.test(variant)) {
+            return `Blocked: command matches dangerous pattern ${pattern.source}`;
+          }
+        }
+      }
+    
+      return null;
+    }
+  </file>
+  <file path="src/task-intelligence.ts">
+    function detectTaskContexts(taskDescription: string): string[] {
+      const contexts: string[] = [];
+      for (const [taskType, keywords] of Object.entries(TASK_KEYWORDS)) {
+        for (const keyword of keywords) {
+          if (keyword.test(taskDescription)) {
+            const contextFiles = TASK_CONTEXT_PATTERNS[taskType] ?? [];
+            for (const file of contextFiles) {
+              if (existsSync(file)) {
+                contexts.push(file);
+              }
+            }
+            break;
+          }
+        }
+      }
+      return contexts;
+    }
+    export function resolveSourceFiles(taskDescription: string): readonly string[] {
+      const files = new Set<string>();
+    
+      // Extract explicit file paths
+      for (const match of taskDescription.matchAll(FILE_PATH_PATTERN)) {
+        files.add(match[1]);
+      }
+    
+      // Extract directory references and add key files
+      for (const match of taskDescription.matchAll(DIRECTORY_PATTERN)) {
+        const dir = match[1];
+        // If a service or app directory is mentioned, add its CLAUDE.md
+        if (dir.startsWith("services/") || dir.startsWith("apps/")) {
+          files.add(`${dir}CLAUDE.md`);
+        }
+      }
+    
+      // For each source file, also include its test file
+      const withTests = new Set(files);
+      for (const file of files) {
+        if (!file.includes(".test.") && !file.includes(".spec.")) {
+          const testFile = file.replace(/\.(\w+)$/, ".test.$1");
+          withTests.add(testFile);
+        }
+      }
+    
+      // Add task-specific context bundles
+      const contexts = detectTaskContexts(taskDescription);
+      for (const ctx of contexts) {
+        withTests.add(ctx);
+      }
+    
+      return [...withTests];
+    }
+  </file>
+  <file path="src/task-decomposer.ts">
+    export interface OrchestratorConfig {
+      readonly taskDescription: string;
+      readonly apiBaseUrl: string;
+      readonly model: string;
+      readonly sessionModel: string;
+      readonly maxBudgetPerSession: number;
+      readonly maxTurnsPerSession: number;
+      readonly baseBranch: string;
+      readonly maxConcurrentSessions: number;
+      readonly parentSessionId?: string;
+    }
+    export const DEFAULT_ORCHESTRATOR_CONFIG: Omit<OrchestratorConfig, "taskDescription"> = {
+      apiBaseUrl: "http://localhost:3003",
+      model: "claude-sonnet-4-6",
+      sessionModel: "claude-sonnet-4-6",
+      maxBudgetPerSession: 1.0,
+      maxTurnsPerSession: 50,
+      baseBranch: "main",
+      maxConcurrentSessions: 3,
+    };
+  </file>
+  <file path="src/success-evaluator.ts">
+    export interface EvaluationResult {
+      readonly passed: boolean;
+      readonly confidence: number;
+      readonly reasoning: string;
+      readonly issues: readonly string[];
+    }
+    export interface EvaluationConfig {
+      readonly model: string;
+      readonly maxBudgetUsd: number;
+    }
+  </file>
+  <file path="src/stuck-detector.ts">
+    export type StuckPatternType =
+      | "repeated_action_observation"
+      | "repeated_error"
+      | "self_message_loop"
+      | "alternating_pairs"
+      | "context_window_loop"
+      | "context_window_warning"
+      | "zero_progress"
+      | "silent_failure_loop";
+    export type StuckSeverity = "warning" | "error";
+  </file>
+  <file path="src/session-runner.ts">
+    function emitEvent(
+      onEvent: SessionEventCallback | undefined,
+      type: SessionEvent["type"],
+      data: SessionEvent["data"]
+    ): void {
+      if (!onEvent) return;
+      onEvent({
+        type,
+        timestamp: new Date().toISOString(),
+        data,
+      });
+    }
+    function sanitizeForCommitMessage(text: string): string {
+      return text.replace(/[\n\r]/g, " ").slice(0, 72);
+    }
+  </file>
+  <file path="src/sanitize-output.ts">
+    export function escapeHtml(text: string): string {
+      if (text.length === 0) return text;
+    
+      return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#x27;");
+    }
+    export function sanitizeStreamChunk(chunk: string): string {
+      if (chunk.length === 0) return chunk;
+    
+      const trimmed = chunk.trim();
+    
+      // Non-JSON content: escape the whole thing
+      if (trimmed.length === 0 || trimmed[0] !== "{") {
+        return escapeHtml(chunk);
+      }
+    
+      // Attempt NDJSON parse
+      let parsed: Record<string, unknown>;
+      try {
+        parsed = JSON.parse(trimmed) as Record<string, unknown>;
+      } catch {
+        // Malformed JSON — fall back to full escaping
+        return escapeHtml(chunk);
+      }
+    
+      // Build a new object with sanitized text fields (immutable pattern)
+      let changed = false;
+      const sanitized: Record<string, unknown> = {};
+    
+      for (const key of Object.keys(parsed)) {
+        const value = parsed[key];
+        if (typeof value === "string" && TEXT_FIELDS.includes(key as (typeof TEXT_FIELDS)[number])) {
+          const escaped = escapeHtml(value);
+          sanitized[key] = escaped;
+          if (escaped !== value) changed = true;
+        } else {
+          sanitized[key] = value;
+        }
+      }
+    
+      // If nothing changed, return original to avoid unnecessary serialization churn
+      if (!changed) return chunk;
+    
+      return JSON.stringify(sanitized);
+    }
+  </file>
+  <file path="src/retry.ts">
+    export interface RetryConfig {
+      /** Maximum number of retry attempts (default: 3) */
+      readonly maxRetries: number;
+      /** Base delay in milliseconds before first retry (default: 1000) */
+      readonly baseDelayMs: number;
+      /** Maximum delay in milliseconds (default: 30000) */
+      readonly maxDelayMs: number;
+      /** Predicate to determine if an error is retryable (default: isTransientError) */
+      readonly isRetryable: (error: unknown) => boolean;
+    }
+    export interface RetryResult<T> {
+      readonly value: T;
+      readonly attempts: number;
+    }
+  </file>
+  <file path="src/prompt-builder.ts">
+    export interface SourceFileEntry {
+      readonly path: string;
+      readonly content: string;
+    }
+    export async function loadSourceFiles(
+      paths: readonly string[]
+    ): Promise<readonly SourceFileEntry[]> {
+      const entries: SourceFileEntry[] = [];
+      for (const filePath of paths) {
+        if (!existsSync(filePath)) {
+          entries.push({ path: filePath, content: "<!-- file not found, skipped -->" });
+          continue;
+        }
+        try {
+          const content = await readFile(filePath, "utf-8");
+          entries.push({ path: filePath, content });
+        } catch {
+          entries.push({ path: filePath, content: "<!-- read error, skipped -->" });
+        }
+      }
+      return entries;
+    }
+  </file>
+  <file path="src/pr-risk-classifier.ts">
+    export function isLowRiskPR(files: readonly string[]): boolean {
+      if (files.length === 0) {
+        return false;
+      }
+    
+      return files.every((file) => LOW_RISK_PATTERNS.some((matches) => matches(file)));
+    }
+  </file>
+  <file path="src/pr-feedback-poller.ts">
+    export interface ReviewComment {
+      readonly threadId: string;
+      readonly author: string;
+      readonly body: string;
+      readonly path: string | null;
+      readonly line: number | null;
+    }
+    export interface CIFailure {
+      readonly checkName: string;
+      readonly conclusion: string;
+      readonly logSnippet: string;
+    }
+  </file>
+  <file path="src/pr-creator.ts">
+    export async function createPullRequest(options: PrOptions): Promise<PrResult> {
+      const { title, body, baseBranch, branchName, repoPath, draft } = options;
+    
+      const args = [
+        "pr",
+        "create",
+        "--title",
+        title,
+        "--body",
+        body,
+        "--base",
+        baseBranch,
+        "--head",
+        branchName,
+        "--json",
+        "url,number",
+      ];
+    
+      if (draft) {
+        args.push("--draft");
+      }
+    
+      const { stdout } = await execFileAsync("gh", args, { cwd: repoPath });
+    
+      const parsed = GhPrResultSchema.parse(JSON.parse(stdout.trim()));
+      return { url: parsed.url, number: parsed.number };
+    }
+    export function buildPrTitle(taskDescription: string): string {
+      const prefix = "feat";
+      const description = taskDescription.length > 60
+        ? taskDescription.slice(0, 57) + "..."
+        : taskDescription;
+      return `${prefix}: ${description}`;
+    }
+  </file>
+  <file path="src/orchestrator.ts">
+    interface SessionApiResponse<T> {
+      readonly data: T;
+    }
+    interface SessionSummary {
+      readonly id: string;
+      readonly status: string;
+      readonly taskDescription: string;
+      readonly branchName: string | null;
+      readonly prUrl: string | null;
+      readonly costUsd: number | null;
+      readonly errors: readonly string[];
+    }
+  </file>
+  <file path="src/observability.ts">
+    export const observabilityTracer: Tracer = trace.getTracer("@mbe/agent-core");
+    export function categorizeFailure(
+      errors: readonly string[],
+      stuckPattern?: StuckPatternType
+    ): FailureCategory | undefined {
+      // Stuck-loop takes priority — it's always a stuck_loop failure
+      if (stuckPattern) {
+        return "stuck_loop";
+      }
+    
+      const combined = errors.join(" ").toLowerCase();
+    
+      for (const pattern of RATE_LIMIT_SIGNALS) {
+        if (pattern.test(combined)) return "rate_limited";
+      }
+    
+      for (const pattern of BUDGET_SIGNALS) {
+        if (pattern.test(combined)) return "budget_exceeded";
+      }
+    
+      for (const pattern of TOOL_ERROR_SIGNALS) {
+        if (pattern.test(combined)) return "tool_error";
+      }
+    
+      for (const pattern of API_ERROR_SIGNALS) {
+        if (pattern.test(combined)) return "api_error";
+      }
+    
+      // Evaluation / review failures → logic_error
+      if (combined.includes("evaluation failed") || combined.includes("security review")) {
+        return "logic_error";
+      }
+    
+      if (errors.length > 0) {
+        return "logic_error";
+      }
+    
+      return undefined;
+    }
+  </file>
+  <file path="src/model-router.ts">
+    export type ModelTier = "haiku" | "sonnet" | "opus";
+    export interface IssueInput {
+      readonly title: string;
+      readonly labels: string[];
+      readonly body: string;
+    }
+  </file>
+  <file path="src/intent-extractor.ts">
+    interface ContentBlock {
+      readonly type: string;
+      readonly input?: unknown;
+    }
+    interface AnthropicMessagesResponse {
+      readonly content: readonly ContentBlock[];
+    }
+  </file>
+  <file path="src/feedback-prompt-builder.ts">
+    export const CI_LOG_MAX_CHARS = 500;
+    export interface BuildReviewFixPromptOptions {
+      /** Override the maximum CI log characters (default: CI_LOG_MAX_CHARS). */
+      readonly ciLogMaxChars?: number;
+    }
+  </file>
+  <file path="src/feedback-loop.ts">
+    export interface FeedbackLoopParams {
+      readonly prNumber: number;
+      readonly branchName: string;
+      readonly repoPath: string;
+      readonly model: string;
+      readonly maxRetries: number;
+      readonly pollIntervalMs: number;
+      readonly pollTimeoutMs: number;
+      readonly maxBudgetUsd: number;
+      readonly allowedTools: readonly string[];
+    }
+    export interface FeedbackLoopResult {
+      readonly retriesUsed: number;
+      readonly resolved: boolean;
+      readonly lastFingerprint: string | null;
+    }
+  </file>
+  <file path="src/failure-memory.ts">
+    export interface FailureRecord {
+      readonly taskDescription: string;
+      readonly timestamp: string;
+      readonly stuckPattern?: string;
+      readonly errors: readonly string[];
+      readonly approach: string;
+    }
+    export interface FailureMemory {
+      readonly records: readonly FailureRecord[];
+    }
+  </file>
+  <file path="src/event-mapper.ts">
+    export interface ToolUseEvent {
+      readonly type: "session:tool_use";
+      readonly toolName: string;
+      readonly toolInput: Record<string, unknown>;
+      readonly toolUseId: string;
+    }
+    export interface ToolResultEvent {
+      readonly type: "session:tool_result";
+      readonly toolUseId: string;
+      readonly isError: boolean;
+    }
+  </file>
+  <file path="src/diff-static-analyzer.ts">
+    export interface Violation {
+      readonly rule: string;
+      readonly file: string;
+      readonly line: number;
+      readonly message: string;
+      readonly severity: "warning" | "error";
+    }
+    export interface StaticAnalysisResult {
+      readonly clean: boolean;
+      readonly violations: readonly Violation[];
+      readonly durationMs: number;
+    }
+  </file>
+  <file path="src/diff-reviewer.ts">
+    export interface ReviewResult {
+      readonly approved: boolean;
+      readonly issues: readonly string[];
+    }
+    export interface ReviewConfig {
+      readonly model: string;
+      readonly maxBudgetUsd: number;
+    }
+  </file>
+  <file path="src/deploy-verifier.ts">
+    export interface HealthCheck {
+      readonly name: string;
+      readonly url: string;
+      readonly type: "http_status" | "json_health";
+    }
+    export interface HealthCheckResult {
+      readonly name: string;
+      readonly url: string;
+      readonly passed: boolean;
+      readonly status: string;
+      readonly attempts: number;
+    }
+  </file>
+  <file path="src/dep-bump-merger.ts">
+    export interface TrivialDepBumpResult {
+      readonly isTrivial: boolean;
+      /** Reason the bump was deemed non-trivial (undefined when isTrivial=true). */
+      readonly reason?: string;
+    }
+    function extractChangedFiles(diff: string): readonly string[] {
+      const files: string[] = [];
+      for (const line of diff.split("\n")) {
+        if (!line.startsWith("diff --git ")) continue;
+        // e.g. "diff --git a/some/path/package.json b/some/path/package.json"
+        const match = line.match(/diff --git a\/.+ b\/(.+)$/);
+        if (match) {
+          files.push(match[1]);
+        }
+      }
+      return files;
+    }
+  </file>
+  <file path="src/cost-tracker.ts">
+    export function extractTokenUsage(result: SDKResultMessage): TokenUsage {
+      return {
+        inputTokens: result.usage.input_tokens ?? 0,
+        outputTokens: result.usage.output_tokens ?? 0,
+      };
+    }
+    export function extractCost(result: SDKResultMessage): number {
+      return result.total_cost_usd;
+    }
+  </file>
+  <file path="src/change-type-classifier.ts">
+    export type ChangeType =
+      | "dependency"
+      | "docs"
+      | "config"
+      | "test"
+      | "infrastructure"
+      | "frontend"
+      | "backend"
+      | "mixed";
+    export type SkippablePhase = "smoke-audit" | "deploy-verify" | "lighthouse" | "e2e";
+  </file>
+  <file path="src/bundle-size-tracker.ts">
+    export interface FileSize {
+      readonly path: string;
+      readonly bytes: number;
+    }
+    export interface BundleSizeEntry {
+      readonly app: string;
+      readonly totalBytes: number;
+      readonly files: readonly FileSize[];
+      readonly timestamp: string;
+    }
+  </file>
+  <file path="src/audit-inventory.ts">
+    export type Zone =
+      | "marketing"
+      | "hospitality"
+      | "rialto"
+      | "gen"
+      | "api:users"
+      | "api:reservations"
+      | "api:agent";
+    export const ZONES: readonly Zone[] = [
+      "marketing",
+      "hospitality",
+      "rialto",
+      "gen",
+      "api:users",
+      "api:reservations",
+      "api:agent",
+    ];
+  </file>
+  </section>
+</codebase>

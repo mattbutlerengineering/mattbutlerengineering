@@ -1,4 +1,5 @@
 <codebase path="packages/types">
+  <section priority="medium" role="src">
   <file path="src/venue.ts">
     export interface VenueGroup {
       id: string;
@@ -20,73 +21,6 @@
       createdAt: string;
       updatedAt: string;
     }
-    export interface OperatingHours {
-      monday?: DaySchedule;
-      tuesday?: DaySchedule;
-      wednesday?: DaySchedule;
-      thursday?: DaySchedule;
-      friday?: DaySchedule;
-      saturday?: DaySchedule;
-      sunday?: DaySchedule;
-    }
-    export interface DaySchedule {
-      open: string; // "09:00" 24-hour format
-      close: string; // "22:00"
-      closed?: boolean;
-    }
-    export interface PacingRule {
-      maxCoversPerSlot: number;
-      timeWindowMinutes?: number; // override slot interval
-    }
-    export interface DurationRule {
-      minPartySize: number;
-      maxPartySize: number;
-      durationMinutes: number;
-    }
-    export interface VenueSettings {
-      defaultReservationDuration?: number; // minutes
-      maxPartySize?: number;
-      minAdvanceBooking?: number; // hours
-      maxAdvanceBooking?: number; // days
-      requirePhone?: boolean;
-      requireEmail?: boolean;
-      confirmationEmailEnabled?: boolean;
-      reminderEmailEnabled?: boolean;
-      // Availability settings
-      slotIntervalMinutes?: number; // default 15
-      lastSeatingBuffer?: number; // minutes before close, default 90
-      holdDurationMinutes?: number; // default 10
-      pacingRules?: PacingRule[];
-      durationRules?: DurationRule[];
-    }
-    export interface CreateVenueGroupRequest {
-      name: string;
-      slug: string;
-      settings?: Record<string, unknown>;
-    }
-    export interface UpdateVenueGroupRequest {
-      name?: string;
-      slug?: string;
-      settings?: Record<string, unknown>;
-    }
-    export interface CreateVenueRequest {
-      venueGroupId?: string;
-      name: string;
-      slug: string;
-      ianaTimezone: string;
-      currencyCode?: string;
-      operatingHours?: OperatingHours;
-      settings?: VenueSettings;
-    }
-    export interface UpdateVenueRequest {
-      venueGroupId?: string | null;
-      name?: string;
-      slug?: string;
-      ianaTimezone?: string;
-      currencyCode?: string;
-      operatingHours?: OperatingHours | null;
-      settings?: VenueSettings | null;
-    }
   </file>
   <file path="src/user.ts">
     export interface UserPreferences {
@@ -103,25 +37,6 @@
       preferences: UserPreferences;
       createdAt: string;
       updatedAt: string;
-    }
-    export interface UserProfile {
-      id: string;
-      name: string | null;
-      picture: string | null;
-    }
-    export interface CreateUserRequest {
-      email: string;
-      name?: string;
-      picture?: string;
-    }
-    export interface UpdateUserRequest {
-      name?: string;
-      picture?: string;
-    }
-    export interface UpdatePreferencesRequest {
-      theme?: "light" | "dark" | "system";
-      emailNotifications?: boolean;
-      marketingEmails?: boolean;
     }
   </file>
   <file path="src/schema-compat.ts">
@@ -140,15 +55,6 @@
       required?: readonly string[];
       [key: string]: unknown;
     }
-    export interface SchemaChange {
-      type: "breaking" | "non-breaking";
-      message: string;
-    }
-    export function compareSchema(
-      schemaId: string,
-      baseline: JsonSchema | undefined,
-      current: JsonSchema | undefined
-    ): { breaking: string[]; nonBreaking: string[] } { /* implementation omitted */ }
   </file>
   <file path="src/reservation.ts">
     export type ReservationStatus =
@@ -158,104 +64,29 @@
       | "COMPLETED"
       | "NO_SHOW";
     export type TableStatus = "AVAILABLE" | "OCCUPIED" | "DIRTY" | "READY";
-    export interface Table {
-      id: string;
-      name: string;
-      tableNumber: string | null;
-      capacity: number;
-      minCovers: number;
-      maxCovers: number | null;
-      location: string | null;
-      isActive: boolean;
-      priority: number;
-      status: TableStatus;
-      venueId: string | null;
-      floorPlanId: string | null;
-      shapeMetadata: TableShapeMetadata | null;
-      createdAt: string;
-      updatedAt: string;
-    }
-    export interface Reservation {
-      id: string;
-      date: string;
-      startTime: string;
-      endTime: string;
-      partySize: number;
-      status: ReservationStatus;
-      notes: string | null;
-      cancellationReason: string | null;
-      cancellationNote: string | null;
-      guestName: string | null;
-      guestEmail: string | null;
-      guestPhone: string | null;
-      guestId: string | null;
-      userId: string | null;
-      tableId: string;
-      table?: Table;
-      venueId: string | null;
-      createdAt: string;
-      updatedAt: string;
-    }
-    export interface CreateReservationRequest {
-      date: string;
-      startTime: string;
-      endTime: string;
-      partySize: number;
-      tableId: string;
-      notes?: string;
-      guestName?: string;
-      guestEmail?: string;
-      guestPhone?: string;
-      guestId?: string;
-      venueId?: string;
-    }
-    export interface UpdateReservationRequest {
-      date?: string;
-      startTime?: string;
-      endTime?: string;
-      partySize?: number;
-      tableId?: string;
-      status?: ReservationStatus;
-      notes?: string;
-      cancellationReason?: string;
-      cancellationNote?: string;
-    }
-    export interface UpdateTableStatusRequest {
-      status: TableStatus;
-    }
-    export interface WalkInRequest {
-      partySize: number;
-      tableId: string;
-      venueId: string;
-      guestName?: string;
-      durationMinutes?: number;
-    }
-    export interface CreateTableRequest {
-      name: string;
-      tableNumber?: string;
-      capacity: number;
-      minCovers?: number;
-      maxCovers?: number;
-      location?: string;
-      priority?: number;
-      venueId?: string;
-      floorPlanId?: string;
-      shapeMetadata?: TableShapeMetadata;
-    }
-    export interface UpdateTableRequest {
-      name?: string;
-      tableNumber?: string;
-      capacity?: number;
-      minCovers?: number;
-      maxCovers?: number;
-      location?: string;
-      isActive?: boolean;
-      priority?: number;
-      floorPlanId?: string | null;
-      shapeMetadata?: TableShapeMetadata | null;
-    }
   </file>
-  <file path="src/index.ts">
+  <file path="src/json-schema.ts">
+    export interface SchemaMetadata {
+      /** Fastify `$id` for cross-schema `$ref` (e.g. "User", "Reservation"). */
+      readonly $id: string;
+      /** Top-level schema description for OpenAPI. */
+      readonly description?: string;
+      /** Per-property description and example overrides. */
+      readonly propertyMeta?: Readonly<
+        Record<string, { readonly description?: string; readonly example?: unknown }>
+      >;
+      /**
+       * Properties that should be replaced with a `$ref` to another
+       * registered Fastify schema (e.g. `{ preferences: "UserPreferences#" }`).
+       */
+      readonly refs?: Readonly<Record<string, string>>;
+      /**
+       * Properties that should use `oneOf` with a `$ref` and null type
+       * for nullable references (e.g. `{ shapeMetadata: "TableShapeMetadata#" }`).
+       */
+      readonly nullableRefs?: Readonly<Record<string, string>>;
+    }
+    type JsonSchemaObject = Record<string, unknown>;
   </file>
   <file path="src/guest.ts">
     export interface Guest {
@@ -282,27 +113,6 @@
       notes?: string;
       tags?: string[];
     }
-    export interface UpdateGuestRequest {
-      email?: string | null;
-      phone?: string | null;
-      name?: string;
-      notes?: string | null;
-      tags?: string[] | null;
-    }
-    export interface GuestSearchParams {
-      venueId: string;
-      query?: string; // Search name, email, or phone
-      tags?: string[]; // Filter by tags
-      hasNotVisitedInDays?: number; // For win-back segments
-      minVisitCount?: number;
-      maxVisitCount?: number;
-    }
-    export interface GuestSegment {
-      name: string;
-      description: string;
-      count: number;
-      guests?: Guest[];
-    }
   </file>
   <file path="src/floor-plan.ts">
     export interface FloorPlan {
@@ -322,33 +132,10 @@
       gridSize?: number;
       showGrid?: boolean;
     }
-    export interface TableShapeMetadata {
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-      rotation?: number;
-      shape: "rectangle" | "circle" | "square";
-      color?: string;
-    }
-    export interface CreateFloorPlanRequest {
-      venueId: string;
-      name: string;
-      isActive?: boolean;
-      layoutJson: FloorPlanLayout;
-    }
-    export interface UpdateFloorPlanRequest {
-      name?: string;
-      isActive?: boolean;
-      layoutJson?: FloorPlanLayout;
-    }
-    export interface UpdateTablePositionRequest {
-      tableId: string;
-      shapeMetadata: TableShapeMetadata;
-    }
-    export interface BulkUpdateTablePositionsRequest {
-      floorPlanId: string;
-      positions: UpdateTablePositionRequest[];
+  </file>
+  <file path="src/date.ts">
+    export function toDateString(date: Date): string {
+      return date.toISOString().substring(0, 10);
     }
   </file>
   <file path="src/availability.ts">
@@ -364,57 +151,6 @@
       minCovers: number;
       maxCovers: number | null;
     }
-    export interface DateAvailability {
-      date: string; // YYYY-MM-DD
-      hasAvailability: boolean;
-      slotCount?: number;
-    }
-    export interface AvailabilityQuery {
-      date: string; // YYYY-MM-DD
-      partySize: number;
-      duration?: number; // minutes, optional override
-    }
-    export interface DateRangeQuery {
-      startDate: string; // YYYY-MM-DD
-      endDate: string; // YYYY-MM-DD
-      partySize: number;
-    }
-    export interface ReservationHold {
-      id: string;
-      venueId: string;
-      tableId: string;
-      date: string; // YYYY-MM-DD
-      startTime: string; // ISO 8601 datetime
-      endTime: string; // ISO 8601 datetime
-      partySize: number;
-      sessionId: string;
-      expiresAt: string; // ISO 8601 datetime
-      createdAt: string;
-    }
-    export interface CreateHoldRequest {
-      venueId: string;
-      date: string; // YYYY-MM-DD
-      time: string; // ISO 8601 datetime
-      partySize: number;
-      tableId?: string; // optional, auto-assign if not provided
-    }
-    export interface ConfirmHoldRequest {
-      guestName?: string;
-      guestEmail?: string;
-      guestPhone?: string;
-      guestId?: string;
-      notes?: string;
-    }
-    export interface ConflictCheckResult {
-      hasConflict: boolean;
-      conflictingReservationId?: string;
-      conflictingHoldId?: string;
-    }
-    export interface PacingCheckResult {
-      withinLimit: boolean;
-      currentCovers: number;
-      maxCovers: number;
-    }
   </file>
   <file path="src/api.ts">
     export interface ApiResponse<T> {
@@ -424,106 +160,6 @@
     export interface ApiMeta {
       timestamp: string;
       requestId?: string;
-    }
-    export interface ApiError {
-      error: string;
-      message: string;
-      statusCode: number;
-      details?: Record<string, unknown>;
-      // RFC 7807 compatibility
-      type?: string;
-      title?: string;
-      status?: number;
-      detail?: string;
-      instance?: string;
-    }
-    export interface ProblemDetails {
-      type: string;
-      title: string;
-      status: number;
-      detail: string;
-      instance?: string;
-      [key: string]: unknown;
-    }
-    export function createProblemDetails(
-      status: number,
-      title: string,
-      detail: string,
-      type = "about:blank",
-      instance?: string,
-      extensions?: Record<string, unknown>
-    ): ProblemDetails & ApiError { /* implementation omitted */ }
-    export interface PaginatedResponse<T> extends ApiResponse<T[]> {
-      pagination: Pagination;
-    }
-    export interface Pagination {
-      page: number;
-      limit: number;
-      total: number;
-      totalPages: number;
-      hasNext: boolean;
-      hasPrev: boolean;
-    }
-    export interface HealthResponse {
-      status: "ok" | "degraded" | "error";
-      version: string;
-      timestamp: string;
-      service?: string;
-      checks?: Record<string, any>;
-      [key: string]: any;
-    }
-    export interface HealthCheck {
-      name: string;
-      status: "ok" | "error";
-      message?: string;
-      durationMs?: number;
-    }
-    export type SystemStatus = "healthy" | "degraded" | "unhealthy" | "unknown";
-    export interface SystemHealthResponse {
-      status: SystemStatus;
-      timestamp: string;
-      services: Record<string, SubsystemHealth>;
-      staticSites: Record<string, StaticSiteCheck>;
-      ci: CiHealth;
-      deploy: DeployHealth;
-    }
-    export interface SubsystemHealth {
-      status: SystemStatus;
-      version: string;
-      url: string;
-      checks: ServiceCheck[];
-      updated_at: string;
-    }
-    export interface ServiceCheck {
-      name: string;
-      status: SystemStatus;
-      message?: string;
-      updated_at: string;
-    }
-    export interface StaticSiteCheck {
-      status: SystemStatus;
-      url: string;
-      updated_at: string;
-    }
-    export interface CiHealth {
-      status: SystemStatus;
-      latest_runs: Record<string, CiRunInfo | null>;
-    }
-    export interface CiRunInfo {
-      id: number;
-      conclusion: string;
-      branch: string;
-      sha: string;
-      updated_at: string;
-    }
-    export interface DeployHealth {
-      status: SystemStatus;
-      pipelines: Record<string, DeployPipelineInfo | null>;
-    }
-    export interface DeployPipelineInfo {
-      conclusion: string;
-      sha: string;
-      updated_at: string;
     }
   </file>
   <file path="src/agent.ts">
@@ -557,47 +193,147 @@
       createdAt: string;
       updatedAt: string;
     }
-    export interface CreateAgentSessionRequest {
-      taskDescription: string;
-      model?: string;
-      maxTurns?: number;
-      maxBudgetUsd?: number;
-      baseBranch?: string;
-      createPr?: boolean;
-      parentId?: string;
-    }
-    export interface AgentSessionEvent {
-      id: string;
-      sessionId: string;
-      type: string;
-      data: Record<string, unknown>;
-      createdAt: string;
-    }
+  </file>
+  </section>
+  <section priority="medium" role="schemas">
+  <file path="src/schemas/venue.ts">
+    export const DayScheduleSchema = z.object({
+      open: z.string(),
+      close: z.string(),
+      closed: z.boolean().optional(),
+    });
+    export const OperatingHoursSchema = z.object({
+      monday: DayScheduleSchema.optional(),
+      tuesday: DayScheduleSchema.optional(),
+      wednesday: DayScheduleSchema.optional(),
+      thursday: DayScheduleSchema.optional(),
+      friday: DayScheduleSchema.optional(),
+      saturday: DayScheduleSchema.optional(),
+      sunday: DayScheduleSchema.optional(),
+    });
   </file>
   <file path="src/schemas/user.ts">
-    export const UserPreferencesSchema: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodObject<{ theme: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodOptional<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodEnum<{ light: "light"; dark: "dark"; system: "system"; }>>; emailNotifications: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodOptional<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodBoolean>; marketingEmails: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodOptional<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodBoolean>; }, import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/core/schemas").$strip>;
-    export const UserSchema: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodObject<{ id: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; email: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; name: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; picture: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; emailVerified: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodBoolean; preferences: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodObject<{ theme: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodOptional<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodEnum<{ light: "light"; dark: "dark"; system: "system"; }>>; emailNotifications: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodOptional<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodBoolean>; marketingEmails: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodOptional<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodBoolean>; }, import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/core/schemas").$strip>; createdAt: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; updatedAt: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; }, import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/core/schemas").$strip>;
-    export const UserProfileSchema: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodObject<{ id: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; name: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; picture: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; }, import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/core/schemas").$strip>;
+    export const UserPreferencesSchema = z.object({
+      theme: z.enum(["light", "dark", "system"]).optional(),
+      emailNotifications: z.boolean().optional(),
+      marketingEmails: z.boolean().optional(),
+    });
+    export const UserSchema = z.object({
+      id: z.string(),
+      email: z.string().email(),
+      name: z.string().nullable(),
+      picture: z.string().nullable(),
+      emailVerified: z.boolean(),
+      preferences: UserPreferencesSchema,
+      createdAt: z.string(),
+      updatedAt: z.string(),
+    });
   </file>
   <file path="src/schemas/reservation.ts">
-    export const ReservationStatusSchema: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodEnum<{ PENDING: "PENDING"; CONFIRMED: "CONFIRMED"; CANCELLED: "CANCELLED"; COMPLETED: "COMPLETED"; NO_SHOW: "NO_SHOW"; }>;
-    export const TableStatusSchema: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodEnum<{ AVAILABLE: "AVAILABLE"; OCCUPIED: "OCCUPIED"; DIRTY: "DIRTY"; READY: "READY"; }>;
-    export const TableSchema: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodObject<{ id: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; name: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; tableNumber: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; capacity: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber; minCovers: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber; maxCovers: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber>; location: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; isActive: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodBoolean; priority: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber; status: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodEnum<{ AVAILABLE: "AVAILABLE"; OCCUPIED: "OCCUPIED"; DIRTY: "DIRTY"; READY: "READY"; }>; venueId: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; floorPlanId: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; shapeMetadata: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodObject<{ x: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber; y: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber; width: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber; height: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber; rotation: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodOptional<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber>; shape: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodEnum<{ rectangle: "rectangle"; circle: "circle"; square: "square"; }>; color: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodOptional<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; }, import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/core/schemas").$strip>>; createdAt: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; updatedAt: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; }, import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/core/schemas").$strip>;
-    export const ReservationSchema: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodObject<{ id: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; date: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; startTime: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; endTime: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; partySize: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber; status: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodEnum<{ PENDING: "PENDING"; CONFIRMED: "CONFIRMED"; CANCELLED: "CANCELLED"; COMPLETED: "COMPLETED"; NO_SHOW: "NO_SHOW"; }>; notes: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; cancellationReason: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; cancellationNote: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; guestName: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; guestEmail: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; guestPhone: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; guestId: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; userId: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; tableId: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; table: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodOptional<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodObject<{ id: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; name: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; tableNumber: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; capacity: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber; minCovers: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber; maxCovers: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber>; location: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; isActive: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodBoolean; priority: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber; status: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodEnum<{ AVAILABLE: "AVAILABLE"; OCCUPIED: "OCCUPIED"; DIRTY: "DIRTY"; READY: "READY"; }>; venueId: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; floorPlanId: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; shapeMetadata: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodObject<{ x: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber; y: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber; width: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber; height: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber; rotation: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodOptional<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber>; shape: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodEnum<{ rectangle: "rectangle"; circle: "circle"; square: "square"; }>; color: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodOptional<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; }, import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/core/schemas").$strip>>; createdAt: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; updatedAt: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; }, import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/core/schemas").$strip>>; venueId: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; createdAt: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; updatedAt: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; }, import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/core/schemas").$strip>;
+    export const ReservationStatusSchema = z.enum([
+      "PENDING",
+      "CONFIRMED",
+      "CANCELLED",
+      "COMPLETED",
+      "NO_SHOW",
+    ]);
+    export const TableStatusSchema = z.enum(["AVAILABLE", "OCCUPIED", "DIRTY", "READY"]);
   </file>
-  <file path="src/schemas/index.ts">
+  <file path="src/schemas/guest.ts">
+    export const GuestSchema = z.object({
+      id: z.string(),
+      venueId: z.string(),
+      email: z.string().nullable(),
+      phone: z.string().nullable(),
+      name: z.string(),
+      notes: z.string().nullable(),
+      visitCount: z.number().int(),
+      lifetimeSpend: z.string().nullable(),
+      lastVisit: z.string().nullable(),
+      tags: z.array(z.string()).nullable(),
+      createdAt: z.string(),
+      updatedAt: z.string(),
+    });
+    export const GuestSegmentSchema = z.object({
+      name: z.string(),
+      description: z.string(),
+      count: z.number().int(),
+    });
   </file>
   <file path="src/schemas/floor-plan.ts">
-    export const TableShapeMetadataSchema: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodObject<{ x: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber; y: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber; width: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber; height: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber; rotation: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodOptional<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber>; shape: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodEnum<{ rectangle: "rectangle"; circle: "circle"; square: "square"; }>; color: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodOptional<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; }, import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/core/schemas").$strip>;
-    export const FloorPlanLayoutSchema: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodObject<{ width: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber; height: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber; backgroundImage: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodOptional<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; gridSize: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodOptional<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber>; showGrid: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodOptional<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodBoolean>; }, import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/core/schemas").$strip>;
-    export const FloorPlanSchema: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodObject<{ id: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; venueId: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; name: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; isActive: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodBoolean; layoutJson: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodObject<{ width: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber; height: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber; backgroundImage: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodOptional<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; gridSize: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodOptional<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber>; showGrid: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodOptional<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodBoolean>; }, import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/core/schemas").$strip>; createdAt: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; updatedAt: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; }, import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/core/schemas").$strip>;
+    export const TableShapeMetadataSchema = z.object({
+      x: z.number(),
+      y: z.number(),
+      width: z.number(),
+      height: z.number(),
+      rotation: z.number().optional(),
+      shape: z.enum(["rectangle", "circle", "square"]),
+      color: z.string().optional(),
+    });
+    export const FloorPlanLayoutSchema = z.object({
+      width: z.number(),
+      height: z.number(),
+      backgroundImage: z.string().optional(),
+      gridSize: z.number().optional(),
+      showGrid: z.boolean().optional(),
+    });
+  </file>
+  <file path="src/schemas/common.ts">
+    export const PaginationSchema = z.object({
+      page: z.number(),
+      limit: z.number(),
+      total: z.number(),
+      totalPages: z.number(),
+      hasNext: z.boolean(),
+      hasPrev: z.boolean(),
+    });
+    export const ErrorSchema = z.object({
+      error: z.string(),
+      message: z.string(),
+      statusCode: z.number(),
+    });
   </file>
   <file path="src/schemas/api.ts">
-    export const ProblemDetailsSchema: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodObject<{ type: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodUnion<[import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString, import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodLiteral<"about:blank">]>; title: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; status: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber; detail: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; instance: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodOptional<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; }, import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/core/schemas").$catchall<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodUnknown>>;
+    export const ProblemDetailsSchema = z.object({
+      type: z.string().url().or(z.literal("about:blank")),
+      title: z.string(),
+      status: z.number().int().min(100).max(599),
+      detail: z.string(),
+      instance: z.string().optional(),
+    }).catchall(z.unknown());
   </file>
   <file path="src/schemas/agent.ts">
-    export const AgentSessionStatusSchema: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodEnum<{ PENDING: "PENDING"; CANCELLED: "CANCELLED"; RUNNING: "RUNNING"; SUCCEEDED: "SUCCEEDED"; FAILED: "FAILED"; }>;
-    export const AgentSessionSchema: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodObject<{ id: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; status: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodEnum<{ PENDING: "PENDING"; CANCELLED: "CANCELLED"; RUNNING: "RUNNING"; SUCCEEDED: "SUCCEEDED"; FAILED: "FAILED"; }>; taskDescription: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; branchName: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; baseBranch: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; model: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; maxTurns: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber; maxBudgetUsd: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber; prUrl: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; prNumber: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber>; resultText: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; costUsd: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber>; inputTokens: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber>; outputTokens: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber>; numTurns: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber>; durationMs: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber>; parentId: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; errors: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodArray<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; startedAt: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; completedAt: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNullable<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; createdAt: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; updatedAt: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; }, import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/core/schemas").$strip>;
-    export const CreateAgentSessionRequestSchema: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodObject<{ taskDescription: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; model: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodOptional<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; maxTurns: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodOptional<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber>; maxBudgetUsd: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodOptional<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodNumber>; baseBranch: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodOptional<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; parentId: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodOptional<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; }, import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/core/schemas").$strip>;
+    export const AgentSessionStatusSchema = z.enum([
+      "PENDING",
+      "RUNNING",
+      "SUCCEEDED",
+      "FAILED",
+      "CANCELLED",
+    ]);
+    export const AgentSessionSchema = z.object({
+      id: z.string(),
+      status: AgentSessionStatusSchema,
+      taskDescription: z.string(),
+      branchName: z.string().nullable(),
+      baseBranch: z.string(),
+      model: z.string(),
+      maxTurns: z.number(),
+      maxBudgetUsd: z.number(),
+      prUrl: z.string().nullable(),
+      prNumber: z.number().nullable(),
+      resultText: z.string().nullable(),
+      costUsd: z.number().nullable(),
+      inputTokens: z.number().nullable(),
+      outputTokens: z.number().nullable(),
+      numTurns: z.number().nullable(),
+      durationMs: z.number().nullable(),
+      parentId: z.string().nullable(),
+      errors: z.array(z.string()),
+      startedAt: z.string().nullable(),
+      completedAt: z.string().nullable(),
+      createdAt: z.string(),
+      updatedAt: z.string(),
+    });
   </file>
+  </section>
 </codebase>
