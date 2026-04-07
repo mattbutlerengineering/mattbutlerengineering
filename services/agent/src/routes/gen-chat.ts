@@ -8,6 +8,7 @@ import { requireAuth } from "@mbe/auth/fastify";
 import { createProblemDetails } from "@mbe/types";
 // Import directly from catalog (not index) to avoid pulling in registry.tsx (browser-only)
 import { catalog } from "@mbe/rialto-catalog/catalog";
+import { createSanitizedStream } from "@mbe/agent-core";
 import { z } from "zod";
 
 // Memoize catalog prompt at module load — avoid re-generating per request
@@ -87,13 +88,14 @@ export const genChatRoutes: FastifyPluginAsync = async (fastify) => {
         },
       });
 
-      // GEN-07: SSE passthrough headers
-      reply.header("Content-Type", "application/x-ndjson");
+      // GEN-07: SSE passthrough headers — text/plain prevents browser HTML rendering
+      reply.header("Content-Type", "text/plain; charset=utf-8");
       reply.header("Cache-Control", "no-cache");
       reply.header("Connection", "keep-alive");
       reply.header("X-Accel-Buffering", "no");
 
-      return reply.send(result.textStream);
+      // Sanitize AI output to prevent XSS (OWASP LLM02)
+      return reply.send(createSanitizedStream(result.textStream));
     }
   );
 };
