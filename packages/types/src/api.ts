@@ -94,8 +94,8 @@ export interface HealthResponse {
   version: string;
   timestamp: string;
   service?: string;
-  checks?: Record<string, any>;
-  [key: string]: any;
+  checks?: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 /**
@@ -123,6 +123,7 @@ export interface SystemHealthResponse {
   staticSites: Record<string, StaticSiteCheck>;
   ci: CiHealth;
   deploy: DeployHealth;
+  migrations: MigrationHealth;
 }
 
 export interface SubsystemHealth {
@@ -167,5 +168,24 @@ export interface DeployHealth {
 export interface DeployPipelineInfo {
   conclusion: string;
   sha: string;
+  updated_at: string;
+}
+
+/**
+ * Per-service migration health
+ */
+export interface MigrationHealth {
+  status: SystemStatus;
+  checks: Record<string, MigrationServiceCheck>;
+}
+
+export interface MigrationServiceCheck {
+  status: "ok" | "error" | "stale" | "unknown";
+  last_run?: MigrationRunInfo | null;
+}
+
+export interface MigrationRunInfo {
+  conclusion: string;
+  service: string;
   updated_at: string;
 }

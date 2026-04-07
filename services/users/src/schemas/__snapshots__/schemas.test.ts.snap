@@ -3,21 +3,14 @@
 exports[`User service schemas > ErrorSchema matches snapshot 1`] = `
 {
   "$id": "Error",
-  "description": "Standard error response",
   "properties": {
     "error": {
-      "description": "Error type or category",
-      "example": "Not Found",
       "type": "string",
     },
     "message": {
-      "description": "Human-readable error message",
-      "example": "User not found",
       "type": "string",
     },
     "statusCode": {
-      "description": "HTTP status code",
-      "example": 404,
       "type": "number",
     },
   },
@@ -33,36 +26,23 @@ exports[`User service schemas > ErrorSchema matches snapshot 1`] = `
 exports[`User service schemas > PaginationSchema matches snapshot 1`] = `
 {
   "$id": "Pagination",
-  "description": "Pagination metadata for list responses",
   "properties": {
     "hasNext": {
-      "description": "Whether there is a next page",
-      "example": true,
       "type": "boolean",
     },
     "hasPrev": {
-      "description": "Whether there is a previous page",
-      "example": false,
       "type": "boolean",
     },
     "limit": {
-      "description": "Number of items per page",
-      "example": 10,
       "type": "number",
     },
     "page": {
-      "description": "Current page number (1-indexed)",
-      "example": 1,
       "type": "number",
     },
     "total": {
-      "description": "Total number of items across all pages",
-      "example": 42,
       "type": "number",
     },
     "totalPages": {
-      "description": "Total number of pages",
-      "example": 5,
       "type": "number",
     },
   },
@@ -81,26 +61,19 @@ exports[`User service schemas > PaginationSchema matches snapshot 1`] = `
 exports[`User service schemas > UserPreferencesSchema matches snapshot 1`] = `
 {
   "$id": "UserPreferences",
-  "description": "User preference settings for UI and notifications",
   "properties": {
     "emailNotifications": {
-      "description": "Whether to receive email notifications for account activity",
-      "example": true,
       "type": "boolean",
     },
     "marketingEmails": {
-      "description": "Whether to receive marketing and promotional emails",
-      "example": false,
       "type": "boolean",
     },
     "theme": {
-      "description": "UI theme preference",
       "enum": [
         "light",
         "dark",
         "system",
       ],
-      "example": "system",
       "type": "string",
     },
   },
@@ -111,58 +84,71 @@ exports[`User service schemas > UserPreferencesSchema matches snapshot 1`] = `
 exports[`User service schemas > UserSchema matches snapshot 1`] = `
 {
   "$id": "User",
-  "description": "A user account in the system",
   "properties": {
     "createdAt": {
-      "description": "Timestamp when the user was created",
-      "example": "2024-01-15T10:30:00.000Z",
-      "format": "date-time",
       "type": "string",
     },
     "email": {
-      "description": "User's email address",
-      "example": "user@example.com",
       "format": "email",
+      "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
       "type": "string",
     },
     "emailVerified": {
-      "description": "Whether the user's email has been verified",
-      "example": true,
       "type": "boolean",
     },
     "id": {
-      "description": "Unique identifier for the user",
-      "example": "clx1234567890abcdef",
       "type": "string",
     },
     "name": {
-      "description": "User's display name",
-      "example": "John Doe",
-      "nullable": true,
-      "type": "string",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
+      ],
     },
     "picture": {
-      "description": "URL to the user's profile picture",
-      "example": "https://example.com/avatars/user.jpg",
-      "format": "uri",
-      "nullable": true,
-      "type": "string",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
+      ],
     },
     "preferences": {
-      "$ref": "UserPreferences#",
-      "description": "User's preference settings",
+      "properties": {
+        "emailNotifications": {
+          "type": "boolean",
+        },
+        "marketingEmails": {
+          "type": "boolean",
+        },
+        "theme": {
+          "enum": [
+            "light",
+            "dark",
+            "system",
+          ],
+          "type": "string",
+        },
+      },
+      "type": "object",
     },
     "updatedAt": {
-      "description": "Timestamp when the user was last updated",
-      "example": "2024-01-20T14:45:00.000Z",
-      "format": "date-time",
       "type": "string",
     },
   },
   "required": [
     "id",
     "email",
+    "name",
+    "picture",
     "emailVerified",
+    "preferences",
     "createdAt",
     "updatedAt",
   ],

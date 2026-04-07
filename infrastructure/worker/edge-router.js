@@ -255,6 +255,9 @@ const KV_KEYS = {
   deployServices: "deploy/services",
   deployInfrastructure: "deploy/infrastructure",
   featureFlags: "flags/all",
+  migrateUsers: "migrate/users",
+  migrateReservations: "migrate/reservations",
+  migrateAgent: "migrate/agent",
 };
 
 /**
@@ -399,6 +402,36 @@ function deployStatus(pipelines, now) {
 }
 
 /**
+ * Determine per-service migration health from KV data.
+ * Each service writes its own status after its pre-deploy job completes.
+ * Format: { conclusion: "success"|"failure", updated_at: ISO string, service: string }
+ */
+function migrationStatus(services, now) {
+  const checks = {};
+  let errorCount = 0;
+  let staleCount = 0;
+  for (const [name, data] of Object.entries(services)) {
+    if (!data) {
+      checks[name] = { status: "unknown" };
+      staleCount++;
+    } else {
+      const age = now - new Date(data.updated_at).getTime();
+      if (age > STALENESS_THRESHOLD_MS) {
+        checks[name] = { status: "stale", last_run: data };
+        staleCount++;
+      } else if (data.conclusion !== "success") {
+        checks[name] = { status: "error", last_run: data };
+        errorCount++;
+      } else {
+        checks[name] = { status: "ok", last_run: data };
+      }
+    }
+  }
+  const status = errorCount > 0 ? "unhealthy" : staleCount > 0 ? "degraded" : "healthy";
+  return { status, checks };
+}
+
+/**
  * Compute the top-level system status from subsystem statuses.
  *
  * Policy (balanced):
@@ -474,12 +507,15 @@ async function handleHealthSystem(request, env, requestId) {
         return [bindingName.toLowerCase(), check];
       })
     ),
-    // KV reads (CI + deploy status)
+    // KV reads (CI + deploy + per-service migration status)
     Promise.all([
       readKvJson(env.HEALTH_STATE, KV_KEYS.ci),
       readKvJson(env.HEALTH_STATE, KV_KEYS.deployStatic),
       readKvJson(env.HEALTH_STATE, KV_KEYS.deployServices),
       readKvJson(env.HEALTH_STATE, KV_KEYS.deployInfrastructure),
+      readKvJson(env.HEALTH_STATE, KV_KEYS.migrateUsers),
+      readKvJson(env.HEALTH_STATE, KV_KEYS.migrateReservations),
+      readKvJson(env.HEALTH_STATE, KV_KEYS.migrateAgent),
     ]),
   ]);
 
@@ -492,6 +528,10 @@ async function handleHealthSystem(request, env, requestId) {
   const ci = ciStatus(kvResults[0], now);
   const deploys = deployStatus(
     { static: kvResults[1], services: kvResults[2], infrastructure: kvResults[3] },
+    now
+  );
+  const migrations = migrationStatus(
+    { users: kvResults[4], reservations: kvResults[5], agent: kvResults[6] },
     now
   );
 
@@ -508,7 +548,7 @@ async function handleHealthSystem(request, env, requestId) {
       status,
       timestamp,
       requestId,
-      subsystems: { services, static_sites: staticSites, ci, deploys },
+      subsystems: { services, static_sites: staticSites, ci, deploys, migrations },
     }),
     {
       status: 200,

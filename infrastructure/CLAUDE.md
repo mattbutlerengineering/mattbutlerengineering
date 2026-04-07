@@ -12,14 +12,18 @@ Pulumi (TypeScript) IaC + Cloudflare Worker edge router.
 
 ### DigitalOcean App Platform (`index.ts`)
 
-Single DO app (`mattbutlerengineering-api`) with 3 services + 1 pre-deploy migration job:
+Single DO app (`mattbutlerengineering-api`) with 3 services + 3 per-service pre-deploy migration jobs:
 
 | Component | Dockerfile | Port | Ingress Prefix |
 |-----------|-----------|------|----------------|
 | `users-api` | `services/users/Dockerfile` | 3001 | `/api/v1/users` |
 | `reservations-api` | `services/reservations/Dockerfile` | 3004 | `/api` (catch-all) |
 | `agent-api` | `services/agent/Dockerfile` | 3003 | `/api/gen`, `/v1/sessions`, `/v1/orchestrate`, `/v1/webhooks` |
-| `db-migrate` (job) | `infrastructure/migrate/Dockerfile` | — | PRE_DEPLOY |
+| `db-migrate-users` (job) | `infrastructure/migrate/Dockerfile` | — | PRE_DEPLOY |
+| `db-migrate-reservations` (job) | `infrastructure/migrate/Dockerfile` | — | PRE_DEPLOY |
+| `db-migrate-agent` (job) | `infrastructure/migrate/Dockerfile` | — | PRE_DEPLOY |
+
+Each migration job uses the same parameterized Dockerfile with `SERVICE_NAME` env var selecting which service's Prisma migrations to run. Failure in one service's migrations does not block other services.
 
 - **Ingress order matters**: More specific prefixes must come before catch-all `/api`
 - `deployOnPush: false` — CI triggers deploys via `doctl`
@@ -80,4 +84,4 @@ pulumi stack output  # Show exported values
 - The `api` DNS record is NOT proxied (Cloudflare proxy off) — DO needs to verify the domain and provision TLS
 - Adding a new static site Worker requires: create the Worker + add a Service Binding to the edge router + add routing logic to `edge-router.js`
 - Adding a new API service requires: add to `services` array in DO app spec + add ingress rule (order matters!)
-- The pre-deploy migration job runs ALL service migrations sequentially to avoid lock conflicts
+- Each service has its own pre-deploy migration job (`db-migrate-<service>`) — add a new entry to `MIGRATED_SERVICES` in `index.ts` when adding a service with Prisma migrations
