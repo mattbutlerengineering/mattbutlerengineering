@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./users": "./src/users.ts"
+    "./users": "./src/users.ts",
+    "./streaming": "./src/streaming.ts"
   },
   "scripts": {
     "lint": "eslint src/",

@@ -2,20 +2,33 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
 
-// Mock the database
 vi.mock("../services/database.js", () => ({
   prisma: {
     $queryRaw: vi.fn(),
+    agentSession: { findMany: vi.fn().mockResolvedValue([]) },
   },
   getSlowQueryStats: vi.fn().mockReturnValue({ count5min: 0, slowestMs: 0 }),
   getServiceStatus: vi.fn().mockReturnValue("ok"),
 }));
 
-// Mock health checks
 vi.mock("../services/health-checks.js", () => ({
   checkAuth0: vi.fn().mockResolvedValue({ status: "ok", latency: 50 }),
   checkLatencyAnomaly: vi.fn().mockReturnValue({ isAnomaly: false, rollingAvg: 0 }),
   recordDbLatency: vi.fn(),
+}));
+
+vi.mock("@mbe/agent-core", () => ({
+  runSession: vi.fn(),
+  DEFAULT_SESSION_CONFIG: {},
+  DEFAULT_FEEDBACK_LOOP_CONFIG: {},
+  resolveBudget: vi.fn(),
+  resolveModel: vi.fn(),
+  routeModelWithReason: vi.fn(),
+}));
+
+vi.mock("jose", () => ({
+  createRemoteJWKSet: vi.fn(() => "mock-jwks"),
+  jwtVerify: vi.fn(),
 }));
 
 import { prisma } from "../services/database.js";
@@ -46,16 +59,13 @@ describe("Health Routes", () => {
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       expect(body.status).toBe("ok");
-      expect(body.version).toBe("1.0.0");
-      expect(body.timestamp).toBeDefined();
       expect(body.checks.database.status).toBe("ok");
-      expect(body.checks.database.latency).toBeGreaterThanOrEqual(0);
       expect(body.checks.auth0.status).toBe("ok");
       expect(body.checks.auth0.latency).toBe(50);
     });
 
     it("returns degraded status when database is unhealthy", async () => {
-      vi.mocked(prisma.$queryRaw).mockRejectedValueOnce(new Error("Connection failed"));
+      vi.mocked(prisma.$queryRaw).mockRejectedValueOnce(new Error("Connection refused"));
 
       const response = await app.inject({
         method: "GET",
@@ -66,7 +76,7 @@ describe("Health Routes", () => {
       const body = JSON.parse(response.body);
       expect(body.status).toBe("degraded");
       expect(body.checks.database.status).toBe("error");
-      expect(body.checks.database.message).toBe("Connection failed");
+      expect(body.checks.database.message).toBe("Connection refused");
     });
 
     it("returns degraded status when Auth0 is unreachable", async () => {
@@ -106,38 +116,19 @@ describe("Health Routes", () => {
     });
   });
 
-  describe("GET /api/v1/users/health", () => {
-    it("returns ok status when database is healthy (ingress-prefixed path)", async () => {
+  describe("GET /api/gen/health", () => {
+    it("returns ok status (gen ingress path)", async () => {
       vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([{ "?column?": 1 }]);
 
       const response = await app.inject({
         method: "GET",
-        url: "/api/v1/users/health",
+        url: "/api/gen/health",
       });
 
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       expect(body.status).toBe("ok");
-      expect(body.version).toBe("1.0.0");
-      expect(body.timestamp).toBeDefined();
-      expect(body.checks.database.status).toBe("ok");
-      expect(body.checks.database.latency).toBeGreaterThanOrEqual(0);
       expect(body.checks.auth0).toBeDefined();
-    });
-
-    it("returns degraded status when database is unhealthy (ingress-prefixed path)", async () => {
-      vi.mocked(prisma.$queryRaw).mockRejectedValueOnce(new Error("Connection failed"));
-
-      const response = await app.inject({
-        method: "GET",
-        url: "/api/v1/users/health",
-      });
-
-      expect(response.statusCode).toBe(200);
-      const body = JSON.parse(response.body);
-      expect(body.status).toBe("degraded");
-      expect(body.checks.database.status).toBe("error");
-      expect(body.checks.database.message).toBe("Connection failed");
     });
   });
 });

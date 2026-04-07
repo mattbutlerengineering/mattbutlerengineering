@@ -8,6 +8,7 @@ export { TablesClient, type ListTablesParams } from "./tables.js";
 export { GuestsClient, type ListGuestsParams, type SearchGuestsParams, type FindOrCreateGuestRequest } from "./guests.js";
 export { FloorPlansClient, type ListFloorPlansParams } from "./floor-plans.js";
 export { AvailabilityClient, HoldsClient, type GetTimeSlotsParams, type GetDatesParams } from "./availability.js";
+export { streamNDJSON, type StreamConfig } from "./streaming.js";
 
 import { ApiClient } from "./client.js";
 import { UsersClient } from "./users.js";
