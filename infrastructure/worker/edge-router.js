@@ -562,6 +562,83 @@ async function handleHealthSystem(request, env, requestId) {
 }
 
 /**
+ * Handle GET /health/uptime — compute uptime percentages from daily snapshots.
+ *
+ * Reads the last 30 days of uptime/ keys from KV, computes overall and
+ * per-subsystem uptime as (healthy / total) * 100.
+ */
+async function handleHealthUptime(env) {
+  const days = 30;
+  const keys = [];
+  const today = new Date();
+
+  for (let i = 0; i < days; i++) {
+    const d = new Date(today);
+    d.setUTCDate(d.getUTCDate() - i);
+    keys.push(`uptime/${d.toISOString().slice(0, 10)}`);
+  }
+
+  const snapshots = await Promise.all(
+    keys.map(async (key) => {
+      const raw = await env.HEALTH_STATE.get(key, "json");
+      return raw;
+    })
+  );
+
+  const valid = snapshots.filter(Boolean);
+  const totalDays = valid.length;
+
+  if (totalDays === 0) {
+    return new Response(
+      JSON.stringify({
+        uptime: null,
+        message: "No snapshots available yet. Snapshots are recorded daily.",
+        daysTracked: 0,
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  // Count healthy days per subsystem
+  const subsystemCounts = {};
+  let overallHealthy = 0;
+
+  for (const entry of valid) {
+    const snap = entry.snapshot ?? entry;
+    if (snap.status === "healthy") overallHealthy++;
+
+    // Count per-service health
+    if (snap.services) {
+      for (const [name, svc] of Object.entries(snap.services)) {
+        if (!subsystemCounts[name]) subsystemCounts[name] = { healthy: 0, total: 0 };
+        subsystemCounts[name].total++;
+        if (svc.status === "healthy" || svc.status === "ok") subsystemCounts[name].healthy++;
+      }
+    }
+  }
+
+  const subsystems = {};
+  for (const [name, counts] of Object.entries(subsystemCounts)) {
+    subsystems[name] = {
+      uptimePercent: parseFloat(((counts.healthy / counts.total) * 100).toFixed(2)),
+      healthyDays: counts.healthy,
+      totalDays: counts.total,
+    };
+  }
+
+  return new Response(
+    JSON.stringify({
+      uptimePercent: parseFloat(((overallHealthy / totalDays) * 100).toFixed(2)),
+      healthyDays: overallHealthy,
+      totalDays,
+      periodDays: days,
+      subsystems,
+    }),
+    { status: 200, headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=300" } }
+  );
+}
+
+/**
  * Handle feature flags admin API.
  * GET /api/flags - list all flags
  * PUT /api/flags/<name> - create/update a flag
@@ -652,6 +729,10 @@ export default {
     // ── Health aggregation endpoint ───────────────────────────────────
     if (url.pathname === "/health/system") {
       return handleHealthSystem(request, env, requestId);
+    }
+
+    if (url.pathname === "/health/uptime") {
+      return handleHealthUptime(env);
     }
 
     // ── Feature flags admin API ─────────────────────────────────────
