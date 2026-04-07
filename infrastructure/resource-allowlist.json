@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Resources intentionally not managed by IaC. Add entries here to suppress audit warnings.",
+  "workers": [],
+  "digitalocean_apps": [],
+  "dns_records": [
+    {
+      "name": "_dmarc",
+      "type": "TXT",
+      "reason": "Email DMARC policy — manually managed"
+    }
+  ]
+}
