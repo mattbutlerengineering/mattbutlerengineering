@@ -40,6 +40,33 @@ jobs:
             echo "All systems healthy."
           fi
 
+      - name: Record latency samples to KV
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
+          KV_NS_ID: ${{ secrets.HEALTH_KV_NAMESPACE_ID }}
+          HEALTH_RESPONSE: ${{ steps.health.outputs.response }}
+        run: |
+          HOUR_KEY=$(date -u +%Y-%m-%d-%H)
+
+          # Extract per-service latencies from the health response
+          LATENCIES=$(echo "$HEALTH_RESPONSE" | jq -c '{
+            timestamp: now | todate,
+            services: (
+              [.services // {} | to_entries[] | {key: .key, value: {latency: (.value.latency // .value.checks[0].latency // null), status: .value.status}}]
+              | from_entries
+            )
+          }' 2>/dev/null || echo '{}')
+
+          if [ "$LATENCIES" != "{}" ]; then
+            curl -sf -X PUT \
+              "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/values/latency%2F${HOUR_KEY}" \
+              -H "Authorization: Bearer ${CF_API_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "$LATENCIES"
+            echo "Recorded latency sample for $HOUR_KEY"
+          fi
+
       - name: Notify webhook on status change
         if: vars.HEALTH_WEBHOOK_URL != ''
         env:
