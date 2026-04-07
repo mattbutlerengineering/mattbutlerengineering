@@ -1,18 +1,17 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
-import { Breadcrumb, CommandPalette, ErrorBoundary, GenCopilot, Kbd, useToast } from "@mbe/rialto";
+import { Breadcrumb, CommandPalette, ErrorBoundary, GenCopilot, Kbd } from "@mbe/rialto";
 import type { BreadcrumbItem } from "@mbe/rialto";
 import { registry } from "@mbe/rialto-catalog";
-import type { Reservation } from "@mbe/types";
 import { HOSPITALITY_DOMAIN_CONTEXT } from "../constants/copilotContext.js";
 import { useCommandPalette } from "../hooks/use-command-palette.js";
-import { useReservationEvents } from "../hooks/useReservationEvents.js";
 import { useTheme, resolveTheme } from "../hooks/use-theme.js";
 import { useVenueReadiness } from "../hooks/useVenueReadiness.js";
 import { buildNavSections } from "../nav-sections.js";
 import type { NavItem } from "../nav-sections.js";
 import { VenueProvider } from "../contexts/VenueContext.js";
+import { ReservationDataProvider } from "../contexts/ReservationDataContext.js";
 import { DashboardSidebar } from "./DashboardSidebar.js";
 import { VenueSwitcher } from "./VenueSwitcher.js";
 import styles from "./DashboardLayout.module.css";
@@ -47,7 +46,6 @@ function DashboardLayoutInner() {
   const { theme, setTheme } = useTheme();
   const readiness = useVenueReadiness();
 
-  const { toast } = useToast();
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -80,33 +78,6 @@ function DashboardLayoutInner() {
       }
     }
   }, [readiness.status, location.pathname, navigate]);
-
-  // SSE toast notifications for real-time reservation events
-  useReservationEvents({
-    enabled: true,
-    onReservationCreated: useCallback(
-      (reservation: Reservation) => {
-        toast({
-          title: "New reservation",
-          description: `${reservation.guestName ?? "Guest"} — ${new Date(reservation.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
-          variant: "accent",
-          duration: 5000,
-        });
-      },
-      [toast]
-    ),
-    onReservationCancelled: useCallback(
-      (reservation: Reservation) => {
-        toast({
-          title: "Reservation cancelled",
-          description: `${reservation.guestName ?? "Guest"}'s reservation was cancelled`,
-          variant: "error",
-          duration: 5000,
-        });
-      },
-      [toast]
-    ),
-  });
 
   // Toggle theme between light and dark
   const toggleTheme = useCallback(() => {
@@ -340,7 +311,9 @@ function DashboardLayoutInner() {
 export function DashboardLayout() {
   return (
     <VenueProvider>
-      <DashboardLayoutInner />
+      <ReservationDataProvider>
+        <DashboardLayoutInner />
+      </ReservationDataProvider>
     </VenueProvider>
   );
 }

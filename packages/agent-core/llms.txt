@@ -53,6 +53,39 @@
     export async function runVerification(worktreePath: string): Promise<VerificationResult> { /* implementation omitted */ }
   </file>
   <file path="src/types.ts">
+    export type FailureCategory =
+      | "api_error"
+      | "rate_limited"
+      | "stuck_loop"
+      | "budget_exceeded"
+      | "tool_error"
+      | "logic_error";
+    export interface TurnMetrics {
+      /** 1-based turn index within the session */
+      readonly turnIndex: number;
+      /** ISO timestamp when this turn started */
+      readonly startedAt: string;
+      /** Input tokens consumed in this turn */
+      readonly inputTokens: number;
+      /** Output tokens produced in this turn */
+      readonly outputTokens: number;
+      /** Extended-thinking tokens (if applicable) */
+      readonly thinkingTokens: number;
+      /** Incremental cost in USD for this turn */
+      readonly costUsd: number;
+      /** Model ID that handled this turn */
+      readonly modelId: string;
+    }
+    export interface ToolCallMetrics {
+      /** Tool name (e.g. "Read", "Bash") */
+      readonly toolName: string;
+      /** Unique tool-use ID from the SDK */
+      readonly toolUseId: string;
+      /** Wall-clock latency in milliseconds */
+      readonly latencyMs: number;
+      /** Whether the tool call resulted in an error */
+      readonly isError: boolean;
+    }
     export interface FeedbackLoopConfig {
       readonly enabled: boolean;
       readonly maxRetries: number;
@@ -117,6 +150,9 @@
       readonly resultText: string;
       readonly errors: readonly string[];
       readonly stuckPattern?: string;
+      readonly failureCategory?: FailureCategory;
+      readonly turnMetrics?: readonly TurnMetrics[];
+      readonly toolCallMetrics?: readonly ToolCallMetrics[];
       readonly evaluation?: {
         readonly passed: boolean;
         readonly confidence: number;
@@ -134,7 +170,9 @@
       | "session:evaluation"
       | "session:verification"
       | "session:review"
-      | "session:tool_result";
+      | "session:tool_result"
+      | "session:turn_metrics"
+      | "session:tool_latency";
     export interface SessionEvent {
       readonly type: SessionEventType;
       readonly timestamp: string;
@@ -504,6 +542,45 @@
       onEvent?: (event: { type: string; message: string }) => void
     ): Promise<OrchestratorResult> { /* implementation omitted */ }
   </file>
+  <file path="src/observability.ts">
+    export const observabilityTracer: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-368/node_modules/.pnpm/@opentelemetry+api@1.9.1/node_modules/@opentelemetry/api/build/src/trace/tracer").Tracer;
+    export function categorizeFailure(
+      errors: readonly string[],
+      stuckPattern?: StuckPatternType
+    ): FailureCategory | undefined { /* implementation omitted */ }
+    export function withModelSelectionSpan<T extends { tier: string; modelId: string; reason: string }>(
+      fn: () => T
+    ): T { /* implementation omitted */ }
+    export async function withToolPermissionSpan<T extends { behavior: string }>(
+      toolName: string,
+      fn: () => Promise<T>
+    ): Promise<T> { /* implementation omitted */ }
+    export function withStuckDetectionSpan<T extends { type: string; description: string } | null>(
+      fn: () => T
+    ): T { /* implementation omitted */ }
+    export async function withSuccessEvaluationSpan<T extends { passed: boolean; confidence: number }>(
+      fn: () => Promise<T>
+    ): Promise<T> { /* implementation omitted */ }
+    export function buildTurnMetricsList(
+      rawTurns: ReadonlyArray<{
+        turnIndex: number;
+        startedAt: string;
+        inputTokens: number;
+        outputTokens: number;
+        thinkingTokens: number;
+        costUsd: number;
+        modelId: string;
+      }>
+    ): readonly TurnMetrics[] { /* implementation omitted */ }
+    export function buildToolCallMetricsList(
+      rawCalls: ReadonlyArray<{
+        toolName: string;
+        toolUseId: string;
+        latencyMs: number;
+        isError: boolean;
+      }>
+    ): readonly ToolCallMetrics[] { /* implementation omitted */ }
+  </file>
   <file path="src/model-router.ts">
     export type ModelTier = "haiku" | "sonnet" | "opus";
     export interface IssueInput {
@@ -537,7 +614,7 @@
     interface AnthropicSDKModule {
       default: new () => AnthropicClient;
     }
-    export const IssueIntentSchema: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodObject<{ summary: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; acceptanceCriteria: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodArray<import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; affectedFiles: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodOptional<import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodArray<import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>>; estimatedScope: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodEnum<{ trivial: "trivial"; small: "small"; medium: "medium"; large: "large"; }>; taskDescription: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; }, import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/core/schemas").$strip>;
+    export const IssueIntentSchema: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-368/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodObject<{ summary: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-368/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; acceptanceCriteria: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-368/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodArray<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-368/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; affectedFiles: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-368/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodOptional<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-368/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodArray<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-368/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>>; estimatedScope: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-368/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodEnum<{ trivial: "trivial"; small: "small"; medium: "medium"; large: "large"; }>; taskDescription: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-368/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; }, import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-368/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/core/schemas").$strip>;
     export type IssueIntent = z.infer<typeof IssueIntentSchema>;
     export async function extractIssueIntent(
       issueTitle: string,
@@ -625,7 +702,20 @@
       readonly type: "session:assistant";
       readonly text: string;
     }
-    export type MappedEvent = ToolUseEvent | ToolResultEvent | AssistantTextEvent;
+    export interface TurnMetricsEvent {
+      readonly type: "session:turn_metrics";
+      readonly turnIndex: number;
+      readonly inputTokens: number;
+      readonly outputTokens: number;
+      readonly thinkingTokens: number;
+      readonly costUsd: number;
+      readonly modelId: string;
+    }
+    export type MappedEvent =
+      | ToolUseEvent
+      | ToolResultEvent
+      | AssistantTextEvent
+      | TurnMetricsEvent;
     interface ToolUseBlock {
       readonly type: "tool_use";
       readonly id: string;
@@ -642,14 +732,27 @@
       readonly is_error?: boolean;
     }
     type ContentBlock = ToolUseBlock | TextBlock | ToolResultBlock | { type: string };
+    interface MessageUsage {
+      readonly input_tokens?: number | null;
+      readonly output_tokens?: number | null;
+      readonly cache_creation_input_tokens?: number | null;
+      readonly cache_read_input_tokens?: number | null;
+    }
+    interface AssistantInnerMessage {
+      readonly content: readonly ContentBlock[];
+      readonly model?: string;
+      readonly usage?: MessageUsage;
+    }
     function mapAssistantMessage(
-      content: readonly ContentBlock[]
+      innerMessage: AssistantInnerMessage,
+      turnIndex: number
     ): readonly MappedEvent[] { /* implementation omitted */ }
     function mapUserMessage(
       content: unknown
     ): readonly MappedEvent[] { /* implementation omitted */ }
     export function mapSdkMessage(
-      message: SDKMessage
+      message: SDKMessage,
+      turnIndex = 0
     ): readonly MappedEvent[] { /* implementation omitted */ }
   </file>
   <file path="src/diff-static-analyzer.ts">
@@ -672,7 +775,7 @@
       readonly severity: "warning" | "error";
       readonly fileGlob?: string;
     }
-    export const ANALYSIS_RULES: readonly import("/Users/mbutler/github/mattbutlerengineering/packages/agent-core/src/diff-static-analyzer").AnalysisRule[];
+    export const ANALYSIS_RULES: readonly import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-368/packages/agent-core/src/diff-static-analyzer").AnalysisRule[];
     function matchesFileGlob(filePath: string, glob: string | undefined): boolean { /* implementation omitted */ }
     function parseHunkHeader(line: string): number | null { /* implementation omitted */ }
     export function analyzeDiff(diff: string): StaticAnalysisResult { /* implementation omitted */ }

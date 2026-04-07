@@ -55,6 +55,12 @@ import {
   buildTurnMetricsList,
   buildToolCallMetricsList,
 } from "./observability.js";
+import {
+  startActiveObservation,
+  startObservation,
+  propagateAttributes,
+  updateActiveObservation,
+} from "@langfuse/tracing";
 
 // OTel API is a noop when no SDK is registered (e.g., in tests or local CLI).
 const tracer = trace.getTracer("@mbe/agent-core");
@@ -108,6 +114,16 @@ export async function runSession(
   config: SessionConfig,
   onEvent?: SessionEventCallback
 ): Promise<SessionResult> {
+  return startActiveObservation("agent-session", async (_lfTrace: unknown): Promise<SessionResult> => {
+    return propagateAttributes(
+      {
+        metadata: {
+          task: config.taskDescription,
+          model: config.model,
+          maxBudgetUsd: String(config.maxBudgetUsd),
+        },
+      },
+      async (): Promise<SessionResult> => {
   const rootSpan = tracer.startSpan("agent_core.run_session", {
     attributes: {
       "session.task": config.taskDescription.slice(0, 200),
@@ -215,6 +231,7 @@ export async function runSession(
           attributes: { "sdk.model": config.model },
         });
 
+
         let compactionCount = 0;
 
         // Per-turn and tool-call metrics accumulators
@@ -245,6 +262,27 @@ export async function runSession(
             // Increment turn counter for assistant messages
             if (message.type === "assistant") {
               turnIndex++;
+            }
+
+            // Track assistant messages as Langfuse generation observations
+            if (message.type === "assistant" && "message" in message) {
+              const msg = message.message as {
+                role: string;
+                content: unknown;
+                usage?: { input_tokens?: number; output_tokens?: number };
+              };
+              const gen = startObservation(
+                `llm-turn-${turnIndex}`,
+                { model: config.model, input: msg.content },
+                { asType: "generation" }
+              );
+              gen.update({
+                output: msg.content,
+                usageDetails: {
+                  input: msg.usage?.input_tokens ?? 0,
+                  output: msg.usage?.output_tokens ?? 0,
+                },
+              }).end();
             }
 
             // Emit typed events for observability (pass current turn index)
@@ -702,6 +740,20 @@ export async function runSession(
             message: `Session completed: ${finalResult.status}`,
           });
 
+          // Attach session metrics to the Langfuse trace as metadata
+          updateActiveObservation({
+            metadata: {
+              success: String(finalResult.status === "succeeded" ? 1 : 0),
+              cost_usd: String(finalResult.costUsd),
+              num_turns: String(finalResult.numTurns),
+              stuck: String(stuckReason ? 1 : 0),
+              ...(evalSummary ? {
+                evaluation_confidence: String(evalSummary.confidence),
+                evaluation_reasoning: evalSummary.reasoning,
+              } : {}),
+            },
+          });
+
           return finalResult;
         }
 
@@ -793,4 +845,7 @@ export async function runSession(
         rootSpan.end();
       }
   }
+      },
+    );
+  });
 }
