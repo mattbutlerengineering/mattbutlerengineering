@@ -20,7 +20,7 @@
   "devDependencies": {
     "@mbe/config": "workspace:*",
     "@types/node": "catalog:",
-    "@types/pg": "^8.10.0",
+    "@types/pg": "^8.20.0",
     "tsx": "^4.19.0",
     "typescript": "catalog:"
   }
