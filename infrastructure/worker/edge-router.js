@@ -11,6 +11,14 @@
  * Static site Workers are called via Service Bindings (env.BINDING.fetch()),
  * which bypass the CDN entirely — eliminating stale HTML after deploys.
  */
+import {
+  getCircuitState,
+  saveCircuitState,
+  shouldAllowRequest,
+  recordSuccess,
+  recordFailure,
+} from "./circuit-breaker.js";
+import { checkRateLimit, rateLimitResponse } from "./rate-limiter.js";
 /**
  * Build security headers with a per-request nonce for CSP script-src.
  * The nonce replaces 'unsafe-inline', preventing injected scripts from
@@ -523,8 +531,16 @@ async function handleFeatureFlags(request, env, url) {
   const flagName = url.pathname.replace("/api/flags/", "");
   const authHeader = request.headers.get("Authorization");
   
-  // Simple auth check (in production, validate against API key)
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  // Validate actual token value against configured secret
+  const token = authHeader.slice(7);
+  if (!env.ADMIN_TOKEN || token !== env.ADMIN_TOKEN) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },
@@ -586,6 +602,13 @@ export default {
     // Generate a per-request nonce for CSP script-src
     const nonce = generateNonce();
 
+    // ── Rate limiting ────────────────────────────────────────────────
+    const clientIp = request.headers.get("CF-Connecting-IP") ?? "unknown";
+    const rateCheck = await checkRateLimit(env.HEALTH_STATE, url.pathname, clientIp, Date.now());
+    if (!rateCheck.allowed) {
+      return rateLimitResponse();
+    }
+
     // ── Health aggregation endpoint ───────────────────────────────────
     if (url.pathname === "/health/system") {
       return handleHealthSystem(request, env, requestId);
@@ -624,6 +647,19 @@ export default {
 
     // ── API routes → HTTP subrequest to DO App Platform ──────────────
     if (url.pathname.startsWith("/api/") || url.pathname === "/api") {
+      // Circuit breaker: check if API proxy is healthy
+      const circuitState = await getCircuitState(env.HEALTH_STATE);
+      const nowMs = Date.now();
+      const { allowed, updatedState } = shouldAllowRequest(circuitState, nowMs);
+
+      if (updatedState) {
+        await saveCircuitState(env.HEALTH_STATE, updatedState);
+      }
+
+      if (!allowed) {
+        return brandedErrorPage(503, "Service temporarily unavailable", requestId, nonce);
+      }
+
       const target = new URL(url.pathname + url.search, env.API_ORIGIN);
       const headers = new Headers(request.headers);
       headers.set("Host", target.host);
@@ -650,12 +686,23 @@ export default {
         );
       } catch (error) {
         console.error("API proxy error:", error.message);
+        const newState = recordFailure(updatedState ?? circuitState, Date.now());
+        await saveCircuitState(env.HEALTH_STATE, newState);
         return brandedErrorPage(503, "Service unreachable", requestId, nonce);
       }
 
-      // If API returns 5xx, show branded error
+      // If API returns 5xx, record failure for circuit breaker
       if (apiResponse.status >= 500) {
+        const newState = recordFailure(updatedState ?? circuitState, Date.now());
+        await saveCircuitState(env.HEALTH_STATE, newState);
         return brandedErrorPage(apiResponse.status, "Service error", requestId, nonce);
+      }
+
+      // Success — record for circuit breaker recovery
+      const currentState = updatedState ?? circuitState;
+      if (currentState.state !== "closed" || currentState.failures > 0) {
+        const newState = recordSuccess(currentState);
+        await saveCircuitState(env.HEALTH_STATE, newState);
       }
 
       // Pass through the response (including 4xx which should show app error pages)
