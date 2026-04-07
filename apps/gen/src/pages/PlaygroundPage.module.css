@@ -134,3 +134,15 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Reduced motion ──────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .backdrop {
+    animation: none;
+  }
+
+  .overlayStart,
+  .overlayEnd {
+    animation: none;
+  }
+}

@@ -53,6 +53,13 @@
   color: var(--rialto-text-tertiary);
 }
 
+/* ── Reduced motion ──────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .liveDotConnected {
+    animation: none;
+  }
+}
+
 .statsRow {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
