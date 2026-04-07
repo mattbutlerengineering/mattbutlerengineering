@@ -1,10 +1,16 @@
 #!/bin/sh
 set -e
 
-echo "Running users migrations..."
-prisma migrate deploy --schema /app/services/users/prisma/schema.prisma
+# Parameterized migration script — SERVICE_NAME env var selects which
+# service to migrate.  The Dockerfile inlines this script (because
+# .dockerignore excludes infrastructure/); this file is kept as a
+# local-development reference.
 
-echo "Running reservations migrations..."
-prisma migrate deploy --schema /app/services/reservations/prisma/schema.prisma
+if [ -z "$SERVICE_NAME" ]; then
+  echo "ERROR: SERVICE_NAME env var is required" >&2
+  exit 1
+fi
 
-echo "All migrations complete."
+echo "Running ${SERVICE_NAME} migrations..."
+prisma migrate deploy --schema "/app/services/${SERVICE_NAME}/prisma/schema.prisma"
+echo "${SERVICE_NAME} migrations complete."
