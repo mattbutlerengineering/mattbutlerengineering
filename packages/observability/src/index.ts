@@ -27,3 +27,12 @@ export type {
   ReadinessCheckResult,
   ReadinessCheckFn,
 } from "./readiness.js";
+
+export { createRateLimitMonitor } from "./rate-limit-monitor.js";
+export type {
+  RateLimitMonitor,
+  RateLimitMonitorConfig,
+  RateLimitHit,
+  RateLimitHealthStats,
+  RateLimitSnapshot,
+} from "./rate-limit-monitor.js";

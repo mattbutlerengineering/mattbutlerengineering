@@ -31,6 +31,28 @@ vi.mock("jose", () => ({
   jwtVerify: vi.fn(),
 }));
 
+// Mock rate limit monitor
+const { mockGetSnapshot, mockRateLimitMonitor } = vi.hoisted(() => {
+  const mockGetSnapshot = vi.fn().mockReturnValue({
+    stats: { hits_last_hour: 0, blocked_ips: 0 },
+    isDegraded: false,
+  });
+  const mockRateLimitMonitor = {
+    recordHit: vi.fn(),
+    getSnapshot: mockGetSnapshot,
+    reset: vi.fn(),
+  };
+  return { mockGetSnapshot, mockRateLimitMonitor };
+});
+
+vi.mock("@mbe/observability", async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    createRateLimitMonitor: vi.fn().mockReturnValue(mockRateLimitMonitor),
+  };
+});
+
 import { prisma } from "../services/database.js";
 import { checkAuth0, checkLatencyAnomaly } from "../services/health-checks.js";
 
@@ -113,6 +135,44 @@ describe("Health Routes", () => {
       expect(body.status).toBe("degraded");
       expect(body.checks.database.status).toBe("error");
       expect(body.checks.database.message).toContain("Latency anomaly");
+    });
+
+    it("includes rate_limits check with zero hits", async () => {
+      vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([{ "?column?": 1 }]);
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/health",
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.checks.rate_limits).toBeDefined();
+      expect(body.checks.rate_limits.status).toBe("ok");
+      expect(body.checks.rate_limits.hits_last_hour).toBe(0);
+      expect(body.checks.rate_limits.blocked_ips).toBe(0);
+    });
+
+    it("returns degraded when rate limit hits exceed threshold", async () => {
+      vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([{ "?column?": 1 }]);
+
+      mockGetSnapshot.mockReturnValueOnce({
+        stats: { hits_last_hour: 75, blocked_ips: 12 },
+        isDegraded: true,
+      });
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/health",
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.status).toBe("degraded");
+      expect(body.checks.rate_limits.status).toBe("degraded");
+      expect(body.checks.rate_limits.hits_last_hour).toBe(75);
+      expect(body.checks.rate_limits.blocked_ips).toBe(12);
+      expect(body.checks.rate_limits.message).toContain("High rate limit activity");
     });
   });
 

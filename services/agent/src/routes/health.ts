@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import type { HealthResponse } from "@mbe/types";
+import type { RateLimitMonitor } from "@mbe/observability";
 import { prisma, getSlowQueryStats, getServiceStatus } from "../services/database.js";
 import { checkAuth0, checkLatencyAnomaly, recordDbLatency } from "../services/health-checks.js";
 
@@ -20,8 +21,9 @@ export const healthRoutes: FastifyPluginAsync = async (fastify) => {
             type: "object",
             additionalProperties: {
               type: "object",
+              additionalProperties: true,
               properties: {
-                status: { type: "string", enum: ["ok", "error"] },
+                status: { type: "string", enum: ["ok", "error", "degraded"] },
                 message: { type: "string" },
                 latency: { type: "number" },
               },
@@ -78,7 +80,17 @@ const healthHandler = async (request: FastifyRequest): Promise<HealthResponse> =
     ...(auth0Result.message && { message: auth0Result.message }),
   };
 
-  const hasErrors = dbStatus === "error" || slowQueryStatus === "degraded" || auth0Result.status === "degraded";
+  const rateLimitMonitor = (request.server as unknown as { rateLimitMonitor: RateLimitMonitor }).rateLimitMonitor;
+  const rateLimitSnapshot = rateLimitMonitor.getSnapshot();
+  checks.rate_limits = {
+    status: rateLimitSnapshot.isDegraded ? "degraded" : "ok",
+    ...rateLimitSnapshot.stats,
+    ...(rateLimitSnapshot.isDegraded && {
+      message: `High rate limit activity: ${rateLimitSnapshot.stats.hits_last_hour} hits from ${rateLimitSnapshot.stats.blocked_ips} IPs`,
+    }),
+  };
+
+  const hasErrors = dbStatus === "error" || slowQueryStatus === "degraded" || auth0Result.status === "degraded" || rateLimitSnapshot.isDegraded;
 
   return {
     status: hasErrors ? "degraded" : "ok",

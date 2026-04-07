@@ -5,7 +5,7 @@ import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import ScalarApiReference from "@scalar/fastify-api-reference";
 import { authPlugin, getAuthPluginOptionsFromEnv } from "@mbe/auth/fastify";
-import { createRequestIdMiddleware, errorRatePlugin_ } from "@mbe/observability";
+import { createRequestIdMiddleware, errorRatePlugin_, createRateLimitMonitor } from "@mbe/observability";
 import { sentryFastifyPlugin } from "@mbe/sentry/node";
 import { apiVersioningPlugin } from "@mbe/api-versioning/fastify";
 import { registerSchemas } from "./schemas/index.js";
@@ -67,9 +67,18 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   // Track per-endpoint error rates (exposed via health check)
   await fastify.register(errorRatePlugin_);
 
+  const rateLimitMonitor = createRateLimitMonitor();
+  fastify.decorate("rateLimitMonitor", rateLimitMonitor);
+
   await fastify.register(rateLimit, {
     max: 100,
     timeWindow: "1 minute",
+    onExceeded: (req) => {
+      const ip = req.ip;
+      const endpoint = req.url;
+      rateLimitMonitor.recordHit(ip, endpoint);
+      req.log.warn({ ip, endpoint, timestamp: new Date().toISOString() }, "Rate limit exceeded");
+    },
   });
 
   await fastify.register(swagger, {
