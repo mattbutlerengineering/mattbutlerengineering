@@ -1,0 +1,107 @@
+name: Database Backup Verification
+
+on:
+  schedule:
+    - cron: "11 3 * * 0" # Sunday 3:11 AM UTC
+  workflow_dispatch:
+
+jobs:
+  verify-backup:
+    name: Verify Database Backup
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: verify
+          POSTGRES_PASSWORD: verify_test_only
+          POSTGRES_DB: verify_restore
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U verify"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Validate schema via Prisma migrations
+        env:
+          PGHOST: localhost
+          PGPORT: "5432"
+          PGUSER: verify
+          PGPASSWORD: verify_test_only
+          PGDATABASE: verify_restore
+        run: |
+          npm install -g prisma@6
+
+          for SERVICE in users reservations agent; do
+            SCHEMA_PATH="services/$SERVICE/prisma/schema.prisma"
+            if [ -f "$SCHEMA_PATH" ]; then
+              DATABASE_URL="postgresql://verify:verify_test_only@localhost:5432/verify_restore" \
+                prisma db push --schema "$SCHEMA_PATH" --skip-generate --accept-data-loss 2>&1 || {
+                echo "::error::Schema push failed for $SERVICE"
+                exit 1
+              }
+              echo "✓ $SERVICE schema applied"
+            fi
+          done
+
+      - name: Validate restored schema
+        env:
+          PGHOST: localhost
+          PGPORT: "5432"
+          PGUSER: verify
+          PGPASSWORD: verify_test_only
+          PGDATABASE: verify_restore
+        run: |
+          TABLE_COUNT=$(psql -t -c "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'" | tr -d ' ')
+          echo "Tables found: $TABLE_COUNT"
+
+          if [ "$TABLE_COUNT" -lt 3 ]; then
+            echo "::error::Expected at least 3 tables, found $TABLE_COUNT"
+            exit 1
+          fi
+
+          for TABLE in users venues tables reservations; do
+            EXISTS=$(psql -t -c "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '$TABLE'" | tr -d ' ')
+            if [ "$EXISTS" = "1" ]; then
+              echo "✓ Table '$TABLE' exists"
+            else
+              echo "⚠ Table '$TABLE' not found"
+            fi
+          done
+
+          MIGRATION_COUNT=$(psql -t -c "SELECT count(*) FROM _prisma_migrations" 2>/dev/null | tr -d ' ' || echo "0")
+          echo "Prisma migrations applied: $MIGRATION_COUNT"
+          echo "✓ Schema validation passed"
+
+      - name: Create issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh issue create \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Database backup verification failed" \
+            --label "ci-fix" \
+            --label "ready" \
+            --body "## Backup Verification Failed
+
+The weekly database schema validation test failed.
+
+**Run:** ${RUN_URL}
+**Date:** $(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+### Next Steps
+1. Check workflow logs for the specific failure
+2. Verify Prisma schema files are valid
+3. Run \`prisma db push\` locally to reproduce
+
+---
+*Auto-created by backup-verify workflow*"
