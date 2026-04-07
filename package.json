@@ -15,6 +15,7 @@
     "check:dockerfiles": "node scripts/check-dockerfile-deps.js",
     "check:env-sync": "node scripts/check-env-sync.js",
     "graph": "node scripts/generate-dep-graph.js",
+    "generate:dep-graph": "node scripts/generate-dep-graph.mjs",
     "check:schema-compat": "node scripts/check-schema-compat.js",
     "schema:baseline": "tsx scripts/update-schema-baselines.js",
     "log:cost": "node scripts/log-agent-cost.js",

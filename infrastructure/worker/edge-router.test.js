@@ -445,6 +445,46 @@ describe("Edge Router", () => {
     });
   });
 
+  describe("Dependency graph endpoint", () => {
+    it("returns JSON at /health/deps", async () => {
+      const response = await edgeRouter.fetch(makeRequest("/health/deps"), env);
+      expect(response.status).toBe(200);
+      expect(response.headers.get("Content-Type")).toBe("application/json");
+      expect(response.headers.get("Cache-Control")).toBe("public, max-age=300");
+      expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
+      const body = await response.json();
+      expect(body).toHaveProperty("nodes");
+      expect(body).toHaveProperty("edges");
+      expect(body).toHaveProperty("generatedAt");
+      expect(Array.isArray(body.nodes)).toBe(true);
+      expect(Array.isArray(body.edges)).toBe(true);
+    });
+
+    it("includes node properties (name, type, path)", async () => {
+      const response = await edgeRouter.fetch(makeRequest("/health/deps"), env);
+      const body = await response.json();
+      if (body.nodes.length > 0) {
+        const node = body.nodes[0];
+        expect(node).toHaveProperty("name");
+        expect(node).toHaveProperty("type");
+        expect(node).toHaveProperty("path");
+        expect(["app", "service", "package", "tool"]).toContain(node.type);
+      }
+    });
+
+    it("includes edge properties (from, to, type)", async () => {
+      const response = await edgeRouter.fetch(makeRequest("/health/deps"), env);
+      const body = await response.json();
+      if (body.edges.length > 0) {
+        const edge = body.edges[0];
+        expect(edge).toHaveProperty("from");
+        expect(edge).toHaveProperty("to");
+        expect(edge).toHaveProperty("type");
+        expect(["dependency", "devDependency"]).toContain(edge.type);
+      }
+    });
+  });
+
   describe("Service binding names match wrangler.toml", () => {
     it("uses the expected set of static site bindings", () => {
       // This test serves as a canary — if STATIC_SITE_BINDINGS changes
