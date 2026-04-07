@@ -179,6 +179,17 @@
   }
 }
 
+/* ── Reduced motion ──────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .liveDotConnected {
+    animation: none;
+  }
+
+  .spinner {
+    animation: none;
+  }
+}
+
 .errorBox {
   background: var(--rialto-error-muted);
   color: var(--rialto-error);
