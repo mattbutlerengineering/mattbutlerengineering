@@ -630,7 +630,7 @@ describe("Langfuse tracing", () => {
     await runSession(BASE_CONFIG);
 
     expect(startObservation).toHaveBeenCalledWith(
-      "llm-turn-0",
+      "llm-turn-1",
       expect.objectContaining({ model: BASE_CONFIG.model }),
       { asType: "generation" }
     );

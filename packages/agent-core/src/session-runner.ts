@@ -41,6 +41,7 @@ import {
 } from "./task-intelligence.js";
 import { analyzeDiff } from "./diff-static-analyzer.js";
 import { mapSdkMessage } from "./event-mapper.js";
+import type { TurnMetricsEvent } from "./event-mapper.js";
 import {
   recordFailure,
   queryPastFailures,
@@ -49,6 +50,11 @@ import {
 } from "./failure-memory.js";
 import { runFeedbackLoop } from "./feedback-loop.js";
 import { withRetry, ContextWindowExhaustedError } from "./retry.js";
+import {
+  categorizeFailure,
+  buildTurnMetricsList,
+  buildToolCallMetricsList,
+} from "./observability.js";
 import {
   startActiveObservation,
   startObservation,
@@ -108,7 +114,7 @@ export async function runSession(
   config: SessionConfig,
   onEvent?: SessionEventCallback
 ): Promise<SessionResult> {
-  return startActiveObservation("agent-session", async (_lfTrace): Promise<SessionResult> => {
+  return startActiveObservation("agent-session", async (_lfTrace: unknown): Promise<SessionResult> => {
     return propagateAttributes(
       {
         metadata: {
@@ -225,12 +231,38 @@ export async function runSession(
           attributes: { "sdk.model": config.model },
         });
 
-        let turnCount = 0;
+
         let compactionCount = 0;
+
+        // Per-turn and tool-call metrics accumulators
+        let turnIndex = 0;
+        const rawTurnMetrics: Array<{
+          turnIndex: number;
+          startedAt: string;
+          inputTokens: number;
+          outputTokens: number;
+          thinkingTokens: number;
+          costUsd: number;
+          modelId: string;
+        }> = [];
+        const rawToolCallMetrics: Array<{
+          toolName: string;
+          toolUseId: string;
+          latencyMs: number;
+          isError: boolean;
+        }> = [];
+
+        // Track pending tool calls by toolUseId → { name, startMs }
+        const pendingToolCalls = new Map<string, { toolName: string; startMs: number }>();
 
         try {
           for await (const message of conversation) {
             emitEvent(onEvent, "session:message", message);
+
+            // Increment turn counter for assistant messages
+            if (message.type === "assistant") {
+              turnIndex++;
+            }
 
             // Track assistant messages as Langfuse generation observations
             if (message.type === "assistant" && "message" in message) {
@@ -240,7 +272,7 @@ export async function runSession(
                 usage?: { input_tokens?: number; output_tokens?: number };
               };
               const gen = startObservation(
-                `llm-turn-${turnCount++}`,
+                `llm-turn-${turnIndex}`,
                 { model: config.model, input: msg.content },
                 { asType: "generation" }
               );
@@ -253,9 +285,54 @@ export async function runSession(
               }).end();
             }
 
-            // Emit typed events for observability
-            for (const mapped of mapSdkMessage(message)) {
+            // Emit typed events for observability (pass current turn index)
+            for (const mapped of mapSdkMessage(message, turnIndex)) {
               emitEvent(onEvent, mapped.type, { message: JSON.stringify(mapped) });
+
+              // Accumulate per-turn metrics
+              if (mapped.type === "session:turn_metrics") {
+                const tm = mapped as TurnMetricsEvent;
+                rawTurnMetrics.push({
+                  turnIndex: tm.turnIndex,
+                  startedAt: new Date().toISOString(),
+                  inputTokens: tm.inputTokens,
+                  outputTokens: tm.outputTokens,
+                  thinkingTokens: tm.thinkingTokens,
+                  costUsd: tm.costUsd,
+                  modelId: tm.modelId,
+                });
+              }
+
+              // Record tool call start time for latency tracking
+              if (mapped.type === "session:tool_use") {
+                pendingToolCalls.set(mapped.toolUseId, {
+                  toolName: mapped.toolName,
+                  startMs: Date.now(),
+                });
+              }
+
+              // Record tool call completion and compute latency
+              if (mapped.type === "session:tool_result") {
+                const pending = pendingToolCalls.get(mapped.toolUseId);
+                if (pending) {
+                  const latencyMs = Date.now() - pending.startMs;
+                  rawToolCallMetrics.push({
+                    toolName: pending.toolName,
+                    toolUseId: mapped.toolUseId,
+                    latencyMs,
+                    isError: mapped.isError,
+                  });
+                  pendingToolCalls.delete(mapped.toolUseId);
+                  emitEvent(onEvent, "session:tool_latency", {
+                    message: JSON.stringify({
+                      toolName: pending.toolName,
+                      toolUseId: mapped.toolUseId,
+                      latencyMs,
+                      isError: mapped.isError,
+                    }),
+                  });
+                }
+              }
             }
 
             // Track compaction events for context window exhaustion detection
@@ -611,6 +688,9 @@ export async function runSession(
           ? { passed: evaluation.passed, confidence: evaluation.confidence, reasoning: evaluation.reasoning }
           : undefined;
 
+        const collectedTurnMetrics = buildTurnMetricsList(rawTurnMetrics);
+        const collectedToolCallMetrics = buildToolCallMetricsList(rawToolCallMetrics);
+
         if (resultMessage) {
           const sessionResult = buildSessionResult(
             resultMessage,
@@ -618,10 +698,20 @@ export async function runSession(
             prUrl
           );
 
+          const isFailed =
+            sessionResult.status === "failed" || !!stuckReason;
+
+          const failureCategory = isFailed
+            ? categorizeFailure(errors, stuckReason?.type)
+            : undefined;
+
           const finalResult = {
             ...sessionResult,
             ...(stuckReason ? { status: "failed" as const, stuckPattern: stuckReason.type } : {}),
             ...(evalSummary ? { evaluation: evalSummary } : {}),
+            ...(failureCategory ? { failureCategory } : {}),
+            turnMetrics: collectedTurnMetrics,
+            toolCallMetrics: collectedToolCallMetrics,
           };
 
           // Record failure for future context
@@ -642,6 +732,9 @@ export async function runSession(
           rootSpan.setAttribute("session.branch", finalResult.branchName);
           if (finalResult.prUrl) rootSpan.setAttribute("session.pr_url", finalResult.prUrl);
           if (finalResult.stuckPattern) rootSpan.setAttribute("session.stuck_pattern", finalResult.stuckPattern);
+          if (failureCategory) rootSpan.setAttribute("session.failure_category", failureCategory);
+          rootSpan.setAttribute("session.turn_count", collectedTurnMetrics.length);
+          rootSpan.setAttribute("session.tool_call_count", collectedToolCallMetrics.length);
 
           emitEvent(onEvent, "session:result", {
             message: `Session completed: ${finalResult.status}`,
@@ -664,6 +757,8 @@ export async function runSession(
           return finalResult;
         }
 
+        const failureCategoryNoResult = categorizeFailure(errors, stuckReason?.type);
+
         rootSpan.setAttribute("session.status", "failed");
         return {
           sessionId: "",
@@ -678,6 +773,9 @@ export async function runSession(
           errors,
           stuckPattern: stuckReason?.type,
           evaluation: evalSummary,
+          ...(failureCategoryNoResult ? { failureCategory: failureCategoryNoResult } : {}),
+          turnMetrics: collectedTurnMetrics,
+          toolCallMetrics: collectedToolCallMetrics,
         };
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);

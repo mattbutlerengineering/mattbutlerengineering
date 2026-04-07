@@ -55,7 +55,7 @@ export const primeCommand = new Command("prime")
         try {
             console.log(`   Packing ${pkg}...`);
             execSync(`pnpm --filter @mbe/cli start pack ${pkg}`, { cwd: root, stdio: "inherit" });
-        } catch (e) {
+        } catch {
             console.error(`❌ Failed to pack ${pkg}`);
         }
     }
