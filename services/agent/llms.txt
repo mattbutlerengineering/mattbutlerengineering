@@ -79,7 +79,6 @@
     }
   </file>
   <file path="src/services/session.ts">
-    function isPrismaNotFound(err: unknown): boolean { /* implementation omitted */ }
     function mapPrismaSession(session: Session): AgentSession { /* implementation omitted */ }
     function mapPrismaEvent(event: SessionEvent): AgentSessionEvent { /* implementation omitted */ }
     interface ListOptions {
@@ -190,9 +189,8 @@
             },
           });
           return mapPrismaSession(session);
-        } catch (err: unknown) {
-          if (isPrismaNotFound(err)) return null;
-          throw err;
+        } catch {
+          return null;
         }
       },
     
@@ -200,9 +198,8 @@
         try {
           await prisma.session.delete({ where: { id } });
           return true;
-        } catch (err: unknown) {
-          if (isPrismaNotFound(err)) return false;
-          throw err;
+        } catch {
+          return false;
         }
       },
     
@@ -275,7 +272,7 @@
     }
     export function getSlowQueryStats(): { count5min: number; slowestMs: number } { /* implementation omitted */ }
     export function getServiceStatus(): "ok" | "degraded" { /* implementation omitted */ }
-    export const prisma: import("/Users/mbutler/github/mattbutlerengineering/services/agent/src/generated/prisma/runtime/library").DynamicClientExtensionThis<import("/Users/mbutler/github/mattbutlerengineering/services/agent/src/generated/prisma/index").Prisma.TypeMap<import("/Users/mbutler/github/mattbutlerengineering/services/agent/src/generated/prisma/runtime/library").InternalArgs & { result: {}; model: {}; query: {}; client: {}; }, {}>, import("/Users/mbutler/github/mattbutlerengineering/services/agent/src/generated/prisma/index").Prisma.TypeMapCb<{ datasourceUrl: string; }>, { result: {}; model: {}; query: {}; client: {}; }>;
+    export const prisma: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/services/agent/src/generated/prisma/runtime/library").DynamicClientExtensionThis<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/services/agent/src/generated/prisma/index").Prisma.TypeMap<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/services/agent/src/generated/prisma/runtime/library").InternalArgs & { result: {}; model: {}; query: {}; client: {}; }, {}>, import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/services/agent/src/generated/prisma/index").Prisma.TypeMapCb<{ datasourceUrl: string; }>, { result: {}; model: {}; query: {}; client: {}; }>;
     function appendConnectionLimit(url: string | undefined, limit: number): string | undefined { /* implementation omitted */ }
   </file>
   <file path="src/schemas/index.ts">
@@ -288,10 +285,6 @@
     export function registerSchemas(fastify: FastifyInstance) { /* implementation omitted */ }
   </file>
   <file path="src/routes/webhooks.ts">
-    interface CollaboratorPermission {
-      permission: string;
-      role_name: string;
-    }
     interface GitHubIssueEvent {
       action: string;
       label?: { name: string };
@@ -306,7 +299,6 @@
         full_name: string;
         default_branch: string;
       };
-      sender: { login: string; type: string };
     }
     interface GitHubIssueCommentEvent {
       action: string;
@@ -325,7 +317,6 @@
         full_name: string;
         default_branch: string;
       };
-      sender: { login: string; type: string };
     }
     interface GitHubCheckRunEvent {
       action: string;
@@ -347,21 +338,14 @@
       signature: string | undefined,
       secret: string
     ): boolean { /* implementation omitted */ }
-    async function checkCollaboratorPermission(
-      username: string,
-      repository: string,
-      githubToken: string
-    ): Promise<boolean> { /* implementation omitted */ }
-    export const webhookRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
+    export const webhookRoutes: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
     async function handleIssueEvent(
       fastify: { log: { info: (...args: unknown[]) => void; warn: (...args: unknown[]) => void; error: (...args: unknown[]) => void } },
-      event: GitHubIssueEvent,
-      githubToken: string
+      event: GitHubIssueEvent
     ): Promise<void> { /* implementation omitted */ }
     async function handleIssueCommentEvent(
       fastify: { log: { info: (...args: unknown[]) => void; error: (...args: unknown[]) => void } },
-      event: GitHubIssueCommentEvent,
-      githubToken: string
+      event: GitHubIssueCommentEvent
     ): Promise<void> { /* implementation omitted */ }
     async function handleCheckRunEvent(
       fastify: { log: { info: (...args: unknown[]) => void; error: (...args: unknown[]) => void } },
@@ -369,10 +353,10 @@
     ): Promise<void> { /* implementation omitted */ }
   </file>
   <file path="src/routes/sessions.ts">
-    export const sessionRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
+    export const sessionRoutes: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
   </file>
   <file path="src/routes/session-events.ts">
-    export const sessionEventsRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
+    export const sessionEventsRoutes: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
   </file>
   <file path="src/routes/remediation.ts">
     type AlertPayload = z.infer<typeof AlertPayloadSchema>;
@@ -381,7 +365,7 @@
       signature: string | undefined,
       secret: string
     ): boolean { /* implementation omitted */ }
-    export const remediationRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
+    export const remediationRoutes: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
   </file>
   <file path="src/routes/orchestrate.ts">
     interface OrchestrateBody {
@@ -401,18 +385,18 @@
       totalCostUsd: number;
       durationMs: number;
     }
-    export const orchestrateRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
+    export const orchestrateRoutes: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
   </file>
   <file path="src/routes/health.ts">
-    export const healthRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
+    export const healthRoutes: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
   </file>
   <file path="src/routes/gen-ui.ts">
-    export const genUiRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
+    export const genUiRoutes: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
   </file>
   <file path="src/routes/gen-specs.ts">
-    export const genSpecsRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
+    export const genSpecsRoutes: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
   </file>
   <file path="src/routes/gen-chat.ts">
-    export const genChatRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
+    export const genChatRoutes: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
   </file>
 </codebase>

@@ -10,6 +10,7 @@ import { EditReservationDrawer } from "../components/timeline/EditReservationDra
 import { WalkInDialog } from "../components/timeline/WalkInDialog";
 import { useReservationEvents } from "../hooks/useReservationEvents";
 import { useVenue } from "../contexts/VenueContext.js";
+import { useReservationData } from "../contexts/ReservationDataContext.js";
 import { PageHeader } from "../components/PageHeader";
 import styles from "./TimelinePage.module.css";
 
@@ -161,9 +162,15 @@ function ReservationDetails({ reservation, onEdit, onSeat, onCancel }: Reservati
 export function TimelinePage() {
   const { accessToken } = useAuth();
   const { selectedVenueId } = useVenue();
+  const {
+    reservations: sharedReservations,
+    isConnected,
+    setReservations: setSharedReservations,
+    addReservation,
+    updateReservation,
+  } = useReservationData();
 
   const [tables, setTables] = useState<Table[]>([]);
-  const [reservations, setReservations] = useState<Reservation[]>([]);
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedDate = searchParams.get("date") ?? new Date().toLocaleDateString("en-CA");
   const [isLoading, setIsLoading] = useState(true);
@@ -184,53 +191,28 @@ export function TimelinePage() {
     [accessToken]
   );
 
-  // Real-time updates via SSE
-  const { isConnected } = useReservationEvents({
+  // SSE for table updates and hold confirmations (reservation events handled by context)
+  useReservationEvents({
     venueId: selectedVenueId ?? undefined,
     enabled: !!selectedVenueId,
-    onReservationCreated: useCallback(
-      (reservation: Reservation) => {
-        // Only add if it matches our current date
-        if (reservation.date === selectedDate) {
-          setReservations((prev) => {
-            const exists = prev.some((r) => r.id === reservation.id);
-            if (exists) {
-              return prev.map((r) => (r.id === reservation.id ? reservation : r));
-            }
-            return [...prev, reservation];
-          });
-        }
-      },
-      [selectedDate]
-    ),
-    onReservationUpdated: useCallback((reservation: Reservation) => {
-      setReservations((prev) =>
-        prev.map((r) => (r.id === reservation.id ? reservation : r))
-      );
-    }, []),
-    onReservationCancelled: useCallback((reservation: Reservation) => {
-      setReservations((prev) =>
-        prev.map((r) => (r.id === reservation.id ? reservation : r))
-      );
-    }, []),
     onHoldConfirmed: useCallback(
       (reservation: Reservation) => {
         if (reservation.date === selectedDate) {
-          setReservations((prev) => {
-            const exists = prev.some((r) => r.id === reservation.id);
-            if (exists) {
-              return prev.map((r) => (r.id === reservation.id ? reservation : r));
-            }
-            return [...prev, reservation];
-          });
+          addReservation(reservation);
         }
       },
-      [selectedDate]
+      [selectedDate, addReservation]
     ),
     onTableUpdated: useCallback((table: Table) => {
       setTables((prev) => prev.map((t) => (t.id === table.id ? table : t)));
     }, []),
   });
+
+  // Filter shared reservations to the selected date
+  const reservations = useMemo(
+    () => sharedReservations.filter((r) => r.date === selectedDate),
+    [sharedReservations, selectedDate]
+  );
 
   // Fetch tables and reservations when venue or date changes
   useEffect(() => {
@@ -257,7 +239,7 @@ export function TimelinePage() {
         });
 
         setTables(sortedTables);
-        setReservations(reservationsResponse.data);
+        setSharedReservations(reservationsResponse.data);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load data");
       } finally {
@@ -266,7 +248,7 @@ export function TimelinePage() {
     }
 
     fetchData();
-  }, [api, selectedVenueId, selectedDate]);
+  }, [api, selectedVenueId, selectedDate, setSharedReservations]);
 
   const handlePreviousDay = useCallback(() => {
     const prev = new Date(selectedDate + "T00:00:00");
@@ -306,7 +288,7 @@ export function TimelinePage() {
     try {
       const updated = await api.reservations.update(reservation.id, { status: "CONFIRMED" });
       await api.tables.updateStatus(reservation.tableId, "OCCUPIED");
-      setReservations((prev) => prev.map((r) => (r.id === reservation.id ? updated : r)));
+      updateReservation(updated);
       setTables((prev) =>
         prev.map((t) =>
           t.id === reservation.tableId ? { ...t, status: "OCCUPIED" as const } : t
@@ -325,11 +307,7 @@ export function TimelinePage() {
         cancellationReason: reason,
         cancellationNote: note,
       });
-      setReservations((prev) =>
-        prev.map((r) =>
-          r.id === selectedReservation.id ? { ...r, status: "CANCELLED" as const } : r
-        )
-      );
+      updateReservation({ ...selectedReservation, status: "CANCELLED" as const });
       setShowCancelDialog(false);
       setSelectedReservation(null);
     } catch (err) {
@@ -340,7 +318,7 @@ export function TimelinePage() {
   const handleEdit = async (id: string, data: UpdateReservationRequest) => {
     try {
       const updated = await api.reservations.update(id, data);
-      setReservations((prev) => prev.map((r) => (r.id === id ? updated : r)));
+      updateReservation(updated);
       setSelectedReservation(updated);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update reservation");
@@ -355,7 +333,7 @@ export function TimelinePage() {
   }) => {
     try {
       const reservation = await api.reservations.walkIn(data);
-      setReservations((prev) => [...prev, reservation]);
+      addReservation(reservation);
       setTables((prev) =>
         prev.map((t) => (t.id === data.tableId ? { ...t, status: "OCCUPIED" as const } : t))
       );

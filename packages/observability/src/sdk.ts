@@ -6,12 +6,14 @@ import { HttpInstrumentation } from "@opentelemetry/instrumentation-http";
 import { PinoInstrumentation } from "@opentelemetry/instrumentation-pino";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
+import type { SpanProcessor } from "@opentelemetry/sdk-trace-base";
 import type { IncomingMessage } from "node:http";
 import {
   ATTR_SERVICE_NAME,
   ATTR_SERVICE_VERSION,
   SEMRESATTRS_DEPLOYMENT_ENVIRONMENT,
 } from "@opentelemetry/semantic-conventions";
+import { LangfuseSpanProcessor } from "@langfuse/otel";
 
 export interface OtelConfig {
   readonly serviceName: string;
@@ -53,6 +55,9 @@ export function shouldIgnoreRequest(req: IncomingMessage): boolean {
  *   OTEL_EXPORTER_OTLP_ENDPOINT — Grafana Cloud OTLP gateway URL
  *   OTEL_EXPORTER_OTLP_HEADERS  — "Authorization=Basic <base64>"
  *   OTEL_SDK_DISABLED            — set to "true" to disable (e.g., in tests)
+ *   LANGFUSE_PUBLIC_KEY          — enables Langfuse trace export (optional)
+ *   LANGFUSE_SECRET_KEY          — Langfuse API secret (required with public key)
+ *   LANGFUSE_BASEURL             — Langfuse endpoint (defaults to cloud.langfuse.com)
  */
 export function initTelemetry(config: OtelConfig): NodeSDK {
   const isDisabled = process.env.OTEL_SDK_DISABLED === "true";
@@ -66,8 +71,14 @@ export function initTelemetry(config: OtelConfig): NodeSDK {
     "deploy.author": process.env.DEPLOY_AUTHOR ?? "",
   });
 
+  const spanProcessors: SpanProcessor[] = [];
+  if (!isDisabled && process.env.LANGFUSE_PUBLIC_KEY) {
+    spanProcessors.push(new LangfuseSpanProcessor());
+  }
+
   const sdk = new NodeSDK({
     resource,
+    ...(spanProcessors.length > 0 ? { spanProcessors } : {}),
     traceExporter: isDisabled ? undefined : new OTLPTraceExporter(),
     metricReader: isDisabled
       ? undefined
