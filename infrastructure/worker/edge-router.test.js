@@ -402,6 +402,49 @@ describe("Edge Router", () => {
     });
   });
 
+  describe("Health endpoint with auth — migration status", () => {
+    it("includes per-service migration status in detailed health response", async () => {
+      const authedEnv = {
+        ...env,
+        HEALTH_TOKEN: "test-token",
+        HEALTH_STATE: {
+          get: vi.fn(async (key, format) => {
+            const data = {
+              "migrate/users": {
+                conclusion: "success",
+                service: "users",
+                updated_at: new Date().toISOString(),
+              },
+              "migrate/reservations": {
+                conclusion: "failure",
+                service: "reservations",
+                updated_at: new Date().toISOString(),
+              },
+            };
+            const value = data[key] ?? null;
+            // KV .get(key, "json") returns parsed object directly
+            if (format === "json") return value;
+            return value ? JSON.stringify(value) : null;
+          }),
+          put: vi.fn(),
+        },
+      };
+
+      const response = await edgeRouter.fetch(
+        makeRequest("/health/system", {
+          headers: { Authorization: "Bearer test-token" },
+        }),
+        authedEnv
+      );
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body).toHaveProperty("subsystems.migrations");
+      expect(body.subsystems.migrations.checks.users.status).toBe("ok");
+      expect(body.subsystems.migrations.checks.reservations.status).toBe("error");
+      expect(body.subsystems.migrations.checks.agent.status).toBe("unknown");
+    });
+  });
+
   describe("Service binding names match wrangler.toml", () => {
     it("uses the expected set of static site bindings", () => {
       // This test serves as a canary — if STATIC_SITE_BINDINGS changes

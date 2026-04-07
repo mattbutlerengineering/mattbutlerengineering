@@ -33,6 +33,57 @@ const otelEnvs: digitalocean.types.input.AppSpecServiceEnv[] = [
 export const auth0ApiIdentifier = auth0Outputs.apiIdentifier;
 export const auth0ClientId = auth0Outputs.hospitalityClientId;
 
+// ── Cloudflare R2 State Bucket ───────────────────────────────────────
+// Bucket for storing Pulumi state backend (S3-compatible).
+// Note: Pulumi is pre-configured to use this bucket via AWS_ACCESS_KEY_ID
+// and AWS_SECRET_ACCESS_KEY env vars pointing to R2's S3 API.
+const pulumiStateBucket = new cloudflare.R2Bucket("mattbutlerengineering-pulumi-state", {
+  accountId: cloudflareAccountId,
+  name: "mattbutlerengineering-pulumi-state",
+  location: "enam",
+});
+
+// ── Cloudflare KV Namespaces ──────────────────────────────────────────
+// Additional KV namespaces beyond the health-state namespace.
+const sessionsKv = new cloudflare.WorkersKvNamespace("mattbutlerengineering-sessions", {
+  accountId: cloudflareAccountId,
+  title: "mattbutlerengineering-sessions",
+});
+
+const cacheKv = new cloudflare.WorkersKvNamespace("mattbutlerengineering-cache", {
+  accountId: cloudflareAccountId,
+  title: "mattbutlerengineering-cache",
+});
+
+// ── Exports ─────────────────────────────────────────────────────────
+export const pulumiStateBucketId = pulumiStateBucket.id;
+export const sessionsKvNamespaceId = sessionsKv.id;
+export const cacheKvNamespaceId = cacheKv.id;
+
+// ── Per-Service Migration Jobs ──────────────────────────────────────
+// Each service gets its own pre-deploy job so a failure in one service's
+// migrations does not block unrelated services from deploying.
+const MIGRATED_SERVICES = ["users", "reservations", "agent"] as const;
+
+const migrationJobs: digitalocean.types.input.AppSpecJob[] = MIGRATED_SERVICES.map(
+  (service) => ({
+    name: `db-migrate-${service}`,
+    kind: "PRE_DEPLOY" as const,
+    github: {
+      repo: "mattbutlerengineering/mattbutlerengineering",
+      branch: "main",
+      deployOnPush: false, // CI triggers deploys via doctl
+    },
+    sourceDir: "/",
+    dockerfilePath: "infrastructure/migrate/Dockerfile",
+    envs: [
+      { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" as const },
+      { key: "SERVICE_NAME", value: service },
+    ],
+    runCommand: "/migrate.sh",
+  })
+);
+
 // ── DO App Platform (API services only) ─────────────────────────────
 // Services + migration jobs. Static sites are on CF Pages.
 const apiApp = new digitalocean.App("mattbutlerengineering-api-app", {
@@ -82,25 +133,10 @@ const apiApp = new digitalocean.App("mattbutlerengineering-api-app", {
       ],
     },
 
-    // Single pre-deploy job runs both migrations sequentially to avoid
-    // concurrent lock conflicts on the shared _prisma_migrations table.
-    jobs: [
-      {
-        name: "db-migrate",
-        kind: "PRE_DEPLOY",
-        github: {
-          repo: "mattbutlerengineering/mattbutlerengineering",
-          branch: "main",
-          deployOnPush: false, // CI triggers deploys via doctl
-        },
-        sourceDir: "/",
-        dockerfilePath: "infrastructure/migrate/Dockerfile",
-        envs: [
-          { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" },
-        ],
-        runCommand: "/migrate.sh",
-      },
-    ],
+    // Per-service pre-deploy migration jobs — each service's deployment
+    // depends only on its own migration succeeding (failure isolation).
+    // Parameterized via SERVICE_NAME Docker build arg.
+    jobs: migrationJobs,
 
     services: [
       {
