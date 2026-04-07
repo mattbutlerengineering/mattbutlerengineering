@@ -1,0 +1,165 @@
+name: PR Preview Deploy
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    paths:
+      - "apps/**"
+      - "packages/rialto/**"
+      - "packages/rialto-catalog/**"
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  detect-changes:
+    if: github.event.action != 'closed'
+    name: Detect Changed Apps
+    runs-on: ubuntu-latest
+    outputs:
+      marketing: ${{ steps.filter.outputs.marketing }}
+      hospitality: ${{ steps.filter.outputs.hospitality }}
+      rialto: ${{ steps.filter.outputs.rialto-web }}
+      any_changed: ${{ steps.check.outputs.any }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            marketing:
+              - 'apps/marketing/**'
+              - 'packages/rialto/**'
+            hospitality:
+              - 'apps/hospitality/**'
+              - 'packages/rialto/**'
+              - 'packages/rialto-catalog/**'
+            rialto-web:
+              - 'apps/rialto-web/**'
+              - 'packages/rialto/**'
+
+      - id: check
+        env:
+          MARKETING: ${{ steps.filter.outputs.marketing }}
+          HOSPITALITY: ${{ steps.filter.outputs.hospitality }}
+          RIALTO: ${{ steps.filter.outputs.rialto-web }}
+        run: |
+          if [ "$MARKETING" = "true" ] || [ "$HOSPITALITY" = "true" ] || [ "$RIALTO" = "true" ]; then
+            echo "any=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "any=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy-preview:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.any_changed == 'true'
+    name: Deploy Preview
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: marketing
+            filter: marketing
+            package: "@mbe/marketing"
+          - app: hospitality
+            filter: hospitality
+            package: "@mbe/hospitality"
+          - app: rialto-web
+            filter: rialto
+            package: "@mbe/rialto-web"
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Install and build
+        env:
+          FILTER: ${{ needs.detect-changes.outputs[matrix.filter] }}
+          PKG: ${{ matrix.package }}
+        run: |
+          if [ "$FILTER" != "true" ]; then
+            echo "Skipping — no changes"
+            exit 0
+          fi
+          pnpm install --frozen-lockfile
+          pnpm --filter "$PKG..." build
+
+      - name: Deploy preview Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          APP: ${{ matrix.app }}
+          FILTER: ${{ needs.detect-changes.outputs[matrix.filter] }}
+        run: |
+          if [ "$FILTER" != "true" ]; then exit 0; fi
+          WORKER_NAME="mbe-preview-${PR_NUM}-${APP}"
+          npx wrangler deploy \
+            --name "$WORKER_NAME" \
+            --assets "apps/${APP}/dist" \
+            --compatibility-date "2026-03-25" \
+            --no-bundle 2>&1 || echo "::warning::Preview deploy failed for $APP"
+
+  comment-preview:
+    needs: [detect-changes, deploy-preview]
+    if: needs.detect-changes.outputs.any_changed == 'true'
+    name: Comment Preview URL
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post preview comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          MARKETING: ${{ needs.detect-changes.outputs.marketing }}
+          HOSPITALITY: ${{ needs.detect-changes.outputs.hospitality }}
+          RIALTO: ${{ needs.detect-changes.outputs.rialto }}
+        run: |
+          URLS=""
+          if [ "$MARKETING" = "true" ]; then
+            URLS="${URLS}- **Marketing**: https://mbe-preview-${PR_NUM}-marketing.workers.dev\n"
+          fi
+          if [ "$HOSPITALITY" = "true" ]; then
+            URLS="${URLS}- **Hospitality**: https://mbe-preview-${PR_NUM}-hospitality.workers.dev\n"
+          fi
+          if [ "$RIALTO" = "true" ]; then
+            URLS="${URLS}- **Rialto**: https://mbe-preview-${PR_NUM}-rialto-web.workers.dev\n"
+          fi
+
+          BODY=$(printf "## Preview Deployed\n\n${URLS}\n*Auto-deployed. Cleaned up on merge/close.*")
+
+          EXISTING=$(gh api "repos/$GITHUB_REPOSITORY/issues/${PR_NUM}/comments" \
+            --jq '.[] | select(.body | contains("Preview Deployed")) | .id' | head -1)
+
+          if [ -n "$EXISTING" ]; then
+            gh api "repos/$GITHUB_REPOSITORY/issues/comments/${EXISTING}" \
+              -X PATCH -f body="$BODY"
+          else
+            gh pr comment "$PR_NUM" --body "$BODY"
+          fi
+
+  cleanup:
+    if: github.event.action == 'closed'
+    name: Cleanup Preview
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete preview Workers
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+        run: |
+          for APP in marketing hospitality rialto-web; do
+            WORKER_NAME="mbe-preview-${PR_NUM}-${APP}"
+            npx wrangler delete --name "$WORKER_NAME" 2>/dev/null && \
+              echo "Deleted $WORKER_NAME" || \
+              echo "No preview for $WORKER_NAME"
+          done
