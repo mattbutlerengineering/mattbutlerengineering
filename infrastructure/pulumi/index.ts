@@ -33,6 +33,33 @@ const otelEnvs: digitalocean.types.input.AppSpecServiceEnv[] = [
 export const auth0ApiIdentifier = auth0Outputs.apiIdentifier;
 export const auth0ClientId = auth0Outputs.hospitalityClientId;
 
+// ── Cloudflare R2 State Bucket ───────────────────────────────────────
+// Bucket for storing Pulumi state backend (S3-compatible).
+// Note: Pulumi is pre-configured to use this bucket via AWS_ACCESS_KEY_ID
+// and AWS_SECRET_ACCESS_KEY env vars pointing to R2's S3 API.
+const pulumiStateBucket = new cloudflare.R2Bucket("mattbutlerengineering-pulumi-state", {
+  accountId: cloudflareAccountId,
+  name: "mattbutlerengineering-pulumi-state",
+  location: "enam",
+});
+
+// ── Cloudflare KV Namespaces ──────────────────────────────────────────
+// Additional KV namespaces beyond the health-state namespace.
+const sessionsKv = new cloudflare.WorkersKvNamespace("mattbutlerengineering-sessions", {
+  accountId: cloudflareAccountId,
+  title: "mattbutlerengineering-sessions",
+});
+
+const cacheKv = new cloudflare.WorkersKvNamespace("mattbutlerengineering-cache", {
+  accountId: cloudflareAccountId,
+  title: "mattbutlerengineering-cache",
+});
+
+// ── Exports ─────────────────────────────────────────────────────────
+export const pulumiStateBucketId = pulumiStateBucket.id;
+export const sessionsKvNamespaceId = sessionsKv.id;
+export const cacheKvNamespaceId = cacheKv.id;
+
 // ── Per-Service Migration Jobs ──────────────────────────────────────
 // Each service gets its own pre-deploy job so a failure in one service's
 // migrations does not block unrelated services from deploying.
