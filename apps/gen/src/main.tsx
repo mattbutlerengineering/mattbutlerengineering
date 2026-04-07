@@ -1,14 +1,28 @@
 import "@mbe/rialto/styles";
 import "./index.css";
-import { StrictMode } from "react";
+import { StrictMode, Suspense, lazy } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
-import { ErrorBoundary, RialtoProvider, ToastProvider } from "@mbe/rialto";
+import { ErrorBoundary, RialtoProvider, Text, ToastProvider } from "@mbe/rialto";
 import { AuthProvider } from "@mbe/auth/react";
 import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
-import { PlaygroundPage } from "./pages/PlaygroundPage";
-import { SharedSpecPage } from "./pages/SharedSpecPage";
 import { App, CallbackRedirect } from "./App";
+
+// Lazy-loaded route components — each becomes its own chunk
+const PlaygroundPage = lazy(() =>
+  import("./pages/PlaygroundPage.js").then((m) => ({ default: m.PlaygroundPage }))
+);
+const SharedSpecPage = lazy(() =>
+  import("./pages/SharedSpecPage.js").then((m) => ({ default: m.SharedSpecPage }))
+);
+
+function LoadingFallback() {
+  return (
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
+      <Text variant="body" color="secondary">Loading...</Text>
+    </div>
+  );
+}
 
 // Auth config from environment
 const authConfig = {
@@ -50,9 +64,20 @@ const router = createBrowserRouter(
         { path: "callback", element: <CallbackRedirect /> },
         {
           index: true,
-          element: <PlaygroundPage />,
+          element: (
+            <Suspense fallback={<LoadingFallback />}>
+              <PlaygroundPage />
+            </Suspense>
+          ),
         },
-        { path: "s/:id", element: <SharedSpecPage /> },
+        {
+          path: "s/:id",
+          element: (
+            <Suspense fallback={<LoadingFallback />}>
+              <SharedSpecPage />
+            </Suspense>
+          ),
+        },
         { path: "*", element: <Navigate to="/" replace /> },
       ],
     },
