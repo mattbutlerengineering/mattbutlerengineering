@@ -1,0 +1,69 @@
+name: Post-Deploy Smoke Tests
+
+on:
+  workflow_run:
+    workflows: ["Deploy Services", "Deploy Static Sites"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    name: Smoke Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Install Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Run smoke tests
+        env:
+          SMOKE_BASE_URL: "https://mattbutlerengineering.com"
+          SMOKE_API_URL: "https://api.mattbutlerengineering.com"
+        run: npx playwright test --config tests/smoke/playwright.config.ts
+
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-results
+          path: |
+            tests/smoke/test-results/
+            tests/smoke/playwright-report/
+          retention-days: 7
+
+      - name: Create issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TRIGGER_NAME: ${{ github.event.workflow_run.name }}
+        run: |
+          gh issue create \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Post-deploy smoke tests failed" \
+            --label "ci-fix" \
+            --label "ready" \
+            --body "## Smoke Test Failure
+
+Post-deploy smoke tests failed after a successful deploy.
+
+**Run:** ${RUN_URL}
+**Date:** $(date -u +%Y-%m-%dT%H:%M:%SZ)
+**Trigger:** ${TRIGGER_NAME:-manual}
+
+### Next Steps
+1. Check test artifacts for failure screenshots
+2. Verify deploy didn't break critical user flows
+3. Consider rollback if critical paths are broken
+
+---
+*Auto-created by smoke-tests workflow*"
