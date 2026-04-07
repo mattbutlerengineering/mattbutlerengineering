@@ -134,6 +134,64 @@ jobs:
 
           echo "Webhook fired: $PREV → $CURRENT_STATUS"
 
+      - name: Record status transition to KV
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
+          KV_NS_ID: ${{ secrets.HEALTH_KV_NAMESPACE_ID }}
+          CURRENT_STATUS: ${{ steps.health.outputs.status }}
+        run: |
+          KV_BASE="https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/values"
+          AUTH="-H \"Authorization: Bearer ${CF_API_TOKEN}\""
+
+          # Read previous status
+          PREV=$(curl -sf "${KV_BASE}/health%2Fprevious-status" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" 2>/dev/null || echo "unknown")
+
+          # Only record if status actually changed
+          if [ "$PREV" = "$CURRENT_STATUS" ]; then
+            echo "No transition — skipping."
+            exit 0
+          fi
+
+          # Read existing transitions (max 20 entries)
+          EXISTING=$(curl -sf "${KV_BASE}/health%2Ftransitions" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" 2>/dev/null || echo "[]")
+
+          # Append new transition and keep last 20
+          UPDATED=$(echo "$EXISTING" | jq -c \
+            --arg from "$PREV" \
+            --arg to "$CURRENT_STATUS" \
+            --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '. + [{from: $from, to: $to, timestamp: $ts}] | .[-20:]')
+
+          curl -sf -X PUT "${KV_BASE}/health%2Ftransitions" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$UPDATED"
+
+          echo "Recorded transition: $PREV → $CURRENT_STATUS"
+        id: transitions
+
+      - name: Load recent transitions for issue body
+        if: steps.health.outputs.status != 'healthy'
+        id: timeline
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
+          KV_NS_ID: ${{ secrets.HEALTH_KV_NAMESPACE_ID }}
+        run: |
+          TRANSITIONS=$(curl -sf \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/values/health%2Ftransitions" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" 2>/dev/null || echo "[]")
+
+          # Format last 5 as markdown list
+          TIMELINE=$(echo "$TRANSITIONS" | jq -r '.[-5:] | reverse | .[] | "- \(.from) → \(.to) at \(.timestamp)"')
+
+          echo "timeline<<TIMELINE_EOF" >> "$GITHUB_OUTPUT"
+          echo "$TIMELINE" >> "$GITHUB_OUTPUT"
+          echo "TIMELINE_EOF" >> "$GITHUB_OUTPUT"
+
       - name: Check for existing health issue
         if: steps.health.outputs.status != 'healthy'
         id: existing
@@ -162,6 +220,7 @@ jobs:
           HEALTH_STATUS: ${{ steps.health.outputs.status }}
           HEALTH_RESPONSE: ${{ steps.health.outputs.response }}
           ISSUE_LABEL: ${{ steps.existing.outputs.label }}
+          TIMELINE: ${{ steps.timeline.outputs.timeline }}
         run: |
           # Build a concise summary of what's wrong
           FAILED_SERVICES=$(echo "$HEALTH_RESPONSE" | jq -r '
@@ -211,6 +270,16 @@ jobs:
           TITLE="${TITLE:0:256}"
           DETECTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
+          # Build timeline section
+          TIMELINE_SECTION=""
+          if [ -n "$TIMELINE" ]; then
+            TIMELINE_SECTION="### Recent Status Transitions
+
+${TIMELINE}
+
+"
+          fi
+
           BODY="## System Health Alert
 
 **Status:** \`${HEALTH_STATUS}\`
@@ -219,7 +288,7 @@ jobs:
 
 To check current status: \`curl -s https://mattbutlerengineering.com/health/system | jq .\`
 
----
+${TIMELINE_SECTION}---
 
 ${RUNBOOKS}
 
