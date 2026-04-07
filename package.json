@@ -17,6 +17,7 @@
     "graph": "node scripts/generate-dep-graph.js",
     "check:schema-compat": "node scripts/check-schema-compat.js",
     "schema:baseline": "tsx scripts/update-schema-baselines.js",
+    "log:cost": "node scripts/log-agent-cost.js",
     "build": "turbo run build",
     "test": "turbo run test",
     "test:contract": "turbo run test:contract",
