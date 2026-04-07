@@ -114,7 +114,7 @@ Use `mbe check-model "<directive>"` to verify the recommended tier before starti
 
 ## Performance Infrastructure
 The monorepo uses Turborepo for orchestration and caching. To maximize velocity:
-- **Remote Caching:** Run `npx turbo login` and `npx turbo link` to enable shared build artifacts. This prevents redundant compilation across local and CI environments.
+- **Remote Caching:** Configured via Vercel Remote Cache. See [docs/TURBO.md](docs/TURBO.md) for setup instructions. CI authenticates automatically using `TURBO_TOKEN` and `TURBO_TEAM` variables.
 - **Selective Typechecking:** Use `pnpm turbo typecheck --filter='...[HEAD]'` to only check packages affected by current changes.
 - **Autonomous Refresh:** The `post-commit` hook automatically runs `mbe pack` to keep AI context skeletons (`llms.txt`) updated.
 
