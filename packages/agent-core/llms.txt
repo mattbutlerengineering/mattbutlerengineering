@@ -172,7 +172,18 @@
       | "session:review"
       | "session:tool_result"
       | "session:turn_metrics"
-      | "session:tool_latency";
+      | "session:tool_latency"
+      | "session:heartbeat";
+    export interface HeartbeatConfig {
+      /** Interval between heartbeat emissions (ms). Default: 60_000 (1 min) */
+      readonly intervalMs: number;
+      /** Max time with no SDK messages before auto-cancel (ms). Default: 600_000 (10 min) */
+      readonly inactivityTimeoutMs: number;
+    }
+    DEFAULT_HEARTBEAT_CONFIG: HeartbeatConfig = {
+      intervalMs: 60_000,
+      inactivityTimeoutMs: 600_000,
+    }
     export interface SessionEvent {
       readonly type: SessionEventType;
       readonly timestamp: string;
@@ -543,7 +554,7 @@
     ): Promise<OrchestratorResult> { /* implementation omitted */ }
   </file>
   <file path="src/observability.ts">
-    export const observabilityTracer: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-368/node_modules/.pnpm/@opentelemetry+api@1.9.1/node_modules/@opentelemetry/api/build/src/trace/tracer").Tracer;
+    export const observabilityTracer: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/@opentelemetry+api@1.9.1/node_modules/@opentelemetry/api/build/src/trace/tracer").Tracer;
     export function categorizeFailure(
       errors: readonly string[],
       stuckPattern?: StuckPatternType
@@ -614,7 +625,7 @@
     interface AnthropicSDKModule {
       default: new () => AnthropicClient;
     }
-    export const IssueIntentSchema: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-368/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodObject<{ summary: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-368/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; acceptanceCriteria: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-368/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodArray<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-368/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; affectedFiles: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-368/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodOptional<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-368/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodArray<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-368/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>>; estimatedScope: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-368/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodEnum<{ trivial: "trivial"; small: "small"; medium: "medium"; large: "large"; }>; taskDescription: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-368/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; }, import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-368/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/core/schemas").$strip>;
+    export const IssueIntentSchema: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodObject<{ summary: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; acceptanceCriteria: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodArray<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>; affectedFiles: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodOptional<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodArray<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString>>; estimatedScope: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodEnum<{ trivial: "trivial"; small: "small"; medium: "medium"; large: "large"; }>; taskDescription: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/classic/schemas").ZodString; }, import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/zod@4.3.6/node_modules/zod/v4/core/schemas").$strip>;
     export type IssueIntent = z.infer<typeof IssueIntentSchema>;
     export async function extractIssueIntent(
       issueTitle: string,
@@ -625,7 +636,18 @@
   <file path="src/index.ts">
   </file>
   <file path="src/feedback-prompt-builder.ts">
-    export function buildReviewFixPrompt(context: FeedbackContext): string { /* implementation omitted */ }
+    export const CI_LOG_MAX_CHARS: 500;
+    export interface BuildReviewFixPromptOptions {
+      /** Override the maximum CI log characters (default: CI_LOG_MAX_CHARS). */
+      readonly ciLogMaxChars?: number;
+    }
+    export function sanitizeUserContent(text: string): string { /* implementation omitted */ }
+    function wrapUserContent(text: string): string { /* implementation omitted */ }
+    function truncateCILog(log: string, maxChars: number): string { /* implementation omitted */ }
+    export function buildReviewFixPrompt(
+      context: FeedbackContext,
+      options: BuildReviewFixPromptOptions = {}
+    ): string { /* implementation omitted */ }
   </file>
   <file path="src/feedback-loop.ts">
     export interface FeedbackLoopParams {
@@ -775,7 +797,7 @@
       readonly severity: "warning" | "error";
       readonly fileGlob?: string;
     }
-    export const ANALYSIS_RULES: readonly import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-368/packages/agent-core/src/diff-static-analyzer").AnalysisRule[];
+    export const ANALYSIS_RULES: readonly import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/packages/agent-core/src/diff-static-analyzer").AnalysisRule[];
     function matchesFileGlob(filePath: string, glob: string | undefined): boolean { /* implementation omitted */ }
     function parseHunkHeader(line: string): number | null { /* implementation omitted */ }
     export function analyzeDiff(diff: string): StaticAnalysisResult { /* implementation omitted */ }

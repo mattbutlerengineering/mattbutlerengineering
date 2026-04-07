@@ -150,7 +150,22 @@ export type SessionEventType =
   | "session:review"
   | "session:tool_result"
   | "session:turn_metrics"
-  | "session:tool_latency";
+  | "session:tool_latency"
+  | "session:heartbeat";
+
+// ── Heartbeat / liveness configuration ──────────────────────────────
+
+export interface HeartbeatConfig {
+  /** Interval between heartbeat emissions (ms). Default: 60_000 (1 min) */
+  readonly intervalMs: number;
+  /** Max time with no SDK messages before auto-cancel (ms). Default: 600_000 (10 min) */
+  readonly inactivityTimeoutMs: number;
+}
+
+export const DEFAULT_HEARTBEAT_CONFIG: HeartbeatConfig = {
+  intervalMs: 60_000,
+  inactivityTimeoutMs: 600_000,
+};
 
 export interface SessionEvent {
   readonly type: SessionEventType;

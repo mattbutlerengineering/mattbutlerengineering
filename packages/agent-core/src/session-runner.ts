@@ -10,6 +10,7 @@ import type {
   SessionEventCallback,
   WorktreeInfo,
 } from "./types.js";
+import { DEFAULT_HEARTBEAT_CONFIG } from "./types.js";
 import { buildSystemPrompt, loadSourceFiles, loadProjectContext } from "./prompt-builder.js";
 import { createToolPermissionHandler } from "./tool-permissions.js";
 import { buildSessionResult } from "./cost-tracker.js";
@@ -256,8 +257,38 @@ export async function runSession(
         // Track pending tool calls by toolUseId → { name, startMs }
         const pendingToolCalls = new Map<string, { toolName: string; startMs: number }>();
 
+        // Heartbeat: periodic liveness signal + inactivity timeout
+        const heartbeat = DEFAULT_HEARTBEAT_CONFIG;
+        const startTime = Date.now();
+        let lastActivityMs = Date.now();
+        const heartbeatInterval = setInterval(() => {
+          const silenceMs = Date.now() - lastActivityMs;
+          emitEvent(onEvent, "session:heartbeat", {
+            message: JSON.stringify({
+              turnCount: turnIndex,
+              compactionCount,
+              elapsedMs: Date.now() - startTime,
+              lastActivityMs: silenceMs,
+            }),
+          });
+          if (silenceMs >= heartbeat.inactivityTimeoutMs) {
+            stuckReason = {
+              type: "zero_progress" as const,
+              count: 0,
+              threshold: 0,
+              description: `No SDK activity for ${Math.round(silenceMs / 1000)}s — session appears hung`,
+              severity: "error" as const,
+            };
+            emitEvent(onEvent, "session:stuck", {
+              message: `Inactivity timeout: no messages for ${Math.round(silenceMs / 1000)}s`,
+            });
+            abortController.abort();
+          }
+        }, heartbeat.intervalMs);
+
         try {
           for await (const message of conversation) {
+            lastActivityMs = Date.now();
             emitEvent(onEvent, "session:message", message);
 
             // Increment turn counter for assistant messages
@@ -405,6 +436,7 @@ export async function runSession(
             throw err;
           }
         } finally {
+          clearInterval(heartbeatInterval);
           querySpan.end();
         }
 

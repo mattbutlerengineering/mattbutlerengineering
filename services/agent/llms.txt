@@ -79,6 +79,7 @@
     }
   </file>
   <file path="src/services/session.ts">
+    function isPrismaNotFound(err: unknown): boolean { /* implementation omitted */ }
     function mapPrismaSession(session: Session): AgentSession { /* implementation omitted */ }
     function mapPrismaEvent(event: SessionEvent): AgentSessionEvent { /* implementation omitted */ }
     interface ListOptions {
@@ -189,8 +190,9 @@
             },
           });
           return mapPrismaSession(session);
-        } catch {
-          return null;
+        } catch (err: unknown) {
+          if (isPrismaNotFound(err)) return null;
+          throw err;
         }
       },
     
@@ -198,9 +200,26 @@
         try {
           await prisma.session.delete({ where: { id } });
           return true;
-        } catch {
-          return false;
+        } catch (err: unknown) {
+          if (isPrismaNotFound(err)) return false;
+          throw err;
         }
+      },
+    
+      async findByStatus(status: SessionStatus): Promise<AgentSession[]> {
+        const sessions = await prisma.session.findMany({
+          where: { status },
+          orderBy: { updatedAt: "asc" },
+        });
+        return sessions.map(mapPrismaSession);
+      },
+    
+      async getLastEvent(sessionId: string): Promise<AgentSessionEvent | null> {
+        const event = await prisma.sessionEvent.findFirst({
+          where: { sessionId },
+          orderBy: { createdAt: "desc" },
+        });
+        return event ? mapPrismaEvent(event) : null;
       },
     
       async addEvent(
@@ -264,6 +283,11 @@
     export function checkCircuitBreaker(): CircuitCheckResult { /* implementation omitted */ }
     export function recordRemediationOutcome(succeeded: boolean): void { /* implementation omitted */ }
   </file>
+  <file path="src/services/liveness-monitor.ts">
+    async function checkStaleSessions(): Promise<void> { /* implementation omitted */ }
+    export function startLivenessMonitor(): void { /* implementation omitted */ }
+    export function stopLivenessMonitor(): void { /* implementation omitted */ }
+  </file>
   <file path="src/services/database.ts">
     interface SlowQueryStats {
       count5min: number;
@@ -285,6 +309,10 @@
     export function registerSchemas(fastify: FastifyInstance) { /* implementation omitted */ }
   </file>
   <file path="src/routes/webhooks.ts">
+    interface CollaboratorPermission {
+      permission: string;
+      role_name: string;
+    }
     interface GitHubIssueEvent {
       action: string;
       label?: { name: string };
@@ -299,6 +327,7 @@
         full_name: string;
         default_branch: string;
       };
+      sender: { login: string; type: string };
     }
     interface GitHubIssueCommentEvent {
       action: string;
@@ -317,6 +346,7 @@
         full_name: string;
         default_branch: string;
       };
+      sender: { login: string; type: string };
     }
     interface GitHubCheckRunEvent {
       action: string;
@@ -338,14 +368,21 @@
       signature: string | undefined,
       secret: string
     ): boolean { /* implementation omitted */ }
+    async function checkCollaboratorPermission(
+      username: string,
+      repository: string,
+      githubToken: string
+    ): Promise<boolean> { /* implementation omitted */ }
     export const webhookRoutes: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
     async function handleIssueEvent(
       fastify: { log: { info: (...args: unknown[]) => void; warn: (...args: unknown[]) => void; error: (...args: unknown[]) => void } },
-      event: GitHubIssueEvent
+      event: GitHubIssueEvent,
+      githubToken: string
     ): Promise<void> { /* implementation omitted */ }
     async function handleIssueCommentEvent(
       fastify: { log: { info: (...args: unknown[]) => void; error: (...args: unknown[]) => void } },
-      event: GitHubIssueCommentEvent
+      event: GitHubIssueCommentEvent,
+      githubToken: string
     ): Promise<void> { /* implementation omitted */ }
     async function handleCheckRunEvent(
       fastify: { log: { info: (...args: unknown[]) => void; error: (...args: unknown[]) => void } },

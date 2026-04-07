@@ -173,6 +173,22 @@ export const sessionService = {
     }
   },
 
+  async findByStatus(status: SessionStatus): Promise<AgentSession[]> {
+    const sessions = await prisma.session.findMany({
+      where: { status },
+      orderBy: { updatedAt: "asc" },
+    });
+    return sessions.map(mapPrismaSession);
+  },
+
+  async getLastEvent(sessionId: string): Promise<AgentSessionEvent | null> {
+    const event = await prisma.sessionEvent.findFirst({
+      where: { sessionId },
+      orderBy: { createdAt: "desc" },
+    });
+    return event ? mapPrismaEvent(event) : null;
+  },
+
   async addEvent(
     sessionId: string,
     type: string,
