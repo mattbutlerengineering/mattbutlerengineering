@@ -10,6 +10,7 @@ import { sentryFastifyPlugin } from "@mbe/sentry/node";
 import { apiVersioningPlugin } from "@mbe/api-versioning/fastify";
 import { registerSchemas } from "./schemas/index.js";
 import { healthRoutes } from "./routes/health.js";
+import { readinessRoutes } from "./routes/ready.js";
 import { userRoutes } from "./routes/users.js";
 
 export interface AppOptions {
@@ -117,6 +118,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
 
   // Register routes
   await fastify.register(healthRoutes);
+  await fastify.register(readinessRoutes);
   // Full path prefix — ingress forwards with preservePathPrefix: true
   await fastify.register(userRoutes, { prefix: "/api/v1/users" });
 

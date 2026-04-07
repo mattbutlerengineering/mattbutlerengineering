@@ -162,7 +162,7 @@ const apiApp = new digitalocean.App("mattbutlerengineering-api-app", {
           ...otelEnvs,
         ],
         healthCheck: {
-          httpPath: "/health",
+          httpPath: "/ready",
           initialDelaySeconds: 10,
           periodSeconds: 10,
           timeoutSeconds: 5,
@@ -193,7 +193,7 @@ const apiApp = new digitalocean.App("mattbutlerengineering-api-app", {
           ...otelEnvs,
         ],
         healthCheck: {
-          httpPath: "/health",
+          httpPath: "/ready",
           initialDelaySeconds: 10,
           periodSeconds: 10,
           timeoutSeconds: 5,
@@ -231,7 +231,7 @@ const apiApp = new digitalocean.App("mattbutlerengineering-api-app", {
           ...otelEnvs,
         ],
         healthCheck: {
-          httpPath: "/health",
+          httpPath: "/ready",
           initialDelaySeconds: 10,
           periodSeconds: 10,
           timeoutSeconds: 5,

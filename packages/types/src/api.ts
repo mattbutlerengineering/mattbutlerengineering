@@ -99,6 +99,22 @@ export interface HealthResponse {
 }
 
 /**
+ * Readiness probe response — returned by /ready endpoints.
+ * 200 when all checks pass, 503 during startup or if any check fails.
+ */
+export interface ReadinessResponse {
+  ready: boolean;
+  timestamp: string;
+  checks: ReadinessCheckStatus[];
+}
+
+export interface ReadinessCheckStatus {
+  name: string;
+  status: "ok" | "error";
+  message?: string;
+}
+
+/**
  * Individual health check result
  */
 export interface HealthCheck {
