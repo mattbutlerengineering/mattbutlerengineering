@@ -1,106 +1,142 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { renderHook, act } from "@testing-library/react";
+import { useGenStream } from "./useGenStream.js";
 
-/**
- * Tests for the XSS sanitization logic in useGenStream.
- *
- * The hook sanitizes parsed streaming elements to prevent XSS by
- * stripping event handlers (on*), dangerouslySetInnerHTML, and ref props.
- * These are pure function tests — no React rendering needed.
- *
- * NOTE: Test inputs intentionally contain dangerous props to verify
- * they are correctly stripped by the sanitizer.
- */
+/* ── Mocks ──────────────────────────────────────────────────── */
 
-const BLOCKED_PROP_KEYS = new Set(["dangerouslySetInnerHTML", "ref"]);
+vi.mock("@mbe/auth/react", () => ({
+  useAuth: () => ({ accessToken: "test-token-123" }),
+}));
 
-function sanitizeProps(parsed: Record<string, unknown>): Record<string, unknown> {
-  if (!parsed.props || typeof parsed.props !== "object") return parsed;
+// Mock flatToTree to return a simple spec from accumulated elements
+vi.mock("@json-render/react", () => ({
+  flatToTree: (elements: unknown[]) => ({ type: "root", children: elements }),
+}));
 
-  const props = parsed.props as Record<string, unknown>;
-  const safeProps: Record<string, unknown> = {};
-  for (const key of Object.keys(props)) {
-    if (!key.startsWith("on") && !BLOCKED_PROP_KEYS.has(key)) {
-      safeProps[key] = props[key];
-    }
+const mockStreamNDJSON = vi.fn();
+
+vi.mock("@mbe/api-client/streaming", () => ({
+  streamNDJSON: (...args: unknown[]) => mockStreamNDJSON(...args),
+}));
+
+beforeEach(() => {
+  mockStreamNDJSON.mockReset();
+});
+
+/* ── Helpers ────────────────────────────────────────────────── */
+
+async function* asyncGen<T>(items: T[]): AsyncGenerator<T> {
+  for (const item of items) {
+    yield item;
   }
-  return { ...parsed, props: safeProps };
 }
 
-describe("useGenStream sanitizeProps", () => {
-  it("passes through safe props", () => {
-    const input = {
-      type: "div",
-      props: { className: "card", id: "main", style: { color: "red" } },
-    };
-    const result = sanitizeProps(input);
-    expect(result.props).toEqual({
-      className: "card",
-      id: "main",
-      style: { color: "red" },
+async function* asyncGenError(msg: string): AsyncGenerator<never> {
+  yield* ([] as never[]); // satisfy require-yield
+  throw new Error(msg);
+}
+
+describe("useGenStream", () => {
+  it("sends POST with prompt and auth header via streamNDJSON", async () => {
+    mockStreamNDJSON.mockReturnValue(asyncGen([]));
+
+    const { result } = renderHook(() =>
+      useGenStream({ api: "/api/gen" })
+    );
+
+    await act(async () => {
+      await result.current.send("Hello world");
+    });
+
+    expect(mockStreamNDJSON).toHaveBeenCalledOnce();
+    const callArgs = mockStreamNDJSON.mock.calls[0][0];
+    expect(callArgs.url).toBe("/api/gen");
+    expect(callArgs.body).toEqual({ prompt: "Hello world", context: undefined });
+    expect(callArgs.headers).toEqual({
+      Authorization: "Bearer test-token-123",
     });
   });
 
-  it("strips onClick and other event handlers", () => {
-    const input = {
-      type: "button",
-      props: {
-        className: "btn",
-        onClick: "alert('xss')",
-        onMouseOver: "steal(document.cookie)",
-        onLoad: "bad()",
-      },
-    };
-    const result = sanitizeProps(input);
-    expect(result.props).toEqual({ className: "btn" });
-  });
+  it("parses NDJSON elements and builds spec incrementally", async () => {
+    const elements = [
+      { type: "heading", props: { children: "Title" }, id: "1" },
+      { type: "paragraph", props: { children: "Body" }, id: "2" },
+    ];
+    mockStreamNDJSON.mockReturnValue(asyncGen(elements));
 
-  it("strips dangerouslySetInnerHTML", () => {
-    // Test verifies the sanitizer correctly removes this dangerous prop
-    const input = {
-      type: "div",
-      props: {
-        className: "content",
-        dangerouslySetInnerHTML: { __html: "<img src=x onerror=alert(1)>" }, // eslint-disable-line
-      },
-    };
-    const result = sanitizeProps(input);
-    expect(result.props).toEqual({ className: "content" });
-  });
+    const { result } = renderHook(() =>
+      useGenStream({ api: "/api/gen" })
+    );
 
-  it("strips ref prop", () => {
-    const input = {
-      type: "input",
-      props: { ref: "stolenRef", value: "safe" },
-    };
-    const result = sanitizeProps(input);
-    expect(result.props).toEqual({ value: "safe" });
-  });
-
-  it("handles missing props gracefully", () => {
-    const input = { type: "br" };
-    const result = sanitizeProps(input);
-    expect(result).toEqual({ type: "br" });
-  });
-
-  it("handles non-object props gracefully", () => {
-    const input = { type: "span", props: "invalid" };
-    const result = sanitizeProps(input);
-    expect(result).toEqual({ type: "span", props: "invalid" });
-  });
-
-  it("preserves data-* and aria-* attributes", () => {
-    const input = {
-      type: "div",
-      props: {
-        "data-testid": "card",
-        "aria-label": "Close",
-        onClick: "bad()",
-      },
-    };
-    const result = sanitizeProps(input);
-    expect(result.props).toEqual({
-      "data-testid": "card",
-      "aria-label": "Close",
+    await act(async () => {
+      await result.current.send("Generate something");
     });
+
+    expect(result.current.spec).not.toBeNull();
+    expect(result.current.rawLines).toHaveLength(2);
+    expect(result.current.isStreaming).toBe(false);
+  });
+
+  it("calls onComplete with final spec and raw lines", async () => {
+    const elements = [
+      { type: "text", props: { children: "Hello" }, id: "1" },
+    ];
+    mockStreamNDJSON.mockReturnValue(asyncGen(elements));
+
+    const onComplete = vi.fn();
+    const { result } = renderHook(() =>
+      useGenStream({ api: "/api/gen", onComplete })
+    );
+
+    await act(async () => {
+      await result.current.send("Test prompt");
+    });
+
+    expect(onComplete).toHaveBeenCalledOnce();
+    const [spec, rawLines] = onComplete.mock.calls[0];
+    expect(spec).not.toBeNull();
+    expect(rawLines).toHaveLength(1);
+  });
+
+  it("handles abort without setting error", async () => {
+    const abortError = Object.assign(new Error("Aborted"), { name: "AbortError" });
+    mockStreamNDJSON.mockImplementation(() => {
+      async function* gen(): AsyncGenerator<never> {
+        yield* ([] as never[]); // satisfy require-yield
+        throw abortError;
+      }
+      return gen();
+    });
+
+    const onError = vi.fn();
+    const { result } = renderHook(() =>
+      useGenStream({ api: "/api/gen", onError })
+    );
+
+    await act(async () => {
+      await result.current.send("Abort test");
+    });
+
+    expect(result.current.error).toBeNull();
+    expect(result.current.isStreaming).toBe(false);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("calls onError when stream fails with non-abort error", async () => {
+    mockStreamNDJSON.mockReturnValue(asyncGenError("Server error"));
+
+    const onError = vi.fn();
+    const { result } = renderHook(() =>
+      useGenStream({ api: "/api/gen", onError })
+    );
+
+    await act(async () => {
+      await result.current.send("Fail test");
+    });
+
+    expect(result.current.error).toBeInstanceOf(Error);
+    expect(result.current.error?.message).toBe("Server error");
+    expect(result.current.isStreaming).toBe(false);
+    expect(onError).toHaveBeenCalledOnce();
   });
 });

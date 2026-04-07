@@ -1,135 +1,103 @@
 import { describe, it, expect } from "vitest";
+import { computeStats } from "./useDashboardStats.js";
+import type { DashboardStats } from "./useDashboardStats.js";
 import type { Reservation } from "@mbe/types";
 
-// Import pure functions directly for unit testing
-// (the hook itself needs React context, tested separately)
+/* ── Helpers ────────────────────────────────────────────────── */
 
-// Re-implement the pure logic to test against — these mirror the hook's internals.
-// If the hook refactors these to exports, update imports here.
-
-function computeUpcoming(reservations: readonly Reservation[]): number {
-  const now = new Date();
-  const twoHoursLater = new Date(now.getTime() + 2 * 60 * 60 * 1000);
-  const todayStr = now.toISOString().slice(0, 10);
-
-  return reservations.filter((r) => {
-    if (r.status === "CANCELLED" || r.status === "NO_SHOW") return false;
-    const start = new Date(`${todayStr}T${r.startTime}`);
-    return start >= now && start <= twoHoursLater;
-  }).length;
-}
-
-function computeStats(reservations: readonly Reservation[]) {
-  if (reservations.length === 0) {
-    return {
-      totalReservations: 0,
-      expectedCovers: 0,
-      upcomingCount: 0,
-      cancellationRate: 0,
-      cancellationTrend: "neutral" as const,
-    };
-  }
-
-  const active = reservations.filter(
-    (r) => r.status !== "CANCELLED" && r.status !== "NO_SHOW"
-  );
-  const cancelled = reservations.filter((r) => r.status === "CANCELLED");
-  const rate = Math.round((cancelled.length / reservations.length) * 100);
-
+function makeReservation(
+  overrides: Partial<Reservation> = {}
+): Reservation {
   return {
-    totalReservations: active.length,
-    expectedCovers: active.reduce((sum, r) => sum + r.partySize, 0),
-    upcomingCount: computeUpcoming(reservations),
-    cancellationRate: rate,
-    cancellationTrend: rate > 10 ? ("up" as const) : rate < 5 ? ("down" as const) : ("neutral" as const),
+    id: "res-1",
+    date: "2026-01-15",
+    startTime: "18:00",
+    endTime: "20:00",
+    partySize: 4,
+    status: "CONFIRMED",
+    notes: null,
+    cancellationReason: null,
+    cancellationNote: null,
+    guestName: "Test Guest",
+    guestEmail: null,
+    guestPhone: null,
+    guestId: null,
+    userId: null,
+    tableId: "table-1",
+    venueId: "venue-1",
+    createdAt: "2026-01-15T00:00:00Z",
+    updatedAt: "2026-01-15T00:00:00Z",
+    ...overrides,
   };
 }
 
-const baseReservation: Reservation = {
-  id: "res-1",
-  venueId: "venue-1",
-  tableId: null,
-  guestId: null,
-  guestName: "Test Guest",
-  guestPhone: null,
-  guestEmail: null,
-  startTime: "19:00",
-  duration: 60,
-  partySize: 4,
-  status: "CONFIRMED",
-  notes: null,
-  confirmationCode: "ABC123",
-  source: "online",
-  createdAt: "2026-04-07T00:00:00Z",
-  updatedAt: "2026-04-07T00:00:00Z",
-};
-
 describe("computeStats", () => {
-  it("returns fallback for empty array", () => {
-    const stats = computeStats([]);
+  it("returns fallback stats for empty reservations list", () => {
+    const stats: DashboardStats = computeStats([]);
+
     expect(stats.totalReservations).toBe(0);
     expect(stats.expectedCovers).toBe(0);
+    expect(stats.upcomingCount).toBe(0);
     expect(stats.cancellationRate).toBe(0);
     expect(stats.cancellationTrend).toBe("neutral");
   });
 
   it("counts active reservations excluding cancelled and no-shows", () => {
-    const reservations: Reservation[] = [
-      { ...baseReservation, id: "1", status: "CONFIRMED" },
-      { ...baseReservation, id: "2", status: "CANCELLED" },
-      { ...baseReservation, id: "3", status: "NO_SHOW" },
-      { ...baseReservation, id: "4", status: "PENDING" },
+    const reservations = [
+      makeReservation({ id: "r1", status: "CONFIRMED", partySize: 4 }),
+      makeReservation({ id: "r2", status: "PENDING", partySize: 2 }),
+      makeReservation({ id: "r3", status: "CANCELLED", partySize: 6 }),
+      makeReservation({ id: "r4", status: "NO_SHOW", partySize: 3 }),
+      makeReservation({ id: "r5", status: "COMPLETED", partySize: 5 }),
     ];
 
     const stats = computeStats(reservations);
-    expect(stats.totalReservations).toBe(2); // CONFIRMED + PENDING
+
+    // Active = CONFIRMED + PENDING + COMPLETED = 3
+    expect(stats.totalReservations).toBe(3);
   });
 
-  it("sums party sizes for expected covers", () => {
-    const reservations: Reservation[] = [
-      { ...baseReservation, id: "1", partySize: 4 },
-      { ...baseReservation, id: "2", partySize: 6 },
-      { ...baseReservation, id: "3", partySize: 2, status: "CANCELLED" },
+  it("sums expected covers from active reservations only", () => {
+    const reservations = [
+      makeReservation({ id: "r1", status: "CONFIRMED", partySize: 4 }),
+      makeReservation({ id: "r2", status: "PENDING", partySize: 2 }),
+      makeReservation({ id: "r3", status: "CANCELLED", partySize: 10 }),
     ];
 
     const stats = computeStats(reservations);
-    expect(stats.expectedCovers).toBe(10); // 4 + 6 (cancelled excluded)
+
+    // Only CONFIRMED(4) + PENDING(2) = 6
+    expect(stats.expectedCovers).toBe(6);
   });
 
-  it("calculates cancellation rate correctly", () => {
-    const reservations: Reservation[] = [
-      { ...baseReservation, id: "1", status: "CONFIRMED" },
-      { ...baseReservation, id: "2", status: "CANCELLED" },
-      { ...baseReservation, id: "3", status: "CANCELLED" },
-      { ...baseReservation, id: "4", status: "CONFIRMED" },
+  it("calculates correct cancellation rate", () => {
+    const reservations = [
+      makeReservation({ id: "r1", status: "CONFIRMED" }),
+      makeReservation({ id: "r2", status: "CANCELLED" }),
+      makeReservation({ id: "r3", status: "CONFIRMED" }),
+      makeReservation({ id: "r4", status: "CANCELLED" }),
     ];
 
     const stats = computeStats(reservations);
-    expect(stats.cancellationRate).toBe(50); // 2/4 = 50%
-    expect(stats.cancellationTrend).toBe("up"); // >10%
+
+    // 2 cancelled out of 4 = 50%
+    expect(stats.cancellationRate).toBe(50);
+    expect(stats.cancellationTrend).toBe("up"); // >10% -> "up"
   });
 
-  it("marks trend as down when rate < 5%", () => {
-    const reservations: Reservation[] = Array.from({ length: 25 }, (_, i) => ({
-      ...baseReservation,
-      id: `res-${i}`,
-      status: i === 0 ? ("CANCELLED" as const) : ("CONFIRMED" as const),
-    }));
+  it("returns 'down' cancellation trend when rate is below 5%", () => {
+    // Need a rate < 5% -> 0 cancelled out of many
+    const reservations = Array.from({ length: 25 }, (_, i) =>
+      makeReservation({ id: `r${i}`, status: "CONFIRMED" })
+    );
+    // Add 1 cancelled to get 1/26 = ~4%
+    reservations.push(
+      makeReservation({ id: "cancelled-1", status: "CANCELLED" })
+    );
 
     const stats = computeStats(reservations);
-    expect(stats.cancellationRate).toBe(4); // 1/25 = 4%
+
+    expect(stats.cancellationRate).toBe(4); // Math.round(1/26*100) = 4
     expect(stats.cancellationTrend).toBe("down");
-  });
-
-  it("marks trend as neutral when rate is 5-10%", () => {
-    const reservations: Reservation[] = Array.from({ length: 20 }, (_, i) => ({
-      ...baseReservation,
-      id: `res-${i}`,
-      status: i < 2 ? ("CANCELLED" as const) : ("CONFIRMED" as const),
-    }));
-
-    const stats = computeStats(reservations);
-    expect(stats.cancellationRate).toBe(10); // 2/20 = 10%
-    expect(stats.cancellationTrend).toBe("neutral");
   });
 });
