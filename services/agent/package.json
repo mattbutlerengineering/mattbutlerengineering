@@ -35,7 +35,7 @@
     "@mbe/types": "workspace:*",
     "@prisma/client": "^7.6.0",
     "@scalar/fastify-api-reference": "^1.51.0",
-    "ai": "^6.0.147",
+    "ai": "^6.0.149",
     "fastify": "catalog:",
     "zod": "catalog:"
   },
