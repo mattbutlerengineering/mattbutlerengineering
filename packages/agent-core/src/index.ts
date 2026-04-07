@@ -148,7 +148,20 @@ export type {
   ToolUseEvent,
   ToolResultEvent,
   AssistantTextEvent,
+  TurnMetricsEvent,
 } from "./event-mapper.js";
+
+// Observability — failure categorization, OTel spans, metrics builders
+export {
+  categorizeFailure,
+  buildTurnMetricsList,
+  buildToolCallMetricsList,
+  withModelSelectionSpan,
+  withToolPermissionSpan,
+  withStuckDetectionSpan,
+  withSuccessEvaluationSpan,
+  observabilityTracer,
+} from "./observability.js";
 
 // Types
 export type {
@@ -164,9 +177,17 @@ export type {
   PrResult,
   PrOptions,
   FeedbackLoopConfig,
+  FailureCategory,
+  TurnMetrics,
+  ToolCallMetrics,
+  HeartbeatConfig,
 } from "./types.js";
 
-export { DEFAULT_SESSION_CONFIG, DEFAULT_FEEDBACK_LOOP_CONFIG } from "./types.js";
+export {
+  DEFAULT_SESSION_CONFIG,
+  DEFAULT_FEEDBACK_LOOP_CONFIG,
+  DEFAULT_HEARTBEAT_CONFIG,
+} from "./types.js";
 
 // Orchestrator
 export { runOrchestrator } from "./orchestrator.js";
@@ -225,6 +246,9 @@ export {
   DEFAULT_RETRY_CONFIG,
 } from "./retry.js";
 export type { RetryConfig, RetryResult } from "./retry.js";
+
+// Output sanitization (XSS prevention for AI-generated content)
+export { escapeHtml, sanitizeStreamChunk, createSanitizedStream } from "./sanitize-output.js";
 
 // Bundle size tracking
 export {

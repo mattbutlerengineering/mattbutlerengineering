@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from "react";
 import { flatToTree } from "@json-render/react";
 import type { Spec } from "@json-render/react";
 import { useAuth } from "@mbe/auth/react";
+import { streamNDJSON } from "@mbe/api-client/streaming";
 
 // FlatElement is the element type consumed by flatToTree. We derive it from the
 // function signature rather than importing from @json-render/core (not a direct dep).
@@ -21,6 +22,26 @@ export interface UseGenStreamReturn {
   send: (prompt: string, context?: Record<string, unknown>) => Promise<void>;
   clear: () => void;
   stop: () => void;
+}
+
+/** Blocked prop keys for XSS prevention (CONTENT-01). */
+const BLOCKED_PROP_KEYS = new Set(["dangerouslySetInnerHTML", "ref"]);
+
+/**
+ * Sanitize parsed element props to prevent XSS (CONTENT-01).
+ * Returns a new object with dangerous keys removed.
+ */
+function sanitizeProps(parsed: Record<string, unknown>): Record<string, unknown> {
+  if (!parsed.props || typeof parsed.props !== "object") return parsed;
+
+  const props = parsed.props as Record<string, unknown>;
+  const safeProps: Record<string, unknown> = {};
+  for (const key of Object.keys(props)) {
+    if (!key.startsWith("on") && !BLOCKED_PROP_KEYS.has(key)) {
+      safeProps[key] = props[key];
+    }
+  }
+  return { ...parsed, props: safeProps };
 }
 
 /**
@@ -73,97 +94,24 @@ export function useGenStream({
       const accumulatedRawLines: string[] = [];
 
       try {
-        const response = await fetch(api, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-          },
-          body: JSON.stringify({ prompt, context }),
+        const stream = streamNDJSON<Record<string, unknown>>({
+          url: api,
+          body: { prompt, context },
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
           signal: controller.signal,
         });
 
-        if (!response.ok) {
-          throw new Error(`Request failed: ${response.statusText}`);
-        }
+        for await (const parsed of stream) {
+          const sanitized = sanitizeProps(parsed);
+          const rawLine = JSON.stringify(sanitized);
 
-        if (!response.body) {
-          throw new Error("Response body is not readable");
-        }
+          accumulatedRawLines.push(rawLine);
+          setRawLines((prev) => [...prev, rawLine]);
 
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-
-        while (true) {
-          const { done, value } = await reader.read();
-
-          if (done) {
-            break;
-          }
-
-          buffer += decoder.decode(value, { stream: true });
-
-          // Process complete lines from the buffer
-          const lines = buffer.split("\n");
-          // Keep the last (possibly incomplete) chunk in the buffer
-          buffer = lines.pop() ?? "";
-
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed) continue;
-
-            accumulatedRawLines.push(trimmed);
-            setRawLines((prev) => [...prev, trimmed]);
-
-            try {
-              const parsed = JSON.parse(trimmed) as Record<string, unknown>;
-
-              // CONTENT-01: Sanitize element props to prevent XSS
-              if (parsed.props && typeof parsed.props === "object") {
-                const props = parsed.props as Record<string, unknown>;
-                for (const key of Object.keys(props)) {
-                  // Block dangerous event handlers and internal React props
-                  if (key.startsWith("on") || key === "dangerouslySetInnerHTML" || key === "ref") {
-                    delete props[key];
-                  }
-                }
-              }
-
-              // Treat as a flat element; cast to FlatElement for spec assembly
-              accumulatedElements.push(parsed as unknown as FlatElement);
-              const updatedSpec = flatToTree([...accumulatedElements]);
-              setSpec(updatedSpec);
-            } catch {
-              // Skip malformed JSON lines
-            }
-          }
-        }
-
-        // Process any remaining buffered content
-        if (buffer.trim()) {
-          const trimmedBuffer = buffer.trim();
-          accumulatedRawLines.push(trimmedBuffer);
-          setRawLines((prev) => [...prev, trimmedBuffer]);
-          try {
-            const parsed = JSON.parse(trimmedBuffer) as Record<string, unknown>;
-
-            // CONTENT-01: Sanitize element props to prevent XSS
-            if (parsed.props && typeof parsed.props === "object") {
-              const props = parsed.props as Record<string, unknown>;
-              for (const key of Object.keys(props)) {
-                if (key.startsWith("on") || key === "dangerouslySetInnerHTML" || key === "ref") {
-                  delete props[key];
-                }
-              }
-            }
-
-            accumulatedElements.push(parsed as unknown as FlatElement);
-            const finalSpec = flatToTree([...accumulatedElements]);
-            setSpec(finalSpec);
-          } catch {
-            // Skip malformed JSON lines
-          }
+          // Treat as a flat element; cast to FlatElement for spec assembly
+          accumulatedElements.push(sanitized as unknown as FlatElement);
+          const updatedSpec = flatToTree([...accumulatedElements]);
+          setSpec(updatedSpec);
         }
 
         // Build the final spec and notify completion — pass local rawLines array

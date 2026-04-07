@@ -37,6 +37,9 @@
     "jose": "^6.2.2",
     "zod": "catalog:"
   },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
   "devDependencies": {
     "@mbe/config": "workspace:*",
     "@types/node": "catalog:",

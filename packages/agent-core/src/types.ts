@@ -1,6 +1,56 @@
 import type { SDKMessage, SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { StuckDetectorConfig } from "./stuck-detector.js";
 
+// ── Failure categorization ───────────────────────────────────────────
+
+/**
+ * Structured failure categories for analytics and alerting.
+ *
+ * - api_error:        Anthropic API returned an error (5xx, network, etc.)
+ * - rate_limited:     Request was throttled by the API (429)
+ * - stuck_loop:       Stuck detector fired (repeated actions, zero progress, etc.)
+ * - budget_exceeded:  Session cost exceeded maxBudgetUsd
+ * - tool_error:       A tool call returned an error
+ * - logic_error:      Agent produced incorrect output (evaluation / review failed)
+ */
+export type FailureCategory =
+  | "api_error"
+  | "rate_limited"
+  | "stuck_loop"
+  | "budget_exceeded"
+  | "tool_error"
+  | "logic_error";
+
+// ── Per-turn observability metrics ───────────────────────────────────
+
+export interface TurnMetrics {
+  /** 1-based turn index within the session */
+  readonly turnIndex: number;
+  /** ISO timestamp when this turn started */
+  readonly startedAt: string;
+  /** Input tokens consumed in this turn */
+  readonly inputTokens: number;
+  /** Output tokens produced in this turn */
+  readonly outputTokens: number;
+  /** Extended-thinking tokens (if applicable) */
+  readonly thinkingTokens: number;
+  /** Incremental cost in USD for this turn */
+  readonly costUsd: number;
+  /** Model ID that handled this turn */
+  readonly modelId: string;
+}
+
+export interface ToolCallMetrics {
+  /** Tool name (e.g. "Read", "Bash") */
+  readonly toolName: string;
+  /** Unique tool-use ID from the SDK */
+  readonly toolUseId: string;
+  /** Wall-clock latency in milliseconds */
+  readonly latencyMs: number;
+  /** Whether the tool call resulted in an error */
+  readonly isError: boolean;
+}
+
 // ── Session configuration ────────────────────────────────────────────
 
 export interface FeedbackLoopConfig {
@@ -75,6 +125,9 @@ export interface SessionResult {
   readonly resultText: string;
   readonly errors: readonly string[];
   readonly stuckPattern?: string;
+  readonly failureCategory?: FailureCategory;
+  readonly turnMetrics?: readonly TurnMetrics[];
+  readonly toolCallMetrics?: readonly ToolCallMetrics[];
   readonly evaluation?: {
     readonly passed: boolean;
     readonly confidence: number;
@@ -95,7 +148,24 @@ export type SessionEventType =
   | "session:evaluation"
   | "session:verification"
   | "session:review"
-  | "session:tool_result";
+  | "session:tool_result"
+  | "session:turn_metrics"
+  | "session:tool_latency"
+  | "session:heartbeat";
+
+// ── Heartbeat / liveness configuration ──────────────────────────────
+
+export interface HeartbeatConfig {
+  /** Interval between heartbeat emissions (ms). Default: 60_000 (1 min) */
+  readonly intervalMs: number;
+  /** Max time with no SDK messages before auto-cancel (ms). Default: 600_000 (10 min) */
+  readonly inactivityTimeoutMs: number;
+}
+
+export const DEFAULT_HEARTBEAT_CONFIG: HeartbeatConfig = {
+  intervalMs: 60_000,
+  inactivityTimeoutMs: 600_000,
+};
 
 export interface SessionEvent {
   readonly type: SessionEventType;

@@ -38,6 +38,9 @@ model Session {
   durationMs  Int?    @map("duration_ms")
   errors      Json    @default("[]")
 
+  // Failure analytics
+  failureCategory String? @map("failure_category")
+
   // SDK session tracking
   sdkSessionId String? @map("sdk_session_id")
 
@@ -67,9 +70,24 @@ model SessionEvent {
   data      Json     @default("{}")
   createdAt DateTime @default(now()) @map("created_at")
 
+  // Per-turn observability metrics (populated for session:turn_metrics events)
+  turnIndex      Int?    @map("turn_index")
+  inputTokens    Int?    @map("input_tokens")
+  outputTokens   Int?    @map("output_tokens")
+  thinkingTokens Int?    @map("thinking_tokens")
+  costUsd        Float?  @map("cost_usd")
+  modelId        String? @map("model_id")
+
+  // Tool call latency (populated for session:tool_latency events)
+  toolName    String? @map("tool_name")
+  toolUseId   String? @map("tool_use_id")
+  toolLatencyMs Int?  @map("tool_latency_ms")
+  toolIsError Boolean? @map("tool_is_error")
+
   session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId, createdAt])
+  @@index([sessionId, type])
   @@map("session_events")
 }
 

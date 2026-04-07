@@ -20,7 +20,25 @@ export interface AssistantTextEvent {
   readonly text: string;
 }
 
-export type MappedEvent = ToolUseEvent | ToolResultEvent | AssistantTextEvent;
+/**
+ * Per-turn token / cost metrics extracted from an assistant message.
+ * Populated when the SDK message includes usage data on the inner message.
+ */
+export interface TurnMetricsEvent {
+  readonly type: "session:turn_metrics";
+  readonly turnIndex: number;
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+  readonly thinkingTokens: number;
+  readonly costUsd: number;
+  readonly modelId: string;
+}
+
+export type MappedEvent =
+  | ToolUseEvent
+  | ToolResultEvent
+  | AssistantTextEvent
+  | TurnMetricsEvent;
 
 // ── Content block types ─────────────────────────────────────────────
 
@@ -44,14 +62,30 @@ interface ToolResultBlock {
 
 type ContentBlock = ToolUseBlock | TextBlock | ToolResultBlock | { type: string };
 
+/** Shape of the usage object on assistant messages (SDK may vary). */
+interface MessageUsage {
+  readonly input_tokens?: number | null;
+  readonly output_tokens?: number | null;
+  readonly cache_creation_input_tokens?: number | null;
+  readonly cache_read_input_tokens?: number | null;
+}
+
+/** Minimal shape of the inner `message` field on assistant SDK messages. */
+interface AssistantInnerMessage {
+  readonly content: readonly ContentBlock[];
+  readonly model?: string;
+  readonly usage?: MessageUsage;
+}
+
 // ── Mapper ──────────────────────────────────────────────────────────
 
 function mapAssistantMessage(
-  content: readonly ContentBlock[]
+  innerMessage: AssistantInnerMessage,
+  turnIndex: number
 ): readonly MappedEvent[] {
   const events: MappedEvent[] = [];
 
-  for (const block of content) {
+  for (const block of innerMessage.content) {
     if (block.type === "tool_use") {
       const toolBlock = block as ToolUseBlock;
       events.push({
@@ -69,6 +103,28 @@ function mapAssistantMessage(
         });
       }
     }
+  }
+
+  // Emit per-turn metrics if usage data is present
+  if (innerMessage.usage) {
+    const usage = innerMessage.usage;
+    const inputTokens = usage.input_tokens ?? 0;
+    const outputTokens = usage.output_tokens ?? 0;
+    // Thinking tokens are not directly exposed in the standard usage shape;
+    // some SDK versions surface them via cache_creation_input_tokens.
+    const thinkingTokens = 0;
+
+    events.push({
+      type: "session:turn_metrics",
+      turnIndex,
+      inputTokens,
+      outputTokens,
+      thinkingTokens,
+      // Per-turn cost is not directly available from usage alone; set to 0 here.
+      // Accurate session-level cost comes from the result message.
+      costUsd: 0,
+      modelId: innerMessage.model ?? "",
+    });
   }
 
   return events;
@@ -97,16 +153,23 @@ function mapUserMessage(
 
 /**
  * Map a raw SDK message to typed events for observability.
+ *
+ * @param message   The raw SDK message to map.
+ * @param turnIndex 1-based turn counter maintained by the caller; used to
+ *                  annotate per-turn metrics events so consumers can correlate
+ *                  metrics across turns.
+ *
  * Returns an empty array for message types with no relevant events.
  */
 export function mapSdkMessage(
-  message: SDKMessage
+  message: SDKMessage,
+  turnIndex = 0
 ): readonly MappedEvent[] {
   if (message.type === "assistant") {
     const assistantMsg = message as {
-      message: { content: readonly ContentBlock[] };
+      message: AssistantInnerMessage;
     };
-    return mapAssistantMessage(assistantMsg.message.content);
+    return mapAssistantMessage(assistantMsg.message, turnIndex);
   }
 
   if (message.type === "user") {
