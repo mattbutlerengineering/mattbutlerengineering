@@ -111,6 +111,9 @@
 .breadcrumbBar {
   /* Pull out to the edges of .content's padding so the bar spans full width,
      then re-apply the same inline padding to align text with page content. */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-inline: calc(-1 * var(--rialto-space-lg));
   margin-block-start: calc(-1 * var(--rialto-space-lg));
   padding-inline: var(--rialto-space-lg);
