@@ -21,6 +21,16 @@ export interface SourceFileEntry {
   readonly content: string;
 }
 
+export interface PromptBuilderConfig {
+  sourceFileEntries?: readonly SourceFileEntry[];
+  relevantLlmsFiles?: readonly string[];
+  relevantIssueContext?: string;
+  failureContext?: string;
+  model?: string;
+  verificationSteps?: readonly string[];
+  prExamplesSection?: string;
+}
+
 export async function loadSourceFiles(
   paths: readonly string[]
 ): Promise<readonly SourceFileEntry[]> {
@@ -56,11 +66,113 @@ function formatSourceFileSection(entries: readonly SourceFileEntry[]): string {
   ].join("\n");
 }
 
-export function buildSystemPrompt(
+function formatLlmsContext(filePaths: readonly string[]): string {
+  if (filePaths.length === 0) return "";
+  const sections = filePaths.map((filePath) => {
+    if (!existsSync(filePath)) return null;
+    try {
+      const content = readFile(filePath, "utf-8");
+      return `### ${filePath}\n\n${content}\n`;
+    } catch {
+      return null;
+    }
+  }).filter(Boolean);
+
+  if (sections.length === 0) return "";
+  return [
+    "",
+    "",
+    "## Package Context (llms.txt)",
+    "",
+    "Key types and signatures from relevant packages:",
+    "",
+    ...sections,
+  ].join("\n");
+}
+
+function formatIssueContext(issueContext: string): string {
+  if (!issueContext) return "";
+  return [
+    "",
+    "",
+    "## GitHub Issue Context",
+    "",
+    issueContext,
+  ].join("\n");
+}
+
+function formatFailureContext(failureContext: string): string {
+  if (!failureContext) return "";
+  return [
+    "",
+    "",
+    "## Past Failure Context",
+    "",
+    failureContext,
+  ].join("\n");
+}
+
+function formatModelConstraints(model?: string): string {
+  if (!model) return "";
+
+  const isHaiku = model.includes("haiku");
+  const isOpus = model.includes("opus");
+
+  if (isHaiku) {
+    return [
+      "",
+      "",
+      "## Constraints (Haiku)",
+      "",
+      "- Max 15 turns — stay focused",
+      "- Single focused change only",
+      "- Avoid complex refactors",
+      "- Use existing patterns from codebase",
+    ].join("\n");
+  }
+
+  if (isOpus) {
+    return [
+      "",
+      "",
+      "## Focus (Opus)",
+      "",
+      "- Consider system-wide impact",
+      "- Document trade-offs in PR",
+      "- Think through edge cases",
+      "- Ensure backward compatibility",
+    ].join("\n");
+  }
+
+  return "";
+}
+
+function formatVerificationSteps(steps: readonly string[]): string {
+  if (steps.length === 0) return "";
+  return [
+    "",
+    "",
+    "## Verification Steps",
+    "",
+    "Run these to confirm your solution works:",
+    ...steps.map((s, i) => `${i + 1}. ${s}`),
+  ].join("\n");
+}
+
+export async function buildSystemPrompt(
   taskDescription: string,
-  sourceFileEntries?: readonly SourceFileEntry[],
-  prExamplesSection?: string
-): string {
+  config?: PromptBuilderConfig
+): Promise<string> {
+  const {
+    sourceFileEntries,
+    relevantLlmsFiles = [],
+    relevantIssueContext,
+    failureContext,
+    model,
+    verificationSteps = [],
+    prExamplesSection,
+  } = config ?? {};
+
   const base = [
     "You are an autonomous coding agent. Complete the following task in a single session.",
     "",
@@ -83,11 +195,23 @@ export function buildSystemPrompt(
     "- IMPORTANT: A security reviewer scans your diff for hardcoded secrets, XSS, SQL injection, and accessibility issues. Any finding blocks the PR.",
   ].join("\n");
 
-  const sourceSection = sourceFileEntries
-    ? formatSourceFileSection(sourceFileEntries)
-    : "";
+  const sourceSection = sourceFileEntries ? formatSourceFileSection(sourceFileEntries) : "";
+  const llmsSection = formatLlmsContext(relevantLlmsFiles);
+  const issueSection = formatIssueContext(relevantIssueContext ?? "");
+  const failureSection = formatFailureContext(failureContext ?? "");
+  const modelSection = formatModelConstraints(model);
+  const verificationSection = formatVerificationSteps(verificationSteps);
 
-  return base + sourceSection + (prExamplesSection ?? "");
+  return [
+    base,
+    issueSection,
+    failureSection,
+    modelSection,
+    verificationSection,
+    sourceSection,
+    llmsSection,
+    prExamplesSection ?? "",
+  ].join("\n");
 }
 
 export async function loadProjectContext(repoPath: string): Promise<string | null> {
