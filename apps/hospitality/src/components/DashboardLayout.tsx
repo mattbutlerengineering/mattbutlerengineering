@@ -13,6 +13,7 @@ import type { NavItem } from "../nav-sections.js";
 import { VenueProvider } from "../contexts/VenueContext.js";
 import { ReservationDataProvider } from "../contexts/ReservationDataContext.js";
 import { DashboardSidebar } from "./DashboardSidebar.js";
+import { SystemHealthBadge } from "./SystemHealthBadge.js";
 import { VenueSwitcher } from "./VenueSwitcher.js";
 import styles from "./DashboardLayout.module.css";
 
@@ -260,6 +261,7 @@ function DashboardLayoutInner() {
         <main id="main-content" tabIndex={-1} className={styles.content} style={{ outline: "none" }}>
           <div className={styles.breadcrumbBar}>
             <Breadcrumb items={breadcrumbs} />
+            <SystemHealthBadge />
           </div>
           <ErrorBoundary
             fallback={
