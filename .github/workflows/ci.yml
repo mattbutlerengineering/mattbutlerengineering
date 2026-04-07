@@ -415,3 +415,113 @@ jobs:
             -H "Authorization: Bearer ${CF_API_TOKEN}" \
             -H "Content-Type: application/json" \
             -d "$PAYLOAD"
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Migration Dry-Run — test Prisma migrations against a fresh DB on PRs
+  # ──────────────────────────────────────────────────────────────────────────
+  migration-dry-run:
+    name: Migration Dry-Run
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: dryrun
+          POSTGRES_PASSWORD: dryrun_test
+          POSTGRES_DB: dryrun
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dryrun"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Check for migration changes
+        id: changes
+        run: |
+          CHANGED=$(git diff --name-only origin/main...HEAD -- 'services/*/prisma/migrations/' | head -20)
+          if [ -z "$CHANGED" ]; then
+            echo "has_migrations=false" >> "$GITHUB_OUTPUT"
+            echo "No migration changes detected"
+          else
+            echo "has_migrations=true" >> "$GITHUB_OUTPUT"
+            echo "Migration files changed:"
+            echo "$CHANGED"
+          fi
+
+      - name: Install Prisma CLI
+        if: steps.changes.outputs.has_migrations == 'true'
+        run: npm install -g prisma@6
+
+      - name: Apply existing migrations
+        if: steps.changes.outputs.has_migrations == 'true'
+        env:
+          DATABASE_URL: "postgresql://dryrun:dryrun_test@localhost:5432/dryrun"
+        run: |
+          for SERVICE in users reservations agent; do
+            SCHEMA="services/$SERVICE/prisma/schema.prisma"
+            if [ -f "$SCHEMA" ]; then
+              echo "=== Deploying $SERVICE migrations ==="
+              prisma migrate deploy --schema "$SCHEMA" 2>&1 || {
+                echo "::error::Migration deploy failed for $SERVICE"
+                exit 1
+              }
+              echo "✓ $SERVICE migrations applied"
+            fi
+          done
+
+      - name: Validate schema consistency
+        if: steps.changes.outputs.has_migrations == 'true'
+        env:
+          DATABASE_URL: "postgresql://dryrun:dryrun_test@localhost:5432/dryrun"
+        run: |
+          for SERVICE in users reservations agent; do
+            SCHEMA="services/$SERVICE/prisma/schema.prisma"
+            if [ -f "$SCHEMA" ]; then
+              echo "=== Checking $SERVICE schema drift ==="
+              DIFF=$(prisma migrate diff \
+                --from-migrations "services/$SERVICE/prisma/migrations" \
+                --to-schema-datamodel "$SCHEMA" \
+                --shadow-database-url "postgresql://dryrun:dryrun_test@localhost:5432/dryrun_shadow" 2>&1 || true)
+
+              if echo "$DIFF" | grep -q "No difference"; then
+                echo "✓ $SERVICE schema matches migrations"
+              else
+                echo "::warning::$SERVICE may have schema drift"
+                echo "$DIFF"
+              fi
+            fi
+          done
+
+      - name: Run basic query tests
+        if: steps.changes.outputs.has_migrations == 'true'
+        env:
+          PGHOST: localhost
+          PGPORT: "5432"
+          PGUSER: dryrun
+          PGPASSWORD: dryrun_test
+          PGDATABASE: dryrun
+        run: |
+          TABLE_COUNT=$(psql -t -c "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'" | tr -d ' ')
+          echo "Tables after migration: $TABLE_COUNT"
+
+          MIGRATION_COUNT=$(psql -t -c "SELECT count(*) FROM _prisma_migrations WHERE finished_at IS NOT NULL" | tr -d ' ')
+          echo "Migrations applied: $MIGRATION_COUNT"
+
+          FAILED=$(psql -t -c "SELECT count(*) FROM _prisma_migrations WHERE rolled_back_at IS NOT NULL" | tr -d ' ')
+          if [ "$FAILED" != "0" ]; then
+            echo "::error::$FAILED migration(s) were rolled back"
+            psql -c "SELECT migration_name, started_at, rolled_back_at FROM _prisma_migrations WHERE rolled_back_at IS NOT NULL"
+            exit 1
+          fi
+
+          echo "✓ All migrations applied successfully"
