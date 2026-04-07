@@ -50,7 +50,7 @@ export const holdService = {
     data: CreateHoldRequest,
     sessionId: string
   ): Promise<CreateHoldResult> {
-    const { venueId, date, time, partySize, tableId } = data;
+    const { venueId, date, time, partySize, tableId, holdDurationMinutes } = data;
 
     // Get venue settings for hold duration
     const venue = await prisma.venue.findUnique({
@@ -62,7 +62,8 @@ export const holdService = {
     }
 
     const settings = venue.settings as VenueSettings | null;
-    const holdDuration = settings?.holdDurationMinutes ?? DEFAULT_HOLD_DURATION;
+    // Use request-provided duration, or fall back to venue setting, or default
+    const holdDuration = holdDurationMinutes ?? settings?.holdDurationMinutes ?? DEFAULT_HOLD_DURATION;
 
     // Calculate times
     const startTime = new Date(time);

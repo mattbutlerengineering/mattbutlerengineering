@@ -129,6 +129,12 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
               type: "string",
               description: "Optional specific table to hold. If not provided, best available table is assigned.",
             },
+            holdDurationMinutes: {
+              type: "integer",
+              minimum: 1,
+              maximum: 60,
+              description: "Override hold duration in minutes. Defaults to venue setting or 10 minutes.",
+            },
           },
         },
         response: {

@@ -15,6 +15,12 @@ export interface BookingWidgetProps {
   venueId: string;
   apiBaseUrl?: string;
   maxPartySize?: number;
+  holdDurationMinutes?: number;
+  enableDateRange?: boolean;
+  minDate?: string;
+  maxDate?: string;
+  cancellationUrl?: string;
+  onCancellation?: () => void;
   className?: string;
 }
 
@@ -30,6 +36,12 @@ export function BookingWidget({
   venueId,
   apiBaseUrl = import.meta.env.VITE_API_URL ?? "",
   maxPartySize = 8,
+  holdDurationMinutes = 10,
+  enableDateRange = false,
+  minDate,
+  maxDate,
+  cancellationUrl,
+  onCancellation,
   className = "",
 }: BookingWidgetProps) {
   // Step management
@@ -37,6 +49,7 @@ export function BookingWidget({
 
   // Date and party size
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedEndDate, setSelectedEndDate] = useState<string | null>(null);
   const [partySize, setPartySize] = useState(2);
 
   // Time slots
@@ -101,6 +114,7 @@ export function BookingWidget({
           date: selectedDate,
           time: slot.time,
           partySize,
+          holdDurationMinutes,
         });
         setHold(newHold);
         setSelectedSlot(slot);
@@ -111,7 +125,7 @@ export function BookingWidget({
         setHoldLoading(false);
       }
     },
-    [api, venueId, selectedDate, partySize]
+    [api, venueId, selectedDate, partySize, holdDurationMinutes]
   );
 
   // Confirm the reservation
@@ -182,6 +196,7 @@ export function BookingWidget({
   const handleNewBooking = useCallback(() => {
     setStep("date-party");
     setSelectedDate(null);
+    setSelectedEndDate(null);
     setPartySize(2);
     setSlots([]);
     setSelectedSlot(null);
@@ -237,11 +252,16 @@ export function BookingWidget({
       {step === "date-party" && (
         <DatePartySelector
           selectedDate={selectedDate}
+          selectedEndDate={selectedEndDate}
           partySize={partySize}
           onDateChange={setSelectedDate}
+          onEndDateChange={enableDateRange ? setSelectedEndDate : undefined}
           onPartySizeChange={setPartySize}
           onNext={handleFindTimes}
           maxPartySize={maxPartySize}
+          enableDateRange={enableDateRange}
+          minDate={minDate}
+          maxDate={maxDate}
         />
       )}
 
@@ -272,7 +292,12 @@ export function BookingWidget({
       )}
 
       {step === "confirmation" && reservation && (
-        <ConfirmationView reservation={reservation} onNewBooking={handleNewBooking} />
+        <ConfirmationView
+          reservation={reservation}
+          onNewBooking={handleNewBooking}
+          cancellationUrl={cancellationUrl}
+          onCancellation={onCancellation}
+        />
       )}
     </div>
   );

@@ -49,6 +49,7 @@ export interface CreateHoldRequest {
   time: string; // ISO 8601 datetime
   partySize: number;
   tableId?: string; // optional, auto-assign if not provided
+  holdDurationMinutes?: number; // optional, venue default if not provided
 }
 
 export interface ConfirmHoldRequest {
