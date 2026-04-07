@@ -242,6 +242,9 @@ export {
 } from "./retry.js";
 export type { RetryConfig, RetryResult } from "./retry.js";
 
+// Output sanitization (XSS prevention for AI-generated content)
+export { escapeHtml, sanitizeStreamChunk, createSanitizedStream } from "./sanitize-output.js";
+
 // Bundle size tracking
 export {
   measureAppBundleSize,

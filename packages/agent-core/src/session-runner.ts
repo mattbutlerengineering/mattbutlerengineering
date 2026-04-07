@@ -42,6 +42,7 @@ import {
 import { analyzeDiff } from "./diff-static-analyzer.js";
 import { mapSdkMessage } from "./event-mapper.js";
 import type { TurnMetricsEvent } from "./event-mapper.js";
+import { sanitizeStreamChunk } from "./sanitize-output.js";
 import {
   recordFailure,
   queryPastFailures,
@@ -286,8 +287,9 @@ export async function runSession(
             }
 
             // Emit typed events for observability (pass current turn index)
+            // Sanitize serialized event data to prevent XSS in AI-generated content (OWASP LLM02)
             for (const mapped of mapSdkMessage(message, turnIndex)) {
-              emitEvent(onEvent, mapped.type, { message: JSON.stringify(mapped) });
+              emitEvent(onEvent, mapped.type, { message: sanitizeStreamChunk(JSON.stringify(mapped)) });
 
               // Accumulate per-turn metrics
               if (mapped.type === "session:turn_metrics") {
