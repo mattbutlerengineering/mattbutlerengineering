@@ -1,0 +1,442 @@
+{
+  "nodes": [
+    {
+      "name": "@mbe/gen",
+      "type": "app",
+      "path": "apps/gen"
+    },
+    {
+      "name": "@mbe/hospitality",
+      "type": "app",
+      "path": "apps/hospitality"
+    },
+    {
+      "name": "@mbe/marketing",
+      "type": "app",
+      "path": "apps/marketing"
+    },
+    {
+      "name": "@mbe/rialto-web",
+      "type": "app",
+      "path": "apps/rialto-web"
+    },
+    {
+      "name": "@mbe/agent-service",
+      "type": "service",
+      "path": "services/agent"
+    },
+    {
+      "name": "@mbe/reservations-service",
+      "type": "service",
+      "path": "services/reservations"
+    },
+    {
+      "name": "@mbe/users-service",
+      "type": "service",
+      "path": "services/users"
+    },
+    {
+      "name": "@mbe/agent-core",
+      "type": "package",
+      "path": "packages/agent-core"
+    },
+    {
+      "name": "@mbe/agent-test-utils",
+      "type": "package",
+      "path": "packages/agent-test-utils"
+    },
+    {
+      "name": "@mbe/api-client",
+      "type": "package",
+      "path": "packages/api-client"
+    },
+    {
+      "name": "@mbe/api-versioning",
+      "type": "package",
+      "path": "packages/api-versioning"
+    },
+    {
+      "name": "@mbe/auth",
+      "type": "package",
+      "path": "packages/auth"
+    },
+    {
+      "name": "@mbe/config",
+      "type": "package",
+      "path": "packages/config"
+    },
+    {
+      "name": "@mbe/feature-flags",
+      "type": "package",
+      "path": "packages/feature-flags"
+    },
+    {
+      "name": "@mbe/mcp-server",
+      "type": "package",
+      "path": "packages/mcp-server"
+    },
+    {
+      "name": "@mbe/observability",
+      "type": "package",
+      "path": "packages/observability"
+    },
+    {
+      "name": "@mbe/rialto",
+      "type": "package",
+      "path": "packages/rialto"
+    },
+    {
+      "name": "@mbe/rialto-catalog",
+      "type": "package",
+      "path": "packages/rialto-catalog"
+    },
+    {
+      "name": "@mbe/rialto-plugin",
+      "type": "package",
+      "path": "packages/rialto-plugin"
+    },
+    {
+      "name": "@mbe/sentry",
+      "type": "package",
+      "path": "packages/sentry"
+    },
+    {
+      "name": "@mbe/types",
+      "type": "package",
+      "path": "packages/types"
+    },
+    {
+      "name": "@mbe/cli",
+      "type": "tool",
+      "path": "tools/cli"
+    },
+    {
+      "name": "@mbe/infrastructure",
+      "type": "tool",
+      "path": "infrastructure/pulumi"
+    }
+  ],
+  "edges": [
+    {
+      "from": "@mbe/gen",
+      "to": "@mbe/api-client",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/gen",
+      "to": "@mbe/auth",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/gen",
+      "to": "@mbe/rialto",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/gen",
+      "to": "@mbe/rialto-catalog",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/gen",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/hospitality",
+      "to": "@mbe/api-client",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/hospitality",
+      "to": "@mbe/auth",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/hospitality",
+      "to": "@mbe/rialto",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/hospitality",
+      "to": "@mbe/rialto-catalog",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/hospitality",
+      "to": "@mbe/sentry",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/hospitality",
+      "to": "@mbe/types",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/hospitality",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/marketing",
+      "to": "@mbe/rialto",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/marketing",
+      "to": "@mbe/sentry",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/marketing",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/rialto-web",
+      "to": "@mbe/rialto",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/rialto-web",
+      "to": "@mbe/sentry",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/rialto-web",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/agent-service",
+      "to": "@mbe/agent-core",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/agent-service",
+      "to": "@mbe/api-versioning",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/agent-service",
+      "to": "@mbe/auth",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/agent-service",
+      "to": "@mbe/observability",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/agent-service",
+      "to": "@mbe/rialto-catalog",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/agent-service",
+      "to": "@mbe/sentry",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/agent-service",
+      "to": "@mbe/types",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/agent-service",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/reservations-service",
+      "to": "@mbe/api-versioning",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/reservations-service",
+      "to": "@mbe/auth",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/reservations-service",
+      "to": "@mbe/observability",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/reservations-service",
+      "to": "@mbe/sentry",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/reservations-service",
+      "to": "@mbe/types",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/reservations-service",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/users-service",
+      "to": "@mbe/api-versioning",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/users-service",
+      "to": "@mbe/auth",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/users-service",
+      "to": "@mbe/observability",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/users-service",
+      "to": "@mbe/sentry",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/users-service",
+      "to": "@mbe/types",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/users-service",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/agent-core",
+      "to": "@mbe/types",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/agent-core",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/agent-test-utils",
+      "to": "@mbe/agent-core",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/agent-test-utils",
+      "to": "@mbe/types",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/agent-test-utils",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/api-client",
+      "to": "@mbe/types",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/api-client",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/api-versioning",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/auth",
+      "to": "@mbe/types",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/auth",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/feature-flags",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/mcp-server",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/observability",
+      "to": "@mbe/types",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/observability",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/rialto",
+      "to": "@mbe/api-client",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/rialto",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/rialto-catalog",
+      "to": "@mbe/rialto",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/rialto-catalog",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/rialto-plugin",
+      "to": "@mbe/rialto",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/rialto-plugin",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/sentry",
+      "to": "@mbe/types",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/sentry",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/types",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/cli",
+      "to": "@mbe/agent-core",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/cli",
+      "to": "@mbe/types",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/cli",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    }
+  ],
+  "generatedAt": "2026-04-07T22:55:04.802Z"
+}

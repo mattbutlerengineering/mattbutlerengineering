@@ -26,6 +26,7 @@ import {
   recordFailure,
 } from "./circuit-breaker.js";
 import { checkRateLimit, rateLimitResponse } from "./rate-limiter.js";
+import depGraph from "./dep-graph.json";
 /**
  * Build security headers with a per-request nonce for CSP script-src.
  * The nonce replaces 'unsafe-inline', preventing injected scripts from
@@ -834,6 +835,23 @@ async function handleHealthLighthouse(env) {
   );
 }
 
+/**
+ * Handle GET /health/deps — return the auto-generated service dependency graph.
+ *
+ * The graph is built at CI time by `scripts/generate-dep-graph.mjs` and
+ * imported as a static JSON module.  Cached for 5 minutes at the edge.
+ */
+function handleHealthDeps() {
+  return new Response(JSON.stringify(depGraph), {
+    status: 200,
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": "public, max-age=300",
+      "Access-Control-Allow-Origin": "*",
+    },
+  });
+}
+
 async function handleFeatureFlags(request, env, url) {
   const flagName = url.pathname.replace("/api/flags/", "");
   const authHeader = request.headers.get("Authorization");
@@ -931,6 +949,10 @@ export default {
 
     if (url.pathname === "/health/lighthouse") {
       return handleHealthLighthouse(env);
+    }
+
+    if (url.pathname === "/health/deps") {
+      return handleHealthDeps();
     }
 
     // ── Feature flags admin API ─────────────────────────────────────

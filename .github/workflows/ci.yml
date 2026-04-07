@@ -235,6 +235,12 @@ jobs:
         run: |
           pnpm audit --audit-level=high || { echo "::error::High or Critical vulnerability found"; exit 1; }
 
+      - name: Regenerate dependency graph
+        run: |
+          node scripts/generate-dep-graph.mjs
+          git diff --exit-code infrastructure/worker/dep-graph.json || \
+            (echo "ERROR: dep-graph.json is stale. Run 'pnpm generate:dep-graph' locally and commit the result." && exit 1)
+
       - name: Check Dockerfile dependencies
         run: node scripts/check-dockerfile-deps.js
 
