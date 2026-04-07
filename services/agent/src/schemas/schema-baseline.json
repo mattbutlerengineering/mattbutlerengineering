@@ -1,20 +1,238 @@
 {
+  "Session": {
+    "$id": "Session",
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "PENDING",
+          "RUNNING",
+          "SUCCEEDED",
+          "FAILED",
+          "CANCELLED"
+        ]
+      },
+      "taskDescription": {
+        "type": "string"
+      },
+      "branchName": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "baseBranch": {
+        "type": "string"
+      },
+      "model": {
+        "type": "string"
+      },
+      "maxTurns": {
+        "type": "number"
+      },
+      "maxBudgetUsd": {
+        "type": "number"
+      },
+      "createPr": {
+        "type": "boolean"
+      },
+      "prUrl": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "prNumber": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "resultText": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "costUsd": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "inputTokens": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "outputTokens": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "numTurns": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "durationMs": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "parentId": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "errors": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "startedAt": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "completedAt": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "createdAt": {
+        "type": "string"
+      },
+      "updatedAt": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "id",
+      "status",
+      "taskDescription",
+      "branchName",
+      "baseBranch",
+      "model",
+      "maxTurns",
+      "maxBudgetUsd",
+      "prUrl",
+      "prNumber",
+      "resultText",
+      "costUsd",
+      "inputTokens",
+      "outputTokens",
+      "numTurns",
+      "durationMs",
+      "parentId",
+      "errors",
+      "startedAt",
+      "completedAt",
+      "createdAt",
+      "updatedAt"
+    ]
+  },
+  "SessionEvent": {
+    "$id": "SessionEvent",
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string"
+      },
+      "sessionId": {
+        "type": "string"
+      },
+      "type": {
+        "type": "string"
+      },
+      "data": {
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        }
+      },
+      "createdAt": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "id",
+      "sessionId",
+      "type",
+      "createdAt"
+    ]
+  },
   "CreateSessionBody": {
     "$id": "CreateSessionBody",
     "type": "object",
-    "required": [
-      "taskDescription"
-    ],
     "properties": {
       "taskDescription": {
         "type": "string",
         "minLength": 1,
-        "maxLength": 10000,
-        "description": "Task for the agent"
+        "maxLength": 10000
       },
       "model": {
-        "type": "string",
-        "description": "Claude model to use"
+        "type": "string"
       },
       "maxTurns": {
         "type": "number",
@@ -33,33 +251,12 @@
         "type": "boolean"
       },
       "parentId": {
-        "type": "string",
-        "description": "Parent session ID for orchestrated child sessions"
+        "type": "string"
       }
-    }
-  },
-  "AgentError": {
-    "$id": "AgentError",
-    "type": "object",
+    },
     "required": [
-      "error",
-      "message",
-      "statusCode"
-    ],
-    "properties": {
-      "error": {
-        "type": "string",
-        "example": "Not Found"
-      },
-      "message": {
-        "type": "string",
-        "example": "Session not found"
-      },
-      "statusCode": {
-        "type": "number",
-        "example": 404
-      }
-    }
+      "taskDescription"
+    ]
   },
   "AgentPagination": {
     "$id": "AgentPagination",
@@ -99,163 +296,26 @@
       }
     }
   },
-  "SessionEvent": {
-    "$id": "SessionEvent",
+  "AgentError": {
+    "$id": "AgentError",
     "type": "object",
     "required": [
-      "id",
-      "sessionId",
-      "type",
-      "createdAt"
+      "error",
+      "message",
+      "statusCode"
     ],
     "properties": {
-      "id": {
-        "type": "string"
-      },
-      "sessionId": {
-        "type": "string"
-      },
-      "type": {
-        "type": "string"
-      },
-      "data": {
-        "type": "object",
-        "additionalProperties": true
-      },
-      "createdAt": {
+      "error": {
         "type": "string",
-        "format": "date-time"
-      }
-    }
-  },
-  "Session": {
-    "$id": "Session",
-    "type": "object",
-    "description": "An agent coding session",
-    "required": [
-      "id",
-      "status",
-      "taskDescription",
-      "baseBranch",
-      "model",
-      "createdAt",
-      "updatedAt"
-    ],
-    "properties": {
-      "id": {
-        "type": "string",
-        "description": "Unique identifier",
-        "example": "clx1234567890"
+        "example": "Not Found"
       },
-      "status": {
+      "message": {
         "type": "string",
-        "enum": [
-          "PENDING",
-          "RUNNING",
-          "SUCCEEDED",
-          "FAILED",
-          "CANCELLED"
-        ],
-        "description": "Current session status"
+        "example": "Session not found"
       },
-      "taskDescription": {
-        "type": "string",
-        "description": "Task the agent is working on"
-      },
-      "branchName": {
-        "type": "string",
-        "nullable": true,
-        "description": "Git branch name"
-      },
-      "baseBranch": {
-        "type": "string",
-        "description": "Base branch",
-        "example": "main"
-      },
-      "model": {
-        "type": "string",
-        "description": "Claude model used",
-        "example": "claude-sonnet-4-6"
-      },
-      "maxTurns": {
+      "statusCode": {
         "type": "number",
-        "description": "Maximum conversation turns",
-        "example": 50
-      },
-      "maxBudgetUsd": {
-        "type": "number",
-        "description": "Budget cap in USD",
-        "example": 1
-      },
-      "createPr": {
-        "type": "boolean",
-        "description": "Whether to create a PR"
-      },
-      "prUrl": {
-        "type": "string",
-        "nullable": true,
-        "description": "Pull request URL"
-      },
-      "prNumber": {
-        "type": "number",
-        "nullable": true,
-        "description": "Pull request number"
-      },
-      "resultText": {
-        "type": "string",
-        "nullable": true,
-        "description": "Agent result text"
-      },
-      "costUsd": {
-        "type": "number",
-        "nullable": true,
-        "description": "Actual cost in USD"
-      },
-      "inputTokens": {
-        "type": "number",
-        "nullable": true
-      },
-      "outputTokens": {
-        "type": "number",
-        "nullable": true
-      },
-      "numTurns": {
-        "type": "number",
-        "nullable": true,
-        "description": "Actual turns used"
-      },
-      "durationMs": {
-        "type": "number",
-        "nullable": true,
-        "description": "Duration in milliseconds"
-      },
-      "errors": {
-        "type": "array",
-        "items": {
-          "type": "string"
-        }
-      },
-      "parentId": {
-        "type": "string",
-        "nullable": true
-      },
-      "startedAt": {
-        "type": "string",
-        "format": "date-time",
-        "nullable": true
-      },
-      "completedAt": {
-        "type": "string",
-        "format": "date-time",
-        "nullable": true
-      },
-      "createdAt": {
-        "type": "string",
-        "format": "date-time"
-      },
-      "updatedAt": {
-        "type": "string",
-        "format": "date-time"
+        "example": 404
       }
     }
   }

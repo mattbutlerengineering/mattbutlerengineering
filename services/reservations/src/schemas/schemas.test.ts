@@ -84,16 +84,18 @@ describe("Reservation service schemas", () => {
 
 describe("Reservation service schema backward compatibility", () => {
   for (const [name, schema] of Object.entries(allSchemas)) {
-    const schemaId = schema.$id;
+    const schemaObj = schema as Record<string, unknown>;
+    const schemaId = schemaObj.$id as string;
 
     it(`${name} has no breaking changes`, () => {
       const base = baseline[schemaId];
       if (!base) return; // New schema, no baseline to compare
 
-      const { breaking } = compareSchema(schemaId, base, schema);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { breaking } = compareSchema(schemaId, base, schemaObj as any);
       if (breaking.length > 0) {
         throw new Error(
-          `Breaking schema changes detected:\n${breaking.map((b) => `  - ${b}`).join("\n")}` +
+          `Breaking schema changes detected:\n${breaking.map((b: string) => `  - ${b}`).join("\n")}` +
             "\n\nIf intentional, update baselines: pnpm schema:baseline"
         );
       }

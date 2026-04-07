@@ -403,6 +403,30 @@
   background-color: var(--rialto-surface-elevated);
 }
 
+/* ── Reduced motion ──────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .itemPrompt[data-tooltip]:hover::after {
+    animation: none;
+  }
+
+  .deleteConfirm {
+    animation: none;
+  }
+
+  .filterTab,
+  .item,
+  .starButton,
+  .replayButton,
+  .deleteButton,
+  .deleteConfirmYes,
+  .deleteConfirmNo,
+  .searchInput,
+  .searchClear,
+  .itemActions {
+    transition: none;
+  }
+}
+
 /* --- Search bar --- */
 
 .searchBar {

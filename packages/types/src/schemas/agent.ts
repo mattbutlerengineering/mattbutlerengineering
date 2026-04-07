@@ -17,6 +17,7 @@ export const AgentSessionSchema = z.object({
   model: z.string(),
   maxTurns: z.number(),
   maxBudgetUsd: z.number(),
+  createPr: z.boolean().optional(),
   prUrl: z.string().nullable(),
   prNumber: z.number().nullable(),
   resultText: z.string().nullable(),
@@ -33,11 +34,20 @@ export const AgentSessionSchema = z.object({
   updatedAt: z.string(),
 });
 
+export const AgentSessionEventSchema = z.object({
+  id: z.string(),
+  sessionId: z.string(),
+  type: z.string(),
+  data: z.record(z.string(), z.unknown()).optional(),
+  createdAt: z.string(),
+});
+
 export const CreateAgentSessionRequestSchema = z.object({
-  taskDescription: z.string(),
+  taskDescription: z.string().min(1).max(10_000),
   model: z.string().optional(),
-  maxTurns: z.number().optional(),
-  maxBudgetUsd: z.number().optional(),
+  maxTurns: z.number().min(1).max(200).optional(),
+  maxBudgetUsd: z.number().min(0.01).max(10.0).optional(),
   baseBranch: z.string().optional(),
+  createPr: z.boolean().optional(),
   parentId: z.string().optional(),
 });
