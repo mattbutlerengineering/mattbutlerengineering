@@ -15,6 +15,12 @@ export {
 export type { AgentBaggage } from "./baggage.js";
 
 export { createReadinessTracker } from "./readiness.js";
+
+export { errorRatePlugin_, createErrorRateTracker } from "./error-rates.js";
+export type {
+  EndpointErrorRate,
+  ErrorRateSnapshot,
+} from "./error-rates.js";
 export type {
   ReadinessTracker,
   ReadinessSnapshot,
