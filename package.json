@@ -18,6 +18,7 @@
     "check:schema-compat": "node scripts/check-schema-compat.js",
     "schema:baseline": "tsx scripts/update-schema-baselines.js",
     "log:cost": "node scripts/log-agent-cost.js",
+    "generate:audit-inventory": "node scripts/generate-audit-inventory.mjs",
     "build": "turbo run build",
     "test": "turbo run test",
     "test:contract": "turbo run test:contract",
