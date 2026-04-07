@@ -81,6 +81,14 @@
     "test:visual": {
       "cache": false,
       "dependsOn": ["build"]
+    },
+    "db:migrate": {
+      "cache": false,
+      "retryCount": 3
+    },
+    "test:contract": {
+      "cache": false,
+      "retryCount": 2
     }
   }
 }
