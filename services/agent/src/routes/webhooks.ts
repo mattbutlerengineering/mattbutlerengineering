@@ -290,7 +290,7 @@ async function handleIssueEvent(
 }
 
 async function handleIssueCommentEvent(
-  fastify: { log: { info: (...args: unknown[]) => void; error: (...args: unknown[]) => void } },
+  fastify: { log: { info: (...args: unknown[]) => void; warn: (...args: unknown[]) => void; error: (...args: unknown[]) => void } },
   event: GitHubIssueCommentEvent,
   githubToken: string
 ): Promise<void> {
