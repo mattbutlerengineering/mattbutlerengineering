@@ -12,6 +12,7 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY packages/types/package.json ./packages/types/
 COPY packages/config/package.json ./packages/config/
 COPY packages/auth/package.json ./packages/auth/
+COPY packages/api-client/package.json ./packages/api-client/
 COPY packages/api-versioning/package.json ./packages/api-versioning/
 COPY packages/agent-core/package.json ./packages/agent-core/
 COPY packages/observability/package.json ./packages/observability/
@@ -27,6 +28,7 @@ RUN pnpm install --frozen-lockfile
 COPY packages/types/tsconfig.json ./packages/types/
 COPY packages/config/typescript ./packages/config/typescript
 COPY packages/auth/tsconfig.json ./packages/auth/
+COPY packages/api-client/tsconfig.json ./packages/api-client/
 COPY packages/api-versioning/tsconfig.json ./packages/api-versioning/
 COPY packages/agent-core/tsconfig.json ./packages/agent-core/
 COPY packages/observability/tsconfig.json ./packages/observability/
@@ -42,6 +44,7 @@ COPY services/agent/prisma ./services/agent/prisma
 COPY packages/types/src ./packages/types/src
 COPY packages/auth/src ./packages/auth/src
 COPY packages/api-versioning/src ./packages/api-versioning/src
+COPY packages/api-client/src ./packages/api-client/src
 COPY packages/agent-core/src ./packages/agent-core/src
 COPY packages/observability/src ./packages/observability/src
 COPY packages/sentry/src ./packages/sentry/src
@@ -56,6 +59,7 @@ RUN pnpm --filter @mbe/types build && \
     pnpm --filter @mbe/observability build && \
     pnpm --filter @mbe/sentry build && \
     pnpm --filter @mbe/agent-core build && \
+    pnpm --filter @mbe/api-client build && \
     pnpm --filter @mbe/rialto-catalog build && \
     pnpm --filter @mbe/agent-service db:generate && \
     pnpm --filter @mbe/agent-service build
@@ -78,6 +82,7 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY packages/types/package.json ./packages/types/
 COPY packages/config/package.json ./packages/config/
 COPY packages/auth/package.json ./packages/auth/
+COPY packages/api-client/package.json ./packages/api-client/
 COPY packages/api-versioning/package.json ./packages/api-versioning/
 COPY packages/agent-core/package.json ./packages/agent-core/
 COPY packages/observability/package.json ./packages/observability/
