@@ -5,18 +5,31 @@ RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
 WORKDIR /app
 
-# Copy only workspace metadata needed for turbo prune
+# Copy workspace metadata needed for turbo prune (all package.json files)
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json ./
-COPY packages/types/package.json ./packages/types/
-COPY packages/auth/package.json ./packages/auth/
-COPY packages/api-versioning/package.json ./packages/api-versioning/
-COPY packages/config/package.json ./packages/config/
+COPY apps/gen/package.json ./apps/gen/
+COPY apps/hospitality/package.json ./apps/hospitality/
+COPY apps/marketing/package.json ./apps/marketing/
+COPY apps/rialto-web/package.json ./apps/rialto-web/
+COPY infrastructure/pulumi/package.json ./infrastructure/pulumi/
 COPY packages/agent-core/package.json ./packages/agent-core/
+COPY packages/agent-test-utils/package.json ./packages/agent-test-utils/
+COPY packages/api-client/package.json ./packages/api-client/
+COPY packages/api-versioning/package.json ./packages/api-versioning/
+COPY packages/auth/package.json ./packages/auth/
+COPY packages/config/package.json ./packages/config/
+COPY packages/feature-flags/package.json ./packages/feature-flags/
+COPY packages/mcp-server/package.json ./packages/mcp-server/
 COPY packages/observability/package.json ./packages/observability/
-COPY packages/sentry/package.json ./packages/sentry/
 COPY packages/rialto/package.json ./packages/rialto/
 COPY packages/rialto-catalog/package.json ./packages/rialto-catalog/
+COPY packages/rialto-plugin/package.json ./packages/rialto-plugin/
+COPY packages/sentry/package.json ./packages/sentry/
+COPY packages/types/package.json ./packages/types/
 COPY services/agent/package.json ./services/agent/
+COPY services/reservations/package.json ./services/reservations/
+COPY services/users/package.json ./services/users/
+COPY tools/cli/package.json ./tools/cli/
 
 RUN pnpm turbo prune --docker @mbe/agent-service
 
