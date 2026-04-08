@@ -120,11 +120,17 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const authUser = request.user;
       const requestedId = request.params.id;
-      
-      if (!isAdmin(authUser) && authUser?.id !== requestedId) {
-        return reply.code(403).send(createProblemDetails(403, "Forbidden", "You can only access your own profile"));
+
+      if (!isAdmin(authUser)) {
+        if (!authUser?.email) {
+          return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Authentication required"));
+        }
+        const requestingUser = await userService.getByEmail(authUser.email);
+        if (!requestingUser || requestingUser.id !== requestedId) {
+          return reply.code(403).send(createProblemDetails(403, "Forbidden", "You can only access your own profile"));
+        }
       }
-      
+
       const user = await userService.getById(request.params.id);
       if (!user) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "User not found"));
@@ -261,11 +267,17 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const authUser = request.user;
       const requestedId = request.params.id;
-      
-      if (!isAdmin(authUser) && authUser?.id !== requestedId) {
-        return reply.code(403).send(createProblemDetails(403, "Forbidden", "You can only update your own profile"));
+
+      if (!isAdmin(authUser)) {
+        if (!authUser?.email) {
+          return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Authentication required"));
+        }
+        const requestingUser = await userService.getByEmail(authUser.email);
+        if (!requestingUser || requestingUser.id !== requestedId) {
+          return reply.code(403).send(createProblemDetails(403, "Forbidden", "You can only update your own profile"));
+        }
       }
-      
+
       const user = await userService.update(request.params.id, request.body);
       if (!user) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "User not found"));
@@ -316,11 +328,17 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const authUser = request.user;
       const requestedId = request.params.id;
-      
-      if (!isAdmin(authUser) && authUser?.id !== requestedId) {
-        return reply.code(403).send(createProblemDetails(403, "Forbidden", "You can only delete your own profile"));
+
+      if (!isAdmin(authUser)) {
+        if (!authUser?.email) {
+          return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Authentication required"));
+        }
+        const requestingUser = await userService.getByEmail(authUser.email);
+        if (!requestingUser || requestingUser.id !== requestedId) {
+          return reply.code(403).send(createProblemDetails(403, "Forbidden", "You can only delete your own profile"));
+        }
       }
-      
+
       const deleted = await userService.delete(request.params.id);
       if (!deleted) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "User not found"));
