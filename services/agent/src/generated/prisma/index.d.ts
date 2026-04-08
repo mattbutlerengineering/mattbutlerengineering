@@ -3,7 +3,7 @@
  * Client
 **/
 
-import * as runtime from './runtime/library.js';
+import * as runtime from './runtime/client.js';
 import $Types = runtime.Types // general types
 import $Public = runtime.Types.Public
 import $Utils = runtime.Types.Utils
@@ -55,13 +55,15 @@ export const SessionStatus: typeof $Enums.SessionStatus
  * Type-safe database client for TypeScript & Node.js
  * @example
  * ```
- * const prisma = new PrismaClient()
+ * const prisma = new PrismaClient({
+ *   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL })
+ * })
  * // Fetch zero or more Sessions
  * const sessions = await prisma.session.findMany()
  * ```
  *
  *
- * Read more in our [docs](https://www.prisma.io/docs/reference/tools-and-interfaces/prisma-client).
+ * Read more in our [docs](https://pris.ly/d/client).
  */
 export class PrismaClient<
   ClientOptions extends Prisma.PrismaClientOptions = Prisma.PrismaClientOptions,
@@ -76,13 +78,15 @@ export class PrismaClient<
    * Type-safe database client for TypeScript & Node.js
    * @example
    * ```
-   * const prisma = new PrismaClient()
+   * const prisma = new PrismaClient({
+   *   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL })
+   * })
    * // Fetch zero or more Sessions
    * const sessions = await prisma.session.findMany()
    * ```
    *
    *
-   * Read more in our [docs](https://www.prisma.io/docs/reference/tools-and-interfaces/prisma-client).
+   * Read more in our [docs](https://pris.ly/d/client).
    */
 
   constructor(optionsArg ?: Prisma.Subset<ClientOptions, Prisma.PrismaClientOptions>);
@@ -105,7 +109,7 @@ export class PrismaClient<
    * const result = await prisma.$executeRaw`UPDATE User SET cool = ${true} WHERE email = ${'user@email.com'};`
    * ```
    *
-   * Read more in our [docs](https://www.prisma.io/docs/reference/tools-and-interfaces/prisma-client/raw-database-access).
+   * Read more in our [docs](https://pris.ly/d/raw-queries).
    */
   $executeRaw<T = unknown>(query: TemplateStringsArray | Prisma.Sql, ...values: any[]): Prisma.PrismaPromise<number>;
 
@@ -117,7 +121,7 @@ export class PrismaClient<
    * const result = await prisma.$executeRawUnsafe('UPDATE User SET cool = $1 WHERE email = $2 ;', true, 'user@email.com')
    * ```
    *
-   * Read more in our [docs](https://www.prisma.io/docs/reference/tools-and-interfaces/prisma-client/raw-database-access).
+   * Read more in our [docs](https://pris.ly/d/raw-queries).
    */
   $executeRawUnsafe<T = unknown>(query: string, ...values: any[]): Prisma.PrismaPromise<number>;
 
@@ -128,7 +132,7 @@ export class PrismaClient<
    * const result = await prisma.$queryRaw`SELECT * FROM User WHERE id = ${1} OR email = ${'user@email.com'};`
    * ```
    *
-   * Read more in our [docs](https://www.prisma.io/docs/reference/tools-and-interfaces/prisma-client/raw-database-access).
+   * Read more in our [docs](https://pris.ly/d/raw-queries).
    */
   $queryRaw<T = unknown>(query: TemplateStringsArray | Prisma.Sql, ...values: any[]): Prisma.PrismaPromise<T>;
 
@@ -140,7 +144,7 @@ export class PrismaClient<
    * const result = await prisma.$queryRawUnsafe('SELECT * FROM User WHERE id = $1 OR email = $2;', 1, 'user@email.com')
    * ```
    *
-   * Read more in our [docs](https://www.prisma.io/docs/reference/tools-and-interfaces/prisma-client/raw-database-access).
+   * Read more in our [docs](https://pris.ly/d/raw-queries).
    */
   $queryRawUnsafe<T = unknown>(query: string, ...values: any[]): Prisma.PrismaPromise<T>;
 
@@ -156,12 +160,11 @@ export class PrismaClient<
    * ])
    * ```
    * 
-   * Read more in our [docs](https://www.prisma.io/docs/concepts/components/prisma-client/transactions).
+   * Read more in our [docs](https://www.prisma.io/docs/orm/prisma-client/queries/transactions).
    */
   $transaction<P extends Prisma.PrismaPromise<any>[]>(arg: [...P], options?: { isolationLevel?: Prisma.TransactionIsolationLevel }): $Utils.JsPromise<runtime.Types.Utils.UnwrapTuple<P>>
 
   $transaction<R>(fn: (prisma: Omit<PrismaClient, runtime.ITXClientDenyList>) => $Utils.JsPromise<R>, options?: { maxWait?: number, timeout?: number, isolationLevel?: Prisma.TransactionIsolationLevel }): $Utils.JsPromise<R>
-
 
   $extends: $Extensions.ExtendsHook<"extends", Prisma.TypeMapCb<ClientOptions>, ExtArgs, $Utils.Call<Prisma.TypeMapCb<ClientOptions>, {
     extArgs: ExtArgs
@@ -236,14 +239,6 @@ export namespace Prisma {
   export type DecimalJsLike = runtime.DecimalJsLike
 
   /**
-   * Metrics
-   */
-  export type Metrics = runtime.Metrics
-  export type Metric<T> = runtime.Metric<T>
-  export type MetricHistogram = runtime.MetricHistogram
-  export type MetricHistogramBucket = runtime.MetricHistogramBucket
-
-  /**
   * Extensions
   */
   export import Extension = $Extensions.UserArgs
@@ -254,11 +249,12 @@ export namespace Prisma {
   export import Exact = $Public.Exact
 
   /**
-   * Prisma Client JS version: 6.19.2
-   * Query Engine version: c2990dca591cba766e3b7ef5d9e8a84796e47ab7
+   * Prisma Client JS version: 7.6.0
+   * Query Engine version: 75cbdc1eb7150937890ad5465d861175c6624711
    */
   export type PrismaVersion = {
     client: string
+    engine: string
   }
 
   export const prismaVersion: PrismaVersion
@@ -645,9 +641,6 @@ export namespace Prisma {
   export type ModelName = (typeof ModelName)[keyof typeof ModelName]
 
 
-  export type Datasources = {
-    db?: Datasource
-  }
 
   interface TypeMapCb<ClientOptions = {}> extends $Utils.Fn<{extArgs: $Extensions.InternalArgs }, $Utils.Record<string, any>> {
     returns: Prisma.TypeMap<this['params']['extArgs'], ClientOptions extends { omit: infer OmitOptions } ? OmitOptions : {}>
@@ -913,14 +906,6 @@ export namespace Prisma {
   export type ErrorFormat = 'pretty' | 'colorless' | 'minimal'
   export interface PrismaClientOptions {
     /**
-     * Overwrites the datasource url from your schema.prisma file
-     */
-    datasources?: Datasources
-    /**
-     * Overwrites the datasource url from your schema.prisma file
-     */
-    datasourceUrl?: string
-    /**
      * @default "colorless"
      */
     errorFormat?: ErrorFormat
@@ -946,7 +931,7 @@ export namespace Prisma {
      *  { emit: 'stdout', level: 'error' }
      * 
      * ```
-     * Read more in our [docs](https://www.prisma.io/docs/reference/tools-and-interfaces/prisma-client/logging#the-log-option).
+     * Read more in our [docs](https://pris.ly/d/logging).
      */
     log?: (LogLevel | LogDefinition)[]
     /**
@@ -962,7 +947,11 @@ export namespace Prisma {
     /**
      * Instance of a Driver Adapter, e.g., like one provided by `@prisma/adapter-planetscale`
      */
-    adapter?: runtime.SqlDriverAdapterFactory | null
+    adapter?: runtime.SqlDriverAdapterFactory
+    /**
+     * Prisma Accelerate URL allowing the client to connect through Accelerate instead of a direct database.
+     */
+    accelerateUrl?: string
     /**
      * Global configuration for omitting model fields by default.
      * 
@@ -978,6 +967,22 @@ export namespace Prisma {
      * ```
      */
     omit?: Prisma.GlobalOmitConfig
+    /**
+     * SQL commenter plugins that add metadata to SQL queries as comments.
+     * Comments follow the sqlcommenter format: https://google.github.io/sqlcommenter/
+     * 
+     * @example
+     * ```
+     * const prisma = new PrismaClient({
+     *   adapter,
+     *   comments: [
+     *     traceContext(),
+     *     queryInsights(),
+     *   ],
+     * })
+     * ```
+     */
+    comments?: runtime.SqlCommenterPlugin[]
   }
   export type GlobalOmitConfig = {
     session?: SessionOmit
@@ -1154,6 +1159,7 @@ export namespace Prisma {
     outputTokens: number | null
     numTurns: number | null
     durationMs: number | null
+    failureCategory: string | null
     sdkSessionId: string | null
     startedAt: Date | null
     completedAt: Date | null
@@ -1180,6 +1186,7 @@ export namespace Prisma {
     outputTokens: number | null
     numTurns: number | null
     durationMs: number | null
+    failureCategory: string | null
     sdkSessionId: string | null
     startedAt: Date | null
     completedAt: Date | null
@@ -1207,6 +1214,7 @@ export namespace Prisma {
     numTurns: number
     durationMs: number
     errors: number
+    failureCategory: number
     sdkSessionId: number
     startedAt: number
     completedAt: number
@@ -1257,6 +1265,7 @@ export namespace Prisma {
     outputTokens?: true
     numTurns?: true
     durationMs?: true
+    failureCategory?: true
     sdkSessionId?: true
     startedAt?: true
     completedAt?: true
@@ -1283,6 +1292,7 @@ export namespace Prisma {
     outputTokens?: true
     numTurns?: true
     durationMs?: true
+    failureCategory?: true
     sdkSessionId?: true
     startedAt?: true
     completedAt?: true
@@ -1310,6 +1320,7 @@ export namespace Prisma {
     numTurns?: true
     durationMs?: true
     errors?: true
+    failureCategory?: true
     sdkSessionId?: true
     startedAt?: true
     completedAt?: true
@@ -1424,6 +1435,7 @@ export namespace Prisma {
     numTurns: number | null
     durationMs: number | null
     errors: JsonValue
+    failureCategory: string | null
     sdkSessionId: string | null
     startedAt: Date | null
     completedAt: Date | null
@@ -1470,6 +1482,7 @@ export namespace Prisma {
     numTurns?: boolean
     durationMs?: boolean
     errors?: boolean
+    failureCategory?: boolean
     sdkSessionId?: boolean
     startedAt?: boolean
     completedAt?: boolean
@@ -1501,6 +1514,7 @@ export namespace Prisma {
     numTurns?: boolean
     durationMs?: boolean
     errors?: boolean
+    failureCategory?: boolean
     sdkSessionId?: boolean
     startedAt?: boolean
     completedAt?: boolean
@@ -1529,6 +1543,7 @@ export namespace Prisma {
     numTurns?: boolean
     durationMs?: boolean
     errors?: boolean
+    failureCategory?: boolean
     sdkSessionId?: boolean
     startedAt?: boolean
     completedAt?: boolean
@@ -1557,6 +1572,7 @@ export namespace Prisma {
     numTurns?: boolean
     durationMs?: boolean
     errors?: boolean
+    failureCategory?: boolean
     sdkSessionId?: boolean
     startedAt?: boolean
     completedAt?: boolean
@@ -1565,7 +1581,7 @@ export namespace Prisma {
     parentId?: boolean
   }
 
-  export type SessionOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "status" | "taskDescription" | "branchName" | "baseBranch" | "model" | "maxTurns" | "maxBudgetUsd" | "createPr" | "prUrl" | "prNumber" | "resultText" | "costUsd" | "inputTokens" | "outputTokens" | "numTurns" | "durationMs" | "errors" | "sdkSessionId" | "startedAt" | "completedAt" | "createdAt" | "updatedAt" | "parentId", ExtArgs["result"]["session"]>
+  export type SessionOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "status" | "taskDescription" | "branchName" | "baseBranch" | "model" | "maxTurns" | "maxBudgetUsd" | "createPr" | "prUrl" | "prNumber" | "resultText" | "costUsd" | "inputTokens" | "outputTokens" | "numTurns" | "durationMs" | "errors" | "failureCategory" | "sdkSessionId" | "startedAt" | "completedAt" | "createdAt" | "updatedAt" | "parentId", ExtArgs["result"]["session"]>
   export type SessionInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     parent?: boolean | Session$parentArgs<ExtArgs>
     children?: boolean | Session$childrenArgs<ExtArgs>
@@ -1605,6 +1621,7 @@ export namespace Prisma {
       numTurns: number | null
       durationMs: number | null
       errors: Prisma.JsonValue
+      failureCategory: string | null
       sdkSessionId: string | null
       startedAt: Date | null
       completedAt: Date | null
@@ -2055,6 +2072,7 @@ export namespace Prisma {
     readonly numTurns: FieldRef<"Session", 'Int'>
     readonly durationMs: FieldRef<"Session", 'Int'>
     readonly errors: FieldRef<"Session", 'Json'>
+    readonly failureCategory: FieldRef<"Session", 'String'>
     readonly sdkSessionId: FieldRef<"Session", 'String'>
     readonly startedAt: FieldRef<"Session", 'DateTime'>
     readonly completedAt: FieldRef<"Session", 'DateTime'>
@@ -2257,6 +2275,11 @@ export namespace Prisma {
      * Skip the first `n` Sessions.
      */
     skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of Sessions.
+     */
     distinct?: SessionScalarFieldEnum | SessionScalarFieldEnum[]
   }
 
@@ -2548,8 +2571,28 @@ export namespace Prisma {
 
   export type AggregateSessionEvent = {
     _count: SessionEventCountAggregateOutputType | null
+    _avg: SessionEventAvgAggregateOutputType | null
+    _sum: SessionEventSumAggregateOutputType | null
     _min: SessionEventMinAggregateOutputType | null
     _max: SessionEventMaxAggregateOutputType | null
+  }
+
+  export type SessionEventAvgAggregateOutputType = {
+    turnIndex: number | null
+    inputTokens: number | null
+    outputTokens: number | null
+    thinkingTokens: number | null
+    costUsd: number | null
+    toolLatencyMs: number | null
+  }
+
+  export type SessionEventSumAggregateOutputType = {
+    turnIndex: number | null
+    inputTokens: number | null
+    outputTokens: number | null
+    thinkingTokens: number | null
+    costUsd: number | null
+    toolLatencyMs: number | null
   }
 
   export type SessionEventMinAggregateOutputType = {
@@ -2557,6 +2600,16 @@ export namespace Prisma {
     sessionId: string | null
     type: string | null
     createdAt: Date | null
+    turnIndex: number | null
+    inputTokens: number | null
+    outputTokens: number | null
+    thinkingTokens: number | null
+    costUsd: number | null
+    modelId: string | null
+    toolName: string | null
+    toolUseId: string | null
+    toolLatencyMs: number | null
+    toolIsError: boolean | null
   }
 
   export type SessionEventMaxAggregateOutputType = {
@@ -2564,6 +2617,16 @@ export namespace Prisma {
     sessionId: string | null
     type: string | null
     createdAt: Date | null
+    turnIndex: number | null
+    inputTokens: number | null
+    outputTokens: number | null
+    thinkingTokens: number | null
+    costUsd: number | null
+    modelId: string | null
+    toolName: string | null
+    toolUseId: string | null
+    toolLatencyMs: number | null
+    toolIsError: boolean | null
   }
 
   export type SessionEventCountAggregateOutputType = {
@@ -2572,15 +2635,53 @@ export namespace Prisma {
     type: number
     data: number
     createdAt: number
+    turnIndex: number
+    inputTokens: number
+    outputTokens: number
+    thinkingTokens: number
+    costUsd: number
+    modelId: number
+    toolName: number
+    toolUseId: number
+    toolLatencyMs: number
+    toolIsError: number
     _all: number
   }
 
+
+  export type SessionEventAvgAggregateInputType = {
+    turnIndex?: true
+    inputTokens?: true
+    outputTokens?: true
+    thinkingTokens?: true
+    costUsd?: true
+    toolLatencyMs?: true
+  }
+
+  export type SessionEventSumAggregateInputType = {
+    turnIndex?: true
+    inputTokens?: true
+    outputTokens?: true
+    thinkingTokens?: true
+    costUsd?: true
+    toolLatencyMs?: true
+  }
 
   export type SessionEventMinAggregateInputType = {
     id?: true
     sessionId?: true
     type?: true
     createdAt?: true
+    turnIndex?: true
+    inputTokens?: true
+    outputTokens?: true
+    thinkingTokens?: true
+    costUsd?: true
+    modelId?: true
+    toolName?: true
+    toolUseId?: true
+    toolLatencyMs?: true
+    toolIsError?: true
   }
 
   export type SessionEventMaxAggregateInputType = {
@@ -2588,6 +2689,16 @@ export namespace Prisma {
     sessionId?: true
     type?: true
     createdAt?: true
+    turnIndex?: true
+    inputTokens?: true
+    outputTokens?: true
+    thinkingTokens?: true
+    costUsd?: true
+    modelId?: true
+    toolName?: true
+    toolUseId?: true
+    toolLatencyMs?: true
+    toolIsError?: true
   }
 
   export type SessionEventCountAggregateInputType = {
@@ -2596,6 +2707,16 @@ export namespace Prisma {
     type?: true
     data?: true
     createdAt?: true
+    turnIndex?: true
+    inputTokens?: true
+    outputTokens?: true
+    thinkingTokens?: true
+    costUsd?: true
+    modelId?: true
+    toolName?: true
+    toolUseId?: true
+    toolLatencyMs?: true
+    toolIsError?: true
     _all?: true
   }
 
@@ -2637,6 +2758,18 @@ export namespace Prisma {
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
      * 
+     * Select which fields to average
+    **/
+    _avg?: SessionEventAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: SessionEventSumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
      * Select which fields to find the minimum value
     **/
     _min?: SessionEventMinAggregateInputType
@@ -2667,6 +2800,8 @@ export namespace Prisma {
     take?: number
     skip?: number
     _count?: SessionEventCountAggregateInputType | true
+    _avg?: SessionEventAvgAggregateInputType
+    _sum?: SessionEventSumAggregateInputType
     _min?: SessionEventMinAggregateInputType
     _max?: SessionEventMaxAggregateInputType
   }
@@ -2677,7 +2812,19 @@ export namespace Prisma {
     type: string
     data: JsonValue
     createdAt: Date
+    turnIndex: number | null
+    inputTokens: number | null
+    outputTokens: number | null
+    thinkingTokens: number | null
+    costUsd: number | null
+    modelId: string | null
+    toolName: string | null
+    toolUseId: string | null
+    toolLatencyMs: number | null
+    toolIsError: boolean | null
     _count: SessionEventCountAggregateOutputType | null
+    _avg: SessionEventAvgAggregateOutputType | null
+    _sum: SessionEventSumAggregateOutputType | null
     _min: SessionEventMinAggregateOutputType | null
     _max: SessionEventMaxAggregateOutputType | null
   }
@@ -2702,6 +2849,16 @@ export namespace Prisma {
     type?: boolean
     data?: boolean
     createdAt?: boolean
+    turnIndex?: boolean
+    inputTokens?: boolean
+    outputTokens?: boolean
+    thinkingTokens?: boolean
+    costUsd?: boolean
+    modelId?: boolean
+    toolName?: boolean
+    toolUseId?: boolean
+    toolLatencyMs?: boolean
+    toolIsError?: boolean
     session?: boolean | SessionDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["sessionEvent"]>
 
@@ -2711,6 +2868,16 @@ export namespace Prisma {
     type?: boolean
     data?: boolean
     createdAt?: boolean
+    turnIndex?: boolean
+    inputTokens?: boolean
+    outputTokens?: boolean
+    thinkingTokens?: boolean
+    costUsd?: boolean
+    modelId?: boolean
+    toolName?: boolean
+    toolUseId?: boolean
+    toolLatencyMs?: boolean
+    toolIsError?: boolean
     session?: boolean | SessionDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["sessionEvent"]>
 
@@ -2720,6 +2887,16 @@ export namespace Prisma {
     type?: boolean
     data?: boolean
     createdAt?: boolean
+    turnIndex?: boolean
+    inputTokens?: boolean
+    outputTokens?: boolean
+    thinkingTokens?: boolean
+    costUsd?: boolean
+    modelId?: boolean
+    toolName?: boolean
+    toolUseId?: boolean
+    toolLatencyMs?: boolean
+    toolIsError?: boolean
     session?: boolean | SessionDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["sessionEvent"]>
 
@@ -2729,9 +2906,19 @@ export namespace Prisma {
     type?: boolean
     data?: boolean
     createdAt?: boolean
+    turnIndex?: boolean
+    inputTokens?: boolean
+    outputTokens?: boolean
+    thinkingTokens?: boolean
+    costUsd?: boolean
+    modelId?: boolean
+    toolName?: boolean
+    toolUseId?: boolean
+    toolLatencyMs?: boolean
+    toolIsError?: boolean
   }
 
-  export type SessionEventOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "sessionId" | "type" | "data" | "createdAt", ExtArgs["result"]["sessionEvent"]>
+  export type SessionEventOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "sessionId" | "type" | "data" | "createdAt" | "turnIndex" | "inputTokens" | "outputTokens" | "thinkingTokens" | "costUsd" | "modelId" | "toolName" | "toolUseId" | "toolLatencyMs" | "toolIsError", ExtArgs["result"]["sessionEvent"]>
   export type SessionEventInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     session?: boolean | SessionDefaultArgs<ExtArgs>
   }
@@ -2753,6 +2940,16 @@ export namespace Prisma {
       type: string
       data: Prisma.JsonValue
       createdAt: Date
+      turnIndex: number | null
+      inputTokens: number | null
+      outputTokens: number | null
+      thinkingTokens: number | null
+      costUsd: number | null
+      modelId: string | null
+      toolName: string | null
+      toolUseId: string | null
+      toolLatencyMs: number | null
+      toolIsError: boolean | null
     }, ExtArgs["result"]["sessionEvent"]>
     composites: {}
   }
@@ -3182,6 +3379,16 @@ export namespace Prisma {
     readonly type: FieldRef<"SessionEvent", 'String'>
     readonly data: FieldRef<"SessionEvent", 'Json'>
     readonly createdAt: FieldRef<"SessionEvent", 'DateTime'>
+    readonly turnIndex: FieldRef<"SessionEvent", 'Int'>
+    readonly inputTokens: FieldRef<"SessionEvent", 'Int'>
+    readonly outputTokens: FieldRef<"SessionEvent", 'Int'>
+    readonly thinkingTokens: FieldRef<"SessionEvent", 'Int'>
+    readonly costUsd: FieldRef<"SessionEvent", 'Float'>
+    readonly modelId: FieldRef<"SessionEvent", 'String'>
+    readonly toolName: FieldRef<"SessionEvent", 'String'>
+    readonly toolUseId: FieldRef<"SessionEvent", 'String'>
+    readonly toolLatencyMs: FieldRef<"SessionEvent", 'Int'>
+    readonly toolIsError: FieldRef<"SessionEvent", 'Boolean'>
   }
     
 
@@ -3378,6 +3585,11 @@ export namespace Prisma {
      * Skip the first `n` SessionEvents.
      */
     skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of SessionEvents.
+     */
     distinct?: SessionEventScalarFieldEnum | SessionEventScalarFieldEnum[]
   }
 
@@ -4432,6 +4644,11 @@ export namespace Prisma {
      * Skip the first `n` StoredSpecs.
      */
     skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of StoredSpecs.
+     */
     distinct?: StoredSpecScalarFieldEnum | StoredSpecScalarFieldEnum[]
   }
 
@@ -4655,6 +4872,7 @@ export namespace Prisma {
     numTurns: 'numTurns',
     durationMs: 'durationMs',
     errors: 'errors',
+    failureCategory: 'failureCategory',
     sdkSessionId: 'sdkSessionId',
     startedAt: 'startedAt',
     completedAt: 'completedAt',
@@ -4671,7 +4889,17 @@ export namespace Prisma {
     sessionId: 'sessionId',
     type: 'type',
     data: 'data',
-    createdAt: 'createdAt'
+    createdAt: 'createdAt',
+    turnIndex: 'turnIndex',
+    inputTokens: 'inputTokens',
+    outputTokens: 'outputTokens',
+    thinkingTokens: 'thinkingTokens',
+    costUsd: 'costUsd',
+    modelId: 'modelId',
+    toolName: 'toolName',
+    toolUseId: 'toolUseId',
+    toolLatencyMs: 'toolLatencyMs',
+    toolIsError: 'toolIsError'
   };
 
   export type SessionEventScalarFieldEnum = (typeof SessionEventScalarFieldEnum)[keyof typeof SessionEventScalarFieldEnum]
@@ -4852,6 +5080,7 @@ export namespace Prisma {
     numTurns?: IntNullableFilter<"Session"> | number | null
     durationMs?: IntNullableFilter<"Session"> | number | null
     errors?: JsonFilter<"Session">
+    failureCategory?: StringNullableFilter<"Session"> | string | null
     sdkSessionId?: StringNullableFilter<"Session"> | string | null
     startedAt?: DateTimeNullableFilter<"Session"> | Date | string | null
     completedAt?: DateTimeNullableFilter<"Session"> | Date | string | null
@@ -4882,6 +5111,7 @@ export namespace Prisma {
     numTurns?: SortOrderInput | SortOrder
     durationMs?: SortOrderInput | SortOrder
     errors?: SortOrder
+    failureCategory?: SortOrderInput | SortOrder
     sdkSessionId?: SortOrderInput | SortOrder
     startedAt?: SortOrderInput | SortOrder
     completedAt?: SortOrderInput | SortOrder
@@ -4915,6 +5145,7 @@ export namespace Prisma {
     numTurns?: IntNullableFilter<"Session"> | number | null
     durationMs?: IntNullableFilter<"Session"> | number | null
     errors?: JsonFilter<"Session">
+    failureCategory?: StringNullableFilter<"Session"> | string | null
     sdkSessionId?: StringNullableFilter<"Session"> | string | null
     startedAt?: DateTimeNullableFilter<"Session"> | Date | string | null
     completedAt?: DateTimeNullableFilter<"Session"> | Date | string | null
@@ -4945,6 +5176,7 @@ export namespace Prisma {
     numTurns?: SortOrderInput | SortOrder
     durationMs?: SortOrderInput | SortOrder
     errors?: SortOrder
+    failureCategory?: SortOrderInput | SortOrder
     sdkSessionId?: SortOrderInput | SortOrder
     startedAt?: SortOrderInput | SortOrder
     completedAt?: SortOrderInput | SortOrder
@@ -4980,6 +5212,7 @@ export namespace Prisma {
     numTurns?: IntNullableWithAggregatesFilter<"Session"> | number | null
     durationMs?: IntNullableWithAggregatesFilter<"Session"> | number | null
     errors?: JsonWithAggregatesFilter<"Session">
+    failureCategory?: StringNullableWithAggregatesFilter<"Session"> | string | null
     sdkSessionId?: StringNullableWithAggregatesFilter<"Session"> | string | null
     startedAt?: DateTimeNullableWithAggregatesFilter<"Session"> | Date | string | null
     completedAt?: DateTimeNullableWithAggregatesFilter<"Session"> | Date | string | null
@@ -4997,6 +5230,16 @@ export namespace Prisma {
     type?: StringFilter<"SessionEvent"> | string
     data?: JsonFilter<"SessionEvent">
     createdAt?: DateTimeFilter<"SessionEvent"> | Date | string
+    turnIndex?: IntNullableFilter<"SessionEvent"> | number | null
+    inputTokens?: IntNullableFilter<"SessionEvent"> | number | null
+    outputTokens?: IntNullableFilter<"SessionEvent"> | number | null
+    thinkingTokens?: IntNullableFilter<"SessionEvent"> | number | null
+    costUsd?: FloatNullableFilter<"SessionEvent"> | number | null
+    modelId?: StringNullableFilter<"SessionEvent"> | string | null
+    toolName?: StringNullableFilter<"SessionEvent"> | string | null
+    toolUseId?: StringNullableFilter<"SessionEvent"> | string | null
+    toolLatencyMs?: IntNullableFilter<"SessionEvent"> | number | null
+    toolIsError?: BoolNullableFilter<"SessionEvent"> | boolean | null
     session?: XOR<SessionScalarRelationFilter, SessionWhereInput>
   }
 
@@ -5006,6 +5249,16 @@ export namespace Prisma {
     type?: SortOrder
     data?: SortOrder
     createdAt?: SortOrder
+    turnIndex?: SortOrderInput | SortOrder
+    inputTokens?: SortOrderInput | SortOrder
+    outputTokens?: SortOrderInput | SortOrder
+    thinkingTokens?: SortOrderInput | SortOrder
+    costUsd?: SortOrderInput | SortOrder
+    modelId?: SortOrderInput | SortOrder
+    toolName?: SortOrderInput | SortOrder
+    toolUseId?: SortOrderInput | SortOrder
+    toolLatencyMs?: SortOrderInput | SortOrder
+    toolIsError?: SortOrderInput | SortOrder
     session?: SessionOrderByWithRelationInput
   }
 
@@ -5018,6 +5271,16 @@ export namespace Prisma {
     type?: StringFilter<"SessionEvent"> | string
     data?: JsonFilter<"SessionEvent">
     createdAt?: DateTimeFilter<"SessionEvent"> | Date | string
+    turnIndex?: IntNullableFilter<"SessionEvent"> | number | null
+    inputTokens?: IntNullableFilter<"SessionEvent"> | number | null
+    outputTokens?: IntNullableFilter<"SessionEvent"> | number | null
+    thinkingTokens?: IntNullableFilter<"SessionEvent"> | number | null
+    costUsd?: FloatNullableFilter<"SessionEvent"> | number | null
+    modelId?: StringNullableFilter<"SessionEvent"> | string | null
+    toolName?: StringNullableFilter<"SessionEvent"> | string | null
+    toolUseId?: StringNullableFilter<"SessionEvent"> | string | null
+    toolLatencyMs?: IntNullableFilter<"SessionEvent"> | number | null
+    toolIsError?: BoolNullableFilter<"SessionEvent"> | boolean | null
     session?: XOR<SessionScalarRelationFilter, SessionWhereInput>
   }, "id">
 
@@ -5027,9 +5290,21 @@ export namespace Prisma {
     type?: SortOrder
     data?: SortOrder
     createdAt?: SortOrder
+    turnIndex?: SortOrderInput | SortOrder
+    inputTokens?: SortOrderInput | SortOrder
+    outputTokens?: SortOrderInput | SortOrder
+    thinkingTokens?: SortOrderInput | SortOrder
+    costUsd?: SortOrderInput | SortOrder
+    modelId?: SortOrderInput | SortOrder
+    toolName?: SortOrderInput | SortOrder
+    toolUseId?: SortOrderInput | SortOrder
+    toolLatencyMs?: SortOrderInput | SortOrder
+    toolIsError?: SortOrderInput | SortOrder
     _count?: SessionEventCountOrderByAggregateInput
+    _avg?: SessionEventAvgOrderByAggregateInput
     _max?: SessionEventMaxOrderByAggregateInput
     _min?: SessionEventMinOrderByAggregateInput
+    _sum?: SessionEventSumOrderByAggregateInput
   }
 
   export type SessionEventScalarWhereWithAggregatesInput = {
@@ -5041,6 +5316,16 @@ export namespace Prisma {
     type?: StringWithAggregatesFilter<"SessionEvent"> | string
     data?: JsonWithAggregatesFilter<"SessionEvent">
     createdAt?: DateTimeWithAggregatesFilter<"SessionEvent"> | Date | string
+    turnIndex?: IntNullableWithAggregatesFilter<"SessionEvent"> | number | null
+    inputTokens?: IntNullableWithAggregatesFilter<"SessionEvent"> | number | null
+    outputTokens?: IntNullableWithAggregatesFilter<"SessionEvent"> | number | null
+    thinkingTokens?: IntNullableWithAggregatesFilter<"SessionEvent"> | number | null
+    costUsd?: FloatNullableWithAggregatesFilter<"SessionEvent"> | number | null
+    modelId?: StringNullableWithAggregatesFilter<"SessionEvent"> | string | null
+    toolName?: StringNullableWithAggregatesFilter<"SessionEvent"> | string | null
+    toolUseId?: StringNullableWithAggregatesFilter<"SessionEvent"> | string | null
+    toolLatencyMs?: IntNullableWithAggregatesFilter<"SessionEvent"> | number | null
+    toolIsError?: BoolNullableWithAggregatesFilter<"SessionEvent"> | boolean | null
   }
 
   export type StoredSpecWhereInput = {
@@ -5129,6 +5414,7 @@ export namespace Prisma {
     numTurns?: number | null
     durationMs?: number | null
     errors?: JsonNullValueInput | InputJsonValue
+    failureCategory?: string | null
     sdkSessionId?: string | null
     startedAt?: Date | string | null
     completedAt?: Date | string | null
@@ -5158,6 +5444,7 @@ export namespace Prisma {
     numTurns?: number | null
     durationMs?: number | null
     errors?: JsonNullValueInput | InputJsonValue
+    failureCategory?: string | null
     sdkSessionId?: string | null
     startedAt?: Date | string | null
     completedAt?: Date | string | null
@@ -5187,6 +5474,7 @@ export namespace Prisma {
     numTurns?: NullableIntFieldUpdateOperationsInput | number | null
     durationMs?: NullableIntFieldUpdateOperationsInput | number | null
     errors?: JsonNullValueInput | InputJsonValue
+    failureCategory?: NullableStringFieldUpdateOperationsInput | string | null
     sdkSessionId?: NullableStringFieldUpdateOperationsInput | string | null
     startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -5216,6 +5504,7 @@ export namespace Prisma {
     numTurns?: NullableIntFieldUpdateOperationsInput | number | null
     durationMs?: NullableIntFieldUpdateOperationsInput | number | null
     errors?: JsonNullValueInput | InputJsonValue
+    failureCategory?: NullableStringFieldUpdateOperationsInput | string | null
     sdkSessionId?: NullableStringFieldUpdateOperationsInput | string | null
     startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -5245,6 +5534,7 @@ export namespace Prisma {
     numTurns?: number | null
     durationMs?: number | null
     errors?: JsonNullValueInput | InputJsonValue
+    failureCategory?: string | null
     sdkSessionId?: string | null
     startedAt?: Date | string | null
     completedAt?: Date | string | null
@@ -5272,6 +5562,7 @@ export namespace Prisma {
     numTurns?: NullableIntFieldUpdateOperationsInput | number | null
     durationMs?: NullableIntFieldUpdateOperationsInput | number | null
     errors?: JsonNullValueInput | InputJsonValue
+    failureCategory?: NullableStringFieldUpdateOperationsInput | string | null
     sdkSessionId?: NullableStringFieldUpdateOperationsInput | string | null
     startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -5298,6 +5589,7 @@ export namespace Prisma {
     numTurns?: NullableIntFieldUpdateOperationsInput | number | null
     durationMs?: NullableIntFieldUpdateOperationsInput | number | null
     errors?: JsonNullValueInput | InputJsonValue
+    failureCategory?: NullableStringFieldUpdateOperationsInput | string | null
     sdkSessionId?: NullableStringFieldUpdateOperationsInput | string | null
     startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -5311,6 +5603,16 @@ export namespace Prisma {
     type: string
     data?: JsonNullValueInput | InputJsonValue
     createdAt?: Date | string
+    turnIndex?: number | null
+    inputTokens?: number | null
+    outputTokens?: number | null
+    thinkingTokens?: number | null
+    costUsd?: number | null
+    modelId?: string | null
+    toolName?: string | null
+    toolUseId?: string | null
+    toolLatencyMs?: number | null
+    toolIsError?: boolean | null
     session: SessionCreateNestedOneWithoutEventsInput
   }
 
@@ -5320,6 +5622,16 @@ export namespace Prisma {
     type: string
     data?: JsonNullValueInput | InputJsonValue
     createdAt?: Date | string
+    turnIndex?: number | null
+    inputTokens?: number | null
+    outputTokens?: number | null
+    thinkingTokens?: number | null
+    costUsd?: number | null
+    modelId?: string | null
+    toolName?: string | null
+    toolUseId?: string | null
+    toolLatencyMs?: number | null
+    toolIsError?: boolean | null
   }
 
   export type SessionEventUpdateInput = {
@@ -5327,6 +5639,16 @@ export namespace Prisma {
     type?: StringFieldUpdateOperationsInput | string
     data?: JsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    turnIndex?: NullableIntFieldUpdateOperationsInput | number | null
+    inputTokens?: NullableIntFieldUpdateOperationsInput | number | null
+    outputTokens?: NullableIntFieldUpdateOperationsInput | number | null
+    thinkingTokens?: NullableIntFieldUpdateOperationsInput | number | null
+    costUsd?: NullableFloatFieldUpdateOperationsInput | number | null
+    modelId?: NullableStringFieldUpdateOperationsInput | string | null
+    toolName?: NullableStringFieldUpdateOperationsInput | string | null
+    toolUseId?: NullableStringFieldUpdateOperationsInput | string | null
+    toolLatencyMs?: NullableIntFieldUpdateOperationsInput | number | null
+    toolIsError?: NullableBoolFieldUpdateOperationsInput | boolean | null
     session?: SessionUpdateOneRequiredWithoutEventsNestedInput
   }
 
@@ -5336,6 +5658,16 @@ export namespace Prisma {
     type?: StringFieldUpdateOperationsInput | string
     data?: JsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    turnIndex?: NullableIntFieldUpdateOperationsInput | number | null
+    inputTokens?: NullableIntFieldUpdateOperationsInput | number | null
+    outputTokens?: NullableIntFieldUpdateOperationsInput | number | null
+    thinkingTokens?: NullableIntFieldUpdateOperationsInput | number | null
+    costUsd?: NullableFloatFieldUpdateOperationsInput | number | null
+    modelId?: NullableStringFieldUpdateOperationsInput | string | null
+    toolName?: NullableStringFieldUpdateOperationsInput | string | null
+    toolUseId?: NullableStringFieldUpdateOperationsInput | string | null
+    toolLatencyMs?: NullableIntFieldUpdateOperationsInput | number | null
+    toolIsError?: NullableBoolFieldUpdateOperationsInput | boolean | null
   }
 
   export type SessionEventCreateManyInput = {
@@ -5344,6 +5676,16 @@ export namespace Prisma {
     type: string
     data?: JsonNullValueInput | InputJsonValue
     createdAt?: Date | string
+    turnIndex?: number | null
+    inputTokens?: number | null
+    outputTokens?: number | null
+    thinkingTokens?: number | null
+    costUsd?: number | null
+    modelId?: string | null
+    toolName?: string | null
+    toolUseId?: string | null
+    toolLatencyMs?: number | null
+    toolIsError?: boolean | null
   }
 
   export type SessionEventUpdateManyMutationInput = {
@@ -5351,6 +5693,16 @@ export namespace Prisma {
     type?: StringFieldUpdateOperationsInput | string
     data?: JsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    turnIndex?: NullableIntFieldUpdateOperationsInput | number | null
+    inputTokens?: NullableIntFieldUpdateOperationsInput | number | null
+    outputTokens?: NullableIntFieldUpdateOperationsInput | number | null
+    thinkingTokens?: NullableIntFieldUpdateOperationsInput | number | null
+    costUsd?: NullableFloatFieldUpdateOperationsInput | number | null
+    modelId?: NullableStringFieldUpdateOperationsInput | string | null
+    toolName?: NullableStringFieldUpdateOperationsInput | string | null
+    toolUseId?: NullableStringFieldUpdateOperationsInput | string | null
+    toolLatencyMs?: NullableIntFieldUpdateOperationsInput | number | null
+    toolIsError?: NullableBoolFieldUpdateOperationsInput | boolean | null
   }
 
   export type SessionEventUncheckedUpdateManyInput = {
@@ -5359,6 +5711,16 @@ export namespace Prisma {
     type?: StringFieldUpdateOperationsInput | string
     data?: JsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    turnIndex?: NullableIntFieldUpdateOperationsInput | number | null
+    inputTokens?: NullableIntFieldUpdateOperationsInput | number | null
+    outputTokens?: NullableIntFieldUpdateOperationsInput | number | null
+    thinkingTokens?: NullableIntFieldUpdateOperationsInput | number | null
+    costUsd?: NullableFloatFieldUpdateOperationsInput | number | null
+    modelId?: NullableStringFieldUpdateOperationsInput | string | null
+    toolName?: NullableStringFieldUpdateOperationsInput | string | null
+    toolUseId?: NullableStringFieldUpdateOperationsInput | string | null
+    toolLatencyMs?: NullableIntFieldUpdateOperationsInput | number | null
+    toolIsError?: NullableBoolFieldUpdateOperationsInput | boolean | null
   }
 
   export type StoredSpecCreateInput = {
@@ -5618,6 +5980,7 @@ export namespace Prisma {
     numTurns?: SortOrder
     durationMs?: SortOrder
     errors?: SortOrder
+    failureCategory?: SortOrder
     sdkSessionId?: SortOrder
     startedAt?: SortOrder
     completedAt?: SortOrder
@@ -5655,6 +6018,7 @@ export namespace Prisma {
     outputTokens?: SortOrder
     numTurns?: SortOrder
     durationMs?: SortOrder
+    failureCategory?: SortOrder
     sdkSessionId?: SortOrder
     startedAt?: SortOrder
     completedAt?: SortOrder
@@ -5681,6 +6045,7 @@ export namespace Prisma {
     outputTokens?: SortOrder
     numTurns?: SortOrder
     durationMs?: SortOrder
+    failureCategory?: SortOrder
     sdkSessionId?: SortOrder
     startedAt?: SortOrder
     completedAt?: SortOrder
@@ -5872,6 +6237,11 @@ export namespace Prisma {
     _max?: NestedDateTimeFilter<$PrismaModel>
   }
 
+  export type BoolNullableFilter<$PrismaModel = never> = {
+    equals?: boolean | BooleanFieldRefInput<$PrismaModel> | null
+    not?: NestedBoolNullableFilter<$PrismaModel> | boolean | null
+  }
+
   export type SessionScalarRelationFilter = {
     is?: SessionWhereInput
     isNot?: SessionWhereInput
@@ -5883,6 +6253,25 @@ export namespace Prisma {
     type?: SortOrder
     data?: SortOrder
     createdAt?: SortOrder
+    turnIndex?: SortOrder
+    inputTokens?: SortOrder
+    outputTokens?: SortOrder
+    thinkingTokens?: SortOrder
+    costUsd?: SortOrder
+    modelId?: SortOrder
+    toolName?: SortOrder
+    toolUseId?: SortOrder
+    toolLatencyMs?: SortOrder
+    toolIsError?: SortOrder
+  }
+
+  export type SessionEventAvgOrderByAggregateInput = {
+    turnIndex?: SortOrder
+    inputTokens?: SortOrder
+    outputTokens?: SortOrder
+    thinkingTokens?: SortOrder
+    costUsd?: SortOrder
+    toolLatencyMs?: SortOrder
   }
 
   export type SessionEventMaxOrderByAggregateInput = {
@@ -5890,6 +6279,16 @@ export namespace Prisma {
     sessionId?: SortOrder
     type?: SortOrder
     createdAt?: SortOrder
+    turnIndex?: SortOrder
+    inputTokens?: SortOrder
+    outputTokens?: SortOrder
+    thinkingTokens?: SortOrder
+    costUsd?: SortOrder
+    modelId?: SortOrder
+    toolName?: SortOrder
+    toolUseId?: SortOrder
+    toolLatencyMs?: SortOrder
+    toolIsError?: SortOrder
   }
 
   export type SessionEventMinOrderByAggregateInput = {
@@ -5897,6 +6296,33 @@ export namespace Prisma {
     sessionId?: SortOrder
     type?: SortOrder
     createdAt?: SortOrder
+    turnIndex?: SortOrder
+    inputTokens?: SortOrder
+    outputTokens?: SortOrder
+    thinkingTokens?: SortOrder
+    costUsd?: SortOrder
+    modelId?: SortOrder
+    toolName?: SortOrder
+    toolUseId?: SortOrder
+    toolLatencyMs?: SortOrder
+    toolIsError?: SortOrder
+  }
+
+  export type SessionEventSumOrderByAggregateInput = {
+    turnIndex?: SortOrder
+    inputTokens?: SortOrder
+    outputTokens?: SortOrder
+    thinkingTokens?: SortOrder
+    costUsd?: SortOrder
+    toolLatencyMs?: SortOrder
+  }
+
+  export type BoolNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: boolean | BooleanFieldRefInput<$PrismaModel> | null
+    not?: NestedBoolNullableWithAggregatesFilter<$PrismaModel> | boolean | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _min?: NestedBoolNullableFilter<$PrismaModel>
+    _max?: NestedBoolNullableFilter<$PrismaModel>
   }
 
   export type StoredSpecCountOrderByAggregateInput = {
@@ -6088,6 +6514,10 @@ export namespace Prisma {
     create?: XOR<SessionCreateWithoutEventsInput, SessionUncheckedCreateWithoutEventsInput>
     connectOrCreate?: SessionCreateOrConnectWithoutEventsInput
     connect?: SessionWhereUniqueInput
+  }
+
+  export type NullableBoolFieldUpdateOperationsInput = {
+    set?: boolean | null
   }
 
   export type SessionUpdateOneRequiredWithoutEventsNestedInput = {
@@ -6371,6 +6801,19 @@ export namespace Prisma {
     _max?: NestedDateTimeFilter<$PrismaModel>
   }
 
+  export type NestedBoolNullableFilter<$PrismaModel = never> = {
+    equals?: boolean | BooleanFieldRefInput<$PrismaModel> | null
+    not?: NestedBoolNullableFilter<$PrismaModel> | boolean | null
+  }
+
+  export type NestedBoolNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: boolean | BooleanFieldRefInput<$PrismaModel> | null
+    not?: NestedBoolNullableWithAggregatesFilter<$PrismaModel> | boolean | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _min?: NestedBoolNullableFilter<$PrismaModel>
+    _max?: NestedBoolNullableFilter<$PrismaModel>
+  }
+
   export type SessionCreateWithoutChildrenInput = {
     id?: string
     status?: $Enums.SessionStatus
@@ -6390,6 +6833,7 @@ export namespace Prisma {
     numTurns?: number | null
     durationMs?: number | null
     errors?: JsonNullValueInput | InputJsonValue
+    failureCategory?: string | null
     sdkSessionId?: string | null
     startedAt?: Date | string | null
     completedAt?: Date | string | null
@@ -6418,6 +6862,7 @@ export namespace Prisma {
     numTurns?: number | null
     durationMs?: number | null
     errors?: JsonNullValueInput | InputJsonValue
+    failureCategory?: string | null
     sdkSessionId?: string | null
     startedAt?: Date | string | null
     completedAt?: Date | string | null
@@ -6451,6 +6896,7 @@ export namespace Prisma {
     numTurns?: number | null
     durationMs?: number | null
     errors?: JsonNullValueInput | InputJsonValue
+    failureCategory?: string | null
     sdkSessionId?: string | null
     startedAt?: Date | string | null
     completedAt?: Date | string | null
@@ -6479,6 +6925,7 @@ export namespace Prisma {
     numTurns?: number | null
     durationMs?: number | null
     errors?: JsonNullValueInput | InputJsonValue
+    failureCategory?: string | null
     sdkSessionId?: string | null
     startedAt?: Date | string | null
     completedAt?: Date | string | null
@@ -6503,6 +6950,16 @@ export namespace Prisma {
     type: string
     data?: JsonNullValueInput | InputJsonValue
     createdAt?: Date | string
+    turnIndex?: number | null
+    inputTokens?: number | null
+    outputTokens?: number | null
+    thinkingTokens?: number | null
+    costUsd?: number | null
+    modelId?: string | null
+    toolName?: string | null
+    toolUseId?: string | null
+    toolLatencyMs?: number | null
+    toolIsError?: boolean | null
   }
 
   export type SessionEventUncheckedCreateWithoutSessionInput = {
@@ -6510,6 +6967,16 @@ export namespace Prisma {
     type: string
     data?: JsonNullValueInput | InputJsonValue
     createdAt?: Date | string
+    turnIndex?: number | null
+    inputTokens?: number | null
+    outputTokens?: number | null
+    thinkingTokens?: number | null
+    costUsd?: number | null
+    modelId?: string | null
+    toolName?: string | null
+    toolUseId?: string | null
+    toolLatencyMs?: number | null
+    toolIsError?: boolean | null
   }
 
   export type SessionEventCreateOrConnectWithoutSessionInput = {
@@ -6552,6 +7019,7 @@ export namespace Prisma {
     numTurns?: NullableIntFieldUpdateOperationsInput | number | null
     durationMs?: NullableIntFieldUpdateOperationsInput | number | null
     errors?: JsonNullValueInput | InputJsonValue
+    failureCategory?: NullableStringFieldUpdateOperationsInput | string | null
     sdkSessionId?: NullableStringFieldUpdateOperationsInput | string | null
     startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -6580,6 +7048,7 @@ export namespace Prisma {
     numTurns?: NullableIntFieldUpdateOperationsInput | number | null
     durationMs?: NullableIntFieldUpdateOperationsInput | number | null
     errors?: JsonNullValueInput | InputJsonValue
+    failureCategory?: NullableStringFieldUpdateOperationsInput | string | null
     sdkSessionId?: NullableStringFieldUpdateOperationsInput | string | null
     startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -6627,6 +7096,7 @@ export namespace Prisma {
     numTurns?: IntNullableFilter<"Session"> | number | null
     durationMs?: IntNullableFilter<"Session"> | number | null
     errors?: JsonFilter<"Session">
+    failureCategory?: StringNullableFilter<"Session"> | string | null
     sdkSessionId?: StringNullableFilter<"Session"> | string | null
     startedAt?: DateTimeNullableFilter<"Session"> | Date | string | null
     completedAt?: DateTimeNullableFilter<"Session"> | Date | string | null
@@ -6660,6 +7130,16 @@ export namespace Prisma {
     type?: StringFilter<"SessionEvent"> | string
     data?: JsonFilter<"SessionEvent">
     createdAt?: DateTimeFilter<"SessionEvent"> | Date | string
+    turnIndex?: IntNullableFilter<"SessionEvent"> | number | null
+    inputTokens?: IntNullableFilter<"SessionEvent"> | number | null
+    outputTokens?: IntNullableFilter<"SessionEvent"> | number | null
+    thinkingTokens?: IntNullableFilter<"SessionEvent"> | number | null
+    costUsd?: FloatNullableFilter<"SessionEvent"> | number | null
+    modelId?: StringNullableFilter<"SessionEvent"> | string | null
+    toolName?: StringNullableFilter<"SessionEvent"> | string | null
+    toolUseId?: StringNullableFilter<"SessionEvent"> | string | null
+    toolLatencyMs?: IntNullableFilter<"SessionEvent"> | number | null
+    toolIsError?: BoolNullableFilter<"SessionEvent"> | boolean | null
   }
 
   export type SessionCreateWithoutEventsInput = {
@@ -6681,6 +7161,7 @@ export namespace Prisma {
     numTurns?: number | null
     durationMs?: number | null
     errors?: JsonNullValueInput | InputJsonValue
+    failureCategory?: string | null
     sdkSessionId?: string | null
     startedAt?: Date | string | null
     completedAt?: Date | string | null
@@ -6709,6 +7190,7 @@ export namespace Prisma {
     numTurns?: number | null
     durationMs?: number | null
     errors?: JsonNullValueInput | InputJsonValue
+    failureCategory?: string | null
     sdkSessionId?: string | null
     startedAt?: Date | string | null
     completedAt?: Date | string | null
@@ -6753,6 +7235,7 @@ export namespace Prisma {
     numTurns?: NullableIntFieldUpdateOperationsInput | number | null
     durationMs?: NullableIntFieldUpdateOperationsInput | number | null
     errors?: JsonNullValueInput | InputJsonValue
+    failureCategory?: NullableStringFieldUpdateOperationsInput | string | null
     sdkSessionId?: NullableStringFieldUpdateOperationsInput | string | null
     startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -6781,6 +7264,7 @@ export namespace Prisma {
     numTurns?: NullableIntFieldUpdateOperationsInput | number | null
     durationMs?: NullableIntFieldUpdateOperationsInput | number | null
     errors?: JsonNullValueInput | InputJsonValue
+    failureCategory?: NullableStringFieldUpdateOperationsInput | string | null
     sdkSessionId?: NullableStringFieldUpdateOperationsInput | string | null
     startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -6809,6 +7293,7 @@ export namespace Prisma {
     numTurns?: number | null
     durationMs?: number | null
     errors?: JsonNullValueInput | InputJsonValue
+    failureCategory?: string | null
     sdkSessionId?: string | null
     startedAt?: Date | string | null
     completedAt?: Date | string | null
@@ -6821,6 +7306,16 @@ export namespace Prisma {
     type: string
     data?: JsonNullValueInput | InputJsonValue
     createdAt?: Date | string
+    turnIndex?: number | null
+    inputTokens?: number | null
+    outputTokens?: number | null
+    thinkingTokens?: number | null
+    costUsd?: number | null
+    modelId?: string | null
+    toolName?: string | null
+    toolUseId?: string | null
+    toolLatencyMs?: number | null
+    toolIsError?: boolean | null
   }
 
   export type SessionUpdateWithoutParentInput = {
@@ -6842,6 +7337,7 @@ export namespace Prisma {
     numTurns?: NullableIntFieldUpdateOperationsInput | number | null
     durationMs?: NullableIntFieldUpdateOperationsInput | number | null
     errors?: JsonNullValueInput | InputJsonValue
+    failureCategory?: NullableStringFieldUpdateOperationsInput | string | null
     sdkSessionId?: NullableStringFieldUpdateOperationsInput | string | null
     startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -6870,6 +7366,7 @@ export namespace Prisma {
     numTurns?: NullableIntFieldUpdateOperationsInput | number | null
     durationMs?: NullableIntFieldUpdateOperationsInput | number | null
     errors?: JsonNullValueInput | InputJsonValue
+    failureCategory?: NullableStringFieldUpdateOperationsInput | string | null
     sdkSessionId?: NullableStringFieldUpdateOperationsInput | string | null
     startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -6898,6 +7395,7 @@ export namespace Prisma {
     numTurns?: NullableIntFieldUpdateOperationsInput | number | null
     durationMs?: NullableIntFieldUpdateOperationsInput | number | null
     errors?: JsonNullValueInput | InputJsonValue
+    failureCategory?: NullableStringFieldUpdateOperationsInput | string | null
     sdkSessionId?: NullableStringFieldUpdateOperationsInput | string | null
     startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -6910,6 +7408,16 @@ export namespace Prisma {
     type?: StringFieldUpdateOperationsInput | string
     data?: JsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    turnIndex?: NullableIntFieldUpdateOperationsInput | number | null
+    inputTokens?: NullableIntFieldUpdateOperationsInput | number | null
+    outputTokens?: NullableIntFieldUpdateOperationsInput | number | null
+    thinkingTokens?: NullableIntFieldUpdateOperationsInput | number | null
+    costUsd?: NullableFloatFieldUpdateOperationsInput | number | null
+    modelId?: NullableStringFieldUpdateOperationsInput | string | null
+    toolName?: NullableStringFieldUpdateOperationsInput | string | null
+    toolUseId?: NullableStringFieldUpdateOperationsInput | string | null
+    toolLatencyMs?: NullableIntFieldUpdateOperationsInput | number | null
+    toolIsError?: NullableBoolFieldUpdateOperationsInput | boolean | null
   }
 
   export type SessionEventUncheckedUpdateWithoutSessionInput = {
@@ -6917,6 +7425,16 @@ export namespace Prisma {
     type?: StringFieldUpdateOperationsInput | string
     data?: JsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    turnIndex?: NullableIntFieldUpdateOperationsInput | number | null
+    inputTokens?: NullableIntFieldUpdateOperationsInput | number | null
+    outputTokens?: NullableIntFieldUpdateOperationsInput | number | null
+    thinkingTokens?: NullableIntFieldUpdateOperationsInput | number | null
+    costUsd?: NullableFloatFieldUpdateOperationsInput | number | null
+    modelId?: NullableStringFieldUpdateOperationsInput | string | null
+    toolName?: NullableStringFieldUpdateOperationsInput | string | null
+    toolUseId?: NullableStringFieldUpdateOperationsInput | string | null
+    toolLatencyMs?: NullableIntFieldUpdateOperationsInput | number | null
+    toolIsError?: NullableBoolFieldUpdateOperationsInput | boolean | null
   }
 
   export type SessionEventUncheckedUpdateManyWithoutSessionInput = {
@@ -6924,6 +7442,16 @@ export namespace Prisma {
     type?: StringFieldUpdateOperationsInput | string
     data?: JsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    turnIndex?: NullableIntFieldUpdateOperationsInput | number | null
+    inputTokens?: NullableIntFieldUpdateOperationsInput | number | null
+    outputTokens?: NullableIntFieldUpdateOperationsInput | number | null
+    thinkingTokens?: NullableIntFieldUpdateOperationsInput | number | null
+    costUsd?: NullableFloatFieldUpdateOperationsInput | number | null
+    modelId?: NullableStringFieldUpdateOperationsInput | string | null
+    toolName?: NullableStringFieldUpdateOperationsInput | string | null
+    toolUseId?: NullableStringFieldUpdateOperationsInput | string | null
+    toolLatencyMs?: NullableIntFieldUpdateOperationsInput | number | null
+    toolIsError?: NullableBoolFieldUpdateOperationsInput | boolean | null
   }
 
 

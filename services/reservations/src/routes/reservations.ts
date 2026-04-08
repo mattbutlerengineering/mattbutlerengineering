@@ -10,8 +10,13 @@ import type {
   PaginatedResponse,
 } from "@mbe/types";
 import { createProblemDetails } from "@mbe/types";
-import { requireAuth, optionalAuth } from "@mbe/auth/fastify";
+import { requireAuth, optionalAuth, type AuthUser } from "@mbe/auth/fastify";
 import { reservationService } from "../services/reservation.js";
+
+function isAdmin(user: AuthUser | undefined): boolean {
+  const permissions = user?.raw?.permissions;
+  return Array.isArray(permissions) && permissions.includes("admin");
+}
 import { emitReservationCancelled, emitReservationCreated, emitTableUpdated } from "../services/events.js";
 import { tableService } from "../services/table.js";
 
@@ -91,10 +96,10 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request, reply) => {
       const authUser = request.user;
-      const isAdmin = authUser?.raw?.permissions?.includes("admin") ?? false;
+      const adminAccess = isAdmin(authUser);
       
-      if (!isAdmin) {
-        return reply.code(403).send(createProblemDetails(403, "Forbidden", "Admin access required to list all reservations"));
+      if (!adminAccess) {
+        reply.code(403); return reply.send(createProblemDetails(403, "Forbidden", "Admin access required to list all reservations") as never);
       }
 
       const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
@@ -306,11 +311,11 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       }
       
       const authUser = request.user;
-      const isAdmin = authUser?.raw?.permissions?.includes("admin") ?? false;
+      const adminAccess = isAdmin(authUser);
       const isOwner = reservation.guestEmail === authUser?.email;
       
-      if (!isAdmin && !isOwner) {
-        return reply.code(403).send(createProblemDetails(403, "Forbidden", "You can only view your own reservations"));
+      if (!adminAccess && !isOwner) {
+        reply.code(403); return reply.send(createProblemDetails(403, "Forbidden", "You can only view your own reservations") as never);
       }
       
       return { data: reservation };
@@ -535,11 +540,11 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       const authUser = request.user;
-      const isAdmin = authUser?.raw?.permissions?.includes("admin") ?? false;
+      const adminAccess = isAdmin(authUser);
       const isOwner = authUser?.email && reservation.guestEmail === authUser.email;
 
-      if (!isAdmin && !isOwner) {
-        return reply.code(403).send(createProblemDetails(403, "Forbidden", "You can only update your own reservations"));
+      if (!adminAccess && !isOwner) {
+        reply.code(403); return reply.send(createProblemDetails(403, "Forbidden", "You can only update your own reservations") as never);
       }
 
       if (request.body.status === "CANCELLED") {
@@ -628,11 +633,11 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       const authUser = request.user;
-      const isAdmin = authUser?.raw?.permissions?.includes("admin") ?? false;
+      const adminAccess = isAdmin(authUser);
       const isOwner = authUser?.email && reservation.guestEmail === authUser.email;
 
-      if (!isAdmin && !isOwner) {
-        return reply.code(403).send(createProblemDetails(403, "Forbidden", "You can only cancel your own reservations"));
+      if (!adminAccess && !isOwner) {
+        reply.code(403); return reply.send(createProblemDetails(403, "Forbidden", "You can only cancel your own reservations") as never);
       }
 
       const cancelled = await reservationService.cancel(request.params.id);

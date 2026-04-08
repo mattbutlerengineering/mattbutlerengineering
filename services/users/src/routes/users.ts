@@ -13,7 +13,7 @@ import { requireAuth, type AuthUser } from "@mbe/auth/fastify";
 import { userService } from "../services/user.js";
 
 function isAdmin(user: AuthUser | undefined): boolean {
-  return user?.raw?.permissions?.includes("admin") ?? false;
+  const permissions = user?.raw?.permissions; return Array.isArray(permissions) && permissions.includes("admin");
 }
 
 export const userRoutes: FastifyPluginAsync = async (fastify) => {
@@ -67,7 +67,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request, reply) => {
       if (!isAdmin(request.user)) {
-        return reply.code(403).send(createProblemDetails(403, "Forbidden", "Admin access required to list all users"));
+        reply.code(403); return reply.send(createProblemDetails(403, "Forbidden", "Admin access required to list all users") as never);
       }
       const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
       const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "10", 10) || 10));
@@ -262,7 +262,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
       const authUser = request.user;
       const requestedId = request.params.id;
       
-      if (!isAdmin(authUser) && authUser?.sub !== requestedId) {
+      if (!isAdmin(authUser) && authUser?.id !== requestedId) {
         return reply.code(403).send(createProblemDetails(403, "Forbidden", "You can only update your own profile"));
       }
       
@@ -317,7 +317,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
       const authUser = request.user;
       const requestedId = request.params.id;
       
-      if (!isAdmin(authUser) && authUser?.sub !== requestedId) {
+      if (!isAdmin(authUser) && authUser?.id !== requestedId) {
         return reply.code(403).send(createProblemDetails(403, "Forbidden", "You can only delete your own profile"));
       }
       

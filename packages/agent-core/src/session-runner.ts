@@ -195,7 +195,11 @@ export async function runSession(
           : "";
 
         const systemPrompt =
-          buildSystemPrompt(config.taskDescription, sourceFileEntries, prExamplesSection) + projectSection + failureContext;
+          await buildSystemPrompt(config.taskDescription, {
+            sourceFileEntries,
+            prExamplesSection,
+            failureContext,
+          }) + projectSection;
 
         // 3. Run the agent via SDK query()
         emitEvent(onEvent, "session:start", {

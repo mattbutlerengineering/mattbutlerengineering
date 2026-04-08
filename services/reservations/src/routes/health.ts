@@ -75,7 +75,7 @@ const healthSchema = {
 };
 
 const healthHandler: HealthRouteHandler = async (request) => {
-  const checks: HealthResponse["checks"] = {};
+  const checks: Record<string, { status: string; latency?: number; message?: string }> = {};
   const { apiVersion, successorVersion, sunsetDate } = request.server as unknown as {
     apiVersion: string;
     successorVersion?: string;

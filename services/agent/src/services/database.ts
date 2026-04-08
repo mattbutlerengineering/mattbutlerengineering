@@ -1,4 +1,5 @@
 import { PrismaClient } from "../generated/prisma/index.js";
+import { PrismaPg } from "@prisma/adapter-pg";
 
 const SLOW_QUERY_THRESHOLD_MS = 100;
 const SLOW_QUERY_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
@@ -40,9 +41,10 @@ export function getServiceStatus(): "ok" | "degraded" {
 // total connections; with 3 services sharing the pooler, each gets ~7.
 const CONNECTION_LIMIT = parseInt(process.env.PRISMA_CONNECTION_LIMIT ?? "5", 10);
 
-const basePrisma = new PrismaClient({
-  datasourceUrl: appendConnectionLimit(process.env.DATABASE_URL, CONNECTION_LIMIT),
-});
+const connectionUrl = appendConnectionLimit(process.env.DATABASE_URL, CONNECTION_LIMIT);
+const adapter = new PrismaPg(connectionUrl ?? "");
+
+const basePrisma = new PrismaClient({ adapter });
 
 export const prisma = basePrisma.$extends({
   query: {

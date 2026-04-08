@@ -33,7 +33,7 @@ export const healthRoutes: FastifyPluginAsync = async (fastify) => {
   };
 
 const healthHandler = async (request: FastifyRequest): Promise<HealthResponse> => {
-  const checks: HealthResponse["checks"] = {};
+  const checks: Record<string, { status: string; latency?: number; message?: string }> = {};
   const { apiVersion, successorVersion, sunsetDate } = request.server as unknown as {
     apiVersion: string;
     successorVersion?: string;

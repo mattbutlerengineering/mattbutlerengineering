@@ -1,25 +1,21 @@
-import { describe, it, expect } from "vitest";
-import { z } from "zod";
+import { describe, it } from "vitest";
+import type { z } from "zod";
 
 // Zod schemas from @mbe/types (the api-client's source of truth)
 import {
   UserSchema,
   UserPreferencesSchema,
-} from "@mbe/types/schemas";
-import {
   ReservationSchema as ZodReservationSchema,
   TableSchema as ZodTableSchema,
 } from "@mbe/types/schemas";
 
-// JSON Schemas from services (the server's source of truth)
+// JSON Schemas from @mbe/types (the server's source of truth — services re-export these)
 import {
-  UserSchema as ServiceUserSchema,
-  UserPreferencesSchema as ServiceUserPreferencesSchema,
-} from "../../../services/users/src/schemas/index.js";
-import {
-  ReservationSchema as ServiceReservationSchema,
-  TableSchema as ServiceTableSchema,
-} from "../../../services/reservations/src/schemas/index.js";
+  userJsonSchema as ServiceUserSchema,
+  userPreferencesJsonSchema as ServiceUserPreferencesSchema,
+  reservationJsonSchema as ServiceReservationSchema,
+  tableJsonSchema as ServiceTableSchema,
+} from "@mbe/types/schemas";
 
 /**
  * Extract property names from a Zod object schema.
@@ -31,8 +27,9 @@ function zodKeys(schema: z.ZodObject<z.ZodRawShape>): Set<string> {
 /**
  * Extract property names from a JSON Schema object.
  */
-function jsonSchemaKeys(schema: { properties?: Record<string, unknown> }): Set<string> {
-  return new Set(Object.keys(schema.properties ?? {}));
+function jsonSchemaKeys(schema: Record<string, unknown>): Set<string> {
+  const properties = schema.properties as Record<string, unknown> | undefined;
+  return new Set(Object.keys(properties ?? {}));
 }
 
 /**

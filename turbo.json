@@ -83,12 +83,10 @@
       "dependsOn": ["build"]
     },
     "db:migrate": {
-      "cache": false,
-      "retryCount": 3
+      "cache": false
     },
     "test:contract": {
-      "cache": false,
-      "retryCount": 2
+      "cache": false
     }
   }
 }
