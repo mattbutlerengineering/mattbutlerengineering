@@ -20,6 +20,10 @@ useDefault = true
     '''\.git''',
     '''llms\.txt''',
     '''llms-full\.txt''',
+    # Prisma generated files (contain WASM binary as base64 — false positives)
+    '''src/generated''',
+    # GSD file manifest (contains git hashes — false positive)
+    '''gsd-file-manifest\.json''',
   ]
 
   regexTarget = "match"
