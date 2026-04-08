@@ -1,11 +1,22 @@
-# Prune stage — generate minimal monorepo subset
+# Prune stage — generate minimal monorepo subset for this service
 FROM node:22-alpine3.19 AS pruner
 
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
 WORKDIR /app
 
-COPY . .
+# Copy only workspace metadata needed for turbo prune
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json ./
+COPY packages/types/package.json ./packages/types/
+COPY packages/auth/package.json ./packages/auth/
+COPY packages/api-versioning/package.json ./packages/api-versioning/
+COPY packages/config/package.json ./packages/config/
+COPY packages/agent-core/package.json ./packages/agent-core/
+COPY packages/observability/package.json ./packages/observability/
+COPY packages/sentry/package.json ./packages/sentry/
+COPY packages/rialto/package.json ./packages/rialto/
+COPY packages/rialto-catalog/package.json ./packages/rialto-catalog/
+COPY services/agent/package.json ./services/agent/
 
 RUN pnpm turbo prune --docker @mbe/agent-service
 
