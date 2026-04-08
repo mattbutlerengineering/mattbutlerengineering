@@ -18,6 +18,8 @@ useDefault = true
     '''coverage''',
     '''dist''',
     '''\.git''',
+    '''llms\.txt''',
+    '''llms-full\.txt''',
   ]
 
   regexTarget = "match"
