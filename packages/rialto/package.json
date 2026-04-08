@@ -13,7 +13,10 @@
       "types": "./src/tokens/motion.ts",
       "import": "./src/tokens/motion.ts"
     },
-    "./styles": "./src/styles-entry.css",
+    "./styles": {
+      "types": "./src/styles-entry.d.ts",
+      "default": "./src/styles-entry.css"
+    },
     "./manifest": "./dist/manifest.json"
   },
   "publishConfig": {
@@ -29,7 +32,10 @@
         "types": "./dist/lib/tokens/motion.d.ts",
         "import": "./dist/lib/motion.js"
       },
-      "./styles": "./dist/lib/styles.css",
+      "./styles": {
+        "types": "./dist/lib/styles-entry.d.ts",
+        "default": "./dist/lib/styles.css"
+      },
       "./manifest": "./dist/manifest.json"
     }
   },

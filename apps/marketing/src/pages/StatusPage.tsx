@@ -137,7 +137,9 @@ export function StatusPage() {
   }, []);
 
   useEffect(() => {
-    refresh();
+    // Initial fetch on mount — intentionally calls setState
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void refresh();
     const interval = setInterval(refresh, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [refresh]);
@@ -150,7 +152,7 @@ export function StatusPage() {
       <header className={styles.header}>
         <h1>System Status</h1>
         <div className={styles.overallStatus}>
-          <Badge color={statusColor(overall)} size="lg">
+          <Badge color={statusColor(overall)} size="md">
             {overall === "loading" ? "Checking..." : statusLabel(overall)}
           </Badge>
         </div>
@@ -164,7 +166,7 @@ export function StatusPage() {
 
       <section className={styles.section}>
         <h2>API Services</h2>
-        <div className={styles.grid}>
+        <div className={styles.serviceGrid}>
           {services.map((service) => (
             <Card key={service.name} className={styles.card}>
               <div className={styles.cardHeader}>
@@ -190,7 +192,7 @@ export function StatusPage() {
 
       <section className={styles.section}>
         <h2>Static Sites</h2>
-        <div className={styles.grid}>
+        <div className={styles.serviceGrid}>
           {sites.map((site) => (
             <Card key={site.name} className={styles.card}>
               <div className={styles.cardHeader}>

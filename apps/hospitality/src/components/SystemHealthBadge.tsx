@@ -57,10 +57,11 @@ function StatusDot({ status }: { readonly status: string }) {
 export function SystemHealthBadge() {
   const { user } = useAuth();
   const [health, setHealth] = useState<SystemHealth | null>(null);
-  const [open, setOpen] = useState(false);
 
-  // Only show to admin users
-  const isAdmin = user?.permissions?.includes("admin") ?? false;
+  // Only show to admin users — permissions live in the raw JWT claims
+  const rawPermissions = user?.raw?.permissions;
+  const isAdmin =
+    Array.isArray(rawPermissions) && rawPermissions.includes("admin");
 
   const fetchHealth = useCallback(async () => {
     try {
@@ -77,7 +78,8 @@ export function SystemHealthBadge() {
 
   useEffect(() => {
     if (!isAdmin) return;
-    fetchHealth();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchHealth();
     const interval = setInterval(fetchHealth, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [isAdmin, fetchHealth]);
@@ -88,7 +90,6 @@ export function SystemHealthBadge() {
     <button
       type="button"
       className={styles.trigger}
-      onClick={() => setOpen((prev) => !prev)}
       aria-label={`System health: ${health.status}`}
     >
       <StatusDot status={health.status} />
@@ -96,12 +97,7 @@ export function SystemHealthBadge() {
   );
 
   return (
-    <Popover
-      open={open}
-      onOpenChange={setOpen}
-      trigger={trigger}
-      align="end"
-    >
+    <Popover trigger={trigger} placement="bottom">
       <div className={styles.panel}>
         <div className={styles.header}>
           <span className={styles.title}>System Health</span>

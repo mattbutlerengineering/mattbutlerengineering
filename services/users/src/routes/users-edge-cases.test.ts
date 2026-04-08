@@ -130,7 +130,7 @@ describe("User routes — edge cases", () => {
     it("MOCK_USER cannot be mutated", () => {
       const user = makeUser();
       expect(() => {
-        (user as Record<string, unknown>).name = "mutated";
+        (user as unknown as Record<string, unknown>).name = "mutated";
       }).toThrow();
     });
   });

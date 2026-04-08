@@ -1,13 +1,268 @@
 <codebase path="services/agent">
+  <section priority="medium" role="prisma">
+  <file path="prisma/seed.ts">
+    async function main() {
+      console.log("Seeding agent database...");
+    
+      const now = new Date();
+      const fiveMinAgo = new Date(now.getTime() - 5 * 60_000);
+      const tenMinAgo = new Date(now.getTime() - 10 * 60_000);
+      const thirtyMinAgo = new Date(now.getTime() - 30 * 60_000);
+      const oneHourAgo = new Date(now.getTime() - 60 * 60_000);
+    
+      // --- Succeeded Session 1: Bug fix ---
+      const session1 = await prisma.session.create({
+        data: {
+          status: "SUCCEEDED",
+          taskDescription: "Fix login button not responding on mobile viewport",
+          branchName: "agent/fix-mobile-login",
+          baseBranch: "main",
+          model: "claude-sonnet-4-6",
+          maxTurns: 50,
+          maxBudgetUsd: 1.0,
+          createPr: true,
+          prUrl: "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/400",
+          prNumber: 400,
+          resultText: "Fixed mobile login button by correcting CSS media query breakpoint",
+          costUsd: 0.42,
+          inputTokens: 15200,
+          outputTokens: 4800,
+          numTurns: 8,
+          durationMs: 45000,
+          errors: [],
+          startedAt: oneHourAgo,
+          completedAt: thirtyMinAgo,
+        },
+      });
+    
+      await prisma.sessionEvent.createMany({
+        data: [
+          { sessionId: session1.id, type: "turn:start", data: { turn: 1 }, createdAt: oneHourAgo },
+          { sessionId: session1.id, type: "file:modified", data: { path: "apps/hospitality/src/components/LoginButton.tsx" }, createdAt: new Date(oneHourAgo.getTime() + 10_000) },
+          { sessionId: session1.id, type: "turn:end", data: { turn: 8, costUsd: 0.42 }, createdAt: thirtyMinAgo },
+          { sessionId: session1.id, type: "pr:created", data: { prUrl: "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/400", prNumber: 400 }, createdAt: thirtyMinAgo },
+        ],
+      });
+    
+      // --- Succeeded Session 2: Feature ---
+      const session2 = await prisma.session.create({
+        data: {
+          status: "SUCCEEDED",
+          taskDescription: "Add tooltip component to design system",
+          branchName: "agent/add-tooltip",
+          baseBranch: "main",
+          model: "claude-sonnet-4-6",
+          maxTurns: 50,
+          maxBudgetUsd: 1.0,
+          createPr: true,
+          prUrl: "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/405",
+          prNumber: 405,
+          resultText: "Created Tooltip component with accessibility support and animations",
+          costUsd: 0.78,
+          inputTokens: 28500,
+          outputTokens: 9200,
+          numTurns: 14,
+          durationMs: 82000,
+          errors: [],
+          startedAt: thirtyMinAgo,
+          completedAt: fiveMinAgo,
+        },
+      });
+    
+      await prisma.sessionEvent.createMany({
+        data: [
+          { sessionId: session2.id, type: "turn:start", data: { turn: 1 }, createdAt: thirtyMinAgo },
+          { sessionId: session2.id, type: "file:created", data: { path: "packages/rialto/src/components/Tooltip.tsx" }, createdAt: new Date(thirtyMinAgo.getTime() + 20_000) },
+          { sessionId: session2.id, type: "file:created", data: { path: "packages/rialto/src/components/Tooltip.test.tsx" }, createdAt: new Date(thirtyMinAgo.getTime() + 40_000) },
+          { sessionId: session2.id, type: "turn:end", data: { turn: 14, costUsd: 0.78 }, createdAt: fiveMinAgo },
+          { sessionId: session2.id, type: "pr:created", data: { prUrl: "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/405", prNumber: 405 }, createdAt: fiveMinAgo },
+        ],
+      });
+    
+      // --- Failed Session ---
+      const session3 = await prisma.session.create({
+        data: {
+          status: "FAILED",
+          taskDescription: "Migrate database to use UUID v7 for all primary keys",
+          branchName: "agent/uuid-v7-migration",
+          baseBranch: "main",
+          model: "claude-sonnet-4-6",
+          maxTurns: 50,
+          maxBudgetUsd: 1.0,
+          createPr: false,
+          resultText: "Failed: migration affected too many tables, exceeded budget",
+          costUsd: 1.0,
+          inputTokens: 42000,
+          outputTokens: 12000,
+          numTurns: 50,
+          durationMs: 180000,
+          errors: [{ message: "Budget exceeded", turn: 50, timestamp: tenMinAgo.toISOString() }],
+          startedAt: oneHourAgo,
+          completedAt: tenMinAgo,
+        },
+      });
+    
+      await prisma.sessionEvent.createMany({
+        data: [
+          { sessionId: session3.id, type: "turn:start", data: { turn: 1 }, createdAt: oneHourAgo },
+          { sessionId: session3.id, type: "file:modified", data: { path: "services/users/prisma/schema.prisma" }, createdAt: new Date(oneHourAgo.getTime() + 15_000) },
+          { sessionId: session3.id, type: "error", data: { message: "Budget exceeded", turn: 50 }, createdAt: tenMinAgo },
+        ],
+      });
+    
+      console.log("Seeded agent database:", {
+        sessions: [session1.id, session2.id, session3.id],
+        events: "11 total",
+      });
+    }
+  </file>
+  </section>
+  <section priority="medium" role="src">
   <file path="src/index.ts">
-    async function main() { /* implementation omitted */ }
+    async function main() {
+      const fastify = await buildApp();
+    
+      try {
+        await fastify.listen({ port: PORT, host: HOST });
+        fastify.log.info(`Server running at http://${HOST}:${PORT}`);
+        fastify.log.info(`API docs at http://${HOST}:${PORT}/docs`);
+    
+        startLivenessMonitor();
+      } catch (err) {
+        fastify.log.error(err);
+        process.exit(1);
+      }
+    }
   </file>
   <file path="src/app.ts">
     export interface AppOptions {
       logger?: boolean | object;
     }
-    export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> { /* implementation omitted */ }
+    export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
+      const fastify = Fastify({
+        logger: options.logger ?? true,
+        disableRequestLogging: true,
+      });
+    
+      // Register schemas
+      registerSchemas(fastify);
+    
+      // Core plugins
+      const defaultDevOrigins = [
+        "http://localhost:3000",
+        "http://localhost:3002",
+        "http://localhost:3003",
+        "http://localhost:3004",
+        "http://localhost:5173",
+        "http://localhost:5174",
+      ];
+      const prodOrigins = [
+        "https://mattbutlerengineering.com",
+        "https://hospitality.mattbutlerengineering.com",
+        "https://gen.mattbutlerengineering.com",
+      ];
+    
+      const corsOrigins = process.env.CORS_ORIGINS?.split(",") || [
+        ...prodOrigins,
+        ...(process.env.NODE_ENV === "development" ? defaultDevOrigins : []),
+      ];
+    
+      await fastify.register(cors, {
+        origin: corsOrigins,
+        credentials: true,
+        allowedHeaders: ["Content-Type", "Authorization"],
+        methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+      });
+    
+      // Propagate X-Request-ID from edge router for distributed tracing
+      await fastify.register(createRequestIdMiddleware());
+    
+      // Track per-endpoint error rates (exposed via health check)
+      await fastify.register(errorRatePlugin_);
+    
+      const rateLimitMonitor = createRateLimitMonitor();
+      fastify.decorate("rateLimitMonitor", rateLimitMonitor);
+    
+      await fastify.register(rateLimit, {
+        max: 100,
+        timeWindow: "1 minute",
+        onExceeded: (req) => {
+          const ip = req.ip;
+          const endpoint = req.url;
+          rateLimitMonitor.recordHit(ip, endpoint);
+          req.log.warn({ ip, endpoint, timestamp: new Date().toISOString() }, "Rate limit exceeded");
+        },
+      });
+    
+      await fastify.register(swagger, {
+        openapi: {
+          info: {
+            title: "MBE Agent API",
+            description: "API for AI agent sessions and orchestration",
+            version: "1.0.0",
+          },
+          servers: [{ url: "http://localhost:3003" }],
+          components: {
+            securitySchemes: {
+              bearerAuth: {
+                type: "http",
+                scheme: "bearer",
+                bearerFormat: "JWT",
+              },
+            },
+          },
+        },
+      });
+    
+      await fastify.register(swaggerUi, {
+        routePrefix: "/docs",
+        uiConfig: {
+          docExpansion: "list",
+          deepLinking: false,
+        },
+      });
+    
+      await fastify.register(ScalarApiReference, {
+        routePrefix: "/reference",
+        configuration: {
+          content: () => fastify.swagger(),
+        },
+      });
+    
+      // Register Auth0 plugin
+      if (process.env.AUTH_AUTHORITY) {
+        await fastify.register(authPlugin, getAuthPluginOptionsFromEnv());
+      } else if (process.env.NODE_ENV === "production") {
+        throw new Error("Fail-closed: AUTH_AUTHORITY and AUTH_AUDIENCE are required in production");
+      }
+    
+      // Register Sentry error handler (no-op without SENTRY_DSN)
+      await fastify.register(sentryFastifyPlugin);
+    
+      // Register API versioning headers
+      await fastify.register(apiVersioningPlugin, {
+        currentVersion: "v1",
+        successorVersion: "v2",
+        sunsetMonthsFromNow: 6,
+      });
+    
+      // Register routes
+      await fastify.register(healthRoutes);
+      await fastify.register(readinessRoutes);
+      await fastify.register(sessionRoutes, { prefix: "/v1/sessions" });
+      await fastify.register(sessionEventsRoutes, { prefix: "/v1/sessions" });
+      await fastify.register(orchestrateRoutes, { prefix: "/v1/orchestrate" });
+      await fastify.register(webhookRoutes, { prefix: "/v1/webhooks" });
+      await fastify.register(remediationRoutes, { prefix: "/v1/webhooks" });
+      await fastify.register(genUiRoutes);
+      await fastify.register(genChatRoutes);
+      await fastify.register(genSpecsRoutes);
+    
+      return fastify;
+    }
   </file>
+  </section>
+  <section priority="medium" role="services">
   <file path="src/services/stored-spec.ts">
     export interface StoredSpecResponse {
       id: string;
@@ -19,236 +274,68 @@
       createdAt: string;
       updatedAt: string;
     }
-    export function mapStoredSpec(s: StoredSpec): StoredSpecResponse { /* implementation omitted */ }
-    async function _enforceCapForUser(userId: string): Promise<void> { /* implementation omitted */ }
-    storedSpecService = {
-      async list(userId: string): Promise<StoredSpec[]> {
-        return prisma.storedSpec.findMany({
-          where: { userId },
-          orderBy: { createdAt: "desc" },
-          take: 100,
-        });
-      },
-    
-      async getById(id: string): Promise<StoredSpec | null> {
-        return prisma.storedSpec.findUnique({ where: { id } });
-      },
-    
-      async create(data: {
-        userId: string;
-        prompt: string;
-        spec: unknown;
-        rawLines: unknown;
-      }): Promise<StoredSpec> {
-        await _enforceCapForUser(data.userId);
-    
-        return prisma.storedSpec.create({
-          data: {
-            userId: data.userId,
-            prompt: data.prompt,
-            spec: data.spec as Prisma.InputJsonValue,
-            rawLines: data.rawLines as Prisma.InputJsonValue,
-          },
-        });
-      },
-    
-      async toggleFavorite(id: string, userId: string): Promise<StoredSpec> {
-        const existing = await prisma.storedSpec.findUnique({ where: { id } });
-    
-        if (!existing || existing.userId !== userId) {
-          throw new Error("Not found");
-        }
-    
-        return prisma.storedSpec.update({
-          where: { id },
-          data: { isFavorite: !existing.isFavorite },
-        });
-      },
-    
-      async delete(id: string, userId: string): Promise<void> {
-        const existing = await prisma.storedSpec.findUnique({ where: { id } });
-    
-        if (!existing || existing.userId !== userId) {
-          throw new Error("Not found");
-        }
-    
-        await prisma.storedSpec.delete({ where: { id } });
-      },
-    
-      _enforceCapForUser,
+    export function mapStoredSpec(s: StoredSpec): StoredSpecResponse {
+      return {
+        id: s.id,
+        userId: s.userId,
+        prompt: s.prompt,
+        spec: s.spec,
+        rawLines: s.rawLines,
+        isFavorite: s.isFavorite,
+        createdAt: s.createdAt.toISOString(),
+        updatedAt: s.updatedAt.toISOString(),
+      };
     }
   </file>
   <file path="src/services/session.ts">
-    function mapPrismaSession(session: Session): AgentSession { /* implementation omitted */ }
-    function mapPrismaEvent(event: SessionEvent): AgentSessionEvent { /* implementation omitted */ }
-    interface ListOptions {
-      readonly page: number;
-      readonly limit: number;
-      readonly status?: SessionStatus;
+    function isPrismaNotFound(err: unknown): boolean {
+      return (
+        err !== null &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code: string }).code === "P2025"
+      );
     }
-    sessionService = {
-      async list(
-        options: ListOptions
-      ): Promise<{ data: AgentSession[]; pagination: Pagination }> {
-        const { page, limit, status } = options;
-        const skip = (page - 1) * limit;
-    
-        const where: Prisma.SessionWhereInput = status ? { status } : {};
-    
-        const [sessions, total] = await Promise.all([
-          prisma.session.findMany({
-            where,
-            skip,
-            take: limit,
-            orderBy: { createdAt: "desc" },
-          }),
-          prisma.session.count({ where }),
-        ]);
-    
-        const totalPages = Math.ceil(total / limit);
-    
-        return {
-          data: sessions.map(mapPrismaSession),
-          pagination: {
-            page,
-            limit,
-            total,
-            totalPages,
-            hasNext: page < totalPages,
-            hasPrev: page > 1,
-          },
-        };
-      },
-    
-      async getById(id: string): Promise<AgentSession | null> {
-        const session = await prisma.session.findUnique({ where: { id } });
-        return session ? mapPrismaSession(session) : null;
-      },
-    
-      async create(data: {
-        taskDescription: string;
-        model?: string;
-        maxTurns?: number;
-        maxBudgetUsd?: number;
-        baseBranch?: string;
-        createPr?: boolean;
-        parentId?: string;
-      }): Promise<AgentSession> {
-        const session = await prisma.session.create({
-          data: {
-            taskDescription: data.taskDescription,
-            ...(data.model !== undefined && { model: data.model }),
-            ...(data.maxTurns !== undefined && { maxTurns: data.maxTurns }),
-            ...(data.maxBudgetUsd !== undefined && { maxBudgetUsd: data.maxBudgetUsd }),
-            ...(data.baseBranch !== undefined && { baseBranch: data.baseBranch }),
-            ...(data.createPr !== undefined && { createPr: data.createPr }),
-            ...(data.parentId !== undefined && { parentId: data.parentId }),
-          },
-        });
-        return mapPrismaSession(session);
-      },
-    
-      async updateStatus(
-        id: string,
-        status: SessionStatus,
-        result?: {
-          branchName?: string;
-          prUrl?: string;
-          prNumber?: number;
-          resultText?: string;
-          costUsd?: number;
-          inputTokens?: number;
-          outputTokens?: number;
-          numTurns?: number;
-          durationMs?: number;
-          errors?: string[];
-          sdkSessionId?: string;
-        }
-      ): Promise<AgentSession | null> {
-        try {
-          const now = new Date();
-          const session = await prisma.session.update({
-            where: { id },
-            data: {
-              status,
-              ...(status === "RUNNING" && { startedAt: now }),
-              ...(["SUCCEEDED", "FAILED", "CANCELLED"].includes(status) && {
-                completedAt: now,
-              }),
-              ...(result?.branchName !== undefined && { branchName: result.branchName }),
-              ...(result?.prUrl !== undefined && { prUrl: result.prUrl }),
-              ...(result?.prNumber !== undefined && { prNumber: result.prNumber }),
-              ...(result?.resultText !== undefined && { resultText: result.resultText }),
-              ...(result?.costUsd !== undefined && { costUsd: result.costUsd }),
-              ...(result?.inputTokens !== undefined && { inputTokens: result.inputTokens }),
-              ...(result?.outputTokens !== undefined && { outputTokens: result.outputTokens }),
-              ...(result?.numTurns !== undefined && { numTurns: result.numTurns }),
-              ...(result?.durationMs !== undefined && { durationMs: result.durationMs }),
-              ...(result?.errors !== undefined && { errors: result.errors }),
-              ...(result?.sdkSessionId !== undefined && { sdkSessionId: result.sdkSessionId }),
-            },
-          });
-          return mapPrismaSession(session);
-        } catch {
-          return null;
-        }
-      },
-    
-      async delete(id: string): Promise<boolean> {
-        try {
-          await prisma.session.delete({ where: { id } });
-          return true;
-        } catch {
-          return false;
-        }
-      },
-    
-      async addEvent(
-        sessionId: string,
-        type: string,
-        data: Record<string, unknown> = {}
-      ): Promise<AgentSessionEvent> {
-        const event = await prisma.sessionEvent.create({
-          data: { sessionId, type, data: data as Prisma.InputJsonValue },
-        });
-        return mapPrismaEvent(event);
-      },
-    
-      async listEvents(
-        sessionId: string,
-        afterId?: string
-      ): Promise<AgentSessionEvent[]> {
-        const where: Prisma.SessionEventWhereInput = { sessionId };
-    
-        if (afterId) {
-          const cursor = await prisma.sessionEvent.findUnique({
-            where: { id: afterId },
-            select: { createdAt: true },
-          });
-          if (cursor) {
-            where.createdAt = { gt: cursor.createdAt };
-          }
-        }
-    
-        const events = await prisma.sessionEvent.findMany({
-          where,
-          orderBy: { createdAt: "asc" },
-          take: 100,
-        });
-    
-        return events.map(mapPrismaEvent);
-      },
+    function mapPrismaSession(session: Session): AgentSession {
+      return {
+        id: session.id,
+        status: session.status.toLowerCase() as AgentSession["status"],
+        taskDescription: session.taskDescription,
+        branchName: session.branchName,
+        baseBranch: session.baseBranch,
+        model: session.model,
+        maxTurns: session.maxTurns,
+        maxBudgetUsd: session.maxBudgetUsd,
+        prUrl: session.prUrl,
+        prNumber: session.prNumber,
+        resultText: session.resultText,
+        costUsd: session.costUsd,
+        inputTokens: session.inputTokens,
+        outputTokens: session.outputTokens,
+        numTurns: session.numTurns,
+        durationMs: session.durationMs,
+        parentId: session.parentId,
+        errors: (session.errors as string[]) ?? [],
+        startedAt: session.startedAt?.toISOString() ?? null,
+        completedAt: session.completedAt?.toISOString() ?? null,
+        createdAt: session.createdAt.toISOString(),
+        updatedAt: session.updatedAt.toISOString(),
+      };
     }
   </file>
   <file path="src/services/session-executor.ts">
-    function truncate(text: string, maxLen: number): string { /* implementation omitted */ }
-    function extractText(content: unknown): string { /* implementation omitted */ }
-    function summarizeToolInput(input: unknown): Record<string, unknown> { /* implementation omitted */ }
-    function getRepoPath(): string { /* implementation omitted */ }
-    export function getActiveSessionCount(): number { /* implementation omitted */ }
-    export async function executeSession(session: AgentSession): Promise<void> { /* implementation omitted */ }
-    export async function cancelSession(sessionId: string): Promise<boolean> { /* implementation omitted */ }
-    _testHelpers = { truncate, extractText, summarizeToolInput }
+    function truncate(text: string, maxLen: number): string {
+      if (text.length <= maxLen) return text;
+      return text.slice(0, maxLen - 1) + "…";
+    }
+    function extractText(content: unknown): string {
+      if (typeof content === "string") return content;
+      if (!Array.isArray(content)) return "";
+      return content
+        .filter((block: Record<string, unknown>) => block.type === "text" && typeof block.text === "string")
+        .map((block: Record<string, unknown>) => block.text as string)
+        .join("\n");
+    }
   </file>
   <file path="src/services/remediation-circuit-breaker.ts">
     interface CircuitState {
@@ -261,8 +348,65 @@
       readonly allowed: boolean;
       readonly reason?: string;
     }
-    export function checkCircuitBreaker(): CircuitCheckResult { /* implementation omitted */ }
-    export function recordRemediationOutcome(succeeded: boolean): void { /* implementation omitted */ }
+  </file>
+  <file path="src/services/liveness-monitor.ts">
+    async function checkStaleSessions(): Promise<void> {
+      try {
+        const runningSessions = await sessionService.findByStatus("RUNNING");
+        const now = Date.now();
+    
+        for (const session of runningSessions) {
+          const lastEvent = await sessionService.getLastEvent(session.id);
+          const lastActivityAt = lastEvent?.createdAt ?? session.updatedAt;
+          const silenceMs = now - new Date(lastActivityAt).getTime();
+    
+          if (silenceMs >= INACTIVITY_THRESHOLD_MS) {
+            console.warn(
+              `[liveness] Session ${session.id} has been inactive for ${Math.round(silenceMs / 1000)}s — auto-cancelling`
+            );
+    
+            const cancelled = await cancelSession(session.id);
+            if (cancelled) {
+              await sessionService.addEvent(session.id, "session:error", {
+                message: `Auto-cancelled: no activity for ${Math.round(silenceMs / 1000)}s (threshold: ${INACTIVITY_THRESHOLD_MS / 1000}s)`,
+                reason: "liveness_timeout",
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error("[liveness] Error checking stale sessions:", error);
+      }
+    }
+    export function startLivenessMonitor(): void {
+      if (intervalHandle) return;
+      intervalHandle = setInterval(checkStaleSessions, CHECK_INTERVAL_MS);
+      console.log(
+        `[liveness] Monitor started (check every ${CHECK_INTERVAL_MS / 1000}s, timeout ${INACTIVITY_THRESHOLD_MS / 1000}s)`
+      );
+    }
+  </file>
+  <file path="src/services/health-checks.ts">
+    export function recordDbLatency(ms: number): void {
+      dbLatencyHistory.push(ms);
+      if (dbLatencyHistory.length > LATENCY_WINDOW) {
+        dbLatencyHistory.shift();
+      }
+    }
+    export function checkLatencyAnomaly(currentMs: number): {
+      isAnomaly: boolean;
+      rollingAvg: number;
+    } {
+      if (dbLatencyHistory.length < 5) {
+        return { isAnomaly: false, rollingAvg: 0 };
+      }
+      const sum = dbLatencyHistory.reduce((a, b) => a + b, 0);
+      const rollingAvg = sum / dbLatencyHistory.length;
+      return {
+        isAnomaly: rollingAvg > 0 && currentMs > LATENCY_ANOMALY_THRESHOLD * rollingAvg,
+        rollingAvg: Math.round(rollingAvg),
+      };
+    }
   </file>
   <file path="src/services/database.ts">
     interface SlowQueryStats {
@@ -270,21 +414,27 @@
       slowestMs: number;
       queries: { model: string; operation: string; duration: number; timestamp: number }[];
     }
-    export function getSlowQueryStats(): { count5min: number; slowestMs: number } { /* implementation omitted */ }
-    export function getServiceStatus(): "ok" | "degraded" { /* implementation omitted */ }
-    export const prisma: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/services/agent/src/generated/prisma/runtime/library").DynamicClientExtensionThis<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/services/agent/src/generated/prisma/index").Prisma.TypeMap<import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/services/agent/src/generated/prisma/runtime/library").InternalArgs & { result: {}; model: {}; query: {}; client: {}; }, {}>, import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/services/agent/src/generated/prisma/index").Prisma.TypeMapCb<{ datasourceUrl: string; }>, { result: {}; model: {}; query: {}; client: {}; }>;
-    function appendConnectionLimit(url: string | undefined, limit: number): string | undefined { /* implementation omitted */ }
+    export function getSlowQueryStats(): { count5min: number; slowestMs: number } {
+      const now = Date.now();
+      const windowStart = now - SLOW_QUERY_WINDOW_MS;
+      
+      slowQueryStats.queries = slowQueryStats.queries.filter((q) => q.timestamp > windowStart);
+      slowQueryStats.count5min = slowQueryStats.queries.length;
+      slowQueryStats.slowestMs = slowQueryStats.queries.reduce((max, q) => Math.max(max, q.duration), 0);
+      
+      return {
+        count5min: slowQueryStats.count5min,
+        slowestMs: slowQueryStats.slowestMs,
+      };
+    }
   </file>
-  <file path="src/schemas/index.ts">
-    export const SessionStatusEnum: { readonly type: "string"; readonly enum: readonly ["PENDING", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED"]; };
-    export const SessionSchema: { readonly $id: "Session"; readonly type: "object"; readonly description: "An agent coding session"; readonly required: readonly ["id", "status", "taskDescription", "baseBranch", "model", "createdAt", "updatedAt"]; readonly properties: { readonly id: { readonly type: "string"; readonly description: "Unique identifier"; readonly example: "clx1234567890"; }; readonly status: { readonly description: "Current session status"; readonly type: "string"; readonly enum: readonly ["PENDING", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED"]; }; readonly taskDescription: { readonly type: "string"; readonly description: "Task the agent is working on"; }; readonly branchName: { readonly type: "string"; readonly nullable: true; readonly description: "Git branch name"; }; readonly baseBranch: { readonly type: "string"; readonly description: "Base branch"; readonly example: "main"; }; readonly model: { readonly type: "string"; readonly description: "Claude model used"; readonly example: "claude-sonnet-4-6"; }; readonly maxTurns: { readonly type: "number"; readonly description: "Maximum conversation turns"; readonly example: 50; }; readonly maxBudgetUsd: { readonly type: "number"; readonly description: "Budget cap in USD"; readonly example: 1; }; readonly createPr: { readonly type: "boolean"; readonly description: "Whether to create a PR"; }; readonly prUrl: { readonly type: "string"; readonly nullable: true; readonly description: "Pull request URL"; }; readonly prNumber: { readonly type: "number"; readonly nullable: true; readonly description: "Pull request number"; }; readonly resultText: { readonly type: "string"; readonly nullable: true; readonly description: "Agent result text"; }; readonly costUsd: { readonly type: "number"; readonly nullable: true; readonly description: "Actual cost in USD"; }; readonly inputTokens: { readonly type: "number"; readonly nullable: true; }; readonly outputTokens: { readonly type: "number"; readonly nullable: true; }; readonly numTurns: { readonly type: "number"; readonly nullable: true; readonly description: "Actual turns used"; }; readonly durationMs: { readonly type: "number"; readonly nullable: true; readonly description: "Duration in milliseconds"; }; readonly errors: { readonly type: "array"; readonly items: { readonly type: "string"; }; }; readonly parentId: { readonly type: "string"; readonly nullable: true; }; readonly startedAt: { readonly type: "string"; readonly format: "date-time"; readonly nullable: true; }; readonly completedAt: { readonly type: "string"; readonly format: "date-time"; readonly nullable: true; }; readonly createdAt: { readonly type: "string"; readonly format: "date-time"; }; readonly updatedAt: { readonly type: "string"; readonly format: "date-time"; }; }; };
-    export const SessionEventSchema: { readonly $id: "SessionEvent"; readonly type: "object"; readonly required: readonly ["id", "sessionId", "type", "createdAt"]; readonly properties: { readonly id: { readonly type: "string"; }; readonly sessionId: { readonly type: "string"; }; readonly type: { readonly type: "string"; }; readonly data: { readonly type: "object"; readonly additionalProperties: true; }; readonly createdAt: { readonly type: "string"; readonly format: "date-time"; }; }; };
-    export const CreateSessionBodySchema: { readonly $id: "CreateSessionBody"; readonly type: "object"; readonly required: readonly ["taskDescription"]; readonly properties: { readonly taskDescription: { readonly type: "string"; readonly minLength: 1; readonly maxLength: 10000; readonly description: "Task for the agent"; }; readonly model: { readonly type: "string"; readonly description: "Claude model to use"; }; readonly maxTurns: { readonly type: "number"; readonly minimum: 1; readonly maximum: 200; }; readonly maxBudgetUsd: { readonly type: "number"; readonly minimum: 0.01; readonly maximum: 10; }; readonly baseBranch: { readonly type: "string"; }; readonly createPr: { readonly type: "boolean"; }; readonly parentId: { readonly type: "string"; readonly description: "Parent session ID for orchestrated child sessions"; }; }; };
-    export const PaginationSchema: { readonly $id: "AgentPagination"; readonly type: "object"; readonly required: readonly ["page", "limit", "total", "totalPages", "hasNext", "hasPrev"]; readonly properties: { readonly page: { readonly type: "number"; readonly example: 1; }; readonly limit: { readonly type: "number"; readonly example: 10; }; readonly total: { readonly type: "number"; readonly example: 42; }; readonly totalPages: { readonly type: "number"; readonly example: 5; }; readonly hasNext: { readonly type: "boolean"; readonly example: true; }; readonly hasPrev: { readonly type: "boolean"; readonly example: false; }; }; };
-    export const ErrorSchema: { readonly $id: "AgentError"; readonly type: "object"; readonly required: readonly ["error", "message", "statusCode"]; readonly properties: { readonly error: { readonly type: "string"; readonly example: "Not Found"; }; readonly message: { readonly type: "string"; readonly example: "Session not found"; }; readonly statusCode: { readonly type: "number"; readonly example: 404; }; }; };
-    export function registerSchemas(fastify: FastifyInstance) { /* implementation omitted */ }
-  </file>
+  </section>
+  <section priority="medium" role="routes">
   <file path="src/routes/webhooks.ts">
+    interface CollaboratorPermission {
+      permission: string;
+      role_name: string;
+    }
     interface GitHubIssueEvent {
       action: string;
       label?: { name: string };
@@ -299,64 +449,339 @@
         full_name: string;
         default_branch: string;
       };
+      sender: { login: string; type: string };
     }
-    interface GitHubIssueCommentEvent {
-      action: string;
-      comment: {
-        body: string;
-        html_url: string;
-        user: { login: string };
-      };
-      issue: {
-        number: number;
-        title: string;
-        html_url: string;
-        pull_request?: { url: string };
-      };
-      repository: {
-        full_name: string;
-        default_branch: string;
-      };
-    }
-    interface GitHubCheckRunEvent {
-      action: string;
-      check_run: {
-        conclusion: string | null;
-        name: string;
-        head_sha: string;
-        check_suite: {
-          head_branch: string | null;
-        };
-      };
-      repository: {
-        full_name: string;
-        default_branch: string;
-      };
-    }
-    function verifySignature(
-      payload: Buffer,
-      signature: string | undefined,
-      secret: string
-    ): boolean { /* implementation omitted */ }
-    export const webhookRoutes: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
-    async function handleIssueEvent(
-      fastify: { log: { info: (...args: unknown[]) => void; warn: (...args: unknown[]) => void; error: (...args: unknown[]) => void } },
-      event: GitHubIssueEvent
-    ): Promise<void> { /* implementation omitted */ }
-    async function handleIssueCommentEvent(
-      fastify: { log: { info: (...args: unknown[]) => void; error: (...args: unknown[]) => void } },
-      event: GitHubIssueCommentEvent
-    ): Promise<void> { /* implementation omitted */ }
-    async function handleCheckRunEvent(
-      fastify: { log: { info: (...args: unknown[]) => void; error: (...args: unknown[]) => void } },
-      event: GitHubCheckRunEvent
-    ): Promise<void> { /* implementation omitted */ }
   </file>
   <file path="src/routes/sessions.ts">
-    export const sessionRoutes: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
+    export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
+      // POST /v1/sessions — Create + start a new session
+      fastify.post<{
+        Body: CreateAgentSessionRequest;
+        Reply: ApiResponse<AgentSession> | ApiError;
+      }>(
+        "/",
+        {
+          preHandler: [requireAuth],
+          schema: {
+            summary: "Create a new agent session",
+            operationId: "createSession",
+            description: "Creates a session and immediately begins execution in the background.",
+            tags: ["Sessions"],
+            body: { $ref: "CreateSessionBody#" },
+            response: {
+              201: {
+                description: "Session created and execution started",
+                type: "object",
+                properties: { data: { $ref: "Session#" } },
+              },
+              400: { $ref: "AgentError#" },
+              429: { $ref: "AgentError#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const maxConcurrent = parseInt(process.env.MAX_CONCURRENT_SESSIONS ?? "5", 10);
+          if (getActiveSessionCount() >= maxConcurrent) {
+            return reply
+              .code(429)
+              .send(
+                createProblemDetails(
+                  429,
+                  "Too Many Requests",
+                  `Maximum concurrent sessions (${maxConcurrent}) reached. Try again later.`
+                )
+              );
+          }
+    
+          const session = await sessionService.create(request.body);
+    
+          // Fire-and-forget: execution happens in the background
+          executeSession(session).catch((err) => {
+            fastify.log.error({ sessionId: session.id, err }, "Session execution failed");
+          });
+    
+          return reply.code(201).send({ data: session });
+        }
+      );
+    
+      // GET /v1/sessions — List sessions (paginated)
+      fastify.get<{
+        Querystring: { page?: string; limit?: string; status?: string };
+        Reply: PaginatedResponse<AgentSession>;
+      }>(
+        "/",
+        {
+          preHandler: [requireAuth],
+          schema: {
+            summary: "List agent sessions",
+            operationId: "listSessions",
+            description: "Retrieve a paginated list of sessions, optionally filtered by status.",
+            tags: ["Sessions"],
+            querystring: {
+              type: "object",
+              properties: {
+                page: { type: "string", default: "1" },
+                limit: { type: "string", default: "10" },
+                status: {
+                  type: "string",
+                  enum: ["PENDING", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED"],
+                },
+              },
+            },
+            response: {
+              200: {
+                description: "Paginated list of sessions",
+                type: "object",
+                properties: {
+                  data: { type: "array", items: { $ref: "Session#" } },
+                  pagination: { $ref: "AgentPagination#" },
+                },
+              },
+            },
+          },
+        },
+        async (request) => {
+          const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
+          const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "10", 10) || 10));
+          const status = request.query.status as AgentSessionStatus | undefined;
+    
+          const prismaStatus = status?.toUpperCase() as
+            | "PENDING"
+            | "RUNNING"
+            | "SUCCEEDED"
+            | "FAILED"
+            | "CANCELLED"
+            | undefined;
+    
+          return sessionService.list({ page, limit, status: prismaStatus });
+        }
+      );
+    
+      // GET /v1/sessions/:id — Get session details
+      fastify.get<{
+        Params: { id: string };
+        Reply: ApiResponse<AgentSession> | ApiError;
+      }>(
+        "/:id",
+        {
+          preHandler: [requireAuth],
+          schema: {
+            summary: "Get session by ID",
+            operationId: "getSession",
+            tags: ["Sessions"],
+            params: {
+              type: "object",
+              properties: { id: { type: "string" } },
+              required: ["id"],
+            },
+            response: {
+              200: {
+                type: "object",
+                properties: { data: { $ref: "Session#" } },
+              },
+              404: { $ref: "AgentError#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const session = await sessionService.getById(request.params.id);
+          if (!session) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Session not found"));
+          }
+          return { data: session };
+        }
+      );
+    
+      // POST /v1/sessions/:id/cancel — Cancel a running session
+      fastify.post<{
+        Params: { id: string };
+        Reply: ApiResponse<AgentSession> | ApiError;
+      }>(
+        "/:id/cancel",
+        {
+          preHandler: [requireAuth],
+          schema: {
+            summary: "Cancel a running session",
+            operationId: "cancelSession",
+            tags: ["Sessions"],
+            params: {
+              type: "object",
+              properties: { id: { type: "string" } },
+              required: ["id"],
+            },
+            response: {
+              200: {
+                type: "object",
+                properties: { data: { $ref: "Session#" } },
+              },
+              404: { $ref: "AgentError#" },
+              409: { $ref: "AgentError#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const session = await sessionService.getById(request.params.id);
+          if (!session) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Session not found"));
+          }
+    
+          if (session.status !== "running") {
+            return reply
+              .code(409)
+              .send(createProblemDetails(409, "Conflict", `Session is ${session.status}, not running`));
+          }
+    
+          const cancelled = await cancelSession(session.id);
+          if (!cancelled) {
+            return reply
+              .code(409)
+              .send(createProblemDetails(409, "Conflict", "Session is not actively executing"));
+          }
+    
+          const updated = await sessionService.getById(session.id);
+          return { data: updated! };
+        }
+      );
+    
+      // DELETE /v1/sessions/:id — Delete a session
+      fastify.delete<{
+        Params: { id: string };
+        Reply: void | ApiError;
+      }>(
+        "/:id",
+        {
+          preHandler: [requireAuth],
+          schema: {
+            summary: "Delete a session",
+            operationId: "deleteSession",
+            tags: ["Sessions"],
+            params: {
+              type: "object",
+              properties: { id: { type: "string" } },
+              required: ["id"],
+            },
+            response: {
+              204: { description: "Session deleted", type: "null" },
+              404: { $ref: "AgentError#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const deleted = await sessionService.delete(request.params.id);
+          if (!deleted) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Session not found"));
+          }
+          return reply.code(204).send();
+        }
+      );
+    };
   </file>
   <file path="src/routes/session-events.ts">
-    export const sessionEventsRoutes: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
+    export const sessionEventsRoutes: FastifyPluginAsync = async (fastify) => {
+      // GET /v1/sessions/:id/events — SSE stream of session events
+      fastify.get<{
+        Params: { id: string };
+        Reply: void | ApiError;
+      }>(
+        "/:id/events",
+        {
+          preHandler: [requireAuth],
+          schema: {
+            summary: "Stream session events (SSE)",
+            operationId: "streamSessionEvents",
+            description:
+              "Server-Sent Events stream for real-time session updates. " +
+              "Sends existing events immediately, then polls for new events until the session completes.",
+            tags: ["Events"],
+            params: {
+              type: "object",
+              properties: { id: { type: "string" } },
+              required: ["id"],
+            },
+            response: {
+              200: {
+                description: "SSE event stream",
+                type: "string",
+              },
+              404: { $ref: "AgentError#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const session = await sessionService.getById(request.params.id);
+          if (!session) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Session not found"));
+          }
+    
+          reply.raw.writeHead(200, {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            Connection: "keep-alive",
+            "X-Accel-Buffering": "no",
+          });
+    
+          let lastEventId: string | undefined;
+          let isOpen = true;
+    
+          request.raw.on("close", () => {
+            isOpen = false;
+          });
+    
+          const sendEvent = (type: string, data: unknown) => {
+            if (!isOpen) return;
+            reply.raw.write(`event: ${type}\n`);
+            reply.raw.write(`data: ${JSON.stringify(data)}\n\n`);
+          };
+    
+          // Send existing events first
+          const existingEvents = await sessionService.listEvents(session.id);
+          for (const event of existingEvents) {
+            sendEvent(event.type, event);
+            lastEventId = event.id;
+          }
+    
+          // If session is already terminal, close the stream
+          const terminalStatuses = new Set(["succeeded", "failed", "cancelled"]);
+          if (terminalStatuses.has(session.status)) {
+            sendEvent("stream:end", { reason: "session_complete" });
+            reply.raw.end();
+            return;
+          }
+    
+          // Poll for new events until session completes
+          const poll = async () => {
+            while (isOpen) {
+              await new Promise((resolve) => setTimeout(resolve, SSE_POLL_INTERVAL_MS));
+    
+              if (!isOpen) break;
+    
+              const newEvents = await sessionService.listEvents(session.id, lastEventId);
+              for (const event of newEvents) {
+                sendEvent(event.type, event);
+                lastEventId = event.id;
+              }
+    
+              // Check if session has completed
+              const current = await sessionService.getById(session.id);
+              if (current && terminalStatuses.has(current.status)) {
+                sendEvent("stream:end", { reason: "session_complete", status: current.status });
+                break;
+              }
+            }
+    
+            reply.raw.end();
+          };
+    
+          poll().catch((err) => {
+            fastify.log.error({ sessionId: session.id, err }, "SSE polling error");
+            if (isOpen) {
+              sendEvent("stream:error", { message: "Internal polling error" });
+              reply.raw.end();
+            }
+          });
+        }
+      );
+    };
   </file>
   <file path="src/routes/remediation.ts">
     type AlertPayload = z.infer<typeof AlertPayloadSchema>;
@@ -364,8 +789,35 @@
       payload: Buffer,
       signature: string | undefined,
       secret: string
-    ): boolean { /* implementation omitted */ }
-    export const remediationRoutes: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
+    ): boolean {
+      if (!signature) return false;
+    
+      const expected = createHmac("sha256", secret).update(payload).digest("hex");
+      if (expected.length !== signature.length) return false;
+    
+      return timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+    }
+  </file>
+  <file path="src/routes/ready.ts">
+    export const readinessRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.get<{ Reply: ReadinessResponse }>(
+        "/ready",
+        { schema: { ...readinessSchema, operationId: "getAgentReady" } },
+        async (_request, reply) => {
+          const snapshot = await readiness.evaluate();
+          const response: ReadinessResponse = {
+            ready: snapshot.ready,
+            timestamp: snapshot.timestamp,
+            checks: snapshot.checks.map((c) => ({
+              name: c.name,
+              status: c.status,
+              ...(c.message ? { message: c.message } : {}),
+            })),
+          };
+          return reply.status(snapshot.ready ? 200 : 503).send(response);
+        },
+      );
+    };
   </file>
   <file path="src/routes/orchestrate.ts">
     interface OrchestrateBody {
@@ -385,18 +837,390 @@
       totalCostUsd: number;
       durationMs: number;
     }
-    export const orchestrateRoutes: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
   </file>
   <file path="src/routes/health.ts">
-    export const healthRoutes: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
+    export const healthRoutes: FastifyPluginAsync = async (fastify) => {
+      const healthSchema = {
+        summary: "Service health check",
+        description: "Check agent service health and database connectivity.",
+        tags: ["Health"],
+        response: {
+          200: {
+            description: "Service health status",
+            type: "object",
+            properties: {
+              status: { type: "string", enum: ["ok", "degraded", "error"] },
+              version: { type: "string" },
+              timestamp: { type: "string", format: "date-time" },
+              checks: {
+                type: "object",
+                additionalProperties: {
+                  type: "object",
+                  additionalProperties: true,
+                  properties: {
+                    status: { type: "string", enum: ["ok", "error", "degraded"] },
+                    message: { type: "string" },
+                    latency: { type: "number" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      };
+    
+    const healthHandler = async (request: FastifyRequest): Promise<HealthResponse> => {
+      const checks: Record<string, { status: string; latency?: number; message?: string }> = {};
+      const { apiVersion, successorVersion, sunsetDate } = request.server as unknown as {
+        apiVersion: string;
+        successorVersion?: string;
+        sunsetDate: string;
+      };
+    
+      const dbStart = Date.now();
+      try {
+        await prisma.$queryRaw`SELECT 1`;
+        const dbLatency = Date.now() - dbStart;
+        const anomaly = checkLatencyAnomaly(dbLatency);
+        recordDbLatency(dbLatency);
+        checks.database = {
+          status: anomaly.isAnomaly ? "error" : "ok",
+          latency: dbLatency,
+          ...(anomaly.isAnomaly && {
+            message: `Latency anomaly: ${dbLatency}ms vs rolling avg ${anomaly.rollingAvg}ms`,
+          }),
+        };
+      } catch (error) {
+        checks.database = {
+          status: "error",
+          message: error instanceof Error ? error.message : "Database connection failed",
+          latency: Date.now() - dbStart,
+        };
+      }
+    
+      const slowQueries = getSlowQueryStats();
+      const dbStatus = checks.database?.status ?? "ok";
+      const slowQueryStatus = getServiceStatus();
+    
+      checks.slow_queries = {
+        status: slowQueryStatus,
+        message: `${slowQueries.count5min} slow queries in last 5min (slowest: ${slowQueries.slowestMs}ms)`,
+        latency: slowQueries.slowestMs,
+      };
+    
+      const auth0Result = await checkAuth0();
+      checks.auth0 = {
+        status: auth0Result.status,
+        latency: auth0Result.latency,
+        ...(auth0Result.message && { message: auth0Result.message }),
+      };
+    
+      const rateLimitMonitor = (request.server as unknown as { rateLimitMonitor: RateLimitMonitor }).rateLimitMonitor;
+      const rateLimitSnapshot = rateLimitMonitor.getSnapshot();
+      checks.rate_limits = {
+        status: rateLimitSnapshot.isDegraded ? "degraded" : "ok",
+        ...rateLimitSnapshot.stats,
+        ...(rateLimitSnapshot.isDegraded && {
+          message: `High rate limit activity: ${rateLimitSnapshot.stats.hits_last_hour} hits from ${rateLimitSnapshot.stats.blocked_ips} IPs`,
+        }),
+      };
+    
+      const hasErrors = dbStatus === "error" || slowQueryStatus === "degraded" || auth0Result.status === "degraded" || rateLimitSnapshot.isDegraded;
+    
+      return {
+        status: hasErrors ? "degraded" : "ok",
+        version: "1.0.0",
+        apiVersion,
+        successorVersion,
+        sunsetDate,
+        timestamp: new Date().toISOString(),
+        checks,
+      };
+    };
+    
+      // /health — used by DO App Platform internal health checks (direct container access)
+      fastify.get<{ Reply: HealthResponse }>(
+        "/health",
+        { schema: { ...healthSchema, operationId: "getAgentHealth" } },
+        healthHandler
+      );
+    
+      // /api/gen/health — public path via DO ingress (preservePathPrefix: true, prefix "/api/gen")
+      // Required for synthetic monitoring hitting api.mattbutlerengineering.com/api/gen/health
+      fastify.get<{ Reply: HealthResponse }>(
+        "/api/gen/health",
+        { schema: { ...healthSchema, operationId: "getAgentHealthApiGen" } },
+        healthHandler
+      );
+    };
   </file>
   <file path="src/routes/gen-ui.ts">
-    export const genUiRoutes: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
+    export const genUiRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.post(
+        "/api/gen/ui",
+        {
+          preHandler: [requireAuth],
+          config: {
+            // GEN-04: per-route rate limit override — per-user by Auth0 sub claim
+            rateLimit: {
+              max: 20,
+              timeWindow: "1 hour",
+              keyGenerator: (request: FastifyRequest) => request.user?.id ?? request.ip,
+            },
+          },
+        },
+        async (request, reply) => {
+          // Validate request body
+          const parseResult = GenUiBodySchema.safeParse(request.body);
+          if (!parseResult.success) {
+            return reply.code(400).send(
+              createProblemDetails(
+                400,
+                "Bad Request",
+                parseResult.error.issues.map((i) => i.message).join(", ")
+              )
+            );
+          }
+    
+          const { prompt, model: modelHint } = parseResult.data;
+    
+          // GEN-08: default to haiku (cheaper); caller can request sonnet for complex UIs
+          const modelId = MODELS[modelHint];
+    
+          const result = streamText({
+            model: modelId, // AI SDK resolves "provider/model" via AI_GATEWAY_API_KEY
+            // GEN-05: prompt caching via providerOptions on the system message
+            // CRITICAL: must use messages array (not top-level system:) to support providerOptions
+            messages: [
+              {
+                role: "system",
+                content: SYSTEM_PROMPT,
+                providerOptions: {
+                  anthropic: { cacheControl: { type: "ephemeral" } },
+                },
+              },
+              {
+                role: "user",
+                content: prompt,
+              },
+            ],
+            // GEN-06: cost logging in onFinish
+            onFinish: async ({ usage, providerMetadata }) => {
+              const anthropicMeta = providerMetadata?.anthropic as
+                | { cacheCreationInputTokens?: number; cacheReadInputTokens?: number }
+                | undefined;
+              request.log.info(
+                {
+                  userId: request.user?.id,
+                  modelId,
+                  inputTokens: usage.inputTokens,
+                  outputTokens: usage.outputTokens,
+                  cacheReadInputTokens: anthropicMeta?.cacheReadInputTokens ?? 0,
+                  cacheCreationInputTokens: anthropicMeta?.cacheCreationInputTokens ?? 0,
+                },
+                "gen-ui cost log"
+              );
+            },
+          });
+    
+          // GEN-07: SSE passthrough headers — text/plain prevents browser HTML rendering
+          reply.header("Content-Type", "text/plain; charset=utf-8");
+          reply.header("Cache-Control", "no-cache");
+          reply.header("Connection", "keep-alive");
+          reply.header("X-Accel-Buffering", "no");
+    
+          // Sanitize AI output to prevent XSS (OWASP LLM02)
+          return reply.send(createSanitizedStream(result.textStream));
+        }
+      );
+    };
   </file>
   <file path="src/routes/gen-specs.ts">
-    export const genSpecsRoutes: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
+    export const genSpecsRoutes: FastifyPluginAsync = async (fastify) => {
+      // POST /api/gen/specs — create and persist a spec (auth required)
+      fastify.post(
+        "/api/gen/specs",
+        {
+          preHandler: [requireAuth],
+        },
+        async (request, reply) => {
+          const parseResult = CreateSpecBodySchema.safeParse(request.body);
+          if (!parseResult.success) {
+            return reply.code(400).send(
+              createProblemDetails(
+                400,
+                "Bad Request",
+                parseResult.error.issues.map((i) => i.message).join(", ")
+              )
+            );
+          }
+    
+          const { prompt, spec, rawLines } = parseResult.data;
+    
+          const result = await storedSpecService.create({
+            userId: request.user!.id,
+            prompt,
+            spec,
+            rawLines,
+          });
+    
+          return reply.code(201).send({ data: mapStoredSpec(result) });
+        }
+      );
+    
+      // GET /api/gen/specs — list user's specs sorted by createdAt DESC (auth required)
+      fastify.get(
+        "/api/gen/specs",
+        {
+          preHandler: [requireAuth],
+        },
+        async (request, reply) => {
+          const results = await storedSpecService.list(request.user!.id);
+          return reply.code(200).send({ data: results.map(mapStoredSpec) });
+        }
+      );
+    
+      // GET /api/gen/specs/:id — PUBLIC — no auth required for permalink viewing
+      fastify.get(
+        "/api/gen/specs/:id",
+        async (request, reply) => {
+          const { id } = request.params as { id: string };
+          const result = await storedSpecService.getById(id);
+    
+          if (!result) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Spec not found"));
+          }
+    
+          return reply.code(200).send({ data: mapStoredSpec(result) });
+        }
+      );
+    
+      // PATCH /api/gen/specs/:id/favorite — toggle isFavorite for the owner (auth required)
+      fastify.patch(
+        "/api/gen/specs/:id/favorite",
+        {
+          preHandler: [requireAuth],
+        },
+        async (request, reply) => {
+          const { id } = request.params as { id: string };
+    
+          try {
+            const result = await storedSpecService.toggleFavorite(id, request.user!.id);
+            return reply.code(200).send({ data: mapStoredSpec(result) });
+          } catch (err) {
+            if (err instanceof Error && err.message === "Not found") {
+              return reply.code(404).send(createProblemDetails(404, "Not Found", "Spec not found"));
+            }
+            throw err;
+          }
+        }
+      );
+    
+      // DELETE /api/gen/specs/:id — remove a spec for the owner (auth required)
+      fastify.delete(
+        "/api/gen/specs/:id",
+        {
+          preHandler: [requireAuth],
+        },
+        async (request, reply) => {
+          const { id } = request.params as { id: string };
+    
+          try {
+            await storedSpecService.delete(id, request.user!.id);
+            return reply.code(204).send();
+          } catch (err) {
+            if (err instanceof Error && err.message === "Not found") {
+              return reply.code(404).send(createProblemDetails(404, "Not Found", "Spec not found"));
+            }
+            throw err;
+          }
+        }
+      );
+    };
   </file>
   <file path="src/routes/gen-chat.ts">
-    export const genChatRoutes: import("/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/issue-201/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/plugin").FastifyPluginAsync;
+    export const genChatRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.post(
+        "/api/gen/chat",
+        {
+          preHandler: [requireAuth],
+          config: {
+            // GEN-04: per-route rate limit override — per-user by Auth0 sub claim
+            rateLimit: {
+              max: 50,
+              timeWindow: "1 hour",
+              keyGenerator: (request: FastifyRequest) => request.user?.id ?? request.ip,
+            },
+          },
+        },
+        async (request, reply) => {
+          // Validate request body
+          const parseResult = GenChatBodySchema.safeParse(request.body);
+          if (!parseResult.success) {
+            return reply.code(400).send(
+              createProblemDetails(
+                400,
+                "Bad Request",
+                parseResult.error.issues.map((i) => i.message).join(", ")
+              )
+            );
+          }
+    
+          const { messages } = parseResult.data;
+    
+          // GEN-06: model for chat — always haiku (conversational doesn't need sonnet)
+          const modelId = "anthropic/claude-haiku-4.5";
+    
+          const result = streamText({
+            model: modelId, // AI SDK resolves "provider/model" via AI_GATEWAY_API_KEY
+            // GEN-05: prompt caching via providerOptions on the system message
+            // CRITICAL: must use messages array (not top-level system:) to support providerOptions
+            messages: [
+              {
+                role: "system",
+                content: SYSTEM_PROMPT,
+                providerOptions: {
+                  anthropic: { cacheControl: { type: "ephemeral" } },
+                },
+              },
+              ...messages,
+            ],
+            // GEN-06: cost logging in onFinish
+            onFinish: async ({ usage, providerMetadata }) => {
+              const anthropicMeta = providerMetadata?.anthropic as
+                | { cacheCreationInputTokens?: number; cacheReadInputTokens?: number }
+                | undefined;
+              request.log.info(
+                {
+                  userId: request.user?.id,
+                  modelId,
+                  inputTokens: usage.inputTokens,
+                  outputTokens: usage.outputTokens,
+                  cacheReadInputTokens: anthropicMeta?.cacheReadInputTokens ?? 0,
+                  cacheCreationInputTokens: anthropicMeta?.cacheCreationInputTokens ?? 0,
+                },
+                "gen-chat cost log"
+              );
+            },
+          });
+    
+          // GEN-07: SSE passthrough headers — text/plain prevents browser HTML rendering
+          reply.header("Content-Type", "text/plain; charset=utf-8");
+          reply.header("Cache-Control", "no-cache");
+          reply.header("Connection", "keep-alive");
+          reply.header("X-Accel-Buffering", "no");
+    
+          // Sanitize AI output to prevent XSS (OWASP LLM02)
+          return reply.send(createSanitizedStream(result.textStream));
+        }
+      );
+    };
   </file>
+  </section>
+  <section priority="medium" role="schemas">
+  <file path="src/schemas/index.ts">
+    export const SessionSchema = sessionJsonSchema;
+    export const SessionEventSchema = sessionEventJsonSchema;
+  </file>
+  </section>
 </codebase>

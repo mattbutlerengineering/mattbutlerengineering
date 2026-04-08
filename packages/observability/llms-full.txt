@@ -1,0 +1,88 @@
+<codebase path="packages/observability">
+  <section priority="medium" role="src">
+  <file path="src/sdk.ts">
+    export interface OtelConfig {
+      readonly serviceName: string;
+      readonly serviceVersion?: string;
+    }
+    export function shouldIgnoreRequest(req: IncomingMessage): boolean {
+      const url = req.url ?? "";
+      return IGNORED_PATH_PREFIXES.some(
+        (prefix) => url === prefix || url.startsWith(`${prefix}/`),
+      );
+    }
+  </file>
+  <file path="src/request-id.ts">
+    export interface RequestIdOptions {
+      headerName?: string;
+      generator?: () => string;
+    }
+    export function createRequestIdMiddleware(options: RequestIdOptions = {}) {
+      const { headerName, generator } = { ...DEFAULT_OPTIONS, ...options };
+    
+      return fp(
+        async function requestIdPlugin(fastify: FastifyInstance) {
+          fastify.addHook("onRequest", async (request) => {
+            const clientRequestId = request.headers[headerName];
+            if (typeof clientRequestId === "string" && clientRequestId.length > 0) {
+              request.id = clientRequestId;
+            } else {
+              request.id = generator();
+            }
+          });
+        },
+        { name: "request-id-middleware" },
+      );
+    }
+  </file>
+  <file path="src/readiness.ts">
+    export interface ReadinessCheckResult {
+      readonly name: string;
+      readonly status: "ok" | "error";
+      readonly message?: string;
+    }
+    export interface ReadinessSnapshot {
+      readonly ready: boolean;
+      readonly checks: readonly ReadinessCheckResult[];
+      readonly timestamp: string;
+    }
+  </file>
+  <file path="src/rate-limit-monitor.ts">
+    export interface RateLimitHit {
+      readonly ip: string;
+      readonly endpoint: string;
+      readonly timestamp: number;
+    }
+    export interface RateLimitHealthStats {
+      readonly hits_last_hour: number;
+      readonly blocked_ips: number;
+    }
+  </file>
+  <file path="src/error-rates.ts">
+    interface RequestRecord {
+      readonly timestamp: number;
+      readonly isError: boolean;
+    }
+    export interface EndpointErrorRate {
+      readonly endpoint: string;
+      readonly total: number;
+      readonly errors: number;
+      readonly rate: number;
+    }
+  </file>
+  <file path="src/baggage.ts">
+    export const BAGGAGE_KEYS = {
+      SESSION_ID: "agent.session_id",
+      PR_NUMBER: "agent.pr_number",
+      ISSUE_NUMBER: "agent.issue_number",
+      DEPLOY_SHA: "deploy.sha",
+    } as const;
+    export interface AgentBaggage {
+      readonly sessionId?: string;
+      readonly prNumber?: string;
+      readonly issueNumber?: string;
+      readonly deploySha?: string;
+    }
+  </file>
+  </section>
+</codebase>

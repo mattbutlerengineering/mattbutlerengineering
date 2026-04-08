@@ -1,0 +1,793 @@
+<codebase path="services/users">
+  <section priority="medium" role="prisma">
+  <file path="prisma/seed.ts">
+    async function main() {
+      console.log("Seeding users database...");
+    
+      const admin = await prisma.user.upsert({
+        where: { email: "admin@example.com" },
+        update: {},
+        create: {
+          email: "admin@example.com",
+          name: "Admin User",
+          emailVerified: true,
+          preferences: {
+            theme: "dark",
+            timezone: "America/New_York",
+            notifications: { email: true, sms: false, push: true },
+          },
+        },
+      });
+    
+      const manager = await prisma.user.upsert({
+        where: { email: "manager@example.com" },
+        update: {},
+        create: {
+          email: "manager@example.com",
+          name: "Sarah Manager",
+          emailVerified: true,
+          preferences: {
+            theme: "light",
+            timezone: "America/Chicago",
+            notifications: { email: true, sms: true, push: true },
+          },
+        },
+      });
+    
+      const host = await prisma.user.upsert({
+        where: { email: "host@example.com" },
+        update: {},
+        create: {
+          email: "host@example.com",
+          name: "Alex Host",
+          emailVerified: false,
+          preferences: {
+            theme: "system",
+            timezone: "America/Los_Angeles",
+            notifications: { email: true, sms: false, push: false },
+          },
+        },
+      });
+    
+      console.log("Seeded users:", { admin: admin.id, manager: manager.id, host: host.id });
+    }
+  </file>
+  </section>
+  <section priority="medium" role="src">
+  <file path="src/index.ts">
+    async function main() {
+      const fastify = await buildApp();
+    
+      try {
+        await fastify.listen({ port: PORT, host: HOST });
+        fastify.log.info(`Server running at http://${HOST}:${PORT}`);
+        fastify.log.info(`API docs at http://${HOST}:${PORT}/docs`);
+      } catch (err) {
+        fastify.log.error(err);
+        process.exit(1);
+      }
+    }
+  </file>
+  <file path="src/app.ts">
+    export interface AppOptions {
+      logger?: boolean | object;
+    }
+    export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
+      const fastify = Fastify({
+        logger: options.logger ?? true,
+        disableRequestLogging: true,
+      });
+    
+      // Register schemas
+      registerSchemas(fastify);
+    
+      // Core plugins
+      const defaultDevOrigins = [
+        "http://localhost:3000",
+        "http://localhost:3002",
+        "http://localhost:3003",
+        "http://localhost:3004",
+        "http://localhost:5173",
+        "http://localhost:5174",
+      ];
+      const prodOrigins = [
+        "https://mattbutlerengineering.com",
+        "https://hospitality.mattbutlerengineering.com",
+        "https://gen.mattbutlerengineering.com",
+      ];
+    
+      const corsOrigins = process.env.CORS_ORIGINS?.split(",") || [
+        ...prodOrigins,
+        ...(process.env.NODE_ENV === "development" ? defaultDevOrigins : []),
+      ];
+    
+      await fastify.register(cors, {
+        origin: corsOrigins,
+        credentials: true,
+        allowedHeaders: ["Content-Type", "Authorization"],
+        methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+      });
+    
+      // Propagate X-Request-ID from edge router for distributed tracing
+      await fastify.register(createRequestIdMiddleware());
+    
+      // Track per-endpoint error rates (exposed via health check)
+      await fastify.register(errorRatePlugin_);
+    
+      const rateLimitMonitor = createRateLimitMonitor();
+      fastify.decorate("rateLimitMonitor", rateLimitMonitor);
+    
+      await fastify.register(rateLimit, {
+        max: 100,
+        timeWindow: "1 minute",
+        onExceeded: (req) => {
+          const ip = req.ip;
+          const endpoint = req.url;
+          rateLimitMonitor.recordHit(ip, endpoint);
+          req.log.warn({ ip, endpoint, timestamp: new Date().toISOString() }, "Rate limit exceeded");
+        },
+      });
+    
+      await fastify.register(swagger, {
+        openapi: {
+          info: {
+            title: "MBE Users API",
+            description: "API for managing users and preferences",
+            version: "1.0.0",
+          },
+          servers: [{ url: "http://localhost:3001" }],
+          components: {
+            securitySchemes: {
+              bearerAuth: {
+                type: "http",
+                scheme: "bearer",
+                bearerFormat: "JWT",
+              },
+            },
+          },
+        },
+      });
+    
+      await fastify.register(swaggerUi, {
+        routePrefix: "/docs",
+        uiConfig: {
+          docExpansion: "list",
+          deepLinking: false,
+        },
+      });
+    
+      await fastify.register(ScalarApiReference, {
+        routePrefix: "/reference",
+        configuration: {
+          content: () => fastify.swagger(),
+        },
+      });
+    
+      // Register Auth0 plugin
+      if (process.env.AUTH_AUTHORITY) {
+        await fastify.register(authPlugin, getAuthPluginOptionsFromEnv());
+      } else if (process.env.NODE_ENV === "production") {
+        throw new Error("Fail-closed: AUTH_AUTHORITY and AUTH_AUDIENCE are required in production");
+      }
+    
+      // Register Sentry error handler (no-op without SENTRY_DSN)
+      await fastify.register(sentryFastifyPlugin);
+    
+      // Register API versioning headers
+      await fastify.register(apiVersioningPlugin, {
+        currentVersion: "v1",
+        successorVersion: "v2",
+        sunsetMonthsFromNow: 6,
+      });
+    
+      // Register routes
+      await fastify.register(healthRoutes);
+      await fastify.register(readinessRoutes);
+      // Full path prefix — ingress forwards with preservePathPrefix: true
+      await fastify.register(userRoutes, { prefix: "/api/v1/users" });
+    
+      return fastify;
+    }
+  </file>
+  </section>
+  <section priority="medium" role="test">
+  <file path="src/test/fixtures.ts">
+    export interface UserFixture {
+      readonly id: string;
+      readonly email: string;
+      readonly name: string | null;
+      readonly picture: string | null;
+      readonly emailVerified: boolean;
+      readonly preferences: {
+        readonly theme: "light" | "dark" | "system";
+        readonly emailNotifications: boolean;
+        readonly marketingEmails: boolean;
+      };
+      readonly createdAt: string;
+      readonly updatedAt: string;
+    }
+    export const MOCK_USER: UserFixture = Object.freeze({
+      id: "user-123",
+      email: "test@example.com",
+      name: "Test User",
+      picture: "https://example.com/pic.jpg",
+      emailVerified: true,
+      preferences: Object.freeze({
+        theme: "light" as const,
+        emailNotifications: true,
+        marketingEmails: false,
+      }),
+      createdAt: "2026-01-25T00:00:00.000Z",
+      updatedAt: "2026-01-25T00:00:00.000Z",
+    });
+  </file>
+  </section>
+  <section priority="medium" role="services">
+  <file path="src/services/user.ts">
+    function isPrismaNotFound(err: unknown): boolean {
+      return (
+        err !== null &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code: string }).code === "P2025"
+      );
+    }
+    function mapPrismaUser(user: {
+      id: string;
+      email: string;
+      name: string | null;
+      picture: string | null;
+      emailVerified: boolean;
+      preferences: unknown;
+      createdAt: Date;
+      updatedAt: Date;
+    }): User {
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        picture: user.picture,
+        emailVerified: user.emailVerified,
+        preferences: (user.preferences as UserPreferences) ?? {},
+        createdAt: user.createdAt.toISOString(),
+        updatedAt: user.updatedAt.toISOString(),
+      };
+    }
+  </file>
+  <file path="src/services/health-checks.ts">
+    export function recordDbLatency(ms: number): void {
+      dbLatencyHistory.push(ms);
+      if (dbLatencyHistory.length > LATENCY_WINDOW) {
+        dbLatencyHistory.shift();
+      }
+    }
+    export function checkLatencyAnomaly(currentMs: number): {
+      isAnomaly: boolean;
+      rollingAvg: number;
+    } {
+      if (dbLatencyHistory.length < 5) {
+        return { isAnomaly: false, rollingAvg: 0 };
+      }
+      const sum = dbLatencyHistory.reduce((a, b) => a + b, 0);
+      const rollingAvg = sum / dbLatencyHistory.length;
+      return {
+        isAnomaly: rollingAvg > 0 && currentMs > LATENCY_ANOMALY_THRESHOLD * rollingAvg,
+        rollingAvg: Math.round(rollingAvg),
+      };
+    }
+  </file>
+  <file path="src/services/database.ts">
+    interface SlowQueryStats {
+      count5min: number;
+      slowestMs: number;
+      queries: { model: string; operation: string; duration: number; timestamp: number }[];
+    }
+    export function getSlowQueryStats(): { count5min: number; slowestMs: number } {
+      const now = Date.now();
+      const windowStart = now - SLOW_QUERY_WINDOW_MS;
+      
+      slowQueryStats.queries = slowQueryStats.queries.filter((q) => q.timestamp > windowStart);
+      slowQueryStats.count5min = slowQueryStats.queries.length;
+      slowQueryStats.slowestMs = slowQueryStats.queries.reduce((max, q) => Math.max(max, q.duration), 0);
+      
+      return {
+        count5min: slowQueryStats.count5min,
+        slowestMs: slowQueryStats.slowestMs,
+      };
+    }
+  </file>
+  </section>
+  <section priority="medium" role="routes">
+  <file path="src/routes/users.ts">
+    function isAdmin(user: AuthUser | undefined): boolean {
+      const permissions = user?.raw?.permissions; return Array.isArray(permissions) && permissions.includes("admin");
+    }
+    export const userRoutes: FastifyPluginAsync = async (fastify) => {
+      // List users
+      fastify.get<{
+        Querystring: { page?: string; limit?: string };
+        Reply: PaginatedResponse<User>;
+      }>(
+        "/",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "List all users",
+            operationId: "listUsers",
+            description:
+              "Retrieve a paginated list of all users in the system. Results are ordered by creation date (newest first).",
+            tags: ["Users"],
+            querystring: {
+              type: "object",
+              properties: {
+                page: {
+                  type: "string",
+                  default: "1",
+                  description: "Page number (1-indexed)",
+                },
+                limit: {
+                  type: "string",
+                  default: "10",
+                  description: "Number of users per page (max 100)",
+                },
+              },
+            },
+            response: {
+              200: {
+                description: "Successful response with paginated user list",
+                type: "object",
+                properties: {
+                  data: {
+                    type: "array",
+                    items: { $ref: "User#" },
+                  },
+                  pagination: { $ref: "Pagination#" },
+                },
+              },
+              500: {
+                description: "Internal server error",
+                $ref: "Error#",
+              },
+            },
+          },
+        },
+        async (request, reply) => {
+          if (!isAdmin(request.user)) {
+            reply.code(403); return reply.send(createProblemDetails(403, "Forbidden", "Admin access required to list all users") as never);
+          }
+          const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
+          const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "10", 10) || 10));
+          return userService.list(page, limit);
+        }
+      );
+    
+      // Get user by ID
+      fastify.get<{
+        Params: { id: string };
+        Reply: ApiResponse<User> | ApiError;
+      }>(
+        "/:id",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Get user by ID",
+            operationId: "getUserById",
+            description: "Retrieve a single user by their unique identifier.",
+            tags: ["Users"],
+            params: {
+              type: "object",
+              properties: {
+                id: {
+                  type: "string",
+                  description: "Unique user identifier",
+                },
+              },
+              required: ["id"],
+            },
+            response: {
+              200: {
+                description: "User found",
+                type: "object",
+                properties: {
+                  data: { $ref: "User#" },
+                },
+              },
+              404: {
+                description: "User not found",
+                $ref: "Error#",
+              },
+              500: {
+                description: "Internal server error",
+                $ref: "Error#",
+              },
+            },
+          },
+        },
+        async (request, reply) => {
+          const authUser = request.user;
+          const requestedId = request.params.id;
+          
+          if (!isAdmin(authUser) && authUser?.id !== requestedId) {
+            return reply.code(403).send(createProblemDetails(403, "Forbidden", "You can only access your own profile"));
+          }
+          
+          const user = await userService.getById(request.params.id);
+          if (!user) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "User not found"));
+          }
+          return { data: user };
+        }
+      );
+    
+      // Create user
+      fastify.post<{
+        Body: CreateUserRequest;
+        Reply: ApiResponse<User>;
+      }>(
+        "/",
+        {
+          preHandler: requireAuth,
+          config: {
+            rateLimit: {
+              max: 20,
+              timeWindow: "1 minute",
+            },
+          },
+          schema: {
+            summary: "Create a new user",
+            operationId: "createUser",
+            description:
+              "Create a new user account. Email must be unique across the system.",
+            tags: ["Users"],
+            body: {
+              type: "object",
+              description: "User creation payload",
+              properties: {
+                email: {
+                  type: "string",
+                  format: "email",
+                  description: "User's email address (must be unique)",
+                },
+                name: {
+                  type: "string",
+                  description: "User's display name",
+                },
+                picture: {
+                  type: "string",
+                  format: "uri",
+                  description: "URL to user's profile picture",
+                },
+              },
+              required: ["email"],
+            },
+            response: {
+              201: {
+                description: "User created successfully",
+                type: "object",
+                properties: {
+                  data: { $ref: "User#" },
+                },
+              },
+              400: {
+                description: "Invalid request body or email already exists",
+                $ref: "Error#",
+              },
+              500: {
+                description: "Internal server error",
+                $ref: "Error#",
+              },
+            },
+          },
+        },
+        async (request, reply) => {
+          const user = await userService.create(request.body);
+          return reply.code(201).send({ data: user });
+        }
+      );
+    
+      // Update user
+      fastify.patch<{
+        Params: { id: string };
+        Body: UpdateUserRequest;
+        Reply: ApiResponse<User> | ApiError;
+      }>(
+        "/:id",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Update a user",
+            operationId: "updateUser",
+            description:
+              "Update an existing user's profile information. Only provided fields will be updated.",
+            tags: ["Users"],
+            params: {
+              type: "object",
+              properties: {
+                id: {
+                  type: "string",
+                  description: "Unique user identifier",
+                },
+              },
+              required: ["id"],
+            },
+            body: {
+              type: "object",
+              description: "Fields to update",
+              properties: {
+                name: {
+                  type: "string",
+                  description: "New display name",
+                },
+                picture: {
+                  type: "string",
+                  format: "uri",
+                  description: "New profile picture URL",
+                },
+              },
+            },
+            response: {
+              200: {
+                description: "User updated successfully",
+                type: "object",
+                properties: {
+                  data: { $ref: "User#" },
+                },
+              },
+              404: {
+                description: "User not found",
+                $ref: "Error#",
+              },
+              500: {
+                description: "Internal server error",
+                $ref: "Error#",
+              },
+            },
+          },
+        },
+        async (request, reply) => {
+          const authUser = request.user;
+          const requestedId = request.params.id;
+          
+          if (!isAdmin(authUser) && authUser?.id !== requestedId) {
+            return reply.code(403).send(createProblemDetails(403, "Forbidden", "You can only update your own profile"));
+          }
+          
+          const user = await userService.update(request.params.id, request.body);
+          if (!user) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "User not found"));
+          }
+          return { data: user };
+        }
+      );
+    
+      // Delete user
+      fastify.delete<{
+        Params: { id: string };
+      }>(
+        "/:id",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Delete a user",
+            operationId: "deleteUser",
+            description:
+              "Permanently delete a user account. This action cannot be undone.",
+            tags: ["Users"],
+            params: {
+              type: "object",
+              properties: {
+                id: {
+                  type: "string",
+                  description: "Unique user identifier",
+                },
+              },
+              required: ["id"],
+            },
+            response: {
+              204: {
+                description: "User deleted successfully",
+                type: "null",
+              },
+              404: {
+                description: "User not found",
+                $ref: "Error#",
+              },
+              500: {
+                description: "Internal server error",
+                $ref: "Error#",
+              },
+            },
+          },
+        },
+        async (request, reply) => {
+          const authUser = request.user;
+          const requestedId = request.params.id;
+          
+          if (!isAdmin(authUser) && authUser?.id !== requestedId) {
+            return reply.code(403).send(createProblemDetails(403, "Forbidden", "You can only delete your own profile"));
+          }
+          
+          const deleted = await userService.delete(request.params.id);
+          if (!deleted) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "User not found"));
+          }
+          return reply.code(204).send();
+        }
+      );
+    
+      // Get current user (from JWT)
+      fastify.get<{
+        Reply: ApiResponse<User> | ApiError;
+      }>(
+        "/me",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Get current authenticated user",
+            operationId: "getCurrentUser",
+            description:
+              "Retrieve the profile of the currently authenticated user. If the user doesn't exist in the database, they will be automatically created.",
+            tags: ["Users"],
+            security: [{ bearerAuth: [] }],
+            response: {
+              200: {
+                description: "Current user profile",
+                type: "object",
+                properties: {
+                  data: { $ref: "User#" },
+                },
+              },
+              401: {
+                description: "Authentication required or token invalid",
+                $ref: "Error#",
+              },
+              500: {
+                description: "Internal server error",
+                $ref: "Error#",
+              },
+            },
+          },
+        },
+        async (request, reply) => {
+          const authUser = request.user;
+          if (!authUser || !authUser.email) {
+            return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Authentication required"));
+          }
+    
+          // Use findOrCreate (upsert) to prevent race conditions when two
+          // concurrent first-login requests both try to create the same user
+          const user = await userService.findOrCreate({
+            email: authUser.email,
+            name: authUser.name,
+            picture: authUser.picture,
+          });
+          return { data: user };
+        }
+      );
+    
+      // Update current user's preferences
+      fastify.patch<{
+        Body: UpdatePreferencesRequest;
+        Reply: ApiResponse<User> | ApiError;
+      }>(
+        "/me/preferences",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Update current user's preferences",
+            operationId: "updateCurrentUserPreferences",
+            description:
+              "Update preference settings for the currently authenticated user. Only provided fields will be updated.",
+            tags: ["Users"],
+            security: [{ bearerAuth: [] }],
+            body: {
+              type: "object",
+              description: "Preference fields to update",
+              properties: {
+                theme: {
+                  type: "string",
+                  enum: ["light", "dark", "system"],
+                  description: "UI theme preference",
+                },
+                emailNotifications: {
+                  type: "boolean",
+                  description: "Enable or disable email notifications",
+                },
+                marketingEmails: {
+                  type: "boolean",
+                  description: "Enable or disable marketing emails",
+                },
+              },
+            },
+            response: {
+              200: {
+                description: "Preferences updated successfully",
+                type: "object",
+                properties: {
+                  data: { $ref: "User#" },
+                },
+              },
+              401: {
+                description: "Authentication required or token invalid",
+                $ref: "Error#",
+              },
+              404: {
+                description: "User not found",
+                $ref: "Error#",
+              },
+              500: {
+                description: "Internal server error",
+                $ref: "Error#",
+              },
+            },
+          },
+        },
+        async (request, reply) => {
+          const authUser = request.user;
+          if (!authUser || !authUser.email) {
+            return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Authentication required"));
+          }
+    
+          const existingUser = await userService.getByEmail(authUser.email);
+          if (!existingUser) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "User not found"));
+          }
+    
+          const user = await userService.updatePreferences(
+            existingUser.id,
+            request.body
+          );
+          if (!user) {
+            return reply.code(500).send(createProblemDetails(500, "Internal Server Error", "Failed to update preferences"));
+          }
+          return { data: user };
+        }
+      );
+    };
+  </file>
+  <file path="src/routes/ready.ts">
+    export const readinessRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.get<{ Reply: ReadinessResponse }>(
+        "/ready",
+        { schema: { ...readinessSchema, operationId: "getReady" } },
+        async (_request, reply) => {
+          const snapshot = await readiness.evaluate();
+          const response: ReadinessResponse = {
+            ready: snapshot.ready,
+            timestamp: snapshot.timestamp,
+            checks: snapshot.checks.map((c) => ({
+              name: c.name,
+              status: c.status,
+              ...(c.message ? { message: c.message } : {}),
+            })),
+          };
+          return reply.status(snapshot.ready ? 200 : 503).send(response);
+        },
+      );
+    };
+  </file>
+  <file path="src/routes/health.ts">
+    type HealthRouteHandler = RouteHandlerMethod<
+      RawServerDefault,
+      IncomingMessage,
+      ServerResponse,
+      { Reply: HealthResponse }
+    >;
+    export const healthRoutes: FastifyPluginAsync = async (fastify) => {
+      // /health — used by DO App Platform internal health checks (direct container access)
+      // Also reachable via api.mattbutlerengineering.com/health (catch-all "/" ingress rule)
+      fastify.get("/health", { schema: { ...healthSchema, operationId: "getHealth" } }, healthHandler);
+    
+      // /api/v1/users/health — public path via DO ingress (preservePathPrefix: true, prefix "/api/v1/users")
+      // Required for post-deploy verification and public health monitoring
+      fastify.get("/api/v1/users/health", { schema: { ...healthSchema, operationId: "getHealthApiUsers" } }, healthHandler);
+    };
+  </file>
+  </section>
+  <section priority="medium" role="schemas">
+  <file path="src/schemas/index.ts">
+    export const UserPreferencesSchema = userPreferencesJsonSchema;
+    export const UserSchema = userJsonSchema;
+  </file>
+  </section>
+</codebase>

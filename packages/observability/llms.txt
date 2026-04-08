@@ -1,31 +1,86 @@
 <codebase path="packages/observability">
+  <section priority="medium" role="src">
   <file path="src/sdk.ts">
-    export interface OtelConfig {
-      readonly serviceName: string;
-      readonly serviceVersion?: string;
-    }
-    export function initTelemetry(config: OtelConfig): NodeSDK { /* implementation omitted */ }
+    <item priority="low">
+      interface OtelConfig {
+        serviceName: string;
+        serviceVersion?: string;
+      }
+    </item>
+    <item priority="high">
+      export function shouldIgnoreRequest(req: IncomingMessage): boolean { /* ... */ }
+    </item>
   </file>
   <file path="src/request-id.ts">
-    export interface RequestIdOptions {
-      headerName?: string;
-      generator?: () => string;
-    }
-    export function createRequestIdMiddleware(options: RequestIdOptions = {}) { /* implementation omitted */ }
-    export function getRequestId(request: { id?: string }): string { /* implementation omitted */ }
-    export function logWithRequestId(logger: { info: (msg: string, ctx: Record<string, unknown>) => void }, requestId: string, message: string, ctx: Record<string, unknown> = {}) { /* implementation omitted */ }
+    <item priority="low">
+      interface RequestIdOptions {
+        headerName?: string;
+        generator?: () => string;
+      }
+    </item>
+    <item priority="high">
+      export function createRequestIdMiddleware(options: RequestIdOptions = {}) { /* ... */ }
+    </item>
   </file>
-  <file path="src/index.ts">
+  <file path="src/readiness.ts">
+    <item priority="low">
+      interface ReadinessCheckResult {
+        name: string;
+        status: "ok" | "error";
+        message?: string;
+      }
+    </item>
+    <item priority="low">
+      interface ReadinessSnapshot {
+        ready: boolean;
+        checks: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        timestamp: string;
+      }
+    </item>
+  </file>
+  <file path="src/rate-limit-monitor.ts">
+    <item priority="low">
+      interface RateLimitHit {
+        ip: string;
+        endpoint: string;
+        timestamp: number;
+      }
+    </item>
+    <item priority="low">
+      interface RateLimitHealthStats {
+        hits_last_hour: number;
+        blocked_ips: number;
+      }
+    </item>
+  </file>
+  <file path="src/error-rates.ts">
+    <item priority="high">
+      interface RequestRecord {
+        timestamp: number;
+        isError: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface EndpointErrorRate {
+        endpoint: string;
+        total: number;
+        errors: number;
+        rate: number;
+      }
+    </item>
   </file>
   <file path="src/baggage.ts">
-    export const BAGGAGE_KEYS: { readonly SESSION_ID: "agent.session_id"; readonly PR_NUMBER: "agent.pr_number"; readonly ISSUE_NUMBER: "agent.issue_number"; readonly DEPLOY_SHA: "deploy.sha"; };
-    export interface AgentBaggage {
-      readonly sessionId?: string;
-      readonly prNumber?: string;
-      readonly issueNumber?: string;
-      readonly deploySha?: string;
-    }
-    export function createBaggageContext(bag: AgentBaggage): ReturnType<typeof context.active> { /* implementation omitted */ }
-    export function extractAgentBaggage(): AgentBaggage { /* implementation omitted */ }
+    <item priority="high">
+      export const BAGGAGE_KEYS: { readonly SESSION_ID: "agent.session_id"; readonly PR_NU...;
+    </item>
+    <item priority="low">
+      interface AgentBaggage {
+        sessionId?: string;
+        prNumber?: string;
+        issueNumber?: string;
+        deploySha?: string;
+      }
+    </item>
   </file>
+  </section>
 </codebase>
