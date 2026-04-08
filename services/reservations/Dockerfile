@@ -1,3 +1,14 @@
+# Prune stage — generate minimal monorepo subset
+FROM node:22-alpine3.19 AS pruner
+
+RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
+
+WORKDIR /app
+
+COPY . .
+
+RUN pnpm turbo prune --docker @mbe/reservations-service
+
 # Build stage
 FROM node:22-alpine3.19 AS builder
 
@@ -5,18 +16,12 @@ RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
 WORKDIR /app
 
-# Copy turbo.json for prune configuration
-COPY turbo.json ./
-
-# Generate pruned monorepo for Docker (only includes dependencies needed for this service)
-RUN pnpm turbo prune --docker @mbe/reservations-service
-
-# Copy pruned workspace files from out/ directory
-COPY out/pnpm-lock.yaml ./
-COPY out/pnpm-workspace.yaml ./
-COPY out/package.json ./
-COPY out/packages ./packages
-COPY out/services ./services
+# Copy pruned workspace files from pruner stage
+COPY --from=pruner /app/out/pnpm-lock.yaml ./
+COPY --from=pruner /app/out/pnpm-workspace.yaml ./
+COPY --from=pruner /app/out/package.json ./
+COPY --from=pruner /app/out/packages ./packages
+COPY --from=pruner /app/out/services ./services
 
 # Copy tsconfig files (needed for build, changes rarely)
 COPY packages/config/typescript ./packages/config/typescript
@@ -55,12 +60,12 @@ WORKDIR /app
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 app
 
-# Copy pruned workspace files from builder stage
-COPY --from=builder /app/out/pnpm-lock.yaml ./
-COPY --from=builder /app/out/pnpm-workspace.yaml ./
-COPY --from=builder /app/out/package.json ./
-COPY --from=builder /app/out/packages ./packages
-COPY --from=builder /app/out/services ./services
+# Copy pruned workspace files from pruner stage
+COPY --from=pruner /app/out/pnpm-lock.yaml ./
+COPY --from=pruner /app/out/pnpm-workspace.yaml ./
+COPY --from=pruner /app/out/package.json ./
+COPY --from=pruner /app/out/packages ./packages
+COPY --from=pruner /app/out/services ./services
 
 # Copy Prisma schema (needed for generate)
 COPY --from=builder /app/services/reservations/prisma ./services/reservations/prisma
