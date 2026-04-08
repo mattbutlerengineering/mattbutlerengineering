@@ -39,9 +39,11 @@ docs/
 
 # Infrastructure (not needed in app containers)
 infrastructure/
+!infrastructure/pulumi/package.json
 
 # Tools
 tools/
+!tools/cli/package.json
 
 # Config files not needed in build
 **/.eslintrc*
@@ -51,6 +53,7 @@ tools/
 
 # Apps (not needed for service builds)
 apps/
+!apps/*/package.json
 
 # Claude / AI config
 .claude/
