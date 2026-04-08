@@ -33,6 +33,7 @@
     "@mbe/rialto-catalog": "workspace:^",
     "@mbe/sentry": "workspace:^",
     "@mbe/types": "workspace:*",
+    "@prisma/adapter-pg": "^7.7.0",
     "@prisma/client": "^7.6.0",
     "@scalar/fastify-api-reference": "^1.51.0",
     "ai": "^6.0.149",

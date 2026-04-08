@@ -101,7 +101,8 @@ export function createMockTable(overrides?: Partial<MockTable>): MockTable {
 export function createMockReservation(
   overrides?: Partial<Omit<MockReservation, "table">> & { table?: Partial<MockTable> },
 ): MockReservation {
-  const table = createMockTable(overrides?.table);
+  const { table: tableOverrides, ...restOverrides } = overrides ?? {};
+  const table = createMockTable(tableOverrides);
   return Object.freeze({
     id: "res-123",
     date: "2026-02-15",
@@ -122,9 +123,7 @@ export function createMockReservation(
     venueId: null,
     createdAt: "2026-01-25T00:00:00.000Z",
     updatedAt: "2026-01-25T00:00:00.000Z",
-    ...overrides,
-    // Re-apply table after spread so the frozen version is used
-    ...(overrides?.table ? { table } : {}),
+    ...restOverrides,
   });
 }
 
