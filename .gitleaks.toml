@@ -18,6 +18,10 @@ useDefault = true
     '''coverage''',
     '''dist''',
     '''\.git''',
+    '''llms\.txt''',
+    '''llms-full\.txt''',
+    '''src/generated''',
+    '''gsd-file-manifest\.json''',
   ]
 
   regexTarget = "match"
