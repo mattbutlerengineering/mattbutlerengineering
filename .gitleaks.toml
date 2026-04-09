@@ -13,7 +13,7 @@ useDefault = true
 
   paths = [
     '''node_modules''',
-    '''\x2eclaud/worktrees''',
+    '''\.claude/worktrees''',
     '''pnpm-lock\.yaml''',
     '''coverage''',
     '''dist''',
