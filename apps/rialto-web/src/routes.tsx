@@ -105,6 +105,9 @@ const MeterPage = lazy(() =>
   import("./pages/data/MeterPage").then((m) => ({ default: m.MeterPage }))
 );
 const KbdPage = lazy(() => import("./pages/data/KbdPage").then((m) => ({ default: m.KbdPage })));
+const FlipDotPage = lazy(() =>
+  import("./pages/data/FlipDotPage").then((m) => ({ default: m.FlipDotPage }))
+);
 
 /* ── Navigation ──────────────────────────────── */
 const TabsPage = lazy(() =>
@@ -294,6 +297,7 @@ const componentRoutes: RouteObject[] = [
   { path: "components/data-list", element: suspended(DataListPage) },
   { path: "components/meter", element: suspended(MeterPage) },
   { path: "components/kbd", element: suspended(KbdPage) },
+  { path: "components/flip-dot", element: suspended(FlipDotPage) },
   // Navigation
   { path: "components/tabs", element: suspended(TabsPage) },
   { path: "components/breadcrumb", element: suspended(BreadcrumbPage) },

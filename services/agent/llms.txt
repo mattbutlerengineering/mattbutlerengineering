@@ -1,11 +1,4 @@
 <codebase path="services/agent">
-  <section priority="medium" role="prisma">
-  <file path="prisma/seed.ts">
-    <item priority="low">
-      async function main() { /* ... */ }
-    </item>
-  </file>
-  </section>
   <section priority="medium" role="src">
   <file path="src/index.ts">
     <item priority="low">
@@ -20,6 +13,13 @@
     </item>
     <item priority="high">
       export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="prisma">
+  <file path="prisma/seed.ts">
+    <item priority="low">
+      async function main() { /* ... */ }
     </item>
   </file>
   </section>
@@ -99,6 +99,16 @@
     </item>
     <item priority="high">
       export function getSlowQueryStats(): { count5min: number; slowestMs: number } { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="schemas">
+  <file path="src/schemas/index.ts">
+    <item priority="high">
+      export const SessionSchema: any;
+    </item>
+    <item priority="high">
+      export const SessionEventSchema: any;
     </item>
   </file>
   </section>
@@ -185,16 +195,6 @@
   <file path="src/routes/gen-chat.ts">
     <item priority="high">
       export const genChatRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
-    </item>
-  </file>
-  </section>
-  <section priority="medium" role="schemas">
-  <file path="src/schemas/index.ts">
-    <item priority="high">
-      export const SessionSchema: any;
-    </item>
-    <item priority="high">
-      export const SessionEventSchema: any;
     </item>
   </file>
   </section>

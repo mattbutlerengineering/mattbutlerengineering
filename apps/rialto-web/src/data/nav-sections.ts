@@ -56,6 +56,7 @@ const DATA_DISPLAY: NavSection = {
     { id: "data-list", label: "Data List", path: "/components/data-list" },
     { id: "meter", label: "Meter", path: "/components/meter" },
     { id: "kbd", label: "Kbd", path: "/components/kbd" },
+    { id: "flip-dot", label: "Flip Dot", path: "/components/flip-dot" },
   ],
 };
 

@@ -1,0 +1,4 @@
+- generic [ref=e3]:
+  - status "Loading..." [ref=e5]:
+    - img [ref=e6]
+  - region "Notifications"

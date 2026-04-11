@@ -1,0 +1,28 @@
+<codebase path="apps/marketing">
+  <section priority="medium" role="data">
+  <file path="src/data/tech-stack.ts">
+    <item priority="low">
+      interface TechCategory {
+        title: string;
+        items: string[];
+      }
+    </item>
+    <item priority="high">
+      export const TECH_STACK: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+    </item>
+  </file>
+  <file path="src/data/projects.ts">
+    <item priority="low">
+      interface Project {
+        title: string;
+        description: string;
+        tags: string[];
+        href?: string;
+      }
+    </item>
+    <item priority="high">
+      export const PROJECTS: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+    </item>
+  </file>
+  </section>
+</codebase>

@@ -1,892 +1,183 @@
 <codebase path="packages/rialto">
-  <file path="vite.config.lib.ts">
-  </file>
-  <file path="src/vite-env.d.ts">
-  </file>
-  <file path="src/lib-entry.ts">
-  </file>
+  <section priority="medium" role="scripts">
   <file path="scripts/generate-registry.ts">
-    interface PropInfo {
-      name: string;
-      type: string;
-      required: boolean;
-      default?: string;
-      description?: string;
-    }
-    interface CharacterLimitInfo {
-      prop: string;
-      max: number;
-      reason: string;
-    }
-    interface RegistryComponent {
-      name: string;
-      description?: string;
-      importPath: string;
-      props: PropInfo[];
-      slots: string[];
-      characterLimits?: CharacterLimitInfo[];
-    }
-    interface Registry {
-      version: string;
-      components: RegistryComponent[];
-    }
-    function getJsDocComment(symbol: ts.Symbol): string | undefined { /* implementation omitted */ }
-    function typeToString(type: ts.Type, checker: ts.TypeChecker): string { /* implementation omitted */ }
-    function getDefaultFromInitializer(symbol: ts.Symbol): string | undefined { /* implementation omitted */ }
-    function extractComponents(program: ts.Program, entryFile: string): RegistryComponent[] { /* implementation omitted */ }
-    function main() { /* implementation omitted */ }
+    <item priority="high">
+      interface PropInfo {
+        name: string;
+        type: string;
+        required: boolean;
+        default?: string;
+        description?: string;
+      }
+    </item>
+    <item priority="high">
+      interface CharacterLimitInfo {
+        prop: string;
+        max: number;
+        reason: string;
+      }
+    </item>
   </file>
   <file path="scripts/generate-manifest.ts">
-    interface PropInfo {
-      name: string;
-      type: string;
-      required: boolean;
-      default?: string;
-      description?: string;
-    }
-    interface CharacterLimitInfo {
-      prop: string;
-      max: number;
-      reason: string;
-    }
-    interface ComponentInfo {
-      name: string;
-      description?: string;
-      props: PropInfo[];
-      slots: string[];
-      characterLimits?: CharacterLimitInfo[];
-    }
-    interface Manifest {
-      version: string;
-      generatedAt: string;
-      components: ComponentInfo[];
-    }
-    function getJsDocComment(symbol: ts.Symbol): string | undefined { /* implementation omitted */ }
-    function typeToString(type: ts.Type, checker: ts.TypeChecker): string { /* implementation omitted */ }
-    function getDefaultFromInitializer(symbol: ts.Symbol): string | undefined { /* implementation omitted */ }
-    function extractComponents(program: ts.Program, entryFile: string): ComponentInfo[] { /* implementation omitted */ }
-    function main() { /* implementation omitted */ }
+    <item priority="high">
+      interface PropInfo {
+        name: string;
+        type: string;
+        required: boolean;
+        default?: string;
+        description?: string;
+      }
+    </item>
+    <item priority="high">
+      interface CharacterLimitInfo {
+        prop: string;
+        max: number;
+        reason: string;
+      }
+    </item>
   </file>
   <file path="scripts/character-limits.ts">
-    export interface CharacterLimit {
-      component: string;
-      prop: string;
-      max: number;
-      reason: string;
-    }
-    characterLimits: CharacterLimit[] = [
-      // ── Short (≤30) ──────────────────────────────
-      {
-        component: "Badge",
-        prop: "children",
-        max: 20,
-        reason: "Inline status label; wrapping breaks layout",
-      },
-      {
-        component: "Tag",
-        prop: "children",
-        max: 30,
-        reason: "Chip label; must fit single line",
-      },
-      {
-        component: "Kbd",
-        prop: "children",
-        max: 10,
-        reason: "Keyboard shortcut text; very compact",
-      },
-      {
-        component: "Button",
-        prop: "children",
-        max: 30,
-        reason: "Button label; should be concise action verb",
-      },
-      {
-        component: "Tabs",
-        prop: "tabs[].label",
-        max: 20,
-        reason: "Tab labels share horizontal space",
-      },
-      {
-        component: "Breadcrumb",
-        prop: "items[].label",
-        max: 25,
-        reason: "Breadcrumb items share horizontal space",
-      },
-      {
-        component: "Avatar",
-        prop: "name",
-        max: 30,
-        reason: "Used for initials fallback; full name for alt text",
-      },
-      {
-        component: "Stat",
-        prop: "label",
-        max: 25,
-        reason: "Metric label; sits below the value",
-      },
-      {
-        component: "Stat",
-        prop: "value",
-        max: 15,
-        reason: "Metric value; must be scannable",
-      },
-      {
-        component: "Stat",
-        prop: "delta",
-        max: 10,
-        reason: "Trend delta; short numeric change",
-      },
-      {
-        component: "SegmentedControl",
-        prop: "segments[].label",
-        max: 15,
-        reason: "Segments share fixed horizontal space",
-      },
-      {
-        component: "Steps",
-        prop: "steps[].label",
-        max: 20,
-        reason: "Step labels share horizontal space",
-      },
-      {
-        component: "Pagination",
-        prop: "aria-label",
-        max: 30,
-        reason: "Screen reader label; concise context",
-      },
-      {
-        component: "Meter",
-        prop: "label",
-        max: 25,
-        reason: "Gauge label; sits beside or below bar",
-      },
-      {
-        component: "Toggle",
-        prop: "label",
-        max: 30,
-        reason: "Switch label; single line beside control",
-      },
-      {
-        component: "Checkbox",
-        prop: "label",
-        max: 30,
-        reason: "Checkbox label; single line beside control",
-      },
-      {
-        component: "Radio",
-        prop: "label",
-        max: 30,
-        reason: "Radio option label; single line beside control",
-      },
-    
-      // ── Medium (31–120) ──────────────────────────
-      {
-        component: "Input",
-        prop: "label",
-        max: 40,
-        reason: "Form field label; above input",
-      },
-      {
-        component: "Input",
-        prop: "hint",
-        max: 80,
-        reason: "Helper text below input; 1-2 lines",
-      },
-      {
-        component: "Input",
-        prop: "error",
-        max: 80,
-        reason: "Error message below input; must be actionable",
-      },
-      {
-        component: "TextArea",
-        prop: "label",
-        max: 40,
-        reason: "Form field label; above textarea",
-      },
-      {
-        component: "NumberInput",
-        prop: "label",
-        max: 40,
-        reason: "Form field label; above input",
-      },
-      {
-        component: "Select",
-        prop: "label",
-        max: 40,
-        reason: "Form field label; above select trigger",
-      },
-      {
-        component: "PinInput",
-        prop: "label",
-        max: 40,
-        reason: "Form field label; above pin cells",
-      },
-      {
-        component: "Slider",
-        prop: "label",
-        max: 40,
-        reason: "Form field label; above slider track",
-      },
-      {
-        component: "RadioGroup",
-        prop: "label",
-        max: 40,
-        reason: "Group label (fieldset legend)",
-      },
-      {
-        component: "Toast",
-        prop: "title",
-        max: 50,
-        reason: "Toast title; must be scannable in ~4s",
-      },
-      {
-        component: "Toast",
-        prop: "description",
-        max: 120,
-        reason: "Toast body; readable before auto-dismiss",
-      },
-      {
-        component: "Alert",
-        prop: "title",
-        max: 60,
-        reason: "Alert heading; single line preferred",
-      },
-      {
-        component: "Banner",
-        prop: "title",
-        max: 60,
-        reason: "Banner heading; single line, full-width",
-      },
-      {
-        component: "Dialog",
-        prop: "title",
-        max: 60,
-        reason: "Dialog heading; fits modal header",
-      },
-      {
-        component: "Dialog",
-        prop: "description",
-        max: 120,
-        reason: "Dialog subtitle; 1-2 lines below title",
-      },
-      {
-        component: "ConfirmDialog",
-        prop: "title",
-        max: 60,
-        reason: "Confirmation heading; clear and direct",
-      },
-      {
-        component: "ConfirmDialog",
-        prop: "description",
-        max: 120,
-        reason: "Confirmation body; explains consequences",
-      },
-      {
-        component: "ConfirmDialog",
-        prop: "confirmLabel",
-        max: 20,
-        reason: "Confirm button text; concise verb",
-      },
-      {
-        component: "Drawer",
-        prop: "title",
-        max: 60,
-        reason: "Drawer heading; fits panel header",
-      },
-      {
-        component: "Card",
-        prop: "title",
-        max: 60,
-        reason: "Card heading; single line",
-      },
-      {
-        component: "Card",
-        prop: "subtitle",
-        max: 80,
-        reason: "Card subheading; 1-2 lines below title",
-      },
-      {
-        component: "EmptyState",
-        prop: "title",
-        max: 50,
-        reason: "Empty state heading; centered, short",
-      },
-      {
-        component: "Accordion",
-        prop: "items[].title",
-        max: 60,
-        reason: "Accordion trigger label; single line",
-      },
-      {
-        component: "Collapsible",
-        prop: "label",
-        max: 60,
-        reason: "Collapsible trigger text; single line",
-      },
-      {
-        component: "Tooltip",
-        prop: "content",
-        max: 80,
-        reason: "Tooltip text; brief hint, no wrapping preferred",
-      },
-      {
-        component: "Divider",
-        prop: "label",
-        max: 20,
-        reason: 'Centered divider label; very short ("or", "and")',
-      },
-      {
-        component: "Checkbox",
-        prop: "description",
-        max: 80,
-        reason: "Help text below checkbox label",
-      },
-      {
-        component: "Timeline",
-        prop: "items[].title",
-        max: 60,
-        reason: "Event title; single line beside node",
-      },
-    
-      // ── Long (121–500) ───────────────────────────
-      {
-        component: "Alert",
-        prop: "children",
-        max: 500,
-        reason: "Alert body; paragraph-length contextual message",
-      },
-      {
-        component: "EmptyState",
-        prop: "description",
-        max: 300,
-        reason: "Empty state body; explains what to do next",
-      },
-      {
-        component: "Timeline",
-        prop: "items[].description",
-        max: 200,
-        reason: "Event description; supporting detail",
-      },
-      {
-        component: "Steps",
-        prop: "steps[].description",
-        max: 80,
-        reason: "Step description; sits below label",
-      },
-    ]
+    <item priority="low">
+      interface CharacterLimit {
+        component: string;
+        prop: string;
+        max: number;
+        reason: string;
+      }
+    </item>
+    <item priority="high">
+      export const characterLimits: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+    </item>
   </file>
+  </section>
+  <section priority="medium" role="tokens">
   <file path="src/tokens/motion.ts">
-    precision = {
-      duration: 0.15,
-      ease: [0.2, 0, 0, 1] as const,
-    }
-    spring = {
-      type: "spring" as const,
-      stiffness: 400,
-      damping: 28,
-      mass: 0.8,
-    }
-    springGentle = {
-      type: "spring" as const,
-      stiffness: 200,
-      damping: 24,
-      mass: 1,
-    }
-    springTilt = {
-      stiffness: 300,
-      damping: 20,
-      mass: 0.5,
-    }
-    boop = {
-      scale: 1.03,
-      transition: {
-        type: "spring" as const,
-        stiffness: 400,
-        damping: 15,
-        mass: 0.5,
-      },
-    }
-    staggerReveal = {
-      container: {
-        hidden: {},
-        visible: {
-          transition: {
-            staggerChildren: 0.06,
-            delayChildren: 0.1,
-          },
-        },
-      },
-      item: {
-        hidden: { opacity: 0, y: 16 },
-        visible: {
-          opacity: 1,
-          y: 0,
-          transition: {
-            type: "spring" as const,
-            stiffness: 260,
-            damping: 24,
-            mass: 0.8,
-          },
-        },
-      },
-    }
-    reduced = {
-      duration: 0,
-    }
+    <item priority="high">
+      export const precision: { duration: number; ease: readonly [0.2, 0, 0, 1]; };
+    </item>
+    <item priority="high">
+      export const spring: { type: "spring"; stiffness: number; damping: number; mas...;
+    </item>
   </file>
   <file path="src/tokens/icons.ts">
-    export const iconCategories: readonly ["navigation", "actions", "communication", "status", "content", "user", "data", "media", "commerce"];
-    export type IconCategory = (typeof iconCategories)[number];
-    export interface IconEntry {
-      /** Semantic concept name used for lookups (e.g. "save", "delete"). */
-      concept: string;
-      /** Human-readable label for display. */
-      label: string;
-      /** Lucide icon component. */
-      icon: LucideIcon;
-      /** Category grouping. */
-      category: IconCategory;
-    }
-    iconVocabulary: readonly IconEntry[] = [
-      // ── Navigation ──────────────────────────────
-      { concept: "home", label: "Home", icon: Home, category: "navigation" },
-      { concept: "back", label: "Back", icon: ArrowLeft, category: "navigation" },
-      {
-        concept: "forward",
-        label: "Forward",
-        icon: ArrowRight,
-        category: "navigation",
-      },
-      { concept: "menu", label: "Menu", icon: Menu, category: "navigation" },
-      { concept: "search", label: "Search", icon: Search, category: "navigation" },
-      {
-        concept: "external-link",
-        label: "External Link",
-        icon: ExternalLink,
-        category: "navigation",
-      },
-      {
-        concept: "expand",
-        label: "Expand",
-        icon: ChevronDown,
-        category: "navigation",
-      },
-      {
-        concept: "collapse",
-        label: "Collapse",
-        icon: ChevronRight,
-        category: "navigation",
-      },
-      {
-        concept: "more-actions",
-        label: "More Actions",
-        icon: MoreHorizontal,
-        category: "navigation",
-      },
-    
-      // ── Actions ─────────────────────────────────
-      { concept: "save", label: "Save", icon: Save, category: "actions" },
-      { concept: "delete", label: "Delete", icon: Trash2, category: "actions" },
-      { concept: "edit", label: "Edit", icon: SquarePen, category: "actions" },
-      { concept: "add", label: "Add", icon: Plus, category: "actions" },
-      { concept: "copy", label: "Copy", icon: Copy, category: "actions" },
-      { concept: "share", label: "Share", icon: Share, category: "actions" },
-      {
-        concept: "download",
-        label: "Download",
-        icon: Download,
-        category: "actions",
-      },
-      { concept: "upload", label: "Upload", icon: Upload, category: "actions" },
-      {
-        concept: "refresh",
-        label: "Refresh",
-        icon: RefreshCw,
-        category: "actions",
-      },
-      { concept: "undo", label: "Undo", icon: Undo, category: "actions" },
-      { concept: "redo", label: "Redo", icon: Redo, category: "actions" },
-    
-      // ── Communication ───────────────────────────
-      { concept: "email", label: "Email", icon: Mail, category: "communication" },
-      {
-        concept: "message",
-        label: "Message",
-        icon: MessageCircle,
-        category: "communication",
-      },
-      {
-        concept: "notification",
-        label: "Notification",
-        icon: Bell,
-        category: "communication",
-      },
-      { concept: "send", label: "Send", icon: Send, category: "communication" },
-      { concept: "phone", label: "Phone", icon: Phone, category: "communication" },
-    
-      // ── Status ──────────────────────────────────
-      {
-        concept: "success",
-        label: "Success",
-        icon: CircleCheck,
-        category: "status",
-      },
-      { concept: "error", label: "Error", icon: CircleX, category: "status" },
-      {
-        concept: "warning",
-        label: "Warning",
-        icon: AlertTriangle,
-        category: "status",
-      },
-      { concept: "info", label: "Info", icon: Info, category: "status" },
-      { concept: "loading", label: "Loading", icon: Loader, category: "status" },
-    
-      // ── Content ─────────────────────────────────
-      { concept: "file", label: "File", icon: File, category: "content" },
-      {
-        concept: "file-text",
-        label: "File Text",
-        icon: FileText,
-        category: "content",
-      },
-      { concept: "folder", label: "Folder", icon: Folder, category: "content" },
-      {
-        concept: "folder-open",
-        label: "Folder Open",
-        icon: FolderOpen,
-        category: "content",
-      },
-      { concept: "image", label: "Image", icon: Image, category: "content" },
-      { concept: "link", label: "Link", icon: Link2, category: "content" },
-      {
-        concept: "clipboard",
-        label: "Clipboard",
-        icon: Clipboard,
-        category: "content",
-      },
-    
-      // ── User ────────────────────────────────────
-      { concept: "user", label: "User", icon: User, category: "user" },
-      { concept: "users", label: "Users", icon: Users, category: "user" },
-      { concept: "user-add", label: "Add User", icon: UserPlus, category: "user" },
-      { concept: "settings", label: "Settings", icon: Settings, category: "user" },
-      { concept: "logout", label: "Log Out", icon: LogOut, category: "user" },
-    
-      // ── Data ────────────────────────────────────
-      { concept: "filter", label: "Filter", icon: Filter, category: "data" },
-      { concept: "sort", label: "Sort", icon: ArrowUpDown, category: "data" },
-      { concept: "chart", label: "Chart", icon: BarChart3, category: "data" },
-      {
-        concept: "trending-up",
-        label: "Trending Up",
-        icon: TrendingUp,
-        category: "data",
-      },
-      {
-        concept: "trending-down",
-        label: "Trending Down",
-        icon: TrendingDown,
-        category: "data",
-      },
-      {
-        concept: "checklist",
-        label: "Checklist",
-        icon: ListChecks,
-        category: "data",
-      },
-    
-      // ── Media ───────────────────────────────────
-      { concept: "play", label: "Play", icon: Play, category: "media" },
-      { concept: "pause", label: "Pause", icon: Pause, category: "media" },
-      { concept: "camera", label: "Camera", icon: Camera, category: "media" },
-      { concept: "video", label: "Video", icon: Video, category: "media" },
-    
-      // ── Commerce ────────────────────────────────
-      { concept: "cart", label: "Cart", icon: ShoppingCart, category: "commerce" },
-      {
-        concept: "credit-card",
-        label: "Credit Card",
-        icon: CreditCard,
-        category: "commerce",
-      },
-      {
-        concept: "dollar",
-        label: "Dollar",
-        icon: DollarSign,
-        category: "commerce",
-      },
-      { concept: "package", label: "Package", icon: Package, category: "commerce" },
-      { concept: "tag", label: "Tag", icon: Tag, category: "commerce" },
-    ]
-    export function getIcon(concept: string): LucideIcon | undefined { /* implementation omitted */ }
-    export function getIconsByCategory(category: IconCategory): readonly IconEntry[] { /* implementation omitted */ }
+    <item priority="high">
+      export const iconCategories: readonly ["navigation", "actions", "communication", "stat...;
+    </item>
+    <item priority="low">
+      type IconCategory = (typeof iconCategories)[number];
+    </item>
   </file>
-  <file path="src/test/vitest-jest-dom.d.ts">
-  </file>
-  <file path="src/test/vitest-axe.d.ts">
-  </file>
-  <file path="src/test/setup.ts">
-  </file>
-  <file path="src/providers/vibes.ts">
-    export type VibeName = "default" | "transacting" | "presenting";
-    export type VibeOverrides = Record<string, string>;
-    vibes: Record<VibeName, VibeOverrides> = {
-      default: {},
-    
-      transacting: {
-        "--rialto-space-sm": "10px",
-        "--rialto-space-md": "14px",
-        "--rialto-radius-default": "4px",
-        "--rialto-radius-soft": "8px",
-        "--rialto-weight-medium": "600",
-      },
-    
-      presenting: {
-        "--rialto-space-md": "20px",
-        "--rialto-space-lg": "32px",
-        "--rialto-text-sm": "0.9375rem",
-        "--rialto-radius-soft": "14px",
-        "--rialto-radius-default": "8px",
-      },
-    }
-  </file>
-  <file path="src/providers/useUIEnvironment.ts">
-    export interface UIEnvironment {
-      device: DeviceContext;
-      vibe: VibeName;
-      theme: "light" | "dark";
-    }
-    export const UIEnvironmentContext: React.Context<import("/Users/mbutler/github/mattbutlerengineering/packages/rialto/src/providers/useUIEnvironment").UIEnvironment>;
-    export function useUIEnvironment(): UIEnvironment { /* implementation omitted */ }
-  </file>
-  <file path="src/providers/useDeviceContext.ts">
-    export interface DeviceContext {
-      pointer: "fine" | "coarse";
-      viewport: "mobile" | "tablet" | "desktop";
-      reducedMotion: boolean;
-      colorScheme: "light" | "dark";
-      saveData: boolean;
-    }
-    interface MediaEntry {
-      query: string;
-      key: keyof DeviceContext;
-      matchValue: DeviceContext[keyof DeviceContext];
-      noMatchValue: DeviceContext[keyof DeviceContext];
-    }
-    type MqlTuple = [
-      MediaQueryList,
-      MediaQueryList,
-      MediaQueryList,
-      MediaQueryList,
-      MediaQueryList,
-      MediaQueryList,
-    ];
-    function getSnapshot(): DeviceContext { /* implementation omitted */ }
-    function getServerSnapshot(): DeviceContext { /* implementation omitted */ }
-    function computeSnapshot(): DeviceContext { /* implementation omitted */ }
-    function handleChange() { /* implementation omitted */ }
-    function ensureListeners() { /* implementation omitted */ }
-    function subscribe(callback: () => void): () => void { /* implementation omitted */ }
-    export function useDeviceContext(): DeviceContext { /* implementation omitted */ }
-  </file>
-  <file path="src/providers/index.ts">
-  </file>
+  </section>
+  <section priority="medium" role="hooks">
   <file path="src/hooks/useTilt.ts">
-    export function useTilt(
-      enabled: boolean,
-      maxTilt = 2
-    ): {
-      ref: (el: HTMLDivElement | null) => void;
-      style: MotionStyle;
-      onMouseMove: (e: React.MouseEvent) => void;
-      onMouseLeave: () => void;
-    } { /* implementation omitted */ }
+    <item priority="high">
+      export function useTilt(
+        enabled: boolean,
+        maxTilt = 2
+      ): {
+        ref: (el: HTMLDivElement | null) => void;
+        style: MotionStyle;
+        onMouseMove: (e: React.MouseEvent) => void;
+        onMouseLeave: () => void;
+      } { /* ... */ }
+    </item>
   </file>
   <file path="src/hooks/useScrollReveal.ts">
-    interface UseScrollRevealOptions {
-      /** IntersectionObserver rootMargin. Default "-80px". */
-      margin?: string;
-      /** Trigger only once. Default true. */
-      once?: boolean;
-      /** Timeout in ms before content is forced visible. Default 3000. */
-      fallbackTimeout?: number;
-    }
-    export function useScrollReveal({
-      margin = "-80px",
-      once = true,
-      fallbackTimeout = FALLBACK_TIMEOUT_MS,
-    }: UseScrollRevealOptions = {}) { /* implementation omitted */ }
+    <item priority="high">
+      interface UseScrollRevealOptions {
+        margin?: string;
+        once?: boolean;
+        fallbackTimeout?: number;
+      }
+    </item>
+    <item priority="high">
+      export function useScrollReveal({
+        margin = "-80px",
+        once = true,
+        fallbackTimeout = FALLBACK_TIMEOUT_MS,
+      }: UseScrollRevealOptions = {}) { /* ... */ }
+    </item>
   </file>
   <file path="src/hooks/useDirection.ts">
-    type Direction = "ltr" | "rtl";
-    export function useDirection(ref: RefObject<HTMLElement | null>): Direction { /* implementation omitted */ }
+    <item priority="high">
+      type Direction = "ltr" | "rtl";
+    </item>
+    <item priority="high">
+      export function useDirection(ref: RefObject<HTMLElement | null>): Direction { /* ... */ }
+    </item>
   </file>
-  <file path="src/components/index.ts">
+  </section>
+  <section priority="medium" role="providers">
+  <file path="src/providers/vibes.ts">
+    <item priority="low">
+      type VibeName = "default" | "transacting" | "presenting";
+    </item>
+    <item priority="low">
+      type VibeOverrides = Record<string, string>;
+    </item>
   </file>
-  <file path="src/components/Tree/index.ts">
+  <file path="src/providers/useUIEnvironment.ts">
+    <item priority="low">
+      interface UIEnvironment {
+        device: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        vibe: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        theme: "light" | "dark";
+      }
+    </item>
+    <item priority="high">
+      export const UIEnvironmentContext: React.Context<import("/Users/mbutler/github/mattbutlereng...;
+    </item>
   </file>
-  <file path="src/components/Toast/index.ts">
+  <file path="src/providers/useDeviceContext.ts">
+    <item priority="low">
+      interface DeviceContext {
+        pointer: "fine" | "coarse";
+        viewport: "mobile" | "tablet" | "desktop";
+        reducedMotion: boolean;
+        colorScheme: "light" | "dark";
+        saveData: boolean;
+      }
+    </item>
+    <item priority="high">
+      interface MediaEntry {
+        query: string;
+        key: keyof import("/Users/mbutler/github/mattbutlerengineering...;
+        matchValue: boolean | "light" | "dark" | "fine" | "coarse" | "mobile"...;
+        noMatchValue: boolean | "light" | "dark" | "fine" | "coarse" | "mobile"...;
+      }
+    </item>
   </file>
+  </section>
+  <section priority="medium" role="Toast">
   <file path="src/components/Toast/ToastContext.ts">
-    export type ToastVariant = "default" | "success" | "error" | "accent";
-    export interface ToastData {
-      id: string;
-      title: string;
-      description?: string;
-      variant?: ToastVariant;
-      /** Auto-dismiss in ms. 0 = manual dismiss only. */
-      duration?: number;
-    }
-    export type ToastInput = Omit<ToastData, "id">;
-    export interface ToastContextValue {
-      toast: (data: ToastInput) => void;
-      dismiss: (id: string) => void;
-    }
-    export const ToastContext: React.Context<import("/Users/mbutler/github/mattbutlerengineering/packages/rialto/src/components/Toast/ToastContext").ToastContextValue>;
-    export function useToast(): ToastContextValue { /* implementation omitted */ }
+    <item priority="low">
+      type ToastVariant = "default" | "success" | "error" | "accent";
+    </item>
+    <item priority="low">
+      interface ToastData {
+        id: string;
+        title: string;
+        description?: string;
+        variant?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        duration?: number;
+      }
+    </item>
   </file>
-  <file path="src/components/Timeline/index.ts">
-  </file>
-  <file path="src/components/ThemeToggle/index.ts">
-  </file>
-  <file path="src/components/Tooltip/index.ts">
-  </file>
-  <file path="src/components/Toggle/index.ts">
-  </file>
-  <file path="src/components/TextArea/index.ts">
-  </file>
-  <file path="src/components/Tabs/index.ts">
-  </file>
-  <file path="src/components/Table/index.ts">
-  </file>
-  <file path="src/components/Text/index.ts">
-  </file>
-  <file path="src/components/Tag/index.ts">
-  </file>
-  <file path="src/components/Steps/index.ts">
-  </file>
-  <file path="src/components/Slider/index.ts">
-  </file>
-  <file path="src/components/Skeleton/index.ts">
-  </file>
-  <file path="src/components/Stat/index.ts">
-  </file>
-  <file path="src/components/Stack/index.ts">
-  </file>
-  <file path="src/components/Sidebar/index.ts">
-  </file>
-  <file path="src/components/ScrollArea/index.ts">
-  </file>
-  <file path="src/components/Progress/index.ts">
-  </file>
-  <file path="src/components/SegmentedControl/index.ts">
-  </file>
-  <file path="src/components/Popover/index.ts">
-  </file>
-  <file path="src/components/Pagination/index.ts">
-  </file>
-  <file path="src/components/PageHeader/index.ts">
-  </file>
-  <file path="src/components/PinInput/index.ts">
-  </file>
-  <file path="src/components/NumberInput/index.ts">
-  </file>
-  <file path="src/components/Navbar/index.ts">
-  </file>
-  <file path="src/components/Meter/index.ts">
-  </file>
-  <file path="src/components/NavigationMenu/index.ts">
-  </file>
-  <file path="src/components/Kbd/index.ts">
-  </file>
-  <file path="src/components/Input/index.ts">
-  </file>
-  <file path="src/components/Select/index.ts">
-  </file>
-  <file path="src/components/HoverCard/index.ts">
-  </file>
-  <file path="src/components/InputGroup/index.ts">
-  </file>
-  <file path="src/components/GlobalNav/index.ts">
-  </file>
+  </section>
+  <section priority="medium" role="GenCopilot">
   <file path="src/components/GenCopilot/useGenCopilotStream.ts">
-    type FlatElement = Parameters<typeof flatToTree>[0][number];
-    export interface UseGenCopilotStreamOptions {
-      api: string;
-      domainContext: DomainContext;
-      getAccessToken: () => string | null | Promise<string | null>;
-      onComplete?: (spec: Spec) => void;
-      onError?: (error: Error) => void;
-    }
-    export interface UseGenCopilotStreamReturn {
-      spec: Spec | null;
-      isStreaming: boolean;
-      error: Error | null;
-      send: (prompt: string) => Promise<void>;
-      stop: () => void;
-    }
-    function buildPromptWithContext(userPrompt: string, domainContext: DomainContext): string { /* implementation omitted */ }
-    export function useGenCopilotStream({
-      api,
-      domainContext,
-      getAccessToken,
-      onComplete,
-      onError,
-    }: UseGenCopilotStreamOptions): UseGenCopilotStreamReturn { /* implementation omitted */ }
+    <item priority="high">
+      type FlatElement = Parameters<typeof flatToTree>[0][number];
+    </item>
+    <item priority="low">
+      interface UseGenCopilotStreamOptions {
+        api: string;
+        domainContext: DomainContext;
+        getAccessToken: () => string | Promise<string>;
+        onComplete?: (spec: import("/Users/mbutler/github/mattbutlerengineerin...;
+        onError?: (error: Error) => void;
+      }
+    </item>
   </file>
-  <file path="src/components/GenCopilot/index.ts">
-  </file>
-  <file path="src/components/ErrorBoundary/index.ts">
-  </file>
-  <file path="src/components/EmptyState/index.ts">
-  </file>
-  <file path="src/components/DropdownMenu/index.ts">
-  </file>
-  <file path="src/components/Footer/index.ts">
-  </file>
-  <file path="src/components/Drawer/index.ts">
-  </file>
-  <file path="src/components/Divider/index.ts">
-  </file>
-  <file path="src/components/Dialog/index.ts">
-  </file>
-  <file path="src/components/DataList/index.ts">
-  </file>
-  <file path="src/components/Hero/index.ts">
-  </file>
-  <file path="src/components/ContextMenu/index.ts">
-  </file>
-  <file path="src/components/ConfirmDialog/index.ts">
-  </file>
-  <file path="src/components/DisabledTooltip/index.ts">
-  </file>
-  <file path="src/components/Collapsible/index.ts">
-  </file>
-  <file path="src/components/CommandPalette/index.ts">
-  </file>
-  <file path="src/components/Checkbox/index.ts">
-  </file>
-  <file path="src/components/Button/index.ts">
-  </file>
-  <file path="src/components/Card/index.ts">
-  </file>
-  <file path="src/components/Breadcrumb/index.ts">
-  </file>
-  <file path="src/components/Badge/index.ts">
-  </file>
-  <file path="src/components/Banner/index.ts">
-  </file>
-  <file path="src/components/Autocomplete/index.ts">
-  </file>
-  <file path="src/components/AspectRatio/index.ts">
-  </file>
-  <file path="src/components/AppBar/index.ts">
-  </file>
-  <file path="src/components/Accordion/index.ts">
-  </file>
-  <file path="src/components/Alert/index.ts">
-  </file>
-  <file path="src/components/Avatar/index.ts">
-  </file>
+  </section>
 </codebase>

@@ -1,0 +1,70 @@
+/* ── Panel ──────────────────────────────────── */
+
+.panel {
+  --fd-dot-size: 8px;
+  --fd-dot-gap: 3px;
+
+  display: inline-grid;
+  background: #0a0a09;
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-soft);
+  padding: var(--rialto-space-md);
+  box-shadow:
+    var(--rialto-shadow-pressed),
+    inset 0 0 12px rgb(0 0 0 / 0.4);
+  gap: var(--fd-dot-gap);
+}
+
+/* ── Dot wrapper (perspective container) ───── */
+
+.dot {
+  width: var(--fd-dot-size);
+  height: var(--fd-dot-size);
+  perspective: 200px;
+}
+
+/* ── Dot inner (preserves 3D for child faces) ─ */
+
+.dotInner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+}
+
+/* ── Shared face styles ────────────────────── */
+
+.dotFace {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--rialto-radius-round);
+  backface-visibility: hidden;
+}
+
+/* ── Off face (dark disc) ──────────────────── */
+
+.dotOff {
+  composes: dotFace;
+  background: #1a1917;
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.5);
+}
+
+/* ── On face (amber disc, pre-rotated 180deg) ─ */
+
+.dotOn {
+  composes: dotFace;
+  background: var(--rialto-accent);
+  box-shadow:
+    0 0 6px var(--rialto-accent-glow),
+    0 0 2px var(--rialto-accent-glow),
+    inset 0 -1px 1px rgb(0 0 0 / 0.15);
+  transform: rotateX(180deg);
+}
+
+/* ── Reduced motion: instant swap via opacity ─ */
+
+@media (prefers-reduced-motion: reduce) {
+  .dotInner {
+    transform-style: flat;
+  }
+}

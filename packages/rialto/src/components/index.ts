@@ -43,6 +43,9 @@ export * from "./GlobalNav";
 export * from "./Hero";
 export * from "./PageHeader";
 
+// ── Specialty ───────────────────────────────────
+export * from "./FlipDot";
+
 // ── New components ──────────────────────────────
 export * from "./AspectRatio";
 export * from "./DisabledTooltip";
