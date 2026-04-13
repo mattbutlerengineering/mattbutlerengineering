@@ -93,7 +93,7 @@
 /* Current: gold ring with glow */
 .current .node {
   border-color: var(--rialto-accent);
-  color: var(--rialto-accent);
+  color: var(--rialto-text-primary);
   box-shadow:
     0 0 0 3px var(--rialto-surface),
     0 0 0 5px rgb(196 146 42 / 0.3),
@@ -140,7 +140,7 @@
 }
 
 .current .stepLabel {
-  color: var(--rialto-accent);
+  color: var(--rialto-text-primary);
 }
 
 .stepDescription {
