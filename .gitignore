@@ -61,6 +61,7 @@ e2e/test-results/
 
 # Lighthouse CI
 .lighthouseci/
+.lighthouseci-*/
 
 # Audit state (per-environment, not committed)
 .audit-state/
