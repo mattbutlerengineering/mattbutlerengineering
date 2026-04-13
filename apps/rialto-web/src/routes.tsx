@@ -2,6 +2,8 @@ import { lazy, Suspense } from "react";
 import { Navigate } from "react-router-dom";
 import type { RouteObject } from "react-router-dom";
 import { Spinner } from "@mbe/rialto";
+import { ShowcaseLayout } from "./layouts/ShowcaseLayout";
+import { OverviewPage } from "./pages/OverviewPage";
 
 /* ── Lazy-loaded demo pages ──────────────────── */
 const SignIn = lazy(() => import("./pages/auth/SignIn").then((m) => ({ default: m.SignIn })));
@@ -36,13 +38,6 @@ const LayoutDemo = lazy(() =>
 const DemoLayout = lazy(() =>
   import("./layouts/DemoLayout").then((m) => ({ default: m.DemoLayout }))
 );
-const ShowcaseLayout = lazy(() =>
-  import("./layouts/ShowcaseLayout").then((m) => ({ default: m.ShowcaseLayout }))
-);
-const OverviewPage = lazy(() =>
-  import("./pages/OverviewPage").then((m) => ({ default: m.OverviewPage }))
-);
-
 /* ── Forms ───────────────────────────────────── */
 const ButtonPage = lazy(() =>
   import("./pages/forms/ButtonPage").then((m) => ({ default: m.ButtonPage }))
@@ -362,11 +357,11 @@ const componentRoutes: RouteObject[] = [
  * in React Router v7 when multiple pathless layouts compete at the same level.
  */
 export const routeTree: RouteObject[] = [
-  // Showcase shell (sidebar + header)
+  // Showcase shell (sidebar + header) — eagerly imported to avoid double lazy-load waterfall on /rialto
   {
-    element: suspended(ShowcaseLayout),
+    element: <ShowcaseLayout />,
     children: [
-      { index: true, element: suspended(OverviewPage) },
+      { index: true, element: <OverviewPage /> },
       ...componentRoutes,
     ],
   },
