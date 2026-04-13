@@ -20,7 +20,7 @@
     "conf": "^15.1.0",
     "glob": "^13.0.6",
     "js-yaml": "^4.1.1",
-    "ts-morph": "^27.0.2"
+    "ts-morph": "^28.0.0"
   },
   "devDependencies": {
     "@mbe/config": "workspace:*",

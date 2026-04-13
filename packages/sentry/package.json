@@ -39,8 +39,8 @@
   },
   "dependencies": {
     "@mbe/types": "workspace:^",
-    "@sentry/node": "^10.47.0",
-    "@sentry/react": "^10.47.0",
+    "@sentry/node": "^10.48.0",
+    "@sentry/react": "^10.48.0",
     "fastify-plugin": "^5.0.0"
   },
   "devDependencies": {
