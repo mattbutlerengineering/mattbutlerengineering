@@ -23,7 +23,7 @@ import {
   Timeline,
   Toggle,
   Tooltip,
-} from "@mbe/rialto";
+} from "@mattbutlerengineering/rialto";
 import styles from "./Dashboard.module.css";
 
 /* ── Mock data ──────────────────────────────── */

@@ -1,4 +1,4 @@
-import { Banner, Button, DataList, Stack } from "@mbe/rialto";
+import { Banner, Button, DataList, Stack } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";

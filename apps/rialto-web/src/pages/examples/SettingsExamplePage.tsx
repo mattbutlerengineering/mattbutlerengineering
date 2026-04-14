@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Input, Select, Toggle, Button, Card, Stack, Text, Divider } from "@mbe/rialto";
+import { Input, Select, Toggle, Button, Card, Stack, Text, Divider } from "@mattbutlerengineering/rialto";
 import { ExamplePageLayout, CompositionNote } from "./ExamplePageLayout";
 import styles from "./SettingsExamplePage.module.css";
 

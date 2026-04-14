@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback, useState, useMemo, type ReactNode } from "react";
-import { Button } from "@mbe/rialto";
+import { Button } from "@mattbutlerengineering/rialto";
 import styles from "./JsonInspector.module.css";
 
 export interface JsonInspectorProps {

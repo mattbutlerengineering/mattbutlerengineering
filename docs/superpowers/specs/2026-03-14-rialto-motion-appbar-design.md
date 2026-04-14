@@ -27,7 +27,7 @@ const { ref, controls } = useScrollReveal({ margin?: string, once?: boolean });
 
 **Usage:**
 ```tsx
-import { useScrollReveal, staggerReveal } from "@mbe/rialto";
+import { useScrollReveal, staggerReveal } from "@mattbutlerengineering/rialto";
 
 const { ref, controls } = useScrollReveal();
 

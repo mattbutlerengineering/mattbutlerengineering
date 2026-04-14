@@ -22,7 +22,7 @@ vi.mock("./KeyboardShortcuts.module.css", () => ({
   },
 }));
 
-vi.mock("@mbe/rialto", () => ({
+vi.mock("@mattbutlerengineering/rialto", () => ({
   Kbd: ({ children }: { children: React.ReactNode }) => (
     <kbd data-testid="kbd">{children}</kbd>
   ),

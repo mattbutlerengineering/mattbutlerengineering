@@ -11,7 +11,7 @@ import {
   Stack,
   Text,
   Toggle,
-} from "@mbe/rialto";
+} from "@mattbutlerengineering/rialto";
 import { ApiClient, UsersClient } from "@mbe/api-client";
 import type { User, UserPreferences } from "@mbe/types";
 import { useTheme } from "../hooks/use-theme";

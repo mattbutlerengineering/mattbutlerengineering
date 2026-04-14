@@ -1,10 +1,10 @@
 /* eslint-disable react-refresh/only-export-components -- entry point, not a fast-refresh module */
-import "@mbe/rialto/styles";
+import "@mattbutlerengineering/rialto/styles";
 import "./global.css";
 import { StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
-import { RialtoProvider, ErrorBoundary, ToastProvider } from "@mbe/rialto";
+import { RialtoProvider, ErrorBoundary, ToastProvider } from "@mattbutlerengineering/rialto";
 import { initSentry, handleErrorBoundary } from "@mbe/sentry/react";
 import { App } from "./App";
 

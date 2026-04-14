@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Text, Button, Stack, Divider } from "@mbe/rialto";
+import { Text, Button, Stack, Divider } from "@mattbutlerengineering/rialto";
 import styles from "./ExamplePageLayout.module.css";
 
 /* ── ExamplePageLayout ───────────────────────── */

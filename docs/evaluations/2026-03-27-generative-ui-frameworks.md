@@ -5,7 +5,7 @@
 | Dimension | Value |
 |-----------|-------|
 | **Frontend** | React 19, Vite 7, TypeScript |
-| **Design System** | Rialto (59 components, barrel export from `@mbe/rialto`) |
+| **Design System** | Rialto (59 components, barrel export from `@mattbutlerengineering/rialto`) |
 | **Component Metadata** | `registry.json` (props, descriptions, examples), `llms.txt` / `llms-full.txt` |
 | **Backend** | Fastify (users, agent, reservations services) |
 | **AI Integration** | `@anthropic-ai/claude-agent-sdk` in `@mbe/agent-core` (code-level agents only) |

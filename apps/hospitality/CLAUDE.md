@@ -41,7 +41,7 @@ Build-time env vars (set in CI and `.env`):
 ## Patterns
 
 - All API calls go through `@mbe/api-client` (typed fetch + auth token injection)
-- Uses Rialto components exclusively — `import { ... } from "@mbe/rialto"`
+- Uses Rialto components exclusively — `import { ... } from "@mattbutlerengineering/rialto"`
 - CSS Modules for page-specific styles (`.module.css` files)
 - `useReservationEvents` hook for real-time reservation updates
 - Vite base path: `base: "/hospitality/"` in `vite.config.ts`

@@ -1,4 +1,4 @@
-import { Card, ContextMenu, DataList, Stack, Text, useToast } from "@mbe/rialto";
+import { Card, ContextMenu, DataList, Stack, Text, useToast } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 

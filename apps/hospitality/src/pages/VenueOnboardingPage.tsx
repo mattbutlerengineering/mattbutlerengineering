@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
-import { Button, Card, Text, Stack, useToast } from "@mbe/rialto";
+import { Button, Card, Text, Stack, useToast } from "@mattbutlerengineering/rialto";
 import { ApiClient, VenuesClient } from "@mbe/api-client";
 import type { OperatingHours, CreateVenueRequest, VenueSettings } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";

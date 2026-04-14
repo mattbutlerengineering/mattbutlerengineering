@@ -200,7 +200,7 @@ Sub-components live in `src/components/<domain>/` and receive data via props (no
 **From `ReservationList.tsx`:**
 
 ```tsx
-import { Card, Text, Badge, Skeleton } from "@mbe/rialto";
+import { Card, Text, Badge, Skeleton } from "@mattbutlerengineering/rialto";
 import type { Reservation } from "@mbe/types";
 import styles from "../../pages/HomePage.module.css";
 
@@ -734,7 +734,7 @@ import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
 
 // UI components (always from Rialto)
-import { Button, Card, Alert, Text, Stack, Skeleton, SkeletonGroup } from "@mbe/rialto";
+import { Button, Card, Alert, Text, Stack, Skeleton, SkeletonGroup } from "@mattbutlerengineering/rialto";
 
 // Types (use `import type`)
 import type { Reservation, Venue, Guest } from "@mbe/types";

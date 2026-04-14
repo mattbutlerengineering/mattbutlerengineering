@@ -1,6 +1,6 @@
 # Toggle
 
-**Import:** `import { Toggle } from "@mbe/rialto"`
+**Import:** `import { Toggle } from "@mattbutlerengineering/rialto"`
 **Category:** Form
 
 ## Anatomy

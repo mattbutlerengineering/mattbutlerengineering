@@ -1,6 +1,6 @@
 # Tabs
 
-**Import:** `import { Tabs } from "@mbe/rialto"`
+**Import:** `import { Tabs } from "@mattbutlerengineering/rialto"`
 **Category:** Navigation
 
 ## Anatomy

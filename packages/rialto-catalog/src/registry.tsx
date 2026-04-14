@@ -45,7 +45,7 @@ import {
   Tabs,
   Text,
   Toggle,
-} from "@mbe/rialto";
+} from "@mattbutlerengineering/rialto";
 import { catalog } from "./catalog.js";
 
 // Toast is intentionally omitted from this registry.

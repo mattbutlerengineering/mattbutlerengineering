@@ -1,4 +1,4 @@
-import { Stack, Text, Input } from "@mbe/rialto";
+import { Stack, Text, Input } from "@mattbutlerengineering/rialto";
 import styles from "./venue-onboarding.module.css";
 
 export interface SettingsData {

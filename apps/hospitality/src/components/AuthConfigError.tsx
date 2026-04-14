@@ -1,4 +1,4 @@
-import { Stack, Text, Button } from "@mbe/rialto";
+import { Stack, Text, Button } from "@mattbutlerengineering/rialto";
 import styles from "../App.module.css";
 
 /**

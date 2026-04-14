@@ -1,5 +1,5 @@
 import { RouterProvider } from "react-router-dom";
-import { ErrorBoundary, RialtoProvider, ToastProvider } from "@mbe/rialto";
+import { ErrorBoundary, RialtoProvider, ToastProvider } from "@mattbutlerengineering/rialto";
 import { AuthProvider } from "@mbe/auth/react";
 import { useTheme } from "./contexts/ThemeContext";
 import { router } from "./router";

@@ -1,4 +1,4 @@
-import { Stack, Input } from "@mbe/rialto";
+import { Stack, Input } from "@mattbutlerengineering/rialto";
 import { generateSlug } from "./generate-slug.js";
 import styles from "./venue-onboarding.module.css";
 

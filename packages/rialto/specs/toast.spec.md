@@ -1,6 +1,6 @@
 # Toast
 
-**Import:** `import { ToastProvider, useToast } from "@mbe/rialto"`
+**Import:** `import { ToastProvider, useToast } from "@mattbutlerengineering/rialto"`
 **Category:** Feedback
 
 ## Anatomy

@@ -436,7 +436,7 @@ Requires a free Vercel account and access token. Provides dashboard visibility i
 **Expected impact for this monorepo:**
 - First run: no change (populates cache)
 - Subsequent runs (no source changes in a package): near-instant task completion
-- Partial changes (e.g., only `@mbe/rialto` changed): only rialto rebuilds; `@mbe/types`, `@mbe/auth`, `services/users` use cached output
+- Partial changes (e.g., only `@mattbutlerengineering/rialto` changed): only rialto rebuilds; `@mbe/types`, `@mbe/auth`, `services/users` use cached output
 - Mercari Engineering measured ~50% reduction in Turbo task duration and ~30% in total CI job time
 
 ### Docker Layer Caching — Options

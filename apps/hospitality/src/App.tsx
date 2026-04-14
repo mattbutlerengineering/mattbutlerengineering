@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { Outlet, Navigate } from "react-router-dom";
 import { Suspense } from "react";
 import { useAuth } from "@mbe/auth/react";
-import { Stack, Text, Button, GlobalNav, Footer } from "@mbe/rialto";
+import { Stack, Text, Button, GlobalNav, Footer } from "@mattbutlerengineering/rialto";
 import { useTheme, resolveTheme } from "./hooks/use-theme";
 import { LoadingPage } from "./pages/LoadingPage";
 import styles from "./App.module.css";

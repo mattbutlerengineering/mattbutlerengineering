@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
-import { Stat, Button, Skeleton } from "@mbe/rialto";
+import { Stat, Button, Skeleton } from "@mattbutlerengineering/rialto";
 import { PageHeader } from "../components/PageHeader";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import { ReservationList, ActivityFeed } from "../components/dashboard";

@@ -1,0 +1,60 @@
+<codebase path="apps/rialto-web">
+  <section priority="medium" role="data">
+  <file path="src/data/nav-sections.ts">
+    <item priority="low">
+      interface NavItem {
+        id: string;
+        label: string;
+        path: string;
+        comingSoon?: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface NavSection {
+        label: string;
+        items: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+      }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="drivers">
+  <file path="src/pages/drivers/DriverContext.ts">
+    <item priority="low">
+      interface Driver {
+        id: string;
+        name: string;
+        number: number;
+        team: string;
+        nationality: string;
+      }
+    </item>
+    <item priority="high">
+      interface DriverContextValue {
+        drivers: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+        getDriver: (id: string) => import("/Users/mbutler/github/mattbutlere...;
+        addDriver: (driver: Omit<import("/Users/mbutler/github/mattbutlereng...;
+        updateDriver: (id: string, updates: Partial<Omit<import("/Users/mbutler...;
+        deleteDriver: (id: string) => void;
+      }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="CookieConsent">
+  <file path="src/components/CookieConsent/useCookieConsent.ts">
+    <item priority="low">
+      interface CookiePreferences {
+        essential: true;
+        analytics: boolean;
+        functional: boolean;
+        marketing: boolean;
+      }
+    </item>
+    <item priority="high">
+      interface ConsentState {
+        consented: boolean;
+        preferences: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+      }
+    </item>
+  </file>
+  </section>
+</codebase>

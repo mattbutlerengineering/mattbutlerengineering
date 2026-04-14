@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { Button, Card, DataList, Input, InputGroup, Select, Stack, Text } from "@mbe/rialto";
+import { Button, Card, DataList, Input, InputGroup, Select, Stack, Text } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
-import styles from "../components/ComponentPageLayout.module.css";
 
 // ---------------------------------------------------------------------------
 // Playground
@@ -166,14 +165,14 @@ export function InputGroupPage() {
                 <Input placeholder="Min value..." />
                 <Input placeholder="Max value..." />
               </InputGroup>
-              <div className={styles.row} style={{ justifyContent: "flex-end" }}>
+              <Stack direction="row" gap="sm" align="center" justify="end" wrap>
                 <Button variant="ghost" size="sm">
                   Reset
                 </Button>
                 <Button variant="primary" size="sm">
                   Apply Filter
                 </Button>
-              </div>
+              </Stack>
             </Stack>
           </Stack>
         </Card>

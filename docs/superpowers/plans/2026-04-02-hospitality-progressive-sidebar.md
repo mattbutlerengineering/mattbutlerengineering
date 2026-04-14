@@ -6,7 +6,7 @@
 
 **Architecture:** A `useVenueReadiness` hook derives venue lifecycle status from existing data (venue object + floor plans API). A `buildNavSections(readiness)` function replaces the static `NAV_SECTIONS`, transforming the sidebar between a setup stepper and an operational nav. A `VenueSwitcher` component in the sidebar header replaces per-page venue selectors. Timeline becomes the default landing page.
 
-**Tech Stack:** React 18, React Router v7, TypeScript, Vitest, @mbe/rialto, @mbe/api-client, @mbe/types
+**Tech Stack:** React 18, React Router v7, TypeScript, Vitest, @mattbutlerengineering/rialto, @mbe/api-client, @mbe/types
 
 **Spec:** `docs/superpowers/specs/2026-04-02-hospitality-progressive-sidebar-design.md`
 
@@ -718,7 +718,7 @@ Expected: FAIL — module not found
 // apps/hospitality/src/components/VenueSwitcher.tsx
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { Venue } from "@mbe/types";
-import { Text } from "@mbe/rialto";
+import { Text } from "@mattbutlerengineering/rialto";
 import styles from "./VenueSwitcher.module.css";
 
 interface VenueSwitcherProps {
@@ -1171,7 +1171,7 @@ git commit -m "feat(hospitality): wire readiness-driven sidebar and redirects in
 ```typescript
 // apps/hospitality/src/pages/SetupPage.tsx
 import { useNavigate } from "react-router-dom";
-import { Button, Card, Text, Stack } from "@mbe/rialto";
+import { Button, Card, Text, Stack } from "@mattbutlerengineering/rialto";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useVenueReadiness } from "../hooks/useVenueReadiness.js";
 import type { SetupStep } from "../hooks/useVenueReadiness.js";
@@ -1369,7 +1369,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
-import { Button, Alert } from "@mbe/rialto";
+import { Button, Alert } from "@mattbutlerengineering/rialto";
 import type { OperatingHours } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";
 import { OperatingHoursStep } from "../components/venue-onboarding/OperatingHoursStep.js";

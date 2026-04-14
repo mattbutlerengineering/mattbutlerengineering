@@ -1,4 +1,4 @@
-import { Text, Stack } from "@mbe/rialto";
+import { Text, Stack } from "@mattbutlerengineering/rialto";
 import styles from "./PageHeader.module.css";
 
 interface PageHeaderProps {

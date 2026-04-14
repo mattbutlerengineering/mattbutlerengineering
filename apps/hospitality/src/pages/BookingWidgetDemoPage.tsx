@@ -13,7 +13,7 @@ import {
   SkeletonGroup,
   Stack,
   Text,
-} from "@mbe/rialto";
+} from "@mattbutlerengineering/rialto";
 import type { Venue } from "@mbe/types";
 import { PageHeader } from "../components/PageHeader";
 import { BookingWidget } from "../components/booking-widget";

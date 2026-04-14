@@ -1,4 +1,4 @@
-import { Card, Text } from "@mbe/rialto";
+import { Card, Text } from "@mattbutlerengineering/rialto";
 import type { ReservationEvent } from "../../hooks/useReservationEvents";
 import styles from "../../pages/HomePage.module.css";
 

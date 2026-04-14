@@ -5,7 +5,7 @@ Public marketing site for mattbutlerengineering.com. Serves as the catch-all rou
 ## Tech Stack
 
 - React 19 + Vite (port 3000)
-- Rialto design system (`@mbe/rialto`)
+- Rialto design system (`@mattbutlerengineering/rialto`)
 - Framer Motion (animations)
 - React Router
 

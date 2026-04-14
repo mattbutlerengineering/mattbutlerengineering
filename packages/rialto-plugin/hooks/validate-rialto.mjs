@@ -48,7 +48,7 @@ try {
 const isRialtoFile =
   content.includes("rialto") ||
   content.includes("--rialto-") ||
-  content.includes("@mbe/rialto");
+  content.includes("@mattbutlerengineering/rialto");
 
 if (!isRialtoFile) process.exit(0);
 

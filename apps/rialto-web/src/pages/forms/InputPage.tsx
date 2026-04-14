@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Card, Checkbox, DataList, Input, Select, Stack, Text } from "@mbe/rialto";
+import { Button, Card, Checkbox, DataList, Input, Select, Stack, Text } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";
@@ -74,29 +74,29 @@ export function InputPage() {
     >
       {/* ── Variants ──────────────────────────────────────────────── */}
       <Section title="Variants">
-        <div className={styles.row} style={{ flexWrap: "wrap", alignItems: "flex-end" }}>
+        <Stack direction="row" gap="sm" align="end" wrap>
           <Input label="Default" placeholder="e.g. Charles Leclerc" />
           <Input
             label="With hint"
             placeholder="F80-001"
             hint="Alphanumeric, 6+ characters"
           />
-        </div>
+        </Stack>
       </Section>
 
       {/* ── Types ─────────────────────────────────────────────────── */}
       <Section title="Input Types">
-        <div className={styles.row} style={{ flexWrap: "wrap", alignItems: "flex-end" }}>
+        <Stack direction="row" gap="sm" align="end" wrap>
           <Input label="Text" placeholder="Driver name" type="text" />
           <Input label="Email" placeholder="driver@team.com" type="email" />
           <Input label="Password" placeholder="••••••••" type="password" />
           <Input label="Number" placeholder="42" type="number" />
-        </div>
+        </Stack>
       </Section>
 
       {/* ── States ────────────────────────────────────────────────── */}
       <Section title="States">
-        <div className={styles.row} style={{ flexWrap: "wrap", alignItems: "flex-end" }}>
+        <Stack direction="row" gap="sm" align="end" wrap>
           <Input label="Default" placeholder="Enabled" />
           <Input label="Error" placeholder="Required" error hint="This field is required" />
           <Input label="Disabled" placeholder="Not editable" disabled />
@@ -107,7 +107,7 @@ export function InputPage() {
             disabled
             disabledReason="Upgrade to Pro to edit this field"
           />
-        </div>
+        </Stack>
       </Section>
 
       {/* ── Usage Example ─────────────────────────────────────────── */}
@@ -117,20 +117,20 @@ export function InputPage() {
             <Text variant="label" color="primary">
               Driver Profile
             </Text>
-            <div className={styles.row} style={{ flexWrap: "wrap", alignItems: "flex-end" }}>
+            <Stack direction="row" gap="sm" align="end" wrap>
               <Input label="First Name" placeholder="Charles" />
               <Input label="Last Name" placeholder="Leclerc" />
-            </div>
+            </Stack>
             <Input label="Team" placeholder="Scuderia Ferrari" />
             <Input label="Email" placeholder="charles@ferrari.com" type="email" />
-            <div className={styles.row} style={{ justifyContent: "flex-end" }}>
+            <Stack direction="row" gap="sm" align="center" justify="end" wrap>
               <Button variant="ghost" size="sm">
                 Cancel
               </Button>
               <Button variant="primary" size="sm">
                 Save Profile
               </Button>
-            </div>
+            </Stack>
           </Stack>
         </Card>
       </Section>

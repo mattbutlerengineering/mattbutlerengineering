@@ -1,6 +1,6 @@
 # Divider
 
-**Import:** `import { Divider } from "@mbe/rialto"`
+**Import:** `import { Divider } from "@mattbutlerengineering/rialto"`
 **Category:** Layout
 
 ## Anatomy

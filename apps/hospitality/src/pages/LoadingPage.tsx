@@ -1,4 +1,4 @@
-import { Stack, Text } from "@mbe/rialto";
+import { Stack, Text } from "@mattbutlerengineering/rialto";
 import styles from "./LoadingPage.module.css";
 
 export function LoadingPage() {

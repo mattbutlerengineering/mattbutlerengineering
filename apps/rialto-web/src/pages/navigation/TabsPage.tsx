@@ -1,4 +1,4 @@
-import { DataList, Stack, Tabs, Text } from "@mbe/rialto";
+import { DataList, Stack, Tabs, Text } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 

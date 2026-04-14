@@ -13,7 +13,7 @@ import {
   EmptyState,
   ThemeToggle,
   Divider,
-} from "@mbe/rialto";
+} from "@mattbutlerengineering/rialto";
 import { useTheme } from "../contexts/ThemeContext.js";
 import styles from "./SharedSpecPage.module.css";
 

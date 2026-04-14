@@ -1,6 +1,6 @@
 # Stack
 
-**Import:** `import { Stack } from "@mbe/rialto"`
+**Import:** `import { Stack } from "@mattbutlerengineering/rialto"`
 **Category:** Layout
 
 ## Anatomy

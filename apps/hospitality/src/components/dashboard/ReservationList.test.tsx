@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { ReservationList } from "./ReservationList.js";
 import type { Reservation } from "@mbe/types";
 
-vi.mock("@mbe/rialto", () => ({
+vi.mock("@mattbutlerengineering/rialto", () => ({
   Card: ({ title, children }: { title: string; children: React.ReactNode }) => (
     <div data-testid="card" data-title={title}>{children}</div>
   ),

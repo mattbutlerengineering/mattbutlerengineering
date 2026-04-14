@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
-import { Drawer } from "@mbe/rialto";
+import { Drawer } from "@mattbutlerengineering/rialto";
 import type { Reservation, Table, TableStatus, UpdateReservationRequest } from "@mbe/types";
 import { TimelineGrid } from "../components/timeline";
 import { CancelReservationDialog } from "../components/timeline/CancelReservationDialog";

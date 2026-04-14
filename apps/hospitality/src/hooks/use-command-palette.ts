@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import type { CommandItem } from "@mbe/rialto";
+import type { CommandItem } from "@mattbutlerengineering/rialto";
 import type { NavSection } from "../nav-sections.js";
 
 /* ── Types ──────────────────────────────────────── */

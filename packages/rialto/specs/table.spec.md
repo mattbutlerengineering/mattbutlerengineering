@@ -1,6 +1,6 @@
 # Table
 
-**Import:** `import { Table } from "@mbe/rialto"`
+**Import:** `import { Table } from "@mattbutlerengineering/rialto"`
 **Category:** Data Display
 
 ## Anatomy

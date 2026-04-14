@@ -1,4 +1,4 @@
-import { Stack, Text, Tag, useScrollReveal, staggerReveal } from "@mbe/rialto";
+import { Stack, Text, Tag, useScrollReveal, staggerReveal } from "@mattbutlerengineering/rialto";
 import { motion } from "framer-motion";
 import { TECH_STACK } from "../data/tech-stack";
 import styles from "../pages/HomePage.module.css";

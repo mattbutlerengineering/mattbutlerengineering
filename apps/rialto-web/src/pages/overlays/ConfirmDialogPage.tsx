@@ -1,4 +1,4 @@
-import { Button, ConfirmDialog, DataList, Stack, useToast } from "@mbe/rialto";
+import { Button, ConfirmDialog, DataList, Stack, useToast } from "@mattbutlerengineering/rialto";
 import { useState } from "react";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";

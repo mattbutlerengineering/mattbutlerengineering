@@ -13,7 +13,7 @@ const mockHold: ReservationHold = {
   expiresAt: new Date(Date.now() + 60000).toISOString(),
 };
 
-vi.mock("@mbe/rialto", () => ({
+vi.mock("@mattbutlerengineering/rialto", () => ({
   Input: ({ label, required, value, onChange, placeholder, type }: { label?: string; required?: boolean; value?: string; onChange?: (v: string) => void; placeholder?: string; type?: string }) => (
     <div data-testid="input-wrapper">
       <label>{label}{required && "*"}</label>

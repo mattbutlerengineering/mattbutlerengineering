@@ -1,4 +1,4 @@
-import { AnimatedTag, Button, DataList, Tag, TagGroup } from "@mbe/rialto";
+import { AnimatedTag, Button, DataList, Tag, TagGroup } from "@mattbutlerengineering/rialto";
 import { useState } from "react";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";

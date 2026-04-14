@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Card, Checkbox, DataList, Select, Slider, Stack } from "@mbe/rialto";
+import { Card, Checkbox, DataList, Select, Slider, Stack } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";

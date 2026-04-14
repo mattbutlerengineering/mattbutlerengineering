@@ -1,4 +1,4 @@
-import { DataList, NavigationMenu } from "@mbe/rialto";
+import { DataList, NavigationMenu } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 

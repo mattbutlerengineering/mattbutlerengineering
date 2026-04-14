@@ -1,6 +1,6 @@
 import { type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Breadcrumb } from "@mbe/rialto";
+import { Breadcrumb } from "@mattbutlerengineering/rialto";
 import styles from "./DriverLayout.module.css";
 
 interface BreadcrumbEntry {

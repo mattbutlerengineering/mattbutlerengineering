@@ -1,4 +1,4 @@
-import { Avatar, AvatarGroup, DataList, Select } from "@mbe/rialto";
+import { Avatar, AvatarGroup, DataList, Select } from "@mattbutlerengineering/rialto";
 import { useState } from "react";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";

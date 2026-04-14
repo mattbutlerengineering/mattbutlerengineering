@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Card, Badge, Spinner } from "@mbe/rialto";
+import { Card, Badge, Spinner } from "@mattbutlerengineering/rialto";
 import styles from "./StatusPage.module.css";
 
 interface ServiceStatus {

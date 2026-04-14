@@ -1,6 +1,6 @@
 # Skeleton / SkeletonGroup
 
-**Import:** `import { Skeleton, SkeletonGroup } from "@mbe/rialto"`
+**Import:** `import { Skeleton, SkeletonGroup } from "@mattbutlerengineering/rialto"`
 **Category:** Feedback
 
 ## Anatomy

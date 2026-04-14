@@ -5,7 +5,7 @@ Interactive showcase and documentation site for the [Rialto design system](../..
 ## Tech Stack
 
 - React 19 + Vite
-- Rialto design system (`@mbe/rialto`)
+- Rialto design system (`@mattbutlerengineering/rialto`)
 - Framer Motion (animations)
 - Lucide icons
 

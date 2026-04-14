@@ -1,4 +1,4 @@
-import { Alert, Button } from "@mbe/rialto";
+import { Alert, Button } from "@mattbutlerengineering/rialto";
 
 /* ── Types ───────────────────────────────────── */
 

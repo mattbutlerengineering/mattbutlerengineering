@@ -1,18 +1,18 @@
 # Rialto Design System — AI Quick Reference
 
-> Package: `@mbe/rialto`
+> Package: `@mattbutlerengineering/rialto`
 > Version: `0.1.0`
 > Peer deps: `react`, `react-dom`, `framer-motion`
-> Import: `import { Button, Input, Card, Text, Stack } from "@mbe/rialto"`
-> Styles: `import "@mbe/rialto/styles"` (must load before any rendering)
-> Motion tokens: `import { spring, precision } from "@mbe/rialto/motion"`
+> Import: `import { Button, Input, Card, Text, Stack } from "@mattbutlerengineering/rialto"`
+> Styles: `import "@mattbutlerengineering/rialto/styles"` (must load before any rendering)
+> Motion tokens: `import { spring, precision } from "@mattbutlerengineering/rialto/motion"`
 
 ---
 
 ## Provider Setup
 
 ```tsx
-import { RialtoProvider } from "@mbe/rialto";
+import { RialtoProvider } from "@mattbutlerengineering/rialto";
 
 // Wrap your app root (main.tsx):
 <RialtoProvider theme="light"> {/* "light" | "dark" | "system" */}

@@ -1,4 +1,4 @@
-import { Hero, Stack, Button } from "@mbe/rialto";
+import { Hero, Stack, Button } from "@mattbutlerengineering/rialto";
 
 export function HeroSection() {
   const scrollToProjects = () => {

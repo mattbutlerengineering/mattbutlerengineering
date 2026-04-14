@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Card, Checkbox, DataList, Select, Stack, Text } from "@mbe/rialto";
+import { Button, Card, Checkbox, DataList, Select, Stack, Text } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";
@@ -116,7 +116,7 @@ export function ButtonPage() {
             <Text variant="caption" color="secondary">
               Update your driving mode and system settings before the session begins.
             </Text>
-            <div className={styles.row} style={{ justifyContent: "flex-end" }}>
+            <Stack direction="row" gap="sm" align="center" justify="end" wrap>
               <Button variant="ghost" size="sm">
                 Cancel
               </Button>
@@ -126,7 +126,7 @@ export function ButtonPage() {
               <Button variant="primary" size="sm">
                 Apply Changes
               </Button>
-            </div>
+            </Stack>
           </Stack>
         </Card>
       </Section>

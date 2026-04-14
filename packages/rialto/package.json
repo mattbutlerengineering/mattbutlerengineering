@@ -1,5 +1,5 @@
 {
-  "name": "@mbe/rialto",
+  "name": "@mattbutlerengineering/rialto",
   "version": "0.1.0",
   "type": "module",
   "main": "./src/lib-entry.ts",
@@ -20,6 +20,7 @@
     "./manifest": "./dist/manifest.json"
   },
   "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
     "main": "./dist/lib/rialto.js",
     "module": "./dist/lib/rialto.js",
     "types": "./dist/lib/lib-entry.d.ts",
@@ -62,6 +63,8 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@json-render/react": "^0.16.0",
+    "@mbe/api-client": "workspace:*",
     "@mbe/config": "workspace:*",
     "@testing-library/jest-dom": "catalog:",
     "@testing-library/react": "catalog:",
@@ -99,9 +102,5 @@
       "path": "dist/lib/motion.js",
       "limit": "1 kB"
     }
-  ],
-  "dependencies": {
-    "@json-render/react": "^0.16.0",
-    "@mbe/api-client": "workspace:*"
-  }
+  ]
 }

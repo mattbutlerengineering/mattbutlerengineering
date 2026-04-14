@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Badge, Card, EmptyState, Skeleton, SkeletonGroup, Stack, Stat, Table, Text } from "@mbe/rialto";
+import { Badge, Card, EmptyState, Skeleton, SkeletonGroup, Stack, Stat, Table, Text } from "@mattbutlerengineering/rialto";
 import {
   CompositionNote,
   ExamplePageLayout,
@@ -8,7 +8,7 @@ import {
 import styles from "./DashboardExamplePage.module.css";
 
 // Keep in sync with component below
-const DASHBOARD_EXAMPLE_JSX = `import { Badge, Card, EmptyState, Skeleton, SkeletonGroup, Stack, Stat, Table, Text } from "@mbe/rialto";
+const DASHBOARD_EXAMPLE_JSX = `import { Badge, Card, EmptyState, Skeleton, SkeletonGroup, Stack, Stat, Table, Text } from "@mattbutlerengineering/rialto";
 
 // KPI data
 const KPI_DATA = [

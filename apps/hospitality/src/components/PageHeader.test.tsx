@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { PageHeader } from "./PageHeader.js";
 
-vi.mock("@mbe/rialto", () => ({
+vi.mock("@mattbutlerengineering/rialto", () => ({
   Text: ({ children, ...props }: { children: React.ReactNode; as?: string; variant?: string; color?: string }) => (
     <div data-testid="text" data-as={props.as} data-variant={props.variant} data-color={props.color}>
       {children}

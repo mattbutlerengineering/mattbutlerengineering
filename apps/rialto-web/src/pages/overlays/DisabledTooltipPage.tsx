@@ -8,7 +8,7 @@ import {
   Input,
   Stack,
   Text,
-} from "@mbe/rialto";
+} from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";
@@ -128,7 +128,7 @@ export function DisabledTooltipPage() {
               checked={formValid}
               onCheckedChange={setFormValid}
             />
-            <div className={styles.row} style={{ justifyContent: "flex-end" }}>
+            <Stack direction="row" gap="sm" align="center" justify="end" wrap>
               <Button variant="ghost" size="sm">
                 Cancel
               </Button>
@@ -140,7 +140,7 @@ export function DisabledTooltipPage() {
                   Save Configuration
                 </Button>
               </DisabledTooltip>
-            </div>
+            </Stack>
           </Stack>
         </Card>
       </Section>

@@ -1,4 +1,4 @@
-import { DataList, Kbd, Shortcut, Text } from "@mbe/rialto";
+import { DataList, Kbd, Shortcut, Text } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";

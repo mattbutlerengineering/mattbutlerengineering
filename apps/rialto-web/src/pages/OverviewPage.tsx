@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Card, Stat, Stack, Text } from "@mbe/rialto";
+import { Card, Stat, Stack, Text } from "@mattbutlerengineering/rialto";
 import { NAV_SECTIONS, COMPONENT_COUNT } from "../data/nav-sections";
 import styles from "./OverviewPage.module.css";
 
@@ -130,8 +130,8 @@ export function OverviewPage() {
             <div className={styles.codeBlock}>
               <pre className={styles.pre}>
                 <code>
-                  {`import { RialtoProvider } from '@mbe/rialto';
-import '@mbe/rialto/styles';
+                  {`import { RialtoProvider } from '@mattbutlerengineering/rialto';
+import '@mattbutlerengineering/rialto/styles';
 
 function App() {
   return (

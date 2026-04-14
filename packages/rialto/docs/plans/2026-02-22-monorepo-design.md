@@ -12,7 +12,7 @@ Convert the mattinay repo from a single-package Rialto design system into a pnpm
 - **Tooling:** pnpm workspaces (Turborepo layered on later)
 - **Scope:** `@mbe/*`
 - **Layout:** `apps/` for deployables, `packages/` for libraries
-- **Showcase:** Extracted to `apps/showcase/` as the first consumer of `@mbe/rialto`
+- **Showcase:** Extracted to `apps/showcase/` as the first consumer of `@mattbutlerengineering/rialto`
 - **Rialto:** Stays as a single package (tokens + components together, no split)
 
 ## Directory Structure
@@ -34,7 +34,7 @@ mattinay/
 │           ├── pages/           (from src/pages/)
 │           └── layouts/         (from src/layouts/)
 ├── packages/
-│   └── rialto/                  (@mbe/rialto)
+│   └── rialto/                  (@mattbutlerengineering/rialto)
 │       ├── package.json
 │       ├── vite.config.lib.ts
 │       ├── tsconfig.json
@@ -76,11 +76,11 @@ mattinay/
 
 ### packages/rialto/package.json
 
-Renamed from `rialto` to `@mbe/rialto`. Same exports structure. DevDeps for testing/building stay here.
+Renamed from `rialto` to `@mattbutlerengineering/rialto`. Same exports structure. DevDeps for testing/building stay here.
 
 ### apps/showcase/package.json
 
-Private package. Depends on `@mbe/rialto` via `"workspace:*"`. Owns its own vite config, tsconfig, and index.html.
+Private package. Depends on `@mattbutlerengineering/rialto` via `"workspace:*"`. Owns its own vite config, tsconfig, and index.html.
 
 ### pnpm-workspace.yaml
 
@@ -101,8 +101,8 @@ import { precision } from "../tokens/motion";
 import styles from "../styles/surfaces.module.css";
 
 // After
-import { Button } from "@mbe/rialto";
-import { precision } from "@mbe/rialto/motion";
+import { Button } from "@mattbutlerengineering/rialto";
+import { precision } from "@mattbutlerengineering/rialto/motion";
 ```
 
 CSS module `composes` from surfaces won't work cross-package. Showcase components that compose surfaces will need to use className props or local styles instead.
@@ -113,7 +113,7 @@ CSS module `composes` from surfaces won't work cross-package. Showcase component
 - Build order: rialto first, then showcase
 - Tests run per-package via `pnpm -r test`
 - Visual tests and Lighthouse target showcase build output
-- Changesets scoped to `@mbe/rialto`
+- Changesets scoped to `@mattbutlerengineering/rialto`
 
 ## What Stays at Root
 
@@ -121,14 +121,14 @@ CSS module `composes` from surfaces won't work cross-package. Showcase component
 
 ## Migration Strategy
 
-Non-breaking. No changes to Rialto's public API. The rename from `rialto` to `@mbe/rialto` is the only consumer-facing change (no external consumers exist yet).
+Non-breaking. No changes to Rialto's public API. The rename from `rialto` to `@mattbutlerengineering/rialto` is the only consumer-facing change (no external consumers exist yet).
 
 Order of operations:
 
 1. Install pnpm, create workspace config
 2. Create directory structure, move files
 3. Update package.json files (rename, deps, scripts)
-4. Update all showcase imports to `@mbe/rialto`
+4. Update all showcase imports to `@mattbutlerengineering/rialto`
 5. Update tsconfig files for new paths
 6. Update CI workflow for pnpm
 7. Verify: `pnpm install`, `pnpm -r build`, `pnpm -r test`

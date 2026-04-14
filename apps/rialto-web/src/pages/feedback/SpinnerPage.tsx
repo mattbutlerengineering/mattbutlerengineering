@@ -1,4 +1,4 @@
-import { DataList, Select, Spinner, Stack, Text } from "@mbe/rialto";
+import { DataList, Select, Spinner, Stack, Text } from "@mattbutlerengineering/rialto";
 import { useState } from "react";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
@@ -93,26 +93,26 @@ export function SpinnerPage() {
     >
       {/* ── Sizes ─────────────────────────────────────────────────── */}
       <Section title="Sizes">
-        <div className={styles.row} style={{ alignItems: "center", justifyContent: "flex-start" }}>
-          <div className={styles.stack} style={{ alignItems: "center" }}>
+        <Stack direction="row" gap="sm" align="center" justify="start" wrap>
+          <Stack gap="sm" align="center">
             <Spinner size="sm" />
             <Text variant="detail" color="tertiary">
               sm
             </Text>
-          </div>
-          <div className={styles.stack} style={{ alignItems: "center" }}>
+          </Stack>
+          <Stack gap="sm" align="center">
             <Spinner size="md" />
             <Text variant="detail" color="tertiary">
               md
             </Text>
-          </div>
-          <div className={styles.stack} style={{ alignItems: "center" }}>
+          </Stack>
+          <Stack gap="sm" align="center">
             <Spinner size="lg" />
             <Text variant="detail" color="tertiary">
               lg
             </Text>
-          </div>
-        </div>
+          </Stack>
+        </Stack>
       </Section>
 
       {/* ── With Label ────────────────────────────────────────────── */}

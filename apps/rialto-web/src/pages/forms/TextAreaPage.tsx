@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Card, Checkbox, DataList, Select, Stack, Text, TextArea } from "@mbe/rialto";
+import { Button, Card, Checkbox, DataList, Select, Stack, Text, TextArea } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";
@@ -67,7 +67,7 @@ export function TextAreaPage() {
     >
       {/* ── Variants ──────────────────────────────────────────────── */}
       <Section title="Variants">
-        <div className={styles.row} style={{ flexWrap: "wrap", alignItems: "flex-start" }}>
+        <Stack direction="row" gap="sm" align="start" wrap>
           <TextArea
             label="Default"
             placeholder="Describe track conditions, car behavior, setup changes..."
@@ -81,7 +81,7 @@ export function TextAreaPage() {
             onChange={(e) => setNotes(e.target.value)}
             maxLength={140}
           />
-        </div>
+        </Stack>
       </Section>
 
       {/* ── Features ──────────────────────────────────────────────── */}
@@ -103,7 +103,7 @@ export function TextAreaPage() {
 
       {/* ── States ────────────────────────────────────────────────── */}
       <Section title="States">
-        <div className={styles.row} style={{ flexWrap: "wrap", alignItems: "flex-start" }}>
+        <Stack direction="row" gap="sm" align="start" wrap>
           <TextArea label="Default" placeholder="Enabled" rows={3} />
           <TextArea
             label="Error"
@@ -113,7 +113,7 @@ export function TextAreaPage() {
             rows={3}
           />
           <TextArea label="Disabled" placeholder="Locked after submission" disabled rows={3} />
-        </div>
+        </Stack>
       </Section>
 
       {/* ── Usage Example ─────────────────────────────────────────── */}
@@ -135,14 +135,14 @@ export function TextAreaPage() {
               placeholder="Technical observations and data anomalies..."
               rows={3}
             />
-            <div className={styles.row} style={{ justifyContent: "flex-end" }}>
+            <Stack direction="row" gap="sm" align="center" justify="end" wrap>
               <Button variant="ghost" size="sm">
                 Discard
               </Button>
               <Button variant="primary" size="sm">
                 Submit Debrief
               </Button>
-            </div>
+            </Stack>
           </Stack>
         </Card>
       </Section>

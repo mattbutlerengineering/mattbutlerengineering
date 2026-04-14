@@ -1,4 +1,4 @@
-import { Table } from "@mbe/rialto";
+import { Table } from "@mattbutlerengineering/rialto";
 
 export interface PropDef {
   name: string;

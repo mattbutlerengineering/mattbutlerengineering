@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useAuth } from "@mbe/auth/react";
-import { ErrorBoundary, useToast } from "@mbe/rialto";
-import type { CommandItem } from "@mbe/rialto";
+import { ErrorBoundary, useToast } from "@mattbutlerengineering/rialto";
+import type { CommandItem } from "@mattbutlerengineering/rialto";
 import type { Spec } from "@json-render/react";
 import { useGenStream } from "../hooks/useGenStream.js";
 import { useSpecsApi } from "../hooks/useSpecsApi.js";

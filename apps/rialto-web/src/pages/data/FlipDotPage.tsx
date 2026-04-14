@@ -11,8 +11,8 @@ import {
   textToMatrix,
   createEmptyMatrix,
   useFlipDotAnimation,
-} from "@mbe/rialto";
-import type { StaggerDirection } from "@mbe/rialto";
+} from "@mattbutlerengineering/rialto";
+import type { StaggerDirection } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 

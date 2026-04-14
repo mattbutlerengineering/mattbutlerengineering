@@ -42,7 +42,7 @@ mattbutlerengineering/
 │   │   ├── vite.config.lib.ts
 │   │   ├── tsconfig.json      # extends @mbe/config
 │   │   ├── tsconfig.lib.json
-│   │   └── package.json       # @mbe/rialto
+│   │   └── package.json       # @mattbutlerengineering/rialto
 │   ├── auth/                  # (existing)
 │   ├── types/                 # (existing)
 │   ├── ui/                    # (existing, to be replaced by rialto later)
@@ -132,12 +132,12 @@ Clean copy — files only, no history preservation. Original rialto repo stays a
 
 ## Out of Scope (Follow-up Work)
 
-- Wiring dashboard/web to consume `@mbe/rialto`
-- Migrating components from `@mbe/ui` to `@mbe/rialto`
+- Wiring dashboard/web to consume `@mattbutlerengineering/rialto`
+- Migrating components from `@mbe/ui` to `@mattbutlerengineering/rialto`
 - Removing `@mbe/ui` package
 - Updating CI/CD pipelines for rialto builds
 - React 19 compatibility fixes in existing apps (if any)
 
-## Relationship: @mbe/rialto vs @mbe/ui
+## Relationship: @mattbutlerengineering/rialto vs @mbe/ui
 
-`@mbe/rialto` is the long-term replacement for `@mbe/ui`. Both coexist during migration. Apps will gradually adopt rialto components and eventually `@mbe/ui` will be removed.
+`@mattbutlerengineering/rialto` is the long-term replacement for `@mbe/ui`. Both coexist during migration. Apps will gradually adopt rialto components and eventually `@mbe/ui` will be removed.

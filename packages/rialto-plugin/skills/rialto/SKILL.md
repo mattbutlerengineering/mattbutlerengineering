@@ -1,6 +1,6 @@
 ---
 name: rialto
-description: Use when building UI with the Rialto design system, importing from "rialto" or "@mbe/rialto", choosing components, applying design tokens, composing layouts, or authoring new Rialto components. Triggers on mentions of "Rialto", "component library", "design system", "UI component", or imports from rialto.
+description: Use when building UI with the Rialto design system, importing from "rialto" or "@mattbutlerengineering/rialto", choosing components, applying design tokens, composing layouts, or authoring new Rialto components. Triggers on mentions of "Rialto", "component library", "design system", "UI component", or imports from rialto.
 ---
 
 # Rialto Design System

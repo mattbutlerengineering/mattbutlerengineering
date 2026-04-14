@@ -6,7 +6,7 @@ Dynamic UI rendering app using JSON-based component descriptions. Renders Rialto
 
 - React 19 + Vite
 - `@json-render/react` for JSON-to-component rendering
-- `@mbe/rialto` + `@mbe/rialto-catalog` for component definitions
+- `@mattbutlerengineering/rialto` + `@mbe/rialto-catalog` for component definitions
 - `@mbe/auth` for authentication
 
 ## Commands

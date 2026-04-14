@@ -61,7 +61,7 @@ function sanitizeProps(parsed: Record<string, unknown>): Record<string, unknown>
 /**
  * Auth-decoupled streaming hook adapted from useGenStream.
  * Accepts getAccessToken prop instead of calling useAuth() directly,
- * enabling use inside @mbe/rialto without depending on @mbe/auth.
+ * enabling use inside @mattbutlerengineering/rialto without depending on @mbe/auth.
  *
  * Prepends domain context schemas to the prompt before POSTing.
  * Returns only the subset of state needed for the copilot panel.

@@ -4,7 +4,7 @@
 
 **Goal:** Convert the mattinay repo from a single npm package into a pnpm workspaces monorepo with `packages/rialto/` (library) and `apps/showcase/` (demo app).
 
-**Architecture:** pnpm workspaces with `apps/` and `packages/` directories. Rialto stays as a single `@mbe/rialto` package. The showcase app extracts into `apps/showcase/` and imports from `@mbe/rialto` via workspace protocol, becoming the first real consumer of the library.
+**Architecture:** pnpm workspaces with `apps/` and `packages/` directories. Rialto stays as a single `@mattbutlerengineering/rialto` package. The showcase app extracts into `apps/showcase/` and imports from `@mattbutlerengineering/rialto` via workspace protocol, becoming the first real consumer of the library.
 
 **Tech Stack:** pnpm, pnpm-workspace.yaml, Vite, TypeScript, Changesets
 
@@ -140,7 +140,7 @@ Create `packages/rialto/package.json`:
 
 ```json
 {
-  "name": "@mbe/rialto",
+  "name": "@mattbutlerengineering/rialto",
   "version": "0.1.0",
   "type": "module",
   "main": "./dist/lib/rialto.js",
@@ -198,7 +198,7 @@ Create `packages/rialto/package.json`:
 
 ```bash
 git add packages/rialto/package.json
-git commit -m "chore: add @mbe/rialto package.json"
+git commit -m "chore: add @mattbutlerengineering/rialto package.json"
 ```
 
 ---
@@ -229,7 +229,7 @@ Create `apps/showcase/package.json`:
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@mbe/rialto": "workspace:*",
+    "@mattbutlerengineering/rialto": "workspace:*",
     "framer-motion": "^12.34.0",
     "lucide-react": "^0.564.0",
     "react": "^19.2.4",
@@ -411,7 +411,7 @@ git commit -m "chore: update rialto build configs for monorepo paths"
 
 ---
 
-### Task 7: Update showcase imports to use @mbe/rialto
+### Task 7: Update showcase imports to use @mattbutlerengineering/rialto
 
 This is the largest single task. Every file in `apps/showcase/src/` that imports from the library needs to switch from relative paths to package imports.
 
@@ -421,17 +421,17 @@ This is the largest single task. Every file in `apps/showcase/src/` that imports
 
 | Old pattern                               | New pattern                                             |
 | ----------------------------------------- | ------------------------------------------------------- |
-| `from '../components/X/X'`                | `from '@mbe/rialto'`                                    |
-| `from '../../components/X/X'`             | `from '@mbe/rialto'`                                    |
-| `from '../../components'`                 | `from '@mbe/rialto'`                                    |
-| `from '../components/Toast/ToastContext'` | `from '@mbe/rialto'` (export useToast from barrel)      |
-| `from '../tokens/motion'`                 | `from '@mbe/rialto/motion'`                             |
-| `from '../tokens/icons'`                  | `from '@mbe/rialto'` (export from barrel)               |
-| `from '../providers'`                     | `from '@mbe/rialto'` (already exported from barrel)     |
-| `from '../../providers'`                  | `from '@mbe/rialto'`                                    |
+| `from '../components/X/X'`                | `from '@mattbutlerengineering/rialto'`                                    |
+| `from '../../components/X/X'`             | `from '@mattbutlerengineering/rialto'`                                    |
+| `from '../../components'`                 | `from '@mattbutlerengineering/rialto'`                                    |
+| `from '../components/Toast/ToastContext'` | `from '@mattbutlerengineering/rialto'` (export useToast from barrel)      |
+| `from '../tokens/motion'`                 | `from '@mattbutlerengineering/rialto/motion'`                             |
+| `from '../tokens/icons'`                  | `from '@mattbutlerengineering/rialto'` (export from barrel)               |
+| `from '../providers'`                     | `from '@mattbutlerengineering/rialto'` (already exported from barrel)     |
+| `from '../../providers'`                  | `from '@mattbutlerengineering/rialto'`                                    |
 | `from '../styles/surfaces.module.css'`    | Remove composes, use local styles or className          |
-| `import './tokens/index.css'`             | `import '@mbe/rialto/styles'`                           |
-| `import './styles/reset.css'`             | `import '@mbe/rialto/styles'` (bundled into styles.css) |
+| `import './tokens/index.css'`             | `import '@mattbutlerengineering/rialto/styles'`                           |
+| `import './styles/reset.css'`             | `import '@mattbutlerengineering/rialto/styles'` (bundled into styles.css) |
 | `import './styles/global.css'`            | Keep — move global.css to showcase since it's app-level |
 
 **Step 1: Ensure barrel exports include everything the showcase needs**
@@ -463,34 +463,34 @@ import { ToastProvider } from "./components/Toast/Toast";
 import { Spinner } from "./components/Progress/Progress";
 
 // New
-import "@mbe/rialto/styles";
+import "@mattbutlerengineering/rialto/styles";
 import "./global.css"; // move global.css to apps/showcase/src/
-import { ToastProvider, Spinner } from "@mbe/rialto";
+import { ToastProvider, Spinner } from "@mattbutlerengineering/rialto";
 ```
 
 Move `src/styles/global.css` to `apps/showcase/src/global.css` (it's app-level: body font, selection colors, reduced-motion). The font `@import` URLs stay with it since they're loaded by the app.
 
-Wait — actually `global.css` contains the Google Fonts imports and body styles. These should stay with the showcase since different apps may want different font loading strategies. The token CSS (`colors.css`, `typography.css`, etc.) is already bundled into `@mbe/rialto/styles`.
+Wait — actually `global.css` contains the Google Fonts imports and body styles. These should stay with the showcase since different apps may want different font loading strategies. The token CSS (`colors.css`, `typography.css`, etc.) is already bundled into `@mattbutlerengineering/rialto/styles`.
 
 **Step 3: Update all showcase .tsx file imports**
 
 Use a search-and-replace approach. For each file in `apps/showcase/src/`:
 
-Replace all component imports from relative paths with `@mbe/rialto`:
+Replace all component imports from relative paths with `@mattbutlerengineering/rialto`:
 
-- `from '../components/ComponentName/ComponentName'` → `from '@mbe/rialto'`
-- `from '../../components/ComponentName/ComponentName'` → `from '@mbe/rialto'`
-- `from '../../components'` → `from '@mbe/rialto'`
-- `from '../components/Toast/ToastContext'` → `from '@mbe/rialto'`
-- `from '../../components/Toast/ToastContext'` → `from '@mbe/rialto'`
-- `from '../tokens/motion'` → `from '@mbe/rialto/motion'`
-- `from '../../tokens/motion'` → `from '@mbe/rialto/motion'`
-- `from '../tokens/icons'` → `from '@mbe/rialto'`
-- `from '../../tokens/icons'` → `from '@mbe/rialto'`
-- `from '../providers'` → `from '@mbe/rialto'`
-- `from '../../providers'` → `from '@mbe/rialto'`
+- `from '../components/ComponentName/ComponentName'` → `from '@mattbutlerengineering/rialto'`
+- `from '../../components/ComponentName/ComponentName'` → `from '@mattbutlerengineering/rialto'`
+- `from '../../components'` → `from '@mattbutlerengineering/rialto'`
+- `from '../components/Toast/ToastContext'` → `from '@mattbutlerengineering/rialto'`
+- `from '../../components/Toast/ToastContext'` → `from '@mattbutlerengineering/rialto'`
+- `from '../tokens/motion'` → `from '@mattbutlerengineering/rialto/motion'`
+- `from '../../tokens/motion'` → `from '@mattbutlerengineering/rialto/motion'`
+- `from '../tokens/icons'` → `from '@mattbutlerengineering/rialto'`
+- `from '../../tokens/icons'` → `from '@mattbutlerengineering/rialto'`
+- `from '../providers'` → `from '@mattbutlerengineering/rialto'`
+- `from '../../providers'` → `from '@mattbutlerengineering/rialto'`
 
-Then consolidate: each file should have at most one `from '@mbe/rialto'` import (merge all named imports into a single import statement).
+Then consolidate: each file should have at most one `from '@mattbutlerengineering/rialto'` import (merge all named imports into a single import statement).
 
 **Step 4: Handle App.module.css composes**
 
@@ -504,7 +504,7 @@ Review what these composed classes are used for in App.tsx — they're likely de
 
 ```bash
 git add -A
-git commit -m "feat: update showcase imports to use @mbe/rialto package"
+git commit -m "feat: update showcase imports to use @mattbutlerengineering/rialto package"
 ```
 
 ---
@@ -523,19 +523,19 @@ git commit -m "feat: update showcase imports to use @mbe/rialto package"
   "private": true,
   "scripts": {
     "dev": "pnpm --filter @mbe/showcase dev",
-    "build": "pnpm --filter @mbe/rialto build && pnpm --filter @mbe/showcase build",
-    "build:lib": "pnpm --filter @mbe/rialto build",
+    "build": "pnpm --filter @mattbutlerengineering/rialto build && pnpm --filter @mbe/showcase build",
+    "build:lib": "pnpm --filter @mattbutlerengineering/rialto build",
     "test": "pnpm -r test",
     "test:visual": "playwright test",
     "test:visual:update": "playwright test --update-snapshots",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "format": "prettier --write .",
-    "size": "pnpm --filter @mbe/rialto exec size-limit",
-    "size:check": "pnpm --filter @mbe/rialto exec size-limit --limit",
+    "size": "pnpm --filter @mattbutlerengineering/rialto exec size-limit",
+    "size:check": "pnpm --filter @mattbutlerengineering/rialto exec size-limit --limit",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "pnpm --filter @mbe/rialto build && changeset publish",
+    "release": "pnpm --filter @mattbutlerengineering/rialto build && changeset publish",
     "lighthouse": "lhci autorun",
     "prepare": "git config core.hooksPath .githooks"
   },
@@ -1026,7 +1026,7 @@ Also remove `package-lock.json` from git if it's still tracked.
 
 **Step 2: Update .changeset/config.json**
 
-The package name changed from `rialto` to `@mbe/rialto`. Verify changesets config still works — the `"access": "public"` is important for scoped packages.
+The package name changed from `rialto` to `@mattbutlerengineering/rialto`. Verify changesets config still works — the `"access": "public"` is important for scoped packages.
 
 **Step 3: Update root CLAUDE.md**
 

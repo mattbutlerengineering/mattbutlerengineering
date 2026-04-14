@@ -14,7 +14,7 @@ prohibited_patterns:
 The project initially used Tailwind CSS for rapid prototyping. However, as the codebase grew, we developed **Rialto**, a custom design system based on CSS Modules and design tokens. Maintaining two different styling paradigms created inconsistency and larger bundle sizes.
 
 ## Decision
-We will use `@mbe/rialto` components and CSS Modules for all styling. Tailwind CSS is prohibited.
+We will use `@mattbutlerengineering/rialto` components and CSS Modules for all styling. Tailwind CSS is prohibited.
 
 ## Rationale
 - **Consistency:** A single styling source of truth.

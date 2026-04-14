@@ -1,6 +1,6 @@
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { useEffect, useCallback, useMemo } from "react";
-import { Kbd, Shortcut } from "@mbe/rialto";
+import { Kbd, Shortcut } from "@mattbutlerengineering/rialto";
 import styles from "./KeyboardShortcuts.module.css";
 
 interface ShortcutEntry {

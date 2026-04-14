@@ -27,7 +27,7 @@
   "dependencies": {
     "@json-render/core": "^0.16.0",
     "@json-render/react": "^0.16.0",
-    "@mbe/rialto": "workspace:*",
+    "@mattbutlerengineering/rialto": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {

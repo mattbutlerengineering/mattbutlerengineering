@@ -5,8 +5,8 @@ React component library and design system. Inspired by precision industrial desi
 ## Usage
 
 ```typescript
-import { Button, Input, Card, Text, Stack } from "@mbe/rialto";
-import "@mbe/rialto/styles"; // Import before any component rendering
+import { Button, Input, Card, Text, Stack } from "@mattbutlerengineering/rialto";
+import "@mattbutlerengineering/rialto/styles"; // Import before any component rendering
 
 // Wrap your app root
 <RialtoProvider theme="light">

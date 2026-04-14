@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { JSONUIProvider, Renderer } from "@json-render/react";
 import type { Spec } from "@json-render/react";
 import { registry } from "@mbe/rialto-catalog";
-import { Alert, Button, Divider, Text, SegmentedControl, useToast } from "@mbe/rialto";
+import { Alert, Button, Divider, Text, SegmentedControl, useToast } from "@mattbutlerengineering/rialto";
 import styles from "./PreviewPane.module.css";
 
 const VIEWPORT_SEGMENTS = [

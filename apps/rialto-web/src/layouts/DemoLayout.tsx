@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Outlet } from "react-router-dom";
-import { GlobalNav, RialtoProvider, type VibeName } from "@mbe/rialto";
+import { GlobalNav, RialtoProvider, type VibeName } from "@mattbutlerengineering/rialto";
 import { useCookieConsent } from "../components/CookieConsent/useCookieConsent";
 import { CookieBanner, CookiePreferencesDialog } from "../components/CookieConsent/CookieConsent";
 import styles from "./DemoLayout.module.css";

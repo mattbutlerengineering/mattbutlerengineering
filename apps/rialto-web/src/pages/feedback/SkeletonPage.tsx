@@ -1,4 +1,4 @@
-import { Card, DataList, Select, Skeleton, SkeletonGroup, Stack } from "@mbe/rialto";
+import { Card, DataList, Select, Skeleton, SkeletonGroup, Stack } from "@mattbutlerengineering/rialto";
 import { useState } from "react";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";

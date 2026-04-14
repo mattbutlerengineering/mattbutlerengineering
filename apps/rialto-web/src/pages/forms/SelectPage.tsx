@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Card, Checkbox, DataList, Select, Stack, Text } from "@mbe/rialto";
+import { Button, Card, Checkbox, DataList, Select, Stack, Text } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";
@@ -58,7 +58,7 @@ export function SelectPage() {
     >
       {/* ── Interactive ───────────────────────────────────────────── */}
       <Section title="Interactive">
-        <div className={styles.row} style={{ flexWrap: "wrap", alignItems: "flex-end" }}>
+        <Stack direction="row" gap="sm" align="end" wrap>
           <Select
             label="Driving Mode"
             placeholder="Choose mode…"
@@ -83,12 +83,12 @@ export function SelectPage() {
               { value: "wet", label: "Full Wet" },
             ]}
           />
-        </div>
+        </Stack>
       </Section>
 
       {/* ── States ────────────────────────────────────────────────── */}
       <Section title="States">
-        <div className={styles.row} style={{ flexWrap: "wrap", alignItems: "flex-end" }}>
+        <Stack direction="row" gap="sm" align="end" wrap>
           <Select
             label="With value"
             value="sport"
@@ -105,7 +105,7 @@ export function SelectPage() {
             disabled
             options={[{ value: "x", label: "x" }]}
           />
-        </div>
+        </Stack>
       </Section>
 
       {/* ── Usage Example ─────────────────────────────────────────── */}
@@ -115,7 +115,7 @@ export function SelectPage() {
             <Text variant="label" color="primary">
               Race Strategy
             </Text>
-            <div className={styles.row} style={{ flexWrap: "wrap", alignItems: "flex-end" }}>
+            <Stack direction="row" gap="sm" align="end" wrap>
               <Select
                 label="Starting tyre"
                 placeholder="Select compound…"
@@ -134,15 +134,15 @@ export function SelectPage() {
                   { value: "30", label: "Lap 30–35" },
                 ]}
               />
-            </div>
-            <div className={styles.row} style={{ justifyContent: "flex-end" }}>
+            </Stack>
+            <Stack direction="row" gap="sm" align="center" justify="end" wrap>
               <Button variant="ghost" size="sm">
                 Reset
               </Button>
               <Button variant="primary" size="sm">
                 Confirm Strategy
               </Button>
-            </div>
+            </Stack>
           </Stack>
         </Card>
       </Section>

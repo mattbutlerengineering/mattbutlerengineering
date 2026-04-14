@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Banner, Button, Dialog, Toggle, Stack, Divider } from "@mbe/rialto";
-import { precision } from "@mbe/rialto/motion";
+import { Banner, Button, Dialog, Toggle, Stack, Divider } from "@mattbutlerengineering/rialto";
+import { precision } from "@mattbutlerengineering/rialto/motion";
 import type { CookiePreferences } from "./useCookieConsent";
 import styles from "./CookieConsent.module.css";
 

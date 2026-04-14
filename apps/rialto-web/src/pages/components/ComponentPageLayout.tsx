@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode } from "react";
-import { Text, Divider, Stack } from "@mbe/rialto";
+import { Text, Divider, Stack } from "@mattbutlerengineering/rialto";
 import styles from "./ComponentPageLayout.module.css";
 
 const BASE_TITLE = "Rialto — Design System";

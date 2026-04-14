@@ -1,6 +1,6 @@
 # Tag / AnimatedTag / TagGroup
 
-**Import:** `import { Tag, AnimatedTag, TagGroup } from "@mbe/rialto"`
+**Import:** `import { Tag, AnimatedTag, TagGroup } from "@mattbutlerengineering/rialto"`
 **Category:** Data Display
 
 ## Anatomy

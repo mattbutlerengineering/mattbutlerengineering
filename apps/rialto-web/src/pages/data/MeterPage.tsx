@@ -1,4 +1,4 @@
-import { Checkbox, DataList, Meter, Select } from "@mbe/rialto";
+import { Checkbox, DataList, Meter, Select } from "@mattbutlerengineering/rialto";
 import { useState } from "react";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";

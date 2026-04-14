@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { Text, Checkbox, ConfirmDialog } from "@mbe/rialto";
+import { Text, Checkbox, ConfirmDialog } from "@mattbutlerengineering/rialto";
 import type { OperatingHours, DaySchedule } from "@mbe/types";
 import styles from "./venue-onboarding.module.css";
 

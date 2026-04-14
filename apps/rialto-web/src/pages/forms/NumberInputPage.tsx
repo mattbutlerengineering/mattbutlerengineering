@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Card, Checkbox, DataList, NumberInput, Select, Stack, Text } from "@mbe/rialto";
+import { Button, Card, Checkbox, DataList, NumberInput, Select, Stack, Text } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";
@@ -65,7 +65,7 @@ export function NumberInputPage() {
     >
       {/* ── Interactive ───────────────────────────────────────────── */}
       <Section title="Interactive">
-        <div className={styles.row} style={{ flexWrap: "wrap", alignItems: "flex-end" }}>
+        <Stack direction="row" gap="sm" align="end" wrap>
           <NumberInput
             label="Lap Count"
             value={lapCount}
@@ -91,20 +91,20 @@ export function NumberInputPage() {
             max={65}
             step={0.5}
           />
-        </div>
+        </Stack>
       </Section>
 
       {/* ── Sizes ─────────────────────────────────────────────────── */}
       <Section title="Sizes">
-        <div className={styles.row} style={{ alignItems: "flex-end" }}>
+        <Stack direction="row" gap="sm" align="end" wrap>
           <NumberInput label="Small" value={7} onChange={() => {}} size="small" />
           <NumberInput label="Large" value={42} onChange={() => {}} size="large" />
-        </div>
+        </Stack>
       </Section>
 
       {/* ── States ────────────────────────────────────────────────── */}
       <Section title="States">
-        <div className={styles.row} style={{ alignItems: "flex-end" }}>
+        <Stack direction="row" gap="sm" align="end" wrap>
           <NumberInput label="Default" value={42} onChange={() => {}} />
           <NumberInput
             label="Error"
@@ -114,7 +114,7 @@ export function NumberInputPage() {
             hint="Out of valid range"
           />
           <NumberInput label="Disabled" value={42} onChange={() => {}} disabled />
-        </div>
+        </Stack>
       </Section>
 
       {/* ── Usage Example ─────────────────────────────────────────── */}
@@ -124,7 +124,7 @@ export function NumberInputPage() {
             <Text variant="label" color="primary">
               Pit Strategy Settings
             </Text>
-            <div className={styles.row} style={{ flexWrap: "wrap", alignItems: "flex-end" }}>
+            <Stack direction="row" gap="sm" align="end" wrap>
               <NumberInput
                 label="Target Lap"
                 value={14}
@@ -142,15 +142,15 @@ export function NumberInputPage() {
                 step={0.5}
                 hint="Race fuel load"
               />
-            </div>
-            <div className={styles.row} style={{ justifyContent: "flex-end" }}>
+            </Stack>
+            <Stack direction="row" gap="sm" align="center" justify="end" wrap>
               <Button variant="ghost" size="sm">
                 Reset
               </Button>
               <Button variant="primary" size="sm">
                 Confirm Strategy
               </Button>
-            </div>
+            </Stack>
           </Stack>
         </Card>
       </Section>

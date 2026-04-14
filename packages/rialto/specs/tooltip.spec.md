@@ -1,6 +1,6 @@
 # Tooltip
 
-**Import:** `import { Tooltip } from "@mbe/rialto"`
+**Import:** `import { Tooltip } from "@mattbutlerengineering/rialto"`
 **Category:** Overlay
 
 ## Anatomy

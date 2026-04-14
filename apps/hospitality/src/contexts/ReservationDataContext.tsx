@@ -7,7 +7,7 @@ import {
   useMemo,
   type ReactNode,
 } from "react";
-import { useToast } from "@mbe/rialto";
+import { useToast } from "@mattbutlerengineering/rialto";
 import type { Reservation } from "@mbe/types";
 import { useReservationEvents } from "../hooks/useReservationEvents.js";
 import { useVenue } from "./VenueContext.js";

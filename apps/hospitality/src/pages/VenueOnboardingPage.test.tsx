@@ -44,7 +44,7 @@ vi.mock("../contexts/VenueContext.js", () => ({
 const mockToast = vi.fn();
 
 // Mock Rialto components to simplify testing
-vi.mock("@mbe/rialto", () => ({
+vi.mock("@mattbutlerengineering/rialto", () => ({
   useToast: () => ({ toast: mockToast, dismiss: vi.fn() }),
   Button: ({
     children,

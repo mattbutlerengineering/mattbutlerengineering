@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { AppBar, ThemeToggle, Avatar, Button, Shortcut, CommandPalette } from "@mbe/rialto";
-import type { CommandItem } from "@mbe/rialto";
+import { AppBar, ThemeToggle, Avatar, Button, Shortcut, CommandPalette } from "@mattbutlerengineering/rialto";
+import type { CommandItem } from "@mattbutlerengineering/rialto";
 import { useAuth } from "@mbe/auth/react";
 import { useTheme } from "../contexts/ThemeContext.js";
 import styles from "./AppShell.module.css";

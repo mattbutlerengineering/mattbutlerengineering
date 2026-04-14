@@ -1,9 +1,9 @@
-import "@mbe/rialto/styles";
+import "@mattbutlerengineering/rialto/styles";
 import "./index.css";
 import { StrictMode, Suspense, lazy } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
-import { ErrorBoundary, RialtoProvider, Text, ToastProvider } from "@mbe/rialto";
+import { ErrorBoundary, RialtoProvider, Text, ToastProvider } from "@mattbutlerengineering/rialto";
 import { AuthProvider } from "@mbe/auth/react";
 import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
 import { App, CallbackRedirect } from "./App";

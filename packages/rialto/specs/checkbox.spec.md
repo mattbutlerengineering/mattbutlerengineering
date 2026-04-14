@@ -1,6 +1,6 @@
 # Checkbox
 
-**Import:** `import { Checkbox, Radio, RadioGroup } from "@mbe/rialto"`
+**Import:** `import { Checkbox, Radio, RadioGroup } from "@mattbutlerengineering/rialto"`
 **Category:** Form
 
 ## Anatomy

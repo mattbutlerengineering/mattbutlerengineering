@@ -1,4 +1,4 @@
-import { Stack, Text, Divider, useScrollReveal, staggerReveal } from "@mbe/rialto";
+import { Stack, Text, Divider, useScrollReveal, staggerReveal } from "@mattbutlerengineering/rialto";
 import { motion } from "framer-motion";
 import styles from "../pages/HomePage.module.css";
 

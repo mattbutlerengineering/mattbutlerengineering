@@ -473,12 +473,12 @@ The showcase vite.config.ts should work as-is. It uses `base: '/rialto/'` which 
 
 **Step 3: Update apps/rialto-web/package.json name and dependency reference**
 
-Verify that `@mbe/rialto` dependency points to `workspace:*`:
+Verify that `@mattbutlerengineering/rialto` dependency points to `workspace:*`:
 ```json
 {
   "name": "@mbe/rialto-web",
   "dependencies": {
-    "@mbe/rialto": "workspace:*"
+    "@mattbutlerengineering/rialto": "workspace:*"
   }
 }
 ```
@@ -536,11 +536,11 @@ Add to root `package.json` scripts:
 {
   "changeset": "changeset",
   "version-packages": "changeset version",
-  "release": "pnpm --filter @mbe/rialto build && changeset publish",
+  "release": "pnpm --filter @mattbutlerengineering/rialto build && changeset publish",
   "test:visual": "playwright test --config apps/rialto-web/playwright.config.ts",
   "lighthouse": "lhci autorun",
-  "size": "pnpm --filter @mbe/rialto exec size-limit",
-  "size:check": "pnpm --filter @mbe/rialto exec size-limit --limit"
+  "size": "pnpm --filter @mattbutlerengineering/rialto exec size-limit",
+  "size:check": "pnpm --filter @mattbutlerengineering/rialto exec size-limit --limit"
 }
 ```
 
@@ -797,7 +797,7 @@ Verify the commit history tells a clear story of the migration.
 **Step 3: Done**
 
 The rialto design system is now integrated into the monorepo. Follow-up work (tracked separately):
-- Wire dashboard/web to consume `@mbe/rialto`
-- Migrate components from `@mbe/ui` to `@mbe/rialto`
+- Wire dashboard/web to consume `@mattbutlerengineering/rialto`
+- Migrate components from `@mbe/ui` to `@mattbutlerengineering/rialto`
 - Update CI/CD pipelines
 - Set up Playwright visual test baseline in CI

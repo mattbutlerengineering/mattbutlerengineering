@@ -81,7 +81,7 @@
       "path": "packages/observability"
     },
     {
-      "name": "@mbe/rialto",
+      "name": "@mattbutlerengineering/rialto",
       "type": "package",
       "path": "packages/rialto"
     },
@@ -129,7 +129,7 @@
     },
     {
       "from": "@mbe/gen",
-      "to": "@mbe/rialto",
+      "to": "@mattbutlerengineering/rialto",
       "type": "dependency"
     },
     {
@@ -154,7 +154,7 @@
     },
     {
       "from": "@mbe/hospitality",
-      "to": "@mbe/rialto",
+      "to": "@mattbutlerengineering/rialto",
       "type": "dependency"
     },
     {
@@ -179,7 +179,7 @@
     },
     {
       "from": "@mbe/marketing",
-      "to": "@mbe/rialto",
+      "to": "@mattbutlerengineering/rialto",
       "type": "dependency"
     },
     {
@@ -194,7 +194,7 @@
     },
     {
       "from": "@mbe/rialto-web",
-      "to": "@mbe/rialto",
+      "to": "@mattbutlerengineering/rialto",
       "type": "dependency"
     },
     {
@@ -378,18 +378,18 @@
       "type": "devDependency"
     },
     {
-      "from": "@mbe/rialto",
+      "from": "@mattbutlerengineering/rialto",
       "to": "@mbe/api-client",
       "type": "dependency"
     },
     {
-      "from": "@mbe/rialto",
+      "from": "@mattbutlerengineering/rialto",
       "to": "@mbe/config",
       "type": "devDependency"
     },
     {
       "from": "@mbe/rialto-catalog",
-      "to": "@mbe/rialto",
+      "to": "@mattbutlerengineering/rialto",
       "type": "dependency"
     },
     {
@@ -399,7 +399,7 @@
     },
     {
       "from": "@mbe/rialto-plugin",
-      "to": "@mbe/rialto",
+      "to": "@mattbutlerengineering/rialto",
       "type": "dependency"
     },
     {

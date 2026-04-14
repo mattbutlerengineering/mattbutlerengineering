@@ -1,7 +1,6 @@
-import { Card, DataList, ScrollArea, Stack, Text } from "@mbe/rialto";
+import { Card, DataList, ScrollArea, Stack, Text } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
-import styles from "../components/ComponentPageLayout.module.css";
 
 // ---------------------------------------------------------------------------
 // Page
@@ -33,7 +32,7 @@ export function ScrollAreaPage() {
     >
       {/* ── Vertical Scroll ───────────────────────────────────────── */}
       <Section title="Vertical Scroll">
-        <div className={styles.row} style={{ alignItems: "flex-start" }}>
+        <Stack direction="row" gap="sm" align="start" wrap>
           <Card style={{ flex: 1 }}>
             <ScrollArea maxHeight={200}>
               {TELEMETRY_CHANNELS.map((channel, i) => (
@@ -65,7 +64,7 @@ export function ScrollAreaPage() {
               </p>
             </ScrollArea>
           </Card>
-        </div>
+        </Stack>
       </Section>
 
       {/* ── Horizontal Scroll ─────────────────────────────────────── */}

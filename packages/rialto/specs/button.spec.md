@@ -1,6 +1,6 @@
 # Button
 
-**Import:** `import { Button } from "@mbe/rialto"`
+**Import:** `import { Button } from "@mattbutlerengineering/rialto"`
 **Category:** Form
 
 ## Anatomy

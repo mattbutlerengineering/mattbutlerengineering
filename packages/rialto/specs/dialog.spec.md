@@ -1,6 +1,6 @@
 # Dialog
 
-**Import:** `import { Dialog } from "@mbe/rialto"`
+**Import:** `import { Dialog } from "@mattbutlerengineering/rialto"`
 **Category:** Overlay
 
 ## Anatomy

@@ -1,4 +1,4 @@
-import { Button, DataList, Stack, useToast } from "@mbe/rialto";
+import { Button, DataList, Stack, useToast } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";
@@ -140,7 +140,7 @@ export function ToastPage() {
           <pre style={{ margin: 0 }}>
 {`// 1. RialtoProvider already includes ToastProvider
 // 2. Import and use the hook:
-import { useToast } from '@mbe/rialto';
+import { useToast } from '@mattbutlerengineering/rialto';
 
 function MyComponent() {
   const { toast } = useToast();

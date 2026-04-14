@@ -51,7 +51,7 @@ The mattbutlerengineering monorepo has a mature design system (Rialto, 59 compon
 │  └──────┬───────┘  └────────┬──────────┘  └───────────────────┘  │
 │         │                   │                                    │
 │         │    @mbe/rialto-catalog (registry: Component → React)   │
-│         │    @mbe/rialto (59 components)                         │
+│         │    @mattbutlerengineering/rialto (59 components)                         │
 └─────────┼───────────────────┼────────────────────────────────────┘
           │ SSE stream        │ SSE stream
           ▼                   ▼

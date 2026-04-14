@@ -1,4 +1,4 @@
-import { Button, Text } from "@mbe/rialto";
+import { Button, Text } from "@mattbutlerengineering/rialto";
 import type { Reservation } from "@mbe/types";
 import styles from "./ConfirmationView.module.css";
 

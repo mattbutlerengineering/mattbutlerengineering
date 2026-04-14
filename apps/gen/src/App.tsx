@@ -1,6 +1,6 @@
 import { Outlet, Navigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
-import { Stack, Text, Button } from "@mbe/rialto";
+import { Stack, Text, Button } from "@mattbutlerengineering/rialto";
 import styles from "./App.module.css";
 
 /**

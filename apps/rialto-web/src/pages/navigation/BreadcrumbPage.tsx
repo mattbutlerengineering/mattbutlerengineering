@@ -1,4 +1,4 @@
-import { Breadcrumb, DataList, Stack } from "@mbe/rialto";
+import { Breadcrumb, DataList, Stack } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 

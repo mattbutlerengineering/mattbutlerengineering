@@ -11,7 +11,7 @@
  * Rialto's component API.
  *
  * Usage: npx tsx scripts/generate-registry.ts
- *        pnpm --filter @mbe/rialto build:registry
+ *        pnpm --filter @mattbutlerengineering/rialto build:registry
  */
 
 import * as ts from "typescript";
@@ -167,7 +167,7 @@ function extractComponents(program: ts.Program, entryFile: string): RegistryComp
     components.push({
       name,
       description,
-      importPath: "@mbe/rialto",
+      importPath: "@mattbutlerengineering/rialto",
       props,
       slots,
     });

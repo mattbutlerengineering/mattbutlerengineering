@@ -5,7 +5,7 @@ Restaurant management SPA for reservations, table management, floor plans, and g
 ## Tech Stack
 
 - React 19 + Vite (port 3002)
-- Rialto design system (`@mbe/rialto`)
+- Rialto design system (`@mattbutlerengineering/rialto`)
 - Auth0 authentication (`@mbe/auth`)
 - Typed API client (`@mbe/api-client`)
 - Playwright for E2E tests

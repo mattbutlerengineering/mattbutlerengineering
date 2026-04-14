@@ -1,7 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Navigate } from "react-router-dom";
 import type { RouteObject } from "react-router-dom";
-import { Spinner } from "@mbe/rialto";
+import { Spinner } from "@mattbutlerengineering/rialto";
 import { ShowcaseLayout } from "./layouts/ShowcaseLayout";
 import { OverviewPage } from "./pages/OverviewPage";
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Card, Checkbox, DataList, PinInput, Select, Stack, Text, useToast } from "@mbe/rialto";
+import { Button, Card, Checkbox, DataList, PinInput, Select, Stack, Text, useToast } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";
@@ -108,38 +108,38 @@ export function PinInputPage() {
 
       {/* ── Length ────────────────────────────────────────────────── */}
       <Section title="Length">
-        <div className={styles.row} style={{ flexWrap: "wrap", alignItems: "flex-end" }}>
+        <Stack direction="row" gap="sm" align="end" wrap>
           <PinInput label="4-digit (default)" />
           <PinInput label="6-digit" length={6} />
-        </div>
+        </Stack>
       </Section>
 
       {/* ── Type ──────────────────────────────────────────────────── */}
       <Section title="Type">
-        <div className={styles.row} style={{ flexWrap: "wrap", alignItems: "flex-end" }}>
+        <Stack direction="row" gap="sm" align="end" wrap>
           <PinInput label="Numeric" hint="Digits only" />
           <PinInput label="Alphanumeric" type="alphanumeric" hint="Letters or digits" />
           <PinInput label="Masked" mask hint="Hidden input" />
-        </div>
+        </Stack>
       </Section>
 
       {/* ── Sizes ─────────────────────────────────────────────────── */}
       <Section title="Sizes">
-        <div className={styles.row} style={{ flexWrap: "wrap", alignItems: "flex-end" }}>
+        <Stack direction="row" gap="sm" align="end" wrap>
           <PinInput label="Small" size="sm" />
           <PinInput label="Medium" size="md" />
           <PinInput label="Large" size="lg" />
-        </div>
+        </Stack>
       </Section>
 
       {/* ── States ────────────────────────────────────────────────── */}
       <Section title="States">
-        <div className={styles.row} style={{ flexWrap: "wrap", alignItems: "flex-end" }}>
+        <Stack direction="row" gap="sm" align="end" wrap>
           <PinInput label="Default" />
           <PinInput label="With value" value="42" />
           <PinInput label="Error" error hint="Invalid code" />
           <PinInput label="Disabled" disabled value="0924" />
-        </div>
+        </Stack>
       </Section>
 
       {/* ── Usage Example ─────────────────────────────────────────── */}
@@ -157,14 +157,14 @@ export function PinInputPage() {
               length={6}
               hint="Code refreshes every 30 seconds"
             />
-            <div className={styles.row} style={{ justifyContent: "flex-end" }}>
+            <Stack direction="row" gap="sm" align="center" justify="end" wrap>
               <Button variant="ghost" size="sm">
                 Use backup code
               </Button>
               <Button variant="primary" size="sm">
                 Verify
               </Button>
-            </div>
+            </Stack>
           </Stack>
         </Card>
       </Section>

@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
-import { Stack, Text, Autocomplete, Select } from "@mbe/rialto";
-import type { AutocompleteOption } from "@mbe/rialto";
+import { Stack, Text, Autocomplete, Select } from "@mattbutlerengineering/rialto";
+import type { AutocompleteOption } from "@mattbutlerengineering/rialto";
 import styles from "./venue-onboarding.module.css";
 
 export interface LocationTimeData {

@@ -1,4 +1,4 @@
-import { Card, Stack, Text, Tag } from "@mbe/rialto";
+import { Card, Stack, Text, Tag } from "@mattbutlerengineering/rialto";
 import type { Project } from "../data/projects";
 import styles from "./ProjectCard.module.css";
 

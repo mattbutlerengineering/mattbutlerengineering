@@ -19,7 +19,7 @@ import {
   Table,
   Text,
   useToast,
-} from "@mbe/rialto";
+} from "@mattbutlerengineering/rialto";
 import styles from "./DriverList.module.css";
 
 const ROWS_PER_PAGE = 5;

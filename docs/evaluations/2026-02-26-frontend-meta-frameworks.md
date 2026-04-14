@@ -8,7 +8,7 @@
 | **Routing** | React Router v7 in library/SPA mode (`BrowserRouter`); no loaders/actions, no file-based routing |
 | **Build system** | Vite 7, `@vitejs/plugin-react`, TypeScript |
 | **Monorepo** | Turborepo + pnpm workspaces; `@mbe/` package prefix |
-| **Design systems** | `@mbe/ui` (shadcn/Tailwind, legacy) → `@mbe/rialto` (CSS Modules + Framer Motion, new) |
+| **Design systems** | `@mbe/ui` (shadcn/Tailwind, legacy) → `@mattbutlerengineering/rialto` (CSS Modules + Framer Motion, new) |
 | **Deployment** | DigitalOcean App Platform, `deployOnPush: true` |
 | **SSR/SSG** | None — all 3 apps are client-side rendered |
 | **Preview deployments** | None (DO App Platform does not provide this natively) |
@@ -19,7 +19,7 @@
 |-----|---------|------|---------|---------|------|--------|
 | `apps/marketing/` | Public marketing site | React 19, Vite 7, RR v7 | `BrowserRouter` | Tailwind v3 + `@mbe/ui` | None | 1 |
 | `apps/hospitality/` | Hospitality mgmt PWA | React 19, Vite 7, RR v7, Konva | `BrowserRouter` (base `/hospitality`) | Tailwind v3 + `@mbe/ui` | `@mbe/auth` (OIDC) | 10 |
-| `apps/rialto-web/` | Design system showcase | React 19, Vite 7, RR v7 | `BrowserRouter` (base `/rialto`) | CSS Modules + `@mbe/rialto` | None | 12 |
+| `apps/rialto-web/` | Design system showcase | React 19, Vite 7, RR v7 | `BrowserRouter` (base `/rialto`) | CSS Modules + `@mattbutlerengineering/rialto` | None | 12 |
 
 ### Architecture
 
@@ -62,7 +62,7 @@
 | **DigitalOcean deployment** | Current hosting platform; must deploy there or justify platform change |
 | **Preview deployments** | Critical missing capability; any solution should enable per-PR previews |
 | **Monorepo support** | Must work with Turborepo + pnpm workspaces |
-| **Design system compatibility** | Must work with `@mbe/rialto` (CSS Modules + Framer Motion) and `@mbe/ui` (Tailwind) |
+| **Design system compatibility** | Must work with `@mattbutlerengineering/rialto` (CSS Modules + Framer Motion) and `@mbe/ui` (Tailwind) |
 | **Migration friction** | Effort to migrate from current React + Vite SPAs |
 
 ---
@@ -314,14 +314,14 @@ Content-first framework with island architecture. Ships zero JavaScript by defau
 | **DigitalOcean** | Static output: free (static site). SSR: Node adapter + container service ($5+/mo). |
 | **Preview deployments** | Via Cloudflare Pages (native), Vercel/Netlify (native), or DO GitHub Actions |
 | **Monorepo support** | Works in Turborepo + pnpm; known friction with Vite version conflicts (Astro bundles its own Vite) |
-| **Design system** | React components work as islands. `@mbe/rialto` (CSS Modules + Framer Motion) and `@mbe/ui` (Tailwind) compatible. |
+| **Design system** | React components work as islands. `@mattbutlerengineering/rialto` (CSS Modules + Framer Motion) and `@mbe/ui` (Tailwind) compatible. |
 | **Migration effort** | Low-Medium (for marketing site only) — existing React components become islands; static content becomes `.astro` templates |
 | **Content collections** | Type-safe Markdown/MDX/JSON content with Zod schemas. Up to 5x faster Markdown builds. |
 | **Pricing** | Free (MIT, open source); Cloudflare committed to keeping it open source |
 | **npm downloads** | ~1.25M/week |
 | **GitHub stars** | ~56,700 |
 
-**Key strength:** Purpose-built for content/marketing sites. Zero JavaScript by default means Lighthouse 98-100 scores out of the box. Content collections provide type-safe management of blog posts, case studies, and marketing copy. React components work as interactive islands — existing `@mbe/rialto` and `@mbe/ui` components require zero modification.
+**Key strength:** Purpose-built for content/marketing sites. Zero JavaScript by default means Lighthouse 98-100 scores out of the box. Content collections provide type-safe management of blog posts, case studies, and marketing copy. React components work as interactive islands — existing `@mattbutlerengineering/rialto` and `@mbe/ui` components require zero modification.
 
 **Key limitation:** Astro is an MPA (multi-page application) framework — not suited for SPAs or highly interactive apps. State does not persist across page navigations (each page is a fresh server render or static file). React context/state works within a single island but not across islands. This makes Astro a poor fit for the dashboard or rialto-web showcase.
 
@@ -456,7 +456,7 @@ Sources:
 
 ### Hard Blocker: Requires React Rewrite
 
-These frameworks use a different UI library/language than React. Adopting any of them would require rewriting all 3 apps, both design system packages (`@mbe/rialto`, `@mbe/ui`), and the auth package (`@mbe/auth`). This is a non-starter.
+These frameworks use a different UI library/language than React. Adopting any of them would require rewriting all 3 apps, both design system packages (`@mattbutlerengineering/rialto`, `@mbe/ui`), and the auth package (`@mbe/auth`). This is a non-starter.
 
 | Framework | UI Library | Why Incompatible | What Makes It Good (for greenfield) |
 |-----------|-----------|-----------------|--------------------------------------|
@@ -494,7 +494,7 @@ Astro is the ideal fit for `apps/marketing/` because:
 1. **Zero JS by default** — Static HTML ships instantly. Lighthouse 98-100 without optimization effort.
 2. **SEO-first** — Server-rendered HTML with meta tags, sitemaps, RSS feeds. Solves the primary pain point.
 3. **Content collections** — Type-safe Markdown/MDX with Zod schemas. Purpose-built for marketing content (blog posts, case studies, feature descriptions).
-4. **React islands** — Existing `@mbe/ui` and `@mbe/rialto` components work inside islands with zero modification. Interactive elements (nav, contact form) hydrate independently.
+4. **React islands** — Existing `@mbe/ui` and `@mattbutlerengineering/rialto` components work inside islands with zero modification. Interactive elements (nav, contact form) hydrate independently.
 5. **Vite-native** — Same build system as other apps. Vite plugins carry over.
 6. **Static output** — Deploy as static site on DO App Platform (free tier). No server needed.
 7. **Low migration effort** — Marketing site has 1 route. Rewrite `HomePage` as `.astro` template with React islands for interactive parts. The smallest migration scope of any meta-framework.
@@ -554,7 +554,7 @@ If the per-app approach (Astro + Vite SPA) feels like too much tooling diversity
 
 **Phase 2 — Migration (2-4 hours)**
 1. Convert `HomePage` to `.astro` template (static HTML for content, React islands for interactive elements)
-2. Import existing `@mbe/ui` or `@mbe/rialto` components as islands
+2. Import existing `@mbe/ui` or `@mattbutlerengineering/rialto` components as islands
 3. Add `@astrojs/sitemap` for SEO
 4. Configure proper `<meta>` tags, OG images, structured data
 

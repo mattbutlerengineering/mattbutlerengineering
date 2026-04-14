@@ -14,7 +14,7 @@ import {
   SkeletonGroup,
   Stat,
   Text,
-} from "@mbe/rialto";
+} from "@mattbutlerengineering/rialto";
 import { ApiClient, UsersClient } from "@mbe/api-client";
 import type { User, Pagination as PaginationType } from "@mbe/types";
 import { PageHeader } from "../components/PageHeader";

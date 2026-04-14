@@ -1,6 +1,6 @@
 # Stat
 
-**Import:** `import { Stat } from "@mbe/rialto"`
+**Import:** `import { Stat } from "@mattbutlerengineering/rialto"`
 **Category:** Data Display
 
 ## Anatomy

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Stack, useScrollReveal, staggerReveal, boop, useToast } from "@mbe/rialto";
+import { Stack, useScrollReveal, staggerReveal, boop, useToast } from "@mattbutlerengineering/rialto";
 import { motion, useReducedMotion } from "framer-motion";
 import styles from "../pages/HomePage.module.css";
 

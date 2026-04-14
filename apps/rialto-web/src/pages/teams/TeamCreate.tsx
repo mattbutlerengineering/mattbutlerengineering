@@ -14,7 +14,7 @@ import {
   Steps,
   Text,
   useToast,
-} from "@mbe/rialto";
+} from "@mattbutlerengineering/rialto";
 import styles from "./TeamCreate.module.css";
 
 const ENGINES = [

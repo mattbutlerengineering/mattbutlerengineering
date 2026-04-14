@@ -1,4 +1,4 @@
-import { Card, Checkbox, DataList, Stack, Table, Text } from "@mbe/rialto";
+import { Card, Checkbox, DataList, Stack, Table, Text } from "@mattbutlerengineering/rialto";
 import { useState } from "react";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";

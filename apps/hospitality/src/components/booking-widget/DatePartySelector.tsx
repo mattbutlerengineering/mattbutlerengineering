@@ -1,4 +1,4 @@
-import { Input, Button } from "@mbe/rialto";
+import { Input, Button } from "@mattbutlerengineering/rialto";
 import { toDateString } from "@mbe/types";
 import styles from "./DatePartySelector.module.css";
 

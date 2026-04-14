@@ -4,7 +4,7 @@
     {
       "name": "Accordion",
       "description": "Grouped set of collapsible panels where one or many can be expanded at a time.\n\nBy default only a single panel is open; set `multiple` to allow several.\nEach panel delegates to \n{@link \nCollapsible \n}\n for animation and accessibility.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "items",
@@ -40,14 +40,14 @@
     {
       "name": "AccordionItem",
       "description": "Descriptor for a single panel within an \n{@link \nAccordion \n}\n.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []
     },
     {
       "name": "Alert",
       "description": "Props for the Alert component, an inline feedback message used to communicate\ncontextual information, success confirmations, warnings, or errors within a page flow.\n\nDismissible alerts animate out and call `onDismiss` after the exit transition completes.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "variant",
@@ -102,7 +102,7 @@
     {
       "name": "AnimatedTag",
       "description": "A Tag wrapped in a Framer Motion layout animation for smooth enter/exit transitions.\nUse inside a `TagGroup` so that `AnimatePresence` can track additions and removals.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "id",
@@ -161,7 +161,7 @@
     {
       "name": "AppBar",
       "description": "Horizontal sticky top bar with optional glass surface.\nReplaces per-app custom navbar implementations with a\nconsistent, animated header.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "logo",
@@ -214,7 +214,7 @@
     {
       "name": "AspectRatio",
       "description": "Constrains its children to a fixed width-to-height aspect ratio using a\nCSS custom property (`--ratio`), keeping content responsive without CLS.\n\nThe child element is stretched to fill the container; use `object-fit` on\nimages or videos inside for cropping behavior.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "ratio",
@@ -1668,7 +1668,7 @@
     },
     {
       "name": "Autocomplete",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "label",
@@ -3287,14 +3287,14 @@
     },
     {
       "name": "AutocompleteOption",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []
     },
     {
       "name": "Avatar",
       "description": "A circular user avatar that displays an image, falls back to initials derived from `name`, or shows a generic person icon.\nIf the image fails to load, the component automatically falls back to the initials or icon.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "src",
@@ -3339,7 +3339,7 @@
     {
       "name": "AvatarGroup",
       "description": "Displays a row of overlapping avatars with an overflow counter when the list exceeds `max`.\nAvatars are rendered in reverse DOM order so the first avatar visually overlaps the rest.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "avatars",
@@ -3368,7 +3368,7 @@
     {
       "name": "Badge",
       "description": "A small status indicator label for counts, states, or categories.\nUse the `dot` prop to prepend a colored status circle before the text.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "variant",
@@ -4841,7 +4841,7 @@
     {
       "name": "Banner",
       "description": "Props for the Banner component, a full-width page-level message displayed at the top\nof a view to communicate system status, feature announcements, or critical warnings.\n\nUnlike Alert (inline), Banner spans the full content width and is intended for one-per-page messaging.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "variant",
@@ -6321,7 +6321,7 @@
     {
       "name": "Breadcrumb",
       "description": "Navigation trail showing the user's location within a hierarchy.\nAutomatically collapses middle items into an ellipsis when `maxItems` is set.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "items",
@@ -6358,14 +6358,14 @@
     {
       "name": "BreadcrumbItem",
       "description": "A single entry in the breadcrumb trail.\nOmit `href` on the last item to mark it as the current page.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []
     },
     {
       "name": "Button",
       "description": "Primary action trigger with tactile press feedback.\nUse for any clickable action -- forms, dialogs, toolbar controls, etc.\nThe button scales down slightly on press to simulate physical depth change.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "variant",
@@ -6441,7 +6441,7 @@
     {
       "name": "Card",
       "description": "A content container with elevated, glass, or flat surface treatments.\nUse Card to group related content into a visually distinct panel.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "variant",
@@ -7919,7 +7919,7 @@
     {
       "name": "Checkbox",
       "description": "Checkbox with animated check/indeterminate mark, label, and optional description.\nSupports a three-state visual (unchecked, checked, indeterminate) with spring animation.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "label",
@@ -7982,7 +7982,7 @@
     {
       "name": "Collapsible",
       "description": "Single expand/collapse section with an animated content region.\n\nWorks in both controlled (`open` + `onOpenChange`) and uncontrolled\n(`defaultOpen`) modes. The expand/collapse transition uses spring physics\nand respects `prefers-reduced-motion`.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "open",
@@ -8033,14 +8033,14 @@
     {
       "name": "CommandItem",
       "description": "A single entry in the command palette's item list.\nItems with the same `group` value are visually grouped under a shared header.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []
     },
     {
       "name": "CommandPalette",
       "description": "An uncontrolled, searchable command palette driven by a declarative `CommandItem[]` array.\nThe component owns its own search state, filtering, keyboard navigation, and grouping --\nthe consumer only provides the data and responds to selection via each item's `onSelect`.\nGlobally toggleable with Cmd+K / Ctrl+K.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "open",
@@ -8074,7 +8074,7 @@
     {
       "name": "ConfirmDialog",
       "description": "A purpose-built confirmation dialog with confirm/cancel actions and an icon.\nWhen `variant` is `\"destructive\"`, the cancel button receives initial focus\nto prevent accidental confirmations.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "open",
@@ -8147,7 +8147,7 @@
     {
       "name": "ContextMenu",
       "description": "A right-click context menu that appears at the pointer position.\nWrap any element with ContextMenu to intercept its `contextmenu` event.\nAutomatically adjusts position to stay within viewport boundaries.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "items",
@@ -8166,35 +8166,35 @@
     {
       "name": "ContextMenuDividerDef",
       "description": "A visual separator between groups of context menu items.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []
     },
     {
       "name": "ContextMenuEntry",
       "description": "A discriminated union of all possible entries in a context menu.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []
     },
     {
       "name": "ContextMenuItemDef",
       "description": "An actionable item entry within a context menu.\nSet `destructive` to visually flag dangerous actions like deletion.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []
     },
     {
       "name": "ContextMenuLabelDef",
       "description": "A non-interactive section heading rendered above a group of context menu items.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []
     },
     {
       "name": "DataList",
       "description": "A definition list of key-value pairs laid out horizontally or vertically.\nUse for spec sheets, metadata panels, or any structured label-value display.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "items",
@@ -9660,14 +9660,14 @@
     {
       "name": "DataListItem",
       "description": "A single key-value entry rendered inside a `DataList`.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []
     },
     {
       "name": "Dialog",
       "description": "A modal dialog that renders centered over a backdrop overlay.\nTraps focus inside the panel while open and closes on Escape or backdrop click.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "open",
@@ -9719,7 +9719,7 @@
     },
     {
       "name": "DisabledTooltip",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "disabled",
@@ -9739,7 +9739,7 @@
     {
       "name": "Divider",
       "description": "Visual separator for dividing content sections, rendered as a thin rule.\n\nSupports an optional centered text label and a gold accent gradient for\nemphasis. Renders `role=\"separator\"` with the appropriate `aria-orientation`.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "orientation",
@@ -9783,14 +9783,14 @@
     {
       "name": "DomainContextSchema",
       "description": "A single data schema describing an entity available to the AI generator.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []
     },
     {
       "name": "Drawer",
       "description": "A slide-out panel that enters from an edge of the viewport over a backdrop.\nUse for secondary content, forms, or detail views that should not fully replace the page.\nLocks body scroll while open and closes on Escape or backdrop click.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "open",
@@ -9845,7 +9845,7 @@
     {
       "name": "DropdownMenu",
       "description": "A click-triggered dropdown menu for presenting a list of actions.\nSupports keyboard navigation (arrow keys, Home/End, Enter, Escape),\nitem icons, shortcut hints, dividers, section labels, and destructive items.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "trigger",
@@ -9871,7 +9871,7 @@
     {
       "name": "EmptyState",
       "description": "Props for the EmptyState component, a centered placeholder shown when a list, table,\nor content area has no items to display.\n\nIf no `icon` is provided a default open-box illustration is rendered automatically.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "icon",
@@ -11368,7 +11368,7 @@
     {
       "name": "ErrorBoundary",
       "description": "Catches unhandled React render errors and displays a user-friendly fallback\ninstead of crashing the entire app to a blank screen.\n\nMust be a class component — React does not support error boundaries as\nfunction components (as of React 19).",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "fallback",
@@ -11390,7 +11390,7 @@
     {
       "name": "Footer",
       "description": "Page footer with two layout variants.\n\n- **minimal** (default) — horizontal flex row for utility bars, kbd hints, inline links.\n- **rich** — centered column with logo, multi-column link groups, and copyright.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "variant",
@@ -12861,20 +12861,20 @@
     },
     {
       "name": "FooterColumn",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []
     },
     {
       "name": "FooterLink",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []
     },
     {
       "name": "GenCopilot",
       "description": "Props for GenCopilot.\n\nNOTE: There is no `open` prop. GenCopilot is designed for conditional\nmounting — the consumer renders `{copilotOpen && <GenCopilot ... />}` to\ncontrol visibility. This guarantees fresh state on every open (no persisted\nstreaming state, spec, or errors from a previous session).\nThe Drawer is always rendered with `open={true}` internally.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "onClose",
@@ -12912,7 +12912,7 @@
     {
       "name": "GlobalNav",
       "description": "Cross-app navigation bar for mattbutlerengineering.com.\n\nUses full `<a href>` tags (not React Router `<Link>`) because\nnavigation between apps requires full page loads — each app is\nserved by a separate Cloudflare Worker.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "currentApp",
@@ -12959,7 +12959,7 @@
     {
       "name": "Hero",
       "description": "Marketing splash section with centered content, atmospheric\ndecorative touches, and a fade-up entrance animation.\n\nWrap text in `<span className=\"accent\">` inside `title`\nto apply the gold accent color.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "eyebrow",
@@ -14439,7 +14439,7 @@
     {
       "name": "HoverCard",
       "description": "A rich hover preview card that appears when the user hovers or focuses the trigger.\nUnlike Tooltip, HoverCard is intended for richer content (images, metadata, links)\nand remains open while the pointer is inside the card itself.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "children",
@@ -14483,7 +14483,7 @@
     {
       "name": "Input",
       "description": "Single-line text field with optional label, hint text, and error state.\nWraps a native `<input>` — all standard input attributes are supported.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "label",
@@ -16135,7 +16135,7 @@
     {
       "name": "InputGroup",
       "description": "Visually connects adjacent form controls (Input, Button, Select) into a\nsingle row by stripping internal border-radii and collapsing double borders.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "defaultChecked",
@@ -17584,7 +17584,7 @@
     {
       "name": "Kbd",
       "description": "Renders a single keyboard key in a styled `<kbd>` element that resembles\na physical key cap with a machined-surface look.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "children",
@@ -17609,7 +17609,7 @@
     {
       "name": "Meter",
       "description": "A horizontal gauge bar that visualizes a value within a min/max range.\nThe fill animates to the current fraction using precision easing and respects reduced motion.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "value",
@@ -19102,7 +19102,7 @@
     {
       "name": "Navbar",
       "description": "Full-featured top navigation bar with logo, search, user profile, and link tree.\nDesigned as a vertical sidebar-style navbar (logo and search at top, links below, optional footer).",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "logo",
@@ -20579,14 +20579,14 @@
     {
       "name": "NavbarLink",
       "description": "A navigation link inside the Navbar, optionally nested to create expandable sub-menus.\nLinks with `children` render a chevron toggle that reveals the nested level inline.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []
     },
     {
       "name": "NavigationMenu",
       "description": "Horizontal dropdown navigation bar for top-level site navigation.\nDropdowns open on hover with a short delay and close when the pointer leaves.\nSupports keyboard navigation (Arrow keys, Home, End, Escape) inside open panels.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "items",
@@ -22040,14 +22040,14 @@
     {
       "name": "NavItem",
       "description": "A single navigation link or a parent that contains nested child links.\nItems with `children` render as dropdown triggers; leaf items render as plain links.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []
     },
     {
       "name": "NumberInput",
       "description": "Numeric input with increment/decrement stepper buttons and hold-to-repeat.\nAlways controlled — requires `value` and `onChange`. Values are clamped to `min`/`max` when provided.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "value",
@@ -22146,7 +22146,7 @@
     {
       "name": "PageHeader",
       "description": "Dark header band with breadcrumbs, title, and optional action buttons.\nUses `darkSurface` token override so child components (Badge, Button, etc.)\nadapt automatically.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "title",
@@ -23614,7 +23614,7 @@
     {
       "name": "Pagination",
       "description": "Page navigation control with previous/next arrows and numbered page buttons.\nPages are 1-indexed. When there are many pages, middle buttons collapse into ellipsis\nbased on `siblingCount`.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "page",
@@ -23658,7 +23658,7 @@
     {
       "name": "PinInput",
       "description": "Fixed-length code entry field (PIN, OTP, verification codes).\nRenders one input cell per character with automatic focus advance, paste support,\nand a spring pop animation when a character is entered.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "length",
@@ -23743,7 +23743,7 @@
     {
       "name": "Popover",
       "description": "A click-triggered floating panel positioned relative to its trigger element.\nUse for interactive content like forms, filters, or rich controls that need\nto stay anchored to a specific UI element. Closes on outside click or Escape.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "trigger",
@@ -23776,7 +23776,7 @@
     {
       "name": "Progress",
       "description": "Props for the Progress bar component, used to visualize task completion or loading state.\n\nOmit `value` to render an indeterminate (looping) animation; provide a number 0-100 for determinate progress.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "value",
@@ -25247,7 +25247,7 @@
     {
       "name": "Radio",
       "description": "Single radio button with an animated dot indicator and optional description.\nTypically used inside a `RadioGroup`, which auto-injects `name`, `checked`, and `onCheckedChange`.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "label",
@@ -25310,7 +25310,7 @@
     {
       "name": "RadioGroup",
       "description": "Groups `Radio` children into a single controlled selection. Renders a `<fieldset>` with\n`role=\"radiogroup\"` and injects `name`, `checked`, and change handling into each child.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "label",
@@ -25354,7 +25354,7 @@
     {
       "name": "RialtoProvider",
       "description": "Root provider for the Rialto design system.\n\nRenders a wrapper `<div>` that applies:\n- `data-theme` attribute for light/dark token cascading\n- CSS custom property overrides from the active vibe\n\nAlso provides React context with device signals, active vibe, and resolved theme.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "vibe",
@@ -25382,7 +25382,7 @@
     {
       "name": "ScrollArea",
       "description": "Custom scroll container with styled scrollbars that match the Rialto surface\naesthetic.\n\nSet `maxHeight` to constrain the visible area; content beyond that limit\nbecomes scrollable. The container is keyboard-focusable (`tabIndex={0}`)\nand marked as `role=\"region\"` for accessibility.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "maxHeight",
@@ -26837,14 +26837,14 @@
     {
       "name": "Segment",
       "description": "Describes a single option within a `SegmentedControl`.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []
     },
     {
       "name": "SegmentedControl",
       "description": "Pill-style toggle for switching between a small set of mutually exclusive options.\nA spring-animated indicator slides behind the active segment. Implements `role=\"radiogroup\"`.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "segments",
@@ -28317,7 +28317,7 @@
     {
       "name": "Select",
       "description": "Custom dropdown select with keyboard navigation, animated open/close, and option highlighting.\nRenders a combobox trigger button and an animated listbox — not a native `<select>`.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "options",
@@ -28373,14 +28373,14 @@
     {
       "name": "SelectOption",
       "description": "Describes a single option inside a `Select` dropdown.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []
     },
     {
       "name": "Shortcut",
       "description": "Displays a multi-key shortcut as a horizontal sequence of \n{@link \nKbd \n}\n caps\nseparated by `+` glyphs.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "keys",
@@ -28399,7 +28399,7 @@
     {
       "name": "Sidebar",
       "description": "Vertical navigation panel that supports collapsing to an icon-only rail.\nAccepts a flat list of `SidebarItem`s or grouped `SidebarSection`s.\nWidth animates between expanded (240 px) and collapsed (56 px) using spring physics.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "items",
@@ -29866,21 +29866,21 @@
     {
       "name": "SidebarItem",
       "description": "A single navigation link inside the sidebar.\nRenders as an `<a>` when `href` is provided, otherwise as a `<button>`.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []
     },
     {
       "name": "SidebarSection",
       "description": "A labelled group of sidebar items, rendered under an optional section heading.\nThe heading is hidden automatically when the sidebar is collapsed.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []
     },
     {
       "name": "Skeleton",
       "description": "Props for the Skeleton component, a pulsing placeholder shape that communicates loading\nstate before real content appears.\n\nUse `lines` with `\"text\"` or `\"heading\"` variants to generate a multi-line paragraph skeleton\nwhere the last line is automatically shortened for a natural look.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "variant",
@@ -29923,7 +29923,7 @@
     {
       "name": "SkeletonGroup",
       "description": "Props for the SkeletonGroup component, a semantic wrapper that groups multiple\nSkeleton elements into a single ARIA `role=\"status\"` region with `aria-busy=\"true\"`.\n\nUse this to compose complex loading placeholders (e.g. a card with avatar + text lines).",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "className",
@@ -29938,7 +29938,7 @@
     {
       "name": "Slider",
       "description": "Continuous range slider with a spring-animated knob, pointer drag, and keyboard support.\nWorks as both controlled (`value` + `onChange`) and uncontrolled (`defaultValue`).",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "min",
@@ -30021,7 +30021,7 @@
     {
       "name": "Spinner",
       "description": "Props for the Spinner component, a circular loading indicator styled as a gold light\ntracing along a machined aluminum ring.\n\nUses a CSS-only animation so it works even when JavaScript is blocked or React is hydrating.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "size",
@@ -31480,7 +31480,7 @@
     {
       "name": "Stack",
       "description": "Flexbox layout primitive for stacking children vertically or horizontally with\nconsistent spacing from the Rialto token scale.\n\nDefaults to a vertical column; set `direction=\"row\"` for horizontal layout.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "direction",
@@ -32965,7 +32965,7 @@
     {
       "name": "Stat",
       "description": "A metric display showing a label, a prominent value, and an optional delta with trend arrow.\nUse for dashboards and summary panels where a single KPI needs emphasis.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "value",
@@ -34461,14 +34461,14 @@
     {
       "name": "StepItem",
       "description": "Describes a single step in a multi-step flow.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []
     },
     {
       "name": "Steps",
       "description": "Multi-step progress indicator for wizards, checkout flows, or onboarding sequences.\nSteps before `currentStep` display a check mark; the active step is highlighted with the accent color.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "steps",
@@ -34521,14 +34521,14 @@
     {
       "name": "Tab",
       "description": "Describes a single tab panel -- its trigger label, content, and optional disabled state.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []
     },
     {
       "name": "Table",
       "description": "Registry documentation type -- concrete version of TableProps for AI tooling",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "columns",
@@ -34571,7 +34571,7 @@
     {
       "name": "Tabs",
       "description": "Horizontal panel switcher with a spring-animated gold indicator.\nSupports full keyboard navigation (Arrow keys, Home, End) per WAI-ARIA Tabs pattern.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "tabs",
@@ -36041,7 +36041,7 @@
     {
       "name": "Tag",
       "description": "A compact label for categorization, filtering, or selection.\nWhen `onClick` is provided the tag renders as an interactive button; otherwise it is a static span.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "children",
@@ -36101,7 +36101,7 @@
     {
       "name": "TagGroup",
       "description": "A flex container that wraps `AnimatedTag` children with `AnimatePresence` for coordinated enter/exit animations.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "className",
@@ -36116,7 +36116,7 @@
     {
       "name": "Text",
       "description": "Typography component that maps semantic variants to the Rialto type scale.\n\nEach variant renders a sensible default HTML element (e.g. `body` renders `<p>`,\n`label` renders `<span>`), which can be overridden with the `as` prop.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "variant",
@@ -37596,7 +37596,7 @@
     {
       "name": "TextArea",
       "description": "Multi-line text field with optional label, hint, error state, auto-resize, and character counter.\nAccepts a subset of native `<textarea>` attributes for controlled or uncontrolled use.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "label",
@@ -37706,7 +37706,7 @@
     {
       "name": "ThemeToggle",
       "description": "Sun/moon icon button for toggling between light and dark mode.\n\nWhen in dark mode — shows sun icon (click switches to light).\nWhen in light mode — shows moon icon (click switches to dark).",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "theme",
@@ -37724,7 +37724,7 @@
     {
       "name": "Timeline",
       "description": "A vertical event sequence with status-colored nodes and a connecting track line.\nUse for activity logs, process steps, or any ordered event history.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "events",
@@ -37760,20 +37760,20 @@
     {
       "name": "TimelineEvent",
       "description": "A single event entry within a `Timeline`, representing one step in a sequence.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []
     },
     {
       "name": "ToastProvider",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []
     },
     {
       "name": "Toggle",
       "description": "Binary on/off switch with a spring-animated sliding knob.\nRenders as a checkbox with `role=\"switch\"` — all standard input attributes are forwarded.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "label",
@@ -39385,7 +39385,7 @@
     {
       "name": "Tooltip",
       "description": "A lightweight hover/focus tooltip for displaying short informational text.\nAppears after a configurable delay and disappears immediately on mouse leave or blur.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "content",
@@ -39430,7 +39430,7 @@
     {
       "name": "Tree",
       "description": "An expandable tree view for navigating hierarchical data.\nSupports both controlled and uncontrolled expansion; pass `expanded` and `onExpandedChange` for controlled mode, or `defaultExpanded` for uncontrolled.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "data",
@@ -40918,26 +40918,26 @@
     {
       "name": "TreeNode",
       "description": "A recursive node in a `Tree` hierarchy. Each node may contain nested `children` to form an expandable tree structure.",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []
     },
     {
       "name": "UIEnvironment",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []
     },
     {
       "name": "VibeName",
       "description": "Rialto Vibe System\n\nVibes are CSS custom property override sets that shift the design\nlanguage to match user intent. They work via the CSS cascade — the\nsame proven pattern as `.darkSurface` in surfaces.module.css.\n\n- `default` — no overrides, standard Rialto tokens\n- `transacting` — tighter spacing, sharper radii, bolder weight for urgency\n- `presenting` — more whitespace, larger type, softer radii for presentation",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []
     },
     {
       "name": "VibeOverrides",
-      "importPath": "@mbe/rialto",
+      "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []
     }

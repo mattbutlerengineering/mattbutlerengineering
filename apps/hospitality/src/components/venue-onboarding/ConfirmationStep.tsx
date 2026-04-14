@@ -1,4 +1,4 @@
-import { Stack, Text, Card } from "@mbe/rialto";
+import { Stack, Text, Card } from "@mattbutlerengineering/rialto";
 import type { OperatingHours } from "@mbe/types";
 import type { BasicInfoData } from "./BasicInfoStep.js";
 import type { LocationTimeData } from "./LocationTimeStep.js";

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import type { TimeSlot, ReservationHold } from "@mbe/types";
-import { Input, TextArea, Button, Alert, Text } from "@mbe/rialto";
+import { Input, TextArea, Button, Alert, Text } from "@mattbutlerengineering/rialto";
 import styles from "./GuestDetailsForm.module.css";
 
 export interface GuestDetails {

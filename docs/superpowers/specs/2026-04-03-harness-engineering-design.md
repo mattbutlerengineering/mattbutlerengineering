@@ -30,7 +30,7 @@ Frontend apps cannot import:
 - `@mbe/auth/fastify`, `@mbe/sentry/node` (backend entrypoints)
 
 Backend services cannot import:
-- `@mbe/rialto`, `@mbe/api-client` (frontend-only)
+- `@mattbutlerengineering/rialto`, `@mbe/api-client` (frontend-only)
 - `@mbe/auth/react`, `@mbe/sentry/react` (frontend entrypoints)
 
 Cross-app/service imports are already prevented by pnpm strict mode.
@@ -79,7 +79,7 @@ Pre-commit hook regenerates `registry.json` and `generated-schemas.ts`, then che
 
 | Category | Packages |
 |----------|----------|
-| Frontend-only | `@mbe/rialto`, `@mbe/api-client` |
+| Frontend-only | `@mattbutlerengineering/rialto`, `@mbe/api-client` |
 | Backend-only | `@mbe/agent-core`, `@mbe/observability` |
 | Shared (subpath) | `@mbe/auth`, `@mbe/sentry` |
 | Shared/neutral | `@mbe/types`, `@mbe/config`, `@mbe/rialto-catalog` |

@@ -1,4 +1,4 @@
-import { AppBar, ThemeToggle } from "@mbe/rialto";
+import { AppBar, ThemeToggle } from "@mattbutlerengineering/rialto";
 
 interface NavbarProps {
   theme: "light" | "dark";

@@ -32,7 +32,7 @@
     "@json-render/react": "^0.16.0",
     "@mbe/api-client": "workspace:*",
     "@mbe/auth": "workspace:*",
-    "@mbe/rialto": "workspace:*",
+    "@mattbutlerengineering/rialto": "workspace:*",
     "@mbe/rialto-catalog": "workspace:*",
     "@mbe/sentry": "workspace:^",
     "@mbe/types": "workspace:*",

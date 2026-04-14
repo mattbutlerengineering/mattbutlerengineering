@@ -13,7 +13,7 @@ import {
   SkeletonGroup,
   Stat,
   Text,
-} from "@mbe/rialto";
+} from "@mattbutlerengineering/rialto";
 import type { ReservationStatus } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useReservationData } from "../contexts/ReservationDataContext.js";

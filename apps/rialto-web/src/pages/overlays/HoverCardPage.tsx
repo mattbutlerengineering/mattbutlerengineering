@@ -1,4 +1,4 @@
-import { Avatar, Badge, Button, DataList, HoverCard } from "@mbe/rialto";
+import { Avatar, Badge, Button, DataList, HoverCard } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";

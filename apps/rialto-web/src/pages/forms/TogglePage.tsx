@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Card, Checkbox, DataList, Stack, Text, Toggle } from "@mbe/rialto";
+import { Button, Card, Checkbox, DataList, Stack, Text, Toggle } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";
@@ -85,11 +85,11 @@ export function TogglePage() {
               <Toggle label="Active suspension" defaultChecked />
               <Toggle label="DRS automatic" disabled disabledReason="Only available during race mode" />
             </div>
-            <div className={styles.row} style={{ justifyContent: "flex-end" }}>
+            <Stack direction="row" gap="sm" align="center" justify="end" wrap>
               <Button variant="primary" size="sm">
                 Save Configuration
               </Button>
-            </div>
+            </Stack>
           </Stack>
         </Card>
       </Section>

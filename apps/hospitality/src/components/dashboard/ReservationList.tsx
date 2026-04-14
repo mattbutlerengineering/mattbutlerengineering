@@ -1,4 +1,4 @@
-import { Card, Text, Badge, Skeleton } from "@mbe/rialto";
+import { Card, Text, Badge, Skeleton } from "@mattbutlerengineering/rialto";
 import type { Reservation } from "@mbe/types";
 import styles from "../../pages/HomePage.module.css";
 

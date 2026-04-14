@@ -1,4 +1,4 @@
-import { Card, DataList, Select, Stat } from "@mbe/rialto";
+import { Card, DataList, Select, Stack, Stat } from "@mattbutlerengineering/rialto";
 import { useState } from "react";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
@@ -74,11 +74,11 @@ export function StatPage() {
 
       {/* ── Sizes ─────────────────────────────────────────────────── */}
       <Section title="Sizes">
-        <div className={styles.row} style={{ flexWrap: "wrap", alignItems: "flex-start" }}>
+        <Stack direction="row" gap="sm" align="start" wrap>
           <Stat value="1:25" label="Small" size="sm" />
           <Stat value="1:25.410" label="Medium" />
           <Stat value="1:25.410" label="Large" size="lg" />
-        </div>
+        </Stack>
       </Section>
 
       {/* ── Usage Example ─────────────────────────────────────────── */}

@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
-import { Button, Checkbox, Divider, Input, useToast } from "@mbe/rialto";
+import { Button, Checkbox, Divider, Input, useToast } from "@mattbutlerengineering/rialto";
 import { AuthLayout } from "./AuthLayout";
 import styles from "./AuthLayout.module.css";
 

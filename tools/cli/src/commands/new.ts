@@ -68,7 +68,7 @@ function generatePackageJson(name: string): string {
         typecheck: "tsc --noEmit",
       },
       dependencies: {
-        "@mbe/rialto": "workspace:*",
+        "@mattbutlerengineering/rialto": "workspace:*",
         "framer-motion": "^12.34.0",
         "lucide-react": "^0.575.0",
         react: "^19.2.4",
@@ -141,12 +141,12 @@ function generateIndexHtml(name: string): string {
 
 function generateMainTsx(name: string): string {
   return [
-    'import "@mbe/rialto/styles";',
+    'import "@mattbutlerengineering/rialto/styles";',
     'import "./global.css";',
     'import { StrictMode } from "react";',
     'import { createRoot } from "react-dom/client";',
     'import { BrowserRouter } from "react-router-dom";',
-    'import { RialtoProvider } from "@mbe/rialto";',
+    'import { RialtoProvider } from "@mattbutlerengineering/rialto";',
     'import { App } from "./App";',
     "",
     'createRoot(document.getElementById("root")!).render(',
@@ -184,7 +184,7 @@ function generateGlobalCss(name: string): string {
 
 function generateExamplePage(): string {
   return [
-    'import { Card, Stack, Text, Button } from "@mbe/rialto";',
+    'import { Card, Stack, Text, Button } from "@mattbutlerengineering/rialto";',
     "",
     "export function ExamplePage() {",
     "  return (",

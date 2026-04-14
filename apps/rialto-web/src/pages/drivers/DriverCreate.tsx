@@ -13,7 +13,7 @@ import {
   SegmentedControl,
   TextArea,
   useToast,
-} from "@mbe/rialto";
+} from "@mattbutlerengineering/rialto";
 import styles from "./DriverForm.module.css";
 
 const TEAM_OPTIONS = [

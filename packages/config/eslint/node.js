@@ -11,7 +11,7 @@ export default [
         {
           patterns: [
             {
-              group: ["@mbe/rialto", "@mbe/rialto/*"],
+              group: ["@mattbutlerengineering/rialto", "@mattbutlerengineering/rialto/*"],
               message: "Frontend-only package. Cannot import in backend services.",
             },
             {
@@ -42,7 +42,7 @@ export default [
         {
           patterns: [
             {
-              group: ["@mbe/rialto", "@mbe/rialto/*"],
+              group: ["@mattbutlerengineering/rialto", "@mattbutlerengineering/rialto/*"],
               message: "Frontend-only package. Cannot import in backend services.",
             },
             {

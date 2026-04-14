@@ -1,4 +1,4 @@
-import { Accordion, DataList, Stack } from "@mbe/rialto";
+import { Accordion, DataList, Stack } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 

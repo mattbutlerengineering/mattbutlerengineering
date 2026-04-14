@@ -1,7 +1,6 @@
-import { AspectRatio, DataList, Stack } from "@mbe/rialto";
+import { AspectRatio, DataList, Stack } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
-import styles from "../components/ComponentPageLayout.module.css";
 
 // ---------------------------------------------------------------------------
 // Page
@@ -41,7 +40,7 @@ export function AspectRatioPage() {
     >
       {/* ── Common Ratios ─────────────────────────────────────────── */}
       <Section title="Common Ratios">
-        <div className={styles.row} style={{ alignItems: "flex-end", flexWrap: "wrap" }}>
+        <Stack direction="row" gap="sm" align="end" wrap>
           {RATIOS.map(({ ratio, label, width }) => (
             <div key={label} style={{ width }}>
               <AspectRatio ratio={ratio}>
@@ -49,7 +48,7 @@ export function AspectRatioPage() {
               </AspectRatio>
             </div>
           ))}
-        </div>
+        </Stack>
       </Section>
 
       {/* ── With Real Content ─────────────────────────────────────── */}

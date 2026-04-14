@@ -1,4 +1,4 @@
-import { Button, Collapsible, DataList, Stack } from "@mbe/rialto";
+import { Button, Collapsible, DataList, Stack } from "@mattbutlerengineering/rialto";
 import { useState } from "react";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";

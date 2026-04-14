@@ -1,5 +1,5 @@
 import type { TimeSlot } from "@mbe/types";
-import { Button, Alert, Skeleton, SkeletonGroup, EmptyState } from "@mbe/rialto";
+import { Button, Alert, Skeleton, SkeletonGroup, EmptyState } from "@mattbutlerengineering/rialto";
 import styles from "./TimeSlotPicker.module.css";
 
 export interface TimeSlotPickerProps {

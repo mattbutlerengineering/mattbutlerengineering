@@ -1,6 +1,6 @@
 # EmptyState
 
-**Import:** `import { EmptyState } from "@mbe/rialto"`
+**Import:** `import { EmptyState } from "@mattbutlerengineering/rialto"`
 **Category:** Feedback
 
 ## Anatomy

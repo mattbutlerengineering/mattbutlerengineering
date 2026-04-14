@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { ErrorRetryBanner } from "./ErrorRetryBanner.js";
 
 // Mock Rialto components to avoid rendering internals
-vi.mock("@mbe/rialto", () => ({
+vi.mock("@mattbutlerengineering/rialto", () => ({
   Alert: ({
     children,
     variant,

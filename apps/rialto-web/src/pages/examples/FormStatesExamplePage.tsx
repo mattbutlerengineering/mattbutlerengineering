@@ -1,4 +1,4 @@
-import { Card, Stack, Input, Select, Button, Spinner } from "@mbe/rialto";
+import { Card, Stack, Input, Select, Button, Spinner } from "@mattbutlerengineering/rialto";
 import { ExamplePageLayout, StatePanel, CompositionNote } from "./ExamplePageLayout";
 import styles from "./FormStatesExamplePage.module.css";
 

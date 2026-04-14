@@ -1,4 +1,4 @@
-import { Button, DataList, Input, Popover, Stack } from "@mbe/rialto";
+import { Button, DataList, Input, Popover, Stack } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";

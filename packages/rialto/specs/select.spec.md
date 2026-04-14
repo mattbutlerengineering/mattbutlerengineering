@@ -1,6 +1,6 @@
 # Select
 
-**Import:** `import { Select } from "@mbe/rialto"`
+**Import:** `import { Select } from "@mattbutlerengineering/rialto"`
 **Category:** Form
 
 ## Anatomy

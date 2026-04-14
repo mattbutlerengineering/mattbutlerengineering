@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect, type KeyboardEvent, type ChangeEvent } from "react";
-import { Button } from "@mbe/rialto";
+import { Button } from "@mattbutlerengineering/rialto";
 import styles from "./PromptBar.module.css";
 
 export interface PromptBarProps {

@@ -1,5 +1,5 @@
-import { Button, CommandPalette, DataList, Stack, useToast } from "@mbe/rialto";
-import type { CommandItem } from "@mbe/rialto";
+import { Button, CommandPalette, DataList, Stack, useToast } from "@mattbutlerengineering/rialto";
+import type { CommandItem } from "@mattbutlerengineering/rialto";
 import { useState } from "react";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";

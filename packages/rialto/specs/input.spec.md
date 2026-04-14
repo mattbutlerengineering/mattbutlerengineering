@@ -1,6 +1,6 @@
 # Input
 
-**Import:** `import { Input } from "@mbe/rialto"`
+**Import:** `import { Input } from "@mattbutlerengineering/rialto"`
 **Category:** Form
 
 ## Anatomy

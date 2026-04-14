@@ -1,6 +1,6 @@
 # Card
 
-**Import:** `import { Card } from "@mbe/rialto"`
+**Import:** `import { Card } from "@mattbutlerengineering/rialto"`
 **Category:** Data Display
 
 ## Anatomy

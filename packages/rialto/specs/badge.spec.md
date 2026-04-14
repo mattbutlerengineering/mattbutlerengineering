@@ -1,6 +1,6 @@
 # Badge
 
-**Import:** `import { Badge } from "@mbe/rialto"`
+**Import:** `import { Badge } from "@mattbutlerengineering/rialto"`
 **Category:** Data Display
 
 ## Anatomy

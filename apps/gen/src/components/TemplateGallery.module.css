@@ -193,7 +193,7 @@
 
 /* ── Template grid ───────────────────── */
 
-.grid {
+.templateGrid {
   flex: 1;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -316,7 +316,7 @@
     display: none;
   }
 
-  .grid {
+  .templateGrid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
@@ -332,7 +332,7 @@
     max-block-size: calc(100dvh - var(--rialto-space-lg));
   }
 
-  .grid {
+  .templateGrid {
     grid-template-columns: 1fr;
     gap: var(--rialto-space-sm);
     padding: var(--rialto-space-sm);

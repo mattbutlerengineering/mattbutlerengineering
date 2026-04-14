@@ -13,10 +13,10 @@ import {
   SkeletonGroup,
   Stack,
   Text,
-} from "@mbe/rialto";
+} from "@mattbutlerengineering/rialto";
 import { ApiClient, UsersClient } from "@mbe/api-client";
 import type { User } from "@mbe/types";
-import type { DataListItem } from "@mbe/rialto";
+import type { DataListItem } from "@mattbutlerengineering/rialto";
 import { PageHeader } from "../components/PageHeader";
 import styles from "./ProfilePage.module.css";
 

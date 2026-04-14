@@ -1,4 +1,4 @@
-import { Button, DataList, Dialog, Input, Select, Stack, Text } from "@mbe/rialto";
+import { Button, DataList, Dialog, Input, Select, Stack, Text } from "@mattbutlerengineering/rialto";
 import { useState } from "react";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";

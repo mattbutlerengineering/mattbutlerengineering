@@ -1,4 +1,4 @@
-import { DataList, Tree } from "@mbe/rialto";
+import { DataList, Tree } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 

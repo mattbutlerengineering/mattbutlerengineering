@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { createApiClient } from "@mbe/api-client";
-import { Steps, Text } from "@mbe/rialto";
-import type { StepItem } from "@mbe/rialto";
+import { Steps, Text } from "@mattbutlerengineering/rialto";
+import type { StepItem } from "@mattbutlerengineering/rialto";
 import type { TimeSlot, ReservationHold, Reservation } from "@mbe/types";
 import { DatePartySelector } from "./DatePartySelector";
 import { TimeSlotPicker } from "./TimeSlotPicker";

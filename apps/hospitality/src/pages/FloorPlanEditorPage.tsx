@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useNavigate, useBlocker } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
-import { ConfirmDialog } from "@mbe/rialto";
+import { ConfirmDialog } from "@mattbutlerengineering/rialto";
 import type { CreateTableRequest, FloorPlan, Table } from "@mbe/types";
 import { AddTableDialog, FloorPlanCanvas } from "../components/floor-plan";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";

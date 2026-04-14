@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
-import { Footer, GlobalNav } from "@mbe/rialto";
+import { Footer, GlobalNav } from "@mattbutlerengineering/rialto";
 import { ShowcaseSidebar } from "../components/ShowcaseSidebar";
 import { NAV_SECTIONS, DEMO_PAGES } from "../data/nav-sections";
 import { useThemeContext } from "../ThemeContext";

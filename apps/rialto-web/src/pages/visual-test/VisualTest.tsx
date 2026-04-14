@@ -41,7 +41,7 @@ import {
   TextArea,
   Toggle,
   Tooltip,
-} from "@mbe/rialto";
+} from "@mattbutlerengineering/rialto";
 import styles from "./VisualTest.module.css";
 
 /* ── Helpers ─────────────────────────────────── */

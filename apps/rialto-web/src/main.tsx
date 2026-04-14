@@ -2,9 +2,9 @@
 import { StrictMode, useState, useMemo, useCallback } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
-import "@mbe/rialto/styles";
+import "@mattbutlerengineering/rialto/styles";
 import "./global.css";
-import { RialtoProvider, ToastProvider, ErrorBoundary } from "@mbe/rialto";
+import { RialtoProvider, ToastProvider, ErrorBoundary } from "@mattbutlerengineering/rialto";
 import { initSentry, handleErrorBoundary } from "@mbe/sentry/react";
 import { ThemeContext } from "./ThemeContext";
 import { routeTree } from "./routes";

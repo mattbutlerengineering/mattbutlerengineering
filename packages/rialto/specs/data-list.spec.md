@@ -1,6 +1,6 @@
 # DataList
 
-**Import:** `import { DataList } from "@mbe/rialto"`
+**Import:** `import { DataList } from "@mattbutlerengineering/rialto"`
 **Category:** Data Display
 
 ## Anatomy

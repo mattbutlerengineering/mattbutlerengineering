@@ -9,7 +9,7 @@ import {
   PageHeader,
   Stack,
   Text,
-} from "@mbe/rialto";
+} from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";
@@ -235,14 +235,14 @@ export function PageHeaderPage() {
               PageHeader sits at the top of an app page, directly below the Navbar. It provides
               navigation context, the page title, status indicators, and page-level actions.
             </Text>
-            <div className={styles.row} style={{ justifyContent: "flex-end" }}>
+            <Stack direction="row" gap="sm" align="center" justify="end" wrap>
               <Button variant="ghost" size="sm">
                 View example
               </Button>
               <Button variant="primary" size="sm">
                 Open in demo
               </Button>
-            </div>
+            </Stack>
           </Stack>
         </Card>
       </Section>

@@ -9,7 +9,7 @@ import {
   Select,
   Stack,
   Text,
-} from "@mbe/rialto";
+} from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";
@@ -233,14 +233,14 @@ export function FooterPage() {
               Footer sits at the bottom of the page. Use minimal for app shells and rich for
               marketing pages.
             </Text>
-            <div className={styles.row} style={{ justifyContent: "flex-end" }}>
+            <Stack direction="row" gap="sm" align="center" justify="end" wrap>
               <Button variant="ghost" size="sm">
                 View minimal example
               </Button>
               <Button variant="primary" size="sm">
                 View rich example
               </Button>
-            </div>
+            </Stack>
           </Stack>
         </Card>
       </Section>

@@ -1,3 +1,3 @@
 /// <reference types="vite/client" />
 
-declare module "@mbe/rialto/styles";
+declare module "@mattbutlerengineering/rialto/styles";

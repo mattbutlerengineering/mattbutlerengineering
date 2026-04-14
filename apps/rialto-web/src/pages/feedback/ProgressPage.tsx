@@ -1,4 +1,4 @@
-import { Checkbox, DataList, Progress, Select, Spinner, Stack, Text } from "@mbe/rialto";
+import { Checkbox, DataList, Progress, Select, Spinner, Stack, Text } from "@mattbutlerengineering/rialto";
 import { useState } from "react";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";

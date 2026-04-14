@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Badge, Popover } from "@mbe/rialto";
+import { Badge, Popover } from "@mattbutlerengineering/rialto";
 import { useAuth } from "@mbe/auth/react";
 import styles from "./SystemHealthBadge.module.css";
 

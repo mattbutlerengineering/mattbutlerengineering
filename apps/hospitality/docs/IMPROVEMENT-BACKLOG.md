@@ -97,7 +97,7 @@
 **Problem:** Timeline still uses raw `<select>` instead of Rialto `<Select>`.
 
 **Acceptance Criteria:**
-- [ ] Venue selector uses `<Select>` from `@mbe/rialto`
+- [ ] Venue selector uses `<Select>` from `@mattbutlerengineering/rialto`
 - [ ] Matches the styling of venue selectors on other pages
 
 **Files to modify:** `TimelinePage.tsx` (replace raw select, lines ~180-195)

@@ -1,4 +1,4 @@
-import { Button, DataList, Stack, Steps, Text } from "@mbe/rialto";
+import { Button, DataList, Stack, Steps, Text } from "@mattbutlerengineering/rialto";
 import { useState } from "react";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
@@ -56,7 +56,7 @@ export function StepsPage() {
 
       {/* ── Vertical ──────────────────────────────────────────────── */}
       <Section title="Vertical Orientation">
-        <div className={styles.row} style={{ alignItems: "flex-start", flexWrap: "wrap" }}>
+        <Stack direction="row" gap="sm" align="start" wrap>
           <Steps
             orientation="vertical"
             steps={[
@@ -78,7 +78,7 @@ export function StepsPage() {
             ]}
             currentStep={2}
           />
-        </div>
+        </Stack>
       </Section>
 
       {/* ── Usage Example ─────────────────────────────────────────── */}

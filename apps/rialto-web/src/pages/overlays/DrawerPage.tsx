@@ -8,7 +8,7 @@ import {
   Stack,
   Text,
   Toggle,
-} from "@mbe/rialto";
+} from "@mattbutlerengineering/rialto";
 import { useState } from "react";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";

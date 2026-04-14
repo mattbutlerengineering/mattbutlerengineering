@@ -1,4 +1,4 @@
-import type { DomainContext } from "@mbe/rialto";
+import type { DomainContext } from "@mattbutlerengineering/rialto";
 
 /**
  * Hardcoded domain context for the hospitality app's Gen Copilot.

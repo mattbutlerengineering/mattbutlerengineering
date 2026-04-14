@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { Badge, Shortcut } from "@mbe/rialto";
+import { Badge, Shortcut } from "@mattbutlerengineering/rialto";
 import styles from "./TemplateGallery.module.css";
 
 // ---------------------------------------------------------------------------
@@ -346,7 +346,7 @@ export function TemplateGallery({ open, onClose, onSelect }: TemplateGalleryProp
             </div>
 
             {/* Template grid */}
-            <div className={styles.grid}>
+            <div className={styles.templateGrid}>
               {filteredTemplates.length === 0 ? (
                 <div className={styles.empty}>
                   <span className={styles.emptyIcon} aria-hidden="true">

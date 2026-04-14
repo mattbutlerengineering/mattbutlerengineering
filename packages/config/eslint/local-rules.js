@@ -17,7 +17,7 @@ export default {
               if (tailwindPatterns.test(node.value.value)) {
                 context.report({
                   node,
-                  message: "Tailwind utility classes are prohibited. Use @mbe/rialto components or CSS Modules. See ADR-001.",
+                  message: "Tailwind utility classes are prohibited. Use @mattbutlerengineering/rialto components or CSS Modules. See ADR-001.",
                 });
               }
             }

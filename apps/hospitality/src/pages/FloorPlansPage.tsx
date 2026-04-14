@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
-import { Badge, Button, EmptyState, Skeleton, SkeletonGroup, Text } from "@mbe/rialto";
+import { Badge, Button, EmptyState, Skeleton, SkeletonGroup, Text } from "@mattbutlerengineering/rialto";
 import type { FloorPlan } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";
 import { PageHeader } from "../components/PageHeader";
@@ -17,7 +17,7 @@ function FloorPlansLoadingSkeleton() {
     <div className={styles.container}>
       <PageHeader title="Floor Plans" description="Design and manage your venue layouts" />
       <SkeletonGroup>
-        <div className={styles.grid}>
+        <div className={styles.cardGrid}>
           {Array.from({ length: 3 }, (_, i) => (
             <Skeleton key={i} variant="card" width="100%" height={220} />
           ))}
@@ -128,7 +128,7 @@ export function FloorPlansPage() {
       )}
 
       {!isLoading && !error && floorPlans.length > 0 && (
-        <div className={styles.grid}>
+        <div className={styles.cardGrid}>
           {floorPlans.map((floorPlan) => (
             <button
               key={floorPlan.id}

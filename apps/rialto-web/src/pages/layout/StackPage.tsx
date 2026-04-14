@@ -1,4 +1,4 @@
-import { Badge, Button, DataList, Select, Stack, Tag, Text } from "@mbe/rialto";
+import { Badge, Button, DataList, Select, Stack, Tag, Text } from "@mattbutlerengineering/rialto";
 import { useState } from "react";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";

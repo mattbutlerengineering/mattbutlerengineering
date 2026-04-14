@@ -20,7 +20,7 @@ import {
   Tag,
   Text,
   TextArea,
-} from "@mbe/rialto";
+} from "@mattbutlerengineering/rialto";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import type { Guest, GuestSegment, Reservation, UpdateGuestRequest } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";

@@ -1,0 +1,80 @@
+<codebase path="apps/gen">
+  <section priority="medium" role="src">
+  <file path="src/vite-env.d.ts">
+    interface ImportMetaEnv {
+      readonly VITE_AUTH_AUTHORITY: string;
+      readonly VITE_AUTH_CLIENT_ID: string;
+      readonly VITE_AUTH_REDIRECT_URI: string;
+      readonly VITE_AUTH_AUDIENCE: string;
+    }
+    interface ImportMeta {
+      readonly env: ImportMetaEnv;
+    }
+  </file>
+  <file path="src/types.ts">
+    export interface HistoryEntry {
+      id: string;
+      prompt: string;
+      spec: Spec;
+      rawLines: string[];
+      timestamp: Date;
+    }
+    export interface StoredSpec {
+      id: string;
+      userId: string;
+      prompt: string;
+      spec: unknown;
+      rawLines: string[];
+      isFavorite: boolean;
+      createdAt: string;
+      updatedAt: string;
+    }
+  </file>
+  </section>
+  <section priority="medium" role="utils">
+  <file path="src/utils/relative-time.ts">
+    export function relativeTime(date: Date): string {
+      const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+      const diffMs = date.getTime() - Date.now();
+      const diffSecs = Math.round(diffMs / 1000);
+      const diffMins = Math.round(diffSecs / 60);
+      if (Math.abs(diffSecs) < 60) return rtf.format(diffSecs, "second");
+      if (Math.abs(diffMins) < 60) return rtf.format(diffMins, "minute");
+      const diffHours = Math.round(diffMins / 60);
+      return rtf.format(diffHours, "hour");
+    }
+  </file>
+  </section>
+  <section priority="medium" role="hooks">
+  <file path="src/hooks/useSpecsApi.ts">
+    export interface SaveSpecData {
+      prompt: string;
+      spec: unknown;
+      rawLines: string[];
+    }
+    export interface UseSpecsApiReturn {
+      specs: StoredSpec[];
+      isLoading: boolean;
+      fetchSpecs: () => Promise<void>;
+      saveSpec: (data: SaveSpecData) => Promise<StoredSpec>;
+      toggleFavorite: (id: string) => Promise<void>;
+      deleteSpec: (id: string) => Promise<void>;
+    }
+  </file>
+  <file path="src/hooks/usePanelLayout.ts">
+    type Breakpoint = "mobile" | "tablet" | "desktop";
+    interface PanelState {
+      historyVisible: boolean;
+      inspectorVisible: boolean;
+    }
+  </file>
+  <file path="src/hooks/useGenStream.ts">
+    type FlatElement = Parameters<typeof flatToTree>[0][number];
+    export interface UseGenStreamOptions {
+      api: string;
+      onComplete?: (spec: Spec, rawLines: string[]) => void;
+      onError?: (error: Error) => void;
+    }
+  </file>
+  </section>
+</codebase>

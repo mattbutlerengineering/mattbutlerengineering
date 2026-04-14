@@ -1,6 +1,6 @@
 # Text
 
-**Import:** `import { Text } from "@mbe/rialto"`
+**Import:** `import { Text } from "@mattbutlerengineering/rialto"`
 **Category:** Layout
 
 ## Anatomy

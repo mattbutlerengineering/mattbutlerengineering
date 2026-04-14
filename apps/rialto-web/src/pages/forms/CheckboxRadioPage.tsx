@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Card, Checkbox, DataList, Radio, RadioGroup, Stack, Text } from "@mbe/rialto";
+import { Button, Card, Checkbox, DataList, Radio, RadioGroup, Stack, Text } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";
@@ -64,7 +64,7 @@ export function CheckboxRadioPage() {
 
       {/* ── Radio Group ───────────────────────────────────────────── */}
       <Section title="Radio Group">
-        <div className={styles.row} style={{ alignItems: "flex-start", flexWrap: "wrap" }}>
+        <Stack direction="row" gap="sm" align="start" wrap>
           <RadioGroup
             label="Driving Mode"
             name="showcase-driving-mode"
@@ -93,13 +93,13 @@ export function CheckboxRadioPage() {
             <Radio label="Intermediate" value="inter" />
             <Radio label="Full Wet" value="wet" />
           </RadioGroup>
-        </div>
+        </Stack>
       </Section>
 
       {/* ── States ────────────────────────────────────────────────── */}
       <Section title="States">
-        <div className={styles.row} style={{ flexWrap: "wrap", alignItems: "flex-start" }}>
-          <div className={styles.stack}>
+        <Stack direction="row" gap="sm" align="start" wrap>
+          <Stack gap="sm">
             <Text variant="detail" color="tertiary">
               Checkbox states
             </Text>
@@ -113,8 +113,8 @@ export function CheckboxRadioPage() {
             />
             <Checkbox label="Disabled" disabled />
             <Checkbox label="Disabled checked" disabled checked />
-          </div>
-        </div>
+          </Stack>
+        </Stack>
       </Section>
 
       {/* ── Usage Example ─────────────────────────────────────────── */}
@@ -124,7 +124,7 @@ export function CheckboxRadioPage() {
             <Text variant="label" color="primary">
               Session Configuration
             </Text>
-            <div className={styles.row} style={{ alignItems: "flex-start", flexWrap: "wrap" }}>
+            <Stack direction="row" gap="sm" align="start" wrap>
               <Stack gap="sm">
                 <Text variant="detail" color="tertiary">
                   Active systems
@@ -147,12 +147,12 @@ export function CheckboxRadioPage() {
                 <Radio label="Neutral (50%)" value="b" />
                 <Radio label="Rear bias (44%)" value="c" />
               </RadioGroup>
-            </div>
-            <div className={styles.row} style={{ justifyContent: "flex-end" }}>
+            </Stack>
+            <Stack direction="row" gap="sm" align="center" justify="end" wrap>
               <Button variant="primary" size="sm">
                 Apply
               </Button>
-            </div>
+            </Stack>
           </Stack>
         </Card>
       </Section>

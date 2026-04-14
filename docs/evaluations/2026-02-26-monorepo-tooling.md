@@ -30,7 +30,7 @@
 │  │  @mbe/config ◄── @mbe/types ◄── @mbe/auth                    │  │
 │  │       ▲               ▲              ▲                        │  │
 │  │       │               │              │                        │  │
-│  │  @mbe/ui    @mbe/api-client   @mbe/rialto                    │  │
+│  │  @mbe/ui    @mbe/api-client   @mattbutlerengineering/rialto                    │  │
 │  │       ▲          ▲                   ▲                        │  │
 │  │       │          │                   │                        │  │
 │  │  @mbe/shared-layout              @mbe/rialto-web              │  │
@@ -75,7 +75,7 @@
 | **Dependency management** | Strict resolution, no phantom deps, efficient disk usage |
 | **Task orchestration** | Dependency-aware parallel execution across 14 packages |
 | **Architectural enforcement** | As the monorepo grows, preventing circular deps and wrong-layer imports |
-| **Version management** | Publish @mbe/rialto to npm; manage internal package versions |
+| **Version management** | Publish @mattbutlerengineering/rialto to npm; manage internal package versions |
 | **Ecosystem fit** | TypeScript, Vite, Fastify, Prisma, React — must integrate cleanly |
 | **Pricing** | Solo developer; $0 is the target |
 | **Migration cost** | From current pnpm + Turborepo + Changesets stack |
@@ -167,7 +167,7 @@ JavaScript runtime with built-in package manager. Fastest raw install speed.
 | **Turborepo** | Supported but less tested than pnpm/yarn |
 | **License** | MIT |
 
-**Elimination reason:** Workspace publishing not supported. `--filter` support is immature compared to pnpm. Some pnpm-specific features (catalogs, workspace protocol, strict deps) have no Bun equivalent. Not ready for a 14-package monorepo that publishes @mbe/rialto to npm.
+**Elimination reason:** Workspace publishing not supported. `--filter` support is immature compared to pnpm. Some pnpm-specific features (catalogs, workspace protocol, strict deps) have no Bun equivalent. Not ready for a 14-package monorepo that publishes @mattbutlerengineering/rialto to npm.
 
 ---
 
@@ -295,7 +295,7 @@ Monorepo-first version management. Decouples version decisions from commits. Use
 | **This project** | Configured (`access: "public"`, GitHub changelog) but not automated in CI |
 | **License** | MIT (Atlassian) |
 
-**Key strength:** Explicit version intent. The developer decides whether a change is a patch, minor, or major when creating the changeset, not based on commit message parsing. This is more accurate for library versioning (relevant for @mbe/rialto which is published to npm).
+**Key strength:** Explicit version intent. The developer decides whether a change is a patch, minor, or major when creating the changeset, not based on commit message parsing. This is more accurate for library versioning (relevant for @mattbutlerengineering/rialto which is published to npm).
 
 **Key weakness:** Not automated in CI for this project. The `changeset` and `release` scripts exist but there's no GitHub Action workflow to create release PRs or publish to npm. This is a configuration gap, not a tool problem.
 
@@ -529,7 +529,7 @@ Example in `turbo.json`:
 | **Current state** (14 pkgs, 1 dev, no remote cache) | Enable Vercel Remote Cache + upgrade Turborepo to 2.8. Both free, 15 min total. |
 | **CI is slow** | Remote cache is the fix. Eliminates redundant rebuilds. |
 | **Dependency version drift** | Adopt pnpm catalogs. Define versions once in workspace root. |
-| **Need to publish @mbe/rialto** | Automate Changesets in CI with `changesets/action`. |
+| **Need to publish @mattbutlerengineering/rialto** | Automate Changesets in CI with `changesets/action`. |
 | **Growing to 30+ packages** | Enable Turborepo Boundaries. Consider Nx migration if team grows. |
 | **Hiring a team (5+ devs)** | Re-evaluate Nx for module boundaries, generators, and affected commands. |
 | **Package manager pain** | None expected. pnpm is the right choice; no migration needed. |

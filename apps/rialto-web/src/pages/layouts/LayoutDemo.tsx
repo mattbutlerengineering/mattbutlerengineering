@@ -1,4 +1,4 @@
-import { Badge, Button, Card, Footer, Hero, Kbd, PageHeader } from "@mbe/rialto";
+import { Badge, Button, Card, Footer, Hero, Kbd, PageHeader } from "@mattbutlerengineering/rialto";
 import styles from "./LayoutDemo.module.css";
 
 /* ── Demo data ───────────────────────────────── */

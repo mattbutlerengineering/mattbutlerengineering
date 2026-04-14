@@ -1,7 +1,6 @@
-import { DataList, Timeline } from "@mbe/rialto";
+import { DataList, Stack, Timeline } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
-import styles from "../components/ComponentPageLayout.module.css";
 
 // ---------------------------------------------------------------------------
 // Page
@@ -15,7 +14,7 @@ export function TimelinePage() {
     >
       {/* ── Full timeline ─────────────────────────────────────────── */}
       <Section title="Full Timeline">
-        <div className={styles.row} style={{ alignItems: "flex-start", flexWrap: "wrap" }}>
+        <Stack direction="row" gap="sm" align="start" wrap>
           <div style={{ flex: 1, minWidth: 240 }}>
             <p
               style={{
@@ -89,7 +88,7 @@ export function TimelinePage() {
               ]}
             />
           </div>
-        </div>
+        </Stack>
       </Section>
 
       {/* ── Status Variants ───────────────────────────────────────── */}

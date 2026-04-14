@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@mbe/rialto": "workspace:*"
+    "@mattbutlerengineering/rialto": "workspace:*"
   },
   "devDependencies": {
     "@mbe/config": "workspace:*",
