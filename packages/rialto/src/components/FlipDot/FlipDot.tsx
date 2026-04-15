@@ -19,9 +19,11 @@ export type StaggerDirection =
   | "center-out"
   | "random";
 
-export interface FlipDotProps extends HTMLAttributes<HTMLDivElement> {
+export interface FlipDotProps extends Omit<HTMLAttributes<HTMLDivElement>, "aria-label"> {
   /** 2D boolean grid — `true` = on (bright), `false` = off (dark). Outer array = rows. */
   matrix: readonly (readonly boolean[])[];
+  /** Accessible name for screen readers — required because the component renders as role="img". */
+  "aria-label": string;
   /** Override column count. Matrix is padded/truncated to fit. */
   cols?: number;
   /** Override row count. Matrix is padded/truncated to fit. */
