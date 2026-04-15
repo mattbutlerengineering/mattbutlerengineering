@@ -28,8 +28,8 @@ catalogs:
       specifier: ^4.1.2
       version: 4.1.2
     fastify:
-      specifier: ^5.8.4
-      version: 5.8.4
+      specifier: ^5.8.5
+      version: 5.8.5
     framer-motion:
       specifier: ^12.38.0
       version: 12.38.0
@@ -489,7 +489,7 @@ importers:
         version: 25.5.2
       fastify:
         specifier: 'catalog:'
-        version: 5.8.4
+        version: 5.8.5
       typescript:
         specifier: 'catalog:'
         version: 6.0.2
@@ -529,7 +529,7 @@ importers:
         version: 4.1.2(vitest@4.1.2(@opentelemetry/api@1.9.1)(@types/node@25.5.2)(jsdom@29.0.2)(vite@8.0.5(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2)(@types/node@25.5.2)(esbuild@0.27.2)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3)))
       fastify:
         specifier: 'catalog:'
-        version: 5.8.4
+        version: 5.8.5
       react:
         specifier: 'catalog:'
         version: 19.2.4
@@ -656,7 +656,7 @@ importers:
         version: 1.40.0
       fastify:
         specifier: 'catalog:'
-        version: 5.8.4
+        version: 5.8.5
       fastify-plugin:
         specifier: ^5.0.0
         version: 5.1.0
@@ -838,7 +838,7 @@ importers:
         version: 19.2.14
       fastify:
         specifier: 'catalog:'
-        version: 5.8.4
+        version: 5.8.5
       react:
         specifier: 'catalog:'
         version: 19.2.4
@@ -908,7 +908,7 @@ importers:
         version: 6.0.149(zod@4.3.6)
       fastify:
         specifier: 'catalog:'
-        version: 5.8.4
+        version: 5.8.5
       zod:
         specifier: 'catalog:'
         version: 4.3.6
@@ -975,7 +975,7 @@ importers:
         version: 1.51.0
       fastify:
         specifier: 'catalog:'
-        version: 5.8.4
+        version: 5.8.5
       jose:
         specifier: ^6.2.2
         version: 6.2.2
@@ -1045,7 +1045,7 @@ importers:
         version: 1.51.0
       fastify:
         specifier: 'catalog:'
-        version: 5.8.4
+        version: 5.8.5
       jose:
         specifier: ^6.2.2
         version: 6.2.2
@@ -4517,6 +4517,7 @@ packages:
   basic-ftp@5.2.0:
     resolution: {integrity: sha512-VoMINM2rqJwJgfdHq6RiUudKt2BV+FY5ZFezP/ypmwayk68+NzzAQy4XXLlqsGD4MCzq3DrmNFD/uUmBJuGoXw==}
     engines: {node: '>=10.0.0'}
+    deprecated: Security vulnerability fixed in 5.2.1, please upgrade
 
   better-path-resolve@1.0.0:
     resolution: {integrity: sha512-pbnl5XzGBdrFU/wT4jqmJVPn2B6UHPBOhzMQkY/SPUPB6QtUXtmBHBIwCbXJol93mOpGMnQyP/+BB19q04xj7g==}
@@ -5347,8 +5348,8 @@ packages:
   fastify-plugin@5.1.0:
     resolution: {integrity: sha512-FAIDA8eovSt5qcDgcBvDuX/v0Cjz0ohGhENZ/wpc3y+oZCY2afZ9Baqql3g/lC+OHRnciQol4ww7tuthOb9idw==}
 
-  fastify@5.8.4:
-    resolution: {integrity: sha512-sa42J1xylbBAYUWALSBoyXKPDUvM3OoNOibIefA+Oha57FryXKKCZarA1iDntOCWp3O35voZLuDg2mdODXtPzQ==}
+  fastify@5.8.5:
+    resolution: {integrity: sha512-Yqptv59pQzPgQUSIm87hMqHJmdkb1+GPxdE6vW6FRyVE9G86mt7rOghitiU4JHRaTyDUk9pfeKmDeu70lAwM4Q==}
 
   fastq@1.20.1:
     resolution: {integrity: sha512-GGToxJ/w1x32s/D2EKND7kTil4n8OVk/9mycTc4VDza13lOvpUZTGX3mFSCtV9ksdGBVzvsyAVLM6mHFThxXxw==}
@@ -13528,7 +13529,7 @@ snapshots:
 
   fastify-plugin@5.1.0: {}
 
-  fastify@5.8.4:
+  fastify@5.8.5:
     dependencies:
       '@fastify/ajv-compiler': 4.0.5
       '@fastify/error': 4.2.0
