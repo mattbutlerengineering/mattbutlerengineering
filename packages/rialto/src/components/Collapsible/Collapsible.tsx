@@ -43,6 +43,7 @@ function Chevron({ open }: { open: boolean }) {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      aria-hidden="true"
       animate={{ rotate: open ? 180 : 0 }}
       transition={shouldReduceMotion ? { duration: 0 } : springGentle}
     >

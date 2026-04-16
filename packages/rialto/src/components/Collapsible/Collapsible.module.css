@@ -29,7 +29,7 @@
 }
 
 .trigger[data-open="true"] {
-  color: var(--rialto-accent);
+  color: var(--rialto-text-primary);
   background: var(--rialto-accent-muted);
 }
 
@@ -50,7 +50,7 @@
 }
 
 .trigger[data-open="true"] .chevron {
-  color: var(--rialto-accent);
+  color: var(--rialto-text-secondary);
 }
 
 .content {
