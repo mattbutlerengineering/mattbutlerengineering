@@ -11,7 +11,7 @@ catalog:
   "@vitest/coverage-v8": "^4.1.2"
   typescript: "^6.0.2"
   "@types/node": "^25.5.2"
-  fastify: "^5.8.4"
+  fastify: "^5.8.5"
   react: "^19.2.4"
   react-dom: "^19.2.4"
   "@types/react": "^19.2.14"
