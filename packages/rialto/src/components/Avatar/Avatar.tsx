@@ -62,6 +62,7 @@ export const Avatar = forwardRef<HTMLDivElement, AvatarProps>(
             stroke="currentColor"
             strokeWidth="1.2"
             strokeLinecap="round"
+            aria-hidden="true"
             style={{ color: "var(--rialto-text-tertiary)" }}
           >
             <circle cx="8" cy="6" r="2.5" />
@@ -109,8 +110,8 @@ export const AvatarGroup = forwardRef<HTMLDivElement, AvatarGroupProps>(
     return (
       <div ref={ref} className={[styles.group, className].filter(Boolean).join(" ")}>
         {overflow > 0 && (
-          <div className={`${styles.overflow} ${styles[size]}`}>
-            <span className={styles.overflowText}>+{overflow}</span>
+          <div className={`${styles.overflow} ${styles[size]}`} aria-label={`${overflow} more`}>
+            <span className={styles.overflowText} aria-hidden="true">+{overflow}</span>
           </div>
         )}
         {[...visible].reverse().map((avatar, i) => (
