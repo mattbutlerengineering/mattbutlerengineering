@@ -1,6 +1,6 @@
 {
   "name": "@mattbutlerengineering/rialto",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "main": "./src/lib-entry.ts",
   "types": "./src/lib-entry.ts",
