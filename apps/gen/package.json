@@ -28,7 +28,7 @@
     }
   ],
   "dependencies": {
-    "@json-render/react": "^0.16.0",
+    "@json-render/react": "^0.17.0",
     "@mbe/api-client": "workspace:*",
     "@mbe/auth": "workspace:*",
     "@mbe/rialto": "workspace:*",
