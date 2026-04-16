@@ -47,11 +47,11 @@
 }
 
 .sortActive {
-  color: var(--rialto-accent);
+  color: var(--rialto-text-primary);
 }
 
 .sortActive:hover {
-  color: var(--rialto-accent-hover);
+  color: var(--rialto-text-secondary);
 }
 
 .sortIcon {

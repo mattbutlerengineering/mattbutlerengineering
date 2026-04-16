@@ -47,7 +47,7 @@
 }
 
 .active .timestamp {
-  color: var(--rialto-accent);
+  color: var(--rialto-text-secondary);
 }
 
 /* ── Track (node column) ────────────────────── */
@@ -122,7 +122,7 @@
 }
 
 .active .title {
-  color: var(--rialto-accent);
+  color: var(--rialto-text-primary);
 }
 
 .error .title {

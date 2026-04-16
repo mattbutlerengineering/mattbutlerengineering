@@ -32,7 +32,7 @@
 }
 
 .brand:hover {
-  color: var(--rialto-accent);
+  color: var(--rialto-text-primary);
 }
 
 /* ── Desktop links ──────────────────────────────── */
