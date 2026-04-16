@@ -232,7 +232,7 @@ describe("Interaction tests", () => {
       </ToastProvider>
     );
     await user.click(screen.getByText("Save"));
-    expect(screen.getByText("Saved!")).toBeInTheDocument();
+    expect(await screen.findByText("Saved!")).toBeInTheDocument();
   });
 
   it("Tree expands node on click", async () => {
