@@ -61,10 +61,5 @@
   transform: rotateX(180deg);
 }
 
-/* ── Reduced motion: instant swap via opacity ─ */
-
-@media (prefers-reduced-motion: reduce) {
-  .dotInner {
-    transform-style: flat;
-  }
-}
+/* Reduced motion is handled in JS via useReducedMotion() (duration: 0).
+   transform-style: preserve-3d must stay intact for backface-visibility to work. */
