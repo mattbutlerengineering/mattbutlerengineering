@@ -3,6 +3,7 @@ import {
   useState,
   useRef,
   useCallback,
+  useEffect,
   type ReactNode,
   type ReactElement,
 } from "react";
@@ -75,6 +76,22 @@ export const HoverCard = forwardRef<HTMLDivElement, HoverCardProps>(
     const cancelClose = useCallback(() => {
       clearTimeout(closeTimeoutRef.current);
     }, []);
+
+    const closeImmediate = useCallback(() => {
+      clearTimeout(openTimeoutRef.current);
+      clearTimeout(closeTimeoutRef.current);
+      setOpen(false);
+    }, []);
+
+    // Escape key closes the card
+    useEffect(() => {
+      if (!open) return;
+      function handleKey(e: KeyboardEvent) {
+        if (e.key === "Escape") closeImmediate();
+      }
+      document.addEventListener("keydown", handleKey);
+      return () => document.removeEventListener("keydown", handleKey);
+    }, [open, closeImmediate]);
 
     const origin = motionOrigin[placement];
 

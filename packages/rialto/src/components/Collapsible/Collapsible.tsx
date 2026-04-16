@@ -27,6 +27,8 @@ export interface CollapsibleProps {
   /** Collapsible content */
   children: ReactNode;
   disabled?: boolean;
+  /** Wrap the trigger button in a heading element for document structure (a11y) */
+  headingTag?: "h2" | "h3" | "h4" | "h5" | "h6";
   className?: string;
 }
 
@@ -61,6 +63,7 @@ export const Collapsible = forwardRef<HTMLDivElement, CollapsibleProps>(
       trigger,
       children,
       disabled = false,
+      headingTag: HeadingTag,
       className,
     },
     ref
@@ -80,20 +83,29 @@ export const Collapsible = forwardRef<HTMLDivElement, CollapsibleProps>(
       onOpenChange?.(next);
     };
 
+    const triggerButton = (
+      <button
+        type="button"
+        id={triggerId}
+        className={styles.trigger}
+        onClick={toggle}
+        aria-disabled={disabled || undefined}
+        aria-expanded={isOpen}
+        aria-controls={contentId}
+        data-open={isOpen}
+      >
+        <span className={styles.triggerLabel}>{trigger}</span>
+        <Chevron open={isOpen} />
+      </button>
+    );
+
     return (
       <div ref={ref} className={[styles.collapsible, className].filter(Boolean).join(" ")}>
-        <button
-          id={triggerId}
-          className={styles.trigger}
-          onClick={toggle}
-          aria-disabled={disabled || undefined}
-          aria-expanded={isOpen}
-          aria-controls={contentId}
-          data-open={isOpen}
-        >
-          <span className={styles.triggerLabel}>{trigger}</span>
-          <Chevron open={isOpen} />
-        </button>
+        {HeadingTag ? (
+          <HeadingTag className={styles.heading}>{triggerButton}</HeadingTag>
+        ) : (
+          triggerButton
+        )}
 
         <AnimatePresence initial={false}>
           {isOpen && (

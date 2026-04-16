@@ -59,6 +59,7 @@ function NavChevron({ open }: { open: boolean }) {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      aria-hidden="true"
       animate={{ rotate: open ? 180 : 0 }}
       transition={shouldReduceMotion ? { duration: 0 } : springGentle}
     >
@@ -146,8 +147,9 @@ function NavTrigger({
   return (
     <div className={styles.triggerWrapper} onMouseEnter={startOpen} onMouseLeave={startClose}>
       <button
+        type="button"
         className={styles.trigger}
-        aria-haspopup
+        aria-haspopup="menu"
         aria-expanded={isOpen}
         onFocus={startOpen}
         onBlur={startClose}

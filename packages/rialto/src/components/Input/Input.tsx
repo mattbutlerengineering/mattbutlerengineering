@@ -67,13 +67,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           {label && (
             <label htmlFor={inputId} className={styles.label}>
               {label}
-              {required && <span className={styles.required}> *</span>}
+              {required && <span className={styles.required} aria-hidden="true"> *</span>}
               {showOptional && !required && <span className={styles.optional}> (optional)</span>}
             </label>
           )}
           <div className={styles.inputContainer}>
             {startIcon && (
-              <span className={styles.startIcon}>
+              <span className={styles.startIcon} aria-hidden="true">
                 {startIcon}
               </span>
             )}
@@ -89,7 +89,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               {...props}
             />
             {endIcon && (
-              <span className={styles.endIcon}>
+              <span className={styles.endIcon} aria-hidden="true">
                 {endIcon}
               </span>
             )}

@@ -229,6 +229,7 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
           <motion.div
             className={`${styles.menu} ${align === "right" ? styles.menuRight : ""}`}
             role="menu"
+            onKeyDown={handleKeyDown}
             initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: -4 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: -4 }}

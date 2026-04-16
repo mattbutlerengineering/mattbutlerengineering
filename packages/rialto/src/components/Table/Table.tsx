@@ -196,7 +196,7 @@ function TableInner<T extends Record<string, unknown>>(
               >
                 {col.header}
                 {col.sortable && (
-                  <span className={styles.sortIcon}>
+                  <span className={styles.sortIcon} aria-hidden="true">
                     <SortArrow direction={sortKey === col.key ? sortDir : null} />
                   </span>
                 )}

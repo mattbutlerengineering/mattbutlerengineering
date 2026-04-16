@@ -1,4 +1,4 @@
-import { forwardRef, useState, useRef, useCallback, type ReactNode } from "react";
+import { forwardRef, useState, useRef, useCallback, useId, useEffect, type ReactNode } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { precision } from "../../tokens/motion";
 import styles from "./Tooltip.module.css";
@@ -30,6 +30,7 @@ export const Tooltip = forwardRef<HTMLDivElement, TooltipProps>(
     const [open, setOpen] = useState(false);
     const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
     const shouldReduceMotion = useReducedMotion();
+    const tooltipId = useId();
 
     const show = useCallback(() => {
       timeoutRef.current = setTimeout(() => setOpen(true), delay);
@@ -39,6 +40,16 @@ export const Tooltip = forwardRef<HTMLDivElement, TooltipProps>(
       clearTimeout(timeoutRef.current);
       setOpen(false);
     }, []);
+
+    // Escape key closes the tooltip
+    useEffect(() => {
+      if (!open) return;
+      function handleKey(e: KeyboardEvent) {
+        if (e.key === "Escape") hide();
+      }
+      document.addEventListener("keydown", handleKey);
+      return () => document.removeEventListener("keydown", handleKey);
+    }, [open, hide]);
 
     // Axis-aware animation origin
     const axis = placement === "top" || placement === "bottom" ? "y" : "x";
@@ -58,6 +69,7 @@ export const Tooltip = forwardRef<HTMLDivElement, TooltipProps>(
       <div
         ref={ref}
         className={[styles.wrapper, className].filter(Boolean).join(" ")}
+        aria-describedby={open ? tooltipId : undefined}
         onMouseEnter={show}
         onMouseLeave={hide}
         onFocus={showOnFocus ? show : undefined}
@@ -67,6 +79,7 @@ export const Tooltip = forwardRef<HTMLDivElement, TooltipProps>(
         <AnimatePresence>
           {open && (
             <motion.div
+              id={tooltipId}
               className={[styles.tooltip, styles[placement]].join(" ")}
               role="tooltip"
               style={{ translate: translateMap[placement] }}

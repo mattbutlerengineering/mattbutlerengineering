@@ -112,6 +112,7 @@ function TreeChevron({ open }: { open: boolean }) {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      aria-hidden="true"
       animate={{ rotate: open ? 90 : 0 }}
       transition={shouldReduceMotion ? { duration: 0 } : springGentle}
     >
@@ -164,6 +165,7 @@ function TreeItem({
   return (
     <div className={styles.itemWrapper}>
       <button
+        type="button"
         className={[
           styles.item,
           isSelected && styles.selected,

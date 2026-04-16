@@ -89,6 +89,7 @@ const ChevronLeft = (
     strokeWidth="1.5"
     strokeLinecap="round"
     strokeLinejoin="round"
+    aria-hidden="true"
   >
     <path d="M8.5 3.5L5 7l3.5 3.5" />
   </svg>
@@ -104,6 +105,7 @@ const ChevronRight = (
     strokeWidth="1.5"
     strokeLinecap="round"
     strokeLinejoin="round"
+    aria-hidden="true"
   >
     <path d="M5.5 3.5L9 7l-3.5 3.5" />
   </svg>
@@ -122,6 +124,7 @@ export const Pagination = forwardRef<HTMLElement, PaginationProps>(
       <nav ref={ref} aria-label="Pagination" className={`${styles.pagination} ${className}`}>
         {/* Previous */}
         <motion.button
+          type="button"
           className={styles.arrow}
           onClick={() => onChange(page - 1)}
           disabled={page <= 1}
@@ -139,6 +142,7 @@ export const Pagination = forwardRef<HTMLElement, PaginationProps>(
             </span>
           ) : (
             <motion.button
+              type="button"
               key={item}
               className={`${styles.page} ${item === page ? styles.active : ""}`}
               onClick={() => onChange(item)}
@@ -153,6 +157,7 @@ export const Pagination = forwardRef<HTMLElement, PaginationProps>(
 
         {/* Next */}
         <motion.button
+          type="button"
           className={styles.arrow}
           onClick={() => onChange(page + 1)}
           disabled={page >= totalPages}

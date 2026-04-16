@@ -15,6 +15,12 @@
   transform: translateY(-3px);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .card:hover {
+    transform: none;
+  }
+}
+
 /* ── Glass variant ───────────────────────────── */
 .glass {
   composes: glass from "../../styles/surfaces.module.css";

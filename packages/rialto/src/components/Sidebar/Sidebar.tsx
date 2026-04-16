@@ -82,6 +82,7 @@ function CollapseIcon({ collapsed }: { collapsed: boolean }) {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      aria-hidden="true"
       animate={{ rotate: collapsed ? 180 : 0 }}
       transition={shouldReduceMotion ? { duration: 0 } : precision}
     >
@@ -129,6 +130,7 @@ function ItemElement({ item, collapsed }: { item: SidebarItem; collapsed: boolea
 
   return (
     <button
+      type="button"
       className={classes}
       onClick={item.onClick}
       disabled={item.disabled}
@@ -173,6 +175,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
 
         {onCollapse && (
           <button
+            type="button"
             className={styles.collapseToggle}
             onClick={() => onCollapse(!collapsed)}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}

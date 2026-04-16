@@ -97,7 +97,7 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
           ref={containerRef}
           className={styles.track}
           role="radiogroup"
-          tabIndex={0}
+          tabIndex={-1}
           onKeyDown={handleKeyDown}
         >
           {/* Sliding indicator */}

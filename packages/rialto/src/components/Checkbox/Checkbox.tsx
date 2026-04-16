@@ -45,6 +45,7 @@ export const Checkbox = forwardRef<HTMLDivElement, CheckboxProps>(
     ref
   ) => {
     const id = useId();
+    const descId = useId();
     const shouldReduceMotion = useReducedMotion();
 
     return (
@@ -62,6 +63,7 @@ export const Checkbox = forwardRef<HTMLDivElement, CheckboxProps>(
               checked={checked}
               disabled={disabled}
               data-indeterminate={indeterminate || undefined}
+              aria-describedby={description ? descId : undefined}
               ref={(el) => {
                 if (el) el.indeterminate = indeterminate;
               }}
@@ -91,6 +93,7 @@ export const Checkbox = forwardRef<HTMLDivElement, CheckboxProps>(
                     stroke="currentColor"
                     strokeWidth="2"
                     strokeLinecap="round"
+                    aria-hidden="true"
                   >
                     <path d="M2 5h6" />
                   </svg>
@@ -104,6 +107,7 @@ export const Checkbox = forwardRef<HTMLDivElement, CheckboxProps>(
                     strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
+                    aria-hidden="true"
                   >
                     <path d="M2 5.5L4 7.5L8 3" />
                   </svg>
@@ -112,7 +116,9 @@ export const Checkbox = forwardRef<HTMLDivElement, CheckboxProps>(
             </motion.span>
             <span className={styles.checkboxText}>
               {label}
-              {description && <span className={styles.checkboxDescription}>{description}</span>}
+              {description && (
+                <span id={descId} className={styles.checkboxDescription}>{description}</span>
+              )}
             </span>
             {disabled && disabledReason && (
               <Lock size={12} aria-hidden className={styles.lockIcon} />
@@ -166,6 +172,7 @@ export const Radio = forwardRef<HTMLDivElement, RadioProps>(
     ref
   ) => {
     const id = useId();
+    const descId = useId();
     const shouldReduceMotion = useReducedMotion();
 
     return (
@@ -184,6 +191,7 @@ export const Radio = forwardRef<HTMLDivElement, RadioProps>(
               className={styles.input}
               checked={checked}
               disabled={disabled}
+              aria-describedby={description ? descId : undefined}
               onChange={() => onCheckedChange?.(value)}
             />
             <motion.span
@@ -202,7 +210,9 @@ export const Radio = forwardRef<HTMLDivElement, RadioProps>(
             </motion.span>
             <span className={styles.radioText}>
               {label}
-              {description && <span className={styles.radioDescription}>{description}</span>}
+              {description && (
+                <span id={descId} className={styles.radioDescription}>{description}</span>
+              )}
             </span>
             {disabled && disabledReason && (
               <Lock size={12} aria-hidden className={styles.lockIcon} />

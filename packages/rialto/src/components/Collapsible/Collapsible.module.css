@@ -53,6 +53,13 @@
   color: var(--rialto-text-secondary);
 }
 
+/* Reset heading styles when trigger is wrapped in a heading for a11y */
+.heading {
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
 .content {
   overflow: hidden;
 }

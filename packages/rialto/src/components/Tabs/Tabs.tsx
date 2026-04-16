@@ -123,6 +123,7 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(
         >
           {tabs.map((tab) => (
             <button
+              type="button"
               key={tab.id}
               ref={(el) => {
                 if (el) tabRefs.current.set(tab.id, el);
