@@ -6,6 +6,20 @@
  * - Spring: physical, organic movements with detent feel
  */
 
+import type { MotionStyle } from "framer-motion";
+
+/**
+ * Cast `React.CSSProperties` to Framer Motion's `MotionStyle`.
+ *
+ * Required when `exactOptionalPropertyTypes` is enabled in tsconfig —
+ * `MotionStyle` extends `CSSProperties` but the two are not assignable
+ * due to stricter optional-property handling.
+ *
+ * @example
+ * <motion.div style={ms({ background: "red", opacity: 0.5 })} />
+ */
+export const ms = (s: React.CSSProperties): MotionStyle => s as MotionStyle;
+
 /** Precision easing — standard UI transitions, hover states, small movements */
 export const precision = {
   duration: 0.15,

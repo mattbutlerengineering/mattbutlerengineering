@@ -1,44 +1,26 @@
 {
   "name": "@mattbutlerengineering/rialto",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "type": "module",
-  "main": "./src/lib-entry.ts",
-  "types": "./src/lib-entry.ts",
+  "main": "./dist/lib/rialto.js",
+  "module": "./dist/lib/rialto.js",
+  "types": "./dist/lib/lib-entry.d.ts",
   "exports": {
     ".": {
-      "types": "./src/lib-entry.ts",
-      "import": "./src/lib-entry.ts"
+      "types": "./dist/lib/lib-entry.d.ts",
+      "import": "./dist/lib/rialto.js"
     },
     "./motion": {
-      "types": "./src/tokens/motion.ts",
-      "import": "./src/tokens/motion.ts"
+      "types": "./dist/lib/tokens/motion.d.ts",
+      "import": "./dist/lib/motion.js"
     },
     "./styles": {
-      "types": "./src/styles-entry.d.ts",
-      "default": "./src/styles-entry.css"
+      "default": "./dist/lib/styles.css"
     },
     "./manifest": "./dist/manifest.json"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com",
-    "main": "./dist/lib/rialto.js",
-    "module": "./dist/lib/rialto.js",
-    "types": "./dist/lib/lib-entry.d.ts",
-    "exports": {
-      ".": {
-        "types": "./dist/lib/lib-entry.d.ts",
-        "import": "./dist/lib/rialto.js"
-      },
-      "./motion": {
-        "types": "./dist/lib/tokens/motion.d.ts",
-        "import": "./dist/lib/motion.js"
-      },
-      "./styles": {
-        "types": "./dist/lib/styles-entry.d.ts",
-        "default": "./dist/lib/styles.css"
-      },
-      "./manifest": "./dist/manifest.json"
-    }
+    "registry": "https://npm.pkg.github.com"
   },
   "files": [
     "dist/lib",

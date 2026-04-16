@@ -64,6 +64,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
     ref
   ) => {
     const baseId = useId();
+    const triggerId = `${baseId}-trigger`;
     const listboxId = `${baseId}-listbox`;
     const optionId = (index: number) => `${baseId}-option-${index}`;
 
@@ -227,10 +228,13 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
 
     return (
       <div ref={ref} className={[styles.wrapper, className].filter(Boolean).join(" ")}>
-        {label && <span className={styles.label}>{label}</span>}
+        {label && (
+          <label htmlFor={triggerId} className={styles.label}>{label}</label>
+        )}
         <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>
           <button
             ref={triggerRef}
+            id={triggerId}
             onKeyDown={disabled ? undefined : handleKeyDown}
             className={styles.trigger}
             type="button"
@@ -238,7 +242,6 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
             aria-expanded={open}
             aria-controls={listboxId}
             aria-haspopup="listbox"
-            aria-label={label}
             aria-activedescendant={open && focusedOption ? optionId(focusedIndex) : undefined}
             aria-disabled={disabled || undefined}
             data-open={open}
@@ -261,6 +264,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
               stroke="currentColor"
               strokeWidth="1.5"
               strokeLinecap="round"
+              aria-hidden="true"
               animate={{ rotate: open ? 180 : 0 }}
               transition={shouldReduceMotion ? { duration: 0 } : springGentle}
             >
