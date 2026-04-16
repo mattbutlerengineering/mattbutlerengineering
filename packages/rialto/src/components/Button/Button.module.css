@@ -139,7 +139,7 @@
 
 .spinner {
   animation: spin 1s linear infinite;
-  margin-right: var(--rialto-space-xs);
+  margin-inline-end: var(--rialto-space-xs);
 }
 
 @keyframes spin {

@@ -37,6 +37,7 @@ const variantIcons: Record<string, ReactNode> = {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      aria-hidden="true"
     >
       <circle cx="8" cy="8" r="6.5" />
       <path d="M8 7v4" />
@@ -53,6 +54,7 @@ const variantIcons: Record<string, ReactNode> = {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      aria-hidden="true"
     >
       <path d="M8 2L1.5 13h13L8 2z" />
       <path d="M8 6.5v3" />
@@ -69,6 +71,7 @@ const variantIcons: Record<string, ReactNode> = {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      aria-hidden="true"
     >
       <circle cx="8" cy="8" r="6.5" />
       <path d="M5.5 5.5l5 5M10.5 5.5l-5 5" />
@@ -84,6 +87,7 @@ const variantIcons: Record<string, ReactNode> = {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      aria-hidden="true"
     >
       <path d="M8 1.5l2 4.5 5 .5-3.5 3.5 1 5L8 12.5 3.5 15l1-5L1 6.5l5-.5 2-4.5z" />
     </svg>
@@ -135,6 +139,7 @@ export const Banner = forwardRef<HTMLDivElement, BannerProps>(
                   stroke="currentColor"
                   strokeWidth="1.5"
                   strokeLinecap="round"
+                  aria-hidden="true"
                 >
                   <path d="M1 1l10 10M11 1L1 11" />
                 </svg>

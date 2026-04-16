@@ -66,6 +66,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         className={classes}
         disabled={isDisabled}
+        aria-busy={isLoading || undefined}
         onClick={onClick}
         whileHover={
           isDisabled || shouldReduceMotion

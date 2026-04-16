@@ -47,7 +47,7 @@
     rgb(196 146 42 / 0.16) 0%,
     rgb(196 146 42 / 0.08) 100%
   );
-  color: var(--rialto-accent);
+  color: var(--rialto-text-primary);
   border: 1px solid rgb(196 146 42 / 0.25);
 }
 
