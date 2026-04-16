@@ -131,6 +131,7 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
                     stroke="currentColor"
                     strokeWidth="1.5"
                     strokeLinecap="round"
+                    aria-hidden="true"
                   >
                     <path d="M1 1l12 12M13 1L1 13" />
                   </svg>

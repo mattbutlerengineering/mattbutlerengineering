@@ -13,6 +13,7 @@ function ConfirmIcon({ variant }: { variant: "default" | "destructive" }) {
         stroke="var(--rialto-error)"
         strokeWidth="1.5"
         strokeLinecap="round"
+        aria-hidden="true"
       >
         <circle cx="24" cy="24" r="20" />
         <path d="M24 14v12M24 32v2" />
@@ -29,6 +30,7 @@ function ConfirmIcon({ variant }: { variant: "default" | "destructive" }) {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      aria-hidden="true"
     >
       <circle cx="24" cy="24" r="20" />
       <path d="M16 24l6 6 12-12" />

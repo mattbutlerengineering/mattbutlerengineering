@@ -64,7 +64,7 @@
   color: var(--rialto-text-tertiary);
 }
 .colorAccent {
-  color: var(--rialto-accent);
+  color: var(--rialto-text-primary);
 }
 .colorSuccess {
   color: var(--rialto-success);

@@ -178,6 +178,7 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
               max={max}
               step={step}
               aria-disabled={disabled || undefined}
+              aria-describedby={hint ? `${id}-hint` : undefined}
               readOnly={disabled || rest.readOnly}
               {...rest}
             />
@@ -197,7 +198,7 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
               </svg>
             </button>
           </div>
-          {hint && <span className={styles.hint}>{hint}</span>}
+          {hint && <span id={`${id}-hint`} className={styles.hint}>{hint}</span>}
         </div>
       </DisabledTooltip>
     );

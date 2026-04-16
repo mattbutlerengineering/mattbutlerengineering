@@ -308,6 +308,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
                     strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
+                    aria-hidden="true"
                   >
                     <path d="M2.5 7.5l3 3 6-7" />
                   </svg>

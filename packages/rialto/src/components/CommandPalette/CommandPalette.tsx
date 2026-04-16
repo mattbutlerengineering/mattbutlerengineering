@@ -272,7 +272,7 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
             >
               {/* Search */}
               <div className={styles.searchWrap}>
-                <svg className={styles.searchIcon} viewBox="0 0 18 18">
+                <svg className={styles.searchIcon} viewBox="0 0 18 18" aria-hidden="true">
                   <circle cx="8" cy="8" r="5.5" />
                   <line x1="12" y1="12" x2="16" y2="16" />
                 </svg>
@@ -280,7 +280,11 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
                   ref={inputRef}
                   className={styles.searchInput}
                   type="text"
+                  role="combobox"
                   aria-label="Search commands"
+                  aria-expanded={true}
+                  aria-controls="cmd-palette-listbox"
+                  aria-activedescendant={flatItems[activeIndex] ? `cmd-item-${flatItems[activeIndex].id}` : undefined}
                   placeholder={placeholder}
                   value={query}
                   onChange={(e) => {
@@ -293,10 +297,10 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
               </div>
 
               {/* Results */}
-              <div className={styles.results} ref={listRef} role="listbox" aria-label="Command results">
+              <div className={styles.results} ref={listRef} id="cmd-palette-listbox" role="listbox" aria-label="Command results">
                 {flatItems.length === 0 ? (
                   <div className={styles.empty}>
-                    <svg className={styles.emptyIcon} viewBox="0 0 32 32">
+                    <svg className={styles.emptyIcon} viewBox="0 0 32 32" aria-hidden="true">
                       <circle cx="14" cy="14" r="9" />
                       <line x1="20.5" y1="20.5" x2="28" y2="28" />
                       <line x1="11" y1="14" x2="17" y2="14" />
@@ -310,6 +314,7 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
                       return (
                         <div
                           key={item.id}
+                          id={`cmd-item-${item.id}`}
                           className={styles.item}
                           role="option"
                           tabIndex={-1}

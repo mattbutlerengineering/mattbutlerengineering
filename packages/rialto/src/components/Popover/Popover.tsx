@@ -170,6 +170,7 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
                     stroke="currentColor"
                     strokeWidth="1.5"
                     strokeLinecap="round"
+                    aria-hidden="true"
                   >
                     <path d="M1 1l8 8M9 1l-8 8" />
                   </svg>

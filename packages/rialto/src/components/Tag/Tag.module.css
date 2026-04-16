@@ -19,7 +19,7 @@
 .accent {
   background: var(--rialto-accent-muted);
   border-color: rgb(196 146 42 / 0.2);
-  color: var(--rialto-accent);
+  color: var(--rialto-text-primary);
 }
 
 .success {
