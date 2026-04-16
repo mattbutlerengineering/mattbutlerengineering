@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import { NavLink } from "react-router-dom";
 import type { NavSection, NavItem } from "../data/nav-sections";
 import styles from "./ShowcaseSidebar.module.css";
 
@@ -77,8 +78,6 @@ export interface ShowcaseSidebarProps {
 export function ShowcaseSidebar({
   sections,
   demoPages,
-  activePath,
-  onNavigate,
   isMobileOpen = false,
   onMobileClose,
 }: ShowcaseSidebarProps) {
@@ -182,14 +181,6 @@ export function ShowcaseSidebar({
     });
   }, []);
 
-  const handleItemClick = useCallback(
-    (path: string) => {
-      onNavigate(path);
-      onMobileClose?.();
-    },
-    [onNavigate, onMobileClose]
-  );
-
   const clearFilter = useCallback(() => {
     setFilter("");
     inputRef.current?.focus();
@@ -270,36 +261,28 @@ export function ShowcaseSidebar({
               {isExpanded && (
                 <ul className={styles.sectionItems}>
                   {section.items.map((item) => {
-                    const normalizedActive = activePath.replace(/\/+$/, "");
-                    const normalizedItem = item.path.replace(/\/+$/, "");
-                    const isActive =
-                      normalizedActive === normalizedItem ||
-                      normalizedActive.endsWith(normalizedItem) ||
-                      normalizedActive.startsWith(normalizedItem + "/");
-
                     const isComingSoon = item.comingSoon === true;
-
-                    const linkClass = [
-                      styles.navLink,
-                      isActive ? styles.navLinkActive : "",
-                      item.comingSoon ? styles.navLinkComingSoon : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ");
 
                     return (
                       <li key={item.id} className={styles.navItem}>
-                        <button
-                          className={linkClass}
-                          onClick={() => handleItemClick(item.path)}
-                          aria-current={isActive ? "page" : undefined}
-                          type="button"
-                        >
-                          {item.label}
-                          {isComingSoon && (
+                        {isComingSoon ? (
+                          <span className={`${styles.navLink} ${styles.navLinkComingSoon}`}>
+                            {item.label}
                             <span className={styles.comingSoonBadge}>coming soon</span>
-                          )}
-                        </button>
+                          </span>
+                        ) : (
+                          <NavLink
+                            to={item.path}
+                            className={({ isActive }) =>
+                              [styles.navLink, isActive ? styles.navLinkActive : ""]
+                                .filter(Boolean)
+                                .join(" ")
+                            }
+                            onClick={() => onMobileClose?.()}
+                          >
+                            {item.label}
+                          </NavLink>
+                        )}
                       </li>
                     );
                   })}
