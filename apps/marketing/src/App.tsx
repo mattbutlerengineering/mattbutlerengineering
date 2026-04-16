@@ -1,10 +1,17 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Routes, Route } from "react-router-dom";
 import { Footer, GlobalNav } from "@mbe/rialto";
-import { HomePage } from "./pages/HomePage";
-import { StatusPage } from "./pages/StatusPage";
-import { NotFoundPage } from "./pages/NotFoundPage";
 import styles from "./App.module.css";
+
+const HomePage = lazy(() =>
+  import("./pages/HomePage").then((m) => ({ default: m.HomePage }))
+);
+const StatusPage = lazy(() =>
+  import("./pages/StatusPage").then((m) => ({ default: m.StatusPage }))
+);
+const NotFoundPage = lazy(() =>
+  import("./pages/NotFoundPage").then((m) => ({ default: m.NotFoundPage }))
+);
 
 interface AppProps {
   theme: "light" | "dark";
@@ -34,11 +41,13 @@ export function App({ theme, onThemeToggle }: AppProps) {
       </a>
       <GlobalNav currentApp="marketing" theme={theme} onThemeToggle={onThemeToggle} />
       <main id="main-content" tabIndex={-1} className={styles.main}>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/status" element={<StatusPage />} />
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
+        <Suspense fallback={null}>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/status" element={<StatusPage />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </Suspense>
       </main>
       <Footer
         variant="rich"
