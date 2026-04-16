@@ -151,13 +151,14 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
     }, [activeIndex]);
 
     const activeOptionId = activeIndex >= 0 ? `${inputId}-option-${activeIndex}` : undefined;
+    const hintId = hint ? `${inputId}-hint` : undefined;
 
     return (
       <div ref={wrapperRef} className={[styles.wrapper, className].filter(Boolean).join(" ")}>
         {label && (
           <label htmlFor={inputId} className={styles.label}>
             {label}
-            {required && <span className={styles.required}> *</span>}
+            {required && <span className={styles.required} aria-hidden="true"> *</span>}
             {showOptional && !required && <span className={styles.optional}> (optional)</span>}
           </label>
         )}
@@ -190,6 +191,7 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
             aria-controls={listboxId}
             aria-activedescendant={activeOptionId}
             aria-autocomplete="list"
+            aria-describedby={hintId}
             autoComplete="off"
             value={inputValue}
             onChange={handleInputChange}
@@ -241,7 +243,7 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
           )}
         </AnimatePresence>
 
-        {hint && <span className={styles.hint}>{hint}</span>}
+        {hint && <span id={hintId} className={styles.hint}>{hint}</span>}
       </div>
     );
   }
