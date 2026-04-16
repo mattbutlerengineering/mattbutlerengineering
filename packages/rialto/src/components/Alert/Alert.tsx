@@ -41,6 +41,7 @@ const icons: Record<AlertVariant, ReactNode> = {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      aria-hidden="true"
     >
       <circle cx="9" cy="9" r="7.5" />
       <path d="M9 8v4" />
@@ -55,6 +56,7 @@ const icons: Record<AlertVariant, ReactNode> = {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      aria-hidden="true"
     >
       <circle cx="9" cy="9" r="7.5" />
       <path d="M6 9.5l2 2 4-4.5" />
@@ -68,6 +70,7 @@ const icons: Record<AlertVariant, ReactNode> = {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      aria-hidden="true"
     >
       <path d="M9 2L1.5 15.5h15z" />
       <path d="M9 7v3.5" />
@@ -82,6 +85,7 @@ const icons: Record<AlertVariant, ReactNode> = {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
+      aria-hidden="true"
     >
       <circle cx="9" cy="9" r="7.5" />
       <path d="M6.5 6.5l5 5M11.5 6.5l-5 5" />
@@ -145,6 +149,7 @@ export const Alert = forwardRef<HTMLDivElement, AlertProps>(
                   stroke="currentColor"
                   strokeWidth="1.5"
                   strokeLinecap="round"
+                  aria-hidden="true"
                 >
                   <path d="M1 1l8 8M9 1l-8 8" />
                 </svg>
