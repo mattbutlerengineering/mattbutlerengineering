@@ -72,5 +72,8 @@ export * from "./GenCopilot";
 // ── Media ──────────────────────────────────────
 export * from "./ImageUpload";
 
+// ── Specialty interaction ──────────────────────
+export * from "./MasterOverride";
+
 // ── Providers ──────────────────────────────────
 export * from "../providers";

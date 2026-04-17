@@ -161,7 +161,7 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
             {title && (
               <div className={styles.header}>
                 <span className={styles.title}>{title}</span>
-                <button className={styles.close} onClick={close} aria-label="Close">
+                <button type="button" className={styles.close} onClick={close} aria-label="Close">
                   <svg
                     width="10"
                     height="10"

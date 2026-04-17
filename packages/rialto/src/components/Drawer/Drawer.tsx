@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useRef, forwardRef, type ReactNode } from "react";
+import React, { useEffect, useCallback, useId, useRef, forwardRef, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { spring } from "../../tokens/motion";
 import { useDirection } from "../../hooks/useDirection";
@@ -57,6 +57,8 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(function Drawer(
   const panelRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<Element | null>(null);
   const dir = useDirection(anchorRef);
+  const titleId = useId();
+  const descriptionId = useId();
 
   // Capture trigger element on open; restore focus to it on close
   useEffect(() => {
@@ -154,8 +156,9 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(function Drawer(
               className={panelClasses}
               role="dialog"
               aria-modal="true"
-              aria-labelledby={title ? "rialto-drawer-title" : undefined}
+              aria-labelledby={title ? titleId : undefined}
               aria-label={title ? undefined : "Drawer"}
+              aria-describedby={description ? descriptionId : undefined}
               initial={slideHidden}
               animate={slideOpen[side]}
               exit={slideHidden}
@@ -165,8 +168,8 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(function Drawer(
               {(title || description) && (
                 <div className={styles.header}>
                   <div className={styles.headerContent}>
-                    {title && <h2 id="rialto-drawer-title" className={styles.title}>{title}</h2>}
-                    {description && <p className={styles.description}>{description}</p>}
+                    {title && <h2 id={titleId} className={styles.title}>{title}</h2>}
+                    {description && <p id={descriptionId} className={styles.description}>{description}</p>}
                   </div>
                   <button
                     type="button"

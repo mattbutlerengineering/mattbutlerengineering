@@ -32,6 +32,7 @@ const FORMS: NavSection = {
     { id: "number-input", label: "Number Input", path: "/components/number-input" },
     { id: "checkbox-radio", label: "Checkbox & Radio", path: "/components/checkbox-radio" },
     { id: "toggle", label: "Toggle", path: "/components/toggle" },
+    { id: "master-override", label: "Master Override", path: "/components/master-override" },
     { id: "slider", label: "Slider", path: "/components/slider" },
     { id: "select", label: "Select", path: "/components/select" },
     { id: "pin-input", label: "Pin Input", path: "/components/pin-input" },

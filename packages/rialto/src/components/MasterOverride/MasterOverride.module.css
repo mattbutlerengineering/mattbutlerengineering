@@ -1,0 +1,315 @@
+/* ── Wrapper ──────────────────────────────── */
+.wrapper {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--rialto-space-sm);
+  font-family: var(--rialto-font-sans);
+  color: var(--rialto-text-primary);
+
+  /* Sizing — scaled by size variant via custom props */
+  --mo-bezel-width: 9rem;
+  --mo-bezel-height: 12rem;
+  --mo-cover-inset: 6px;
+  --mo-cover-radius: 10px;
+  --mo-cover-text-size: var(--rialto-text-xs);
+  --mo-switch-text-size: var(--rialto-text-sm);
+
+  /* Stripe color — resolved by variant */
+  --mo-stripe: var(--rialto-warning);
+  --mo-stripe-muted: var(--rialto-warning-muted);
+}
+
+.sm {
+  --mo-bezel-width: 7rem;
+  --mo-bezel-height: 9.5rem;
+  --mo-cover-text-size: 10px;
+  --mo-switch-text-size: var(--rialto-text-xs);
+}
+
+.lg {
+  --mo-bezel-width: 12rem;
+  --mo-bezel-height: 16rem;
+  --mo-cover-text-size: var(--rialto-text-sm);
+  --mo-switch-text-size: var(--rialto-text-base);
+}
+
+/* ── Variant colors ───────────────────────── */
+.variant-default {
+  --mo-stripe: var(--rialto-text-tertiary);
+  --mo-stripe-muted: var(--rialto-border);
+}
+
+.variant-warning {
+  --mo-stripe: var(--rialto-warning);
+  --mo-stripe-muted: var(--rialto-warning-muted);
+}
+
+.variant-danger {
+  --mo-stripe: var(--rialto-error);
+  --mo-stripe-muted: var(--rialto-error-muted);
+}
+
+/* ── Header ───────────────────────────────── */
+.header {
+  font-size: var(--rialto-text-xs);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rialto-text-secondary);
+}
+
+/* ── Bezel — the machined housing ─────────── */
+.bezel {
+  position: relative;
+  width: var(--mo-bezel-width);
+  height: var(--mo-bezel-height);
+  padding: var(--mo-cover-inset);
+
+  background: linear-gradient(
+    145deg,
+    var(--rialto-surface-elevated) 0%,
+    var(--rialto-surface-recessed) 100%
+  );
+  border: 1px solid var(--rialto-border-strong);
+  border-radius: calc(var(--mo-cover-radius) + var(--mo-cover-inset));
+  box-shadow: var(--rialto-shadow-md), inset 0 1px 0 var(--rialto-surface-elevated);
+
+  perspective: 800px;
+}
+
+/* ── Cover — flips up on X axis ───────────── */
+.cover {
+  position: absolute;
+  inset: var(--mo-cover-inset);
+  z-index: 2;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--rialto-space-xs);
+
+  background:
+    repeating-linear-gradient(
+      45deg,
+      var(--mo-stripe) 0 10px,
+      color-mix(in srgb, var(--mo-stripe) 40%, var(--rialto-surface-recessed)) 10px 20px
+    );
+  border: 1px solid var(--rialto-border-strong);
+  border-radius: var(--mo-cover-radius);
+  box-shadow:
+    var(--rialto-shadow-sm),
+    inset 0 1px 0 rgb(255 255 255 / 0.08);
+
+  color: var(--rialto-text-on-accent);
+  font-size: var(--mo-cover-text-size);
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  text-shadow: 0 1px 1px rgb(0 0 0 / 0.3);
+
+  cursor: pointer;
+  transition: box-shadow var(--rialto-duration-fast) var(--rialto-ease-precision);
+}
+
+.cover:hover:not(:disabled) {
+  box-shadow: var(--rialto-shadow-md), inset 0 1px 0 rgb(255 255 255 / 0.12);
+}
+
+.cover:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus), inset 0 1px 0 rgb(255 255 255 / 0.08);
+}
+
+.cover:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.coverStripes {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    linear-gradient(
+      180deg,
+      rgb(0 0 0 / 0.08) 0%,
+      transparent 20%,
+      transparent 80%,
+      rgb(0 0 0 / 0.15) 100%
+    );
+}
+
+.coverText {
+  position: relative;
+  z-index: 1;
+  padding: var(--rialto-space-xs) var(--rialto-space-sm);
+  background: var(--rialto-surface-recessed);
+  border-radius: var(--rialto-radius-sharp);
+  color: var(--rialto-text-primary);
+  box-shadow:
+    inset 0 1px 2px rgb(0 0 0 / 0.25),
+    0 1px 0 rgb(255 255 255 / 0.05);
+}
+
+/* When armed, cover is flipped up — back face shows and we gently dim the stripe */
+.armed .cover {
+  box-shadow: var(--rialto-shadow-lg);
+}
+
+/* ── Switch body — lives under the cover ──── */
+.switchBody {
+  position: absolute;
+  inset: var(--mo-cover-inset);
+  z-index: 1;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--rialto-space-sm);
+  padding: var(--rialto-space-md);
+
+  background:
+    radial-gradient(
+      circle at 50% 0%,
+      var(--rialto-surface-elevated) 0%,
+      var(--rialto-surface-recessed) 80%
+    );
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--mo-cover-radius);
+  box-shadow: inset 0 2px 6px rgb(0 0 0 / 0.3);
+
+  cursor: pointer;
+  transition: box-shadow var(--rialto-duration-fast) var(--rialto-ease-precision);
+}
+
+.switchBody:disabled {
+  cursor: not-allowed;
+}
+
+.switchBody:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus), inset 0 2px 6px rgb(0 0 0 / 0.3);
+}
+
+/* When switch is engaged, add a gold glow inside the housing */
+.engaged .switchBody {
+  box-shadow:
+    inset 0 2px 6px rgb(0 0 0 / 0.3),
+    inset 0 0 20px var(--rialto-accent-muted),
+    0 0 0 1px var(--rialto-accent-glow);
+}
+
+/* ── Switch track — the rail the lever slides along ── */
+.switchTrack {
+  position: relative;
+  width: 2.25rem;
+  height: 4.5rem;
+  border-radius: var(--rialto-radius-default);
+  background:
+    linear-gradient(
+      180deg,
+      var(--rialto-surface-recessed) 0%,
+      color-mix(in srgb, var(--rialto-surface-recessed) 80%, #000) 100%
+    );
+  border: 1px solid var(--rialto-border-strong);
+  box-shadow: inset 0 2px 4px rgb(0 0 0 / 0.4);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Lever — the aluminum toggle that slides ── */
+.switchLever {
+  width: 1.5rem;
+  height: 1.75rem;
+  border-radius: var(--rialto-radius-default);
+  background:
+    linear-gradient(
+      180deg,
+      var(--rialto-surface-elevated) 0%,
+      var(--rialto-surface) 50%,
+      var(--rialto-surface-recessed) 100%
+    );
+  border: 1px solid var(--rialto-border-strong);
+  box-shadow:
+    0 2px 4px rgb(0 0 0 / 0.4),
+    inset 0 1px 0 rgb(255 255 255 / 0.15);
+}
+
+.engaged .switchLever {
+  background:
+    linear-gradient(
+      180deg,
+      var(--rialto-accent-hover) 0%,
+      var(--rialto-accent) 100%
+    );
+  box-shadow:
+    0 2px 4px rgb(0 0 0 / 0.4),
+    inset 0 1px 0 rgb(255 255 255 / 0.2),
+    0 0 8px var(--rialto-accent-glow);
+}
+
+/* ── Status labels above/below the lever ── */
+.switchLabels {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+  pointer-events: none;
+}
+
+.labelOn,
+.labelOff {
+  font-family: var(--rialto-font-sans);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--rialto-text-tertiary);
+  text-transform: uppercase;
+  transition: color var(--rialto-duration-fast) var(--rialto-ease-precision);
+}
+
+.labelOn[data-active="true"] {
+  color: var(--rialto-accent);
+  text-shadow: 0 0 4px var(--rialto-accent-glow);
+}
+
+.labelOff[data-active="true"] {
+  color: var(--rialto-text-primary);
+}
+
+/* ── Description ───────────────────────────── */
+.description {
+  width: var(--mo-bezel-width);
+  margin: 0;
+  font-size: var(--rialto-text-xs);
+  line-height: 1.5;
+  color: var(--rialto-text-secondary);
+}
+
+/* ── Disabled wrapper ──────────────────────── */
+.disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+/* ── Visually-hidden live region ──────────── */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

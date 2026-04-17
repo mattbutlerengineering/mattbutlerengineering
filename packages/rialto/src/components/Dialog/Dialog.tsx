@@ -29,6 +29,7 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
     const panelRef = useRef<HTMLDivElement>(null);
     const triggerRef = useRef<Element | null>(null);
     const titleId = useId();
+    const descriptionId = useId();
 
     // Capture trigger element on open; restore focus to it on close
     useEffect(() => {
@@ -117,12 +118,13 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
               aria-modal
               aria-labelledby={title ? titleId : undefined}
               aria-label={title ? undefined : "Dialog"}
+              aria-describedby={description ? descriptionId : undefined}
               transition={shouldReduceMotion ? { duration: 0 } : springGentle}
               {...motionProps}
             >
               <div className={styles.header}>
                 {title && <h2 id={titleId} className={styles.title}>{title}</h2>}
-                <button className={styles.close} onClick={onClose} aria-label="Close dialog">
+                <button type="button" className={styles.close} onClick={onClose} aria-label="Close dialog">
                   <svg
                     width="14"
                     height="14"
@@ -137,7 +139,7 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
                   </svg>
                 </button>
               </div>
-              {description && <p className={styles.description}>{description}</p>}
+              {description && <p id={descriptionId} className={styles.description}>{description}</p>}
               {children}
               {footer && <div className={styles.footer}>{footer}</div>}
             </motion.div>

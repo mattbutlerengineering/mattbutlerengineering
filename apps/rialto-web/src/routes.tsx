@@ -57,6 +57,9 @@ const CheckboxRadioPage = lazy(() =>
 const TogglePage = lazy(() =>
   import("./pages/forms/TogglePage").then((m) => ({ default: m.TogglePage }))
 );
+const MasterOverridePage = lazy(() =>
+  import("./pages/forms/MasterOverridePage").then((m) => ({ default: m.MasterOverridePage }))
+);
 const SliderPage = lazy(() =>
   import("./pages/forms/SliderPage").then((m) => ({ default: m.SliderPage }))
 );
@@ -276,6 +279,7 @@ const componentRoutes: RouteObject[] = [
   { path: "components/number-input", element: suspended(NumberInputPage) },
   { path: "components/checkbox-radio", element: suspended(CheckboxRadioPage) },
   { path: "components/toggle", element: suspended(TogglePage) },
+  { path: "components/master-override", element: suspended(MasterOverridePage) },
   { path: "components/slider", element: suspended(SliderPage) },
   { path: "components/select", element: suspended(SelectPage) },
   { path: "components/pin-input", element: suspended(PinInputPage) },
