@@ -1,0 +1,49 @@
+/* ── Wrapper ──────────────────────────────── */
+.wrapper {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* When active, overflow hides the halves as they slide out */
+.active {
+  pointer-events: none;
+}
+
+/* ── Content — fills the wrapper fully ───── */
+.content {
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Half — clipped to one side during exit ── */
+.half {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  will-change: transform;
+  pointer-events: none;
+}
+
+.halfLeft {
+  clip-path: inset(0 50% 0 0);
+}
+
+.halfRight {
+  clip-path: inset(0 0 0 50%);
+}
+
+/* ── Visually hidden ──────────────────────── */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

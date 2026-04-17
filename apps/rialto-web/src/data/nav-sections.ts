@@ -127,6 +127,7 @@ const LAYOUT: NavSection = {
     { id: "collapsible", label: "Collapsible", path: "/components/collapsible" },
     { id: "accordion", label: "Accordion", path: "/components/accordion" },
     { id: "aspect-ratio", label: "Aspect Ratio", path: "/components/aspect-ratio" },
+    { id: "split-screen-exit", label: "Split Screen Exit", path: "/components/split-screen-exit" },
     { id: "scroll-area", label: "Scroll Area", path: "/components/scroll-area" },
     { id: "timeline", label: "Timeline", path: "/components/timeline" },
     { id: "hero", label: "Hero", path: "/components/hero" },

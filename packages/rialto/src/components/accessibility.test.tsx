@@ -64,6 +64,7 @@ import { ToastProvider } from "./Toast/Toast";
 import { Chalkboard, ChalkboardSection, ChalkboardItem } from "./Chalkboard/Chalkboard";
 import { MasterOverride } from "./MasterOverride/MasterOverride";
 import { SplitFlap } from "./SplitFlap/SplitFlap";
+import { SplitScreenExit } from "./SplitScreenExit/SplitScreenExit";
 import { Toggle } from "./Toggle/Toggle";
 import { Tooltip } from "./Tooltip/Tooltip";
 import { Tree } from "./Tree/Tree";
@@ -398,6 +399,15 @@ describe("Accessibility — axe-core WCAG 2.1 AA", () => {
 
   it("SplitFlap", async () => {
     const { container } = render(<SplitFlap value="ARRIVED" aria-label="Flight status: arrived" />);
+    expect(await axe(container)).toHaveNoViolations();
+  });
+
+  it("SplitScreenExit (idle)", async () => {
+    const { container } = render(
+      <SplitScreenExit active={false}>
+        <button>Sign in</button>
+      </SplitScreenExit>
+    );
     expect(await axe(container)).toHaveNoViolations();
   });
 

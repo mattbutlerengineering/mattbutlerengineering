@@ -76,6 +76,7 @@ export * from "./ImageUpload";
 export * from "./MasterOverride";
 export * from "./SplitFlap";
 export * from "./Chalkboard";
+export * from "./SplitScreenExit";
 
 // ── Providers ──────────────────────────────────
 export * from "../providers";

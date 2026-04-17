@@ -112,6 +112,9 @@ const SplitFlapPage = lazy(() =>
 const ChalkboardPage = lazy(() =>
   import("./pages/data/ChalkboardPage").then((m) => ({ default: m.ChalkboardPage }))
 );
+const SplitScreenExitPage = lazy(() =>
+  import("./pages/layout/SplitScreenExitPage").then((m) => ({ default: m.SplitScreenExitPage }))
+);
 
 /* ── Navigation ──────────────────────────────── */
 const TabsPage = lazy(() =>
@@ -340,6 +343,7 @@ const componentRoutes: RouteObject[] = [
   { path: "components/collapsible", element: suspended(CollapsiblePage) },
   { path: "components/accordion", element: suspended(AccordionPage) },
   { path: "components/aspect-ratio", element: suspended(AspectRatioPage) },
+  { path: "components/split-screen-exit", element: suspended(SplitScreenExitPage) },
   { path: "components/scroll-area", element: suspended(ScrollAreaPage) },
   { path: "components/timeline", element: suspended(TimelinePage) },
   { path: "components/hero", element: suspended(HeroPage) },
