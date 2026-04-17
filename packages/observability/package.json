@@ -22,7 +22,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@langfuse/otel": "^5.0.2",
+    "@langfuse/otel": "^5.1.0",
     "@mbe/types": "workspace:^",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/exporter-metrics-otlp-http": "^0.214.0",
