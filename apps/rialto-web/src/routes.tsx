@@ -115,6 +115,9 @@ const ChalkboardPage = lazy(() =>
 const SplitScreenExitPage = lazy(() =>
   import("./pages/layout/SplitScreenExitPage").then((m) => ({ default: m.SplitScreenExitPage }))
 );
+const FerrofluidPage = lazy(() =>
+  import("./pages/data/FerrofluidPage").then((m) => ({ default: m.FerrofluidPage }))
+);
 
 /* ── Navigation ──────────────────────────────── */
 const TabsPage = lazy(() =>
@@ -308,6 +311,7 @@ const componentRoutes: RouteObject[] = [
   { path: "components/flip-dot", element: suspended(FlipDotPage) },
   { path: "components/split-flap", element: suspended(SplitFlapPage) },
   { path: "components/chalkboard", element: suspended(ChalkboardPage) },
+  { path: "components/ferrofluid", element: suspended(FerrofluidPage) },
   // Navigation
   { path: "components/tabs", element: suspended(TabsPage) },
   { path: "components/breadcrumb", element: suspended(BreadcrumbPage) },

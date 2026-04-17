@@ -60,6 +60,7 @@ const DATA_DISPLAY: NavSection = {
     { id: "flip-dot", label: "Flip Dot", path: "/components/flip-dot" },
     { id: "split-flap", label: "Split Flap", path: "/components/split-flap" },
     { id: "chalkboard", label: "Chalkboard", path: "/components/chalkboard" },
+    { id: "ferrofluid", label: "Ferrofluid", path: "/components/ferrofluid" },
   ],
 };
 

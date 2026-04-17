@@ -77,6 +77,7 @@ export * from "./MasterOverride";
 export * from "./SplitFlap";
 export * from "./Chalkboard";
 export * from "./SplitScreenExit";
+export * from "./Ferrofluid";
 
 // ── Providers ──────────────────────────────────
 export * from "../providers";

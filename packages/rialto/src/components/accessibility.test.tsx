@@ -62,6 +62,7 @@ import { TextArea } from "./TextArea/TextArea";
 import { Timeline } from "./Timeline/Timeline";
 import { ToastProvider } from "./Toast/Toast";
 import { Chalkboard, ChalkboardSection, ChalkboardItem } from "./Chalkboard/Chalkboard";
+import { Ferrofluid } from "./Ferrofluid/Ferrofluid";
 import { MasterOverride } from "./MasterOverride/MasterOverride";
 import { SplitFlap } from "./SplitFlap/SplitFlap";
 import { SplitScreenExit } from "./SplitScreenExit/SplitScreenExit";
@@ -399,6 +400,11 @@ describe("Accessibility — axe-core WCAG 2.1 AA", () => {
 
   it("SplitFlap", async () => {
     const { container } = render(<SplitFlap value="ARRIVED" aria-label="Flight status: arrived" />);
+    expect(await axe(container)).toHaveNoViolations();
+  });
+
+  it("Ferrofluid (decorative)", async () => {
+    const { container } = render(<Ferrofluid blobCount={3} />);
     expect(await axe(container)).toHaveNoViolations();
   });
 
