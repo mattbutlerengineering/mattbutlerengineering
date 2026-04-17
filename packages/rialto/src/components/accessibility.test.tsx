@@ -62,6 +62,7 @@ import { TextArea } from "./TextArea/TextArea";
 import { Timeline } from "./Timeline/Timeline";
 import { ToastProvider } from "./Toast/Toast";
 import { MasterOverride } from "./MasterOverride/MasterOverride";
+import { SplitFlap } from "./SplitFlap/SplitFlap";
 import { Toggle } from "./Toggle/Toggle";
 import { Tooltip } from "./Tooltip/Tooltip";
 import { Tree } from "./Tree/Tree";
@@ -379,6 +380,11 @@ describe("Accessibility — axe-core WCAG 2.1 AA", () => {
 
   it("Toggle", async () => {
     const { container } = render(<Toggle label="Dark mode" />);
+    expect(await axe(container)).toHaveNoViolations();
+  });
+
+  it("SplitFlap", async () => {
+    const { container } = render(<SplitFlap value="ARRIVED" aria-label="Flight status: arrived" />);
     expect(await axe(container)).toHaveNoViolations();
   });
 

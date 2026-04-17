@@ -1,0 +1,155 @@
+/* ── Board ──────────────────────────────── */
+.board {
+  display: inline-flex;
+  gap: 3px;
+  padding: var(--rialto-space-xs);
+  background: var(--rialto-surface-recessed);
+  border: 1px solid var(--rialto-border-strong);
+  border-radius: var(--rialto-radius-default);
+  box-shadow:
+    inset 0 2px 6px rgb(0 0 0 / 0.4),
+    var(--rialto-shadow-sm);
+
+  /* Cell size variables — overridden per size preset */
+  --sf-cell-width: 1.4em;
+  --sf-cell-height: 2em;
+  --sf-font-size: 1.75rem;
+}
+
+.sm {
+  --sf-cell-width: 1.2em;
+  --sf-cell-height: 1.75em;
+  --sf-font-size: 1.25rem;
+}
+
+.md {
+  --sf-cell-width: 1.4em;
+  --sf-cell-height: 2em;
+  --sf-font-size: 1.75rem;
+}
+
+.lg {
+  --sf-cell-width: 1.6em;
+  --sf-cell-height: 2.4em;
+  --sf-font-size: 2.5rem;
+}
+
+/* ── Cell ───────────────────────────────── */
+.cell {
+  position: relative;
+  width: var(--sf-cell-width);
+  height: var(--sf-cell-height);
+  background: #0d0d0c;
+  border-radius: 3px;
+  overflow: hidden;
+
+  font-family: var(--rialto-font-sans);
+  font-size: var(--sf-font-size);
+  font-weight: 500;
+  color: var(--rialto-accent);
+  text-transform: uppercase;
+  line-height: 1;
+
+  /* Enable 3D transforms for the flap */
+  perspective: 200px;
+  perspective-origin: 50% 50%;
+}
+
+/* ── Halves — the static top and bottom character faces ── */
+.half {
+  position: absolute;
+  inset-inline: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.half[data-position="top"] {
+  top: 0;
+  height: 50%;
+  align-items: flex-end;
+  background: linear-gradient(180deg, #1a1a18 0%, #121210 100%);
+}
+
+.half[data-position="top"] span {
+  transform: translateY(50%);
+}
+
+.half[data-position="bottom"] {
+  bottom: 0;
+  height: 50%;
+  align-items: flex-start;
+  background: linear-gradient(180deg, #0e0e0c 0%, #070706 100%);
+}
+
+.half[data-position="bottom"] span {
+  transform: translateY(-50%);
+}
+
+/* ── Seam — horizontal crease between halves ── */
+.seam {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: #000;
+  box-shadow:
+    0 -1px 0 rgb(0 0 0 / 0.5),
+    0 1px 0 rgb(255 255 255 / 0.03);
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* ── Flap — the top half that rotates on character change ── */
+.flap {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 50%;
+  transform-origin: bottom center;
+  transform-style: preserve-3d;
+  will-change: transform;
+  z-index: 2;
+}
+
+.flapFace {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  overflow: hidden;
+  backface-visibility: hidden;
+}
+
+.flapFace[data-face="front"] {
+  background: linear-gradient(180deg, #1a1a18 0%, #121210 100%);
+}
+
+.flapFace[data-face="front"] span {
+  transform: translateY(50%);
+}
+
+.flapFace[data-face="back"] {
+  background: linear-gradient(0deg, #0e0e0c 0%, #070706 100%);
+  transform: rotateX(180deg);
+}
+
+.flapFace[data-face="back"] span {
+  transform: translateY(-50%) scaleY(-1);
+}
+
+/* ── Visually hidden ──────────────────────── */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

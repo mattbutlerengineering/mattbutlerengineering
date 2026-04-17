@@ -106,6 +106,9 @@ const KbdPage = lazy(() => import("./pages/data/KbdPage").then((m) => ({ default
 const FlipDotPage = lazy(() =>
   import("./pages/data/FlipDotPage").then((m) => ({ default: m.FlipDotPage }))
 );
+const SplitFlapPage = lazy(() =>
+  import("./pages/data/SplitFlapPage").then((m) => ({ default: m.SplitFlapPage }))
+);
 
 /* ── Navigation ──────────────────────────────── */
 const TabsPage = lazy(() =>
@@ -297,6 +300,7 @@ const componentRoutes: RouteObject[] = [
   { path: "components/meter", element: suspended(MeterPage) },
   { path: "components/kbd", element: suspended(KbdPage) },
   { path: "components/flip-dot", element: suspended(FlipDotPage) },
+  { path: "components/split-flap", element: suspended(SplitFlapPage) },
   // Navigation
   { path: "components/tabs", element: suspended(TabsPage) },
   { path: "components/breadcrumb", element: suspended(BreadcrumbPage) },
