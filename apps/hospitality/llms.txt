@@ -1,0 +1,175 @@
+<codebase path="apps/hospitality">
+  <section priority="medium" role="src">
+  <file path="src/vite-env.d.ts">
+    <item priority="high">
+      interface ImportMetaEnv {
+        VITE_AUTH_AUTHORITY: string;
+        VITE_AUTH_CLIENT_ID: string;
+        VITE_AUTH_REDIRECT_URI: string;
+        VITE_AUTH_AUDIENCE: string;
+      }
+    </item>
+    <item priority="high">
+      interface ImportMeta {
+        env: ImportMetaEnv;
+      }
+    </item>
+  </file>
+  <file path="src/nav-sections.ts">
+    <item priority="low">
+      interface NavItem {
+        id: string;
+        label: string;
+        path: string;
+        stepStatus?: "completed" | "current" | "locked";
+        disabled?: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface NavSection {
+        label?: string;
+        items: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+      }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="e2e">
+  <file path="e2e/fixtures.ts">
+    <item priority="high">
+      export const test: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="e2e/auth-helpers.ts">
+    <item priority="high">
+      interface Auth0Config {
+        domain: string;
+        clientId: string;
+        audience: string;
+        email: string;
+        password: string;
+      }
+    </item>
+    <item priority="medium">
+      function getAuth0Config(): Auth0Config { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="hooks">
+  <file path="src/hooks/useVenueReadiness.ts">
+    <item priority="low">
+      type SetupStep = "onboarding" | "operating-hours" | "floor-plan";
+    </item>
+    <item priority="low">
+      interface VenueReadiness {
+        status: "no-venue" | "setup" | "operational";
+        completedSteps: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        nextStep: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+        progress: number;
+      }
+    </item>
+  </file>
+  <file path="src/hooks/useReservationEvents.ts">
+    <item priority="low">
+      type ReservationEventType = "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:created" | "hold:released" | "hold:confirmed" | "table:updated";
+    </item>
+    <item priority="low">
+      interface ReservationEvent {
+        type: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+        venueId: string;
+        timestamp: string;
+        data: any;
+      }
+    </item>
+  </file>
+  <file path="src/hooks/useDashboardStats.ts">
+    <item priority="low">
+      interface DashboardStats {
+        totalReservations: number;
+        expectedCovers: number;
+        upcomingCount: number;
+        cancellationRate: number;
+        cancellationTrend: "up" | "down" | "neutral";
+      }
+    </item>
+    <item priority="low">
+      interface UseDashboardStatsResult {
+        reservations: readonly Reservation[];
+        stats: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+        isLoading: boolean;
+        error: string;
+        refetch: () => Promise<void>;
+      }
+    </item>
+  </file>
+  <file path="src/hooks/useApiCall.ts">
+    <item priority="low">
+      interface UseApiCallOptions {
+        timeout?: number;
+      }
+    </item>
+    <item priority="low">
+      interface UseApiCallResult {
+        data: T;
+        isLoading: boolean;
+        error: string;
+        retry: () => void;
+        execute: (fn: (signal: AbortSignal) => Promise<T>) => Promise<T>;
+      }
+    </item>
+  </file>
+  <file path="src/hooks/use-theme.ts">
+    <item priority="high">
+      type ThemePreference = "light" | "dark" | "system";
+    </item>
+    <item priority="medium">
+      function getStoredTheme(): ThemePreference { /* ... */ }
+    </item>
+  </file>
+  <file path="src/hooks/use-command-palette.ts">
+    <item priority="high">
+      interface UseCommandPaletteOptions {
+        sections: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        navigate: (path: string) => void;
+        toggleTheme: () => void;
+        signOut: () => void;
+      }
+    </item>
+    <item priority="high">
+      interface UseCommandPaletteResult {
+        open: boolean;
+        setOpen: (open: boolean) => void;
+        items: CommandItem[];
+        groups: string[];
+      }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="constants">
+  <file path="src/constants/copilotContext.ts">
+    <item priority="high">
+      export const HOSPITALITY_DOMAIN_CONTEXT: DomainContext;
+    </item>
+  </file>
+  <file path="src/constants/auth.ts">
+    <item priority="low">
+      interface AuthConfigResult {
+        valid: true;
+        config: { readonly authority: string; readonly clientId: string; ...;
+      }
+    </item>
+    <item priority="low">
+      interface AuthConfigFailure {
+        valid: false;
+        missing: readonly string[];
+      }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="venue-onboarding">
+  <file path="src/components/venue-onboarding/generate-slug.ts">
+    <item priority="high">
+      export function generateSlug(name: string): string { /* ... */ }
+    </item>
+  </file>
+  </section>
+</codebase>

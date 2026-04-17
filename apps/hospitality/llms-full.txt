@@ -1,0 +1,212 @@
+<codebase path="apps/hospitality">
+  <section priority="medium" role="src">
+  <file path="src/vite-env.d.ts">
+    interface ImportMetaEnv {
+      readonly VITE_AUTH_AUTHORITY: string;
+      readonly VITE_AUTH_CLIENT_ID: string;
+      readonly VITE_AUTH_REDIRECT_URI: string;
+      readonly VITE_AUTH_AUDIENCE: string;
+    }
+    interface ImportMeta {
+      readonly env: ImportMetaEnv;
+    }
+  </file>
+  <file path="src/nav-sections.ts">
+    export interface NavItem {
+      id: string;
+      label: string;
+      path: string;
+      /** Setup step status — drives icon before the label */
+      stepStatus?: "completed" | "current" | "locked";
+      /** Prevents click and applies muted style */
+      disabled?: boolean;
+    }
+    export interface NavSection {
+      label?: string;
+      items: NavItem[];
+    }
+  </file>
+  </section>
+  <section priority="medium" role="e2e">
+  <file path="e2e/fixtures.ts">
+    export const test = base.extend<{ authPage: Page }>({
+      authPage: async ({ page }, use) => {
+        await injectAuth0Session(page);
+        await use(page);
+      },
+    });
+  </file>
+  <file path="e2e/auth-helpers.ts">
+    interface Auth0Config {
+      domain: string;
+      clientId: string;
+      audience: string;
+      email: string;
+      password: string;
+    }
+    function getAuth0Config(): Auth0Config {
+      const domain = process.env.E2E_AUTH0_DOMAIN;
+      const clientId = process.env.E2E_AUTH0_CLIENT_ID;
+      const audience = process.env.E2E_AUTH0_AUDIENCE;
+      const email = process.env.E2E_AUTH_EMAIL;
+      const password = process.env.E2E_AUTH_PASSWORD;
+    
+      if (!domain || !clientId || !audience || !email || !password) {
+        throw new Error(
+          "Missing required E2E auth env vars. Required:\n" +
+            "  E2E_AUTH0_DOMAIN      — Auth0 tenant domain (e.g. dev-xxx.us.auth0.com)\n" +
+            "  E2E_AUTH0_CLIENT_ID   — Auth0 app client ID (ROPC-enabled)\n" +
+            "  E2E_AUTH0_AUDIENCE    — API audience identifier\n" +
+            "  E2E_AUTH_EMAIL        — Test user email\n" +
+            "  E2E_AUTH_PASSWORD     — Test user password\n\n" +
+            "The Auth0 app must have the Password grant type enabled and the test user must not have MFA."
+        );
+      }
+    
+      return { domain, clientId, audience, email, password };
+    }
+  </file>
+  </section>
+  <section priority="medium" role="hooks">
+  <file path="src/hooks/useVenueReadiness.ts">
+    export type SetupStep = "onboarding" | "operating-hours" | "floor-plan";
+    export interface VenueReadiness {
+      status: "no-venue" | "setup" | "operational";
+      completedSteps: readonly SetupStep[];
+      nextStep: SetupStep | null;
+      progress: number; // 0–100
+    }
+  </file>
+  <file path="src/hooks/useReservationEvents.ts">
+    export type ReservationEventType =
+      | "reservation:created"
+      | "reservation:updated"
+      | "reservation:cancelled"
+      | "hold:created"
+      | "hold:released"
+      | "hold:confirmed"
+      | "table:updated";
+    export interface ReservationEvent {
+      type: ReservationEventType;
+      venueId: string;
+      timestamp: string;
+      data: Reservation | Table | ReservationHold;
+    }
+  </file>
+  <file path="src/hooks/useDashboardStats.ts">
+    export interface DashboardStats {
+      totalReservations: number;
+      expectedCovers: number;
+      upcomingCount: number;
+      cancellationRate: number;
+      cancellationTrend: "up" | "down" | "neutral";
+    }
+    export interface UseDashboardStatsResult {
+      reservations: readonly Reservation[];
+      stats: DashboardStats;
+      isLoading: boolean;
+      error: string | null;
+      refetch: () => Promise<void>;
+    }
+  </file>
+  <file path="src/hooks/useApiCall.ts">
+    export interface UseApiCallOptions {
+      /** Timeout in milliseconds (default: 10000) */
+      timeout?: number;
+    }
+    export interface UseApiCallResult<T> {
+      data: T | null;
+      isLoading: boolean;
+      error: string | null;
+      /** Re-execute the last call */
+      retry: () => void;
+      /** Execute a new call */
+      execute: (fn: (signal: AbortSignal) => Promise<T>) => Promise<T | null>;
+      /** Milliseconds since last successful fetch, or null if never fetched */
+      staleness: number | null;
+      /** Clear error state */
+      clearError: () => void;
+    }
+  </file>
+  <file path="src/hooks/use-theme.ts">
+    type ThemePreference = "light" | "dark" | "system";
+    function getStoredTheme(): ThemePreference {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored === "light" || stored === "dark" || stored === "system") {
+          return stored;
+        }
+      } catch {
+        // localStorage unavailable (private browsing, etc.)
+      }
+      return "system";
+    }
+  </file>
+  <file path="src/hooks/use-command-palette.ts">
+    interface UseCommandPaletteOptions {
+      sections: readonly NavSection[];
+      navigate: (path: string) => void;
+      toggleTheme: () => void;
+      signOut: () => void;
+    }
+    interface UseCommandPaletteResult {
+      readonly open: boolean;
+      readonly setOpen: (open: boolean) => void;
+      readonly items: CommandItem[];
+      readonly groups: string[];
+    }
+  </file>
+  </section>
+  <section priority="medium" role="constants">
+  <file path="src/constants/copilotContext.ts">
+    export const HOSPITALITY_DOMAIN_CONTEXT: DomainContext = {
+      schemas: [
+        {
+          name: "Reservation",
+          description: "A dining reservation linked to a table and guest.",
+          fields:
+            "id, guestName, tableId, partySize, date, time, status (pending|confirmed|cancelled|seated|completed), notes",
+        },
+        {
+          name: "FloorPlan",
+          description: "A restaurant floor layout with named zones and table positions.",
+          fields:
+            "id, name, tables (id, label, x, y, width, height, capacity, shape, zoneId), zones (id, name, color)",
+        },
+        {
+          name: "Guest",
+          description: "A guest profile with visit history and preferences.",
+          fields: "id, name, email, phone, visitCount, lastVisit, preferences, notes",
+        },
+      ],
+    };
+  </file>
+  <file path="src/constants/auth.ts">
+    export interface AuthConfigResult {
+      readonly valid: true;
+      readonly config: {
+        readonly authority: string;
+        readonly clientId: string;
+        readonly redirectUri: string;
+        readonly audience: string | undefined;
+      };
+    }
+    export interface AuthConfigFailure {
+      readonly valid: false;
+      readonly missing: readonly string[];
+    }
+  </file>
+  </section>
+  <section priority="medium" role="venue-onboarding">
+  <file path="src/components/venue-onboarding/generate-slug.ts">
+    export function generateSlug(name: string): string {
+      return name
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, "")
+        .replace(/[\s]+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "");
+    }
+  </file>
+  </section>
+</codebase>

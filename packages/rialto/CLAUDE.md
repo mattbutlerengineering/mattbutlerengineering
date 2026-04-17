@@ -114,8 +114,16 @@ This component library embodies a design language of material honesty, precision
 ```
 src/components/ComponentName/
 ├── ComponentName.tsx          # Component + props interface
-└── ComponentName.module.css   # Styles using token variables
+├── ComponentName.module.css   # Styles using token variables
+├── ComponentName.test.tsx     # Unit tests
+└── index.ts                   # Re-exports the component + public types
 ```
+
+**Also wire up:**
+- Add `export * from "./ComponentName";` to `src/components/index.ts` (the root barrel — components invisible to consumers otherwise)
+- Add an axe-core entry in `src/components/accessibility.test.tsx` to guarantee WCAG compliance
+- For the showcase app, three touch points: `apps/rialto-web/src/pages/<category>/ComponentNamePage.tsx`, a `lazy()` import + route in `apps/rialto-web/src/routes.tsx`, and a nav entry in `apps/rialto-web/src/data/nav-sections.ts`
+- Rebuild the package (`pnpm build`) before typechecking `apps/rialto-web` — consumer sees new exports only via regenerated `.d.ts` files
 
 ### Props API conventions
 
@@ -141,6 +149,8 @@ src/components/ComponentName/
 - ARIA attributes where semantics aren't implicit
 - Color contrast: text on surfaces must meet WCAG AA (4.5:1 for normal text)
 - Reduced motion: respect `prefers-reduced-motion` media query
+- Focus shifts after a state change: use `useEffect` with a mount-guard ref, NOT `requestAnimationFrame`. testing-library doesn't await rAF callbacks, so tests time out.
+- Reading a ref's `.current` in JSX triggers `react-hooks/refs` ESLint error — keep values used in render in state, not refs.
 
 ---
 

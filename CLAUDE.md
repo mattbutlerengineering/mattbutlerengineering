@@ -112,6 +112,12 @@ pnpm typecheck   # Verify types
 pnpm test        # Run all tests
 ```
 
+**Known gotchas:**
+- `apps/rialto-web` has a pre-existing `@mattbutlerengineering/rialto/styles` TS2882 typecheck error — ignore it, it's not your change
+- Pre-commit hook runs `eslint --fix` + `check-adr` + `pack-changed` (the last one regenerates `llms.txt` / `llms-full.txt` in affected packages — expect them to appear in `git status` after your commit lands)
+- JSX strings with `'` fail `react/no-unescaped-entities` at commit time — use `&apos;`
+- Run `pnpm` from inside a package directory, not the monorepo root — turbo filter errors out at the root for `test`/`typecheck`/`build` in most packages
+
 ## AI Observability (Langfuse)
 
 Agent sessions are traced to [Langfuse Cloud](https://cloud.langfuse.com) for LLM-specific observability.

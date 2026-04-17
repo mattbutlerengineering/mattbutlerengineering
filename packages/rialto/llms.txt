@@ -178,6 +178,16 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="SplitFlap">
+  <file path="src/components/SplitFlap/charset.ts">
+    <item priority="high">
+      export const CHARSETS: { readonly alpha: " ABCDEFGHIJKLMNOPQRSTUVWXYZ"; readonly...;
+    </item>
+    <item priority="low">
+      type CharsetName = keyof typeof CHARSETS;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="GenCopilot">
   <file path="src/components/GenCopilot/useGenCopilotStream.ts">
     <item priority="high">

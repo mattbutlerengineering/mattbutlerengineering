@@ -561,6 +561,17 @@
     }
   </file>
   </section>
+  <section priority="medium" role="SplitFlap">
+  <file path="src/components/SplitFlap/charset.ts">
+    export const CHARSETS = {
+      alpha: ALPHA,
+      numeric: NUMERIC,
+      alphanumeric: ALPHANUMERIC,
+      full: FULL,
+    } as const;
+    export type CharsetName = keyof typeof CHARSETS;
+  </file>
+  </section>
   <section priority="medium" role="GenCopilot">
   <file path="src/components/GenCopilot/useGenCopilotStream.ts">
     type FlatElement = Parameters<typeof flatToTree>[0][number];
