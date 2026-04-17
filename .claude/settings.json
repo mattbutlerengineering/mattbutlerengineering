@@ -32,6 +32,15 @@
         ]
       },
       {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "case \"$CLAUDE_FILE_PATH\" in */migrations/*/migration.sql|*/prisma/migrations/*/migration.sql) if grep -iqE 'DROP TABLE|DROP COLUMN|TRUNCATE|DELETE FROM|ALTER TABLE .+ DROP' \"$CLAUDE_FILE_PATH\" 2>/dev/null && ! grep -iqE '^-- DESTRUCTIVE:' \"$CLAUDE_FILE_PATH\" 2>/dev/null; then echo '⚠️  Destructive migration detected without a -- DESTRUCTIVE: <reason> marker. Add the marker or redesign as a shadow-column-then-drop-later pattern before committing.' >&2; fi;; esac"
+          }
+        ]
+      },
+      {
         "hooks": [
           {
             "type": "command",
