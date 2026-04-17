@@ -1,0 +1,675 @@
+{
+  "rialto/light": {
+    "color": {
+      "surface": {
+        "default": {
+          "$value": "#f8f6f3",
+          "$type": "color",
+          "$description": "Page backgrounds, default component backgrounds"
+        },
+        "elevated": {
+          "$value": "#fdfcfa",
+          "$type": "color",
+          "$description": "Cards, popovers, elevated containers"
+        },
+        "recessed": {
+          "$value": "#edeae5",
+          "$type": "color",
+          "$description": "Input fields, slider tracks, recessed channels"
+        },
+        "matte": {
+          "$value": "#d8d4cd",
+          "$type": "color",
+          "$description": "Disabled button fills, subtle divider backgrounds"
+        },
+        "deep": {
+          "$value": "#a8a49d",
+          "$type": "color",
+          "$description": "Heavy separators, decorative dark accents"
+        }
+      },
+      "text": {
+        "primary": {
+          "$value": "#1a1918",
+          "$type": "color",
+          "$description": "Headings, body text, primary labels"
+        },
+        "secondary": {
+          "$value": "#6b6660",
+          "$type": "color",
+          "$description": "Descriptions, helper text, secondary labels"
+        },
+        "tertiary": {
+          "$value": "#747070",
+          "$type": "color",
+          "$description": "Placeholders, disabled text, timestamps"
+        },
+        "on-accent": {
+          "$value": "#1a1918",
+          "$type": "color",
+          "$description": "Text on accent-filled backgrounds"
+        }
+      },
+      "border": {
+        "default": {
+          "$value": "#d8d4cd",
+          "$type": "color",
+          "$description": "Default borders for cards, inputs, dividers"
+        },
+        "strong": {
+          "$value": "#b8b4ad",
+          "$type": "color",
+          "$description": "Emphasized borders, active input outlines"
+        }
+      },
+      "accent": {
+        "default": {
+          "$value": "#b0841e",
+          "$type": "color",
+          "$description": "Primary buttons, focus rings, active/selected states"
+        },
+        "hover": {
+          "$value": "#c0942e",
+          "$type": "color",
+          "$description": "Primary button hover state"
+        },
+        "muted": {
+          "$value": "rgb(176 132 30 / 0.12)",
+          "$type": "color",
+          "$description": "Subtle accent backgrounds"
+        },
+        "glow": {
+          "$value": "rgb(176 132 30 / 0.35)",
+          "$type": "color",
+          "$description": "Focus ring outer glow"
+        }
+      },
+      "semantic": {
+        "error": {
+          "default": {
+            "$value": "#b84a3c",
+            "$type": "color",
+            "$description": "Error text, destructive button fills"
+          },
+          "muted": {
+            "$value": "rgb(184 74 60 / 0.1)",
+            "$type": "color",
+            "$description": "Error alert backgrounds"
+          }
+        },
+        "warning": {
+          "default": {
+            "$value": "#8a6820",
+            "$type": "color",
+            "$description": "Warning text, caution banners, pending states"
+          },
+          "muted": {
+            "$value": "rgb(138 104 32 / 0.1)",
+            "$type": "color",
+            "$description": "Warning alert backgrounds, warning badge tints"
+          }
+        },
+        "success": {
+          "default": {
+            "$value": "#5e6a2e",
+            "$type": "color",
+            "$description": "Success text, confirmation icons"
+          },
+          "muted": {
+            "$value": "rgb(94 106 46 / 0.1)",
+            "$type": "color",
+            "$description": "Success alert backgrounds"
+          }
+        }
+      },
+      "overlay": {
+        "$value": "rgb(26 25 24 / 0.4)",
+        "$type": "color",
+        "$description": "Modal/drawer backdrop"
+      }
+    },
+    "shadow": {
+      "xs": {
+        "$value": "0 1px 2px rgb(26 25 24 / 0.05)",
+        "$type": "shadow",
+        "$description": "Subtle lift — buttons at rest, tags, badges"
+      },
+      "sm": {
+        "$value": "0 1px 2px rgb(26 25 24 / 0.06), 0 4px 12px rgb(26 25 24 / 0.08)",
+        "$type": "shadow",
+        "$description": "Standard elevation — cards, dropdowns"
+      },
+      "md": {
+        "$value": "0 2px 4px rgb(26 25 24 / 0.06), 0 8px 24px rgb(26 25 24 / 0.1)",
+        "$type": "shadow",
+        "$description": "Pronounced elevation — hovered cards, active dropdowns"
+      },
+      "lg": {
+        "$value": "0 4px 8px rgb(26 25 24 / 0.06), 0 12px 40px rgb(26 25 24 / 0.12), 0 24px 64px rgb(26 25 24 / 0.06)",
+        "$type": "shadow",
+        "$description": "Dramatic elevation — modals, command palette, floating panels"
+      },
+      "pressed": {
+        "$value": "inset 0 1px 3px rgb(26 25 24 / 0.15), inset 0 0 1px rgb(26 25 24 / 0.1)",
+        "$type": "shadow",
+        "$description": "Recessed inputs, slider tracks, toggle tracks, active button press"
+      },
+      "focus": {
+        "$value": "0 0 0 2px var(--rialto-surface), 0 0 0 4px var(--rialto-accent), 0 0 12px var(--rialto-accent-glow)",
+        "$type": "shadow",
+        "$description": "Focus-visible state for all interactive elements"
+      },
+      "glass": {
+        "$value": "0 2px 8px rgb(26 25 24 / 0.05), 0 8px 32px rgb(26 25 24 / 0.1), inset 0 0.5px 0 rgb(255 255 255 / 0.3)",
+        "$type": "shadow",
+        "$description": "Floating panels, command palette, frosted-glass overlays"
+      },
+      "ambient": {
+        "$value": "0 0 20px rgb(196 146 42 / 0.08), 0 0 40px rgb(196 146 42 / 0.04)",
+        "$type": "shadow",
+        "$description": "Subtle gold luminosity for primary CTAs, active selections, and elevated interactive elements that should \"breathe\" warmth"
+      },
+      "luminous": {
+        "$value": "0 2px 4px rgb(26 25 24 / 0.06), 0 8px 24px rgb(26 25 24 / 0.08), 0 0 32px rgb(196 146 42 / 0.06)",
+        "$type": "shadow",
+        "$description": "Cards and panels that should feel lit from within. Combines standard elevation with warm ambient bloom."
+      }
+    }
+  },
+  "rialto/dark": {
+    "color": {
+      "surface": {
+        "default": {
+          "$value": "#1e1c1a",
+          "$type": "color"
+        },
+        "elevated": {
+          "$value": "#2a2725",
+          "$type": "color"
+        },
+        "recessed": {
+          "$value": "#141312",
+          "$type": "color"
+        },
+        "matte": {
+          "$value": "#3a3633",
+          "$type": "color"
+        },
+        "deep": {
+          "$value": "#4a4643",
+          "$type": "color"
+        }
+      },
+      "text": {
+        "primary": {
+          "$value": "rgb(253 252 250 / 0.92)",
+          "$type": "color"
+        },
+        "secondary": {
+          "$value": "rgb(253 252 250 / 0.6)",
+          "$type": "color"
+        },
+        "tertiary": {
+          "$value": "rgb(253 252 250 / 0.50)",
+          "$type": "color"
+        },
+        "on-accent": {
+          "$value": "#1a1918",
+          "$type": "color"
+        }
+      },
+      "border": {
+        "default": {
+          "$value": "rgb(255 255 255 / 0.1)",
+          "$type": "color"
+        },
+        "strong": {
+          "$value": "rgb(255 255 255 / 0.2)",
+          "$type": "color"
+        }
+      },
+      "accent": {
+        "default": {
+          "$value": "#d4a23a",
+          "$type": "color"
+        },
+        "hover": {
+          "$value": "#e0b04a",
+          "$type": "color"
+        },
+        "muted": {
+          "$value": "rgb(212 162 58 / 0.15)",
+          "$type": "color"
+        },
+        "glow": {
+          "$value": "rgb(212 162 58 / 0.4)",
+          "$type": "color"
+        }
+      },
+      "semantic": {
+        "error": {
+          "default": {
+            "$value": "#e06050",
+            "$type": "color"
+          },
+          "muted": {
+            "$value": "rgb(224 96 80 / 0.15)",
+            "$type": "color"
+          }
+        },
+        "warning": {
+          "default": {
+            "$value": "#d4a030",
+            "$type": "color"
+          },
+          "muted": {
+            "$value": "rgb(212 160 48 / 0.15)",
+            "$type": "color"
+          }
+        },
+        "success": {
+          "default": {
+            "$value": "#9aaa4c",
+            "$type": "color"
+          },
+          "muted": {
+            "$value": "rgb(154 170 76 / 0.15)",
+            "$type": "color"
+          }
+        }
+      },
+      "overlay": {
+        "$value": "rgb(0 0 0 / 0.6)",
+        "$type": "color"
+      }
+    },
+    "shadow": {
+      "xs": {
+        "$value": "0 1px 2px rgb(0 0 0 / 0.15)",
+        "$type": "shadow"
+      },
+      "sm": {
+        "$value": "0 1px 2px rgb(0 0 0 / 0.2), 0 4px 12px rgb(0 0 0 / 0.3)",
+        "$type": "shadow"
+      },
+      "md": {
+        "$value": "0 2px 4px rgb(0 0 0 / 0.2), 0 8px 24px rgb(0 0 0 / 0.35)",
+        "$type": "shadow"
+      },
+      "lg": {
+        "$value": "0 4px 8px rgb(0 0 0 / 0.2), 0 12px 40px rgb(0 0 0 / 0.35), 0 24px 64px rgb(0 0 0 / 0.15)",
+        "$type": "shadow"
+      },
+      "pressed": {
+        "$value": "inset 0 1px 3px rgb(0 0 0 / 0.4), inset 0 0 1px rgb(0 0 0 / 0.3)",
+        "$type": "shadow"
+      },
+      "focus": {
+        "$value": "0 0 0 2px var(--rialto-surface), 0 0 0 4px var(--rialto-accent), 0 0 12px var(--rialto-accent-glow)",
+        "$type": "shadow"
+      },
+      "glass": {
+        "$value": "0 2px 8px rgb(0 0 0 / 0.2), 0 8px 32px rgb(0 0 0 / 0.35), inset 0 0.5px 0 rgb(255 255 255 / 0.08)",
+        "$type": "shadow"
+      },
+      "ambient": {
+        "$value": "0 0 24px rgb(212 162 58 / 0.12), 0 0 48px rgb(212 162 58 / 0.06)",
+        "$type": "shadow",
+        "$description": "Ambient glow — brighter gold on dark backgrounds"
+      },
+      "luminous": {
+        "$value": "0 2px 4px rgb(0 0 0 / 0.2), 0 8px 24px rgb(0 0 0 / 0.3), 0 0 36px rgb(212 162 58 / 0.1)",
+        "$type": "shadow",
+        "$description": "Luminous elevation — warm bloom visible on dark canvas"
+      }
+    }
+  },
+  "rialto/default": {
+    "font": {
+      "family": {
+        "sans": {
+          "$value": "'DM Sans', 'Untitled Sans', system-ui, 'Segoe UI', sans-serif",
+          "$type": "fontFamily"
+        },
+        "mono": {
+          "$value": "'DM Mono', ui-monospace, monospace",
+          "$type": "fontFamily"
+        }
+      },
+      "weight": {
+        "light": {
+          "$value": 300,
+          "$type": "fontWeight"
+        },
+        "book": {
+          "$value": 350,
+          "$type": "fontWeight",
+          "$description": "Variable font only — between light and regular"
+        },
+        "regular": {
+          "$value": 400,
+          "$type": "fontWeight"
+        },
+        "demi": {
+          "$value": 450,
+          "$type": "fontWeight",
+          "$description": "Variable font only — between regular and medium"
+        },
+        "medium": {
+          "$value": 500,
+          "$type": "fontWeight"
+        }
+      },
+      "size": {
+        "xs": {
+          "$value": "0.694rem",
+          "$type": "dimension",
+          "$description": "~11px - Badges, fine print"
+        },
+        "sm": {
+          "$value": "0.833rem",
+          "$type": "dimension",
+          "$description": "~13px - Captions, helper text"
+        },
+        "base": {
+          "$value": "1rem",
+          "$type": "dimension",
+          "$description": "16px - Body text"
+        },
+        "md": {
+          "$value": "1.2rem",
+          "$type": "dimension",
+          "$description": "~19px - Subheadings"
+        },
+        "lg": {
+          "$value": "1.44rem",
+          "$type": "dimension",
+          "$description": "~23px - Section headings"
+        },
+        "xl": {
+          "$value": "1.728rem",
+          "$type": "dimension",
+          "$description": "~28px - Page headings"
+        },
+        "2xl": {
+          "$value": "2.074rem",
+          "$type": "dimension",
+          "$description": "~33px - Major headings"
+        },
+        "3xl": {
+          "$value": "2.986rem",
+          "$type": "dimension",
+          "$description": "~48px - Hero display"
+        },
+        "4xl": {
+          "$value": "4.3rem",
+          "$type": "dimension",
+          "$description": "~69px - Dramatic display"
+        }
+      },
+      "line-height": {
+        "tight": {
+          "$value": 1.2,
+          "$type": "number"
+        },
+        "normal": {
+          "$value": 1.5,
+          "$type": "number"
+        },
+        "relaxed": {
+          "$value": 1.65,
+          "$type": "number"
+        }
+      },
+      "letter-spacing": {
+        "tight": {
+          "$value": "-0.02em",
+          "$type": "dimension"
+        },
+        "normal": {
+          "$value": 0,
+          "$type": "dimension"
+        },
+        "wide": {
+          "$value": "0.04em",
+          "$type": "dimension"
+        }
+      },
+      "optical-size": {
+        "12": {
+          "$value": 12,
+          "$type": "number"
+        },
+        "14": {
+          "$value": 14,
+          "$type": "number"
+        },
+        "16": {
+          "$value": 16,
+          "$type": "number"
+        },
+        "20": {
+          "$value": 20,
+          "$type": "number"
+        },
+        "24": {
+          "$value": 24,
+          "$type": "number"
+        },
+        "32": {
+          "$value": 32,
+          "$type": "number"
+        },
+        "48": {
+          "$value": 48,
+          "$type": "number"
+        },
+        "72": {
+          "$value": 72,
+          "$type": "number"
+        },
+        "$description": "Variable font optical sizing — controls letterform detail at different sizes"
+      }
+    },
+    "spacing": {
+      "2xs": {
+        "$value": "4px",
+        "$type": "dimension",
+        "$description": "Icon padding, tight chip internals"
+      },
+      "xs": {
+        "$value": "8px",
+        "$type": "dimension",
+        "$description": "Badge padding, tight gaps"
+      },
+      "sm": {
+        "$value": "12px",
+        "$type": "dimension",
+        "$description": "Button padding"
+      },
+      "md": {
+        "$value": "16px",
+        "$type": "dimension",
+        "$description": "Default component padding"
+      },
+      "lg": {
+        "$value": "24px",
+        "$type": "dimension",
+        "$description": "Card padding, between components"
+      },
+      "xl": {
+        "$value": "32px",
+        "$type": "dimension",
+        "$description": "Between card groups"
+      },
+      "2xl": {
+        "$value": "48px",
+        "$type": "dimension",
+        "$description": "Section spacing"
+      },
+      "3xl": {
+        "$value": "64px",
+        "$type": "dimension",
+        "$description": "Major page sections"
+      },
+      "4xl": {
+        "$value": "96px",
+        "$type": "dimension",
+        "$description": "Hero spacing"
+      }
+    },
+    "radius": {
+      "none": {
+        "$value": "0",
+        "$type": "dimension",
+        "$description": "Square corners, no rounding"
+      },
+      "sharp": {
+        "$value": "2px",
+        "$type": "dimension",
+        "$description": "Chips, badges, small inline elements"
+      },
+      "default": {
+        "$value": "6px",
+        "$type": "dimension",
+        "$description": "Buttons, inputs, standard interactive elements"
+      },
+      "soft": {
+        "$value": "10px",
+        "$type": "dimension",
+        "$description": "Cards, dialogs, containers"
+      },
+      "round": {
+        "$value": "9999px",
+        "$type": "dimension",
+        "$description": "Pills, avatars, full-round elements"
+      }
+    },
+    "ease": {
+      "precision": {
+        "$value": "cubic-bezier(0.2, 0, 0, 1)",
+        "$type": "cubicBezier",
+        "$description": "Precision easing — crisp, instant-feeling transitions"
+      },
+      "smooth": {
+        "$value": "cubic-bezier(0.25, 0.1, 0.25, 1)",
+        "$type": "cubicBezier",
+        "$description": "Smooth easing — gentle entrances and exits"
+      }
+    },
+    "duration": {
+      "fast": {
+        "$value": "0.1s",
+        "$type": "duration",
+        "$description": "Micro-interactions — hover color, icon changes"
+      },
+      "standard": {
+        "$value": "0.15s",
+        "$type": "duration",
+        "$description": "Standard transitions — most UI state changes"
+      },
+      "slow": {
+        "$value": "0.2s",
+        "$type": "duration",
+        "$description": "Deliberate movements — card hover lift, panel slide"
+      }
+    },
+    "z": {
+      "local": {
+        "$value": "1",
+        "$type": "number",
+        "$description": "Local stacking within a component"
+      },
+      "sticky": {
+        "$value": "10",
+        "$type": "number",
+        "$description": "Sticky headers, fixed elements within flow"
+      },
+      "popover": {
+        "$value": "50",
+        "$type": "number",
+        "$description": "Tooltips, popovers, hover cards"
+      },
+      "dropdown": {
+        "$value": "100",
+        "$type": "number",
+        "$description": "Dropdowns, select menus, context menus"
+      },
+      "toast": {
+        "$value": "200",
+        "$type": "number",
+        "$description": "Toast notifications"
+      },
+      "modal": {
+        "$value": "500",
+        "$type": "number",
+        "$description": "Modal/dialog overlays"
+      },
+      "overlay": {
+        "$value": "1000",
+        "$type": "number",
+        "$description": "Command palette, drawers — highest interactive"
+      }
+    }
+  },
+  "rialto/transacting": {
+    "spacing": {
+      "sm": {
+        "$value": "10px",
+        "$type": "dimension"
+      },
+      "md": {
+        "$value": "14px",
+        "$type": "dimension"
+      }
+    },
+    "radius": {
+      "default": {
+        "$value": "4px",
+        "$type": "dimension"
+      },
+      "soft": {
+        "$value": "8px",
+        "$type": "dimension"
+      }
+    },
+    "font": {
+      "weight": {
+        "medium": {
+          "$value": 600,
+          "$type": "fontWeight"
+        }
+      }
+    }
+  },
+  "rialto/presenting": {
+    "spacing": {
+      "md": {
+        "$value": "20px",
+        "$type": "dimension"
+      },
+      "lg": {
+        "$value": "32px",
+        "$type": "dimension"
+      }
+    },
+    "font": {
+      "size": {
+        "sm": {
+          "$value": "0.9375rem",
+          "$type": "dimension"
+        }
+      }
+    },
+    "radius": {
+      "soft": {
+        "$value": "14px",
+        "$type": "dimension"
+      },
+      "default": {
+        "$value": "8px",
+        "$type": "dimension"
+      }
+    }
+  }
+}

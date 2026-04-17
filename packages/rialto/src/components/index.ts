@@ -69,5 +69,8 @@ export * from "./Text";
 // ── Generative AI ───────────────────────────────
 export * from "./GenCopilot";
 
+// ── Media ──────────────────────────────────────
+export * from "./ImageUpload";
+
 // ── Providers ──────────────────────────────────
 export * from "../providers";

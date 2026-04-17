@@ -36,6 +36,20 @@
       }
     </item>
   </file>
+  <file path="scripts/generate-figma-tokens.ts">
+    <item priority="high">
+      interface DtcgToken {
+        $value: string | number;
+        $type: string;
+        $description?: string;
+      }
+    </item>
+    <item priority="high">
+      interface TokenGroup {
+        
+      }
+    </item>
+  </file>
   <file path="scripts/character-limits.ts">
     <item priority="low">
       interface CharacterLimit {
@@ -53,10 +67,10 @@
   <section priority="medium" role="tokens">
   <file path="src/tokens/motion.ts">
     <item priority="high">
-      export const precision: { duration: number; ease: readonly [0.2, 0, 0, 1]; };
+      export const ms: (s: React.CSSProperties) => import("/Users/mbutler/github...;
     </item>
     <item priority="high">
-      export const spring: { type: "spring"; stiffness: number; damping: number; mas...;
+      export const precision: { duration: number; ease: readonly [0.2, 0, 0, 1]; };
     </item>
   </file>
   <file path="src/tokens/icons.ts">
@@ -65,45 +79,6 @@
     </item>
     <item priority="low">
       type IconCategory = (typeof iconCategories)[number];
-    </item>
-  </file>
-  </section>
-  <section priority="medium" role="hooks">
-  <file path="src/hooks/useTilt.ts">
-    <item priority="high">
-      export function useTilt(
-        enabled: boolean,
-        maxTilt = 2
-      ): {
-        ref: (el: HTMLDivElement | null) => void;
-        style: MotionStyle;
-        onMouseMove: (e: React.MouseEvent) => void;
-        onMouseLeave: () => void;
-      } { /* ... */ }
-    </item>
-  </file>
-  <file path="src/hooks/useScrollReveal.ts">
-    <item priority="high">
-      interface UseScrollRevealOptions {
-        margin?: string;
-        once?: boolean;
-        fallbackTimeout?: number;
-      }
-    </item>
-    <item priority="high">
-      export function useScrollReveal({
-        margin = "-80px",
-        once = true,
-        fallbackTimeout = FALLBACK_TIMEOUT_MS,
-      }: UseScrollRevealOptions = {}) { /* ... */ }
-    </item>
-  </file>
-  <file path="src/hooks/useDirection.ts">
-    <item priority="high">
-      type Direction = "ltr" | "rtl";
-    </item>
-    <item priority="high">
-      export function useDirection(ref: RefObject<HTMLElement | null>): Direction { /* ... */ }
     </item>
   </file>
   </section>
@@ -148,6 +123,45 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="hooks">
+  <file path="src/hooks/useTilt.ts">
+    <item priority="high">
+      export function useTilt(
+        enabled: boolean,
+        maxTilt = 2
+      ): {
+        ref: (el: HTMLDivElement | null) => void;
+        style: MotionStyle;
+        onMouseMove: (e: React.MouseEvent) => void;
+        onMouseLeave: () => void;
+      } { /* ... */ }
+    </item>
+  </file>
+  <file path="src/hooks/useScrollReveal.ts">
+    <item priority="high">
+      interface UseScrollRevealOptions {
+        margin?: string;
+        once?: boolean;
+        fallbackTimeout?: number;
+      }
+    </item>
+    <item priority="high">
+      export function useScrollReveal({
+        margin = "-80px",
+        once = true,
+        fallbackTimeout = FALLBACK_TIMEOUT_MS,
+      }: UseScrollRevealOptions = {}) { /* ... */ }
+    </item>
+  </file>
+  <file path="src/hooks/useDirection.ts">
+    <item priority="high">
+      type Direction = "ltr" | "rtl";
+    </item>
+    <item priority="high">
+      export function useDirection(ref: RefObject<HTMLElement | null>): Direction { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="Toast">
   <file path="src/components/Toast/ToastContext.ts">
     <item priority="low">
@@ -177,6 +191,44 @@
         onComplete?: (spec: import("/Users/mbutler/github/mattbutlerengineerin...;
         onError?: (error: Error) => void;
       }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="FlipDot">
+  <file path="src/components/FlipDot/use-flip-dot-sound.ts">
+    <item priority="high">
+      interface UseFlipDotSoundOptions {
+        enabled: boolean;
+        volume?: number;
+      }
+    </item>
+    <item priority="high">
+      interface UseFlipDotSoundReturn {
+        playClick: () => void;
+        playBatchClick: (count: number) => void;
+      }
+    </item>
+  </file>
+  <file path="src/components/FlipDot/use-flip-dot-animation.ts">
+    <item priority="low">
+      type FlipDotAnimationMode = "typewriter" | "scroll-left" | "scroll-right" | "blink" | "frames";
+    </item>
+    <item priority="low">
+      interface UseFlipDotAnimationOptions {
+        text?: string;
+        frames?: readonly (readonly (readonly boolean[])[])[];
+        rows: number;
+        cols: number;
+        mode?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+      }
+    </item>
+  </file>
+  <file path="src/components/FlipDot/pixel-font.ts">
+    <item priority="medium">
+      function decodeBitmaskRow(mask: number): boolean[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function charToMatrix(char: string): readonly (readonly boolean[])[] { /* ... */ }
     </item>
   </file>
   </section>

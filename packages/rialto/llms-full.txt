@@ -28,6 +28,16 @@
       reason: string;
     }
   </file>
+  <file path="scripts/generate-figma-tokens.ts">
+    interface DtcgToken {
+      readonly $value: string | number;
+      readonly $type: string;
+      readonly $description?: string;
+    }
+    interface TokenGroup {
+      readonly [key: string]: DtcgToken | TokenGroup;
+    }
+  </file>
   <file path="scripts/character-limits.ts">
     export interface CharacterLimit {
       component: string;
@@ -340,15 +350,10 @@
   </section>
   <section priority="medium" role="tokens">
   <file path="src/tokens/motion.ts">
+    export const ms = (s: React.CSSProperties): MotionStyle => s as MotionStyle;
     export const precision = {
       duration: 0.15,
       ease: [0.2, 0, 0, 1] as const,
-    };
-    export const spring = {
-      type: "spring" as const,
-      stiffness: 400,
-      damping: 28,
-      mass: 0.8,
     };
   </file>
   <file path="src/tokens/icons.ts">
@@ -364,6 +369,35 @@
       "commerce",
     ] as const;
     export type IconCategory = (typeof iconCategories)[number];
+  </file>
+  </section>
+  <section priority="medium" role="providers">
+  <file path="src/providers/vibes.ts">
+    export type VibeName = "default" | "transacting" | "presenting";
+    export type VibeOverrides = Record<string, string>;
+  </file>
+  <file path="src/providers/useUIEnvironment.ts">
+    export interface UIEnvironment {
+      device: DeviceContext;
+      vibe: VibeName;
+      theme: "light" | "dark";
+    }
+    export const UIEnvironmentContext = createContext<UIEnvironment | null>(null);
+  </file>
+  <file path="src/providers/useDeviceContext.ts">
+    export interface DeviceContext {
+      pointer: "fine" | "coarse";
+      viewport: "mobile" | "tablet" | "desktop";
+      reducedMotion: boolean;
+      colorScheme: "light" | "dark";
+      saveData: boolean;
+    }
+    interface MediaEntry {
+      query: string;
+      key: keyof DeviceContext;
+      matchValue: DeviceContext[keyof DeviceContext];
+      noMatchValue: DeviceContext[keyof DeviceContext];
+    }
   </file>
   </section>
   <section priority="medium" role="hooks">
@@ -514,35 +548,6 @@
     }
   </file>
   </section>
-  <section priority="medium" role="providers">
-  <file path="src/providers/vibes.ts">
-    export type VibeName = "default" | "transacting" | "presenting";
-    export type VibeOverrides = Record<string, string>;
-  </file>
-  <file path="src/providers/useUIEnvironment.ts">
-    export interface UIEnvironment {
-      device: DeviceContext;
-      vibe: VibeName;
-      theme: "light" | "dark";
-    }
-    export const UIEnvironmentContext = createContext<UIEnvironment | null>(null);
-  </file>
-  <file path="src/providers/useDeviceContext.ts">
-    export interface DeviceContext {
-      pointer: "fine" | "coarse";
-      viewport: "mobile" | "tablet" | "desktop";
-      reducedMotion: boolean;
-      colorScheme: "light" | "dark";
-      saveData: boolean;
-    }
-    interface MediaEntry {
-      query: string;
-      key: keyof DeviceContext;
-      matchValue: DeviceContext[keyof DeviceContext];
-      noMatchValue: DeviceContext[keyof DeviceContext];
-    }
-  </file>
-  </section>
   <section priority="medium" role="Toast">
   <file path="src/components/Toast/ToastContext.ts">
     export type ToastVariant = "default" | "success" | "error" | "accent";
@@ -565,6 +570,60 @@
       getAccessToken: () => string | null | Promise<string | null>;
       onComplete?: (spec: Spec) => void;
       onError?: (error: Error) => void;
+    }
+  </file>
+  </section>
+  <section priority="medium" role="FlipDot">
+  <file path="src/components/FlipDot/use-flip-dot-sound.ts">
+    interface UseFlipDotSoundOptions {
+      enabled: boolean;
+      volume?: number;
+    }
+    interface UseFlipDotSoundReturn {
+      /** Play a single dot-flip click. */
+      playClick: () => void;
+      /** Play a composite click for multiple simultaneous flips. */
+      playBatchClick: (count: number) => void;
+    }
+  </file>
+  <file path="src/components/FlipDot/use-flip-dot-animation.ts">
+    export type FlipDotAnimationMode =
+      | "typewriter"
+      | "scroll-left"
+      | "scroll-right"
+      | "blink"
+      | "frames";
+    export interface UseFlipDotAnimationOptions {
+      /** Text to render (used by typewriter, scroll, blink modes). */
+      text?: string;
+      /** Pre-built frame sequence (used by "frames" mode). */
+      frames?: readonly (readonly (readonly boolean[])[])[];
+      /** Display row count. */
+      rows: number;
+      /** Display column count. */
+      cols: number;
+      /** Animation mode. @default "scroll-left" */
+      mode?: FlipDotAnimationMode;
+      /** Milliseconds per animation step. @default 150 */
+      speed?: number;
+      /** Loop when the animation completes. @default false */
+      loop?: boolean;
+      /** Start automatically on mount. @default true */
+      autoStart?: boolean;
+    }
+  </file>
+  <file path="src/components/FlipDot/pixel-font.ts">
+    function decodeBitmaskRow(mask: number): boolean[] {
+      const row: boolean[] = [];
+      for (let bit = CHAR_WIDTH - 1; bit >= 0; bit--) {
+        row.push(((mask >> bit) & 1) === 1);
+      }
+      return row;
+    }
+    export function charToMatrix(char: string): readonly (readonly boolean[])[] {
+      const upper = char.toUpperCase();
+      const bitmasks = FONT[upper] ?? FONT[" "]!;
+      return bitmasks.map(decodeBitmaskRow);
     }
   </file>
   </section>
