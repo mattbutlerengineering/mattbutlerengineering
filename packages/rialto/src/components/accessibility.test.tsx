@@ -61,6 +61,7 @@ import { Text } from "./Text/Text";
 import { TextArea } from "./TextArea/TextArea";
 import { Timeline } from "./Timeline/Timeline";
 import { ToastProvider } from "./Toast/Toast";
+import { Chalkboard, ChalkboardSection, ChalkboardItem } from "./Chalkboard/Chalkboard";
 import { MasterOverride } from "./MasterOverride/MasterOverride";
 import { SplitFlap } from "./SplitFlap/SplitFlap";
 import { Toggle } from "./Toggle/Toggle";
@@ -380,6 +381,18 @@ describe("Accessibility — axe-core WCAG 2.1 AA", () => {
 
   it("Toggle", async () => {
     const { container } = render(<Toggle label="Dark mode" />);
+    expect(await axe(container)).toHaveNoViolations();
+  });
+
+  it("Chalkboard", async () => {
+    const { container } = render(
+      <Chalkboard title="Today's Specials" subtitle="March 15">
+        <ChalkboardSection heading="Starters">
+          <ChalkboardItem name="Crab Cakes" price="$14" />
+          <ChalkboardItem name="Oysters" price="$18" soldOut />
+        </ChalkboardSection>
+      </Chalkboard>
+    );
     expect(await axe(container)).toHaveNoViolations();
   });
 

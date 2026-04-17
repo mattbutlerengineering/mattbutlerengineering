@@ -75,6 +75,7 @@ export * from "./ImageUpload";
 // ── Specialty interaction ──────────────────────
 export * from "./MasterOverride";
 export * from "./SplitFlap";
+export * from "./Chalkboard";
 
 // ── Providers ──────────────────────────────────
 export * from "../providers";

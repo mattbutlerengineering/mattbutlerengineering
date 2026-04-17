@@ -109,6 +109,9 @@ const FlipDotPage = lazy(() =>
 const SplitFlapPage = lazy(() =>
   import("./pages/data/SplitFlapPage").then((m) => ({ default: m.SplitFlapPage }))
 );
+const ChalkboardPage = lazy(() =>
+  import("./pages/data/ChalkboardPage").then((m) => ({ default: m.ChalkboardPage }))
+);
 
 /* ── Navigation ──────────────────────────────── */
 const TabsPage = lazy(() =>
@@ -301,6 +304,7 @@ const componentRoutes: RouteObject[] = [
   { path: "components/kbd", element: suspended(KbdPage) },
   { path: "components/flip-dot", element: suspended(FlipDotPage) },
   { path: "components/split-flap", element: suspended(SplitFlapPage) },
+  { path: "components/chalkboard", element: suspended(ChalkboardPage) },
   // Navigation
   { path: "components/tabs", element: suspended(TabsPage) },
   { path: "components/breadcrumb", element: suspended(BreadcrumbPage) },
