@@ -71,20 +71,19 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
     const descriptionId = useId();
     const switchId = useId();
 
-    // When cover lifts via user interaction, move focus to the switch
-    // so the deliberate next gesture is keyboard-reachable without Tab.
-    const lastArmedTrigger = useRef<"user" | "initial">("initial");
+    // Move focus cover↔switch whenever armed changes, but not on mount.
+    const isInitialRef = useRef(true);
     useEffect(() => {
-      if (armed && lastArmedTrigger.current === "user") {
-        switchRef.current?.focus();
-      } else if (!armed && lastArmedTrigger.current === "user") {
-        coverRef.current?.focus();
+      if (isInitialRef.current) {
+        isInitialRef.current = false;
+        return;
       }
+      if (armed) switchRef.current?.focus();
+      else coverRef.current?.focus();
     }, [armed]);
 
     function handleCoverToggle() {
       if (disabled) return;
-      lastArmedTrigger.current = "user";
       setArmed((prev) => !prev);
     }
 

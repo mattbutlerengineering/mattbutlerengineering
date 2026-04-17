@@ -110,9 +110,10 @@ const SplitFlapCell = memo(function SplitFlapCell({
   startDelay,
   instant,
 }: SplitFlapCellProps) {
-  const [current, setCurrent] = useState(target);
+  const [current, setCurrent] = useState(" ");
+  const [prevChar, setPrevChar] = useState(" ");
+  const currentRef = useRef(" ");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [flipKey, setFlipKey] = useState(0);
 
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
@@ -122,33 +123,31 @@ const SplitFlapCell = memo(function SplitFlapCell({
   }, []);
 
   useEffect(() => {
-    if (current === target) return;
+    clearTimer();
+    if (currentRef.current === target) return;
     if (instant) {
+      setPrevChar(currentRef.current);
+      currentRef.current = target;
       setCurrent(target);
       return;
     }
 
-    // Kick off the cycle after startDelay, then step forward one char
-    // per flipInterval until we land on the target.
+    // Step forward one char per flipInterval until we land on target.
+    // currentRef is the synchronous source of truth so we never schedule
+    // from inside a setState updater (which StrictMode may double-invoke).
     const step = () => {
-      setCurrent((c) => {
-        if (c === target) return c;
-        const next = nextChar(c, charset);
-        setFlipKey((k) => k + 1);
-        timerRef.current = setTimeout(step, flipInterval);
-        return next;
-      });
+      if (currentRef.current === target) return;
+      const outgoing = currentRef.current;
+      const next = nextChar(outgoing, charset);
+      currentRef.current = next;
+      setPrevChar(outgoing);
+      setCurrent(next);
+      timerRef.current = setTimeout(step, flipInterval);
     };
 
     timerRef.current = setTimeout(step, startDelay);
     return clearTimer;
-    // We intentionally exclude `current` — we only want to re-kick when the
-    // target changes. The closure reads the latest value via setCurrent.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target, charset, flipInterval, startDelay, instant, clearTimer]);
-
-  // Cleanup on unmount
-  useEffect(() => clearTimer, [clearTimer]);
 
   return (
     <div className={styles.cell} aria-hidden="true">
@@ -165,19 +164,18 @@ const SplitFlapCell = memo(function SplitFlapCell({
       {/* Seam line across the middle */}
       <div className={styles.seam} />
 
-      {/* Animated flap — rotates from 0 to -180 on each character change */}
+      {/* Animated flap — rotates 0 → -180, front shows outgoing char's top,
+          back shows incoming char's top (rotated 180° so it reads upright) */}
       <motion.div
-        key={flipKey}
+        key={current}
         className={styles.flap}
         initial={{ rotateX: 0 }}
         animate={{ rotateX: -180 }}
         transition={{ duration: flipInterval / 1000, ease: "easeIn" }}
       >
-        {/* Front face — the outgoing character's top half */}
         <div className={styles.flapFace} data-face="front">
-          <span>{current}</span>
+          <span>{prevChar}</span>
         </div>
-        {/* Back face — the incoming character's bottom half, inverted */}
         <div className={styles.flapFace} data-face="back">
           <span>{current}</span>
         </div>

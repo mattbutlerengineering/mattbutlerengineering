@@ -1,6 +1,6 @@
 import { render, screen, act } from "@testing-library/react";
 import { SplitFlap } from "./SplitFlap";
-import { normalizeChar, stepsBetween, nextChar, CHARSETS } from "./charset";
+import { normalizeChar, nextChar, CHARSETS } from "./charset";
 
 describe("SplitFlap", () => {
   describe("charset helpers", () => {
@@ -9,12 +9,6 @@ describe("SplitFlap", () => {
       expect(normalizeChar("Z", CHARSETS.alpha)).toBe("Z");
       expect(normalizeChar("1", CHARSETS.alpha)).toBe(" "); // digit not in alpha
       expect(normalizeChar("!", CHARSETS.full)).toBe("!");
-    });
-
-    it("stepsBetween counts forward hops with wrap-around", () => {
-      expect(stepsBetween("A", "B", CHARSETS.alpha)).toBe(1);
-      expect(stepsBetween("B", "A", CHARSETS.alpha)).toBe(CHARSETS.alpha.length - 1);
-      expect(stepsBetween(" ", "A", CHARSETS.alpha)).toBe(1);
     });
 
     it("nextChar wraps at the end of the charset", () => {

@@ -11,6 +11,13 @@ import styles from "./SplitScreenExit.module.css";
  * The parent owns navigation — fire it from `onExitComplete`, not immediately
  * after setting `active`, or the content unmounts before the animation runs.
  *
+ * **Children are re-rendered twice during the exit** (once in each clipped
+ * half). Purely presentational children are fine; stateful ones (forms with
+ * uncommitted input, components with unique `id`s, anything using refs
+ * attached from outside) will have two concurrent instances during the ~600ms
+ * animation. Keep children simple or snapshot them to static markup before
+ * flipping `active` to true.
+ *
  * @example
  * const [exiting, setExiting] = useState(false);
  * const onAuth = () => setExiting(true);
@@ -38,32 +45,32 @@ export interface SplitScreenExitProps {
 export const SplitScreenExit = forwardRef<HTMLDivElement, SplitScreenExitProps>(
   ({ active, onExitComplete, announcement, children, className }, ref) => {
     const shouldReduceMotion = useReducedMotion();
-    const completedHalvesRef = useRef(0);
-    const hasFiredRef = useRef(false);
+    // "idle" → "running" after first half completes → "fired" after both
+    // (or immediately under reduced motion). Reset to "idle" when active flips
+    // back to false so the component can be re-armed.
+    const exitStateRef = useRef<"idle" | "running" | "fired">("idle");
 
-    // Reset completion tracking whenever the exit is re-armed
     useEffect(() => {
-      if (!active) {
-        completedHalvesRef.current = 0;
-        hasFiredRef.current = false;
-      }
+      if (!active) exitStateRef.current = "idle";
     }, [active]);
 
     // Reduced motion collapses the animation — fire the callback on the next
     // tick so parents that expect async still behave correctly.
     useEffect(() => {
-      if (!active || !shouldReduceMotion || hasFiredRef.current) return;
-      hasFiredRef.current = true;
+      if (!active || !shouldReduceMotion || exitStateRef.current === "fired") return;
+      exitStateRef.current = "fired";
       const id = window.setTimeout(() => onExitComplete?.(), 0);
       return () => window.clearTimeout(id);
     }, [active, shouldReduceMotion, onExitComplete]);
 
     function handleHalfComplete() {
-      completedHalvesRef.current += 1;
-      if (completedHalvesRef.current >= 2 && !hasFiredRef.current) {
-        hasFiredRef.current = true;
-        onExitComplete?.();
+      if (exitStateRef.current === "fired") return;
+      if (exitStateRef.current === "idle") {
+        exitStateRef.current = "running";
+        return;
       }
+      exitStateRef.current = "fired";
+      onExitComplete?.();
     }
 
     const classes = [styles.wrapper, active && styles.active, className]

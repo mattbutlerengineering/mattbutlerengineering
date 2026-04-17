@@ -30,17 +30,6 @@ export function normalizeChar(raw: string, charset: string): string {
 }
 
 /**
- * Compute how many forward steps it takes to advance from `from` to `to`
- * within the charset, wrapping around the end if needed.
- */
-export function stepsBetween(from: string, to: string, charset: string): number {
-  const fromIdx = charset.indexOf(from);
-  const toIdx = charset.indexOf(to);
-  if (fromIdx < 0 || toIdx < 0) return 0;
-  return (toIdx - fromIdx + charset.length) % charset.length;
-}
-
-/**
  * Advance one step forward in the charset, wrapping at the end.
  */
 export function nextChar(current: string, charset: string): string {
