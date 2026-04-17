@@ -41,6 +41,15 @@
         ]
       },
       {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/check-changeset.sh \"$CLAUDE_FILE_PATH\""
+          }
+        ]
+      },
+      {
         "hooks": [
           {
             "type": "command",
