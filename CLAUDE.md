@@ -113,13 +113,23 @@ pnpm test        # Run all tests
 ```
 
 **Known gotchas:**
-- `apps/rialto-web` has a pre-existing `@mattbutlerengineering/rialto/styles` TS2882 typecheck error — ignore it, it's not your change
 - Pre-commit hook runs `eslint --fix` + `check-adr` + `pack-changed` (the last one regenerates `llms.txt` / `llms-full.txt` in affected packages — expect them to appear in `git status` after your commit lands)
 - JSX strings with `'` fail `react/no-unescaped-entities` at commit time — use `&apos;`
 - Run `pnpm` from inside a package directory, not the monorepo root — turbo filter errors out at the root for `test`/`typecheck`/`build` in most packages
 - **GitHub Actions is intentionally unpaid on this account — CI does not run.** Every PR's checks fail with a billing rejection by design. Verify work locally (`pnpm lint`/`typecheck`/`test`) and ignore red checks on `gh pr view`. Do NOT file `ci-fix` issues for failing workflow runs
 - Parallel `Bash` tool calls don't share `cd` state and race each other — use absolute paths or `pnpm --dir <abs-path> <cmd>` when running in parallel
 - **pnpm.overrides for CVEs: use the scoped pattern** `"pkg@<patched": "^patched"`, not `"pkg": ">=patched"` — the open range resolves to the latest satisfying version and can pull major bumps (e.g. `protobufjs@>=7.5.5` → 8.0.1)
+- **Changesets require `GITHUB_TOKEN`**: run `GITHUB_TOKEN=$(gh auth token) pnpm version-packages` — without it, `@changesets/get-github-info` errors asking for a PAT
+- **Changesets post-version prettier step errors with `Cannot find package '@mbe/config'`** — non-fatal, the version bump + CHANGELOG write still succeed
+
+## Manual Deployment (GH Actions unpaid — won't fire workflows)
+
+The `/deploy` skill's workflows won't execute. Deploy locally via:
+
+- **Static sites**: `cd apps/<marketing|hospitality|rialto-web> && pnpm dlx wrangler@latest deploy` (wrangler auto-refreshes oauth on use)
+- **DO services** (all services + db-migrate, single app): `doctl apps create-deployment 5dbdcf45-4053-4518-a97b-f1e2b3122a61 --wait`
+- **DO build logs**: `doctl apps logs 5dbdcf45-4053-4518-a97b-f1e2b3122a61 <agent-api|users-api|reservations-api|db-migrate> --type=build --deployment <id>` (component is positional, NOT `--component`)
+- **Pulumi**: `cd infrastructure/pulumi && pulumi up --stack prod`
 
 ## AI Observability (Langfuse)
 

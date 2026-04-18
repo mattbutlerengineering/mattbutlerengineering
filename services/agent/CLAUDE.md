@@ -357,6 +357,11 @@ pnpm db:migrate:deploy # Apply migrations (production)
 | `GITHUB_WEBHOOK_SECRET` | No | HMAC secret for webhooks |
 | `AGENT_API_URL` | No | Public API URL (default: http://localhost:3003) |
 
+## Dockerfile gotchas
+
+- `pnpm --filter <pkg> build` does NOT cascade to workspace deps. When adding a new workspace dep that needs compiling, add its build step to the RUN chain in dep order, and COPY lines for its `src/`, `tsconfig*.json`, plus any build config (for rialto: `vite.config.lib.ts` + `scripts/`).
+- `packages/api-client` has no build script — exports `./src/index.ts` directly. Runner stage must copy `src/` not `dist/`.
+
 ## Related Documentation
 
 - [Agent Core Package](../packages/agent-core/README.md)
