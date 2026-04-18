@@ -25,8 +25,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@json-render/core": "^0.16.0",
-    "@json-render/react": "^0.16.0",
+    "@json-render/core": "^0.18.0",
+    "@json-render/react": "^0.18.0",
     "@mattbutlerengineering/rialto": "workspace:*",
     "zod": "catalog:"
   },
