@@ -117,6 +117,9 @@ pnpm test        # Run all tests
 - Pre-commit hook runs `eslint --fix` + `check-adr` + `pack-changed` (the last one regenerates `llms.txt` / `llms-full.txt` in affected packages — expect them to appear in `git status` after your commit lands)
 - JSX strings with `'` fail `react/no-unescaped-entities` at commit time — use `&apos;`
 - Run `pnpm` from inside a package directory, not the monorepo root — turbo filter errors out at the root for `test`/`typecheck`/`build` in most packages
+- **GitHub Actions is intentionally unpaid on this account — CI does not run.** Every PR's checks fail with a billing rejection by design. Verify work locally (`pnpm lint`/`typecheck`/`test`) and ignore red checks on `gh pr view`. Do NOT file `ci-fix` issues for failing workflow runs
+- Parallel `Bash` tool calls don't share `cd` state and race each other — use absolute paths or `pnpm --dir <abs-path> <cmd>` when running in parallel
+- **pnpm.overrides for CVEs: use the scoped pattern** `"pkg@<patched": "^patched"`, not `"pkg": ">=patched"` — the open range resolves to the latest satisfying version and can pull major bumps (e.g. `protobufjs@>=7.5.5` → 8.0.1)
 
 ## AI Observability (Langfuse)
 

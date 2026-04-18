@@ -177,3 +177,9 @@ llms-full.txt covers consuming the library in an application.
 - `pnpm build` — Build library for production
 - `pnpm test` — Run unit tests
 - `pnpm typecheck` — Type-check without emitting
+
+## Publishing
+
+- Publishes to **GitHub Packages** (`npm.pkg.github.com`), not npm — `npm view @mattbutlerengineering/rialto` returns 404
+- Release flow: bump `version` in `package.json` → `pnpm build` → `npm publish` in this dir (use `npm publish` directly, NOT `pnpm publish --no-git-checks` — pnpm forwards that flag to npm which errors with `EUSAGE`)
+- Version convention (pre-1.0): every release is a patch bump regardless of feature volume
