@@ -163,7 +163,7 @@
 }
 
 /* ── Disabled state ──────────────────────────── */
-.wrapper[aria-disabled="true"] .control {
+.wrapper:has(.input:disabled) .control {
   filter: saturate(0.6) brightness(0.95);
   cursor: not-allowed;
 }

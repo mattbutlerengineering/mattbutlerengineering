@@ -139,7 +139,7 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
 
     return (
       <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>
-        <div ref={ref} className={wrapperClasses} aria-disabled={disabled || undefined}>
+        <div ref={ref} className={wrapperClasses}>
           {label && (
             <label htmlFor={id} className={styles.label}>
               {label}
@@ -177,9 +177,10 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
               min={min}
               max={max}
               step={step}
-              aria-disabled={disabled || undefined}
+              disabled={disabled}
+              aria-invalid={error || undefined}
               aria-describedby={hint ? `${id}-hint` : undefined}
-              readOnly={disabled || rest.readOnly}
+              readOnly={rest.readOnly}
               {...rest}
             />
             <button

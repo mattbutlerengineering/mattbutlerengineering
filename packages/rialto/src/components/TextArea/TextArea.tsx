@@ -112,9 +112,9 @@ export const TextArea = forwardRef<HTMLDivElement, TextAreaProps>(
               rows={rows}
               value={value}
               onChange={handleChange}
-              aria-disabled={disabled || undefined}
+              disabled={disabled}
               aria-describedby={hint ? `${id}-hint` : undefined}
-              readOnly={disabled || readOnly}
+              readOnly={readOnly}
               {...rest}
             />
             {disabled && disabledReason && (
