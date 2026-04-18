@@ -105,7 +105,7 @@ COPY --from=builder /app/packages/api-versioning/dist ./packages/api-versioning/
 COPY --from=builder /app/packages/observability/dist ./packages/observability/dist
 COPY --from=builder /app/packages/sentry/dist ./packages/sentry/dist
 COPY --from=builder /app/packages/agent-core/dist ./packages/agent-core/dist
-COPY --from=builder /app/packages/api-client/dist ./packages/api-client/dist
+COPY --from=builder /app/packages/api-client/src ./packages/api-client/src
 COPY --from=builder /app/packages/rialto/dist ./packages/rialto/dist
 COPY --from=builder /app/packages/rialto-catalog/dist ./packages/rialto-catalog/dist
 
