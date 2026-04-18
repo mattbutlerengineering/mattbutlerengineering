@@ -49,6 +49,8 @@ COPY packages/agent-core/src ./packages/agent-core/src
 COPY packages/observability/src ./packages/observability/src
 COPY packages/sentry/src ./packages/sentry/src
 COPY packages/rialto/src ./packages/rialto/src
+COPY packages/rialto/scripts ./packages/rialto/scripts
+COPY packages/rialto/vite.config.lib.ts ./packages/rialto/vite.config.lib.ts
 COPY packages/rialto-catalog/src ./packages/rialto-catalog/src
 COPY services/agent/src ./services/agent/src
 
