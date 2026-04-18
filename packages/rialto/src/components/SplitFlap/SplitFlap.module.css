@@ -135,10 +135,18 @@
 .flapFace[data-face="back"] {
   background: linear-gradient(0deg, #0e0e0c 0%, #070706 100%);
   transform: rotateX(180deg);
+  /* The back face needs the char's BOTTOM half anchored at the top of
+     the flap viewport (which, after the parent flap rotates -180°, ends
+     up being the bottom half of the cell). Override the shared flex-end. */
+  align-items: flex-start;
 }
 
 .flapFace[data-face="back"] span {
-  transform: translateY(-50%) scaleY(-1);
+  /* After parent -180° + local 180° = identity: text is upright. No
+     scaleY flip needed. translateY(-50%) shifts the span up so its
+     center sits at the viewport top edge — the visible part is the
+     char's bottom half. */
+  transform: translateY(-50%);
 }
 
 /* ── Visually hidden ──────────────────────── */

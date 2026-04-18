@@ -151,12 +151,15 @@ const SplitFlapCell = memo(function SplitFlapCell({
 
   return (
     <div className={styles.cell} aria-hidden="true">
-      {/* Bottom half — stable, shows current character's bottom half */}
+      {/* Bottom half — shows CURRENT char's bottom. Visible behind the flap
+          and also while the flap is actively falling (acceptable transient
+          since the flap front covers the top half during that moment). */}
       <div className={styles.half} data-position="bottom">
         <span>{current}</span>
       </div>
 
-      {/* Top half — shows current character's top half */}
+      {/* Top half — shows CURRENT char's top. Hidden under the flap front
+          during the fall, revealed once the flap rotates past 90°. */}
       <div className={styles.half} data-position="top">
         <span>{current}</span>
       </div>

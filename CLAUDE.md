@@ -131,6 +131,18 @@ The `/deploy` skill's workflows won't execute. Deploy locally via:
 - **DO build logs**: `doctl apps logs 5dbdcf45-4053-4518-a97b-f1e2b3122a61 <agent-api|users-api|reservations-api|db-migrate> --type=build --deployment <id>` (component is positional, NOT `--component`)
 - **Pulumi**: `cd infrastructure/pulumi && pulumi up --stack prod`
 
+### Iterating on rialto component visuals (no npm republish)
+
+Consumer apps (`apps/hospitality`, `apps/rialto-web`, etc.) reference rialto via `workspace:*`, so they pick up source changes directly. The npm publish is only needed for external consumers. Iteration loop:
+
+```bash
+pnpm --dir packages/rialto build           # regenerate dist + exports map
+pnpm --dir apps/rialto-web build           # rebuild showcase
+cd apps/rialto-web && pnpm dlx wrangler@latest deploy
+```
+
+Only run `npm publish` from `packages/rialto` when actually cutting a registry release.
+
 ## AI Observability (Langfuse)
 
 Agent sessions are traced to [Langfuse Cloud](https://cloud.langfuse.com) for LLM-specific observability.
