@@ -1,5 +1,17 @@
 <codebase path="packages/rialto">
   <section priority="medium" role="scripts">
+  <file path="scripts/lib-entrypoints.ts">
+    <item priority="low">
+      interface LibEntry {
+        subpath: string;
+        source: string;
+        chunkName: string;
+      }
+    </item>
+    <item priority="medium">
+      function listComponentEntries(): LibEntry[] { /* ... */ }
+    </item>
+  </file>
   <file path="scripts/generate-registry.ts">
     <item priority="high">
       interface PropInfo {
@@ -48,6 +60,18 @@
       interface TokenGroup {
         
       }
+    </item>
+  </file>
+  <file path="scripts/generate-exports.ts">
+    <item priority="high">
+      interface ExportEntry {
+        types?: string;
+        import?: string;
+        default?: string;
+      }
+    </item>
+    <item priority="high">
+      type ExportsMap = Record<string, string | ExportEntry>;
     </item>
   </file>
   <file path="scripts/character-limits.ts">

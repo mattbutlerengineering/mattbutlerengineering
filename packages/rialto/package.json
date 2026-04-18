@@ -14,6 +14,286 @@
       "types": "./dist/lib/tokens/motion.d.ts",
       "import": "./dist/lib/motion.js"
     },
+    "./providers": {
+      "types": "./dist/lib/providers/index.d.ts",
+      "import": "./dist/lib/providers/index.js"
+    },
+    "./hooks": {
+      "types": "./dist/lib/hooks/index.d.ts",
+      "import": "./dist/lib/hooks/index.js"
+    },
+    "./Accordion": {
+      "types": "./dist/lib/components/Accordion/index.d.ts",
+      "import": "./dist/lib/components/Accordion/index.js"
+    },
+    "./Alert": {
+      "types": "./dist/lib/components/Alert/index.d.ts",
+      "import": "./dist/lib/components/Alert/index.js"
+    },
+    "./AppBar": {
+      "types": "./dist/lib/components/AppBar/index.d.ts",
+      "import": "./dist/lib/components/AppBar/index.js"
+    },
+    "./AspectRatio": {
+      "types": "./dist/lib/components/AspectRatio/index.d.ts",
+      "import": "./dist/lib/components/AspectRatio/index.js"
+    },
+    "./Autocomplete": {
+      "types": "./dist/lib/components/Autocomplete/index.d.ts",
+      "import": "./dist/lib/components/Autocomplete/index.js"
+    },
+    "./Avatar": {
+      "types": "./dist/lib/components/Avatar/index.d.ts",
+      "import": "./dist/lib/components/Avatar/index.js"
+    },
+    "./Badge": {
+      "types": "./dist/lib/components/Badge/index.d.ts",
+      "import": "./dist/lib/components/Badge/index.js"
+    },
+    "./Banner": {
+      "types": "./dist/lib/components/Banner/index.d.ts",
+      "import": "./dist/lib/components/Banner/index.js"
+    },
+    "./Breadcrumb": {
+      "types": "./dist/lib/components/Breadcrumb/index.d.ts",
+      "import": "./dist/lib/components/Breadcrumb/index.js"
+    },
+    "./Button": {
+      "types": "./dist/lib/components/Button/index.d.ts",
+      "import": "./dist/lib/components/Button/index.js"
+    },
+    "./Card": {
+      "types": "./dist/lib/components/Card/index.d.ts",
+      "import": "./dist/lib/components/Card/index.js"
+    },
+    "./Chalkboard": {
+      "types": "./dist/lib/components/Chalkboard/index.d.ts",
+      "import": "./dist/lib/components/Chalkboard/index.js"
+    },
+    "./Checkbox": {
+      "types": "./dist/lib/components/Checkbox/index.d.ts",
+      "import": "./dist/lib/components/Checkbox/index.js"
+    },
+    "./Collapsible": {
+      "types": "./dist/lib/components/Collapsible/index.d.ts",
+      "import": "./dist/lib/components/Collapsible/index.js"
+    },
+    "./CommandPalette": {
+      "types": "./dist/lib/components/CommandPalette/index.d.ts",
+      "import": "./dist/lib/components/CommandPalette/index.js"
+    },
+    "./ConfirmDialog": {
+      "types": "./dist/lib/components/ConfirmDialog/index.d.ts",
+      "import": "./dist/lib/components/ConfirmDialog/index.js"
+    },
+    "./ContextMenu": {
+      "types": "./dist/lib/components/ContextMenu/index.d.ts",
+      "import": "./dist/lib/components/ContextMenu/index.js"
+    },
+    "./DataList": {
+      "types": "./dist/lib/components/DataList/index.d.ts",
+      "import": "./dist/lib/components/DataList/index.js"
+    },
+    "./Dialog": {
+      "types": "./dist/lib/components/Dialog/index.d.ts",
+      "import": "./dist/lib/components/Dialog/index.js"
+    },
+    "./DisabledTooltip": {
+      "types": "./dist/lib/components/DisabledTooltip/index.d.ts",
+      "import": "./dist/lib/components/DisabledTooltip/index.js"
+    },
+    "./Divider": {
+      "types": "./dist/lib/components/Divider/index.d.ts",
+      "import": "./dist/lib/components/Divider/index.js"
+    },
+    "./Drawer": {
+      "types": "./dist/lib/components/Drawer/index.d.ts",
+      "import": "./dist/lib/components/Drawer/index.js"
+    },
+    "./DropdownMenu": {
+      "types": "./dist/lib/components/DropdownMenu/index.d.ts",
+      "import": "./dist/lib/components/DropdownMenu/index.js"
+    },
+    "./EmptyState": {
+      "types": "./dist/lib/components/EmptyState/index.d.ts",
+      "import": "./dist/lib/components/EmptyState/index.js"
+    },
+    "./ErrorBoundary": {
+      "types": "./dist/lib/components/ErrorBoundary/index.d.ts",
+      "import": "./dist/lib/components/ErrorBoundary/index.js"
+    },
+    "./Ferrofluid": {
+      "types": "./dist/lib/components/Ferrofluid/index.d.ts",
+      "import": "./dist/lib/components/Ferrofluid/index.js"
+    },
+    "./FlipDot": {
+      "types": "./dist/lib/components/FlipDot/index.d.ts",
+      "import": "./dist/lib/components/FlipDot/index.js"
+    },
+    "./Footer": {
+      "types": "./dist/lib/components/Footer/index.d.ts",
+      "import": "./dist/lib/components/Footer/index.js"
+    },
+    "./GenCopilot": {
+      "types": "./dist/lib/components/GenCopilot/index.d.ts",
+      "import": "./dist/lib/components/GenCopilot/index.js"
+    },
+    "./GlobalNav": {
+      "types": "./dist/lib/components/GlobalNav/index.d.ts",
+      "import": "./dist/lib/components/GlobalNav/index.js"
+    },
+    "./Hero": {
+      "types": "./dist/lib/components/Hero/index.d.ts",
+      "import": "./dist/lib/components/Hero/index.js"
+    },
+    "./HoverCard": {
+      "types": "./dist/lib/components/HoverCard/index.d.ts",
+      "import": "./dist/lib/components/HoverCard/index.js"
+    },
+    "./ImageUpload": {
+      "types": "./dist/lib/components/ImageUpload/index.d.ts",
+      "import": "./dist/lib/components/ImageUpload/index.js"
+    },
+    "./Input": {
+      "types": "./dist/lib/components/Input/index.d.ts",
+      "import": "./dist/lib/components/Input/index.js"
+    },
+    "./InputGroup": {
+      "types": "./dist/lib/components/InputGroup/index.d.ts",
+      "import": "./dist/lib/components/InputGroup/index.js"
+    },
+    "./Kbd": {
+      "types": "./dist/lib/components/Kbd/index.d.ts",
+      "import": "./dist/lib/components/Kbd/index.js"
+    },
+    "./MasterOverride": {
+      "types": "./dist/lib/components/MasterOverride/index.d.ts",
+      "import": "./dist/lib/components/MasterOverride/index.js"
+    },
+    "./Meter": {
+      "types": "./dist/lib/components/Meter/index.d.ts",
+      "import": "./dist/lib/components/Meter/index.js"
+    },
+    "./Navbar": {
+      "types": "./dist/lib/components/Navbar/index.d.ts",
+      "import": "./dist/lib/components/Navbar/index.js"
+    },
+    "./NavigationMenu": {
+      "types": "./dist/lib/components/NavigationMenu/index.d.ts",
+      "import": "./dist/lib/components/NavigationMenu/index.js"
+    },
+    "./NumberInput": {
+      "types": "./dist/lib/components/NumberInput/index.d.ts",
+      "import": "./dist/lib/components/NumberInput/index.js"
+    },
+    "./PageHeader": {
+      "types": "./dist/lib/components/PageHeader/index.d.ts",
+      "import": "./dist/lib/components/PageHeader/index.js"
+    },
+    "./Pagination": {
+      "types": "./dist/lib/components/Pagination/index.d.ts",
+      "import": "./dist/lib/components/Pagination/index.js"
+    },
+    "./PinInput": {
+      "types": "./dist/lib/components/PinInput/index.d.ts",
+      "import": "./dist/lib/components/PinInput/index.js"
+    },
+    "./Popover": {
+      "types": "./dist/lib/components/Popover/index.d.ts",
+      "import": "./dist/lib/components/Popover/index.js"
+    },
+    "./Progress": {
+      "types": "./dist/lib/components/Progress/index.d.ts",
+      "import": "./dist/lib/components/Progress/index.js"
+    },
+    "./ScrollArea": {
+      "types": "./dist/lib/components/ScrollArea/index.d.ts",
+      "import": "./dist/lib/components/ScrollArea/index.js"
+    },
+    "./SegmentedControl": {
+      "types": "./dist/lib/components/SegmentedControl/index.d.ts",
+      "import": "./dist/lib/components/SegmentedControl/index.js"
+    },
+    "./Select": {
+      "types": "./dist/lib/components/Select/index.d.ts",
+      "import": "./dist/lib/components/Select/index.js"
+    },
+    "./Sidebar": {
+      "types": "./dist/lib/components/Sidebar/index.d.ts",
+      "import": "./dist/lib/components/Sidebar/index.js"
+    },
+    "./Skeleton": {
+      "types": "./dist/lib/components/Skeleton/index.d.ts",
+      "import": "./dist/lib/components/Skeleton/index.js"
+    },
+    "./Slider": {
+      "types": "./dist/lib/components/Slider/index.d.ts",
+      "import": "./dist/lib/components/Slider/index.js"
+    },
+    "./SplitFlap": {
+      "types": "./dist/lib/components/SplitFlap/index.d.ts",
+      "import": "./dist/lib/components/SplitFlap/index.js"
+    },
+    "./SplitScreenExit": {
+      "types": "./dist/lib/components/SplitScreenExit/index.d.ts",
+      "import": "./dist/lib/components/SplitScreenExit/index.js"
+    },
+    "./Stack": {
+      "types": "./dist/lib/components/Stack/index.d.ts",
+      "import": "./dist/lib/components/Stack/index.js"
+    },
+    "./Stat": {
+      "types": "./dist/lib/components/Stat/index.d.ts",
+      "import": "./dist/lib/components/Stat/index.js"
+    },
+    "./Steps": {
+      "types": "./dist/lib/components/Steps/index.d.ts",
+      "import": "./dist/lib/components/Steps/index.js"
+    },
+    "./Table": {
+      "types": "./dist/lib/components/Table/index.d.ts",
+      "import": "./dist/lib/components/Table/index.js"
+    },
+    "./Tabs": {
+      "types": "./dist/lib/components/Tabs/index.d.ts",
+      "import": "./dist/lib/components/Tabs/index.js"
+    },
+    "./Tag": {
+      "types": "./dist/lib/components/Tag/index.d.ts",
+      "import": "./dist/lib/components/Tag/index.js"
+    },
+    "./Text": {
+      "types": "./dist/lib/components/Text/index.d.ts",
+      "import": "./dist/lib/components/Text/index.js"
+    },
+    "./TextArea": {
+      "types": "./dist/lib/components/TextArea/index.d.ts",
+      "import": "./dist/lib/components/TextArea/index.js"
+    },
+    "./ThemeToggle": {
+      "types": "./dist/lib/components/ThemeToggle/index.d.ts",
+      "import": "./dist/lib/components/ThemeToggle/index.js"
+    },
+    "./Timeline": {
+      "types": "./dist/lib/components/Timeline/index.d.ts",
+      "import": "./dist/lib/components/Timeline/index.js"
+    },
+    "./Toast": {
+      "types": "./dist/lib/components/Toast/index.d.ts",
+      "import": "./dist/lib/components/Toast/index.js"
+    },
+    "./Toggle": {
+      "types": "./dist/lib/components/Toggle/index.d.ts",
+      "import": "./dist/lib/components/Toggle/index.js"
+    },
+    "./Tooltip": {
+      "types": "./dist/lib/components/Tooltip/index.d.ts",
+      "import": "./dist/lib/components/Tooltip/index.js"
+    },
+    "./Tree": {
+      "types": "./dist/lib/components/Tree/index.d.ts",
+      "import": "./dist/lib/components/Tree/index.js"
+    },
     "./styles": {
       "default": "./dist/lib/styles.css"
     },
@@ -27,15 +307,17 @@
     "dist/manifest.json"
   ],
   "sideEffects": [
-    "*.css"
+    "**/*.css"
   ],
   "scripts": {
-    "build": "vite build --config vite.config.lib.ts && pnpm manifest",
+    "build": "vite build --config vite.config.lib.ts && pnpm manifest && pnpm exports",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
     "manifest": "pnpm exec tsx scripts/generate-manifest.ts",
+    "exports": "pnpm exec tsx scripts/generate-exports.ts",
+    "exports:check": "pnpm exec tsx scripts/generate-exports.ts --check",
     "build:registry": "pnpm exec tsx scripts/generate-registry.ts"
   },
   "peerDependencies": {

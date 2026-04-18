@@ -1,5 +1,36 @@
 <codebase path="packages/rialto">
   <section priority="medium" role="scripts">
+  <file path="scripts/lib-entrypoints.ts">
+    export interface LibEntry {
+      /** Subpath segment after the package name, e.g. "Button" or "." for root. */
+      subpath: string;
+      /** Absolute path to the source entry. */
+      source: string;
+      /** Vite/Rollup chunk name (without extension). */
+      chunkName: string;
+    }
+    function listComponentEntries(): LibEntry[] {
+      const dirents = fs.readdirSync(componentsDir, { withFileTypes: true });
+      const entries: LibEntry[] = [];
+      for (const dirent of dirents) {
+        if (!dirent.isDirectory()) continue;
+        if (dirent.name.startsWith("_") || dirent.name.startsWith(".")) continue;
+        const indexPath = path.join(componentsDir, dirent.name, "index.ts");
+        if (!fs.existsSync(indexPath)) continue;
+        entries.push({
+          subpath: dirent.name,
+          source: indexPath,
+          // chunkName drives the emitted JS path. Putting it inside the
+          // component's own folder (alongside the d.ts files emitted by
+          // vite-plugin-dts) prevents TypeScript bundler resolution from
+          // ever finding a sibling `.js` with no adjacent `.d.ts`.
+          chunkName: `components/${dirent.name}/index`,
+        });
+      }
+      entries.sort((a, b) => a.subpath.localeCompare(b.subpath));
+      return entries;
+    }
+  </file>
   <file path="scripts/generate-registry.ts">
     interface PropInfo {
       name: string;
@@ -37,6 +68,14 @@
     interface TokenGroup {
       readonly [key: string]: DtcgToken | TokenGroup;
     }
+  </file>
+  <file path="scripts/generate-exports.ts">
+    interface ExportEntry {
+      types?: string;
+      import?: string;
+      default?: string;
+    }
+    type ExportsMap = Record<string, string | ExportEntry>;
   </file>
   <file path="scripts/character-limits.ts">
     export interface CharacterLimit {
