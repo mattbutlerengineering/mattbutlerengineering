@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 0.1.7
+
+### Patch Changes
+
+- **Build:** Add `types` field + stub `.d.ts` to the `./styles` subpath export. Without it, consumer apps building under TypeScript bundler resolution failed with `TS2882: Cannot find module or type declarations for side-effect import of '@mattbutlerengineering/rialto/styles'` after the 0.1.6 multi-entry export changes activated stricter resolution.
+
 ## 0.1.6
 
 ### Patch Changes

@@ -60,10 +60,22 @@ function buildExportsMap(): ExportsMap {
   }
 
   // Static, non-component subpaths.
-  exportsMap["./styles"] = { default: "./dist/lib/styles.css" };
+  exportsMap["./styles"] = {
+    types: "./dist/lib/styles.d.ts",
+    default: "./dist/lib/styles.css",
+  };
   exportsMap["./manifest"] = "./dist/manifest.json";
 
   return exportsMap;
+}
+
+function writeStylesTypeStub(): void {
+  const stubPath = path.join(repoRoot, "dist", "lib", "styles.d.ts");
+  if (!fs.existsSync(path.dirname(stubPath))) return;
+  fs.writeFileSync(
+    stubPath,
+    "// Side-effect-only CSS bundle — no exported symbols.\nexport {};\n"
+  );
 }
 
 function loadPkg(): Record<string, unknown> {
@@ -72,6 +84,7 @@ function loadPkg(): Record<string, unknown> {
 
 function main(): void {
   const checkOnly = process.argv.includes("--check");
+  if (!checkOnly) writeStylesTypeStub();
   const desired = buildExportsMap();
   const pkg = loadPkg();
   const currentExports = pkg.exports;

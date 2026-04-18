@@ -1,6 +1,6 @@
 {
   "name": "@mattbutlerengineering/rialto",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "type": "module",
   "main": "./dist/lib/rialto.js",
   "module": "./dist/lib/rialto.js",
@@ -295,6 +295,7 @@
       "import": "./dist/lib/components/Tree/index.js"
     },
     "./styles": {
+      "types": "./dist/lib/styles.d.ts",
       "default": "./dist/lib/styles.css"
     },
     "./manifest": "./dist/manifest.json"
