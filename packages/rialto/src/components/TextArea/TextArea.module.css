@@ -44,7 +44,7 @@
   border-color: var(--rialto-accent);
 }
 
-.textarea[aria-disabled="true"] {
+.textarea:disabled {
   filter: saturate(0.6) brightness(0.95);
   cursor: not-allowed;
   resize: none;
