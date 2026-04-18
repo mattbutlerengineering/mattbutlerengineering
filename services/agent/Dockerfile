@@ -60,6 +60,7 @@ RUN pnpm --filter @mbe/types build && \
     pnpm --filter @mbe/sentry build && \
     pnpm --filter @mbe/agent-core build && \
     pnpm --filter @mbe/api-client build && \
+    pnpm --filter @mattbutlerengineering/rialto build && \
     pnpm --filter @mbe/rialto-catalog build && \
     pnpm --filter @mbe/agent-service db:generate && \
     pnpm --filter @mbe/agent-service build
