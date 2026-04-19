@@ -1,5 +1,12 @@
 # @mattbutlerengineering/rialto
 
+## 0.1.8
+
+### Patch Changes
+
+- **New component:** `TapeChart` — hospitality rack-chart component. Grid of day-cells per room with reservation bars overlaid, suited for front-desk occupancy views.
+- **Bug fix:** `SplitFlap` back-face rendering — removed a redundant back-face `div` from each cell and corrected an earlier overcorrection. Animation now uses a single transformed face per digit.
+
 ## 0.1.7
 
 ### Patch Changes
