@@ -1,5 +1,13 @@
 # @mattbutlerengineering/rialto
 
+## 0.1.9
+
+### Patch Changes
+
+- **Avatar visual refresh:** machined-aluminum gradient face with hairline bezel, recessed LED status dots that glow in their own hue and gently breathe on live states (online / busy / away), and engraved initials fallback via a two-pass text-shadow. All motion honors `prefers-reduced-motion`.
+- **Avatar splitflap swap:** new `transition="fade" | "splitflap"` prop. With `"splitflap"`, changing `src` runs the image through a two-flap horizontal reveal that mirrors the library's `SplitFlap` aesthetic. Default `"fade"` preserves the legacy crossfade.
+- **Avatar internals:** replaced the boolean `imgFailed` flag with a `failedSrc` derivation so a fresh URL is retried automatically (removes a cascading-render effect).
+
 ## 0.1.8
 
 ### Patch Changes
