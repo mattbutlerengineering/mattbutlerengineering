@@ -66,6 +66,8 @@ import { Ferrofluid } from "./Ferrofluid/Ferrofluid";
 import { MasterOverride } from "./MasterOverride/MasterOverride";
 import { SplitFlap } from "./SplitFlap/SplitFlap";
 import { SplitScreenExit } from "./SplitScreenExit/SplitScreenExit";
+import { TapeChart } from "./TapeChart/TapeChart";
+import type { TapeChartReservation, TapeChartRoom } from "./TapeChart/types";
 import { Toggle } from "./Toggle/Toggle";
 import { Tooltip } from "./Tooltip/Tooltip";
 import { Tree } from "./Tree/Tree";
@@ -439,6 +441,78 @@ describe("Accessibility — axe-core WCAG 2.1 AA", () => {
             children: [{ id: "child", label: "Child" }],
           },
         ]}
+      />
+    );
+    expect(await axe(container)).toHaveNoViolations();
+  });
+
+  it("TapeChart (grid view)", async () => {
+    const rooms: TapeChartRoom[] = [
+      { id: "r1", name: "101", category: "Standard", capacity: 2, status: "ready" },
+      { id: "r2", name: "102", category: "Standard", capacity: 2, status: "occupied" },
+    ];
+    const reservations: TapeChartReservation[] = [
+      {
+        id: "res-1",
+        roomId: "r1",
+        start: "2026-04-22",
+        end: "2026-04-25",
+        status: "confirmed",
+        guestName: "Jane Doe",
+        source: "Direct",
+      },
+    ];
+    const { container } = render(
+      <TapeChart
+        reservations={reservations}
+        rooms={rooms}
+        startDate="2026-04-20"
+        endDate="2026-04-27"
+        viewMode="grid"
+      />
+    );
+    expect(
+      await axe(container, {
+        rules: { "color-contrast": { enabled: false } },
+      })
+    ).toHaveNoViolations();
+  });
+
+  it("TapeChart (list view)", async () => {
+    const rooms: TapeChartRoom[] = [{ id: "r1", name: "101" }];
+    const reservations: TapeChartReservation[] = [
+      {
+        id: "res-1",
+        roomId: "r1",
+        start: "2026-04-22",
+        end: "2026-04-25",
+        status: "confirmed",
+        guestName: "Jane Doe",
+      },
+    ];
+    const { container } = render(
+      <TapeChart
+        reservations={reservations}
+        rooms={rooms}
+        startDate="2026-04-20"
+        endDate="2026-04-27"
+        viewMode="list"
+      />
+    );
+    expect(
+      await axe(container, {
+        rules: { "color-contrast": { enabled: false } },
+      })
+    ).toHaveNoViolations();
+  });
+
+  it("TapeChart (empty state)", async () => {
+    const { container } = render(
+      <TapeChart
+        reservations={[]}
+        rooms={[]}
+        startDate="2026-04-20"
+        endDate="2026-04-27"
       />
     );
     expect(await axe(container)).toHaveNoViolations();

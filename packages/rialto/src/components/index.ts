@@ -79,5 +79,8 @@ export * from "./Chalkboard";
 export * from "./SplitScreenExit";
 export * from "./Ferrofluid";
 
+// ── Hospitality specialty ──────────────────────
+export * from "./TapeChart";
+
 // ── Providers ──────────────────────────────────
 export * from "../providers";

@@ -262,6 +262,10 @@
       "types": "./dist/lib/components/Tag/index.d.ts",
       "import": "./dist/lib/components/Tag/index.js"
     },
+    "./TapeChart": {
+      "types": "./dist/lib/components/TapeChart/index.d.ts",
+      "import": "./dist/lib/components/TapeChart/index.js"
+    },
     "./Text": {
       "types": "./dist/lib/components/Text/index.d.ts",
       "import": "./dist/lib/components/Text/index.js"

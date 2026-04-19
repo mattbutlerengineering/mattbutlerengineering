@@ -118,6 +118,9 @@ const SplitScreenExitPage = lazy(() =>
 const FerrofluidPage = lazy(() =>
   import("./pages/data/FerrofluidPage").then((m) => ({ default: m.FerrofluidPage }))
 );
+const TapeChartPage = lazy(() =>
+  import("./pages/data/TapeChartPage").then((m) => ({ default: m.TapeChartPage }))
+);
 
 /* ── Navigation ──────────────────────────────── */
 const TabsPage = lazy(() =>
@@ -312,6 +315,7 @@ const componentRoutes: RouteObject[] = [
   { path: "components/split-flap", element: suspended(SplitFlapPage) },
   { path: "components/chalkboard", element: suspended(ChalkboardPage) },
   { path: "components/ferrofluid", element: suspended(FerrofluidPage) },
+  { path: "components/tape-chart", element: suspended(TapeChartPage) },
   // Navigation
   { path: "components/tabs", element: suspended(TabsPage) },
   { path: "components/breadcrumb", element: suspended(BreadcrumbPage) },
