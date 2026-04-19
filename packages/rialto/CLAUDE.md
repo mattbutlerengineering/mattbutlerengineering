@@ -183,3 +183,12 @@ llms-full.txt covers consuming the library in an application.
 - Publishes to **GitHub Packages** (`npm.pkg.github.com`), not npm — `npm view @mattbutlerengineering/rialto` returns 404
 - Release flow: bump `version` in `package.json` → `pnpm build` → `npm publish` in this dir (use `npm publish` directly, NOT `pnpm publish --no-git-checks` — pnpm forwards that flag to npm which errors with `EUSAGE`)
 - Version convention (pre-1.0): every release is a patch bump regardless of feature volume
+
+## Gotchas (session-tested)
+
+- `Text` variants: `"body" | "caption" | "detail" | "label" | "display"` — no `"heading-*"` variants exist
+- `Stack` `wrap` prop is `boolean`, not a string
+- Showcase scaffolding: `<ComponentPageLayout name=... />` (not `title`), `<PropsTable props={[...PropDef]} />` (not `rows`)
+- axe tests in jsdom must disable `color-contrast`: `axe(c, { rules: { "color-contrast": { enabled: false } } })` — `token-contrast.test.ts` covers token contrast separately
+- ARIA grid: `role="columnheader"` needs a `role="row"` parent; `role="list"` children must be `role="listitem"` (not arbitrary `<section>`) — axe catches both
+- `tsconfig` has `noUncheckedIndexedAccess` — `const [y, m, d] = iso.split("-").map(Number)` types as `number | undefined`; use `Number(parts[0] ?? 0)` or a guarded helper before `Date.UTC(...)`

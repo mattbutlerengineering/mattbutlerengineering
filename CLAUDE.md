@@ -121,6 +121,7 @@ pnpm test        # Run all tests
 - **pnpm.overrides for CVEs: use the scoped pattern** `"pkg@<patched": "^patched"`, not `"pkg": ">=patched"` — the open range resolves to the latest satisfying version and can pull major bumps (e.g. `protobufjs@>=7.5.5` → 8.0.1)
 - **Changesets require `GITHUB_TOKEN`**: run `GITHUB_TOKEN=$(gh auth token) pnpm version-packages` — without it, `@changesets/get-github-info` errors asking for a PAT
 - **Changesets post-version prettier step errors with `Cannot find package '@mbe/config'`** — non-fatal, the version bump + CHANGELOG write still succeed
+- **`graphify-out/` is not gitignored** and accumulates wherever `/graphify` was invoked (repo root or package subdirs). Either `rm -rf graphify-out/` after use or add `graphify-out/` to `.gitignore`
 
 ## Manual Deployment (GH Actions unpaid — won't fire workflows)
 
