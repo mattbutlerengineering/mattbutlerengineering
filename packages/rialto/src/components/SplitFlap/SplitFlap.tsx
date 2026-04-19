@@ -167,8 +167,12 @@ const SplitFlapCell = memo(function SplitFlapCell({
       {/* Seam line across the middle */}
       <div className={styles.seam} />
 
-      {/* Animated flap — rotates 0 → -180, front shows outgoing char's top,
-          back shows incoming char's top (rotated 180° so it reads upright) */}
+      {/* Animated flap — front face shows the OUTGOING char's top half
+          tilting forward like a falling card. Past -90° the front face
+          turns away (backface-visibility: hidden) and the static halves
+          underneath are revealed — they already render the new char
+          correctly, so no back face is needed. The full -180° rotation
+          preserves the original flipInterval timing semantics. */}
       <motion.div
         key={current}
         className={styles.flap}
@@ -178,9 +182,6 @@ const SplitFlapCell = memo(function SplitFlapCell({
       >
         <div className={styles.flapFace} data-face="front">
           <span>{prevChar}</span>
-        </div>
-        <div className={styles.flapFace} data-face="back">
-          <span>{current}</span>
         </div>
       </motion.div>
     </div>
