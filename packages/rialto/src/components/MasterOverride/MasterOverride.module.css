@@ -13,7 +13,7 @@
   --mo-cover-inset: 6px;
   --mo-cover-radius: 10px;
   --mo-cover-text-size: var(--rialto-text-xs);
-  --mo-switch-text-size: var(--rialto-text-sm);
+  --mo-switch-text-size: 10px;
 
   /* Stripe color — resolved by variant */
   --mo-stripe: var(--rialto-warning);
@@ -24,14 +24,14 @@
   --mo-bezel-width: 7rem;
   --mo-bezel-height: 9.5rem;
   --mo-cover-text-size: 10px;
-  --mo-switch-text-size: var(--rialto-text-xs);
+  --mo-switch-text-size: 9px;
 }
 
 .lg {
   --mo-bezel-width: 12rem;
   --mo-bezel-height: 16rem;
   --mo-cover-text-size: var(--rialto-text-sm);
-  --mo-switch-text-size: var(--rialto-text-base);
+  --mo-switch-text-size: 11px;
 }
 
 /* ── Variant colors ───────────────────────── */
@@ -170,7 +170,9 @@
   align-items: center;
   justify-content: center;
   gap: var(--rialto-space-sm);
-  padding: var(--rialto-space-md);
+  /* Tighter vertical padding than horizontal so the stacked
+     [label + track + label] column fits the sm bezel too. */
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
 
   background:
     radial-gradient(
@@ -254,26 +256,17 @@
     0 0 8px var(--rialto-accent-glow);
 }
 
-/* ── Status labels above/below the lever ── */
-.switchLabels {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
-  padding: 4px 0;
-  pointer-events: none;
-}
-
+/* ── Status labels — sit on the housing above/below the track ── */
 .labelOn,
 .labelOff {
+  flex-shrink: 0;
   font-family: var(--rialto-font-sans);
-  font-size: 9px;
+  font-size: var(--mo-switch-text-size);
   font-weight: 500;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   color: var(--rialto-text-tertiary);
   text-transform: uppercase;
+  line-height: 1;
   transition: color var(--rialto-duration-fast) var(--rialto-ease-precision);
 }
 

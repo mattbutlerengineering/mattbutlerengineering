@@ -140,7 +140,8 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
             <span className={styles.coverText}>{coverLabel}</span>
           </motion.button>
 
-          {/* Switch body — only interactive while cover is open */}
+          {/* Switch body — only interactive while cover is open.
+              Labels sit on the housing (above/below the track), not on the rail. */}
           <button
             ref={switchRef}
             id={switchId}
@@ -153,20 +154,18 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
             disabled={disabled || !armed}
             onClick={handleSwitchToggle}
           >
+            <span className={styles.labelOn} data-active={on} aria-hidden="true">
+              {activeLabel}
+            </span>
             <span className={styles.switchTrack} aria-hidden="true">
               <motion.span
                 className={styles.switchLever}
-                animate={{ y: on ? "-42%" : "42%" }}
+                animate={{ y: on ? "-75%" : "75%" }}
                 transition={shouldReduceMotion ? reduced : spring}
               />
-              <span className={styles.switchLabels} aria-hidden="true">
-                <span className={styles.labelOn} data-active={on}>
-                  {activeLabel}
-                </span>
-                <span className={styles.labelOff} data-active={!on}>
-                  {idleLabel}
-                </span>
-              </span>
+            </span>
+            <span className={styles.labelOff} data-active={!on} aria-hidden="true">
+              {idleLabel}
             </span>
           </button>
         </div>
