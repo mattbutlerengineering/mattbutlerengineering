@@ -1,5 +1,13 @@
 <codebase path="apps/rialto-web">
   <section priority="medium" role="data">
+  <file path="src/data/tapechart-fixtures.ts">
+    <item priority="medium">
+      function mulberry32(seed: number) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function addDaysISO(iso: string, n: number): string { /* ... */ }
+    </item>
+  </file>
   <file path="src/data/nav-sections.ts">
     <item priority="low">
       interface NavItem {

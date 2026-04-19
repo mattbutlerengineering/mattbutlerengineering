@@ -202,6 +202,62 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="TapeChart">
+  <file path="src/components/TapeChart/useTapeChartLayout.ts">
+    <item priority="medium">
+      function assignLanes(bars: TapeChartPositionedBar[]): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useTapeChartLayout(
+        reservations: TapeChartReservation[],
+        rooms: TapeChartRoom[],
+        startDate: string,
+        endDate: string,
+      ): TapeChartLayout { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/TapeChart/useTapeChartI18n.ts">
+    <item priority="low">
+      interface TapeChartFormatters {
+        dayWeekdayShort: (iso: string) => string;
+        dayNumeric: (iso: string) => string;
+        dayLong: (iso: string) => string;
+        monthYearLong: (iso: string) => string;
+        currency: (minorUnits: number, currencyCode?: string) => string;
+      }
+    </item>
+    <item priority="high">
+      export function useTapeChartI18n(locale?: string, timeZone?: string, defaultCurrency?: string): TapeChartFormatters { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/TapeChart/types.ts">
+    <item priority="low">
+      type TapeChartStatus = "tentative" | "confirmed" | "checkedIn" | "checkedOut" | "cancelled" | "noShow";
+    </item>
+    <item priority="low">
+      type TapeChartRoomStatus = "ready" | "dirty" | "outOfOrder" | "occupied";
+    </item>
+  </file>
+  <file path="src/components/TapeChart/defaultStrings.ts">
+    <item priority="low">
+      type ResolvedStrings = Required<
+        Omit<
+          TapeChartStrings,
+          "reservationA...;
+    </item>
+    <item priority="high">
+      export const DEFAULT_STRINGS: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+    </item>
+  </file>
+  <file path="src/components/TapeChart/dateMath.ts">
+    <item priority="high">
+      export function parseISOMs(iso: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function daysBetween(a: string, b: string): number { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="SplitFlap">
   <file path="src/components/SplitFlap/charset.ts">
     <item priority="high">

@@ -53,6 +53,11 @@ coverage/
 .claude/settings.local.json
 .claude/improvement-loop/
 .claude/agent-spend.jsonl
+.claude/*.lock
+.superpowers/
+
+# Graphify local artifacts (reports, graph.json, cache)
+graphify-out/
 
 # Playwright
 e2e/.auth/
