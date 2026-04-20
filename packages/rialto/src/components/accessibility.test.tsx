@@ -31,6 +31,7 @@ import { Drawer } from "./Drawer/Drawer";
 import { DropdownMenu } from "./DropdownMenu/DropdownMenu";
 import { EmptyState } from "./EmptyState/EmptyState";
 import { Footer } from "./Footer/Footer";
+import { Heading } from "./Heading/Heading";
 import { Hero } from "./Hero/Hero";
 import { HoverCard } from "./HoverCard/HoverCard";
 import { Input } from "./Input/Input";
@@ -198,6 +199,11 @@ describe("Accessibility — axe-core WCAG 2.1 AA", () => {
 
   it("EmptyState", async () => {
     const { container } = render(<EmptyState heading="No results" />);
+    expect(await axe(container)).toHaveNoViolations();
+  });
+
+  it("Heading", async () => {
+    const { container } = render(<Heading>Section title</Heading>);
     expect(await axe(container)).toHaveNoViolations();
   });
 

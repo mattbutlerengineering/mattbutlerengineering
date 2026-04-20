@@ -28,6 +28,7 @@ import { Divider } from "./Divider/Divider";
 import { Drawer } from "./Drawer/Drawer";
 import { DropdownMenu } from "./DropdownMenu/DropdownMenu";
 import { EmptyState } from "./EmptyState/EmptyState";
+import { Heading } from "./Heading/Heading";
 import { HoverCard } from "./HoverCard/HoverCard";
 import { Input } from "./Input/Input";
 import { InputGroup } from "./InputGroup/InputGroup";
@@ -235,6 +236,11 @@ describe("Smoke tests — every component renders without crashing", () => {
       </HoverCard>
     );
     expect(screen.getByText("Hover me")).toBeInTheDocument();
+  });
+
+  it("Heading", () => {
+    render(<Heading>Reservations</Heading>);
+    expect(screen.getByRole("heading", { level: 2, name: "Reservations" })).toBeInTheDocument();
   });
 
   it("Input", () => {

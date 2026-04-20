@@ -1,0 +1,84 @@
+/* ── Heading ──────────────────────────────────
+   Semantic heading primitive. Display font,
+   tight leading, slightly tight tracking.
+   ──────────────────────────────────────────── */
+
+.heading {
+  font-family: var(--rialto-font-display);
+  font-weight: var(--rialto-weight-regular);
+  line-height: var(--rialto-leading-tight);
+  letter-spacing: var(--rialto-tracking-tight);
+  color: var(--rialto-text-primary);
+  margin: 0;
+}
+
+/* ── Sizes (decoupled from semantic level) ───── */
+
+.size1 {
+  font-size: var(--rialto-text-4xl);
+}
+.size2 {
+  font-size: var(--rialto-text-3xl);
+}
+.size3 {
+  font-size: var(--rialto-text-2xl);
+}
+.size4 {
+  font-size: var(--rialto-text-xl);
+}
+.size5 {
+  font-size: var(--rialto-text-lg);
+  letter-spacing: -0.01em;
+}
+.size6 {
+  font-size: var(--rialto-text-base);
+  letter-spacing: normal;
+  font-weight: var(--rialto-weight-medium);
+}
+
+/* ── Color overrides ──────────────────────── */
+
+.colorPrimary {
+  color: var(--rialto-text-primary);
+}
+.colorSecondary {
+  color: var(--rialto-text-secondary);
+}
+.colorTertiary {
+  color: var(--rialto-text-tertiary);
+}
+.colorAccent {
+  color: var(--rialto-accent);
+}
+.colorSuccess {
+  color: var(--rialto-success);
+}
+.colorWarning {
+  color: var(--rialto-warning);
+}
+.colorError {
+  color: var(--rialto-error);
+}
+.colorOnAccent {
+  color: var(--rialto-text-on-accent);
+}
+
+/* ── Alignment ────────────────────────────── */
+
+.alignLeft {
+  text-align: start;
+}
+.alignCenter {
+  text-align: center;
+}
+.alignRight {
+  text-align: end;
+}
+
+/* ── Modifiers ────────────────────────────── */
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -63,6 +63,7 @@ export * from "./ScrollArea";
 export * from "./SegmentedControl";
 export * from "./Sidebar";
 export * from "./Stack";
+export * from "./Heading";
 export * from "./Stat";
 export * from "./Text";
 
