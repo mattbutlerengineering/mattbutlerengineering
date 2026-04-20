@@ -1,5 +1,6 @@
 import { Component } from "react";
 import type { ErrorInfo, ReactNode } from "react";
+import { Heading } from "../Heading/Heading";
 import styles from "./ErrorBoundary.module.css";
 
 export interface ErrorBoundaryProps {
@@ -49,7 +50,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
       return (
         <div className={styles.container} role="alert">
-          <h1 className={styles.heading}>Something went wrong</h1>
+          <Heading level={1} size={3} className={styles.heading}>
+            Something went wrong
+          </Heading>
           <p className={styles.message}>
             An unexpected error occurred. Please try refreshing the page.
           </p>

@@ -12,12 +12,8 @@
 }
 
 .heading {
-  font-family: var(--rialto-font-display);
-  font-size: var(--rialto-text-2xl);
-  font-weight: 400;
-  letter-spacing: var(--rialto-tracking-tight);
-  margin: 0 0 var(--rialto-space-sm) 0;
-  color: var(--rialto-text-primary);
+  /* Base typography from <Heading size=3>; keep the layout margin. */
+  margin-block-end: var(--rialto-space-sm);
 }
 
 .message {
