@@ -1,5 +1,6 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
 import { Breadcrumb, type BreadcrumbItem } from "../Breadcrumb/Breadcrumb";
+import { Heading } from "../Heading/Heading";
 import styles from "./PageHeader.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -47,7 +48,9 @@ export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(
           {breadcrumbs && breadcrumbs.length > 0 && <Breadcrumb items={breadcrumbs} />}
 
           <div className={styles.titleRow}>
-            <h1 className={styles.title}>{title}</h1>
+            <Heading level={1} size={3} className={styles.title}>
+              {title}
+            </Heading>
             {meta && <div className={styles.meta}>{meta}</div>}
             {actions && <div className={styles.actions}>{actions}</div>}
           </div>

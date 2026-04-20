@@ -35,13 +35,10 @@
   flex-wrap: wrap;
 }
 
+/* Base typography lives on Heading; this class holds only
+   the PageHeader-specific responsive override below. */
 .title {
-  font-family: var(--rialto-font-display);
-  font-size: var(--rialto-text-2xl);
-  font-weight: 400;
-  letter-spacing: -0.01em;
-  color: var(--rialto-text-primary);
-  margin: 0;
+  /* intentionally empty — see responsive media query */
 }
 
 .meta {
