@@ -142,6 +142,10 @@
       "types": "./dist/lib/components/GlobalNav/index.d.ts",
       "import": "./dist/lib/components/GlobalNav/index.js"
     },
+    "./Heading": {
+      "types": "./dist/lib/components/Heading/index.d.ts",
+      "import": "./dist/lib/components/Heading/index.js"
+    },
     "./Hero": {
       "types": "./dist/lib/components/Hero/index.d.ts",
       "import": "./dist/lib/components/Hero/index.js"
