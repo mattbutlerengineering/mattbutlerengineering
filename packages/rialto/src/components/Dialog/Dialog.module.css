@@ -34,9 +34,8 @@
 }
 
 .title {
-  font-size: var(--rialto-text-md);
-  font-weight: var(--rialto-weight-medium);
-  letter-spacing: var(--rialto-tracking-tight);
+  /* Base typography comes from <Heading size=6>; this class
+     remains for potential Dialog-specific overrides. */
   color: var(--rialto-text-primary);
 }
 

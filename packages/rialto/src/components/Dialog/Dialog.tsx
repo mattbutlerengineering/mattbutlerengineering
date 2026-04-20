@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useId, useRef, type ReactNode } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { springGentle, precision } from "../../tokens/motion";
+import { Heading } from "../Heading/Heading";
 import styles from "./Dialog.module.css";
 
 /**
@@ -123,7 +124,11 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
               {...motionProps}
             >
               <div className={styles.header}>
-                {title && <h2 id={titleId} className={styles.title}>{title}</h2>}
+                {title && (
+                  <Heading level={2} size={6} id={titleId} className={styles.title}>
+                    {title}
+                  </Heading>
+                )}
                 <button type="button" className={styles.close} onClick={onClose} aria-label="Close dialog">
                   <svg
                     width="14"
