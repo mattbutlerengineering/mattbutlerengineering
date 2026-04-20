@@ -2,6 +2,7 @@ import React, { useEffect, useCallback, useId, useRef, forwardRef, type ReactNod
 import { AnimatePresence, motion } from "framer-motion";
 import { spring } from "../../tokens/motion";
 import { useDirection } from "../../hooks/useDirection";
+import { Heading } from "../Heading/Heading";
 import styles from "./Drawer.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -168,7 +169,11 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(function Drawer(
               {(title || description) && (
                 <div className={styles.header}>
                   <div className={styles.headerContent}>
-                    {title && <h2 id={titleId} className={styles.title}>{title}</h2>}
+                    {title && (
+                      <Heading level={2} size={5} id={titleId} className={styles.title}>
+                        {title}
+                      </Heading>
+                    )}
                     {description && <p id={descriptionId} className={styles.description}>{description}</p>}
                   </div>
                   <button

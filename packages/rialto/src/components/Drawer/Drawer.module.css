@@ -102,10 +102,9 @@
 }
 
 .title {
-  font-size: var(--rialto-text-lg);
-  font-weight: var(--rialto-weight-medium);
+  /* Base typography comes from <Heading size=5>; keep the color +
+     line-height overrides specific to Drawer's header layout. */
   color: var(--rialto-text-primary);
-  letter-spacing: var(--rialto-tracking-tight);
   line-height: 1.3;
 }
 

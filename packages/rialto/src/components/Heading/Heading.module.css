@@ -33,6 +33,7 @@
 .size5 {
   font-family: var(--rialto-font-sans);
   font-size: var(--rialto-text-lg);
+  font-weight: var(--rialto-weight-medium);
   letter-spacing: -0.01em;
 }
 .size6 {
