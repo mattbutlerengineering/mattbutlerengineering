@@ -1,5 +1,13 @@
 # @mattbutlerengineering/rialto
 
+## 0.1.10
+
+### Patch Changes
+
+- **New primitive — `Heading`:** dedicated semantic heading with decoupled `level` (1–6, drives the rendered `h{level}` tag) and `size` (1–6, visual override). Sizes 1–4 use the display font (Bricolage Grotesque) for page/section titles; sizes 5–6 switch to the sans font with medium weight for UI-chrome headings (Dialog, Drawer, Card, etc.) — matches the design system rule reserving the display font for hero/page titles. Mirrors `Text`'s `color` / `align` / `truncate` / `as` API for a consistent authoring surface.
+- **Consumer refactors:** `PageHeader`, `Dialog`, `Drawer`, and `ErrorBoundary` now use `Heading` instead of hand-rolled `<h1>` / `<h2>` with bespoke `.title` styles. Each consumer's CSS is pared back to layout-only concerns (margin, color, line-height). Chalkboard intentionally stays on its chalk-script theme — routing it through Heading would strip everything Heading provides.
+- **Fix — `MasterOverride`:** state labels (`STANDBY` / `ENGAGED`) were absolutely positioned inside the switch track and the lever clipped them across its travel. Labels now sit on the housing as siblings of the track, with `justify-content: space-between`. Lever travel bumped from 42% → 75% so it visually reaches the end-stops like a real hardware toggle. Asymmetric padding on `.switchBody` keeps the stacked column fitting the `sm` bezel.
+
 ## 0.1.9
 
 ### Patch Changes
