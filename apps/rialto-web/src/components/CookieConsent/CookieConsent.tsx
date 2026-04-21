@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Banner, Button, Dialog, Toggle, Stack, Divider } from "@mattbutlerengineering/rialto";
 import { precision } from "@mattbutlerengineering/rialto/motion";
@@ -50,9 +51,9 @@ export function CookieBanner({
           >
             We use cookies to enhance your browsing experience, analyze site traffic, and
             personalize content.{" "}
-            <a href="#privacy" className={styles.privacyLink}>
+            <Link to="/privacy" className={styles.privacyLink}>
               Privacy Policy
-            </a>
+            </Link>
           </Banner>
         </motion.div>
       )}

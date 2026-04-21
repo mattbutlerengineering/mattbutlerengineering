@@ -4,6 +4,7 @@ import type { RouteObject } from "react-router-dom";
 import { Spinner } from "@mattbutlerengineering/rialto";
 import { ShowcaseLayout } from "./layouts/ShowcaseLayout";
 import { OverviewPage } from "./pages/OverviewPage";
+import { PrivacyPage } from "./pages/PrivacyPage";
 
 /* ── Lazy-loaded demo pages ──────────────────── */
 const SignIn = lazy(() => import("./pages/auth/SignIn").then((m) => ({ default: m.SignIn })));
@@ -413,6 +414,8 @@ export const routeTree: RouteObject[] = [
   },
   // Standalone visual-test
   { path: "visual-test", element: suspended(VisualTest) },
+  // Privacy policy
+  { path: "privacy", element: <PrivacyPage /> },
   // Catch-all
   { path: "*", element: <Navigate to="/" replace /> },
 ];
