@@ -1,0 +1,34 @@
+# CODEOWNERS for mattbutlerengineering/mattbutlerengineering
+# Each line maps path patterns → owners. Later rules override earlier ones.
+# See https://docs.github.com/articles/about-code-owners for syntax.
+
+# ── Default owner ─────────────────────────────
+*                                    @mattbutlerengineering
+
+# ── Design system ─────────────────────────────
+/packages/rialto/                    @mattbutlerengineering
+/packages/rialto-catalog/            @mattbutlerengineering
+/packages/rialto-plugin/             @mattbutlerengineering
+
+# ── Services ──────────────────────────────────
+/services/agent/                     @mattbutlerengineering
+/services/reservations/              @mattbutlerengineering
+/services/users/                     @mattbutlerengineering
+
+# ── Apps ──────────────────────────────────────
+/apps/                               @mattbutlerengineering
+
+# ── Shared packages ───────────────────────────
+/packages/agent-core/                @mattbutlerengineering
+/packages/auth/                      @mattbutlerengineering
+/packages/api-client/                @mattbutlerengineering
+
+# ── Infrastructure / CI ───────────────────────
+/infrastructure/                     @mattbutlerengineering
+/.github/                            @mattbutlerengineering
+/scripts/                            @mattbutlerengineering
+
+# ── Agent/audit loop ──────────────────────────
+/.claude/skills/                     @mattbutlerengineering
+/.claude/agents/                     @mattbutlerengineering
+/scripts/acmm/                       @mattbutlerengineering
