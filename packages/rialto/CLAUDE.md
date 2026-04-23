@@ -186,7 +186,9 @@ llms-full.txt covers consuming the library in an application.
 
 ## Gotchas (session-tested)
 
-- `Text` variants: `"body" | "caption" | "detail" | "label" | "display"` — no `"heading-*"` variants exist
+- Semantic headings: use `<Heading level={1-6} size={1-6}>` — `level` drives the `h{level}` tag, `size` is the visual override. Sizes 1–4 use display font; 5–6 use sans (UI-chrome titles). Don't hand-roll `<h1>..<h6>` — Dialog, Drawer, PageHeader, ErrorBoundary all consume Heading. `Text variant="display"` is for non-semantic hero text, not headings
+- `Text` variants: `"body" | "caption" | "detail" | "label" | "display"` — no heading variants; use the `Heading` primitive
+- `src/test/setup.ts` mocks `framer-motion.useReducedMotion: () => true` globally — motion-gated branches are invisible in tests by default. To test the animated path, add a file-level `vi.mock("framer-motion", async () => ({ ...await vi.importActual("framer-motion"), useReducedMotion: () => false }))`
 - `Stack` `wrap` prop is `boolean`, not a string
 - Showcase scaffolding: `<ComponentPageLayout name=... />` (not `title`), `<PropsTable props={[...PropDef]} />` (not `rows`)
 - axe tests in jsdom must disable `color-contrast`: `axe(c, { rules: { "color-contrast": { enabled: false } } })` — `token-contrast.test.ts` covers token contrast separately
