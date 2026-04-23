@@ -308,11 +308,20 @@ export const RUNNERS = {
     return { passed: ok, evidence: ok ? "Root CLAUDE.md documents the agent/ship loop + label machine" : `CLAUDE.md lacks: ${[!hasLoop && "loop description", !hasLabelMachine && "label state machine"].filter(Boolean).join(", ")}` };
   },
   "M5.1": async (cwd) => {
-    const log = readFileSafe(join(cwd, ".claude", "improvement-loop", "log.md"))
-      ?? readFileSafe(join(cwd, ".claude", "metrics", "log.md"))
-      ?? "";
+    // Union the M4.2 candidate paths so a shared/tracked `metrics/log.md`
+    // counts even when the local working log at `.claude/improvement-loop/`
+    // hasn't been seeded yet. Merge contents so dates from any source count.
+    const paths = [
+      ".claude/improvement-loop/log.md",
+      ".claude/metrics/log.md",
+      "metrics/log.md",
+    ];
+    const log = paths
+      .map((p) => readFileSafe(join(cwd, p)))
+      .filter((body) => body != null)
+      .join("\n");
     const dates = [...log.matchAll(/\b(\d{4}-\d{2}-\d{2})\b/g)].map((m) => new Date(m[1]));
-    if (dates.length < 6) return { passed: false, evidence: `${dates.length} dated entries (need ≥6)` };
+    if (dates.length < 6) return { passed: false, evidence: `${dates.length} dated entries across tracked logs (need ≥6 spanning ≥35 days)` };
     dates.sort((a, b) => a.getTime() - b.getTime());
     const span = (dates[dates.length - 1].getTime() - dates[0].getTime()) / (1000 * 60 * 60 * 24);
     const ok = dates.length >= 6 && span >= 35;
