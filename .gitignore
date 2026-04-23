@@ -53,6 +53,7 @@ coverage/
 .claude/settings.local.json
 .claude/improvement-loop/
 .claude/agent-spend.jsonl
+.claude/acmm/
 .claude/*.lock
 .superpowers/
 

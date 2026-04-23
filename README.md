@@ -5,6 +5,7 @@
 [![Coverage](https://codecov.io/gh/mattbutlerengineering/mattbutlerengineering/branch/main/graph/badge.svg)](https://codecov.io/gh/mattbutlerengineering/mattbutlerengineering)
 [![Deploy Static](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/deploy-static.yml/badge.svg)](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/deploy-static.yml)
 [![Deploy Services](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/deploy-services.yml/badge.svg)](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/deploy-services.yml)
+<!-- acmm:begin -->![ACMM Level 2](https://img.shields.io/badge/ACMM-Level%202-7a5a36?style=flat-square)<!-- acmm:end -->
 
 Monorepo for [mattbutlerengineering.com](https://mattbutlerengineering.com) -- a hospitality management platform with a design system, multiple frontend apps, and backend API services.
 
