@@ -89,7 +89,7 @@ export function TapeChartListView(props: TapeChartListViewProps) {
         className={styles.listRow}
         data-selected={selectedReservationId === r.id ? "true" : undefined}
         aria-label={`${r.guestName ?? "Reservation"}, ${room}, ${formatters.dayLong(r.start)} to ${formatters.dayLong(r.end)}, ${strings.nightsLabel(nights)}, ${status}${price ? `, ${price}` : ""}`}
-        aria-current={selectedReservationId === r.id ? "true" : undefined}
+        aria-pressed={selectedReservationId === r.id}
         onClick={() => onReservationSelect(r)}
         onKeyDown={(e) => onKey(e, r)}
       >
