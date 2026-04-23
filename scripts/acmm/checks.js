@@ -249,9 +249,16 @@ export const RUNNERS = {
     return { passed: Boolean(found), evidence: found ? `Metrics log: ${found}` : "No persistent metrics log" };
   },
   "M4.3": async (cwd) => {
-    const candidates = [".claude/agent-spend.jsonl", ".claude/cost.jsonl", ".claude/spend.log"];
-    const found = candidates.find((f) => existsSync(join(cwd, f)));
-    return { passed: Boolean(found), evidence: found ? `Agent spend log: ${found}` : "No agent spend tracking log" };
+    // Accept the log itself (may be gitignored, written at runtime) OR a
+    // spend-tracking script that materializes one. Both signal the
+    // capability is present — which is what L4 is asking about.
+    const logCandidates = [".claude/agent-spend.jsonl", ".claude/cost.jsonl", ".claude/spend.log"];
+    const scriptCandidates = ["scripts/log-agent-cost.js", "scripts/log-agent-cost.mjs", "scripts/track-agent-spend.js"];
+    const foundLog = logCandidates.find((f) => existsSync(join(cwd, f)));
+    const foundScript = scriptCandidates.find((f) => existsSync(join(cwd, f)));
+    if (foundLog) return { passed: true, evidence: `Agent spend log: ${foundLog}` };
+    if (foundScript) return { passed: true, evidence: `Spend-tracking script: ${foundScript} (log materializes at runtime)` };
+    return { passed: false, evidence: "No agent spend tracking log or script" };
   },
   "F4.1": async (cwd) => {
     const ok = existsSync(join(cwd, ".claude", "skills", "issue-worker", "SKILL.md")) ||

@@ -1,0 +1,32 @@
+name: ADR check
+
+# Belt-and-suspenders with the pre-commit hook (`check-adr --staged`) —
+# this workflow runs the full-repo variant so commits landed via --no-verify,
+# squash-merges, or fork PRs still get audited.
+# No untrusted input is used anywhere in this workflow.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  check-adr:
+    name: ADR compliance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run ADR compliance check
+        run: pnpm --filter @mbe/cli start check-adr
