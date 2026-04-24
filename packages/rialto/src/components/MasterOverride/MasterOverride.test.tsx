@@ -398,6 +398,29 @@ describe("MasterOverride", () => {
       expect(screen.getByRole("status").textContent).not.toMatch(/primary engaged/i);
     });
 
+    it("clears the 'engaged' announcement when on transitions true (on-mismatch path)", async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const Harness = () => {
+        const [on, setOn] = useState(false);
+        return (
+          <MasterOverride label="Primary" on={on} onChange={setOn} requireHold />
+        );
+      };
+      render(<Harness />);
+      await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
+      fireEvent.pointerDown(screen.getByRole("switch"));
+      await act(async () => { vi.advanceTimersByTime(1000); });
+      // At this point: hold completed → setOn(true) fired → parent re-rendered
+      // with on=true. The snapshot holds on=false, so the mismatch should
+      // cause the live region to fall back to statusMessage (NOT "Primary engaged").
+      // armed is still true (cover still open), so armed alone does NOT trigger
+      // the clear — this isolates the on-mismatch path.
+      expect(screen.getByRole("status").textContent).not.toMatch(/primary engaged/i);
+      // The fallback statusMessage should now reflect on=true — it mentions
+      // ENGAGED (via activeLabel default) and that the cover is open.
+      expect(screen.getByRole("status").textContent).toMatch(/cover open/i);
+    });
+
     it("still engages at threshold when prefers-reduced-motion is true (default in tests)", async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       const onChange = vi.fn();
