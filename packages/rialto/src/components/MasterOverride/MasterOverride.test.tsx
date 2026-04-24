@@ -119,4 +119,20 @@ describe("MasterOverride", () => {
       expect(liveRegion).toHaveTextContent(/standby/i);
     });
   });
+
+  describe("prop scaffolding", () => {
+    it("accepts requireHold and labelTransition without crashing", () => {
+      const { container } = render(
+        <MasterOverride
+          label="Test"
+          on={false}
+          onChange={() => {}}
+          requireHold={500}
+          labelTransition="fade"
+          labelLength={8}
+        />
+      );
+      expect(container.firstChild).toBeTruthy();
+    });
+  });
 });

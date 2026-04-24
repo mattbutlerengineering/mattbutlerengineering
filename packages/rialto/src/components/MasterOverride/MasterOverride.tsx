@@ -43,6 +43,28 @@ export interface MasterOverrideProps {
   variant?: "default" | "warning" | "danger";
   disabled?: boolean;
   className?: string;
+  /**
+   * Require the user to hold the switch for N milliseconds before it engages.
+   * Only gates the off → on transition — disengaging remains a single click.
+   * Pass `true` for the default 1000ms, or a number to customize.
+   * Threshold is clamped to [250, 5000] ms.
+   * @default false
+   */
+  requireHold?: boolean | number;
+
+  /**
+   * How the state label (idleLabel / activeLabel) transitions between states.
+   * `"splitflap"` replaces the crossfaded labels with a single SplitFlap cell
+   * above the switch track that cascades between idle and active values.
+   * @default "fade"
+   */
+  labelTransition?: "fade" | "splitflap";
+
+  /**
+   * When `labelTransition="splitflap"`, the fixed cell count for the display.
+   * Defaults to `max(idleLabel.length, activeLabel.length)`. Ignored for "fade".
+   */
+  labelLength?: number;
 }
 
 export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
@@ -58,6 +80,9 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
       size = "md",
       variant = "warning",
       disabled = false,
+      requireHold: _requireHold = false,
+      labelTransition: _labelTransition = "fade",
+      labelLength: _labelLength,
       className,
     },
     ref
