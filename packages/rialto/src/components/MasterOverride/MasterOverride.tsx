@@ -1,5 +1,6 @@
-import { forwardRef, useState, useId, useRef, useEffect, type ReactNode } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { forwardRef, useState, useId, useRef, useEffect, useCallback, type ReactNode } from "react";
+import { motion, useReducedMotion, useMotionValue, animate } from "framer-motion";
+// NOTE: useMotionValueEvent will be added in Task 8 (progress ring events)
 import { spring, springGentle, reduced } from "../../tokens/motion";
 import styles from "./MasterOverride.module.css";
 
@@ -80,7 +81,7 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
       size = "md",
       variant = "warning",
       disabled = false,
-      requireHold: _requireHold = false,
+      requireHold = false,
       labelTransition: _labelTransition = "fade",
       labelLength: _labelLength,
       className,
@@ -91,6 +92,33 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
     const switchRef = useRef<HTMLButtonElement>(null);
     const coverRef = useRef<HTMLButtonElement>(null);
     const shouldReduceMotion = useReducedMotion();
+
+    const holdThresholdMs =
+      requireHold === true ? 1000
+      : typeof requireHold === "number" ? Math.max(250, Math.min(5000, requireHold))
+      : 0;
+    const holdProgress = useMotionValue(0);
+    const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const holdAnimationRef = useRef<ReturnType<typeof animate> | null>(null);
+    const [_isHolding, setIsHolding] = useState(false);
+
+    const startHold = useCallback(() => {
+      if (!armed || disabled || on || holdThresholdMs === 0) return;
+      if (holdTimerRef.current) return; // already holding — ignore repeats
+      setIsHolding(true);
+      holdAnimationRef.current = animate(holdProgress, 1, {
+        duration: shouldReduceMotion ? 0 : holdThresholdMs / 1000,
+        ease: "linear",
+      });
+      holdTimerRef.current = setTimeout(() => {
+        holdTimerRef.current = null;
+        holdAnimationRef.current?.stop();
+        holdAnimationRef.current = null;
+        setIsHolding(false);
+        holdProgress.set(0);
+        onChange(true);
+      }, holdThresholdMs);
+    }, [armed, disabled, on, holdThresholdMs, shouldReduceMotion, holdProgress, onChange]);
 
     const labelId = useId();
     const descriptionId = useId();
@@ -178,6 +206,7 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
             className={styles.switchBody}
             disabled={disabled || !armed}
             onClick={handleSwitchToggle}
+            onPointerDown={holdThresholdMs && !on ? startHold : undefined}
           >
             <span className={styles.labelOn} data-active={on} aria-hidden="true">
               {activeLabel}

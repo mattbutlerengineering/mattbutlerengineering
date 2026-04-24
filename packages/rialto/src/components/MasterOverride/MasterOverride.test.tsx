@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { MasterOverride } from "./MasterOverride";
@@ -133,6 +133,37 @@ describe("MasterOverride", () => {
         />
       );
       expect(container.firstChild).toBeTruthy();
+    });
+  });
+
+  describe("requireHold", () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("engages after holding the switch for the default 1000ms threshold", async () => {
+      const onChange = vi.fn();
+      render(
+        <MasterOverride label="Primary" on={false} onChange={onChange} requireHold />
+      );
+
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
+
+      const switchEl = screen.getByRole("switch");
+      fireEvent.pointerDown(switchEl);
+      expect(onChange).not.toHaveBeenCalled();
+
+      await act(async () => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      expect(onChange).toHaveBeenCalledTimes(1);
+      expect(onChange).toHaveBeenCalledWith(true);
     });
   });
 });
