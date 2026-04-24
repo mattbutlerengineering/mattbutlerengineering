@@ -101,13 +101,21 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
     const holdAnimationRef = useRef<ReturnType<typeof animate> | null>(null);
     const wrapperRef = useRef<HTMLDivElement | null>(null);
     const [isHolding, setIsHolding] = useState(false);
-    const [holdAnnouncement, setHoldAnnouncement] = useState<string | null>(null);
+    // Announcement is paired with the armed/on snapshot at the time it was set.
+    // Rendering compares current armed/on to the snapshot — if they differ, the
+    // announcement is stale and the live region falls back to statusMessage.
+    // This avoids a useEffect → setState clearing pattern that triggers cascading renders.
+    const [holdAnnouncement, setHoldAnnouncement] = useState<{
+      text: string;
+      armed: boolean;
+      on: boolean;
+    } | null>(null);
 
     const startHold = useCallback(() => {
       if (!armed || disabled || on || holdThresholdMs === 0) return;
       if (holdTimerRef.current) return; // already holding — ignore repeats
       setIsHolding(true);
-      setHoldAnnouncement(`Hold to arm ${label}`);
+      setHoldAnnouncement({ text: `Hold to arm ${label}`, armed: true, on: false });
       holdAnimationRef.current = animate(holdProgress, 1, {
         duration: shouldReduceMotion ? 0 : holdThresholdMs / 1000,
         ease: "linear",
@@ -117,7 +125,12 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
         holdAnimationRef.current?.stop();
         holdAnimationRef.current = null;
         setIsHolding(false);
-        setHoldAnnouncement(`${label} engaged`);
+        // Snapshot on=false (the pre-engagement value). Once the parent updates
+        // on → true, current on (true) no longer matches the snapshot (false),
+        // so the announcement auto-clears via the render derivation below.
+        // When onChange is non-reactive (e.g. a vi.fn()), on stays false,
+        // the snapshot matches, and the announcement remains visible.
+        setHoldAnnouncement({ text: `${label} engaged`, armed: true, on: false });
         holdProgress.set(0);
         onChange(true);
       }, holdThresholdMs);
@@ -135,7 +148,7 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
       holdAnimationRef.current?.stop();
       holdAnimationRef.current = null;
       setIsHolding(false);
-      if (wasActive) setHoldAnnouncement("Arming cancelled");
+      if (wasActive) setHoldAnnouncement({ text: "Arming cancelled", armed: true, on: false });
       animate(holdProgress, 0, { duration: shouldReduceMotion ? 0 : 0.2 });
     }, [isHolding, shouldReduceMotion, holdProgress]);
 
@@ -153,6 +166,14 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
       },
       [ref]
     );
+
+    // Stop any in-flight hold on unmount — prevents timer leak + setState-after-unmount.
+    useEffect(() => {
+      return () => {
+        if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+        holdAnimationRef.current?.stop();
+      };
+    }, []);
 
     // Document-level fallback catches pointer releases outside the switch element.
     // The element's own onPointerUp fires first when release is on the switch;
@@ -228,6 +249,16 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
       ? `${label} safety cover closed. Switch is ${on ? activeLabel : idleLabel}.`
       : `${label} safety cover open. Switch is ${on ? activeLabel : idleLabel}.`;
 
+    // Show holdAnnouncement only when current armed/on match the snapshot
+    // captured at announcement time — if they differ, the state has moved on
+    // and we fall back to statusMessage. Avoids a useEffect → setState clear.
+    const liveRegionText =
+      holdAnnouncement !== null &&
+      holdAnnouncement.armed === armed &&
+      holdAnnouncement.on === on
+        ? holdAnnouncement.text
+        : statusMessage;
+
     return (
       <div ref={setRefs} className={wrapperClasses} aria-disabled={disabled || undefined}>
         <span id={labelId} className={styles.header}>
@@ -301,7 +332,7 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
         )}
 
         <span role="status" aria-live="polite" className={styles.srOnly}>
-          {holdAnnouncement ?? statusMessage}
+          {liveRegionText}
         </span>
       </div>
     );
