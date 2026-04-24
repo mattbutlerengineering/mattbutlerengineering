@@ -78,7 +78,7 @@ export function OverviewPage() {
                 style={{ cursor: "pointer" }}
                 role="button"
                 tabIndex={0}
-                aria-label={`Browse ${section.label} components`}
+                aria-description={`Browse ${section.label} components`}
                 onKeyDown={(e) => {
                   if ((e.key === "Enter" || e.key === " ") && firstItem) {
                     e.preventDefault();
