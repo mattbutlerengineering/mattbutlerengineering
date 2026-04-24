@@ -1,5 +1,13 @@
 # @mattbutlerengineering/rialto
 
+## 0.1.11
+
+### Patch Changes
+
+- **MasterOverride — hold-to-engage (`requireHold`):** opt-in dead-man-switch mode that requires pressing and holding the switch for a threshold (default 1000ms, clamped to [250, 5000]ms) before it engages. Asymmetric by design — disengaging remains a single click. Works with pointer (`pointerdown`), keyboard (Enter or Space, ignoring OS key-repeat), and cancels cleanly on `pointerup`, `pointerleave`, `keyup`, or pointer release outside the element. A gold conic-gradient progress ring fills around the switch track during the hold (driven by a Framer `MotionValue` via CSS custom property, so 60fps visual updates cause zero React re-renders). Live region announces hold start ("Hold to arm {label}"), cancel ("Arming cancelled"), and success ("{label} engaged"); announcements self-clear via a snapshot pattern when `armed` or `on` subsequently change.
+- **MasterOverride — `labelTransition="splitflap"`:** opt-in replacement of the crossfaded `idleLabel` / `activeLabel` spans with a single `SplitFlap` mechanical cell above the switch track. Cascades between values on toggle using the library's flagship Solari-style primitive. Length defaults to `max(idleLabel.length, activeLabel.length)`; override with the new `labelLength` prop.
+- Both features are additive and opt-in — existing consumers see no behavioral or visual change.
+
 ## 0.1.10
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "@mbe/rialto-plugin",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "type": "module",
   "description": "Claude Code plugin for the Rialto design system — skills, agent, and validation hook",
