@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 0.1.12
+
+### Patch Changes
+
+- **TapeChart — layout fix.** Two long-standing CSS grid bugs (since component introduction in `d27300e`): `.gridBody` was a 2-col grid whose 25 direct children got auto-placed into alternating columns, producing a 2-rooms-per-row layout; `.dayHeader`'s template didn't reserve a column for the leading "Rooms" header, pushing the last day cell to wrap onto a second row. Fixed by switching `.gridBody` to `flex-direction: column` and prepending a `roomCol` track to `.dayHeader`'s grid template. Visible symptoms went away at 24 rooms × 14 days; smaller consumers may not have noticed.
+
 ## 0.1.11
 
 ### Patch Changes
