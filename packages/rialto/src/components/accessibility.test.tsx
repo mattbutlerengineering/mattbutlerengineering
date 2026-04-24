@@ -437,6 +437,20 @@ describe("Accessibility — axe-core WCAG 2.1 AA", () => {
     expect(await axe(container)).toHaveNoViolations();
   });
 
+  it("MasterOverride (requireHold + splitflap label)", async () => {
+    const { container } = render(
+      <MasterOverride
+        label="System kill switch"
+        description="Halts production workloads immediately."
+        on={false}
+        onChange={() => {}}
+        requireHold
+        labelTransition="splitflap"
+      />
+    );
+    expect(await axe(container)).toHaveNoViolations();
+  });
+
   it("Tree", async () => {
     const { container } = render(
       <Tree
