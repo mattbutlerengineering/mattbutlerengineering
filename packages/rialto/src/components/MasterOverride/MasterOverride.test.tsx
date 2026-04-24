@@ -295,5 +295,36 @@ describe("MasterOverride", () => {
       await act(async () => { vi.advanceTimersByTime(2000); });
       expect(onChange).not.toHaveBeenCalled();
     });
+
+    it("clamps requireHold below 250ms to 250ms", async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const onChange = vi.fn();
+      render(
+        <MasterOverride label="Primary" on={false} onChange={onChange} requireHold={100} />
+      );
+      await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
+      const switchEl = screen.getByRole("switch");
+      fireEvent.pointerDown(switchEl);
+      // At 100ms (requested) — should NOT have fired yet
+      await act(async () => { vi.advanceTimersByTime(100); });
+      expect(onChange).not.toHaveBeenCalled();
+      // At 250ms (clamp minimum) — should fire
+      await act(async () => { vi.advanceTimersByTime(150); });
+      expect(onChange).toHaveBeenCalledWith(true);
+    });
+
+    it("clamps requireHold above 5000ms to 5000ms", async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const onChange = vi.fn();
+      render(
+        <MasterOverride label="Primary" on={false} onChange={onChange} requireHold={10000} />
+      );
+      await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
+      const switchEl = screen.getByRole("switch");
+      fireEvent.pointerDown(switchEl);
+      // At 5000ms (clamp ceiling) — should fire
+      await act(async () => { vi.advanceTimersByTime(5000); });
+      expect(onChange).toHaveBeenCalledWith(true);
+    });
   });
 });
