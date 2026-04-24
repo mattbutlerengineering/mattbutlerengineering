@@ -212,6 +212,16 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
             disabled={disabled || !armed}
             onClick={handleSwitchToggle}
             onPointerDown={holdThresholdMs > 0 && !on ? startHold : undefined}
+            onKeyDown={
+              holdThresholdMs > 0 && !on
+                ? (e) => {
+                    if ((e.key === "Enter" || e.key === " ") && !e.repeat) {
+                      e.preventDefault(); // block default switch toggle via keydown
+                      startHold();
+                    }
+                  }
+                : undefined
+            }
           >
             <span className={styles.labelOn} data-active={on} aria-hidden="true">
               {activeLabel}

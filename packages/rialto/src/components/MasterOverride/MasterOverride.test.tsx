@@ -187,5 +187,51 @@ describe("MasterOverride", () => {
       expect(onChange).toHaveBeenCalledTimes(1);
       expect(onChange).toHaveBeenCalledWith(true);
     });
+
+    it("engages when Enter is held past threshold", async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const onChange = vi.fn();
+      render(
+        <MasterOverride label="Primary" on={false} onChange={onChange} requireHold />
+      );
+      await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
+      const switchEl = screen.getByRole("switch");
+      switchEl.focus();
+      fireEvent.keyDown(switchEl, { key: "Enter" });
+      await act(async () => { vi.advanceTimersByTime(1000); });
+      expect(onChange).toHaveBeenCalledWith(true);
+    });
+
+    it("engages when Space is held past threshold", async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const onChange = vi.fn();
+      render(
+        <MasterOverride label="Primary" on={false} onChange={onChange} requireHold />
+      );
+      await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
+      const switchEl = screen.getByRole("switch");
+      switchEl.focus();
+      fireEvent.keyDown(switchEl, { key: " " });
+      await act(async () => { vi.advanceTimersByTime(1000); });
+      expect(onChange).toHaveBeenCalledWith(true);
+    });
+
+    it("ignores key-repeat events (does not reset the hold timer)", async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const onChange = vi.fn();
+      render(
+        <MasterOverride label="Primary" on={false} onChange={onChange} requireHold />
+      );
+      await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
+      const switchEl = screen.getByRole("switch");
+      switchEl.focus();
+      fireEvent.keyDown(switchEl, { key: "Enter" });
+      await act(async () => { vi.advanceTimersByTime(500); });
+      // Simulate OS key-repeat firing a second keydown midway
+      fireEvent.keyDown(switchEl, { key: "Enter", repeat: true });
+      await act(async () => { vi.advanceTimersByTime(500); });
+      // Total elapsed = 1000ms; if repeat had reset, threshold would not have fired
+      expect(onChange).toHaveBeenCalledWith(true);
+    });
   });
 });
