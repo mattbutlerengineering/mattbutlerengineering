@@ -1,4 +1,4 @@
-import { forwardRef, useState, useId, useRef, useEffect, useCallback, type ReactNode } from "react";
+import { forwardRef, useState, useId, useRef, useEffect, useCallback, type ReactNode, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { motion, useReducedMotion, useMotionValue, animate } from "framer-motion";
 // NOTE: useMotionValueEvent will be added in Task 8 (progress ring events)
 import { spring, springGentle, reduced } from "../../tokens/motion";
@@ -100,9 +100,7 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
     const holdProgress = useMotionValue(0);
     const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const holdAnimationRef = useRef<ReturnType<typeof animate> | null>(null);
-    // Aliased to _isHolding because the read side is consumed in Task 5/8.
-    // Rename to `isHolding` when those tasks introduce the first read.
-    const [_isHolding, setIsHolding] = useState(false);
+    const [isHolding, setIsHolding] = useState(false);
 
     const startHold = useCallback(() => {
       if (!armed || disabled || on || holdThresholdMs === 0) return;
@@ -121,6 +119,43 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
         onChange(true);
       }, holdThresholdMs);
     }, [armed, disabled, on, holdThresholdMs, shouldReduceMotion, holdProgress, onChange]);
+
+    const cancelHold = useCallback(() => {
+      if (holdTimerRef.current === null && !isHolding) return;
+      if (holdTimerRef.current) {
+        clearTimeout(holdTimerRef.current);
+        holdTimerRef.current = null;
+      }
+      holdAnimationRef.current?.stop();
+      holdAnimationRef.current = null;
+      setIsHolding(false);
+      animate(holdProgress, 0, { duration: shouldReduceMotion ? 0 : 0.2 });
+    }, [isHolding, shouldReduceMotion, holdProgress]);
+
+    // Document-level pointerup cancels the hold — catches releases outside the element.
+    useEffect(() => {
+      if (!isHolding) return;
+      const handler = () => cancelHold();
+      document.addEventListener("pointerup", handler);
+      return () => document.removeEventListener("pointerup", handler);
+    }, [isHolding, cancelHold]);
+
+    const handleKeyDown = useCallback(
+      (e: ReactKeyboardEvent) => {
+        if ((e.key === "Enter" || e.key === " ") && !e.repeat) {
+          e.preventDefault();
+          startHold();
+        }
+      },
+      [startHold]
+    );
+
+    const handleKeyUp = useCallback(
+      (e: ReactKeyboardEvent) => {
+        if (e.key === "Enter" || e.key === " ") cancelHold();
+      },
+      [cancelHold]
+    );
 
     const labelId = useId();
     const descriptionId = useId();
@@ -212,16 +247,10 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
             disabled={disabled || !armed}
             onClick={handleSwitchToggle}
             onPointerDown={holdThresholdMs > 0 && !on ? startHold : undefined}
-            onKeyDown={
-              holdThresholdMs > 0 && !on
-                ? (e) => {
-                    if ((e.key === "Enter" || e.key === " ") && !e.repeat) {
-                      e.preventDefault(); // block default switch toggle via keydown
-                      startHold();
-                    }
-                  }
-                : undefined
-            }
+            onPointerUp={holdThresholdMs > 0 ? cancelHold : undefined}
+            onPointerLeave={holdThresholdMs > 0 ? cancelHold : undefined}
+            onKeyDown={holdThresholdMs > 0 && !on ? handleKeyDown : undefined}
+            onKeyUp={holdThresholdMs > 0 ? handleKeyUp : undefined}
           >
             <span className={styles.labelOn} data-active={on} aria-hidden="true">
               {activeLabel}

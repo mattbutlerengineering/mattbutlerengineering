@@ -233,5 +233,67 @@ describe("MasterOverride", () => {
       // Total elapsed = 1000ms; if repeat had reset, threshold would not have fired
       expect(onChange).toHaveBeenCalledWith(true);
     });
+
+    it("cancels when pointer is released before threshold", async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const onChange = vi.fn();
+      render(
+        <MasterOverride label="Primary" on={false} onChange={onChange} requireHold />
+      );
+      await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
+      const switchEl = screen.getByRole("switch");
+      fireEvent.pointerDown(switchEl);
+      await act(async () => { vi.advanceTimersByTime(500); });
+      fireEvent.pointerUp(switchEl);
+      await act(async () => { vi.advanceTimersByTime(2000); });
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("cancels when pointer leaves the switch before threshold", async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const onChange = vi.fn();
+      render(
+        <MasterOverride label="Primary" on={false} onChange={onChange} requireHold />
+      );
+      await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
+      const switchEl = screen.getByRole("switch");
+      fireEvent.pointerDown(switchEl);
+      await act(async () => { vi.advanceTimersByTime(400); });
+      fireEvent.pointerLeave(switchEl);
+      await act(async () => { vi.advanceTimersByTime(2000); });
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("cancels when key is released before threshold", async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const onChange = vi.fn();
+      render(
+        <MasterOverride label="Primary" on={false} onChange={onChange} requireHold />
+      );
+      await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
+      const switchEl = screen.getByRole("switch");
+      switchEl.focus();
+      fireEvent.keyDown(switchEl, { key: "Enter" });
+      await act(async () => { vi.advanceTimersByTime(300); });
+      fireEvent.keyUp(switchEl, { key: "Enter" });
+      await act(async () => { vi.advanceTimersByTime(2000); });
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("cancels when pointer is released outside the element (document pointerup)", async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const onChange = vi.fn();
+      render(
+        <MasterOverride label="Primary" on={false} onChange={onChange} requireHold />
+      );
+      await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
+      const switchEl = screen.getByRole("switch");
+      fireEvent.pointerDown(switchEl);
+      await act(async () => { vi.advanceTimersByTime(300); });
+      // Release somewhere other than the switch
+      fireEvent.pointerUp(document.body);
+      await act(async () => { vi.advanceTimersByTime(2000); });
+      expect(onChange).not.toHaveBeenCalled();
+    });
   });
 });
