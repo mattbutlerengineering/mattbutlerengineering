@@ -365,5 +365,17 @@ describe("MasterOverride", () => {
       await act(async () => { vi.advanceTimersByTime(1000); });
       expect(screen.getByRole("status").textContent).toMatch(/primary engaged/i);
     });
+
+    it("renders the progress ring element inside the switch track while holding", async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const { container } = render(
+        <MasterOverride label="Primary" on={false} onChange={() => {}} requireHold />
+      );
+      await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
+      const wrapper = container.firstChild as HTMLElement;
+      expect(wrapper.className).not.toMatch(/holding/);
+      fireEvent.pointerDown(screen.getByRole("switch"));
+      expect(wrapper.className).toMatch(/holding/);
+    });
   });
 });

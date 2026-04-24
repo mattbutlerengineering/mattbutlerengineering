@@ -14,6 +14,7 @@
   --mo-cover-radius: 10px;
   --mo-cover-text-size: var(--rialto-text-xs);
   --mo-switch-text-size: 10px;
+  --mo-hold-progress: 0;
 
   /* Stripe color — resolved by variant */
   --mo-stripe: var(--rialto-warning);
@@ -277,6 +278,32 @@
 
 .labelOff[data-active="true"] {
   color: var(--rialto-text-primary);
+}
+
+/* ── Progress ring (visible while holding) ─── */
+.progressRing {
+  position: absolute;
+  inset: -4px;
+  border-radius: calc(var(--rialto-radius-default) + 4px);
+  pointer-events: none;
+  opacity: 0;
+  background: conic-gradient(
+    var(--rialto-accent) calc(var(--mo-hold-progress, 0) * 360deg),
+    transparent 0
+  );
+  mask: radial-gradient(circle, transparent 55%, #000 58%);
+  -webkit-mask: radial-gradient(circle, transparent 55%, #000 58%);
+  transition: opacity var(--rialto-duration-fast) var(--rialto-ease-precision);
+  filter: drop-shadow(0 0 6px var(--rialto-accent-glow));
+}
+
+.holding .progressRing {
+  opacity: 1;
+}
+
+.holding .switchLever {
+  filter: drop-shadow(0 0 4px var(--rialto-accent-glow));
+  transition: filter var(--rialto-duration-fast) var(--rialto-ease-precision);
 }
 
 /* ── Description ───────────────────────────── */

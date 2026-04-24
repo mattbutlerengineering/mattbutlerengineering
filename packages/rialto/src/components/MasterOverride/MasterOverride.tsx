@@ -1,6 +1,5 @@
 import { forwardRef, useState, useId, useRef, useEffect, useCallback, type ReactNode, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import { motion, useReducedMotion, useMotionValue, animate } from "framer-motion";
-// NOTE: useMotionValueEvent will be added in Task 8 (progress ring events)
+import { motion, useReducedMotion, useMotionValue, useMotionValueEvent, animate } from "framer-motion";
 import { spring, springGentle, reduced } from "../../tokens/motion";
 import styles from "./MasterOverride.module.css";
 
@@ -100,6 +99,7 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
     const holdProgress = useMotionValue(0);
     const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const holdAnimationRef = useRef<ReturnType<typeof animate> | null>(null);
+    const wrapperRef = useRef<HTMLDivElement | null>(null);
     const [isHolding, setIsHolding] = useState(false);
     const [holdAnnouncement, setHoldAnnouncement] = useState<string | null>(null);
 
@@ -124,6 +124,8 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
     }, [armed, disabled, on, holdThresholdMs, shouldReduceMotion, holdProgress, onChange, label]);
 
     const cancelHold = useCallback(() => {
+      // Bail if nothing to cancel. Both refs can be out-of-sync during React
+      // state flush (timer cleared before setIsHolding(false) commits), so check both.
       if (holdTimerRef.current === null && !isHolding) return;
       const wasActive = holdTimerRef.current !== null;
       if (holdTimerRef.current) {
@@ -137,7 +139,24 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
       animate(holdProgress, 0, { duration: shouldReduceMotion ? 0 : 0.2 });
     }, [isHolding, shouldReduceMotion, holdProgress]);
 
-    // Document-level pointerup cancels the hold — catches releases outside the element.
+    // Write holdProgress to a CSS custom property so ring updates bypass React re-renders.
+    useMotionValueEvent(holdProgress, "change", (v) => {
+      wrapperRef.current?.style.setProperty("--mo-hold-progress", String(v));
+    });
+
+    // Merged ref: attaches both wrapperRef (for CSS var writes) and the forwarded ref.
+    const setRefs = useCallback(
+      (node: HTMLDivElement | null) => {
+        wrapperRef.current = node;
+        if (typeof ref === "function") ref(node);
+        else if (ref) ref.current = node;
+      },
+      [ref]
+    );
+
+    // Document-level fallback catches pointer releases outside the switch element.
+    // The element's own onPointerUp fires first when release is on the switch;
+    // this handler is strictly for out-of-element releases.
     useEffect(() => {
       if (!isHolding) return;
       const handler = () => cancelHold();
@@ -196,6 +215,7 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
       styles[`variant-${variant}`],
       on && styles.engaged,
       armed && styles.armed,
+      isHolding && styles.holding,
       disabled && styles.disabled,
       className,
     ]
@@ -209,7 +229,7 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
       : `${label} safety cover open. Switch is ${on ? activeLabel : idleLabel}.`;
 
     return (
-      <div ref={ref} className={wrapperClasses} aria-disabled={disabled || undefined}>
+      <div ref={setRefs} className={wrapperClasses} aria-disabled={disabled || undefined}>
         <span id={labelId} className={styles.header}>
           {label}
         </span>
@@ -261,6 +281,7 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
               {activeLabel}
             </span>
             <span className={styles.switchTrack} aria-hidden="true">
+              <span className={styles.progressRing} />
               <motion.span
                 className={styles.switchLever}
                 animate={{ y: on ? "-75%" : "75%" }}
