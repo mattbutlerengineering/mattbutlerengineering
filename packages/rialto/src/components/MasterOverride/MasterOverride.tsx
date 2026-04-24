@@ -100,6 +100,8 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
     const holdProgress = useMotionValue(0);
     const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const holdAnimationRef = useRef<ReturnType<typeof animate> | null>(null);
+    // Aliased to _isHolding because the read side is consumed in Task 5/8.
+    // Rename to `isHolding` when those tasks introduce the first read.
     const [_isHolding, setIsHolding] = useState(false);
 
     const startHold = useCallback(() => {
@@ -142,6 +144,9 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
 
     function handleSwitchToggle() {
       if (disabled || !armed) return;
+      // When hold is required and we're off, engagement only happens via the
+      // hold path — suppress click. Disengaging (on → off) always allowed.
+      if (holdThresholdMs > 0 && !on) return;
       onChange(!on);
     }
 
@@ -206,7 +211,7 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
             className={styles.switchBody}
             disabled={disabled || !armed}
             onClick={handleSwitchToggle}
-            onPointerDown={holdThresholdMs && !on ? startHold : undefined}
+            onPointerDown={holdThresholdMs > 0 && !on ? startHold : undefined}
           >
             <span className={styles.labelOn} data-active={on} aria-hidden="true">
               {activeLabel}

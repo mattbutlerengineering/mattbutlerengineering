@@ -145,6 +145,28 @@ describe("MasterOverride", () => {
       vi.useRealTimers();
     });
 
+    it("does not engage on a single click (no hold)", async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const onChange = vi.fn();
+      render(
+        <MasterOverride label="Primary" on={false} onChange={onChange} requireHold />
+      );
+      await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
+      await user.click(screen.getByRole("switch"));
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("disengages on a single click — asymmetric (on → off is instant)", async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const onChange = vi.fn();
+      render(
+        <MasterOverride label="Primary" on={true} onChange={onChange} requireHold />
+      );
+      await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
+      await user.click(screen.getByRole("switch"));
+      expect(onChange).toHaveBeenCalledWith(false);
+    });
+
     it("engages after holding the switch for the default 1000ms threshold", async () => {
       const onChange = vi.fn();
       render(
