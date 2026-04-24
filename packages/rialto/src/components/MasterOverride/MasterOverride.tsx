@@ -2,6 +2,7 @@ import { forwardRef, useState, useId, useRef, useEffect, useCallback, type React
 import { motion, useReducedMotion, useMotionValue, useMotionValueEvent, animate } from "framer-motion";
 import { spring, springGentle, reduced } from "../../tokens/motion";
 import styles from "./MasterOverride.module.css";
+import { SplitFlap } from "../SplitFlap";
 
 /**
  * A safety-cover toggle: a hinged protective cover flips up to reveal a
@@ -81,8 +82,8 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
       variant = "warning",
       disabled = false,
       requireHold = false,
-      labelTransition: _labelTransition = "fade",
-      labelLength: _labelLength,
+      labelTransition = "fade",
+      labelLength,
       className,
     },
     ref
@@ -96,6 +97,10 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
       requireHold === true ? 1000
       : typeof requireHold === "number" ? Math.max(250, Math.min(5000, requireHold))
       : 0;
+    const useSplitFlap = labelTransition === "splitflap";
+    const resolvedLabelLength =
+      labelLength ?? Math.max(idleLabel.length, activeLabel.length);
+    const splitFlapSize: "sm" | "md" = size === "lg" ? "md" : "sm";
     const holdProgress = useMotionValue(0);
     const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const holdAnimationRef = useRef<ReturnType<typeof animate> | null>(null);
@@ -308,20 +313,44 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
             onKeyDown={holdThresholdMs > 0 && !on ? handleKeyDown : undefined}
             onKeyUp={holdThresholdMs > 0 ? handleKeyUp : undefined}
           >
-            <span className={styles.labelOn} data-active={on} aria-hidden="true">
-              {activeLabel}
-            </span>
-            <span className={styles.switchTrack} aria-hidden="true">
-              <span className={styles.progressRing} />
-              <motion.span
-                className={styles.switchLever}
-                animate={{ y: on ? "-75%" : "75%" }}
-                transition={shouldReduceMotion ? reduced : spring}
-              />
-            </span>
-            <span className={styles.labelOff} data-active={!on} aria-hidden="true">
-              {idleLabel}
-            </span>
+            {useSplitFlap ? (
+              <>
+                <span className={styles.splitFlapLabel} aria-hidden="true">
+                  <SplitFlap
+                    value={on ? activeLabel : idleLabel}
+                    length={resolvedLabelLength}
+                    size={splitFlapSize}
+                    charset="alphanumeric"
+                    aria-label=" "
+                  />
+                </span>
+                <span className={styles.switchTrack} aria-hidden="true">
+                  <span className={styles.progressRing} />
+                  <motion.span
+                    className={styles.switchLever}
+                    animate={{ y: on ? "-75%" : "75%" }}
+                    transition={shouldReduceMotion ? reduced : spring}
+                  />
+                </span>
+              </>
+            ) : (
+              <>
+                <span className={styles.labelOn} data-active={on} aria-hidden="true">
+                  {activeLabel}
+                </span>
+                <span className={styles.switchTrack} aria-hidden="true">
+                  <span className={styles.progressRing} />
+                  <motion.span
+                    className={styles.switchLever}
+                    animate={{ y: on ? "-75%" : "75%" }}
+                    transition={shouldReduceMotion ? reduced : spring}
+                  />
+                </span>
+                <span className={styles.labelOff} data-active={!on} aria-hidden="true">
+                  {idleLabel}
+                </span>
+              </>
+            )}
           </button>
         </div>
 

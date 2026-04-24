@@ -306,6 +306,13 @@
   transition: filter var(--rialto-duration-fast) var(--rialto-ease-precision);
 }
 
+/* ── SplitFlap state label (replaces labelOn/labelOff when splitflap) ── */
+.splitFlapLabel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* ── Description ───────────────────────────── */
 .description {
   width: var(--mo-bezel-width);

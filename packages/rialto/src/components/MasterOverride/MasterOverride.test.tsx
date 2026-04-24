@@ -447,4 +447,79 @@ describe("MasterOverride", () => {
       expect(onChange).not.toHaveBeenCalled();
     });
   });
+
+  describe("labelTransition", () => {
+    it("renders the crossfade labels by default (fade mode)", () => {
+      render(<MasterOverride label="Kill" on={false} onChange={() => {}} />);
+      expect(screen.getByText("STANDBY")).toBeInTheDocument();
+      expect(screen.getByText("ENGAGED")).toBeInTheDocument();
+    });
+
+    it("renders a single SplitFlap when splitflap mode", () => {
+      const { container } = render(
+        <MasterOverride
+          label="Kill"
+          on={false}
+          onChange={() => {}}
+          labelTransition="splitflap"
+        />
+      );
+      // SplitFlap's root element has a className containing "board".
+      const board = container.querySelector('[class*="board"]');
+      expect(board).toBeTruthy();
+      // The crossfade label spans (labelOn / labelOff) must not be rendered.
+      expect(container.querySelector('[class*="labelOn"]')).not.toBeInTheDocument();
+      expect(container.querySelector('[class*="labelOff"]')).not.toBeInTheDocument();
+    });
+
+    it("updates the SplitFlap content when the switch toggles", async () => {
+      const user = userEvent.setup();
+      const Harness = () => {
+        const [on, setOn] = useState(false);
+        return (
+          <MasterOverride
+            label="Kill"
+            on={on}
+            onChange={setOn}
+            labelTransition="splitflap"
+          />
+        );
+      };
+      const { container } = render(<Harness />);
+      await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
+      await user.click(screen.getByRole("switch"));
+      // SplitFlap renders a hidden srOnly mirror reflecting the target value.
+      const srMirror = container.querySelector('[class*="srOnly"]');
+      expect(srMirror?.textContent).toMatch(/ENGAGED/);
+    });
+
+    it("uses labelLength when provided", () => {
+      const { container } = render(
+        <MasterOverride
+          label="Kill"
+          on={false}
+          onChange={() => {}}
+          labelTransition="splitflap"
+          labelLength={10}
+        />
+      );
+      const cells = container.querySelectorAll('[class*="board"] > [class*="cell"]');
+      expect(cells.length).toBe(10);
+    });
+
+    it("derives length from max(idleLabel, activeLabel) when labelLength not provided", () => {
+      const { container } = render(
+        <MasterOverride
+          label="Kill"
+          on={false}
+          onChange={() => {}}
+          idleLabel="OFF"
+          activeLabel="RUNNING"
+          labelTransition="splitflap"
+        />
+      );
+      const cells = container.querySelectorAll('[class*="board"] > [class*="cell"]');
+      expect(cells.length).toBe(7); // length of "RUNNING"
+    });
+  });
 });
