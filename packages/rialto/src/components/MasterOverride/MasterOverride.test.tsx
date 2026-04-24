@@ -326,5 +326,44 @@ describe("MasterOverride", () => {
       await act(async () => { vi.advanceTimersByTime(5000); });
       expect(onChange).toHaveBeenCalledWith(true);
     });
+
+    it("announces 'Hold to arm' when hold begins", async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      render(
+        <MasterOverride label="Primary" on={false} onChange={() => {}} requireHold />
+      );
+      await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
+      fireEvent.pointerDown(screen.getByRole("switch"));
+      const live = screen.getByRole("status");
+      expect(live.textContent).toMatch(/hold to arm primary/i);
+    });
+
+    it("announces 'Arming cancelled' on early release", async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      render(
+        <MasterOverride label="Primary" on={false} onChange={() => {}} requireHold />
+      );
+      await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
+      const switchEl = screen.getByRole("switch");
+      fireEvent.pointerDown(switchEl);
+      await act(async () => { vi.advanceTimersByTime(200); });
+      fireEvent.pointerUp(switchEl);
+      expect(screen.getByRole("status").textContent).toMatch(/arming cancelled/i);
+    });
+
+    it("announces '<label> engaged' on successful engagement", async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const Harness = () => {
+        const [on, setOn] = useState(false);
+        return (
+          <MasterOverride label="Primary" on={on} onChange={setOn} requireHold />
+        );
+      };
+      render(<Harness />);
+      await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
+      fireEvent.pointerDown(screen.getByRole("switch"));
+      await act(async () => { vi.advanceTimersByTime(1000); });
+      expect(screen.getByRole("status").textContent).toMatch(/primary engaged/i);
+    });
   });
 });

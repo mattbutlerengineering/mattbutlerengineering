@@ -101,11 +101,13 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
     const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const holdAnimationRef = useRef<ReturnType<typeof animate> | null>(null);
     const [isHolding, setIsHolding] = useState(false);
+    const [holdAnnouncement, setHoldAnnouncement] = useState<string | null>(null);
 
     const startHold = useCallback(() => {
       if (!armed || disabled || on || holdThresholdMs === 0) return;
       if (holdTimerRef.current) return; // already holding — ignore repeats
       setIsHolding(true);
+      setHoldAnnouncement(`Hold to arm ${label}`);
       holdAnimationRef.current = animate(holdProgress, 1, {
         duration: shouldReduceMotion ? 0 : holdThresholdMs / 1000,
         ease: "linear",
@@ -115,13 +117,15 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
         holdAnimationRef.current?.stop();
         holdAnimationRef.current = null;
         setIsHolding(false);
+        setHoldAnnouncement(`${label} engaged`);
         holdProgress.set(0);
         onChange(true);
       }, holdThresholdMs);
-    }, [armed, disabled, on, holdThresholdMs, shouldReduceMotion, holdProgress, onChange]);
+    }, [armed, disabled, on, holdThresholdMs, shouldReduceMotion, holdProgress, onChange, label]);
 
     const cancelHold = useCallback(() => {
       if (holdTimerRef.current === null && !isHolding) return;
+      const wasActive = holdTimerRef.current !== null;
       if (holdTimerRef.current) {
         clearTimeout(holdTimerRef.current);
         holdTimerRef.current = null;
@@ -129,6 +133,7 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
       holdAnimationRef.current?.stop();
       holdAnimationRef.current = null;
       setIsHolding(false);
+      if (wasActive) setHoldAnnouncement("Arming cancelled");
       animate(holdProgress, 0, { duration: shouldReduceMotion ? 0 : 0.2 });
     }, [isHolding, shouldReduceMotion, holdProgress]);
 
@@ -275,7 +280,7 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
         )}
 
         <span role="status" aria-live="polite" className={styles.srOnly}>
-          {statusMessage}
+          {holdAnnouncement ?? statusMessage}
         </span>
       </div>
     );
