@@ -88,8 +88,8 @@
 }
 
 .gridBody {
-  display: grid;
-  grid-template-columns: var(--tapechart-room-col-width) 1fr;
+  display: flex;
+  flex-direction: column;
   min-inline-size: calc(var(--tapechart-room-col-width) + var(--tapechart-day-width) * var(--tapechart-day-count, 7));
 }
 
@@ -97,7 +97,7 @@
 
 .dayHeader {
   display: grid;
-  grid-template-columns: repeat(var(--tapechart-day-count, 7), var(--tapechart-day-width));
+  grid-template-columns: var(--tapechart-room-col-width) repeat(var(--tapechart-day-count, 7), var(--tapechart-day-width));
   position: sticky;
   inset-block-start: 0;
   background: var(--rialto-surface-elevated);
