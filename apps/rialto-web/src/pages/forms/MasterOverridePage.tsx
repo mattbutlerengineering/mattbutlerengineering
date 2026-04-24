@@ -12,6 +12,42 @@ import { ComponentPageLayout, Section } from "../components/ComponentPageLayout"
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";
 
+function HoldDemo() {
+  const [on, setOn] = useState(false);
+  return (
+    <Stack gap="md">
+      <MasterOverride
+        label="Launch sequence"
+        description="Press and hold the switch for 1 second to engage."
+        on={on}
+        onChange={setOn}
+        requireHold
+        variant="danger"
+      />
+      <Text variant="caption" color="secondary">
+        Hold engages; a single click disengages (asymmetric dead-man switch).
+      </Text>
+    </Stack>
+  );
+}
+
+function SplitFlapDemo() {
+  const [on, setOn] = useState(false);
+  return (
+    <Stack gap="md">
+      <MasterOverride
+        label="System state"
+        description="Label transitions through mechanical split-flap cells."
+        on={on}
+        onChange={setOn}
+        idleLabel="OFFLINE"
+        activeLabel="ONLINE"
+        labelTransition="splitflap"
+      />
+    </Stack>
+  );
+}
+
 function MasterOverridePlayground() {
   const [on, setOn] = useState(false);
   const [disabled, setDisabled] = useState(false);
@@ -143,6 +179,20 @@ export function MasterOverridePage() {
             disabled
           />
         </Stack>
+      </Section>
+
+      {/* ── Hold to engage ────────────────────────────────────────── */}
+      <Section title="Hold to engage">
+        <Card variant="flat" style={{ padding: "var(--rialto-space-xl)" }}>
+          <HoldDemo />
+        </Card>
+      </Section>
+
+      {/* ── Split-flap status label ────────────────────────────────── */}
+      <Section title="Split-flap status label">
+        <Card variant="flat" style={{ padding: "var(--rialto-space-xl)" }}>
+          <SplitFlapDemo />
+        </Card>
       </Section>
 
       {/* ── Playground ────────────────────────────────────────────── */}
