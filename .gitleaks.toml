@@ -35,4 +35,7 @@ useDefault = true
     '''your[-_]?(api[-_]?key|token|secret)''',
     # Sentry DSN format (public DSN, not a secret)
     '''https://[a-f0-9]+@o\d+\.ingest\.\w+\.sentry\.io/\d+''',
+    # Prisma WebAssembly binary — base64-encoded WASM, not a secret
+    # WASM magic bytes (\x00asm) always produce AGFzbQ at the start of base64
+    '''AGFzbQ[A-Za-z0-9+/]{100,}={0,2}''',
   ]
