@@ -90,6 +90,7 @@ export function TapeChartMobileStack(props: TapeChartMobileStackProps) {
                   tabIndex={0}
                   className={styles.listRow}
                   data-selected={selectedReservationId === r.id ? "true" : undefined}
+                  aria-pressed={selectedReservationId === r.id}
                   aria-label={`${r.guestName ?? "Reservation"}, ${room}, ${formatters.dayLong(r.start)} to ${formatters.dayLong(r.end)}, ${strings.nightsLabel(nights)}, ${status}`}
                   onClick={() => onReservationSelect(r)}
                   onKeyDown={(e) => onKey(e, r)}

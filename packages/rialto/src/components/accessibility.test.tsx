@@ -68,7 +68,10 @@ import { MasterOverride } from "./MasterOverride/MasterOverride";
 import { SplitFlap } from "./SplitFlap/SplitFlap";
 import { SplitScreenExit } from "./SplitScreenExit/SplitScreenExit";
 import { TapeChart } from "./TapeChart/TapeChart";
+import { TapeChartMobileStack } from "./TapeChart/TapeChartMobileStack";
+import { DEFAULT_STRINGS } from "./TapeChart/defaultStrings";
 import type { TapeChartReservation, TapeChartRoom } from "./TapeChart/types";
+import type { TapeChartFormatters } from "./TapeChart/useTapeChartI18n";
 import { Toggle } from "./Toggle/Toggle";
 import { Tooltip } from "./Tooltip/Tooltip";
 import { Tree } from "./Tree/Tree";
@@ -498,6 +501,36 @@ describe("Accessibility — axe-core WCAG 2.1 AA", () => {
     ).toHaveNoViolations();
   });
 
+  it("TapeChart (grid view, selected reservation)", async () => {
+    const rooms: TapeChartRoom[] = [{ id: "r1", name: "101" }];
+    const reservations: TapeChartReservation[] = [
+      {
+        id: "res-1",
+        roomId: "r1",
+        start: "2026-04-22",
+        end: "2026-04-25",
+        status: "confirmed",
+        guestName: "Jane Doe",
+      },
+    ];
+    const { container } = render(
+      <TapeChart
+        reservations={reservations}
+        rooms={rooms}
+        startDate="2026-04-20"
+        endDate="2026-04-27"
+        viewMode="grid"
+        selectedReservationId="res-1"
+        onReservationClick={() => undefined}
+      />
+    );
+    expect(
+      await axe(container, {
+        rules: { "color-contrast": { enabled: false } },
+      })
+    ).toHaveNoViolations();
+  });
+
   it("TapeChart (list view)", async () => {
     const rooms: TapeChartRoom[] = [{ id: "r1", name: "101" }];
     const reservations: TapeChartReservation[] = [
@@ -517,6 +550,80 @@ describe("Accessibility — axe-core WCAG 2.1 AA", () => {
         startDate="2026-04-20"
         endDate="2026-04-27"
         viewMode="list"
+      />
+    );
+    expect(
+      await axe(container, {
+        rules: { "color-contrast": { enabled: false } },
+      })
+    ).toHaveNoViolations();
+  });
+
+  it("TapeChart (list view, selected reservation)", async () => {
+    const rooms: TapeChartRoom[] = [{ id: "r1", name: "101" }];
+    const reservations: TapeChartReservation[] = [
+      {
+        id: "res-1",
+        roomId: "r1",
+        start: "2026-04-22",
+        end: "2026-04-25",
+        status: "confirmed",
+        guestName: "Jane Doe",
+      },
+    ];
+    const { container } = render(
+      <TapeChart
+        reservations={reservations}
+        rooms={rooms}
+        startDate="2026-04-20"
+        endDate="2026-04-27"
+        viewMode="list"
+        selectedReservationId="res-1"
+        onReservationClick={() => undefined}
+      />
+    );
+    expect(
+      await axe(container, {
+        rules: { "color-contrast": { enabled: false } },
+      })
+    ).toHaveNoViolations();
+  });
+
+  it("TapeChart (mobile stack view, selected reservation)", async () => {
+    const rooms: TapeChartRoom[] = [{ id: "r1", name: "101" }];
+    const reservations: TapeChartReservation[] = [
+      {
+        id: "res-1",
+        roomId: "r1",
+        start: "2026-04-22",
+        end: "2026-04-25",
+        status: "confirmed",
+        guestName: "Jane Doe",
+      },
+    ];
+    const stubFormatters: TapeChartFormatters = {
+      dayWeekdayShort: (iso) => iso,
+      dayNumeric: (iso) => iso,
+      dayLong: (iso) => iso,
+      monthYearLong: (iso) => iso,
+      currency: (n) => String(n),
+      number: (n) => String(n),
+      pluralCategory: () => "other",
+      compare: (a, b) => a.localeCompare(b),
+      todayISO: () => "2026-04-23",
+      locale: "en-US",
+    };
+    const { container } = render(
+      <TapeChartMobileStack
+        reservations={reservations}
+        rooms={rooms}
+        startDate="2026-04-20"
+        endDate="2026-04-27"
+        todayISO="2026-04-23"
+        formatters={stubFormatters}
+        strings={DEFAULT_STRINGS}
+        selectedReservationId="res-1"
+        onReservationSelect={() => undefined}
       />
     );
     expect(

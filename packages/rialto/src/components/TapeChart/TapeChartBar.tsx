@@ -81,7 +81,7 @@ export const TapeChartBar = forwardRef<HTMLButtonElement, TapeChartBarProps>(
         data-selected={selected ? "true" : undefined}
         tabIndex={tabIndex}
         aria-label={ariaLabel}
-        aria-current={selected ? "true" : undefined}
+        aria-pressed={selected ?? false}
         onClick={() => onSelect(r)}
         onKeyDown={handleKeyDown}
       >
