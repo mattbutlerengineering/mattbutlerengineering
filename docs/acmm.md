@@ -91,6 +91,37 @@ gap closure.** The tooling improvement compounds — the next iteration's
 gap closure is easier to spot because the previous iteration sharpened
 the signal.
 
+```mermaid
+flowchart LR
+    A([Run audit<br/>node scripts/acmm/audit.js]) --> B{--diff vs<br/>prior state}
+    B -->|Level changed| C[Update README badge<br/>--badge]
+    B -->|No change| D[Read missing-for-next-level]
+    C --> D
+    D --> E{Cheapest<br/>next-level gap?}
+    E -->|File-presence with<br/>real content potential| F[Honest gap closure<br/>e.g. docs/ai-ops-runbook.md]
+    E -->|Already cheap-pickings<br/>exhausted| G[Tooling improvement<br/>e.g. --diff mode, Next-Steps section]
+    F --> H[Commit + push to main]
+    G --> H
+    H --> I[Append docs/reflections/<br/>YYYY-MM-DD-slug.md]
+    I --> J[Daily 10am PT trigger:<br/>mbe-acmm-audit --apply --badge]
+    J -.files issues for new gaps.-> K[Issues labeled acmm + ready]
+    K -.picked up every 2h.-> L[mbe-issue-worker]
+    L -.opens PR.-> A
+    I --> A
+
+    classDef shipped fill:#d4f4dd,stroke:#2d6a4f,color:#1b4332
+    classDef signal fill:#cfe2ff,stroke:#1e3a8a,color:#1e3a8a
+    classDef autonomy fill:#fff3cd,stroke:#7a5c00,color:#7a5c00
+    class A,B,D signal
+    class F,G,H,I shipped
+    class J,K,L autonomy
+```
+
+Three colors map to the three layers: **blue** is the human/audit feedback
+loop, **green** is the work shipped this iteration, **yellow** is the
+autonomous catch-up loop that runs without you (scheduled trigger →
+issue → agent → PR → next audit).
+
 Concrete examples from the L3→L5 climb:
 
 | Iteration | Tooling shipped | Gap closed |
