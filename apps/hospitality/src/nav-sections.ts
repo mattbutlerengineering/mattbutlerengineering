@@ -111,9 +111,3 @@ export function buildNavSections(readiness: VenueReadiness): readonly NavSection
   }
   return buildOperationalSections();
 }
-
-/**
- * @deprecated Use buildNavSections(readiness) instead.
- * Kept for backwards compatibility during migration.
- */
-export const NAV_SECTIONS: readonly NavSection[] = buildOperationalSections();
