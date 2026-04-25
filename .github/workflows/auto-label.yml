@@ -1,0 +1,84 @@
+name: auto-label
+
+# Triages newly-opened issues by inferring labels from title prefix, body
+# keywords, and path mentions. Removes a manual step from the default path
+# without taking any irreversible action — labels can always be removed.
+#
+# NOTE: GitHub Actions billing is intentionally unpaid on this repo
+# (CLAUDE.md). The workflow encodes the triage policy in source. Until
+# billing is restored, run-bare-bones triage is performed manually or by
+# the `mbe-issue-worker` RemoteTrigger when it picks up a new issue.
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+
+permissions:
+  issues: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      # Untrusted inputs are read from env vars only; never inlined in shell.
+      ISSUE_NUMBER: ${{ github.event.issue.number }}
+      ISSUE_TITLE: ${{ github.event.issue.title }}
+      ISSUE_BODY: ${{ github.event.issue.body }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Compute labels
+        id: compute
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const title = process.env.ISSUE_TITLE || '';
+          const body = process.env.ISSUE_BODY || '';
+          const text = `${title}\n\n${body}`.toLowerCase();
+          const labels = new Set();
+
+          // Title prefixes used by site-audit, acmm-audit, ci-monitor (see CLAUDE.md skills).
+          if (/^\[audit\]/i.test(title)) labels.add('audit');
+          if (/^\[acmm/i.test(title)) labels.add('acmm');
+          if (/^\[ci-fix\]/i.test(title)) labels.add('ci-fix');
+          if (/^feat\(/i.test(title) || /\bfeature\b/.test(text)) labels.add('feature');
+          if (/^chore\(deps\)/i.test(title) || /\bdependabot\b/i.test(title)) labels.add('dependencies');
+
+          // Body keyword routing.
+          if (/\b(security|cve|vulnerab)/i.test(text)) labels.add('security');
+          if (/\b(meta-improvement|process improvement|loop regression)\b/i.test(text)) labels.add('meta-improvement');
+          if (/\b(rollback|revert)\b/i.test(text) && /\bproduction\b/i.test(text)) labels.add('rollback');
+          if (/\b(documentation|README|docs?)\b/i.test(text) && !/\bservice\b/i.test(text)) labels.add('docs');
+
+          // Path mentions in body — what part of the monorepo is affected.
+          if (/\bpackages\/rialto\b/i.test(text)) labels.add('area:rialto');
+          if (/\bservices\/users\b/i.test(text)) labels.add('area:users');
+          if (/\bservices\/reservations\b/i.test(text)) labels.add('area:reservations');
+          if (/\bservices\/agent\b/i.test(text)) labels.add('area:agent');
+          if (/\bapps\/hospitality\b/i.test(text)) labels.add('area:hospitality');
+          if (/\bapps\/marketing\b/i.test(text)) labels.add('area:marketing');
+          if (/\bapps\/rialto-web\b/i.test(text)) labels.add('area:rialto-web');
+          if (/\bprisma\b/i.test(text)) labels.add('area:database');
+          if (/\binfrastructure\/pulumi\b/i.test(text)) labels.add('area:infra');
+
+          // Mark issues opened by audits (title pattern only) as ready by default
+          // so mbe-issue-worker can pick them up without further triage.
+          if (labels.has('audit') || labels.has('acmm') || labels.has('ci-fix')) {
+            labels.add('ready');
+          }
+
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `labels=${[...labels].join(',')}\n`);
+          console.log(`Computed labels: ${[...labels].join(', ') || '(none)'}`);
+          NODE
+
+      - name: Apply labels (additive only — never removes existing)
+        if: steps.compute.outputs.labels != ''
+        env:
+          LABELS_CSV: ${{ steps.compute.outputs.labels }}
+        run: |
+          # Idempotent: gh issue edit ignores already-applied labels.
+          IFS=',' read -ra arr <<< "$LABELS_CSV"
+          for L in "${arr[@]}"; do
+            gh label create "$L" --color "ededed" --description "Auto-applied by auto-label.yml" --force >/dev/null 2>&1 || true
+            gh issue edit "$ISSUE_NUMBER" --add-label "$L" || true
+          done

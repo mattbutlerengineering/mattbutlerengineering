@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json.schemastore.org/specs/auto-qa-tuning",
+  "$comment": "Self-tuning thresholds for the agent QA loop. The auto-qa.yml workflow reads this file before each agent dispatch and writes back adjusted thresholds based on observed PR-acceptance metrics from metrics/acmm-pr-history.jsonl. See docs/review-criteria.md for the rubric the QA loop applies.",
+  "version": 1,
+  "lastTunedAt": "2026-04-25",
+  "thresholds": {
+    "acceptanceRateFloor": 0.85,
+    "acceptanceRateFloor.$comment": "Minimum acceptance rate before the loop tightens budgets. Below this, max-budget halves and review specialists are added by default.",
+    "maxBudgetUSD": 1.5,
+    "maxBudgetUSD.$comment": "Hard cap per agent dispatch. Auto-tuner can lower (never raise) this based on observed cost overruns.",
+    "maxRetries": 2,
+    "maxRetries.$comment": "Per-issue retry count after agent-failed. Higher values risk loops; lower values risk premature giveup.",
+    "stuckTurnsThreshold": 8,
+    "stuckTurnsThreshold.$comment": "If the same tool is invoked >N consecutive turns without progress, the session is flagged as stuck and the circuit breaker fires.",
+    "meanCloseHoursTarget": 24,
+    "meanCloseHoursTarget.$comment": "Target mean PR time-to-close (hours). When observed metric drifts above this, scheduler density may be increased.",
+    "agentMergeShareTarget": 0.3,
+    "agentMergeShareTarget.$comment": "Aspirational share of merged PRs that are agent-authored. Affects no thresholds today; tracked for visibility once Co-Authored-By attribution is re-enabled."
+  },
+  "rules": {
+    "tier:trivial": {
+      "maxBudgetUSDOverride": 0.5,
+      "maxBudgetUSDOverride.$comment": "Trivial PRs should not need much budget; capping prevents runaway docs-only runs."
+    },
+    "tier:critical": {
+      "requireSpecialistReview": true,
+      "requireSpecialistReview.$comment": "Critical-tier PRs always get migration-reviewer + adr-compliance-reviewer + silent-failure-hunter, regardless of acceptance rate."
+    }
+  },
+  "history": [
+    {
+      "date": "2026-04-25",
+      "trigger": "seed",
+      "note": "Initial values; not yet tuned from data. The first auto-qa run on >=14 days of metrics/acmm-pr-history.jsonl will adjust based on observed acceptance and close-time."
+    }
+  ]
+}
