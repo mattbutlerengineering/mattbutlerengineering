@@ -29,10 +29,12 @@
 - [x] Neon PostgreSQL database
 - [x] CI/CD pipelines (lint, typecheck, build, test)
 - [x] Pulumi preview on PRs
-- [x] Pulumi deploy on merge to main
-- [x] Architecture documentation
+- [x] Sentry integration
+- [x] Repository audit and health checks (repo-audit command)
+- [x] Centralized dependency version sync (expanded to react, vite, zod)
+- [x] Automated env-sync discovery across all apps and services
 
-### Production URLs
+### production URLs
 | Service | URL |
 |---------|-----|
 | Website | https://mattbutlerengineering.com |
@@ -43,6 +45,9 @@
 
 ### Local Dev Commands
 ```bash
+# Full repository audit
+pnpm repo-audit
+
 # Start PostgreSQL
 cd infrastructure && docker compose -f docker-compose.yml -f docker-compose.dev.yml up postgres -d
 

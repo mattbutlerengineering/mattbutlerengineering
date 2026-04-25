@@ -3,11 +3,16 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=9"
+  },
   "scripts": {
     "dev": "turbo run dev",
     "dev:local": "docker compose -f infrastructure/docker-compose.yml up postgres -d --wait && pnpm env:init && pnpm db:push && turbo run dev",
     "env:init": "pnpm --filter './services/*' exec sh -c '[ -f .env ] || cp .env.example .env'",
     "db:push": "pnpm --filter './services/*' exec prisma db push --skip-generate",
+    "repo-audit": "node scripts/check-circular-deps.js && node scripts/check-dep-versions.js && node scripts/check-env-sync.js && node scripts/check-service-bindings.js && node scripts/check-destructive-migrations.js && node scripts/check-dockerfile-deps.js && node scripts/check-schema-compat.js && pnpm audit --audit-level=high",
     "check:circular-deps": "node scripts/check-circular-deps.js",
     "check:dep-versions": "node scripts/check-dep-versions.js",
     "check:service-bindings": "node scripts/check-service-bindings.js",
@@ -46,6 +51,7 @@
     "@size-limit/file": "^12.1.0",
     "@stryker-mutator/core": "^9.6.1",
     "@stryker-mutator/vitest-runner": "^9.6.1",
+    "glob": "^13.0.6",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "size-limit": "^12.1.0",
