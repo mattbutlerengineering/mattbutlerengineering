@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import "@mattbutlerengineering/rialto/styles";
 import "./global.css";
-import { RialtoProvider, ToastProvider, ErrorBoundary } from "@mattbutlerengineering/rialto";
+import { RialtoProvider, ToastProvider, ErrorBoundary, unregisterStaleServiceWorkers } from "@mattbutlerengineering/rialto";
 import { initSentry, handleErrorBoundary } from "@mbe/sentry/react";
 import { ThemeContext } from "./ThemeContext";
 import { routeTree } from "./routes";
@@ -14,18 +14,8 @@ initSentry({
   dsn: import.meta.env.VITE_SENTRY_DSN,
 });
 
-// Unregister stale service workers. A previous build registered the hospitality
-// SW at scope "/" instead of "/hospitality/", causing rialto pages to redirect
-// to /hospitality for returning visitors. Clears any SW not scoped to /hospitality/.
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.getRegistrations().then((registrations) => {
-    for (const registration of registrations) {
-      if (!registration.scope.includes("/hospitality/")) {
-        void registration.unregister();
-      }
-    }
-  });
-}
+// Unregister stale service workers (e.g. from previous misconfigured builds)
+unregisterStaleServiceWorkers();
 
 /* ── Theme persistence ────────────────────────── */
 const THEME_KEY = "mbe-theme-preference";

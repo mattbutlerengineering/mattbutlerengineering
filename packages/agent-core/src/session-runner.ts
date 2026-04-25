@@ -1,12 +1,9 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import type { SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
 import { trace, SpanStatusCode } from "@opentelemetry/api";
-import { writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import type {
   SessionConfig,
   SessionResult,
-  SessionEvent,
   SessionEventCallback,
   WorktreeInfo,
 } from "./types.js";
@@ -22,7 +19,6 @@ import {
   pushBranch,
   hasChanges,
   removeWorktree,
-  runVerification,
 } from "./worktree-manager.js";
 import {
   createPullRequest,
@@ -31,16 +27,7 @@ import {
   buildFailurePrBody,
 } from "./pr-creator.js";
 import { isTrivialDepBump, mergeDirectly } from "./dep-bump-merger.js";
-import { evaluateSuccess, getGitDiff, shouldEvaluate } from "./success-evaluator.js";
-import type { EvaluationResult } from "./success-evaluator.js";
-import { reviewDiff } from "./diff-reviewer.js";
-import type { ReviewResult } from "./diff-reviewer.js";
-import {
-  resolveSourceFiles,
-  fetchRecentPrExamples,
-  formatPrExamples,
-} from "./task-intelligence.js";
-import { analyzeDiff } from "./diff-static-analyzer.js";
+import { getGitDiff } from "./success-evaluator.js";
 import { mapSdkMessage } from "./event-mapper.js";
 import type { TurnMetricsEvent } from "./event-mapper.js";
 import { sanitizeStreamChunk } from "./sanitize-output.js";
@@ -64,53 +51,17 @@ import {
   updateActiveObservation,
 } from "@langfuse/tracing";
 
+// New modularized sub-phases
+import { emitEvent, sanitizeForCommitMessage } from "./utils.js";
+import { orchestrateVerification } from "./verification-orchestrator.js";
+import { runQualityGates } from "./quality-gates.ts";
+import type { QualityGatesResult } from "./quality-gates.ts";
+
 // OTel API is a noop when no SDK is registered (e.g., in tests or local CLI).
 const tracer = trace.getTracer("@mbe/agent-core");
 
 /** Maximum compaction events before treating the session as exhausted. */
 const MAX_COMPACTIONS = 5;
-
-function emitEvent(
-  onEvent: SessionEventCallback | undefined,
-  type: SessionEvent["type"],
-  data: SessionEvent["data"]
-): void {
-  if (!onEvent) return;
-  onEvent({
-    type,
-    timestamp: new Date().toISOString(),
-    data,
-  });
-}
-
-function sanitizeForCommitMessage(text: string): string {
-  return text.replace(/[\n\r]/g, " ").slice(0, 72);
-}
-
-/**
- * Store full verification output to a file so debugging failures
- * is not limited to truncated 500-char snippets.
- */
-async function storeVerificationLog(
-  worktreePath: string,
-  sections: readonly { readonly label: string; readonly output: string }[]
-): Promise<string> {
-  const logDir = join(worktreePath, ".agent-work");
-  const logPath = join(logDir, "verification.log");
-  const content = sections
-    .map((s) => `=== ${s.label} ===\n${s.output}\n`)
-    .join("\n");
-
-  try {
-    const { mkdir } = await import("node:fs/promises");
-    await mkdir(logDir, { recursive: true });
-    await writeFile(logPath, content, "utf-8");
-  } catch {
-    // Best-effort — don't fail the session over logging
-  }
-
-  return logPath;
-}
 
 export async function runSession(
   config: SessionConfig,
@@ -179,12 +130,20 @@ export async function runSession(
         const failureContext = buildFailureContext(pastFailures);
 
         // Auto-resolve source files from task description if none provided
-        const resolvedSourcePaths = config.sourceFiles ?? resolveSourceFiles(config.taskDescription);
-        const sourceFileEntries = resolvedSourcePaths.length > 0
-          ? await loadSourceFiles(resolvedSourcePaths)
+        const resolvedSourcePaths = config.sourceFiles ?? (async () => {
+          const { resolveSourceFiles } = await import("./task-intelligence.js");
+          return resolveSourceFiles(config.taskDescription);
+        })();
+        
+        // Wait for resolved source paths if it was an async resolution
+        const finalSourcePaths = await resolvedSourcePaths;
+        
+        const sourceFileEntries = finalSourcePaths.length > 0
+          ? await loadSourceFiles(finalSourcePaths)
           : undefined;
 
         // Fetch recent successful PRs as examples (non-blocking)
+        const { fetchRecentPrExamples, formatPrExamples } = await import("./task-intelligence.js");
         const prExamples = await fetchRecentPrExamples(config.repoPath).catch(() => []);
         const prExamplesSection = formatPrExamples(prExamples);
 
@@ -322,7 +281,6 @@ export async function runSession(
             }
 
             // Emit typed events for observability (pass current turn index)
-            // Sanitize serialized event data to prevent XSS in AI-generated content (OWASP LLM02)
             for (const mapped of mapSdkMessage(message, turnIndex)) {
               emitEvent(onEvent, mapped.type, { message: sanitizeStreamChunk(JSON.stringify(mapped)) });
 
@@ -459,7 +417,7 @@ export async function runSession(
         let prUrl: string | null = null;
         const changed = worktree ? await hasChanges(worktree.path) : false;
 
-        let evaluation: EvaluationResult | undefined;
+        let qualityResult: QualityGatesResult | undefined;
 
         if (changed && worktree) {
           // Capture narrowed worktree for use in closures (TS loses narrowing in callbacks)
@@ -470,42 +428,10 @@ export async function runSession(
 
           // 6a. Run lint + typecheck + test verification before pushing
           let verificationPassed = true;
-          let verificationLogPath: string | undefined;
           if (isSuccess) {
-            const verifySpan = tracer.startSpan("agent_core.verify_changes");
-            try {
-              const verification = await runVerification(wt.path);
-              verificationPassed = verification.passed;
-              verifySpan.setAttribute("verify.passed", verification.passed);
-              verifySpan.setAttribute("verify.lint", verification.lintOk);
-              verifySpan.setAttribute("verify.typecheck", verification.typecheckOk);
-              verifySpan.setAttribute("verify.tests", verification.testsOk);
-
-              // Store full verification output (not truncated)
-              const logSections: { label: string; output: string }[] = [];
-              if (verification.lintOutput) logSections.push({ label: "Lint", output: verification.lintOutput });
-              if (verification.typecheckOutput) logSections.push({ label: "Typecheck", output: verification.typecheckOutput });
-              if (verification.testOutput) logSections.push({ label: "Tests", output: verification.testOutput });
-              if (logSections.length > 0) {
-                verificationLogPath = await storeVerificationLog(wt.path, logSections);
-              }
-
-              emitEvent(onEvent, "session:verification", {
-                message: verification.passed
-                  ? "Verification passed (lint + typecheck + tests)"
-                  : `Verification failed — lint: ${verification.lintOk ? "OK" : "FAIL"}, typecheck: ${verification.typecheckOk ? "OK" : "FAIL"}, tests: ${verification.testsOk ? "OK" : "FAIL"}${verificationLogPath ? ` (full log: ${verificationLogPath})` : ""}`,
-              });
-
-              if (!verification.passed) {
-                const parts: string[] = [];
-                if (!verification.lintOk) parts.push(`lint: ${verification.lintOutput}`);
-                if (!verification.typecheckOk) parts.push(`typecheck: ${verification.typecheckOutput}`);
-                if (!verification.testsOk) parts.push(`tests: ${verification.testOutput}`);
-                errors.push(`Verification failed: ${parts.join("; ")}`);
-              }
-            } finally {
-              verifySpan.end();
-            }
+            const verification = await orchestrateVerification(wt.path, onEvent);
+            verificationPassed = verification.passed;
+            if (verification.error) errors.push(verification.error);
           }
 
           // Push with retry for transient network failures
@@ -514,83 +440,28 @@ export async function runSession(
             { maxRetries: 3 }
           );
 
-          // 6b. Run LLM success evaluation on successful sessions
-          let evaluationPassed = isSuccess;
-          if (isSuccess && config.evaluateSuccess !== false) {
-            const diff = await getCachedDiff(wt.path);
-            if (!shouldEvaluate(diff, { commitTitle: commitMsg })) {
-              emitEvent(onEvent, "session:evaluation", {
-                message: "Evaluation skipped — trivial diff",
-              });
-            } else {
-              const evalSpan = tracer.startSpan("agent_core.evaluate_success");
-              try {
-                evaluation = await evaluateSuccess(config.taskDescription, diff);
-                evalSpan.setAttribute("evaluation.passed", evaluation.passed);
-                evalSpan.setAttribute("evaluation.confidence", evaluation.confidence);
-              } finally {
-                evalSpan.end();
-              }
-              evaluationPassed = evaluation.passed;
-
-              emitEvent(onEvent, "session:evaluation", {
-                message: `Evaluation: ${evaluation.passed ? "PASS" : "FAIL"} (confidence: ${evaluation.confidence.toFixed(2)})`,
-              });
-
-              if (!evaluation.passed) {
-                errors.push(`Evaluation failed: ${evaluation.reasoning}`);
-              }
-            }
-          }
-
-          // 6c. Run fast static analysis on the diff (milliseconds, no AI)
-          let staticAnalysisClean = true;
+          // 6b, 6c, 6d. Run Quality Gates (LLM Success Eval, Static Analysis, Security Review)
           if (isSuccess && verificationPassed) {
             const diff = await getCachedDiff(wt.path);
-            const staticResult = analyzeDiff(diff);
-            staticAnalysisClean = staticResult.clean;
-
-            const errorViolations = staticResult.violations.filter((v) => v.severity === "error");
-            if (errorViolations.length > 0) {
-              const formatted = errorViolations.map(
-                (v) => `${v.file}:${v.line} [${v.rule}] ${v.message}`
-              ).join("; ");
-              errors.push(`Static analysis errors: ${formatted}`);
-              emitEvent(onEvent, "session:verification", {
-                message: `Static analysis: ${errorViolations.length} error(s) — ${formatted}`,
-              });
-            } else if (!staticResult.clean) {
-              emitEvent(onEvent, "session:verification", {
-                message: `Static analysis: ${staticResult.violations.length} warning(s) (non-blocking)`,
-              });
-            }
+            qualityResult = await runQualityGates(
+              config.taskDescription,
+              diff,
+              commitMsg,
+              {
+                evaluateSuccess: config.evaluateSuccess,
+                runSecurityReview: true,
+                runStaticAnalysis: true,
+              },
+              onEvent
+            );
+            errors.push(...qualityResult.errors);
           }
 
-          // 6d. Run AI security review on the diff
-          let securityReview: ReviewResult | undefined;
-          if (isSuccess && verificationPassed && staticAnalysisClean) {
-            const reviewSpan = tracer.startSpan("agent_core.security_review");
-            try {
-              const diff = await getCachedDiff(wt.path);
-              securityReview = await reviewDiff(diff);
-              reviewSpan.setAttribute("review.approved", securityReview.approved);
-              reviewSpan.setAttribute("review.issues_count", securityReview.issues.length);
-
-              emitEvent(onEvent, "session:review", {
-                message: securityReview.approved
-                  ? "Security review: APPROVED"
-                  : `Security review: BLOCKED — ${securityReview.issues.join("; ")}`,
-              });
-
-              if (!securityReview.approved) {
-                errors.push(`Security review failed: ${securityReview.issues.join("; ")}`);
-              }
-            } finally {
-              reviewSpan.end();
-            }
-          }
-
-          const allGatesPass = evaluationPassed && verificationPassed && staticAnalysisClean && (securityReview?.approved !== false);
+          const allGatesPass = verificationPassed && (!qualityResult || (
+            (qualityResult.evaluation?.passed !== false) &&
+            qualityResult.staticAnalysisClean &&
+            (qualityResult.securityReview?.approved !== false)
+          ));
 
           if (config.createPr) {
             // Fast-path: trivial dependency bumps that passed tests are merged
@@ -685,9 +556,9 @@ export async function runSession(
               // Quality gates failed — create draft PR so humans can review
               const gateFailures: string[] = [];
               if (!verificationPassed) gateFailures.push("verification");
-              if (!staticAnalysisClean) gateFailures.push("static-analysis");
-              if (!evaluationPassed) gateFailures.push("evaluation");
-              if (securityReview?.approved === false) gateFailures.push("security-review");
+              if (qualityResult && !qualityResult.staticAnalysisClean) gateFailures.push("static-analysis");
+              if (qualityResult && qualityResult.evaluation?.passed === false) gateFailures.push("evaluation");
+              if (qualityResult && qualityResult.securityReview?.approved === false) gateFailures.push("security-review");
 
               const title = `wip: ${config.taskDescription.slice(0, 57)}`;
               const body = buildFailurePrBody(
@@ -722,8 +593,8 @@ export async function runSession(
         }
 
         // 7. Build final result
-        const evalSummary = evaluation
-          ? { passed: evaluation.passed, confidence: evaluation.confidence, reasoning: evaluation.reasoning }
+        const evalSummary = qualityResult?.evaluation
+          ? { passed: qualityResult.evaluation.passed, confidence: qualityResult.evaluation.confidence, reasoning: qualityResult.evaluation.reasoning }
           : undefined;
 
         const collectedTurnMetrics = buildTurnMetricsList(rawTurnMetrics);

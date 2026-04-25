@@ -39,6 +39,10 @@ service = "mattbutlerengineering-hospitality-canary"
 binding = "RIALTO_CANARY"
 service = "mattbutlerengineering-rialto-web-canary"
 
+[[services]]
+binding = "GEN_CANARY"
+service = "mattbutlerengineering-gen-canary"
+
 # Health state KV — stores CI/deploy status written by GitHub Actions.
 # ID comes from: cd infrastructure/pulumi && pulumi stack output healthKvNamespaceId
 [[kv_namespaces]]

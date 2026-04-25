@@ -1087,6 +1087,9 @@ export default {
       } else if (url.pathname.startsWith("/canary/rialto")) {
         canaryBinding = env.RIALTO_CANARY;
         canaryPrefix = "/canary/rialto";
+      } else if (url.pathname.startsWith("/canary/gen")) {
+        canaryBinding = env.GEN_CANARY;
+        canaryPrefix = "/canary/gen";
       }
 
       if (canaryBinding) {

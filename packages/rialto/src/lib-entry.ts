@@ -5,3 +5,4 @@ export * from "./components";
 export * from "./tokens/icons";
 export { staggerReveal, precision, spring, springGentle, boop, reduced, ms } from "./tokens/motion";
 export { useScrollReveal } from "./hooks/useScrollReveal";
+export { unregisterStaleServiceWorkers } from "./utils/service-worker";
