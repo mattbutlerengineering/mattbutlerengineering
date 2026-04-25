@@ -1,0 +1,183 @@
+name: tier-classifier
+
+# Assigns a risk-tier label to every PR based on the rules in
+# docs/change-tiers.md. Reviewers (and reviewer agents) read the label
+# to decide which scrutiny applies.
+#
+# NOTE: GitHub Actions billing is intentionally unpaid on this repo
+# (see CLAUDE.md), so this workflow does not currently execute. The
+# rules are still encoded here so they can be activated when budget
+# allows. Until then, agents and humans applying review-criteria.md
+# can read this file (or docs/change-tiers.md) to classify by hand.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: tier-classifier-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  classify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      # Quoted env vars guard every untrusted input against shell injection.
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      PR_TITLE: ${{ github.event.pull_request.title }}
+      PR_BODY: ${{ github.event.pull_request.body }}
+      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+      PR_IS_FORK: ${{ github.event.pull_request.head.repo.fork }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout (PR head)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Compute base SHA and diff
+        id: diff
+        run: |
+          base_sha=$(git merge-base "origin/${PR_BASE_REF}" HEAD)
+          git diff --name-only "${base_sha}...HEAD" > /tmp/changed-files.txt
+          added=$(git diff --shortstat "${base_sha}...HEAD" | awk '{print $4+0}')
+          {
+            echo "added=${added}"
+            echo "count=$(wc -l < /tmp/changed-files.txt)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Classify
+        id: classify
+        env:
+          ADDED_LINES: ${{ steps.diff.outputs.added }}
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const files = fs.readFileSync('/tmp/changed-files.txt', 'utf-8').split('\n').filter(Boolean);
+
+          const T1 = 1, T2 = 2, T3 = 3, T4 = 4;
+          const TIER_NAMES = { 1: 'trivial', 2: 'standard', 3: 'sensitive', 4: 'critical' };
+
+          const rules = [
+            // T4 — critical
+            { tier: T4, when: (f) => /^prisma\/migrations\//.test(f), why: 'prisma migration (post-classifier: migration-reviewer must flag destructive ops)' },
+            { tier: T4, when: (f) => f === 'prisma/schema.prisma', why: 'prisma schema change' },
+            { tier: T4, when: (f) => /^infrastructure\/pulumi\//.test(f), why: 'pulumi infra change' },
+            { tier: T4, when: (f) => f === '.github/CODEOWNERS', why: 'CODEOWNERS edit' },
+            { tier: T4, when: (f) => /^\.github\/workflows\/(codeql|coverage-gate|tier-classifier)\.yml$/.test(f), why: 'merge-gate workflow edit' },
+            { tier: T4, when: (f) => /^services\/users\/src\/auth\//.test(f) || /^packages\/auth\/src\/middleware\//.test(f), why: 'auth-critical code path' },
+            { tier: T4, when: (f) => f === 'docs/SECURITY-AI.md', why: 'SECURITY-AI.md edit' },
+
+            // T3 — sensitive
+            { tier: T3, when: (f) => /^services\/[^/]+\/src\/routes\//.test(f) || /^services\/[^/]+\/src\/middleware\//.test(f), why: 'service route or middleware' },
+            { tier: T3, when: (f) => /^packages\/rialto\/src\/components\//.test(f), why: 'rialto component change' },
+            { tier: T3, when: (f) => f === 'package.json' || /^pnpm-lock\.yaml$/.test(f), why: 'root deps or lockfile' },
+            { tier: T3, when: (f) => /^(eslint\.config\.js|tsconfig.*\.json|turbo\.json)$/.test(f), why: 'root build/lint config' },
+            { tier: T3, when: (f) => /^scripts\/check-/.test(f), why: 'gate-enforcement script' },
+            { tier: T3, when: (f) => /^\.husky\//.test(f), why: 'pre-commit hook' },
+            { tier: T3, when: (f) => /^apps\/[^/]+\/wrangler\.toml$/.test(f), why: 'wrangler config' },
+
+            // T2 — standard
+            { tier: T2, when: (f) => /^packages\/rialto\//.test(f), why: 'rialto non-component' },
+            { tier: T2, when: (f) => /^services\/[^/]+\/src\//.test(f), why: 'service code' },
+            { tier: T2, when: (f) => /^apps\/[^/]+\/src\//.test(f), why: 'app code' },
+            { tier: T2, when: (f) => /^docs\/adr\//.test(f), why: 'new ADR' },
+
+            // T1 — trivial
+            { tier: T1, when: (f) => /\.md$/.test(f) && !/(SECURITY-AI|change-tiers|review-criteria)/.test(f), why: 'markdown only' },
+            { tier: T1, when: (f) => /^\.changeset\//.test(f), why: 'changeset' },
+            { tier: T1, when: (f) => f === '.editorconfig' || /^\.vscode\//.test(f), why: 'editor config' },
+            { tier: T1, when: (f) => /^metrics\//.test(f), why: 'metrics append' },
+            { tier: T1, when: (f) => /^(llms|llms-full)\.txt$/.test(f) || /\/(llms|llms-full)\.txt$/.test(f), why: 'auto-generated llms.txt' },
+            { tier: T1, when: (f) => /\.test\.[tj]sx?$/.test(f), why: 'test-only' },
+          ];
+
+          let highest = 0;
+          const reasons = new Set();
+          for (const f of files) {
+            for (const r of rules) {
+              if (r.tier > highest && r.when(f)) {
+                highest = r.tier;
+                reasons.add(`\`${f}\` -> T${r.tier}: ${r.why}`);
+              }
+            }
+          }
+          if (highest === 0) {
+            highest = T2;
+            reasons.add(`unmatched paths default to T2: ${files.slice(0,3).join(', ')}${files.length > 3 ? `…` : ''}`);
+          }
+
+          const title = process.env.PR_TITLE || '';
+          const body = process.env.PR_BODY || '';
+          const added = parseInt(process.env.ADDED_LINES || '0', 10);
+          const isFork = process.env.PR_IS_FORK === 'true';
+
+          if (/secret|credential|rotate|leak|incident/i.test(title + ' ' + body)) {
+            highest = T4;
+            reasons.add('escalate to T4: title/body mentions secrets or incident');
+          }
+          if (/bypass.*check|skip.*review/i.test(body)) {
+            highest = T4;
+            reasons.add('escalate to T4: PR body asks to bypass a check');
+          }
+          if (added > 1000 && highest < T4) {
+            highest = Math.min(T4, highest + 1);
+            reasons.add(`escalate one tier: ${added} lines added`);
+          }
+          if (isFork && highest < T4) {
+            highest = Math.min(T4, highest + 1);
+            reasons.add('escalate one tier: PR from fork');
+          }
+
+          const labelName = `tier:${TIER_NAMES[highest]}`;
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `tier=${highest}\nlabel=${labelName}\nreasons=${[...reasons].join(' · ')}\n`);
+          console.log(`Classified: ${labelName} (T${highest})`);
+          for (const r of reasons) console.log(`  - ${r}`);
+          NODE
+
+      - name: Ensure tier labels exist
+        run: |
+          for tier in trivial standard sensitive critical; do
+            case "$tier" in
+              trivial)   color=cccccc;;
+              standard)  color=1f883d;;
+              sensitive) color=bf8700;;
+              critical)  color=b60205;;
+            esac
+            gh label create "tier:${tier}" --force --color "$color" --description "Change-tier classification (see docs/change-tiers.md)" || true
+          done
+
+      - name: Apply tier label
+        env:
+          NEW_LABEL: ${{ steps.classify.outputs.label }}
+        run: |
+          for existing in $(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name' | grep '^tier:' || true); do
+            if [ "$existing" != "$NEW_LABEL" ]; then
+              gh pr edit "$PR_NUMBER" --remove-label "$existing"
+            fi
+          done
+          gh pr edit "$PR_NUMBER" --add-label "$NEW_LABEL"
+
+      - name: Comment classification rationale
+        env:
+          NEW_LABEL: ${{ steps.classify.outputs.label }}
+          REASONS: ${{ steps.classify.outputs.reasons }}
+        run: |
+          # Untrusted inputs are quoted via env vars; the comment body is constructed
+          # in a heredoc so no further interpolation happens at the shell level.
+          body=$(cat <<EOF
+          **Classified as \`${NEW_LABEL}\`** by tier-classifier.
+
+          ${REASONS}
+
+          See [docs/change-tiers.md](../blob/main/docs/change-tiers.md) for the rules and what review applies.
+          EOF
+          )
+          gh pr comment "$PR_NUMBER" --body "$body"
