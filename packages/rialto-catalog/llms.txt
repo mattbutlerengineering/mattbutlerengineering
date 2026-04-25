@@ -1,18 +1,4 @@
 <codebase path="packages/rialto-catalog">
-  <section priority="medium" role="scripts">
-  <file path="scripts/generate-catalog.ts">
-    <item priority="high">
-      interface CharacterLimit {
-        component: string;
-        prop: string;
-        max: number;
-      }
-    </item>
-    <item priority="medium">
-      function typeToString(type: ts.Type, checker: ts.TypeChecker): string { /* ... */ }
-    </item>
-  </file>
-  </section>
   <section priority="medium" role="src">
   <file path="src/generated-schemas.ts">
     <item priority="high">
@@ -29,11 +15,25 @@
       interface ComponentConfig {
         include: boolean;
         description: string;
-        slots?: string[];
+        slots?: string[] | undefined;
       }
     </item>
     <item priority="high">
       export const catalogConfig: Record<string, import("/Users/mbutler/github/mattbutleren...;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="scripts">
+  <file path="scripts/generate-catalog.ts">
+    <item priority="high">
+      interface CharacterLimit {
+        component: string;
+        prop: string;
+        max: number;
+      }
+    </item>
+    <item priority="medium">
+      function typeToString(type: ts.Type, checker: ts.TypeChecker): string { /* ... */ }
     </item>
   </file>
   </section>
