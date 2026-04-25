@@ -28,7 +28,6 @@ vi.mock("../commands/generate.js", () => ({ generateCommand: { _name: "generate"
 vi.mock("../commands/visual.js", () => ({ visualCommand: { _name: "visual" } }));
 vi.mock("../commands/prime.js", () => ({ primeCommand: { _name: "prime" } }));
 vi.mock("../commands/check-deps.js", () => ({ checkDepsCommand: { _name: "check-deps" } }));
-vi.mock("../commands/mcp.js", () => ({ mcpCommand: { _name: "mcp" } }));
 
 // Track addCommand calls
 const addedCommands: string[] = [];
@@ -78,7 +77,6 @@ describe("CLI entry point", () => {
       "audit-perf",
       "check-adr",
       "check-deps",
-      "mcp",
       "visual",
     ];
 
@@ -89,6 +87,6 @@ describe("CLI entry point", () => {
 
   it("registers the correct number of commands", async () => {
     await import("../index.js");
-    expect(addedCommands.length).toBe(22);
+    expect(addedCommands.length).toBe(21);
   });
 });

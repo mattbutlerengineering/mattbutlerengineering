@@ -1,5 +1,0 @@
-<codebase path="packages/mcp-server">
-  <file path="src/index.ts">
-    async function main() { /* implementation omitted */ }
-  </file>
-</codebase>

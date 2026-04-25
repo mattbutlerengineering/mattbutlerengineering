@@ -18,7 +18,6 @@ src/
 │   ├── login.ts       # login — authenticate with Auth0
 │   ├── logout.ts      # logout — clear local tokens
 │   ├── loop.ts        # loop — run command repeatedly on interval
-│   ├── mcp.ts         # mcp — start MCP server
 │   ├── new.ts         # new — scaffold new packages/services
 │   ├── pack.ts        # pack/pack-changed — generate llms.txt context files
 │   ├── prime.ts       # prime — prepare repo context for AI agents
