@@ -56,6 +56,7 @@ const lightSections = [
   "drawer-open",
   "tape-chart-default",
   "tape-chart-stress",
+  "master-override-variants",
 ] as const;
 
 for (const id of lightSections) {

@@ -23,6 +23,7 @@ import {
   Drawer,
   EmptyState,
   Input,
+  MasterOverride,
   Meter,
   NumberInput,
   Pagination,
@@ -579,6 +580,32 @@ export function VisualTest() {
             viewMode="grid"
             onReservationClick={() => {}}
           />
+        </div>
+      </Section>
+
+      {/* ── MasterOverride — Variants (3 sizes × 3 variants) ───────── */}
+      <Section id="master-override-variants" title="MasterOverride — Variants">
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, auto)",
+            gap: "var(--rialto-space-lg)",
+            justifyItems: "start",
+          }}
+        >
+          {(["sm", "md", "lg"] as const).map((size) =>
+            (["default", "warning", "danger"] as const).map((variant) => (
+              <MasterOverride
+                key={`${size}-${variant}`}
+                label={`${size.toUpperCase()} ${variant}`}
+                description={`${size} · ${variant}`}
+                on={false}
+                onChange={() => {}}
+                size={size}
+                variant={variant}
+              />
+            )),
+          )}
         </div>
       </Section>
 
