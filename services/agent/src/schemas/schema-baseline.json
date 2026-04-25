@@ -1,4 +1,131 @@
 {
+  "CreateSessionBody": {
+    "$id": "CreateSessionBody",
+    "type": "object",
+    "properties": {
+      "taskDescription": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 10000
+      },
+      "model": {
+        "type": "string"
+      },
+      "maxTurns": {
+        "type": "number",
+        "minimum": 1,
+        "maximum": 200
+      },
+      "maxBudgetUsd": {
+        "type": "number",
+        "minimum": 0.01,
+        "maximum": 10
+      },
+      "baseBranch": {
+        "type": "string"
+      },
+      "createPr": {
+        "type": "boolean"
+      },
+      "parentId": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "taskDescription"
+    ]
+  },
+  "AgentError": {
+    "$id": "AgentError",
+    "type": "object",
+    "required": [
+      "error",
+      "message",
+      "statusCode"
+    ],
+    "properties": {
+      "error": {
+        "type": "string",
+        "example": "Not Found"
+      },
+      "message": {
+        "type": "string",
+        "example": "Session not found"
+      },
+      "statusCode": {
+        "type": "number",
+        "example": 404
+      }
+    }
+  },
+  "AgentPagination": {
+    "$id": "AgentPagination",
+    "type": "object",
+    "required": [
+      "page",
+      "limit",
+      "total",
+      "totalPages",
+      "hasNext",
+      "hasPrev"
+    ],
+    "properties": {
+      "page": {
+        "type": "number",
+        "example": 1
+      },
+      "limit": {
+        "type": "number",
+        "example": 10
+      },
+      "total": {
+        "type": "number",
+        "example": 42
+      },
+      "totalPages": {
+        "type": "number",
+        "example": 5
+      },
+      "hasNext": {
+        "type": "boolean",
+        "example": true
+      },
+      "hasPrev": {
+        "type": "boolean",
+        "example": false
+      }
+    }
+  },
+  "SessionEvent": {
+    "$id": "SessionEvent",
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string"
+      },
+      "sessionId": {
+        "type": "string"
+      },
+      "type": {
+        "type": "string"
+      },
+      "data": {
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        }
+      },
+      "createdAt": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "id",
+      "sessionId",
+      "type",
+      "createdAt"
+    ]
+  },
   "Session": {
     "$id": "Session",
     "type": "object",
@@ -191,132 +318,5 @@
       "createdAt",
       "updatedAt"
     ]
-  },
-  "SessionEvent": {
-    "$id": "SessionEvent",
-    "type": "object",
-    "properties": {
-      "id": {
-        "type": "string"
-      },
-      "sessionId": {
-        "type": "string"
-      },
-      "type": {
-        "type": "string"
-      },
-      "data": {
-        "type": "object",
-        "propertyNames": {
-          "type": "string"
-        }
-      },
-      "createdAt": {
-        "type": "string"
-      }
-    },
-    "required": [
-      "id",
-      "sessionId",
-      "type",
-      "createdAt"
-    ]
-  },
-  "CreateSessionBody": {
-    "$id": "CreateSessionBody",
-    "type": "object",
-    "properties": {
-      "taskDescription": {
-        "type": "string",
-        "minLength": 1,
-        "maxLength": 10000
-      },
-      "model": {
-        "type": "string"
-      },
-      "maxTurns": {
-        "type": "number",
-        "minimum": 1,
-        "maximum": 200
-      },
-      "maxBudgetUsd": {
-        "type": "number",
-        "minimum": 0.01,
-        "maximum": 10
-      },
-      "baseBranch": {
-        "type": "string"
-      },
-      "createPr": {
-        "type": "boolean"
-      },
-      "parentId": {
-        "type": "string"
-      }
-    },
-    "required": [
-      "taskDescription"
-    ]
-  },
-  "AgentPagination": {
-    "$id": "AgentPagination",
-    "type": "object",
-    "required": [
-      "page",
-      "limit",
-      "total",
-      "totalPages",
-      "hasNext",
-      "hasPrev"
-    ],
-    "properties": {
-      "page": {
-        "type": "number",
-        "example": 1
-      },
-      "limit": {
-        "type": "number",
-        "example": 10
-      },
-      "total": {
-        "type": "number",
-        "example": 42
-      },
-      "totalPages": {
-        "type": "number",
-        "example": 5
-      },
-      "hasNext": {
-        "type": "boolean",
-        "example": true
-      },
-      "hasPrev": {
-        "type": "boolean",
-        "example": false
-      }
-    }
-  },
-  "AgentError": {
-    "$id": "AgentError",
-    "type": "object",
-    "required": [
-      "error",
-      "message",
-      "statusCode"
-    ],
-    "properties": {
-      "error": {
-        "type": "string",
-        "example": "Not Found"
-      },
-      "message": {
-        "type": "string",
-        "example": "Session not found"
-      },
-      "statusCode": {
-        "type": "number",
-        "example": 404
-      }
-    }
   }
 }

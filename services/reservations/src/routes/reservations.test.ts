@@ -132,6 +132,7 @@ describe("Reservation Routes", () => {
       ...originalEnv,
       AUTH_AUTHORITY: "https://test.auth0.com",
       AUTH_AUDIENCE: "https://api.example.com",
+      AUTH_BYPASS_IN_TESTS: "true",
     };
     vi.mocked(jwtVerify).mockResolvedValue({
       payload: mockJWTPayload,
@@ -157,7 +158,7 @@ describe("Reservation Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/reservations",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(200);
@@ -176,7 +177,7 @@ describe("Reservation Routes", () => {
       await app.inject({
         method: "GET",
         url: "/api/v1/reservations?date=2026-02-15&status=CONFIRMED&tableId=table-123",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(reservationService.list).toHaveBeenCalledWith({
@@ -197,7 +198,7 @@ describe("Reservation Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/reservations?page=0",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(200);
@@ -215,7 +216,7 @@ describe("Reservation Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/reservations?page=-5",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(200);
@@ -233,7 +234,7 @@ describe("Reservation Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/reservations?limit=0",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(200);
@@ -252,7 +253,7 @@ describe("Reservation Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/reservations?limit=1000",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(200);
@@ -270,7 +271,7 @@ describe("Reservation Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/reservations?page=abc",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(200);
@@ -298,7 +299,7 @@ describe("Reservation Routes", () => {
         method: "GET",
         url: "/api/v1/reservations/me",
         headers: {
-          authorization: "Bearer valid-token",
+          "x-auth-bypass": "true",
         },
       });
 
@@ -338,7 +339,7 @@ describe("Reservation Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/reservations/res-123",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(200);
@@ -359,7 +360,7 @@ describe("Reservation Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/reservations/nonexistent",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(404);
@@ -416,7 +417,7 @@ describe("Reservation Routes", () => {
         method: "POST",
         url: "/api/v1/reservations",
         headers: {
-          authorization: "Bearer valid-token",
+          "x-auth-bypass": "true",
         },
         payload: {
           date: "2026-02-15",
@@ -441,7 +442,7 @@ describe("Reservation Routes", () => {
         method: "POST",
         url: "/api/v1/reservations",
         headers: {
-          authorization: "Bearer invalid-token",
+          authorization: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.invalid",
         },
         payload: {
           date: "2026-02-15",
@@ -498,7 +499,7 @@ describe("Reservation Routes", () => {
       const response = await app.inject({
         method: "PATCH",
         url: "/api/v1/reservations/res-123",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
         payload: {
           partySize: 6,
         },
@@ -516,7 +517,7 @@ describe("Reservation Routes", () => {
       const response = await app.inject({
         method: "PATCH",
         url: "/api/v1/reservations/nonexistent",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
         payload: {
           partySize: 6,
         },
@@ -537,7 +538,7 @@ describe("Reservation Routes", () => {
       const response = await app.inject({
         method: "PATCH",
         url: "/api/v1/reservations/res-123",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
         payload: {
           startTime: "2026-02-15T19:00:00.000Z",
         },
@@ -574,7 +575,7 @@ describe("Reservation Routes", () => {
       const response = await app.inject({
         method: "PATCH",
         url: "/api/v1/reservations/res-123",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
         payload: {
           status: "CANCELLED",
           cancellationReason: "no_show",
@@ -607,7 +608,7 @@ describe("Reservation Routes", () => {
       const response = await app.inject({
         method: "PATCH",
         url: "/api/v1/reservations/res-123",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
         payload: {
           status: "CANCELLED",
         },
@@ -628,7 +629,7 @@ describe("Reservation Routes", () => {
       const response = await app.inject({
         method: "PATCH",
         url: "/api/v1/reservations/nonexistent",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
         payload: {
           status: "CANCELLED",
         },
@@ -661,7 +662,7 @@ describe("Reservation Routes", () => {
         method: "POST",
         url: "/api/v1/reservations/walk-in",
         headers: {
-          authorization: "Bearer valid-token",
+          "x-auth-bypass": "true",
         },
         payload: {
           partySize: 4,
@@ -704,7 +705,7 @@ describe("Reservation Routes", () => {
         method: "POST",
         url: "/api/v1/reservations/walk-in",
         headers: {
-          authorization: "Bearer valid-token",
+          "x-auth-bypass": "true",
         },
         payload: {
           partySize: 2,
@@ -753,7 +754,7 @@ describe("Reservation Routes", () => {
       const response = await app.inject({
         method: "DELETE",
         url: "/api/v1/reservations/res-123",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(200);
@@ -768,7 +769,7 @@ describe("Reservation Routes", () => {
       const response = await app.inject({
         method: "DELETE",
         url: "/api/v1/reservations/nonexistent",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(404);

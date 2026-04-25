@@ -91,6 +91,159 @@ exports[`Reservation service schemas > FloorPlanSchema matches snapshot 1`] = `
     "name": {
       "type": "string",
     },
+    "tables": {
+      "items": {
+        "properties": {
+          "capacity": {
+            "type": "number",
+          },
+          "createdAt": {
+            "type": "string",
+          },
+          "floorPlanId": {
+            "anyOf": [
+              {
+                "type": "string",
+              },
+              {
+                "type": "null",
+              },
+            ],
+          },
+          "id": {
+            "type": "string",
+          },
+          "isActive": {
+            "type": "boolean",
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string",
+              },
+              {
+                "type": "null",
+              },
+            ],
+          },
+          "maxCovers": {
+            "anyOf": [
+              {
+                "type": "number",
+              },
+              {
+                "type": "null",
+              },
+            ],
+          },
+          "minCovers": {
+            "type": "number",
+          },
+          "name": {
+            "type": "string",
+          },
+          "priority": {
+            "type": "number",
+          },
+          "shapeMetadata": {
+            "anyOf": [
+              {
+                "properties": {
+                  "color": {
+                    "type": "string",
+                  },
+                  "height": {
+                    "type": "number",
+                  },
+                  "rotation": {
+                    "type": "number",
+                  },
+                  "shape": {
+                    "enum": [
+                      "rectangle",
+                      "circle",
+                      "square",
+                    ],
+                    "type": "string",
+                  },
+                  "width": {
+                    "type": "number",
+                  },
+                  "x": {
+                    "type": "number",
+                  },
+                  "y": {
+                    "type": "number",
+                  },
+                },
+                "required": [
+                  "x",
+                  "y",
+                  "width",
+                  "height",
+                  "shape",
+                ],
+                "type": "object",
+              },
+              {
+                "type": "null",
+              },
+            ],
+          },
+          "status": {
+            "enum": [
+              "AVAILABLE",
+              "OCCUPIED",
+              "DIRTY",
+              "READY",
+            ],
+            "type": "string",
+          },
+          "tableNumber": {
+            "anyOf": [
+              {
+                "type": "string",
+              },
+              {
+                "type": "null",
+              },
+            ],
+          },
+          "updatedAt": {
+            "type": "string",
+          },
+          "venueId": {
+            "anyOf": [
+              {
+                "type": "string",
+              },
+              {
+                "type": "null",
+              },
+            ],
+          },
+        },
+        "required": [
+          "id",
+          "name",
+          "tableNumber",
+          "capacity",
+          "minCovers",
+          "maxCovers",
+          "location",
+          "isActive",
+          "priority",
+          "status",
+          "venueId",
+          "floorPlanId",
+          "shapeMetadata",
+          "createdAt",
+          "updatedAt",
+        ],
+        "type": "object",
+      },
+      "type": "array",
+    },
     "updatedAt": {
       "type": "string",
     },

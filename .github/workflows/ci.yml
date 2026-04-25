@@ -32,7 +32,7 @@ jobs:
 
       - uses: pnpm/action-setup@v5
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: "pnpm"
@@ -137,7 +137,7 @@ jobs:
 
       - uses: pnpm/action-setup@v5
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: "pnpm"
@@ -160,7 +160,7 @@ jobs:
 
       - uses: pnpm/action-setup@v5
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: "pnpm"
@@ -186,17 +186,44 @@ jobs:
           TURBO_TEAM: ${{ vars.TURBO_TEAM }}
         run: pnpm typecheck
 
-  build:
-    name: Build
+  architecture-audit:
+    name: Architecture Audit
     runs-on: ubuntu-latest
-    needs: [lint, typecheck]
+    needs: [prepare]
 
     steps:
       - uses: actions/checkout@v5
 
       - uses: pnpm/action-setup@v5
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Restore node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Run ADR and Dependency Checks
+        run: |
+          pnpm --filter @mbe/cli build
+          pnpm --filter @mbe/cli start check-adr
+          pnpm --filter @mbe/cli start check-deps
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [lint, typecheck, architecture-audit]
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: "pnpm"
@@ -222,27 +249,14 @@ jobs:
           TURBO_TEAM: ${{ vars.TURBO_TEAM }}
         run: pnpm build
 
-      - name: Check circular dependencies
-        run: node scripts/check-circular-deps.js
-
-      - name: Check service binding consistency
-        run: node scripts/check-service-bindings.js
-
-      - name: Check env var documentation
-        run: node scripts/check-env-sync.js
-
-      - name: Audit dependencies for vulnerabilities
-        run: |
-          pnpm audit --audit-level=high || { echo "::error::High or Critical vulnerability found"; exit 1; }
+      - name: Run Full Repository Audit
+        run: pnpm repo-audit
 
       - name: Regenerate dependency graph
         run: |
           node scripts/generate-dep-graph.mjs
           git diff --exit-code infrastructure/worker/dep-graph.json || \
             (echo "ERROR: dep-graph.json is stale. Run 'pnpm generate:dep-graph' locally and commit the result." && exit 1)
-
-      - name: Check Dockerfile dependencies
-        run: node scripts/check-dockerfile-deps.js
 
       - name: Check registry.json is up to date
         run: |
@@ -268,14 +282,14 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    needs: [lint, typecheck]
+    needs: [lint, typecheck, architecture-audit]
 
     steps:
       - uses: actions/checkout@v5
 
       - uses: pnpm/action-setup@v5
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: "pnpm"
@@ -333,7 +347,7 @@ jobs:
 
       - uses: pnpm/action-setup@v5
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: "pnpm"

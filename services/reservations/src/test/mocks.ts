@@ -7,6 +7,11 @@
  * fresh copy each time.
  */
 
+import {
+  TableShapeMetadata,
+  TableStatus,
+} from "@mbe/types";
+
 // ---------------------------------------------------------------------------
 // Types — keep in sync with Prisma-generated models
 // ---------------------------------------------------------------------------
@@ -14,17 +19,17 @@
 export interface MockTable {
   readonly id: string;
   readonly name: string;
-  readonly tableNumber: string;
+  readonly tableNumber: string | null;
   readonly capacity: number;
   readonly minCovers: number;
   readonly maxCovers: number | null;
-  readonly location: string;
+  readonly location: string | null;
   readonly isActive: boolean;
   readonly priority: number;
-  readonly status: "AVAILABLE" | "OCCUPIED" | "DIRTY" | "READY";
+  readonly status: TableStatus;
   readonly venueId: string | null;
   readonly floorPlanId: string | null;
-  readonly shapeMetadata: string | null;
+  readonly shapeMetadata: TableShapeMetadata | null;
   readonly createdAt: string;
   readonly updatedAt: string;
 }

@@ -1,4 +1,56 @@
 {
+  "Error": {
+    "$id": "Error",
+    "type": "object",
+    "properties": {
+      "error": {
+        "type": "string"
+      },
+      "message": {
+        "type": "string"
+      },
+      "statusCode": {
+        "type": "number"
+      }
+    },
+    "required": [
+      "error",
+      "message",
+      "statusCode"
+    ]
+  },
+  "Pagination": {
+    "$id": "Pagination",
+    "type": "object",
+    "properties": {
+      "page": {
+        "type": "number"
+      },
+      "limit": {
+        "type": "number"
+      },
+      "total": {
+        "type": "number"
+      },
+      "totalPages": {
+        "type": "number"
+      },
+      "hasNext": {
+        "type": "boolean"
+      },
+      "hasPrev": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "page",
+      "limit",
+      "total",
+      "totalPages",
+      "hasNext",
+      "hasPrev"
+    ]
+  },
   "UserPreferences": {
     "$id": "UserPreferences",
     "type": "object",
@@ -89,58 +141,6 @@
       "preferences",
       "createdAt",
       "updatedAt"
-    ]
-  },
-  "Pagination": {
-    "$id": "Pagination",
-    "type": "object",
-    "properties": {
-      "page": {
-        "type": "number"
-      },
-      "limit": {
-        "type": "number"
-      },
-      "total": {
-        "type": "number"
-      },
-      "totalPages": {
-        "type": "number"
-      },
-      "hasNext": {
-        "type": "boolean"
-      },
-      "hasPrev": {
-        "type": "boolean"
-      }
-    },
-    "required": [
-      "page",
-      "limit",
-      "total",
-      "totalPages",
-      "hasNext",
-      "hasPrev"
-    ]
-  },
-  "Error": {
-    "$id": "Error",
-    "type": "object",
-    "properties": {
-      "error": {
-        "type": "string"
-      },
-      "message": {
-        "type": "string"
-      },
-      "statusCode": {
-        "type": "number"
-      }
-    },
-    "required": [
-      "error",
-      "message",
-      "statusCode"
     ]
   }
 }

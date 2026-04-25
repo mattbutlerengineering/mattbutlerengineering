@@ -145,6 +145,7 @@ describe("Table Routes", () => {
       ...originalEnv,
       AUTH_AUTHORITY: "https://test.auth0.com",
       AUTH_AUDIENCE: "https://api.example.com",
+      AUTH_BYPASS_IN_TESTS: "true",
     };
     app = await buildApp({ logger: false });
     await app.ready();
@@ -245,7 +246,7 @@ describe("Table Routes", () => {
         method: "POST",
         url: "/api/v1/tables",
         headers: {
-          authorization: "Bearer valid-token",
+          "x-auth-bypass": "true",
         },
         payload: {
           name: "Table 1",
@@ -286,7 +287,7 @@ describe("Table Routes", () => {
         method: "PATCH",
         url: "/api/v1/tables/table-123",
         headers: {
-          authorization: "Bearer valid-token",
+          "x-auth-bypass": "true",
         },
         payload: {
           name: "Updated Table",
@@ -309,7 +310,7 @@ describe("Table Routes", () => {
         method: "PATCH",
         url: "/api/v1/tables/nonexistent",
         headers: {
-          authorization: "Bearer valid-token",
+          "x-auth-bypass": "true",
         },
         payload: {
           name: "New Name",
@@ -333,7 +334,7 @@ describe("Table Routes", () => {
         method: "PATCH",
         url: "/api/v1/tables/table-123/status",
         headers: {
-          authorization: "Bearer valid-token",
+          "x-auth-bypass": "true",
         },
         payload: {
           status: "OCCUPIED",
@@ -358,7 +359,7 @@ describe("Table Routes", () => {
         method: "PATCH",
         url: "/api/v1/tables/nonexistent/status",
         headers: {
-          authorization: "Bearer valid-token",
+          "x-auth-bypass": "true",
         },
         payload: {
           status: "DIRTY",
@@ -392,7 +393,7 @@ describe("Table Routes", () => {
         method: "PATCH",
         url: "/api/v1/tables/table-123/status",
         headers: {
-          authorization: "Bearer valid-token",
+          "x-auth-bypass": "true",
         },
         payload: {
           status: "INVALID_STATUS",
@@ -415,7 +416,7 @@ describe("Table Routes", () => {
         method: "DELETE",
         url: "/api/v1/tables/table-123",
         headers: {
-          authorization: "Bearer valid-token",
+          "x-auth-bypass": "true",
         },
       });
 
@@ -434,7 +435,7 @@ describe("Table Routes", () => {
         method: "DELETE",
         url: "/api/v1/tables/nonexistent",
         headers: {
-          authorization: "Bearer valid-token",
+          "x-auth-bypass": "true",
         },
       });
 

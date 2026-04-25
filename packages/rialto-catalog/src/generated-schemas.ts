@@ -4,6 +4,7 @@ import { z } from "zod";
 export const generatedSchemas = {
   Accordion: z.object({
     multiple: z.boolean().optional(),
+    headingLevel: z.enum(["h2", "h3", "h4", "h5", "h6"]).optional(),
   }),
   Alert: z.object({
     variant: z.enum(["info", "success", "warning", "error"]).optional(),
@@ -23,6 +24,7 @@ export const generatedSchemas = {
     name: z.string().max(30).optional(),
     size: z.enum(["sm", "md", "lg", "xl"]).optional(),
     status: z.enum(["online", "offline", "busy", "away"]).optional(),
+    transition: z.enum(["fade", "splitflap"]).optional(),
   }),
   Badge: z.object({
     variant: z.enum(["success", "warning", "error", "neutral", "accent"]).optional(),

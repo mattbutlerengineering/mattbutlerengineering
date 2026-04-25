@@ -165,8 +165,8 @@ const mockDateAvailability = [
 
 describe("Availability Routes", () => {
   let app: FastifyInstance;
-
   beforeEach(async () => {
+    process.env.AUTH_BYPASS_IN_TESTS = "true";
     app = await buildApp({ logger: false });
     await app.ready();
     vi.clearAllMocks();

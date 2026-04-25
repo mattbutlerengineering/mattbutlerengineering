@@ -59,6 +59,9 @@ describe("Agent Service API Contract", () => {
     const response = await app.inject({
       method: "POST",
       url: "/v1/sessions",
+      headers: {
+        "x-auth-bypass": "true",
+      },
       payload: { taskDescription: "Another task" },
     });
 

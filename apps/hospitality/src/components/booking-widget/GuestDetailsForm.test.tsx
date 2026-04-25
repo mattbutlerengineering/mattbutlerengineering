@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import "@testing-library/jest-dom";
 import { GuestDetailsForm } from "./GuestDetailsForm.js";
 import type { TimeSlot, ReservationHold } from "@mbe/types";
 
@@ -14,25 +15,25 @@ const mockHold: ReservationHold = {
 };
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Input: ({ label, required, value, onChange, placeholder, type }: { label?: string; required?: boolean; value?: string; onChange?: (v: string) => void; placeholder?: string; type?: string }) => (
+  Input: ({ label, required, value, onChange, placeholder, type }: { label?: string; required?: boolean; value?: string; onChange?: (e: any) => void; placeholder?: string; type?: string }) => (
     <div data-testid="input-wrapper">
       <label>{label}{required && "*"}</label>
       <input
         data-testid={label?.toLowerCase().replace(/\s/g, "-")}
         type={type || "text"}
         value={value}
-        onChange={onChange ? (e: { target: { value: string } }) => onChange(e.target.value) : undefined}
+        onChange={onChange}
         placeholder={placeholder}
       />
     </div>
   ),
-  TextArea: ({ label, value, onChange, rows, placeholder }: { label?: string; value?: string; onChange?: (v: string) => void; rows?: number; placeholder?: string }) => (
+  TextArea: ({ label, value, onChange, rows, placeholder }: { label?: string; value?: string; onChange?: (e: any) => void; rows?: number; placeholder?: string }) => (
     <div data-testid="textarea-wrapper">
       <label>{label}</label>
       <textarea
         data-testid={label?.toLowerCase().replace(/\s/g, "-")}
         value={value}
-        onChange={onChange ? (e: { target: { value: string } }) => onChange(e.target.value) : undefined}
+        onChange={onChange}
         rows={rows}
         placeholder={placeholder}
       />

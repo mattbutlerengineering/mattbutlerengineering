@@ -1,5 +1,7 @@
 import { z } from "zod";
-import { TableShapeMetadataSchema } from "./floor-plan.js";
+import { TableSchema, TableStatusSchema } from "./floor-plan.js";
+
+export { TableSchema, TableStatusSchema };
 
 export const ReservationStatusSchema = z.enum([
   "PENDING",
@@ -8,26 +10,6 @@ export const ReservationStatusSchema = z.enum([
   "COMPLETED",
   "NO_SHOW",
 ]);
-
-export const TableStatusSchema = z.enum(["AVAILABLE", "OCCUPIED", "DIRTY", "READY"]);
-
-export const TableSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  tableNumber: z.string().nullable(),
-  capacity: z.number(),
-  minCovers: z.number(),
-  maxCovers: z.number().nullable(),
-  location: z.string().nullable(),
-  isActive: z.boolean(),
-  priority: z.number(),
-  status: TableStatusSchema,
-  venueId: z.string().nullable(),
-  floorPlanId: z.string().nullable(),
-  shapeMetadata: TableShapeMetadataSchema.nullable(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-});
 
 export const ReservationSchema = z.object({
   id: z.string(),

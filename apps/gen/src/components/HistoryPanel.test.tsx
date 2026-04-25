@@ -40,9 +40,13 @@ vi.mock("./HistoryPanel.module.css", () => ({
 
 const createMockEntry = (overrides: Partial<StoredSpec> = {}): StoredSpec => ({
   id: "spec-1",
+  userId: "user-1",
   prompt: "Generate a test spec",
+  spec: {},
+  rawLines: [],
   isFavorite: false,
   createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
   ...overrides,
 });
 

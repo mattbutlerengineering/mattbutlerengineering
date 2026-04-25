@@ -68,4 +68,11 @@ program.addCommand(healthCommand);
 // UI commands
 program.addCommand(visualCommand);
 
-program.parse();
+program.parseAsync().catch((err) => {
+  if (err instanceof Error) {
+    console.error(`\x1b[31mError:\x1b[0m ${err.message}`);
+  } else {
+    console.error(`\x1b[31mError:\x1b[0m ${String(err)}`);
+  }
+  process.exit(1);
+});

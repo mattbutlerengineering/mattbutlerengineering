@@ -48,8 +48,8 @@ describe("SSE Event Stream Integration", () => {
   it("returns correct SSE headers", async () => {
     const response = await app.inject({
       method: "GET",
-      url: "/api/v1/events/stream",
-      headers: { authorization: "Bearer valid-token" },
+      url: "/api/v1/events/stream?testClose=100",
+      headers: { "x-auth-bypass": "true" },
     });
 
     expect(response.headers["content-type"]).toBe("text/event-stream");
@@ -59,8 +59,8 @@ describe("SSE Event Stream Integration", () => {
   it("sends connected event on initial connection", async () => {
     const response = await app.inject({
       method: "GET",
-      url: "/api/v1/events/stream",
-      headers: { authorization: "Bearer valid-token" },
+      url: "/api/v1/events/stream?testClose=100",
+      headers: { "x-auth-bypass": "true" },
     });
 
     const body = response.body;
@@ -79,18 +79,20 @@ describe("SSE Event Stream Integration", () => {
     // Start the stream connection (inject returns when handler yields)
     const responsePromise = app.inject({
       method: "GET",
-      url: "/api/v1/events/stream",
-      headers: { authorization: "Bearer valid-token" },
+      url: "/api/v1/events/stream?testClose=100",
+      headers: { "x-auth-bypass": "true" },
     });
 
     // Give the connection time to establish
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     // Emit a reservation event
-    reservationEvents.emit({
+    reservationEvents.emitChange({
       type: "reservation:created",
       venueId: "venue-1",
-      data: { id: "res-123", guestName: "Test Guest" },
+      timestamp: new Date().toISOString(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data: { id: "res-123", guestName: "Test Guest" } as any,
     });
 
     // Small delay for event propagation
@@ -108,17 +110,19 @@ describe("SSE Event Stream Integration", () => {
   it("filters events by venueId query parameter", async () => {
     const responsePromise = app.inject({
       method: "GET",
-      url: "/api/v1/events/stream?venueId=venue-1",
-      headers: { authorization: "Bearer valid-token" },
+      url: "/api/v1/events/stream?venueId=venue-1&testClose=200",
+      headers: { "x-auth-bypass": "true" },
     });
 
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     // Emit event for different venue — should be filtered out
-    reservationEvents.emit({
+    reservationEvents.emitChange({
       type: "reservation:created",
       venueId: "venue-2",
-      data: { id: "res-other" },
+      timestamp: new Date().toISOString(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data: { id: "res-other" } as any,
     });
 
     await new Promise((resolve) => setTimeout(resolve, 50));

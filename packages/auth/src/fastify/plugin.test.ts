@@ -299,7 +299,7 @@ describe("Auth Plugin", () => {
       expect(options).toEqual({
         authority: "https://test.auth0.com",
         audience: "https://api.example.com",
-        excludePaths: ["/health", "/docs"],
+        excludePaths: ["/health", "/docs", "/v1/webhooks"],
       });
     });
 

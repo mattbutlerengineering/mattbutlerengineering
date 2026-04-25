@@ -104,6 +104,7 @@ describe("Orchestrate Routes", () => {
       const response = await app.inject({
         method: "POST",
         url: "/v1/orchestrate",
+        headers: { "x-auth-bypass": "true" },
         payload: {
           taskDescription: "Build a notification system",
         },
@@ -139,6 +140,7 @@ describe("Orchestrate Routes", () => {
       await app.inject({
         method: "POST",
         url: "/v1/orchestrate",
+        headers: { "x-auth-bypass": "true" },
         payload: { taskDescription: "Simple task" },
       });
 
@@ -171,6 +173,7 @@ describe("Orchestrate Routes", () => {
       const response = await app.inject({
         method: "POST",
         url: "/v1/orchestrate",
+        headers: { "x-auth-bypass": "true" },
         payload: { taskDescription: "Failing task" },
       });
 
@@ -206,6 +209,7 @@ describe("Orchestrate Routes", () => {
       await app.inject({
         method: "POST",
         url: "/v1/orchestrate",
+        headers: { "x-auth-bypass": "true" },
         payload: {
           taskDescription: "Custom task",
           sessionModel: "claude-haiku-4-5",
@@ -228,6 +232,7 @@ describe("Orchestrate Routes", () => {
       const response = await app.inject({
         method: "POST",
         url: "/v1/orchestrate",
+        headers: {},
         payload: {},
       });
 

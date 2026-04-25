@@ -7,8 +7,9 @@
 import { toJSONSchema, type ZodType } from "zod";
 
 import { UserPreferencesSchema, UserSchema } from "./user.js";
-import { TableSchema, ReservationSchema } from "./reservation.js";
+import { ReservationSchema } from "./reservation.js";
 import {
+  TableSchema,
   TableShapeMetadataSchema,
   FloorPlanLayoutSchema,
   FloorPlanSchema,

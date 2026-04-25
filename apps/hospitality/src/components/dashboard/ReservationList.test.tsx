@@ -45,16 +45,18 @@ describe("ReservationList", () => {
 
   it("should render reservations sorted by time", () => {
     const reservations = [
-      mockReservation({ id: "1", startTime: "19:00", status: "CONFIRMED" }),
-      mockReservation({ id: "2", startTime: "17:00", status: "CONFIRMED" }),
-      mockReservation({ id: "3", startTime: "18:30", status: "CONFIRMED" }),
+      mockReservation({ id: "res-1", startTime: "19:00", status: "CONFIRMED" }),
+      mockReservation({ id: "res-2", startTime: "17:00", status: "CONFIRMED" }),
+      mockReservation({ id: "res-3", startTime: "18:30", status: "CONFIRMED" }),
     ];
     render(<ReservationList reservations={reservations} isLoading={false} />);
     
-    const items = screen.getAllByTestId("text").filter((el) => 
-      el.getAttribute("data-variant") === "body"
-    );
+    const items = screen.getAllByRole("listitem");
     expect(items.length).toBe(3);
+    // Check first item is 5:00pm (17:00)
+    expect(items[0].textContent).toContain("5:00pm");
+    // Check last item is 7:00pm (19:00)
+    expect(items[2].textContent).toContain("7:00pm");
   });
 
   it("should display guest name or 'Walk-in'", () => {

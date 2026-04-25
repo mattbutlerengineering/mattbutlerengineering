@@ -54,8 +54,8 @@ import {
 // New modularized sub-phases
 import { emitEvent, sanitizeForCommitMessage } from "./utils.js";
 import { orchestrateVerification } from "./verification-orchestrator.js";
-import { runQualityGates } from "./quality-gates.ts";
-import type { QualityGatesResult } from "./quality-gates.ts";
+import { runQualityGates } from "./quality-gates.js";
+import type { QualityGatesResult } from "./quality-gates.js";
 
 // OTel API is a noop when no SDK is registered (e.g., in tests or local CLI).
 const tracer = trace.getTracer("@mbe/agent-core");

@@ -25,7 +25,7 @@ describe("TableStatusBadge", () => {
 
   it("should render with small size by default", () => {
     const { container } = render(<TableStatusBadge status="AVAILABLE" />);
-    expect(container.querySelector("./*/")).toBeDefined();
+    expect(container.querySelector("span")).toBeDefined();
   });
 
   it("should render with small size when specified", () => {

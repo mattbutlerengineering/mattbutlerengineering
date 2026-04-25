@@ -17,6 +17,8 @@ import { venueRoutes } from "./routes/venues.js";
 import { availabilityRoutes } from "./routes/availability.js";
 import { holdRoutes } from "./routes/holds.js";
 import { eventRoutes } from "./routes/events.js";
+import { floorPlanRoutes } from "./routes/floor-plans.js";
+import { guestRoutes } from "./routes/guests.js";
 
 export interface AppOptions {
   logger?: boolean | object;
@@ -117,10 +119,12 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   });
 
   // Register Auth0 plugin
-  if (process.env.AUTH_AUTHORITY) {
+  if (process.env.AUTH_AUTHORITY && process.env.AUTH_AUDIENCE) {
     await fastify.register(authPlugin, getAuthPluginOptionsFromEnv());
   } else if (process.env.NODE_ENV === "production") {
     throw new Error("Fail-closed: AUTH_AUTHORITY and AUTH_AUDIENCE are required in production");
+  } else {
+    fastify.log.warn("Skipping Auth0 plugin registration (dev/test mode)");
   }
 
   // Register Sentry error handler (no-op without SENTRY_DSN)
@@ -142,6 +146,8 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   await fastify.register(availabilityRoutes, { prefix: "/api/v1/availability" });
   await fastify.register(holdRoutes, { prefix: "/api/v1/holds" });
   await fastify.register(eventRoutes, { prefix: "/api/v1/events" });
+  await fastify.register(floorPlanRoutes, { prefix: "/api/v1/floor-plans" });
+  await fastify.register(guestRoutes, { prefix: "/api/v1/guests" });
 
   return fastify;
 }

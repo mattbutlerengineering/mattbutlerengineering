@@ -31,8 +31,7 @@ function getRemoteBranches(): string[] {
   }
 }
 
-export const cleanupWorktreesCommand = new Command()
-  .name("cleanup-worktrees")
+export const cleanupWorktreesCommand = new Command("cleanup-worktrees")
   .description("Clean up orphaned git worktrees from .claude/worktrees/")
   .option("-d, --days <days>", "Remove worktrees older than N days", "1")
   .option("-n, --dry-run", "Show what would be removed without removing", false)

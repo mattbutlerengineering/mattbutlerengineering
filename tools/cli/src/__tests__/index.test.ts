@@ -35,14 +35,24 @@ const addedCommands: string[] = [];
 vi.mock("commander", () => {
   return {
     Command: class MockCommand {
-      name() { return this; }
+      _name: string = "";
+      constructor(name?: string) {
+        this._name = name || "";
+      }
+      name(n: string) {
+        this._name = n;
+        return this;
+      }
       description() { return this; }
       version() { return this; }
+      option() { return this; }
+      action() { return this; }
       addCommand(cmd: { _name: string }) {
         addedCommands.push(cmd._name);
         return this;
       }
       parse() {}
+      parseAsync() { return Promise.resolve(); }
     },
   };
 });
@@ -77,6 +87,8 @@ describe("CLI entry point", () => {
       "audit-perf",
       "check-adr",
       "check-deps",
+      "cleanup-worktrees",
+      "health",
       "visual",
     ];
 
@@ -87,6 +99,6 @@ describe("CLI entry point", () => {
 
   it("registers the correct number of commands", async () => {
     await import("../index.js");
-    expect(addedCommands.length).toBe(21);
+    expect(addedCommands.length).toBe(23);
   });
 });
