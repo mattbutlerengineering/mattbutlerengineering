@@ -78,6 +78,7 @@ const darkSections = [
   "dark-cards",
   "dark-banner",
   "dark-avatar",
+  "dark-tape-chart",
 ] as const;
 
 for (const id of darkSections) {

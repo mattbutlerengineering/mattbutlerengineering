@@ -657,6 +657,21 @@ export function VisualTest() {
               <Avatar name="Carol" size="md" />
             </div>
           </Section>
+
+          <Section id="dark-tape-chart" title="Dark — TapeChart">
+            <div className={styles.card}>
+              <TapeChart
+                startDate="2026-01-15"
+                endDate="2026-01-22"
+                rooms={tapeChartDefaultRooms}
+                reservations={tapeChartDefaultReservations}
+                currency="USD"
+                density="comfortable"
+                viewMode="grid"
+                onReservationClick={() => {}}
+              />
+            </div>
+          </Section>
         </div>
       </div>
     </div>
