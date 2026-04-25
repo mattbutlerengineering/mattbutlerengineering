@@ -24,8 +24,6 @@ flowchart TD
     api_versioning["api-versioning"]
     auth["auth"]
     config["config"]
-    feature_flags["feature-flags"]
-    mcp_server["mcp-server"]
     observability["observability"]
     rialto["rialto"]
     rialto_catalog["rialto-catalog"]
