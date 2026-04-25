@@ -168,6 +168,14 @@
       } { /* ... */ }
     </item>
   </file>
+  <file path="src/hooks/useThemeState.ts">
+    <item priority="low">
+      type ThemePreference = "light" | "dark" | "system";
+    </item>
+    <item priority="medium">
+      function getStoredTheme(): ThemePreference { /* ... */ }
+    </item>
+  </file>
   <file path="src/hooks/useScrollReveal.ts">
     <item priority="high">
       interface UseScrollRevealOptions {

@@ -530,6 +530,21 @@
       return { ref, style, onMouseMove, onMouseLeave };
     }
   </file>
+  <file path="src/hooks/useThemeState.ts">
+    export type ThemePreference = "light" | "dark" | "system";
+    function getStoredTheme(): ThemePreference {
+      if (typeof window === "undefined") return "system";
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored === "light" || stored === "dark" || stored === "system") {
+          return stored;
+        }
+      } catch {
+        // localStorage unavailable
+      }
+      return "system";
+    }
+  </file>
   <file path="src/hooks/useScrollReveal.ts">
     interface UseScrollRevealOptions {
       /** IntersectionObserver rootMargin. Default "-80px". */

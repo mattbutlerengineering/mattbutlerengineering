@@ -21,13 +21,13 @@
         id: string;
         label: string;
         path: string;
-        stepStatus?: "completed" | "current" | "locked";
-        disabled?: boolean;
+        stepStatus?: "completed" | "current" | "locked" | undefined;
+        disabled?: boolean | undefined;
       }
     </item>
     <item priority="low">
       interface NavSection {
-        label?: string;
+        label?: string | undefined;
         items: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
       }
     </item>
@@ -77,7 +77,7 @@
         type: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
         venueId: string;
         timestamp: string;
-        data: any;
+        data: import("/Users/mbutler/github/mattbutlerengineering/packa...;
       }
     </item>
   </file>
@@ -93,10 +93,10 @@
     </item>
     <item priority="low">
       interface UseDashboardStatsResult {
-        reservations: readonly Reservation[];
+        reservations: readonly import("/Users/mbutler/github/mattbutlerengineer...;
         stats: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
         isLoading: boolean;
-        error: string;
+        error: string | null;
         refetch: () => Promise<void>;
       }
     </item>
@@ -104,25 +104,28 @@
   <file path="src/hooks/useApiCall.ts">
     <item priority="low">
       interface UseApiCallOptions {
-        timeout?: number;
+        timeout?: number | undefined;
       }
     </item>
     <item priority="low">
       interface UseApiCallResult {
-        data: T;
+        data: T | null;
         isLoading: boolean;
-        error: string;
+        error: string | null;
         retry: () => void;
-        execute: (fn: (signal: AbortSignal) => Promise<T>) => Promise<T>;
+        execute: (fn: (signal: AbortSignal) => Promise<T>) => Promise<T | ...;
       }
     </item>
   </file>
   <file path="src/hooks/use-theme.ts">
-    <item priority="high">
-      type ThemePreference = "light" | "dark" | "system";
+    <item priority="low">
+      interface ThemeContextValue {
+        theme: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        setTheme: (theme: import("/Users/mbutler/github/mattbutlerengineeri...;
+      }
     </item>
-    <item priority="medium">
-      function getStoredTheme(): ThemePreference { /* ... */ }
+    <item priority="high">
+      export const ThemeContext: React.Context<import("/Users/mbutler/github/mattbutlereng...;
     </item>
   </file>
   <file path="src/hooks/use-command-palette.ts">
@@ -138,7 +141,7 @@
       interface UseCommandPaletteResult {
         open: boolean;
         setOpen: (open: boolean) => void;
-        items: CommandItem[];
+        items: import("/Users/mbutler/github/mattbutlerengineering/packa...;
         groups: string[];
       }
     </item>
@@ -147,7 +150,7 @@
   <section priority="medium" role="constants">
   <file path="src/constants/copilotContext.ts">
     <item priority="high">
-      export const HOSPITALITY_DOMAIN_CONTEXT: DomainContext;
+      export const HOSPITALITY_DOMAIN_CONTEXT: import("/Users/mbutler/github/mattbutlerengineering/packa...;
     </item>
   </file>
   <file path="src/constants/auth.ts">
