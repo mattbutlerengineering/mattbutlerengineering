@@ -9,7 +9,6 @@ const __dirname = path.dirname(__filename);
 
 const packageRoot = path.resolve(__dirname, "../..");
 const generatedFile = path.join(packageRoot, "src/generated-schemas.ts");
-const scriptPath = path.join(packageRoot, "scripts/generate-catalog.ts");
 
 /**
  * Run the generator script via tsx (not a shell command — uses execFileSync).
