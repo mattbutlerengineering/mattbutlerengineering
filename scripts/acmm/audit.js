@@ -53,6 +53,20 @@ const computation = computeLevel(detectedIds);
 const detectedCount = detectedIds.size;
 const totalCount = ALL_CRITERIA.length;
 
+/* ── Diff vs prior saved state ──────────────────────────── */
+const priorIds = new Set(prior.detectedIds ?? []);
+const isFirstRun = !prior.lastRun;
+const diff = isFirstRun
+  ? null
+  : {
+      added: [...detectedIds].filter((id) => !priorIds.has(id)).sort(),
+      removed: [...priorIds].filter((id) => !detectedIds.has(id)).sort(),
+      levelDelta: computation.level - (prior.currentLevel ?? 0),
+      countDelta: detectedCount - priorIds.size,
+      priorLevel: prior.currentLevel ?? 0,
+      priorCount: priorIds.size,
+    };
+
 /* ── Build per-criterion results map (id → {passed, evidence}) ── */
 const results = {};
 for (const c of ALL_CRITERIA) {
@@ -82,7 +96,7 @@ const nextState = recordHistory(
 
 /* ── Write state + report ────────────────────────────────── */
 saveState(cwd, nextState);
-const reportPath = writeReport(cwd, { state: nextState, criteria: ALL_CRITERIA, sources: SOURCES, computation });
+const reportPath = writeReport(cwd, { state: nextState, criteria: ALL_CRITERIA, sources: SOURCES, computation, diff });
 
 /* ── Optionally: --badge ─────────────────────────────────── */
 let badgeOutcome = "skipped";
@@ -108,6 +122,23 @@ if (APPLY) {
 console.log("");
 console.log(`ACMM Level ${computation.level} (${computation.levelName})  ·  ${detectedCount}/${totalCount} criteria detected`);
 console.log(`Role: ${computation.role}`);
+
+if (diff) {
+  const arrow = diff.levelDelta > 0 ? "↑" : diff.levelDelta < 0 ? "↓" : null;
+  const countArrow = diff.countDelta > 0 ? `+${diff.countDelta}` : diff.countDelta < 0 ? `${diff.countDelta}` : "±0";
+  const levelStr = arrow ? `L${diff.priorLevel} ${arrow} L${computation.level}` : `L${computation.level} (unchanged)`;
+  console.log("");
+  console.log(`Since last run: ${levelStr}  ·  ${diff.priorCount} → ${detectedCount} detected (${countArrow})`);
+  if (diff.added.length > 0) {
+    console.log(`  + ${diff.added.length} newly detected: ${diff.added.slice(0, 4).join(", ")}${diff.added.length > 4 ? `, … (+${diff.added.length - 4} more)` : ""}`);
+  }
+  if (diff.removed.length > 0) {
+    console.log(`  - ${diff.removed.length} regressed: ${diff.removed.slice(0, 4).join(", ")}${diff.removed.length > 4 ? `, … (+${diff.removed.length - 4} more)` : ""}`);
+  }
+  if (diff.added.length === 0 && diff.removed.length === 0) {
+    console.log(`  · no criteria changed`);
+  }
+}
 console.log("");
 console.log("Per-level detection (scannable):");
 for (const n of [2, 3, 4, 5, 6]) {

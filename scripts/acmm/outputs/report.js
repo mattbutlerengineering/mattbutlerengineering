@@ -21,8 +21,9 @@ import { dirname, join } from "node:path";
  * @param {Array<import("../sources/types.js").Criterion>} args.criteria
  * @param {Array<import("../sources/types.js").Source>} args.sources
  * @param {import("../computeLevel.js").LevelComputation} args.computation
+ * @param {{added: string[], removed: string[], levelDelta: number, countDelta: number, priorLevel: number, priorCount: number} | null} [args.diff]
  */
-export function writeReport(cwd, { state, criteria, sources, computation }) {
+export function writeReport(cwd, { state, criteria, sources, computation, diff }) {
   const detectedSet = new Set(state.detectedIds ?? []);
   const date = new Date().toISOString().slice(0, 10);
 
@@ -47,6 +48,29 @@ export function writeReport(cwd, { state, criteria, sources, computation }) {
   if (computation.nextTransitionTrigger) {
     lines.push(`> **Next transition trigger:** ${computation.nextTransitionTrigger}`);
     lines.push("");
+  }
+
+  // ── Since-last-run diff (loop signal) ─────────────────────
+  if (diff) {
+    const arrow = diff.levelDelta > 0 ? "↑" : diff.levelDelta < 0 ? "↓" : null;
+    const countSign = diff.countDelta > 0 ? `+${diff.countDelta}` : diff.countDelta < 0 ? `${diff.countDelta}` : "±0";
+    const detected = state.detectedIds?.length ?? 0;
+    const levelStr = arrow ? `L${diff.priorLevel} ${arrow} L${computation.level}` : `L${computation.level} (unchanged)`;
+    const headline = diff.levelDelta === 0 && diff.added.length === 0 && diff.removed.length === 0
+      ? `**Since last run:** no change (still L${computation.level}, ${detected} detected).`
+      : `**Since last run:** ${levelStr} · ${diff.priorCount} → ${detected} detected (${countSign}).`;
+    lines.push(`## Since last run`);
+    lines.push("");
+    lines.push(headline);
+    lines.push("");
+    if (diff.added.length > 0) {
+      lines.push(`**Newly detected (+${diff.added.length}):** ${diff.added.map((id) => `\`${id}\``).join(", ")}`);
+      lines.push("");
+    }
+    if (diff.removed.length > 0) {
+      lines.push(`**Regressed (-${diff.removed.length}):** ${diff.removed.map((id) => `\`${id}\``).join(", ")}`);
+      lines.push("");
+    }
   }
 
   // ── Next steps (top of report — most actionable first) ────
