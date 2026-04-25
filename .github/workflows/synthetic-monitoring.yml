@@ -231,74 +231,56 @@ jobs:
           DEPLOY_STATUS=$(echo "$HEALTH_RESPONSE" | jq -r '.subsystems.deploys.status')
 
           SUMMARY=""
-          RUNBOOKS=""
-
-          if [ -n "$FAILED_SERVICES" ]; then
-            SUMMARY="${SUMMARY}Services down: ${FAILED_SERVICES}. "
-            if [ -f docs/runbooks/services-unhealthy.md ]; then
-              RUNBOOKS="${RUNBOOKS}$(cat docs/runbooks/services-unhealthy.md)
-
-"
-            fi
-          fi
-          if [ -n "$FAILED_SITES" ]; then
-            SUMMARY="${SUMMARY}Static sites down: ${FAILED_SITES}. "
-            if [ -f docs/runbooks/static-sites-unhealthy.md ]; then
-              RUNBOOKS="${RUNBOOKS}$(cat docs/runbooks/static-sites-unhealthy.md)
-
-"
-            fi
-          fi
-          if [ "$CI_STATUS" != "healthy" ]; then
-            SUMMARY="${SUMMARY}CI: ${CI_STATUS}. "
-            if [ -f docs/runbooks/ci-unhealthy.md ]; then
-              RUNBOOKS="${RUNBOOKS}$(cat docs/runbooks/ci-unhealthy.md)
-
-"
-            fi
-          fi
-          if [ "$DEPLOY_STATUS" != "healthy" ]; then
-            SUMMARY="${SUMMARY}Deploys: ${DEPLOY_STATUS}. "
-            if [ -f docs/runbooks/deploys-unhealthy.md ]; then
-              RUNBOOKS="${RUNBOOKS}$(cat docs/runbooks/deploys-unhealthy.md)
-
-"
-            fi
-          fi
+          [ -n "$FAILED_SERVICES" ] && SUMMARY="${SUMMARY}Services down: ${FAILED_SERVICES}. "
+          [ -n "$FAILED_SITES" ] && SUMMARY="${SUMMARY}Static sites down: ${FAILED_SITES}. "
+          [ "$CI_STATUS" != "healthy" ] && SUMMARY="${SUMMARY}CI: ${CI_STATUS}. "
+          [ "$DEPLOY_STATUS" != "healthy" ] && SUMMARY="${SUMMARY}Deploys: ${DEPLOY_STATUS}. "
 
           TITLE="System health ${HEALTH_STATUS}: ${SUMMARY}"
           TITLE="${TITLE:0:256}"
           DETECTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-          # Build timeline section
-          TIMELINE_SECTION=""
-          if [ -n "$TIMELINE" ]; then
-            TIMELINE_SECTION="### Recent Status Transitions
-
-${TIMELINE}
-
-"
-          fi
-
-          BODY="## System Health Alert
-
-**Status:** \`${HEALTH_STATUS}\`
-**Detected:** ${DETECTED}
-**Source:** Synthetic monitoring (twice daily)
-
-To check current status: \`curl -s https://mattbutlerengineering.com/health/system | jq .\`
-
-${TIMELINE_SECTION}---
-
-${RUNBOOKS}
-
----
-*This issue was auto-created by synthetic monitoring. It will be picked up by the ship-loop or issue-worker.*"
+          {
+            echo "## System Health Alert"
+            echo
+            echo "**Status:** \`${HEALTH_STATUS}\`"
+            echo "**Detected:** ${DETECTED}"
+            echo "**Source:** Synthetic monitoring (twice daily)"
+            echo
+            echo "To check current status: \`curl -s https://mattbutlerengineering.com/health/system | jq .\`"
+            echo
+            if [ -n "$TIMELINE" ]; then
+              echo "### Recent Status Transitions"
+              echo
+              echo "${TIMELINE}"
+              echo
+            fi
+            echo "---"
+            echo
+            if [ -n "$FAILED_SERVICES" ] && [ -f docs/runbooks/services-unhealthy.md ]; then
+              cat docs/runbooks/services-unhealthy.md
+              echo
+            fi
+            if [ -n "$FAILED_SITES" ] && [ -f docs/runbooks/static-sites-unhealthy.md ]; then
+              cat docs/runbooks/static-sites-unhealthy.md
+              echo
+            fi
+            if [ "$CI_STATUS" != "healthy" ] && [ -f docs/runbooks/ci-unhealthy.md ]; then
+              cat docs/runbooks/ci-unhealthy.md
+              echo
+            fi
+            if [ "$DEPLOY_STATUS" != "healthy" ] && [ -f docs/runbooks/deploys-unhealthy.md ]; then
+              cat docs/runbooks/deploys-unhealthy.md
+              echo
+            fi
+            echo "---"
+            echo "*This issue was auto-created by synthetic monitoring. It will be picked up by the ship-loop or issue-worker.*"
+          } > /tmp/health-body.md
 
           gh issue create \
             --repo "$GITHUB_REPOSITORY" \
             --title "$TITLE" \
-            --body "$BODY" \
+            --body-file /tmp/health-body.md \
             --label "$ISSUE_LABEL" \
             --label "auto-health" \
             --label "ready"
