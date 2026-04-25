@@ -1,0 +1,52 @@
+name: RFC (Request for Comments)
+description: Propose a significant architectural change or new design pattern
+labels: ["discussion", "tracking"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: A one-paragraph summary of the proposal.
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: Why are we doing this? What use cases does it support?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Detailed Proposal
+      description: Describe the technical design in detail.
+    validations:
+      required: true
+
+  - type: textarea
+    id: draw-backs
+    attributes:
+      label: Drawbacks
+      description: Why should we *not* do this?
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: What other designs have been considered?
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - "Monorepo / Infrastructure"
+        - "Design System (Rialto)"
+        - "Core API Patterns"
+        - "Agentic Workflows"
+        - "Frontend Architecture"
+    validations:
+      required: true

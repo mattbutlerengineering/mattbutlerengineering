@@ -8,28 +8,6 @@
 - **Design System Specs:** [packages/rialto/CLAUDE.md](./packages/rialto/CLAUDE.md)
 - **Domain Context:** See `CLAUDE.md` files in each `services/*` or `packages/*` directory.
 
-## Claude-Specific Commands
-
-### CLI Commands (`mbe`)
-```bash
-# Agent — local (runs directly via @mbe/agent-core)
-mbe agent run "Fix the login bug"                 # Run agent → get PR
-  --model <model>                                 # default: claude-sonnet-4-6
-  --max-budget <usd>                              # default: 1.00
-  --max-turns <n>                                 # default: 50
-  --no-pr                                         # skip PR, keep worktree
-  -v, --verbose                                   # stream agent events
-
-# Agent — API-backed (requires agent service running on :3003)
-mbe agent start "Fix the login bug"               # Create session via API
-mbe agent list                                    # List all sessions
-mbe agent status <id>                             # Get session details
-mbe agent logs <id>                               # Stream SSE events
-mbe agent cancel <id>                             # Cancel running session
-mbe agent delete <id>                             # Delete session + cleanup
-mbe agent orchestrate "Big task"                  # Decompose → parallel sessions → PRs
-```
-
 ## Continuous Improvement Loop (Ship Loop)
 
 Automated system that audits the live site, finds and fixes issues, builds features, and verifies deploys — all autonomously.
@@ -115,20 +93,7 @@ pnpm typecheck   # Verify types
 pnpm test        # Run all tests
 ```
 
-**Known gotchas:**
-- Pre-commit hook runs `eslint --fix` + `check-adr` + `pack-changed` (the last one regenerates `llms.txt` / `llms-full.txt` in affected packages — expect them to appear in `git status` after your commit lands)
-- JSX strings with `'` fail `react/no-unescaped-entities` at commit time — use `&apos;`
-- Run `pnpm` from inside a package directory, not the monorepo root — turbo filter errors out at the root for `test`/`typecheck`/`build` in most packages
-- **GitHub Actions is intentionally unpaid on this account — CI does not run.** Every PR's checks fail with a billing rejection by design. Verify work locally (`pnpm lint`/`typecheck`/`test`) and ignore red checks on `gh pr view`. Do NOT file `ci-fix` issues for failing workflow runs
-- Parallel `Bash` tool calls don't share `cd` state and race each other — use absolute paths or `pnpm --dir <abs-path> <cmd>` when running in parallel
-- **pnpm.overrides for CVEs: use the scoped pattern** `"pkg@<patched": "^patched"`, not `"pkg": ">=patched"` — the open range resolves to the latest satisfying version and can pull major bumps (e.g. `protobufjs@>=7.5.5` → 8.0.1)
-- **Changesets require `GITHUB_TOKEN`**: run `GITHUB_TOKEN=$(gh auth token) pnpm version-packages` — without it, `@changesets/get-github-info` errors asking for a PAT
-- **Changesets post-version prettier step errors with `Cannot find package '@mbe/config'`** — version bump + `.changeset/*.md` consumption succeed, but `packages/rialto/CHANGELOG.md` write is **silently skipped**. Manually prepend the new version block to `CHANGELOG.md` before committing the release
-- **`pnpm release` regenerates `packages/rialto/package.json` exports map** when a new component folder was added — run `git status` after release and commit the follow-up diff. Otherwise the subpath `import from "@mattbutlerengineering/rialto/<NewComponent>"` works for registry consumers but is missing from the repo
-- **`graphify-out/` is not gitignored** and accumulates wherever `/graphify` was invoked (repo root or package subdirs). Either `rm -rf graphify-out/` after use or add `graphify-out/` to `.gitignore`
-- **Migrate Dockerfile must pin same Prisma major as `@prisma/client`** (`infrastructure/migrate/Dockerfile`). Prisma 7 dropped schema-level `url`; client gen rejects it (P1012) while Prisma 6 CLI requires it. No schema syntax bridges both — keep them in sync. Migrate URL comes from per-service `prisma.config.ts` on Prisma 7
-- **Prisma 7 `prisma.config.ts` in containers needs `ENV NODE_PATH=/usr/local/lib/node_modules`** when prisma is globally installed via `npm install -g prisma@7`. Without it the config loader fails with `Cannot find module 'prisma/config'` from any service dir
-- **Verify prod DB connectivity via `/api/v1/users/health`, not `/health`** — `/health` is liveness only (returns 200 even when DB is dead); `/api/v1/users/health` runs `prisma.$queryRaw` and reports `degraded` with the actual DB error
+**Known gotchas:** see [.claude/rules/gotchas.md](./.claude/rules/gotchas.md) — covers pre-commit, builds, CI, dependencies, releases, tooling artifacts, and Prisma/DO migrate.
 
 ## Manual Deployment (GH Actions unpaid — won't fire workflows)
 
