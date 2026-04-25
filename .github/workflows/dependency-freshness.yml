@@ -33,23 +33,24 @@ jobs:
 
       - name: Create issue
         if: steps.check.outputs.count != '0'
+        env:
+          OUTDATED_JSON: ${{ steps.check.outputs.outdated }}
         run: |
           DATE=$(date "+%B %Y")
-          
-          ISSUE_BODY="## Outdated Dependencies ($DATE)
-          
-The following dependencies have updates available:
-          
-\`\`\`
-${{ steps.check.outputs.outdated }}
-\`\`\`
-          
-Consider updating these dependencies to stay current.
-"
-          
+          {
+            echo "## Outdated Dependencies ($DATE)"
+            echo
+            echo "The following dependencies have updates available:"
+            echo
+            echo '```'
+            echo "$OUTDATED_JSON"
+            echo '```'
+            echo
+            echo "Consider updating these dependencies to stay current."
+          } > /tmp/freshness-body.md
           gh issue create \
             --title "Dependency freshness: $DATE" \
-            --body "$ISSUE_BODY" \
+            --body-file /tmp/freshness-body.md \
             --label "dependencies"
 
       - name: Update existing issue

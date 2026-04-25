@@ -84,18 +84,21 @@ jobs:
       - name: Create issue on circuit trip
         if: steps.check.outputs.blocked == 'true'
         run: |
+          {
+            echo "The deploy circuit breaker has tripped after 2+ consecutive failures."
+            echo
+            echo "Deployments are blocked until manually approved."
+            echo
+            echo "To force a deploy, run:"
+            echo
+            echo '```'
+            echo "gh workflow run circuit-breaker.yml -f force=true"
+            echo '```'
+          } > /tmp/circuit-body.md
           gh issue create \
             --title "Circuit breaker tripped - deploys blocked" \
             --label "ci-fix,blocking" \
-            --body "The deploy circuit breaker has tripped after 2+ consecutive failures.
-
-Deployments are blocked until manually approved.
-
-To force a deploy, run:
-```
-gh workflow run circuit-breaker.yml -f force=true
-```
-"
+            --body-file /tmp/circuit-body.md
 
   block-deploy:
     needs: [circuit-breaker]
