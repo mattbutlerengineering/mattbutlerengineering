@@ -26,6 +26,9 @@ jobs:
   prepare:
     name: Prepare
     runs-on: ubuntu-latest
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
 
     steps:
       - uses: actions/checkout@v5
@@ -66,16 +69,11 @@ jobs:
           pnpm --filter @mbe/agent-service db:generate
 
       - name: Login to Turborepo Remote Cache
-        if: secrets.TURBO_TOKEN != ''
-        env:
-          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+        if: env.TURBO_TOKEN != ''
         run: pnpm turbo login --token "$TURBO_TOKEN"
 
       - name: Link to Turborepo Remote Cache
-        if: secrets.TURBO_TOKEN != ''
-        env:
-          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-          TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+        if: env.TURBO_TOKEN != ''
         run: pnpm turbo link --team "$TURBO_TEAM" --token "$TURBO_TOKEN"
 
   hadolint:
