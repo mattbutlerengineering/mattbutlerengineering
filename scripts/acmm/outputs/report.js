@@ -49,6 +49,25 @@ export function writeReport(cwd, { state, criteria, sources, computation }) {
     lines.push("");
   }
 
+  // ── Next steps (top of report — most actionable first) ────
+  if (computation.missingForNextLevel.length > 0) {
+    const nextLevel = computation.level + 1;
+    const det = computation.detectedByLevel[nextLevel] ?? 0;
+    const req = computation.requiredByLevel[nextLevel] ?? 0;
+    const needToClose = Math.max(0, Math.ceil(req * 0.7) - det);
+    lines.push(`## Next steps — close ${needToClose} of ${computation.missingForNextLevel.length} L${nextLevel} gap${computation.missingForNextLevel.length === 1 ? "" : "s"}`);
+    lines.push("");
+    lines.push(`Each line below is a concrete remediation hint derived from the criterion's detection paths. The cheapest path to L${nextLevel} is to satisfy the ${needToClose} cheapest items.`);
+    lines.push("");
+    for (const c of computation.missingForNextLevel) {
+      const patterns = Array.isArray(c.detection.pattern) ? c.detection.pattern : [c.detection.pattern];
+      const fixHint = remediationHint(patterns);
+      lines.push(`- **\`${c.id}\`** — ${c.name}`);
+      lines.push(`  → ${fixHint}`);
+    }
+    lines.push("");
+  }
+
   // ── Per-level threshold table ─────────────────────────────
   lines.push("## Per-level threshold");
   lines.push("");
@@ -146,4 +165,20 @@ export function writeReport(cwd, { state, criteria, sources, computation }) {
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, lines.join("\n"), "utf-8");
   return out;
+}
+
+/**
+ * Derive a one-line remediation hint from a criterion's detection patterns.
+ * The criterion passes if ANY listed path exists, so we suggest creating the
+ * first (canonical) one.
+ *
+ * @param {string[]} patterns
+ * @returns {string}
+ */
+function remediationHint(patterns) {
+  const canonical = patterns[0];
+  const isDir = canonical.endsWith("/");
+  const action = isDir ? `mkdir -p ${canonical}` : `touch ${canonical}`;
+  if (patterns.length === 1) return `\`${action}\``;
+  return `\`${action}\` (or any of: ${patterns.slice(1).map((p) => `\`${p}\``).join(", ")})`;
 }
