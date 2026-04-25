@@ -36,6 +36,7 @@ import {
   Steps,
   Table,
   Tabs,
+  TapeChart,
   Tag,
   Text,
   TextArea,
@@ -81,6 +82,28 @@ const tableData = [
   { id: "1", name: "Alice", role: "Engineer", status: "Active" },
   { id: "2", name: "Bob", role: "Designer", status: "Away" },
   { id: "3", name: "Carol", role: "Manager", status: "Active" },
+];
+
+const tapeChartDefaultRooms = [
+  { id: "r1", name: "101", category: "Standard", capacity: 2, status: "ready" as const },
+  { id: "r2", name: "102", category: "Standard", capacity: 2, status: "occupied" as const },
+  { id: "r3", name: "103", category: "Standard", capacity: 2, status: "dirty" as const },
+  { id: "r4", name: "104", category: "Deluxe", capacity: 3, status: "ready" as const },
+  { id: "r5", name: "105", category: "Deluxe", capacity: 3, status: "occupied" as const },
+  { id: "r6", name: "106", category: "Deluxe", capacity: 3, status: "outOfOrder" as const },
+  { id: "r7", name: "107", category: "Suite", capacity: 4, status: "ready" as const },
+  { id: "r8", name: "108", category: "Suite", capacity: 4, status: "occupied" as const },
+];
+
+const tapeChartDefaultReservations = [
+  { id: "rsv-1", roomId: "r1", start: "2026-01-15", end: "2026-01-18", status: "confirmed" as const, guestName: "Alice Tanaka", ratePerNight: 180, currency: "USD", source: "Direct" },
+  { id: "rsv-2", roomId: "r2", start: "2026-01-16", end: "2026-01-21", status: "checkedIn" as const, guestName: "Bob García", ratePerNight: 180, currency: "USD", source: "Direct" },
+  { id: "rsv-3", roomId: "r3", start: "2026-01-17", end: "2026-01-19", status: "tentative" as const, guestName: "Clara Singh", ratePerNight: 180, currency: "USD", source: "Booking.com" },
+  { id: "rsv-4", roomId: "r4", start: "2026-01-15", end: "2026-01-22", status: "checkedIn" as const, guestName: "Daniil Patel", ratePerNight: 220, currency: "USD", source: "Direct" },
+  { id: "rsv-5", roomId: "r5", start: "2026-01-18", end: "2026-01-20", status: "confirmed" as const, guestName: "Erika Mohan", ratePerNight: 220, currency: "USD", source: "Expedia" },
+  { id: "rsv-6", roomId: "r7", start: "2026-01-15", end: "2026-01-17", status: "checkedOut" as const, guestName: "Fatima Hernández", ratePerNight: 320, currency: "USD", source: "Direct" },
+  { id: "rsv-7", roomId: "r7", start: "2026-01-19", end: "2026-01-22", status: "confirmed" as const, guestName: "Gabriel Rossi", ratePerNight: 320, currency: "USD", source: "Direct" },
+  { id: "rsv-8", roomId: "r8", start: "2026-01-16", end: "2026-01-19", status: "checkedIn" as const, guestName: "Hideo Bauer", ratePerNight: 320, currency: "USD", source: "Booking.com" },
 ];
 
 /* ── Component ───────────────────────────────── */
@@ -483,6 +506,22 @@ export function VisualTest() {
           <Drawer open onClose={() => {}} title="Settings" description="Manage your preferences">
             <Text>Drawer content goes here.</Text>
           </Drawer>
+        </div>
+      </Section>
+
+      {/* ── TapeChart — Default ─────────────── */}
+      <Section id="tape-chart-default" title="TapeChart — Default">
+        <div className={styles.card}>
+          <TapeChart
+            startDate="2026-01-15"
+            endDate="2026-01-22"
+            rooms={tapeChartDefaultRooms}
+            reservations={tapeChartDefaultReservations}
+            currency="USD"
+            density="comfortable"
+            viewMode="grid"
+            onReservationClick={() => {}}
+          />
         </div>
       </Section>
 

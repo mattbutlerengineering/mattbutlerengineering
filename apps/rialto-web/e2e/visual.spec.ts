@@ -54,6 +54,7 @@ const lightSections = [
   "pagination-default",
   "dialog-open",
   "drawer-open",
+  "tape-chart-default",
 ] as const;
 
 for (const id of lightSections) {
