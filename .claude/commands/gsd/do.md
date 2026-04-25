@@ -16,8 +16,8 @@ Use when you know what you want but don't know which `/gsd:*` command to run.
 </objective>
 
 <execution_context>
-@/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/workflows/do.md
-@/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/references/ui-brand.md
+@${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/workflows/do.md
+@${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/references/ui-brand.md
 </execution_context>
 
 <context>
@@ -25,6 +25,6 @@ $ARGUMENTS
 </context>
 
 <process>
-Execute the do workflow from @/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/workflows/do.md end-to-end.
+Execute the do workflow from @${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/workflows/do.md end-to-end.
 Route user intent to the best GSD command and invoke it.
 </process>

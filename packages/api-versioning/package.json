@@ -32,5 +32,6 @@
   },
   "peerDependencies": {
     "fastify": "catalog:"
-  }
+  },
+  "license": "MIT"
 }

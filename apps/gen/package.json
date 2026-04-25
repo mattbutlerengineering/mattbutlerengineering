@@ -50,5 +50,6 @@
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"
-  }
+  },
+  "license": "MIT"
 }

@@ -43,5 +43,6 @@
     "@mbe/config": "workspace:*",
     "typescript": "catalog:",
     "vitest": "catalog:"
-  }
+  },
+  "license": "MIT"
 }

@@ -20,5 +20,6 @@
     "@mbe/config": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "catalog:"
-  }
+  },
+  "license": "MIT"
 }

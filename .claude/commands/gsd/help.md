@@ -13,10 +13,10 @@ Output ONLY the reference content below. Do NOT add:
 </objective>
 
 <execution_context>
-@/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/workflows/help.md
+@${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/workflows/help.md
 </execution_context>
 
 <process>
-Output the complete GSD command reference from @/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/workflows/help.md.
+Output the complete GSD command reference from @${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/workflows/help.md.
 Display the reference content directly — no additions or modifications.
 </process>

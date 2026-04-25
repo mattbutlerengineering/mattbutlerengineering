@@ -22,9 +22,9 @@ you could describe in one sentence and execute in under 2 minutes.
 </objective>
 
 <execution_context>
-@/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/workflows/fast.md
+@${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/workflows/fast.md
 </execution_context>
 
 <process>
-Execute the fast workflow from @/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/workflows/fast.md end-to-end.
+Execute the fast workflow from @${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/workflows/fast.md end-to-end.
 </process>

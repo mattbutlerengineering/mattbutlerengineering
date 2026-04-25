@@ -43,5 +43,6 @@
     "@vitejs/plugin-react": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:"
-  }
+  },
+  "license": "MIT"
 }

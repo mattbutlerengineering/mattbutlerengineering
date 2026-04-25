@@ -57,5 +57,6 @@
     "vite": "catalog:",
     "vite-plugin-pwa": "^1.2.0",
     "vitest": "catalog:"
-  }
+  },
+  "license": "MIT"
 }

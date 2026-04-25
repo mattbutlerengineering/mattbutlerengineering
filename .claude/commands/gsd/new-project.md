@@ -29,14 +29,14 @@ Initialize a new project through unified flow: questioning → research (optiona
 </objective>
 
 <execution_context>
-@/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/workflows/new-project.md
-@/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/references/questioning.md
-@/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/references/ui-brand.md
-@/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/templates/project.md
-@/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/templates/requirements.md
+@${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/workflows/new-project.md
+@${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/references/questioning.md
+@${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/references/ui-brand.md
+@${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/templates/project.md
+@${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/templates/requirements.md
 </execution_context>
 
 <process>
-Execute the new-project workflow from @/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/workflows/new-project.md end-to-end.
+Execute the new-project workflow from @${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/workflows/new-project.md end-to-end.
 Preserve all workflow gates (validation, approvals, commits, routing).
 </process>

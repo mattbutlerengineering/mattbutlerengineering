@@ -20,9 +20,9 @@ Consumed by: /gsd:new-milestone (scans seeds and presents matches)
 </objective>
 
 <execution_context>
-@/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/workflows/plant-seed.md
+@${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/workflows/plant-seed.md
 </execution_context>
 
 <process>
-Execute the plant-seed workflow from @/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/workflows/plant-seed.md end-to-end.
+Execute the plant-seed workflow from @${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/workflows/plant-seed.md end-to-end.
 </process>

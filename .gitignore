@@ -42,6 +42,9 @@ coverage/
 .agent-worktrees/
 .claude/worktrees/
 
+# GSD planning artifacts (internal project-management state, not for consumers)
+.planning/
+
 # Misc
 *.tsbuildinfo
 

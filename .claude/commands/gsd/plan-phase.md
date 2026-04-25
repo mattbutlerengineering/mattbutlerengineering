@@ -22,8 +22,8 @@ Create executable phase prompts (PLAN.md files) for a roadmap phase with integra
 </objective>
 
 <execution_context>
-@/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/workflows/plan-phase.md
-@/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/references/ui-brand.md
+@${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/workflows/plan-phase.md
+@${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/references/ui-brand.md
 </execution_context>
 
 <context>
@@ -42,6 +42,6 @@ Normalize phase input in step 2 before any directory lookups.
 </context>
 
 <process>
-Execute the plan-phase workflow from @/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/workflows/plan-phase.md end-to-end.
+Execute the plan-phase workflow from @${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/workflows/plan-phase.md end-to-end.
 Preserve all workflow gates (validation, research, planning, verification loop, routing).
 </process>

@@ -132,8 +132,8 @@ pnpm test        # Run all tests
 The `/deploy` skill's workflows won't execute. Deploy locally via:
 
 - **Static sites**: `cd apps/<marketing|hospitality|rialto-web> && pnpm dlx wrangler@latest deploy` (wrangler auto-refreshes oauth on use)
-- **DO services** (all services + db-migrate, single app): `doctl apps create-deployment 5dbdcf45-4053-4518-a97b-f1e2b3122a61 --wait`
-- **DO build logs**: `doctl apps logs 5dbdcf45-4053-4518-a97b-f1e2b3122a61 <agent-api|users-api|reservations-api|db-migrate> --type=build --deployment <id>` (component is positional, NOT `--component`)
+- **DO services** (all services + db-migrate, single app): `doctl apps create-deployment $DO_APP_ID --wait` (export `DO_APP_ID` from your local `.env` or shell — fork maintainers will use their own DigitalOcean app ID)
+- **DO build logs**: `doctl apps logs $DO_APP_ID <agent-api|users-api|reservations-api|db-migrate> --type=build --deployment <id>` (component is positional, NOT `--component`)
 - **Pulumi**: `cd infrastructure/pulumi && pulumi up --stack prod`
 
 ### Iterating on rialto component visuals (no npm republish)

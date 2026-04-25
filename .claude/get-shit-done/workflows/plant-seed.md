@@ -140,7 +140,7 @@ Related code and decisions found in the current codebase:
 
 <step name="commit_seed">
 ```bash
-node "/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/bin/gsd-tools.cjs" commit "docs: plant seed — {$IDEA}" --files .planning/seeds/SEED-{PADDED}-{slug}.md
+node "${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/bin/gsd-tools.cjs" commit "docs: plant seed — {$IDEA}" --files .planning/seeds/SEED-{PADDED}-{slug}.md
 ```
 </step>
 

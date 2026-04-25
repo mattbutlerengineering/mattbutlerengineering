@@ -10,9 +10,9 @@ Display comprehensive project statistics including phase progress, plan executio
 </objective>
 
 <execution_context>
-@/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/workflows/stats.md
+@${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/workflows/stats.md
 </execution_context>
 
 <process>
-Execute the stats workflow from @/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/workflows/stats.md end-to-end.
+Execute the stats workflow from @${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/workflows/stats.md end-to-end.
 </process>

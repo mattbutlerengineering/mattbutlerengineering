@@ -50,5 +50,6 @@
     "fastify": "catalog:",
     "react": "catalog:",
     "typescript": "catalog:"
-  }
+  },
+  "license": "MIT"
 }

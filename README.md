@@ -1,11 +1,9 @@
 # Matt Butler Engineering
 
-[![CI](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/ci.yml/badge.svg)](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/ci.yml)
-[![Lighthouse](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/lighthouse-ci.yml/badge.svg)](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/lighthouse-ci.yml)
-[![Coverage](https://codecov.io/gh/mattbutlerengineering/mattbutlerengineering/branch/main/graph/badge.svg)](https://codecov.io/gh/mattbutlerengineering/mattbutlerengineering)
-[![Deploy Static](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/deploy-static.yml/badge.svg)](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/deploy-static.yml)
-[![Deploy Services](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/deploy-services.yml/badge.svg)](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/deploy-services.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](./LICENSE)
 <!-- acmm:begin -->![ACMM Level 4](https://img.shields.io/badge/ACMM-Level%204-c4952c?style=flat-square)<!-- acmm:end -->
+
+> **Build status:** GitHub Actions billing is intentionally unconfigured on this repo. Workflows in `.github/workflows/` exist as encoded policy and run via [claude.ai RemoteTriggers](https://claude.ai/code/scheduled), not on PR open. Verify changes locally with `pnpm lint`/`typecheck`/`test`. See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full story.
 
 Monorepo for [mattbutlerengineering.com](https://mattbutlerengineering.com) -- a hospitality management platform with a design system, multiple frontend apps, and backend API services.
 
@@ -116,4 +114,6 @@ See [CLAUDE.md](CLAUDE.md) for detailed development guidelines including:
 
 ## License
 
-Private repository. All rights reserved.
+[MIT](./LICENSE) © 2026 Matt Butler
+
+Contributions welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md), [docs/review-criteria.md](./docs/review-criteria.md), and [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md). For security disclosures, see [SECURITY.md](./SECURITY.md).

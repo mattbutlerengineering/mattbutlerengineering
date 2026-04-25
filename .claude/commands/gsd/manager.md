@@ -23,8 +23,8 @@ Designed for power users who want to parallelize work across phases from one ter
 </objective>
 
 <execution_context>
-@/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/workflows/manager.md
-@/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/references/ui-brand.md
+@${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/workflows/manager.md
+@${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/references/ui-brand.md
 </execution_context>
 
 <context>
@@ -34,6 +34,6 @@ Project context, phase list, dependencies, and recommendations are resolved insi
 </context>
 
 <process>
-Execute the manager workflow from @/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/workflows/manager.md end-to-end.
+Execute the manager workflow from @${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/workflows/manager.md end-to-end.
 Maintain the dashboard refresh loop until the user exits or all phases complete.
 </process>
