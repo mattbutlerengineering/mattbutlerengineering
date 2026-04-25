@@ -240,6 +240,7 @@ export function ShowcaseSidebar({
 
         {visibleSections.map((section) => {
           const isExpanded = isFiltering || !collapsed.has(section.label);
+          const sectionId = `sidebar-section-${section.label.toLowerCase().replace(/\s+/g, "-")}`;
 
           return (
             <div key={section.label} className={styles.section}>
@@ -247,6 +248,7 @@ export function ShowcaseSidebar({
                 className={styles.sectionHeader}
                 onClick={() => toggleSection(section.label)}
                 aria-expanded={isExpanded}
+                aria-controls={sectionId}
                 type="button"
               >
                 <span
@@ -259,7 +261,7 @@ export function ShowcaseSidebar({
               </button>
 
               {isExpanded && (
-                <ul className={styles.sectionItems}>
+                <ul id={sectionId} className={styles.sectionItems}>
                   {section.items.map((item) => {
                     const isComingSoon = item.comingSoon === true;
 
