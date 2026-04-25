@@ -44,14 +44,14 @@ function createIssue(title, body, labels) {
 }
 
 /**
- * Apply issues for failing checks. Returns updated `issuesCreated` map.
+ * Apply issues for failing canonical-ACMM criteria. Returns updated `issuesCreated` map.
  *
  * Dedup rules (match site-audit pattern):
- *   1. If `issuesCreated[checkId]` is open    → skip (don't spam).
- *   2. If `issuesCreated[checkId]` is closed  → create a fresh issue, overwrite entry.
- *   3. If no entry yet                         → create, store.
+ *   1. If `issuesCreated[criterionId]` is open    → skip (don't spam).
+ *   2. If `issuesCreated[criterionId]` is closed  → create a fresh issue, overwrite entry.
+ *   3. If no entry yet                            → create, store.
  *
- * @param {import("../rubric.js").CheckMeta[]} failing
+ * @param {Array<import("../sources/types.js").Criterion>} failing
  * @param {Record<string, number>} existingIssues
  * @param {{ dryRun?: boolean }} [opts]
  * @returns {{ issuesCreated: Record<string, number>, createdCount: number, skippedOpen: number }}
@@ -61,8 +61,8 @@ export function applyIssuesForFailures(failing, existingIssues, opts = {}) {
   let createdCount = 0;
   let skippedOpen = 0;
 
-  for (const check of failing) {
-    const prior = existingIssues[check.id];
+  for (const c of failing) {
+    const prior = existingIssues[c.id];
     if (prior) {
       const state = getIssueState(prior);
       if (state === "open") {
@@ -72,28 +72,37 @@ export function applyIssuesForFailures(failing, existingIssues, opts = {}) {
       // Closed or missing — fall through to create a fresh one.
     }
 
-    const title = `[ACMM ${check.id} · L${check.level} ${check.dimension}] ${check.description}`;
+    const patterns = Array.isArray(c.detection.pattern) ? c.detection.pattern : [c.detection.pattern];
+    const title = `[ACMM ${c.id} · L${c.level} ${c.category}] ${c.name}`;
     const body = [
-      `**Missing criterion from the ACMM rubric.**`,
+      `**Missing canonical-ACMM criterion.**`,
       ``,
-      `- **Dimension:** ${check.dimension}`,
-      `- **Level:** L${check.level}`,
-      `- **Check:** ${check.description}`,
+      `- **Source:** ${c.source}`,
+      `- **Level:** L${c.level}`,
+      `- **Category:** ${c.category}`,
+      `- **Name:** ${c.name}`,
       ``,
-      `**Remedy:**`,
-      check.remedy,
+      `**Description:**`,
+      c.description,
       ``,
-      `_Filed automatically by \`/acmm-audit --apply\`. See \`.claude/acmm/report.md\` for the full scorecard and \`CLAUDE.md\` for the ACMM skill docs._`,
+      `**Why it matters:**`,
+      c.rationale,
+      ``,
+      ...(c.details ? [`**Implementation note:**`, c.details, ``] : []),
+      `**Detection:** any of:`,
+      ...patterns.map((p) => `- \`${p}\``),
+      ``,
+      `_Filed automatically by \`/acmm-audit --apply\`. See \`.claude/acmm/report.md\` for the full scorecard._`,
     ].join("\n");
 
     if (opts.dryRun) {
-      updated[check.id] = -1; // placeholder
+      updated[c.id] = -1; // placeholder
       createdCount += 1;
       continue;
     }
 
     const num = createIssue(title, body, ["acmm", "audit", "ready"]);
-    updated[check.id] = num;
+    updated[c.id] = num;
     createdCount += 1;
   }
 

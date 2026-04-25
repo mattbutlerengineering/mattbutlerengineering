@@ -12,20 +12,21 @@ import { join } from "node:path";
 const BEGIN = "<!-- acmm:begin -->";
 const END = "<!-- acmm:end -->";
 
-/** L1 red → L5 gold, matches rialto --rialto-accent (#d4a030). */
+/** L1 red → L6 gold, matches rialto --rialto-accent (#d4a030). */
 function colorFor(level) {
   switch (level) {
-    case 5: return "d4a030";
-    case 4: return "c4952c";
-    case 3: return "a07230";
-    case 2: return "7a5a36";
+    case 6: return "d4a030";
+    case 5: return "c4952c";
+    case 4: return "a07230";
+    case 3: return "7a5a36";
+    case 2: return "8b6914";
     case 1: return "a14444";
     default: return "888888";
   }
 }
 
 /**
- * @param {number} level 0..5
+ * @param {number} level 0..6
  * @returns {string} The markdown badge snippet (image only, no fences).
  */
 function badgeMarkdown(level) {
