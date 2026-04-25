@@ -6,6 +6,11 @@ WORKDIR /app
 # Prisma 7 dropped the schema-level `url` field; URL now comes from prisma.config.ts.
 RUN npm install -g prisma@7
 
+# prisma.config.ts imports `from "prisma/config"`, which Node resolves only if
+# the global node_modules dir is on NODE_PATH. Without this, the config loader
+# fails with "Cannot find module 'prisma/config'" when run from a service dir.
+ENV NODE_PATH=/usr/local/lib/node_modules
+
 # Copy schemas, migrations, and per-service prisma.config.ts.
 # COPY is cached; runtime SERVICE_NAME selects which set to run.
 COPY services/users/prisma ./services/users/prisma
