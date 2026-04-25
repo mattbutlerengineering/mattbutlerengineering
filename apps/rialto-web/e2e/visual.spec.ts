@@ -55,6 +55,7 @@ const lightSections = [
   "dialog-open",
   "drawer-open",
   "tape-chart-default",
+  "tape-chart-stress",
 ] as const;
 
 for (const id of lightSections) {
