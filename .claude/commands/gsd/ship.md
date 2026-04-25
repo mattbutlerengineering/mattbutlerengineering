@@ -17,7 +17,7 @@ Closes the plan → execute → verify → ship loop.
 </objective>
 
 <execution_context>
-@/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/workflows/ship.md
+@${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/workflows/ship.md
 </execution_context>
 
-Execute the ship workflow from @/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/workflows/ship.md end-to-end.
+Execute the ship workflow from @${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/workflows/ship.md end-to-end.

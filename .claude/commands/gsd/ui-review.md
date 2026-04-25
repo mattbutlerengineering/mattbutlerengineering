@@ -18,8 +18,8 @@ Output: {phase_num}-UI-REVIEW.md
 </objective>
 
 <execution_context>
-@/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/workflows/ui-review.md
-@/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/references/ui-brand.md
+@${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/workflows/ui-review.md
+@${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/references/ui-brand.md
 </execution_context>
 
 <context>
@@ -27,6 +27,6 @@ Phase: $ARGUMENTS — optional, defaults to last completed phase.
 </context>
 
 <process>
-Execute @/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/workflows/ui-review.md end-to-end.
+Execute @${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/workflows/ui-review.md end-to-end.
 Preserve all workflow gates.
 </process>

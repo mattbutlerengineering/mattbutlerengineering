@@ -13,10 +13,10 @@ Validate `.planning/` directory integrity and report actionable issues. Checks f
 </objective>
 
 <execution_context>
-@/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/workflows/health.md
+@${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/workflows/health.md
 </execution_context>
 
 <process>
-Execute the health workflow from @/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/workflows/health.md end-to-end.
+Execute the health workflow from @${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/workflows/health.md end-to-end.
 Parse --repair flag from arguments and pass to workflow.
 </process>

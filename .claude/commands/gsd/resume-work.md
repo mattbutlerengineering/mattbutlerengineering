@@ -22,11 +22,11 @@ Routes to the resume-project workflow which handles:
   </objective>
 
 <execution_context>
-@/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/workflows/resume-project.md
+@${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/workflows/resume-project.md
 </execution_context>
 
 <process>
-**Follow the resume-project workflow** from `@/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/workflows/resume-project.md`.
+**Follow the resume-project workflow** from `@${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/workflows/resume-project.md`.
 
 The workflow handles all resumption logic including:
 

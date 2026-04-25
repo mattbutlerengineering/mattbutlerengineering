@@ -7,7 +7,7 @@ Commit planning artifacts using the gsd-tools CLI, which automatically checks `c
 Always use `gsd-tools.cjs commit` for `.planning/` files — it handles `commit_docs` and gitignore checks automatically:
 
 ```bash
-node "/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/bin/gsd-tools.cjs" commit "docs({scope}): {description}" --files .planning/STATE.md .planning/ROADMAP.md
+node "${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/bin/gsd-tools.cjs" commit "docs({scope}): {description}" --files .planning/STATE.md .planning/ROADMAP.md
 ```
 
 The CLI will return `skipped` (with reason) if `commit_docs` is `false` or `.planning/` is gitignored. No manual conditional checks needed.
@@ -17,7 +17,7 @@ The CLI will return `skipped` (with reason) if `commit_docs` is `false` or `.pla
 To fold `.planning/` file changes into the previous commit:
 
 ```bash
-node "/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/bin/gsd-tools.cjs" commit "" --files .planning/codebase/*.md --amend
+node "${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/bin/gsd-tools.cjs" commit "" --files .planning/codebase/*.md --amend
 ```
 
 ## Commit Message Patterns

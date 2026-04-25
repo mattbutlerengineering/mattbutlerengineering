@@ -49,5 +49,6 @@
     "tsx": "^4.19.0",
     "typescript": "catalog:",
     "vitest": "catalog:"
-  }
+  },
+  "license": "MIT"
 }

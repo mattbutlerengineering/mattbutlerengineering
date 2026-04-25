@@ -375,5 +375,6 @@
       "path": "dist/lib/motion.js",
       "limit": "1 kB"
     }
-  ]
+  ],
+  "license": "MIT"
 }

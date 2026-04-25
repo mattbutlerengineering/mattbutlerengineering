@@ -20,8 +20,8 @@ Flow: Validate → Research UI → Verify UI-SPEC → Done
 </objective>
 
 <execution_context>
-@/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/workflows/ui-phase.md
-@/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/references/ui-brand.md
+@${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/workflows/ui-phase.md
+@${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/references/ui-brand.md
 </execution_context>
 
 <context>
@@ -29,6 +29,6 @@ Phase number: $ARGUMENTS — optional, auto-detects next unplanned phase if omit
 </context>
 
 <process>
-Execute @/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/workflows/ui-phase.md end-to-end.
+Execute @${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/workflows/ui-phase.md end-to-end.
 Preserve all workflow gates.
 </process>

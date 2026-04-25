@@ -1156,7 +1156,7 @@ Expected: Clean
 
 - [ ] **Step 3: Verify inventory build works**
 
-Run: `cd /Users/mbutler/github/mattbutlerengineering && node -e "import('./packages/agent-core/dist/audit-inventory.js').then(m => { const inv = m.buildInventory(); console.log(inv.surfaces.length + ' surfaces registered'); })"`
+Run: `cd $(git rev-parse --show-toplevel) && node -e "import('./packages/agent-core/dist/audit-inventory.js').then(m => { const inv = m.buildInventory(); console.log(inv.surfaces.length + ' surfaces registered'); })"`
 Expected: "20+ surfaces registered" (exact count depends on registry)
 
 - [ ] **Step 4: Verify .audit-state is gitignored**

@@ -20,7 +20,7 @@ Output: .planning/codebase/ folder with 7 structured documents about the codebas
 </objective>
 
 <execution_context>
-@/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/workflows/map-codebase.md
+@${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/workflows/map-codebase.md
 </execution_context>
 
 <context>

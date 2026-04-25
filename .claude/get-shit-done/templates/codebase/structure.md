@@ -216,7 +216,7 @@ get-shit-done/
 
 **New Workflow:**
 - Implementation: `get-shit-done/workflows/{name}.md`
-- Usage: Reference from command with `@/Users/mbutler/github/mattbutlerengineering/.claude/get-shit-done/workflows/{name}.md`
+- Usage: Reference from command with `@${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/workflows/{name}.md`
 
 **New Reference Document:**
 - Implementation: `get-shit-done/references/{name}.md`
@@ -229,12 +229,12 @@ get-shit-done/
 ## Special Directories
 
 **get-shit-done/**
-- Purpose: Resources installed to /Users/mbutler/github/mattbutlerengineering/.claude/
+- Purpose: Resources installed to ${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/
 - Source: Copied by bin/install.js during installation
 - Committed: Yes (source of truth)
 
 **commands/**
-- Purpose: Slash commands installed to /Users/mbutler/github/mattbutlerengineering/.claude/commands/
+- Purpose: Slash commands installed to ${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/commands/
 - Source: Copied by bin/install.js during installation
 - Committed: Yes (source of truth)
 
