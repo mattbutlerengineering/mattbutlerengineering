@@ -609,6 +609,27 @@ export function VisualTest() {
         </div>
       </Section>
 
+      {/* ── MasterOverride — requireHold + splitflap label ───────── */}
+      <Section
+        id="master-override-requireHold-splitflap"
+        title="MasterOverride — requireHold + splitflap"
+      >
+        <div className={styles.card}>
+          <MasterOverride
+            label="System state"
+            description="Hold to engage. Label cascades through SplitFlap cells."
+            on={false}
+            onChange={() => {}}
+            size="md"
+            variant="danger"
+            idleLabel="OFFLINE"
+            activeLabel="ONLINE"
+            requireHold
+            labelTransition="splitflap"
+          />
+        </div>
+      </Section>
+
       {/* ── Dark Mode Section ──────────────── */}
       <Divider label="Dark Mode" spacing="spacious" />
 

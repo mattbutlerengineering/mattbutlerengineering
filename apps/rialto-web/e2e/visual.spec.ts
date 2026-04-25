@@ -57,6 +57,7 @@ const lightSections = [
   "tape-chart-default",
   "tape-chart-stress",
   "master-override-variants",
+  "master-override-requireHold-splitflap",
 ] as const;
 
 for (const id of lightSections) {
