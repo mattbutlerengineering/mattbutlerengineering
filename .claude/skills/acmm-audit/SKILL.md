@@ -51,7 +51,7 @@ Full rubric: `scripts/acmm/rubric.js`. Check logic: `scripts/acmm/checks.js`.
 ## Cadence
 
 - **On-demand** — anytime via this skill.
-- **Scheduled** — `mbe-acmm-audit` RemoteTrigger on claude.ai, Wed 10:00am PT, invocation: `node scripts/acmm/audit.js --apply --badge`. Staggered from the other audits (Mon 8:23 deep-audit, Tue–Sun 9:41 light-audit, daily 5:11pm progress-tracker) so they don't contend for the agent queue.
+- **Scheduled** — `mbe-acmm-audit` RemoteTrigger on claude.ai, daily 10:00am PT (cron `0 17 * * *` UTC), invocation: `node scripts/acmm/audit.js --apply --badge`. Staggered from the other audits (Mon 8:23 deep-audit, Tue–Sun 9:41 light-audit, daily 5:11pm progress-tracker) so they don't contend for the agent queue.
 
 ## Integration
 

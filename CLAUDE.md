@@ -102,7 +102,7 @@ Managed at https://claude.ai/code/scheduled
 | `mbe-light-audit` | Tue-Sun 9:41am |
 | `mbe-issue-worker` | Every 2h (includes CI monitoring) |
 | `mbe-progress-tracker` | Daily 5:11pm |
-| `mbe-acmm-audit` | Wed 10:00am (runs `/acmm-audit --apply --badge`) |
+| `mbe-acmm-audit` | Daily 10:00am (runs `/acmm-audit --apply --badge`) |
 
 ---
 
