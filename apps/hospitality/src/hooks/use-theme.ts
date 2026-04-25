@@ -1,28 +1,9 @@
-import { createContext, useContext, useState, useCallback } from "react";
+import { createContext, useContext, useMemo } from "react";
+import { useThemeState as useSharedThemeState } from "@mattbutlerengineering/rialto";
 
-type ThemePreference = "light" | "dark" | "system";
-
-const STORAGE_KEY = "mbe-theme-preference";
-
-function getStoredTheme(): ThemePreference {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === "light" || stored === "dark" || stored === "system") {
-      return stored;
-    }
-  } catch {
-    // localStorage unavailable (private browsing, etc.)
-  }
-  return "system";
-}
-
-function storeTheme(theme: ThemePreference): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, theme);
-  } catch {
-    // Theme still works in memory for the session
-  }
-}
+export { resolveTheme } from "@mattbutlerengineering/rialto";
+export type { ThemePreference, ThemeState } from "@mattbutlerengineering/rialto";
+import type { ThemePreference } from "@mattbutlerengineering/rialto";
 
 /* ── Context ────────────────────────────────────── */
 
@@ -38,15 +19,6 @@ export const ThemeContext = createContext<ThemeContextValue>({
 
 /* ── Hooks ──────────────────────────────────────── */
 
-/** Resolve a preference to a concrete light/dark value. */
-export function resolveTheme(pref: ThemePreference): "light" | "dark" {
-  if (pref === "system") {
-    if (typeof window === "undefined") return "light";
-    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-  }
-  return pref;
-}
-
 /** Consume the current theme preference from context. */
 export function useTheme(): ThemeContextValue {
   return useContext(ThemeContext);
@@ -57,12 +29,10 @@ export function useTheme(): ThemeContextValue {
  * Reads the initial value from localStorage and persists changes back.
  */
 export function useThemeState(): ThemeContextValue {
-  const [theme, setThemeState] = useState<ThemePreference>(getStoredTheme);
+  const { preference, setTheme } = useSharedThemeState();
 
-  const setTheme = useCallback((next: ThemePreference) => {
-    storeTheme(next);
-    setThemeState(next);
-  }, []);
-
-  return { theme, setTheme };
+  return useMemo(() => ({
+    theme: preference,
+    setTheme
+  }), [preference, setTheme]);
 }

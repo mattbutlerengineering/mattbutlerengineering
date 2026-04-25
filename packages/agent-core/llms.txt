@@ -8,6 +8,33 @@
       async function git(args: readonly string[], cwd: string): Promise<string> { /* ... */ }
     </item>
   </file>
+  <file path="src/verification-orchestrator.ts">
+    <item priority="low">
+      interface VerificationResult {
+        passed: boolean;
+        logPath?: string | undefined;
+        error?: string | undefined;
+      }
+    </item>
+    <item priority="high">
+      export async function orchestrateVerification(
+        worktreePath: string,
+        onEvent?: SessionEventCallback
+      ): Promise<VerificationResult> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/utils.ts">
+    <item priority="high">
+      export function emitEvent(
+        onEvent: SessionEventCallback | undefined,
+        type: SessionEvent["type"],
+        data: SessionEvent["data"]
+      ): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function sanitizeForCommitMessage(text: string): string { /* ... */ }
+    </item>
+  </file>
   <file path="src/types.ts">
     <item priority="low">
       type FailureCategory = "api_error" | "rate_limited" | "stuck_loop" | "budget_exceeded" | "tool_error" | "logic_error";
@@ -77,15 +104,11 @@
     </item>
   </file>
   <file path="src/session-runner.ts">
-    <item priority="medium">
-      function emitEvent(
-        onEvent: SessionEventCallback | undefined,
-        type: SessionEvent["type"],
-        data: SessionEvent["data"]
-      ): void { /* ... */ }
-    </item>
-    <item priority="medium">
-      function sanitizeForCommitMessage(text: string): string { /* ... */ }
+    <item priority="high">
+      export async function runSession(
+        config: SessionConfig,
+        onEvent?: SessionEventCallback
+      ): Promise<SessionResult> { /* ... */ }
     </item>
   </file>
   <file path="src/sanitize-output.ts">
@@ -112,6 +135,29 @@
       }
     </item>
   </file>
+  <file path="src/quality-gates.ts">
+    <item priority="low">
+      interface QualityGatesResult {
+        evaluation?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        securityReview?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        staticAnalysisClean: boolean;
+        errors: string[];
+      }
+    </item>
+    <item priority="high">
+      export async function runQualityGates(
+        taskDescription: string,
+        diff: string,
+        commitMsg: string,
+        options: {
+          evaluateSuccess?: boolean;
+          runSecurityReview?: boolean;
+          runStaticAnalysis?: boolean;
+        },
+        onEvent?: SessionEventCallback
+      ): Promise<QualityGatesResult> { /* ... */ }
+    </item>
+  </file>
   <file path="src/prompt-builder.ts">
     <item priority="low">
       interface SourceFileEntry {
@@ -119,10 +165,14 @@
         content: string;
       }
     </item>
-    <item priority="high">
-      export async function loadSourceFiles(
-        paths: readonly string[]
-      ): Promise<readonly SourceFileEntry[]> { /* ... */ }
+    <item priority="low">
+      interface PromptBuilderConfig {
+        sourceFileEntries?: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        relevantLlmsFiles?: readonly string[] | undefined;
+        relevantIssueContext?: string | undefined;
+        failureContext?: string | undefined;
+        model?: string | undefined;
+      }
     </item>
   </file>
   <file path="src/pr-risk-classifier.ts">
@@ -136,8 +186,8 @@
         threadId: string;
         author: string;
         body: string;
-        path: string;
-        line: number;
+        path: string | null;
+        line: number | null;
       }
     </item>
     <item priority="low">
@@ -167,8 +217,8 @@
         id: string;
         status: string;
         taskDescription: string;
-        branchName: string;
-        prUrl: string;
+        branchName: string | null;
+        prUrl: string | null;
       }
     </item>
   </file>
@@ -214,7 +264,7 @@
     </item>
     <item priority="low">
       interface BuildReviewFixPromptOptions {
-        ciLogMaxChars?: number;
+        ciLogMaxChars?: number | undefined;
       }
     </item>
   </file>
@@ -232,7 +282,7 @@
       interface FeedbackLoopResult {
         retriesUsed: number;
         resolved: boolean;
-        lastFingerprint: string;
+        lastFingerprint: string | null;
       }
     </item>
   </file>
@@ -241,7 +291,7 @@
       interface FailureRecord {
         taskDescription: string;
         timestamp: string;
-        stuckPattern?: string;
+        stuckPattern?: string | undefined;
         errors: readonly string[];
         approach: string;
       }
@@ -323,7 +373,7 @@
     <item priority="low">
       interface TrivialDepBumpResult {
         isTrivial: boolean;
-        reason?: string;
+        reason?: string | undefined;
       }
     </item>
     <item priority="medium">

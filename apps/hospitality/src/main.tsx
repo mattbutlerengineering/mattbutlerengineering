@@ -6,7 +6,7 @@ import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom"
 import { RialtoProvider, ErrorBoundary, ToastProvider } from "@mattbutlerengineering/rialto";
 import { AuthProvider } from "@mbe/auth/react";
 import { initSentry, handleErrorBoundary } from "@mbe/sentry/react";
-import { ThemeContext, useThemeState } from "./hooks/use-theme";
+import { ThemeContext, useThemeState, resolveTheme } from "./hooks/use-theme";
 import { App, CallbackRedirect } from "./App";
 import { AuthConfigError } from "./components/AuthConfigError";
 import { LoadingPage } from "./pages/LoadingPage";
@@ -228,7 +228,7 @@ function Root() {
   if (!authConfigResult.valid) {
     return (
       <ThemeContext.Provider value={themeState}>
-        <RialtoProvider theme={themeState.theme}>
+        <RialtoProvider theme={resolveTheme(themeState.theme)}>
           <AuthConfigError missing={authConfigResult.missing} />
         </RialtoProvider>
       </ThemeContext.Provider>
@@ -237,7 +237,7 @@ function Root() {
 
   return (
     <ThemeContext.Provider value={themeState}>
-      <RialtoProvider theme={themeState.theme}>
+      <RialtoProvider theme={resolveTheme(themeState.theme)}>
         <ToastProvider>
           <ErrorBoundary onError={handleErrorBoundary}>
             <AuthProvider config={authConfigResult.config}>

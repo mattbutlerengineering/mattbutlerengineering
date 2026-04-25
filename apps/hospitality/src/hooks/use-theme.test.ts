@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { resolveTheme } from "./use-theme.js";
+import { resolveTheme } from "./use-theme.ts";
 
 describe("resolveTheme", () => {
   beforeEach(() => {
@@ -15,17 +15,37 @@ describe("resolveTheme", () => {
   });
 
   it("returns 'dark' for system when prefers-color-scheme is dark", () => {
-    vi.spyOn(window, "matchMedia").mockReturnValue({
-      matches: true,
-    } as MediaQueryList);
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockImplementation(query => ({
+        matches: query === '(prefers-color-scheme: dark)',
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
 
     expect(resolveTheme("system")).toBe("dark");
   });
 
   it("returns 'light' for system when prefers-color-scheme is light", () => {
-    vi.spyOn(window, "matchMedia").mockReturnValue({
-      matches: false,
-    } as MediaQueryList);
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockImplementation(query => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
 
     expect(resolveTheme("system")).toBe("light");
   });

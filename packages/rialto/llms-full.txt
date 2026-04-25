@@ -387,6 +387,25 @@
     ];
   </file>
   </section>
+  <section priority="medium" role="utils">
+  <file path="src/utils/service-worker.ts">
+    export function unregisterStaleServiceWorkers(exemptedScopes: string[] = ["/hospitality/"]): void {
+      if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) {
+        return;
+      }
+    
+      void navigator.serviceWorker.getRegistrations().then((registrations) => {
+        for (const registration of registrations) {
+          const isExempted = exemptedScopes.some((scope) => registration.scope.includes(scope));
+          if (!isExempted) {
+            console.info(`[rialto] Unregistering stale service worker at scope: ${registration.scope}`);
+            void registration.unregister();
+          }
+        }
+      });
+    }
+  </file>
+  </section>
   <section priority="medium" role="tokens">
   <file path="src/tokens/motion.ts">
     export const ms = (s: React.CSSProperties): MotionStyle => s as MotionStyle;
