@@ -1,72 +1,143 @@
 /**
- * Render the ACMM scorecard as a markdown report at `.claude/acmm/report.md`.
+ * Render the canonical ACMM scorecard as a markdown report at
+ * `.claude/acmm/report.md`.
+ *
+ * Layout:
+ *   1. Score header (level, role, anti-pattern)
+ *   2. Per-level threshold table
+ *   3. Per-source summary (citations to ACMM / Fullsend / AEF / Reflect)
+ *   4. Detected/missing breakdown grouped by level
+ *   5. Cross-cutting overlay (learning, traceability)
+ *   6. Trend table
  */
 
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { byDimension } from "../rubric.js";
 
 /**
  * @param {string} cwd
  * @param {Object} args
  * @param {import("../state.js").State} args.state
- * @param {import("../rubric.js").CheckMeta[]} args.checks
+ * @param {Array<import("../sources/types.js").Criterion>} args.criteria
+ * @param {Array<import("../sources/types.js").Source>} args.sources
+ * @param {import("../computeLevel.js").LevelComputation} args.computation
  */
-export function writeReport(cwd, { state, checks }) {
-  const passed = Object.entries(state.checks).filter(([, r]) => r.passed).length;
-  const total = checks.length;
-  const grouped = byDimension(checks);
+export function writeReport(cwd, { state, criteria, sources, computation }) {
+  const detectedSet = new Set(state.detectedIds ?? []);
   const date = new Date().toISOString().slice(0, 10);
 
   const lines = [];
-  lines.push(`# ACMM Scorecard — Level ${state.currentLevel}`);
-  lines.push("");
-  lines.push(`_Generated ${date} · ${passed}/${total} checks passing._`);
+
+  // ── Header ────────────────────────────────────────────────
+  lines.push(`# ACMM Scorecard — Level ${computation.level} · ${computation.levelName}`);
   lines.push("");
   lines.push(
-    "Rubric inspired by the 4 dimensions named in [ossf/scorecard#5021](https://github.com/ossf/scorecard/issues/5021). See `.claude/skills/acmm-audit/SKILL.md` for details.",
+    `_Generated ${date} · ${detectedSet.size}/${criteria.length} criteria detected · role: **${computation.role}**_`,
+  );
+  lines.push("");
+  lines.push(
+    `Canonical 6-level model ported from [kubestellar/console](https://github.com/kubestellar/console/tree/main/web/src/lib/acmm/sources). Cited from four source frameworks: ACMM, Fullsend, Agentic Engineering Framework, Claude Reflect. See [arXiv:2604.09388](https://arxiv.org/abs/2604.09388).`,
   );
   lines.push("");
 
-  // Dimension summary
-  lines.push("## Summary by dimension");
+  if (computation.antiPattern) {
+    lines.push(`> **Anti-pattern at this level:** ${computation.antiPattern}`);
+    lines.push("");
+  }
+  if (computation.nextTransitionTrigger) {
+    lines.push(`> **Next transition trigger:** ${computation.nextTransitionTrigger}`);
+    lines.push("");
+  }
+
+  // ── Per-level threshold table ─────────────────────────────
+  lines.push("## Per-level threshold");
   lines.push("");
-  lines.push("| Dimension | Passed | Next gap |");
-  lines.push("|---|---|---|");
-  for (const [dim, dimChecks] of Object.entries(grouped)) {
-    const dimPassed = dimChecks.filter((c) => state.checks[c.id]?.passed).length;
-    const nextGap = dimChecks.find((c) => !state.checks[c.id]?.passed);
-    lines.push(`| ${dim} | ${dimPassed} / ${dimChecks.length} | ${nextGap ? `${nextGap.id} — ${nextGap.description}` : "—"} |`);
+  lines.push("Each level needs ≥70% of its scannable criteria detected (L2 needs only 1).");
+  lines.push("");
+  lines.push("| Level | Detected | Required | % | Passed |");
+  lines.push("|---|---|---|---|---|");
+  for (const n of [2, 3, 4, 5, 6]) {
+    const det = computation.detectedByLevel[n] ?? 0;
+    const req = computation.requiredByLevel[n] ?? 0;
+    const pct = req > 0 ? Math.round((det / req) * 100) : 0;
+    const passed = computation.level >= n ? "✅" : "❌";
+    lines.push(`| L${n} | ${det} | ${req} | ${pct}% | ${passed} |`);
+  }
+  lines.push("");
+  lines.push(`Prerequisites (L0, soft indicator): **${computation.prerequisites.met}/${computation.prerequisites.total}**`);
+  lines.push("");
+
+  // ── Per-source summary ────────────────────────────────────
+  lines.push("## By source framework");
+  lines.push("");
+  lines.push("| Source | Detected | Total | Citation |");
+  lines.push("|---|---|---|---|");
+  for (const src of sources) {
+    const total = src.criteria.length;
+    const det = src.criteria.filter((c) => detectedSet.has(c.id)).length;
+    lines.push(`| [${src.name}](${src.url}) | ${det} | ${total} | ${src.citation} |`);
   }
   lines.push("");
 
-  // Per-level section
-  for (const level of [1, 2, 3, 4, 5]) {
-    const levelChecks = checks.filter((c) => c.level === level);
-    const levelPassed = levelChecks.filter((c) => state.checks[c.id]?.passed).length;
-    const status = levelPassed === levelChecks.length ? "✓ complete" : "✗ gaps";
-    lines.push(`## Level ${level} — ${status} (${levelPassed}/${levelChecks.length})`);
+  // ── Cross-cutting overlay ─────────────────────────────────
+  lines.push("## Cross-cutting overlay");
+  lines.push("");
+  lines.push(
+    `- **Learning & feedback:** ${computation.crossCutting.learning.met}/${computation.crossCutting.learning.total}`,
+  );
+  lines.push(
+    `- **Traceability & audit:** ${computation.crossCutting.traceability.met}/${computation.crossCutting.traceability.total}`,
+  );
+  lines.push("");
+
+  // ── Per-level criteria detail ─────────────────────────────
+  for (const level of [0, 2, 3, 4, 5, 6]) {
+    const levelCriteria = criteria.filter((c) => c.level === level);
+    if (levelCriteria.length === 0) continue;
+    const det = levelCriteria.filter((c) => detectedSet.has(c.id)).length;
+    const status =
+      level === 0
+        ? `(prerequisite, ${det}/${levelCriteria.length})`
+        : computation.level >= level
+          ? `✓ achieved (${det}/${levelCriteria.length})`
+          : `✗ gaps (${det}/${levelCriteria.length})`;
+    lines.push(`## Level ${level} ${status}`);
     lines.push("");
-    for (const c of levelChecks) {
-      const r = state.checks[c.id];
-      const mark = r?.passed ? "✓" : "✗";
-      lines.push(`- **${mark} ${c.id}** \`${c.dimension}\` — ${c.description}`);
-      lines.push(`  _Evidence:_ ${r?.evidence ?? "(not evaluated)"}`);
-      if (!r?.passed) {
-        lines.push(`  _Remedy:_ ${c.remedy}`);
-      }
+    for (const c of levelCriteria) {
+      const mark = detectedSet.has(c.id) ? "✓" : "✗";
+      const patterns = Array.isArray(c.detection.pattern) ? c.detection.pattern : [c.detection.pattern];
+      lines.push(`- **${mark} \`${c.id}\`** \`${c.source}\` \`${c.category}\` — ${c.name}`);
+      lines.push(`  _${c.description}_`);
+      lines.push(`  Detection (${c.detection.type}): ${patterns.map((p) => `\`${p}\``).join(" · ")}`);
     }
     lines.push("");
   }
 
-  // Trend footer
+  // ── Missing-for-next-level (actionable) ───────────────────
+  if (computation.missingForNextLevel.length > 0) {
+    lines.push(`## Next-level gaps (${computation.missingForNextLevel.length})`);
+    lines.push("");
+    lines.push(`To advance from L${computation.level} → L${computation.level + 1}, close ≥70% of the criteria below.`);
+    lines.push("");
+    for (const c of computation.missingForNextLevel) {
+      const patterns = Array.isArray(c.detection.pattern) ? c.detection.pattern : [c.detection.pattern];
+      lines.push(`- **\`${c.id}\`** — ${c.name}`);
+      lines.push(`  ${c.description}`);
+      lines.push(`  _Detection:_ ${patterns.map((p) => `\`${p}\``).join(" · ")}`);
+    }
+    lines.push("");
+  }
+
+  // ── Trend ─────────────────────────────────────────────────
   if (state.history.length > 0) {
     lines.push("## Trend");
     lines.push("");
-    lines.push("| Date | Level | Passed |");
+    lines.push("| Date | Level | Detected |");
     lines.push("|---|---|---|");
     for (const h of state.history.slice(-10)) {
-      lines.push(`| ${h.date} | L${h.level} | ${h.passed}/${h.total} |`);
+      const det = h.detected ?? h.passed; // back-compat with old history shape
+      const tot = h.total;
+      lines.push(`| ${h.date} | L${h.level} | ${det}/${tot} |`);
     }
     lines.push("");
   }

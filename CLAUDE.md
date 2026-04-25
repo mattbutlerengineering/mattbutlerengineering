@@ -50,7 +50,7 @@ Automated system that audits the live site, finds and fixes issues, builds featu
 | `/issue-worker` | Pick up ready issues, implement via `mbe agent run`, create PRs |
 | `/ci-monitor` | Check CI health, auto-fix simple failures, escalate complex ones |
 | `/progress-tracker` | Metrics, self-tuning circuit breaker, trend analysis |
-| `/acmm-audit` | Score repo against AI Codebase Maturity Model (4 dimensions × 5 levels), file gap issues, update README badge |
+| `/acmm-audit` | Score repo against canonical AI Codebase Maturity Model (6 levels, 85 criteria from ACMM/Fullsend/AEF/Reflect), file next-level-gap issues, update README badge |
 
 ## mbe CLI Commands
 
@@ -102,7 +102,7 @@ Managed at https://claude.ai/code/scheduled
 | `mbe-light-audit` | Tue-Sun 9:41am |
 | `mbe-issue-worker` | Every 2h (includes CI monitoring) |
 | `mbe-progress-tracker` | Daily 5:11pm |
-| `mbe-acmm-audit` | Wed 10:00am (runs `/acmm-audit --apply --badge`) |
+| `mbe-acmm-audit` | Daily 10:00am (runs `/acmm-audit --apply --badge`) |
 
 ---
 

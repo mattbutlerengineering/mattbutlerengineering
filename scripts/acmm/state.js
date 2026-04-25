@@ -11,16 +11,20 @@ import { dirname, join } from "node:path";
 /**
  * @typedef {Object} HistoryEntry
  * @property {string} date      ISO date (YYYY-MM-DD)
- * @property {number} level     0..5
- * @property {number} passed
- * @property {number} total
+ * @property {number} level     0..6
+ * @property {number} detected  number of criteria detected
+ * @property {number} total     total criteria evaluated
  *
  * @typedef {Object} State
  * @property {string} lastRun             ISO timestamp of last `audit.js` run
- * @property {number} currentLevel        0..5
+ * @property {number} currentLevel        0..6
+ * @property {string} [levelName]         human-readable level name
+ * @property {string} [role]              role at this level (Executor, Rule-writer, …)
  * @property {Record<string, { passed: boolean, evidence: string }>} checks
+ * @property {string[]} [detectedIds]     flat list of detected criterion IDs
+ * @property {object} [computation]       full computeLevel output
  * @property {HistoryEntry[]} history
- * @property {Record<string, number>} issuesCreated   checkId → GitHub issue number
+ * @property {Record<string, number>} issuesCreated   criterionId → GitHub issue number
  */
 
 export const STATE_DIR = ".claude/acmm";
@@ -69,14 +73,14 @@ export function saveState(cwd, state) {
  * (overwrites if another run happens the same day).
  * @param {State} state
  * @param {number} level
- * @param {number} passed
+ * @param {number} detected
  * @param {number} total
  * @returns {State}
  */
-export function recordHistory(state, level, passed, total) {
+export function recordHistory(state, level, detected, total) {
   const date = new Date().toISOString().slice(0, 10);
   const history = state.history.filter((h) => h.date !== date);
-  history.push({ date, level, passed, total });
+  history.push({ date, level, detected, total });
   history.sort((a, b) => (a.date < b.date ? -1 : 1));
   return { ...state, history };
 }
