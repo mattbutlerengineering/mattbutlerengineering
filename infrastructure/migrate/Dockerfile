@@ -23,6 +23,9 @@ COPY services/agent/prisma.config.ts ./services/agent/prisma.config.ts
 # Inline migration script (avoids .dockerignore excluding infrastructure/).
 # SERVICE_NAME selects which service's migrations to run; cd into the service
 # dir so Prisma 7 auto-discovers prisma.config.ts (which provides DATABASE_URL).
+# Single quotes around the printf format are intentional — $SERVICE_NAME must
+# be written literally into /migrate.sh, not expanded at Docker build time.
+# hadolint ignore=SC2016
 RUN printf '#!/bin/sh\nset -e\nif [ -z "$SERVICE_NAME" ]; then\n  echo "ERROR: SERVICE_NAME env var is required" >&2\n  exit 1\nfi\necho "Running $SERVICE_NAME migrations..."\ncd "/app/services/$SERVICE_NAME"\nprisma migrate deploy\necho "$SERVICE_NAME migrations complete."\n' > /migrate.sh && chmod +x /migrate.sh
 
 CMD ["/migrate.sh"]
