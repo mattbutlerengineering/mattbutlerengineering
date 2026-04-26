@@ -159,7 +159,6 @@ function buildGraph() {
   return {
     nodes,
     edges,
-    generatedAt: new Date().toISOString(),
   };
 }
 

@@ -104,7 +104,10 @@ export function ReservationsPage() {
 
   /* Keep the "Updated Xs ago" display current */
   const lastUpdatedRef = useRef(lastUpdated);
-  lastUpdatedRef.current = lastUpdated;
+  
+  useEffect(() => {
+    lastUpdatedRef.current = lastUpdated;
+  }, [lastUpdated]);
 
   useEffect(() => {
     if (!lastUpdated) return;

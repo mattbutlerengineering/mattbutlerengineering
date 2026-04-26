@@ -39,12 +39,12 @@ exports.Prisma = Prisma
 exports.$Enums = {}
 
 /**
- * Prisma Client JS version: 7.6.0
- * Query Engine version: 75cbdc1eb7150937890ad5465d861175c6624711
+ * Prisma Client JS version: 7.8.0
+ * Query Engine version: 3c6e192761c0362d496ed980de936e2f3cebcd3a
  */
 Prisma.prismaVersion = {
-  client: "7.6.0",
-  engine: "75cbdc1eb7150937890ad5465d861175c6624711"
+  client: "7.8.0",
+  engine: "3c6e192761c0362d496ed980de936e2f3cebcd3a"
 }
 
 Prisma.PrismaClientKnownRequestError = PrismaClientKnownRequestError;
@@ -191,8 +191,8 @@ exports.Prisma.ModelName = {
  */
 const config = {
   "previewFeatures": [],
-  "clientVersion": "7.6.0",
-  "engineVersion": "75cbdc1eb7150937890ad5465d861175c6624711",
+  "clientVersion": "7.8.0",
+  "engineVersion": "3c6e192761c0362d496ed980de936e2f3cebcd3a",
   "activeProvider": "postgresql",
   "inlineSchema": "generator client {\n  provider = \"prisma-client-js\"\n  output   = \"../src/generated/prisma\"\n}\n\ndatasource db {\n  provider = \"postgresql\"\n}\n\nenum SessionStatus {\n  PENDING\n  RUNNING\n  SUCCEEDED\n  FAILED\n  CANCELLED\n}\n\nmodel Session {\n  id              String        @id @default(cuid())\n  status          SessionStatus @default(PENDING)\n  taskDescription String        @map(\"task_description\")\n  branchName      String?       @map(\"branch_name\")\n  baseBranch      String        @default(\"main\") @map(\"base_branch\")\n  model           String        @default(\"claude-sonnet-4-6\")\n  maxTurns        Int           @default(50) @map(\"max_turns\")\n  maxBudgetUsd    Float         @default(1.00) @map(\"max_budget_usd\")\n  createPr        Boolean       @default(true) @map(\"create_pr\")\n\n  // Results\n  prUrl        String? @map(\"pr_url\")\n  prNumber     Int?    @map(\"pr_number\")\n  resultText   String? @map(\"result_text\")\n  costUsd      Float?  @map(\"cost_usd\")\n  inputTokens  Int?    @map(\"input_tokens\")\n  outputTokens Int?    @map(\"output_tokens\")\n  numTurns     Int?    @map(\"num_turns\")\n  durationMs   Int?    @map(\"duration_ms\")\n  errors       Json    @default(\"[]\")\n\n  // Failure analytics\n  failureCategory String? @map(\"failure_category\")\n\n  // SDK session tracking\n  sdkSessionId String? @map(\"sdk_session_id\")\n\n  // Timestamps\n  startedAt   DateTime? @map(\"started_at\")\n  completedAt DateTime? @map(\"completed_at\")\n  createdAt   DateTime  @default(now()) @map(\"created_at\")\n  updatedAt   DateTime  @updatedAt @map(\"updated_at\")\n\n  // Parent/child relationship for orchestrator (Phase 3)\n  parentId String?   @map(\"parent_id\")\n  parent   Session?  @relation(\"SessionHierarchy\", fields: [parentId], references: [id])\n  children Session[] @relation(\"SessionHierarchy\")\n\n  // Events\n  events SessionEvent[]\n\n  @@index([status])\n  @@index([parentId])\n  @@map(\"sessions\")\n}\n\nmodel SessionEvent {\n  id        String   @id @default(cuid())\n  sessionId String   @map(\"session_id\")\n  type      String\n  data      Json     @default(\"{}\")\n  createdAt DateTime @default(now()) @map(\"created_at\")\n\n  // Per-turn observability metrics (populated for session:turn_metrics events)\n  turnIndex      Int?    @map(\"turn_index\")\n  inputTokens    Int?    @map(\"input_tokens\")\n  outputTokens   Int?    @map(\"output_tokens\")\n  thinkingTokens Int?    @map(\"thinking_tokens\")\n  costUsd        Float?  @map(\"cost_usd\")\n  modelId        String? @map(\"model_id\")\n\n  // Tool call latency (populated for session:tool_latency events)\n  toolName      String?  @map(\"tool_name\")\n  toolUseId     String?  @map(\"tool_use_id\")\n  toolLatencyMs Int?     @map(\"tool_latency_ms\")\n  toolIsError   Boolean? @map(\"tool_is_error\")\n\n  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)\n\n  @@index([sessionId, createdAt])\n  @@index([sessionId, type])\n  @@map(\"session_events\")\n}\n\nmodel StoredSpec {\n  id         String   @id @default(cuid())\n  userId     String   @map(\"user_id\")\n  prompt     String\n  spec       Json\n  rawLines   Json     @map(\"raw_lines\")\n  isFavorite Boolean  @default(false) @map(\"is_favorite\")\n  createdAt  DateTime @default(now()) @map(\"created_at\")\n  updatedAt  DateTime @updatedAt @map(\"updated_at\")\n\n  @@index([userId, createdAt])\n  @@index([userId, isFavorite])\n  @@map(\"stored_specs\")\n}\n"
 }
