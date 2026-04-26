@@ -15,7 +15,7 @@ import { Tree } from "../../components/Tree/Tree";
 
 describe("Accessibility — Navigation Components", () => {
   it("AppBar", async () => {
-    const { container } = render(<AppBar title="Rialto" />);
+    const { container } = render(<AppBar logo={<span>Rialto</span>} aria-label="Main app bar" />);
     expect(await axe(container)).toHaveNoViolations();
   });
 
@@ -27,7 +27,7 @@ describe("Accessibility — Navigation Components", () => {
   it("Navbar", async () => {
     const { container } = render(
       <Navbar
-        brand="Rialto"
+        logo={<span>Rialto</span>}
         links={[
           { id: "1", label: "Home", href: "/" },
           { id: "2", label: "Products", href: "/products" },

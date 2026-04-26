@@ -20,11 +20,10 @@ describe("Accessibility — Overlay Components", () => {
       <ConfirmDialog
         open
         title="Are you sure?"
+        description="This action cannot be undone."
         onConfirm={noop}
         onCancel={noop}
-      >
-        This action cannot be undone.
-      </ConfirmDialog>
+      />
     );
     expect(await axe(container)).toHaveNoViolations();
   });
@@ -52,8 +51,8 @@ describe("Accessibility — Overlay Components", () => {
       <DropdownMenu
         trigger={<button>Menu</button>}
         items={[
-          { label: "Profile", onClick: noop },
-          { label: "Settings", onClick: noop },
+          { id: "profile", label: "Profile", onSelect: noop },
+          { id: "settings", label: "Settings", onSelect: noop },
         ]}
       />
     );
@@ -62,8 +61,8 @@ describe("Accessibility — Overlay Components", () => {
 
   it("HoverCard", async () => {
     const { container } = render(
-      <HoverCard trigger={<button>Hover me</button>}>
-        <p>Card content</p>
+      <HoverCard content={<p>Card content</p>}>
+        <button>Hover me</button>
       </HoverCard>
     );
     expect(await axe(container)).toHaveNoViolations();
@@ -89,7 +88,7 @@ describe("Accessibility — Overlay Components", () => {
 
   it("Tooltip", async () => {
     const { container } = render(
-      <Tooltip label="Save changes">
+      <Tooltip content="Save changes">
         <button>Save</button>
       </Tooltip>
     );
