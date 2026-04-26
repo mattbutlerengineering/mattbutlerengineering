@@ -129,8 +129,8 @@ describe("Auth Plugin", () => {
 
       expect(response.statusCode).toBe(401);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Unauthorized");
-      expect(body.message).toBe("Invalid token");
+      expect(body.title).toBe("Unauthorized");
+      expect(body.detail).toBe("Invalid token");
     });
 
     it("returns 401 for expired token", async () => {
@@ -146,8 +146,8 @@ describe("Auth Plugin", () => {
 
       expect(response.statusCode).toBe(401);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Unauthorized");
-      expect(body.message).toBe("Invalid token");
+      expect(body.title).toBe("Unauthorized");
+      expect(body.detail).toBe("Invalid token");
     });
 
     it("bypasses auth for excluded paths", async () => {
@@ -240,8 +240,8 @@ describe("Auth Plugin", () => {
 
       expect(response.statusCode).toBe(401);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Unauthorized");
-      expect(body.message).toBe("Missing or invalid authorization header");
+      expect(body.title).toBe("Unauthorized");
+      expect(body.detail).toBe("Missing or invalid authorization header");
     });
 
     it("returns 401 and does not execute route handler when user is missing", async () => {
@@ -271,8 +271,8 @@ describe("Auth Plugin", () => {
 
       expect(response.statusCode).toBe(401);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Unauthorized");
-      expect(body.message).toBe("Missing or invalid authorization header");
+      expect(body.title).toBe("Unauthorized");
+      expect(body.detail).toBe("Missing or invalid authorization header");
       expect(handlerSpy).not.toHaveBeenCalled();
 
       await spyApp.close();

@@ -11,7 +11,8 @@ Project-specific traps that have bitten me before. Read these before diving into
 - Parallel `Bash` tool calls don't share `cd` state and race each other — use absolute paths or `pnpm --dir <abs-path> <cmd>` when running in parallel
 
 ## CI
-- **GitHub Actions is intentionally unpaid on this account — CI does not run.** Every PR's checks fail with a billing rejection by design. Verify work locally (`pnpm lint`/`typecheck`/`test`) and ignore red checks on `gh pr view`. Do NOT file `ci-fix` issues for failing workflow runs
+- **GH Actions is paid and runs on every PR** — verify state with `gh run list --limit 5` before claiming CI is broken. (The earlier "intentionally unpaid" note was true pre-OSS-launch and is now stale)
+- **Baseline checks fail on `main`:** `Lint`, `Typecheck`, and `Architecture Audit` currently fail on every PR because `main` itself fails them. Don't file `ci-fix` issues for these — they're not regressions from the PR. Admin-merge unrelated PRs through, and tackle the baseline failures in a dedicated fix-up PR
 
 ## Dependencies
 - **pnpm.overrides for CVEs: use the scoped pattern** `"pkg@<patched": "^patched"`, not `"pkg": ">=patched"` — the open range resolves to the latest satisfying version and can pull major bumps (e.g. `protobufjs@>=7.5.5` → 8.0.1)

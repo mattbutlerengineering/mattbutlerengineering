@@ -14,7 +14,9 @@ src/
 │   ├── adr.ts         # check-adr — validate Architecture Decision Records
 │   ├── check-deps.ts  # check-deps — dependency version enforcement
 │   ├── cleanup-worktrees.ts  # cleanup-worktrees — remove stale git worktrees
+│   ├── compound.ts    # compound — chain multiple commands as a single task
 │   ├── generate.ts    # generate — scaffold code from templates
+│   ├── health.ts      # health — check service/infra health endpoints
 │   ├── login.ts       # login — authenticate with Auth0
 │   ├── logout.ts      # logout — clear local tokens
 │   ├── loop.ts        # loop — run command repeatedly on interval

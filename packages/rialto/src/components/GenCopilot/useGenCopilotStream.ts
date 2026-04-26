@@ -80,18 +80,27 @@ export function useGenCopilotStream({
   // Store AbortController in ref so it persists across renders
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Use stable refs for callbacks to avoid re-creating send on every render.
-  // Sync via useEffect — writing ref.current in render body violates
-  // react-hooks/refs and React's render-purity rules.
+  // Use stable refs for callbacks to avoid re-creating send on every render
   const onCompleteRef = useRef(onComplete);
   const onErrorRef = useRef(onError);
   const getAccessTokenRef = useRef(getAccessToken);
   const domainContextRef = useRef(domainContext);
 
-  useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
-  useEffect(() => { onErrorRef.current = onError; }, [onError]);
-  useEffect(() => { getAccessTokenRef.current = getAccessToken; }, [getAccessToken]);
-  useEffect(() => { domainContextRef.current = domainContext; }, [domainContext]);
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
+
+  useEffect(() => {
+    getAccessTokenRef.current = getAccessToken;
+  }, [getAccessToken]);
+
+  useEffect(() => {
+    domainContextRef.current = domainContext;
+  }, [domainContext]);
 
   const send = useCallback(
     async (userPrompt: string): Promise<void> => {
