@@ -19,6 +19,16 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/pre-push-typecheck.sh",
+            "timeout": 120
+          }
+        ]
       }
     ],
     "PostToolUse": [
