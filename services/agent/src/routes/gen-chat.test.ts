@@ -73,7 +73,12 @@ describe("POST /api/gen/chat", () => {
   it("returns 401 without auth", async () => {
     const { requireAuth } = await import("@mbe/auth/fastify");
     vi.mocked(requireAuth).mockImplementationOnce(async (_req, reply) => {
-      reply.code(401).send({ error: "Authentication required" });
+      reply.code(401).send({
+        type: "https://mattbutlerengineering.com/errors/unauthorized",
+        title: "Unauthorized",
+        status: 401,
+        detail: "Authentication required",
+      });
     });
 
     const response = await app.inject({
