@@ -23,6 +23,8 @@ import { loadState, saveState, recordHistory } from "./state.js";
 import { writeReport } from "./outputs/report.js";
 import { updateBadge } from "./outputs/badge.js";
 import { applyIssuesForFailures, ensureAcmmLabel } from "./outputs/issues.js";
+import { measureFlakeRate } from "./flake-rate.js";
+import { measurePrOutcomes } from "./pr-outcomes.js";
 
 const args = new Set(process.argv.slice(2));
 const APPLY = args.has("--apply");
@@ -78,6 +80,24 @@ for (const c of ALL_CRITERIA) {
   };
 }
 
+/* ── Behavioral signals (non-fatal — null when tools unavailable) ── */
+const flake = measureFlakeRate();
+const prOutcomes = measurePrOutcomes();
+const behavioral = {
+  ...(prior.behavioral ?? {}),
+  flake: flake
+    ? {
+        rate_30d: flake.flake_rate_30d,
+        sample_size: flake.flake_sample_size,
+        flaky_shas: flake.flaky_shas,
+        measured_at: new Date().toISOString(),
+      }
+    : (prior.behavioral?.flake ?? null),
+  agent_pr: prOutcomes
+    ? { ...prOutcomes, measured_at: new Date().toISOString() }
+    : (prior.behavioral?.agent_pr ?? null),
+};
+
 const nextState = recordHistory(
   {
     ...prior,
@@ -88,6 +108,7 @@ const nextState = recordHistory(
     checks: results,
     detectedIds: [...detectedIds],
     computation,
+    behavioral,
   },
   computation.level,
   detectedCount,
@@ -153,6 +174,28 @@ console.log("");
 console.log(`Prerequisites (soft): ${computation.prerequisites.met}/${computation.prerequisites.total}`);
 console.log(`Cross-cutting learning: ${computation.crossCutting.learning.met}/${computation.crossCutting.learning.total}`);
 console.log(`Cross-cutting traceability: ${computation.crossCutting.traceability.met}/${computation.crossCutting.traceability.total}`);
+
+if (behavioral.flake) {
+  const pct = (behavioral.flake.rate_30d * 100).toFixed(1);
+  const n = behavioral.flake.sample_size;
+  console.log(`Signal quality: CI flake rate ${pct}% (n=${n})`);
+} else {
+  console.log("Signal quality: flake rate unavailable (gh CLI missing or no CI runs)");
+}
+
+if (behavioral.agent_pr) {
+  const o = behavioral.agent_pr;
+  if (o.insufficient_data) {
+    console.log(`Agent PR outcomes: insufficient data (n=${o.sample_size})`);
+  } else {
+    const acc = (o.acceptance_rate_30d * 100).toFixed(0);
+    const rev = (o.revert_rate_30d * 100).toFixed(0);
+    const ttm = o.median_time_to_merge_hours.toFixed(1);
+    console.log(`Agent PR outcomes: ${acc}% accepted · ${rev}% reverted · ${ttm}h median time-to-merge (n=${o.sample_size})`);
+  }
+} else {
+  console.log("Agent PR outcomes: unavailable (gh CLI missing or no PRs)");
+}
 
 if (computation.nextTransitionTrigger) {
   console.log("");

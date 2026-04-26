@@ -34,16 +34,18 @@ describe("Accessibility — Form Components", () => {
 
   it("InputGroup", async () => {
     const { container } = render(
-      <InputGroup label="Price">
+      <InputGroup aria-label="Price input group">
         <span>$</span>
-        <Input placeholder="0.00" />
+        <Input placeholder="0.00" aria-label="Amount" />
       </InputGroup>
     );
     expect(await axe(container)).toHaveNoViolations();
   });
 
   it("NumberInput", async () => {
-    const { container } = render(<NumberInput label="Quantity" min={1} max={10} />);
+    const { container } = render(
+      <NumberInput label="Quantity" value={1} onChange={() => {}} min={1} max={10} />
+    );
     expect(await axe(container)).toHaveNoViolations();
   });
 

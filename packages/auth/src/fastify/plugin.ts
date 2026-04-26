@@ -1,6 +1,7 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import fp from "fastify-plugin";
 import type { FastifyInstance, FastifyRequest, FastifyReply, FastifyPluginAsync } from "fastify";
+import { createProblemDetails } from "@mbe/types";
 import type { JWTPayload, AuthUser } from "../types/index.js";
 
 declare module "fastify" {
@@ -70,11 +71,15 @@ async function authPluginImpl(
 
       if (typeof payload.sub !== "string") {
         request.log.warn("JWT missing required 'sub' claim");
-        return reply.code(401).send({
-          error: "Unauthorized",
-          message: "Invalid token: missing sub",
-          statusCode: 401
-        });
+        return reply.code(401).send(
+          createProblemDetails(
+            401,
+            "Unauthorized",
+            "Invalid token: missing sub",
+            "https://mattbutlerengineering.com/errors/unauthorized",
+            request.url
+          )
+        );
       }
 
       const jwtPayload: JWTPayload = {
@@ -100,11 +105,15 @@ async function authPluginImpl(
       };
     } catch (error) {
       request.log.warn({ error }, "JWT validation failed");
-      return reply.code(401).send({
-        error: "Unauthorized",
-        message: "Invalid token",
-        statusCode: 401
-      });
+      return reply.code(401).send(
+        createProblemDetails(
+          401,
+          "Unauthorized",
+          "Invalid token",
+          "https://mattbutlerengineering.com/errors/unauthorized",
+          request.url
+        )
+      );
     }
   });
 }
@@ -117,11 +126,15 @@ export const authPlugin: FastifyPluginAsync<AuthPluginOptions> = fp(authPluginIm
 export async function requireAuth(request: FastifyRequest, reply: FastifyReply) {
   const isBypassed = process.env.AUTH_BYPASS_IN_TESTS === "true" && request.headers["x-auth-bypass"] === "true";
   if (!request.user && !isBypassed) {
-    return reply.code(401).send({
-      error: "Unauthorized",
-      message: "Missing or invalid authorization header",
-      statusCode: 401
-    });
+    return reply.code(401).send(
+      createProblemDetails(
+        401,
+        "Unauthorized",
+        "Missing or invalid authorization header",
+        "https://mattbutlerengineering.com/errors/unauthorized",
+        request.url
+      )
+    );
   }
 }
 
