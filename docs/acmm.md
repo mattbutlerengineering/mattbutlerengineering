@@ -54,6 +54,9 @@ locally-derived from the source tree).
 # Dry run — score the repo, write report, create nothing
 node scripts/acmm/audit.js
 
+# Score a specific sub-project (app or package)
+node scripts/acmm/audit.js --project apps/marketing
+
 # + create deduplicated GitHub issues for next-level gaps
 node scripts/acmm/audit.js --apply
 
@@ -67,7 +70,39 @@ node scripts/acmm/audit.js --apply --badge
 node scripts/acmm/audit.js --trend
 ```
 
-Internally:
+## Monorepo vs Package implementation
+
+ACMM can be run at the root of the monorepo or scoped to a specific project using the `--project <path>` flag.
+
+### Inheritance logic
+
+Sub-projects can inherit global ACMM signals from the repo root (like CI/CD workflows or contributing guides) by configuring the `acmm` field in their `package.json`:
+
+```json
+{
+  "name": "@mbe/marketing",
+  "acmm": {
+    "inherit": true
+  }
+}
+```
+
+When `inherit: true` is set:
+1. The audit first checks the project directory for the criterion.
+2. If not found locally, it checks if the criterion's detection patterns are part of the `globalPaths` allowlist.
+3. If allowed, it checks the repo root for the signal.
+
+**Local-only criteria:** Certain criteria (like `CLAUDE.md` instructions, `llms.txt`, or `AGENTS.md`) MUST be present locally in the project directory to be detected, even if inheritance is enabled. This ensures every project has its own local context for AI agents.
+
+### Global Paths (Defaults)
+By default, the following paths are considered global and can be inherited:
+- `.github/` (Workflows, templates)
+- `docs/` (Runbooks, maturity model docs)
+- `scripts/acmm/` (Audit tools)
+- `CONTRIBUTING.md`
+- `package.json`, `pnpm-workspace.yaml`, `turbo.json` (Monorepo config)
+
+## Internally:
 
 1. Loads 89 criteria from `scripts/acmm/sources/{acmm,fullsend,agentic-engineering-framework,claude-reflect}.js`.
 2. Runs file-presence detection on each (no network, native `fs` only):
