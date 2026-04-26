@@ -14,7 +14,7 @@
         id: string;
         label: string;
         path: string;
-        comingSoon?: boolean;
+        comingSoon?: boolean | undefined;
       }
     </item>
     <item priority="low">
