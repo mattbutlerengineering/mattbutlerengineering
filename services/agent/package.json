@@ -38,6 +38,7 @@
     "@scalar/fastify-api-reference": "^1.52.6",
     "ai": "^6.0.168",
     "fastify": "catalog:",
+    "pg": "^8.20.0",
     "zod": "catalog:"
   },
   "prisma": {
@@ -46,6 +47,7 @@
   "devDependencies": {
     "@mbe/config": "workspace:*",
     "@types/node": "catalog:",
+    "@types/pg": "^8.20.0",
     "@vitest/coverage-v8": "catalog:",
     "prisma": "^7.8.0",
     "tsx": "^4.19.0",

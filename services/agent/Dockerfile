@@ -95,7 +95,8 @@ COPY services/agent/package.json ./services/agent/
 
 # Install production dependencies only (Prisma client is copied from builder)
 ENV NODE_ENV=production
-RUN pnpm install --frozen-lockfile --prod --ignore-scripts
+RUN pnpm install --frozen-lockfile --prod --ignore-scripts && \
+    pnpm add pg --filter @mbe/agent-service
 
 # Copy compiled workspace packages
 COPY --from=builder /app/packages/types/dist ./packages/types/dist

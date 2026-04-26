@@ -73,7 +73,8 @@ COPY services/users/package.json ./services/users/
 
 # Install production dependencies only (Prisma client is copied from builder)
 ENV NODE_ENV=production
-RUN pnpm install --frozen-lockfile --prod --ignore-scripts
+RUN pnpm install --frozen-lockfile --prod --ignore-scripts && \
+    pnpm add pg --filter @mbe/users-service
 
 # Copy compiled workspace packages
 COPY --from=builder /app/packages/types/dist ./packages/types/dist
