@@ -1,0 +1,82 @@
+name: Auto Issue Generation
+
+# Scans the repo for gaps the autonomous loop should pick up and files
+# GitHub issues for each finding. Currently runs the ACMM audit's
+# --apply flow, which dedupes against state.issuesCreated[criterionId]
+# so re-runs don't spam.
+#
+# Detected by acmm:auto-issue-gen. Pairs with the daily mbe-acmm-audit
+# RemoteTrigger — this workflow is the GitHub-native backup that surfaces
+# the same gaps if the trigger is disabled or if a maintainer runs it
+# manually after a refactor.
+
+on:
+  schedule:
+    # 04:00 UTC daily (= 21:00 PT prev day) — staggered from the
+    # RemoteTrigger's 17:00 UTC slot so we don't double-file in the
+    # same window.
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why are you triggering this manually?"
+        required: false
+        default: "On-demand audit"
+
+permissions:
+  issues: write
+  contents: read
+
+concurrency:
+  group: auto-issue
+  cancel-in-progress: false
+
+jobs:
+  acmm-audit:
+    name: Run ACMM audit and file gap issues
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Run audit with --apply
+        # Files deduplicated issues for next-level gaps. Exits 0 even
+        # when gaps exist — this workflow is diagnostic, not gating.
+        run: node scripts/acmm/audit.js --apply
+
+      - name: Echo summary
+        if: always()
+        env:
+          # Bind user-controlled inputs to env vars so the run: shell
+          # never sees them as raw template expansions (workflow-injection
+          # safe pattern from the security_reminder_hook guidance).
+          TRIGGER_EVENT: ${{ github.event_name }}
+          MANUAL_REASON: ${{ github.event.inputs.reason }}
+        run: |
+          {
+            echo "## ACMM auto-issue-gen — $(date -u +%Y-%m-%dT%H:%MZ)"
+            echo ""
+            if [ "$TRIGGER_EVENT" = "schedule" ]; then
+              echo "Trigger: scheduled (daily 04:00 UTC)"
+            else
+              # Quote MANUAL_REASON via printf %q semantics: write to a
+              # heredoc that the shell never re-parses.
+              echo "Trigger: manual"
+              cat <<'REASON_END'
+              Reason follows on the next line:
+REASON_END
+              printf '%s\n' "$MANUAL_REASON"
+            fi
+            echo ""
+            echo "See docs/acmm.md for the loop's design and"
+            echo "docs/autonomous-work-log.md for recent activity."
+          } >> "$GITHUB_STEP_SUMMARY"

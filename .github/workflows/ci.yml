@@ -44,7 +44,12 @@ jobs:
         id: cache-node-modules
         uses: actions/cache@v4
         with:
-          path: node_modules
+          path: |
+            node_modules
+            packages/*/node_modules
+            apps/*/node_modules
+            services/*/node_modules
+            tools/*/node_modules
           key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Install dependencies
@@ -143,8 +148,20 @@ jobs:
       - name: Restore node_modules
         uses: actions/cache@v4
         with:
-          path: node_modules
+          path: |
+            node_modules
+            packages/*/node_modules
+            apps/*/node_modules
+            services/*/node_modules
+            tools/*/node_modules
           key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Ensure dependencies installed
+        # Defensive — root-level node_modules cache often hits but
+        # workspace-package node_modules symlinks can go missing,
+        # leaving turbo unable to resolve transitive deps. A frozen
+        # install is a fast no-op on cache hit and a real install on miss.
+        run: pnpm install --frozen-lockfile
 
       - run: pnpm lint
 
@@ -166,8 +183,16 @@ jobs:
       - name: Restore node_modules
         uses: actions/cache@v4
         with:
-          path: node_modules
+          path: |
+            node_modules
+            packages/*/node_modules
+            apps/*/node_modules
+            services/*/node_modules
+            tools/*/node_modules
           key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Ensure dependencies installed
+        run: pnpm install --frozen-lockfile
 
       - name: Restore Prisma clients
         uses: actions/cache@v4
@@ -202,8 +227,16 @@ jobs:
       - name: Restore node_modules
         uses: actions/cache@v4
         with:
-          path: node_modules
+          path: |
+            node_modules
+            packages/*/node_modules
+            apps/*/node_modules
+            services/*/node_modules
+            tools/*/node_modules
           key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Ensure dependencies installed
+        run: pnpm install --frozen-lockfile
 
       - name: Run ADR and Dependency Checks
         run: |
@@ -229,8 +262,16 @@ jobs:
       - name: Restore node_modules
         uses: actions/cache@v4
         with:
-          path: node_modules
+          path: |
+            node_modules
+            packages/*/node_modules
+            apps/*/node_modules
+            services/*/node_modules
+            tools/*/node_modules
           key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Ensure dependencies installed
+        run: pnpm install --frozen-lockfile
 
       - name: Restore Prisma clients
         uses: actions/cache@v4
@@ -295,8 +336,16 @@ jobs:
       - name: Restore node_modules
         uses: actions/cache@v4
         with:
-          path: node_modules
+          path: |
+            node_modules
+            packages/*/node_modules
+            apps/*/node_modules
+            services/*/node_modules
+            tools/*/node_modules
           key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Ensure dependencies installed
+        run: pnpm install --frozen-lockfile
 
       - name: Restore Prisma clients
         uses: actions/cache@v4
@@ -353,8 +402,16 @@ jobs:
       - name: Restore node_modules
         uses: actions/cache@v4
         with:
-          path: node_modules
+          path: |
+            node_modules
+            packages/*/node_modules
+            apps/*/node_modules
+            services/*/node_modules
+            tools/*/node_modules
           key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Ensure dependencies installed
+        run: pnpm install --frozen-lockfile
 
       - name: Restore Prisma clients
         uses: actions/cache@v4
