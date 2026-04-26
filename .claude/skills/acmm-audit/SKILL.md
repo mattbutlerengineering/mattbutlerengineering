@@ -38,7 +38,9 @@ node scripts/acmm/audit.js --trend
    - `glob` — reserved (no canonical criterion uses it yet)
 3. Computes the level via threshold walk: each level needs **≥70% of its scannable criteria** detected to advance (L2 needs only 1, since it's a single OR-group of agent-instruction files).
 4. Writes `.claude/acmm/state.json` (full computation) and `.claude/acmm/report.md` (human-readable scorecard).
-5. With `--apply`, files GitHub issues only for **next-level gaps** to avoid spam — dedupes via `state.issuesCreated[criterionId]`.
+5. With `--apply`:
+   - **First**, closes any tracked issue whose criterion is now detected (auto-close lifecycle — no more stale `ready` issues for criteria the audit already reports as passing). Closed entries are pruned from `state.issuesCreated`.
+   - **Then**, files GitHub issues only for **next-level gaps** to avoid spam — dedupes via the pruned `state.issuesCreated[criterionId]`.
 6. With `--badge`, rewrites the README shields.io badge in place.
 
 ## The 6 levels

@@ -22,7 +22,7 @@ import { computeLevel } from "./computeLevel.js";
 import { loadState, saveState, recordHistory } from "./state.js";
 import { writeReport } from "./outputs/report.js";
 import { updateBadge } from "./outputs/badge.js";
-import { applyIssuesForFailures, ensureAcmmLabel } from "./outputs/issues.js";
+import { applyIssuesForFailures, closeIssuesForPasses, ensureAcmmLabel } from "./outputs/issues.js";
 
 const args = new Set(process.argv.slice(2));
 const APPLY = args.has("--apply");
@@ -102,15 +102,21 @@ const reportPath = writeReport(cwd, { state: nextState, criteria: ALL_CRITERIA, 
 let badgeOutcome = "skipped";
 if (BADGE) badgeOutcome = updateBadge(cwd, computation.level);
 
-/* ── Optionally: --apply (issues for gaps in next level) ── */
+/* ── Optionally: --apply (issues for gaps + close passing) ── */
 let applyResult = null;
+let closeResult = null;
 if (APPLY) {
   try {
     ensureAcmmLabel();
-    // File issues only for criteria gating the NEXT level — avoids issue spam
-    // for L5/L6 items when we're still climbing L3.
+    // 1. Close issues whose criterion is now detected — closes the lifecycle
+    //    gap (issues were filed but never auto-closed when fixed). Runs
+    //    before applyIssuesForFailures so a re-detected gap will get a
+    //    fresh issue, not one we just closed.
+    closeResult = closeIssuesForPasses(detectedIds, prior.issuesCreated || {});
+    // 2. File issues only for criteria gating the NEXT level — avoids issue
+    //    spam for L5/L6 items when we're still climbing L3.
     const failingForNext = computation.missingForNextLevel;
-    applyResult = applyIssuesForFailures(failingForNext, prior.issuesCreated || {});
+    applyResult = applyIssuesForFailures(failingForNext, closeResult.issuesCreated);
     saveState(cwd, { ...nextState, issuesCreated: applyResult.issuesCreated });
   } catch (err) {
     console.error(`--apply failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -171,6 +177,9 @@ console.log(`report: ${reportPath}`);
 if (BADGE) console.log(`badge:  ${badgeOutcome}`);
 if (APPLY && applyResult) {
   console.log(`issues: created ${applyResult.createdCount}, skipped-open ${applyResult.skippedOpen}`);
+}
+if (APPLY && closeResult) {
+  console.log(`closed: ${closeResult.closedCount}, skipped (already closed/missing) ${closeResult.skipped}`);
 }
 if (!APPLY && computation.missingForNextLevel.length > 0) {
   console.log("");

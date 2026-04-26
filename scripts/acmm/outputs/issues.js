@@ -110,6 +110,67 @@ export function applyIssuesForFailures(failing, existingIssues, opts = {}) {
 }
 
 /**
+ * Close issues whose criterion is now detected.
+ *
+ * Walks `existingIssues` (criterionId → issueNumber). For each entry whose
+ * criterion id is in `detectedIds` AND whose issue is currently open, posts
+ * a comment explaining the auto-close and closes the issue. Returns the
+ * pruned `issuesCreated` map (closed entries removed) so re-runs don't
+ * re-process them.
+ *
+ * @param {Set<string>} detectedIds      criterion ids passing this run
+ * @param {Record<string, number>} existingIssues   prior issuesCreated map
+ * @param {{ dryRun?: boolean }} [opts]
+ * @returns {{ issuesCreated: Record<string, number>, closedCount: number, skipped: number }}
+ */
+export function closeIssuesForPasses(detectedIds, existingIssues, opts = {}) {
+  const remaining = { ...existingIssues };
+  let closedCount = 0;
+  let skipped = 0;
+
+  for (const [criterionId, issueNumber] of Object.entries(existingIssues)) {
+    if (!detectedIds.has(criterionId)) continue; // criterion still failing
+
+    if (opts.dryRun) {
+      // Skip the gh round-trip in dry-run so unit tests don't depend on
+      // real issue numbers existing.
+      delete remaining[criterionId];
+      closedCount += 1;
+      continue;
+    }
+
+    const state = getIssueState(issueNumber);
+    if (state !== "open") {
+      // Already closed (manually) or missing — drop from map silently.
+      delete remaining[criterionId];
+      skipped += 1;
+      continue;
+    }
+
+    try {
+      const comment = [
+        `**Auto-closing — criterion now detected.**`,
+        ``,
+        `\`${criterionId}\` flipped to detected on the latest \`/acmm-audit\` run. Closing this issue automatically since the gap is satisfied.`,
+        ``,
+        `If the criterion regresses on a future run, a fresh issue will be filed. See \`.claude/acmm/state.json\` for the current detection set and \`docs/acmm.md\` for how the loop works.`,
+      ].join("\n");
+      execFileSync("gh", ["issue", "close", String(issueNumber), "--comment", comment, "--reason", "completed"], {
+        encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"],
+      });
+      delete remaining[criterionId];
+      closedCount += 1;
+    } catch (err) {
+      // Closing failed (perms, network, etc.) — leave entry in place so
+      // a future run can retry. Don't let one failure abort the loop.
+      console.error(`auto-close failed for #${issueNumber} (${criterionId}): ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  return { issuesCreated: remaining, closedCount, skipped };
+}
+
+/**
  * Ensure the `acmm` label exists on the current repo. Idempotent.
  * Caller handles the one-shot nature — running repeatedly is cheap but noisy.
  */
