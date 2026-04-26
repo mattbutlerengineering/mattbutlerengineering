@@ -25,6 +25,7 @@ import { updateBadge } from "./outputs/badge.js";
 import { applyIssuesForFailures, ensureAcmmLabel } from "./outputs/issues.js";
 import { measureFlakeRate } from "./flake-rate.js";
 import { measurePrOutcomes } from "./pr-outcomes.js";
+import { measureEvals } from "./evals.js";
 
 const args = new Set(process.argv.slice(2));
 const APPLY = args.has("--apply");
@@ -83,6 +84,7 @@ for (const c of ALL_CRITERIA) {
 /* ── Behavioral signals (non-fatal — null when tools unavailable) ── */
 const flake = measureFlakeRate();
 const prOutcomes = measurePrOutcomes();
+const evalsSummary = measureEvals(cwd);
 const behavioral = {
   ...(prior.behavioral ?? {}),
   flake: flake
@@ -96,6 +98,9 @@ const behavioral = {
   agent_pr: prOutcomes
     ? { ...prOutcomes, measured_at: new Date().toISOString() }
     : (prior.behavioral?.agent_pr ?? null),
+  evals: evalsSummary.n > 0
+    ? { ...evalsSummary, measured_at: new Date().toISOString() }
+    : (prior.behavioral?.evals ?? null),
 };
 
 const nextState = recordHistory(
@@ -195,6 +200,14 @@ if (behavioral.agent_pr) {
   }
 } else {
   console.log("Agent PR outcomes: unavailable (gh CLI missing or no PRs)");
+}
+
+if (behavioral.evals) {
+  const e = behavioral.evals;
+  const pct = (e.passRate * 100).toFixed(0);
+  console.log(`Agent evals: ${pct}% pass · score ${e.medianScore.toFixed(2)} (n=${e.n}, status: ${e.status})`);
+} else {
+  console.log("Agent evals: no runs (seed via `node scripts/acmm/evals/index.js`)");
 }
 
 if (computation.nextTransitionTrigger) {

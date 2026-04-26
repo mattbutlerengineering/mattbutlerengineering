@@ -165,6 +165,33 @@ export function writeReport(cwd, { state, criteria, sources, computation, diff }
     lines.push("");
   }
 
+  // ── Agent evals (behavioral, frozen task suite) ──────────
+  const evals = state.behavioral?.evals;
+  if (evals) {
+    const icon = evals.status === "green" ? "✅" : evals.status === "yellow" ? "⚠️" : evals.status === "red" ? "❌" : "·";
+    const pct = (evals.passRate * 100).toFixed(0);
+    lines.push("## Agent evals (last 30 days)");
+    lines.push("");
+    if (evals.status === "unknown") {
+      lines.push(`_Insufficient data: only ${evals.n} run${evals.n === 1 ? "" : "s"} in window. Status appears once n ≥ 3._`);
+    } else {
+      lines.push(`- **${icon} Pass rate:** ${pct}% (n=${evals.n})`);
+      lines.push(`- **Median score:** ${evals.medianScore.toFixed(2)} of 1.00`);
+      if (evals.medianCostUsd !== null) lines.push(`- **Median cost:** $${evals.medianCostUsd.toFixed(2)} per run`);
+      if (evals.medianTurns !== null) lines.push(`- **Median turns:** ${evals.medianTurns}`);
+      if (Object.keys(evals.perModel ?? {}).length > 1) {
+        lines.push("");
+        lines.push("By model:");
+        for (const [model, m] of Object.entries(evals.perModel)) {
+          lines.push(`- \`${model}\`: ${(m.passRate * 100).toFixed(0)}% (n=${m.n}, score ${m.medianScore.toFixed(2)})`);
+        }
+      }
+    }
+    lines.push("");
+    lines.push("_Frozen task fixtures under `scripts/acmm/evals/tasks/`. Status: ≥80% pass = green, ≥50% = yellow, else red. Add tasks or run via `node scripts/acmm/evals/index.js`._");
+    lines.push("");
+  }
+
   // ── Cold start (behavioral, last weekly measurement) ─────
   if (coldStart) {
     const score = scoreColdStart(coldStart);
