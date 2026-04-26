@@ -158,268 +158,6 @@
     }
   </file>
   </section>
-  <section priority="medium" role="services">
-  <file path="src/services/venue.ts">
-    function isPrismaNotFound(err: unknown): boolean {
-      return (
-        err !== null &&
-        typeof err === "object" &&
-        "code" in err &&
-        (err as { code: string }).code === "P2025"
-      );
-    }
-    function mapPrismaVenueGroup(group: {
-      id: string;
-      name: string;
-      slug: string;
-      settings: unknown;
-      createdAt: Date;
-    }): VenueGroup {
-      return {
-        id: group.id,
-        name: group.name,
-        slug: group.slug,
-        settings: group.settings as Record<string, unknown> | null,
-        createdAt: group.createdAt.toISOString(),
-      };
-    }
-  </file>
-  <file path="src/services/table.ts">
-    function isPrismaNotFound(err: unknown): boolean {
-      return (
-        err !== null &&
-        typeof err === "object" &&
-        "code" in err &&
-        (err as { code: string }).code === "P2025"
-      );
-    }
-    function mapPrismaTable(table: {
-      id: string;
-      name: string;
-      tableNumber: string | null;
-      capacity: number;
-      minCovers: number;
-      maxCovers: number | null;
-      location: string | null;
-      isActive: boolean;
-      priority: number;
-      status: string;
-      venueId: string | null;
-      floorPlanId: string | null;
-      shapeMetadata: unknown;
-      createdAt: Date;
-      updatedAt: Date;
-    }): Table {
-      return {
-        id: table.id,
-        name: table.name,
-        tableNumber: table.tableNumber,
-        capacity: table.capacity,
-        minCovers: table.minCovers,
-        maxCovers: table.maxCovers,
-        location: table.location,
-        isActive: table.isActive,
-        priority: table.priority,
-        status: table.status as TableStatus,
-        venueId: table.venueId,
-        floorPlanId: table.floorPlanId,
-        shapeMetadata: table.shapeMetadata as TableShapeMetadata | null,
-        createdAt: table.createdAt.toISOString(),
-        updatedAt: table.updatedAt.toISOString(),
-      };
-    }
-  </file>
-  <file path="src/services/reservation.ts">
-    function isPrismaNotFound(err: unknown): boolean {
-      return (
-        err !== null &&
-        typeof err === "object" &&
-        "code" in err &&
-        (err as { code: string }).code === "P2025"
-      );
-    }
-    type PrismaReservationWithTable = PrismaReservation & {
-      table?: PrismaTable;
-    };
-  </file>
-  <file path="src/services/hold.ts">
-    function mapPrismaHold(hold: PrismaHold): ReservationHold {
-      return {
-        id: hold.id,
-        venueId: hold.venueId,
-        tableId: hold.tableId,
-        date: toDateString(hold.date),
-        startTime: hold.startTime.toISOString(),
-        endTime: hold.endTime.toISOString(),
-        partySize: hold.partySize,
-        sessionId: hold.sessionId,
-        expiresAt: hold.expiresAt.toISOString(),
-        createdAt: hold.createdAt.toISOString(),
-      };
-    }
-    export interface CreateHoldResult {
-      success: boolean;
-      hold?: ReservationHold;
-      error?: string;
-    }
-  </file>
-  <file path="src/services/health-checks.ts">
-    export function recordDbLatency(ms: number): void {
-      dbLatencyHistory.push(ms);
-      if (dbLatencyHistory.length > LATENCY_WINDOW) {
-        dbLatencyHistory.shift();
-      }
-    }
-    export function checkLatencyAnomaly(currentMs: number): {
-      isAnomaly: boolean;
-      rollingAvg: number;
-    } {
-      if (dbLatencyHistory.length < 5) {
-        return { isAnomaly: false, rollingAvg: 0 };
-      }
-      const sum = dbLatencyHistory.reduce((a, b) => a + b, 0);
-      const rollingAvg = sum / dbLatencyHistory.length;
-      return {
-        isAnomaly: rollingAvg > 0 && currentMs > LATENCY_ANOMALY_THRESHOLD * rollingAvg,
-        rollingAvg: Math.round(rollingAvg),
-      };
-    }
-  </file>
-  <file path="src/services/guest.ts">
-    function isPrismaNotFound(err: unknown): boolean {
-      return (
-        err !== null &&
-        typeof err === "object" &&
-        "code" in err &&
-        (err as { code: string }).code === "P2025"
-      );
-    }
-    function mapPrismaGuest(guest: {
-      id: string;
-      venueId: string;
-      email: string | null;
-      phone: string | null;
-      name: string;
-      notes: string | null;
-      visitCount: number;
-      lifetimeSpend: Prisma.Decimal | null;
-      lastVisit: Date | null;
-      tags: unknown;
-      createdAt: Date;
-      updatedAt: Date;
-    }): Guest {
-      return {
-        id: guest.id,
-        venueId: guest.venueId,
-        email: guest.email,
-        phone: guest.phone,
-        name: guest.name,
-        notes: guest.notes,
-        visitCount: guest.visitCount,
-        lifetimeSpend: guest.lifetimeSpend?.toString() ?? null,
-        lastVisit: guest.lastVisit?.toISOString() ?? null,
-        tags: guest.tags as string[] | null,
-        createdAt: guest.createdAt.toISOString(),
-        updatedAt: guest.updatedAt.toISOString(),
-      };
-    }
-  </file>
-  <file path="src/services/floor-plan.ts">
-    function isPrismaNotFound(err: unknown): boolean {
-      return (
-        err !== null &&
-        typeof err === "object" &&
-        "code" in err &&
-        (err as { code: string }).code === "P2025"
-      );
-    }
-    type PrismaFloorPlan = {
-      id: string;
-      venueId: string;
-      name: string;
-      isActive: boolean;
-      layoutJson: unknown;
-      createdAt: Date;
-      updatedAt: Date;
-      tables?: PrismaTable[];
-    };
-  </file>
-  <file path="src/services/events.ts">
-    export type ReservationEventType =
-      | "reservation:created"
-      | "reservation:updated"
-      | "reservation:cancelled"
-      | "hold:created"
-      | "hold:released"
-      | "hold:confirmed"
-      | "table:updated";
-    export interface ReservationEvent {
-      type: ReservationEventType;
-      venueId: string;
-      timestamp: string;
-      data: Reservation | Table | ReservationHold;
-    }
-  </file>
-  <file path="src/services/database.ts">
-    interface SlowQueryStats {
-      count5min: number;
-      slowestMs: number;
-      queries: { model: string; operation: string; duration: number; timestamp: number }[];
-    }
-    export function getSlowQueryStats(): { count5min: number; slowestMs: number } {
-      const now = Date.now();
-      const windowStart = now - SLOW_QUERY_WINDOW_MS;
-      
-      slowQueryStats.queries = slowQueryStats.queries.filter((q) => q.timestamp > windowStart);
-      slowQueryStats.count5min = slowQueryStats.queries.length;
-      slowQueryStats.slowestMs = slowQueryStats.queries.reduce((max, q) => Math.max(max, q.duration), 0);
-      
-      return {
-        count5min: slowQueryStats.count5min,
-        slowestMs: slowQueryStats.slowestMs,
-      };
-    }
-  </file>
-  <file path="src/services/availability.ts">
-    interface VenueWithSettings {
-      id: string;
-      name: string;
-      slug: string;
-      ianaTimezone: string;
-      settings: VenueSettings | null;
-      operatingHours: OperatingHours | null;
-    }
-    export function estimateDuration(
-      partySize: number,
-      venueSettings?: VenueSettings | null
-    ): number {
-      // Use venue-specific rules if available
-      const rules = venueSettings?.durationRules ?? DEFAULT_DURATION_RULES;
-    
-      // Find the matching rule
-      const rule = rules.find(
-        (r) => partySize >= r.minPartySize && partySize <= r.maxPartySize
-      );
-    
-      if (rule) {
-        return rule.durationMinutes;
-      }
-    
-      // Fallback: use default duration or extrapolate for large parties
-      if (venueSettings?.defaultReservationDuration) {
-        return venueSettings.defaultReservationDuration;
-      }
-    
-      // For parties larger than rules cover, use the largest rule + 15min per additional 2 guests
-      const largestRule = rules.reduce((max, r) =>
-        r.maxPartySize > max.maxPartySize ? r : max
-      );
-      const extraGuests = partySize - largestRule.maxPartySize;
-      const extraTime = Math.ceil(extraGuests / 2) * 15;
-      return largestRule.durationMinutes + extraTime;
-    }
-  </file>
-  </section>
   <section priority="medium" role="test">
   <file path="src/test/mocks.ts">
     export interface MockTable {
@@ -3932,6 +3670,268 @@
         }
       );
     };
+  </file>
+  </section>
+  <section priority="medium" role="services">
+  <file path="src/services/venue.ts">
+    function isPrismaNotFound(err: unknown): boolean {
+      return (
+        err !== null &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code: string }).code === "P2025"
+      );
+    }
+    function mapPrismaVenueGroup(group: {
+      id: string;
+      name: string;
+      slug: string;
+      settings: unknown;
+      createdAt: Date;
+    }): VenueGroup {
+      return {
+        id: group.id,
+        name: group.name,
+        slug: group.slug,
+        settings: group.settings as Record<string, unknown> | null,
+        createdAt: group.createdAt.toISOString(),
+      };
+    }
+  </file>
+  <file path="src/services/table.ts">
+    function isPrismaNotFound(err: unknown): boolean {
+      return (
+        err !== null &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code: string }).code === "P2025"
+      );
+    }
+    function mapPrismaTable(table: {
+      id: string;
+      name: string;
+      tableNumber: string | null;
+      capacity: number;
+      minCovers: number;
+      maxCovers: number | null;
+      location: string | null;
+      isActive: boolean;
+      priority: number;
+      status: string;
+      venueId: string | null;
+      floorPlanId: string | null;
+      shapeMetadata: unknown;
+      createdAt: Date;
+      updatedAt: Date;
+    }): Table {
+      return {
+        id: table.id,
+        name: table.name,
+        tableNumber: table.tableNumber,
+        capacity: table.capacity,
+        minCovers: table.minCovers,
+        maxCovers: table.maxCovers,
+        location: table.location,
+        isActive: table.isActive,
+        priority: table.priority,
+        status: table.status as TableStatus,
+        venueId: table.venueId,
+        floorPlanId: table.floorPlanId,
+        shapeMetadata: table.shapeMetadata as TableShapeMetadata | null,
+        createdAt: table.createdAt.toISOString(),
+        updatedAt: table.updatedAt.toISOString(),
+      };
+    }
+  </file>
+  <file path="src/services/reservation.ts">
+    function isPrismaNotFound(err: unknown): boolean {
+      return (
+        err !== null &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code: string }).code === "P2025"
+      );
+    }
+    type PrismaReservationWithTable = PrismaReservation & {
+      table?: PrismaTable;
+    };
+  </file>
+  <file path="src/services/hold.ts">
+    function mapPrismaHold(hold: PrismaHold): ReservationHold {
+      return {
+        id: hold.id,
+        venueId: hold.venueId,
+        tableId: hold.tableId,
+        date: toDateString(hold.date),
+        startTime: hold.startTime.toISOString(),
+        endTime: hold.endTime.toISOString(),
+        partySize: hold.partySize,
+        sessionId: hold.sessionId,
+        expiresAt: hold.expiresAt.toISOString(),
+        createdAt: hold.createdAt.toISOString(),
+      };
+    }
+    export interface CreateHoldResult {
+      success: boolean;
+      hold?: ReservationHold;
+      error?: string;
+    }
+  </file>
+  <file path="src/services/health-checks.ts">
+    export function recordDbLatency(ms: number): void {
+      dbLatencyHistory.push(ms);
+      if (dbLatencyHistory.length > LATENCY_WINDOW) {
+        dbLatencyHistory.shift();
+      }
+    }
+    export function checkLatencyAnomaly(currentMs: number): {
+      isAnomaly: boolean;
+      rollingAvg: number;
+    } {
+      if (dbLatencyHistory.length < 5) {
+        return { isAnomaly: false, rollingAvg: 0 };
+      }
+      const sum = dbLatencyHistory.reduce((a, b) => a + b, 0);
+      const rollingAvg = sum / dbLatencyHistory.length;
+      return {
+        isAnomaly: rollingAvg > 0 && currentMs > LATENCY_ANOMALY_THRESHOLD * rollingAvg,
+        rollingAvg: Math.round(rollingAvg),
+      };
+    }
+  </file>
+  <file path="src/services/guest.ts">
+    function isPrismaNotFound(err: unknown): boolean {
+      return (
+        err !== null &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code: string }).code === "P2025"
+      );
+    }
+    function mapPrismaGuest(guest: {
+      id: string;
+      venueId: string;
+      email: string | null;
+      phone: string | null;
+      name: string;
+      notes: string | null;
+      visitCount: number;
+      lifetimeSpend: Prisma.Decimal | null;
+      lastVisit: Date | null;
+      tags: unknown;
+      createdAt: Date;
+      updatedAt: Date;
+    }): Guest {
+      return {
+        id: guest.id,
+        venueId: guest.venueId,
+        email: guest.email,
+        phone: guest.phone,
+        name: guest.name,
+        notes: guest.notes,
+        visitCount: guest.visitCount,
+        lifetimeSpend: guest.lifetimeSpend?.toString() ?? null,
+        lastVisit: guest.lastVisit?.toISOString() ?? null,
+        tags: guest.tags as string[] | null,
+        createdAt: guest.createdAt.toISOString(),
+        updatedAt: guest.updatedAt.toISOString(),
+      };
+    }
+  </file>
+  <file path="src/services/floor-plan.ts">
+    function isPrismaNotFound(err: unknown): boolean {
+      return (
+        err !== null &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code: string }).code === "P2025"
+      );
+    }
+    type PrismaFloorPlan = {
+      id: string;
+      venueId: string;
+      name: string;
+      isActive: boolean;
+      layoutJson: unknown;
+      createdAt: Date;
+      updatedAt: Date;
+      tables?: PrismaTable[];
+    };
+  </file>
+  <file path="src/services/events.ts">
+    export type ReservationEventType =
+      | "reservation:created"
+      | "reservation:updated"
+      | "reservation:cancelled"
+      | "hold:created"
+      | "hold:released"
+      | "hold:confirmed"
+      | "table:updated";
+    export interface ReservationEvent {
+      type: ReservationEventType;
+      venueId: string;
+      timestamp: string;
+      data: Reservation | Table | ReservationHold;
+    }
+  </file>
+  <file path="src/services/database.ts">
+    interface SlowQueryStats {
+      count5min: number;
+      slowestMs: number;
+      queries: { model: string; operation: string; duration: number; timestamp: number }[];
+    }
+    export function getSlowQueryStats(): { count5min: number; slowestMs: number } {
+      const now = Date.now();
+      const windowStart = now - SLOW_QUERY_WINDOW_MS;
+      
+      slowQueryStats.queries = slowQueryStats.queries.filter((q) => q.timestamp > windowStart);
+      slowQueryStats.count5min = slowQueryStats.queries.length;
+      slowQueryStats.slowestMs = slowQueryStats.queries.reduce((max, q) => Math.max(max, q.duration), 0);
+      
+      return {
+        count5min: slowQueryStats.count5min,
+        slowestMs: slowQueryStats.slowestMs,
+      };
+    }
+  </file>
+  <file path="src/services/availability.ts">
+    interface VenueWithSettings {
+      id: string;
+      name: string;
+      slug: string;
+      ianaTimezone: string;
+      settings: VenueSettings | null;
+      operatingHours: OperatingHours | null;
+    }
+    export function estimateDuration(
+      partySize: number,
+      venueSettings?: VenueSettings | null
+    ): number {
+      // Use venue-specific rules if available
+      const rules = venueSettings?.durationRules ?? DEFAULT_DURATION_RULES;
+    
+      // Find the matching rule
+      const rule = rules.find(
+        (r) => partySize >= r.minPartySize && partySize <= r.maxPartySize
+      );
+    
+      if (rule) {
+        return rule.durationMinutes;
+      }
+    
+      // Fallback: use default duration or extrapolate for large parties
+      if (venueSettings?.defaultReservationDuration) {
+        return venueSettings.defaultReservationDuration;
+      }
+    
+      // For parties larger than rules cover, use the largest rule + 15min per additional 2 guests
+      const largestRule = rules.reduce((max, r) =>
+        r.maxPartySize > max.maxPartySize ? r : max
+      );
+      const extraGuests = partySize - largestRule.maxPartySize;
+      const extraTime = Math.ceil(extraGuests / 2) * 15;
+      return largestRule.durationMinutes + extraTime;
+    }
   </file>
   </section>
 </codebase>
