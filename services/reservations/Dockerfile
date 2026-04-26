@@ -67,6 +67,7 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY packages/types/package.json ./packages/types/
 COPY packages/auth/package.json ./packages/auth/
 COPY packages/api-versioning/package.json ./packages/api-versioning/
+COPY packages/config/package.json ./packages/config/
 COPY packages/observability/package.json ./packages/observability/
 COPY packages/sentry/package.json ./packages/sentry/
 COPY services/reservations/package.json ./services/reservations/
