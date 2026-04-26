@@ -137,6 +137,31 @@ export function writeReport(cwd, { state, criteria, sources, computation, diff }
     lines.push("");
   }
 
+  // ── Agent PR outcomes (behavioral) ────────────────────────
+  const apr = state.behavioral?.agent_pr;
+  if (apr) {
+    lines.push("## Agent PR outcomes (last 30 days)");
+    lines.push("");
+    if (apr.insufficient_data) {
+      lines.push(`_Insufficient data: only ${apr.sample_size} agent PR${apr.sample_size === 1 ? "" : "s"} in window. Metrics will appear once n ≥ 5._`);
+    } else {
+      const acc = (apr.acceptance_rate_30d * 100).toFixed(0);
+      const rev = (apr.revert_rate_30d * 100).toFixed(0);
+      const ttm = apr.median_time_to_merge_hours.toFixed(1);
+      const htr = (apr.human_touch_ratio * 100).toFixed(0);
+      const accIcon = apr.acceptance_rate_30d >= 0.8 ? "✅" : apr.acceptance_rate_30d >= 0.5 ? "⚠️" : "❌";
+      const revIcon = apr.revert_rate_30d <= 0.05 ? "✅" : apr.revert_rate_30d <= 0.15 ? "⚠️" : "❌";
+      lines.push(`- **${accIcon} Acceptance rate:** ${acc}% (${apr.merged_count} merged of ${apr.merged_count + apr.closed_unmerged_count} decided)`);
+      lines.push(`- **${revIcon} Revert rate:** ${rev}% within 7 days of merge`);
+      lines.push(`- **Median time-to-merge:** ${ttm}h`);
+      lines.push(`- **Human-touch ratio:** ${htr}% of merged PRs had non-author commits`);
+      lines.push(`- **Sample:** ${apr.sample_size} agent PR${apr.sample_size === 1 ? "" : "s"} (${apr.open_count} still open)`);
+    }
+    lines.push("");
+    lines.push("_Agent PR detection: branch starts with `agent-`/`worktree-agent-`/`fix/agent-`/`feat/agent-`, or has `has-pr` label._");
+    lines.push("");
+  }
+
   // ── Cross-cutting overlay ─────────────────────────────────
   lines.push("## Cross-cutting overlay");
   lines.push("");
