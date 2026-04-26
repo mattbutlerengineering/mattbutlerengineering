@@ -138,8 +138,8 @@
   <file path="src/quality-gates.ts">
     <item priority="low">
       interface QualityGatesResult {
-        evaluation?: import("/Users/mbutler/github/mattbutlerengineering/.work...;
-        securityReview?: import("/Users/mbutler/github/mattbutlerengineering/.work...;
+        evaluation?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        securityReview?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
         staticAnalysisClean: boolean;
         errors: string[];
       }
@@ -224,7 +224,7 @@
   </file>
   <file path="src/observability.ts">
     <item priority="high">
-      export const observabilityTracer: import("/Users/mbutler/github/mattbutlerengineering/.work...;
+      export const observabilityTracer: import("/Users/mbutler/github/mattbutlerengineering/node_...;
     </item>
     <item priority="high">
       export function categorizeFailure(
