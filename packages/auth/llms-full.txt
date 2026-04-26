@@ -1,44 +1,4 @@
 <codebase path="packages/auth">
-  <section priority="medium" role="types">
-  <file path="src/types/index.ts">
-    export interface OIDCConfig {
-      /** OIDC authority URL (e.g., https://your-tenant.auth0.com) */
-      authority: string;
-      /** OAuth client ID */
-      clientId: string;
-      /** Redirect URI after login */
-      redirectUri: string;
-      /** Post-logout redirect URI */
-      postLogoutRedirectUri?: string;
-      /** OAuth scopes to request */
-      scope?: string;
-      /** Expected audience for token validation */
-      audience?: string;
-    }
-    export interface JWTPayload {
-      /** Subject (user ID) */
-      sub: string;
-      /** Issuer */
-      iss: string;
-      /** Audience */
-      aud: string | string[];
-      /** Expiration time (Unix timestamp) */
-      exp: number;
-      /** Issued at (Unix timestamp) */
-      iat: number;
-      /** Email (if requested in scope) */
-      email?: string;
-      /** Email verified flag */
-      email_verified?: boolean;
-      /** User's name */
-      name?: string;
-      /** User's picture URL */
-      picture?: string;
-      /** Custom claims */
-      [key: string]: unknown;
-    }
-  </file>
-  </section>
   <section priority="medium" role="react">
   <file path="src/react/hooks.ts">
     export function useAuth() {
@@ -95,6 +55,46 @@
     }
   </file>
   </section>
+  <section priority="medium" role="types">
+  <file path="src/types/index.ts">
+    export interface OIDCConfig {
+      /** OIDC authority URL (e.g., https://your-tenant.auth0.com) */
+      authority: string;
+      /** OAuth client ID */
+      clientId: string;
+      /** Redirect URI after login */
+      redirectUri: string;
+      /** Post-logout redirect URI */
+      postLogoutRedirectUri?: string;
+      /** OAuth scopes to request */
+      scope?: string;
+      /** Expected audience for token validation */
+      audience?: string;
+    }
+    export interface JWTPayload {
+      /** Subject (user ID) */
+      sub: string;
+      /** Issuer */
+      iss: string;
+      /** Audience */
+      aud: string | string[];
+      /** Expiration time (Unix timestamp) */
+      exp: number;
+      /** Issued at (Unix timestamp) */
+      iat: number;
+      /** Email (if requested in scope) */
+      email?: string;
+      /** Email verified flag */
+      email_verified?: boolean;
+      /** User's name */
+      name?: string;
+      /** User's picture URL */
+      picture?: string;
+      /** Custom claims */
+      [key: string]: unknown;
+    }
+  </file>
+  </section>
   <section priority="medium" role="fastify">
   <file path="src/fastify/plugin.ts">
     export interface AuthPluginOptions {
@@ -105,92 +105,16 @@
       /** Routes to exclude from token verification (e.g., ["/health"]) */
       excludePaths?: string[];
     }
-    async function authPluginImpl(
-      fastify: FastifyInstance,
-      options: AuthPluginOptions
-    ) {
-      const { authority, audience, excludePaths = [] } = options;
-    
-      const jwksUri = `${authority.replace(/\/$/, "")}/.well-known/jwks.json`;
-      const JWKS = createRemoteJWKSet(new URL(jwksUri));
-    
-      fastify.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
-        // 1. Explicit Test Bypass
-        // Check if bypass mode is enabled AND the request opted in via header.
-        if (process.env.AUTH_BYPASS_IN_TESTS === "true" && request.headers["x-auth-bypass"] === "true") {
-          request.user = {
-            id: "auth0|user-123",
-            email: "test@example.com",
-            raw: {
-              sub: "auth0|user-123",
-              iss: "https://test.auth0.com",
-              aud: ["https://api.test.com"],
-              exp: Math.floor(Date.now() / 1000) + 3600,
-              iat: Math.floor(Date.now() / 1000),
-              permissions: ["admin"],
-            },
-          };
-          return;
-        }
-    
-        // 2. Skip excluded paths
-        if (excludePaths.some((path) => request.url.startsWith(path))) {
-          return;
-        }
-    
-        // 3. Regular JWT Validation
-        const authHeader = request.headers.authorization;
-        if (!authHeader?.startsWith("Bearer ")) {
-          return;
-        }
-    
-        const token = authHeader.slice(7);
-    
-        try {
-          const { payload } = await jwtVerify(token, JWKS, {
-            issuer: authority.replace(/\/$/, "") + "/",
-            audience,
-          });
-    
-          if (typeof payload.sub !== "string") {
-            request.log.warn("JWT missing required 'sub' claim");
-            return reply.code(401).send({
-              error: "Unauthorized",
-              message: "Invalid token: missing sub",
-              statusCode: 401
-            });
-          }
-    
-          const jwtPayload: JWTPayload = {
-            ...payload,
-            sub: payload.sub,
-            iss: payload.iss ?? "",
-            aud: payload.aud ?? "",
-            exp: payload.exp ?? 0,
-            iat: payload.iat ?? 0,
-            email: payload.email as string | undefined,
-            email_verified: payload.email_verified as boolean | undefined,
-            name: payload.name as string | undefined,
-            picture: payload.picture as string | undefined,
-          };
-    
-          request.user = {
-            id: jwtPayload.sub,
-            email: jwtPayload.email,
-            name: jwtPayload.name,
-            picture: jwtPayload.picture,
-            emailVerified: jwtPayload.email_verified,
-            raw: jwtPayload,
-          };
-        } catch (error) {
-          request.log.warn({ error }, "JWT validation failed");
-          return reply.code(401).send({
-            error: "Unauthorized",
-            message: "Invalid token",
-            statusCode: 401
-          });
-        }
-      });
+    function createProblemDetails(status: number, title: string, detail: string) {
+      return {
+        type: `https://httpstatuses.com/${status}`,
+        title,
+        status,
+        detail,
+        error: title,
+        message: detail,
+        statusCode: status,
+      };
     }
   </file>
   </section>

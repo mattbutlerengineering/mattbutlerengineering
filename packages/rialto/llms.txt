@@ -201,22 +201,6 @@
     </item>
   </file>
   </section>
-  <section priority="medium" role="Toast">
-  <file path="src/components/Toast/ToastContext.ts">
-    <item priority="low">
-      type ToastVariant = "default" | "success" | "error" | "accent";
-    </item>
-    <item priority="low">
-      interface ToastData {
-        id: string;
-        title: string;
-        description?: string | undefined;
-        variant?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
-        duration?: number | undefined;
-      }
-    </item>
-  </file>
-  </section>
   <section priority="medium" role="TapeChart">
   <file path="src/components/TapeChart/useTapeChartLayout.ts">
     <item priority="medium">
@@ -280,6 +264,22 @@
     </item>
     <item priority="low">
       type CharsetName = keyof typeof CHARSETS;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Toast">
+  <file path="src/components/Toast/ToastContext.ts">
+    <item priority="low">
+      type ToastVariant = "default" | "success" | "error" | "accent";
+    </item>
+    <item priority="low">
+      interface ToastData {
+        id: string;
+        title: string;
+        description?: string | undefined;
+        variant?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        duration?: number | undefined;
+      }
     </item>
   </file>
   </section>
