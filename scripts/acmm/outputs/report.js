@@ -14,6 +14,8 @@
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 
+import { loadLatestColdStart, scoreColdStart } from "../cold-start.js";
+
 /**
  * @param {string} cwd
  * @param {Object} args
@@ -26,6 +28,7 @@ import { dirname, join } from "node:path";
 export function writeReport(cwd, { state, criteria, sources, computation, diff }) {
   const detectedSet = new Set(state.detectedIds ?? []);
   const date = new Date().toISOString().slice(0, 10);
+  const coldStart = loadLatestColdStart(cwd);
 
   const lines = [];
 
@@ -162,6 +165,23 @@ export function writeReport(cwd, { state, criteria, sources, computation, diff }
     lines.push("");
   }
 
+  // ── Cold start (behavioral, last weekly measurement) ─────
+  if (coldStart) {
+    const score = scoreColdStart(coldStart);
+    const icon = { healthy: "✅", watch: "⚠️", broken: "❌", unknown: "·" }[score];
+    const measured = coldStart.ts ? coldStart.ts.slice(0, 10) : "unknown date";
+    lines.push("## Cold start");
+    lines.push("");
+    lines.push(`_Last measured ${measured}${coldStart.commit ? ` at \`${coldStart.commit.slice(0, 7)}\`` : ""}._`);
+    lines.push("");
+    lines.push(`- **${icon} Total:** ${formatSeconds(coldStart.total_seconds)} (clone → green tests)`);
+    lines.push(`  - install: ${formatSeconds(coldStart.install_seconds)}`);
+    lines.push(`  - test: ${formatSeconds(coldStart.test_seconds)} ${coldStart.test_passed ? "✓" : "✗ FAILED"}`);
+    lines.push("");
+    lines.push("_Healthy: <5min · Watch: 5–15min · Broken: >15min or test failed. Measured weekly on a clean GitHub Actions runner with no caches._");
+    lines.push("");
+  }
+
   // ── Cross-cutting overlay ─────────────────────────────────
   lines.push("## Cross-cutting overlay");
   lines.push("");
@@ -245,4 +265,16 @@ function remediationHint(patterns) {
   const action = isDir ? `mkdir -p ${canonical}` : `touch ${canonical}`;
   if (patterns.length === 1) return `\`${action}\``;
   return `\`${action}\` (or any of: ${patterns.slice(1).map((p) => `\`${p}\``).join(", ")})`;
+}
+
+/**
+ * Format a duration in seconds as `Nm Ss` (or just `Ns` under a minute).
+ * @param {number} seconds
+ */
+function formatSeconds(seconds) {
+  const s = Math.max(0, Math.round(Number(seconds) || 0));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  return rem === 0 ? `${m}m` : `${m}m ${rem}s`;
 }
