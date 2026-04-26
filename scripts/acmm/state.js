@@ -25,6 +25,16 @@ import { dirname, join } from "node:path";
  * @property {object} [computation]       full computeLevel output
  * @property {HistoryEntry[]} history
  * @property {Record<string, number>} issuesCreated   criterionId → GitHub issue number
+ * @property {Behavioral} [behavioral]                behavioral signals beyond path-existence
+ *
+ * @typedef {Object} Behavioral
+ * @property {FlakeSnapshot | null} [flake]           CI signal quality
+ *
+ * @typedef {Object} FlakeSnapshot
+ * @property {number} rate_30d        ratio in [0, 1] of SHAs that flipped outcome
+ * @property {number} sample_size     distinct SHAs in the 30-day window
+ * @property {string[]} flaky_shas    SHAs that flipped at least once
+ * @property {string} measured_at     ISO timestamp of measurement
  */
 
 export const STATE_DIR = ".claude/acmm";

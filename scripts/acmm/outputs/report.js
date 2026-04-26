@@ -122,6 +122,21 @@ export function writeReport(cwd, { state, criteria, sources, computation, diff }
   }
   lines.push("");
 
+  // ── Signal quality (behavioral, beyond path-existence) ───
+  const flake = state.behavioral?.flake;
+  if (flake) {
+    const pct = (flake.rate_30d * 100).toFixed(1);
+    const n = flake.sample_size;
+    const icon = n < 5 ? "·" : flake.rate_30d < 0.01 ? "✅" : flake.rate_30d <= 0.05 ? "⚠️" : "❌";
+    const note = n < 5 ? " (insufficient data)" : "";
+    lines.push("## Signal quality");
+    lines.push("");
+    lines.push(`- **${icon} CI flake rate (30d):** ${pct}% (n=${n})${note}`);
+    lines.push("");
+    lines.push("_A flake = same commit produced both ✅ and ❌ on different runs. Healthy: <1%, watch: 1–5%, broken: >5%._");
+    lines.push("");
+  }
+
   // ── Cross-cutting overlay ─────────────────────────────────
   lines.push("## Cross-cutting overlay");
   lines.push("");
