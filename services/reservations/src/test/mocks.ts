@@ -7,7 +7,7 @@
  * fresh copy each time.
  */
 
-import {
+import type {
   TableShapeMetadata,
   TableStatus,
 } from "@mbe/types";
