@@ -43,7 +43,13 @@ export function useSpecsApi(): UseSpecsApiReturn {
   );
 
   const fetchSpecs = useCallback(async (): Promise<void> => {
-    setIsLoading(true);
+    // NOTE: We deliberately do NOT call setIsLoading(true) synchronously here.
+    // `isLoading` is initialized to `true`, and this hook calls fetchSpecs once
+    // on mount via useEffect — a synchronous setState inside that effect would
+    // trigger react-hooks's "setState within an effect can trigger cascading
+    // renders" rule. Manual refetchers that need a loading indicator can read
+    // `isLoading` (which flips to false after first success) and manage their
+    // own UI state, or we can introduce a separate `isRefreshing` flag later.
     try {
       const response = await authFetch("/api/gen/specs");
       if (!response.ok) {
@@ -122,7 +128,7 @@ export function useSpecsApi(): UseSpecsApiReturn {
   );
 
   useEffect(() => {
-    void fetchSpecs();
+    queueMicrotask(() => void fetchSpecs());
   }, [fetchSpecs]);
 
   return { specs, isLoading, fetchSpecs, saveSpec, toggleFavorite, deleteSpec };

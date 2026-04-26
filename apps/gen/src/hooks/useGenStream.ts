@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { flatToTree } from "@json-render/react";
 import type { Spec } from "@json-render/react";
 import { useAuth } from "@mbe/auth/react";
@@ -68,12 +68,15 @@ export function useGenStream({
   // Store AbortController in ref so it persists across renders
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Use stable refs for callbacks to avoid re-creating send on every render
+  // Use stable refs for callbacks to avoid re-creating send on every render.
+  // Sync via useEffect — writing ref.current in render body violates
+  // react-hooks/refs and React's render-purity rules. Mirrors the canonical
+  // fix in packages/rialto/src/components/GenCopilot/useGenCopilotStream.ts.
   const onCompleteRef = useRef(onComplete);
-  onCompleteRef.current = onComplete;
-
   const onErrorRef = useRef(onError);
-  onErrorRef.current = onError;
+
+  useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
+  useEffect(() => { onErrorRef.current = onError; }, [onError]);
 
   const send = useCallback(
     async (prompt: string, context?: Record<string, unknown>): Promise<void> => {
