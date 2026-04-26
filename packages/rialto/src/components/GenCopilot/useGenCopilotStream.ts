@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { flatToTree } from "@json-render/react";
 import type { Spec } from "@json-render/react";
 import { streamNDJSON } from "@mbe/api-client/streaming";
@@ -80,19 +80,18 @@ export function useGenCopilotStream({
   // Store AbortController in ref so it persists across renders
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Use stable refs for callbacks to avoid re-creating send on every render
+  // Use stable refs for callbacks to avoid re-creating send on every render.
+  // Sync via useEffect — writing ref.current in render body violates
+  // react-hooks/refs and React's render-purity rules.
   const onCompleteRef = useRef(onComplete);
-  onCompleteRef.current = onComplete;
-
   const onErrorRef = useRef(onError);
-  onErrorRef.current = onError;
-
-  // Store getAccessToken in ref so send() closure doesn't become stale
   const getAccessTokenRef = useRef(getAccessToken);
-  getAccessTokenRef.current = getAccessToken;
-
   const domainContextRef = useRef(domainContext);
-  domainContextRef.current = domainContext;
+
+  useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
+  useEffect(() => { onErrorRef.current = onError; }, [onError]);
+  useEffect(() => { getAccessTokenRef.current = getAccessToken; }, [getAccessToken]);
+  useEffect(() => { domainContextRef.current = domainContext; }, [domainContext]);
 
   const send = useCallback(
     async (userPrompt: string): Promise<void> => {
