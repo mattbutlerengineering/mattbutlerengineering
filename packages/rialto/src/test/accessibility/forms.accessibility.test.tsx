@@ -34,9 +34,9 @@ describe("Accessibility — Form Components", () => {
 
   it("InputGroup", async () => {
     const { container } = render(
-      <InputGroup aria-label="Price input group">
+      <InputGroup aria-label="Price">
         <span>$</span>
-        <Input placeholder="0.00" aria-label="Amount" />
+        <Input placeholder="0.00" />
       </InputGroup>
     );
     expect(await axe(container)).toHaveNoViolations();

@@ -1,7 +1,6 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import fp from "fastify-plugin";
 import type { FastifyInstance, FastifyRequest, FastifyReply, FastifyPluginAsync } from "fastify";
-import { createProblemDetails } from "@mbe/types";
 import type { JWTPayload, AuthUser } from "../types/index.js";
 
 declare module "fastify" {
@@ -17,6 +16,18 @@ export interface AuthPluginOptions {
   audience: string;
   /** Routes to exclude from token verification (e.g., ["/health"]) */
   excludePaths?: string[];
+}
+
+function createProblemDetails(status: number, title: string, detail: string) {
+  return {
+    type: `https://httpstatuses.com/${status}`,
+    title,
+    status,
+    detail,
+    error: title,
+    message: detail,
+    statusCode: status,
+  };
 }
 
 /**
@@ -64,27 +75,21 @@ async function authPluginImpl(
     const token = authHeader.slice(7);
 
     try {
-      const { payload } = await jwtVerify(token, JWKS, {
+      const result = await jwtVerify(token, JWKS, {
         issuer: authority.replace(/\/$/, "") + "/",
         audience,
       });
 
-      if (typeof payload.sub !== "string") {
+      if (!result || !result.payload || typeof result.payload.sub !== "string") {
         request.log.warn("JWT missing required 'sub' claim");
-        return reply.code(401).send(
-          createProblemDetails(
-            401,
-            "Unauthorized",
-            "Invalid token: missing sub",
-            "https://mattbutlerengineering.com/errors/unauthorized",
-            request.url
-          )
-        );
+        return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Invalid token: missing sub"));
       }
+
+      const { payload } = result;
 
       const jwtPayload: JWTPayload = {
         ...payload,
-        sub: payload.sub,
+        sub: payload.sub as string,
         iss: payload.iss ?? "",
         aud: payload.aud ?? "",
         exp: payload.exp ?? 0,
@@ -105,15 +110,7 @@ async function authPluginImpl(
       };
     } catch (error) {
       request.log.warn({ error }, "JWT validation failed");
-      return reply.code(401).send(
-        createProblemDetails(
-          401,
-          "Unauthorized",
-          "Invalid token",
-          "https://mattbutlerengineering.com/errors/unauthorized",
-          request.url
-        )
-      );
+      return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Invalid token"));
     }
   });
 }
@@ -126,15 +123,7 @@ export const authPlugin: FastifyPluginAsync<AuthPluginOptions> = fp(authPluginIm
 export async function requireAuth(request: FastifyRequest, reply: FastifyReply) {
   const isBypassed = process.env.AUTH_BYPASS_IN_TESTS === "true" && request.headers["x-auth-bypass"] === "true";
   if (!request.user && !isBypassed) {
-    return reply.code(401).send(
-      createProblemDetails(
-        401,
-        "Unauthorized",
-        "Missing or invalid authorization header",
-        "https://mattbutlerengineering.com/errors/unauthorized",
-        request.url
-      )
-    );
+    return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Missing or invalid authorization header"));
   }
 }
 
