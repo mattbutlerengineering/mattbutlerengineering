@@ -53,7 +53,6 @@ COPY packages/rialto/scripts ./packages/rialto/scripts
 COPY packages/rialto/vite.config.lib.ts ./packages/rialto/vite.config.lib.ts
 COPY packages/rialto-catalog/src ./packages/rialto-catalog/src
 COPY services/agent/src ./services/agent/src
-
 # Build workspace packages and service in a single layer
 RUN pnpm --filter @mbe/types build && \
     pnpm --filter @mbe/auth build && \
