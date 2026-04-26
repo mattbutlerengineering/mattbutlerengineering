@@ -1,7 +1,7 @@
 # Matt Butler Engineering
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](./LICENSE)
-<!-- acmm:begin -->![ACMM Level 5](https://img.shields.io/badge/ACMM-Level%205-c4952c?style=flat-square)<!-- acmm:end -->
+<!-- acmm:begin -->![ACMM Level 6](https://img.shields.io/badge/ACMM-Level%206-d4a030?style=flat-square)<!-- acmm:end -->
 
 > **Build status:** GitHub Actions billing is intentionally unconfigured on this repo. Workflows in `.github/workflows/` exist as encoded policy and run via [claude.ai RemoteTriggers](https://claude.ai/code/scheduled), not on PR open. Verify changes locally with `pnpm lint`/`typecheck`/`test`. See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full story.
 

@@ -91,6 +91,15 @@ gap closure.** The tooling improvement compounds — the next iteration's
 gap closure is easier to spot because the previous iteration sharpened
 the signal.
 
+This is a default rhythm, not a rule. When N small honest gaps all sit
+behind a single level threshold (closing 3 of them produces no
+observable system change, but closing the 4th promotes the level),
+batching them in one iteration is correct — the iteration's coherence
+comes from the level promotion, not from doing one thing at a time.
+What never changes: each artifact must have real content satisfying
+the criterion's underlying need, not just file-presence theater. See
+[reflections/2026-04-25-batch-when-honest-and-coherent.md](./reflections/2026-04-25-batch-when-honest-and-coherent.md).
+
 ```mermaid
 flowchart LR
     A([Run audit<br/>node scripts/acmm/audit.js]) --> B{--diff vs<br/>prior state}

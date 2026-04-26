@@ -1,0 +1,13 @@
+{
+  "id": "fix-typo-in-readme",
+  "prompt": "There is a typo in the root README.md. Find any single misspelled word and fix it. Do not modify any other files. Do not change formatting.",
+  "model": "claude-sonnet-4-6",
+  "maxBudgetUsd": 0.10,
+  "maxTurns": 8,
+  "rubric": {
+    "mustPass": ["lint"],
+    "diffSizeMax": 4,
+    "mustTouch": ["README.md"],
+    "mustNotTouch": ["package.json", "pnpm-lock.yaml", "src/"]
+  }
+}
