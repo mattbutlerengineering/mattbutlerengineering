@@ -118,6 +118,8 @@ jobs:
     if: needs.detect-changes.outputs.any_changed == 'true'
     name: Comment Preview URL
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
     steps:
       # gh CLI's `pr comment` discovers repo context from a local git repo,
       # so it fails with "fatal: not a git repository" without a checkout.
