@@ -17,10 +17,10 @@ export interface TableShapeProps {
 }
 
 const TABLE_COLORS = {
-  available: "#22c55e", // green-500
-  occupied: "#ef4444", // red-500
-  reserved: "#f59e0b", // amber-500
-  inactive: "#9ca3af", // gray-400
+  available: "#5e6a2e", // Rialto Success
+  occupied: "#b84a3c", // Rialto Error
+  reserved: "#8a6820", // Rialto Warning
+  inactive: "#a8a49d", // Rialto Surface Deep
 };
 
 const SHAPE_DEFAULTS = {
@@ -76,7 +76,7 @@ export function TableShape({
 
   const renderShape = () => {
     const strokeWidth = isSelected ? 3 : 1;
-    const stroke = isSelected ? "#2563eb" : "#374151";
+    const stroke = isSelected ? "#b0841e" : "#b8b4ad";
 
     switch (shape) {
       case "circle":
