@@ -2,8 +2,8 @@
 
 /**
  * Service health metrics persistence for ACMM L3 signal.
- * 
- * Polls the /health endpoints of local services, extracts error rates,
+ *
+ * Polls the /health endpoints of production services, extracts error rates,
  * and appends a snapshot to metrics/service-health.jsonl.
  *
  * Usage:
@@ -17,42 +17,44 @@ import { dirname, join } from 'node:path';
 const cwd = process.cwd();
 const HISTORY_PATH = join(cwd, 'metrics/service-health.jsonl');
 
+const BASE = 'https://api.mattbutlerengineering.com';
+
 const SERVICES = [
-  { name: 'users', port: 3001, path: '/health' },
-  { name: 'agent', port: 3003, path: '/health' },
-  { name: 'reservations', port: 3004, path: '/health' }
+  { name: 'users', url: `${BASE}/api/v1/users/health` },
+  { name: 'agent', url: `${BASE}/api/gen/health` },
+  { name: 'reservations', url: `${BASE}/api/v1/reservations/health` },
 ];
 
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes('--dry-run');
 
 async function fetchHealth(service) {
-  const url = `http://localhost:${service.port}${service.path}`;
   try {
-    const res = await fetch(url);
+    const res = await fetch(service.url, { signal: AbortSignal.timeout(15_000) });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     return {
       service: service.name,
       status: data.status,
-      error_rates: data.error_rates || null
+      error_rates: data.checks?.error_rates || null,
+      latency_ms: data.checks?.database?.latency ?? null,
     };
   } catch (err) {
     return {
       service: service.name,
       status: 'error',
-      message: err.message
+      message: err.message,
     };
   }
 }
 
 async function run() {
-  console.log('Polling service health...');
+  console.log('Polling production service health...');
   const results = await Promise.all(SERVICES.map(fetchHealth));
-  
+
   const entry = {
     timestamp: new Date().toISOString(),
-    services: results
+    services: results,
   };
 
   if (DRY_RUN) {
