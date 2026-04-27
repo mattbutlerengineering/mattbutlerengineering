@@ -17,6 +17,7 @@
 
 # ── Apps ──────────────────────────────────────
 /apps/                               @mattbutlerengineering
+/apps/hospitality/                   @mattbutlerengineering
 
 # ── Shared packages ───────────────────────────
 /packages/agent-core/                @mattbutlerengineering
