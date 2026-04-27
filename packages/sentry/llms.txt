@@ -1,38 +1,39 @@
 <codebase path="packages/sentry">
+  <section priority="medium" role="src">
   <file path="src/react.ts">
-    export interface InitOptions {
-      readonly appName: string;
-      readonly dsn: string;
-    }
-    export function initSentry(options: InitOptions): void { /* implementation omitted */ }
-    export function handleErrorBoundary(error: Error, errorInfo: ErrorInfo): void { /* implementation omitted */ }
+    <item priority="low">
+      interface InitOptions {
+        appName: string;
+        dsn: string;
+      }
+    </item>
+    <item priority="high">
+      export function initSentry(options: InitOptions): void { /* ... */ }
+    </item>
   </file>
   <file path="src/node.ts">
-    interface SentryUser {
-      readonly id: string;
-      readonly email?: string;
-    }
-    function isSentryUser(value: unknown): value is SentryUser { /* implementation omitted */ }
-    function getRequestUser(request: FastifyRequest): SentryUser | undefined { /* implementation omitted */ }
-    export interface InitOptions {
-      readonly serviceName: string;
-    }
-    interface SentryReplyMeta {
-      readonly __sentryErrorCaptured?: boolean;
-    }
-    export function initSentry(options: InitOptions): void { /* implementation omitted */ }
-    function setSentryContext(scope: Sentry.Scope, request: FastifyRequest): void { /* implementation omitted */ }
-    export const sentryFastifyPlugin: (fastify: import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/instance").FastifyInstance<import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/utils").RawServerDefault, import("node:http").IncomingMessage, import("node:http").ServerResponse<import("node:http").IncomingMessage>, import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/logger").FastifyBaseLogger, import("/Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/fastify@5.8.4/node_modules/fastify/types/type-provider").FastifyTypeProviderDefault>) => Promise<void>;
-  </file>
-  <file path="src/index.ts">
+    <item priority="high">
+      interface SentryUser {
+        id: string;
+        email?: string | undefined;
+      }
+    </item>
+    <item priority="medium">
+      function isSentryUser(value: unknown): value is SentryUser { /* ... */ }
+    </item>
   </file>
   <file path="src/config.ts">
-    export interface SentryConfig {
-      readonly dsn: string;
-      readonly environment: string;
-      readonly release: string | undefined;
-      readonly enabled: boolean;
-    }
-    export function resolveConfig(dsn: string | undefined): SentryConfig { /* implementation omitted */ }
+    <item priority="low">
+      interface SentryConfig {
+        dsn: string;
+        environment: string;
+        release: string | undefined;
+        enabled: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function resolveConfig(dsn: string | undefined): SentryConfig { /* ... */ }
+    </item>
   </file>
+  </section>
 </codebase>
