@@ -108,7 +108,7 @@
 .suggestionCard:hover {
   transform: translateY(-2px);
   border-color: var(--rialto-accent);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--rialto-shadow-md);
 }
 
 .suggestionCard:active {

@@ -8,7 +8,7 @@
       }
     </item>
     <item priority="high">
-      export const TECH_STACK: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+      export const TECH_STACK: import("/Users/mbutler/github/mattbutlerengineering/.work...;
     </item>
   </file>
   <file path="src/data/projects.ts">
@@ -17,11 +17,11 @@
         title: string;
         description: string;
         tags: string[];
-        href?: string;
+        href?: string | undefined;
       }
     </item>
     <item priority="high">
-      export const PROJECTS: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+      export const PROJECTS: import("/Users/mbutler/github/mattbutlerengineering/.work...;
     </item>
   </file>
   </section>

@@ -156,7 +156,7 @@
   line-height: 1.5;
   white-space: normal;
   word-break: break-word;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--rialto-shadow-sm);
   pointer-events: none;
   animation: tooltipFadeIn 150ms var(--rialto-ease-precision);
 }

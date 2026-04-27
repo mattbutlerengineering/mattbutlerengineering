@@ -5,7 +5,7 @@
   padding: var(--rialto-space-md) var(--rialto-space-lg);
   border-block-start: 1px solid var(--rialto-border);
   background-color: var(--rialto-surface-default);
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--rialto-shadow-sm);
   flex-shrink: 0;
 }
 

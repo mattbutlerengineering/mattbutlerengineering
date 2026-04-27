@@ -44,5 +44,17 @@
     "typescript": "catalog:",
     "vite": "catalog:"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "acmm": {
+    "inherit": true,
+    "globalPaths": [
+      ".github/workflows/",
+      "CONTRIBUTING.md",
+      "AGENTS.md",
+      "CLAUDE.md",
+      "docs/ai-ops-runbook.md",
+      "scripts/acmm/",
+      ".claude/settings.json"
+    ]
+  }
 }

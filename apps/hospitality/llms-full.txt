@@ -1,32 +1,4 @@
 <codebase path="apps/hospitality">
-  <section priority="medium" role="src">
-  <file path="src/vite-env.d.ts">
-    interface ImportMetaEnv {
-      readonly VITE_AUTH_AUTHORITY: string;
-      readonly VITE_AUTH_CLIENT_ID: string;
-      readonly VITE_AUTH_REDIRECT_URI: string;
-      readonly VITE_AUTH_AUDIENCE: string;
-    }
-    interface ImportMeta {
-      readonly env: ImportMetaEnv;
-    }
-  </file>
-  <file path="src/nav-sections.ts">
-    export interface NavItem {
-      id: string;
-      label: string;
-      path: string;
-      /** Setup step status — drives icon before the label */
-      stepStatus?: "completed" | "current" | "locked";
-      /** Prevents click and applies muted style */
-      disabled?: boolean;
-    }
-    export interface NavSection {
-      label?: string;
-      items: NavItem[];
-    }
-  </file>
-  </section>
   <section priority="medium" role="e2e">
   <file path="e2e/fixtures.ts">
     export const test = base.extend<{ authPage: Page }>({
@@ -64,6 +36,34 @@
       }
     
       return { domain, clientId, audience, email, password };
+    }
+  </file>
+  </section>
+  <section priority="medium" role="src">
+  <file path="src/vite-env.d.ts">
+    interface ImportMetaEnv {
+      readonly VITE_AUTH_AUTHORITY: string;
+      readonly VITE_AUTH_CLIENT_ID: string;
+      readonly VITE_AUTH_REDIRECT_URI: string;
+      readonly VITE_AUTH_AUDIENCE: string;
+    }
+    interface ImportMeta {
+      readonly env: ImportMetaEnv;
+    }
+  </file>
+  <file path="src/nav-sections.ts">
+    export interface NavItem {
+      id: string;
+      label: string;
+      path: string;
+      /** Setup step status — drives icon before the label */
+      stepStatus?: "completed" | "current" | "locked";
+      /** Prevents click and applies muted style */
+      disabled?: boolean;
+    }
+    export interface NavSection {
+      label?: string;
+      items: NavItem[];
     }
   </file>
   </section>

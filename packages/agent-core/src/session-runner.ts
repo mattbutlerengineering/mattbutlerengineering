@@ -38,6 +38,7 @@ import {
   loadMemory,
 } from "./failure-memory.js";
 import { runFeedbackLoop } from "./feedback-loop.js";
+import { getFeedbackLoopModel } from "./model-router.js";
 import { withRetry, ContextWindowExhaustedError } from "./retry.js";
 import {
   categorizeFailure,
@@ -532,7 +533,7 @@ export async function runSession(
                         prNumber: pr.number,
                         branchName: wt.branchName,
                         repoPath: wt.path,
-                        model: config.model,
+                        model: getFeedbackLoopModel(config.model),
                         maxRetries: config.feedbackLoop.maxRetries ?? 2,
                         pollIntervalMs: config.feedbackLoop.pollIntervalMs ?? 30_000,
                         pollTimeoutMs: config.feedbackLoop.pollTimeoutMs ?? 300_000,

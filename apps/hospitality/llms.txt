@@ -1,4 +1,25 @@
 <codebase path="apps/hospitality">
+  <section priority="medium" role="e2e">
+  <file path="e2e/fixtures.ts">
+    <item priority="high">
+      export const test: import("/Users/mbutler/github/mattbutlerengineering/.work...;
+    </item>
+  </file>
+  <file path="e2e/auth-helpers.ts">
+    <item priority="high">
+      interface Auth0Config {
+        domain: string;
+        clientId: string;
+        audience: string;
+        email: string;
+        password: string;
+      }
+    </item>
+    <item priority="medium">
+      function getAuth0Config(): Auth0Config { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="src">
   <file path="src/vite-env.d.ts">
     <item priority="high">
@@ -28,29 +49,8 @@
     <item priority="low">
       interface NavSection {
         label?: string | undefined;
-        items: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+        items: import("/Users/mbutler/github/mattbutlerengineering/.work...;
       }
-    </item>
-  </file>
-  </section>
-  <section priority="medium" role="e2e">
-  <file path="e2e/fixtures.ts">
-    <item priority="high">
-      export const test: import("/Users/mbutler/github/mattbutlerengineering/node_...;
-    </item>
-  </file>
-  <file path="e2e/auth-helpers.ts">
-    <item priority="high">
-      interface Auth0Config {
-        domain: string;
-        clientId: string;
-        audience: string;
-        email: string;
-        password: string;
-      }
-    </item>
-    <item priority="medium">
-      function getAuth0Config(): Auth0Config { /* ... */ }
     </item>
   </file>
   </section>
@@ -63,7 +63,7 @@
       interface VenueReadiness {
         status: "no-venue" | "setup" | "operational";
         completedSteps: readonly import("/Users/mbutler/github/mattbutlerengineer...;
-        nextStep: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+        nextStep: import("/Users/mbutler/github/mattbutlerengineering/.work...;
         progress: number;
       }
     </item>
@@ -74,10 +74,10 @@
     </item>
     <item priority="low">
       interface ReservationEvent {
-        type: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+        type: import("/Users/mbutler/github/mattbutlerengineering/.work...;
         venueId: string;
         timestamp: string;
-        data: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        data: import("/Users/mbutler/github/mattbutlerengineering/.work...;
       }
     </item>
   </file>
@@ -94,7 +94,7 @@
     <item priority="low">
       interface UseDashboardStatsResult {
         reservations: readonly import("/Users/mbutler/github/mattbutlerengineer...;
-        stats: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+        stats: import("/Users/mbutler/github/mattbutlerengineering/.work...;
         isLoading: boolean;
         error: string | null;
         refetch: () => Promise<void>;
@@ -120,7 +120,7 @@
   <file path="src/hooks/use-theme.ts">
     <item priority="low">
       interface ThemeContextValue {
-        theme: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        theme: import("/Users/mbutler/github/mattbutlerengineering/.work...;
         setTheme: (theme: import("/Users/mbutler/github/mattbutlerengineeri...;
       }
     </item>
@@ -141,7 +141,7 @@
       interface UseCommandPaletteResult {
         open: boolean;
         setOpen: (open: boolean) => void;
-        items: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        items: import("/Users/mbutler/github/mattbutlerengineering/.work...;
         groups: string[];
       }
     </item>
@@ -150,7 +150,7 @@
   <section priority="medium" role="constants">
   <file path="src/constants/copilotContext.ts">
     <item priority="high">
-      export const HOSPITALITY_DOMAIN_CONTEXT: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+      export const HOSPITALITY_DOMAIN_CONTEXT: import("/Users/mbutler/github/mattbutlerengineering/.work...;
     </item>
   </file>
   <file path="src/constants/auth.ts">
