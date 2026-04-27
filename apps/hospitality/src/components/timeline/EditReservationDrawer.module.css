@@ -1,7 +1,7 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--rialto-overlay);
   z-index: 50;
 }
 
@@ -112,7 +112,7 @@
 .textarea:focus {
   outline: none;
   border-color: var(--rialto-accent);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 0 0 2px var(--rialto-accent-glow);
 }
 
 .input:disabled,

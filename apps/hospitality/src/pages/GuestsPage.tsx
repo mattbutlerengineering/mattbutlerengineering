@@ -490,11 +490,6 @@ export function GuestsPage() {
     [venues]
   );
 
-  const formatDate = (isoString: string | null) => {
-    if (!isoString) return "Never";
-    return new Date(isoString).toLocaleDateString();
-  };
-
   const handleRowClick = useCallback((guestId: string) => {
     setSelectedGuestId(guestId);
   }, []);
@@ -663,34 +658,45 @@ export function GuestsPage() {
                       aria-label={`View details for ${guest.name}`}
                     >
                       <td className={styles.td}>
-                        <Text variant="body" color="primary" className={styles.guestName}>
-                          {guest.name}
-                        </Text>
-                        {guest.notes && (
-                          <Text
-                            variant="caption"
-                            color="secondary"
-                            className={styles.guestNotes}
-                          >
-                            {guest.notes}
+                        <Stack gap="2xs">
+                          <Text variant="body" color="primary" className={styles.guestName}>
+                            {guest.name}
                           </Text>
-                        )}
+                          {guest.notes && (
+                            <Text
+                              variant="caption"
+                              color="secondary"
+                              className={styles.guestNotes}
+                              truncate
+                            >
+                              {guest.notes}
+                            </Text>
+                          )}
+                        </Stack>
                       </td>
                       <td className={styles.td}>
-                        {guest.email && (
-                          <Text variant="caption" color="primary">
-                            {guest.email}
-                          </Text>
-                        )}
-                        {guest.phone && (
-                          <Text variant="caption" color="secondary">
-                            {guest.phone}
-                          </Text>
-                        )}
+                        <Stack gap="2xs">
+                          {guest.email && (
+                            <Text variant="caption" color="primary">
+                              {guest.email}
+                            </Text>
+                          )}
+                          {guest.phone && (
+                            <Text variant="caption" color="secondary">
+                              {guest.phone}
+                            </Text>
+                          )}
+                        </Stack>
                       </td>
-                      <td className={styles.td}>{guest.visitCount}</td>
-                      <td className={styles.tdMuted}>{formatDate(guest.lastVisit)}</td>
-                      <td className={styles.tdTags}>
+                      <td className={styles.td}>
+                        <Text variant="body">{guest.visitCount}</Text>
+                      </td>
+                      <td className={styles.td}>
+                        <Text variant="caption" color="secondary">
+                          {new Date(guest.lastVisit || "").toLocaleDateString()}
+                        </Text>
+                      </td>
+                      <td className={styles.td}>
                         <div className={styles.tagList}>
                           {guest.tags?.map((tag) => (
                             <Tag key={tag}>{tag}</Tag>

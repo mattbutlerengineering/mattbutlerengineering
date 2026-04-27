@@ -37,11 +37,11 @@ function statusColor(status: string): "green" | "yellow" | "red" | "neutral" {
 
 function StatusDot({ status }: { readonly status: string }) {
   const colorMap: Record<string, string> = {
-    healthy: "var(--rialto-color-green-500, #22c55e)",
-    ok: "var(--rialto-color-green-500, #22c55e)",
-    degraded: "var(--rialto-color-yellow-500, #eab308)",
-    unhealthy: "var(--rialto-color-red-500, #ef4444)",
-    error: "var(--rialto-color-red-500, #ef4444)",
+    healthy: "var(--rialto-success)",
+    ok: "var(--rialto-success)",
+    degraded: "var(--rialto-warning)",
+    unhealthy: "var(--rialto-error)",
+    error: "var(--rialto-error)",
   };
   const color = colorMap[status] ?? "var(--rialto-text-tertiary)";
 

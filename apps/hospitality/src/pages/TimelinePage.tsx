@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
-import { Drawer } from "@mattbutlerengineering/rialto";
+import { Drawer, Button, Badge, DataList, Stack, Heading, Text, Divider, Alert, EmptyState } from "@mattbutlerengineering/rialto";
 import type { Reservation, Table, TableStatus, UpdateReservationRequest } from "@mbe/types";
 import { TimelineGrid } from "../components/timeline";
 import { CancelReservationDialog } from "../components/timeline/CancelReservationDialog";
@@ -31,21 +31,6 @@ function useIsMobile(): boolean {
   return isMobile;
 }
 
-function getStatusBadgeClass(status: Reservation["status"]): string {
-  switch (status) {
-    case "CONFIRMED":
-      return styles.statusConfirmed;
-    case "PENDING":
-      return styles.statusPending;
-    case "COMPLETED":
-      return styles.statusCompleted;
-    case "CANCELLED":
-      return styles.statusCancelled;
-    default:
-      return styles.statusNoShow;
-  }
-}
-
 interface ReservationDetailsProps {
   reservation: Reservation;
   onEdit: () => void;
@@ -54,108 +39,81 @@ interface ReservationDetailsProps {
 }
 
 function ReservationDetails({ reservation, onEdit, onSeat, onCancel }: ReservationDetailsProps) {
-  return (
-    <div className={styles.detailsStack}>
-      <div>
-        <span className={styles.detailLabel}>Guest</span>
-        <div className={styles.detailValue}>
-          {reservation.guestName || "Guest"}
-        </div>
-      </div>
-
-      {reservation.guestEmail && (
-        <div>
-          <span className={styles.detailLabel}>Email</span>
-          <div className={styles.detailValueSecondary}>
-            {reservation.guestEmail}
-          </div>
-        </div>
-      )}
-
-      {reservation.guestPhone && (
-        <div>
-          <span className={styles.detailLabel}>Phone</span>
-          <div className={styles.detailValueSecondary}>
-            {reservation.guestPhone}
-          </div>
-        </div>
-      )}
-
-      <div>
-        <span className={styles.detailLabel}>Time</span>
-        <div className={styles.detailValue}>
-          {new Date(reservation.startTime).toLocaleTimeString("en-US", {
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-          })}
-          {" - "}
-          {new Date(reservation.endTime).toLocaleTimeString("en-US", {
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-          })}
-        </div>
-      </div>
-
-      <div>
-        <span className={styles.detailLabel}>Party Size</span>
-        <div className={styles.detailValue}>
-          {reservation.partySize}{" "}
-          {reservation.partySize === 1 ? "guest" : "guests"}
-        </div>
-      </div>
-
-      <div>
-        <span className={styles.detailLabel}>Table</span>
-        <div className={styles.detailValue}>
-          {reservation.table?.tableNumber ||
-            reservation.table?.name ||
-            "Unassigned"}
-        </div>
-      </div>
-
-      <div>
-        <span className={styles.detailLabel}>Status</span>
-        <span
-          className={`${styles.statusBadge} ${getStatusBadgeClass(reservation.status)}`}
+  const detailItems = [
+    { label: "Guest", value: reservation.guestName || "Guest" },
+    { label: "Email", value: reservation.guestEmail ?? "Not provided" },
+    { label: "Phone", value: reservation.guestPhone ?? "Not provided" },
+    {
+      label: "Time",
+      value: `${new Date(reservation.startTime).toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      })} - ${new Date(reservation.endTime).toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      })}`,
+    },
+    { label: "Party Size", value: `${reservation.partySize} ${reservation.partySize === 1 ? "guest" : "guests"}` },
+    {
+      label: "Table",
+      value: reservation.table?.tableNumber || reservation.table?.name || "Unassigned",
+    },
+    {
+      label: "Status",
+      value: (
+        <Badge
+          color={
+            reservation.status === "CONFIRMED"
+              ? "success"
+              : reservation.status === "PENDING"
+                ? "warning"
+                : reservation.status === "CANCELLED"
+                  ? "neutral"
+                  : "error"
+          }
+          size="sm"
         >
           {reservation.status}
-        </span>
-      </div>
+        </Badge>
+      ),
+    },
+  ];
+
+  return (
+    <Stack gap="lg" className={styles.detailsStack}>
+      <DataList items={detailItems} orientation="vertical" />
 
       {reservation.notes && (
-        <div>
-          <span className={styles.detailLabel}>Notes</span>
-          <div className={styles.notesValue}>{reservation.notes}</div>
-        </div>
+        <Stack gap="xs">
+          <Text variant="label" color="secondary">
+            Notes
+          </Text>
+          <Text variant="body" className={styles.notesValue}>
+            {reservation.notes}
+          </Text>
+        </Stack>
       )}
 
-      <div className={styles.actionsDivider}>
-        <button
-          className={styles.actionButtonPrimary}
-          onClick={onEdit}
-        >
+      <Divider />
+
+      <Stack gap="sm">
+        <Button variant="primary" onClick={onEdit}>
           Edit Reservation
-        </button>
+        </Button>
         {reservation.status === "CONFIRMED" && (
-          <button
-            className={styles.actionButtonSeat}
-            onClick={onSeat}
-          >
+          <Button variant="secondary" onClick={onSeat}>
             Seat Guest
-          </button>
+          </Button>
         )}
         {reservation.status !== "CANCELLED" && (
-          <button
-            className={styles.actionButtonCancel}
-            onClick={onCancel}
-          >
+          <Button variant="ghost" onClick={onCancel}>
             Cancel Reservation
-          </button>
+          </Button>
         )}
-      </div>
-    </div>
+      </Stack>
+    </Stack>
   );
 }
 
@@ -370,98 +328,67 @@ export function TimelinePage() {
   return (
     <div className={styles.root}>
       {/* Header */}
-      <div className={styles.header}>
-        <div className={styles.headerTop}>
-          <PageHeader title="Timeline" description="Real-time reservation view" />
-        </div>
+      <Stack gap="md" className={styles.header}>
+        <PageHeader title="Timeline" description="Real-time reservation view" />
 
         {/* Date navigation */}
-        <div className={styles.dateNav}>
-          <div className={styles.dateNavLeft}>
-            <button
+        <Stack direction="row" justify="between" align="center" wrap gap="md" className={styles.dateNav}>
+          <Stack direction="row" align="center" gap="sm">
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={handlePreviousDay}
-              className={styles.navButton}
               aria-label="Previous day"
             >
-              <svg
-                className={styles.navIcon}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 19l-7-7 7-7"
-                />
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
-            </button>
-            <div className={styles.dateLabel}>{formattedDate}</div>
-            <button
+            </Button>
+            <Text variant="body" style={{ fontWeight: "var(--rialto-weight-medium)" }} className={styles.dateLabel}>{formattedDate}</Text>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={handleNextDay}
-              className={styles.navButton}
               aria-label="Next day"
             >
-              <svg
-                className={styles.navIcon}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
-            </button>
+            </Button>
             {!isToday && (
-              <button onClick={handleToday} className={styles.todayButton}>
+              <Button variant="secondary" size="sm" onClick={handleToday}>
                 Today
-              </button>
+              </Button>
             )}
-            <button
-              onClick={() => setShowWalkInDialog(true)}
-              className={styles.walkInButton}
-            >
+            <Button variant="primary" size="sm" onClick={() => setShowWalkInDialog(true)}>
               Walk-in
-            </button>
-          </div>
+            </Button>
+          </Stack>
 
           {/* Stats */}
-          <div className={styles.statsRow}>
+          <Stack direction="row" align="center" gap="md" className={styles.statsRow}>
             {/* Live indicator */}
-            <div className={styles.liveIndicator}>
+            <Stack direction="row" align="center" gap="2xs" className={styles.liveIndicator}>
               <span
                 className={`${styles.liveDot} ${isConnected ? styles.liveDotConnected : styles.liveDotOffline}`}
               />
-              <span className={isConnected ? styles.liveTextConnected : styles.liveTextOffline}>
+              <Text variant="caption" color={isConnected ? "success" : "tertiary"}>
                 {isConnected ? "Live" : "Offline"}
-              </span>
-            </div>
-            <div className={styles.statItem}>
-              Reservations:{" "}
-              <span className={styles.statValue}>{stats.total}</span>
-            </div>
-            <div className={styles.statItem}>
-              Covers:{" "}
-              <span className={styles.statValue}>{stats.totalCovers}</span>
-            </div>
-            <div>
-              <span className={styles.statConfirmed}>{stats.confirmed}</span>
-              <span className={styles.statItem}> confirmed</span>
-            </div>
+              </Text>
+            </Stack>
+            <Text variant="caption" color="secondary">
+              Reservations: <Text as="span" color="primary" style={{ fontWeight: "var(--rialto-weight-medium)" }}>{stats.total}</Text>
+            </Text>
+            <Text variant="caption" color="secondary">
+              Covers: <Text as="span" color="primary" style={{ fontWeight: "var(--rialto-weight-medium)" }}>{stats.totalCovers}</Text>
+            </Text>
+            <Badge color="success" size="sm">{stats.confirmed} confirmed</Badge>
             {stats.pending > 0 && (
-              <div>
-                <span className={styles.statPending}>{stats.pending}</span>
-                <span className={styles.statItem}> pending</span>
-              </div>
+              <Badge color="warning" size="sm">{stats.pending} pending</Badge>
             )}
-          </div>
-        </div>
-      </div>
+          </Stack>
+        </Stack>
+      </Stack>
 
       {/* Main content */}
       <div className={styles.content}>
@@ -472,12 +399,12 @@ export function TimelinePage() {
               <div className={styles.spinner} aria-label="Loading" role="status" />
             </div>
           ) : error ? (
-            <div className={styles.errorBox} role="alert">{error}</div>
+            <Alert variant="error">{error}</Alert>
           ) : tables.length === 0 ? (
-            <div className={styles.emptyState}>
-              <p className={styles.emptyStateText}>No tables configured for this venue.</p>
-              <p className={styles.emptyStateHint}>Add tables in the Floor Plans section.</p>
-            </div>
+            <EmptyState
+              heading="No tables configured"
+              description="Add tables in the Floor Plans section to start taking reservations."
+            />
           ) : (
             <TimelineGrid
               tables={tables}
@@ -492,29 +419,20 @@ export function TimelinePage() {
 
         {/* Sidebar - Reservation details (hidden on mobile via CSS) */}
         {selectedReservation && (
-          <div className={styles.sidebar}>
-            <div className={styles.sidebarHeader}>
-              <h2 className={styles.sidebarTitle}>Reservation Details</h2>
-              <button
+          <aside className={styles.sidebar}>
+            <Stack direction="row" justify="between" align="center" className={styles.sidebarHeader}>
+              <Heading level={3}>Reservation Details</Heading>
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setSelectedReservation(null)}
-                className={styles.closeButton}
                 aria-label="Close reservation details"
               >
-                <svg
-                  className={styles.closeIcon}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
-              </button>
-            </div>
+              </Button>
+            </Stack>
 
             <ReservationDetails
               reservation={selectedReservation}
@@ -522,7 +440,7 @@ export function TimelinePage() {
               onSeat={() => handleSeat(selectedReservation)}
               onCancel={() => setShowCancelDialog(true)}
             />
-          </div>
+          </aside>
         )}
       </div>
 
