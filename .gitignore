@@ -48,6 +48,10 @@ coverage/
 # Misc
 *.tsbuildinfo
 
+# TypeScript composite emit alongside vite.config.ts (tsconfig.node.json)
+apps/*/vite.config.js
+apps/*/vite.config.d.ts
+
 # Prisma native binaries (platform-specific, generated at runtime)
 *.so.node
 *.dylib.node

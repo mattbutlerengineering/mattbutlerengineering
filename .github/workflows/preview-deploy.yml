@@ -118,9 +118,10 @@ jobs:
     if: needs.detect-changes.outputs.any_changed == 'true'
     name: Comment Preview URL
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    permissions:
+      pull-requests: write
+    - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           persist-credentials: false
 
@@ -161,7 +162,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
+<<<<<<< HEAD
         uses: actions/checkout@v4
+=======
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+>>>>>>> origin/main
         with:
           persist-credentials: false
 
