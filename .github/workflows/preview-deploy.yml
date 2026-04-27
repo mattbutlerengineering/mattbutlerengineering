@@ -12,6 +12,10 @@ concurrency:
   group: preview-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   detect-changes:
     if: github.event.action != 'closed'
@@ -117,6 +121,13 @@ jobs:
     permissions:
       pull-requests: write
     steps:
+      # gh CLI's `pr comment` discovers repo context from a local git repo,
+      # so it fails with "fatal: not a git repository" without a checkout.
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
       - name: Post preview comment
         env:
           GH_TOKEN: ${{ github.token }}
@@ -153,6 +164,11 @@ jobs:
     name: Cleanup Preview
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
       - name: Delete preview Workers
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
