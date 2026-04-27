@@ -17,31 +17,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Authenticate gh CLI
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          echo "${GITHUB_TOKEN}" | gh auth login --with-token
+      # Note: Do NOT add `gh auth login --with-token` here. The gh CLI
+      # auto-picks GITHUB_TOKEN from env and exits 1 when --with-token
+      # is invoked while the env var is set ("The value of the
+      # GITHUB_TOKEN environment variable is being used for
+      # authentication."). The step below relies on env-based auth.
 
       - name: Enable auto-merge for verified agent PRs
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          # If triggered by a PR event, we can target that PR specifically if it has the right labels.
-          # If scheduled or dispatch, we scan all open PRs with 'has-pr'.
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            PR_NUMBERS="${{ github.event.pull_request.number }}"
+          # If triggered by a PR event, target that PR specifically.
+          # If scheduled or dispatch, scan all open PRs with 'has-pr'.
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            PR_NUMBERS="$EVENT_PR_NUMBER"
           else
             PR_NUMBERS=$(gh pr list --label "has-pr" --state open --json number -q '.[].number')
           fi
 
           for pr in $PR_NUMBERS; do
             echo "Checking PR #$pr..."
-            
-            # Fetch labels for the PR
+
             LABELS=$(gh pr view "$pr" --json labels -q '.labels[].name')
-            
-            # Check for 'has-pr' and 'needs-review'
+
             HAS_PR=false
             NEEDS_REVIEW=false
             for label in $LABELS; do
