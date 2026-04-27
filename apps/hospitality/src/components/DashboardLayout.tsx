@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
-import { Breadcrumb, CommandPalette, ErrorBoundary, GenCopilot, Kbd } from "@mattbutlerengineering/rialto";
+import { Breadcrumb, CommandPalette, ErrorBoundary, GenCopilot, Kbd, Button, Stack, Text, Heading } from "@mattbutlerengineering/rialto";
 import type { BreadcrumbItem } from "@mattbutlerengineering/rialto";
 import { registry } from "@mbe/rialto-catalog";
 import { HOSPITALITY_DOMAIN_CONTEXT } from "../constants/copilotContext.js";
@@ -265,26 +265,20 @@ function DashboardLayoutInner() {
           </div>
           <ErrorBoundary
             fallback={
-              <div style={{ padding: "var(--rialto-space-xl)", textAlign: "center" }}>
-                <h2>Something went wrong</h2>
-                <p style={{ color: "var(--rialto-text-secondary)", marginBlock: "var(--rialto-space-md)" }}>
+              <Stack
+                align="center"
+                justify="center"
+                gap="md"
+                style={{ padding: "var(--rialto-space-xl)", textAlign: "center", minHeight: "400px" }}
+              >
+                <Heading level={2}>Something went wrong</Heading>
+                <Text color="secondary">
                   An unexpected error occurred in this page.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => window.location.reload()}
-                  style={{
-                    padding: "var(--rialto-space-sm) var(--rialto-space-md)",
-                    borderRadius: "var(--rialto-radius-default)",
-                    border: "1px solid var(--rialto-border)",
-                    background: "var(--rialto-surface-elevated)",
-                    color: "var(--rialto-text-primary)",
-                    cursor: "pointer",
-                  }}
-                >
+                </Text>
+                <Button variant="secondary" onClick={() => window.location.reload()}>
                   Reload
-                </button>
-              </div>
+                </Button>
+              </Stack>
             }
           >
             <Outlet />
