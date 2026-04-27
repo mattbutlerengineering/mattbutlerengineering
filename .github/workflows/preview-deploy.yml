@@ -115,6 +115,11 @@ jobs:
     name: Comment Preview URL
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
       - name: Post preview comment
         env:
           GH_TOKEN: ${{ github.token }}
@@ -151,6 +156,11 @@ jobs:
     name: Cleanup Preview
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
       - name: Delete preview Workers
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
