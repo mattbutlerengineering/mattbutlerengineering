@@ -114,6 +114,8 @@ jobs:
     if: needs.detect-changes.outputs.any_changed == 'true'
     name: Comment Preview URL
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
     steps:
       - name: Post preview comment
         env:
