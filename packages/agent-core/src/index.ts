@@ -218,8 +218,8 @@ export { extractIssueIntent, IssueIntentSchema } from "./intent-extractor.js";
 export type { IssueIntent } from "./intent-extractor.js";
 
 // Model routing
-export { routeModel, routeModelWithReason, resolveModelId } from "./model-router.js";
-export type { ModelTier, IssueInput, ModelRoutingResult } from "./model-router.js";
+export { routeModel, routeModelWithReason, resolveModelId, getFeedbackLoopModel } from "./model-router.js";
+export type { ModelTier, IssueInput, ModelRoutingResult, RoutingContext } from "./model-router.js";
 
 // PR risk classification
 export { isLowRiskPR } from "./pr-risk-classifier.js";

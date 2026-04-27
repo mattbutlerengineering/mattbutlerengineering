@@ -17,7 +17,7 @@
  */
 
 import { ALL_CRITERIA, SOURCES } from "./sources/index.js";
-import { detectAll } from "./detection.js";
+import { detectAll, detect } from "./detection.js";
 import { computeLevel } from "./computeLevel.js";
 import { loadState, saveState, recordHistory } from "./state.js";
 import { writeReport } from "./outputs/report.js";
@@ -26,12 +26,59 @@ import { applyIssuesForFailures, ensureAcmmLabel } from "./outputs/issues.js";
 import { measureFlakeRate } from "./flake-rate.js";
 import { measurePrOutcomes } from "./pr-outcomes.js";
 import { measureEvals } from "./evals.js";
+import path from "node:path";
+import fs from "node:fs";
 
 const args = new Set(process.argv.slice(2));
 const APPLY = args.has("--apply");
 const BADGE = args.has("--badge");
 const TREND = args.has("--trend");
-const cwd = process.cwd();
+
+// --project <path> support
+let projectPath = process.cwd();
+const projectIdx = process.argv.indexOf("--project");
+if (projectIdx >= 0 && process.argv[projectIdx + 1]) {
+  projectPath = path.resolve(process.cwd(), process.argv[projectIdx + 1]);
+}
+const cwd = projectPath;
+const repoRoot = process.cwd();
+
+// Load project acmm config if it exists
+let acmmConfig = { 
+  inherit: false, 
+  globalPaths: [
+    ".github/",
+    "CONTRIBUTING.md",
+    "docs/",
+    "scripts/acmm/",
+    ".claude/settings.json",
+    "package.json",
+    "pnpm-workspace.yaml",
+    "turbo.json"
+  ],
+  // These MUST be local to be detected for a project, even if inherit is true
+  localOnly: [
+    "CLAUDE.md",
+    "AGENTS.md",
+    "llms.txt",
+    "llms-full.txt",
+    ".cursorrules"
+  ]
+};
+try {
+  const pkgPath = path.join(cwd, "package.json");
+  if (fs.existsSync(pkgPath)) {
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+    if (pkg.acmm) {
+      if (pkg.acmm.globalPaths) {
+         acmmConfig.globalPaths = [...new Set([...acmmConfig.globalPaths, ...pkg.acmm.globalPaths])];
+      }
+      if (pkg.acmm.inherit !== undefined) acmmConfig.inherit = pkg.acmm.inherit;
+    }
+  }
+} catch (e) {
+  // Ignore
+}
 
 /* ── --trend mode: just print history and exit ─────────── */
 if (TREND) {
@@ -51,7 +98,35 @@ if (TREND) {
 /* ── Run detection on all 85 criteria ──────────────────── */
 const startedAt = Date.now();
 const prior = loadState(cwd);
-const detectedIds = detectAll(cwd, ALL_CRITERIA);
+
+// Modified detectAll logic to support inheritance
+const detectedIds = new Set();
+for (const c of ALL_CRITERIA) {
+  // Try local first
+  let passed = detect(cwd, c);
+  
+  // If failed and inheritance enabled, try root for allowed global paths
+  if (!passed && acmmConfig.inherit) {
+    const patterns = Array.isArray(c.detection.pattern) ? c.detection.pattern : [c.detection.pattern];
+    
+    // Check if any pattern is local-only
+    const isLocalOnly = patterns.some(p => 
+      acmmConfig.localOnly.some(lo => p.startsWith(lo) || p === lo)
+    );
+
+    if (!isLocalOnly) {
+      const isGlobal = patterns.some(p => 
+        acmmConfig.globalPaths.some(gp => p.startsWith(gp) || p === gp)
+      );
+      if (isGlobal) {
+        passed = detect(repoRoot, c);
+      }
+    }
+  }
+  
+  if (passed) detectedIds.add(c.id);
+}
+
 const computation = computeLevel(detectedIds);
 const detectedCount = detectedIds.size;
 const totalCount = ALL_CRITERIA.length;

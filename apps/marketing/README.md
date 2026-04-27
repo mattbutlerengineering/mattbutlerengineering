@@ -1,5 +1,8 @@
 # Marketing
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](../../LICENSE)
+<!-- acmm:begin -->![ACMM Level 6](https://img.shields.io/badge/ACMM-Level%206-d4a030?style=flat-square)<!-- acmm:end -->
+
 Public marketing site for mattbutlerengineering.com. Serves as the catch-all route at `/`.
 
 ## Tech Stack

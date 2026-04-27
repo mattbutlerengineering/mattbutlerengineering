@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { routeModel, routeModelWithReason, resolveModelId } from "../model-router.js";
-import type { IssueInput, ModelTier } from "../model-router.js";
+import {
+  routeModel,
+  routeModelWithReason,
+  resolveModelId,
+  getFeedbackLoopModel,
+} from "../model-router.js";
+import type { IssueInput, ModelTier, RoutingContext } from "../model-router.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -244,5 +249,206 @@ describe("priority ordering", () => {
       body: "No architectural concerns here.",
     });
     expect(routeModel(issue)).toBe("sonnet");
+  });
+});
+
+// ── New haiku title patterns ──────────────────────────────────────────
+
+describe("haiku tier — new lightweight title patterns", () => {
+  it("routes docs: title to haiku", () => {
+    expect(routeModel(makeIssue({ title: "docs: update README with new env vars" }))).toBe("haiku");
+  });
+
+  it("routes test: title to haiku", () => {
+    expect(routeModel(makeIssue({ title: "test: add coverage for auth edge cases" }))).toBe("haiku");
+  });
+
+  it("routes chore(lint): title to haiku", () => {
+    expect(routeModel(makeIssue({ title: "chore(lint): fix ESLint violations in utils" }))).toBe(
+      "haiku"
+    );
+  });
+
+  it("routes chore(style): title to haiku", () => {
+    expect(routeModel(makeIssue({ title: "chore(style): apply Prettier formatting" }))).toBe(
+      "haiku"
+    );
+  });
+
+  it("is case-insensitive for new patterns", () => {
+    expect(routeModel(makeIssue({ title: "DOCS: fix typo in API reference" }))).toBe("haiku");
+    expect(routeModel(makeIssue({ title: "TEST: add snapshot tests" }))).toBe("haiku");
+  });
+
+  it("does not route docs-scoped body content to haiku (title must match)", () => {
+    const issue = makeIssue({ title: "fix: address docs link", body: "Update docs references" });
+    expect(routeModel(issue)).not.toBe("haiku");
+  });
+});
+
+// ── RoutingContext: source file paths signal ──────────────────────────
+
+describe("RoutingContext — source file path signals", () => {
+  it("routes to haiku when task touches only 1 test file", () => {
+    const ctx: RoutingContext = {
+      sourceFilePaths: ["packages/agent-core/src/__tests__/model-router.test.ts"],
+    };
+    expect(routeModel(makeIssue({ title: "Fix failing unit test" }), ctx)).toBe("haiku");
+  });
+
+  it("routes to haiku when task touches 2 docs files", () => {
+    const ctx: RoutingContext = {
+      sourceFilePaths: ["docs/api-reference.md", "README.md"],
+    };
+    expect(routeModel(makeIssue({ title: "Update API docs" }), ctx)).toBe("haiku");
+  });
+
+  it("does not route to haiku when test file count exceeds 2", () => {
+    const ctx: RoutingContext = {
+      sourceFilePaths: [
+        "packages/a/src/__tests__/a.test.ts",
+        "packages/b/src/__tests__/b.test.ts",
+        "packages/c/src/__tests__/c.test.ts",
+      ],
+    };
+    expect(routeModel(makeIssue({ title: "Fix tests" }), ctx)).not.toBe("haiku");
+  });
+
+  it("does not route to haiku when files include non-test/docs sources", () => {
+    const ctx: RoutingContext = {
+      sourceFilePaths: [
+        "packages/agent-core/src/model-router.ts",
+        "packages/agent-core/src/__tests__/model-router.test.ts",
+      ],
+    };
+    expect(routeModel(makeIssue({ title: "Update router" }), ctx)).not.toBe("haiku");
+  });
+
+  it("upgrades feature to opus when >15 source files", () => {
+    const ctx: RoutingContext = {
+      sourceFilePaths: Array.from({ length: 16 }, (_, i) => `packages/svc/src/module${i}.ts`),
+    };
+    const issue = makeIssue({ labels: ["feature"], title: "Add multi-module refactor" });
+    expect(routeModel(issue, ctx)).toBe("opus");
+  });
+
+  it("does not upgrade haiku title to opus even with many files", () => {
+    const ctx: RoutingContext = {
+      sourceFilePaths: Array.from({ length: 20 }, (_, i) => `packages/svc/src/module${i}.ts`),
+    };
+    const issue = makeIssue({ title: "chore(deps): bump react", labels: ["feature"] });
+    expect(routeModel(issue, ctx)).toBe("haiku");
+  });
+
+  it("does not upgrade default (non-feature) to opus with many files", () => {
+    const ctx: RoutingContext = {
+      sourceFilePaths: Array.from({ length: 20 }, (_, i) => `packages/svc/src/module${i}.ts`),
+    };
+    const issue = makeIssue({ title: "Fix login bug" });
+    expect(routeModel(issue, ctx)).toBe("sonnet");
+  });
+
+  it("does not upgrade feature to opus at exactly 15 files (boundary)", () => {
+    const ctx: RoutingContext = {
+      sourceFilePaths: Array.from({ length: 15 }, (_, i) => `packages/svc/src/module${i}.ts`),
+    };
+    const issue = makeIssue({ labels: ["feature"], title: "Add bulk export" });
+    expect(routeModel(issue, ctx)).toBe("sonnet");
+  });
+});
+
+// ── RoutingContext: failure escalation ───────────────────────────────
+
+describe("RoutingContext — failure escalation", () => {
+  it("escalates haiku to sonnet when pastFailureTier is haiku", () => {
+    const ctx: RoutingContext = { pastFailureTier: "haiku" };
+    const issue = makeIssue({ title: "chore(deps): bump lodash" });
+    expect(routeModel(issue, ctx)).toBe("sonnet");
+  });
+
+  it("escalation reason mentions haiku failure", () => {
+    const ctx: RoutingContext = { pastFailureTier: "haiku" };
+    const issue = makeIssue({ title: "docs: fix README" });
+    const result = routeModelWithReason(issue, ctx);
+    expect(result.tier).toBe("sonnet");
+    expect(result.reason).toMatch(/escalated.*haiku/i);
+  });
+
+  it("does not escalate sonnet even when pastFailureTier is sonnet", () => {
+    const ctx: RoutingContext = { pastFailureTier: "sonnet" };
+    const issue = makeIssue({ title: "Fix login bug" });
+    expect(routeModel(issue, ctx)).toBe("sonnet");
+  });
+
+  it("does not escalate opus even when pastFailureTier is opus", () => {
+    const ctx: RoutingContext = { pastFailureTier: "opus" };
+    const issue = makeIssue({ labels: ["feature"], title: "Redesign architecture" });
+    expect(routeModel(issue, ctx)).toBe("opus");
+  });
+});
+
+// ── RoutingContext: budget safety valve ──────────────────────────────
+
+describe("RoutingContext — budget-aware downgrade", () => {
+  it("downgrades opus to sonnet when remaining budget < $0.30", () => {
+    const ctx: RoutingContext = { remainingBudgetUsd: 0.25 };
+    const issue = makeIssue({ labels: ["feature"], title: "Redesign auth architecture" });
+    expect(routeModel(issue, ctx)).toBe("sonnet");
+  });
+
+  it("downgrade reason mentions budget amount", () => {
+    const ctx: RoutingContext = { remainingBudgetUsd: 0.15 };
+    const issue = makeIssue({ labels: ["feature"], title: "Redesign auth architecture" });
+    const result = routeModelWithReason(issue, ctx);
+    expect(result.tier).toBe("sonnet");
+    expect(result.reason).toMatch(/budget/i);
+    expect(result.reason).toContain("0.15");
+  });
+
+  it("does not downgrade opus when budget is exactly $0.30 (boundary)", () => {
+    const ctx: RoutingContext = { remainingBudgetUsd: 0.30 };
+    const issue = makeIssue({ labels: ["feature"], title: "Redesign auth architecture" });
+    expect(routeModel(issue, ctx)).toBe("opus");
+  });
+
+  it("does not downgrade opus when budget is above $0.30", () => {
+    const ctx: RoutingContext = { remainingBudgetUsd: 1.50 };
+    const issue = makeIssue({ labels: ["feature"], title: "Redesign auth architecture" });
+    expect(routeModel(issue, ctx)).toBe("opus");
+  });
+
+  it("does not downgrade sonnet when budget is low", () => {
+    const ctx: RoutingContext = { remainingBudgetUsd: 0.10 };
+    const issue = makeIssue({ title: "Fix login redirect" });
+    expect(routeModel(issue, ctx)).toBe("sonnet");
+  });
+
+  it("budget downgrade wins over failure escalation when both apply", () => {
+    // If haiku would escalate to sonnet (pastFailureTier), and sonnet would then be
+    // checked for budget, the budget valve only applies to opus — sonnet stays sonnet.
+    const ctx: RoutingContext = { pastFailureTier: "haiku", remainingBudgetUsd: 0.05 };
+    const issue = makeIssue({ title: "chore(deps): bump vitest" });
+    // escalated to sonnet, budget valve doesn't apply to sonnet → stays sonnet
+    expect(routeModel(issue, ctx)).toBe("sonnet");
+  });
+});
+
+// ── getFeedbackLoopModel ─────────────────────────────────────────────
+
+describe("getFeedbackLoopModel", () => {
+  it("downgrades opus parent to sonnet", () => {
+    expect(getFeedbackLoopModel("claude-opus-4-6")).toBe("claude-sonnet-4-6");
+  });
+
+  it("downgrades sonnet parent to haiku", () => {
+    expect(getFeedbackLoopModel("claude-sonnet-4-6")).toBe("claude-haiku-4-5-20251001");
+  });
+
+  it("keeps haiku at haiku (floor)", () => {
+    expect(getFeedbackLoopModel("claude-haiku-4-5-20251001")).toBe("claude-haiku-4-5-20251001");
+  });
+
+  it("returns unknown model IDs unchanged", () => {
+    expect(getFeedbackLoopModel("some-unknown-model")).toBe("some-unknown-model");
   });
 });
