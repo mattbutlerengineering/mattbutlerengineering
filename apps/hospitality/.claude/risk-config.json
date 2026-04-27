@@ -1,0 +1,6 @@
+{
+  "tier": "P0",
+  "rationale": "Production reservation system handling guest PII and booking transactions",
+  "blast_radius": "all guest reservations across all venues",
+  "rollback_strategy": "see docs/ROLLBACK.md"
+}
