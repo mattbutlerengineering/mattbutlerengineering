@@ -15,7 +15,10 @@ jobs:
   auto-merge:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+        with:
+          persist-credentials: false
 
       # Note: Do NOT add `gh auth login --with-token` here. The gh CLI
       # auto-picks GITHUB_TOKEN from env and exits 1 when --with-token
@@ -29,8 +32,8 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           EVENT_PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          # If triggered by a PR event, target that PR specifically.
-          # If scheduled or dispatch, scan all open PRs with 'has-pr'.
+          gh auth status || true
+
           if [ "$EVENT_NAME" = "pull_request" ]; then
             PR_NUMBERS="$EVENT_PR_NUMBER"
           else
@@ -51,7 +54,7 @@ jobs:
 
             if [ "$HAS_PR" = "true" ] && [ "$NEEDS_REVIEW" = "false" ]; then
               echo "Enabling auto-merge for PR #$pr (squash merge)"
-              gh pr merge "$pr" --auto --squash || echo "Skipping #$pr: Auto-merge could not be enabled (check repo settings or branch protection)."
+              gh pr merge "$pr" --auto --squash || echo "Skipping #$pr: Auto-merge could not be enabled."
             else
               if [ "$HAS_PR" = "false" ]; then
                 echo "Skipping #$pr: Missing 'has-pr' label."

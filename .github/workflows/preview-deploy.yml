@@ -120,10 +120,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
-    steps:
-      # gh CLI's `pr comment` discovers repo context from a local git repo,
-      # so it fails with "fatal: not a git repository" without a checkout.
-      - name: Checkout
+    - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           persist-credentials: false
@@ -165,7 +162,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
+<<<<<<< HEAD
+        uses: actions/checkout@v4
+=======
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+>>>>>>> origin/main
         with:
           persist-credentials: false
 

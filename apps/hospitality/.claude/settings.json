@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      {
+        "command": "pnpm --dir apps/hospitality dev"
+      },
+      {
+        "command": "pnpm --dir apps/hospitality build"
+      },
+      {
+        "command": "pnpm --dir apps/hospitality test"
+      },
+      {
+        "command": "pnpm --dir apps/hospitality test:e2e"
+      },
+      {
+        "command": "pnpm --dir apps/hospitality lint"
+      },
+      {
+        "command": "pnpm --dir apps/hospitality typecheck"
+      },
+      {
+        "command": "wrangler deploy --config apps/hospitality/wrangler.toml"
+      },
+      {
+        "command": "wrangler deploy --config apps/hospitality/wrangler.canary.toml"
+      }
+    ],
+    "deny": [
+      {
+        "command": "*fetch*writing*",
+        "reason": "Use @mbe/api-client for API calls, never raw fetch with write operations"
+      }
+    ]
+  }
+}
