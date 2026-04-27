@@ -29,6 +29,12 @@ export default defineConfig({
         target: "http://localhost:3001",
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ""),
+        onProxyReq: (proxyReq, req) => {
+          const auth = req.headers["authorization"];
+          if (auth) {
+            proxyReq.setHeader("Authorization", auth);
+          }
+        },
       },
     },
   },
