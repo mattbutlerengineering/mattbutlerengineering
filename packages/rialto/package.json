@@ -376,5 +376,8 @@
       "limit": "1 kB"
     }
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "acmm": {
+    "inherit": true
+  }
 }
