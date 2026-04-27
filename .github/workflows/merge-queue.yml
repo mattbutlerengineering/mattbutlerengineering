@@ -15,9 +15,17 @@ jobs:
   auto-merge:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate gh CLI
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "${GITHUB_TOKEN}" | gh auth login --with-token
+
       - name: Enable auto-merge for verified agent PRs
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # If triggered by a PR event, we can target that PR specifically if it has the right labels.
           # If scheduled or dispatch, we scan all open PRs with 'has-pr'.
