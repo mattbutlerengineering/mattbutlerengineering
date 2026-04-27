@@ -1,5 +1,7 @@
 # Rialto Web
 
+<!-- acmm:begin -->![ACMM Level 2](https://img.shields.io/badge/ACMM-Level%202-4a9dff?style=flat-square)<!-- acmm:end -->
+
 Interactive showcase and documentation site for the [Rialto design system](../../packages/rialto/). Served at `/rialto` on mattbutlerengineering.com.
 
 ## Tech Stack

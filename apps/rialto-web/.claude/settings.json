@@ -1,0 +1,23 @@
+{
+  "allow": [
+    "apps/rialto-web/**/*.tsx",
+    "apps/rialto-web/**/*.ts",
+    "apps/rialto-web/**/*.css"
+  ],
+  "deny": [
+    "apps/rialto-web/.env*"
+  ],
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx prettier --write \"$CLAUDE_FILE_PATH\" 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}
