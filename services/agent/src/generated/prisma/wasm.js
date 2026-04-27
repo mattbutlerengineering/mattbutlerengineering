@@ -187,7 +187,7 @@ const config = {
       "value": "prisma-client-js"
     },
     "output": {
-      "value": "/Users/mbutler/github/mattbutlerengineering/services/agent/src/generated/prisma",
+      "value": "${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/services/agent/src/generated/prisma",
       "fromEnvVar": null
     },
     "config": {
@@ -201,7 +201,7 @@ const config = {
       }
     ],
     "previewFeatures": [],
-    "sourceFilePath": "/Users/mbutler/github/mattbutlerengineering/services/agent/prisma/schema.prisma",
+    "sourceFilePath": "${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/services/agent/prisma/schema.prisma",
     "isCustomOutput": true
   },
   "relativeEnvPaths": {

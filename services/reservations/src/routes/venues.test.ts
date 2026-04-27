@@ -135,6 +135,7 @@ describe("Venue Routes", () => {
       ...originalEnv,
       AUTH_AUTHORITY: "https://test.auth0.com",
       AUTH_AUDIENCE: "https://api.example.com",
+      AUTH_BYPASS_IN_TESTS: "true",
     };
     app = await buildApp({ logger: false });
     await app.ready();
@@ -215,7 +216,7 @@ describe("Venue Routes", () => {
           method: "POST",
           url: "/api/v1/venues/groups",
           headers: {
-            authorization: "Bearer valid-token",
+            "x-auth-bypass": "true",
           },
           payload: {
             name: "Downtown Restaurant Group",
@@ -255,7 +256,7 @@ describe("Venue Routes", () => {
           method: "PATCH",
           url: "/api/v1/venues/groups/group-123",
           headers: {
-            authorization: "Bearer valid-token",
+            "x-auth-bypass": "true",
           },
           payload: {
             name: "Updated Group",
@@ -278,7 +279,7 @@ describe("Venue Routes", () => {
           method: "PATCH",
           url: "/api/v1/venues/groups/nonexistent",
           headers: {
-            authorization: "Bearer valid-token",
+            "x-auth-bypass": "true",
           },
           payload: {
             name: "New Name",
@@ -301,7 +302,7 @@ describe("Venue Routes", () => {
           method: "DELETE",
           url: "/api/v1/venues/groups/group-123",
           headers: {
-            authorization: "Bearer valid-token",
+            "x-auth-bypass": "true",
           },
         });
 
@@ -320,7 +321,7 @@ describe("Venue Routes", () => {
           method: "DELETE",
           url: "/api/v1/venues/groups/nonexistent",
           headers: {
-            authorization: "Bearer valid-token",
+            "x-auth-bypass": "true",
           },
         });
 
@@ -445,7 +446,7 @@ describe("Venue Routes", () => {
           method: "POST",
           url: "/api/v1/venues",
           headers: {
-            authorization: "Bearer valid-token",
+            "x-auth-bypass": "true",
           },
           payload: {
             name: "Chez Panisse",
@@ -488,7 +489,7 @@ describe("Venue Routes", () => {
           method: "PATCH",
           url: "/api/v1/venues/venue-123",
           headers: {
-            authorization: "Bearer valid-token",
+            "x-auth-bypass": "true",
           },
           payload: {
             name: "Updated Venue",
@@ -511,7 +512,7 @@ describe("Venue Routes", () => {
           method: "PATCH",
           url: "/api/v1/venues/nonexistent",
           headers: {
-            authorization: "Bearer valid-token",
+            "x-auth-bypass": "true",
           },
           payload: {
             name: "New Name",
@@ -534,7 +535,7 @@ describe("Venue Routes", () => {
           method: "DELETE",
           url: "/api/v1/venues/venue-123",
           headers: {
-            authorization: "Bearer valid-token",
+            "x-auth-bypass": "true",
           },
         });
 
@@ -553,7 +554,7 @@ describe("Venue Routes", () => {
           method: "DELETE",
           url: "/api/v1/venues/nonexistent",
           headers: {
-            authorization: "Bearer valid-token",
+            "x-auth-bypass": "true",
           },
         });
 

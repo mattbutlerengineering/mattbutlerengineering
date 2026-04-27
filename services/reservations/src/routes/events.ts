@@ -34,10 +34,10 @@ export async function eventRoutes(fastify: FastifyInstance): Promise<void> {
       },
     },
     async (
-      request: FastifyRequest<{ Querystring: { venueId?: string } }>,
+      request: FastifyRequest<{ Querystring: { venueId?: string; testClose?: string } }>,
       reply: FastifyReply
     ) => {
-      const { venueId } = request.query;
+      const { venueId, testClose } = request.query;
 
       // Set SSE headers
       reply.raw.writeHead(200, {
@@ -84,6 +84,15 @@ export async function eventRoutes(fastify: FastifyInstance): Promise<void> {
 
       // Don't end the response - keep the connection open
       // The response will be ended when the client disconnects
+
+      // TEST-ONLY: automatically close after N ms to allow app.inject to complete in tests
+      if (process.env.NODE_ENV === "test" && testClose) {
+        setTimeout(() => {
+          if (!reply.raw.writableEnded) {
+            reply.raw.end();
+          }
+        }, parseInt(testClose, 10));
+      }
     }
   );
 

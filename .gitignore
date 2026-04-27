@@ -42,8 +42,15 @@ coverage/
 .agent-worktrees/
 .claude/worktrees/
 
+# GSD planning artifacts (internal project-management state, not for consumers)
+.planning/
+
 # Misc
 *.tsbuildinfo
+
+# TypeScript composite emit alongside vite.config.ts (tsconfig.node.json)
+apps/*/vite.config.js
+apps/*/vite.config.d.ts
 
 # Prisma native binaries (platform-specific, generated at runtime)
 *.so.node

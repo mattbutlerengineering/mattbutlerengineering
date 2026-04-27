@@ -1,10 +1,16 @@
 /* eslint-disable react-refresh/only-export-components -- entry point, not a fast-refresh module */
-import { StrictMode, useState, useMemo, useCallback } from "react";
+import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import "@mattbutlerengineering/rialto/styles";
 import "./global.css";
-import { RialtoProvider, ToastProvider, ErrorBoundary } from "@mattbutlerengineering/rialto";
+import {
+  RialtoProvider,
+  ToastProvider,
+  ErrorBoundary,
+  unregisterStaleServiceWorkers,
+  useThemeState,
+} from "@mattbutlerengineering/rialto";
 import { initSentry, handleErrorBoundary } from "@mbe/sentry/react";
 import { ThemeContext } from "./ThemeContext";
 import { routeTree } from "./routes";
@@ -14,40 +20,8 @@ initSentry({
   dsn: import.meta.env.VITE_SENTRY_DSN,
 });
 
-// Unregister stale service workers. A previous build registered the hospitality
-// SW at scope "/" instead of "/hospitality/", causing rialto pages to redirect
-// to /hospitality for returning visitors. Clears any SW not scoped to /hospitality/.
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.getRegistrations().then((registrations) => {
-    for (const registration of registrations) {
-      if (!registration.scope.includes("/hospitality/")) {
-        void registration.unregister();
-      }
-    }
-  });
-}
-
-/* ── Theme persistence ────────────────────────── */
-const THEME_KEY = "mbe-theme-preference";
-
-type ThemePreference = "light" | "dark" | "system";
-
-function getStoredTheme(): ThemePreference {
-  try {
-    const stored = localStorage.getItem(THEME_KEY);
-    if (stored === "light" || stored === "dark" || stored === "system") return stored;
-  } catch {
-    // localStorage unavailable
-  }
-  return "system";
-}
-
-function resolveTheme(pref: ThemePreference): "light" | "dark" {
-  if (pref === "system") {
-    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-  }
-  return pref;
-}
+// Unregister stale service workers (e.g. from previous misconfigured builds)
+unregisterStaleServiceWorkers();
 
 /**
  * Uses createBrowserRouter (React Router v7 recommended API) instead of
@@ -57,32 +31,13 @@ const router = createBrowserRouter(routeTree, { basename: "/rialto" });
 
 /* ── Root component ───────────────────────────── */
 function Root() {
-  const [preference, setPreference] = useState<ThemePreference>(getStoredTheme);
-  const resolved = resolveTheme(preference);
-
-  const handleThemeToggle = useCallback(() => {
-    setPreference((current) => {
-      const currentResolved = resolveTheme(current);
-      const next: ThemePreference = currentResolved === "dark" ? "light" : "dark";
-      try {
-        localStorage.setItem(THEME_KEY, next);
-      } catch {
-        // Theme still works in memory
-      }
-      return next;
-    });
-  }, []);
-
-  const themeContextValue = useMemo(
-    () => ({ theme: resolved, onThemeToggle: handleThemeToggle }),
-    [resolved, handleThemeToggle]
-  );
+  const { theme, toggleTheme } = useThemeState();
 
   return (
     // RialtoProvider MUST wrap RouterProvider (outside it)
-    <RialtoProvider theme={resolved}>
+    <RialtoProvider theme={theme}>
       <ErrorBoundary onError={handleErrorBoundary}>
-        <ThemeContext value={themeContextValue}>
+        <ThemeContext value={{ theme, onThemeToggle: toggleTheme }}>
           <ToastProvider>
             <RouterProvider router={router} />
           </ToastProvider>

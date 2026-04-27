@@ -1,0 +1,121 @@
+<codebase path="packages/auth">
+  <section priority="medium" role="react">
+  <file path="src/react/hooks.ts">
+    export function useAuth() {
+      const auth = useOIDCAuth();
+    
+      const user: AuthUser | null = auth.user
+        ? {
+            id: auth.user.profile.sub,
+            email: auth.user.profile.email,
+            name: auth.user.profile.name,
+            picture: auth.user.profile.picture,
+            emailVerified: auth.user.profile.email_verified,
+            raw: auth.user.profile as JWTPayload,
+          }
+        : null;
+    
+      return {
+        /** Whether auth state is loading */
+        isLoading: auth.isLoading,
+        /** Whether user is authenticated */
+        isAuthenticated: auth.isAuthenticated,
+        /** Current authenticated user */
+        user,
+        /** Access token for API calls */
+        accessToken: auth.user?.access_token ?? null,
+        /** Sign in - redirects to OIDC provider */
+        signIn: () => auth.signinRedirect(),
+        /** Sign out - redirects to OIDC provider */
+        signOut: () => auth.signoutRedirect(),
+        /** Sign in silently (refresh token) */
+        signInSilent: () => auth.signinSilent(),
+        /** Auth error if any */
+        error: auth.error,
+      };
+    }
+    export function useAccessToken(): string | null {
+      const auth = useOIDCAuth();
+      const expiresAt = auth.user?.expires_at;
+      const signinSilent = auth.signinSilent;
+    
+      useEffect(() => {
+        if (!expiresAt) return;
+    
+        const msUntilExpiry = expiresAt * 1000 - Date.now();
+        // Proactively refresh when within 5 minutes of expiry
+        if (msUntilExpiry > 0 && msUntilExpiry < 5 * 60 * 1000) {
+          signinSilent().catch(() => {
+            // Silent refresh failed — token may have fully expired
+          });
+        }
+      }, [expiresAt, signinSilent]);
+    
+      return auth.user?.access_token ?? null;
+    }
+  </file>
+  </section>
+  <section priority="medium" role="types">
+  <file path="src/types/index.ts">
+    export interface OIDCConfig {
+      /** OIDC authority URL (e.g., https://your-tenant.auth0.com) */
+      authority: string;
+      /** OAuth client ID */
+      clientId: string;
+      /** Redirect URI after login */
+      redirectUri: string;
+      /** Post-logout redirect URI */
+      postLogoutRedirectUri?: string;
+      /** OAuth scopes to request */
+      scope?: string;
+      /** Expected audience for token validation */
+      audience?: string;
+    }
+    export interface JWTPayload {
+      /** Subject (user ID) */
+      sub: string;
+      /** Issuer */
+      iss: string;
+      /** Audience */
+      aud: string | string[];
+      /** Expiration time (Unix timestamp) */
+      exp: number;
+      /** Issued at (Unix timestamp) */
+      iat: number;
+      /** Email (if requested in scope) */
+      email?: string;
+      /** Email verified flag */
+      email_verified?: boolean;
+      /** User's name */
+      name?: string;
+      /** User's picture URL */
+      picture?: string;
+      /** Custom claims */
+      [key: string]: unknown;
+    }
+  </file>
+  </section>
+  <section priority="medium" role="fastify">
+  <file path="src/fastify/plugin.ts">
+    export interface AuthPluginOptions {
+      /** OIDC authority URL (issuer) */
+      authority: string;
+      /** Expected audience */
+      audience: string;
+      /** Routes to exclude from token verification (e.g., ["/health"]) */
+      excludePaths?: string[];
+    }
+    function createProblemDetails(status: number, title: string, detail: string) {
+      return {
+        type: `https://httpstatuses.com/${status}`,
+        title,
+        status,
+        detail,
+        error: title,
+        message: detail,
+        statusCode: status,
+      };
+    }
+  </file>
+  </section>
+</codebase>

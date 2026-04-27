@@ -1,0 +1,143 @@
+name: ACMM Cold Start
+
+# Weekly measurement of cold-start ergonomics: time from `git clone` to a
+# green test run. This is what every fresh agent session pays.
+#
+# ACMM otherwise checks whether `vitest.config.ts` exists; this measures
+# whether `pnpm install && pnpm test` actually works on a clean runner
+# in a reasonable amount of time.
+#
+# Output: opens a PR adding a record to `metrics/acmm-cold-start.json`.
+# The `acmm-audit` script reads the most recent record and renders a
+# "Cold start" section in the scorecard.
+
+on:
+  schedule:
+    # Sunday 06:00 UTC — outside business hours, low contention
+    - cron: '0 6 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: acmm-cold-start
+  cancel-in-progress: true
+
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout (no caches)
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+        with:
+          fetch-depth: 1
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+
+      # Note: NO `cache: pnpm` — we want cold-start, not cache-warm.
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Time pnpm install
+        id: install
+        run: |
+          start=$(date +%s)
+          set +e
+          pnpm install --frozen-lockfile
+          install_status=$?
+          set -e
+          end=$(date +%s)
+          install_seconds=$((end - start))
+          echo "install_seconds=$install_seconds" >> "$GITHUB_OUTPUT"
+          echo "install_status=$install_status" >> "$GITHUB_OUTPUT"
+
+      - name: Time pnpm test
+        id: test
+        if: steps.install.outputs.install_status == '0'
+        run: |
+          start=$(date +%s)
+          set +e
+          pnpm test
+          test_status=$?
+          set -e
+          end=$(date +%s)
+          test_seconds=$((end - start))
+          echo "test_seconds=$test_seconds" >> "$GITHUB_OUTPUT"
+          echo "test_status=$test_status" >> "$GITHUB_OUTPUT"
+
+      - name: Compose record
+        env:
+          INSTALL_S: ${{ steps.install.outputs.install_seconds }}
+          INSTALL_STATUS: ${{ steps.install.outputs.install_status }}
+          TEST_S: ${{ steps.test.outputs.test_seconds || '0' }}
+          TEST_STATUS: ${{ steps.test.outputs.test_status || '-1' }}
+        run: |
+          TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          export TS
+          node -e '
+            const fs = require("node:fs");
+            const path = "metrics/acmm-cold-start.json";
+            const installS = Number(process.env.INSTALL_S || 0);
+            const testS = Number(process.env.TEST_S || 0);
+            const record = {
+              ts: process.env.TS,
+              install_seconds: installS,
+              test_seconds: testS,
+              total_seconds: installS + testS,
+              test_passed: process.env.TEST_STATUS === "0",
+              install_passed: process.env.INSTALL_STATUS === "0",
+              commit: process.env.GITHUB_SHA,
+            };
+            let history = [];
+            if (fs.existsSync(path)) {
+              try { history = JSON.parse(fs.readFileSync(path, "utf8")); }
+              catch { history = []; }
+            }
+            if (!Array.isArray(history)) history = [];
+            history.push(record);
+            history = history.slice(-26);
+            fs.mkdirSync("metrics", { recursive: true });
+            fs.writeFileSync(path, JSON.stringify(history, null, 2) + "\n");
+            console.log("Wrote", path, "with", history.length, "records (latest:", JSON.stringify(record), ")");
+          '
+
+      - name: Open PR with cold-start measurement
+        env:
+          INSTALL_S: ${{ steps.install.outputs.install_seconds }}
+          INSTALL_STATUS: ${{ steps.install.outputs.install_status }}
+          TEST_S: ${{ steps.test.outputs.test_seconds || 'skipped' }}
+          TEST_STATUS: ${{ steps.test.outputs.test_status || 'n/a' }}
+        run: |
+          if git diff --quiet metrics/acmm-cold-start.json 2>/dev/null; then
+            echo "No metric change to commit"
+            exit 0
+          fi
+
+          DATE="$(date +%Y-%m-%d)"
+          BRANCH="chore/acmm-cold-start-${DATE}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add metrics/acmm-cold-start.json
+          git commit -m "chore(acmm): cold-start measurement ${DATE}"
+          git push -u origin "$BRANCH"
+
+          BODY="Auto-generated weekly cold-start measurement.
+
+          - install: ${INSTALL_S}s (status: ${INSTALL_STATUS})
+          - test: ${TEST_S}s (status: ${TEST_STATUS})
+
+          See \`metrics/acmm-cold-start.json\` for the full record."
+
+          gh pr create \
+            --title "chore(acmm): cold-start measurement ${DATE}" \
+            --body "$BODY" \
+            --label "acmm,meta-improvement"

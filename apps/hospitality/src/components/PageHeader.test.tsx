@@ -1,15 +1,16 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import React from "react";
 import { PageHeader } from "./PageHeader.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Text: ({ children, ...props }: { children: React.ReactNode; as?: string; variant?: string; color?: string }) => (
+  Text: ({ children, ...props }: any) => (
     <div data-testid="text" data-as={props.as} data-variant={props.variant} data-color={props.color}>
       {children}
     </div>
   ),
-  Stack: ({ children }: { children: React.ReactNode; gap?: string }) => (
-    <div data-testid="stack" data-gap={gap}>{children}</div>
+  Stack: ({ children }: any) => (
+    <div data-testid="stack">{children}</div>
   ),
 }));
 

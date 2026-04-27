@@ -1,0 +1,47 @@
+<svg width="1280" height="640" viewBox="0 0 1280 640" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1280" height="640" fill="#0a0a0a"/>
+  
+  <!-- Branded Border (Gold) -->
+  <rect x="20" y="20" width="1240" height="600" fill="none" stroke="#a07230" stroke-width="4"/>
+  
+  <!-- Subtle Grid Pattern (Engineering/Monorepo feel) -->
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#a07230" stroke-width="0.5" opacity="0.1"/>
+    </pattern>
+  </defs>
+  <rect width="1280" height="640" fill="url(#grid)" />
+
+  <!-- Content Group -->
+  <g transform="translate(80, 240)">
+    <!-- Main Title -->
+    <text font-family="Arial, sans-serif" font-weight="bold" font-size="72" fill="#ffffff" letter-spacing="2">
+      MATT BUTLER ENGINEERING
+    </text>
+    
+    <!-- Subtitle -->
+    <text y="80" font-family="Arial, sans-serif" font-weight="normal" font-size="32" fill="#a07230" letter-spacing="1">
+      Hospitality Management Monorepo
+    </text>
+
+    <!-- Tech Stack / Features -->
+    <text y="140" font-family="Arial, sans-serif" font-weight="normal" font-size="20" fill="#cccccc" opacity="0.8">
+      React 19 • Fastify • Prisma • Pulumi • Design System (Rialto)
+    </text>
+  </g>
+
+  <!-- ACMM Badge Style -->
+  <g transform="translate(1000, 480)">
+    <rect width="200" height="60" rx="4" fill="#a07230"/>
+    <text x="100" y="40" font-family="Arial, sans-serif" font-weight="bold" font-size="24" fill="#0a0a0a" text-anchor="middle">
+      ACMM LEVEL 4
+    </text>
+    <text x="100" y="85" font-family="Arial, sans-serif" font-weight="normal" font-size="14" fill="#a07230" text-anchor="middle" opacity="0.8">
+      AGENT-DRIVEN
+    </text>
+  </g>
+
+  <!-- Decorative Rialto Element -->
+  <path d="M1100 80 L1200 80 L1200 180 Z" fill="#a07230" opacity="0.5" />
+</svg>

@@ -122,8 +122,7 @@ export const checkAdrCommand = new Command("check-adr")
     }
 
     if (totalViolations > 0) {
-      console.error(`Found ${totalViolations} architectural violations.`);
-      process.exit(1);
+      throw new Error(`Found ${totalViolations} architectural violations.`);
     } else {
       console.log("✅ No architectural violations detected.");
     }

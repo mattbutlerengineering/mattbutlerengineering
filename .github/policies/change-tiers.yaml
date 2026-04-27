@@ -1,0 +1,103 @@
+# Risk-tier classification rules. Mirror of the logic in
+# .github/workflows/tier-classifier.yml, expressed as data so reviewer
+# agents can apply the same rules locally without running the workflow.
+#
+# Source of truth: docs/change-tiers.md.
+
+$schema: ./README.md
+domain: change-tiers
+source: docs/change-tiers.md
+
+# Tiers in ascending severity. Highest matched tier wins.
+tiers:
+  trivial:
+    label: "tier:trivial"
+    color: cccccc
+    review: pre-commit hook only; auto-mergeable when CI green
+    approval: none
+  standard:
+    label: "tier:standard"
+    color: 1f883d
+    review: code-reviewer agent + 1 human review
+    approval: 1 human reviewer
+  sensitive:
+    label: "tier:sensitive"
+    color: bf8700
+    review: code-reviewer + at least one specialist (adr-compliance-reviewer, migration-reviewer, silent-failure-hunter) + 1 human
+    approval: 1 human reviewer + relevant specialist agent green
+  critical:
+    label: "tier:critical"
+    color: b60205
+    review: all of sensitive PLUS an ADR or meta-improvement issue documenting why
+    approval: user (Matt) personally + relevant specialist agent green
+
+# Path-based classification rules (highest tier wins).
+rules:
+  critical:
+    - "prisma/migrations/**"  # destructive ops flagged by migration-reviewer
+    - "prisma/schema.prisma"
+    - "infrastructure/pulumi/**"
+    - ".github/CODEOWNERS"
+    - ".github/workflows/codeql.yml"
+    - ".github/workflows/coverage-gate.yml"
+    - ".github/workflows/tier-classifier.yml"
+    - "services/users/src/auth/**"
+    - "packages/auth/src/middleware/**"
+    - "docs/SECURITY-AI.md"
+    - ".github/policies/**"
+  sensitive:
+    - "services/*/src/routes/**"
+    - "services/*/src/middleware/**"
+    - "packages/rialto/src/components/**"
+    - "package.json"
+    - "pnpm-lock.yaml"
+    - "eslint.config.js"
+    - "tsconfig*.json"
+    - "turbo.json"
+    - "scripts/check-*.js"
+    - ".husky/**"
+    - "apps/*/wrangler.toml"
+  standard:
+    - "packages/rialto/**"
+    - "services/*/src/**"
+    - "apps/*/src/**"
+    - "docs/adr/**"
+  trivial:
+    - "**/*.md"  # except: SECURITY-AI.md, change-tiers.md, review-criteria.md, active ADRs
+    - ".changeset/**"
+    - ".editorconfig"
+    - ".vscode/**"
+    - "metrics/**"
+    - "**/llms.txt"
+    - "**/llms-full.txt"
+    - "**/*.test.{ts,tsx,js,jsx}"
+
+# Modifiers — apply after rules to escalate or de-escalate.
+modifiers:
+  escalate_to_critical:
+    - condition: PR title or body contains any of [secret, credential, rotate, leak, incident]
+    - condition: PR body asks reviewers to bypass a check
+    - condition: author is a new agent (first PR from new RemoteTrigger or new agent type)
+  escalate_one_tier:
+    - condition: diff is > 1000 lines added
+    - condition: PR is from a fork
+    - condition: PR has been force-pushed since last review approval
+    - condition: PR removes a test file
+  deescalate_one_tier:
+    cap_at: standard  # never below standard
+    - condition: diff < 20 lines added AND only touches files matching trivial globs
+    - condition: Dependabot patch-version bump for devDependencies-only package
+    - condition: chore(deps) security update with lockfile-only diff
+
+# Auto-merge eligibility (currently disabled — GH Actions unpaid).
+auto_merge:
+  enabled: false  # set to true when GH Actions billing is restored
+  eligible_tiers: [trivial]
+  required_signals:
+    - all_ci_checks_green: true
+    - no_unresolved_review_threads: true
+    - approved_by_human: false  # trivial bypasses human approval
+
+on_violation:
+  block: false  # tier classification is informational, not gating
+  notify: classify and label; let downstream rules in destructive-ops.yaml block if needed

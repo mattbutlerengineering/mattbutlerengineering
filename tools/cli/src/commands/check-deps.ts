@@ -81,8 +81,6 @@ export const checkDepsCommand = new Command("check-deps")
     if (inconsistencies === 0) {
       console.log("✅ All external dependencies are consistent across the monorepo.");
     } else {
-      console.error(`❌ Found ${inconsistencies} dependencies with version mismatches.`);
-      console.info("\n💡 TIP: Use pnpm catalog or synchronized versions in your root package.json.");
-      process.exit(1);
+      throw new Error(`Found ${inconsistencies} dependencies with version mismatches.`);
     }
   });

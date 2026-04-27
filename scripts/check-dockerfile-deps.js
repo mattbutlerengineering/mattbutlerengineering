@@ -81,7 +81,7 @@ function checkService(serviceName) {
 
     // Check that the source is COPYed (for building)
     const copySrcPattern = new RegExp(
-      `COPY\\s+${pkgDir}\\s+`
+      `COPY\\s+${pkgDir}(/src)?\\s+`
     );
     if (!copySrcPattern.test(dockerfile)) {
       errors.push(`${dep.name}: missing COPY ${pkgDir} in builder stage`);

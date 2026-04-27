@@ -119,10 +119,12 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   });
 
   // Register Auth0 plugin
-  if (process.env.AUTH_AUTHORITY) {
+  if (process.env.AUTH_AUTHORITY && process.env.AUTH_AUDIENCE) {
     await fastify.register(authPlugin, getAuthPluginOptionsFromEnv());
   } else if (process.env.NODE_ENV === "production") {
     throw new Error("Fail-closed: AUTH_AUTHORITY and AUTH_AUDIENCE are required in production");
+  } else {
+    fastify.log.warn("Skipping Auth0 plugin registration: AUTH_AUTHORITY or AUTH_AUDIENCE not set");
   }
 
   // Register Sentry error handler (no-op without SENTRY_DSN)

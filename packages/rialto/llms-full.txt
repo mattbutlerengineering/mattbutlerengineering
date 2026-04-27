@@ -387,6 +387,25 @@
     ];
   </file>
   </section>
+  <section priority="medium" role="utils">
+  <file path="src/utils/service-worker.ts">
+    export function unregisterStaleServiceWorkers(exemptedScopes: string[] = ["/hospitality/"]): void {
+      if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) {
+        return;
+      }
+    
+      void navigator.serviceWorker.getRegistrations().then((registrations) => {
+        for (const registration of registrations) {
+          const isExempted = exemptedScopes.some((scope) => registration.scope.includes(scope));
+          if (!isExempted) {
+            console.info(`[rialto] Unregistering stale service worker at scope: ${registration.scope}`);
+            void registration.unregister();
+          }
+        }
+      });
+    }
+  </file>
+  </section>
   <section priority="medium" role="tokens">
   <file path="src/tokens/motion.ts">
     export const ms = (s: React.CSSProperties): MotionStyle => s as MotionStyle;
@@ -511,6 +530,21 @@
       return { ref, style, onMouseMove, onMouseLeave };
     }
   </file>
+  <file path="src/hooks/useThemeState.ts">
+    export type ThemePreference = "light" | "dark" | "system";
+    function getStoredTheme(): ThemePreference {
+      if (typeof window === "undefined") return "system";
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored === "light" || stored === "dark" || stored === "system") {
+          return stored;
+        }
+      } catch {
+        // localStorage unavailable
+      }
+      return "system";
+    }
+  </file>
   <file path="src/hooks/useScrollReveal.ts">
     interface UseScrollRevealOptions {
       /** IntersectionObserver rootMargin. Default "-80px". */
@@ -584,19 +618,6 @@
       }, [ref]);
     
       return dir;
-    }
-  </file>
-  </section>
-  <section priority="medium" role="Toast">
-  <file path="src/components/Toast/ToastContext.ts">
-    export type ToastVariant = "default" | "success" | "error" | "accent";
-    export interface ToastData {
-      id: string;
-      title: string;
-      description?: string;
-      variant?: ToastVariant;
-      /** Auto-dismiss in ms. 0 = manual dismiss only. */
-      duration?: number;
     }
   </file>
   </section>
@@ -849,6 +870,19 @@
       full: FULL,
     } as const;
     export type CharsetName = keyof typeof CHARSETS;
+  </file>
+  </section>
+  <section priority="medium" role="Toast">
+  <file path="src/components/Toast/ToastContext.ts">
+    export type ToastVariant = "default" | "success" | "error" | "accent";
+    export interface ToastData {
+      id: string;
+      title: string;
+      description?: string;
+      variant?: ToastVariant;
+      /** Auto-dismiss in ms. 0 = manual dismiss only. */
+      duration?: number;
+    }
   </file>
   </section>
   <section priority="medium" role="GenCopilot">

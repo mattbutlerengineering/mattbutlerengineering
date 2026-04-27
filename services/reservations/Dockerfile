@@ -1,5 +1,5 @@
 # Build stage
-FROM node:22-alpine3.19 AS builder
+FROM node:22-alpine3.19@sha256:40dc4b415c17b85bea9be05314b4a753f45a4e1716bb31c01182e6c53d51a654 AS builder
 
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
@@ -50,7 +50,7 @@ RUN pnpm --filter @mbe/types build && \
     pnpm --filter @mbe/reservations-service build
 
 # Production stage
-FROM node:22-alpine3.19 AS runner
+FROM node:22-alpine3.19@sha256:40dc4b415c17b85bea9be05314b4a753f45a4e1716bb31c01182e6c53d51a654 AS runner
 
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
@@ -67,13 +67,15 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY packages/types/package.json ./packages/types/
 COPY packages/auth/package.json ./packages/auth/
 COPY packages/api-versioning/package.json ./packages/api-versioning/
+COPY packages/config/package.json ./packages/config/
 COPY packages/observability/package.json ./packages/observability/
 COPY packages/sentry/package.json ./packages/sentry/
 COPY services/reservations/package.json ./services/reservations/
 
 # Install production dependencies only (Prisma client is copied from builder)
 ENV NODE_ENV=production
-RUN pnpm install --frozen-lockfile --prod --ignore-scripts
+RUN pnpm install --frozen-lockfile --prod --ignore-scripts && \
+    pnpm add pg --filter @mbe/reservations-service --ignore-scripts
 
 # Copy compiled workspace packages
 COPY --from=builder /app/packages/types/dist ./packages/types/dist

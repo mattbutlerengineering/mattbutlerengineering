@@ -436,7 +436,9 @@ function main() {
   const rialtoComponentsDir = path.join(rialtoRoot, "src/components");
   const entryFile = path.join(rialtoRoot, "src/components/index.ts");
   const tsconfigPath = path.join(rialtoRoot, "tsconfig.json");
-  const outPath = path.join(packageRoot, "src/generated-schemas.ts");
+  const outPath = process.env.OUTPUT_FILE 
+    ? path.resolve(process.cwd(), process.env.OUTPUT_FILE)
+    : path.join(packageRoot, "src/generated-schemas.ts");
 
   if (!fs.existsSync(entryFile)) {
     console.error(`Entry file not found: ${entryFile}`);

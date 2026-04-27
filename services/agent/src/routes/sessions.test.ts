@@ -75,6 +75,7 @@ describe("Session Routes", () => {
       const response = await app.inject({
         method: "POST",
         url: "/v1/sessions",
+        headers: { "x-auth-bypass": "true" },
         payload: { taskDescription: "Fix the login bug" },
       });
 
@@ -90,6 +91,7 @@ describe("Session Routes", () => {
       const response = await app.inject({
         method: "POST",
         url: "/v1/sessions",
+        headers: { "x-auth-bypass": "true" },
         payload: { taskDescription: "Another task" },
       });
 
@@ -114,6 +116,7 @@ describe("Session Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/v1/sessions",
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(200);
@@ -130,6 +133,7 @@ describe("Session Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/v1/sessions/session-123",
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(200);
@@ -143,6 +147,7 @@ describe("Session Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/v1/sessions/nonexistent",
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(404);
@@ -160,6 +165,7 @@ describe("Session Routes", () => {
       const response = await app.inject({
         method: "POST",
         url: "/v1/sessions/session-123/cancel",
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(200);
@@ -173,6 +179,7 @@ describe("Session Routes", () => {
       const response = await app.inject({
         method: "POST",
         url: "/v1/sessions/session-123/cancel",
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(409);
@@ -184,6 +191,7 @@ describe("Session Routes", () => {
       const response = await app.inject({
         method: "POST",
         url: "/v1/sessions/nonexistent/cancel",
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(404);
@@ -197,6 +205,7 @@ describe("Session Routes", () => {
       const response = await app.inject({
         method: "DELETE",
         url: "/v1/sessions/session-123",
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(204);
@@ -208,6 +217,7 @@ describe("Session Routes", () => {
       const response = await app.inject({
         method: "DELETE",
         url: "/v1/sessions/nonexistent",
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(404);

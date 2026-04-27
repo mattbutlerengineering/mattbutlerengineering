@@ -1,11 +1,9 @@
 # Matt Butler Engineering
 
-[![CI](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/ci.yml/badge.svg)](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/ci.yml)
-[![Lighthouse](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/lighthouse-ci.yml/badge.svg)](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/lighthouse-ci.yml)
-[![Coverage](https://codecov.io/gh/mattbutlerengineering/mattbutlerengineering/branch/main/graph/badge.svg)](https://codecov.io/gh/mattbutlerengineering/mattbutlerengineering)
-[![Deploy Static](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/deploy-static.yml/badge.svg)](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/deploy-static.yml)
-[![Deploy Services](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/deploy-services.yml/badge.svg)](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/deploy-services.yml)
-<!-- acmm:begin -->![ACMM Level 4](https://img.shields.io/badge/ACMM-Level%204-c4952c?style=flat-square)<!-- acmm:end -->
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](./LICENSE)
+<!-- acmm:begin -->![ACMM Level 6](https://img.shields.io/badge/ACMM-Level%206-d4a030?style=flat-square)<!-- acmm:end -->
+
+> **Build status:** GitHub Actions billing is intentionally unconfigured on this repo. Workflows in `.github/workflows/` exist as encoded policy and run via [claude.ai RemoteTriggers](https://claude.ai/code/scheduled), not on PR open. Verify changes locally with `pnpm lint`/`typecheck`/`test`. See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full story.
 
 Monorepo for [mattbutlerengineering.com](https://mattbutlerengineering.com) -- a hospitality management platform with a design system, multiple frontend apps, and backend API services.
 
@@ -70,6 +68,31 @@ mattbutlerengineering/
     └── pulumi/               # Pulumi TypeScript project
 ```
 
+## AI Maturity (ACMM)
+
+This repository is measured against the [AI Codebase Maturity Model (ACMM)](docs/acmm.md) to track how well each project is set up for autonomous agent workflows.
+
+| Project | Level | Role | Next Gap |
+|---|---|---|---|
+| **Repository Root** | **L6** | **Strategist** | ✓ |
+| [apps/gen](apps/gen/) | L1 | Executor | Agent instructions (any) |
+| [apps/hospitality](apps/hospitality/) | L2 | Rule-writer | PR acceptance tracking |
+| [apps/marketing](apps/marketing/) | L6 | Strategist | ✓ |
+| [apps/rialto-web](apps/rialto-web/) | L1 | Executor | Agent instructions (any) |
+| [packages/agent-core](packages/agent-core/) | L2 | Rule-writer | PR acceptance tracking |
+| [packages/api-client](packages/api-client/) | L2 | Rule-writer | PR acceptance tracking |
+| [packages/api-versioning](packages/api-versioning/) | L1 | Executor | Agent instructions (any) |
+| [packages/auth](packages/auth/) | L2 | Rule-writer | PR acceptance tracking |
+| [packages/config](packages/config/) | L1 | Executor | Agent instructions (any) |
+| [packages/observability](packages/observability/) | L2 | Rule-writer | PR acceptance tracking |
+| [packages/rialto](packages/rialto/) | L6 | Strategist | ✓ |
+| [packages/rialto-catalog](packages/rialto-catalog/) | L1 | Executor | Agent instructions (any) |
+| [packages/rialto-plugin](packages/rialto-plugin/) | L1 | Executor | Agent instructions (any) |
+| [packages/sentry](packages/sentry/) | L2 | Rule-writer | PR acceptance tracking |
+| [packages/types](packages/types/) | L1 | Executor | Agent instructions (any) |
+
+Full details for every requirement can be found in [ACMM_PROJECT_AUDITS.md](ACMM_PROJECT_AUDITS.md).
+
 ## Commands
 
 ```bash
@@ -116,4 +139,6 @@ See [CLAUDE.md](CLAUDE.md) for detailed development guidelines including:
 
 ## License
 
-Private repository. All rights reserved.
+[MIT](./LICENSE) © 2026 Matt Butler
+
+Contributions welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md), [docs/review-criteria.md](./docs/review-criteria.md), and [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md). For security disclosures, see [SECURITY.md](./SECURITY.md).

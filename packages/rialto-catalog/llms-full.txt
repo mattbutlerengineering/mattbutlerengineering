@@ -1,21 +1,10 @@
 <codebase path="packages/rialto-catalog">
-  <section priority="medium" role="scripts">
-  <file path="scripts/generate-catalog.ts">
-    interface CharacterLimit {
-      component: string;
-      prop: string;
-      max: number;
-    }
-    function typeToString(type: ts.Type, checker: ts.TypeChecker): string {
-      return checker.typeToString(type, undefined, ts.TypeFormatFlags.NoTruncation);
-    }
-  </file>
-  </section>
   <section priority="medium" role="src">
   <file path="src/generated-schemas.ts">
     export const generatedSchemas = {
       Accordion: z.object({
         multiple: z.boolean().optional(),
+        headingLevel: z.enum(["h2", "h3", "h4", "h5", "h6"]).optional(),
       }),
       Alert: z.object({
         variant: z.enum(["info", "success", "warning", "error"]).optional(),
@@ -35,6 +24,7 @@
         name: z.string().max(30).optional(),
         size: z.enum(["sm", "md", "lg", "xl"]).optional(),
         status: z.enum(["online", "offline", "busy", "away"]).optional(),
+        transition: z.enum(["fade", "splitflap"]).optional(),
       }),
       Badge: z.object({
         variant: z.enum(["success", "warning", "error", "neutral", "accent"]).optional(),
@@ -333,6 +323,18 @@
         slots: ["default"],
       },
     };
+  </file>
+  </section>
+  <section priority="medium" role="scripts">
+  <file path="scripts/generate-catalog.ts">
+    interface CharacterLimit {
+      component: string;
+      prop: string;
+      max: number;
+    }
+    function typeToString(type: ts.Type, checker: ts.TypeChecker): string {
+      return checker.typeToString(type, undefined, ts.TypeFormatFlags.NoTruncation);
+    }
   </file>
   </section>
 </codebase>

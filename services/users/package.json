@@ -25,17 +25,19 @@
     "@fastify/cors": "^11.2.0",
     "@fastify/rate-limit": "^10.3.0",
     "@fastify/swagger": "^9.7.0",
-    "@fastify/swagger-ui": "^5.2.5",
+    "@fastify/swagger-ui": "^5.2.6",
     "@mbe/api-versioning": "workspace:*",
     "@mbe/auth": "workspace:*",
     "@mbe/observability": "workspace:*",
     "@mbe/sentry": "workspace:^",
     "@mbe/types": "workspace:*",
-    "@prisma/adapter-pg": "^7.7.0",
-    "@prisma/client": "^7.6.0",
-    "@scalar/fastify-api-reference": "^1.51.0",
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "@prisma/client-runtime-utils": "^7.8.0",
+    "@scalar/fastify-api-reference": "^1.52.6",
     "fastify": "catalog:",
     "jose": "^6.2.2",
+    "pg": "^8.20.0",
     "zod": "catalog:"
   },
   "prisma": {
@@ -44,10 +46,12 @@
   "devDependencies": {
     "@mbe/config": "workspace:*",
     "@types/node": "catalog:",
+    "@types/pg": "^8.20.0",
     "@vitest/coverage-v8": "catalog:",
-    "prisma": "^7.6.0",
+    "prisma": "^7.8.0",
     "tsx": "^4.19.0",
     "typescript": "catalog:",
     "vitest": "catalog:"
-  }
+  },
+  "license": "MIT"
 }

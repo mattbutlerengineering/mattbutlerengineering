@@ -1,0 +1,150 @@
+name: ai-attribution
+
+# Audit trail for agent-authored PRs. On PR open/sync, infer whether
+# the PR was authored by an agent and label it accordingly. Comment
+# the originating Langfuse trace ID if extractable from the PR body or
+# branch name.
+#
+# Compensates for `Co-Authored-By: Claude` being globally disabled in
+# ~/.claude/settings.json — without this workflow there's no durable
+# audit trail distinguishing agent merges from human merges in this
+# repo. See memory/REFLECTIONS.md.
+#
+# NOTE: GitHub Actions billing is intentionally unpaid on this repo
+# (CLAUDE.md). The workflow exists as encoded policy. The runtime
+# equivalent of attribution today is the `has-pr` label on the
+# originating issue plus the Langfuse session-ID column in the
+# tracing UI.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+
+concurrency:
+  group: ai-attribution-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  attribute:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      # Untrusted PR fields captured via env vars only.
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      PR_TITLE: ${{ github.event.pull_request.title }}
+      PR_BODY: ${{ github.event.pull_request.body }}
+      PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+      PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+        with:
+          fetch-depth: 50
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Detect agent authorship
+        id: detect
+        run: |
+          node - <<'NODE'
+          const { execSync } = require('node:child_process');
+          const fs = require('node:fs');
+
+          const body = process.env.PR_BODY || '';
+          const title = process.env.PR_TITLE || '';
+          const author = process.env.PR_AUTHOR || '';
+          const branch = process.env.PR_HEAD_REF || '';
+
+          const signals = [];
+
+          // Signal 1: PR body has `Closes #N` and the linked issue carries `has-pr` label
+          // (set by mbe-issue-worker / ai-fix.yml at dispatch time).
+          const closesMatch = body.match(/\b(Closes|Fixes|Resolves)\s+#(\d+)/i);
+          if (closesMatch) {
+            try {
+              const labels = execSync(`gh issue view ${closesMatch[2]} --json labels --jq '.labels[].name'`, { encoding: 'utf-8' });
+              if (labels.split('\n').some((l) => l.trim() === 'has-pr' || l.trim() === 'in-progress')) {
+                signals.push(`linked issue #${closesMatch[2]} carries dispatch label`);
+              }
+            } catch { /* issue may not be readable; skip */ }
+          }
+
+          // Signal 2: branch name follows agent conventions.
+          if (/^(claude|agent|ai-fix|chore\/(?:dependabot|acmm))-/.test(branch)) {
+            signals.push(`branch name matches agent convention (${branch})`);
+          }
+
+          // Signal 3: any commit on the branch carries Co-Authored-By: Claude
+          // (relevant if attribution is re-enabled in the future).
+          try {
+            const log = execSync(`git log --format=%B origin/main..HEAD`, { encoding: 'utf-8' });
+            if (/Co-Authored-By:\s*Claude/i.test(log)) {
+              signals.push('commit message contains Co-Authored-By: Claude');
+            }
+          } catch { /* log may fail on shallow clones; skip */ }
+
+          // Signal 4: bot author (Dependabot, etc.) — known automation.
+          if (/^(dependabot|github-actions)\[bot\]$/i.test(author)) {
+            signals.push(`author is a known bot (${author})`);
+          }
+
+          // Signal 5: PR body mentions Langfuse trace ID (added by mbe agent run).
+          const traceMatch = body.match(/langfuse[^a-z0-9]+(trace[_-]?id|session)?[:\s]+([a-f0-9-]{16,})/i);
+          const traceId = traceMatch ? traceMatch[2] : null;
+          if (traceId) {
+            signals.push(`Langfuse trace id ${traceId.slice(0, 12)}…`);
+          }
+
+          const isAgentAuthored = signals.length > 0;
+          const labels = [];
+          if (isAgentAuthored) {
+            labels.push('agent-authored');
+            if (/^dependabot\[bot\]$/i.test(author)) labels.push('dependencies');
+          }
+
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `is_agent=${isAgentAuthored}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `labels=${labels.join(',')}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `trace_id=${traceId || ''}\n`);
+          fs.writeFileSync('/tmp/ai-signals.txt', signals.map((s) => `- ${s}`).join('\n'));
+          console.log(`Agent-authored: ${isAgentAuthored}`);
+          for (const s of signals) console.log(`  · ${s}`);
+          NODE
+
+      - name: Apply labels
+        if: steps.detect.outputs.is_agent == 'true' && steps.detect.outputs.labels != ''
+        env:
+          LABELS_CSV: ${{ steps.detect.outputs.labels }}
+        run: |
+          IFS=',' read -ra arr <<< "$LABELS_CSV"
+          for L in "${arr[@]}"; do
+            gh label create "$L" --color "5319e7" --description "Auto-applied by ai-attribution.yml" --force >/dev/null 2>&1 || true
+            gh pr edit "$PR_NUMBER" --add-label "$L" || true
+          done
+
+      - name: Comment attribution rationale
+        if: steps.detect.outputs.is_agent == 'true'
+        env:
+          TRACE_ID: ${{ steps.detect.outputs.trace_id }}
+        run: |
+          # Comment is built from /tmp/ai-signals.txt (agent-detected text)
+          # plus a static prefix and a Langfuse link if a trace id was found.
+          # No untrusted text is interpolated through the shell.
+          {
+            echo "**Audit trail entry — agent-authored PR detected**"
+            echo
+            echo "Signals:"
+            cat /tmp/ai-signals.txt
+            echo
+            if [ -n "$TRACE_ID" ]; then
+              echo "[View Langfuse trace](https://cloud.langfuse.com/traces/${TRACE_ID})"
+              echo
+            fi
+            echo "Reviewer note: this PR will receive the same scrutiny as a human-authored PR per \`docs/review-criteria.md\` § Cross-cutting rules. The label is for audit-trail purposes only and does not relax any review requirements."
+          } > /tmp/attribution-comment.md
+          gh pr comment "$PR_NUMBER" --body-file /tmp/attribution-comment.md

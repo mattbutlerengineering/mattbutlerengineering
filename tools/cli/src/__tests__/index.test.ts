@@ -28,7 +28,6 @@ vi.mock("../commands/generate.js", () => ({ generateCommand: { _name: "generate"
 vi.mock("../commands/visual.js", () => ({ visualCommand: { _name: "visual" } }));
 vi.mock("../commands/prime.js", () => ({ primeCommand: { _name: "prime" } }));
 vi.mock("../commands/check-deps.js", () => ({ checkDepsCommand: { _name: "check-deps" } }));
-vi.mock("../commands/mcp.js", () => ({ mcpCommand: { _name: "mcp" } }));
 
 // Track addCommand calls
 const addedCommands: string[] = [];
@@ -36,14 +35,24 @@ const addedCommands: string[] = [];
 vi.mock("commander", () => {
   return {
     Command: class MockCommand {
-      name() { return this; }
+      _name: string = "";
+      constructor(name?: string) {
+        this._name = name || "";
+      }
+      name(n: string) {
+        this._name = n;
+        return this;
+      }
       description() { return this; }
       version() { return this; }
+      option() { return this; }
+      action() { return this; }
       addCommand(cmd: { _name: string }) {
         addedCommands.push(cmd._name);
         return this;
       }
       parse() {}
+      parseAsync() { return Promise.resolve(); }
     },
   };
 });
@@ -78,7 +87,8 @@ describe("CLI entry point", () => {
       "audit-perf",
       "check-adr",
       "check-deps",
-      "mcp",
+      "cleanup-worktrees",
+      "health",
       "visual",
     ];
 
@@ -89,6 +99,6 @@ describe("CLI entry point", () => {
 
   it("registers the correct number of commands", async () => {
     await import("../index.js");
-    expect(addedCommands.length).toBe(22);
+    expect(addedCommands.length).toBe(23);
   });
 });

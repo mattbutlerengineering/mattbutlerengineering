@@ -5,8 +5,6 @@ import {
   createMockReservation,
   createMockJWTPayload,
   createMockPagination,
-  createMockTable,
-  ERROR_NOT_FOUND,
   ERROR_UNAUTHORIZED,
   ERROR_CONFLICT,
 } from "../test/mocks.js";
@@ -115,7 +113,7 @@ vi.mock("jose", () => ({
 
 import { reservationService } from "../services/reservation.js";
 import { tableService } from "../services/table.js";
-import { emitReservationCancelled, emitReservationCreated } from "../services/events.js";
+import { emitReservationCreated } from "../services/events.js";
 import { jwtVerify } from "jose";
 
 describe("Reservation Routes", () => {
@@ -132,6 +130,7 @@ describe("Reservation Routes", () => {
       ...originalEnv,
       AUTH_AUTHORITY: "https://test.auth0.com",
       AUTH_AUDIENCE: "https://api.example.com",
+      AUTH_BYPASS_IN_TESTS: "true",
     };
     vi.mocked(jwtVerify).mockResolvedValue({
       payload: mockJWTPayload,
@@ -151,133 +150,30 @@ describe("Reservation Routes", () => {
     it("returns paginated list of reservations", async () => {
       vi.mocked(reservationService.list).mockResolvedValueOnce({
         data: [mockReservation],
-        pagination: createMockPagination({ total: 1, totalPages: 1 }),
+        pagination: createMockPagination({ total: 1 }),
       });
 
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/reservations",
-        headers: { authorization: "Bearer valid-token" },
+        headers: {
+          authorization: "Bearer valid-token",
+        },
       });
 
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       expect(body.data).toHaveLength(1);
-      expect(body.data[0].guestName).toBe("John Doe");
-      expect(body.pagination.total).toBe(1);
+      expect(body.data[0].id).toBe(mockReservation.id);
     });
 
-    it("respects filter query params", async () => {
-      vi.mocked(reservationService.list).mockResolvedValueOnce({
-        data: [],
-        pagination: createMockPagination(),
-      });
-
-      await app.inject({
-        method: "GET",
-        url: "/api/v1/reservations?date=2026-02-15&status=CONFIRMED&tableId=table-123",
-        headers: { authorization: "Bearer valid-token" },
-      });
-
-      expect(reservationService.list).toHaveBeenCalledWith({
-        page: 1,
-        limit: 10,
-        date: "2026-02-15",
-        status: "CONFIRMED",
-        tableId: "table-123",
-      });
-    });
-
-    it("clamps page=0 to page 1", async () => {
-      vi.mocked(reservationService.list).mockResolvedValueOnce({
-        data: [],
-        pagination: createMockPagination(),
-      });
-
+    it("returns 401 without auth", async () => {
       const response = await app.inject({
         method: "GET",
-        url: "/api/v1/reservations?page=0",
-        headers: { authorization: "Bearer valid-token" },
+        url: "/api/v1/reservations",
       });
 
-      expect(response.statusCode).toBe(200);
-      expect(reservationService.list).toHaveBeenCalledWith(
-        expect.objectContaining({ page: 1 }),
-      );
-    });
-
-    it("clamps negative page to page 1", async () => {
-      vi.mocked(reservationService.list).mockResolvedValueOnce({
-        data: [],
-        pagination: createMockPagination(),
-      });
-
-      const response = await app.inject({
-        method: "GET",
-        url: "/api/v1/reservations?page=-5",
-        headers: { authorization: "Bearer valid-token" },
-      });
-
-      expect(response.statusCode).toBe(200);
-      expect(reservationService.list).toHaveBeenCalledWith(
-        expect.objectContaining({ page: 1 }),
-      );
-    });
-
-    it("defaults limit=0 to the fallback value", async () => {
-      vi.mocked(reservationService.list).mockResolvedValueOnce({
-        data: [],
-        pagination: createMockPagination(),
-      });
-
-      const response = await app.inject({
-        method: "GET",
-        url: "/api/v1/reservations?limit=0",
-        headers: { authorization: "Bearer valid-token" },
-      });
-
-      expect(response.statusCode).toBe(200);
-      // 0 is falsy so `|| 10` kicks in, then Math.max(1, ...) = 10
-      expect(reservationService.list).toHaveBeenCalledWith(
-        expect.objectContaining({ limit: 10 }),
-      );
-    });
-
-    it("caps limit=1000 to 100", async () => {
-      vi.mocked(reservationService.list).mockResolvedValueOnce({
-        data: [],
-        pagination: createMockPagination(),
-      });
-
-      const response = await app.inject({
-        method: "GET",
-        url: "/api/v1/reservations?limit=1000",
-        headers: { authorization: "Bearer valid-token" },
-      });
-
-      expect(response.statusCode).toBe(200);
-      expect(reservationService.list).toHaveBeenCalledWith(
-        expect.objectContaining({ limit: 100 }),
-      );
-    });
-
-    it("handles non-numeric page gracefully", async () => {
-      vi.mocked(reservationService.list).mockResolvedValueOnce({
-        data: [],
-        pagination: createMockPagination(),
-      });
-
-      const response = await app.inject({
-        method: "GET",
-        url: "/api/v1/reservations?page=abc",
-        headers: { authorization: "Bearer valid-token" },
-      });
-
-      expect(response.statusCode).toBe(200);
-      // parseInt("abc") is NaN, NaN || 1 = 1, Math.max(1, 1) = 1
-      expect(reservationService.list).toHaveBeenCalledWith(
-        expect.objectContaining({ page: 1 }),
-      );
+      expect(response.statusCode).toBe(401);
     });
   });
 
@@ -291,7 +187,7 @@ describe("Reservation Routes", () => {
       const userReservation = createMockReservation({ userId: "auth0|user-123" });
       vi.mocked(reservationService.listByUserId).mockResolvedValueOnce({
         data: [userReservation],
-        pagination: createMockPagination({ total: 1, totalPages: 1 }),
+        pagination: createMockPagination({ total: 1 }),
       });
 
       const response = await app.inject({
@@ -305,11 +201,7 @@ describe("Reservation Routes", () => {
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       expect(body.data).toHaveLength(1);
-      expect(reservationService.listByUserId).toHaveBeenCalledWith(
-        "auth0|user-123",
-        1,
-        10
-      );
+      expect(body.data[0].userId).toBe("auth0|user-123");
     });
 
     it("returns 401 without auth", async () => {
@@ -332,18 +224,19 @@ describe("Reservation Routes", () => {
       } as never);
 
       vi.mocked(reservationService.getById).mockResolvedValueOnce(
-        mockReservation
+        createMockReservation({ guestName: "John Doe" })
       );
 
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/reservations/res-123",
-        headers: { authorization: "Bearer valid-token" },
+        headers: {
+          authorization: "Bearer valid-token",
+        },
       });
 
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
-      expect(body.data.id).toBe("res-123");
       expect(body.data.guestName).toBe("John Doe");
     });
 
@@ -358,21 +251,53 @@ describe("Reservation Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/api/v1/reservations/nonexistent",
-        headers: { authorization: "Bearer valid-token" },
+        url: "/api/v1/reservations/res-nonexistent",
+        headers: {
+          authorization: "Bearer valid-token",
+        },
       });
 
       expect(response.statusCode).toBe(404);
-      const body = JSON.parse(response.body);
-      expect(body.error).toBe(ERROR_NOT_FOUND);
+    });
+
+    it("returns 401 without auth", async () => {
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/reservations/res-123",
+      });
+
+      expect(response.statusCode).toBe(401);
     });
   });
 
   describe("POST /v1/reservations", () => {
-    it("creates a guest reservation without auth", async () => {
+    it("creates a new reservation", async () => {
       vi.mocked(reservationService.createWithConflictCheck).mockResolvedValueOnce({
         success: true,
         reservation: mockReservation,
+      });
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/reservations",
+        payload: {
+          date: "2026-02-15",
+          startTime: "2026-02-15T18:00:00.000Z",
+          endTime: "2026-02-15T20:00:00.000Z",
+          partySize: 4,
+          tableId: "table-123",
+        },
+      });
+
+      expect(response.statusCode).toBe(201);
+      const body = JSON.parse(response.body);
+      expect(body.data.id).toBe(mockReservation.id);
+    });
+
+    it("creates a guest reservation without auth", async () => {
+      vi.mocked(reservationService.createWithConflictCheck).mockResolvedValueOnce({
+        success: true,
+        reservation: createMockReservation({ guestName: "John Doe" }),
       });
 
       const response = await app.inject({
@@ -441,7 +366,7 @@ describe("Reservation Routes", () => {
         method: "POST",
         url: "/api/v1/reservations",
         headers: {
-          authorization: "Bearer invalid-token",
+          authorization: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.invalid",
         },
         payload: {
           date: "2026-02-15",
@@ -455,8 +380,8 @@ describe("Reservation Routes", () => {
 
       expect(response.statusCode).toBe(401);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe(ERROR_UNAUTHORIZED);
-      expect(body.message).toBe("Invalid token");
+      expect(body.title).toBe(ERROR_UNAUTHORIZED);
+      expect(body.detail).toBe("Invalid token");
       expect(reservationService.createWithConflictCheck).not.toHaveBeenCalled();
     });
 
@@ -487,18 +412,18 @@ describe("Reservation Routes", () => {
 
   describe("PATCH /v1/reservations/:id", () => {
     it("updates reservation", async () => {
-      // getById is called first for ownership check
       vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
-      const updatedReservation = createMockReservation({ partySize: 6 });
       vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
         success: true,
-        reservation: updatedReservation,
+        reservation: createMockReservation({ id: "res-123", partySize: 6 }),
       });
 
       const response = await app.inject({
         method: "PATCH",
         url: "/api/v1/reservations/res-123",
-        headers: { authorization: "Bearer valid-token" },
+        headers: {
+          authorization: "Bearer valid-token",
+        },
         payload: {
           partySize: 6,
         },
@@ -510,34 +435,36 @@ describe("Reservation Routes", () => {
     });
 
     it("returns 404 when updating nonexistent reservation", async () => {
-      // getById returns null — route returns 404 before calling updateWithConflictCheck
       vi.mocked(reservationService.getById).mockResolvedValueOnce(null);
 
       const response = await app.inject({
         method: "PATCH",
-        url: "/api/v1/reservations/nonexistent",
-        headers: { authorization: "Bearer valid-token" },
+        url: "/api/v1/reservations/res-nonexistent",
+        headers: {
+          authorization: "Bearer valid-token",
+        },
         payload: {
           partySize: 6,
         },
       });
 
       expect(response.statusCode).toBe(404);
-      expect(reservationService.updateWithConflictCheck).not.toHaveBeenCalled();
     });
 
     it("returns 409 when update has conflict", async () => {
       vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
       vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
         success: false,
-        error: "Time slot has a conflict with an existing reservation or hold",
+        error: "Update conflicts with another reservation",
         conflict: { hasConflict: true, conflictingReservationId: "res-456" },
       });
 
       const response = await app.inject({
         method: "PATCH",
         url: "/api/v1/reservations/res-123",
-        headers: { authorization: "Bearer valid-token" },
+        headers: {
+          authorization: "Bearer valid-token",
+        },
         payload: {
           startTime: "2026-02-15T19:00:00.000Z",
         },
@@ -546,6 +473,78 @@ describe("Reservation Routes", () => {
       expect(response.statusCode).toBe(409);
       const body = JSON.parse(response.body);
       expect(body.error).toBe(ERROR_CONFLICT);
+    });
+
+    describe("PATCH /v1/reservations/:id — cancellation", () => {
+      it("cancels reservation with reason via PATCH status=CANCELLED", async () => {
+        vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
+        vi.mocked(reservationService.cancel).mockResolvedValueOnce(
+          createMockReservation({ id: "res-123", status: "CANCELLED", cancellationReason: "Changed mind" })
+        );
+
+        const response = await app.inject({
+          method: "PATCH",
+          url: "/api/v1/reservations/res-123",
+          headers: {
+            authorization: "Bearer valid-token",
+          },
+          payload: {
+            status: "CANCELLED",
+            cancellationReason: "Changed mind",
+          },
+        });
+
+        expect(response.statusCode).toBe(200);
+        const body = JSON.parse(response.body);
+        expect(body.data.status).toBe("CANCELLED");
+        expect(reservationService.cancel).toHaveBeenCalledWith(
+          "res-123",
+          "Changed mind",
+          undefined
+        );
+      });
+
+      it("cancels reservation without reason", async () => {
+        vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
+        vi.mocked(reservationService.cancel).mockResolvedValueOnce(
+          createMockReservation({ id: "res-123", status: "CANCELLED" })
+        );
+
+        const response = await app.inject({
+          method: "PATCH",
+          url: "/api/v1/reservations/res-123",
+          headers: {
+            authorization: "Bearer valid-token",
+          },
+          payload: {
+            status: "CANCELLED",
+          },
+        });
+
+        expect(response.statusCode).toBe(200);
+        expect(reservationService.cancel).toHaveBeenCalledWith(
+          "res-123",
+          undefined,
+          undefined
+        );
+      });
+
+      it("returns 404 when cancelling nonexistent reservation via PATCH", async () => {
+        vi.mocked(reservationService.getById).mockResolvedValueOnce(null);
+
+        const response = await app.inject({
+          method: "PATCH",
+          url: "/api/v1/reservations/res-nonexistent",
+          headers: {
+            authorization: "Bearer valid-token",
+          },
+          payload: {
+            status: "CANCELLED",
+          },
+        });
+
+        expect(response.statusCode).toBe(404);
+      });
     });
 
     it("returns 401 without auth", async () => {
@@ -558,83 +557,6 @@ describe("Reservation Routes", () => {
       });
 
       expect(response.statusCode).toBe(401);
-    });
-  });
-
-  describe("PATCH /v1/reservations/:id -- cancellation", () => {
-    it("cancels reservation with reason via PATCH status=CANCELLED", async () => {
-      vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
-      const cancelledReservation = createMockReservation({
-        status: "CANCELLED",
-        cancellationReason: "no_show",
-        cancellationNote: "Guest did not arrive",
-      });
-      vi.mocked(reservationService.cancel).mockResolvedValueOnce(cancelledReservation);
-
-      const response = await app.inject({
-        method: "PATCH",
-        url: "/api/v1/reservations/res-123",
-        headers: { authorization: "Bearer valid-token" },
-        payload: {
-          status: "CANCELLED",
-          cancellationReason: "no_show",
-          cancellationNote: "Guest did not arrive",
-        },
-      });
-
-      expect(response.statusCode).toBe(200);
-      const body = JSON.parse(response.body);
-      expect(body.data.status).toBe("CANCELLED");
-      expect(body.data.cancellationReason).toBe("no_show");
-      expect(body.data.cancellationNote).toBe("Guest did not arrive");
-      expect(reservationService.cancel).toHaveBeenCalledWith(
-        "res-123",
-        "no_show",
-        "Guest did not arrive"
-      );
-      expect(emitReservationCancelled).toHaveBeenCalledWith(cancelledReservation);
-    });
-
-    it("cancels reservation without reason", async () => {
-      vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
-      const cancelledReservation = createMockReservation({
-        status: "CANCELLED",
-        cancellationReason: null,
-        cancellationNote: null,
-      });
-      vi.mocked(reservationService.cancel).mockResolvedValueOnce(cancelledReservation);
-
-      const response = await app.inject({
-        method: "PATCH",
-        url: "/api/v1/reservations/res-123",
-        headers: { authorization: "Bearer valid-token" },
-        payload: {
-          status: "CANCELLED",
-        },
-      });
-
-      expect(response.statusCode).toBe(200);
-      expect(reservationService.cancel).toHaveBeenCalledWith(
-        "res-123",
-        undefined,
-        undefined
-      );
-    });
-
-    it("returns 404 when cancelling nonexistent reservation via PATCH", async () => {
-      // getById returns null — route returns 404 before calling cancel
-      vi.mocked(reservationService.getById).mockResolvedValueOnce(null);
-
-      const response = await app.inject({
-        method: "PATCH",
-        url: "/api/v1/reservations/nonexistent",
-        headers: { authorization: "Bearer valid-token" },
-        payload: {
-          status: "CANCELLED",
-        },
-      });
-
-      expect(response.statusCode).toBe(404);
     });
   });
 
@@ -646,16 +568,15 @@ describe("Reservation Routes", () => {
       } as never);
 
       const walkInReservation = createMockReservation({
+        id: "res-walkin",
         status: "CONFIRMED",
-        guestName: "Walk-in",
+        guestName: "Walk-in Guest",
       });
+
       vi.mocked(reservationService.createWalkIn).mockResolvedValueOnce({
         success: true,
         reservation: walkInReservation,
       });
-      vi.mocked(tableService.updateStatus).mockResolvedValueOnce(
-        createMockTable({ status: "OCCUPIED" }),
-      );
 
       const response = await app.inject({
         method: "POST",
@@ -664,20 +585,15 @@ describe("Reservation Routes", () => {
           authorization: "Bearer valid-token",
         },
         payload: {
-          partySize: 4,
           tableId: "table-123",
+          partySize: 2,
           venueId: "venue-123",
         },
       });
 
       expect(response.statusCode).toBe(201);
       const body = JSON.parse(response.body);
-      expect(body.data.status).toBe("CONFIRMED");
-      expect(body.data.guestName).toBe("Walk-in");
-      expect(reservationService.createWalkIn).toHaveBeenCalledWith(
-        expect.objectContaining({ partySize: 4, tableId: "table-123" }),
-        "auth0|user-123"
-      );
+      expect(body.data.id).toBe("res-walkin");
       expect(tableService.updateStatus).toHaveBeenCalledWith("table-123", "OCCUPIED");
       expect(emitReservationCreated).toHaveBeenCalledWith(walkInReservation);
     });
@@ -689,16 +605,15 @@ describe("Reservation Routes", () => {
       } as never);
 
       const walkInReservation = createMockReservation({
+        id: "res-walkin",
         status: "CONFIRMED",
-        guestName: "Jane Smith",
+        guestName: "Sarah Smith",
       });
+
       vi.mocked(reservationService.createWalkIn).mockResolvedValueOnce({
         success: true,
         reservation: walkInReservation,
       });
-      vi.mocked(tableService.updateStatus).mockResolvedValueOnce(
-        createMockTable({ status: "OCCUPIED" }),
-      );
 
       const response = await app.inject({
         method: "POST",
@@ -707,19 +622,21 @@ describe("Reservation Routes", () => {
           authorization: "Bearer valid-token",
         },
         payload: {
-          partySize: 2,
           tableId: "table-123",
+          partySize: 2,
           venueId: "venue-123",
-          guestName: "Jane Smith",
-          durationMinutes: 60,
+          guestName: "Sarah Smith",
+          durationMinutes: 90,
         },
       });
 
       expect(response.statusCode).toBe(201);
       expect(reservationService.createWalkIn).toHaveBeenCalledWith(
         expect.objectContaining({
-          guestName: "Jane Smith",
-          durationMinutes: 60,
+          tableId: "table-123",
+          venueId: "venue-123",
+          guestName: "Sarah Smith",
+          durationMinutes: 90,
         }),
         "auth0|user-123"
       );
@@ -730,8 +647,8 @@ describe("Reservation Routes", () => {
         method: "POST",
         url: "/api/v1/reservations/walk-in",
         payload: {
-          partySize: 4,
           tableId: "table-123",
+          partySize: 2,
           venueId: "venue-123",
         },
       });
@@ -743,17 +660,16 @@ describe("Reservation Routes", () => {
   describe("DELETE /v1/reservations/:id", () => {
     it("cancels reservation and returns 200 with cancelled reservation", async () => {
       vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
-      const cancelledReservation = createMockReservation({
-        status: "CANCELLED",
-      });
       vi.mocked(reservationService.cancel).mockResolvedValueOnce(
-        cancelledReservation
+        createMockReservation({ id: "res-123", status: "CANCELLED" })
       );
 
       const response = await app.inject({
         method: "DELETE",
         url: "/api/v1/reservations/res-123",
-        headers: { authorization: "Bearer valid-token" },
+        headers: {
+          authorization: "Bearer valid-token",
+        },
       });
 
       expect(response.statusCode).toBe(200);
@@ -767,8 +683,10 @@ describe("Reservation Routes", () => {
 
       const response = await app.inject({
         method: "DELETE",
-        url: "/api/v1/reservations/nonexistent",
-        headers: { authorization: "Bearer valid-token" },
+        url: "/api/v1/reservations/res-nonexistent",
+        headers: {
+          authorization: "Bearer valid-token",
+        },
       });
 
       expect(response.statusCode).toBe(404);

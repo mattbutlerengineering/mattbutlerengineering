@@ -17,7 +17,6 @@ import { generateCommand } from "./commands/generate.js";
 import { visualCommand } from "./commands/visual.js";
 import { primeCommand } from "./commands/prime.js";
 import { checkDepsCommand } from "./commands/check-deps.js";
-import { mcpCommand } from "./commands/mcp.js";
 import { cleanupWorktreesCommand } from "./commands/cleanup-worktrees.js";
 import { healthCommand } from "./commands/health.js";
 
@@ -63,11 +62,17 @@ program.addCommand(checkAdrCommand);
 program.addCommand(checkDepsCommand);
 
 // Infrastructure commands
-program.addCommand(mcpCommand);
 program.addCommand(cleanupWorktreesCommand);
 program.addCommand(healthCommand);
 
 // UI commands
 program.addCommand(visualCommand);
 
-program.parse();
+program.parseAsync().catch((err) => {
+  if (err instanceof Error) {
+    console.error(`\x1b[31mError:\x1b[0m ${err.message}`);
+  } else {
+    console.error(`\x1b[31mError:\x1b[0m ${String(err)}`);
+  }
+  process.exit(1);
+});

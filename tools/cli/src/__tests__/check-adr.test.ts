@@ -27,13 +27,16 @@ describe("check-adr command", () => {
     exitSpy = vi.spyOn(process, "exit").mockImplementation((() => {}) as never);
     logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    // findMonorepoRoot: pnpm-workspace.yaml exists
-    mockExistsSync.mockReturnValue(true);
+    // findMonorepoRoot: return true for root and ADR dir
+    mockExistsSync.mockImplementation((p: unknown) => {
+      const path = String(p);
+      return path.endsWith("pnpm-workspace.yaml") || path.includes("docs/adr");
+    });
   });
 
   async function runCheckAdr(args: string[] = []): Promise<void> {
     const { checkAdrCommand } = await import("../commands/adr.js");
-    await checkAdrCommand.parseAsync(["check-adr", ...args], { from: "user" });
+    await checkAdrCommand.parseAsync(args, { from: "user" });
   }
 
   it("exits gracefully when no ADR directory exists", async () => {
@@ -73,8 +76,7 @@ describe("check-adr command", () => {
 
     mockGlob.mockResolvedValue(["src/app.ts"] as never);
 
-    await runCheckAdr();
-    expect(exitSpy).toHaveBeenCalledWith(1);
+    await expect(runCheckAdr()).rejects.toThrow("Found 2 architectural violations.");
     const errorOutput = errorSpy.mock.calls.flat().join(" ");
     expect(errorOutput).toContain("Violation");
     expect(errorOutput).toContain("ADR-001");
@@ -93,7 +95,7 @@ describe("check-adr command", () => {
 
     mockGlob.mockResolvedValue(["src/clean.ts"] as never);
 
-    await runCheckAdr();
+    await expect(runCheckAdr()).resolves.not.toThrow();
     const logOutput = logSpy.mock.calls.flat().join(" ");
     expect(logOutput).toContain("No architectural violations detected");
     expect(exitSpy).not.toHaveBeenCalled();

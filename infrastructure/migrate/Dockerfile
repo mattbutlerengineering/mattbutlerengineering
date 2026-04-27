@@ -6,6 +6,11 @@ WORKDIR /app
 # Prisma 7 dropped the schema-level `url` field; URL now comes from prisma.config.ts.
 RUN npm install -g prisma@7
 
+# prisma.config.ts imports `from "prisma/config"`, which Node resolves only if
+# the global node_modules dir is on NODE_PATH. Without this, the config loader
+# fails with "Cannot find module 'prisma/config'" when run from a service dir.
+ENV NODE_PATH=/usr/local/lib/node_modules
+
 # Copy schemas, migrations, and per-service prisma.config.ts.
 # COPY is cached; runtime SERVICE_NAME selects which set to run.
 COPY services/users/prisma ./services/users/prisma
@@ -18,6 +23,9 @@ COPY services/agent/prisma.config.ts ./services/agent/prisma.config.ts
 # Inline migration script (avoids .dockerignore excluding infrastructure/).
 # SERVICE_NAME selects which service's migrations to run; cd into the service
 # dir so Prisma 7 auto-discovers prisma.config.ts (which provides DATABASE_URL).
+# Single quotes around the printf format are intentional — $SERVICE_NAME must
+# be written literally into /migrate.sh, not expanded at Docker build time.
+# hadolint ignore=SC2016
 RUN printf '#!/bin/sh\nset -e\nif [ -z "$SERVICE_NAME" ]; then\n  echo "ERROR: SERVICE_NAME env var is required" >&2\n  exit 1\nfi\necho "Running $SERVICE_NAME migrations..."\ncd "/app/services/$SERVICE_NAME"\nprisma migrate deploy\necho "$SERVICE_NAME migrations complete."\n' > /migrate.sh && chmod +x /migrate.sh
 
 CMD ["/migrate.sh"]

@@ -13,13 +13,23 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 22
+          cache: pnpm
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Install Playwright
         run: npx playwright install --with-deps chromium
@@ -32,7 +42,7 @@ jobs:
 
       - name: Upload failure artifacts
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: smoke-test-results
           path: |
@@ -47,23 +57,26 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           TRIGGER_NAME: ${{ github.event.workflow_run.name }}
         run: |
+          {
+            echo "## Smoke Test Failure"
+            echo
+            echo "Post-deploy smoke tests failed after a successful deploy."
+            echo
+            echo "**Run:** ${RUN_URL}"
+            echo "**Date:** $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "**Trigger:** ${TRIGGER_NAME:-manual}"
+            echo
+            echo "### Next Steps"
+            echo "1. Check test artifacts for failure screenshots"
+            echo "2. Verify deploy didn't break critical user flows"
+            echo "3. Consider rollback if critical paths are broken"
+            echo
+            echo "---"
+            echo "*Auto-created by smoke-tests workflow*"
+          } > /tmp/smoke-body.md
           gh issue create \
             --repo "$GITHUB_REPOSITORY" \
             --title "Post-deploy smoke tests failed" \
             --label "ci-fix" \
             --label "ready" \
-            --body "## Smoke Test Failure
-
-Post-deploy smoke tests failed after a successful deploy.
-
-**Run:** ${RUN_URL}
-**Date:** $(date -u +%Y-%m-%dT%H:%M:%SZ)
-**Trigger:** ${TRIGGER_NAME:-manual}
-
-### Next Steps
-1. Check test artifacts for failure screenshots
-2. Verify deploy didn't break critical user flows
-3. Consider rollback if critical paths are broken
-
----
-*Auto-created by smoke-tests workflow*"
+            --body-file /tmp/smoke-body.md

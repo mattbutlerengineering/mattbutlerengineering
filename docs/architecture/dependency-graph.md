@@ -24,10 +24,8 @@ flowchart TD
     api_versioning["api-versioning"]
     auth["auth"]
     config["config"]
-    feature_flags["feature-flags"]
-    mcp_server["mcp-server"]
     observability["observability"]
-    rialto["rialto"]
+    @mattbutlerengineering/rialto["rialto"]
     rialto_catalog["rialto-catalog"]
     rialto_plugin["rialto-plugin"]
     sentry["sentry"]
@@ -37,21 +35,18 @@ flowchart TD
     cli["cli"]
   end
 
+  gen --> api_client
   gen --> auth
-  gen --> rialto
   gen --> rialto_catalog
   gen --> config
   hospitality --> api_client
   hospitality --> auth
-  hospitality --> rialto
   hospitality --> rialto_catalog
   hospitality --> sentry
   hospitality --> types
   hospitality --> config
-  marketing --> rialto
   marketing --> sentry
   marketing --> config
-  rialto_web --> rialto
   rialto_web --> sentry
   rialto_web --> config
   agent_service --> agent_core
@@ -81,14 +76,11 @@ flowchart TD
   api_versioning --> config
   auth --> types
   auth --> config
-  feature_flags --> config
-  mcp_server --> config
   observability --> types
   observability --> config
-  rialto --> config
-  rialto_catalog --> rialto
+  @mattbutlerengineering/rialto --> api_client
+  @mattbutlerengineering/rialto --> config
   rialto_catalog --> config
-  rialto_plugin --> rialto
   rialto_plugin --> config
   sentry --> types
   sentry --> config
@@ -113,10 +105,8 @@ flowchart TD
   class api_versioning shared
   class auth shared
   class config shared
-  class feature_flags shared
-  class mcp_server shared
   class observability shared
-  class rialto shared
+  class @mattbutlerengineering/rialto shared
   class rialto_catalog shared
   class rialto_plugin shared
   class sentry shared

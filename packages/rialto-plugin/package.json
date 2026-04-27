@@ -1,6 +1,6 @@
 {
   "name": "@mbe/rialto-plugin",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "private": true,
   "type": "module",
   "description": "Claude Code plugin for the Rialto design system — skills, agent, and validation hook",
@@ -17,5 +17,6 @@
     "@types/node": "catalog:",
     "tsx": "^4.19.0",
     "typescript": "catalog:"
-  }
+  },
+  "license": "MIT"
 }

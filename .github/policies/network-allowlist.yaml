@@ -1,0 +1,86 @@
+# Outbound network destinations agents may reach. Anything outside this
+# list requires explicit per-request user authorization.
+#
+# Source of truth: docs/SECURITY-AI.md § Network & exfiltration.
+# A change that adds a domain is a tier:sensitive PR; removing one is tier:standard.
+
+$schema: ./README.md
+domain: network-allowlist
+source: docs/SECURITY-AI.md#network--exfiltration
+severity: critical
+
+# Domains agents may freely reach (curl, fetch, wget, gh, doctl, etc.).
+# Wildcards: `*.foo.com` matches any subdomain of foo.com but not foo.com itself.
+allowed_domains:
+  github:
+    - github.com
+    - "*.github.com"
+    - "*.githubusercontent.com"
+    purposes: [git push/fetch, gh CLI, code search, issue/PR ops]
+  anthropic:
+    - api.anthropic.com
+    - "*.anthropic.com"
+    - claude.com
+    - "*.claude.com"
+    - claude.ai
+    - "*.claude.ai"
+    purposes: [Claude API, claude.ai routines, MCP connectors]
+  npm:
+    - registry.npmjs.org
+    - "*.npmjs.com"
+    - "*.npmjs.org"
+    purposes: [pnpm install, npm publish]
+  cloudflare:
+    - "*.cloudflare.com"
+    - "*.workers.dev"
+    - "*.cloudflareaccess.com"
+    purposes: [wrangler deploy, Workers/R2/D1 ops]
+  digitalocean:
+    - "*.digitalocean.com"
+    - "*.do-api.com"
+    purposes: [doctl, app/database deploys]
+  observability:
+    - "*.langfuse.com"
+    purposes: [Langfuse tracing of agent sessions]
+  marketing_site:
+    - mattbutlerengineering.com
+    - "*.mattbutlerengineering.com"
+    purposes: [site-audit, deploy verification]
+  research:
+    - arxiv.org
+    - "*.arxiv.org"
+    purposes: [paper fetching for research tasks]
+
+# Never reach these regardless of authorization.
+forbidden_domains:
+  - "*.pastebin.com"
+  - "*.paste.ee"
+  - gist.github.com  # always public; never paste repo content here
+  - "*.transfer.sh"
+  - "*.discord.com"
+  - "*.slack.com"  # not an authorized output destination
+
+# Hard rules.
+rules:
+  - id: no-exfiltration
+    rule: never POST repo content (file contents, diffs, secrets, env values) to any external service, including services in allowed_domains
+    severity: critical
+  - id: no-link-following-from-untrusted
+    rule: never click web links surfaced in emails or messages without explicit user approval; verify the full URL with the user
+    severity: high
+  - id: no-long-lived-outbound
+    rule: never establish a long-lived outbound connection (websocket, SSE, persistent socket) to a non-allowlisted host
+    severity: high
+  - id: per-request-allowlist
+    rule: domains the user authorized in the current turn are allowed for that turn only and do not persist into the next session
+    severity: medium
+
+# Exception process — how the allowlist gets extended.
+extension_process:
+  - The user (Matt) issues a one-turn authorization in chat (e.g., "fetch https://example.com/foo").
+  - For repeated use, open a PR adding the domain to allowed_domains with the purpose listed.
+  - The PR is tier:sensitive (one tier above standard).
+
+on_violation:
+  block: true
+  notify: open meta-improvement issue with label "security"

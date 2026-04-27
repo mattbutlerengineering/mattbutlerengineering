@@ -18,8 +18,8 @@
         name: string;
         type: string;
         required: boolean;
-        default?: string;
-        description?: string;
+        default?: string | undefined;
+        description?: string | undefined;
       }
     </item>
     <item priority="high">
@@ -36,8 +36,8 @@
         name: string;
         type: string;
         required: boolean;
-        default?: string;
-        description?: string;
+        default?: string | undefined;
+        description?: string | undefined;
       }
     </item>
     <item priority="high">
@@ -53,7 +53,7 @@
       interface DtcgToken {
         $value: string | number;
         $type: string;
-        $description?: string;
+        $description?: string | undefined;
       }
     </item>
     <item priority="high">
@@ -65,9 +65,9 @@
   <file path="scripts/generate-exports.ts">
     <item priority="high">
       interface ExportEntry {
-        types?: string;
-        import?: string;
-        default?: string;
+        types?: string | undefined;
+        import?: string | undefined;
+        default?: string | undefined;
       }
     </item>
     <item priority="high">
@@ -85,6 +85,13 @@
     </item>
     <item priority="high">
       export const characterLimits: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="utils">
+  <file path="src/utils/service-worker.ts">
+    <item priority="high">
+      export function unregisterStaleServiceWorkers(exemptedScopes: string[] = ["/hospitality/"]): void { /* ... */ }
     </item>
   </file>
   </section>
@@ -161,12 +168,20 @@
       } { /* ... */ }
     </item>
   </file>
+  <file path="src/hooks/useThemeState.ts">
+    <item priority="low">
+      type ThemePreference = "light" | "dark" | "system";
+    </item>
+    <item priority="medium">
+      function getStoredTheme(): ThemePreference { /* ... */ }
+    </item>
+  </file>
   <file path="src/hooks/useScrollReveal.ts">
     <item priority="high">
       interface UseScrollRevealOptions {
-        margin?: string;
-        once?: boolean;
-        fallbackTimeout?: number;
+        margin?: string | undefined;
+        once?: boolean | undefined;
+        fallbackTimeout?: number | undefined;
       }
     </item>
     <item priority="high">
@@ -183,22 +198,6 @@
     </item>
     <item priority="high">
       export function useDirection(ref: RefObject<HTMLElement | null>): Direction { /* ... */ }
-    </item>
-  </file>
-  </section>
-  <section priority="medium" role="Toast">
-  <file path="src/components/Toast/ToastContext.ts">
-    <item priority="low">
-      type ToastVariant = "default" | "success" | "error" | "accent";
-    </item>
-    <item priority="low">
-      interface ToastData {
-        id: string;
-        title: string;
-        description?: string;
-        variant?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
-        duration?: number;
-      }
     </item>
   </file>
   </section>
@@ -223,7 +222,7 @@
         dayNumeric: (iso: string) => string;
         dayLong: (iso: string) => string;
         monthYearLong: (iso: string) => string;
-        currency: (minorUnits: number, currencyCode?: string) => string;
+        currency: (minorUnits: number, currencyCode?: string | undefined) =...;
       }
     </item>
     <item priority="high">
@@ -268,6 +267,22 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="Toast">
+  <file path="src/components/Toast/ToastContext.ts">
+    <item priority="low">
+      type ToastVariant = "default" | "success" | "error" | "accent";
+    </item>
+    <item priority="low">
+      interface ToastData {
+        id: string;
+        title: string;
+        description?: string | undefined;
+        variant?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        duration?: number | undefined;
+      }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="GenCopilot">
   <file path="src/components/GenCopilot/useGenCopilotStream.ts">
     <item priority="high">
@@ -277,9 +292,9 @@
       interface UseGenCopilotStreamOptions {
         api: string;
         domainContext: DomainContext;
-        getAccessToken: () => string | Promise<string>;
-        onComplete?: (spec: import("/Users/mbutler/github/mattbutlerengineerin...;
-        onError?: (error: Error) => void;
+        getAccessToken: () => string | Promise<string | null> | null;
+        onComplete?: ((spec: import("/Users/mbutler/github/mattbutlerengineeri...;
+        onError?: ((error: Error) => void) | undefined;
       }
     </item>
   </file>
@@ -289,7 +304,7 @@
     <item priority="high">
       interface UseFlipDotSoundOptions {
         enabled: boolean;
-        volume?: number;
+        volume?: number | undefined;
       }
     </item>
     <item priority="high">
@@ -305,8 +320,8 @@
     </item>
     <item priority="low">
       interface UseFlipDotAnimationOptions {
-        text?: string;
-        frames?: readonly (readonly (readonly boolean[])[])[];
+        text?: string | undefined;
+        frames?: readonly (readonly (readonly boolean[])[])[] | undefined;
         rows: number;
         cols: number;
         mode?: import("/Users/mbutler/github/mattbutlerengineering/packa...;

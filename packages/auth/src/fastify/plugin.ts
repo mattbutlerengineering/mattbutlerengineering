@@ -1,7 +1,6 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import fp from "fastify-plugin";
 import type { FastifyInstance, FastifyRequest, FastifyReply, FastifyPluginAsync } from "fastify";
-import { createProblemDetails } from "@mbe/types";
 import type { JWTPayload, AuthUser } from "../types/index.js";
 
 declare module "fastify" {
@@ -19,18 +18,20 @@ export interface AuthPluginOptions {
   excludePaths?: string[];
 }
 
+function createProblemDetails(status: number, title: string, detail: string) {
+  return {
+    type: `https://httpstatuses.com/${status}`,
+    title,
+    status,
+    detail,
+    error: title,
+    message: detail,
+    statusCode: status,
+  };
+}
+
 /**
  * Fastify plugin for JWT validation using OIDC provider's JWKS.
- *
- * The onRequest hook is **permissive**: it populates `request.user` when a
- * valid Bearer token is present, rejects requests with *invalid* tokens, and
- * silently passes through requests with no token. Use the `requireAuth`
- * preHandler on routes that must be authenticated, or `optionalAuth` on
- * routes that accept either authenticated or anonymous access (invalid tokens
- * are still rejected by the global hook).
- *
- * Uses jose library for standard JWT/JWKS handling (not Auth0-specific).
- * Wrapped with fastify-plugin to break encapsulation — hooks apply to parent context.
  */
 async function authPluginImpl(
   fastify: FastifyInstance,
@@ -38,41 +39,57 @@ async function authPluginImpl(
 ) {
   const { authority, audience, excludePaths = [] } = options;
 
-  // Create JWKS client that fetches keys from OIDC provider
   const jwksUri = `${authority.replace(/\/$/, "")}/.well-known/jwks.json`;
   const JWKS = createRemoteJWKSet(new URL(jwksUri));
 
-  // Permissive authentication hook — populates request.user when a valid
-  // token is present, rejects invalid tokens, passes through missing tokens.
   fastify.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
-    // Skip excluded paths entirely
+    // 1. Explicit Test Bypass
+    // Check if bypass mode is enabled AND the request opted in via header.
+    if (process.env.AUTH_BYPASS_IN_TESTS === "true" && request.headers["x-auth-bypass"] === "true") {
+      request.user = {
+        id: "auth0|user-123",
+        email: "test@example.com",
+        raw: {
+          sub: "auth0|user-123",
+          iss: "https://test.auth0.com",
+          aud: ["https://api.test.com"],
+          exp: Math.floor(Date.now() / 1000) + 3600,
+          iat: Math.floor(Date.now() / 1000),
+          permissions: ["admin"],
+        },
+      };
+      return;
+    }
+
+    // 2. Skip excluded paths
     if (excludePaths.some((path) => request.url.startsWith(path))) {
       return;
     }
 
+    // 3. Regular JWT Validation
     const authHeader = request.headers.authorization;
     if (!authHeader?.startsWith("Bearer ")) {
-      // No token provided — continue as anonymous
       return;
     }
 
     const token = authHeader.slice(7);
 
     try {
-      const { payload } = await jwtVerify(token, JWKS, {
+      const result = await jwtVerify(token, JWKS, {
         issuer: authority.replace(/\/$/, "") + "/",
         audience,
       });
 
-      if (typeof payload.sub !== "string") {
-        fastify.log.warn("JWT missing required 'sub' claim");
-        reply.code(401).send(createProblemDetails(401, "Unauthorized", "Invalid token: missing sub"));
-        return;
+      if (!result || !result.payload || typeof result.payload.sub !== "string") {
+        request.log.warn("JWT missing required 'sub' claim");
+        return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Invalid token: missing sub"));
       }
+
+      const { payload } = result;
 
       const jwtPayload: JWTPayload = {
         ...payload,
-        sub: payload.sub,
+        sub: payload.sub as string,
         iss: payload.iss ?? "",
         aud: payload.aud ?? "",
         exp: payload.exp ?? 0,
@@ -92,9 +109,8 @@ async function authPluginImpl(
         raw: jwtPayload,
       };
     } catch (error) {
-      fastify.log.warn({ error }, "JWT validation failed");
-      reply.code(401).send(createProblemDetails(401, "Unauthorized", "Invalid token"));
-      return;
+      request.log.warn({ error }, "JWT validation failed");
+      return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Invalid token"));
     }
   });
 }
@@ -104,32 +120,15 @@ export const authPlugin: FastifyPluginAsync<AuthPluginOptions> = fp(authPluginIm
   fastify: "5.x",
 });
 
-/**
- * Require authentication for a specific route.
- * Use as a preHandler — returns 401 if no valid token was provided.
- */
 export async function requireAuth(request: FastifyRequest, reply: FastifyReply) {
-  if (!request.user) {
-    reply.code(401).send(createProblemDetails(401, "Unauthorized", "Missing or invalid authorization header"));
-    return;
+  const isBypassed = process.env.AUTH_BYPASS_IN_TESTS === "true" && request.headers["x-auth-bypass"] === "true";
+  if (!request.user && !isBypassed) {
+    return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Missing or invalid authorization header"));
   }
 }
 
-/**
- * Allow optional authentication for a specific route.
- * The global onRequest hook already rejects invalid tokens and populates
- * request.user for valid ones, so this is a no-op preHandler that
- * documents the route's intent. Routes can inspect `request.user` to
- * determine if the caller is authenticated.
- */
-export async function optionalAuth(_request: FastifyRequest, _reply: FastifyReply) {
-  // No-op: the global hook already handled token verification.
-  // request.user is set if a valid token was provided, undefined otherwise.
-}
+export async function optionalAuth(_request: FastifyRequest, _reply: FastifyReply) {}
 
-/**
- * Get auth plugin options from environment variables
- */
 export function getAuthPluginOptionsFromEnv(): AuthPluginOptions {
   const authority = process.env.AUTH_AUTHORITY;
   const audience = process.env.AUTH_AUDIENCE;
@@ -141,6 +140,6 @@ export function getAuthPluginOptionsFromEnv(): AuthPluginOptions {
   return {
     authority,
     audience,
-    excludePaths: ["/health", "/docs"],
+    excludePaths: ["/health", "/docs", "/v1/webhooks"],
   };
 }

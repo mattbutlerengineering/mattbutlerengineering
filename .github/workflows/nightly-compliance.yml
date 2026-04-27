@@ -1,0 +1,153 @@
+name: nightly-compliance
+
+# Nightly drift detection: re-runs the gating scripts and the ACMM audit
+# against main, reports any drift, and files a meta-improvement issue if
+# something the agents would normally catch has slipped through.
+#
+# Mirrors the policy of the daily `mbe-acmm-audit` and weekly
+# `mbe-deep-audit` RemoteTriggers, but as a workflow so the policy is in
+# source. The workflow is the policy; the RemoteTrigger is the runtime.
+#
+# NOTE: GitHub Actions billing is intentionally unpaid on this repo
+# (CLAUDE.md). The workflow does not currently execute. The equivalent
+# checks run nightly via the claude.ai RemoteTriggers; this file is what
+# gets activated when budget is restored.
+
+on:
+  schedule:
+    # 09:00 UTC daily (~02:00 PT in standard time, ~01:00 PT during DST).
+    # Staggered from the manual mbe-acmm-audit (17:00 UTC).
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+    inputs:
+      file_issue:
+        description: File a meta-improvement issue if drift is detected
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: nightly-compliance
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint, typecheck, test
+        id: build
+        continue-on-error: true
+        run: |
+          {
+            echo '## Lint, typecheck, test'
+            echo
+            for cmd in lint typecheck test; do
+              if pnpm "$cmd" 2>&1 | tail -10 > "/tmp/$cmd.out"; then
+                echo "- ✓ \`pnpm $cmd\` passed"
+              else
+                echo "- ✗ \`pnpm $cmd\` FAILED"
+                echo
+                echo '  ```'
+                sed 's/^/  /' "/tmp/$cmd.out"
+                echo '  ```'
+              fi
+              echo
+            done
+          } >> /tmp/report.md
+
+      - name: Run gating scripts
+        id: gates
+        continue-on-error: true
+        run: |
+          {
+            echo '## Gating scripts'
+            echo
+            for script in scripts/check-*.js; do
+              name=$(basename "$script" .js)
+              if node "$script" 2>&1 > "/tmp/$name.out"; then
+                echo "- ✓ \`$name\` passed"
+              else
+                echo "- ✗ \`$name\` FAILED"
+                echo
+                echo '  ```'
+                sed 's/^/  /' "/tmp/$name.out" | head -20
+                echo '  ```'
+              fi
+            done
+          } >> /tmp/report.md
+
+      - name: Run ACMM audit
+        id: acmm
+        continue-on-error: true
+        run: |
+          {
+            echo '## ACMM audit'
+            echo
+            echo '```'
+            node scripts/acmm/audit.js 2>&1 | head -25
+            echo '```'
+          } >> /tmp/report.md
+
+      - name: Detect drift
+        id: drift
+        run: |
+          if grep -q '✗' /tmp/report.md; then
+            echo "drift=true" >> "$GITHUB_OUTPUT"
+            echo "Drift detected — see report."
+          else
+            echo "drift=false" >> "$GITHUB_OUTPUT"
+            echo "No drift detected."
+          fi
+          {
+            echo '## Summary'
+            echo
+            echo "Drift: $(grep -c '✗' /tmp/report.md || echo 0) failures, $(grep -c '✓' /tmp/report.md || echo 0) passes"
+          } >> /tmp/report.md
+
+      - name: Upload report artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: nightly-compliance-report
+          path: /tmp/report.md
+
+      - name: File meta-improvement issue if drift detected
+        if: steps.drift.outputs.drift == 'true' && (github.event_name == 'schedule' || inputs.file_issue == true)
+        env:
+          REPORT_PATH: /tmp/report.md
+        run: |
+          today=$(date -u +%Y-%m-%d)
+          title="[nightly-compliance ${today}] Drift detected"
+          existing=$(gh issue list --state open --label meta-improvement --search "$title" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            echo "Issue #$existing already open for today; skipping."
+            exit 0
+          fi
+          # --body-file passes report content directly; no shell interpolation of untrusted text.
+          gh issue create \
+            --title "$title" \
+            --body-file "$REPORT_PATH" \
+            --label meta-improvement \
+            --label ready

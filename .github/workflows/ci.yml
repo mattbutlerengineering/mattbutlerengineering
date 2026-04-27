@@ -26,22 +26,30 @@ jobs:
   prepare:
     name: Prepare
     runs-on: ubuntu-latest
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
 
-      - uses: pnpm/action-setup@v5
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: "pnpm"
 
       - name: Cache node_modules
         id: cache-node-modules
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
-          path: node_modules
+          path: |
+            node_modules
+            packages/*/node_modules
+            apps/*/node_modules
+            services/*/node_modules
+            tools/*/node_modules
           key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Install dependencies
@@ -50,7 +58,7 @@ jobs:
 
       - name: Cache Prisma clients
         id: cache-prisma
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             services/users/src/generated
@@ -66,16 +74,11 @@ jobs:
           pnpm --filter @mbe/agent-service db:generate
 
       - name: Login to Turborepo Remote Cache
-        if: secrets.TURBO_TOKEN != ''
-        env:
-          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+        if: env.TURBO_TOKEN != ''
         run: pnpm turbo login --token "$TURBO_TOKEN"
 
       - name: Link to Turborepo Remote Cache
-        if: secrets.TURBO_TOKEN != ''
-        env:
-          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-          TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+        if: env.TURBO_TOKEN != ''
         run: pnpm turbo link --team "$TURBO_TEAM" --token "$TURBO_TOKEN"
 
   hadolint:
@@ -84,21 +87,21 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
 
-      - uses: hadolint/hadolint-action@v3.1.0
+      - uses: hadolint/hadolint-action@54c9adbab1582c2ef04b2016b760714a4bfde3cf # v3.1.0
         with:
           dockerfile: "services/users/Dockerfile"
 
-      - uses: hadolint/hadolint-action@v3.1.0
+      - uses: hadolint/hadolint-action@54c9adbab1582c2ef04b2016b760714a4bfde3cf # v3.1.0
         with:
           dockerfile: "services/reservations/Dockerfile"
 
-      - uses: hadolint/hadolint-action@v3.1.0
+      - uses: hadolint/hadolint-action@54c9adbab1582c2ef04b2016b760714a4bfde3cf # v3.1.0
         with:
           dockerfile: "services/agent/Dockerfile"
 
-      - uses: hadolint/hadolint-action@v3.1.0
+      - uses: hadolint/hadolint-action@54c9adbab1582c2ef04b2016b760714a4bfde3cf # v3.1.0
         with:
           dockerfile: "infrastructure/migrate/Dockerfile"
 
@@ -116,10 +119,10 @@ jobs:
           - { path: "infrastructure/migrate/Dockerfile", name: "migrate" }
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
 
       - name: Run Trivy filesystem scan
-        uses: aquasecurity/trivy-action@0.35.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with:
           scan-type: "fs"
           scan-ref: ${{ matrix.dockerfile.path }}
@@ -133,20 +136,32 @@ jobs:
     needs: [prepare]
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
 
-      - uses: pnpm/action-setup@v5
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: "pnpm"
 
       - name: Restore node_modules
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
-          path: node_modules
+          path: |
+            node_modules
+            packages/*/node_modules
+            apps/*/node_modules
+            services/*/node_modules
+            tools/*/node_modules
           key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Ensure dependencies installed
+        # Defensive — root-level node_modules cache often hits but
+        # workspace-package node_modules symlinks can go missing,
+        # leaving turbo unable to resolve transitive deps. A frozen
+        # install is a fast no-op on cache hit and a real install on miss.
+        run: pnpm install --frozen-lockfile
 
       - run: pnpm lint
 
@@ -156,23 +171,31 @@ jobs:
     needs: [prepare]
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
 
-      - uses: pnpm/action-setup@v5
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: "pnpm"
 
       - name: Restore node_modules
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
-          path: node_modules
+          path: |
+            node_modules
+            packages/*/node_modules
+            apps/*/node_modules
+            services/*/node_modules
+            tools/*/node_modules
           key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
 
+      - name: Ensure dependencies installed
+        run: pnpm install --frozen-lockfile
+
       - name: Restore Prisma clients
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             services/users/src/generated
@@ -186,29 +209,72 @@ jobs:
           TURBO_TEAM: ${{ vars.TURBO_TEAM }}
         run: pnpm typecheck
 
-  build:
-    name: Build
+  architecture-audit:
+    name: Architecture Audit
     runs-on: ubuntu-latest
-    needs: [lint, typecheck]
+    needs: [prepare]
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
 
-      - uses: pnpm/action-setup@v5
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: "pnpm"
 
       - name: Restore node_modules
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
-          path: node_modules
+          path: |
+            node_modules
+            packages/*/node_modules
+            apps/*/node_modules
+            services/*/node_modules
+            tools/*/node_modules
           key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
 
+      - name: Ensure dependencies installed
+        run: pnpm install --frozen-lockfile
+
+      - name: Run ADR and Dependency Checks
+        run: |
+          pnpm --filter @mbe/cli build
+          pnpm --filter @mbe/cli start check-adr
+          pnpm --filter @mbe/cli start check-deps
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [lint, typecheck, architecture-audit]
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Restore node_modules
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            node_modules
+            packages/*/node_modules
+            apps/*/node_modules
+            services/*/node_modules
+            tools/*/node_modules
+          key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Ensure dependencies installed
+        run: pnpm install --frozen-lockfile
+
       - name: Restore Prisma clients
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             services/users/src/generated
@@ -222,27 +288,14 @@ jobs:
           TURBO_TEAM: ${{ vars.TURBO_TEAM }}
         run: pnpm build
 
-      - name: Check circular dependencies
-        run: node scripts/check-circular-deps.js
-
-      - name: Check service binding consistency
-        run: node scripts/check-service-bindings.js
-
-      - name: Check env var documentation
-        run: node scripts/check-env-sync.js
-
-      - name: Audit dependencies for vulnerabilities
-        run: |
-          pnpm audit --audit-level=high || { echo "::error::High or Critical vulnerability found"; exit 1; }
+      - name: Run Full Repository Audit
+        run: pnpm repo-audit
 
       - name: Regenerate dependency graph
         run: |
           node scripts/generate-dep-graph.mjs
           git diff --exit-code infrastructure/worker/dep-graph.json || \
             (echo "ERROR: dep-graph.json is stale. Run 'pnpm generate:dep-graph' locally and commit the result." && exit 1)
-
-      - name: Check Dockerfile dependencies
-        run: node scripts/check-dockerfile-deps.js
 
       - name: Check registry.json is up to date
         run: |
@@ -268,26 +321,34 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    needs: [lint, typecheck]
+    needs: [lint, typecheck, architecture-audit]
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
 
-      - uses: pnpm/action-setup@v5
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: "pnpm"
 
       - name: Restore node_modules
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
-          path: node_modules
+          path: |
+            node_modules
+            packages/*/node_modules
+            apps/*/node_modules
+            services/*/node_modules
+            tools/*/node_modules
           key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
 
+      - name: Ensure dependencies installed
+        run: pnpm install --frozen-lockfile
+
       - name: Restore Prisma clients
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             services/users/src/generated
@@ -302,7 +363,7 @@ jobs:
         run: pnpm turbo test:coverage
 
       - name: Upload coverage reports
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6
         with:
           files: ./packages/auth/coverage/coverage-final.json,./services/users/coverage/coverage-final.json
           fail_ci_if_error: false
@@ -329,23 +390,31 @@ jobs:
           - 5432:5432
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
 
-      - uses: pnpm/action-setup@v5
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: "pnpm"
 
       - name: Restore node_modules
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
-          path: node_modules
+          path: |
+            node_modules
+            packages/*/node_modules
+            apps/*/node_modules
+            services/*/node_modules
+            tools/*/node_modules
           key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
 
+      - name: Ensure dependencies installed
+        run: pnpm install --frozen-lockfile
+
       - name: Restore Prisma clients
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             services/users/src/generated
@@ -447,7 +516,7 @@ jobs:
           --health-retries 10
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
         with:
           fetch-depth: 0
 

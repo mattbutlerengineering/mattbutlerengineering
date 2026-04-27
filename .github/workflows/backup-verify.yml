@@ -27,7 +27,7 @@ jobs:
           --health-retries 10
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
 
       - name: Validate schema via Prisma migrations
         env:
@@ -86,22 +86,25 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          {
+            echo "## Backup Verification Failed"
+            echo
+            echo "The weekly database schema validation test failed."
+            echo
+            echo "**Run:** ${RUN_URL}"
+            echo "**Date:** $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo
+            echo "### Next Steps"
+            echo "1. Check workflow logs for the specific failure"
+            echo "2. Verify Prisma schema files are valid"
+            echo "3. Run \`prisma db push\` locally to reproduce"
+            echo
+            echo "---"
+            echo "*Auto-created by backup-verify workflow*"
+          } > /tmp/backup-body.md
           gh issue create \
             --repo "$GITHUB_REPOSITORY" \
             --title "Database backup verification failed" \
             --label "ci-fix" \
             --label "ready" \
-            --body "## Backup Verification Failed
-
-The weekly database schema validation test failed.
-
-**Run:** ${RUN_URL}
-**Date:** $(date -u +%Y-%m-%dT%H:%M:%SZ)
-
-### Next Steps
-1. Check workflow logs for the specific failure
-2. Verify Prisma schema files are valid
-3. Run \`prisma db push\` locally to reproduce
-
----
-*Auto-created by backup-verify workflow*"
+            --body-file /tmp/backup-body.md

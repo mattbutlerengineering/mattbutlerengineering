@@ -5,6 +5,11 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: ["src/**/*.test.ts"],
+    env: {
+      AUTH_AUTHORITY: "https://test.auth0.com/",
+      AUTH_AUDIENCE: "https://api.test.com",
+      AUTH_BYPASS_IN_TESTS: "true",
+    },
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],

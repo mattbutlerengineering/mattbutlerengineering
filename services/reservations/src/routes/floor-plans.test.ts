@@ -154,6 +154,7 @@ describe("Floor Plan Routes", () => {
       ...originalEnv,
       AUTH_AUTHORITY: "https://test.auth0.com",
       AUTH_AUDIENCE: "https://api.example.com",
+      AUTH_BYPASS_IN_TESTS: "true",
     };
     app = await buildApp({ logger: false });
     await app.ready();
@@ -220,6 +221,7 @@ describe("Floor Plan Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/floor-plans/floor-plan-123",
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(200);
@@ -281,7 +283,7 @@ describe("Floor Plan Routes", () => {
         method: "POST",
         url: "/api/v1/floor-plans",
         headers: {
-          authorization: "Bearer valid-token",
+          "x-auth-bypass": "true",
         },
         payload: {
           venueId: "venue-123",
@@ -329,7 +331,7 @@ describe("Floor Plan Routes", () => {
         method: "PATCH",
         url: "/api/v1/floor-plans/floor-plan-123",
         headers: {
-          authorization: "Bearer valid-token",
+          "x-auth-bypass": "true",
         },
         payload: {
           name: "Updated Dining",
@@ -352,7 +354,7 @@ describe("Floor Plan Routes", () => {
         method: "PATCH",
         url: "/api/v1/floor-plans/nonexistent",
         headers: {
-          authorization: "Bearer valid-token",
+          "x-auth-bypass": "true",
         },
         payload: {
           name: "New Name",
@@ -375,7 +377,7 @@ describe("Floor Plan Routes", () => {
         method: "POST",
         url: "/api/v1/floor-plans/floor-plan-123/activate",
         headers: {
-          authorization: "Bearer valid-token",
+          "x-auth-bypass": "true",
         },
         payload: {
           venueId: "venue-123",
@@ -400,7 +402,7 @@ describe("Floor Plan Routes", () => {
         method: "POST",
         url: "/api/v1/floor-plans/nonexistent/activate",
         headers: {
-          authorization: "Bearer valid-token",
+          "x-auth-bypass": "true",
         },
         payload: {
           venueId: "venue-123",
@@ -423,7 +425,7 @@ describe("Floor Plan Routes", () => {
         method: "DELETE",
         url: "/api/v1/floor-plans/floor-plan-123",
         headers: {
-          authorization: "Bearer valid-token",
+          "x-auth-bypass": "true",
         },
       });
 
@@ -442,7 +444,7 @@ describe("Floor Plan Routes", () => {
         method: "DELETE",
         url: "/api/v1/floor-plans/nonexistent",
         headers: {
-          authorization: "Bearer valid-token",
+          "x-auth-bypass": "true",
         },
       });
 
@@ -464,7 +466,7 @@ describe("Floor Plan Routes", () => {
         method: "POST",
         url: "/api/v1/floor-plans/tables/positions",
         headers: {
-          authorization: "Bearer valid-token",
+          "x-auth-bypass": "true",
         },
         payload: {
           floorPlanId: "floor-plan-123",
@@ -516,7 +518,7 @@ describe("Floor Plan Routes", () => {
         method: "POST",
         url: "/api/v1/floor-plans/tables/table-123/assign",
         headers: {
-          authorization: "Bearer valid-token",
+          "x-auth-bypass": "true",
         },
         payload: {
           floorPlanId: "floor-plan-123",
@@ -546,7 +548,7 @@ describe("Floor Plan Routes", () => {
         method: "POST",
         url: "/api/v1/floor-plans/tables/nonexistent/assign",
         headers: {
-          authorization: "Bearer valid-token",
+          "x-auth-bypass": "true",
         },
         payload: {
           floorPlanId: "floor-plan-123",
@@ -572,7 +574,7 @@ describe("Floor Plan Routes", () => {
         method: "POST",
         url: "/api/v1/floor-plans/tables/table-123/remove",
         headers: {
-          authorization: "Bearer valid-token",
+          "x-auth-bypass": "true",
         },
       });
 
@@ -592,7 +594,7 @@ describe("Floor Plan Routes", () => {
         method: "POST",
         url: "/api/v1/floor-plans/tables/nonexistent/remove",
         headers: {
-          authorization: "Bearer valid-token",
+          "x-auth-bypass": "true",
         },
       });
 

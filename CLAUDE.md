@@ -8,28 +8,6 @@
 - **Design System Specs:** [packages/rialto/CLAUDE.md](./packages/rialto/CLAUDE.md)
 - **Domain Context:** See `CLAUDE.md` files in each `services/*` or `packages/*` directory.
 
-## Claude-Specific Commands
-
-### CLI Commands (`mbe`)
-```bash
-# Agent — local (runs directly via @mbe/agent-core)
-mbe agent run "Fix the login bug"                 # Run agent → get PR
-  --model <model>                                 # default: claude-sonnet-4-6
-  --max-budget <usd>                              # default: 1.00
-  --max-turns <n>                                 # default: 50
-  --no-pr                                         # skip PR, keep worktree
-  -v, --verbose                                   # stream agent events
-
-# Agent — API-backed (requires agent service running on :3003)
-mbe agent start "Fix the login bug"               # Create session via API
-mbe agent list                                    # List all sessions
-mbe agent status <id>                             # Get session details
-mbe agent logs <id>                               # Stream SSE events
-mbe agent cancel <id>                             # Cancel running session
-mbe agent delete <id>                             # Delete session + cleanup
-mbe agent orchestrate "Big task"                  # Decompose → parallel sessions → PRs
-```
-
 ## Continuous Improvement Loop (Ship Loop)
 
 Automated system that audits the live site, finds and fixes issues, builds features, and verifies deploys — all autonomously.
@@ -115,25 +93,15 @@ pnpm typecheck   # Verify types
 pnpm test        # Run all tests
 ```
 
-**Known gotchas:**
-- Pre-commit hook runs `eslint --fix` + `check-adr` + `pack-changed` (the last one regenerates `llms.txt` / `llms-full.txt` in affected packages — expect them to appear in `git status` after your commit lands)
-- JSX strings with `'` fail `react/no-unescaped-entities` at commit time — use `&apos;`
-- Run `pnpm` from inside a package directory, not the monorepo root — turbo filter errors out at the root for `test`/`typecheck`/`build` in most packages
-- **GitHub Actions is intentionally unpaid on this account — CI does not run.** Every PR's checks fail with a billing rejection by design. Verify work locally (`pnpm lint`/`typecheck`/`test`) and ignore red checks on `gh pr view`. Do NOT file `ci-fix` issues for failing workflow runs
-- Parallel `Bash` tool calls don't share `cd` state and race each other — use absolute paths or `pnpm --dir <abs-path> <cmd>` when running in parallel
-- **pnpm.overrides for CVEs: use the scoped pattern** `"pkg@<patched": "^patched"`, not `"pkg": ">=patched"` — the open range resolves to the latest satisfying version and can pull major bumps (e.g. `protobufjs@>=7.5.5` → 8.0.1)
-- **Changesets require `GITHUB_TOKEN`**: run `GITHUB_TOKEN=$(gh auth token) pnpm version-packages` — without it, `@changesets/get-github-info` errors asking for a PAT
-- **Changesets post-version prettier step errors with `Cannot find package '@mbe/config'`** — version bump + `.changeset/*.md` consumption succeed, but `packages/rialto/CHANGELOG.md` write is **silently skipped**. Manually prepend the new version block to `CHANGELOG.md` before committing the release
-- **`pnpm release` regenerates `packages/rialto/package.json` exports map** when a new component folder was added — run `git status` after release and commit the follow-up diff. Otherwise the subpath `import from "@mattbutlerengineering/rialto/<NewComponent>"` works for registry consumers but is missing from the repo
-- **`graphify-out/` is not gitignored** and accumulates wherever `/graphify` was invoked (repo root or package subdirs). Either `rm -rf graphify-out/` after use or add `graphify-out/` to `.gitignore`
+**Known gotchas:** see [.claude/rules/gotchas.md](./.claude/rules/gotchas.md) — covers pre-commit, builds, CI, dependencies, releases, tooling artifacts, and Prisma/DO migrate.
 
-## Manual Deployment (GH Actions unpaid — won't fire workflows)
+## Manual Deployment
 
-The `/deploy` skill's workflows won't execute. Deploy locally via:
+GH Actions runs on this account (verify with `gh run list --limit 5`). When you want to ship without waiting on CI/`/deploy`, deploy locally via:
 
 - **Static sites**: `cd apps/<marketing|hospitality|rialto-web> && pnpm dlx wrangler@latest deploy` (wrangler auto-refreshes oauth on use)
-- **DO services** (all services + db-migrate, single app): `doctl apps create-deployment 5dbdcf45-4053-4518-a97b-f1e2b3122a61 --wait`
-- **DO build logs**: `doctl apps logs 5dbdcf45-4053-4518-a97b-f1e2b3122a61 <agent-api|users-api|reservations-api|db-migrate> --type=build --deployment <id>` (component is positional, NOT `--component`)
+- **DO services** (all services + db-migrate, single app): `doctl apps create-deployment $DO_APP_ID --wait` (export `DO_APP_ID` from your local `.env` or shell — fork maintainers will use their own DigitalOcean app ID)
+- **DO build logs**: `doctl apps logs $DO_APP_ID <agent-api|users-api|reservations-api|db-migrate> --type=build --deployment <id>` (component is positional, NOT `--component`)
 - **Pulumi**: `cd infrastructure/pulumi && pulumi up --stack prod`
 
 ### Iterating on rialto component visuals (no npm republish)

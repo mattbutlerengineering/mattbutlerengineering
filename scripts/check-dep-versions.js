@@ -27,6 +27,10 @@ const SYNCED_DEPS = [
   "fastify",
   "prisma",
   "@prisma/client",
+  "zod",
+  "react",
+  "react-dom",
+  "vite",
 ];
 
 const WORKSPACE_DIRS = ["packages", "services", "apps", "tools"];

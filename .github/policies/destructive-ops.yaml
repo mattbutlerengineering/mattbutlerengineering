@@ -1,0 +1,107 @@
+# Git, database, and infrastructure operations that agents must never perform.
+# Source of truth: docs/SECURITY-AI.md § Destructive git ops, § Database & migrations, § Infrastructure & deploys.
+
+$schema: ./README.md
+domain: destructive-ops
+source: docs/SECURITY-AI.md
+severity: critical
+
+# Bash command patterns that are categorically forbidden.
+# Reviewer agents and pre-execution hooks scan agent-emitted commands
+# against these regexes. A match blocks execution unless explicit user
+# approval was issued in this turn.
+forbidden_commands:
+  git:
+    - pattern: "git push (--force|-f)\\s+.*\\b(main|master|prod|production|release)\\b"
+      reason: force-push to a protected branch — never permitted
+    - pattern: "git push --force-with-lease.*\\bmain\\b"
+      reason: requires explicit per-push user approval
+    - pattern: "git (reset --hard|checkout \\.|restore \\.|clean -fdx)"
+      reason: would discard uncommitted user work; verify clean state first
+    - pattern: "git commit.*--no-verify"
+      reason: bypasses pre-commit hooks (eslint, check-adr, pack-changed)
+    - pattern: "git commit.*(--no-gpg-sign|-c commit\\.gpgsign=false)"
+      reason: bypasses signing when signing is configured
+    - pattern: "git branch -D"
+      reason: may delete unpushed work; check `git log` first
+    - pattern: "git config (--global|--system)"
+      reason: never modify git config — see docs/SECURITY-AI.md
+  database:
+    - pattern: "(pnpm|npx) prisma migrate reset"
+      reason: drops the database; forbidden against any DigitalOcean-hosted DB
+    - pattern: "prisma db push --force-reset"
+      reason: same as above
+    - pattern: "DROP\\s+(DATABASE|SCHEMA)\\b"
+      reason: catastrophic; needs ADR + per-call user approval
+    - pattern: "DROP TABLE\\b"
+      reason: needs ADR + per-call user approval; check check-destructive-migrations.js
+    - pattern: "ALTER TABLE .* DROP COLUMN\\b"
+      reason: needs ADR + backfill plan; check check-destructive-migrations.js
+  infrastructure:
+    - pattern: "pulumi (destroy|cancel)\\s+.*--stack\\s+prod"
+      reason: would destroy prod infrastructure
+    - pattern: "doctl (apps|databases) delete"
+      reason: per-call user approval required
+    - pattern: "wrangler.* deploy --env (production|prod)"
+      reason: production deploy gate
+    - pattern: "rm -rf\\s+/"
+      reason: forbidden under any circumstances
+
+# Files that must not be modified without specific authorization.
+# (Mirrors docs/SECURITY-AI.md § File-area floors.)
+restricted_paths:
+  - path: ".env*"
+    rule: never commit (except .env.example with placeholder values only)
+    severity: critical
+  - path: ".github/CODEOWNERS"
+    rule: requires user approval AND commit message references reason
+    severity: critical
+  - path: ".github/workflows/codeql.yml"
+    rule: per-change user approval (security workflow)
+    severity: critical
+  - path: ".github/workflows/coverage-gate.yml"
+    rule: per-change user approval (gate workflow)
+    severity: critical
+  - path: ".github/workflows/tier-classifier.yml"
+    rule: per-change user approval (gate workflow)
+    severity: critical
+  - path: "prisma/migrations/[0-9]*/migration.sql"
+    rule: never edit a migration file once applied to production
+    severity: critical
+  - path: "prisma/schema.prisma"
+    rule: requires migration-reviewer agent invocation
+    severity: high
+  - path: "infrastructure/pulumi/**"
+    rule: prod-affecting changes require user approval AND ADR
+    severity: high
+  - path: "services/users/src/auth/**"
+    rule: requires adr-compliance-reviewer
+    severity: high
+  - path: "packages/auth/src/middleware/**"
+    rule: requires adr-compliance-reviewer
+    severity: high
+  - path: "scripts/acmm/backfill-metrics.js"
+    rule: forbidden to execute (committed but un-runnable per gaming guardrail)
+    severity: critical
+  - path: "scripts/check-*.js"
+    rule: requires user approval — these are the gate enforcement
+    severity: high
+
+# Approval gates that must never be bypassed.
+unbypassable_gates:
+  - name: ready -> in-progress -> has-pr issue label state machine
+    rule: agents picking up issues must transition through these states; skipping forbidden
+  - name: pre-commit hook (.husky/pre-commit)
+    rule: failure means fix the cause; never --no-verify
+  - name: migration-reviewer agent
+    rule: required for any PR touching prisma/migrations/ or prisma/schema.prisma
+  - name: adr-compliance-reviewer agent
+    rule: required for any PR touching services/, packages/, or apps/
+  - name: scripts/check-destructive-migrations.js
+    rule: must run on every commit including a Prisma migration
+
+on_violation:
+  block: true
+  notify: open meta-improvement issue with label "security"
+  remediation: |
+    Most violations indicate the agent attempted a destructive action without explicit user approval. Stop the session, document what was attempted in an issue, and require the user to authorize the action before any retry.

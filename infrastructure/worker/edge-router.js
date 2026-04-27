@@ -255,7 +255,16 @@ const SERVICE_ENDPOINTS = {
   agent: "/api/gen/health",
 };
 
-const STATIC_SITE_BINDINGS = ["MARKETING", "HOSPITALITY", "RIALTO", "GEN"];
+const STATIC_SITE_BINDINGS = [
+  "MARKETING",
+  "HOSPITALITY",
+  "RIALTO",
+  "GEN",
+  "MARKETING_CANARY",
+  "HOSPITALITY_CANARY",
+  "RIALTO_CANARY",
+  "GEN_CANARY",
+];
 
 const KV_KEYS = {
   ci: "ci/latest",
@@ -1087,6 +1096,9 @@ export default {
       } else if (url.pathname.startsWith("/canary/rialto")) {
         canaryBinding = env.RIALTO_CANARY;
         canaryPrefix = "/canary/rialto";
+      } else if (url.pathname.startsWith("/canary/gen")) {
+        canaryBinding = env.GEN_CANARY;
+        canaryPrefix = "/canary/gen";
       }
 
       if (canaryBinding) {

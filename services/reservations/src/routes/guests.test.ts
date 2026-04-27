@@ -140,6 +140,7 @@ describe("Guest Routes", () => {
       ...originalEnv,
       AUTH_AUTHORITY: "https://test.auth0.com",
       AUTH_AUDIENCE: "https://api.example.com",
+      AUTH_BYPASS_IN_TESTS: "true",
     };
     app = await buildApp({ logger: false });
     await app.ready();
@@ -172,7 +173,7 @@ describe("Guest Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/guests?venueId=venue-123",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(200);
@@ -190,7 +191,7 @@ describe("Guest Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/guests",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(400);
@@ -227,7 +228,7 @@ describe("Guest Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/guests/search?venueId=venue-123&query=john",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(200);
@@ -259,7 +260,7 @@ describe("Guest Routes", () => {
       await app.inject({
         method: "GET",
         url: "/api/v1/guests/search?venueId=venue-123&hasNotVisitedInDays=30",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(guestService.search).toHaveBeenCalledWith({
@@ -282,7 +283,7 @@ describe("Guest Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/guests/segments?venueId=venue-123",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(200);
@@ -304,7 +305,7 @@ describe("Guest Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/guests/guest-123",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(200);
@@ -323,7 +324,7 @@ describe("Guest Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/guests/nonexistent",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(404);
@@ -341,7 +342,7 @@ describe("Guest Routes", () => {
       const response = await app.inject({
         method: "POST",
         url: "/api/v1/guests",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
         payload: {
           venueId: "venue-123",
           name: "John Doe",
@@ -367,7 +368,7 @@ describe("Guest Routes", () => {
       const response = await app.inject({
         method: "POST",
         url: "/api/v1/guests",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
         payload: {
           venueId: "venue-123",
           name: "John Doe",
@@ -392,7 +393,7 @@ describe("Guest Routes", () => {
       const response = await app.inject({
         method: "POST",
         url: "/api/v1/guests/find-or-create",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
         payload: {
           venueId: "venue-123",
           name: "John Doe",
@@ -414,7 +415,7 @@ describe("Guest Routes", () => {
       const response = await app.inject({
         method: "POST",
         url: "/api/v1/guests/find-or-create",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
         payload: {
           venueId: "venue-123",
           name: "John Doe",
@@ -439,7 +440,7 @@ describe("Guest Routes", () => {
       const response = await app.inject({
         method: "PATCH",
         url: "/api/v1/guests/guest-123",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
         payload: { name: "Jane Doe" },
       });
 
@@ -458,7 +459,7 @@ describe("Guest Routes", () => {
       const response = await app.inject({
         method: "PATCH",
         url: "/api/v1/guests/nonexistent",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
         payload: { name: "Jane Doe" },
       });
 
@@ -477,7 +478,7 @@ describe("Guest Routes", () => {
       const response = await app.inject({
         method: "DELETE",
         url: "/api/v1/guests/guest-123",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(204);
@@ -494,7 +495,7 @@ describe("Guest Routes", () => {
       const response = await app.inject({
         method: "DELETE",
         url: "/api/v1/guests/nonexistent",
-        headers: { authorization: "Bearer valid-token" },
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(404);

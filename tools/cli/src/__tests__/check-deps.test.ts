@@ -27,13 +27,16 @@ describe("check-deps command", () => {
     warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.spyOn(console, "info").mockImplementation(() => {});
-    // Make findMonorepoRoot find a root with pnpm-workspace.yaml
-    mockExistsSync.mockReturnValue(true);
+    // findMonorepoRoot: return true for any path that might contain our mock files
+    mockExistsSync.mockImplementation((p: unknown) => {
+      const path = String(p);
+      return path.endsWith("pnpm-workspace.yaml") || path.includes("package.json");
+    });
   });
 
   async function runCheckDeps(): Promise<void> {
     const { checkDepsCommand } = await import("../commands/check-deps.js");
-    await checkDepsCommand.parseAsync(["check-deps"], { from: "user" });
+    await checkDepsCommand.parseAsync([], { from: "user" });
   }
 
   it("reports no mismatches when all versions are consistent", async () => {
@@ -52,7 +55,7 @@ describe("check-deps command", () => {
       });
     });
 
-    await runCheckDeps();
+    await expect(runCheckDeps()).resolves.not.toThrow();
     const logOutput = logSpy.mock.calls.flat().join(" ");
     expect(logOutput).toContain("All external dependencies are consistent");
     expect(exitSpy).not.toHaveBeenCalled();
@@ -74,8 +77,7 @@ describe("check-deps command", () => {
       });
     });
 
-    await runCheckDeps();
-    expect(exitSpy).toHaveBeenCalledWith(1);
+    await expect(runCheckDeps()).rejects.toThrow("Found 1 dependencies with version mismatches.");
     const warnOutput = warnSpy.mock.calls.flat().join(" ");
     expect(warnOutput).toContain("zod");
     expect(warnOutput).toContain("^3.21.0");
@@ -98,7 +100,7 @@ describe("check-deps command", () => {
       });
     });
 
-    await runCheckDeps();
+    await expect(runCheckDeps()).resolves.not.toThrow();
     const logOutput = logSpy.mock.calls.flat().join(" ");
     expect(logOutput).toContain("All external dependencies are consistent");
     expect(exitSpy).not.toHaveBeenCalled();
@@ -120,8 +122,7 @@ describe("check-deps command", () => {
       });
     });
 
-    await runCheckDeps();
-    expect(exitSpy).toHaveBeenCalledWith(1);
+    await expect(runCheckDeps()).rejects.toThrow("Found 1 dependencies with version mismatches.");
     const warnOutput = warnSpy.mock.calls.flat().join(" ");
     expect(warnOutput).toContain("vitest");
   });

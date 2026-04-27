@@ -1,27 +1,12 @@
 #!/usr/bin/env node
 
-/**
- * Architecture fitness test: verifies that environment variables referenced in
- * service source code are documented in the corresponding .env.example file.
- *
- * Scans process.env references in service src/ directories (excluding generated
- * code) and checks each one appears in .env.example.
- *
- * Some env vars are platform-injected and don't belong in .env.example — these
- * are explicitly excluded.
- *
- * Usage: node scripts/check-env-sync.js
- * Exit code: 0 if in sync, 1 if missing vars found
- */
-
-import { readFileSync, readdirSync, existsSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { readFileSync, existsSync } from "node:fs";
+import { join, dirname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { globSync } from "glob";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
-
-const SERVICES = ["users", "reservations", "agent"];
 
 // Env vars injected by platform/runtime — not expected in .env.example
 const PLATFORM_VARS = new Set([
@@ -35,30 +20,44 @@ const PLATFORM_VARS = new Set([
   "OTEL_SERVICE_NAME",
   "SENTRY_RELEASE",
   "PRISMA_CONNECTION_LIMIT",
+  "DEV",
+  "PROD",
+  "MODE",
+  "SSR",
+  "BASE_URL",
 ]);
 
-function collectEnvVars(dir) {
+function collectEnvVars(packageDir) {
   const vars = new Set();
+  
+  const files = globSync("**/*.{ts,tsx,js,jsx}", {
+    cwd: packageDir,
+    ignore: [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/generated/**",
+      "**/*.test.{ts,tsx,js,jsx}",
+      "**/*.spec.{ts,tsx,js,jsx}",
+    ],
+  });
 
-  function walk(current) {
-    for (const entry of readdirSync(current, { withFileTypes: true })) {
-      if (entry.name === "generated" || entry.name === "node_modules") continue;
+  for (const file of files) {
+    const content = readFileSync(join(packageDir, file), "utf-8");
+    
+    // Match process.env.VAR
+    const processRe = /process\.env\.(\w+)/g;
+    let m;
+    while ((m = processRe.exec(content)) !== null) {
+      vars.add(m[1]);
+    }
 
-      const fullPath = join(current, entry.name);
-      if (entry.isDirectory()) {
-        walk(fullPath);
-      } else if (entry.name.endsWith(".ts") && !entry.name.endsWith(".test.ts")) {
-        const content = readFileSync(fullPath, "utf-8");
-        const re = /process\.env\.(\w+)/g;
-        let m;
-        while ((m = re.exec(content)) !== null) {
-          vars.add(m[1]);
-        }
-      }
+    // Match import.meta.env.VAR
+    const metaRe = /import\.meta\.env\.(\w+)/g;
+    while ((m = metaRe.exec(content)) !== null) {
+      vars.add(m[1]);
     }
   }
 
-  walk(dir);
   return vars;
 }
 
@@ -80,13 +79,19 @@ function parseEnvExample(filePath) {
 // Run
 let hasErrors = false;
 
-console.log("Checking .env.example completeness for all services...\n");
+console.log("🔍 Checking .env.example completeness across monorepo...\n");
 
-for (const service of SERVICES) {
-  const srcDir = join(root, "services", service, "src");
-  const envExamplePath = join(root, "services", service, ".env.example");
+const exampleFiles = globSync("**/.env.example", {
+  cwd: root,
+  ignore: ["**/node_modules/**", "**/dist/**", "**/.claude/**"],
+});
 
-  const codeVars = collectEnvVars(srcDir);
+for (const exampleFile of exampleFiles) {
+  const envExamplePath = join(root, exampleFile);
+  const packageDir = dirname(envExamplePath);
+  const packageRelativePath = relative(root, packageDir);
+
+  const codeVars = collectEnvVars(packageDir);
   const exampleVars = parseEnvExample(envExamplePath);
 
   // Filter out platform vars
@@ -96,12 +101,12 @@ for (const service of SERVICES) {
     .sort();
 
   if (missing.length === 0) {
-    console.log(`  ${service}: all env vars documented in .env.example`);
+    console.log(`  ✅ ${packageRelativePath}: all env vars documented`);
   } else {
     hasErrors = true;
-    console.log(`  ${service}: MISSING from .env.example:`);
+    console.log(`  ❌ ${packageRelativePath}: MISSING from .env.example:`);
     for (const v of missing) {
-      console.log(`    - ${v}`);
+      console.log(`     - ${v}`);
     }
   }
 }

@@ -57,6 +57,7 @@ describe("Session Events SSE Integration", () => {
   beforeEach(async () => {
     process.env.AUTH_AUTHORITY = "https://test.auth0.com";
     process.env.AUTH_AUDIENCE = "https://api.test.com";
+    process.env.AUTH_BYPASS_IN_TESTS = "true";
     app = await buildApp({ logger: false });
     await app.ready();
   });
@@ -70,7 +71,7 @@ describe("Session Events SSE Integration", () => {
     // Mock session exists
     vi.mocked(prisma.session.findUnique).mockResolvedValue({
       id: "session-1",
-      status: "RUNNING",
+      status: "SUCCEEDED",
       taskDescription: "test",
       branchName: null,
       baseBranch: "main",
@@ -108,7 +109,7 @@ describe("Session Events SSE Integration", () => {
     const response = await app.inject({
       method: "GET",
       url: "/v1/sessions/session-1/events",
-      headers: { authorization: "Bearer valid-token" },
+      headers: { "x-auth-bypass": "true" },
     });
 
     // Should return SSE content type
@@ -121,7 +122,7 @@ describe("Session Events SSE Integration", () => {
     const response = await app.inject({
       method: "GET",
       url: "/v1/sessions/nonexistent/events",
-      headers: { authorization: "Bearer valid-token" },
+      headers: { "x-auth-bypass": "true" },
     });
 
     expect(response.statusCode).toBe(404);
@@ -174,7 +175,7 @@ describe("Session Events SSE Integration", () => {
     const response = await app.inject({
       method: "GET",
       url: "/v1/sessions/session-2/events",
-      headers: { authorization: "Bearer valid-token" },
+      headers: { "x-auth-bypass": "true" },
     });
 
     const body = response.body;

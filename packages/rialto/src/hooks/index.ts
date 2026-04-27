@@ -1,3 +1,5 @@
 export { useDirection } from "./useDirection";
 export { useScrollReveal } from "./useScrollReveal";
 export { useTilt } from "./useTilt";
+export { useThemeState, resolveTheme } from "./useThemeState";
+export type { ThemePreference, ThemeState } from "./useThemeState";

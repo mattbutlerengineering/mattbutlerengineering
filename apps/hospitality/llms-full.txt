@@ -129,18 +129,14 @@
     }
   </file>
   <file path="src/hooks/use-theme.ts">
-    type ThemePreference = "light" | "dark" | "system";
-    function getStoredTheme(): ThemePreference {
-      try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored === "light" || stored === "dark" || stored === "system") {
-          return stored;
-        }
-      } catch {
-        // localStorage unavailable (private browsing, etc.)
-      }
-      return "system";
+    export interface ThemeContextValue {
+      readonly theme: ThemePreference;
+      readonly setTheme: (theme: ThemePreference) => void;
     }
+    export const ThemeContext = createContext<ThemeContextValue>({
+      theme: "system",
+      setTheme: () => {},
+    });
   </file>
   <file path="src/hooks/use-command-palette.ts">
     interface UseCommandPaletteOptions {

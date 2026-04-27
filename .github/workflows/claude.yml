@@ -1,0 +1,100 @@
+name: claude
+
+# AI-assisted workflow trigger: dispatches an agent in response to
+# @claude mentions in issues, PRs, and review comments. Mirrors the
+# pattern in kubestellar/console (the canonical ACMM reference repo).
+#
+# NOTE: GitHub Actions billing is intentionally unpaid on this repo
+# (CLAUDE.md). The workflow exists as encoded policy. The runtime
+# equivalent is `mbe agent run "<prompt>"` invoked locally or via the
+# mbe-issue-worker RemoteTrigger.
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: claude-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    # Run only when the comment body contains an @claude mention.
+    # No untrusted text reaches the shell — `contains()` is a GH
+    # expression, evaluated by Actions, not by bash.
+    if: |
+      (github.event_name == 'issue_comment'           && contains(github.event.comment.body, '@claude'))
+      || (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))
+      || (github.event_name == 'pull_request_review'         && contains(github.event.review.body, '@claude'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Untrusted comment text captured via env vars only.
+      COMMENT_BODY: ${{ github.event.comment.body || github.event.review.body }}
+      COMMENT_AUTHOR: ${{ github.event.comment.user.login || github.event.review.user.login }}
+      ISSUE_OR_PR_NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+      EVENT_NAME: ${{ github.event_name }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - name: Verify the author is authorized
+        run: |
+          # Only repository collaborators can trigger an agent.
+          role=$(gh api "repos/${{ github.repository }}/collaborators/$COMMENT_AUTHOR/permission" --jq '.permission' 2>/dev/null || echo "none")
+          case "$role" in
+            admin|maintain|write) echo "Authorized ($role)";;
+            *) echo "Author $COMMENT_AUTHOR not a collaborator (role: $role); ignoring."; exit 0;;
+          esac
+
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Extract task from comment
+        run: |
+          printf '%s' "$COMMENT_BODY" | sed -n 's/.*@claude[[:space:]]*//p' | head -50 > /tmp/agent-task.txt
+          if [ ! -s /tmp/agent-task.txt ]; then
+            printf '%s' "$COMMENT_BODY" > /tmp/agent-task.txt
+          fi
+
+      - name: Acknowledge
+        run: |
+          gh issue comment "$ISSUE_OR_PR_NUMBER" --body "Working on it. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      - name: Run agent
+        id: agent
+        run: |
+          if pnpm exec mbe agent run "$(cat /tmp/agent-task.txt)" --max-budget 1.50; then
+            echo "outcome=success" >> "$GITHUB_OUTPUT"
+          else
+            echo "outcome=failure" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Report outcome
+        if: always()
+        env:
+          OUTCOME: ${{ steps.agent.outputs.outcome || 'cancelled' }}
+        run: |
+          gh issue comment "$ISSUE_OR_PR_NUMBER" --body "Agent run finished: $OUTCOME. See run for details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
