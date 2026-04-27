@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm --dir services/reservations dev)",
+      "Bash(pnpm --dir services/reservations build)",
+      "Bash(pnpm --dir services/reservations test)",
+      "Bash(pnpm --dir services/reservations test:watch)",
+      "Bash(pnpm --dir services/reservations test:coverage)",
+      "Bash(pnpm --dir services/reservations lint)",
+      "Bash(pnpm --dir services/reservations typecheck)",
+      "Bash(pnpm --dir services/reservations prisma:generate)",
+      "Bash(pnpm --dir services/reservations prisma:push)",
+      "Bash(pnpm --dir services/reservations prisma:migrate)",
+      "Bash(pnpm --dir services/reservations prisma:studio)",
+      "Bash(pnpm --dir services/reservations db:generate)",
+      "Bash(pnpm --dir services/reservations db:push)",
+      "Bash(pnpm --dir services/reservations db:migrate)",
+      "Bash(pnpm --dir services/reservations db:studio)",
+      "Bash(node scripts/acmm/audit.js --project services/reservations)"
+    ],
+    "deny": [
+      "Bash(**drop**)",
+      "Bash(**TRUNCATE**)",
+      "Bash(**DELETE FROM**)"
+    ]
+  }
+}
