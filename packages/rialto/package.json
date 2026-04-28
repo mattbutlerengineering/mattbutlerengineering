@@ -327,7 +327,9 @@
     "manifest": "pnpm exec tsx scripts/generate-manifest.ts",
     "exports": "pnpm exec tsx scripts/generate-exports.ts",
     "exports:check": "pnpm exec tsx scripts/generate-exports.ts --check",
-    "build:registry": "pnpm exec tsx scripts/generate-registry.ts"
+    "build:registry": "pnpm exec tsx scripts/generate-registry.ts",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "peerDependencies": {
     "framer-motion": "^12.0.0",
@@ -342,7 +344,7 @@
     "@testing-library/jest-dom": "catalog:",
     "@testing-library/react": "catalog:",
     "@testing-library/user-event": "^14.6.1",
-    "@types/node": "catalog:",
+    "@types/node": "^25.6.0",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
@@ -350,14 +352,25 @@
     "framer-motion": "catalog:",
     "jsdom": "catalog:",
     "lucide-react": "catalog:",
-    "react": "catalog:",
-    "react-dom": "catalog:",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
     "tsx": "^4.19.0",
-    "typescript": "catalog:",
+    "typescript": "^6.0.3",
     "vite": "catalog:",
     "vite-plugin-dts": "^4.5.4",
-    "vitest": "catalog:",
-    "vitest-axe": "^0.1.0"
+    "vitest": "^4.1.5",
+    "vitest-axe": "^0.1.0",
+    "storybook": "^10.3.5",
+    "@storybook/react-vite": "^10.3.5",
+    "@chromatic-com/storybook": "^5.1.2",
+    "@storybook/addon-vitest": "^10.3.5",
+    "@storybook/addon-a11y": "^10.3.5",
+    "@storybook/addon-docs": "^10.3.5",
+    "@storybook/addon-onboarding": "^10.3.5",
+    "eslint-plugin-storybook": "^10.3.5",
+    "playwright": "^1.59.1",
+    "@vitest/browser-playwright": "^4.1.5",
+    "@vitest/coverage-v8": "^4.1.5"
   },
   "size-limit": [
     {

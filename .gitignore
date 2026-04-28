@@ -77,3 +77,6 @@ e2e/test-results/
 
 # Audit state (per-environment, not committed)
 .audit-state/
+
+*storybook.log
+storybook-static
