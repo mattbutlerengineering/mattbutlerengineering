@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-04-26T23:07:51.301Z",
+  "lastRun": "2026-04-28T00:24:15.531Z",
   "currentLevel": 1,
   "checks": {
     "acmm:prereq-test-suite": {
@@ -11,20 +11,20 @@
       "evidence": "detected at one of: playwright.config.ts, playwright.config.js, cypress.config.ts, cypress.config.js, e2e/, tests/e2e/"
     },
     "acmm:prereq-cicd": {
-      "passed": false,
-      "evidence": "none of: .github/workflows/, .gitlab-ci.yml, Jenkinsfile, .circleci/"
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/, .gitlab-ci.yml, Jenkinsfile, .circleci/"
     },
     "acmm:prereq-pr-template": {
-      "passed": false,
-      "evidence": "none of: .github/pull_request_template.md, .github/PULL_REQUEST_TEMPLATE.md"
+      "passed": true,
+      "evidence": "detected at one of: .github/pull_request_template.md, .github/PULL_REQUEST_TEMPLATE.md"
     },
     "acmm:prereq-issue-template": {
-      "passed": false,
-      "evidence": "none of: .github/ISSUE_TEMPLATE/, .github/issue_template.md"
+      "passed": true,
+      "evidence": "detected at one of: .github/ISSUE_TEMPLATE/, .github/issue_template.md"
     },
     "acmm:prereq-contrib-guide": {
-      "passed": false,
-      "evidence": "none of: CONTRIBUTING.md, .github/CONTRIBUTING.md"
+      "passed": true,
+      "evidence": "detected at one of: CONTRIBUTING.md, .github/CONTRIBUTING.md"
     },
     "acmm:prereq-code-style": {
       "passed": true,
@@ -71,28 +71,28 @@
       "evidence": "none of: .claude/memory/"
     },
     "acmm:pr-acceptance-metric": {
-      "passed": false,
-      "evidence": "none of: scripts/build-accm-history.mjs, .github/workflows/accm-history-update.yml, scripts/pr-metrics.mjs"
+      "passed": true,
+      "evidence": "detected at one of: scripts/build-accm-history.mjs, .github/workflows/accm-history-update.yml, scripts/pr-metrics.mjs"
     },
     "acmm:pr-review-rubric": {
-      "passed": false,
-      "evidence": "none of: .github/review-rubric.md, docs/review-criteria.md, .github/prompts/review.md, docs/qa/"
+      "passed": true,
+      "evidence": "detected at one of: .github/review-rubric.md, docs/review-criteria.md, .github/prompts/review.md, docs/qa/"
     },
     "acmm:quality-dashboard": {
       "passed": false,
       "evidence": "none of: web/public/analytics.js, web/src/components/analytics/"
     },
     "acmm:ci-matrix": {
-      "passed": false,
-      "evidence": "none of: .github/workflows/build.yml, .github/workflows/build-deploy.yml, .github/workflows/ci.yml, .github/workflows/test.yml"
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/build.yml, .github/workflows/build-deploy.yml, .github/workflows/ci.yml, .github/workflows/test.yml"
     },
     "acmm:layered-safety": {
-      "passed": false,
-      "evidence": "none of: .claude/settings.json, .claude/settings.local.json"
+      "passed": true,
+      "evidence": "detected at one of: .claude/settings.json, .claude/settings.local.json"
     },
     "acmm:mechanical-enforcement": {
-      "passed": false,
-      "evidence": "none of: .claude/settings.json"
+      "passed": true,
+      "evidence": "detected at one of: .claude/settings.json"
     },
     "acmm:context-budget": {
       "passed": false,
@@ -115,36 +115,36 @@
       "evidence": "none of: .claude/session-summary.md, .claude/checkpoint.md"
     },
     "acmm:structural-gates": {
-      "passed": false,
-      "evidence": "none of: .claude/settings.json"
+      "passed": true,
+      "evidence": "detected at one of: .claude/settings.json"
     },
     "acmm:auto-qa-tuning": {
-      "passed": false,
-      "evidence": "none of: .github/auto-qa-tuning.json, .github/qa-tuning.yml"
+      "passed": true,
+      "evidence": "detected at one of: .github/auto-qa-tuning.json, .github/qa-tuning.yml"
     },
     "acmm:nightly-compliance": {
-      "passed": false,
-      "evidence": "none of: .github/workflows/nightly-compliance.yml, .github/workflows/nightly.yml, .github/workflows/nightly-test.yml, .github/workflows/nightly-test-suite.yml"
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/nightly-compliance.yml, .github/workflows/nightly.yml, .github/workflows/nightly-test.yml, .github/workflows/nightly-test-suite.yml"
     },
     "acmm:copilot-review-apply": {
       "passed": false,
       "evidence": "none of: .github/workflows/copilot-review-apply.yml, .github/workflows/ai-fix.yml, .github/workflows/auto-review.yml"
     },
     "acmm:auto-label": {
-      "passed": false,
-      "evidence": "none of: .github/workflows/auto-label.yml, .github/labeler.yml, .github/workflows/triage.yml"
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/auto-label.yml, .github/labeler.yml, .github/workflows/triage.yml"
     },
     "acmm:ai-fix-workflow": {
-      "passed": false,
-      "evidence": "none of: .github/workflows/ai-fix.yml, .github/workflows/fix-requested.yml, .github/workflows/claude.yml"
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/ai-fix.yml, .github/workflows/fix-requested.yml, .github/workflows/claude.yml"
     },
     "acmm:tier-classifier": {
-      "passed": false,
-      "evidence": "none of: .github/workflows/tier-classifier.yml, .github/workflows/pr-size.yml"
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/tier-classifier.yml, .github/workflows/pr-size.yml"
     },
     "acmm:security-ai-md": {
-      "passed": false,
-      "evidence": "none of: SECURITY-AI.md, docs/security/SECURITY-AI.md, docs/SECURITY-AI.md"
+      "passed": true,
+      "evidence": "detected at one of: SECURITY-AI.md, docs/security/SECURITY-AI.md, docs/SECURITY-AI.md"
     },
     "acmm:structured-workflows": {
       "passed": false,
@@ -175,16 +175,16 @@
       "evidence": "none of: .claude/checkpoint.md, .claude/session-summary.md"
     },
     "acmm:cross-session-knowledge": {
-      "passed": false,
-      "evidence": "none of: knowledge.jsonl, .knowledge/, docs/reflections/"
+      "passed": true,
+      "evidence": "detected at one of: knowledge.jsonl, .knowledge/, docs/reflections/"
     },
     "acmm:cross-repo-skills": {
-      "passed": false,
-      "evidence": "none of: .claude/settings.json"
+      "passed": true,
+      "evidence": "detected at one of: .claude/settings.json"
     },
     "acmm:github-coordination": {
-      "passed": false,
-      "evidence": "none of: .github/workflows/"
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/"
     },
     "acmm:feedback-loops": {
       "passed": false,
@@ -203,72 +203,72 @@
       "evidence": "none of: task-log.jsonl, .claude/task-log.jsonl"
     },
     "acmm:github-actions-ai": {
-      "passed": false,
-      "evidence": "none of: .github/workflows/claude.yml, .github/workflows/claude-code-review.yml"
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/claude.yml, .github/workflows/claude-code-review.yml"
     },
     "acmm:auto-qa-self-tuning": {
-      "passed": false,
-      "evidence": "none of: .github/workflows/auto-qa.yml, .github/auto-qa-tuning.json"
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/auto-qa.yml, .github/auto-qa-tuning.json"
     },
     "acmm:public-metrics": {
       "passed": false,
       "evidence": "none of: web/netlify/functions/analytics-accm.mts, web/public/analytics.js"
     },
     "acmm:policy-as-code": {
-      "passed": false,
-      "evidence": "none of: .github/policies/, policy/, conftest.yaml, opa/"
+      "passed": true,
+      "evidence": "detected at one of: .github/policies/, policy/, conftest.yaml, opa/"
     },
     "acmm:reflection-log": {
-      "passed": false,
-      "evidence": "none of: docs/reflections/, memory/, .memory/, REFLECTIONS.md"
+      "passed": true,
+      "evidence": "detected at one of: docs/reflections/, memory/, .memory/, REFLECTIONS.md"
     },
     "acmm:periodic-reflection": {
       "passed": false,
       "evidence": "none of: .github/workflows/reflection-review.yml"
     },
     "acmm:audit-trail": {
-      "passed": false,
-      "evidence": "none of: .github/workflows/audit-trail.yml, .github/workflows/ai-attribution.yml"
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/audit-trail.yml, .github/workflows/ai-attribution.yml"
     },
     "acmm:auto-issue-gen": {
-      "passed": false,
-      "evidence": "none of: .github/workflows/auto-issue.yml, .github/workflows/issue-gen.yml, .github/workflows/auto-generate-issues.yml"
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/auto-issue.yml, .github/workflows/issue-gen.yml, .github/workflows/auto-generate-issues.yml"
     },
     "acmm:multi-agent-orchestration": {
-      "passed": false,
-      "evidence": "none of: scripts/orchestrate.mjs, .github/workflows/orchestrate.yml, orchestrator/"
+      "passed": true,
+      "evidence": "detected at one of: scripts/orchestrate.mjs, .github/workflows/orchestrate.yml, orchestrator/"
     },
     "acmm:merge-queue": {
-      "passed": false,
-      "evidence": "none of: .github/workflows/merge-queue.yml, .prow.yaml, tide.yaml"
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/merge-queue.yml, .prow.yaml, tide.yaml"
     },
     "acmm:strategic-dashboard": {
-      "passed": false,
-      "evidence": "none of: web/src/components/acmm/, web/public/analytics.js, docs/autonomous-work-log.md"
+      "passed": true,
+      "evidence": "detected at one of: web/src/components/acmm/, web/public/analytics.js, docs/autonomous-work-log.md"
     },
     "acmm:risk-assessment-config": {
-      "passed": false,
-      "evidence": "none of: risk-config.json, .claude/risk-config.json, .github/risk-assessment.yml"
+      "passed": true,
+      "evidence": "detected at one of: risk-config.json, .claude/risk-config.json, .github/risk-assessment.yml"
     },
     "acmm:production-feedback": {
       "passed": false,
       "evidence": "none of: .github/workflows/production-feedback.yml"
     },
     "acmm:observability-runbook": {
-      "passed": false,
-      "evidence": "none of: docs/ai-ops-runbook.md, docs/runbook/, RUNBOOK.md"
+      "passed": true,
+      "evidence": "detected at one of: docs/ai-ops-runbook.md, docs/runbook/, RUNBOOK.md"
     },
     "acmm:rollback-drill": {
-      "passed": false,
-      "evidence": "none of: docs/rollback-drill.md, docs/ai-ops-runbook.md"
+      "passed": true,
+      "evidence": "detected at one of: docs/rollback-drill.md, docs/ai-ops-runbook.md"
     },
     "fullsend:test-coverage": {
       "passed": false,
       "evidence": "none of: codecov.yml, .codecov.yml, coverage.yml, .github/workflows/coverage-gate.yml"
     },
     "fullsend:ci-cd-maturity": {
-      "passed": false,
-      "evidence": "none of: .github/workflows/"
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/"
     },
     "fullsend:auto-merge-policy": {
       "passed": false,
@@ -283,12 +283,12 @@
       "evidence": "none of: monitoring/, grafana/, .github/workflows/post-deploy-check.yml, scripts/production-feedback.mjs"
     },
     "fullsend:observability-runbook": {
-      "passed": false,
-      "evidence": "none of: docs/runbook.md, docs/runbooks/, RUNBOOK.md, docs/operations/"
+      "passed": true,
+      "evidence": "detected at one of: docs/runbook.md, docs/runbooks/, RUNBOOK.md, docs/operations/"
     },
     "fullsend:risk-assessment": {
-      "passed": false,
-      "evidence": "none of: .github/risk-assessment.yml, docs/risk-tiers.md, .github/workflows/tier-classifier.yml"
+      "passed": true,
+      "evidence": "detected at one of: .github/risk-assessment.yml, docs/risk-tiers.md, .github/workflows/tier-classifier.yml"
     },
     "fullsend:rollback-drill": {
       "passed": false,
@@ -299,8 +299,8 @@
       "evidence": "none of: .agent/tasks/, docs/agent-tasks/, .github/agent-log/, agent-tasks.md"
     },
     "aef:structural-gates": {
-      "passed": false,
-      "evidence": "none of: CODEOWNERS, .github/CODEOWNERS, .agent/boundaries.yml, docs/agent-boundaries.md"
+      "passed": true,
+      "evidence": "detected at one of: CODEOWNERS, .github/CODEOWNERS, .agent/boundaries.yml, docs/agent-boundaries.md"
     },
     "aef:session-continuity": {
       "passed": false,
@@ -349,6 +349,12 @@
       "level": 1,
       "detected": 2,
       "total": 85
+    },
+    {
+      "date": "2026-04-28",
+      "level": 1,
+      "detected": 37,
+      "total": 85
     }
   ],
   "issuesCreated": {},
@@ -356,7 +362,42 @@
   "role": "Executor",
   "detectedIds": [
     "acmm:prereq-e2e",
-    "acmm:prereq-code-style"
+    "acmm:prereq-cicd",
+    "acmm:prereq-pr-template",
+    "acmm:prereq-issue-template",
+    "acmm:prereq-contrib-guide",
+    "acmm:prereq-code-style",
+    "acmm:pr-acceptance-metric",
+    "acmm:pr-review-rubric",
+    "acmm:ci-matrix",
+    "acmm:layered-safety",
+    "acmm:mechanical-enforcement",
+    "acmm:structural-gates",
+    "acmm:auto-qa-tuning",
+    "acmm:nightly-compliance",
+    "acmm:auto-label",
+    "acmm:ai-fix-workflow",
+    "acmm:tier-classifier",
+    "acmm:security-ai-md",
+    "acmm:cross-session-knowledge",
+    "acmm:cross-repo-skills",
+    "acmm:github-coordination",
+    "acmm:github-actions-ai",
+    "acmm:auto-qa-self-tuning",
+    "acmm:policy-as-code",
+    "acmm:reflection-log",
+    "acmm:audit-trail",
+    "acmm:auto-issue-gen",
+    "acmm:multi-agent-orchestration",
+    "acmm:merge-queue",
+    "acmm:strategic-dashboard",
+    "acmm:risk-assessment-config",
+    "acmm:observability-runbook",
+    "acmm:rollback-drill",
+    "fullsend:ci-cd-maturity",
+    "fullsend:observability-runbook",
+    "fullsend:risk-assessment",
+    "aef:structural-gates"
   ],
   "computation": {
     "level": 1,
@@ -365,10 +406,10 @@
     "characteristic": "AI used opportunistically with no project-specific configuration. Each session starts from scratch with no shared context.",
     "detectedByLevel": {
       "2": 0,
-      "3": 0,
-      "4": 0,
-      "5": 0,
-      "6": 0
+      "3": 3,
+      "4": 6,
+      "5": 5,
+      "6": 6
     },
     "requiredByLevel": {
       "2": 3,
@@ -434,16 +475,16 @@
     "nextTransitionTrigger": "\"I want the rules enforced mechanically, not just written down.\"",
     "antiPattern": "Tool-chasing: adopting every new model or IDE plugin in search of productivity that only comes from encoding judgment.",
     "prerequisites": {
-      "met": 2,
+      "met": 6,
       "total": 8
     },
     "crossCutting": {
       "learning": {
-        "met": 0,
+        "met": 1,
         "total": 1
       },
       "traceability": {
-        "met": 0,
+        "met": 1,
         "total": 1
       }
     }
@@ -451,9 +492,9 @@
   "behavioral": {
     "flake": {
       "rate_30d": 0,
-      "sample_size": 91,
+      "sample_size": 95,
       "flaky_shas": [],
-      "measured_at": "2026-04-26T23:07:51.301Z"
+      "measured_at": "2026-04-28T00:24:15.531Z"
     },
     "agent_pr": {
       "sample_size": 27,
@@ -465,7 +506,7 @@
       "median_time_to_merge_hours": 0.3784722222222222,
       "human_touch_ratio": 1,
       "insufficient_data": false,
-      "measured_at": "2026-04-26T23:07:51.301Z"
+      "measured_at": "2026-04-28T00:24:15.531Z"
     },
     "evals": null
   }
