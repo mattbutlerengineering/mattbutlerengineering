@@ -1,58 +1,53 @@
-# Hospitality App — Rollback Procedures
+# ROLLBACK.md — apps/hospitality/
 
-> When and how to roll back the hospitality app.
+Rollback procedures for the Hospitality app.
 
 ## When to Roll Back
 
-Roll back immediately if:
+- **DO NOT** roll back for: Minor UI glitches, missing features, style inconsistencies
+- **DO** roll back for: Data corruption, auth failures, broken reservations, Sentry error spike >5%
 
-1. **Critical error rate spikes** — >10% of requests returning 5xx
-2. **Users cannot authenticate** — Auth flow completely broken
-3. **Data corruption** — Reservations not saving/loading correctly
-4. **Complete downtime** — App returns 5xx for all requests
+## Rollback Procedure
 
-Do NOT roll back for:
-- UI glitches
-- Non-critical errors
-- Performance degradation (investigate first)
-
-## Rollback via Wrangler
-
-### Find Last Good Deploy
+### Method 1: Wrangler CLI
 
 ```bash
-wrangler deployments list --name mattbutlerengineering-hospitality
+# List recent deployments
+pnpm dlx wrangler@latest deployments list --name mattbutlerengineering-hospitality
+
+# Roll back to specific deployment
+pnpm dlx wrangler@latest deployments rollback --name mattbutlerengineering-hospitality <deployment-id>
 ```
 
-Note the SHA of the last known good deploy.
+### Method 2: Cloudflare Dashboard
 
-### Deploy Previous SHA
+1. Log in to Cloudflare Dashboard
+2. Navigate to **Workers & Pages** → `mattbutlerengineering-hospitality`
+3. Click **Deployments** tab
+4. Find last known good deployment
+5. Click **Rollback to this deployment**
+
+## Post-Rollback Checklist
+
+1. **Verify health**: `curl https://mattbutlerengineering.com/hospitality/api/health`
+2. **Check Sentry**: Error rates should drop within 5 minutes
+3. **Smoke test**: Navigate to `/hospitality/`, verify dashboard loads
+4. **File post-mortem**: Create issue with label `post-mortem`, include:
+   - What went wrong
+   - Why rollback was chosen
+   - What will prevent recurrence
+   - Link to Sentry issues / CI logs
+5. **Update deploy log**: Comment on the original PR with "Rolled back due to <reason>"
+
+## Canary Rollback
 
 ```bash
-cd apps/hospitality
-pnpm dlx wrangler deploy --legacy-cli-duration-isolation -- conserves --env <PREVIOUS_SHA>
+# If canary is the problem, promote stable instead
+pnpm dlx wrangler@latest deployments rollback \
+  --name mattbutlerengineering-hospitality-canary <stable-deployment-id>
 ```
 
-Or use the deployment ID:
+## Emergency Contacts
 
-```bash
-wrangler rollback mattbutlerengineering-hospitality --version <VERSION_ID>
-```
-
-## Rollback via Cloudflare Dashboard
-
-1. Go to Cloudflare Dashboard → Workers → mattbutlerengineering-hospitality
-2. Click "Settings" → "Deployments"
-3. Find the previous working deployment
-4. Click "Rollback"
-
-## Post-Rollback
-
-1. **File a post-mortem issue** — Use the incident template
-2. **Update the deploy log** — Document what failed
-3. **Notify on-call** — Post in #incidents channel
-
-## Cross-Reference
-
-- [RUNBOOK.md](./RUNBOOK.md)
-- [docs/IMPROVEMENT-BACKLOG.md](./IMPROVEMENT-BACKLOG.md)
+- **On-call**: `@mattbutlerengineering` GitHub team
+- **Escalation**: Team lead (30min response SLA)
