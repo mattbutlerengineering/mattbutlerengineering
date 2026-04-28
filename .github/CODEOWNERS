@@ -14,6 +14,9 @@
 /services/agent/                     @mattbutlerengineering
 /services/reservations/              @mattbutlerengineering
 /services/users/                     @mattbutlerengineering
+/services/users/         @mattbutlerengineering
+/services/reservations/  @mattbutlerengineering
+/services/agent/         @mattbutlerengineering
 
 # ── Apps ──────────────────────────────────────
 /apps/                               @mattbutlerengineering
