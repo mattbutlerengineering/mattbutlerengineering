@@ -1,0 +1,48 @@
+name: Publish Rialto to npm
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/rialto/**'
+      - 'packages/rialto-*/**'
+      - '.changeset/**'
+
+jobs:
+  publish:
+    name: Publish Rialto
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install pnpm
+        run: npm install -g pnpm@9
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Rialto
+        run: pnpm --filter @mattbutlerengineering/rialto build
+
+      - name: Create .npmrc
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+
+      - name: Publish with Changesets
+        uses: changesets/action@v1
+        with:
+          publish: pnpm release
+          commit-mode: auto
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
