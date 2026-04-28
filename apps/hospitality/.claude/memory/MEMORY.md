@@ -1,17 +1,22 @@
 # Memory
 
-Hospitality-scoped memory. Accumulates corrections and feedback specific to this app.
+Hospitality app-specific memory for corrections and feedback.
 
 ## Active
 
-None yet.
+- All UI uses Rialto components — no raw HTML elements
+- All colors use `var(--rialto-*)` tokens
+- All API calls use `@mbe/api-client` with `getAccessToken`
+- SSE callbacks use refs (not inline)
+- State must be immutable
+- ES module imports require explicit `.js` extension
 
 ## Feedback
 
-None yet.
+- (placeholder for hospitality-specific corrections)
 
 ## References
 
-- [CLAUDE.md](../CLAUDE.md) — Developer context
-- [AGENTS.md](../AGENTS.md) — Cross-tool agent rules
-- [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) — Data flow and API surface
+- `./CLAUDE.md` — full developer context
+- `./docs/ARCHITECTURE.md` — data flow and API surface
+- `./AGENTS.md` — cross-tool agent rules
