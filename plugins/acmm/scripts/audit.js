@@ -100,13 +100,13 @@ const startedAt = Date.now();
 const prior = loadState(cwd);
 
 // Modified detectAll logic to support inheritance
-const detectedIds = new Set();
+const detectedEvidence = new Map();
 for (const c of ALL_CRITERIA) {
   // Try local first
-  let passed = detect(cwd, c);
+  let res = detect(cwd, c);
   
   // If failed and inheritance enabled, try root for allowed global paths
-  if (!passed && acmmConfig.inherit) {
+  if (!res.detected && acmmConfig.inherit) {
     const patterns = Array.isArray(c.detection.pattern) ? c.detection.pattern : [c.detection.pattern];
     
     // Check if any pattern is local-only
@@ -119,19 +119,22 @@ for (const c of ALL_CRITERIA) {
         acmmConfig.globalPaths.some(gp => p.startsWith(gp) || p === gp)
       );
       if (isGlobal) {
-        passed = detect(repoRoot, c);
+        res = detect(repoRoot, c);
       }
     }
   }
   
-  if (passed) detectedIds.add(c.id);
+  if (res.detected) {
+    detectedEvidence.set(c.id, res.evidence || '(detected)');
+  }
 }
 
-const computation = computeLevel(detectedIds);
-const detectedCount = detectedIds.size;
+const computation = computeLevel(detectedEvidence);
+const detectedCount = detectedEvidence.size;
 const totalCount = ALL_CRITERIA.length;
 
 /* ── Diff vs prior saved state ──────────────────────────── */
+const detectedIds = new Set(detectedEvidence.keys());
 const priorIds = new Set(prior.detectedIds ?? []);
 const isFirstRun = !prior.lastRun;
 const diff = isFirstRun
@@ -148,11 +151,13 @@ const diff = isFirstRun
 /* ── Build per-criterion results map (id → {passed, evidence}) ── */
 const results = {};
 for (const c of ALL_CRITERIA) {
-  const passed = detectedIds.has(c.id);
+  const passed = detectedEvidence.has(c.id);
   const patterns = Array.isArray(c.detection.pattern) ? c.detection.pattern : [c.detection.pattern];
   results[c.id] = {
     passed,
-    evidence: passed ? `detected at one of: ${patterns.join(", ")}` : `none of: ${patterns.join(", ")}`,
+    evidence: passed 
+      ? detectedEvidence.get(c.id) 
+      : `none of: ${patterns.join(", ")}`,
   };
 }
 
