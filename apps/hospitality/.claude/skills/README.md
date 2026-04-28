@@ -1,16 +1,18 @@
-# Hospitality Skills
+# Hospitality App Skills
 
-This directory contains skills scoped to the hospitality app.
+App-specific skills for the hospitality application.
 
 ## Available Skills
 
-- [hospitality-smoke-test](./hospitality-smoke-test/SKILL.md) — Run E2E auth flow as pre-deploy gate
+### hospitality-smoke-test
+Pre-deploy smoke test that runs `pnpm test:e2e` for the auth flow.
 
-## Root Level Skills
+## Root Skills
 
-For full automation, reference root-level skills:
-- `/ship-loop` — Full audit → fix → ship → verify cycle
-- `/site-audit` — Smoke/sweep/scout crawls of live site
-- `/issue-worker` — Pick up and complete ready issues
-
-See `.claude/skills/` at repo root for complete catalog.
+For full automation, use the root-level skills:
+- `/ship-loop` — full local cycle (audit → fix → push → CI → deploy)
+- `/site-audit [smoke|sweep|scout]` — crawl live site
+- `/issue-worker` — pick up oldest `ready` issue and PR a fix
+- `/ci-monitor` — auto-fix simple CI failures
+- `/progress-tracker` — metrics + circuit breaker
+- `/acmm-audit` — score repo against AI Codebase Maturity Model
