@@ -1,74 +1,57 @@
-# Hospitality App — Runbook
+# RUNBOOK.md — apps/hospitality/
 
-> Operational procedures for the hospitality app. Assumes deploys via Cloudflare Workers.
-
-## Worker Names
-
-| Environment | Worker Name | Config |
-|-------------|------------|--------|
-| Production | `mattbutlerengineering-hospitality` | `wrangler.toml` |
-| Canary | `mattbutlerengineering-hospitality-canary` | `wrangler.canary.toml` |
+Operational runbook for the Hospitality app (React + Rialto). Deployed at `/hospitality/` via Cloudflare Worker `mattbutlerengineering-hospitality`.
 
 ## Deploy
 
-### Production
-
 ```bash
-cd apps/hospitality
-pnpm build
-pnpm dlx wrangler deploy
+# Production deploy
+cd apps/hospitality && pnpm dlx wrangler@latest deploy
+
+# Canary deploy
+pnpm dlx wrangler@latest deploy --config apps/hospitality/wrangler.canary.toml
+
+# Worker names:
+# - Production: mattbutlerengineering-hospitality
+# - Canary: mattbutlerengineering-hospitality-canary
 ```
-
-Production worker: `mattbutlerengineering-hospitality`
-
-### Canary
-
-```bash
-cd apps/hospitality
-pnpm build
-pnpm dlx wrangler deploy --config wrangler.canary.toml
-```
-
-Canary worker: `mattbutlerengineering-hospitality-canary`
 
 ## Health Checks
 
-| Endpoint | Purpose | Response |
-|----------|---------|----------|
-| `/api/health/system` | Liveness + dependency check | `{"status":"healthy","deps":{"db":"ok","upstream":"ok"}}` |
-| `/health` | Basic liveness only | `{"status":"ok"}` |
+| Endpoint | Type | Behavior |
+|-----------|------|-------------|
+| `/health` | Liveness | Always returns `{"status": "ok"}` — no DB touch |
+| `/hospitality/api/health` | Readiness | Checks upstream APIs, returns `degraded` on failure |
 
-The `/api/health/system` endpoint checks database and upstream API connectivity. Returns `degraded` when dependencies are down.
+```bash
+# Check health
+curl https://mattbutlerengineering.com/hospitality/api/health
+```
 
 ## Sentry Alert Response
 
-### Alert Routing
+| Severity | Response | Escalation |
+|----------|----------|-------------|
+| `error` | Investigate in Sentry, check recent deploys | On-call engineer |
+| `fatal` | Page on-call immediately | Team lead within 15min |
+| `warning` | Log for trend analysis | Next business day |
 
-Hospitality app errors route to the `mattbutlerengineering-hospitality` Sentry project.
+**Common patterns:**
+- Auth failures: Check Auth0 tenant status
+- SSE reconnects: Expected behavior, check frequency
+- Konva canvas errors: Check browser compatibility
 
-### Severity Tiers
+## On-Call Escalation
 
-| Tier | Trigger | Response Time |
-|------|---------|---------------|
-| P0 | `error` count > 0 in 5min | 15 min |
-| P1 | `error` count > 10 in 1hr | 1 hour |
+1. **Primary**: `@mattbutlerengineering` GitHub team
+2. **Escalate to**: Team lead (response expectation: 30min)
+3. **Communication**: Comment on Sentry issue, update incident channel
 
-### Common Error Patterns
+## Environment Variables
 
-| Pattern | Likely Cause | Fix |
-|---------|------------|-----|
-| Auth failures | Expired token, Auth0 outage | Check Auth0 status |
-| SSE reconnections | Network, upstream disconnect | Usually transient |
-| Konva canvas errors | Invalid floor plan JSON | Validate floor plan data |
-
-## On-Call
-
-- **Team:** @mattbutlerengineering
-- **Response time:** 15 min for P0, 1hr for P1
-- **Escalation:** Open GitHub issue with `severity:p0` label
-
-## Cross-Reference
-
-- [ROLLBACK.md](./ROLLBACK.md)
-- [`wrangler.toml`](./wrangler.toml)
-- [`wrangler.canary.toml`](./wrangler.canary.toml)
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `VITE_AUTH0_DOMAIN` | Yes | Auth0 tenant domain |
+| `VITE_AUTH0_CLIENT_ID` | Yes | Auth0 client ID |
+| `VITE_API_URL` | Yes | API base URL |
+| `SENTRY_DSN` | Yes (prod) | Sentry DSN for error tracking |
