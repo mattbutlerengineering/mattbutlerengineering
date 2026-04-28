@@ -61,8 +61,18 @@ function levelDef(n) {
 }
 
 export function computeLevel(rawDetectedIds){
+  // Support Map, Set, or Array as input
+  let ids;
+  if (rawDetectedIds instanceof Map) {
+    ids = Array.from(rawDetectedIds.keys());
+  } else if (rawDetectedIds instanceof Set) {
+    ids = Array.from(rawDetectedIds);
+  } else {
+    ids = rawDetectedIds;
+  }
+
   // Synthesise the virtual L2 OR-group criterion before the level walk.
-  const detectedIds = new Set(rawDetectedIds)
+  const detectedIds = new Set(ids)
   if ([...AGENT_INSTRUCTION_FILE_IDS].some((id) => detectedIds.has(id))) {
     detectedIds.add('acmm:agent-instructions')
   }
