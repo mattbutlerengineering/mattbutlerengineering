@@ -140,8 +140,8 @@ const isFirstRun = !prior.lastRun;
 const diff = isFirstRun
   ? null
   : {
-      added: [...detectedIds].filter((id) => !priorIds.has(id)).sort(),
-      removed: [...priorIds].filter((id) => !detectedIds.has(id)).sort(),
+      added: [...detectedEvidence.keys()].filter((id) => !priorIds.has(id)).sort(),
+      removed: [...priorIds].filter((id) => !detectedEvidence.has(id)).sort(),
       levelDelta: computation.level - (prior.currentLevel ?? 0),
       countDelta: detectedCount - priorIds.size,
       priorLevel: prior.currentLevel ?? 0,
@@ -191,7 +191,7 @@ const nextState = recordHistory(
     levelName: computation.levelName,
     role: computation.role,
     checks: results,
-    detectedIds: [...detectedIds],
+    detectedIds: [...detectedEvidence.keys()],
     computation,
     behavioral,
   },

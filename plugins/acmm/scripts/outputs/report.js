@@ -235,6 +235,7 @@ export function writeReport(cwd, { state, criteria, sources, computation, diff }
     lines.push("");
     for (const c of levelCriteria) {
       const mark = detectedSet.has(c.id) ? "✓" : "✗";
+      const evidence = state.checks?.[c.id]?.evidence;
       const patterns = Array.isArray(c.detection.pattern) ? c.detection.pattern : [c.detection.pattern];
       lines.push(`- **${mark} \`${c.id}\`** \`${c.source}\` \`${c.category}\` — ${c.name}`);
       lines.push(`  _${c.description}_`);
