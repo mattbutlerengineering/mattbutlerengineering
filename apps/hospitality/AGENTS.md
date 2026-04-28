@@ -1,6 +1,6 @@
-# AGENTS.md - Cross-Tool Agent Rules for Hospitality App
+# AGENTS.md — apps/hospitality/
 
-> Tool-agnostic agent rules. Applies to all AI coding agents (Claude, Gemini, Cursor, etc.).
+Cross-tool agent rules for the Hospitality app (React + Rialto + Konva).
 
 ## Critical Constraints
 
