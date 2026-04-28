@@ -95,3 +95,19 @@ test("detectAll: returns set of detected ids only", () => {
   assert.deepEqual([...result].sort(), ["a", "c"]);
   fx.cleanup();
 });
+
+test('detect: behavior type — command success', () => {
+  const criterion = {
+    id: 'test-behavior',
+    detection: { type: 'behavior', pattern: 'echo "success"' }
+  };
+  assert.strictEqual(detect(process.cwd(), criterion), true);
+});
+
+test('detect: behavior type — command failure', () => {
+  const criterion = {
+    id: 'test-behavior-fail',
+    detection: { type: 'behavior', pattern: 'false' }
+  };
+  assert.strictEqual(detect(process.cwd(), criterion), false);
+});
