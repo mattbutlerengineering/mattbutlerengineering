@@ -8,6 +8,29 @@ export default [
     rules: {
       // Allow console in Node.js service files
       "no-console": "off",
+      // Block non-rialto UI libraries
+      "no-restricted-imports": ["error",
+        {
+          name: "@mui/material",
+          message: "Use @mattbutlerengineering/rialto instead of MUI.",
+        },
+        {
+          name: "@chakra-ui/react",
+          message: "Use @mattbutlerengineering/rialto instead of Chakra.",
+        },
+        {
+          name: "@radix-ui/*",
+          message: "Use @mattbutlerengineering/rialto instead of Radix UI.",
+        },
+        {
+          name: "@mantine/core",
+          message: "Use @mattbutlerengineering/rialto instead of Mantine.",
+        },
+        {
+          name: "antd",
+          message: "Use @mattbutlerengineering/rialto instead of Ant Design.",
+        },
+      ],
     },
   },
 ];
