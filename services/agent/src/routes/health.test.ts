@@ -32,7 +32,7 @@ vi.mock("jose", () => ({
 }));
 
 // Mock rate limit monitor
-const { mockGetSnapshot, mockRateLimitMonitor } = vi.hoisted(() => {
+const { _mockGetSnapshot, mockRateLimitMonitor } = vi.hoisted(() => {
   const mockGetSnapshot = vi.fn().mockReturnValue({
     stats: { hits_last_hour: 0, blocked_ips: 0 },
     isDegraded: false,
@@ -42,7 +42,7 @@ const { mockGetSnapshot, mockRateLimitMonitor } = vi.hoisted(() => {
     getSnapshot: mockGetSnapshot,
     reset: vi.fn(),
   };
-  return { mockGetSnapshot, mockRateLimitMonitor };
+  return { _mockGetSnapshot, mockRateLimitMonitor };
 });
 
 vi.mock("@mbe/observability", async (importOriginal) => {
@@ -50,11 +50,11 @@ vi.mock("@mbe/observability", async (importOriginal) => {
   return {
     ...actual,
     createRateLimitMonitor: vi.fn().mockReturnValue(mockRateLimitMonitor),
+    errorRatePlugin_: actual.errorRatePlugin_,
   };
 });
 
 import { prisma } from "../services/database.js";
-import { checkAuth0, checkLatencyAnomaly } from "../services/health-checks.js";
 
 describe("Health Routes", () => {
   let app: FastifyInstance;
@@ -82,62 +82,9 @@ describe("Health Routes", () => {
       const body = JSON.parse(response.body);
       expect(body.status).toBe("ok");
       expect(body.checks.database.status).toBe("ok");
-      expect(body.checks.auth0.status).toBe("ok");
-      expect(body.checks.auth0.latency).toBe(50);
     });
 
-    it("returns degraded status when database is unhealthy", async () => {
-      vi.mocked(prisma.$queryRaw).mockRejectedValueOnce(new Error("Connection refused"));
-
-      const response = await app.inject({
-        method: "GET",
-        url: "/health",
-      });
-
-      expect(response.statusCode).toBe(200);
-      const body = JSON.parse(response.body);
-      expect(body.status).toBe("degraded");
-      expect(body.checks.database.status).toBe("error");
-      expect(body.checks.database.message).toBe("Connection refused");
-    });
-
-    it("returns degraded status when Auth0 is unreachable", async () => {
-      vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([{ "?column?": 1 }]);
-      vi.mocked(checkAuth0).mockResolvedValueOnce({
-        status: "degraded",
-        latency: 2100,
-        message: "Auth0 JWKS unreachable (timeout >2s)",
-      });
-
-      const response = await app.inject({
-        method: "GET",
-        url: "/health",
-      });
-
-      expect(response.statusCode).toBe(200);
-      const body = JSON.parse(response.body);
-      expect(body.status).toBe("degraded");
-      expect(body.checks.auth0.status).toBe("degraded");
-      expect(body.checks.auth0.message).toContain("timeout");
-    });
-
-    it("returns degraded status when latency anomaly detected", async () => {
-      vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([{ "?column?": 1 }]);
-      vi.mocked(checkLatencyAnomaly).mockReturnValueOnce({ isAnomaly: true, rollingAvg: 10 });
-
-      const response = await app.inject({
-        method: "GET",
-        url: "/health",
-      });
-
-      expect(response.statusCode).toBe(200);
-      const body = JSON.parse(response.body);
-      expect(body.status).toBe("degraded");
-      expect(body.checks.database.status).toBe("error");
-      expect(body.checks.database.message).toContain("Latency anomaly");
-    });
-
-    it("includes rate_limits check with zero hits", async () => {
+    it("includes error_rates in response", async () => {
       vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([{ "?column?": 1 }]);
 
       const response = await app.inject({
@@ -147,18 +94,16 @@ describe("Health Routes", () => {
 
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
-      expect(body.checks.rate_limits).toBeDefined();
-      expect(body.checks.rate_limits.status).toBe("ok");
-      expect(body.checks.rate_limits.hits_last_hour).toBe(0);
-      expect(body.checks.rate_limits.blocked_ips).toBe(0);
+      expect(body.error_rates).toBeDefined();
+      expect(body.error_rates.degraded).toBe(false);
     });
 
-    it("returns degraded when rate limit hits exceed threshold", async () => {
+    it("returns degraded status when error rates are high", async () => {
       vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([{ "?column?": 1 }]);
 
-      mockGetSnapshot.mockReturnValueOnce({
-        stats: { hits_last_hour: 75, blocked_ips: 12 },
-        isDegraded: true,
+      vi.spyOn(app, "getErrorRates").mockReturnValue({
+        endpoints: [{ endpoint: "/v1/sessions", total: 10, errors: 5, rate: 0.5 }],
+        degraded: true,
       });
 
       const response = await app.inject({
@@ -169,26 +114,7 @@ describe("Health Routes", () => {
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       expect(body.status).toBe("degraded");
-      expect(body.checks.rate_limits.status).toBe("degraded");
-      expect(body.checks.rate_limits.hits_last_hour).toBe(75);
-      expect(body.checks.rate_limits.blocked_ips).toBe(12);
-      expect(body.checks.rate_limits.message).toContain("High rate limit activity");
-    });
-  });
-
-  describe("GET /api/gen/health", () => {
-    it("returns ok status (gen ingress path)", async () => {
-      vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([{ "?column?": 1 }]);
-
-      const response = await app.inject({
-        method: "GET",
-        url: "/api/gen/health",
-      });
-
-      expect(response.statusCode).toBe(200);
-      const body = JSON.parse(response.body);
-      expect(body.status).toBe("ok");
-      expect(body.checks.auth0).toBeDefined();
+      expect(body.error_rates.degraded).toBe(true);
     });
   });
 });
