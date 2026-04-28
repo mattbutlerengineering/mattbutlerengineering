@@ -46,5 +46,34 @@
     "typescript": "catalog:",
     "vite": "catalog:"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "acmm": {
+    "inherit": true,
+    "globalPaths": [
+      ".github/workflows/",
+      ".github/PULL_REQUEST_TEMPLATE.md",
+      ".github/pull_request_template.md",
+      ".github/ISSUE_TEMPLATE/",
+      ".github/policies/",
+      ".github/auto-qa-tuning.json",
+      ".github/risk-assessment.yml",
+      ".github/labeler.yml",
+      "CONTRIBUTING.md",
+      "SECURITY-AI.md",
+      "docs/ai-ops-runbook.md",
+      "docs/rollback-drill.md",
+      "docs/reflections/",
+      "docs/autonomous-work-log.md",
+      "scripts/acmm/",
+      "scripts/build-accm-history.mjs",
+      "scripts/orchestrate.mjs",
+      ".claude/settings.json",
+      ".claude/risk-config.json",
+      "memory/",
+      "knowledge.jsonl",
+      "CODEOWNERS",
+      ".github/CODEOWNERS",
+      "risk-config.json"
+    ]
+  }
 }

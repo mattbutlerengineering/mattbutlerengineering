@@ -92,8 +92,8 @@ export function FloorPlanCanvas({
   // Draw grid pattern
   const gridPatternUrl = `data:image/svg+xml,${encodeURIComponent(`
     <svg width="${GRID_SIZE}" height="${GRID_SIZE}" xmlns="http://www.w3.org/2000/svg">
-      <rect width="${GRID_SIZE}" height="${GRID_SIZE}" fill="#f9fafb"/>
-      <path d="M ${GRID_SIZE} 0 L 0 0 0 ${GRID_SIZE}" fill="none" stroke="#e5e7eb" stroke-width="1"/>
+      <rect width="${GRID_SIZE}" height="${GRID_SIZE}" fill="#f8f6f3"/>
+      <path d="M ${GRID_SIZE} 0 L 0 0 0 ${GRID_SIZE}" fill="none" stroke="#d8d4cd" stroke-width="1"/>
     </svg>
   `)}`;
 

@@ -18,8 +18,8 @@ export function initSentry(options: InitOptions): void {
     environment: config.environment,
     release: config.release,
     replaysSessionSampleRate: 0,
-    replaysOnErrorSampleRate: 1.0,
-    integrations: [Sentry.replayIntegration()],
+    replaysOnErrorSampleRate: 0,
+    integrations: [],
   });
 
   Sentry.setTag("app", options.appName);

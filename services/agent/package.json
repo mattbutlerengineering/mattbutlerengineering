@@ -36,7 +36,7 @@
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@prisma/client-runtime-utils": "^7.8.0",
-    "@scalar/fastify-api-reference": "^1.52.6",
+    "@scalar/fastify-api-reference": "^1.53.0",
     "ai": "^6.0.168",
     "fastify": "catalog:",
     "pg": "^8.20.0",
@@ -55,5 +55,34 @@
     "typescript": "catalog:",
     "vitest": "catalog:"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "acmm": {
+    "inherit": true,
+    "globalPaths": [
+      ".github/workflows/",
+      ".github/PULL_REQUEST_TEMPLATE.md",
+      ".github/pull_request_template.md",
+      ".github/ISSUE_TEMPLATE/",
+      ".github/policies/",
+      ".github/auto-qa-tuning.json",
+      ".github/risk-assessment.yml",
+      ".github/labeler.yml",
+      "CONTRIBUTING.md",
+      "SECURITY-AI.md",
+      "docs/ai-ops-runbook.md",
+      "docs/rollback-drill.md",
+      "docs/reflections/",
+      "docs/autonomous-work-log.md",
+      "scripts/acmm/",
+      "scripts/build-accm-history.mjs",
+      "scripts/orchestrate.mjs",
+      ".claude/settings.json",
+      ".claude/risk-config.json",
+      "memory/",
+      "knowledge.jsonl",
+      "CODEOWNERS",
+      ".github/CODEOWNERS",
+      "risk-config.json"
+    ]
+  }
 }

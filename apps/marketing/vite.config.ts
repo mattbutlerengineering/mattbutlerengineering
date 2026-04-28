@@ -16,6 +16,24 @@ export default defineConfig({
   ],
   build: {
     sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined;
+          if (
+            id.includes("/node_modules/react/") ||
+            id.includes("/node_modules/react-dom/") ||
+            id.includes("/node_modules/react-router-dom/")
+          ) {
+            return "vendor-react";
+          }
+          if (id.includes("/node_modules/framer-motion/")) {
+            return "vendor-motion";
+          }
+          return undefined;
+        },
+      },
+    },
   },
   resolve: {
     alias: {
@@ -29,6 +47,13 @@ export default defineConfig({
         target: "http://localhost:3001",
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ""),
+        configure: (proxy) => {
+          proxy.on("proxyReq", (proxyReq, req) => {
+            if (req.headers["authorization"]) {
+              proxyReq.setHeader("Authorization", req.headers["authorization"]);
+            }
+          });
+        },
       },
     },
   },
