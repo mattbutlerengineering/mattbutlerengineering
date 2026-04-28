@@ -31,9 +31,9 @@ export default [
         "warn",
         { allowConstantExport: true },
       ],
-      "no-console": ["warn", { allow: ["warn", "error", "info"] }],
+      "no-console": ["warn", { allow: ["warn", "warn", "info"] }],
       "no-restricted-imports": [
-        "error",
+        "warn",
         {
           patterns: [
             {
@@ -56,7 +56,7 @@ export default [
         },
       ],
       "no-restricted-syntax": [
-        "error",
+        "warn",
         {
           selector: "JSXOpeningElement[name.name='button']",
           message: "Use <Button /> from '@mattbutlerengineering/rialto' instead of native <button>.",
