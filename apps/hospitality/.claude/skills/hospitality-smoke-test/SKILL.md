@@ -1,39 +1,23 @@
-# Hospitality Smoke Test Skill
+# hospitality-smoke-test
 
-Run the E2E auth flow as a pre-deploy gate. This validates that the hospitality app's authentication flow works correctly before deploying.
+Pre-deploy smoke test for the hospitality app.
 
-## When to Use
+## Trigger
 
-- Before deploying to production
-- Before deploying canary
-- After any auth-related changes
-- During `/ship-loop` pre-push phase
+Use when the user says "smoke test hospitality", "test hospitality before deploy", or "run hospitality e2e".
 
-## Prerequisites
+## What it does
 
-Set these environment variables:
-- `E2E_AUTH0_DOMAIN` — Auth0 tenant domain
-- `E2E_AUTH0_CLIENT_ID` — Auth0 client ID (must have Password grant)
-- `E2E_AUTH0_AUDIENCE` — API audience identifier
-- `E2E_AUTH_EMAIL` — Test user email (no MFA)
-- `E2E_AUTH_PASSWORD` — Test user password
+Runs the Playwright E2E tests for the hospitality app as a pre-deploy gate.
 
-## Command
+## Usage
 
 ```bash
-pnpm --dir apps/hospitality test:e2e --grep "auth"
+pnpm --dir apps/hospitality test:e2e
 ```
 
-## Success Criteria
+## Verification
 
-- Auth flow completes without errors
-- User is redirected to dashboard after login
-- No console errors related to auth
-
-## Failure Handling
-
-If auth flow fails:
-1. Check `E2E_AUTH*` env vars are set correctly
-2. Verify Auth0 client has Password grant enabled
-3. Check test user exists and has no MFA
-4. Run `pnpm --dir apps/hospitality test:e2e` for full output
+```bash
+node scripts/acmm/audit.js --project apps/hospitality
+```
