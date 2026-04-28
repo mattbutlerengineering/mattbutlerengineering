@@ -1,0 +1,6 @@
+{
+  "tier": "P0",
+  "rationale": "Agent orchestration service executing code in worktrees with API budget consumption",
+  "blast_radius": "compromised agent can drain budget, exfiltrate code via worktree, or write to consumer apps via PR",
+  "rollback_strategy": "see docs/RUNBOOK.md; terminate in-flight sessions before rollback to prevent split-brain"
+}
