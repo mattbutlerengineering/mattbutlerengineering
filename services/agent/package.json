@@ -31,7 +31,6 @@
     "@mbe/auth": "workspace:^",
     "@mbe/observability": "workspace:*",
     "@mbe/rialto-catalog": "workspace:^",
-    "@mbe/sentry": "workspace:^",
     "@mbe/types": "workspace:*",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
@@ -46,6 +45,7 @@
     "seed": "tsx prisma/seed.ts"
   },
   "devDependencies": {
+    "@mbe/agent-test-utils": "workspace:*",
     "@mbe/config": "workspace:*",
     "@types/node": "catalog:",
     "@types/pg": "^8.20.0",

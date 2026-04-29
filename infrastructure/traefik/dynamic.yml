@@ -62,7 +62,7 @@ http:
       rule: "PathPrefix(/api/gen)"
       service: agent-service
       middlewares:
-        - strip-agent-prefix
+        
         - security-headers
       entryPoints:
         - web
