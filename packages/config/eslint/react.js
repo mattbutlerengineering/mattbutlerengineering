@@ -31,7 +31,7 @@ export default [
         "warn",
         { allowConstantExport: true },
       ],
-      "no-console": ["warn", { allow: ["warn", "warn", "info"] }],
+      "no-console": ["warn", { allow: ["warn", "error", "info"] }],
       "no-restricted-imports": [
         "warn",
         {
