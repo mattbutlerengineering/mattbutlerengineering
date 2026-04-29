@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm --dir services/users dev)",
+      "Bash(pnpm --dir services/users build)",
+      "Bash(pnpm --dir services/users test)",
+      "Bash(pnpm --dir services/users test:watch)",
+      "Bash(pnpm --dir services/users test:coverage)",
+      "Bash(pnpm --dir services/users lint)",
+      "Bash(pnpm --dir services/users typecheck)",
+      "Bash(pnpm --dir services/users prisma:generate)",
+      "Bash(pnpm --dir services/users prisma:push)",
+      "Bash(pnpm --dir services/users prisma:migrate)",
+      "Bash(pnpm --dir services/users prisma:studio)",
+      "Bash(pnpm --dir services/users db:generate)",
+      "Bash(pnpm --dir services/users db:push)",
+      "Bash(pnpm --dir services/users db:migrate)",
+      "Bash(pnpm --dir services/users db:studio)",
+      "Bash(node scripts/acmm/audit.js --project services/users)"
+    ],
+    "deny": [
+      "Bash(**drop**)",
+      "Bash(**TRUNCATE**)",
+      "Bash(**DELETE FROM**)"
+    ]
+  }
+}

@@ -132,7 +132,17 @@ const healthHandler: HealthRouteHandler = async (request) => {
     }),
   };
 
-  const hasErrors = dbStatus === "error" || slowQueryStatus === "degraded" || auth0Result.status === "degraded" || rateLimitSnapshot.isDegraded;
+  const errorRates = request.server.getErrorRates();
+  const degradedEndpoints = errorRates.endpoints.filter((e) => e.rate > 0.1 && e.total >= 5);
+  checks.error_rates = {
+    status: errorRates.degraded ? "degraded" : "ok",
+    ...{ endpoints: errorRates.endpoints },
+    ...(errorRates.degraded && {
+      message: `High error rate on: ${degradedEndpoints.map((e) => `${e.endpoint} (${Math.round(e.rate * 100)}%)`).join(", ")}`,
+    }),
+  };
+
+  const hasErrors = dbStatus === "error" || slowQueryStatus === "degraded" || auth0Result.status === "degraded" || rateLimitSnapshot.isDegraded || errorRates.degraded;
 
   return {
     status: hasErrors ? "degraded" : "ok",

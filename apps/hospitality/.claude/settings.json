@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm --dir apps/hospitality dev)",
+      "Bash(pnpm --dir apps/hospitality build)",
+      "Bash(pnpm --dir apps/hospitality test)",
+      "Bash(pnpm --dir apps/hospitality test:e2e)",
+      "Bash(pnpm --dir apps/hospitality lint)",
+      "Bash(pnpm --dir apps/hospitality typecheck)",
+      "Bash(wrangler deploy)",
+      "Bash(wrangler --config apps/hospitality/wrangler.canary.toml deploy)",
+      "Bash(node scripts/acmm/audit.js --project apps/hospitality)"
+    ],
+    "deny": [
+      "Bash(**drop**)",
+      "Bash(**TRUNCATE**)",
+      "Bash(**DELETE FROM**)"
+    ]
+  }
+}
