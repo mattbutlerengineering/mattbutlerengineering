@@ -78,7 +78,7 @@ export function EditReservationDrawer({
         {error && <div className={styles.errorBanner}>{error}</div>}
 
         <Stack gap="md">
-          <Stack direction="horizontal" gap="md">
+          <Stack direction="row" gap="md">
             <div style={{ flex: 1 }}>
               <Input
                 label="Start Time"
@@ -111,15 +111,13 @@ export function EditReservationDrawer({
           <Select
             label="Table"
             value={tableId}
-            onChange={(e) => setTableId(e.target.value)}
+            options={activeTables.map((t) => ({
+              value: t.id,
+              label: `${t.name} (cap. ${t.capacity})`,
+            }))}
+            onChange={setTableId}
             disabled={isLoading}
-          >
-            {activeTables.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name} (cap. {t.capacity})
-              </option>
-            ))}
-          </Select>
+          />
 
           <TextArea
             label="Notes"
@@ -131,7 +129,7 @@ export function EditReservationDrawer({
           />
         </Stack>
 
-        <Stack direction="horizontal" gap="md" style={{ marginTop: "var(--rialto-space-lg)" }}>
+        <Stack direction="row" gap="md" style={{ marginTop: "var(--rialto-space-lg)" }}>
           <Button
             variant="secondary"
             onClick={onClose}

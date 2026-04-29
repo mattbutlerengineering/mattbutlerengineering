@@ -444,7 +444,7 @@ importers:
   packages/agent-test-utils:
     dependencies:
       '@anthropic-ai/claude-agent-sdk':
-        specifier: ^0.2.92
+        specifier: ^0.2.119
         version: 0.2.119(zod@4.3.6)
       '@mbe/agent-core':
         specifier: workspace:*
