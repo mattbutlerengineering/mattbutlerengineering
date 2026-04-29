@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
-import { Drawer } from "@mattbutlerengineering/rialto";
+import { Drawer, Button, Stack, Text, Card } from "@mattbutlerengineering/rialto";
 import type { Reservation, Table, TableStatus, UpdateReservationRequest } from "@mbe/types";
 import { TimelineGrid } from "../components/timeline";
 import { CancelReservationDialog } from "../components/timeline/CancelReservationDialog";
@@ -55,35 +55,35 @@ interface ReservationDetailsProps {
 
 function ReservationDetails({ reservation, onEdit, onSeat, onCancel }: ReservationDetailsProps) {
   return (
-    <div className={styles.detailsStack}>
+    <Stack gap="lg" className={styles.detailsStack}>
       <div>
-        <span className={styles.detailLabel}>Guest</span>
-        <div className={styles.detailValue}>
+        <Text variant="label" color="secondary">Guest</Text>
+        <Text variant="display" as="div">
           {reservation.guestName || "Guest"}
-        </div>
+        </Text>
       </div>
 
       {reservation.guestEmail && (
         <div>
-          <span className={styles.detailLabel}>Email</span>
-          <div className={styles.detailValueSecondary}>
+          <Text variant="label" color="secondary">Email</Text>
+          <Text variant="body" as="div">
             {reservation.guestEmail}
-          </div>
+          </Text>
         </div>
       )}
 
       {reservation.guestPhone && (
         <div>
-          <span className={styles.detailLabel}>Phone</span>
-          <div className={styles.detailValueSecondary}>
+          <Text variant="label" color="secondary">Phone</Text>
+          <Text variant="body" as="div">
             {reservation.guestPhone}
-          </div>
+          </Text>
         </div>
       )}
 
       <div>
-        <span className={styles.detailLabel}>Time</span>
-        <div className={styles.detailValue}>
+        <Text variant="label" color="secondary">Time</Text>
+        <Text variant="body" as="div">
           {new Date(reservation.startTime).toLocaleTimeString("en-US", {
             hour: "numeric",
             minute: "2-digit",
@@ -95,28 +95,28 @@ function ReservationDetails({ reservation, onEdit, onSeat, onCancel }: Reservati
             minute: "2-digit",
             hour12: true,
           })}
-        </div>
+        </Text>
       </div>
 
       <div>
-        <span className={styles.detailLabel}>Party Size</span>
-        <div className={styles.detailValue}>
+        <Text variant="label" color="secondary">Party Size</Text>
+        <Text variant="body" as="div">
           {reservation.partySize}{" "}
           {reservation.partySize === 1 ? "guest" : "guests"}
-        </div>
+        </Text>
       </div>
 
       <div>
-        <span className={styles.detailLabel}>Table</span>
-        <div className={styles.detailValue}>
+        <Text variant="label" color="secondary">Table</Text>
+        <Text variant="body" as="div">
           {reservation.table?.tableNumber ||
             reservation.table?.name ||
             "Unassigned"}
-        </div>
+        </Text>
       </div>
 
       <div>
-        <span className={styles.detailLabel}>Status</span>
+        <Text variant="label" color="secondary">Status</Text>
         <span
           className={`${styles.statusBadge} ${getStatusBadgeClass(reservation.status)}`}
         >
@@ -126,36 +126,39 @@ function ReservationDetails({ reservation, onEdit, onSeat, onCancel }: Reservati
 
       {reservation.notes && (
         <div>
-          <span className={styles.detailLabel}>Notes</span>
-          <div className={styles.notesValue}>{reservation.notes}</div>
+          <Text variant="label" color="secondary">Notes</Text>
+          <Text variant="body" as="div" className={styles.notesValue}>{reservation.notes}</Text>
         </div>
       )}
 
-      <div className={styles.actionsDivider}>
-        <button
-          className={styles.actionButtonPrimary}
+      <Stack gap="sm" className={styles.actionsDivider}>
+        <Button
+          variant="primary"
           onClick={onEdit}
+          fullWidth
         >
           Edit Reservation
-        </button>
+        </Button>
         {reservation.status === "CONFIRMED" && (
-          <button
-            className={styles.actionButtonSeat}
+          <Button
+            variant="secondary"
             onClick={onSeat}
+            fullWidth
           >
             Seat Guest
-          </button>
+          </Button>
         )}
         {reservation.status !== "CANCELLED" && (
-          <button
-            className={styles.actionButtonCancel}
+          <Button
+            variant="ghost"
             onClick={onCancel}
+            fullWidth
           >
             Cancel Reservation
-          </button>
+          </Button>
         )}
-      </div>
-    </div>
+      </Stack>
+    </Stack>
   );
 }
 
@@ -378,7 +381,9 @@ export function TimelinePage() {
         {/* Date navigation */}
         <div className={styles.dateNav}>
           <div className={styles.dateNavLeft}>
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={handlePreviousDay}
               className={styles.navButton}
               aria-label="Previous day"
@@ -396,9 +401,11 @@ export function TimelinePage() {
                   d="M15 19l-7-7 7-7"
                 />
               </svg>
-            </button>
+            </Button>
             <div className={styles.dateLabel}>{formattedDate}</div>
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={handleNextDay}
               className={styles.navButton}
               aria-label="Next day"
@@ -416,18 +423,20 @@ export function TimelinePage() {
                   d="M9 5l7 7-7 7"
                 />
               </svg>
-            </button>
+            </Button>
             {!isToday && (
-              <button onClick={handleToday} className={styles.todayButton}>
+              <Button variant="secondary" size="sm" onClick={handleToday} className={styles.todayButton}>
                 Today
-              </button>
+              </Button>
             )}
-            <button
+            <Button
+              variant="primary"
+              size="sm"
               onClick={() => setShowWalkInDialog(true)}
               className={styles.walkInButton}
             >
               Walk-in
-            </button>
+            </Button>
           </div>
 
           {/* Stats */}
@@ -492,10 +501,12 @@ export function TimelinePage() {
 
         {/* Sidebar - Reservation details (hidden on mobile via CSS) */}
         {selectedReservation && (
-          <div className={styles.sidebar}>
+          <Card className={styles.sidebar} variant="elevated">
             <div className={styles.sidebarHeader}>
-              <h2 className={styles.sidebarTitle}>Reservation Details</h2>
-              <button
+              <Text variant="display" as="h2" className={styles.sidebarTitle}>Reservation Details</Text>
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setSelectedReservation(null)}
                 className={styles.closeButton}
                 aria-label="Close reservation details"
@@ -513,7 +524,7 @@ export function TimelinePage() {
                     d="M6 18L18 6M6 6l12 12"
                   />
                 </svg>
-              </button>
+              </Button>
             </div>
 
             <ReservationDetails
@@ -522,7 +533,7 @@ export function TimelinePage() {
               onSeat={() => handleSeat(selectedReservation)}
               onCancel={() => setShowCancelDialog(true)}
             />
-          </div>
+          </Card>
         )}
       </div>
 

@@ -1,5 +1,5 @@
+import { Tag } from "@mattbutlerengineering/rialto";
 import type { TableStatus } from "@mbe/types";
-import styles from "./TableStatusBadge.module.css";
 
 interface TableStatusBadgeProps {
   status: TableStatus;
@@ -14,25 +14,24 @@ const STATUS_LABELS: Record<TableStatus, string> = {
   READY: "Ready",
 };
 
-export function TableStatusBadge({ status, size = "md", onClick }: TableStatusBadgeProps) {
-  const className = [
-    styles.badge,
-    styles[`status_${status}`],
-    styles[`size_${size}`],
-    onClick ? styles.clickable : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+const STATUS_VARIANTS: Record<TableStatus, "success" | "error" | "default" | "accent"> = {
+  AVAILABLE: "success",
+  OCCUPIED: "error",
+  DIRTY: "default",
+  READY: "accent",
+};
 
+export function TableStatusBadge({ status, size: _size = "md", onClick }: TableStatusBadgeProps) {
   const label = STATUS_LABELS[status];
+  const variant = STATUS_VARIANTS[status];
 
-  if (onClick) {
-    return (
-      <button type="button" className={className} onClick={onClick} aria-label={`Table status: ${label}. Click to change.`}>
-        {label}
-      </button>
-    );
-  }
-
-  return <span className={className}>{label}</span>;
+  return (
+    <Tag
+      variant={variant}
+      onClick={onClick}
+      className={onClick ? "clickable" : undefined}
+    >
+      {label}
+    </Tag>
+  );
 }

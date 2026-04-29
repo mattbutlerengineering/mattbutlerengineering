@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Button, Select, TextArea, Stack, Text } from "@mattbutlerengineering/rialto";
 import styles from "./CancelReservationDialog.module.css";
 
 interface CancelReservationDialogProps {
@@ -42,71 +43,61 @@ export function CancelReservationDialog({
   return (
     <div className={styles.overlay} role="dialog" aria-modal="true" aria-labelledby="cancel-dialog-title">
       <div className={styles.dialog}>
-        <div className={styles.header}>
-          <h2 id="cancel-dialog-title" className={styles.title}>
-            Cancel Reservation
-          </h2>
-          <p className={styles.subtitle}>
-            Cancelling reservation for <strong>{displayName}</strong>
-          </p>
-        </div>
+        <Stack gap="lg">
+          <div className={styles.header}>
+            <Text variant="display" id="cancel-dialog-title">
+              Cancel Reservation
+            </Text>
+            <Text variant="body" color="secondary">
+              Cancelling reservation for <strong>{displayName}</strong>
+            </Text>
+          </div>
 
-        {error && <div className={styles.errorBanner}>{error}</div>}
+          {error && <div className={styles.errorBanner}>{error}</div>}
 
-        <div className={styles.form}>
-          <div className={styles.field}>
-            <label htmlFor="cancel-reason" className={styles.label}>
-              Reason <span className={styles.required}>*</span>
-            </label>
-            <select
-              id="cancel-reason"
-              className={styles.select}
+          <Stack gap="md">
+            <Select
+              label="Reason"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               disabled={isLoading}
+              required
             >
               {CANCELLATION_REASONS.map((r) => (
                 <option key={r.value} value={r.value}>
                   {r.label}
                 </option>
               ))}
-            </select>
-          </div>
+            </Select>
 
-          <div className={styles.field}>
-            <label htmlFor="cancel-note" className={styles.label}>
-              Note <span className={styles.optional}>(optional)</span>
-            </label>
-            <textarea
-              id="cancel-note"
-              className={styles.textarea}
+            <TextArea
+              label="Note (optional)"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               rows={3}
               placeholder="Add any additional context..."
               disabled={isLoading}
             />
-          </div>
-        </div>
+          </Stack>
 
-        <div className={styles.actions}>
-          <button
-            type="button"
-            className={styles.secondaryButton}
-            onClick={onClose}
-            disabled={isLoading}
-          >
-            Keep Reservation
-          </button>
-          <button
-            type="button"
-            className={styles.destructiveButton}
-            onClick={handleConfirm}
-            disabled={isLoading}
-          >
-            {isLoading ? "Cancelling…" : "Cancel Reservation"}
-          </button>
-        </div>
+          <div className={styles.actions}>
+            <Button
+              variant="secondary"
+              onClick={onClose}
+              disabled={isLoading}
+            >
+              Keep Reservation
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleConfirm}
+              isLoading={isLoading}
+              loadingText="Cancelling…"
+            >
+              Cancel Reservation
+            </Button>
+          </div>
+        </Stack>
       </div>
     </div>
   );
