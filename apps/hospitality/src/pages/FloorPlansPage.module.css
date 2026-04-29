@@ -17,6 +17,7 @@
 }
 
 .card {
+  position: relative;
   background: var(--rialto-surface);
   border-radius: var(--rialto-radius-soft);
   border: 1px solid var(--rialto-border);
@@ -61,4 +62,16 @@
 .cardDetails {
   display: flex;
   flex-direction: column;
+}
+
+.cardActions {
+  position: absolute;
+  top: var(--rialto-space-sm);
+  right: var(--rialto-space-sm);
+  opacity: 0;
+  transition: opacity 0.15s var(--rialto-ease-precision);
+}
+
+.card:hover .cardActions {
+  opacity: 1;
 }

@@ -75,6 +75,18 @@ export function FloorPlansPage() {
     [api]
   );
 
+  const handleClone = useCallback(
+    async (id: string) => {
+      try {
+        const cloned = await api.floorPlans.clone(id);
+        setFloorPlans((prev) => [...prev, cloned]);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to clone floor plan");
+      }
+    },
+    [api]
+  );
+
   const handleCreated = useCallback(
     (floorPlan: FloorPlan) => {
       navigate(`/floor-plans/${floorPlan.id}`);
@@ -155,6 +167,19 @@ export function FloorPlansPage() {
                 </svg>
               </div>
               <div className={styles.cardBody}>
+                <div className={styles.cardActions}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleClone(floorPlan.id);
+                    }}
+                    aria-label={`Clone floor plan: ${floorPlan.name}`}
+                  >
+                    Clone
+                  </Button>
+                </div>
                 <div className={styles.cardMeta}>
                   <Text variant="body" color="primary" className={styles.cardName}>
                     {floorPlan.name}
