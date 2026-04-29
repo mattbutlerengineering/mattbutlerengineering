@@ -21,7 +21,13 @@
     export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
       const fastify = Fastify({
         logger: options.logger ?? true,
-        disableRequestLogging: true,
+        disableRequestLogging: true, ajv: { customOptions: { strict: false } }, ajv: { customOptions: { strict: false } },
+        disableRequestLogging: true, ajv: { customOptions: { strict: false } },
+        ajv: {
+          customOptions: {
+            strict: false,
+          },
+        },
       });
     
       // Register schemas
@@ -3002,97 +3008,41 @@
   </file>
   <file path="src/routes/floor-plans.ts">
     export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
-      // List floor plans
       fastify.get<{
-        Querystring: { page?: string; limit?: string; venueId?: string };
-        Reply: PaginatedResponse<FloorPlan>;
+        Querystring: { venueId?: string; page?: string; limit?: string };
+        Reply: PaginatedResponse<FloorPlan> | ApiError;
       }>(
         "/",
         {
           schema: {
-            summary: "List all floor plans",
-            operationId: "listFloorPlans",
-            description:
-              "Retrieve a paginated list of all floor plans. Optionally filter by venue.",
-            tags: ["Floor Plans"],
+            summary: "List floor plans",
+            description: "Returns a paginated list of floor plans for a venue.",
             querystring: {
               type: "object",
               properties: {
-                page: {
-                  type: "string",
-                  default: "1",
-                  description: "Page number (1-indexed)",
-                },
-                limit: {
-                  type: "string",
-                  default: "10",
-                  description: "Number of floor plans per page (max 100)",
-                },
-                venueId: {
-                  type: "string",
-                  description: "Filter floor plans by venue ID",
-                },
-              },
-            },
-            response: {
-              200: {
-                description: "Successful response with paginated floor plan list",
-                type: "object",
-                properties: {
-                  data: {
-                    type: "array",
-                    items: { $ref: "FloorPlan#" },
-                  },
-                  pagination: { $ref: "Pagination#" },
-                },
-              },
-              500: {
-                description: "Internal server error",
-                $ref: "Error#",
+                venueId: { type: "string" },
+                page: { type: "string", default: "1" },
+                limit: { type: "string", default: "50" },
               },
             },
           },
         },
         async (request) => {
-          const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
-          const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "10", 10) || 10));
+          const page = parseInt(request.query.page || "1", 10);
+          const limit = parseInt(request.query.limit || "50", 10);
           return floorPlanService.list(page, limit, request.query.venueId);
         }
       );
     
-      // Get floor plan by ID
-      fastify.get<{
-        Params: { id: string };
-        Reply: ApiResponse<FloorPlan> | ApiError;
-      }>(
+      fastify.get<{ Params: { id: string }; Reply: FloorPlan | ApiError }>(
         "/:id",
         {
           schema: {
             summary: "Get floor plan by ID",
-            operationId: "getFloorPlanById",
-            description: "Retrieve a single floor plan by its unique identifier.",
-            tags: ["Floor Plans"],
             params: {
               type: "object",
               properties: {
-                id: {
-                  type: "string",
-                  description: "Unique floor plan identifier",
-                },
-              },
-              required: ["id"],
-            },
-            response: {
-              200: {
-                description: "Floor plan found",
-                type: "object",
-                properties: {
-                  data: { $ref: "FloorPlan#" },
-                },
-              },
-              404: {
-                description: "Floor plan not found",
-                $ref: "Error#",
+                id: { type: "string" },
               },
             },
           },
@@ -3102,185 +3052,72 @@
           if (!floorPlan) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
           }
-          return { data: floorPlan };
+          return floorPlan;
         }
       );
     
-      // Get active floor plan for a venue
-      fastify.get<{
-        Params: { venueId: string };
-        Reply: ApiResponse<FloorPlan> | ApiError;
-      }>(
-        "/venue/:venueId/active",
-        {
-          schema: {
-            summary: "Get active floor plan for a venue",
-            operationId: "getActiveFloorPlan",
-            description: "Retrieve the currently active floor plan for a venue.",
-            tags: ["Floor Plans"],
-            params: {
-              type: "object",
-              properties: {
-                venueId: {
-                  type: "string",
-                  description: "Venue identifier",
-                },
-              },
-              required: ["venueId"],
-            },
-            response: {
-              200: {
-                description: "Active floor plan found",
-                type: "object",
-                properties: {
-                  data: { $ref: "FloorPlan#" },
-                },
-              },
-              404: {
-                description: "No active floor plan for this venue",
-                $ref: "Error#",
-              },
-            },
-          },
-        },
-        async (request, reply) => {
-          const floorPlan = await floorPlanService.getActiveByVenueId(request.params.venueId);
-          if (!floorPlan) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "No active floor plan for this venue"));
-          }
-          return { data: floorPlan };
-        }
-      );
-    
-      // Create floor plan (requires auth)
-      fastify.post<{
-        Body: CreateFloorPlanRequest;
-        Reply: ApiResponse<FloorPlan> | ApiError;
-      }>(
+      fastify.post<{ Body: CreateFloorPlanRequest; Reply: FloorPlan | ApiError }>(
         "/",
         {
-          preHandler: requireAuth,
           schema: {
-            summary: "Create a new floor plan",
-            operationId: "createFloorPlan",
-            description: "Create a new floor plan. Requires authentication.",
-            tags: ["Floor Plans"],
-            security: [{ bearerAuth: [] }],
+            summary: "Create floor plan",
             body: {
               type: "object",
-              description: "Floor plan creation payload",
-              properties: {
-                venueId: {
-                  type: "string",
-                  description: "ID of the venue this floor plan belongs to",
-                },
-                name: {
-                  type: "string",
-                  description: "Floor plan name (e.g., 'Main Dining', 'Patio')",
-                },
-                isActive: {
-                  type: "boolean",
-                  description: "Whether this should be the active floor plan",
-                },
-                layoutJson: {
-                  type: "object",
-                  description: "Canvas layout configuration",
-                  properties: {
-                    width: { type: "number" },
-                    height: { type: "number" },
-                    backgroundImage: { type: "string" },
-                    gridSize: { type: "number" },
-                    showGrid: { type: "boolean" },
-                  },
-                  required: ["width", "height"],
-                },
-              },
               required: ["venueId", "name", "layoutJson"],
+              properties: {
+                venueId: { type: "string" },
+                name: { type: "string" },
+                isActive: { type: "boolean" },
+                layoutJson: { type: "object" },
+              },
             },
-            response: {
-              201: {
-                description: "Floor plan created successfully",
-                type: "object",
-                properties: {
-                  data: { $ref: "FloorPlan#" },
-                },
-              },
-              400: {
-                description: "Invalid request body",
-                $ref: "Error#",
-              },
-              401: {
-                description: "Authentication required",
-                $ref: "Error#",
+          },
+        },
+        async (request) => {
+          return floorPlanService.create(request.body);
+        }
+      );
+    
+      fastify.post<{ Params: { id: string }; Reply: FloorPlan | ApiError }>(
+        "/:id/clone",
+        {
+          schema: {
+            summary: "Clone floor plan",
+            description: "Creates a copy of the floor plan and all its tables.",
+            params: {
+              type: "object",
+              properties: {
+                id: { type: "string" },
               },
             },
           },
         },
         async (request, reply) => {
-          const floorPlan = await floorPlanService.create(request.body);
-          return reply.code(201).send({ data: floorPlan });
+          const cloned = await floorPlanService.clone(request.params.id);
+          if (!cloned) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
+          }
+          return reply.code(201).send(cloned);
         }
       );
     
-      // Update floor plan (requires auth)
-      fastify.patch<{
-        Params: { id: string };
-        Body: UpdateFloorPlanRequest;
-        Reply: ApiResponse<FloorPlan> | ApiError;
-      }>(
+      fastify.patch<{ Params: { id: string }; Body: UpdateFloorPlanRequest; Reply: FloorPlan | ApiError }>(
         "/:id",
         {
-          preHandler: requireAuth,
           schema: {
-            summary: "Update a floor plan",
-            operationId: "updateFloorPlan",
-            description:
-              "Update an existing floor plan. Only provided fields will be updated. Requires authentication.",
-            tags: ["Floor Plans"],
-            security: [{ bearerAuth: [] }],
+            summary: "Update floor plan",
             params: {
               type: "object",
               properties: {
-                id: {
-                  type: "string",
-                  description: "Unique floor plan identifier",
-                },
+                id: { type: "string" },
               },
-              required: ["id"],
             },
             body: {
               type: "object",
-              description: "Fields to update",
               properties: {
                 name: { type: "string" },
                 isActive: { type: "boolean" },
-                layoutJson: {
-                  type: "object",
-                  properties: {
-                    width: { type: "number" },
-                    height: { type: "number" },
-                    backgroundImage: { type: "string" },
-                    gridSize: { type: "number" },
-                    showGrid: { type: "boolean" },
-                  },
-                },
-              },
-            },
-            response: {
-              200: {
-                description: "Floor plan updated successfully",
-                type: "object",
-                properties: {
-                  data: { $ref: "FloorPlan#" },
-                },
-              },
-              401: {
-                description: "Authentication required",
-                $ref: "Error#",
-              },
-              404: {
-                description: "Floor plan not found",
-                $ref: "Error#",
+                layoutJson: { type: "object" },
               },
             },
           },
@@ -3290,313 +3127,54 @@
           if (!floorPlan) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
           }
-          return { data: floorPlan };
+          return floorPlan;
         }
       );
     
-      // Set active floor plan (requires auth)
-      fastify.post<{
-        Params: { id: string };
-        Body: { venueId: string };
-        Reply: ApiResponse<FloorPlan> | ApiError;
-      }>(
-        "/:id/activate",
+      fastify.post<{ Params: { id: string }; Reply: FloorPlan | ApiError }>(
+        "/:id/active",
         {
-          preHandler: requireAuth,
           schema: {
             summary: "Set floor plan as active",
-            operationId: "activateFloorPlan",
-            description:
-              "Set this floor plan as the active one for its venue. Deactivates any other active floor plans for the same venue. Requires authentication.",
-            tags: ["Floor Plans"],
-            security: [{ bearerAuth: [] }],
+            description: "Activates this floor plan and deactivates all others for the same venue.",
             params: {
               type: "object",
               properties: {
-                id: {
-                  type: "string",
-                  description: "Unique floor plan identifier",
-                },
-              },
-              required: ["id"],
-            },
-            body: {
-              type: "object",
-              properties: {
-                venueId: {
-                  type: "string",
-                  description: "Venue ID (for verification)",
-                },
-              },
-              required: ["venueId"],
-            },
-            response: {
-              200: {
-                description: "Floor plan activated successfully",
-                type: "object",
-                properties: {
-                  data: { $ref: "FloorPlan#" },
-                },
-              },
-              401: {
-                description: "Authentication required",
-                $ref: "Error#",
-              },
-              404: {
-                description: "Floor plan not found",
-                $ref: "Error#",
+                id: { type: "string" },
               },
             },
           },
         },
         async (request, reply) => {
-          const floorPlan = await floorPlanService.setActive(
-            request.params.id,
-            request.body.venueId
-          );
+          const floorPlan = await floorPlanService.getById(request.params.id);
           if (!floorPlan) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
           }
-          return { data: floorPlan };
+    
+          const updated = await floorPlanService.setActive(floorPlan.id, floorPlan.venueId);
+          return updated!;
         }
       );
     
-      // Delete floor plan (requires auth)
-      fastify.delete<{
-        Params: { id: string };
-      }>(
+      fastify.delete<{ Params: { id: string }; Reply: { success: boolean } | ApiError }>(
         "/:id",
         {
-          preHandler: requireAuth,
           schema: {
-            summary: "Delete a floor plan",
-            operationId: "deleteFloorPlan",
-            description:
-              "Delete a floor plan. Tables will be unlinked but not deleted. Requires authentication.",
-            tags: ["Floor Plans"],
-            security: [{ bearerAuth: [] }],
+            summary: "Delete floor plan",
             params: {
               type: "object",
               properties: {
-                id: {
-                  type: "string",
-                  description: "Unique floor plan identifier",
-                },
-              },
-              required: ["id"],
-            },
-            response: {
-              204: {
-                description: "Floor plan deleted successfully",
-                type: "null",
-              },
-              401: {
-                description: "Authentication required",
-                $ref: "Error#",
-              },
-              404: {
-                description: "Floor plan not found",
-                $ref: "Error#",
+                id: { type: "string" },
               },
             },
           },
         },
         async (request, reply) => {
-          const deleted = await floorPlanService.delete(request.params.id);
-          if (!deleted) {
+          const success = await floorPlanService.delete(request.params.id);
+          if (!success) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
           }
-          return reply.code(204).send();
-        }
-      );
-    
-      // Bulk update table positions (requires auth)
-      fastify.post<{
-        Body: BulkUpdateTablePositionsRequest;
-        Reply: ApiResponse<Table[]> | ApiError;
-      }>(
-        "/tables/positions",
-        {
-          preHandler: requireAuth,
-          schema: {
-            summary: "Bulk update table positions",
-            operationId: "bulkUpdateTablePositions",
-            description:
-              "Update positions of multiple tables on a floor plan in a single transaction. Used when saving canvas state. Requires authentication.",
-            tags: ["Floor Plans"],
-            security: [{ bearerAuth: [] }],
-            body: {
-              type: "object",
-              description: "Bulk position update payload",
-              properties: {
-                floorPlanId: {
-                  type: "string",
-                  description: "ID of the floor plan",
-                },
-                positions: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      tableId: { type: "string" },
-                      shapeMetadata: { $ref: "TableShapeMetadata#" },
-                    },
-                    required: ["tableId", "shapeMetadata"],
-                  },
-                },
-              },
-              required: ["floorPlanId", "positions"],
-            },
-            response: {
-              200: {
-                description: "Table positions updated successfully",
-                type: "object",
-                properties: {
-                  data: {
-                    type: "array",
-                    items: { $ref: "Table#" },
-                  },
-                },
-              },
-              401: {
-                description: "Authentication required",
-                $ref: "Error#",
-              },
-              400: {
-                description: "Invalid request body",
-                $ref: "Error#",
-              },
-            },
-          },
-        },
-        async (request) => {
-          const tables = await floorPlanService.bulkUpdateTablePositions(
-            request.body.floorPlanId,
-            request.body.positions
-          );
-          return { data: tables };
-        }
-      );
-    
-      // Assign table to floor plan (requires auth)
-      fastify.post<{
-        Params: { tableId: string };
-        Body: { floorPlanId: string; shapeMetadata?: UpdateTablePositionRequest["shapeMetadata"] };
-        Reply: ApiResponse<Table> | ApiError;
-      }>(
-        "/tables/:tableId/assign",
-        {
-          preHandler: requireAuth,
-          schema: {
-            summary: "Assign table to floor plan",
-            operationId: "assignTableToFloorPlan",
-            description:
-              "Assign a table to a floor plan with optional position metadata. Requires authentication.",
-            tags: ["Floor Plans"],
-            security: [{ bearerAuth: [] }],
-            params: {
-              type: "object",
-              properties: {
-                tableId: {
-                  type: "string",
-                  description: "Table identifier",
-                },
-              },
-              required: ["tableId"],
-            },
-            body: {
-              type: "object",
-              properties: {
-                floorPlanId: {
-                  type: "string",
-                  description: "Floor plan to assign to",
-                },
-                shapeMetadata: { $ref: "TableShapeMetadata#" },
-              },
-              required: ["floorPlanId"],
-            },
-            response: {
-              200: {
-                description: "Table assigned successfully",
-                type: "object",
-                properties: {
-                  data: { $ref: "Table#" },
-                },
-              },
-              401: {
-                description: "Authentication required",
-                $ref: "Error#",
-              },
-              404: {
-                description: "Table not found",
-                $ref: "Error#",
-              },
-            },
-          },
-        },
-        async (request, reply) => {
-          const table = await floorPlanService.assignTableToFloorPlan(
-            request.params.tableId,
-            request.body.floorPlanId,
-            request.body.shapeMetadata
-          );
-          if (!table) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
-          }
-          return { data: table };
-        }
-      );
-    
-      // Remove table from floor plan (requires auth)
-      fastify.post<{
-        Params: { tableId: string };
-        Reply: ApiResponse<Table> | ApiError;
-      }>(
-        "/tables/:tableId/remove",
-        {
-          preHandler: requireAuth,
-          schema: {
-            summary: "Remove table from floor plan",
-            operationId: "removeTableFromFloorPlan",
-            description:
-              "Remove a table from its floor plan. The table is not deleted, just unlinked. Requires authentication.",
-            tags: ["Floor Plans"],
-            security: [{ bearerAuth: [] }],
-            params: {
-              type: "object",
-              properties: {
-                tableId: {
-                  type: "string",
-                  description: "Table identifier",
-                },
-              },
-              required: ["tableId"],
-            },
-            response: {
-              200: {
-                description: "Table removed from floor plan",
-                type: "object",
-                properties: {
-                  data: { $ref: "Table#" },
-                },
-              },
-              401: {
-                description: "Authentication required",
-                $ref: "Error#",
-              },
-              404: {
-                description: "Table not found",
-                $ref: "Error#",
-              },
-            },
-          },
-        },
-        async (request, reply) => {
-          const table = await floorPlanService.removeTableFromFloorPlan(request.params.tableId);
-          if (!table) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
-          }
-          return { data: table };
+          return { success: true };
         }
       );
     };

@@ -21,7 +21,8 @@
     export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
       const fastify = Fastify({
         logger: options.logger ?? true,
-        disableRequestLogging: true,
+        disableRequestLogging: true, ajv: { customOptions: { strict: false } },
+        disableRequestLogging: true, ajv: { customOptions: { strict: false } }, ajv: { customOptions: { strict: false } },
       });
     
       // Register schemas
@@ -220,6 +221,81 @@
       createdAt: "2026-01-25T00:00:00.000Z",
       updatedAt: "2026-01-25T00:00:00.000Z",
     });
+  </file>
+  </section>
+  <section priority="medium" role="services">
+  <file path="src/services/user.ts">
+    function isPrismaNotFound(err: unknown): boolean {
+      return (
+        err !== null &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code: string }).code === "P2025"
+      );
+    }
+    function mapPrismaUser(user: {
+      id: string;
+      email: string;
+      name: string | null;
+      picture: string | null;
+      emailVerified: boolean;
+      preferences: unknown;
+      createdAt: Date;
+      updatedAt: Date;
+    }): User {
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        picture: user.picture,
+        emailVerified: user.emailVerified,
+        preferences: (user.preferences as UserPreferences) ?? {},
+        createdAt: user.createdAt.toISOString(),
+        updatedAt: user.updatedAt.toISOString(),
+      };
+    }
+  </file>
+  <file path="src/services/health-checks.ts">
+    export function recordDbLatency(ms: number): void {
+      dbLatencyHistory.push(ms);
+      if (dbLatencyHistory.length > LATENCY_WINDOW) {
+        dbLatencyHistory.shift();
+      }
+    }
+    export function checkLatencyAnomaly(currentMs: number): {
+      isAnomaly: boolean;
+      rollingAvg: number;
+    } {
+      if (dbLatencyHistory.length < 5) {
+        return { isAnomaly: false, rollingAvg: 0 };
+      }
+      const sum = dbLatencyHistory.reduce((a, b) => a + b, 0);
+      const rollingAvg = sum / dbLatencyHistory.length;
+      return {
+        isAnomaly: rollingAvg > 0 && currentMs > LATENCY_ANOMALY_THRESHOLD * rollingAvg,
+        rollingAvg: Math.round(rollingAvg),
+      };
+    }
+  </file>
+  <file path="src/services/database.ts">
+    interface SlowQueryStats {
+      count5min: number;
+      slowestMs: number;
+      queries: { model: string; operation: string; duration: number; timestamp: number }[];
+    }
+    export function getSlowQueryStats(): { count5min: number; slowestMs: number } {
+      const now = Date.now();
+      const windowStart = now - SLOW_QUERY_WINDOW_MS;
+      
+      slowQueryStats.queries = slowQueryStats.queries.filter((q) => q.timestamp > windowStart);
+      slowQueryStats.count5min = slowQueryStats.queries.length;
+      slowQueryStats.slowestMs = slowQueryStats.queries.reduce((max, q) => Math.max(max, q.duration), 0);
+      
+      return {
+        count5min: slowQueryStats.count5min,
+        slowestMs: slowQueryStats.slowestMs,
+      };
+    }
   </file>
   </section>
   <section priority="medium" role="schemas">
@@ -887,81 +963,6 @@
       // /api/v1/users/health — public path via DO ingress (preservePathPrefix: true, prefix "/api/v1/users")
       fastify.get("/api/v1/users/health", { schema: { ...healthSchema, operationId: "getHealthApiUsers" } }, healthHandler);
     };
-  </file>
-  </section>
-  <section priority="medium" role="services">
-  <file path="src/services/user.ts">
-    function isPrismaNotFound(err: unknown): boolean {
-      return (
-        err !== null &&
-        typeof err === "object" &&
-        "code" in err &&
-        (err as { code: string }).code === "P2025"
-      );
-    }
-    function mapPrismaUser(user: {
-      id: string;
-      email: string;
-      name: string | null;
-      picture: string | null;
-      emailVerified: boolean;
-      preferences: unknown;
-      createdAt: Date;
-      updatedAt: Date;
-    }): User {
-      return {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        picture: user.picture,
-        emailVerified: user.emailVerified,
-        preferences: (user.preferences as UserPreferences) ?? {},
-        createdAt: user.createdAt.toISOString(),
-        updatedAt: user.updatedAt.toISOString(),
-      };
-    }
-  </file>
-  <file path="src/services/health-checks.ts">
-    export function recordDbLatency(ms: number): void {
-      dbLatencyHistory.push(ms);
-      if (dbLatencyHistory.length > LATENCY_WINDOW) {
-        dbLatencyHistory.shift();
-      }
-    }
-    export function checkLatencyAnomaly(currentMs: number): {
-      isAnomaly: boolean;
-      rollingAvg: number;
-    } {
-      if (dbLatencyHistory.length < 5) {
-        return { isAnomaly: false, rollingAvg: 0 };
-      }
-      const sum = dbLatencyHistory.reduce((a, b) => a + b, 0);
-      const rollingAvg = sum / dbLatencyHistory.length;
-      return {
-        isAnomaly: rollingAvg > 0 && currentMs > LATENCY_ANOMALY_THRESHOLD * rollingAvg,
-        rollingAvg: Math.round(rollingAvg),
-      };
-    }
-  </file>
-  <file path="src/services/database.ts">
-    interface SlowQueryStats {
-      count5min: number;
-      slowestMs: number;
-      queries: { model: string; operation: string; duration: number; timestamp: number }[];
-    }
-    export function getSlowQueryStats(): { count5min: number; slowestMs: number } {
-      const now = Date.now();
-      const windowStart = now - SLOW_QUERY_WINDOW_MS;
-      
-      slowQueryStats.queries = slowQueryStats.queries.filter((q) => q.timestamp > windowStart);
-      slowQueryStats.count5min = slowQueryStats.queries.length;
-      slowQueryStats.slowestMs = slowQueryStats.queries.reduce((max, q) => Math.max(max, q.duration), 0);
-      
-      return {
-        count5min: slowQueryStats.count5min,
-        slowestMs: slowQueryStats.slowestMs,
-      };
-    }
   </file>
   </section>
 </codebase>
