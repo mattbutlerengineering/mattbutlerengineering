@@ -55,8 +55,9 @@ export default [
           ],
         },
       ],
+      // TODO(acmm): Promote to 'error' once migration to Rialto components is complete
       "no-restricted-syntax": [
-        "error",
+        "warn",
         {
           selector: "JSXOpeningElement[name.name='button']",
           message: "Use <Button /> from '@mattbutlerengineering/rialto' instead of native <button>.",

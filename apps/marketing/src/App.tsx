@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, useMemo } from "react";
 import { Routes, Route } from "react-router-dom";
 import { Footer, GlobalNav } from "@mattbutlerengineering/rialto";
 import styles from "./App.module.css";
@@ -25,6 +25,8 @@ export function App({ theme, onThemeToggle }: AppProps) {
       main.focus({ preventScroll: true });
     }
   }, []);
+
+  const currentYear = useMemo(() => new Date().getFullYear(), []);
 
   return (
     <div className={styles.layout}>
@@ -70,7 +72,7 @@ export function App({ theme, onThemeToggle }: AppProps) {
             ],
           },
         ]}
-        copyright={`\u00A9 ${new Date().getFullYear()} Matt Butler Engineering`}
+        copyright={`\u00A9 ${currentYear} Matt Butler Engineering`}
       />
     </div>
   );

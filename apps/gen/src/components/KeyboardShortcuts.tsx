@@ -1,6 +1,6 @@
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { useEffect, useCallback, useMemo } from "react";
-import { Kbd, Shortcut } from "@mattbutlerengineering/rialto";
+import { Kbd, Shortcut, Button } from "@mattbutlerengineering/rialto";
 import styles from "./KeyboardShortcuts.module.css";
 
 interface ShortcutEntry {
@@ -110,14 +110,15 @@ export function KeyboardShortcuts({ open, onClose }: KeyboardShortcutsProps) {
       >
         <div className={styles.header}>
           <h2 className={styles.title}>Keyboard Shortcuts</h2>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             className={styles.closeButton}
             onClick={onClose}
             aria-label="Close"
           >
             &#x2715;
-          </button>
+          </Button>
         </div>
 
         <div className={styles.body}>
@@ -162,13 +163,14 @@ export interface HelpButtonProps {
  */
 export function HelpButton({ onClick }: HelpButtonProps) {
   return (
-    <button
-      type="button"
+    <Button
+      variant="secondary"
+      size="md"
       className={styles.helpButton}
       onClick={onClick}
       aria-label="Keyboard shortcuts"
     >
       ?
-    </button>
+    </Button>
   );
 }

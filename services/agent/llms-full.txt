@@ -264,6 +264,12 @@
     }
   </file>
   </section>
+  <section priority="medium" role="schemas">
+  <file path="src/schemas/index.ts">
+    export const SessionSchema = sessionJsonSchema;
+    export const SessionEventSchema = sessionEventJsonSchema;
+  </file>
+  </section>
   <section priority="medium" role="services">
   <file path="src/services/stored-spec.ts">
     export interface StoredSpecResponse {
@@ -429,12 +435,6 @@
         slowestMs: slowQueryStats.slowestMs,
       };
     }
-  </file>
-  </section>
-  <section priority="medium" role="schemas">
-  <file path="src/schemas/index.ts">
-    export const SessionSchema = sessionJsonSchema;
-    export const SessionEventSchema = sessionEventJsonSchema;
   </file>
   </section>
   <section priority="medium" role="routes">

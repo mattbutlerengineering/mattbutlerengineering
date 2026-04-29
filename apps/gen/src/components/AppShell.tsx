@@ -53,18 +53,20 @@ export function AppShell({
         logo={
           <div className={styles.logoGroup}>
             {onToggleHistory && (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="sm"
                 className={`${styles.panelToggle} ${historyVisible ? styles.panelToggleActive : ""}`}
                 onClick={onToggleHistory}
                 aria-label="Toggle history panel"
                 aria-pressed={historyVisible}
               >
                 <span aria-hidden="true">&#9776;</span>
-              </button>
+              </Button>
             )}
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               className={styles.logoButton}
               onClick={onLogoClick}
               aria-label="Return to empty state"
@@ -73,7 +75,7 @@ export function AppShell({
                 &#9670;
               </span>
               <span className={styles.logoText}>Gen Playground</span>
-            </button>
+            </Button>
             <Shortcut keys={["\u2318", "K"]} className={styles.shortcutHint} />
           </div>
         }
@@ -85,15 +87,16 @@ export function AppShell({
               </Button>
             )}
             {onToggleInspector && (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="sm"
                 className={`${styles.panelToggle} ${inspectorVisible ? styles.panelToggleActive : ""}`}
                 onClick={onToggleInspector}
                 aria-label="Toggle JSON inspector"
                 aria-pressed={inspectorVisible}
               >
                 <span aria-hidden="true">{"{}"}</span>
-              </button>
+              </Button>
             )}
             <ThemeToggle theme={theme} onToggle={toggleTheme} />
             {user && (

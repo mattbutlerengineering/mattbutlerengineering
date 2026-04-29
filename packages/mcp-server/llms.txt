@@ -1,5 +1,44 @@
 <codebase path="packages/mcp-server">
+  <section priority="medium" role="src">
   <file path="src/index.ts">
-    async function main() { /* implementation omitted */ }
+    <item priority="low">
+      async function main() { /* ... */ }
+    </item>
   </file>
+  </section>
+  <section priority="medium" role="tools">
+  <file path="src/tools/pulumi.ts">
+    <item priority="high">
+      export async function pulumiStackOutputs(): Promise<string> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/tools/health.ts">
+    <item priority="high">
+      export async function serviceHealthCheck(): Promise<string> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/tools/git.ts">
+    <item priority="high">
+      export async function gitWorkflowStatus(): Promise<string> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/tools/deploy_status.ts">
+    <item priority="high">
+      export async function deployStatus(): Promise<string> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/tools/database.ts">
+    <item priority="high">
+      export async function dbListTables(): Promise<string> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function dbMigrationStatus(): Promise<string> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/tools/ci.ts">
+    <item priority="high">
+      export async function ciRunStatus(): Promise<string> { /* ... */ }
+    </item>
+  </file>
+  </section>
 </codebase>

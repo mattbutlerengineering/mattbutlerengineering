@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect, type KeyboardEvent, type ChangeEvent } from "react";
-import { Button } from "@mattbutlerengineering/rialto";
+import { Button, TextArea } from "@mattbutlerengineering/rialto";
 import styles from "./PromptBar.module.css";
 
 export interface PromptBarProps {
@@ -132,7 +132,7 @@ export function PromptBar({
           </Button>
         )}
         <div className={styles.inputWrapper}>
-          <textarea
+          <TextArea
             ref={textareaRef}
             className={styles.input}
             value={value}

@@ -5,4 +5,10 @@ export default [
   {
     ignores: ["dist/**", "scripts/**"],
   },
+  {
+    files: ["**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-syntax": "off",
+    },
+  },
 ];

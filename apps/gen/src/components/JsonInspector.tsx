@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback, useState, useMemo, type ReactNode } from "react";
-import { Button } from "@mattbutlerengineering/rialto";
+import { Button, Input } from "@mattbutlerengineering/rialto";
 import styles from "./JsonInspector.module.css";
 
 export interface JsonInspectorProps {
@@ -212,7 +212,7 @@ export function JsonInspector({ rawLines, isStreaming }: JsonInspectorProps) {
       <div className={styles.toolbar}>
         <span className={styles.label}>JSON</span>
         <div className={styles.searchGroup}>
-          <input
+          <Input
             type="text"
             className={styles.searchInput}
             placeholder="Search..."
@@ -261,15 +261,16 @@ export function JsonInspector({ rawLines, isStreaming }: JsonInspectorProps) {
 
             return (
               <div key={i} className={styles.block}>
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="sm"
                   className={styles.collapseToggle}
                   onClick={() => toggleCollapsed(i)}
                   aria-expanded={!isCollapsed}
                   aria-label={isCollapsed ? "Expand block" : "Collapse block"}
                 >
                   <span className={styles.arrow}>{isCollapsed ? "\u25B6" : "\u25BC"}</span>
-                </button>
+                </Button>
 
                 {isCollapsed ? (
                   <div className={styles.collapsedRow}>

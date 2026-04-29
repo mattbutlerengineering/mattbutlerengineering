@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { Badge, Shortcut } from "@mattbutlerengineering/rialto";
+import { Badge, Shortcut, Button, Input } from "@mattbutlerengineering/rialto";
 import styles from "./TemplateGallery.module.css";
 
 // ---------------------------------------------------------------------------
@@ -165,9 +165,6 @@ export function TemplateGallery({ open, onClose, onSelect }: TemplateGalleryProp
   const searchRef = useRef<HTMLInputElement>(null);
 
   // Reset state and focus search when dialog opens.
-  // setState in effect is intentional here — we reset local state when the
-  // parent toggles `open` from false to true, which is the standard dialog
-  // reset pattern (no way to hoist this to the parent).
   useEffect(() => {
     if (!open) return;
     setActiveCategory("All"); // eslint-disable-line react-hooks/set-state-in-effect
@@ -291,8 +288,9 @@ export function TemplateGallery({ open, onClose, onSelect }: TemplateGalleryProp
               className={styles.shortcutHint}
             />
           </div>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             className={styles.closeButton}
             onClick={onClose}
             aria-label="Close template gallery"
@@ -309,7 +307,7 @@ export function TemplateGallery({ open, onClose, onSelect }: TemplateGalleryProp
             >
               <path d="M1 1l12 12M13 1L1 13" />
             </svg>
-          </button>
+          </Button>
         </div>
 
         {/* Body: sidebar + main */}
@@ -317,16 +315,15 @@ export function TemplateGallery({ open, onClose, onSelect }: TemplateGalleryProp
           {/* Category sidebar */}
           <nav className={styles.sidebar} aria-label="Template categories">
             {(["All", ...ALL_CATEGORIES] as const).map((cat) => (
-              <button
+              <Button
                 key={cat}
-                type="button"
+                variant="ghost"
                 className={`${styles.categoryButton} ${activeCategory === cat ? styles.categoryButtonActive : ""}`}
                 onClick={() => setActiveCategory(cat)}
-                aria-pressed={activeCategory === cat}
               >
                 <span>{cat}</span>
                 <span className={styles.categoryCount}>{categoryCounts[cat] ?? 0}</span>
-              </button>
+              </Button>
             ))}
           </nav>
 
@@ -334,7 +331,7 @@ export function TemplateGallery({ open, onClose, onSelect }: TemplateGalleryProp
           <div className={styles.main}>
             {/* Search */}
             <div className={styles.searchBar}>
-              <input
+              <Input
                 ref={searchRef}
                 type="text"
                 className={styles.searchInput}
@@ -358,22 +355,26 @@ export function TemplateGallery({ open, onClose, onSelect }: TemplateGalleryProp
                 </div>
               ) : (
                 filteredTemplates.map((template, index) => (
-                  <button
+                  <div 
                     key={template.id}
-                    type="button"
-                    className={`${styles.card} ${styles.cardEnter}`}
+                    className={styles.cardWrapper}
                     style={{ animationDelay: `${index * 50}ms` }}
-                    onClick={() => handleCardClick(template.prompt)}
-                    aria-label={`Use ${template.title} template`}
                   >
-                    <h3 className={styles.cardTitle}>{template.title}</h3>
-                    <p className={styles.cardDescription}>{template.description}</p>
-                    <div className={styles.cardFooter}>
-                      <Badge variant={CATEGORY_VARIANT[template.category]} size="sm">
-                        {template.category}
-                      </Badge>
-                    </div>
-                  </button>
+                    <Button
+                      variant="ghost"
+                      className={`${styles.card} ${styles.cardEnter}`}
+                      onClick={() => handleCardClick(template.prompt)}
+                      aria-label={`Use ${template.title} template`}
+                    >
+                      <h3 className={styles.cardTitle}>{template.title}</h3>
+                      <p className={styles.cardDescription}>{template.description}</p>
+                      <div className={styles.cardFooter}>
+                        <Badge variant={CATEGORY_VARIANT[template.category]} size="sm">
+                          {template.category}
+                        </Badge>
+                      </div>
+                    </Button>
+                  </div>
                 ))
               )}
             </div>

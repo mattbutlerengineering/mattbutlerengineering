@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useAuth } from "@mbe/auth/react";
-import { ErrorBoundary, useToast } from "@mattbutlerengineering/rialto";
+import { ErrorBoundary, useToast, Button } from "@mattbutlerengineering/rialto";
 import type { CommandItem } from "@mattbutlerengineering/rialto";
 import type { Spec } from "@json-render/react";
 import { useGenStream } from "../hooks/useGenStream.js";
@@ -423,21 +423,15 @@ export function PlaygroundPage() {
           fallback={
             <div style={{ padding: "var(--rialto-space-lg)", textAlign: "center" }}>
               <p>Preview failed to render.</p>
-              <button
-                type="button"
-                onClick={() => window.location.reload()}
-                style={{
-                  marginBlockStart: "var(--rialto-space-sm)",
-                  padding: "var(--rialto-space-xs) var(--rialto-space-sm)",
-                  borderRadius: "var(--rialto-radius-default)",
-                  border: "1px solid var(--rialto-border)",
-                  background: "var(--rialto-surface-elevated)",
-                  color: "var(--rialto-text-primary)",
-                  cursor: "pointer",
-                }}
-              >
-                Retry
-              </button>
+              <div style={{ marginBlockStart: "var(--rialto-space-sm)" }}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => window.location.reload()}
+                >
+                  Retry
+                </Button>
+              </div>
             </div>
           }
         >
@@ -468,21 +462,15 @@ export function PlaygroundPage() {
               fallback={
                 <div style={{ padding: "var(--rialto-space-lg)", textAlign: "center" }}>
                   <p>Inspector failed to render.</p>
-                  <button
-                    type="button"
-                    onClick={() => window.location.reload()}
-                    style={{
-                      marginBlockStart: "var(--rialto-space-sm)",
-                      padding: "var(--rialto-space-xs) var(--rialto-space-sm)",
-                      borderRadius: "var(--rialto-radius-default)",
-                      border: "1px solid var(--rialto-border)",
-                      background: "var(--rialto-surface-elevated)",
-                      color: "var(--rialto-text-primary)",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Retry
-                  </button>
+                  <div style={{ marginBlockStart: "var(--rialto-space-sm)" }}>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => window.location.reload()}
+                    >
+                      Retry
+                    </Button>
+                  </div>
                 </div>
               }
             >

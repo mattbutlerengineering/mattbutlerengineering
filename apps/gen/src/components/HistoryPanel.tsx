@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Button, Input } from "@mattbutlerengineering/rialto";
 import type { StoredSpec } from "../types.js";
 import { relativeTime } from "../utils/relative-time.js";
 import styles from "./HistoryPanel.module.css";
@@ -162,15 +163,17 @@ export function HistoryPanel({
   return (
     <aside className={styles.panel}>
       <div className={styles.filterBar}>
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="sm"
           className={[styles.filterTab, filter === "all" ? styles.filterTabActive : ""].join(" ")}
           onClick={() => handleFilterChange("all")}
         >
           All
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
           className={[
             styles.filterTab,
             filter === "favorites" ? styles.filterTabActive : "",
@@ -178,11 +181,11 @@ export function HistoryPanel({
           onClick={() => handleFilterChange("favorites")}
         >
           Favorites
-        </button>
+        </Button>
       </div>
 
       <div className={styles.searchBar}>
-        <input
+        <Input
           type="text"
           className={styles.searchInput}
           placeholder="Search prompts..."
@@ -190,14 +193,15 @@ export function HistoryPanel({
           onChange={(e) => handleSearchChange(e.target.value)}
         />
         {searchTerm && (
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             className={styles.searchClear}
             onClick={() => handleSearchChange("")}
             aria-label="Clear search"
           >
             {"\u00D7"}
-          </button>
+          </Button>
         )}
       </div>
 
@@ -246,116 +250,130 @@ export function HistoryPanel({
                 aria-selected={activeId === entry.id}
                 data-history-item
               >
-                <button
-                  type="button"
-                  className={[
-                    styles.item,
-                    activeId === entry.id ? styles.itemActive : "",
-                  ].join(" ")}
-                  onClick={() => onSelect(entry.id)}
-                  tabIndex={-1}
+                <div 
+                  tabIndex={-1} 
+                  className={styles.buttonWrapper}
                 >
-                  <span
-                    className={styles.itemPrompt}
-                    title={isTruncated ? entry.prompt : undefined}
-                    data-tooltip={isTruncated ? entry.prompt : undefined}
+                  <Button
+                    variant="ghost"
+                    className={[
+                      styles.item,
+                      activeId === entry.id ? styles.itemActive : "",
+                    ].join(" ")}
+                    onClick={() => onSelect(entry.id)}
                   >
-                    {displayPrompt}
-                  </span>
-                  <span className={styles.itemMeta}>
-                    <span className={styles.itemTime}>
-                      {relativeTime(new Date(entry.createdAt))}
+                    <span
+                      className={styles.itemPrompt}
+                      title={isTruncated ? entry.prompt : undefined}
+                      data-tooltip={isTruncated ? entry.prompt : undefined}
+                    >
+                      {displayPrompt}
                     </span>
-                    {isRefined && (
-                      <>
-                        <span className={styles.metaDot}>{"\u00B7"}</span>
-                        <span className={styles.refinedTag}>Refined</span>
-                      </>
-                    )}
-                    {entry.isFavorite && (
-                      <>
-                        <span className={styles.metaDot}>{"\u00B7"}</span>
-                        <span className={styles.metaStar}>{"\u2605"}</span>
-                      </>
-                    )}
-                  </span>
-                </button>
+                    <span className={styles.itemMeta}>
+                      <span className={styles.itemTime}>
+                        {relativeTime(new Date(entry.createdAt))}
+                      </span>
+                      {isRefined && (
+                        <>
+                          <span className={styles.metaDot}>{"\u00B7"}</span>
+                          <span className={styles.refinedTag}>Refined</span>
+                        </>
+                      )}
+                      {entry.isFavorite && (
+                        <>
+                          <span className={styles.metaDot}>{"\u00B7"}</span>
+                          <span className={styles.metaStar}>{"\u2605"}</span>
+                        </>
+                      )}
+                    </span>
+                  </Button>
+                </div>
 
                 {isConfirmingDelete ? (
                   <div className={styles.deleteConfirm}>
                     <span className={styles.deleteConfirmLabel}>Delete?</span>
-                    <button
-                      type="button"
-                      className={styles.deleteConfirmYes}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteConfirm(entry.id);
-                      }}
-                      aria-label="Confirm delete"
-                      title="Confirm delete"
-                    >
-                      {"\u2713"}
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.deleteConfirmNo}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteCancel();
-                      }}
-                      aria-label="Cancel delete"
-                      title="Cancel delete"
-                    >
-                      {"\u00D7"}
-                    </button>
+                    <span title="Confirm delete">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={styles.deleteConfirmYes}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteConfirm(entry.id);
+                        }}
+                        aria-label="Confirm delete"
+                      >
+                        {"\u2713"}
+                      </Button>
+                    </span>
+                    <span title="Cancel delete">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={styles.deleteConfirmNo}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteCancel();
+                        }}
+                        aria-label="Cancel delete"
+                      >
+                        {"\u00D7"}
+                      </Button>
+                    </span>
                   </div>
                 ) : (
                   <div className={[
                     styles.itemActions,
                     entry.isFavorite ? styles.itemActionsHasFavorite : "",
                   ].join(" ")}>
-                    <button
-                      type="button"
-                      className={[
-                        styles.starButton,
-                        entry.isFavorite ? styles.starButtonActive : "",
-                      ].join(" ")}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onToggleFavorite(entry.id);
-                      }}
-                      aria-label={entry.isFavorite ? "Unfavorite" : "Favorite"}
+                    <span 
                       title={entry.isFavorite ? "Remove from favorites" : "Add to favorites"}
                       tabIndex={-1}
                     >
-                      {entry.isFavorite ? "\u2605" : "\u2606"}
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.replayButton}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onReplay(entry.id);
-                      }}
-                      aria-label="Replay prompt"
-                      title="Replay this prompt"
-                      tabIndex={-1}
-                    >
-                      Replay
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.deleteButton}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteClick(entry.id);
-                      }}
-                      aria-label="Delete spec"
-                      title="Delete this spec"
-                      tabIndex={-1}
-                    >
-                      {"\u00D7"}
-                    </button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={[
+                          styles.starButton,
+                          entry.isFavorite ? styles.starButtonActive : "",
+                        ].join(" ")}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleFavorite(entry.id);
+                        }}
+                        aria-label={entry.isFavorite ? "Unfavorite" : "Favorite"}
+                      >
+                        {entry.isFavorite ? "\u2605" : "\u2606"}
+                      </Button>
+                    </span>
+                    <span title="Replay this prompt" tabIndex={-1}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={styles.replayButton}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onReplay(entry.id);
+                        }}
+                        aria-label="Replay prompt"
+                      >
+                        Replay
+                      </Button>
+                    </span>
+                    <span title="Delete this spec" tabIndex={-1}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={styles.deleteButton}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteClick(entry.id);
+                        }}
+                        aria-label="Delete spec"
+                      >
+                        {"\u00D7"}
+                      </Button>
+                    </span>
                   </div>
                 )}
               </li>

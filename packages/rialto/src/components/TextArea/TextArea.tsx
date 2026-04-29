@@ -4,6 +4,7 @@ import {
   useId,
   useRef,
   useCallback,
+  useImperativeHandle,
   type TextareaHTMLAttributes,
 } from "react";
 import { Lock } from "lucide-react";
@@ -33,6 +34,11 @@ export interface TextAreaProps extends Pick<
   | "name"
   | "required"
   | "readOnly"
+  | "onKeyDown"
+  | "onFocus"
+  | "aria-label"
+  | "id"
+  | "className"
 > {
   label?: string;
   hint?: string;
@@ -46,11 +52,10 @@ export interface TextAreaProps extends Pick<
   disabledReason?: string;
   /** When true and not required, shows "(optional)" after the label */
   showOptional?: boolean;
-  className?: string;
 }
 
 /* ── Component ──────────────────────────────── */
-export const TextArea = forwardRef<HTMLDivElement, TextAreaProps>(
+export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(
   (
     {
       label,
@@ -72,11 +77,14 @@ export const TextArea = forwardRef<HTMLDivElement, TextAreaProps>(
     ref
   ) => {
     const id = useId();
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const internalRef = useRef<HTMLTextAreaElement>(null);
     const [internalLength, setInternalLength] = useState(0);
 
+    // Forward the ref to the native textarea
+    useImperativeHandle(ref, () => internalRef.current!);
+
     const handleAutoResize = useCallback(() => {
-      const el = textareaRef.current;
+      const el = internalRef.current;
       if (!el || !autoResize) return;
       el.style.height = "auto";
       el.style.height = `${el.scrollHeight}px`;
@@ -96,7 +104,7 @@ export const TextArea = forwardRef<HTMLDivElement, TextAreaProps>(
 
     return (
       <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>
-        <div ref={ref} className={`${styles.wrapper} ${error ? styles.error : ""} ${className}`}>
+        <div className={`${styles.wrapper} ${error ? styles.error : ""} ${className}`}>
           {label && (
             <label htmlFor={id} className={styles.label}>
               {label}
@@ -106,7 +114,7 @@ export const TextArea = forwardRef<HTMLDivElement, TextAreaProps>(
           )}
           <div className={styles.textareaContainer}>
             <textarea
-              ref={textareaRef}
+              ref={internalRef}
               id={id}
               className={`${styles.textarea} ${autoResize ? styles.autoResize : ""}`}
               rows={rows}

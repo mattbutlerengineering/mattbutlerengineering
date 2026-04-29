@@ -94,7 +94,7 @@ export interface PreviewPaneProps {
   activeSpecId: string | null;
   /** Called with spec ID when user clicks Share — copies permalink to clipboard. */
   onShare: (id: string) => void;
-  /** Called when user clicks Refine — enters refinement mode. */
+  /** Called with spec ID when user clicks Refine — enters refinement mode. */
   onRefine: () => void;
   /** Whether refinement mode is currently active. */
   isRefinementMode: boolean;
@@ -286,21 +286,25 @@ export function PreviewPane({
               </Text>
               <div className={styles.suggestionsGrid}>
                 {PROMPT_SUGGESTIONS.map((suggestion, index) => (
-                  <button
+                  <div 
                     key={suggestion.title}
-                    type="button"
-                    className={styles.suggestionCard}
+                    className={styles.suggestionWrapper}
                     style={{ animationDelay: `${index * 80}ms` }}
-                    onClick={() => onSuggestionClick?.(suggestion.prompt)}
                   >
-                    <span className={styles.suggestionIcon}>{suggestion.icon}</span>
-                    <Text variant="label" className={styles.suggestionTitle}>
-                      {suggestion.title}
-                    </Text>
-                    <Text variant="body" className={styles.suggestionDescription}>
-                      {suggestion.description}
-                    </Text>
-                  </button>
+                    <Button
+                      variant="ghost"
+                      className={styles.suggestionCard}
+                      onClick={() => onSuggestionClick?.(suggestion.prompt)}
+                    >
+                      <span className={styles.suggestionIcon}>{suggestion.icon}</span>
+                      <Text variant="label" className={styles.suggestionTitle}>
+                        {suggestion.title}
+                      </Text>
+                      <Text variant="body" className={styles.suggestionDescription}>
+                        {suggestion.description}
+                      </Text>
+                    </Button>
+                  </div>
                 ))}
               </div>
             </div>

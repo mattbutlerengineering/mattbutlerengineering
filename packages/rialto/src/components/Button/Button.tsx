@@ -18,7 +18,7 @@ type MotionButtonProps = HTMLMotionProps<"button">;
  */
 export interface ButtonProps extends Pick<
   ButtonHTMLAttributes<HTMLButtonElement>,
-  "disabled" | "type" | "onClick" | "aria-label" | "id" | "name"
+  "disabled" | "type" | "onClick" | "aria-label" | "id" | "name" | "style" | "tabIndex" | "title" | "aria-expanded" | "aria-pressed"
 > {
   /** Visual style: `"primary"` (gold fill), `"secondary"` (aluminum outline), `"ghost"` (no border). */
   variant?: "primary" | "secondary" | "ghost";
