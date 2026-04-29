@@ -1,0 +1,13 @@
+{
+  "id": "add-jsdoc-to-acmm-state",
+  "prompt": "Add a JSDoc @example block to the loadState function in scripts/acmm/state.js showing how to use it. Keep the example to 3-5 lines. Do not modify any other functions or files.",
+  "model": "claude-sonnet-4-6",
+  "maxBudgetUsd": 0.15,
+  "maxTurns": 10,
+  "rubric": {
+    "mustPass": ["lint", "tests"],
+    "diffSizeMax": 12,
+    "mustTouch": ["scripts/acmm/state.js"],
+    "mustNotTouch": ["scripts/acmm/audit.js", "scripts/acmm/computeLevel.js", "scripts/acmm/detection.js"]
+  }
+}
