@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Drawer, Button, Input, Select, TextArea, Stack, Text } from "@mattbutlerengineering/rialto";
 import type { Reservation, Table, UpdateReservationRequest } from "@mbe/types";
 import styles from "./EditReservationDrawer.module.css";
 
@@ -67,131 +68,89 @@ export function EditReservationDrawer({
   };
 
   return (
-    <>
-      <div className={styles.backdrop} onClick={onClose} aria-hidden="true" />
-      <div
-        className={styles.drawer}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="edit-drawer-title"
-      >
-        <div className={styles.header}>
-          <h2 id="edit-drawer-title" className={styles.title}>
-            Edit Reservation
-          </h2>
-          <button
-            type="button"
-            className={styles.closeButton}
-            onClick={onClose}
-            aria-label="Close drawer"
-          >
-            ×
-          </button>
-        </div>
-
+    <Drawer
+      open={true}
+      onClose={onClose}
+      title="Edit Reservation"
+      size="default"
+    >
+      <Stack gap="lg" style={{ padding: "var(--rialto-space-md)" }}>
         {error && <div className={styles.errorBanner}>{error}</div>}
 
-        <div className={styles.body}>
-          <div className={styles.form}>
-            <div className={styles.fieldRow}>
-              <div className={styles.field}>
-                <label htmlFor="edit-start-time" className={styles.label}>
-                  Start Time
-                </label>
-                <input
-                  id="edit-start-time"
-                  type="time"
-                  className={styles.input}
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  disabled={isLoading}
-                />
-              </div>
-              <div className={styles.field}>
-                <label htmlFor="edit-end-time" className={styles.label}>
-                  End Time
-                </label>
-                <input
-                  id="edit-end-time"
-                  type="time"
-                  className={styles.input}
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  disabled={isLoading}
-                />
-              </div>
-            </div>
-
-            <div className={styles.field}>
-              <label htmlFor="edit-party-size" className={styles.label}>
-                Party Size
-              </label>
-              <input
-                id="edit-party-size"
-                type="number"
-                className={styles.input}
-                value={partySize}
-                min={1}
-                onChange={(e) => setPartySize(e.target.value)}
+        <Stack gap="md">
+          <div className={styles.fieldRow} style={{ display: "flex", gap: "var(--rialto-space-md)" }}>
+            <div style={{ flex: 1 }}>
+              <Input
+                label="Start Time"
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
                 disabled={isLoading}
               />
             </div>
-
-            <div className={styles.field}>
-              <label htmlFor="edit-table" className={styles.label}>
-                Table
-              </label>
-              <select
-                id="edit-table"
-                className={styles.select}
-                value={tableId}
-                onChange={(e) => setTableId(e.target.value)}
-                disabled={isLoading}
-              >
-                {activeTables.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name} (cap. {t.capacity})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className={styles.field}>
-              <label htmlFor="edit-notes" className={styles.label}>
-                Notes
-              </label>
-              <textarea
-                id="edit-notes"
-                className={styles.textarea}
-                value={notes}
-                rows={4}
-                placeholder="Any special requests or notes…"
-                onChange={(e) => setNotes(e.target.value)}
+            <div style={{ flex: 1 }}>
+              <Input
+                label="End Time"
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
                 disabled={isLoading}
               />
             </div>
           </div>
-        </div>
 
-        <div className={styles.footer}>
-          <button
-            type="button"
-            className={styles.cancelButton}
+          <Input
+            label="Party Size"
+            type="number"
+            value={partySize}
+            min={1}
+            onChange={(e) => setPartySize(e.target.value)}
+            disabled={isLoading}
+          />
+
+          <Select
+            label="Table"
+            value={tableId}
+            onChange={(e) => setTableId(e.target.value)}
+            disabled={isLoading}
+          >
+            {activeTables.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name} (cap. {t.capacity})
+              </option>
+            ))}
+          </Select>
+
+          <TextArea
+            label="Notes"
+            value={notes}
+            rows={4}
+            placeholder="Any special requests or notes…"
+            onChange={(e) => setNotes(e.target.value)}
+            disabled={isLoading}
+          />
+        </Stack>
+
+        <div className={styles.footer} style={{ display: "flex", gap: "var(--rialto-space-md)", marginTop: "var(--rialto-space-lg)" }}>
+          <Button
+            variant="secondary"
             onClick={onClose}
             disabled={isLoading}
+            fullWidth
           >
             Cancel
-          </button>
-          <button
-            type="button"
-            className={styles.saveButton}
+          </Button>
+          <Button
+            variant="primary"
             onClick={handleSave}
-            disabled={isLoading}
+            isLoading={isLoading}
+            loadingText="Saving…"
+            fullWidth
           >
-            {isLoading ? "Saving…" : "Save Changes"}
-          </button>
+            Save Changes
+          </Button>
         </div>
-      </div>
-    </>
+      </Stack>
+    </Drawer>
   );
 }

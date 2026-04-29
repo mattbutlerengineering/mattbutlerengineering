@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { Button, Input, Select, Stack, Text } from "@mattbutlerengineering/rialto";
 import type { Table } from "@mbe/types";
 import styles from "./WalkInDialog.module.css";
 
@@ -66,50 +67,43 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
   return (
     <div className={styles.overlay} role="dialog" aria-modal="true" aria-labelledby="walkin-dialog-title">
       <div className={styles.dialog}>
-        <div className={styles.header}>
-          <h2 id="walkin-dialog-title" className={styles.title}>
-            Seat Walk-In
-          </h2>
-        </div>
-
-        {error && <div className={styles.errorBanner}>{error}</div>}
-
-        <div className={styles.form}>
-          <div className={styles.field}>
-            <span className={styles.label}>Party Size</span>
-            <div className={styles.partySizeRow}>
-              {PARTY_SIZE_OPTIONS.map((size) => (
-                <button
-                  key={size}
-                  type="button"
-                  className={[
-                    styles.partySizeButton,
-                    partySize === size ? styles.partySizeButtonActive : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                  onClick={() => handlePartySizeChange(size)}
-                  disabled={isLoading}
-                  aria-pressed={partySize === size}
-                >
-                  {size}
-                </button>
-              ))}
-            </div>
+        <Stack gap="lg">
+          <div className={styles.header}>
+            <Text variant="display" id="walkin-dialog-title">
+              Seat Walk-In
+            </Text>
           </div>
 
-          <div className={styles.field}>
-            <label htmlFor="walkin-table" className={styles.label}>
-              Table
-            </label>
+          {error && <div className={styles.errorBanner}>{error}</div>}
+
+          <Stack gap="md">
+            <div>
+              <Text variant="label" color="secondary" style={{ marginBottom: "var(--rialto-space-xs)" }}>
+                Party Size
+              </Text>
+              <div className={styles.partySizeRow}>
+                {PARTY_SIZE_OPTIONS.map((size) => (
+                  <Button
+                    key={size}
+                    variant={partySize === size ? "primary" : "secondary"}
+                    size="sm"
+                    onClick={() => handlePartySizeChange(size)}
+                    disabled={isLoading}
+                    aria-pressed={partySize === size}
+                  >
+                    {size}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
             {availableTables.length === 0 ? (
-              <p className={styles.noTablesMessage}>
+              <Text color="secondary">
                 No available tables for a party of {partySize}.
-              </p>
+              </Text>
             ) : (
-              <select
-                id="walkin-table"
-                className={styles.select}
+              <Select
+                label="Table"
                 value={tableId}
                 onChange={(e) => setTableId(e.target.value)}
                 disabled={isLoading}
@@ -119,44 +113,38 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
                     {t.name} (seats {t.capacity})
                   </option>
                 ))}
-              </select>
+              </Select>
             )}
-          </div>
 
-          <div className={styles.field}>
-            <label htmlFor="walkin-guest-name" className={styles.label}>
-              Guest Name <span className={styles.optional}>(optional)</span>
-            </label>
-            <input
-              id="walkin-guest-name"
+            <Input
+              label="Guest Name (optional)"
               type="text"
-              className={styles.input}
               value={guestName}
               placeholder="e.g. Smith"
               onChange={(e) => setGuestName(e.target.value)}
               disabled={isLoading}
             />
-          </div>
-        </div>
+          </Stack>
 
-        <div className={styles.actions}>
-          <button
-            type="button"
-            className={styles.cancelButton}
-            onClick={onClose}
-            disabled={isLoading}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className={styles.confirmButton}
-            onClick={handleConfirm}
-            disabled={isLoading || availableTables.length === 0}
-          >
-            {isLoading ? "Seating…" : "Seat Now"}
-          </button>
-        </div>
+          <div className={styles.actions}>
+            <Button
+              variant="secondary"
+              onClick={onClose}
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleConfirm}
+              isLoading={isLoading}
+              disabled={availableTables.length === 0}
+              loadingText="Seating…"
+            >
+              Seat Now
+            </Button>
+          </div>
+        </Stack>
       </div>
     </div>
   );
