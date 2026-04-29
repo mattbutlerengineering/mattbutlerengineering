@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, type HTMLAttributes, type ReactNode } from "react";
+import { forwardRef, useCallback, useId, type HTMLAttributes, type ReactNode } from "react";
 import { motion, type HTMLMotionProps } from "framer-motion";
 import { useTilt } from "../../hooks/useTilt";
 import styles from "./Card.module.css";
@@ -32,6 +32,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
     { variant = "elevated", tilt = false, title, subtitle, className, children, ...props },
     forwardedRef
   ) => {
+    const titleId = useId();
     const tiltEnabled = tilt && variant !== "glass";
     const { ref: tiltRef, style, onMouseMove, onMouseLeave } = useTilt(tiltEnabled);
 
@@ -61,11 +62,12 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
         onMouseMove={onMouseMove}
         onMouseLeave={onMouseLeave}
         data-tilt={tiltEnabled || undefined}
+        aria-labelledby={title ? titleId : undefined}
         {...(props as HTMLMotionProps<"div">)}
       >
         {(title || subtitle) && (
           <div className={styles.header}>
-            {title && <h3 className={styles.title}>{title}</h3>}
+            {title && <h3 id={titleId} className={styles.title}>{title}</h3>}
             {subtitle && <p className={styles.subtitle}>{subtitle}</p>}
           </div>
         )}
