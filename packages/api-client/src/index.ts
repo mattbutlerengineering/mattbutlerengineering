@@ -6,7 +6,7 @@ export { ReservationsClient, type ListReservationsParams } from "./reservations.
 export { VenuesClient, VenueGroupsClient } from "./venues.js";
 export { TablesClient, type ListTablesParams } from "./tables.js";
 export { GuestsClient, type ListGuestsParams, type SearchGuestsParams, type FindOrCreateGuestRequest } from "./guests.js";
-export { FloorPlansClient, type ListFloorPlansParams } from "./floor-plans.js";
+export { FloorPlansClient } from "./floor-plans.js";
 export { AvailabilityClient, HoldsClient, type GetTimeSlotsParams, type GetDatesParams } from "./availability.js";
 export { streamNDJSON, type StreamConfig } from "./streaming.js";
 
