@@ -1,0 +1,39 @@
+<codebase path="packages/sentry">
+  <section priority="medium" role="src">
+  <file path="src/react.ts">
+    <item priority="low">
+      interface InitOptions {
+        appName: string;
+        dsn: string;
+      }
+    </item>
+    <item priority="high">
+      export function initSentry(options: InitOptions): void { /* ... */ }
+    </item>
+  </file>
+  <file path="src/node.ts">
+    <item priority="high">
+      interface SentryUser {
+        id: string;
+        email?: string | undefined;
+      }
+    </item>
+    <item priority="medium">
+      function isSentryUser(value: unknown): value is SentryUser { /* ... */ }
+    </item>
+  </file>
+  <file path="src/config.ts">
+    <item priority="low">
+      interface SentryConfig {
+        dsn: string;
+        environment: string;
+        release: string | undefined;
+        enabled: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function resolveConfig(dsn: string | undefined): SentryConfig { /* ... */ }
+    </item>
+  </file>
+  </section>
+</codebase>

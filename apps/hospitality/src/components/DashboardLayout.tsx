@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
-import { Breadcrumb, CommandPalette, ErrorBoundary, GenCopilot, Kbd, Button, Stack, Text, Heading } from "@mattbutlerengineering/rialto";
+import { Breadcrumb, CommandPalette, ErrorBoundary, GenCopilot, Kbd, Button, Stack, Heading } from "@mattbutlerengineering/rialto";
 import type { BreadcrumbItem } from "@mattbutlerengineering/rialto";
 import { registry } from "@mbe/rialto-catalog";
 import { HOSPITALITY_DOMAIN_CONTEXT } from "../constants/copilotContext.js";

@@ -35,7 +35,7 @@
     "@mbe/auth": "workspace:*",
     "@mattbutlerengineering/rialto": "workspace:*",
     "@mbe/rialto-catalog": "workspace:*",
-    "@mbe/observability": "workspace:*",
+    "@mbe/sentry": "workspace:^",
     "@mbe/types": "workspace:*",
     "konva": "^10.2.5",
     "react": "catalog:",
