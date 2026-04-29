@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Drawer, Button, Input, Select, TextArea, Stack, Text } from "@mattbutlerengineering/rialto";
+import { Drawer, Button, Input, Select, TextArea, Stack } from "@mattbutlerengineering/rialto";
 import type { Reservation, Table, UpdateReservationRequest } from "@mbe/types";
 import styles from "./EditReservationDrawer.module.css";
 
@@ -78,7 +78,7 @@ export function EditReservationDrawer({
         {error && <div className={styles.errorBanner}>{error}</div>}
 
         <Stack gap="md">
-          <div className={styles.fieldRow} style={{ display: "flex", gap: "var(--rialto-space-md)" }}>
+          <div className={styles.fieldRow}>
             <div style={{ flex: 1 }}>
               <Input
                 label="Start Time"
@@ -131,7 +131,7 @@ export function EditReservationDrawer({
           />
         </Stack>
 
-        <div className={styles.footer} style={{ display: "flex", gap: "var(--rialto-space-md)", marginTop: "var(--rialto-space-lg)" }}>
+        <div className={styles.footer}>
           <Button
             variant="secondary"
             onClick={onClose}
