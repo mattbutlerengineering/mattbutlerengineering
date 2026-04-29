@@ -1,11 +1,36 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { sentryVitePlugin } from "@sentry/vite-plugin";
+import { VitePWA } from "vite-plugin-pwa";
 import { resolve } from "path";
 
 export default defineConfig({
   plugins: [
     react(),
+    VitePWA({
+      registerType: "autoUpdate",
+      includeAssets: ["favicon.svg", "apple-touch-icon.png", "robots.txt"],
+      manifest: {
+        name: "Matt Butler Engineering",
+        short_name: "MBE",
+        description: "Software engineering solutions for hospitality and beyond",
+        theme_color: "#ffffff",
+        background_color: "#ffffff",
+        display: "standalone",
+        icons: [
+          {
+            src: "favicon.svg",
+            sizes: "any",
+            type: "image/svg+xml",
+          },
+          {
+            src: "apple-touch-icon.png",
+            sizes: "180x180",
+            type: "image/png",
+          },
+        ],
+      },
+    }),
     sentryVitePlugin({
       org: process.env.SENTRY_ORG,
       project: process.env.SENTRY_PROJECT,
