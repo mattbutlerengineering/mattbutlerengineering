@@ -16,7 +16,7 @@ test.describe("Post-deploy smoke tests", () => {
     test("navigation links work", async ({ page }) => {
       await page.goto(`${BASE_URL}/`);
       // Check that global nav is present
-      await expect(page.locator("nav")).toBeVisible();
+      await expect(page.locator("nav[aria-label=\"Global navigation\"]")).toBeVisible();
     });
 
     test("status page loads", async ({ page }) => {
