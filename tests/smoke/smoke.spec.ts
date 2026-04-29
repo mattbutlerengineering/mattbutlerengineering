@@ -16,7 +16,7 @@ test.describe("Post-deploy smoke tests", () => {
     test("navigation links work", async ({ page }) => {
       await page.goto(`${BASE_URL}/`);
       // Check that global nav is present
-      await expect(page.locator("nav")).toBeVisible();
+      await expect(page.locator("nav[aria-label=\"Global navigation\"]")).toBeVisible();
     });
 
     test("status page loads", async ({ page }) => {
@@ -46,8 +46,10 @@ test.describe("Post-deploy smoke tests", () => {
     });
 
     test("agent service healthy", async ({ request }) => {
-      const response = await request.get(`${API_URL}/v1/sessions`);
+      const response = await request.get(`${API_URL}/api/gen/health`);
       expect(response.ok()).toBe(true);
+      const body = await response.json();
+      expect(body.status).toBe("ok");
     });
   });
 

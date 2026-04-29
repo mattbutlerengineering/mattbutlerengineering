@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm --dir services/agent dev)",
+      "Bash(pnpm --dir services/agent build)",
+      "Bash(pnpm --dir services/agent test)",
+      "Bash(pnpm --dir services/agent test:watch)",
+      "Bash(pnpm --dir services/agent test:coverage)",
+      "Bash(pnpm --dir services/agent lint)",
+      "Bash(pnpm --dir services/agent typecheck)",
+      "Bash(pnpm --dir services/agent prisma:generate)",
+      "Bash(pnpm --dir services/agent prisma:push)",
+      "Bash(pnpm --dir services/agent prisma:migrate)",
+      "Bash(pnpm --dir services/agent prisma:studio)",
+      "Bash(pnpm --dir services/agent db:generate)",
+      "Bash(pnpm --dir services/agent db:push)",
+      "Bash(pnpm --dir services/agent db:migrate)",
+      "Bash(pnpm --dir services/agent db:studio)",
+      "Bash(pnpm --dir services/agent agent:run)",
+      "Bash(mbe agent run*)",
+      "Bash(mbe agent orchestrate*)",
+      "Bash(node scripts/accm/audit.js --project services/agent)"
+    ]
+  }
+}

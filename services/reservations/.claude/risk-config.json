@@ -1,0 +1,6 @@
+{
+  "tier": "P0",
+  "rationale": "Production booking transaction service handling guest data and reservation state",
+  "blast_radius": "all reservations across all venues; SSE divergence breaks downstream consumers",
+  "rollback_strategy": "see docs/RUNBOOK.md; consider SSE replay for in-flight events"
+}

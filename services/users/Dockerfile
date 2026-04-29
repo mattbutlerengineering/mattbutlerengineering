@@ -1,5 +1,5 @@
 # Build stage
-FROM node:22-alpine3.19 AS builder
+FROM node:22-alpine3.19@sha256:40dc4b415c17b85bea9be05314b4a753f45a4e1716bb31c01182e6c53d51a654 AS builder
 
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
@@ -14,7 +14,6 @@ COPY packages/auth/package.json ./packages/auth/
 COPY packages/api-versioning/package.json ./packages/api-versioning/
 COPY packages/config/package.json ./packages/config/
 COPY packages/observability/package.json ./packages/observability/
-COPY packages/sentry/package.json ./packages/sentry/
 COPY services/users/package.json ./services/users/
 
 # Install all dependencies
@@ -26,7 +25,6 @@ COPY packages/auth/tsconfig.json ./packages/auth/
 COPY packages/api-versioning/tsconfig.json ./packages/api-versioning/
 COPY packages/config/typescript ./packages/config/typescript
 COPY packages/observability/tsconfig.json ./packages/observability/
-COPY packages/sentry/tsconfig.json ./packages/sentry/
 COPY services/users/tsconfig.json ./services/users/
 
 # Copy Prisma schema (needed for db:generate)
@@ -37,7 +35,6 @@ COPY packages/types/src ./packages/types/src
 COPY packages/auth/src ./packages/auth/src
 COPY packages/api-versioning/src ./packages/api-versioning/src
 COPY packages/observability/src ./packages/observability/src
-COPY packages/sentry/src ./packages/sentry/src
 COPY services/users/src ./services/users/src
 
 # Build workspace packages and service in a single layer
@@ -45,12 +42,11 @@ RUN pnpm --filter @mbe/types build && \
     pnpm --filter @mbe/auth build && \
     pnpm --filter @mbe/api-versioning build && \
     pnpm --filter @mbe/observability build && \
-    pnpm --filter @mbe/sentry build && \
     pnpm --filter @mbe/users-service db:generate && \
     pnpm --filter @mbe/users-service build
 
 # Production stage
-FROM node:22-alpine3.19 AS runner
+FROM node:22-alpine3.19@sha256:40dc4b415c17b85bea9be05314b4a753f45a4e1716bb31c01182e6c53d51a654 AS runner
 
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
@@ -69,7 +65,6 @@ COPY packages/auth/package.json ./packages/auth/
 COPY packages/api-versioning/package.json ./packages/api-versioning/
 COPY packages/config/package.json ./packages/config/
 COPY packages/observability/package.json ./packages/observability/
-COPY packages/sentry/package.json ./packages/sentry/
 COPY services/users/package.json ./services/users/
 
 # Install production dependencies only (Prisma client is copied from builder)
@@ -81,7 +76,6 @@ COPY --from=builder /app/packages/types/dist ./packages/types/dist
 COPY --from=builder /app/packages/auth/dist ./packages/auth/dist
 COPY --from=builder /app/packages/api-versioning/dist ./packages/api-versioning/dist
 COPY --from=builder /app/packages/observability/dist ./packages/observability/dist
-COPY --from=builder /app/packages/sentry/dist ./packages/sentry/dist
 
 # Copy built users service
 COPY --from=builder /app/services/users/dist ./services/users/dist

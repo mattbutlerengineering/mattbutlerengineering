@@ -8,7 +8,7 @@ jobs:
   sweep:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
       - name: Trigger sweep audit
         run: |
           echo "::notice::Sweep audit scheduled — run '/site-audit sweep' via Claude Code remote trigger"

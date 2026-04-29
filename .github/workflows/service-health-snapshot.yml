@@ -1,0 +1,39 @@
+name: Service Health Snapshot
+
+on:
+  schedule:
+    - cron: "43 * * * *" # Hourly at :43 (off-minute to avoid fleet congestion)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  snapshot:
+    name: Record Service Health
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Poll health endpoints and append snapshot
+        run: node scripts/health-metrics.mjs
+
+      - name: Commit snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add metrics/service-health.jsonl
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore(metrics): append service health snapshot [skip ci]"
+            git push origin HEAD:main
+          fi

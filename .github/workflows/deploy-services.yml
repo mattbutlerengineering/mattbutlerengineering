@@ -30,7 +30,7 @@ jobs:
       blocked: ${{ steps.check.outputs.blocked }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
         with:
           sparse-checkout: |
             .github/circuit-breaker-state
@@ -61,7 +61,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Wait for CI workflow
-        uses: lewagon/wait-on-check-action@v1.6.0
+        uses: lewagon/wait-on-check-action@84840133801bb697fed25fd0e21078b85f5831a0 # v1.6.0
         with:
           ref: ${{ github.sha }}
           check-name: "Build"
@@ -88,7 +88,7 @@ jobs:
 
     steps:
       - name: Install doctl
-        uses: digitalocean/action-doctl@v2
+        uses: digitalocean/action-doctl@3cb3953159719656269e044e0e24ca16dd2a690f # v2
         with:
           token: ${{ secrets.DIGITALOCEAN_TOKEN }}
 

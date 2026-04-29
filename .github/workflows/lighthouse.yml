@@ -9,23 +9,38 @@ jobs:
   lighthouse:
     name: Lighthouse Audit
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     strategy:
       matrix:
         app:
-          - { name: "marketing", url: "https://mattbutlerengineering.com/" }
-          - { name: "hospitality", url: "https://mattbutlerengineering.com/hospitality" }
-          - { name: "rialto", url: "https://mattbutlerengineering.com/rialto" }
+          - { name: "marketing", pkg: "@mbe/marketing", dir: "marketing" }
+          - { name: "hospitality", pkg: "@mbe/hospitality", dir: "hospitality" }
+          - { name: "rialto", pkg: "@mbe/rialto-web", dir: "rialto-web" }
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm --filter ${{ matrix.app.pkg }} build
 
       - name: Run Lighthouse
         id: lh
         uses: treosh/lighthouse-ci-action@v12
         with:
-          urls: ${{ matrix.app.url }}
+          staticDistDir: ./apps/${{ matrix.app.dir }}/dist
           temporaryPublicStorage: true
 
       - name: Extract and store scores
@@ -43,19 +58,8 @@ jobs:
           BP=$(echo "$LH_MANIFEST" | jq -r '.[0].summary."best-practices" // 0' | awk '{printf "%.0f", $1 * 100}')
           SEO=$(echo "$LH_MANIFEST" | jq -r '.[0].summary.seo // 0' | awk '{printf "%.0f", $1 * 100}')
 
-          PAYLOAD=$(jq -nc \
-            --arg app "$APP_NAME" \
-            --arg date "$DATE" \
-            --argjson perf "${PERF:-0}" \
-            --argjson a11y "${A11Y:-0}" \
-            --argjson bp "${BP:-0}" \
-            --argjson seo "${SEO:-0}" \
-            '{app: $app, date: $date, performance: $perf, accessibility: $a11y, bestPractices: $bp, seo: $seo}')
+          PAYLOAD=$(jq -nc             --arg app "$APP_NAME"             --arg date "$DATE"             --argjson perf "${PERF:-0}"             --argjson a11y "${A11Y:-0}"             --argjson bp "${BP:-0}"             --argjson seo "${SEO:-0}"             '{app: $app, date: $date, performance: $perf, accessibility: $a11y, bestPractices: $bp, seo: $seo}')
 
-          curl -sf -X PUT \
-            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/values/lighthouse%2F${DATE}-${APP_NAME}" \
-            -H "Authorization: Bearer ${CF_API_TOKEN}" \
-            -H "Content-Type: application/json" \
-            -d "$PAYLOAD"
+          curl -sf -X PUT             "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/values/lighthouse%2F${DATE}-${APP_NAME}"             -H "Authorization: Bearer ${CF_API_TOKEN}"             -H "Content-Type: application/json"             -d "$PAYLOAD"
 
           echo "Stored: $APP_NAME perf=$PERF a11y=$A11Y bp=$BP seo=$SEO"
