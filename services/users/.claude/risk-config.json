@@ -1,0 +1,6 @@
+{
+  "tier": "P0",
+  "rationale": "Production user identity service handling PII, authentication, and access tokens",
+  "blast_radius": "all authenticated users across the platform; compromise = total identity compromise",
+  "rollback_strategy": "see docs/RUNBOOK.md; redeploy previous DO deployment ID"
+}
