@@ -36,7 +36,7 @@ export const Error: Story = {
   args: {
     label: 'Username',
     defaultValue: 'invalid user',
-    error: 'This username is already taken.',
+    error: true,
     style: { width: '300px' },
   },
 };
