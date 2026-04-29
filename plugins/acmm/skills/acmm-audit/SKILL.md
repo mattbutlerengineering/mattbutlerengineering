@@ -14,19 +14,19 @@ The criterion catalog is **ported verbatim** from [kubestellar/console](https://
 
 ```bash
 # Dry run — scores the repo, writes report, creates nothing
-node scripts/acmm/audit.js
+node ${CLAUDE_PLUGIN_ROOT}/scripts/audit.js
 
 # Create deduplicated GitHub issues for next-level gaps (fed to ship-loop)
-node scripts/acmm/audit.js --apply
+node ${CLAUDE_PLUGIN_ROOT}/scripts/audit.js --apply
 
 # Rewrite README badge between <!-- acmm:begin -->/<!-- acmm:end -->
-node scripts/acmm/audit.js --badge
+node ${CLAUDE_PLUGIN_ROOT}/scripts/audit.js --badge
 
 # Full run (scheduled trigger invokes this)
-node scripts/acmm/audit.js --apply --badge
+node ${CLAUDE_PLUGIN_ROOT}/scripts/audit.js --apply --badge
 
 # Just print trend from .claude/acmm/state.json
-node scripts/acmm/audit.js --trend
+node ${CLAUDE_PLUGIN_ROOT}/scripts/audit.js --trend
 ```
 
 ## What it does
@@ -70,7 +70,7 @@ Criteria carry one of: `feedback-loop`, `readiness`, `autonomy`, `observability`
 ## Cadence
 
 - **On-demand** — anytime via this skill.
-- **Scheduled** — `mbe-acmm-audit` RemoteTrigger on claude.ai, daily 10:00am PT (cron `0 17 * * *` UTC), invocation: `node scripts/acmm/audit.js --apply --badge`. Staggered from the other audits (Mon 8:23 deep-audit, Tue–Sun 9:41 light-audit, daily 5:11pm progress-tracker) so they don't contend for the agent queue.
+- **Scheduled** — `mbe-acmm-audit` RemoteTrigger on claude.ai, daily 10:00am PT (cron `0 17 * * *` UTC), invocation: `node ${CLAUDE_PLUGIN_ROOT}/scripts/audit.js --apply --badge`. Staggered from the other audits (Mon 8:23 deep-audit, Tue–Sun 9:41 light-audit, daily 5:11pm progress-tracker) so they don't contend for the agent queue.
 
 ## Integration
 

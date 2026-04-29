@@ -1,5 +1,5 @@
 # Build stage
-FROM node:22-alpine3.19 AS builder
+FROM node:22-alpine3.19@sha256:40dc4b415c17b85bea9be05314b4a753f45a4e1716bb31c01182e6c53d51a654 AS builder
 
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
@@ -67,7 +67,7 @@ RUN pnpm --filter @mbe/types build && \
     pnpm --filter @mbe/agent-service build
 
 # Production stage
-FROM node:22-alpine3.19 AS runner
+FROM node:22-alpine3.19@sha256:40dc4b415c17b85bea9be05314b4a753f45a4e1716bb31c01182e6c53d51a654 AS runner
 
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
@@ -95,8 +95,7 @@ COPY services/agent/package.json ./services/agent/
 
 # Install production dependencies only (Prisma client is copied from builder)
 ENV NODE_ENV=production
-RUN pnpm install --frozen-lockfile --prod --ignore-scripts && \
-    pnpm add pg --filter @mbe/agent-service --ignore-scripts
+RUN pnpm install --frozen-lockfile --prod --ignore-scripts
 
 # Copy compiled workspace packages
 COPY --from=builder /app/packages/types/dist ./packages/types/dist

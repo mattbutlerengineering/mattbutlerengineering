@@ -17,7 +17,7 @@
         title: string;
         description: string;
         tags: string[];
-        href?: string;
+        href?: string | undefined;
       }
     </item>
     <item priority="high">

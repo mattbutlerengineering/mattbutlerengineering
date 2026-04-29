@@ -6,13 +6,13 @@
 }
 
 :root {
-  --color-background: #f9fafb;
-  --color-foreground: #1a1a1a;
+  --color-background: var(--rialto-surface);
+  --color-foreground: var(--rialto-text-primary);
 }
 
 body {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--rialto-font-sans, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif);
   background-color: var(--color-background);
   color: var(--color-foreground);
 }

@@ -48,6 +48,8 @@ test.describe("Post-deploy smoke tests", () => {
     test("agent service healthy", async ({ request }) => {
       const response = await request.get(`${API_URL}/api/gen/health`);
       expect(response.ok()).toBe(true);
+      const body = await response.json();
+      expect(body.status).toBe("ok");
     });
   });
 

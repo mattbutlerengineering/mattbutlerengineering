@@ -31,6 +31,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
               className={styles.buttonLink}
               target="_blank"
               rel="noopener noreferrer"
+              aria-label={`${project.title} (opens in new tab)`}
             >
               View live
             </a>

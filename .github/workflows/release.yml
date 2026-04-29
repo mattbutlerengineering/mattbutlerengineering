@@ -1,0 +1,105 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Release @mattbutlerengineering/rialto
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check for pending changesets
+        id: changesets
+        run: |
+          COUNT=$(find .changeset -maxdepth 1 -name '*.md' ! -name 'README.md' | wc -l | tr -d ' ')
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          if [ "$COUNT" -gt 0 ]; then
+            echo "has_changesets=true" >> "$GITHUB_OUTPUT"
+            echo "Found $COUNT pending changeset(s) — proceeding with release"
+          else
+            echo "has_changesets=false" >> "$GITHUB_OUTPUT"
+            echo "No pending changesets — nothing to release"
+          fi
+
+      - name: Configure git identity
+        if: steps.changesets.outputs.has_changesets == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Version packages
+        if: steps.changesets.outputs.has_changesets == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Detect whether changeset version skips CHANGELOG.md write silently.
+          # This happens when prettier cannot resolve @mbe/config (see gotchas.md).
+          PREV_HASH=$(sha256sum packages/rialto/CHANGELOG.md 2>/dev/null | cut -d' ' -f1 || echo "absent")
+
+          # Bump versions in package.json, update CHANGELOG.md, consume .changeset/*.md files.
+          # GITHUB_TOKEN is required by @changesets/changelog-github to resolve PR links.
+          pnpm version-packages
+
+          # If the CHANGELOG hash is unchanged, prettier silently skipped the write.
+          # Prepend the version block manually so the file stays accurate.
+          CURR_HASH=$(sha256sum packages/rialto/CHANGELOG.md 2>/dev/null | cut -d' ' -f1 || echo "absent")
+          if [ "$PREV_HASH" = "$CURR_HASH" ]; then
+            echo "::warning::packages/rialto/CHANGELOG.md was not updated — prepending manually"
+            NEW_VER=$(node -p "require('./packages/rialto/package.json').version")
+            EXISTING=$(cat packages/rialto/CHANGELOG.md 2>/dev/null || echo "# @mattbutlerengineering/rialto")
+            BODY=$(printf '%s' "$EXISTING" | sed '1{/^#[[:space:]]/d}')
+            printf '# @mattbutlerengineering/rialto\n\n## %s\n\n### Changes\n\nSee changeset details in git history.\n\n%s\n' \
+              "$NEW_VER" "$BODY" > packages/rialto/CHANGELOG.md
+          fi
+
+      - name: Build rialto
+        if: steps.changesets.outputs.has_changesets == 'true'
+        run: pnpm --filter @mattbutlerengineering/rialto build
+
+      - name: Commit version bump
+        if: steps.changesets.outputs.has_changesets == 'true'
+        run: |
+          # Stage everything: bumped package.json, CHANGELOG.md, consumed changesets,
+          # and any exports-map regeneration in packages/rialto/package.json (gotcha #3:
+          # pnpm release regenerates exports when a new component folder was added).
+          git add .
+          if git diff --staged --quiet; then
+            echo "Nothing staged after versioning"
+          else
+            git commit -m "chore: version packages [skip ci]"
+          fi
+
+      - name: Publish to npm
+        if: steps.changesets.outputs.has_changesets == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: pnpm exec changeset publish
+
+      - name: Push version commit and release tags
+        if: steps.changesets.outputs.has_changesets == 'true'
+        run: git push --follow-tags

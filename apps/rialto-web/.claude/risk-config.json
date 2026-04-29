@@ -1,0 +1,6 @@
+{
+  "tier": "P3",
+  "rationale": "Showcase site for the rialto design system; no user data, no business logic, no auth",
+  "blast_radius": "Broken docs only — no production user impact",
+  "rollback_strategy": "Redeploy previous wrangler version; visual regression detects most issues pre-deploy"
+}
