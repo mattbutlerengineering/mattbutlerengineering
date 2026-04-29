@@ -33,6 +33,7 @@
     "react-router-dom": "catalog:"
   },
   "devDependencies": {
+    "vite-plugin-pwa": "^1.2.0",
     "@axe-core/playwright": "^4.11.2",
     "@mbe/config": "workspace:*",
     "@playwright/test": "^1.59.1",
