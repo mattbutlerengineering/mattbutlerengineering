@@ -40,6 +40,17 @@
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
+        "@type": "Person",
+        "name": "Matt Butler",
+        "url": "https://mattbutlerengineering.com",
+        "jobTitle": "Engineering Leader",
+        "description": "I build software end-to-end — design system, backend services, infrastructure as code, CI/CD, and monitoring.",
+        "sameAs": ["https://github.com/mattbutlerengineering"]
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
         "@type": "Organization",
         "name": "Matt Butler Engineering",
         "url": "https://mattbutlerengineering.com",
@@ -59,9 +70,6 @@
   </head>
   <body>
     <script>
-      // Unregister stale hospitality service workers that were registered at
-      // root scope before the scope fix (#39). Without this, browsers that
-      // visited hospitality before the fix will redirect all pages to /hospitality.
       if ("serviceWorker" in navigator) {
         navigator.serviceWorker.getRegistrations().then(function (registrations) {
           for (var i = 0; i < registrations.length; i++) {
