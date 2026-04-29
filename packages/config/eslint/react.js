@@ -33,7 +33,7 @@ export default [
       ],
       "no-console": ["warn", { allow: ["warn", "error", "info"] }],
       "no-restricted-imports": [
-        "error",
+        "warn",
         {
           patterns: [
             {

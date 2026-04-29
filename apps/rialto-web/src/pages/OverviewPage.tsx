@@ -91,7 +91,7 @@ export function OverviewPage() {
                     <Text variant="label" color="primary">
                       {section.label}
                     </Text>
-                    <span className={styles.categoryCount}>{section.items.length}</span>
+                    <span className={styles.categoryCount} aria-hidden="true">{section.items.length}</span>
                   </div>
                   <ul className={styles.componentList}>
                     {section.items.slice(0, 4).map((item) => (

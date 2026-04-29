@@ -22,6 +22,11 @@
     "TURBO_TEAM"
   ],
   "tasks": {
+    "build-storybook": {
+      "dependsOn": ["^build"],
+      "inputs": ["src/**", ".storybook/**"],
+      "outputs": ["storybook-static/**"]
+    },
     "build": {
       "dependsOn": ["^build"],
       "inputs": [
