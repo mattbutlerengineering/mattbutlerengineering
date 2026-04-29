@@ -46,12 +46,15 @@ pool.on("error", (err) => {
 });
 
 export function getPoolStats() {
+  const total = pool.totalCount;
+  const idle = pool.idleCount;
+  const active = total - idle;
   return {
-    total: pool.totalCount,
-    active: pool.activeCount,
+    total,
+    active,
     waiting: pool.waitingCount,
-    idle: pool.idleCount,
-    utilization: pool.totalCount > 0 ? pool.activeCount / pool.max : 0,
+    idle,
+    utilization: total > 0 ? active / CONNECTION_LIMIT : 0,
   };
 }
 
