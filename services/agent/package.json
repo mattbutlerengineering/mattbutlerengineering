@@ -45,6 +45,7 @@
     "seed": "tsx prisma/seed.ts"
   },
   "devDependencies": {
+    "@mbe/agent-test-utils": "workspace:*",
     "@mbe/config": "workspace:*",
     "@types/node": "catalog:",
     "@types/pg": "^8.20.0",
