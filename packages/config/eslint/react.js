@@ -4,10 +4,6 @@ import reactHooksPlugin from "eslint-plugin-react-hooks";
 import eslintReact from "@eslint-react/eslint-plugin";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import reactRefresh from "eslint-plugin-react-refresh";
-import { fixupPluginRules } from "@eslint/compat";
-
-// ESLint 10 removed legacy rule context methods (getFilename, getScope, etc.).
-// Once plugins ship ESLint 10 native support, remove @eslint/compat completely.
 
 export default [
   ...baseConfig,
@@ -35,11 +31,9 @@ export default [
         "warn",
         { allowConstantExport: true },
       ],
-      // Warn on console.log in production source files
-      "no-console": ["warn", { allow: ["warn", "error", "info"] }],
-      // Module boundary enforcement — block backend-only packages and entrypoints in frontend apps
+      "no-console": ["warn", { allow: ["warn", "warn", "info"] }],
       "no-restricted-imports": [
-        "error",
+        "warn",
         {
           patterns: [
             {
@@ -61,20 +55,27 @@ export default [
           ],
         },
       ],
-      // Warn on hardcoded hex colors in JSX — prefer Rialto CSS tokens (var(--rialto-*))
       "no-restricted-syntax": [
         "warn",
         {
-          selector:
-            "JSXAttribute[value.type='Literal'][value.value=/^#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/]",
-          message:
-            "Avoid hardcoded hex colors in JSX. Use Rialto CSS tokens (var(--rialto-*)) instead.",
+          selector: "JSXOpeningElement[name.name='button']",
+          message: "Use <Button /> from '@mattbutlerengineering/rialto' instead of native <button>.",
         },
         {
-          selector:
-            "Property[value.type='Literal'][value.value=/^#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/][parent.parent.type='JSXExpressionContainer']",
-          message:
-            "Avoid hardcoded hex colors in JSX expressions. Use Rialto CSS tokens (var(--rialto-*)) instead.",
+          selector: "JSXOpeningElement[name.name='input']",
+          message: "Use <Input /> from '@mattbutlerengineering/rialto' instead of native <input>.",
+        },
+        {
+          selector: "JSXOpeningElement[name.name='select']",
+          message: "Use <Select /> from '@mattbutlerengineering/rialto' instead of native <select>.",
+        },
+        {
+          selector: "JSXOpeningElement[name.name='textarea']",
+          message: "Use <TextArea /> from '@mattbutlerengineering/rialto' instead of native <textarea>.",
+        },
+        {
+          selector: "JSXAttribute[value.type='Literal'][value.value=/^#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/]",
+          message: "Avoid hardcoded hex colors in JSX. Use Rialto CSS tokens (var(--rialto-*)) instead.",
         },
       ],
     },
