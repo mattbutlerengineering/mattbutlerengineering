@@ -85,7 +85,7 @@ jobs:
           {
             echo '## Gating scripts'
             echo
-            for script in scripts/check-*.js; do
+              for script in plugins/acmm/scripts/check-*.js; do
               name=$(basename "$script" .js)
               if node "$script" 2>&1 > "/tmp/$name.out"; then
                 echo "- ✓ \`$name\` passed"
@@ -107,7 +107,7 @@ jobs:
             echo '## ACMM audit'
             echo
             echo '```'
-            node scripts/acmm/audit.js 2>&1 | head -25
+             node plugins/acmm/scripts/audit.js 2>&1 | head -25
             echo '```'
           } >> /tmp/report.md
 

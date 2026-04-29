@@ -51,7 +51,7 @@ jobs:
       - name: Run audit with --apply
         # Files deduplicated issues for next-level gaps. Exits 0 even
         # when gaps exist — this workflow is diagnostic, not gating.
-        run: node scripts/acmm/audit.js --apply
+        run: node plugins/acmm/scripts/audit.js --apply
 
       - name: Echo summary
         if: always()
