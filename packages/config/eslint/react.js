@@ -56,7 +56,7 @@ export default [
         },
       ],
       "no-restricted-syntax": [
-        "warn",
+        "error",
         {
           selector: "JSXOpeningElement[name.name='button']",
           message: "Use <Button /> from '@mattbutlerengineering/rialto' instead of native <button>.",
