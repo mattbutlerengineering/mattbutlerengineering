@@ -1,25 +1,25 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
-import { Button, Checkbox, Divider, Input, useToast } from "@mattbutlerengineering/rialto";
+import { Button, Checkbox, Divider, Input, useToast, AuthMascot } from "@mattbutlerengineering/rialto";
 import { AuthLayout } from "./AuthLayout";
 import styles from "./AuthLayout.module.css";
 
 export function SignUp() {
   const { toast } = useToast();
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [mascotState, setMascotState] = useState<"idle" | "typing" | "peeking" | "covering">("idle");
+  const [emailValue, setEmailValue] = useState("");
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!agreedToTerms) return;
-
     setIsLoading(true);
+
     // Simulate network request
     await new Promise((resolve) => setTimeout(resolve, 1500));
-    setIsLoading(false);
 
+    setIsLoading(false);
     toast({ title: "Account created successfully", variant: "success" });
   }
 
@@ -27,11 +27,16 @@ export function SignUp() {
     <AuthLayout
       title="Create your account"
       footer={
-        <Link to="/login" className={styles.footerLinkAccent}>
+        <Link to="/signin" className={styles.footerLinkAccent}>
           Already have an account? Sign in
         </Link>
       }
     >
+      <AuthMascot 
+        state={mascotState} 
+        progress={Math.min(emailValue.length / 20, 1)} 
+      />
+
       <form onSubmit={handleSubmit} className={styles.form}>
         <Input
           label="Full name"
@@ -39,6 +44,8 @@ export function SignUp() {
           required
           autoComplete="name"
           disabled={isLoading}
+          onFocus={() => setMascotState("typing")}
+          onBlur={() => setMascotState("idle")}
         />
         <Input
           label="Email address"
@@ -46,6 +53,13 @@ export function SignUp() {
           required
           autoComplete="email"
           disabled={isLoading}
+          value={emailValue}
+          onChange={(e) => {
+            setEmailValue(e.target.value);
+            setMascotState("typing");
+          }}
+          onFocus={() => setMascotState("typing")}
+          onBlur={() => setMascotState("idle")}
         />
         <Input
           label="Password"
@@ -53,6 +67,8 @@ export function SignUp() {
           required
           autoComplete="new-password"
           disabled={isLoading}
+          onFocus={() => setMascotState("covering")}
+          onBlur={() => setMascotState("idle")}
           endIcon={
             <Button
               variant="ghost"
@@ -66,26 +82,23 @@ export function SignUp() {
             </Button>
           }
         />
-        <Input
-          label="Confirm password"
-          type={showPassword ? "text" : "password"}
-          required
-          autoComplete="new-password"
-          disabled={isLoading}
-        />
 
-        <Checkbox
-          label="I agree to the Terms of Service"
-          checked={agreedToTerms}
-          onCheckedChange={setAgreedToTerms}
-          disabled={isLoading}
-        />
+        <div className={styles.termsRow}>
+          <Checkbox
+            label={
+              <span className={styles.termsText}>
+                I agree to the <Link to="#">Terms of Service</Link> and <Link to="#">Privacy Policy</Link>
+              </span>
+            }
+            required
+            disabled={isLoading}
+          />
+        </div>
 
         <Button
           variant="primary"
           type="submit"
           className={styles.submitButton}
-          disabled={!agreedToTerms || isLoading}
           isLoading={isLoading}
           loadingText="Creating account..."
         >

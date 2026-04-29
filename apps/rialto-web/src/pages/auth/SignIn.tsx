@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
-import { Button, Checkbox, Divider, Input, useToast } from "@mattbutlerengineering/rialto";
+import { Button, Checkbox, Divider, Input, useToast, AuthMascot } from "@mattbutlerengineering/rialto";
 import { AuthLayout } from "./AuthLayout";
 import styles from "./AuthLayout.module.css";
 
@@ -10,6 +10,8 @@ export function SignIn() {
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [mascotState, setMascotState] = useState<"idle" | "typing" | "peeking" | "covering">("idle");
+  const [emailValue, setEmailValue] = useState("");
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -31,6 +33,11 @@ export function SignIn() {
         </Link>
       }
     >
+      <AuthMascot 
+        state={mascotState} 
+        progress={Math.min(emailValue.length / 20, 1)} 
+      />
+
       <form onSubmit={handleSubmit} className={styles.form}>
         <Input
           label="Email address"
@@ -38,6 +45,13 @@ export function SignIn() {
           required
           autoComplete="email"
           disabled={isLoading}
+          value={emailValue}
+          onChange={(e) => {
+            setEmailValue(e.target.value);
+            setMascotState("typing");
+          }}
+          onFocus={() => setMascotState("typing")}
+          onBlur={() => setMascotState("idle")}
         />
         <Input
           label="Password"
@@ -45,6 +59,8 @@ export function SignIn() {
           required
           autoComplete="current-password"
           disabled={isLoading}
+          onFocus={() => setMascotState("covering")}
+          onBlur={() => setMascotState("idle")}
           endIcon={
             <Button
               variant="ghost"
