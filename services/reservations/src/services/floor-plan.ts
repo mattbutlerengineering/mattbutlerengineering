@@ -146,6 +146,51 @@ export const floorPlanService = {
     return mapPrismaFloorPlan(floorPlan);
   },
 
+  async clone(id: string): Promise<FloorPlan | null> {
+    const source = await prisma.floorPlan.findUnique({
+      where: { id },
+      include: { tables: true },
+    });
+    if (!source) return null;
+
+    const cloned = await prisma.$transaction(async (tx) => {
+      const newFloorPlan = await tx.floorPlan.create({
+        data: {
+          venueId: source.venueId,
+          name: `Copy of ${source.name}`,
+          isActive: false,
+          layoutJson: source.layoutJson as Prisma.InputJsonValue,
+        },
+      });
+
+      if (source.tables.length > 0) {
+        await tx.table.createMany({
+          data: source.tables.map((t) => ({
+            name: t.name,
+            tableNumber: t.tableNumber,
+            capacity: t.capacity,
+            minCovers: t.minCovers,
+            maxCovers: t.maxCovers,
+            location: t.location,
+            isActive: t.isActive,
+            priority: t.priority,
+            status: t.status,
+            venueId: t.venueId,
+            floorPlanId: newFloorPlan.id,
+            shapeMetadata: t.shapeMetadata as Prisma.InputJsonValue,
+          })),
+        });
+      }
+
+      return tx.floorPlan.findUnique({
+        where: { id: newFloorPlan.id },
+        include: { tables: true },
+      });
+    });
+
+    return cloned ? mapPrismaFloorPlan(cloned) : null;
+  },
+
   async update(id: string, data: UpdateFloorPlanRequest): Promise<FloorPlan | null> {
     try {
       const updateData: Prisma.FloorPlanUpdateInput = {};
@@ -169,10 +214,8 @@ export const floorPlanService = {
 
   async delete(id: string): Promise<boolean> {
     try {
-      // First unlink any tables from this floor plan
-      await prisma.table.updateMany({
+      await prisma.table.deleteMany({
         where: { floorPlanId: id },
-        data: { floorPlanId: null, shapeMetadata: Prisma.DbNull },
       });
       await prisma.floorPlan.delete({ where: { id } });
       return true;
@@ -184,16 +227,12 @@ export const floorPlanService = {
 
   async setActive(id: string, venueId: string): Promise<FloorPlan | null> {
     try {
-      // Wrap both writes in a transaction so a crash between them
-      // cannot leave the venue with no active floor plan
       const floorPlan = await prisma.$transaction(async (tx) => {
-        // Deactivate all other floor plans for this venue
         await tx.floorPlan.updateMany({
           where: { venueId, isActive: true },
           data: { isActive: false },
         });
 
-        // Activate the specified floor plan
         return tx.floorPlan.update({
           where: { id },
           data: { isActive: true },
