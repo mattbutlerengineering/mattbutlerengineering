@@ -1,0 +1,11 @@
+{
+  "name": "acmm",
+  "version": "1.0.0",
+  "description": "AI Codebase Maturity Model (ACMM) audit",
+  "skills": [
+    {
+      "id": "acmm-audit",
+      "path": "skills/acmm-audit/SKILL.md"
+    }
+  ]
+}
