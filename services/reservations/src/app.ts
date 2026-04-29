@@ -30,8 +30,7 @@ export interface AppOptions {
 export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
   const fastify = Fastify({
     logger: options.logger ?? true,
-    disableRequestLogging: true, ajv: { customOptions: { strict: false } }, ajv: { customOptions: { strict: false } }, ajv: { customOptions: { strict: false } },
-    disableRequestLogging: true, ajv: { customOptions: { strict: false } }, ajv: { customOptions: { strict: false } },
+    disableRequestLogging: true, ajv: { customOptions: { strict: false } },
     ajv: {
       customOptions: {
         strict: false,

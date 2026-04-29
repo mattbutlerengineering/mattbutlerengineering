@@ -9,21 +9,6 @@ import { SplitFlap } from "../SplitFlap";
  * two-position switch beneath. Designed for destructive or irreversible actions
  * that warrant a deliberate, tactile commitment — the digital equivalent of a
  * missile-silo arming switch.
- *
- * Interaction model:
- * 1. Default state — cover closed, switch underneath is not reachable.
- * 2. Click or Enter on cover → cover lifts; focus moves to the switch.
- * 3. Click or Space on switch → lever flips between positions.
- * 4. Click on cover while open → cover closes (switch state is preserved).
- *
- * @example
- * <MasterOverride
- *   label="System Kill Switch"
- *   on={armed}
- *   onChange={setArmed}
- *   description="Immediately halts all production workloads."
- *   variant="danger"
- * />
  */
 export interface MasterOverrideProps {
   /** Current switch position — true = engaged */
@@ -46,8 +31,6 @@ export interface MasterOverrideProps {
   className?: string;
   /**
    * Require the user to hold the switch for N milliseconds before it engages.
-   * Only gates the off → on transition — disengaging remains a single click.
-   * Pass `true` for the default 1000ms, or a number to customize.
    * Threshold is clamped to [250, 5000] ms.
    * @default false
    */
@@ -55,15 +38,12 @@ export interface MasterOverrideProps {
 
   /**
    * How the state label (idleLabel / activeLabel) transitions between states.
-   * `"splitflap"` replaces the crossfaded labels with a single SplitFlap cell
-   * above the switch track that cascades between idle and active values.
    * @default "fade"
    */
   labelTransition?: "fade" | "splitflap";
 
   /**
    * When `labelTransition="splitflap"`, the fixed cell count for the display.
-   * Defaults to `max(idleLabel.length, activeLabel.length)`. Ignored for "fade".
    */
   labelLength?: number;
 }
@@ -106,10 +86,6 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
     const holdAnimationRef = useRef<ReturnType<typeof animate> | null>(null);
     const wrapperRef = useRef<HTMLDivElement | null>(null);
     const [isHolding, setIsHolding] = useState(false);
-    // Announcement is paired with the armed/on snapshot at the time it was set.
-    // Rendering compares current armed/on to the snapshot — if they differ, the
-    // announcement is stale and the live region falls back to statusMessage.
-    // This avoids a useEffect → setState clearing pattern that triggers cascading renders.
     const [holdAnnouncement, setHoldAnnouncement] = useState<{
       text: string;
       armed: boolean;
@@ -118,7 +94,7 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
 
     const startHold = useCallback(() => {
       if (!armed || disabled || on || holdThresholdMs === 0) return;
-      if (holdTimerRef.current) return; // already holding — ignore repeats
+      if (holdTimerRef.current) return;
       setIsHolding(true);
       setHoldAnnouncement({ text: `Hold to arm ${label}`, armed: true, on: false });
       holdAnimationRef.current = animate(holdProgress, 1, {
@@ -130,11 +106,6 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
         holdAnimationRef.current?.stop();
         holdAnimationRef.current = null;
         setIsHolding(false);
-        // Snapshot on=false (the pre-engagement value). Once the parent updates
-        // on → true, current on (true) no longer matches the snapshot (false),
-        // so the announcement auto-clears via the render derivation below.
-        // When onChange is non-reactive (e.g. a vi.fn()), on stays false,
-        // the snapshot matches, and the announcement remains visible.
         setHoldAnnouncement({ text: `${label} engaged`, armed: true, on: false });
         holdProgress.set(0);
         onChange(true);
@@ -142,8 +113,6 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
     }, [armed, disabled, on, holdThresholdMs, shouldReduceMotion, holdProgress, onChange, label]);
 
     const cancelHold = useCallback(() => {
-      // Bail if nothing to cancel. Both refs can be out-of-sync during React
-      // state flush (timer cleared before setIsHolding(false) commits), so check both.
       if (holdTimerRef.current === null && !isHolding) return;
       const wasActive = holdTimerRef.current !== null;
       if (holdTimerRef.current) {
@@ -157,12 +126,10 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
       animate(holdProgress, 0, { duration: shouldReduceMotion ? 0 : 0.2 });
     }, [isHolding, shouldReduceMotion, holdProgress]);
 
-    // Write holdProgress to a CSS custom property so ring updates bypass React re-renders.
     useMotionValueEvent(holdProgress, "change", (v) => {
       wrapperRef.current?.style.setProperty("--mo-hold-progress", String(v));
     });
 
-    // Merged ref: attaches both wrapperRef (for CSS var writes) and the forwarded ref.
     const setRefs = useCallback(
       (node: HTMLDivElement | null) => {
         wrapperRef.current = node;
@@ -172,7 +139,6 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
       [ref]
     );
 
-    // Stop any in-flight hold on unmount — prevents timer leak + setState-after-unmount.
     useEffect(() => {
       return () => {
         if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
@@ -180,9 +146,6 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
       };
     }, []);
 
-    // Document-level fallback catches pointer releases outside the switch element.
-    // The element's own onPointerUp fires first when release is on the switch;
-    // this handler is strictly for out-of-element releases.
     useEffect(() => {
       if (!isHolding) return;
       const handler = () => cancelHold();
@@ -211,7 +174,6 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
     const descriptionId = useId();
     const switchId = useId();
 
-    // Move focus cover↔switch whenever armed changes, but not on mount.
     const isInitialRef = useRef(true);
     useEffect(() => {
       if (isInitialRef.current) {
@@ -229,8 +191,6 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
 
     function handleSwitchToggle() {
       if (disabled || !armed) return;
-      // When hold is required and we're off, engagement only happens via the
-      // hold path — suppress click. Disengaging (on → off) always allowed.
       if (holdThresholdMs > 0 && !on) return;
       onChange(!on);
     }
@@ -248,15 +208,10 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
       .filter(Boolean)
       .join(" ");
 
-    // Screen-reader announcement string rebuilds on every state change so
-    // the live region fires when either cover or switch transitions.
     const statusMessage = !armed
       ? `${label} safety cover closed. Switch is ${on ? activeLabel : idleLabel}.`
       : `${label} safety cover open. Switch is ${on ? activeLabel : idleLabel}.`;
 
-    // Show holdAnnouncement only when current armed/on match the snapshot
-    // captured at announcement time — if they differ, the state has moved on
-    // and we fall back to statusMessage. Avoids a useEffect → setState clear.
     const liveRegionText =
       holdAnnouncement !== null &&
       holdAnnouncement.armed === armed &&
@@ -271,6 +226,13 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
         </span>
 
         <div className={styles.bezel} aria-labelledby={labelId}>
+          {/* LED Telltale */}
+          <div 
+            className={styles.led} 
+            data-status={on ? "engaged" : armed ? "armed" : "idle"} 
+            aria-hidden="true" 
+          />
+
           {/* Cover — hinged at top, rotates up on X axis */}
           <motion.button
             ref={coverRef}
@@ -294,8 +256,7 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
             <span className={styles.coverText}>{coverLabel}</span>
           </motion.button>
 
-          {/* Switch body — only interactive while cover is open.
-              Labels sit on the housing (above/below the track), not on the rail. */}
+          {/* Switch body */}
           <button
             ref={switchRef}
             id={switchId}
