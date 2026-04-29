@@ -1,11 +1,4 @@
 <codebase path="services/agent">
-  <section priority="medium" role="prisma">
-  <file path="prisma/seed.ts">
-    <item priority="low">
-      async function main() { /* ... */ }
-    </item>
-  </file>
-  </section>
   <section priority="medium" role="src">
   <file path="src/index.ts">
     <item priority="low">
@@ -20,6 +13,13 @@
     </item>
     <item priority="high">
       export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="prisma">
+  <file path="prisma/seed.ts">
+    <item priority="low">
+      async function main() { /* ... */ }
     </item>
   </file>
   </section>
@@ -132,12 +132,12 @@
   </file>
   <file path="src/routes/sessions.ts">
     <item priority="high">
-      export const sessionRoutes: import("/Users/mbutler/github/issue-246/node_modules/.pnp...;
+      export const sessionRoutes: import("/Users/mbutler/github/issue-329/node_modules/.pnp...;
     </item>
   </file>
   <file path="src/routes/session-events.ts">
     <item priority="high">
-      export const sessionEventsRoutes: import("/Users/mbutler/github/issue-246/node_modules/.pnp...;
+      export const sessionEventsRoutes: import("/Users/mbutler/github/issue-329/node_modules/.pnp...;
     </item>
   </file>
   <file path="src/routes/remediation.ts">
@@ -154,7 +154,7 @@
   </file>
   <file path="src/routes/ready.ts">
     <item priority="high">
-      export const readinessRoutes: import("/Users/mbutler/github/issue-246/node_modules/.pnp...;
+      export const readinessRoutes: import("/Users/mbutler/github/issue-329/node_modules/.pnp...;
     </item>
   </file>
   <file path="src/routes/orchestrate.ts">
@@ -179,22 +179,22 @@
   </file>
   <file path="src/routes/health.ts">
     <item priority="high">
-      export const healthRoutes: import("/Users/mbutler/github/issue-246/node_modules/.pnp...;
+      export const healthRoutes: import("/Users/mbutler/github/issue-329/node_modules/.pnp...;
     </item>
   </file>
   <file path="src/routes/gen-ui.ts">
     <item priority="high">
-      export const genUiRoutes: import("/Users/mbutler/github/issue-246/node_modules/.pnp...;
+      export const genUiRoutes: import("/Users/mbutler/github/issue-329/node_modules/.pnp...;
     </item>
   </file>
   <file path="src/routes/gen-specs.ts">
     <item priority="high">
-      export const genSpecsRoutes: import("/Users/mbutler/github/issue-246/node_modules/.pnp...;
+      export const genSpecsRoutes: import("/Users/mbutler/github/issue-329/node_modules/.pnp...;
     </item>
   </file>
   <file path="src/routes/gen-chat.ts">
     <item priority="high">
-      export const genChatRoutes: import("/Users/mbutler/github/issue-246/node_modules/.pnp...;
+      export const genChatRoutes: import("/Users/mbutler/github/issue-329/node_modules/.pnp...;
     </item>
   </file>
   </section>
