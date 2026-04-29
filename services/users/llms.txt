@@ -35,42 +35,7 @@
       }
     </item>
     <item priority="high">
-      export const MOCK_USER: import("/Users/mbutler/github/mattbutlerengineering/servi...;
-    </item>
-  </file>
-  </section>
-  <section priority="medium" role="schemas">
-  <file path="src/schemas/index.ts">
-    <item priority="high">
-      export const UserPreferencesSchema: { $id: string; };
-    </item>
-    <item priority="high">
-      export const UserSchema: { $id: string; };
-    </item>
-  </file>
-  </section>
-  <section priority="medium" role="routes">
-  <file path="src/routes/users.ts">
-    <item priority="medium">
-      function isAdmin(user: AuthUser | undefined): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export const userRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
-    </item>
-  </file>
-  <file path="src/routes/ready.ts">
-    <item priority="high">
-      export const readinessRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
-    </item>
-  </file>
-  <file path="src/routes/health.ts">
-    <item priority="high">
-      type HealthRouteHandler = RouteHandlerMethod<
-        RawServerDefault,
-        IncomingMessage...;
-    </item>
-    <item priority="high">
-      export const healthRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+      export const MOCK_USER: import("/Users/mbutler/github/issue-246/services/users/sr...;
     </item>
   </file>
   </section>
@@ -113,6 +78,41 @@
     </item>
     <item priority="high">
       export function getSlowQueryStats(): { count5min: number; slowestMs: number } { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="schemas">
+  <file path="src/schemas/index.ts">
+    <item priority="high">
+      export const UserPreferencesSchema: { $id: string; };
+    </item>
+    <item priority="high">
+      export const UserSchema: { $id: string; };
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="routes">
+  <file path="src/routes/users.ts">
+    <item priority="medium">
+      function isAdmin(user: AuthUser | undefined): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export const userRoutes: import("/Users/mbutler/github/issue-246/node_modules/.pnp...;
+    </item>
+  </file>
+  <file path="src/routes/ready.ts">
+    <item priority="high">
+      export const readinessRoutes: import("/Users/mbutler/github/issue-246/node_modules/.pnp...;
+    </item>
+  </file>
+  <file path="src/routes/health.ts">
+    <item priority="high">
+      type HealthRouteHandler = RouteHandlerMethod<
+        RawServerDefault,
+        IncomingMessage...;
+    </item>
+    <item priority="high">
+      export const healthRoutes: import("/Users/mbutler/github/issue-246/node_modules/.pnp...;
     </item>
   </file>
   </section>
