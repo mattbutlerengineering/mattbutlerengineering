@@ -1,5 +1,6 @@
 import { PrismaClient } from "../generated/prisma/index.js";
 import { PrismaPg } from "@prisma/adapter-pg";
+import pg from "pg";
 
 const SLOW_QUERY_THRESHOLD_MS = 100;
 const SLOW_QUERY_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
@@ -31,24 +32,58 @@ export function getSlowQueryStats(): { count5min: number; slowestMs: number } {
   };
 }
 
-export function getServiceStatus(): "ok" | "degraded" {
-  const stats = getSlowQueryStats();
-  return stats.count5min > MAX_SLOW_QUERIES ? "degraded" : "ok";
+// Pool monitoring
+const CONNECTION_LIMIT = parseInt(process.env.PRISMA_CONNECTION_LIMIT ?? "5", 10);
+const POOL_UTILIZATION_THRESHOLD = 0.8;
+
+const pool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: CONNECTION_LIMIT,
+});
+
+pool.on("error", (err) => {
+  console.error("Postgres pool error:", err);
+});
+
+export function getPoolStats() {
+  return {
+    total: pool.totalCount,
+    active: pool.activeCount,
+    waiting: pool.waitingCount,
+    idle: pool.idleCount,
+    utilization: pool.totalCount > 0 ? pool.activeCount / pool.max : 0,
+  };
 }
 
-// Cap Prisma's internal connection pool to avoid exceeding PgBouncer's
-// session-mode pool_size. DigitalOcean managed Postgres defaults to ~25
-// total connections; with 3 services sharing the pooler, each gets ~7.
-const CONNECTION_LIMIT = parseInt(process.env.PRISMA_CONNECTION_LIMIT ?? "5", 10);
+export function getServiceStatus(): "ok" | "degraded" {
+  const stats = getSlowQueryStats();
+  const poolStats = getPoolStats();
+  
+  if (stats.count5min > MAX_SLOW_QUERIES) return "degraded";
+  if (poolStats.utilization >= POOL_UTILIZATION_THRESHOLD) return "degraded";
+  
+  return "ok";
+}
 
-const connectionUrl = appendConnectionLimit(process.env.DATABASE_URL, CONNECTION_LIMIT);
-const adapter = new PrismaPg(connectionUrl ?? "");
-
+const adapter = new PrismaPg(pool);
 const basePrisma = new PrismaClient({ adapter });
 
 export const prisma = basePrisma.$extends({
   query: {
     $allOperations: async ({ model, operation, args, query }) => {
+      const poolStats = getPoolStats();
+      if (poolStats.utilization >= POOL_UTILIZATION_THRESHOLD) {
+        console.warn(
+          JSON.stringify({
+            type: "pool_alert",
+            utilization: poolStats.utilization,
+            active: poolStats.active,
+            max: CONNECTION_LIMIT,
+            timestamp: new Date().toISOString(),
+          })
+        );
+      }
+
       const start = Date.now();
       const result = await query(args);
       const duration = Date.now() - start;
@@ -80,14 +115,8 @@ export const prisma = basePrisma.$extends({
   },
 });
 
-function appendConnectionLimit(url: string | undefined, limit: number): string | undefined {
-  if (!url) return undefined;
-  const separator = url.includes("?") ? "&" : "?";
-  if (url.includes("connection_limit=")) return url;
-  return `${url}${separator}connection_limit=${limit}`;
-}
-
 // Graceful shutdown
 process.on("beforeExit", async () => {
   await basePrisma.$disconnect();
+  await pool.end();
 });
