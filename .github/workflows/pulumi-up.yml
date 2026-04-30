@@ -55,12 +55,9 @@ jobs:
           VITE_API_URL: https://mattbutlerengineering.com
 
       - name: Pulumi Cancel (Clear stale locks)
-        uses: pulumi/actions@8582a9e8cc630786854029b4e09281acd6794b58 # v6
-        with:
-          command: cancel
-          stack-name: prod
-          work-dir: infrastructure/pulumi
-          cloud-url: "s3://mattbutlerengineering-pulumi-state?endpoint=https://59d5bec2d6e979d474efe54ec76c3658.r2.cloudflarestorage.com&s3ForcePathStyle=true"
+        run: |
+          pulumi login "s3://mattbutlerengineering-pulumi-state?endpoint=https://59d5bec2d6e979d474efe54ec76c3658.r2.cloudflarestorage.com&s3ForcePathStyle=true"
+          pulumi cancel --stack prod --yes || true
         env:
           PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
