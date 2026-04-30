@@ -19,6 +19,7 @@ import styles from "./Checkbox.module.css";
 export interface CheckboxProps {
   label: ReactNode;
   checked?: boolean;
+  required?: boolean;
   /** Displays a dash instead of a checkmark — useful for "select all" with partial selection */
   indeterminate?: boolean;
   onCheckedChange?: (checked: boolean) => void;

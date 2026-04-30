@@ -135,6 +135,7 @@ function ReservationDetails({ reservation, onEdit, onSeat, onCancel }: Reservati
         <Button
           variant="primary"
           onClick={onEdit}
+          className={styles.fullWidth}
         >
           Edit Reservation
         </Button>
@@ -142,6 +143,7 @@ function ReservationDetails({ reservation, onEdit, onSeat, onCancel }: Reservati
           <Button
             variant="secondary"
             onClick={onSeat}
+            className={styles.fullWidth}
           >
             Seat Guest
           </Button>
@@ -150,6 +152,7 @@ function ReservationDetails({ reservation, onEdit, onSeat, onCancel }: Reservati
           <Button
             variant="ghost"
             onClick={onCancel}
+            className={styles.fullWidth}
           >
             Cancel Reservation
           </Button>
@@ -172,7 +175,8 @@ export function TimelinePage() {
 
   const [tables, setTables] = useState<Table[]>([]);
   const [searchParams, setSearchParams] = useSearchParams();
-  const selectedDate = searchParams.get("date") ?? new Date().toLocaleDateString("en-CA");
+  const todayStr = useMemo(() => new Date().toLocaleDateString("en-CA"), []);
+  const selectedDate = searchParams.get("date") ?? todayStr;
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
@@ -355,7 +359,7 @@ export function TimelinePage() {
     year: "numeric",
   });
 
-  const isToday = selectedDate === new Date().toLocaleDateString("en-CA");
+  const isToday = selectedDate === todayStr;
 
   // Stats
   const stats = useMemo(() => {

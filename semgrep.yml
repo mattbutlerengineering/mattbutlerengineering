@@ -1,0 +1,14 @@
+rules:
+  - id: avoid-eval
+    pattern: eval(...)
+    message: "Avoid using eval() as it can lead to security vulnerabilities."
+    languages: [javascript, typescript]
+    severity: ERROR
+  - id: avoid-hardcoded-secrets
+    pattern: |
+      $S = "..."
+    message: "Potential hardcoded secret detected."
+    languages: [javascript, typescript, python]
+    severity: WARNING
+    metadata:
+      category: security

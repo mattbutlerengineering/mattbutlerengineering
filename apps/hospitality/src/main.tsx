@@ -5,7 +5,7 @@ import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
 import { RialtoProvider, ErrorBoundary, ToastProvider } from "@mattbutlerengineering/rialto";
 import { AuthProvider } from "@mbe/auth/react";
-import { initSentry, handleErrorBoundary } from "@mbe/observability/sentry/react";
+import { initSentry, handleErrorBoundary } from "@mbe/observability/sentry/react"; // eslint-disable-line no-restricted-imports
 import { ThemeContext, useThemeState, resolveTheme } from "./hooks/use-theme";
 import { App, CallbackRedirect } from "./App";
 import { AuthConfigError } from "./components/AuthConfigError";

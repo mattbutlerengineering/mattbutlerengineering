@@ -18,6 +18,8 @@ interface AppProps {
   onThemeToggle: () => void;
 }
 
+const CURRENT_YEAR = new Date().getFullYear();
+
 export function App({ theme, onThemeToggle }: AppProps) {
   useEffect(() => {
     const main = document.getElementById("main-content");
@@ -70,7 +72,7 @@ export function App({ theme, onThemeToggle }: AppProps) {
             ],
           },
         ]}
-        copyright={`\u00A9 ${new Date().getFullYear()} Matt Butler Engineering`}
+        copyright={`\u00A9 ${CURRENT_YEAR} Matt Butler Engineering`}
       />
     </div>
   );
