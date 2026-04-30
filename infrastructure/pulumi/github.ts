@@ -41,6 +41,9 @@ const mainBranchProtection = new github.BranchProtection(
       },
     ],
 
+    // Enforce rules for administrators too
+    enforceAdmins: true,
+
     // Enforce linear history (no merge commits)
     requiredLinearHistory: true,
 
