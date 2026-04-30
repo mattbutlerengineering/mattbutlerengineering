@@ -335,6 +335,10 @@
   gap: var(--rialto-space-xs);
 }
 
+.fullWidth {
+  inline-size: 100%;
+}
+
 .actionButtonPrimary {
   width: 100%;
   padding-inline: var(--rialto-space-md);

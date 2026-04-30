@@ -1,5 +1,9 @@
 {
   "mcpServers": {
+    "semgrep": {
+      "command": "npx",
+      "args": ["-y", "@semgrep/mcp"]
+    },
     "mbe-infra": {
       "command": "npx",
       "args": ["tsx", "packages/mcp-server/src/index.ts"]

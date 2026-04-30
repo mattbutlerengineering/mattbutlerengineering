@@ -12,11 +12,16 @@ const StatusPage = lazy(() =>
 const NotFoundPage = lazy(() =>
   import("./pages/NotFoundPage").then((m) => ({ default: m.NotFoundPage }))
 );
+const WeeklyIntakePage = lazy(() =>
+  import("./pages/WeeklyIntakePage").then((m) => ({ default: m.WeeklyIntakePage }))
+);
 
 interface AppProps {
   theme: "light" | "dark";
   onThemeToggle: () => void;
 }
+
+const CURRENT_YEAR = new Date().getFullYear();
 
 export function App({ theme, onThemeToggle }: AppProps) {
   useEffect(() => {
@@ -45,6 +50,7 @@ export function App({ theme, onThemeToggle }: AppProps) {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/status" element={<StatusPage />} />
+            <Route path="/weekly" element={<WeeklyIntakePage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Suspense>
@@ -70,7 +76,7 @@ export function App({ theme, onThemeToggle }: AppProps) {
             ],
           },
         ]}
-        copyright={`\u00A9 ${new Date().getFullYear()} Matt Butler Engineering`}
+        copyright={`\u00A9 ${CURRENT_YEAR} Matt Butler Engineering`}
       />
     </div>
   );
