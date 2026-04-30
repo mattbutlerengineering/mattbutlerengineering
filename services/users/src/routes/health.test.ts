@@ -19,7 +19,7 @@ vi.mock("../services/health-checks.js", () => ({
 }));
 
 // Mock rate limit monitor
-const { _mockGetSnapshot, mockRateLimitMonitor } = vi.hoisted(() => {
+const { mockRateLimitMonitor } = vi.hoisted(() => {
   const mockGetSnapshot = vi.fn().mockReturnValue({
     stats: { hits_last_hour: 0, blocked_ips: 0 },
     isDegraded: false,
@@ -29,7 +29,7 @@ const { _mockGetSnapshot, mockRateLimitMonitor } = vi.hoisted(() => {
     getSnapshot: mockGetSnapshot,
     reset: vi.fn(),
   };
-  return { _mockGetSnapshot, mockRateLimitMonitor };
+  return { mockRateLimitMonitor };
 });
 
 vi.mock("@mbe/observability", async (importOriginal) => {

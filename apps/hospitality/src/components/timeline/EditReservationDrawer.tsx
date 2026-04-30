@@ -32,6 +32,10 @@ export function EditReservationDrawer({
   const [error, setError] = useState<string | null>(null);
 
   const activeTables = tables.filter((t) => t.isActive);
+  const tableOptions = activeTables.map((t) => ({
+    value: t.id,
+    label: `${t.name} (cap. ${t.capacity})`,
+  }));
 
   const handleSave = async () => {
     const parsedPartySize = parseInt(partySize, 10);
@@ -111,15 +115,10 @@ export function EditReservationDrawer({
           <Select
             label="Table"
             value={tableId}
-            onChange={(e) => setTableId(e.target.value)}
+            onChange={setTableId}
             disabled={isLoading}
-          >
-            {activeTables.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name} (cap. {t.capacity})
-              </option>
-            ))}
-          </Select>
+            options={tableOptions}
+          />
 
           <TextArea
             label="Notes"
@@ -136,7 +135,6 @@ export function EditReservationDrawer({
             variant="secondary"
             onClick={onClose}
             disabled={isLoading}
-            fullWidth
           >
             Cancel
           </Button>
@@ -145,7 +143,6 @@ export function EditReservationDrawer({
             onClick={handleSave}
             isLoading={isLoading}
             loadingText="Saving…"
-            fullWidth
           >
             Save Changes
           </Button>

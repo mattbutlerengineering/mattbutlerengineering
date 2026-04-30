@@ -117,11 +117,11 @@ function ReservationDetails({ reservation, onEdit, onSeat, onCancel }: Reservati
 
       <div>
         <Text variant="label" color="secondary">Status</Text>
-        <span
+        <Text
           className={`${styles.statusBadge} ${getStatusBadgeClass(reservation.status)}`}
         >
           {reservation.status}
-        </span>
+        </Text>
       </div>
 
       {reservation.notes && (
@@ -135,7 +135,6 @@ function ReservationDetails({ reservation, onEdit, onSeat, onCancel }: Reservati
         <Button
           variant="primary"
           onClick={onEdit}
-          fullWidth
         >
           Edit Reservation
         </Button>
@@ -143,7 +142,6 @@ function ReservationDetails({ reservation, onEdit, onSeat, onCancel }: Reservati
           <Button
             variant="secondary"
             onClick={onSeat}
-            fullWidth
           >
             Seat Guest
           </Button>
@@ -152,7 +150,6 @@ function ReservationDetails({ reservation, onEdit, onSeat, onCancel }: Reservati
           <Button
             variant="ghost"
             onClick={onCancel}
-            fullWidth
           >
             Cancel Reservation
           </Button>
@@ -443,29 +440,29 @@ export function TimelinePage() {
           <div className={styles.statsRow}>
             {/* Live indicator */}
             <div className={styles.liveIndicator}>
-              <span
+              <Text
                 className={`${styles.liveDot} ${isConnected ? styles.liveDotConnected : styles.liveDotOffline}`}
               />
-              <span className={isConnected ? styles.liveTextConnected : styles.liveTextOffline}>
+              <Text className={isConnected ? styles.liveTextConnected : styles.liveTextOffline}>
                 {isConnected ? "Live" : "Offline"}
-              </span>
+              </Text>
             </div>
             <div className={styles.statItem}>
               Reservations:{" "}
-              <span className={styles.statValue}>{stats.total}</span>
+              <Text className={styles.statValue}>{stats.total}</Text>
             </div>
             <div className={styles.statItem}>
               Covers:{" "}
-              <span className={styles.statValue}>{stats.totalCovers}</span>
+              <Text className={styles.statValue}>{stats.totalCovers}</Text>
             </div>
             <div>
-              <span className={styles.statConfirmed}>{stats.confirmed}</span>
-              <span className={styles.statItem}> confirmed</span>
+              <Text className={styles.statConfirmed}>{stats.confirmed}</Text>
+              <Text className={styles.statItem}> confirmed</Text>
             </div>
             {stats.pending > 0 && (
               <div>
-                <span className={styles.statPending}>{stats.pending}</span>
-                <span className={styles.statItem}> pending</span>
+                <Text className={styles.statPending}>{stats.pending}</Text>
+                <Text className={styles.statItem}> pending</Text>
               </div>
             )}
           </div>
@@ -484,8 +481,8 @@ export function TimelinePage() {
             <div className={styles.errorBox} role="alert">{error}</div>
           ) : tables.length === 0 ? (
             <div className={styles.emptyState}>
-              <p className={styles.emptyStateText}>No tables configured for this venue.</p>
-              <p className={styles.emptyStateHint}>Add tables in the Floor Plans section.</p>
+              <Text className={styles.emptyStateText}>No tables configured for this venue.</Text>
+              <Text className={styles.emptyStateHint}>Add tables in the Floor Plans section.</Text>
             </div>
           ) : (
             <TimelineGrid

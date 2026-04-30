@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance } from "fastify";
+import { buildMinimalSuccessFixture, buildBugFixFixture } from "@mbe/agent-test-utils";
 
 /**
  * Integration tests for the session events SSE endpoint.
@@ -96,15 +97,15 @@ describe("Session Events SSE Integration", () => {
     } as never);
 
     // Mock events
-    vi.mocked(prisma.sessionEvent.findMany).mockResolvedValue([
-      {
-        id: "evt-1",
-        sessionId: "session-1",
-        type: "session:start",
-        data: { message: "Session started" },
-        createdAt: new Date(),
-      },
-    ] as never);
+    const events = buildMinimalSuccessFixture({ sessionId: "session-1" }).map((e, i) => ({
+      id: `evt-${i}`,
+      sessionId: "session-1",
+      type: e.type,
+      data: e.data,
+      createdAt: new Date(),
+    }));
+
+    vi.mocked(prisma.sessionEvent.findMany).mockResolvedValue(events as never);
 
     const response = await app.inject({
       method: "GET",
@@ -155,22 +156,15 @@ describe("Session Events SSE Integration", () => {
       sdkSessionId: null,
     } as never);
 
-    vi.mocked(prisma.sessionEvent.findMany).mockResolvedValue([
-      {
-        id: "evt-1",
-        sessionId: "session-2",
-        type: "session:start",
-        data: { message: "Session started" },
-        createdAt: new Date(),
-      },
-      {
-        id: "evt-2",
-        sessionId: "session-2",
-        type: "session:tool_use",
-        data: { toolName: "Read", file_path: "/src/app.ts" },
-        createdAt: new Date(),
-      },
-    ] as never);
+    const events = buildBugFixFixture({ sessionId: "session-2" }).map((e, i) => ({
+      id: `evt-${i}`,
+      sessionId: "session-2",
+      type: e.type,
+      data: e.data,
+      createdAt: new Date(),
+    }));
+
+    vi.mocked(prisma.sessionEvent.findMany).mockResolvedValue(events as never);
 
     const response = await app.inject({
       method: "GET",

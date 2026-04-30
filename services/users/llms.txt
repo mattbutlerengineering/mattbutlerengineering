@@ -23,22 +23,6 @@
     </item>
   </file>
   </section>
-  <section priority="medium" role="test">
-  <file path="src/test/fixtures.ts">
-    <item priority="low">
-      interface UserFixture {
-        id: string;
-        email: string;
-        name: string | null;
-        picture: string | null;
-        emailVerified: boolean;
-      }
-    </item>
-    <item priority="high">
-      export const MOCK_USER: import("/Users/mbutler/github/issue-329/services/users/sr...;
-    </item>
-  </file>
-  </section>
   <section priority="medium" role="services">
   <file path="src/services/user.ts">
     <item priority="medium">
@@ -81,6 +65,22 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="test">
+  <file path="src/test/fixtures.ts">
+    <item priority="low">
+      interface UserFixture {
+        id: string;
+        email: string;
+        name: string | null;
+        picture: string | null;
+        emailVerified: boolean;
+      }
+    </item>
+    <item priority="high">
+      export const MOCK_USER: import("/Users/mbutler/github/mattbutlerengineering/servi...;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="schemas">
   <file path="src/schemas/index.ts">
     <item priority="high">
@@ -97,12 +97,12 @@
       function isAdmin(user: AuthUser | undefined): boolean { /* ... */ }
     </item>
     <item priority="high">
-      export const userRoutes: import("/Users/mbutler/github/issue-329/node_modules/.pnp...;
+      export const userRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
     </item>
   </file>
   <file path="src/routes/ready.ts">
     <item priority="high">
-      export const readinessRoutes: import("/Users/mbutler/github/issue-329/node_modules/.pnp...;
+      export const readinessRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
     </item>
   </file>
   <file path="src/routes/health.ts">
@@ -112,7 +112,7 @@
         IncomingMessage...;
     </item>
     <item priority="high">
-      export const healthRoutes: import("/Users/mbutler/github/issue-329/node_modules/.pnp...;
+      export const healthRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
     </item>
   </file>
   </section>

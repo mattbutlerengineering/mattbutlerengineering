@@ -1,11 +1,12 @@
 import type { FastifyPluginAsync } from "fastify";
 import {
   type FloorPlan,
-  type ApiResponse,
+  type Table,
   type ApiError,
   type PaginatedResponse,
   type CreateFloorPlanRequest,
   type UpdateFloorPlanRequest,
+  type UpdateTablePositionRequest,
   createProblemDetails,
 } from "@mbe/types";
 import { floorPlanService } from "../services/floor-plan.js";
@@ -156,6 +157,40 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
 
       const updated = await floorPlanService.setActive(floorPlan.id, floorPlan.venueId);
       return updated!;
+    }
+  );
+
+  fastify.post<{
+    Params: { id: string };
+    Body: UpdateTablePositionRequest[];
+    Reply: Table[] | ApiError;
+  }>(
+    "/:id/bulk-update-positions",
+    {
+      schema: {
+        summary: "Bulk update table positions",
+        description: "Updates the position and metadata for multiple tables in a floor plan.",
+        params: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+          },
+        },
+        body: {
+          type: "array",
+          items: {
+            type: "object",
+            required: ["tableId", "shapeMetadata"],
+            properties: {
+              tableId: { type: "string" },
+              shapeMetadata: { type: "object" },
+            },
+          },
+        },
+      },
+    },
+    async (request) => {
+      return floorPlanService.bulkUpdateTablePositions(request.params.id, request.body);
     }
   );
 

@@ -283,6 +283,9 @@ importers:
       '@mattbutlerengineering/rialto':
         specifier: workspace:*
         version: link:../../packages/rialto
+      '@mbe/observability':
+        specifier: workspace:^
+        version: link:../../packages/observability
       framer-motion:
         specifier: 'catalog:'
         version: 12.38.0(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -332,6 +335,9 @@ importers:
       '@mattbutlerengineering/rialto':
         specifier: workspace:*
         version: link:../../packages/rialto
+      '@mbe/observability':
+        specifier: workspace:^
+        version: link:../../packages/observability
       framer-motion:
         specifier: 'catalog:'
         version: 12.38.0(react-dom@19.2.5(react@19.2.5))(react@19.2.5)

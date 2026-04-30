@@ -17,7 +17,7 @@ import styles from "./Checkbox.module.css";
  * <Checkbox label="Archived" disabled />
  */
 export interface CheckboxProps {
-  label: string;
+  label: ReactNode;
   checked?: boolean;
   /** Displays a dash instead of a checkmark — useful for "select all" with partial selection */
   indeterminate?: boolean;
@@ -142,7 +142,7 @@ Checkbox.displayName = "Checkbox";
  * <Radio label="Large" value="lg" description="Best for readability" />
  */
 export interface RadioProps {
-  label: string;
+  label: ReactNode;
   value: string;
   /** Provided automatically by RadioGroup — only needed for standalone use */
   name?: string;

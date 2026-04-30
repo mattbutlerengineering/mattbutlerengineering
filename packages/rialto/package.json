@@ -38,6 +38,10 @@
       "types": "./dist/lib/components/AspectRatio/index.d.ts",
       "import": "./dist/lib/components/AspectRatio/index.js"
     },
+    "./AuthMascot": {
+      "types": "./dist/lib/components/AuthMascot/index.d.ts",
+      "import": "./dist/lib/components/AuthMascot/index.js"
+    },
     "./Autocomplete": {
       "types": "./dist/lib/components/Autocomplete/index.d.ts",
       "import": "./dist/lib/components/Autocomplete/index.js"

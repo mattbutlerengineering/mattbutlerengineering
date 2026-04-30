@@ -1,0 +1,15 @@
+<codebase path="packages/feature-flags">
+  <section priority="medium" role="src">
+  <file path="src/index.ts">
+    <item priority="low">
+      interface FeatureFlag {
+        enabled: boolean;
+        percentage: number;
+      }
+    </item>
+    <item priority="low">
+      type FeatureFlagMap = Record<string, FeatureFlag>;
+    </item>
+  </file>
+  </section>
+</codebase>
