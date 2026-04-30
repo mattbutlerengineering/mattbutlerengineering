@@ -11,6 +11,7 @@ import type {
 } from "@mbe/types";
 import { createProblemDetails } from "@mbe/types";
 import { requireAuth, optionalAuth, type AuthUser } from "@mbe/auth/fastify";
+import { parseFeatureFlags, isEnabled } from "@mbe/feature-flags";
 import { reservationService } from "../services/reservation.js";
 
 function isAdmin(user: AuthUser | undefined): boolean {
@@ -419,6 +420,15 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request, reply) => {
       const userId = request.user?.id;
+
+      // Check feature flag for enhanced validation
+      const flags = parseFeatureFlags(request.headers["x-feature-flags"] as string | undefined);
+      const useEnhancedValidation = isEnabled(flags, "enhanced-validation");
+
+      if (useEnhancedValidation && request.body.partySize > 20) {
+        return reply.code(400).send(createProblemDetails(400, "Bad Request", "Party size exceeds limit for enhanced validation"));
+      }
+
       const result = await reservationService.createWithConflictCheck(
         request.body,
         userId
