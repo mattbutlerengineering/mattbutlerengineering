@@ -1,0 +1,1 @@
+import{n as e}from"./chunk-jRWAZmH_.js";var t,n,r,i,a=e((()=>{t={duration:.15,ease:[.2,0,0,1]},n={type:`spring`,stiffness:400,damping:28,mass:.8},r={stiffness:300,damping:20,mass:.5},i={scale:1.03,transition:{type:`spring`,stiffness:400,damping:15,mass:.5}}}));export{r as a,n as i,a as n,t as r,i as t};
