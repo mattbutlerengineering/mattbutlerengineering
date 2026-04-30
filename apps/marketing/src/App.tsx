@@ -12,6 +12,9 @@ const StatusPage = lazy(() =>
 const NotFoundPage = lazy(() =>
   import("./pages/NotFoundPage").then((m) => ({ default: m.NotFoundPage }))
 );
+const WeeklyIntakePage = lazy(() =>
+  import("./pages/WeeklyIntakePage").then((m) => ({ default: m.WeeklyIntakePage }))
+);
 
 interface AppProps {
   theme: "light" | "dark";
@@ -47,6 +50,7 @@ export function App({ theme, onThemeToggle }: AppProps) {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/status" element={<StatusPage />} />
+            <Route path="/weekly" element={<WeeklyIntakePage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Suspense>
