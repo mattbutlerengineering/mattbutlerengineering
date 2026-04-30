@@ -11,7 +11,7 @@ import {
   unregisterStaleServiceWorkers,
   useThemeState,
 } from "@mattbutlerengineering/rialto";
-import { initSentry, handleErrorBoundary } from "@mbe/sentry/react";
+import { initSentry, handleErrorBoundary } from "@mbe/observability/sentry/react"; // eslint-disable-line no-restricted-imports
 import { ThemeContext } from "./ThemeContext";
 import { routeTree } from "./routes";
 

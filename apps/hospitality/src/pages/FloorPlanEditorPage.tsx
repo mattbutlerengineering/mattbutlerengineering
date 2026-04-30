@@ -64,7 +64,7 @@ export function FloorPlanEditorPage() {
     setError(null);
 
     try {
-      const fp = await api.floorPlans.get(id);
+      const fp = await api.floorPlans.getById(id);
       setFloorPlan(fp);
       setTables(fp.tables ?? []);
     } catch (err) {
@@ -109,23 +109,11 @@ export function FloorPlanEditorPage() {
 
     setIsSaving(true);
     try {
-      const positions = Array.from(pendingUpdates.entries()).map(([tableId, pos]) => {
-        const table = tables.find((t) => t.id === tableId);
-        // Build full shapeMetadata, using existing values or defaults
-        const existing = table?.shapeMetadata;
-        return {
-          tableId,
-          shapeMetadata: {
-            x: pos.x,
-            y: pos.y,
-            width: existing?.width ?? 80,
-            height: existing?.height ?? 60,
-            shape: existing?.shape ?? ("rectangle" as const),
-            rotation: existing?.rotation,
-            color: existing?.color,
-          },
-        };
-      });
+      const positions = Array.from(pendingUpdates.entries()).map(([id, pos]) => ({
+        id,
+        x: pos.x,
+        y: pos.y,
+      }));
 
       await api.floorPlans.bulkUpdatePositions(floorPlan!.id, positions);
       setPendingUpdates(new Map());
@@ -216,7 +204,7 @@ export function FloorPlanEditorPage() {
     if (!floorPlan) return;
 
     try {
-      const updated = await api.floorPlans.activate(floorPlan.id);
+      const updated = await api.floorPlans.setActive(floorPlan.id);
       setFloorPlan(updated);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to activate floor plan");
@@ -401,4 +389,4 @@ export function FloorPlanEditorPage() {
       )}
     </div>
   );
-}
+  }

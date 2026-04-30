@@ -135,7 +135,7 @@ function ReservationDetails({ reservation, onEdit, onSeat, onCancel }: Reservati
         <Button
           variant="primary"
           onClick={onEdit}
-          fullWidth
+          className={styles.fullWidth}
         >
           Edit Reservation
         </Button>
@@ -143,7 +143,7 @@ function ReservationDetails({ reservation, onEdit, onSeat, onCancel }: Reservati
           <Button
             variant="secondary"
             onClick={onSeat}
-            fullWidth
+            className={styles.fullWidth}
           >
             Seat Guest
           </Button>
@@ -152,7 +152,7 @@ function ReservationDetails({ reservation, onEdit, onSeat, onCancel }: Reservati
           <Button
             variant="ghost"
             onClick={onCancel}
-            fullWidth
+            className={styles.fullWidth}
           >
             Cancel Reservation
           </Button>

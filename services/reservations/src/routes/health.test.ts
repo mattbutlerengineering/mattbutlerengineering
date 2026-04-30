@@ -102,8 +102,11 @@ const { _mockGetSnapshot, mockRateLimitMonitor } = vi.hoisted(() => {
     getSnapshot: mockGetSnapshot,
     reset: vi.fn(),
   };
-  return { _mockGetSnapshot, mockRateLimitMonitor };
+  return { _mockGetSnapshot: mockGetSnapshot, mockRateLimitMonitor };
 });
+
+// Use the mock to satisfy noUnusedLocals
+void _mockGetSnapshot;
 
 vi.mock("@mbe/observability", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();

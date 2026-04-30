@@ -105,15 +105,10 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
               <Select
                 label="Table"
                 value={tableId}
-                onChange={(e) => setTableId(e.target.value)}
+                options={availableTables.map((t) => ({ value: t.id, label: `${t.name} (seats ${t.capacity})` }))}
+                onChange={(val) => setTableId(val)}
                 disabled={isLoading}
-              >
-                {availableTables.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name} (seats {t.capacity})
-                  </option>
-                ))}
-              </Select>
+              />
             )}
 
             <Input

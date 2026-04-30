@@ -17,8 +17,9 @@ import styles from "./Checkbox.module.css";
  * <Checkbox label="Archived" disabled />
  */
 export interface CheckboxProps {
-  label: string;
+  label: ReactNode;
   checked?: boolean;
+  required?: boolean;
   /** Displays a dash instead of a checkmark — useful for "select all" with partial selection */
   indeterminate?: boolean;
   onCheckedChange?: (checked: boolean) => void;

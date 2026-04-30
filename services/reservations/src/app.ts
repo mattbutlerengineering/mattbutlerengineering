@@ -6,7 +6,7 @@ import swaggerUi from "@fastify/swagger-ui";
 import ScalarApiReference from "@scalar/fastify-api-reference";
 import { authPlugin, getAuthPluginOptionsFromEnv } from "@mbe/auth/fastify";
 import { createRequestIdMiddleware, errorRatePlugin_, createRateLimitMonitor } from "@mbe/observability";
-import { sentryFastifyPlugin } from "@mbe/sentry/node";
+import { sentryFastifyPlugin } from "@mbe/observability/sentry/node";
 import { apiVersioningPlugin } from "@mbe/api-versioning/fastify";
 import { registerSchemas } from "./schemas/index.js";
 import { healthRoutes } from "./routes/health.js";
@@ -30,7 +30,7 @@ export interface AppOptions {
 export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
   const fastify = Fastify({
     logger: options.logger ?? true,
-    disableRequestLogging: true, ajv: { customOptions: { strict: false } },
+    disableRequestLogging: true,
     ajv: {
       customOptions: {
         strict: false,

@@ -53,4 +53,8 @@ export class FloorPlansClient {
     const response = await this.client.post<{ data: FloorPlan }>(`/api/v1/floor-plans/${id}/clone`, undefined);
     return response.data;
   }
+
+  async bulkUpdatePositions(id: string, positions: { id: string; x: number; y: number }[]): Promise<void> {
+    return this.client.patch(`/api/v1/floor-plans/${id}/positions`, { positions });
+  }
 }

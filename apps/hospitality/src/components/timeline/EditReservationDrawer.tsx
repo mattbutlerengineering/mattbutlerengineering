@@ -31,8 +31,6 @@ export function EditReservationDrawer({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const activeTables = tables.filter((t) => t.isActive);
-
   const handleSave = async () => {
     const parsedPartySize = parseInt(partySize, 10);
     if (isNaN(parsedPartySize) || parsedPartySize < 1) {
@@ -109,34 +107,28 @@ export function EditReservationDrawer({
           />
 
           <Select
-            label="Table"
+            label="Assign Table"
             value={tableId}
-            onChange={(e) => setTableId(e.target.value)}
+            options={tables.map((t) => ({ value: t.id, label: `Table ${t.name} (${t.capacity}p)` }))}
+            onChange={(val) => setTableId(val)}
             disabled={isLoading}
-          >
-            {activeTables.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name} (cap. {t.capacity})
-              </option>
-            ))}
-          </Select>
+          />
 
           <TextArea
             label="Notes"
             value={notes}
             rows={4}
-            placeholder="Any special requests or notes…"
             onChange={(e) => setNotes(e.target.value)}
             disabled={isLoading}
           />
-        </Stack>
+          </Stack>
 
-        <div className={styles.footer}>
+          <div className={styles.drawerActions}>
           <Button
             variant="secondary"
             onClick={onClose}
             disabled={isLoading}
-            fullWidth
+            className={styles.fullWidth}
           >
             Cancel
           </Button>
@@ -144,13 +136,13 @@ export function EditReservationDrawer({
             variant="primary"
             onClick={handleSave}
             isLoading={isLoading}
-            loadingText="Saving…"
-            fullWidth
+            loadingText="Saving..."
+            className={styles.fullWidth}
           >
             Save Changes
           </Button>
-        </div>
-      </Stack>
-    </Drawer>
-  );
+          </div>
+        </Stack>
+      </Drawer>
+    );
 }
