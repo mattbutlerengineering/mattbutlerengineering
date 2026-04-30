@@ -16,14 +16,15 @@ type MotionButtonProps = HTMLMotionProps<"button">;
  *   Save changes
  * </Button>
  */
-export interface ButtonProps extends Pick<
+export interface ButtonProps extends Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,
-  "disabled" | "type" | "onClick" | "aria-label" | "id" | "name"
+  "style" | "className"
 > {
   /** Visual style: `"primary"` (gold fill), `"secondary"` (aluminum outline), `"ghost"` (no border). */
   variant?: "primary" | "secondary" | "ghost";
   size?: "sm" | "md" | "lg";
   className?: string;
+  style?: React.CSSProperties;
   children?: React.ReactNode;
   /** When true, shows a spinner and disables the button */
   isLoading?: boolean;

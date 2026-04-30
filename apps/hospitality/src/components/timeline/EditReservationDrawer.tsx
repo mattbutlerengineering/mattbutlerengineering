@@ -23,13 +23,19 @@ export function EditReservationDrawer({
   onSave,
   onClose,
 }: EditReservationDrawerProps) {
-  const [startTime, setStartTime] = useState(toTimeInputValue(reservation.startTime));
-  const [endTime, setEndTime] = useState(toTimeInputValue(reservation.endTime));
+  const [startTime, setStartTime] = useState(() => toTimeInputValue(reservation.startTime));
+  const [endTime, setEndTime] = useState(() => toTimeInputValue(reservation.endTime));
   const [partySize, setPartySize] = useState(String(reservation.partySize));
   const [tableId, setTableId] = useState(reservation.tableId);
   const [notes, setNotes] = useState(reservation.notes ?? "");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const activeTables = tables.filter((t) => t.isActive);
+  const tableOptions = activeTables.map((t) => ({
+    value: t.id,
+    label: `${t.name} (cap. ${t.capacity})`,
+  }));
 
   const handleSave = async () => {
     const parsedPartySize = parseInt(partySize, 10);
@@ -109,9 +115,9 @@ export function EditReservationDrawer({
           <Select
             label="Assign Table"
             value={tableId}
-            options={tables.map((t) => ({ value: t.id, label: `Table ${t.name} (${t.capacity}p)` }))}
-            onChange={(val) => setTableId(val)}
+            onChange={setTableId}
             disabled={isLoading}
+            options={tableOptions}
           />
 
           <TextArea
@@ -136,7 +142,7 @@ export function EditReservationDrawer({
             variant="primary"
             onClick={handleSave}
             isLoading={isLoading}
-            loadingText="Saving..."
+            loadingText="Saving…"
             className={styles.fullWidth}
           >
             Save Changes

@@ -143,7 +143,7 @@ Checkbox.displayName = "Checkbox";
  * <Radio label="Large" value="lg" description="Best for readability" />
  */
 export interface RadioProps {
-  label: string;
+  label: ReactNode;
   value: string;
   /** Provided automatically by RadioGroup — only needed for standalone use */
   name?: string;

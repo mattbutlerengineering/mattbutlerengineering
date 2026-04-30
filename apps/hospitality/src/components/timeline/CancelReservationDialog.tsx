@@ -59,8 +59,8 @@ export function CancelReservationDialog({
             <Select
               label="Reason"
               value={reason}
+              onChange={setReason}
               options={CANCELLATION_REASONS}
-              onChange={(val) => setReason(val)}
               disabled={isLoading}
             />
 

@@ -35,6 +35,11 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
     .filter((t) => t.status === "AVAILABLE" && t.capacity >= partySize)
     .sort((a, b) => a.capacity - b.capacity);
 
+  const tableOptions = availableTables.map((t) => ({
+    value: t.id,
+    label: `${t.name} (seats ${t.capacity})`,
+  }));
+
   const handlePartySizeChange = useCallback(
     (size: number) => {
       setPartySize(size);
@@ -105,9 +110,9 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
               <Select
                 label="Table"
                 value={tableId}
-                options={availableTables.map((t) => ({ value: t.id, label: `${t.name} (seats ${t.capacity})` }))}
-                onChange={(val) => setTableId(val)}
+                onChange={setTableId}
                 disabled={isLoading}
+                options={tableOptions}
               />
             )}
 

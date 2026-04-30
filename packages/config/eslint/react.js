@@ -41,49 +41,36 @@ export default [
       "no-restricted-imports": [
         "error",
         {
+          paths: [
+            {
+              name: "@mbe/observability",
+              message: "Backend-only package. Cannot import in frontend apps.",
+            },
+            {
+              name: "@mbe/observability/sentry/node",
+              message: "Backend entrypoint. Use @mbe/observability/sentry/react in frontend apps.",
+            },
+            {
+              name: "@mbe/auth/fastify",
+              message: "Backend entrypoint. Use @mbe/auth/react in frontend apps.",
+            },
+          ],
           patterns: [
             {
               group: ["@mbe/agent-core", "@mbe/agent-core/*"],
               message: "Backend-only package. Cannot import in frontend apps.",
             },
             {
-              group: ["@mbe/observability", "@mbe/observability/!(sentry)/**"],
-              message: "Backend-only package. Cannot import in frontend apps.",
-            },
-            {
-              group: ["@mbe/auth/fastify"],
-              message: "Backend entrypoint. Use @mbe/auth/react in frontend apps.",
-            },
-            {
-              group: ["@mbe/sentry/node"],
-              message: "Backend entrypoint. Use @mbe/sentry/react in frontend apps.",
+              group: ["@mbe/observability/baggage", "@mbe/observability/sentry/node"],
+              message: "Backend-only package or entrypoint. Cannot import in frontend apps.",
             },
           ],
         },
       ],
+      "mbe-local/prefer-rialto-components": "warn",
       // Warn on hardcoded hex colors in JSX — prefer Rialto CSS tokens (var(--rialto-*))
       "no-restricted-syntax": [
         "warn",
-        {
-          selector: "JSXOpeningElement[name.name='button']",
-          message:
-            "Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>.",
-        },
-        {
-          selector: "JSXOpeningElement[name.name='input']",
-          message:
-            "Use <Input> from '@mattbutlerengineering/rialto' instead of native <input>.",
-        },
-        {
-          selector: "JSXOpeningElement[name.name='select']",
-          message:
-            "Use <Select> from '@mattbutlerengineering/rialto' instead of native <select>.",
-        },
-        {
-          selector: "JSXOpeningElement[name.name='textarea']",
-          message:
-            "Use <TextArea> from '@mattbutlerengineering/rialto' instead of native <textarea>.",
-        },
         {
           selector:
             "JSXAttribute[value.type='Literal'][value.value=/^#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/]",

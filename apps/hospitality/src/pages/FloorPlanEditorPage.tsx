@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useNavigate, useBlocker } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
-import { ConfirmDialog } from "@mattbutlerengineering/rialto";
+import { ConfirmDialog, Button, Heading, Text } from "@mattbutlerengineering/rialto";
 import type { CreateTableRequest, FloorPlan, Table } from "@mbe/types";
 import { AddTableDialog, FloorPlanCanvas } from "../components/floor-plan";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
@@ -24,7 +24,7 @@ export function FloorPlanEditorPage() {
 
   // Track pending position updates for batch save
   const [pendingUpdates, setPendingUpdates] = useState<Map<string, { x: number; y: number }>>(
-    new Map()
+    () => new Map()
   );
 
   // Store previous table state for rollback on save failure
@@ -75,6 +75,7 @@ export function FloorPlanEditorPage() {
   }, [id, api]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchFloorPlan();
   }, [fetchFloorPlan]);
 
@@ -109,11 +110,22 @@ export function FloorPlanEditorPage() {
 
     setIsSaving(true);
     try {
-      const positions = Array.from(pendingUpdates.entries()).map(([id, pos]) => ({
-        id,
-        x: pos.x,
-        y: pos.y,
-      }));
+      const positions = Array.from(pendingUpdates.entries()).map(([tableId, pos]) => {
+        const table = tables.find((t) => t.id === tableId);
+        const existing = table?.shapeMetadata;
+        return {
+          tableId,
+          shapeMetadata: {
+            x: pos.x,
+            y: pos.y,
+            width: existing?.width ?? 80,
+            height: existing?.height ?? 60,
+            shape: existing?.shape ?? ("rectangle" as const),
+            rotation: existing?.rotation,
+            color: existing?.color,
+          },
+        };
+      });
 
       await api.floorPlans.bulkUpdatePositions(floorPlan!.id, positions);
       setPendingUpdates(new Map());
@@ -234,9 +246,9 @@ export function FloorPlanEditorPage() {
           error={error ?? "Floor plan not found"}
           onRetry={fetchFloorPlan}
         />
-        <button onClick={() => navigate("/floor-plans")} className={styles.backLink}>
+        <Button onClick={() => navigate("/floor-plans")} className={styles.backLink}>
           Back to Floor Plans
-        </button>
+        </Button>
       </div>
     );
   }
@@ -246,7 +258,7 @@ export function FloorPlanEditorPage() {
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.headerLeft}>
-          <button
+          <Button
             onClick={() => navigate("/floor-plans")}
             className={styles.backButton}
             aria-label="Back to floor plans"
@@ -254,27 +266,27 @@ export function FloorPlanEditorPage() {
             <svg className={styles.backIcon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-          </button>
-          <h1 className={styles.floorPlanTitle}>{floorPlan.name}</h1>
-          {floorPlan.isActive && <span className={styles.activeBadge}>Active</span>}
+          </Button>
+          <Heading className={styles.floorPlanTitle}>{floorPlan.name}</Heading>
+          {floorPlan.isActive && <Text className={styles.activeBadge}>Active</Text>}
         </div>
 
         <div className={styles.headerRight}>
           {!floorPlan.isActive && (
-            <button onClick={handleActivate} className={styles.activateButton}>
+            <Button onClick={handleActivate} className={styles.activateButton}>
               Set as Active
-            </button>
+            </Button>
           )}
-          <button onClick={() => setShowAddDialog(true)} className={styles.addTableButton}>
+          <Button onClick={() => setShowAddDialog(true)} className={styles.addTableButton}>
             + Add Table
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={handleSave}
             disabled={!hasChanges || isSaving}
             className={`${styles.saveButton} ${hasChanges ? styles.saveButtonActive : styles.saveButtonDisabled}`}
           >
             {isSaving ? "Saving..." : hasChanges ? "Save Changes" : "Saved"}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -303,31 +315,31 @@ export function FloorPlanEditorPage() {
 
         {/* Sidebar - Table details */}
         <div className={styles.sidebar}>
-          <h2 className={styles.sidebarTitle}>Table Details</h2>
+          <Heading className={styles.sidebarTitle}>Table Details</Heading>
 
           {selectedTable ? (
             <div className={styles.detailsStack}>
               <div>
-                <span className={styles.detailLabel}>Name</span>
+                <Text className={styles.detailLabel}>Name</Text>
                 <div className={styles.detailValue}>{selectedTable.name}</div>
               </div>
               <div>
-                <span className={styles.detailLabel}>Table Number</span>
+                <Text className={styles.detailLabel}>Table Number</Text>
                 <div className={styles.detailValue}>{selectedTable.tableNumber}</div>
               </div>
               <div>
-                <span className={styles.detailLabel}>Capacity</span>
+                <Text className={styles.detailLabel}>Capacity</Text>
                 <div className={styles.detailValue}>
                   {selectedTable.minCovers} - {selectedTable.maxCovers ?? selectedTable.capacity}{" "}
                   guests
                 </div>
               </div>
               <div>
-                <span className={styles.detailLabel}>Location</span>
+                <Text className={styles.detailLabel}>Location</Text>
                 <div className={styles.detailValue}>{selectedTable.location ?? "Not set"}</div>
               </div>
               <div>
-                <span className={styles.detailLabel}>Status</span>
+                <Text className={styles.detailLabel}>Status</Text>
                 <div
                   className={
                     selectedTable.isActive ? styles.detailValueActive : styles.detailValueInactive
@@ -337,18 +349,18 @@ export function FloorPlanEditorPage() {
                 </div>
               </div>
               <div>
-                <span className={styles.detailLabel}>Position</span>
+                <Text className={styles.detailLabel}>Position</Text>
                 <div className={styles.detailValueMono}>
                   x: {selectedTable.shapeMetadata?.x ?? 0}, y:{" "}
                   {selectedTable.shapeMetadata?.y ?? 0}
                 </div>
               </div>
-              <button
+              <Button
                 className={styles.deleteTableButton}
                 onClick={() => handleDeleteTable(selectedTable.id)}
               >
                 Delete Table
-              </button>
+              </Button>
             </div>
           ) : (
             <div className={styles.noSelection}>Select a table to view details</div>
@@ -356,10 +368,10 @@ export function FloorPlanEditorPage() {
 
           {/* Table list */}
           <div className={styles.tableListSection}>
-            <h3 className={styles.tableListTitle}>All Tables ({tables.length})</h3>
+            <Heading className={styles.tableListTitle}>All Tables ({tables.length})</Heading>
             <div className={styles.tableListStack}>
               {tables.map((table) => (
-                <button
+                <Button
                   key={table.id}
                   onClick={() => setSelectedTableId(table.id)}
                   className={`${styles.tableListButton} ${
@@ -367,7 +379,7 @@ export function FloorPlanEditorPage() {
                   }`}
                 >
                   {table.tableNumber || table.name}
-                </button>
+                </Button>
               ))}
             </div>
           </div>

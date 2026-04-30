@@ -21,18 +21,9 @@ import styles from "./TextArea.module.css";
  * <TextArea label="Notes" autoResize maxLength={200} />
  * <TextArea label="Description" rows={5} error hint="Required" />
  */
-export interface TextAreaProps extends Pick<
+export interface TextAreaProps extends Omit<
   TextareaHTMLAttributes<HTMLTextAreaElement>,
-  | "placeholder"
-  | "disabled"
-  | "rows"
-  | "value"
-  | "defaultValue"
-  | "onChange"
-  | "onBlur"
-  | "name"
-  | "required"
-  | "readOnly"
+  "style" | "className"
 > {
   label?: string;
   hint?: string;

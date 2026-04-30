@@ -2,6 +2,8 @@ import type {
   FloorPlan,
   CreateFloorPlanRequest,
   UpdateFloorPlanRequest,
+  UpdateTablePositionRequest,
+  Table,
   PaginatedResponse,
 } from "@mbe/types";
 import type { ApiClient } from "./client.js";
@@ -30,6 +32,11 @@ export class FloorPlansClient {
     return response.data;
   }
 
+  /** Alias for getById */
+  async get(id: string): Promise<FloorPlan> {
+    return this.getById(id);
+  }
+
   async create(data: CreateFloorPlanRequest): Promise<FloorPlan> {
     const response = await this.client.post<{ data: FloorPlan }>("/api/v1/floor-plans", data);
     return response.data;
@@ -49,12 +56,24 @@ export class FloorPlansClient {
     return response.data;
   }
 
-  async clone(id: string): Promise<FloorPlan> {
-    const response = await this.client.post<{ data: FloorPlan }>(`/api/v1/floor-plans/${id}/clone`, undefined);
+  /** Alias for setActive */
+  async activate(id: string): Promise<FloorPlan> {
+    return this.setActive(id);
+  }
+
+  async bulkUpdatePositions(
+    floorPlanId: string,
+    positions: UpdateTablePositionRequest[]
+  ): Promise<Table[]> {
+    const response = await this.client.post<{ data: Table[] }>(
+      `/api/v1/floor-plans/${floorPlanId}/bulk-update-positions`,
+      positions
+    );
     return response.data;
   }
 
-  async bulkUpdatePositions(id: string, positions: { id: string; x: number; y: number }[]): Promise<void> {
-    return this.client.patch(`/api/v1/floor-plans/${id}/positions`, { positions });
+  async clone(id: string): Promise<FloorPlan> {
+    const response = await this.client.post<{ data: FloorPlan }>(`/api/v1/floor-plans/${id}/clone`, undefined);
+    return response.data;
   }
 }
