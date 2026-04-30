@@ -7,3 +7,8 @@ pnpm --filter @mbe/cli start check-adr --staged
 if command -v gitleaks >/dev/null 2>&1; then
   gitleaks protect --staged --config .gitleaks.toml --verbose
 fi
+
+# Security scanning with Semgrep
+if command -v semgrep >/dev/null 2>&1; then
+  semgrep --config semgrep.yml --error
+fi
