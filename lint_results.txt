@@ -1,0 +1,86 @@
+.                                        |  WARN  Unsupported engine: wanted: {"node":">=22"} (current: {"node":"v20.19.5","pnpm":"9.15.4"})
+Scope: 22 of 23 workspace projects
+packages/api-versioning lint$ eslint src/
+packages/mcp-server lint$ eslint src/
+packages/types lint$ eslint src/
+packages/api-versioning lint: Done
+packages/mcp-server lint: Done
+packages/types lint: Done
+packages/agent-core lint$ eslint src/
+packages/api-client lint$ eslint src/
+packages/auth lint$ eslint src/
+packages/observability lint$ eslint src/
+packages/api-client lint: Done
+packages/observability lint: Done
+packages/agent-core lint: Done
+packages/auth lint: Warning: React version not specified in eslint-plugin-react settings. See https://github.com/jsx-eslint/eslint-plugin-react#configuration .
+packages/auth lint: Done
+packages/agent-test-utils lint$ eslint src/
+packages/rialto lint$ eslint .
+services/reservations lint$ eslint src/
+services/users lint$ eslint src/
+packages/agent-test-utils lint: Done
+tools/cli lint$ eslint src/
+services/users lint: Done
+services/reservations lint: Done
+packages/rialto lint: Warning: React version not specified in eslint-plugin-react settings. See https://github.com/jsx-eslint/eslint-plugin-react#configuration .
+tools/cli lint: Done
+packages/rialto lint: Oops! Something went wrong! :(
+packages/rialto lint: ESLint: 10.2.1
+packages/rialto lint: RangeError: Maximum call stack size exceeded
+packages/rialto lint: Occurred while linting /Users/mbutler/github/mattbutlerengineering/packages/rialto/storybook-static/assets/axe-C4P_eUl9.js:1
+packages/rialto lint: Rule: "@eslint-react/component-hook-factories"
+packages/rialto lint:     at resolve (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+var@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/var/dist/index.js:38:17)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:695:30)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:676:83)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:695:11)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:676:83)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:695:11)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:676:83)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:695:11)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:676:83)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:695:11)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:676:83)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:695:11)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:676:83)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:695:11)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:676:83)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:695:11)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:676:83)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:695:11)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:676:83)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:695:11)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:676:83)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:695:11)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:676:83)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:695:11)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:676:83)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:695:11)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:676:83)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:695:11)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:676:83)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:695:11)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:676:83)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:695:11)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:676:83)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:695:11)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:676:83)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:695:11)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:676:83)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:695:11)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:676:83)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:695:11)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:676:83)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:695:11)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:676:83)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:695:11)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:676:83)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:695:11)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:676:83)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:695:11)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:676:83)
+packages/rialto lint:     at isJsxLike (file:///Users/mbutler/github/mattbutlerengineering/node_modules/.pnpm/@eslint-react+jsx@4.2.3_eslint@10.2.1_jiti@2.6.1__typescript@6.0.3/node_modules/@eslint-react/jsx/dist/index.js:695:11)
+packages/rialto lint: Failed
+/Users/mbutler/github/mattbutlerengineering/packages/rialto:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @mattbutlerengineering/rialto@0.2.0 lint: `eslint .`
+Exit status 2
