@@ -99,3 +99,21 @@
     padding-inline: var(--rialto-space-md);
   }
 }
+
+.weeklyCta {
+  text-align: center;
+  padding-block: var(--rialto-space-4xl);
+  padding-inline: var(--rialto-space-lg);
+}
+
+.weeklyCta h2 {
+  font-size: var(--rialto-text-2xl);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-primary);
+  margin: 0 0 var(--rialto-space-sm) 0;
+}
+
+.weeklyCta p {
+  color: var(--rialto-text-secondary);
+  margin: 0 0 var(--rialto-space-lg) 0;
+}

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance } from "fastify";
+import { calculateCost } from "@mbe/agent-test-utils";
 
 // Mock all dependencies
 vi.mock("../services/session.js", () => ({
@@ -93,11 +94,16 @@ describe("Orchestrate Routes", () => {
         createdAt: "2026-02-27T00:00:00.000Z",
       });
 
+      const expectedCost = calculateCost({
+        inputTokens: 300000,
+        outputTokens: 50000,
+      }, "claude-sonnet-4-6").totalCostUsd;
+
       vi.mocked(runOrchestrator).mockResolvedValueOnce({
         status: "succeeded",
         childSessionIds: ["child-1", "child-2"],
         summary: "All tasks completed",
-        totalCostUsd: 1.5,
+        totalCostUsd: expectedCost,
         durationMs: 30000,
       });
 
@@ -115,7 +121,7 @@ describe("Orchestrate Routes", () => {
       expect(body.data.parentSessionId).toBe("parent-session-1");
       expect(body.data.status).toBe("succeeded");
       expect(body.data.childSessionIds).toEqual(["child-1", "child-2"]);
-      expect(body.data.totalCostUsd).toBe(1.5);
+      expect(body.data.totalCostUsd).toBe(expectedCost);
     });
 
     it("creates parent session with orchestrator prefix", async () => {

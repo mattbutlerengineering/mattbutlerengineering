@@ -23,8 +23,8 @@ export default [
               message: "Frontend entrypoint. Use @mbe/auth/fastify in backend services.",
             },
             {
-              group: ["@mbe/sentry/react"],
-              message: "Frontend entrypoint. Use @mbe/sentry/node in backend services.",
+              group: ["@mbe/observability/sentry/react"],
+              message: "Frontend entrypoint. Use @mbe/observability/sentry/node in backend services.",
             },
           ],
         },
@@ -54,8 +54,8 @@ export default [
               message: "Frontend entrypoint. Use @mbe/auth/fastify in backend services.",
             },
             {
-              group: ["@mbe/sentry/react"],
-              message: "Frontend entrypoint. Use @mbe/sentry/node in backend services.",
+              group: ["@mbe/observability/sentry/react"],
+              message: "Frontend entrypoint. Use @mbe/observability/sentry/node in backend services.",
             },
             {
               group: ["**/services/database", "**/services/database.js"],

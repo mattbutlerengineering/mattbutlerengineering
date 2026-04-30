@@ -10,8 +10,11 @@ export const generatedSchemas = {
     variant: z.enum(["info", "success", "warning", "error"]).optional(),
     title: z.string().max(60).optional(),
     dismissible: z.boolean().optional(),
+    actions: z.string().optional(),
   }),
   AppBar: z.object({
+    logo: z.string().optional(),
+    actions: z.string().optional(),
     glass: z.boolean().optional(),
     height: z.string().max(20).optional(),
   }),
@@ -34,9 +37,11 @@ export const generatedSchemas = {
   Banner: z.object({
     variant: z.enum(["info", "warning", "error", "accent"]).optional(),
     dismissible: z.boolean().optional(),
+    action: z.string().optional(),
   }),
   Breadcrumb: z.object({
     maxItems: z.number().optional(),
+    separator: z.string().optional(),
   }),
   Button: z.object({
     variant: z.enum(["primary", "secondary", "ghost"]).optional(),
@@ -51,7 +56,7 @@ export const generatedSchemas = {
     subtitle: z.string().max(80).optional(),
   }),
   Checkbox: z.object({
-    label: z.string().max(30),
+    label: z.string().max(30).optional(),
     checked: z.boolean().optional(),
     indeterminate: z.boolean().optional(),
     disabled: z.boolean().optional(),
@@ -66,6 +71,7 @@ export const generatedSchemas = {
     open: z.boolean(),
     title: z.string().max(60).optional(),
     description: z.string().max(120).optional(),
+    footer: z.string().optional(),
   }),
   Divider: z.object({
     orientation: z.enum(["horizontal", "vertical"]).optional(),
@@ -74,13 +80,16 @@ export const generatedSchemas = {
     spacing: z.enum(["compact", "default", "spacious"]).optional(),
   }),
   EmptyState: z.object({
+    icon: z.string().optional(),
     heading: z.string().max(50).optional(),
     description: z.string().max(300).optional(),
+    action: z.string().optional(),
     variant: z.enum(["elevated", "flat"]).optional(),
     size: z.enum(["sm", "md"]).optional(),
   }),
   Footer: z.object({
     variant: z.enum(["minimal", "rich"]).optional(),
+    logo: z.string().optional(),
     copyright: z.string().max(80).optional(),
   }),
   Input: z.object({
@@ -88,6 +97,8 @@ export const generatedSchemas = {
     hint: z.string().max(80).optional(),
     error: z.boolean().optional(),
     disabledReason: z.string().optional(),
+    startIcon: z.string().optional(),
+    endIcon: z.string().optional(),
     showOptional: z.boolean().optional(),
   }),
   NavigationMenu: z.object({}),

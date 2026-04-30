@@ -1,0 +1,104 @@
+ WARN  Unsupported engine: wanted: {"node":">=22"} (current: {"node":"v20.19.5","pnpm":"9.15.4"})
+
+> mattbutlerengineering@ lint /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix
+> turbo run lint
+
+• turbo 2.9.6
+
+   • Packages in scope: @mattbutlerengineering/rialto, @mbe/agent-core, @mbe/agent-service, @mbe/agent-test-utils, @mbe/api-client, @mbe/api-versioning, @mbe/auth, @mbe/cli, @mbe/config, @mbe/feature-flags, @mbe/gen, @mbe/hospitality, @mbe/infrastructure, @mbe/marketing, @mbe/mcp-server, @mbe/observability, @mbe/reservations-service, @mbe/rialto-catalog, @mbe/rialto-plugin, @mbe/rialto-web, @mbe/types, @mbe/users-service
+   • Running lint in 22 packages
+   • Remote caching disabled, using shared worktree cache
+
+@mbe/types:lint: cache miss, executing ada59fdec6863e2e
+@mbe/mcp-server:lint: cache miss, executing 9618212d85f60bdc
+@mbe/types:build: cache miss, executing dfdeef59aa2619aa
+@mbe/api-versioning:lint: cache miss, executing f6595191133c84ee
+@mbe/api-versioning:build: cache miss, executing 39925284057c6d71
+@mbe/types:lint: 
+@mbe/types:lint: > @mbe/types@0.0.0 lint /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/types
+@mbe/types:lint: > eslint src/
+@mbe/types:lint: 
+@mbe/api-versioning:lint: 
+@mbe/api-versioning:lint: > @mbe/api-versioning@0.0.0 lint /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/api-versioning
+@mbe/api-versioning:lint: > eslint src/
+@mbe/api-versioning:lint: 
+@mbe/mcp-server:lint: 
+@mbe/mcp-server:lint: > @mbe/mcp-server@0.0.0 lint /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/mcp-server
+@mbe/mcp-server:lint: > eslint src/
+@mbe/mcp-server:lint: 
+@mbe/types:build: 
+@mbe/types:build: > @mbe/types@0.0.0 build /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/types
+@mbe/types:build: > tsc
+@mbe/types:build: 
+@mbe/api-versioning:build: 
+@mbe/api-versioning:build: > @mbe/api-versioning@0.0.0 build /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/api-versioning
+@mbe/api-versioning:build: > tsc
+@mbe/api-versioning:build: 
+@mbe/auth:lint: cache miss, executing 2280726e761f7000
+@mbe/api-client:lint: cache miss, executing 180ccc4b5629f551
+@mbe/agent-core:lint: cache miss, executing 31e5832a25c1c2ea
+@mbe/observability:lint: cache miss, executing dff2883f1ad97cf4
+@mbe/observability:build: cache miss, executing 4d1049d9e9951fec
+@mbe/agent-core:build: cache miss, executing 43f1d54e00847a70
+@mbe/auth:build: cache miss, executing 5ec8fcd751ce0980
+@mattbutlerengineering/rialto:lint: cache miss, executing 672d4a2f4214632a
+@mattbutlerengineering/rialto:build: cache miss, executing def755a205225a86
+@mbe/auth:lint: 
+@mbe/auth:lint: > @mbe/auth@0.0.0 lint /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/auth
+@mbe/auth:lint: > eslint src/
+@mbe/auth:lint: 
+@mbe/api-client:lint: 
+@mbe/api-client:lint: > @mbe/api-client@0.0.0 lint /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/api-client
+@mbe/api-client:lint: > eslint src/
+@mbe/api-client:lint: 
+@mbe/observability:lint: 
+@mbe/observability:lint: > @mbe/observability@0.0.0 lint /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/observability
+@mbe/observability:lint: > eslint src/
+@mbe/observability:lint: 
+@mbe/auth:build: 
+@mbe/auth:build: > @mbe/auth@0.0.0 build /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/auth
+@mbe/auth:build: > tsc
+@mbe/auth:build: 
+@mattbutlerengineering/rialto:build: 
+@mattbutlerengineering/rialto:build: > @mattbutlerengineering/rialto@0.2.0 build /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto
+@mattbutlerengineering/rialto:build: > vite build --config vite.config.lib.ts && pnpm manifest && pnpm exports
+@mattbutlerengineering/rialto:build: 
+@mbe/agent-core:build: 
+@mbe/agent-core:build: > @mbe/agent-core@0.0.0 build /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/agent-core
+@mbe/agent-core:build: > tsc
+@mbe/agent-core:build: 
+@mbe/agent-core:lint: 
+@mbe/agent-core:lint: > @mbe/agent-core@0.0.0 lint /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/agent-core
+@mbe/agent-core:lint: > eslint src/
+@mbe/agent-core:lint: 
+@mbe/observability:build: 
+@mbe/observability:build: > @mbe/observability@0.0.0 build /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/observability
+@mbe/observability:build: > tsc
+@mbe/observability:build: 
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: > @mattbutlerengineering/rialto@0.2.0 lint /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto
+@mattbutlerengineering/rialto:lint: > eslint .
+@mattbutlerengineering/rialto:lint: 
+@mbe/auth:lint: 
+@mbe/auth:lint: Oops! Something went wrong! :(
+@mbe/auth:lint: 
+@mbe/auth:lint: ESLint: 10.2.1
+@mbe/auth:lint: 
+@mbe/auth:lint: SyntaxError: Unexpected token '{'
+@mbe/auth:lint:     at compileSourceTextModule (node:internal/modules/esm/utils:346:16)
+@mbe/auth:lint:     at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:146:18)
+@mbe/auth:lint:     at #translate (node:internal/modules/esm/loader:497:12)
+@mbe/auth:lint:     at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:544:27)
+@mbe/auth:lint:  ELIFECYCLE  Command failed with exit code 2.
+ ERROR  @mbe/auth#lint: command (/Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/auth) /Users/mbutler/.nvm/versions/node/v20.19.5/bin/pnpm run lint exited (2)
+
+ Tasks:    5 successful, 14 total
+Cached:    0 cached, 14 total
+  Time:    2.512s 
+Failed:    @mbe/auth#lint
+
+ WARNING  no output files found for task @mbe/api-versioning#lint. Please check your `outputs` key in `turbo.json`
+ WARNING  no output files found for task @mbe/mcp-server#lint. Please check your `outputs` key in `turbo.json`
+ WARNING  no output files found for task @mbe/types#lint. Please check your `outputs` key in `turbo.json`
+ ERROR  run failed: command  exited (2)
+ ELIFECYCLE  Command failed with exit code 2.

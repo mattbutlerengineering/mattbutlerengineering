@@ -59,16 +59,10 @@ export function CancelReservationDialog({
             <Select
               label="Reason"
               value={reason}
-              onChange={(e) => setReason(e.target.value)}
+              onChange={setReason}
+              options={CANCELLATION_REASONS}
               disabled={isLoading}
-              required
-            >
-              {CANCELLATION_REASONS.map((r) => (
-                <option key={r.value} value={r.value}>
-                  {r.label}
-                </option>
-              ))}
-            </Select>
+            />
 
             <TextArea
               label="Note (optional)"

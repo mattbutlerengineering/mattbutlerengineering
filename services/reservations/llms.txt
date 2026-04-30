@@ -1,4 +1,14 @@
 <codebase path="services/reservations">
+  <section priority="medium" role="prisma">
+  <file path="prisma/seed.ts">
+    <item priority="medium">
+      function todayAt(hours: number, minutes: number): Date { /* ... */ }
+    </item>
+    <item priority="medium">
+      function todayDate(): Date { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="src">
   <file path="src/index.ts">
     <item priority="low">
@@ -13,16 +23,6 @@
     </item>
     <item priority="high">
       export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> { /* ... */ }
-    </item>
-  </file>
-  </section>
-  <section priority="medium" role="prisma">
-  <file path="prisma/seed.ts">
-    <item priority="medium">
-      function todayAt(hours: number, minutes: number): Date { /* ... */ }
-    </item>
-    <item priority="medium">
-      function todayDate(): Date { /* ... */ }
     </item>
   </file>
   </section>
@@ -45,6 +45,16 @@
         endTime: string;
         partySize: number;
       }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="schemas">
+  <file path="src/schemas/index.ts">
+    <item priority="high">
+      export const TableShapeMetadataSchema: { $id: string; };
+    </item>
+    <item priority="high">
+      export const TableSchema: { $id: string; };
     </item>
   </file>
   </section>
@@ -104,7 +114,7 @@
     <item priority="low">
       interface CreateHoldResult {
         success: boolean;
-        hold?: import("/Users/mbutler/github/issue-329/packages/types/sr...;
+        hold?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
         error?: string | undefined;
       }
     </item>
@@ -159,10 +169,10 @@
     </item>
     <item priority="low">
       interface ReservationEvent {
-        type: import("/Users/mbutler/github/issue-329/services/reservat...;
+        type: import("/Users/mbutler/github/mattbutlerengineering/servi...;
         venueId: string;
         timestamp: string;
-        data: import("/Users/mbutler/github/issue-329/packages/types/sr...;
+        data: import("/Users/mbutler/github/mattbutlerengineering/packa...;
       }
     </item>
   </file>
@@ -185,7 +195,7 @@
         name: string;
         slug: string;
         ianaTimezone: string;
-        settings: import("/Users/mbutler/github/issue-329/packages/types/sr...;
+        settings: import("/Users/mbutler/github/mattbutlerengineering/packa...;
       }
     </item>
     <item priority="high">
@@ -196,25 +206,15 @@
     </item>
   </file>
   </section>
-  <section priority="medium" role="schemas">
-  <file path="src/schemas/index.ts">
-    <item priority="high">
-      export const TableShapeMetadataSchema: { $id: string; };
-    </item>
-    <item priority="high">
-      export const TableSchema: { $id: string; };
-    </item>
-  </file>
-  </section>
   <section priority="medium" role="routes">
   <file path="src/routes/venues.ts">
     <item priority="high">
-      export const venueRoutes: import("/Users/mbutler/github/issue-329/node_modules/.pnp...;
+      export const venueRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
     </item>
   </file>
   <file path="src/routes/tables.ts">
     <item priority="high">
-      export const tableRoutes: import("/Users/mbutler/github/issue-329/node_modules/.pnp...;
+      export const tableRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
     </item>
   </file>
   <file path="src/routes/reservations.ts">
@@ -222,12 +222,12 @@
       function isAdmin(user: AuthUser | undefined): boolean { /* ... */ }
     </item>
     <item priority="high">
-      export const reservationRoutes: import("/Users/mbutler/github/issue-329/node_modules/.pnp...;
+      export const reservationRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
     </item>
   </file>
   <file path="src/routes/ready.ts">
     <item priority="high">
-      export const readinessRoutes: import("/Users/mbutler/github/issue-329/node_modules/.pnp...;
+      export const readinessRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
     </item>
   </file>
   <file path="src/routes/holds.ts">
@@ -235,7 +235,7 @@
       function getSessionId(request: FastifyRequest): string { /* ... */ }
     </item>
     <item priority="high">
-      export const holdRoutes: import("/Users/mbutler/github/issue-329/node_modules/.pnp...;
+      export const holdRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
     </item>
   </file>
   <file path="src/routes/health.ts">
@@ -245,17 +245,17 @@
         IncomingMessage...;
     </item>
     <item priority="high">
-      export const healthRoutes: import("/Users/mbutler/github/issue-329/node_modules/.pnp...;
+      export const healthRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
     </item>
   </file>
   <file path="src/routes/guests.ts">
     <item priority="high">
-      export const guestRoutes: import("/Users/mbutler/github/issue-329/node_modules/.pnp...;
+      export const guestRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
     </item>
   </file>
   <file path="src/routes/floor-plans.ts">
     <item priority="high">
-      export const floorPlanRoutes: import("/Users/mbutler/github/issue-329/node_modules/.pnp...;
+      export const floorPlanRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
     </item>
   </file>
   <file path="src/routes/events.ts">
@@ -265,7 +265,7 @@
   </file>
   <file path="src/routes/availability.ts">
     <item priority="high">
-      export const availabilityRoutes: import("/Users/mbutler/github/issue-329/node_modules/.pnp...;
+      export const availabilityRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
     </item>
   </file>
   </section>

@@ -93,10 +93,6 @@ const CHARACTER_LIMITS: CharacterLimit[] = [
 
 /* ── Type-to-Zod mapping ─────────────────────── */
 
-function typeToString(type: ts.Type, checker: ts.TypeChecker): string {
-  return checker.typeToString(type, undefined, ts.TypeFormatFlags.NoTruncation);
-}
-
 /**
  * Strip " | undefined" from a type string and return {innerType, wasOptional}.
  */
@@ -131,14 +127,20 @@ function mapTypeToZod(
     return null;
   }
 
-  // Skip ReactNode / JSX types
+  // Check for character limit
+  const limit = CHARACTER_LIMITS.find(
+    (l) => l.component === componentName && l.prop === propName
+  );
+
+  // Map ReactNode / JSX types to string (for catalog purpose)
   if (
     inner.includes("ReactNode") ||
     inner.includes("JSX.Element") ||
     inner === "Element" ||
     inner === "ReactNode"
   ) {
-    return null;
+    const schema = limit ? `z.string().max(${limit.max})` : "z.string()";
+    return optional ? `${schema}.optional()` : schema;
   }
 
   // Skip complex object/array types that reference Rialto interfaces or ElementType
@@ -152,11 +154,6 @@ function mapTypeToZod(
   ) {
     return null;
   }
-
-  // Check for character limit
-  const limit = CHARACTER_LIMITS.find(
-    (l) => l.component === componentName && l.prop === propName
-  );
 
   // Boolean (expanded as "false | true" by TS compiler)
   if (inner === "boolean" || inner === "false | true" || inner === "true | false") {
@@ -488,7 +485,7 @@ function main() {
 
   // Warn about curated components with no schemas
   for (const name of CURATED_COMPONENTS) {
-    if (!componentSchemas.has(name)) {
+    if (!componentSchemas.has(name) && !HARDCODED_SCHEMA_LINES[name]) {
       console.warn(
         `[generate-catalog] Warning: curated component "${name}" was not found in Rialto exports`
       );

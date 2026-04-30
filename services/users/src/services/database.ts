@@ -46,13 +46,15 @@ pool.on("error", (err) => {
 });
 
 export function getPoolStats() {
-  const total = pool.totalCount;
-  const idle = pool.idleCount;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const p = pool as any;
+  const total = p.totalCount;
+  const idle = p.idleCount;
   const active = total - idle;
   return {
     total,
     active,
-    waiting: pool.waitingCount,
+    waiting: p.waitingCount,
     idle,
     utilization: total > 0 ? active / CONNECTION_LIMIT : 0,
   };
