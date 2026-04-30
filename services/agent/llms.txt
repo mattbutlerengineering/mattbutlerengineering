@@ -1,4 +1,11 @@
 <codebase path="services/agent">
+  <section priority="medium" role="prisma">
+  <file path="prisma/seed.ts">
+    <item priority="low">
+      async function main() { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="src">
   <file path="src/index.ts">
     <item priority="low">
@@ -13,13 +20,6 @@
     </item>
     <item priority="high">
       export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> { /* ... */ }
-    </item>
-  </file>
-  </section>
-  <section priority="medium" role="prisma">
-  <file path="prisma/seed.ts">
-    <item priority="low">
-      async function main() { /* ... */ }
     </item>
   </file>
   </section>

@@ -941,9 +941,6 @@ exports[`Reservation service schemas > VenueGroupSchema matches snapshot 1`] = `
     "settings": {
       "anyOf": [
         {
-          "propertyNames": {
-            "type": "string",
-          },
           "type": "object",
         },
         {
@@ -1126,9 +1123,6 @@ exports[`Reservation service schemas > VenueSchema matches snapshot 1`] = `
     "settings": {
       "anyOf": [
         {
-          "propertyNames": {
-            "type": "string",
-          },
           "type": "object",
         },
         {
@@ -1156,9 +1150,6 @@ exports[`Reservation service schemas > VenueSchema matches snapshot 1`] = `
         "settings": {
           "anyOf": [
             {
-              "propertyNames": {
-                "type": "string",
-              },
               "type": "object",
             },
             {

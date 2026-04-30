@@ -114,9 +114,6 @@ exports[`Agent service schemas > SessionEventSchema matches snapshot 1`] = `
       "type": "string",
     },
     "data": {
-      "propertyNames": {
-        "type": "string",
-      },
       "type": "object",
     },
     "id": {

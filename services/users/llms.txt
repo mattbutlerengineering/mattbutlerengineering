@@ -1,11 +1,4 @@
 <codebase path="services/users">
-  <section priority="medium" role="prisma">
-  <file path="prisma/seed.ts">
-    <item priority="low">
-      async function main() { /* ... */ }
-    </item>
-  </file>
-  </section>
   <section priority="medium" role="src">
   <file path="src/index.ts">
     <item priority="low">
@@ -20,6 +13,39 @@
     </item>
     <item priority="high">
       export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="prisma">
+  <file path="prisma/seed.ts">
+    <item priority="low">
+      async function main() { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="test">
+  <file path="src/test/fixtures.ts">
+    <item priority="low">
+      interface UserFixture {
+        id: string;
+        email: string;
+        name: string | null;
+        picture: string | null;
+        emailVerified: boolean;
+      }
+    </item>
+    <item priority="high">
+      export const MOCK_USER: import("/Users/mbutler/github/mattbutlerengineering/servi...;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="schemas">
+  <file path="src/schemas/index.ts">
+    <item priority="high">
+      export const UserPreferencesSchema: { $id: string; };
+    </item>
+    <item priority="high">
+      export const UserSchema: { $id: string; };
     </item>
   </file>
   </section>
@@ -62,32 +88,6 @@
     </item>
     <item priority="high">
       export function getSlowQueryStats(): { count5min: number; slowestMs: number } { /* ... */ }
-    </item>
-  </file>
-  </section>
-  <section priority="medium" role="test">
-  <file path="src/test/fixtures.ts">
-    <item priority="low">
-      interface UserFixture {
-        id: string;
-        email: string;
-        name: string | null;
-        picture: string | null;
-        emailVerified: boolean;
-      }
-    </item>
-    <item priority="high">
-      export const MOCK_USER: import("/Users/mbutler/github/mattbutlerengineering/servi...;
-    </item>
-  </file>
-  </section>
-  <section priority="medium" role="schemas">
-  <file path="src/schemas/index.ts">
-    <item priority="high">
-      export const UserPreferencesSchema: { $id: string; };
-    </item>
-    <item priority="high">
-      export const UserSchema: { $id: string; };
     </item>
   </file>
   </section>

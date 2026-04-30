@@ -28,16 +28,18 @@ import {
 } from "./common.js";
 
 /**
- * Recursively strip `additionalProperties` from a JSON Schema object.
+ * Recursively strip `additionalProperties` and `propertyNames` from a JSON Schema
+ * object.
  *
- * Zod 4's `toJSONSchema` emits `additionalProperties: false` for objects,
- * but Fastify response schemas should remain open (the old hand-written
- * schemas never restricted additional properties).
+ * Zod 4's `toJSONSchema` emits `additionalProperties: false` for objects and
+ * `propertyNames` for `Record<string, unknown>` types. Both cause AJV strict mode
+ * warnings and are unnecessary for Fastify response schemas (the old hand-written
+ * schemas never restricted additional properties or property names).
  */
 function stripAdditionalProperties(obj: Record<string, unknown>): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(obj)) {
-    if (key === "additionalProperties") continue;
+    if (key === "additionalProperties" || key === "propertyNames") continue;
     if (value !== null && typeof value === "object" && !Array.isArray(value)) {
       result[key] = stripAdditionalProperties(value as Record<string, unknown>);
     } else if (Array.isArray(value)) {

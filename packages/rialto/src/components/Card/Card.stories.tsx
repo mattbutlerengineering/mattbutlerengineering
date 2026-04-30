@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/react-vite-vite';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Card } from './Card';
 import { Text } from '../Text/Text';
 import { Stack } from '../Stack/Stack';
@@ -16,7 +16,7 @@ export default meta;
 type Story = StoryObj<typeof Card>;
 
 export const Default: Story = {
-  render: (args) => (
+  render: (args: React.ComponentProps<typeof Card>) => (
     <Card {...args} style={{ width: '300px' }}>
       <Stack gap="md">
         <Text variant="display" as="h3">Card Title</Text>
@@ -32,7 +32,7 @@ export const Elevated: Story = {
   args: {
     variant: 'elevated',
   },
-  render: (args) => (
+  render: (args: React.ComponentProps<typeof Card>) => (
     <Card {...args} style={{ width: '300px' }}>
       <Stack gap="md">
         <Text variant="display" as="h3">Elevated Card</Text>
@@ -48,7 +48,7 @@ export const Tilt: Story = {
   args: {
     tilt: true,
   },
-  render: (args) => (
+  render: (args: React.ComponentProps<typeof Card>) => (
     <Card {...args} style={{ width: '300px' }}>
       <Stack gap="md">
         <Text variant="display" as="h3">Interactive Tilt</Text>
