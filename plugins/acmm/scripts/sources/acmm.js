@@ -793,7 +793,6 @@ const CRITERIA= [
     details: 'Self-correction metrics track how often AI PRs need fix-up commits after initial push, what percentage pass CI on the first attempt, and how often they get reverted. These signals differentiate a clean one-shot PR from a messy multi-attempt one.',
     detection: { type: 'any-of', pattern: ['docs/acmm/explanation-standards.md', 'plugins/acmm/scripts/pr-outcomes.js'] },
   },
-
   {
     id: 'acmm:state-backup',
     source: 'acmm',
@@ -804,6 +803,17 @@ const CRITERIA= [
     rationale: 'L5 signal: the system protects its own learning history and progression data from corruption or accidental deletion.',
     details: 'AI state files (ACMM scores, memory, task ledgers) accumulate value over time. A backup workflow ensures that accidental deletion, bad merges, or state corruption do not destroy the system\'s learning history.',
     detection: { type: 'any-of', pattern: ['.github/workflows/acmm-state-backup.yml', '.claude/acmm/backups/'] },
+  },
+  {
+    id: 'acmm:ai-health-dashboard',
+    source: 'acmm',
+    level: 5,
+    category: 'observability',
+    name: 'AI system health monitoring',
+    description: 'Dashboard or script monitoring AI agent system health (latency, errors, stuck rate).',
+    rationale: 'L5 signal: the system monitors its own operational health, not just the code it produces.',
+    details: 'AI health monitoring tracks the agent system itself — session success rate, API errors, stuck loops, cost per session. Without this, degraded AI service goes undetected until humans notice bad output.',
+    detection: { type: 'any-of', pattern: ['docs/acmm/ai-health-monitoring.md', 'scripts/acmm/ai-health-check.sh'] },
   },
 
   // ── L6 — Autonomous ─────────────────────────────────────────────
