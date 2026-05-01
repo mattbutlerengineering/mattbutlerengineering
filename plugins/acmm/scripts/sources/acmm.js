@@ -771,6 +771,28 @@ const CRITERIA= [
     detection: { type: 'any-of', pattern: ['.github/workflows/audit-trail.yml', '.github/workflows/ai-attribution.yml'] },
     crossCutting: 'traceability',
   },
+  {
+    id: 'acmm:explanation-standards',
+    source: 'acmm',
+    level: 4,
+    category: 'feedback-loop',
+    name: 'Explanation quality standards',
+    description: 'Rubric defining quality expectations for AI-authored PRs and commits.',
+    rationale: 'L4 signal: acceptance rate measures outcome but not understanding; explanation rubrics help audit AI intent.',
+    details: 'An explanation quality rubric defines what makes a good agent PR description (reasoning, test plan, risk) and commit message. Without it, AI output quality is measured only by CI pass/fail, masking poor explanations that make future maintenance harder.',
+    detection: { type: 'any-of', pattern: ['docs/acmm/explanation-standards.md', 'docs/review-criteria.md', '.github/prompts/review.md'] },
+  },
+  {
+    id: 'acmm:self-correction-metric',
+    source: 'acmm',
+    level: 5,
+    category: 'observability',
+    name: 'Self-correction tracking',
+    description: 'Metrics tracking AI fix-up cycles, first-attempt success, and revert rates.',
+    rationale: 'L5 signal: the system monitors its own output quality beyond binary acceptance, enabling self-improvement.',
+    details: 'Self-correction metrics track how often AI PRs need fix-up commits after initial push, what percentage pass CI on the first attempt, and how often they get reverted. These signals differentiate a clean one-shot PR from a messy multi-attempt one.',
+    detection: { type: 'any-of', pattern: ['docs/acmm/explanation-standards.md', 'plugins/acmm/scripts/pr-outcomes.js'] },
+  },
 
   {
     id: 'acmm:state-backup',
