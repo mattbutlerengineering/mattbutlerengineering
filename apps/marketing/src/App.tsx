@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect } from "react";
 import { Routes, Route } from "react-router-dom";
-import { Footer, GlobalNav } from "@mattbutlerengineering/rialto";
+import { Footer, GlobalNav, Text } from "@mattbutlerengineering/rialto";
 import styles from "./App.module.css";
 
 const HomePage = lazy(() =>
@@ -58,7 +58,7 @@ export function App({ theme, onThemeToggle }: AppProps) {
       <Footer
         variant="rich"
         className={styles.footer}
-        logo={<span>MBE</span>}
+        logo={<Text>MBE</Text>}
         columns={[
           {
             title: "Projects",
