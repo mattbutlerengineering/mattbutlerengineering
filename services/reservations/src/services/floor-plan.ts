@@ -10,6 +10,7 @@ import type {
 } from "@mbe/types";
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
+import { emitFloorPlanCreated } from "./events.js";
 
 function isPrismaNotFound(err: unknown): boolean {
   return (
@@ -153,11 +154,31 @@ export const floorPlanService = {
     });
     if (!source) return null;
 
+    // Handle name collisions: find next available copy name
+    const baseName = source.name;
+    const existingNames = await prisma.floorPlan.findMany({
+      where: {
+        venueId: source.venueId,
+        name: { startsWith: baseName },
+      },
+      select: { name: true },
+    });
+    const existingNameSet = new Set(existingNames.map((n) => n.name));
+
+    let newName = `Copy of ${baseName}`;
+    if (existingNameSet.has(newName)) {
+      let copyNum = 2;
+      while (existingNameSet.has(`${baseName} (Copy ${copyNum})`)) {
+        copyNum++;
+      }
+      newName = `${baseName} (Copy ${copyNum})`;
+    }
+
     const cloned = await prisma.$transaction(async (tx) => {
       const newFloorPlan = await tx.floorPlan.create({
         data: {
           venueId: source.venueId,
-          name: `Copy of ${source.name}`,
+          name: newName,
           isActive: false,
           layoutJson: source.layoutJson as Prisma.InputJsonValue,
         },
@@ -174,7 +195,7 @@ export const floorPlanService = {
             location: t.location,
             isActive: t.isActive,
             priority: t.priority,
-            status: t.status,
+            status: "AVAILABLE",
             venueId: t.venueId,
             floorPlanId: newFloorPlan.id,
             shapeMetadata: t.shapeMetadata as Prisma.InputJsonValue,
@@ -188,7 +209,11 @@ export const floorPlanService = {
       });
     });
 
-    return cloned ? mapPrismaFloorPlan(cloned) : null;
+    if (!cloned) return null;
+
+    const mapped = mapPrismaFloorPlan(cloned);
+    emitFloorPlanCreated(mapped);
+    return mapped;
   },
 
   async update(id: string, data: UpdateFloorPlanRequest): Promise<FloorPlan | null> {

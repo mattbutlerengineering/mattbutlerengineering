@@ -1,7 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import {
   type FloorPlan,
- 
   type Table,
   type ApiResponse,
   type ApiError,

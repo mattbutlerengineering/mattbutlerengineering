@@ -621,6 +621,19 @@
     }
   </file>
   </section>
+  <section priority="medium" role="Toast">
+  <file path="src/components/Toast/ToastContext.ts">
+    export type ToastVariant = "default" | "success" | "error" | "accent";
+    export interface ToastData {
+      id: string;
+      title: string;
+      description?: string;
+      variant?: ToastVariant;
+      /** Auto-dismiss in ms. 0 = manual dismiss only. */
+      duration?: number;
+    }
+  </file>
+  </section>
   <section priority="medium" role="TapeChart">
   <file path="src/components/TapeChart/useTapeChartLayout.ts">
     function assignLanes(bars: TapeChartPositionedBar[]): number {
@@ -870,19 +883,6 @@
       full: FULL,
     } as const;
     export type CharsetName = keyof typeof CHARSETS;
-  </file>
-  </section>
-  <section priority="medium" role="Toast">
-  <file path="src/components/Toast/ToastContext.ts">
-    export type ToastVariant = "default" | "success" | "error" | "accent";
-    export interface ToastData {
-      id: string;
-      title: string;
-      description?: string;
-      variant?: ToastVariant;
-      /** Auto-dismiss in ms. 0 = manual dismiss only. */
-      duration?: number;
-    }
   </file>
   </section>
   <section priority="medium" role="GenCopilot">
