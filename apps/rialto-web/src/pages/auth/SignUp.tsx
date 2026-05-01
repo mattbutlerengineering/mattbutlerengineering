@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
-import { Button, Checkbox, Divider, Input, useToast, AuthMascot } from "@mattbutlerengineering/rialto";
+import { Button, Checkbox, Divider, Input, useToast, AuthMascot, Text } from "@mattbutlerengineering/rialto";
 import { AuthLayout } from "./AuthLayout";
 import styles from "./AuthLayout.module.css";
 
@@ -86,11 +86,10 @@ export function SignUp() {
         <div className={styles.termsRow}>
           <Checkbox
             label={
-              <span className={styles.termsText}>
+              <Text className={styles.termsText}>
                 I agree to the <Link to="#">Terms of Service</Link> and <Link to="#">Privacy Policy</Link>
-              </span>
+              </Text>
             }
-            required
             disabled={isLoading}
           />
         </div>

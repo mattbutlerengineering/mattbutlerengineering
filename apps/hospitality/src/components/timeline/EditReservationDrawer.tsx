@@ -23,8 +23,8 @@ export function EditReservationDrawer({
   onSave,
   onClose,
 }: EditReservationDrawerProps) {
-  const [startTime, setStartTime] = useState(toTimeInputValue(reservation.startTime));
-  const [endTime, setEndTime] = useState(toTimeInputValue(reservation.endTime));
+  const [startTime, setStartTime] = useState(() => toTimeInputValue(reservation.startTime));
+  const [endTime, setEndTime] = useState(() => toTimeInputValue(reservation.endTime));
   const [partySize, setPartySize] = useState(String(reservation.partySize));
   const [tableId, setTableId] = useState(reservation.tableId);
   const [notes, setNotes] = useState(reservation.notes ?? "");
@@ -32,6 +32,10 @@ export function EditReservationDrawer({
   const [error, setError] = useState<string | null>(null);
 
   const activeTables = tables.filter((t) => t.isActive);
+  const tableOptions = activeTables.map((t) => ({
+    value: t.id,
+    label: `${t.name} (cap. ${t.capacity})`,
+  }));
 
   const handleSave = async () => {
     const parsedPartySize = parseInt(partySize, 10);
@@ -109,34 +113,28 @@ export function EditReservationDrawer({
           />
 
           <Select
-            label="Table"
+            label="Assign Table"
             value={tableId}
-            onChange={(e) => setTableId(e.target.value)}
+            onChange={setTableId}
             disabled={isLoading}
-          >
-            {activeTables.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name} (cap. {t.capacity})
-              </option>
-            ))}
-          </Select>
+            options={tableOptions}
+          />
 
           <TextArea
             label="Notes"
             value={notes}
             rows={4}
-            placeholder="Any special requests or notes…"
             onChange={(e) => setNotes(e.target.value)}
             disabled={isLoading}
           />
-        </Stack>
+          </Stack>
 
-        <div className={styles.footer}>
+          <div className={styles.drawerActions}>
           <Button
             variant="secondary"
             onClick={onClose}
             disabled={isLoading}
-            fullWidth
+            className={styles.fullWidth}
           >
             Cancel
           </Button>
@@ -145,12 +143,12 @@ export function EditReservationDrawer({
             onClick={handleSave}
             isLoading={isLoading}
             loadingText="Saving…"
-            fullWidth
+            className={styles.fullWidth}
           >
             Save Changes
           </Button>
-        </div>
-      </Stack>
-    </Drawer>
-  );
+          </div>
+        </Stack>
+      </Drawer>
+    );
 }

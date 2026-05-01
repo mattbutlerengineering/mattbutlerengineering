@@ -92,7 +92,17 @@ vi.mock("jose", () => ({
 }));
 
 // Mock rate limit monitor
-const { _mockGetSnapshot, mockRateLimitMonitor } = vi.hoisted(() => {
+interface MockRateLimitMonitor {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  recordHit: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  getSnapshot: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  reset: any;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { _mockGetSnapshot, mockRateLimitMonitor } = vi.hoisted((): { _mockGetSnapshot: any; mockRateLimitMonitor: MockRateLimitMonitor } => {
   const mockGetSnapshot = vi.fn().mockReturnValue({
     stats: { hits_last_hour: 0, blocked_ips: 0 },
     isDegraded: false,
@@ -102,8 +112,11 @@ const { _mockGetSnapshot, mockRateLimitMonitor } = vi.hoisted(() => {
     getSnapshot: mockGetSnapshot,
     reset: vi.fn(),
   };
-  return { _mockGetSnapshot, mockRateLimitMonitor };
+  return { _mockGetSnapshot: mockGetSnapshot, mockRateLimitMonitor };
 });
+
+// Use the mock to satisfy noUnusedLocals
+void _mockGetSnapshot;
 
 vi.mock("@mbe/observability", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();

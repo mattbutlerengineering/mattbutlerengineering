@@ -61,6 +61,10 @@ const healthSchema = {
             },
           },
         },
+        error_rates: {
+          type: "object",
+          additionalProperties: true,
+        },
       },
     },
     503: {
@@ -153,6 +157,7 @@ const healthHandler: HealthRouteHandler = async (request) => {
     sunsetDate,
     timestamp: new Date().toISOString(),
     checks,
+    error_rates: errorRates,
   };
 };
 

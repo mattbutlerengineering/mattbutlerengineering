@@ -1,0 +1,709 @@
+ WARN  Unsupported engine: wanted: {"node":">=22"} (current: {"node":"v20.19.5","pnpm":"9.15.4"})
+
+> mattbutlerengineering@ lint /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix
+> turbo run lint
+
+• turbo 2.9.6
+
+   • Packages in scope: @mattbutlerengineering/rialto, @mbe/agent-core, @mbe/agent-service, @mbe/agent-test-utils, @mbe/api-client, @mbe/api-versioning, @mbe/auth, @mbe/cli, @mbe/config, @mbe/gen, @mbe/hospitality, @mbe/infrastructure, @mbe/marketing, @mbe/mcp-server, @mbe/observability, @mbe/reservations-service, @mbe/rialto-catalog, @mbe/rialto-plugin, @mbe/rialto-web, @mbe/types, @mbe/users-service
+   • Running lint in 21 packages
+   • Remote caching disabled, using shared worktree cache
+
+@mbe/api-versioning:lint: cache hit, replaying logs 3ec972107c55e041
+@mbe/api-versioning:lint: 
+@mbe/api-versioning:lint: > @mbe/api-versioning@0.0.0 lint /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/api-versioning
+@mbe/api-versioning:lint: > eslint src/
+@mbe/api-versioning:lint: 
+@mbe/mcp-server:lint: cache hit, replaying logs 0e88f9f43653ac67
+@mbe/mcp-server:lint: 
+@mbe/mcp-server:lint: > @mbe/mcp-server@0.0.0 lint /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/mcp-server
+@mbe/mcp-server:lint: > eslint src/
+@mbe/mcp-server:lint: 
+@mbe/types:lint: cache hit, replaying logs f66ac47b49388121
+@mbe/types:lint: 
+@mbe/types:lint: > @mbe/types@0.0.0 lint /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/types
+@mbe/types:lint: > eslint src/
+@mbe/types:lint: 
+@mbe/api-versioning:build: cache hit, replaying logs 3b42d16a46212e21
+@mbe/api-versioning:build: 
+@mbe/api-versioning:build: > @mbe/api-versioning@0.0.0 build /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/api-versioning
+@mbe/api-versioning:build: > tsc
+@mbe/api-versioning:build: 
+@mbe/types:build: cache hit, replaying logs 94dba0aa2d430014
+@mbe/types:build: 
+@mbe/types:build: > @mbe/types@0.0.0 build /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/types
+@mbe/types:build: > tsc
+@mbe/types:build: 
+@mbe/observability:lint: cache hit, replaying logs 2c4e65da3d9efa2a
+@mbe/observability:lint: 
+@mbe/observability:lint: > @mbe/observability@0.0.0 lint /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/observability
+@mbe/observability:lint: > eslint src/
+@mbe/observability:lint: 
+@mbe/auth:build: cache hit, replaying logs e9f82dbf53cb3154
+@mbe/auth:build: 
+@mbe/auth:build: > @mbe/auth@0.0.0 build /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/auth
+@mbe/auth:build: > tsc
+@mbe/auth:build: 
+@mbe/agent-core:lint: cache hit, replaying logs 00524baa73956dea
+@mbe/observability:build: cache hit, replaying logs e16d3dd61662eb6f
+@mbe/agent-core:lint: 
+@mbe/agent-core:lint: > @mbe/agent-core@0.0.0 lint /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/agent-core
+@mbe/agent-core:lint: > eslint src/
+@mbe/agent-core:lint: 
+@mbe/observability:build: 
+@mbe/observability:build: > @mbe/observability@0.0.0 build /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/observability
+@mbe/observability:build: > tsc
+@mbe/observability:build: 
+@mbe/api-client:lint: cache hit, replaying logs 9f104dec07b0a16b
+@mbe/api-client:lint: 
+@mbe/api-client:lint: > @mbe/api-client@0.0.0 lint /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/api-client
+@mbe/api-client:lint: > eslint src/
+@mbe/api-client:lint: 
+@mbe/agent-core:build: cache hit, replaying logs 88d4fd521cfdbada
+@mbe/auth:lint: cache hit, replaying logs e6ee6c2c8f16f511
+@mbe/agent-core:build: 
+@mbe/agent-core:build: > @mbe/agent-core@0.0.0 build /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/agent-core
+@mbe/agent-core:build: > tsc
+@mbe/agent-core:build: 
+@mbe/auth:lint: 
+@mbe/auth:lint: > @mbe/auth@0.0.0 lint /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/auth
+@mbe/auth:lint: > eslint src/
+@mbe/auth:lint: 
+@mbe/auth:lint: Warning: React version not specified in eslint-plugin-react settings. See https://github.com/jsx-eslint/eslint-plugin-react#configuration .
+@mbe/reservations-service:lint: cache hit, replaying logs ec030a1e61b48693
+@mbe/reservations-service:lint: 
+@mbe/reservations-service:lint: > @mbe/reservations-service@0.0.0 lint /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/services/reservations
+@mbe/reservations-service:lint: > eslint src/
+@mbe/reservations-service:lint: 
+@mattbutlerengineering/rialto:lint: cache hit, replaying logs cd7e51180e64bb4f
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: > @mattbutlerengineering/rialto@0.2.0 lint /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto
+@mattbutlerengineering/rialto:lint: > eslint .
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: Warning: React version not specified in eslint-plugin-react settings. See https://github.com/jsx-eslint/eslint-plugin-react#configuration .
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Accordion/Accordion.tsx
+@mattbutlerengineering/rialto:lint:   49:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead                                                                 @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   51:57  warning  To prevent re-computation, consider using lazy initial state for useState calls that involve function calls. Ex: 'useState(() => getValue())'  @eslint-react/use-state
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Alert/Alert.tsx
+@mattbutlerengineering/rialto:lint:    97:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   143:15  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>    no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/AppBar/AppBar.tsx
+@mattbutlerengineering/rialto:lint:   28:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/AspectRatio/AspectRatio.tsx
+@mattbutlerengineering/rialto:lint:   22:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Autocomplete/Autocomplete.tsx
+@mattbutlerengineering/rialto:lint:    34:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   181:11  warning  Use <Input> from '@mattbutlerengineering/rialto' instead of native <input>      no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Avatar/Avatar.tsx
+@mattbutlerengineering/rialto:lint:    55:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead                                                                          @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:    76:7   warning  Do not call the 'set' function 'setFlapState' of 'useState' synchronously in an effect. This can lead to unnecessary re-renders and performance issues  @eslint-react/set-state-in-effect
+@mattbutlerengineering/rialto:lint:   194:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead                                                                          @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   207:24  warning  Do not use item index in the array as its key                                                                                                           @eslint-react/no-array-index-key
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Badge/Badge.tsx
+@mattbutlerengineering/rialto:lint:   22:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Banner/Banner.tsx
+@mattbutlerengineering/rialto:lint:    97:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   133:15  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>    no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Breadcrumb/Breadcrumb.tsx
+@mattbutlerengineering/rialto:lint:    69:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:    91:24  warning  Do not use item index in the array as its key                                   @eslint-react/no-array-index-key
+@mattbutlerengineering/rialto:lint:   118:19  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>    no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Button/Button.tsx
+@mattbutlerengineering/rialto:lint:   34:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Card/Card.tsx
+@mattbutlerengineering/rialto:lint:   30:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint: 
+@mbe/agent-test-utils:lint: cache hit, replaying logs 767bb4e8e320991e
+@mbe/agent-test-utils:build: cache hit, replaying logs 977ed24b85ef6dc1
+@mbe/agent-test-utils:lint: 
+@mbe/agent-test-utils:build: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Chalkboard/Chalkboard.tsx
+@mattbutlerengineering/rialto:lint:   29:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   69:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Checkbox/Checkbox.tsx
+@mbe/agent-test-utils:lint: > @mbe/agent-test-utils@0.0.0 lint /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/agent-test-utils
+@mbe/agent-test-utils:lint: > eslint src/
+@mbe/agent-test-utils:lint: 
+@mbe/agent-test-utils:build: > @mbe/agent-test-utils@0.0.0 build /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/agent-test-utils
+@mbe/agent-test-utils:build: > tsc
+@mattbutlerengineering/rialto:lint:    33:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:    59:13  warning  Use <Input> from '@mattbutlerengineering/rialto' instead of native <input>      no-restricted-syntax
+@mattbutlerengineering/rialto:lint:   159:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mbe/agent-test-utils:build: 
+@mattbutlerengineering/rialto:lint:   186:13  warning  Use <Input> from '@mattbutlerengineering/rialto' instead of native <input>      no-restricted-syntax
+@mattbutlerengineering/rialto:lint:   252:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Collapsible/Collapsible.tsx
+@mattbutlerengineering/rialto:lint:   57:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   87:7   warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>    no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/CommandPalette/CommandPalette.tsx
+@mattbutlerengineering/rialto:lint:    80:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead                                                                            @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   156:9   warning  Do not call the 'set' function 'setQuery' of 'useState' synchronously in an effect. This can lead to unnecessary re-renders and performance issues        @eslint-react/set-state-in-effect
+@mbe/users-service:lint: cache miss, executing 8b13cda6301346e5
+@mattbutlerengineering/rialto:lint:   157:9   warning  Do not call the 'set' function 'setActiveIndex' of 'useState' synchronously in an effect. This can lead to unnecessary re-renders and performance issues  @eslint-react/set-state-in-effect
+@mattbutlerengineering/rialto:lint:   195:7   warning  Do not call the 'set' function 'setActiveIndex' of 'useState' synchronously in an effect. This can lead to unnecessary re-renders and performance issues  @eslint-react/set-state-in-effect
+@mattbutlerengineering/rialto:lint:   279:17  warning  Use <Input> from '@mattbutlerengineering/rialto' instead of native <input>                                                                                no-restricted-syntax
+@mattbutlerengineering/rialto:lint:   338:43  warning  Do not use item index in the array as its key                                                                                                             @eslint-react/no-array-index-key
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/ConfirmDialog/ConfirmDialog.tsx
+@mattbutlerengineering/rialto:lint:    70:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mbe/cli:lint: cache hit, replaying logs a801bad2c965d905
+@mbe/cli:lint: 
+@mbe/cli:lint: > @mbe/cli@0.0.0 lint /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/tools/cli
+@mbe/cli:lint: > eslint src/
+@mbe/cli:lint: 
+@mattbutlerengineering/rialto:lint:   114:11  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>    no-restricted-syntax
+@mattbutlerengineering/rialto:lint:   121:11  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>    no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/ContextMenu/ContextMenu.tsx
+@mattbutlerengineering/rialto:lint:    75:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:    83:9   warning  A ref identifier must be named 'ref' or ending in 'Ref'                         @eslint-react/naming-convention-ref-name
+@mattbutlerengineering/rialto:lint:   212:41  warning  Do not use item index in the array as its key                                   @eslint-react/no-array-index-key
+@mattbutlerengineering/rialto:lint:   217:38  warning  Do not use item index in the array as its key                                   @eslint-react/no-array-index-key
+@mattbutlerengineering/rialto:lint:   225:17  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>    no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/DataList/DataList.tsx
+@mattbutlerengineering/rialto:lint:   37:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   51:21  warning  Do not use item index in the array as its key                                   @eslint-react/no-array-index-key
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Dialog/Dialog.tsx
+@mattbutlerengineering/rialto:lint:    27:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   132:17  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>    no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Divider/Divider.tsx
+@mattbutlerengineering/rialto:lint:   29:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Drawer/Drawer.tsx
+@mattbutlerengineering/rialto:lint:    53:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   179:19  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>    no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/DropdownMenu/DropdownMenu.tsx
+@mattbutlerengineering/rialto:lint:    91:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead           @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:    98:9   warning  A ref identifier must be named 'ref' or ending in 'Ref'                                  @eslint-react/naming-convention-ref-name
+@mattbutlerengineering/rialto:lint:   220:10  warning  Using 'cloneElement' is uncommon and can lead to fragile code. Use alternatives instead  @eslint-react/no-clone-element
+@mattbutlerengineering/rialto:lint:   240:41  warning  Do not use item index in the array as its key                                            @eslint-react/no-array-index-key
+@mattbutlerengineering/rialto:lint:   245:38  warning  Do not use item index in the array as its key                                            @eslint-react/no-array-index-key
+@mattbutlerengineering/rialto:lint:   254:17  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>             no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/EmptyState/EmptyState.tsx
+@mattbutlerengineering/rialto:lint:   53:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/ErrorBoundary/ErrorBoundary.tsx
+@mattbutlerengineering/rialto:lint:   59:11  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>  no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Ferrofluid/Ferrofluid.tsx
+@mattbutlerengineering/rialto:lint:   36:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   84:24  warning  Do not use item index in the array as its key                                   @eslint-react/no-array-index-key
+@mattbutlerengineering/rialto:lint:   92:24  warning  Do not use item index in the array as its key                                   @eslint-react/no-array-index-key
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/FlipDot/FlipDot.tsx
+@mattbutlerengineering/rialto:lint:   112:9   warning  A ref identifier must be named 'ref' or ending in 'Ref'                         @eslint-react/naming-convention-ref-name
+@mattbutlerengineering/rialto:lint:   141:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   210:23  warning  Do not use item index in the array as its key                                   @eslint-react/no-array-index-key
+@mattbutlerengineering/rialto:lint:   210:28  warning  Do not use item index in the array as its key                                   @eslint-react/no-array-index-key
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/FlipDot/use-flip-dot-animation.ts
+@mattbutlerengineering/rialto:lint:   208:7   warning  Do not call the 'set' function 'setIsPlaying' of 'useState' synchronously in an effect. This can lead to unnecessary re-renders and performance issues  @eslint-react/set-state-in-effect
+@mattbutlerengineering/rialto:lint:   209:29  warning  A 'setInterval' created in 'useEffect' must be cleared with 'clearInterval' in the cleanup function                                                     @eslint-react/web-api-no-leaked-interval
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Footer/Footer.tsx
+@mattbutlerengineering/rialto:lint:   50:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/GenCopilot/CopilotPromptBar.tsx
+@mattbutlerengineering/rialto:lint:   37:7  warning  Use <TextArea> from '@mattbutlerengineering/rialto' instead of native <textarea>  no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/GenCopilot/GenCopilot.tsx
+@mattbutlerengineering/rialto:lint:   82:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/GlobalNav/GlobalNav.tsx
+@mattbutlerengineering/rialto:lint:   38:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   94:13  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>    no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Heading/Heading.tsx
+@mattbutlerengineering/rialto:lint:   94:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Hero/Hero.tsx
+@mattbutlerengineering/rialto:lint:   47:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/HoverCard/HoverCard.tsx
+@mattbutlerengineering/rialto:lint:   49:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/ImageUpload/ImageUpload.tsx
+@mattbutlerengineering/rialto:lint:    67:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   248:17  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>    no-restricted-syntax
+@mattbutlerengineering/rialto:lint:   291:9   warning  Use <Input> from '@mattbutlerengineering/rialto' instead of native <input>      no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Input/Input.tsx
+@mattbutlerengineering/rialto:lint:   32:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   80:13  warning  Use <Input> from '@mattbutlerengineering/rialto' instead of native <input>      no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/InputGroup/InputGroup.tsx
+@mattbutlerengineering/rialto:lint:   16:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Kbd/Kbd.tsx
+@mattbutlerengineering/rialto:lint:   19:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   44:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   49:22  warning  Do not use item index in the array as its key                                   @eslint-react/no-array-index-key
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/MasterOverride/MasterOverride.test.tsx
+@mattbutlerengineering/rialto:lint:   383:23  warning  Do not define component 'Harness' inside a function. Components should be defined at the module level. Move it to the top level  @eslint-react/component-hook-factories
+@mattbutlerengineering/rialto:lint:   403:23  warning  Do not define component 'Harness' inside a function. Components should be defined at the module level. Move it to the top level  @eslint-react/component-hook-factories
+@mattbutlerengineering/rialto:lint:   477:23  warning  Do not define component 'Harness' inside a function. Components should be defined at the module level. Move it to the top level  @eslint-react/component-hook-factories
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/MasterOverride/MasterOverride.tsx
+@mattbutlerengineering/rialto:lint:    51:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   260:11  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>    no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Meter/Meter.tsx
+@mattbutlerengineering/rialto:lint:   36:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Navbar/Navbar.tsx
+@mattbutlerengineering/rialto:lint:   126:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   157:15  warning  Use <Input> from '@mattbutlerengineering/rialto' instead of native <input>      no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/NavigationMenu/NavigationMenu.tsx
+@mattbutlerengineering/rialto:lint:    83:9   warning  A ref identifier must be named 'ref' or ending in 'Ref'                         @eslint-react/naming-convention-ref-name
+@mattbutlerengineering/rialto:lint:    84:9   warning  A ref identifier must be named 'ref' or ending in 'Ref'                         @eslint-react/naming-convention-ref-name
+@mattbutlerengineering/rialto:lint:   149:7   warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>    no-restricted-syntax
+@mattbutlerengineering/rialto:lint:   193:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/NumberInput/NumberInput.tsx
+@mattbutlerengineering/rialto:lint:    45:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   156:13  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>    no-restricted-syntax
+@mattbutlerengineering/rialto:lint:   170:13  warning  Use <Input> from '@mattbutlerengineering/rialto' instead of native <input>      no-restricted-syntax
+@mattbutlerengineering/rialto:lint:   186:13  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>    no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/PageHeader/PageHeader.tsx
+@mattbutlerengineering/rialto:lint:   38:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Pagination/Pagination.tsx
+@mattbutlerengineering/rialto:lint:   115:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   140:36  warning  Do not use item index in the array as its key                                   @eslint-react/no-array-index-key
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/PinInput/PinInput.tsx
+@mattbutlerengineering/rialto:lint:    50:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:    69:9   warning  A ref identifier must be named 'ref' or ending in 'Ref'                         @eslint-react/naming-convention-ref-name
+@mattbutlerengineering/rialto:lint:   203:22  warning  Do not use item index in the array as its key                                   @eslint-react/no-array-index-key
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Popover/Popover.tsx
+@mattbutlerengineering/rialto:lint:    63:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead           @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   142:10  warning  Using 'cloneElement' is uncommon and can lead to fragile code. Use alternatives instead  @eslint-react/no-clone-element
+@mattbutlerengineering/rialto:lint:   164:17  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>             no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Progress/Progress.tsx
+@mattbutlerengineering/rialto:lint:   25:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   93:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/ScrollArea/ScrollArea.tsx
+@mattbutlerengineering/rialto:lint:   23:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/SegmentedControl/SegmentedControl.tsx
+@mattbutlerengineering/rialto:lint:   36:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead                                                                          @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   39:11  warning  A ref identifier must be named 'ref' or ending in 'Ref'                                                                                                 @eslint-react/naming-convention-ref-name
+@mattbutlerengineering/rialto:lint:   51:7   warning  Do not call the 'set' function 'setIndicator' of 'useState' synchronously in an effect. This can lead to unnecessary re-renders and performance issues  @eslint-react/set-state-in-effect
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Select/Select.tsx
+@mattbutlerengineering/rialto:lint:    52:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   235:11  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>    no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Sidebar/Sidebar.tsx
+@mattbutlerengineering/rialto:lint:   132:5   warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>    no-restricted-syntax
+@mattbutlerengineering/rialto:lint:   144:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   177:11  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>    no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Skeleton/Skeleton.tsx
+@mattbutlerengineering/rialto:lint:    34:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   103:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Slider/Slider.tsx
+@mattbutlerengineering/rialto:lint:    44:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   180:13  warning  Use <Input> from '@mattbutlerengineering/rialto' instead of native <input>      no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/SplitFlap/SplitFlap.tsx
+@mattbutlerengineering/rialto:lint:    41:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead                                                                        @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:    76:18  warning  Do not use item index in the array as its key                                                                                                         @eslint-react/no-array-index-key
+@mattbutlerengineering/rialto:lint:   131:7   warning  Do not call the 'set' function 'setCurrent' of 'useState' synchronously in an effect. This can lead to unnecessary re-renders and performance issues  @eslint-react/set-state-in-effect
+@mattbutlerengineering/rialto:lint:   145:26  warning  A 'setTimeout' created in 'useEffect' must be cleared with 'clearTimeout' in the cleanup function                                                     @eslint-react/web-api-no-leaked-timeout
+@mattbutlerengineering/rialto:lint:   148:24  warning  A 'setTimeout' created in 'useEffect' must be cleared with 'clearTimeout' in the cleanup function                                                     @eslint-react/web-api-no-leaked-timeout
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/SplitScreenExit/SplitScreenExit.test.tsx
+@mattbutlerengineering/rialto:lint:    9:11  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>  no-restricted-syntax
+@mattbutlerengineering/rialto:lint:   18:11  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>  no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/SplitScreenExit/SplitScreenExit.tsx
+@mattbutlerengineering/rialto:lint:   45:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Stack/Stack.tsx
+@mattbutlerengineering/rialto:lint:   67:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Stat/Stat.tsx
+@mattbutlerengineering/rialto:lint:   47:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Steps/Steps.tsx
+@mattbutlerengineering/rialto:lint:    48:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   104:20  warning  Do not use item index in the array as its key                                   @eslint-react/no-array-index-key
+@mattbutlerengineering/rialto:lint:   110:17  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>    no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Table/Table.tsx
+@mattbutlerengineering/rialto:lint:   231:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Tabs/Tabs.tsx
+@mattbutlerengineering/rialto:lint:    57:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead                                                                          @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:    61:11  warning  A ref identifier must be named 'ref' or ending in 'Ref'                                                                                                 @eslint-react/naming-convention-ref-name
+@mattbutlerengineering/rialto:lint:    71:7   warning  Do not call the 'set' function 'setIndicator' of 'useState' synchronously in an effect. This can lead to unnecessary re-renders and performance issues  @eslint-react/set-state-in-effect
+@mattbutlerengineering/rialto:lint:   125:13  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>                                                                            no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Tag/Tag.tsx
+@mattbutlerengineering/rialto:lint:    35:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:    76:13  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>    no-restricted-syntax
+@mattbutlerengineering/rialto:lint:   107:11  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>    no-restricted-syntax
+@mattbutlerengineering/rialto:lint:   154:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   190:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/TapeChart/TapeChart.tsx
+@mattbutlerengineering/rialto:lint:    39:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   117:15  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>    no-restricted-syntax
+@mattbutlerengineering/rialto:lint:   146:29  warning  Do not use item index in the array as its key                                   @eslint-react/no-array-index-key
+@mattbutlerengineering/rialto:lint:   149:31  warning  Do not use item index in the array as its key                                   @eslint-react/no-array-index-key
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/TapeChart/TapeChartBar.tsx
+@mattbutlerengineering/rialto:lint:   48:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   74:7   warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>    no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Text/Text.tsx
+@mattbutlerengineering/rialto:lint:   77:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/TextArea/TextArea.tsx
+@mattbutlerengineering/rialto:lint:    53:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead    @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   108:13  warning  Use <TextArea> from '@mattbutlerengineering/rialto' instead of native <textarea>  no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/ThemeToggle/ThemeToggle.tsx
+@mattbutlerengineering/rialto:lint:   15:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   20:7   warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>    no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Timeline/Timeline.tsx
+@mattbutlerengineering/rialto:lint:   43:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   64:23  warning  Do not use item index in the array as its key                                   @eslint-react/no-array-index-key
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Toast/Toast.tsx
+@mattbutlerengineering/rialto:lint:   14:9  warning  A ref identifier must be named 'ref' or ending in 'Ref'                                @eslint-react/naming-convention-ref-name
+@mattbutlerengineering/rialto:lint:   15:9  warning  A ref identifier must be named 'ref' or ending in 'Ref'                                @eslint-react/naming-convention-ref-name
+@mattbutlerengineering/rialto:lint:   58:5  warning  In React 19, you can render '<Context>' as a provider instead of '<Context.Provider>'  @eslint-react/no-context-provider
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Toast/ToastAnimated.tsx
+@mattbutlerengineering/rialto:lint:   74:7  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>  no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Toast/ToastContext.ts
+@mattbutlerengineering/rialto:lint:   44:15  warning  In React 19, 'use' is preferred over 'useContext' because it is more flexible  @eslint-react/no-use-context
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Toggle/Toggle.tsx
+@mattbutlerengineering/rialto:lint:   26:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   49:11  warning  Use <Input> from '@mattbutlerengineering/rialto' instead of native <input>      no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Tooltip/Tooltip.tsx
+@mattbutlerengineering/rialto:lint:   28:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead  @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/Tree/Tree.tsx
+@mattbutlerengineering/rialto:lint:   167:7   warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>                                                                   no-restricted-syntax
+@mattbutlerengineering/rialto:lint:   224:14  warning  In React 19, 'forwardRef' is no longer necessary. Pass 'ref' as a prop instead                                                                 @eslint-react/no-forward-ref
+@mattbutlerengineering/rialto:lint:   241:75  warning  To prevent re-computation, consider using lazy initial state for useState calls that involve function calls. Ex: 'useState(() => getValue())'  @eslint-react/use-state
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/components.test.tsx
+@mattbutlerengineering/rialto:lint:    72:55  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>                                                          no-restricted-syntax
+@mattbutlerengineering/rialto:lint:   220:18  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>                                                          no-restricted-syntax
+@mattbutlerengineering/rialto:lint:   254:9   warning  Use <Input> from '@mattbutlerengineering/rialto' instead of native <input>                                                            no-restricted-syntax
+@mattbutlerengineering/rialto:lint:   255:9   warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>                                                          no-restricted-syntax
+@mattbutlerengineering/rialto:lint:   294:30  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>                                                          no-restricted-syntax
+@mattbutlerengineering/rialto:lint:   473:5   warning  Do not define component 'TestConsumer' inside a function. Components should be defined at the module level. Move it to the top level  @eslint-react/component-hook-factories
+@mattbutlerengineering/rialto:lint:   475:14  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>                                                          no-restricted-syntax
+@mattbutlerengineering/rialto:lint:   493:9   warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>                                                          no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/components/interactions.test.tsx
+@mattbutlerengineering/rialto:build: cache hit, replaying logs 0c64c81c4152017b
+@mattbutlerengineering/rialto:lint:   225:5   warning  Do not define component 'TestToast' inside a function. Components should be defined at the module level. Move it to the top level  @eslint-react/component-hook-factories
+@mattbutlerengineering/rialto:lint:   227:14  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>                                                       no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/hooks/useDirection.ts
+@mattbutlerengineering/rialto:lint:   21:7  warning  Do not call the 'set' function 'setDir' of 'useState' synchronously in an effect. This can lead to unnecessary re-renders and performance issues  @eslint-react/set-state-in-effect
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/hooks/useThemeState.ts
+@mattbutlerengineering/rialto:lint:   50:22  warning  The setter should be named 'set' followed by the capitalized state variable name, e.g., 'setState' for 'state'  @eslint-react/use-state
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/providers/RialtoProvider.tsx
+@mattbutlerengineering/rialto:lint:   59:5  warning  In React 19, you can render '<Context>' as a provider instead of '<Context.Provider>'  @eslint-react/no-context-provider
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/providers/useUIEnvironment.ts
+@mattbutlerengineering/rialto:lint:   22:15  warning  In React 19, 'use' is preferred over 'useContext' because it is more flexible  @eslint-react/no-use-context
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/test/accessibility/focus-management.accessibility.test.tsx
+@mattbutlerengineering/rialto:lint:    32:9   warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>  no-restricted-syntax
+@mattbutlerengineering/rialto:lint:    47:11  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>  no-restricted-syntax
+@mattbutlerengineering/rialto:lint:    59:11  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>  no-restricted-syntax
+@mattbutlerengineering/rialto:lint:    79:9   warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>  no-restricted-syntax
+@mattbutlerengineering/rialto:lint:    94:11  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>  no-restricted-syntax
+@mattbutlerengineering/rialto:lint:   106:11  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>  no-restricted-syntax
+@mattbutlerengineering/rialto:lint:   126:9   warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>  no-restricted-syntax
+@mattbutlerengineering/rialto:lint:   143:11  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>  no-restricted-syntax
+@mattbutlerengineering/rialto:lint:   159:11  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>  no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/test/accessibility/overlays.accessibility.test.tsx
+@mattbutlerengineering/rialto:lint:   52:18  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>  no-restricted-syntax
+@mattbutlerengineering/rialto:lint:   65:9   warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>  no-restricted-syntax
+@mattbutlerengineering/rialto:lint:   73:25  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>  no-restricted-syntax
+@mattbutlerengineering/rialto:lint:   92:9   warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>  no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/src/test/accessibility/specialty.accessibility.test.tsx
+@mattbutlerengineering/rialto:lint:   49:9  warning  Use <Button> from '@mattbutlerengineering/rialto' instead of native <button>  no-restricted-syntax
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:lint: ✖ 199 problems (0 errors, 199 warnings)
+@mattbutlerengineering/rialto:lint: 
+@mattbutlerengineering/rialto:build: 
+@mattbutlerengineering/rialto:build: > @mattbutlerengineering/rialto@0.2.0 build /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto
+@mattbutlerengineering/rialto:build: > vite build --config vite.config.lib.ts && pnpm manifest && pnpm exports
+@mattbutlerengineering/rialto:build: 
+@mattbutlerengineering/rialto:build: vite v8.0.10 building client environment for production...
+@mattbutlerengineering/rialto:build: [2K@mattbutlerengineering/rialto:build: transforming...✓ 333 modules transformed.
+@mattbutlerengineering/rialto:build: rendering chunks...
+@mattbutlerengineering/rialto:build: 
+@mattbutlerengineering/rialto:build: [vite:dts] Start generate declaration files...
+@mattbutlerengineering/rialto:build: [vite:dts] Declaration files built in 6133ms.
+@mattbutlerengineering/rialto:build: 
+@mattbutlerengineering/rialto:build: computing gzip size...
+@mattbutlerengineering/rialto:build: dist/lib/styles.css                                 157.50 kB │ gzip: 24.74 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Card/index.js                     0.07 kB │ gzip:  0.08 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Hero/index.js                     0.07 kB │ gzip:  0.08 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Stat/index.js                     0.07 kB │ gzip:  0.08 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Tabs/index.js                     0.07 kB │ gzip:  0.08 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Text/index.js                     0.07 kB │ gzip:  0.08 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Tree/index.js                     0.07 kB │ gzip:  0.08 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Alert/index.js                    0.08 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Badge/index.js                    0.08 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Input/index.js                    0.08 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Meter/index.js                    0.08 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Stack/index.js                    0.08 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Steps/index.js                    0.08 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Table/index.js                    0.08 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/AppBar/index.js                   0.08 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Banner/index.js                   0.08 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Button/index.js                   0.08 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Dialog/index.js                   0.08 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Drawer/index.js                   0.08 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Footer/index.js                   0.08 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Navbar/index.js                   0.08 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Select/index.js                   0.08 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Slider/index.js                   0.08 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Toggle/index.js                   0.08 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Divider/index.js                  0.08 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Heading/index.js                  0.08 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Popover/index.js                  0.08 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Sidebar/index.js                  0.08 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Tooltip/index.js                  0.08 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/DataList/index.js                 0.08 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/PinInput/index.js                 0.08 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/TextArea/index.js                 0.08 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Timeline/index.js                 0.08 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Accordion/index.js                0.08 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/GlobalNav/index.js                0.08 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/HoverCard/index.js                0.08 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/SplitFlap/index.js                0.08 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Breadcrumb/index.js               0.09 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/EmptyState/index.js               0.09 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Ferrofluid/index.js               0.09 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/GenCopilot/index.js               0.09 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/InputGroup/index.js               0.09 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/PageHeader/index.js               0.09 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Pagination/index.js               0.09 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/ScrollArea/index.js               0.09 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/AspectRatio/index.js              0.09 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Collapsible/index.js              0.09 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/ContextMenu/index.js              0.09 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/ImageUpload/index.js              0.09 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/NumberInput/index.js              0.09 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/ThemeToggle/index.js              0.09 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Autocomplete/index.js             0.09 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/DropdownMenu/index.js             0.09 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Kbd/index.js                      0.09 kB │ gzip:  0.10 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/ConfirmDialog/index.js            0.09 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/ErrorBoundary/index.js            0.09 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/CommandPalette/index.js           0.09 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/MasterOverride/index.js           0.09 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/NavigationMenu/index.js           0.09 kB │ gzip:  0.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/DisabledTooltip/index.js          0.10 kB │ gzip:  0.10 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/SplitScreenExit/index.js          0.10 kB │ gzip:  0.10 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/SegmentedControl/index.js         0.10 kB │ gzip:  0.10 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Avatar/index.js                   0.10 kB │ gzip:  0.10 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Progress/index.js                 0.10 kB │ gzip:  0.10 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Toast/index.js                    0.10 kB │ gzip:  0.11 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Skeleton/index.js                 0.10 kB │ gzip:  0.10 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/TapeChart/index.js                0.11 kB │ gzip:  0.12 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Tag/index.js                      0.12 kB │ gzip:  0.12 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Checkbox/index.js                 0.13 kB │ gzip:  0.12 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/Chalkboard/index.js               0.15 kB │ gzip:  0.12 kB
+@mattbutlerengineering/rialto:build: dist/lib/providers/index.js                           0.23 kB │ gzip:  0.17 kB
+@mattbutlerengineering/rialto:build: dist/lib/components/FlipDot/index.js                  0.24 kB │ gzip:  0.18 kB
+@mattbutlerengineering/rialto:build: dist/lib/hooks/index.js                               0.28 kB │ gzip:  0.17 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/InputGroup-CdulTkYM.js                0.36 kB │ gzip:  0.27 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/DisabledTooltip-BJbz0dd2.js           0.39 kB │ gzip:  0.27 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Toast.module-BScKL3AR.js              0.44 kB │ gzip:  0.25 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/AspectRatio-B-RbwOCI.js               0.50 kB │ gzip:  0.33 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/useDirection-DjK-MtF0.js              0.52 kB │ gzip:  0.34 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/ScrollArea-DNbNSZ22.js                0.56 kB │ gzip:  0.39 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Badge-CLKZD6oi.js                     0.69 kB │ gzip:  0.42 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Kbd-g0eqcDNE.js                       0.74 kB │ gzip:  0.37 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Divider-BoQLiAI1.js                   0.78 kB │ gzip:  0.44 kB
+@mattbutlerengineering/rialto:build: dist/lib/motion.js                                    0.86 kB │ gzip:  0.41 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/DataList-CnBsPLs6.js                  0.88 kB │ gzip:  0.47 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/AppBar-BaFBtBpk.js                    1.02 kB │ gzip:  0.55 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/useTilt-mVoSWAAW.js                   1.21 kB │ gzip:  0.60 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Card-BUmJ-Dok.js                      1.28 kB │ gzip:  0.67 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/ErrorBoundary-Cy9A3GAT.js             1.28 kB │ gzip:  0.64 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/RialtoProvider-Dl6RY3Xc.js            1.46 kB │ gzip:  0.73 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Accordion-BQzBocLz.js                 1.51 kB │ gzip:  0.80 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/PageHeader-CMA3MxVc.js                1.53 kB │ gzip:  0.62 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Button-DMMSAPFg.js                    1.53 kB │ gzip:  0.77 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Skeleton-Cq0hryon.js                  1.54 kB │ gzip:  0.71 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Text-BOmHgZF-.js                      1.54 kB │ gzip:  0.67 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/useThemeState-9mY7H6XE.js             1.55 kB │ gzip:  0.73 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Heading-qdxW3Rx7.js                   1.57 kB │ gzip:  0.70 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Timeline-BAwf5IZo.js                  1.60 kB │ gzip:  0.65 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Stack-BS8Oe6rw.js                     1.61 kB │ gzip:  0.69 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Stat-BDKytDw7.js                      1.62 kB │ gzip:  0.77 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/EmptyState-Dkz2ufer.js                1.66 kB │ gzip:  0.74 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Meter-DSbb63Mo.js                     1.67 kB │ gzip:  0.78 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Hero-CCcWkwBC.js                      1.74 kB │ gzip:  0.73 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/ThemeToggle-CKaE-Gnm.js               1.75 kB │ gzip:  0.64 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/useDeviceContext-BRfpg0wq.js          1.84 kB │ gzip:  0.76 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Footer-CXi3jTYo.js                    1.85 kB │ gzip:  0.72 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/HoverCard-Eui52Bh8.js                 1.91 kB │ gzip:  0.91 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Tooltip-oCrPCYLE.js                   1.97 kB │ gzip:  0.98 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Toggle-a-8tvGY0.js                    1.99 kB │ gzip:  0.91 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Toast-B8ZIEm_1.js                     2.02 kB │ gzip:  0.89 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Steps-DBp138Vm.js                     2.06 kB │ gzip:  0.86 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Breadcrumb-Ce-m3gyc.js                2.07 kB │ gzip:  0.83 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/SplitScreenExit-Chasx1zI.js           2.11 kB │ gzip:  0.85 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Ferrofluid-iu6vTX68.js                2.21 kB │ gzip:  1.06 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/ConfirmDialog-GmDi_ppH.js             2.35 kB │ gzip:  0.96 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Collapsible-DH6tM5hv.js               2.44 kB │ gzip:  1.09 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Input-C4N6bMKz.js                     2.50 kB │ gzip:  0.90 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Tabs-B2yJqiRG.js                      2.58 kB │ gzip:  1.19 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/GlobalNav-CpLmUbyY.js                 2.67 kB │ gzip:  1.01 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/TextArea-DM7ihT1d.js                  2.71 kB │ gzip:  1.13 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Pagination-CaWsQ3dS.js                2.72 kB │ gzip:  1.07 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Chalkboard-ClYAu-cQ.js                2.84 kB │ gzip:  0.95 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/SegmentedControl-C296DVyo.js          2.84 kB │ gzip:  1.30 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/ToastAnimated-DawA3YqY.js             2.90 kB │ gzip:  0.97 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Tag-DdTDcVKv.js                       2.98 kB │ gzip:  1.08 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/SplitFlap-CXOMip4w.js                 3.12 kB │ gzip:  1.33 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Sidebar-DypSElAy.js                   3.13 kB │ gzip:  1.22 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Dialog-XJ67Dsmx.js                    3.38 kB │ gzip:  1.36 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Popover-BbiEQsc1.js                   3.44 kB │ gzip:  1.44 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Progress-DKZJtHq-.js                  3.58 kB │ gzip:  1.26 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Table-D1nm7t1Z.js                     3.62 kB │ gzip:  1.38 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/PinInput-30-J1o22.js                  3.63 kB │ gzip:  1.61 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Banner-sYA0HiUR.js                    3.65 kB │ gzip:  1.15 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/NavigationMenu-j74R6pXB.js            3.76 kB │ gzip:  1.54 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Alert-BGaAgg_3.js                     3.85 kB │ gzip:  1.20 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Slider-B9kUImXl.js                    3.89 kB │ gzip:  1.59 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/ContextMenu-DCPEOMQG.js               3.96 kB │ gzip:  1.60 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Avatar-BZw9eEEo.js                    4.11 kB │ gzip:  1.61 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Drawer-DtctfuKA.js                    4.28 kB │ gzip:  1.67 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/DropdownMenu-CYo8nqnM.js              4.29 kB │ gzip:  1.68 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/NumberInput-Bu6Ifh_3.js               4.42 kB │ gzip:  1.56 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Navbar-D5Pj4Cu4.js                    4.75 kB │ gzip:  1.58 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Autocomplete-HTLR4BqS.js              4.87 kB │ gzip:  1.94 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Checkbox-C1sJ_bV8.js                  5.27 kB │ gzip:  1.52 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Tree-DbgXb4pt.js                      6.03 kB │ gzip:  2.31 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/ImageUpload-Bss_lezc.js               6.10 kB │ gzip:  2.26 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/Select-lXWX0qfV.js                    6.20 kB │ gzip:  2.30 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/MasterOverride-Bb3ueMSl.js            7.36 kB │ gzip:  2.54 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/CommandPalette-DamoBB7q.js            7.96 kB │ gzip:  2.65 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/use-flip-dot-animation-CTw8uACo.js   10.70 kB │ gzip:  3.63 kB
+@mattbutlerengineering/rialto:build: dist/lib/rialto.js                                   14.26 kB │ gzip:  4.35 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/TapeChart-B3TE4Di2.js                26.21 kB │ gzip:  6.96 kB
+@mattbutlerengineering/rialto:build: dist/lib/chunks/GenCopilot-CHRGAaem.js              159.89 kB │ gzip: 40.60 kB
+@mattbutlerengineering/rialto:build: 
+@mattbutlerengineering/rialto:build: [33m[PLUGIN_TIMINGS] Warning:[0m Your build spent significant time in plugins. Here is a breakdown:
+@mattbutlerengineering/rialto:build:   - vite:css (58%)
+@mattbutlerengineering/rialto:build:   - vite:dts (32%)
+@mattbutlerengineering/rialto:build:   - vite:css-post (5%)
+@mattbutlerengineering/rialto:build: See https://rolldown.rs/options/checks#plugintimings for more details.
+@mattbutlerengineering/rialto:build: 
+@mattbutlerengineering/rialto:build: ✓ built in 6.65s
+@mattbutlerengineering/rialto:build: 
+@mattbutlerengineering/rialto:build: > @mattbutlerengineering/rialto@0.2.0 manifest /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto
+@mattbutlerengineering/rialto:build: > pnpm exec tsx scripts/generate-manifest.ts
+@mattbutlerengineering/rialto:build: 
+@mattbutlerengineering/rialto:build: Generated manifest: 126 components → /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto/dist/manifest.json
+@mattbutlerengineering/rialto:build: 
+@mattbutlerengineering/rialto:build: > @mattbutlerengineering/rialto@0.2.0 exports /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto
+@mattbutlerengineering/rialto:build: > pnpm exec tsx scripts/generate-exports.ts
+@mattbutlerengineering/rialto:build: 
+@mattbutlerengineering/rialto:build: [generate-exports] exports map already in sync.
+@mbe/rialto-web:lint: cache miss, executing 8ae4474b12152cce
+@mbe/marketing:lint: cache miss, executing d1e62b9639b3092e
+@mbe/rialto-catalog:build: cache hit, replaying logs bab063a745ee1e8e
+@mbe/rialto-catalog:build: 
+@mbe/rialto-catalog:build: > @mbe/rialto-catalog@0.1.7 build /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/packages/rialto-catalog
+@mbe/rialto-catalog:build: > tsc -p tsconfig.build.json
+@mbe/rialto-catalog:build: 
+@mbe/gen:lint: cache miss, executing 397c18099a0f147d
+@mbe/hospitality:lint: cache miss, executing 4aa05d5142b468d8
+@mbe/agent-service:lint: cache hit, replaying logs e98a81b44ac4d952
+@mbe/agent-service:lint: 
+@mbe/agent-service:lint: > @mbe/agent-service@0.0.0 lint /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/services/agent
+@mbe/agent-service:lint: > eslint src/
+@mbe/agent-service:lint: 
+@mbe/users-service:lint: 
+@mbe/users-service:lint: > @mbe/users-service@0.0.0 lint /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/services/users
+@mbe/users-service:lint: > eslint src/
+@mbe/users-service:lint: 
+@mbe/marketing:lint: 
+@mbe/marketing:lint: > @mbe/marketing@0.0.7 lint /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/apps/marketing
+@mbe/marketing:lint: > eslint src/
+@mbe/marketing:lint: 
+@mbe/hospitality:lint: 
+@mbe/hospitality:lint: > @mbe/hospitality@0.0.7 lint /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/apps/hospitality
+@mbe/hospitality:lint: > eslint src/
+@mbe/hospitality:lint: 
+@mbe/rialto-web:lint: 
+@mbe/rialto-web:lint: > @mbe/rialto-web@0.0.7 lint /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/apps/rialto-web
+@mbe/rialto-web:lint: > eslint .
+@mbe/rialto-web:lint: 
+@mbe/gen:lint: 
+@mbe/gen:lint: > @mbe/gen@0.0.7 lint /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/apps/gen
+@mbe/gen:lint: > eslint src/
+@mbe/gen:lint: 
+@mbe/marketing:lint: Warning: React version not specified in eslint-plugin-react settings. See https://github.com/jsx-eslint/eslint-plugin-react#configuration .
+@mbe/gen:lint: Warning: React version not specified in eslint-plugin-react settings. See https://github.com/jsx-eslint/eslint-plugin-react#configuration .
+@mbe/hospitality:lint: Warning: React version not specified in eslint-plugin-react settings. See https://github.com/jsx-eslint/eslint-plugin-react#configuration .
+@mbe/rialto-web:lint: Warning: React version not specified in eslint-plugin-react settings. See https://github.com/jsx-eslint/eslint-plugin-react#configuration .
+@mbe/marketing:lint: 
+@mbe/marketing:lint: /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/apps/marketing/src/main.tsx
+@mbe/marketing:lint:   14:1  error  '@mbe/observability/sentry/react' import is restricted from being used by a pattern. Backend-only package. Cannot import in frontend apps  no-restricted-imports
+@mbe/marketing:lint: 
+@mbe/marketing:lint: ✖ 1 problem (1 error, 0 warnings)
+@mbe/marketing:lint: 
+@mbe/marketing:lint:  ELIFECYCLE  Command failed with exit code 1.
+ ERROR  @mbe/marketing#lint: command (/Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/apps/marketing) /Users/mbutler/.nvm/versions/node/v20.19.5/bin/pnpm run lint exited (1)
+
+ Tasks:    21 successful, 25 total
+Cached:    20 cached, 25 total
+  Time:    2.746s 
+Failed:    @mbe/marketing#lint
+
+ WARNING  no output files found for task @mbe/users-service#lint. Please check your `outputs` key in `turbo.json`
+ ERROR  run failed: command  exited (1)
+ ELIFECYCLE  Command failed with exit code 1.

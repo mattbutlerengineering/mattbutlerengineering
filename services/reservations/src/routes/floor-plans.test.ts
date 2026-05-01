@@ -166,7 +166,7 @@ describe("Floor Plan Routes", () => {
     process.env = originalEnv;
   });
 
-  describe("GET /v1/floor-plans", () => {
+  describe("GET /api/v1/floor-plans", () => {
     it("returns paginated list of floor plans", async () => {
       vi.mocked(floorPlanService.list).mockResolvedValueOnce({
         data: [mockFloorPlan],
@@ -214,7 +214,7 @@ describe("Floor Plan Routes", () => {
     });
   });
 
-  describe("GET /v1/floor-plans/:id", () => {
+  describe("GET /api/v1/floor-plans/:id", () => {
     it("returns floor plan by ID", async () => {
       vi.mocked(floorPlanService.getById).mockResolvedValueOnce(mockFloorPlan);
 
@@ -245,7 +245,7 @@ describe("Floor Plan Routes", () => {
     });
   });
 
-  describe("GET /v1/floor-plans/venue/:venueId/active", () => {
+  describe("GET /api/v1/floor-plans/venue/:venueId/active", () => {
     it("returns active floor plan for venue", async () => {
       vi.mocked(floorPlanService.getActiveByVenueId).mockResolvedValueOnce(mockFloorPlan);
 
@@ -271,7 +271,7 @@ describe("Floor Plan Routes", () => {
     });
   });
 
-  describe("POST /v1/floor-plans", () => {
+  describe("POST /api/v1/floor-plans", () => {
     it("creates a new floor plan with valid auth", async () => {
       vi.mocked(jwtVerify).mockResolvedValueOnce({
         payload: mockJWTPayload,
@@ -318,7 +318,7 @@ describe("Floor Plan Routes", () => {
     });
   });
 
-  describe("PATCH /v1/floor-plans/:id", () => {
+  describe("PATCH /api/v1/floor-plans/:id", () => {
     it("updates floor plan with valid auth", async () => {
       vi.mocked(jwtVerify).mockResolvedValueOnce({
         payload: mockJWTPayload,
@@ -365,12 +365,13 @@ describe("Floor Plan Routes", () => {
     });
   });
 
-  describe("POST /v1/floor-plans/:id/activate", () => {
+  describe("POST /api/v1/floor-plans/:id/activate", () => {
     it("activates floor plan with valid auth", async () => {
       vi.mocked(jwtVerify).mockResolvedValueOnce({
         payload: mockJWTPayload,
         protectedHeader: { alg: "RS256" },
       } as never);
+      vi.mocked(floorPlanService.getById).mockResolvedValueOnce(mockFloorPlan);
       vi.mocked(floorPlanService.setActive).mockResolvedValueOnce(mockFloorPlan);
 
       const response = await app.inject({
@@ -396,7 +397,7 @@ describe("Floor Plan Routes", () => {
         payload: mockJWTPayload,
         protectedHeader: { alg: "RS256" },
       } as never);
-      vi.mocked(floorPlanService.setActive).mockResolvedValueOnce(null);
+      vi.mocked(floorPlanService.getById).mockResolvedValueOnce(null);
 
       const response = await app.inject({
         method: "POST",
@@ -413,7 +414,7 @@ describe("Floor Plan Routes", () => {
     });
   });
 
-  describe("DELETE /v1/floor-plans/:id", () => {
+  describe("DELETE /api/v1/floor-plans/:id", () => {
     it("deletes floor plan and returns 204 with valid auth", async () => {
       vi.mocked(jwtVerify).mockResolvedValueOnce({
         payload: mockJWTPayload,
@@ -452,7 +453,7 @@ describe("Floor Plan Routes", () => {
     });
   });
 
-  describe("POST /v1/floor-plans/tables/positions", () => {
+  describe("POST /api/v1/floor-plans/tables/positions", () => {
     it("bulk updates table positions with valid auth", async () => {
       vi.mocked(jwtVerify).mockResolvedValueOnce({
         payload: mockJWTPayload,
@@ -504,7 +505,7 @@ describe("Floor Plan Routes", () => {
     });
   });
 
-  describe("POST /v1/floor-plans/tables/:tableId/assign", () => {
+  describe("POST /api/v1/floor-plans/tables/:tableId/assign", () => {
     it("assigns table to floor plan with valid auth", async () => {
       vi.mocked(jwtVerify).mockResolvedValueOnce({
         payload: mockJWTPayload,
@@ -559,7 +560,7 @@ describe("Floor Plan Routes", () => {
     });
   });
 
-  describe("POST /v1/floor-plans/tables/:tableId/remove", () => {
+  describe("POST /api/v1/floor-plans/tables/:tableId/remove", () => {
     it("removes table from floor plan with valid auth", async () => {
       vi.mocked(jwtVerify).mockResolvedValueOnce({
         payload: mockJWTPayload,
