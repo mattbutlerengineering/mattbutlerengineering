@@ -7,6 +7,12 @@ on:
     paths:
       - 'packages/rialto/**'
       - '.github/workflows/storybook.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'packages/rialto/**'
+      - '.github/workflows/storybook.yml'
   workflow_dispatch:
 
 permissions:
