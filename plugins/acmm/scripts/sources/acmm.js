@@ -750,6 +750,18 @@ const CRITERIA= [
     crossCutting: 'traceability',
   },
 
+  {
+    id: 'acmm:state-backup',
+    source: 'acmm',
+    level: 5,
+    category: 'governance',
+    name: 'AI state backup',
+    description: 'Automated backup of AI state files to prevent data loss.',
+    rationale: 'L5 signal: the system protects its own learning history and progression data from corruption or accidental deletion.',
+    details: 'AI state files (ACMM scores, memory, task ledgers) accumulate value over time. A backup workflow ensures that accidental deletion, bad merges, or state corruption do not destroy the system\'s learning history.',
+    detection: { type: 'any-of', pattern: ['.github/workflows/acmm-state-backup.yml', '.claude/acmm/backups/'] },
+  },
+
   // ── L6 — Autonomous ─────────────────────────────────────────────
   {
     id: 'acmm:auto-issue-gen',

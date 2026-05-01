@@ -1,0 +1,45 @@
+name: ACMM State Backup
+
+on:
+  schedule:
+    - cron: '0 8 * * 1'  # Every Monday at 8am UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Archive ACMM state
+        run: |
+          BACKUP_DIR=".claude/acmm/backups"
+          mkdir -p "$BACKUP_DIR"
+          DATE=$(date +%Y-%m-%d)
+
+          # Copy current state with timestamp
+          if [ -f ".claude/acmm/state.json" ]; then
+            cp ".claude/acmm/state.json" "$BACKUP_DIR/state-${DATE}.json"
+          fi
+          if [ -f ".claude/acmm/report.md" ]; then
+            cp ".claude/acmm/report.md" "$BACKUP_DIR/report-${DATE}.md"
+          fi
+
+          # Keep only last 12 backups (3 months)
+          ls -t "$BACKUP_DIR"/state-*.json 2>/dev/null | tail -n +13 | xargs rm -f
+          ls -t "$BACKUP_DIR"/report-*.md 2>/dev/null | tail -n +13 | xargs rm -f
+
+      - name: Commit backup
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .claude/acmm/backups/ || true
+          if git diff --cached --quiet; then
+            echo "No changes to backup"
+          else
+            git commit -m "chore(acmm): weekly state backup $(date +%Y-%m-%d)"
+            git push
+          fi
