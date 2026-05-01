@@ -1,6 +1,0 @@
- WARN  Unsupported engine: wanted: {"node":">=22"} (current: {"node":"v20.19.5","pnpm":"9.15.4"})
-
-> mattbutlerengineering@ lint /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix
-> turbo run lint "--format" "json"
-
- ELIFECYCLE  Command failed with exit code 1.

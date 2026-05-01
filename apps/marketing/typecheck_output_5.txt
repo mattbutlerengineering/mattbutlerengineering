@@ -1,4 +1,0 @@
-
-> @mbe/marketing@0.0.7 typecheck /Users/mbutler/github/mattbutlerengineering/.agent-worktrees/pr-837-fix/apps/marketing
-> tsc --noEmit
-

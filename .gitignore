@@ -69,6 +69,21 @@ apps/*/vite.config.d.ts
 
 # Graphify local artifacts (reports, graph.json, cache)
 graphify-out/
+graphify-out-*/
+
+# Agent debug output dumps
+*_output*.txt
+lint_*.txt
+lint_*.json
+build_output*.txt
+rialto_build_error.txt
+rialto_lint.txt
+test.txt
+
+# Test artifacts
+playwright-report/
+test-results/
+metrics/
 
 # Playwright
 e2e/.auth/
