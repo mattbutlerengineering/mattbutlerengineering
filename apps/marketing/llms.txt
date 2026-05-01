@@ -1,5 +1,19 @@
 <codebase path="apps/marketing">
   <section priority="medium" role="data">
+  <file path="src/data/weekly-intake.ts">
+    <item priority="low">
+      interface WeeklyResource {
+        id: string;
+        title: string;
+        url: string;
+        source: "js-weekly" | "react-weekly" | "ai-weekly" | "other";
+        description: string;
+      }
+    </item>
+    <item priority="high">
+      export const weeklyResources: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+    </item>
+  </file>
   <file path="src/data/tech-stack.ts">
     <item priority="low">
       interface TechCategory {
@@ -8,7 +22,7 @@
       }
     </item>
     <item priority="high">
-      export const TECH_STACK: import("/Users/mbutler/github/issue-328/apps/marketing/sr...;
+      export const TECH_STACK: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
     </item>
   </file>
   <file path="src/data/projects.ts">
@@ -21,7 +35,7 @@
       }
     </item>
     <item priority="high">
-      export const PROJECTS: import("/Users/mbutler/github/issue-328/apps/marketing/sr...;
+      export const PROJECTS: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
     </item>
   </file>
   </section>
