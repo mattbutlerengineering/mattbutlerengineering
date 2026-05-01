@@ -41,6 +41,11 @@
       "path": "packages/agent-core"
     },
     {
+      "name": "@mbe/agent-test-utils",
+      "type": "package",
+      "path": "packages/agent-test-utils"
+    },
+    {
       "name": "@mbe/api-client",
       "type": "package",
       "path": "packages/api-client"
@@ -61,6 +66,16 @@
       "path": "packages/config"
     },
     {
+      "name": "@mbe/feature-flags",
+      "type": "package",
+      "path": "packages/feature-flags"
+    },
+    {
+      "name": "@mbe/mcp-server",
+      "type": "package",
+      "path": "packages/mcp-server"
+    },
+    {
       "name": "@mbe/observability",
       "type": "package",
       "path": "packages/observability"
@@ -79,11 +94,6 @@
       "name": "@mbe/rialto-plugin",
       "type": "package",
       "path": "packages/rialto-plugin"
-    },
-    {
-      "name": "@mbe/sentry",
-      "type": "package",
-      "path": "packages/sentry"
     },
     {
       "name": "@mbe/types",
@@ -139,7 +149,7 @@
     },
     {
       "from": "@mbe/hospitality",
-      "to": "@mbe/sentry",
+      "to": "@mbe/observability",
       "type": "dependency"
     },
     {
@@ -154,7 +164,7 @@
     },
     {
       "from": "@mbe/marketing",
-      "to": "@mbe/sentry",
+      "to": "@mbe/observability",
       "type": "dependency"
     },
     {
@@ -164,7 +174,7 @@
     },
     {
       "from": "@mbe/rialto-web",
-      "to": "@mbe/sentry",
+      "to": "@mbe/observability",
       "type": "dependency"
     },
     {
@@ -199,13 +209,13 @@
     },
     {
       "from": "@mbe/agent-service",
-      "to": "@mbe/sentry",
+      "to": "@mbe/types",
       "type": "dependency"
     },
     {
       "from": "@mbe/agent-service",
-      "to": "@mbe/types",
-      "type": "dependency"
+      "to": "@mbe/agent-test-utils",
+      "type": "devDependency"
     },
     {
       "from": "@mbe/agent-service",
@@ -225,11 +235,6 @@
     {
       "from": "@mbe/reservations-service",
       "to": "@mbe/observability",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/reservations-service",
-      "to": "@mbe/sentry",
       "type": "dependency"
     },
     {
@@ -259,11 +264,6 @@
     },
     {
       "from": "@mbe/users-service",
-      "to": "@mbe/sentry",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/users-service",
       "to": "@mbe/types",
       "type": "dependency"
     },
@@ -279,6 +279,21 @@
     },
     {
       "from": "@mbe/agent-core",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/agent-test-utils",
+      "to": "@mbe/agent-core",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/agent-test-utils",
+      "to": "@mbe/types",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/agent-test-utils",
       "to": "@mbe/config",
       "type": "devDependency"
     },
@@ -304,6 +319,11 @@
     },
     {
       "from": "@mbe/auth",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/mcp-server",
       "to": "@mbe/config",
       "type": "devDependency"
     },
@@ -334,16 +354,6 @@
     },
     {
       "from": "@mbe/rialto-plugin",
-      "to": "@mbe/config",
-      "type": "devDependency"
-    },
-    {
-      "from": "@mbe/sentry",
-      "to": "@mbe/types",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/sentry",
       "to": "@mbe/config",
       "type": "devDependency"
     },
