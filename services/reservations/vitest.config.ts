@@ -5,6 +5,7 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: ["src/**/*.test.ts"],
+    setupFiles: ["vitest.setup.ts"],
     env: {
       AUTH_BYPASS_IN_TESTS: "true",
     },

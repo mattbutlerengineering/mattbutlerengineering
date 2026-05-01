@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
@@ -37,6 +37,8 @@ export function FloorPlansPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showNewDialog, setShowNewDialog] = useState(false);
+  const [liveMessage, setLiveMessage] = useState("");
+  const liveRegionRef = useRef<HTMLDivElement>(null);
 
   const api = useMemo(
     () =>
@@ -80,11 +82,15 @@ export function FloorPlansPage() {
       try {
         const cloned = await api.floorPlans.clone(id);
         setFloorPlans((prev) => [...prev, cloned]);
+        setLiveMessage(`Floor plan "${cloned.name}" cloned successfully`);
+        navigate(`/floor-plans/${cloned.id}`);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to clone floor plan");
+        const message = err instanceof Error ? err.message : "Failed to clone floor plan";
+        setError(message);
+        setLiveMessage(`Error: ${message}`);
       }
     },
-    [api]
+    [api, navigate]
   );
 
   const handleCreated = useCallback(
@@ -104,6 +110,17 @@ export function FloorPlansPage() {
 
   return (
     <div className={styles.container}>
+      {/* Live region for screen reader announcements */}
+      <div
+        ref={liveRegionRef}
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        style={{ position: "absolute", width: "1px", height: "1px", padding: 0, overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap", border: 0 }}
+      >
+        {liveMessage}
+      </div>
+
       <div className={styles.header}>
         <PageHeader title="Floor Plans" description="Design and manage your venue layouts" />
         <Button
