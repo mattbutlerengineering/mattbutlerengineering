@@ -1,18 +1,4 @@
 <codebase path="services/reservations">
-  <section priority="medium" role="prisma">
-  <file path="prisma/seed.ts">
-    function todayAt(hours: number, minutes: number): Date {
-      const d = new Date();
-      d.setHours(hours, minutes, 0, 0);
-      return d;
-    }
-    function todayDate(): Date {
-      const d = new Date();
-      d.setHours(0, 0, 0, 0);
-      return d;
-    }
-  </file>
-  </section>
   <section priority="medium" role="src">
   <file path="src/index.ts">
     async function main() {
@@ -35,7 +21,10 @@
     export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
       const fastify = Fastify({
         logger: options.logger ?? true,
+     
         disableRequestLogging: true,
+        ajv: { customOptions: { strict: false } },
+     
       });
     
       // Register schemas
@@ -158,6 +147,20 @@
     }
   </file>
   </section>
+  <section priority="medium" role="prisma">
+  <file path="prisma/seed.ts">
+    function todayAt(hours: number, minutes: number): Date {
+      const d = new Date();
+      d.setHours(hours, minutes, 0, 0);
+      return d;
+    }
+    function todayDate(): Date {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      return d;
+    }
+  </file>
+  </section>
   <section priority="medium" role="test">
   <file path="src/test/mocks.ts">
     export interface MockTable {
@@ -198,12 +201,6 @@
       readonly createdAt: string;
       readonly updatedAt: string;
     }
-  </file>
-  </section>
-  <section priority="medium" role="schemas">
-  <file path="src/schemas/index.ts">
-    export const TableShapeMetadataSchema = tableShapeMetadataJsonSchema;
-    export const TableSchema = tableJsonSchema;
   </file>
   </section>
   <section priority="medium" role="services">
@@ -466,6 +463,12 @@
       const extraTime = Math.ceil(extraGuests / 2) * 15;
       return largestRule.durationMinutes + extraTime;
     }
+  </file>
+  </section>
+  <section priority="medium" role="schemas">
+  <file path="src/schemas/index.ts">
+    export const TableShapeMetadataSchema = tableShapeMetadataJsonSchema;
+    export const TableSchema = tableJsonSchema;
   </file>
   </section>
   <section priority="medium" role="routes">
