@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Quality Dashboard — AI Loop Metrics</title>
+    <style>
+      body {
+        margin: 0;
+        background: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="dashboard"></div>
+    <script src="public/analytics.js"></script>
+    <script>
+      // Render the dashboard, fetching metrics from the repo root.
+      // When served locally (e.g. via `npx serve .` from web/), basePath
+      // should point to the repo root where metrics/ lives.
+      renderQualityDashboard("dashboard", { basePath: ".." });
+    </script>
+  </body>
+</html>
