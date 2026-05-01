@@ -665,6 +665,28 @@ const CRITERIA= [
     detection: { type: 'any-of', pattern: ['task-log.jsonl', '.claude/task-log.jsonl'] },
     crossCutting: 'traceability',
   },
+  {
+    id: 'acmm:mcp-server-config',
+    source: 'acmm',
+    level: 4,
+    category: 'readiness',
+    name: 'MCP server configuration',
+    description: 'Model Context Protocol servers configured for AI tool access.',
+    rationale: 'L4 signal: the AI has access to project-relevant tools (databases, APIs, deployment consoles) beyond the file system.',
+    details: 'MCP servers give the AI programmatic access to external systems. Without them, the AI is limited to file system operations and cannot query databases, check deployments, or interact with project management tools.',
+    detection: { type: 'any-of', pattern: ['.mcp.json', '.claude/mcp.json', '.cursor/mcp.json', 'mcp.json'] },
+  },
+  {
+    id: 'acmm:code-graph',
+    source: 'acmm',
+    level: 4,
+    category: 'readiness',
+    name: 'Code intelligence tooling',
+    description: 'LSP, AST, or code graph tooling that helps AI navigate the codebase.',
+    rationale: 'L4 signal: the AI can navigate complex type hierarchies and dependency graphs efficiently, not just read file text.',
+    details: 'Code intelligence tools (LSP configs, tags files, tree-sitter grammars, or code graph generators) help the AI understand codebase structure beyond raw text. This enables faster navigation, better refactoring, and more accurate changes.',
+    detection: { type: 'any-of', pattern: ['.vscode/settings.json', 'tags', 'TAGS', '.ctags', '.tree-sitter/', 'llms.txt', 'llms-full.txt'] },
+  },
 
   // ── L5 — Semi-Automated ────────────────────────────
   {
