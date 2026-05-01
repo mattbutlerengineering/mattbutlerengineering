@@ -7,7 +7,7 @@
   </file>
   <file path="src/catalog.ts">
     <item priority="high">
-      export const catalog: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+      export const catalog: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
     </item>
   </file>
   <file path="src/catalog-config.ts">
@@ -33,7 +33,7 @@
       }
     </item>
     <item priority="medium">
-      function typeToString(type: ts.Type, checker: ts.TypeChecker): string { /* ... */ }
+      function stripUndefined(typeStr: string): { inner: string; wasOptional: boolean } { /* ... */ }
     </item>
   </file>
   </section>
