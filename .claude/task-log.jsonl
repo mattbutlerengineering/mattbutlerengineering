@@ -1,0 +1,15 @@
+# Task Log (JSONL format)
+# Each line after this header is a JSON object representing one task execution.
+#
+# Schema:
+#   timestamp  (string)  ISO 8601 datetime when the task started
+#   taskId     (string)  Unique identifier for the task (UUID v4 or session-scoped counter)
+#   intent     (string)  Natural language description of what was requested
+#   inputs     (object)  Key parameters: { branch, files, issueNumber, model, budget }
+#   outputs    (object)  Results: { filesChanged, testsRun, testsPassed, prNumber, commitSha }
+#   status     (string)  One of: "success", "partial", "failed", "cancelled"
+#   duration   (number)  Wall-clock seconds from start to finish
+#   error      (string)  Error message if status is "failed" (null otherwise)
+#
+# Example:
+# {"timestamp":"2026-05-01T10:00:00Z","taskId":"a1b2c3d4","intent":"Fix login redirect bug","inputs":{"branch":"fix/login-redirect","files":["src/auth.ts"],"issueNumber":42,"model":"claude-sonnet-4-6","budget":1.0},"outputs":{"filesChanged":2,"testsRun":8,"testsPassed":8,"prNumber":43,"commitSha":"abc1234"},"status":"success","duration":120,"error":null}
