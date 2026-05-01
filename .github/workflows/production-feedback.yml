@@ -1,0 +1,173 @@
+name: Production Feedback
+
+on:
+  schedule:
+    # Every 6 hours
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  health-check:
+    name: Production Health Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+
+      - name: Check production endpoints
+        id: health
+        run: |
+          TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          DATE_KEY=$(date -u +%Y-%m-%d)
+          DEGRADED=""
+          RESULTS="[]"
+
+          check_endpoint() {
+            local NAME="$1"
+            local URL="$2"
+            local START END ELAPSED HTTP_CODE BODY ENDPOINT_STATUS
+
+            START=$(date +%s%N)
+            HTTP_CODE=$(curl -sf -o /tmp/health-response.txt -w '%{http_code}' --max-time 15 "$URL" 2>/dev/null || echo "000")
+            END=$(date +%s%N)
+            ELAPSED=$(( (END - START) / 1000000 ))
+
+            BODY=""
+            if [ -f /tmp/health-response.txt ]; then
+              BODY=$(cat /tmp/health-response.txt)
+            fi
+
+            ENDPOINT_STATUS="healthy"
+            if [ "$HTTP_CODE" = "000" ]; then
+              ENDPOINT_STATUS="unreachable"
+              DEGRADED="${DEGRADED}${NAME} (unreachable), "
+            elif [ "$HTTP_CODE" -ge 500 ]; then
+              ENDPOINT_STATUS="error"
+              DEGRADED="${DEGRADED}${NAME} (HTTP ${HTTP_CODE}), "
+            elif [ "$HTTP_CODE" -ge 400 ]; then
+              ENDPOINT_STATUS="client-error"
+            fi
+
+            # Check for degraded status in response body
+            if echo "$BODY" | jq -e '.status == "degraded"' >/dev/null 2>&1; then
+              ENDPOINT_STATUS="degraded"
+              DEGRADED="${DEGRADED}${NAME} (degraded), "
+            fi
+
+            RESULTS=$(echo "$RESULTS" | jq -c \
+              --arg name "$NAME" \
+              --arg url "$URL" \
+              --argjson code "$HTTP_CODE" \
+              --argjson latency "$ELAPSED" \
+              --arg ep_status "$ENDPOINT_STATUS" \
+              '. + [{name: $name, url: $url, http_code: $code, latency_ms: $latency, status: $ep_status}]')
+
+            echo "${NAME}: HTTP ${HTTP_CODE}, ${ELAPSED}ms, ${ENDPOINT_STATUS}"
+          }
+
+          check_endpoint "users-health" "https://api.mattbutlerengineering.com/api/v1/users/health"
+          check_endpoint "marketing-site" "https://mattbutlerengineering.com"
+          check_endpoint "hospitality-site" "https://hospitality.mattbutlerengineering.com"
+          check_endpoint "rialto-storybook" "https://mattbutlerengineering.github.io/mattbutlerengineering/"
+
+          echo "results<<RESULTS_EOF" >> "$GITHUB_OUTPUT"
+          echo "$RESULTS" | jq '.' >> "$GITHUB_OUTPUT"
+          echo "RESULTS_EOF" >> "$GITHUB_OUTPUT"
+
+          echo "timestamp=$TIMESTAMP" >> "$GITHUB_OUTPUT"
+          echo "date_key=$DATE_KEY" >> "$GITHUB_OUTPUT"
+
+          DEGRADED=$(echo "$DEGRADED" | sed 's/, $//')
+          echo "degraded=$DEGRADED" >> "$GITHUB_OUTPUT"
+
+          # Write step summary
+          {
+            echo "### Production Health Check: ${TIMESTAMP}"
+            echo
+            echo "| Endpoint | HTTP | Latency | Status |"
+            echo "|----------|------|---------|--------|"
+            echo "$RESULTS" | jq -r '.[] | "| \(.name) | \(.http_code) | \(.latency_ms)ms | \(.status) |"'
+            echo
+            if [ -n "$DEGRADED" ]; then
+              echo "**Degraded:** ${DEGRADED}"
+            else
+              echo "All endpoints healthy."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Append metrics to log
+        env:
+          TIMESTAMP: ${{ steps.health.outputs.timestamp }}
+          DATE_KEY: ${{ steps.health.outputs.date_key }}
+          RESULTS: ${{ steps.health.outputs.results }}
+        run: |
+          METRICS_DIR="docs/metrics/production-health"
+          mkdir -p "$METRICS_DIR"
+          METRICS_FILE="${METRICS_DIR}/${DATE_KEY}.jsonl"
+
+          ENTRY=$(jq -nc \
+            --arg ts "$TIMESTAMP" \
+            --argjson endpoints "$RESULTS" \
+            '{timestamp: $ts, endpoints: $endpoints}')
+
+          echo "$ENTRY" >> "$METRICS_FILE"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "$METRICS_FILE"
+          git diff --staged --quiet || git commit -m "chore: record production health metrics ($TIMESTAMP)"
+          git push || echo "Push failed (concurrent update) -- metrics will be recorded next run"
+
+      - name: Create issue on degraded health
+        if: steps.health.outputs.degraded != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEGRADED: ${{ steps.health.outputs.degraded }}
+          TIMESTAMP: ${{ steps.health.outputs.timestamp }}
+          RESULTS: ${{ steps.health.outputs.results }}
+        run: |
+          EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --label "production-health" --json number --jq 'length')
+          if [ "$EXISTING" -gt 0 ]; then
+            echo "Production health issue already open -- skipping."
+            exit 0
+          fi
+
+          {
+            echo "## Production Health Degraded"
+            echo
+            echo "**Detected:** ${TIMESTAMP}"
+            echo "**Affected:** ${DEGRADED}"
+            echo
+            echo "### Endpoint Details"
+            echo
+            echo "| Endpoint | HTTP | Latency | Status |"
+            echo "|----------|------|---------|--------|"
+            echo "$RESULTS" | jq -r '.[] | "| \(.name) | \(.http_code) | \(.latency_ms)ms | \(.status) |"'
+            echo
+            echo "### Investigation Steps"
+            echo
+            echo "1. Check \`curl -s https://api.mattbutlerengineering.com/api/v1/users/health | jq .\`"
+            echo "2. Review recent deploys: \`gh run list --workflow deploy-services.yml --limit 5\`"
+            echo "3. Check service logs in DigitalOcean dashboard"
+            echo "4. Verify DNS resolution and Cloudflare status"
+            echo
+            echo "---"
+            echo "*Auto-created by production-feedback workflow*"
+          } > /tmp/health-body.md
+
+          gh issue create \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Production health degraded: ${DEGRADED}" \
+            --label "production-health" \
+            --label "ci-fix" \
+            --label "ready" \
+            --body-file /tmp/health-body.md

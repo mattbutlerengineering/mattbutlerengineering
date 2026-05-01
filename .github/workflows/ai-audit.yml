@@ -1,0 +1,202 @@
+name: AI Audit Trail
+
+on:
+  schedule:
+    # Friday 9am UTC
+    - cron: "0 9 * * 5"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  audit:
+    name: Weekly AI Activity Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+
+      - name: Query AI-generated PRs
+        id: prs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SINCE=$(date -u -d '7 days ago' +%Y-%m-%d 2>/dev/null || date -u -v-7d +%Y-%m-%d)
+          WEEK=$(date -u +%Y-W%V)
+          echo "since=$SINCE" >> "$GITHUB_OUTPUT"
+          echo "week=$WEEK" >> "$GITHUB_OUTPUT"
+
+          # Get merged PRs with has-pr label (AI-generated)
+          AI_PRS=$(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state merged \
+            --label "has-pr" \
+            --json number,title,author,mergedAt,labels,additions,deletions \
+            --jq "[.[] | select(.mergedAt >= \"${SINCE}\")]" 2>/dev/null || echo "[]")
+
+          AI_COUNT=$(echo "$AI_PRS" | jq 'length')
+          echo "ai_count=$AI_COUNT" >> "$GITHUB_OUTPUT"
+
+          # Get all merged PRs for comparison
+          ALL_PRS=$(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state merged \
+            --json number,mergedAt \
+            --jq "[.[] | select(.mergedAt >= \"${SINCE}\")] | length" 2>/dev/null || echo "0")
+          echo "all_count=$ALL_PRS" >> "$GITHUB_OUTPUT"
+
+          echo "ai_prs<<PRS_EOF" >> "$GITHUB_OUTPUT"
+          echo "$AI_PRS" >> "$GITHUB_OUTPUT"
+          echo "PRS_EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Query AI-created issues
+        id: issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SINCE: ${{ steps.prs.outputs.since }}
+        run: |
+          AUDIT_ISSUES=$(gh issue list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state all \
+            --label "audit" \
+            --json number,title,state,createdAt \
+            --jq "[.[] | select(.createdAt >= \"${SINCE}\")]" 2>/dev/null || echo "[]")
+
+          ACMM_ISSUES=$(gh issue list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state all \
+            --label "acmm" \
+            --json number,title,state,createdAt \
+            --jq "[.[] | select(.createdAt >= \"${SINCE}\")]" 2>/dev/null || echo "[]")
+
+          AGENT_FAILED=$(gh issue list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state all \
+            --label "agent-failed" \
+            --json number,title,state,createdAt \
+            --jq "[.[] | select(.createdAt >= \"${SINCE}\")]" 2>/dev/null || echo "[]")
+
+          AUDIT_COUNT=$(echo "$AUDIT_ISSUES" | jq 'length')
+          ACMM_COUNT=$(echo "$ACMM_ISSUES" | jq 'length')
+          FAILED_COUNT=$(echo "$AGENT_FAILED" | jq 'length')
+
+          echo "audit_count=$AUDIT_COUNT" >> "$GITHUB_OUTPUT"
+          echo "acmm_count=$ACMM_COUNT" >> "$GITHUB_OUTPUT"
+          echo "failed_count=$FAILED_COUNT" >> "$GITHUB_OUTPUT"
+
+          echo "audit_issues<<AUDIT_EOF" >> "$GITHUB_OUTPUT"
+          echo "$AUDIT_ISSUES" >> "$GITHUB_OUTPUT"
+          echo "AUDIT_EOF" >> "$GITHUB_OUTPUT"
+
+          echo "agent_failed<<FAILED_EOF" >> "$GITHUB_OUTPUT"
+          echo "$AGENT_FAILED" >> "$GITHUB_OUTPUT"
+          echo "FAILED_EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Generate audit summary
+        id: summary
+        env:
+          AI_COUNT: ${{ steps.prs.outputs.ai_count }}
+          ALL_COUNT: ${{ steps.prs.outputs.all_count }}
+          AI_PRS: ${{ steps.prs.outputs.ai_prs }}
+          AUDIT_COUNT: ${{ steps.issues.outputs.audit_count }}
+          ACMM_COUNT: ${{ steps.issues.outputs.acmm_count }}
+          FAILED_COUNT: ${{ steps.issues.outputs.failed_count }}
+          AGENT_FAILED: ${{ steps.issues.outputs.agent_failed }}
+          SINCE: ${{ steps.prs.outputs.since }}
+          WEEK: ${{ steps.prs.outputs.week }}
+        run: |
+          if [ "$ALL_COUNT" -gt 0 ]; then
+            AI_RATIO=$(( AI_COUNT * 100 / ALL_COUNT ))
+          else
+            AI_RATIO=0
+          fi
+
+          TOTAL_ADDITIONS=$(echo "$AI_PRS" | jq '[.[].additions] | add // 0')
+          TOTAL_DELETIONS=$(echo "$AI_PRS" | jq '[.[].deletions] | add // 0')
+          NET_LINES=$((TOTAL_ADDITIONS - TOTAL_DELETIONS))
+
+          PR_TABLE=$(echo "$AI_PRS" | jq -r '.[] | "| #\(.number) | \(.title[:60]) | +\(.additions)/-\(.deletions) | \(.mergedAt[:10]) |"')
+
+          FAILURE_TABLE=""
+          if [ "$FAILED_COUNT" -gt 0 ]; then
+            FAILURE_TABLE=$(echo "$AGENT_FAILED" | jq -r '.[] | "| #\(.number) | \(.title[:60]) | \(.state) |"')
+          fi
+
+          {
+            echo "## AI Activity Audit: ${WEEK}"
+            echo
+            echo "**Period:** ${SINCE} to $(date -u +%Y-%m-%d)"
+            echo
+            echo "### Summary"
+            echo
+            echo "| Metric | Value |"
+            echo "|--------|-------|"
+            echo "| AI-generated PRs merged | ${AI_COUNT} |"
+            echo "| Total PRs merged | ${ALL_COUNT} |"
+            echo "| AI contribution ratio | ${AI_RATIO}% |"
+            echo "| Lines added by AI | +${TOTAL_ADDITIONS} |"
+            echo "| Lines removed by AI | -${TOTAL_DELETIONS} |"
+            echo "| Net line change | ${NET_LINES} |"
+            echo "| Audit issues created | ${AUDIT_COUNT} |"
+            echo "| ACMM issues created | ${ACMM_COUNT} |"
+            echo "| Agent failures | ${FAILED_COUNT} |"
+            echo
+            if [ "$AI_COUNT" -gt 0 ]; then
+              echo "### AI-Generated PRs"
+              echo
+              echo "| PR | Title | Changes | Merged |"
+              echo "|----|-------|---------|--------|"
+              echo "$PR_TABLE"
+              echo
+            fi
+            if [ -n "$FAILURE_TABLE" ]; then
+              echo "### Agent Failures"
+              echo
+              echo "| Issue | Title | State |"
+              echo "|-------|-------|-------|"
+              echo "$FAILURE_TABLE"
+              echo
+              echo "Review failed agents to identify recurring issues and improve agent reliability."
+              echo
+            fi
+            echo "### Review Checklist"
+            echo
+            echo "- [ ] Verify AI-generated PRs meet quality standards"
+            echo "- [ ] Review agent failure patterns"
+            echo "- [ ] Check for unintended code changes"
+            echo "- [ ] Validate AI contribution ratio is within acceptable range"
+            echo "- [ ] Review any security-sensitive AI changes"
+            echo
+            echo "---"
+            echo "*Auto-created by ai-audit workflow (weekly)*"
+          } > /tmp/audit-body.md
+
+          echo "Generated audit report for $WEEK"
+
+          cat /tmp/audit-body.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create audit issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WEEK: ${{ steps.prs.outputs.week }}
+        run: |
+          EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --label "ai-audit" --json title --jq "[.[] | select(.title | contains(\"$WEEK\"))] | length")
+          if [ "$EXISTING" -gt 0 ]; then
+            echo "Audit issue for $WEEK already exists -- skipping."
+            exit 0
+          fi
+
+          gh issue create \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "AI audit trail: ${WEEK}" \
+            --label "ai-audit" \
+            --label "acmm" \
+            --body-file /tmp/audit-body.md

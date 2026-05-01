@@ -1,0 +1,146 @@
+name: Reflection Review
+
+on:
+  schedule:
+    # 1st of each month, 8am UTC
+    - cron: "0 8 1 * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  review:
+    name: Monthly Reflection Review
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+
+      - name: Gather reflections
+        id: gather
+        run: |
+          MONTH=$(date -u +%Y-%m)
+          PREV_MONTH=$(date -u -d "1 month ago" +%Y-%m 2>/dev/null || date -u -v-1m +%Y-%m)
+          echo "month=$MONTH" >> "$GITHUB_OUTPUT"
+          echo "prev_month=$PREV_MONTH" >> "$GITHUB_OUTPUT"
+
+          REPORT=""
+          TOTAL_COUNT=0
+
+          # Scan .claude/reflections/
+          if [ -d ".claude/reflections" ]; then
+            COUNT=$(find .claude/reflections -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
+            TOTAL_COUNT=$((TOTAL_COUNT + COUNT))
+            if [ "$COUNT" -gt 0 ]; then
+              REPORT="${REPORT}### .claude/reflections/ (${COUNT} files)\n\n"
+              find .claude/reflections -name '*.md' -print0 2>/dev/null | sort -z | while IFS= read -r -d '' f; do
+                BASENAME=$(basename "$f" .md)
+                FIRST_LINE=$(grep -v '^#' "$f" | grep -v '^$' | head -1 | cut -c1-100)
+                echo "- **${BASENAME}**: ${FIRST_LINE}" >> /tmp/reflections-report.txt
+              done
+              if [ -f /tmp/reflections-report.txt ]; then
+                REPORT="${REPORT}$(cat /tmp/reflections-report.txt)\n\n"
+              fi
+            fi
+          fi
+
+          # Scan docs/reflections/
+          if [ -d "docs/reflections" ]; then
+            COUNT=$(find docs/reflections -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
+            TOTAL_COUNT=$((TOTAL_COUNT + COUNT))
+            if [ "$COUNT" -gt 0 ]; then
+              REPORT="${REPORT}### docs/reflections/ (${COUNT} files)\n\n"
+              find docs/reflections -name '*.md' -print0 2>/dev/null | sort -z | while IFS= read -r -d '' f; do
+                BASENAME=$(basename "$f" .md)
+                FIRST_LINE=$(grep -v '^#' "$f" | grep -v '^$' | head -1 | cut -c1-100)
+                echo "- **${BASENAME}**: ${FIRST_LINE}" >> /tmp/docs-reflections-report.txt
+              done
+              if [ -f /tmp/docs-reflections-report.txt ]; then
+                REPORT="${REPORT}$(cat /tmp/docs-reflections-report.txt)\n\n"
+              fi
+            fi
+          fi
+
+          # Scan .claude/memory/
+          if [ -d ".claude/memory" ]; then
+            COUNT=$(find .claude/memory -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
+            TOTAL_COUNT=$((TOTAL_COUNT + COUNT))
+            if [ "$COUNT" -gt 0 ]; then
+              REPORT="${REPORT}### .claude/memory/ (${COUNT} files)\n\n"
+              find .claude/memory -name '*.md' -print0 2>/dev/null | sort -z | while IFS= read -r -d '' f; do
+                BASENAME=$(basename "$f" .md)
+                LINES=$(wc -l < "$f" | tr -d ' ')
+                echo "- **${BASENAME}** (${LINES} lines)" >> /tmp/memory-report.txt
+              done
+              if [ -f /tmp/memory-report.txt ]; then
+                REPORT="${REPORT}$(cat /tmp/memory-report.txt)\n\n"
+              fi
+            fi
+          fi
+
+          echo "total_count=$TOTAL_COUNT" >> "$GITHUB_OUTPUT"
+          echo "report<<REPORT_EOF" >> "$GITHUB_OUTPUT"
+          echo -e "$REPORT" >> "$GITHUB_OUTPUT"
+          echo "REPORT_EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Create review issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MONTH: ${{ steps.gather.outputs.month }}
+          PREV_MONTH: ${{ steps.gather.outputs.prev_month }}
+          TOTAL_COUNT: ${{ steps.gather.outputs.total_count }}
+          REPORT: ${{ steps.gather.outputs.report }}
+        run: |
+          EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --label "reflection-review" --json title --jq "[.[] | select(.title | contains(\"$MONTH\"))] | length")
+          if [ "$EXISTING" -gt 0 ]; then
+            echo "Review issue for $MONTH already exists -- skipping."
+            exit 0
+          fi
+
+          {
+            echo "## Monthly Reflection Review: ${MONTH}"
+            echo
+            echo "Time to review and prune accumulated reflections and memory entries."
+            echo "**Total files:** ${TOTAL_COUNT}"
+            echo
+            echo "---"
+            echo
+            if [ -n "$REPORT" ]; then
+              echo "$REPORT"
+            else
+              echo "No reflection or memory files found."
+            fi
+            echo "---"
+            echo
+            echo "### Review Checklist"
+            echo
+            echo "- [ ] Review each reflection for continued relevance"
+            echo "- [ ] Archive or delete stale entries"
+            echo "- [ ] Promote important learnings to CLAUDE.md or gotchas.md"
+            echo "- [ ] Check for contradictory or duplicate entries"
+            echo "- [ ] Verify memory files are within reasonable size"
+            echo
+            echo "### Guidelines"
+            echo
+            echo "- **Keep**: Learnings that prevent recurring mistakes"
+            echo "- **Promote**: Patterns that should be in CLAUDE.md for all sessions"
+            echo "- **Archive**: One-time fixes that are no longer relevant"
+            echo "- **Delete**: Duplicate or superseded entries"
+            echo
+            echo "---"
+            echo "*Auto-created by reflection-review workflow (monthly)*"
+          } > /tmp/review-body.md
+
+          gh issue create \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "chore: monthly reflection review (${MONTH})" \
+            --label "reflection-review" \
+            --label "acmm" \
+            --body-file /tmp/review-body.md

@@ -1,0 +1,169 @@
+name: CLAUDE.md Sync
+
+on:
+  schedule:
+    # Monday 7:30 UTC
+    - cron: "30 7 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    name: Sync CLAUDE.md from Reflections
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+        with:
+          fetch-depth: 0
+
+      - name: Scan for new reflections and memory entries
+        id: scan
+        run: |
+          SINCE=$(date -u -d '7 days ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-7d +%Y-%m-%dT%H:%M:%SZ)
+          echo "since=$SINCE" >> "$GITHUB_OUTPUT"
+
+          # Collect recently modified reflection and memory files via git log
+          REFLECTION_FILES=""
+          MEMORY_FILES=""
+          DOCS_REFLECTION_FILES=""
+
+          if [ -d ".claude/reflections" ]; then
+            REFLECTION_FILES=$(git log --since="$SINCE" --name-only --pretty=format: -- '.claude/reflections/*.md' | sort -u | grep -v '^$' || true)
+          fi
+
+          if [ -d ".claude/memory" ]; then
+            MEMORY_FILES=$(git log --since="$SINCE" --name-only --pretty=format: -- '.claude/memory/*.md' | sort -u | grep -v '^$' || true)
+          fi
+
+          if [ -d "docs/reflections" ]; then
+            DOCS_REFLECTION_FILES=$(git log --since="$SINCE" --name-only --pretty=format: -- 'docs/reflections/*.md' | sort -u | grep -v '^$' || true)
+          fi
+
+          ALL_FILES=$(printf '%s\n%s\n%s' "$REFLECTION_FILES" "$MEMORY_FILES" "$DOCS_REFLECTION_FILES" | grep -v '^$' | sort -u || true)
+
+          if [ -z "$ALL_FILES" ]; then
+            echo "No new reflections or memory entries found since $SINCE"
+            echo "has_updates=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Found updated files:"
+            echo "$ALL_FILES"
+            echo "has_updates=true" >> "$GITHUB_OUTPUT"
+
+            echo "files<<FILES_EOF" >> "$GITHUB_OUTPUT"
+            echo "$ALL_FILES" >> "$GITHUB_OUTPUT"
+            echo "FILES_EOF" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Extract learnings summary
+        if: steps.scan.outputs.has_updates == 'true'
+        id: summary
+        env:
+          FILES: ${{ steps.scan.outputs.files }}
+        run: |
+          SUMMARY=""
+          while IFS= read -r FILE; do
+            [ -z "$FILE" ] && continue
+            [ ! -f "$FILE" ] && continue
+
+            BASENAME=$(basename "$FILE" .md)
+            FIRST_LINE=$(grep -v '^#' "$FILE" | grep -v '^$' | head -1 | cut -c1-120)
+            if [ -n "$FIRST_LINE" ]; then
+              SUMMARY="${SUMMARY}- **${BASENAME}**: ${FIRST_LINE}\n"
+            fi
+          done <<< "$FILES"
+
+          if [ -z "$SUMMARY" ]; then
+            echo "has_learnings=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_learnings=true" >> "$GITHUB_OUTPUT"
+            echo "summary<<SUMMARY_EOF" >> "$GITHUB_OUTPUT"
+            echo -e "$SUMMARY" >> "$GITHUB_OUTPUT"
+            echo "SUMMARY_EOF" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check if CLAUDE.md references are current
+        if: steps.summary.outputs.has_learnings == 'true'
+        id: drift
+        run: |
+          DRIFT_ITEMS=""
+
+          # Check for new package CLAUDE.md files not referenced in root
+          NEW_CLAUDES=$(find packages services apps -name 'CLAUDE.md' 2>/dev/null | while read -r f; do
+            DIR=$(dirname "$f")
+            BASENAME=$(basename "$DIR")
+            if ! grep -q "$DIR" CLAUDE.md 2>/dev/null && ! grep -q "$BASENAME" CLAUDE.md 2>/dev/null; then
+              echo "$f"
+            fi
+          done || true)
+
+          if [ -n "$NEW_CLAUDES" ]; then
+            DRIFT_ITEMS="${DRIFT_ITEMS}- New package CLAUDE.md files not referenced in root:\n"
+            while IFS= read -r f; do
+              [ -n "$f" ] && DRIFT_ITEMS="${DRIFT_ITEMS}  - \`$f\`\n"
+            done <<< "$NEW_CLAUDES"
+          fi
+
+          if [ -n "$DRIFT_ITEMS" ]; then
+            echo "has_drift=true" >> "$GITHUB_OUTPUT"
+            echo "drift<<DRIFT_EOF" >> "$GITHUB_OUTPUT"
+            echo -e "$DRIFT_ITEMS" >> "$GITHUB_OUTPUT"
+            echo "DRIFT_EOF" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_drift=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create sync issue
+        if: steps.summary.outputs.has_learnings == 'true' || steps.drift.outputs.has_drift == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LEARNINGS: ${{ steps.summary.outputs.summary }}
+          DRIFT: ${{ steps.drift.outputs.drift }}
+          SINCE: ${{ steps.scan.outputs.since }}
+        run: |
+          EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --label "claude-md-sync" --json number --jq 'length')
+          if [ "$EXISTING" -gt 0 ]; then
+            echo "Sync issue already open -- skipping."
+            exit 0
+          fi
+
+          {
+            echo "## CLAUDE.md Sync Report"
+            echo
+            echo "Weekly scan found new reflections and memory entries since \`${SINCE}\`."
+            echo
+            if [ -n "$LEARNINGS" ]; then
+              echo "### New Learnings"
+              echo
+              echo "$LEARNINGS"
+              echo
+            fi
+            if [ -n "$DRIFT" ]; then
+              echo "### Drift Detected"
+              echo
+              echo "$DRIFT"
+              echo
+            fi
+            echo "### Action Required"
+            echo
+            echo "Review and merge to keep CLAUDE.md in sync with captured learnings."
+            echo
+            echo "---"
+            echo "*Auto-created by claude-md-sync workflow*"
+          } > /tmp/sync-body.md
+
+          gh issue create \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "chore: sync CLAUDE.md with recent reflections" \
+            --label "claude-md-sync" \
+            --label "acmm" \
+            --label "ready" \
+            --body-file /tmp/sync-body.md
