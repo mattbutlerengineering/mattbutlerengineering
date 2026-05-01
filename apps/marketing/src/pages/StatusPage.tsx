@@ -19,8 +19,8 @@ const SERVICES = [
 
 const STATIC_SITES = [
   { name: "Marketing", url: "/" },
-  { name: "Hospitality", url: "/hospitality" },
-  { name: "Rialto", url: "/rialto" },
+  { name: "Hospitality", url: "/hospitality/" },
+  { name: "Rialto", url: "/rialto/" },
 ] as const;
 
 const POLL_INTERVAL_MS = 30_000;

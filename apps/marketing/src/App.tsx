@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect } from "react";
-import { Routes, Route } from "react-router-dom";
-import { Footer, GlobalNav, Text } from "@mattbutlerengineering/rialto";
+import { Routes, Route, Navigate } from "react-router-dom";
+import { Footer, GlobalNav } from "@mattbutlerengineering/rialto";
 import styles from "./App.module.css";
 
 const HomePage = lazy(() =>
@@ -51,6 +51,9 @@ export function App({ theme, onThemeToggle }: AppProps) {
             <Route path="/" element={<HomePage />} />
             <Route path="/status" element={<StatusPage />} />
             <Route path="/weekly" element={<WeeklyIntakePage />} />
+            {/* Fallback for edge router failure or local dev */}
+            <Route path="/rialto/*" element={<Navigate to="/rialto/" replace />} />
+            <Route path="/hospitality/*" element={<Navigate to="/hospitality/" replace />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Suspense>
@@ -63,8 +66,8 @@ export function App({ theme, onThemeToggle }: AppProps) {
           {
             title: "Projects",
             links: [
-              { label: "Rialto Design System", href: "/rialto" },
-              { label: "Hospitality Platform", href: "/hospitality" },
+              { label: "Rialto Design System", href: "/rialto/" },
+              { label: "Hospitality Platform", href: "/hospitality/" },
             ],
           },
           {

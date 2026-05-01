@@ -5,8 +5,8 @@ import styles from "./NotFoundPage.module.css";
 
 const SUGGESTED_LINKS = [
   { to: "/", label: "Home" },
-  { to: "/rialto", label: "Design System" },
-  { to: "/hospitality", label: "Hospitality" },
+  { to: "/rialto/", label: "Design System" },
+  { to: "/hospitality/", label: "Hospitality" },
 ];
 
 export function NotFoundPage() {
