@@ -80,6 +80,36 @@ Quick reference:
 - **Patterns:** `*.test.ts` for unit/integration.
 - **Mandate:** All logic changes must be verified via automated tests.
 - **UI:** Playwright for E2E and visual regression.
+
+## Security Scanning (Semgrep)
+
+Semgrep provides Static Application Security Testing (SAST) integrated into the AI development loop.
+
+### MCP Integration
+Semgrep MCP server (`@semgrep/mcp`) is configured in `.mcp.json`, giving agents access to:
+- Code scanning for 30+ languages
+- Security-focused rulesets (Code, Secrets, Supply Chain)
+- Natural language vulnerability explanations
+- CI/CD integration
+
+### Pre-commit Security Checks
+The `.husky/pre-commit` hook runs `semgrep --config semgrep.yml --error` on staged files before commit.
+
+### Configuration
+- **Rules file:** `semgrep.yml` (root) — covers CWE-top vulnerabilities
+- **Categories:** Code injection, SQL injection, XSS, hardcoded secrets, missing auth, insecure JWT
+- **Registry rules:** `semgrep --config "p/security-audit"` for extended coverage
+
+### Running Manually
+```bash
+semgrep --config semgrep.yml --error .           # Custom rules
+semgrep --config "p/security-audit" --error .  # Semgrep registry rules
+```
+
+### Skip in Emergencies
+```bash
+SKIP=semgrep git commit -m "emergency fix"
+```
 ## Model Governance
 To ensure cost-efficiency and technical integrity, follow this model tiering strategy:
 - **Tier 1: Haiku / Gemini Flash** - Lightweight chores, linting, dependency bumps, typos (< $0.05).
