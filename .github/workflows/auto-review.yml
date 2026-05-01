@@ -1,0 +1,172 @@
+name: Auto Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    name: Automated PR Review
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+        with:
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh pr diff "$PR_NUMBER" --name-only > /tmp/changed-files.txt
+          FILE_COUNT=$(wc -l < /tmp/changed-files.txt | tr -d ' ')
+          echo "file_count=$FILE_COUNT" >> "$GITHUB_OUTPUT"
+          echo "Changed files: $FILE_COUNT"
+          cat /tmp/changed-files.txt
+
+      - name: Run review checks
+        id: review
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          FINDINGS=""
+          SEVERITY="info"
+
+          DIFF=$(gh pr diff "$PR_NUMBER")
+
+          # Check 1: Large files added
+          LARGE_FILES=""
+          while IFS= read -r FILE; do
+            [ -z "$FILE" ] && continue
+            [ ! -f "$FILE" ] && continue
+            LINES=$(wc -l < "$FILE" | tr -d ' ')
+            if [ "$LINES" -gt 800 ]; then
+              LARGE_FILES="${LARGE_FILES}- \`${FILE}\` (${LINES} lines)\n"
+            fi
+          done < /tmp/changed-files.txt
+
+          if [ -n "$LARGE_FILES" ]; then
+            FINDINGS="${FINDINGS}### Large Files (>800 lines)\n${LARGE_FILES}\nConsider splitting into smaller, focused modules.\n\n"
+            SEVERITY="warning"
+          fi
+
+          # Check 2: Console.log statements added
+          CONSOLE_LOGS=$(echo "$DIFF" | grep -c '^\+.*console\.log' 2>/dev/null || echo 0)
+          if [ "$CONSOLE_LOGS" -gt 0 ]; then
+            FINDINGS="${FINDINGS}### Debug Statements\n- Found **${CONSOLE_LOGS}** added \`console.log\` statement(s). Remove before merging or convert to structured logging.\n\n"
+            SEVERITY="warning"
+          fi
+
+          # Check 3: TODO/FIXME/HACK comments added
+          TODO_COUNT=$(echo "$DIFF" | grep -cE '^\+.*(TODO|FIXME|HACK|XXX)' 2>/dev/null || echo 0)
+          if [ "$TODO_COUNT" -gt 0 ]; then
+            FINDINGS="${FINDINGS}### TODO/FIXME Comments\n- Found **${TODO_COUNT}** new TODO/FIXME/HACK comment(s). Consider creating issues to track these.\n\n"
+          fi
+
+          # Check 4: Hardcoded secrets patterns
+          SECRET_PATTERNS='(api[_-]?key|secret[_-]?key|password|token|credential)\s*[:=]\s*["\x27][^\x27"]{8,}'
+          SECRET_HITS=$(echo "$DIFF" | grep -ciE "$SECRET_PATTERNS" 2>/dev/null || echo 0)
+          if [ "$SECRET_HITS" -gt 0 ]; then
+            FINDINGS="${FINDINGS}### Potential Hardcoded Secrets\n- Found **${SECRET_HITS}** line(s) matching secret patterns. Please verify these are not real credentials.\n\n"
+            SEVERITY="critical"
+          fi
+
+          # Check 5: Direct mutation patterns in TypeScript
+          MUTATION_COUNT=$(echo "$DIFF" | grep -cE '^\+.*(\.push\(|\.splice\(|\.sort\(\)|Object\.assign\(.*, )' 2>/dev/null || echo 0)
+          if [ "$MUTATION_COUNT" -gt 3 ]; then
+            FINDINGS="${FINDINGS}### Mutation Patterns\n- Found **${MUTATION_COUNT}** potential mutation(s). Prefer immutable patterns (spread, map, filter).\n\n"
+          fi
+
+          # Check 6: Missing error handling in async functions
+          ASYNC_NO_TRY=$(echo "$DIFF" | grep -c '^\+.*async.*=>' 2>/dev/null || echo 0)
+          CATCH_COUNT=$(echo "$DIFF" | grep -c '^\+.*\.catch\|^\+.*} catch' 2>/dev/null || echo 0)
+          if [ "$ASYNC_NO_TRY" -gt 3 ] && [ "$CATCH_COUNT" -eq 0 ]; then
+            FINDINGS="${FINDINGS}### Error Handling\n- Added **${ASYNC_NO_TRY}** async functions with no visible error handling. Verify errors are handled.\n\n"
+          fi
+
+          # Check 7: Test files for changed source files
+          MISSING_TESTS=""
+          while IFS= read -r FILE; do
+            [ -z "$FILE" ] && continue
+            case "$FILE" in
+              *.test.*|*.spec.*|*.config.*|*.d.ts|*.md|*.json|*.yml|*.yaml) continue ;;
+              *.ts|*.tsx|*.js|*.jsx) ;;
+              *) continue ;;
+            esac
+            DIR=$(dirname "$FILE")
+            BASE=$(basename "$FILE" | sed 's/\.[^.]*$//')
+            TEST_EXISTS=false
+            for EXT in test.ts test.tsx spec.ts spec.tsx test.js test.jsx; do
+              if [ -f "${DIR}/${BASE}.${EXT}" ] || [ -f "${DIR}/__tests__/${BASE}.${EXT}" ]; then
+                TEST_EXISTS=true
+                break
+              fi
+            done
+            if [ "$TEST_EXISTS" = false ]; then
+              MISSING_TESTS="${MISSING_TESTS}- \`${FILE}\`\n"
+            fi
+          done < /tmp/changed-files.txt
+
+          if [ -n "$MISSING_TESTS" ]; then
+            FINDINGS="${FINDINGS}### Missing Test Files\nThese changed source files have no corresponding test file:\n${MISSING_TESTS}\n"
+          fi
+
+          echo "severity=$SEVERITY" >> "$GITHUB_OUTPUT"
+          echo "findings<<FINDINGS_EOF" >> "$GITHUB_OUTPUT"
+          echo -e "$FINDINGS" >> "$GITHUB_OUTPUT"
+          echo "FINDINGS_EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Post review comment
+        if: steps.review.outputs.findings != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          FINDINGS: ${{ steps.review.outputs.findings }}
+          SEVERITY: ${{ steps.review.outputs.severity }}
+          FILE_COUNT: ${{ steps.changes.outputs.file_count }}
+        run: |
+          {
+            echo "## Automated Review"
+            echo
+            echo "Scanned **${FILE_COUNT}** changed files. Severity: **${SEVERITY}**"
+            echo
+            echo "$FINDINGS"
+            echo "---"
+            echo "*Auto-generated by auto-review workflow. These are heuristic checks -- use judgment on each finding.*"
+          } > /tmp/review-comment.md
+
+          gh pr comment "$PR_NUMBER" \
+            --repo "$GITHUB_REPOSITORY" \
+            --body-file /tmp/review-comment.md
+
+      - name: Post clean review comment
+        if: steps.review.outputs.findings == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          FILE_COUNT: ${{ steps.changes.outputs.file_count }}
+        run: |
+          {
+            echo "## Automated Review"
+            echo
+            echo "Scanned **${FILE_COUNT}** changed files. No issues found."
+            echo
+            echo "---"
+            echo "*Auto-generated by auto-review workflow.*"
+          } > /tmp/clean-review.md
+
+          gh pr comment "$PR_NUMBER" \
+            --repo "$GITHUB_REPOSITORY" \
+            --body-file /tmp/clean-review.md
