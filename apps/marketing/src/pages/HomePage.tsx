@@ -3,7 +3,7 @@ import { ProjectsSection } from "../components/ProjectsSection";
 import { TechStackSection } from "../components/TechStackSection";
 import { AboutSection } from "../components/AboutSection";
 import { ContactSection } from "../components/ContactSection";
-import { Heading, Button } from "@mattbutlerengineering/rialto";
+import { Heading, Button, Text } from "@mattbutlerengineering/rialto";
 import styles from "./HomePage.module.css";
 
 export function HomePage() {
@@ -16,7 +16,7 @@ export function HomePage() {
       <ContactSection />
       <section className={styles.weeklyCta}>
         <Heading level={2}>Stay Current</Heading>
-        <p>Check out my weekly information intake from the best dev newsletters.</p>
+        <Text>Check out my weekly information intake from the best dev newsletters.</Text>
         <Button asChild variant="primary" size="md">
           <a href="/weekly">View Weekly Reads</a>
         </Button>
