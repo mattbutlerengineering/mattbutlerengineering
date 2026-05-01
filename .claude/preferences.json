@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "Structured index of user and project preferences. Derived from CLAUDE.md, rules/, and session corrections. Keys are topic slugs; values describe the preference, its source, and priority.",
+  "preferences": {
+    "immutability": {
+      "description": "Always create new objects instead of mutating existing ones. Use spread operators, Object.assign, or immutable update utilities. Never modify function arguments in place.",
+      "source": "rules/common/coding-style.md",
+      "priority": "critical",
+      "examples": [
+        "Use { ...obj, field: newValue } instead of obj.field = newValue",
+        "Use array.map/filter/concat instead of push/splice"
+      ]
+    },
+    "test-driven-development": {
+      "description": "Write tests before implementation (RED-GREEN-IMPROVE cycle). Minimum 80% coverage. Use tdd-guide agent proactively for new features.",
+      "source": "rules/common/testing.md",
+      "priority": "high",
+      "examples": [
+        "Write failing test first, then implement to pass",
+        "Never skip the RED phase -- confirm the test actually fails before writing code"
+      ]
+    },
+    "conventional-commits": {
+      "description": "All commit messages follow Conventional Commits format: <type>: <description>. Types: feat, fix, refactor, docs, test, chore, perf, ci.",
+      "source": "rules/common/git-workflow.md",
+      "priority": "high",
+      "examples": [
+        "feat: add reservation cancellation endpoint",
+        "fix: prevent XSS in user profile display"
+      ]
+    },
+    "small-files": {
+      "description": "Prefer many small files over few large ones. Target 200-400 lines, hard max 800 lines. Functions should be under 50 lines. Organize by feature/domain, not by type.",
+      "source": "rules/common/coding-style.md",
+      "priority": "high",
+      "examples": [
+        "Extract utility functions into separate modules",
+        "Split a 900-line component into feature-focused sub-components"
+      ]
+    },
+    "error-handling": {
+      "description": "Handle errors explicitly at every level. Provide user-friendly messages in UI code, detailed context in server logs. Never silently swallow errors.",
+      "source": "rules/common/coding-style.md",
+      "priority": "high",
+      "examples": [
+        "Wrap async calls in try/catch with specific error types",
+        "Return structured error responses from API endpoints"
+      ]
+    },
+    "input-validation": {
+      "description": "Validate all inputs at system boundaries using schema-based validation where available. Fail fast with clear error messages. Never trust external data.",
+      "source": "rules/common/coding-style.md",
+      "priority": "high",
+      "examples": [
+        "Use Zod schemas for API request validation",
+        "Validate environment variables at startup"
+      ]
+    },
+    "no-hardcoded-secrets": {
+      "description": "Never hardcode API keys, passwords, tokens, or connection strings in source code. Use environment variables or a secret manager. Rotate any exposed secrets immediately.",
+      "source": "rules/common/security.md",
+      "priority": "critical",
+      "examples": [
+        "Read DATABASE_URL from process.env, not from a config file",
+        "Use dotenv for local development only, never commit .env files"
+      ]
+    },
+    "parallel-agent-execution": {
+      "description": "Use parallel Task execution for independent operations. Launch multiple agents simultaneously when their work does not depend on each other.",
+      "source": "rules/common/agents.md",
+      "priority": "medium",
+      "examples": [
+        "Run security review, test writing, and pattern research in parallel",
+        "Use Promise.all for independent async operations"
+      ]
+    }
+  }
+}
