@@ -1,0 +1,109 @@
+name: Auto-Merge Policy
+
+on:
+  pull_request:
+    types: [labeled, opened, synchronize, reopened]
+  check_suite:
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  evaluate:
+    name: Evaluate Auto-Merge Eligibility
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || (github.event_name == 'check_suite' && github.event.check_suite.conclusion == 'success')
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+        with:
+          persist-credentials: false
+
+      - name: Determine PR number
+        id: pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_PR_NUMBER: ${{ github.event.pull_request.number }}
+          CHECK_SUITE_HEAD_SHA: ${{ github.event.check_suite.head_sha }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            echo "number=$EVENT_PR_NUMBER" >> "$GITHUB_OUTPUT"
+          elif [ "$EVENT_NAME" = "check_suite" ]; then
+            PR_NUM=$(gh pr list --state open --json number,headRefOid \
+              -q ".[] | select(.headRefOid == \"$CHECK_SUITE_HEAD_SHA\") | .number" | head -1)
+            if [ -z "$PR_NUM" ]; then
+              echo "No open PR found for check_suite SHA $CHECK_SUITE_HEAD_SHA"
+              echo "number=" >> "$GITHUB_OUTPUT"
+            else
+              echo "number=$PR_NUM" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Check auto-merge eligibility
+        if: steps.pr.outputs.number != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          echo "Evaluating PR #$PR_NUMBER for auto-merge..."
+
+          # Fetch PR metadata
+          PR_JSON=$(gh pr view "$PR_NUMBER" --json labels,author,files,mergeable,reviewDecision)
+          AUTHOR=$(echo "$PR_JSON" | jq -r '.author.login')
+          LABELS=$(echo "$PR_JSON" | jq -r '.labels[].name' 2>/dev/null || echo "")
+
+          echo "Author: $AUTHOR"
+          echo "Labels: $LABELS"
+
+          # Check for auto-merge label
+          HAS_AUTO_MERGE=false
+          for label in $LABELS; do
+            if [ "$label" = "auto-merge" ]; then
+              HAS_AUTO_MERGE=true
+            fi
+          done
+
+          if [ "$HAS_AUTO_MERGE" = "false" ]; then
+            echo "Skipping: PR does not have 'auto-merge' label"
+            exit 0
+          fi
+
+          # Check if PR touches sensitive paths that require human review
+          SENSITIVE_FILES=$(echo "$PR_JSON" | jq -r '.files[].path' | grep -E \
+            '^\.github/|^infrastructure/|/migrations/|^CLAUDE\.md$|^AGENTS\.md$|^\.claude/' || true)
+
+          if [ -n "$SENSITIVE_FILES" ]; then
+            echo "::warning::PR touches sensitive paths — human review required:"
+            echo "$SENSITIVE_FILES"
+            gh pr comment "$PR_NUMBER" --body "**Auto-merge blocked**: This PR modifies sensitive paths that require human review.
+
+          Please request a manual review before merging." || true
+            exit 0
+          fi
+
+          # Check if author is a bot or trusted
+          TRUSTED_AUTHORS="github-actions[bot] dependabot[bot] renovate[bot] mbe-agent"
+          IS_TRUSTED=false
+          for trusted in $TRUSTED_AUTHORS; do
+            if [ "$AUTHOR" = "$trusted" ]; then
+              IS_TRUSTED=true
+              break
+            fi
+          done
+
+          # Also check if author ends with [bot]
+          if echo "$AUTHOR" | grep -q '\[bot\]$'; then
+            IS_TRUSTED=true
+          fi
+
+          if [ "$IS_TRUSTED" = "false" ]; then
+            echo "Skipping: Author '$AUTHOR' is not in trusted auto-merge list"
+            exit 0
+          fi
+
+          # All checks passed — enable auto-merge
+          echo "Enabling auto-merge for PR #$PR_NUMBER (squash)"
+          gh pr merge "$PR_NUMBER" --auto --squash || echo "Auto-merge could not be enabled for #$PR_NUMBER"

@@ -1,0 +1,151 @@
+name: Coverage Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "*.png"
+      - ".gitignore"
+      - "LICENSE"
+
+concurrency:
+  group: coverage-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  coverage:
+    name: Coverage Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      COVERAGE_THRESHOLD: 40
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Cache node_modules
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            node_modules
+            packages/*/node_modules
+            apps/*/node_modules
+            services/*/node_modules
+            tools/*/node_modules
+          key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Restore Prisma clients
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            services/users/src/generated
+            services/reservations/src/generated
+            services/agent/src/generated
+          key: prisma-clients-${{ hashFiles('services/users/prisma/schema.prisma', 'services/reservations/prisma/schema.prisma', 'services/agent/prisma/schema.prisma') }}
+
+      - name: Generate Prisma clients
+        run: |
+          pnpm --filter @mbe/users-service db:generate
+          pnpm --filter @mbe/reservations-service db:generate
+          pnpm --filter @mbe/agent-service db:generate
+
+      - name: Run tests with coverage
+        env:
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+          TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+        run: pnpm turbo test:coverage
+
+      - name: Collect coverage summary
+        id: coverage
+        run: |
+          # Aggregate coverage from all packages that produced reports
+          TOTAL_LINES=0
+          COVERED_LINES=0
+
+          for REPORT in $(find . -path '*/coverage/coverage-final.json' -not -path '*/node_modules/*'); do
+            PKG_TOTAL=$(node -e "
+              const c = require('./$REPORT');
+              let t=0, cov=0;
+              for (const f of Object.values(c)) {
+                for (const [k,v] of Object.entries(f.s)) { t++; if (v>0) cov++; }
+              }
+              console.log(t + ',' + cov);
+            ")
+            TOTAL_LINES=$((TOTAL_LINES + $(echo "$PKG_TOTAL" | cut -d',' -f1)))
+            COVERED_LINES=$((COVERED_LINES + $(echo "$PKG_TOTAL" | cut -d',' -f2)))
+          done
+
+          if [ "$TOTAL_LINES" -gt 0 ]; then
+            PERCENT=$((COVERED_LINES * 100 / TOTAL_LINES))
+          else
+            PERCENT=0
+          fi
+
+          echo "percent=$PERCENT" >> "$GITHUB_OUTPUT"
+          echo "total=$TOTAL_LINES" >> "$GITHUB_OUTPUT"
+          echo "covered=$COVERED_LINES" >> "$GITHUB_OUTPUT"
+          echo "Coverage: $PERCENT% ($COVERED_LINES / $TOTAL_LINES statements)"
+
+      - name: Post coverage comment
+        if: github.event_name == 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COVERAGE_PERCENT: ${{ steps.coverage.outputs.percent }}
+          COVERAGE_TOTAL: ${{ steps.coverage.outputs.total }}
+          COVERAGE_COVERED: ${{ steps.coverage.outputs.covered }}
+        run: |
+          if [ "$COVERAGE_PERCENT" -ge "$COVERAGE_THRESHOLD" ]; then
+            BADGE="pass"
+          else
+            BADGE="FAIL"
+          fi
+
+          BODY=$(cat <<EOF
+          ## Coverage Report
+
+          | Metric | Value |
+          |--------|-------|
+          | Statements covered | $COVERAGE_COVERED / $COVERAGE_TOTAL |
+          | Coverage | **$COVERAGE_PERCENT%** |
+          | Threshold | $COVERAGE_THRESHOLD% |
+          | Result | **$BADGE** |
+          EOF
+          )
+
+          # Delete previous coverage comment if it exists
+          EXISTING=$(gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
+            --jq '.[] | select(.body | startswith("## Coverage Report")) | .id' | head -1)
+
+          if [ -n "$EXISTING" ]; then
+            gh api repos/${{ github.repository }}/issues/comments/"$EXISTING" -X DELETE || true
+          fi
+
+          gh pr comment ${{ github.event.pull_request.number }} --body "$BODY"
+
+      - name: Enforce coverage threshold
+        env:
+          COVERAGE_PERCENT: ${{ steps.coverage.outputs.percent }}
+        run: |
+          echo "Coverage: $COVERAGE_PERCENT% (threshold: $COVERAGE_THRESHOLD%)"
+          if [ "$COVERAGE_PERCENT" -lt "$COVERAGE_THRESHOLD" ]; then
+            echo "::error::Coverage $COVERAGE_PERCENT% is below threshold of $COVERAGE_THRESHOLD%"
+            exit 1
+          fi
