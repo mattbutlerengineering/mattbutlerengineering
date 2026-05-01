@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { Button, Checkbox, Divider, Input, useToast, AuthMascot, Text } from "@mattbutlerengineering/rialto";
+import type { MascotState } from "@mattbutlerengineering/rialto";
 import { AuthLayout } from "./AuthLayout";
 import styles from "./AuthLayout.module.css";
 
@@ -9,7 +10,7 @@ export function SignUp() {
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [mascotState, setMascotState] = useState<"idle" | "typing" | "peeking" | "covering">("idle");
+  const [mascotState, setMascotState] = useState<MascotState>("neutral");
   const [emailValue, setEmailValue] = useState("");
 
   async function handleSubmit(e: FormEvent) {
@@ -20,7 +21,11 @@ export function SignUp() {
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
     setIsLoading(false);
+    setMascotState("success");
     toast({ title: "Account created successfully", variant: "success" });
+
+    // Reset to neutral after celebration
+    setTimeout(() => setMascotState("neutral"), 1500);
   }
 
   return (
@@ -32,9 +37,9 @@ export function SignUp() {
         </Link>
       }
     >
-      <AuthMascot 
-        state={mascotState} 
-        progress={Math.min(emailValue.length / 20, 1)} 
+      <AuthMascot
+        state={mascotState}
+        progress={Math.min(emailValue.length / 20, 1)}
       />
 
       <form onSubmit={handleSubmit} className={styles.form}>
@@ -44,8 +49,8 @@ export function SignUp() {
           required
           autoComplete="name"
           disabled={isLoading}
-          onFocus={() => setMascotState("typing")}
-          onBlur={() => setMascotState("idle")}
+          onFocus={() => setMascotState("active")}
+          onBlur={() => setMascotState("neutral")}
         />
         <Input
           label="Email address"
@@ -56,10 +61,10 @@ export function SignUp() {
           value={emailValue}
           onChange={(e) => {
             setEmailValue(e.target.value);
-            setMascotState("typing");
+            setMascotState("active");
           }}
-          onFocus={() => setMascotState("typing")}
-          onBlur={() => setMascotState("idle")}
+          onFocus={() => setMascotState("active")}
+          onBlur={() => setMascotState("neutral")}
         />
         <Input
           label="Password"
@@ -67,15 +72,18 @@ export function SignUp() {
           required
           autoComplete="new-password"
           disabled={isLoading}
-          onFocus={() => setMascotState("covering")}
-          onBlur={() => setMascotState("idle")}
+          onFocus={() => setMascotState("shy")}
+          onBlur={() => setMascotState("neutral")}
           endIcon={
             <Button
               variant="ghost"
               size="sm"
               type="button"
               className={styles.passwordToggle}
-              onClick={() => setShowPassword(!showPassword)}
+              onClick={() => {
+                setShowPassword(!showPassword);
+                setMascotState(!showPassword ? "peek" : "shy");
+              }}
               aria-label={showPassword ? "Hide password" : "Show password"}
             >
               {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}

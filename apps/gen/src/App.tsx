@@ -1,6 +1,6 @@
 import { Outlet, Navigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
-import { Stack, Text, Button } from "@mattbutlerengineering/rialto";
+import { Stack, Text, Button, AuthMascot } from "@mattbutlerengineering/rialto";
 import styles from "./App.module.css";
 
 /**
@@ -71,6 +71,7 @@ function LoginPrompt() {
   return (
     <div className={styles.loginContainer}>
       <Stack gap="md" align="center">
+        <AuthMascot state="neutral" />
         <Text as="h1" variant="display" color="primary">
           Gen Playground
         </Text>
