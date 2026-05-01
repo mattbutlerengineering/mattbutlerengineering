@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Stack, Text, Button } from "@mattbutlerengineering/rialto";
+import { Stack, Text, Button, Heading } from "@mattbutlerengineering/rialto";
 import styles from "./NotFoundPage.module.css";
 
 const SUGGESTED_LINKS = [
@@ -19,7 +19,7 @@ export function NotFoundPage() {
 
   return (
     <div className={styles.container}>
-      <h1 className={styles.heading}>404</h1>
+      <Heading className={styles.heading}>404</Heading>
       <Text variant="body" color="secondary" className={styles.message}>
         This page doesn&apos;t exist. It may have been moved or removed.
       </Text>

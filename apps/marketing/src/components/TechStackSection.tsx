@@ -1,4 +1,4 @@
-import { Stack, Text, Tag, useScrollReveal, staggerReveal } from "@mattbutlerengineering/rialto";
+import { Stack, Text, Tag, Heading, useScrollReveal, staggerReveal } from "@mattbutlerengineering/rialto";
 import { motion } from "framer-motion";
 import { TECH_STACK } from "../data/tech-stack";
 import styles from "../pages/HomePage.module.css";
@@ -11,7 +11,7 @@ export function TechStackSection() {
       <div className={styles.sectionInner}>
         <Stack gap="xl">
           <div>
-            <h2 className={styles.sectionHeading}>Tech Stack</h2>
+            <Heading className={styles.sectionHeading}>Tech Stack</Heading>
             <Text variant="body" color="secondary">
               The tools and frameworks powering this site and its services.
             </Text>

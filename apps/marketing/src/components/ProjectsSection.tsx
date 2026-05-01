@@ -1,4 +1,4 @@
-import { Stack, Text, useScrollReveal, staggerReveal } from "@mattbutlerengineering/rialto";
+import { Stack, Text, Heading, useScrollReveal, staggerReveal } from "@mattbutlerengineering/rialto";
 import { motion } from "framer-motion";
 import { PROJECTS } from "../data/projects";
 import { ProjectCard } from "./ProjectCard";
@@ -12,7 +12,7 @@ export function ProjectsSection() {
       <div className={styles.sectionInner}>
         <Stack gap="xl">
           <div>
-            <h2 className={styles.sectionHeading}>Projects</h2>
+            <Heading className={styles.sectionHeading}>Projects</Heading>
             <Text variant="body" color="secondary">
               Work that ships — from design systems to deployed applications.
             </Text>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Stack, useScrollReveal, staggerReveal, boop, useToast } from "@mattbutlerengineering/rialto";
+import { Stack, useScrollReveal, staggerReveal, boop, useToast, Heading } from "@mattbutlerengineering/rialto";
 import { motion, useReducedMotion } from "framer-motion";
 import styles from "../pages/HomePage.module.css";
 
@@ -33,7 +33,7 @@ export function ContactSection() {
     <section id="contact" className={styles.section}>
       <div className={styles.sectionInner}>
         <Stack gap="md">
-          <h2 className={styles.sectionHeading}>Contact</h2>
+          <Heading className={styles.sectionHeading}>Contact</Heading>
           <motion.div
             ref={ref}
             variants={staggerReveal.container}

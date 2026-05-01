@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Card, Badge, Spinner } from "@mattbutlerengineering/rialto";
+import { Card, Badge, Spinner, Heading, Text } from "@mattbutlerengineering/rialto";
 import styles from "./StatusPage.module.css";
 
 interface ServiceStatus {
@@ -150,27 +150,27 @@ export function StatusPage() {
   return (
     <div className={styles.container}>
       <header className={styles.header}>
-        <h1>System Status</h1>
+        <Heading>System Status</Heading>
         <div className={styles.overallStatus}>
           <Badge color={statusColor(overall)} size="md">
             {overall === "loading" ? "Checking..." : statusLabel(overall)}
           </Badge>
         </div>
         {lastRefresh && (
-          <p className={styles.lastChecked}>
+          <Text className={styles.lastChecked}>
             Last checked: {new Date(lastRefresh).toLocaleTimeString()}
             {" · "}Refreshes every 30s
-          </p>
+          </Text>
         )}
       </header>
 
       <section className={styles.section}>
-        <h2>API Services</h2>
+        <Heading>API Services</Heading>
         <div className={styles.serviceGrid}>
           {services.map((service) => (
             <Card key={service.name} className={styles.card}>
               <div className={styles.cardHeader}>
-                <span className={styles.serviceName}>{service.name}</span>
+                <Text className={styles.serviceName}>{service.name}</Text>
                 {service.status === "loading" ? (
                   <Spinner size="sm" />
                 ) : (
@@ -180,10 +180,10 @@ export function StatusPage() {
                 )}
               </div>
               {service.latency !== undefined && (
-                <p className={styles.meta}>
+                <Text className={styles.meta}>
                   Latency: {service.latency}ms
                   {service.version && ` · v${service.version}`}
-                </p>
+                </Text>
               )}
             </Card>
           ))}
@@ -191,12 +191,12 @@ export function StatusPage() {
       </section>
 
       <section className={styles.section}>
-        <h2>Static Sites</h2>
+        <Heading>Static Sites</Heading>
         <div className={styles.serviceGrid}>
           {sites.map((site) => (
             <Card key={site.name} className={styles.card}>
               <div className={styles.cardHeader}>
-                <span className={styles.serviceName}>{site.name}</span>
+                <Text className={styles.serviceName}>{site.name}</Text>
                 {site.status === "loading" ? (
                   <Spinner size="sm" />
                 ) : (
@@ -206,7 +206,7 @@ export function StatusPage() {
                 )}
               </div>
               {site.latency !== undefined && (
-                <p className={styles.meta}>Latency: {site.latency}ms</p>
+                <Text className={styles.meta}>Latency: {site.latency}ms</Text>
               )}
             </Card>
           ))}

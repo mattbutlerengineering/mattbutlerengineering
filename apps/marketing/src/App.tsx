@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-import { Footer, GlobalNav } from "@mattbutlerengineering/rialto";
+import { Footer, GlobalNav, Text } from "@mattbutlerengineering/rialto";
 import styles from "./App.module.css";
 
 const HomePage = lazy(() =>

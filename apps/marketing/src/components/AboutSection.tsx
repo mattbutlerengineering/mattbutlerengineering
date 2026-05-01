@@ -1,4 +1,4 @@
-import { Stack, Text, Divider, useScrollReveal, staggerReveal } from "@mattbutlerengineering/rialto";
+import { Stack, Text, Divider, Heading, useScrollReveal, staggerReveal } from "@mattbutlerengineering/rialto";
 import { motion } from "framer-motion";
 import styles from "../pages/HomePage.module.css";
 
@@ -9,7 +9,7 @@ export function AboutSection() {
     <section id="about" className={styles.section}>
       <div className={styles.sectionInner}>
         <Stack gap="lg">
-          <h2 className={styles.sectionHeading}>About</h2>
+          <Heading className={styles.sectionHeading}>About</Heading>
           <Divider accent />
           <motion.div
             ref={ref}

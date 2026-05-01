@@ -1,4 +1,4 @@
-import { Hero, Stack, Button } from "@mattbutlerengineering/rialto";
+import { Hero, Stack, Button, Text } from "@mattbutlerengineering/rialto";
 
 export function HeroSection() {
   const scrollToProjects = () => {
@@ -15,7 +15,7 @@ export function HeroSection() {
       title={
         <>
           One-person team.{" "}
-          <span className="accent">Full ownership.</span>
+          <Text className="accent">Full ownership.</Text>
         </>
       }
       subtitle="Designing, building, shipping, and operating production systems — from component library to cloud infrastructure."

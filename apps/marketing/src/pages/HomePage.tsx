@@ -17,7 +17,7 @@ export function HomePage() {
       <ContactSection />
       <section className={styles.weeklyCta}>
         <Heading level={2}>Stay Current</Heading>
-        <p>Check out my weekly information intake from the best dev newsletters.</p>
+        <Text>Check out my weekly information intake from the best dev newsletters.</Text>
         <Link to="/weekly">
           <Button variant="primary" size="md">
             View Weekly Reads
