@@ -688,6 +688,18 @@ const CRITERIA= [
     detection: { type: 'any-of', pattern: ['.vscode/settings.json', 'tags', 'TAGS', '.ctags', '.tree-sitter/', 'llms.txt', 'llms-full.txt'] },
   },
 
+  {
+    id: 'acmm:onboarding-benchmark',
+    source: 'acmm',
+    level: 4,
+    category: 'readiness',
+    name: 'Onboarding benchmark',
+    description: 'Benchmark script that measures time-to-first-contribution for fresh AI sessions.',
+    rationale: 'L4 signal: file-presence alone does not ensure the AI can navigate the codebase; benchmarks measure actual readiness.',
+    details: 'An onboarding benchmark defines known tasks and expected completion times. Running these tasks in fresh AI sessions measures how well project documentation enables the AI to work independently. Improvements to CLAUDE.md and package docs should reduce benchmark times.',
+    detection: { type: 'any-of', pattern: ['scripts/acmm/onboarding-bench.js', 'docs/acmm/onboarding-benchmark.md'] },
+  },
+
   // ── L5 — Semi-Automated ────────────────────────────
   {
     id: 'acmm:github-actions-ai',
