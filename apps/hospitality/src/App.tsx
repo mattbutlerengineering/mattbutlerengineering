@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { Outlet, Navigate } from "react-router-dom";
 import { Suspense } from "react";
 import { useAuth } from "@mbe/auth/react";
-import { Stack, Text, Button, GlobalNav, Footer } from "@mattbutlerengineering/rialto";
+import { Stack, Text, Button, GlobalNav, Footer, AuthMascot } from "@mattbutlerengineering/rialto";
 import { useTheme, resolveTheme } from "./hooks/use-theme";
 import { LoadingPage } from "./pages/LoadingPage";
 import styles from "./App.module.css";
@@ -29,7 +29,7 @@ function UnauthenticatedShell({
         {children}
       </main>
       <Footer variant="minimal" className={styles.footer}>
-        <span>&copy; {new Date().getFullYear()} Matt Butler Engineering</span>
+        <Text>&copy; {new Date().getFullYear()} Matt Butler Engineering</Text>
       </Footer>
     </div>
   );
@@ -118,6 +118,7 @@ function LoginPrompt() {
 
   return (
     <Stack gap="md" align="center">
+      <AuthMascot state="neutral" />
       <Text as="h1" variant="display" color="primary">
         Hospitality
       </Text>
