@@ -1,7 +1,13 @@
-name: Storybook Deployment
+name: Deploy Storybook to GitHub Pages
 
 on:
   push:
+    branches:
+      - main
+    paths:
+      - 'packages/rialto/**'
+      - '.github/workflows/storybook.yml'
+  pull_request:
     branches:
       - main
     paths:
@@ -14,8 +20,12 @@ permissions:
   pages: write
   id-token: write
 
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -27,22 +37,31 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '22'
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Build Storybook
         run: pnpm --filter @mattbutlerengineering/rialto build-storybook
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
       - name: Upload artifact
+        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
         with:
           path: packages/rialto/storybook-static
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
 
       - name: Deploy to GitHub Pages
         id: deployment
