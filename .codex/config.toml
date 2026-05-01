@@ -1,0 +1,28 @@
+#:schema https://developers.openai.com/codex/config-schema.json
+
+# Codex Configuration for mattbutlerengineering monorepo
+# See https://developers.openai.com/codex/config-reference
+
+# Model configuration
+model = "gpt-4.1"
+
+# Approval policy: suggest, auto-edit, full-auto, or manual
+approval_policy = "suggest"
+
+# Context files for Codex to understand the project
+model_instructions_file = "AGENTS.md"
+
+# Sandbox settings
+[sandbox]
+enable = true
+workspace_write = "read-only"
+
+# Environment variables to expose
+[shell_environment_policy]
+mode = "include"
+include = ["PATH", "HOME", "NODE_ENV"]
+
+# MCP servers (optional)
+[mcp_servers.filesystem]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-filesystem", "."]

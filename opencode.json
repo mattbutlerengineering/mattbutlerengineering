@@ -1,0 +1,50 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "anthropic/claude-sonnet-4-6",
+  "contextPaths": [
+    "AGENTS.md",
+    "CLAUDE.md",
+    "GEMINI.md",
+    ".cursorrules",
+    ".codex/config.toml"
+  ],
+  "permission": {
+    "read": {
+      "*": "allow",
+      "*.env": "deny",
+      "*.env.*": "deny",
+      "*.env.example": "allow"
+    },
+    "edit": {
+      "*": "ask",
+      ".github/**": "deny",
+      "infrastructure/**": "ask"
+    },
+    "bash": {
+      "*": "ask",
+      "git status *": "allow",
+      "git diff *": "allow",
+      "pnpm *": "allow",
+      "npm *": "allow",
+      "npx *": "allow",
+      "rm *": "deny"
+    }
+  },
+  "agents": {
+    "plan": {
+      "model": "anthropic/claude-sonnet-4-6",
+      "maxTokens": 50000
+    },
+    "build": {
+      "model": "anthropic/claude-sonnet-4-6",
+      "maxTokens": 50000
+    }
+  },
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
+      "type": "stdio"
+    }
+  }
+}
