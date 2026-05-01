@@ -10,6 +10,7 @@ import { ciRunStatus } from "./tools/ci.js";
 import { gitWorkflowStatus } from "./tools/git.js";
 import { dbListTables, dbMigrationStatus } from "./tools/database.js";
 import { deployStatus } from "./tools/deploy_status.js";
+import { checkLogs } from "./tools/logs.js";
 
 const server = new Server(
   {
@@ -55,6 +56,16 @@ const TOOLS = [
     inputSchema: { type: "object", properties: {} },
   },
   {
+    name: "check_logs",
+    description: "Read recent logs from backend services",
+    inputSchema: { 
+      type: "object", 
+      properties: {
+        service: { type: "string", description: "Optional service name (users, reservations, agent)" }
+      }
+    }
+  },
+  {
     name: "db_migration_status",
     description: "Show applied Prisma migrations",
     inputSchema: { type: "object", properties: {} },
@@ -96,6 +107,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     if (name === "db_list_tables") {
       const result = await dbListTables();
+      return { content: [{ type: "text", text: result }] };
+    }
+
+    if (name === "check_logs") {
+      const result = await checkLogs(request.params.arguments?.service as string);
       return { content: [{ type: "text", text: result }] };
     }
 
