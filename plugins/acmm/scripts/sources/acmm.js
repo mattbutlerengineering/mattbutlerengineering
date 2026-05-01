@@ -919,6 +919,17 @@ const CRITERIA= [
     details: 'Token tracking records consumption per session, task, or time period. This data feeds into budget alerting and helps optimize model selection. Without tracking, cost governance is blind.',
     detection: { type: 'any-of', pattern: ['.claude/budget-policy.json', '.claude/acmm/cost-metrics.json', 'docs/acmm/cost-governance.md'] },
   },
+  {
+    id: 'acmm:auto-rollback',
+    source: 'acmm',
+    level: 6,
+    category: 'autonomy',
+    name: 'Automated rollback',
+    description: 'Automated detection and revert of regressions caused by AI-authored changes.',
+    rationale: 'L6 signal: the system not only acts but also undoes mistakes without human initiation.',
+    details: 'Auto-rollback completes the autonomous loop: the system detects regressions from its own PRs (via post-deploy checks) and creates revert PRs automatically. Without this, L6 autonomy is one-directional — the system can break things but not fix them.',
+    detection: { type: 'any-of', pattern: ['.github/workflows/auto-rollback.yml', 'docs/acmm/auto-rollback.md'] },
+  },
 ]
 
 export const acmmSource= {
