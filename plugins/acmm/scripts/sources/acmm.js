@@ -841,6 +841,28 @@ const CRITERIA= [
     details: 'A documented procedure: "If a nightly AI-merged PR breaks production: (1) revert PR, (2) disable auto-merge, (3) file incident issue, (4) RCA workflow runs on the reverted commit."',
     detection: { type: 'any-of', pattern: ['docs/rollback-drill.md', 'docs/ai-ops-runbook.md'] },
   },
+  {
+    id: 'acmm:budget-policy',
+    source: 'acmm',
+    level: 4,
+    category: 'governance',
+    name: 'Budget policy',
+    description: 'Defined cost limits and budget controls for AI agent operations.',
+    rationale: 'L4 signal: autonomous systems have explicit cost boundaries to prevent unbounded spending.',
+    details: 'A budget policy defines per-task, daily, and weekly cost limits for AI operations. Without explicit limits, L5/L6 autonomous loops can consume tokens unbounded. The policy also specifies model tiering strategy and alerting thresholds.',
+    detection: { type: 'any-of', pattern: ['.claude/budget-policy.json', 'docs/acmm/cost-governance.md'] },
+  },
+  {
+    id: 'acmm:token-tracking',
+    source: 'acmm',
+    level: 4,
+    category: 'observability',
+    name: 'Token usage tracking',
+    description: 'Token consumption and cost tracking per session or task.',
+    rationale: 'L4 signal: cost visibility enables informed decisions about model tiering and automation frequency.',
+    details: 'Token tracking records consumption per session, task, or time period. This data feeds into budget alerting and helps optimize model selection. Without tracking, cost governance is blind.',
+    detection: { type: 'any-of', pattern: ['.claude/budget-policy.json', '.claude/acmm/cost-metrics.json', 'docs/acmm/cost-governance.md'] },
+  },
 ]
 
 export const acmmSource= {
