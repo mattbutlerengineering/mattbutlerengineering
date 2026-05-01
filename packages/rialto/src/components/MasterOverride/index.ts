@@ -1,2 +1,2 @@
-export { MasterOverride } from "./MasterOverride";
-export type { MasterOverrideProps } from "./MasterOverride";
+export { MasterOverride, OverridePanel } from "./MasterOverride";
+export type { MasterOverrideProps, OverridePanelProps } from "./MasterOverride";

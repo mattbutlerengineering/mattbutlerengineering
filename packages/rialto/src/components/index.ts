@@ -65,6 +65,7 @@ export * from "./Sidebar";
 export * from "./Stack";
 export * from "./Heading";
 export * from "./Stat";
+export * from "./StatusLED";
 export * from "./Text";
 
 // ── Generative AI ───────────────────────────────

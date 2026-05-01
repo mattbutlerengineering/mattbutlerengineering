@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
+import { StatusLED } from "../StatusLED";
 import styles from "./Avatar.module.css";
 
 /* ── Avatar ──────────────────────────────────── */
@@ -120,7 +121,13 @@ export const Avatar = forwardRef<HTMLDivElement, AvatarProps>(
           </svg>
         )}
         {status && (
-          <span className={`${styles.status} ${styles[status]}`} role="img" aria-label={status} />
+          <StatusLED
+            variant={status === "offline" ? "off" : status === "busy" ? "danger" : status === "away" ? "accent" : "success"}
+            size={size}
+            pulse={status !== "offline"}
+            label={status}
+            className={styles.status}
+          />
         )}
       </div>
     );

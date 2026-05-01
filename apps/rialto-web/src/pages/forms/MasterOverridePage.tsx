@@ -4,6 +4,7 @@ import {
   Checkbox,
   DataList,
   MasterOverride,
+  OverridePanel,
   SegmentedControl,
   Stack,
   Text,
@@ -48,11 +49,43 @@ function SplitFlapDemo() {
   );
 }
 
+function AutoRecloseDemo() {
+  const [on, setOn] = useState(false);
+  return (
+    <Stack gap="md">
+      <MasterOverride
+        label="One-way Valve"
+        description="Safety cover automatically re-closes after engagement to lock the state."
+        on={on}
+        onChange={setOn}
+        autoReclose
+        variant="warning"
+      />
+    </Stack>
+  );
+}
+
+function OverridePanelDemo() {
+  const [sw1, setSw1] = useState(false);
+  const [sw2, setSw2] = useState(false);
+  const [sw3, setSw3] = useState(true);
+
+  return (
+    <OverridePanel title="Main Launch Console">
+      <MasterOverride label="LOX Flow" on={sw1} onChange={setSw1} size="sm" />
+      <MasterOverride label="RP-1 Pump" on={sw2} onChange={setSw2} size="sm" />
+      <MasterOverride label="Ignition" on={sw3} onChange={setSw3} size="sm" variant="danger" />
+    </OverridePanel>
+  );
+}
+
 function MasterOverridePlayground() {
   const [on, setOn] = useState(false);
   const [disabled, setDisabled] = useState(false);
+  const [autoReclose, setAutoReclose] = useState(false);
   const [size, setSize] = useState<"sm" | "md" | "lg">("md");
   const [variant, setVariant] = useState<"default" | "warning" | "danger">("warning");
+  const [feedback, setFeedback] = useState<"none" | "click" | "haptic" | "both">("none");
 
   return (
     <Stack gap="lg">
@@ -65,10 +98,13 @@ function MasterOverridePlayground() {
           size={size}
           variant={variant}
           disabled={disabled}
+          autoReclose={autoReclose}
+          feedback={feedback}
         />
       </Card>
       <div className={styles.row}>
         <Checkbox label="Disabled" checked={disabled} onCheckedChange={setDisabled} />
+        <Checkbox label="Auto Re-close" checked={autoReclose} onCheckedChange={setAutoReclose} />
       </div>
       <Stack gap="sm">
         <Text variant="caption" color="secondary">Size</Text>
@@ -91,6 +127,19 @@ function MasterOverridePlayground() {
             { id: "default", label: "Default" },
             { id: "warning", label: "Warning" },
             { id: "danger", label: "Danger" },
+          ]}
+        />
+      </Stack>
+      <Stack gap="sm">
+        <Text variant="caption" color="secondary">Feedback</Text>
+        <SegmentedControl
+          value={feedback}
+          onChange={(v) => setFeedback(v as "none" | "click" | "haptic" | "both")}
+          segments={[
+            { id: "none", label: "None" },
+            { id: "click", label: "Audio" },
+            { id: "haptic", label: "Haptic" },
+            { id: "both", label: "Both" },
           ]}
         />
       </Stack>
@@ -195,6 +244,20 @@ export function MasterOverridePage() {
         </Card>
       </Section>
 
+      {/* ── Auto Re-close ─────────────────────────────────────────── */}
+      <Section title="Auto Re-close">
+        <Card variant="flat" style={{ padding: "var(--rialto-space-xl)" }}>
+          <AutoRecloseDemo />
+        </Card>
+      </Section>
+
+      {/* ── Override Panel ────────────────────────────────────────── */}
+      <Section title="Override Panel Composition">
+        <Card variant="flat" style={{ padding: "var(--rialto-space-xl)" }}>
+          <OverridePanelDemo />
+        </Card>
+      </Section>
+
       {/* ── Playground ────────────────────────────────────────────── */}
       <Section title="Interactive Playground">
         <MasterOverridePlayground />
@@ -214,6 +277,11 @@ export function MasterOverridePage() {
             { name: "size", type: '"sm" | "md" | "lg"', default: '"md"', description: "Overall component scale." },
             { name: "variant", type: '"default" | "warning" | "danger"', default: '"warning"', description: "Colors the stripe on the safety cover." },
             { name: "disabled", type: "boolean", default: "false", description: "Prevents all interaction." },
+            { name: "requireHold", type: "boolean | number", default: "false", description: "Requires pressing and holding the switch to engage. Number specifies delay in ms." },
+            { name: "labelTransition", type: '"fade" | "splitflap"', default: '"fade"', description: "The animation used to swap status labels." },
+            { name: "feedback", type: '"none" | "click" | "haptic" | "both"', default: '"none"', description: "Optional audio/haptic feedback on engagement." },
+            { name: "autoReclose", type: "boolean", default: "false", description: "Automatically closes the cover after engagement." },
+            { name: "autoRecloseMs", type: "number", default: "800", description: "Delay before auto-closing." },
           ]}
         />
       </Section>
