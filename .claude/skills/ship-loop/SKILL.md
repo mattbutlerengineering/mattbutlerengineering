@@ -19,7 +19,7 @@ Autonomous continuous improvement loop with **parallel dispatch**. Runs discover
 │ ITERATION N                                             │
 │                                                         │
 │  Phase A: Discover (parallel)                           │
-│  ├── A1. CI health check          ─┐                    │
+│  ├── A1. System health check      ─┐                    │
 │  ├── A2. Dependabot alerts         ├── all in parallel  │
 │  ├── A2.5. Smoke audit (if merge)  │                    │
 │  └── A3. Check previous PRs/CI    ─┘                    │
@@ -44,14 +44,28 @@ Key insight: **Phase C checks results from the PREVIOUS iteration** while Phase 
 
 Run ALL discovery steps simultaneously:
 
-### A1. CI Health Check (parallel)
+### A1. System Health Check (parallel)
 
+**CRITICAL: If any health check fails, the loop MUST pause and prioritize fixing the system.**
+
+**1. CI Health Check:**
 ```bash
 gh run list --branch main --limit 5 --json status,conclusion,name,databaseId \
   | jq '[.[] | select(.conclusion == "failure")]'
 ```
 
-If failures exist, create `ci-fix` issues (or pick up existing ones).
+**2. Production Health Check:**
+```bash
+# Verify live endpoints are healthy before starting new work
+for endpoint in \
+  "https://mattbutlerengineering.com/api/v1/users/health" \
+  "https://mattbutlerengineering.com/api/v1/reservations/health" \
+  "https://mattbutlerengineering.com/api/gen/health"; do
+  curl -sf "$endpoint" | jq -e '.status == "ok"' > /dev/null || { echo "::error::System unhealthy: $endpoint"; exit 1; }
+done
+```
+
+If failures exist, create `ci-fix` issues (or pick up existing ones) and STOP the iteration. Do not dispatch new features or audit fixes while the system is unhealthy.
 
 ### A2. Security Audit — Dependabot Alerts (parallel, cached)
 
@@ -258,7 +272,8 @@ curl -sf https://mattbutlerengineering.com/rialto > /dev/null &
 
 for endpoint in \
   "https://mattbutlerengineering.com/api/v1/users/health" \
-  "https://mattbutlerengineering.com/api/health"; do
+  "https://mattbutlerengineering.com/api/v1/reservations/health" \
+  "https://mattbutlerengineering.com/api/gen/health"; do
   curl -sf "$endpoint" | jq -e '.status == "ok"' > /dev/null &
 done
 
@@ -270,7 +285,7 @@ wait
 2. Create `ci-fix` issue
 3. Counts as failure toward circuit breaker
 
-## Phase D: Loop or Stop
+## Phase D: Loop or stop
 
 - If time/budget remains, return to **Phase A**
 - **Circuit breaker:** 3 consecutive failures (across all agents in a batch) → stop and report
