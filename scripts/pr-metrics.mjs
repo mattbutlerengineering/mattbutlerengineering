@@ -3,65 +3,40 @@
 /**
  * PR-acceptance metric for the ACMM L3 ("Measured / Enforced") signal.
  *
- * Pulls recent PRs from the GitHub CLI, computes acceptance rate and a
- * lightweight breakdown of human-vs-agent authorship, appends one dated
- * JSONL entry to metrics/acmm-pr-history.jsonl, and prints a summary.
+ * Pulls recent PRs via the GitHub CLI, identifies AI-generated PRs by
+ * branch name patterns or labels, computes acceptance rate, and appends
+ * one dated entry to docs/metrics/pr-acceptance.json.
  *
  * Usage:
- *   node scripts/pr-metrics.mjs                 # default: last 30 days, append to history
+ *   node scripts/pr-metrics.mjs                 # default: last 30 days
  *   node scripts/pr-metrics.mjs --days 90       # configurable window
- *   node scripts/pr-metrics.mjs --dry-run       # compute + print, do not append
- *   node scripts/pr-metrics.mjs --print-history # tail recent history entries instead
- *
- * The script is invoked manually or by a scheduled progress-tracker.
- * It does not modify code; it only writes to metrics/.
+ *   node scripts/pr-metrics.mjs --dry-run       # compute + print, do not persist
  *
  * Why this exists (acmm:pr-acceptance-metric, L3 feedback-loop):
  *   The L3 maturity signal is "we measure the AI loop itself, not just
- *   the code." Acceptance rate is the simplest meta-metric: of the PRs
- *   we open (human or agent-authored), what fraction merges? A drop
- *   across two consecutive runs is the earliest signal that something
- *   in the loop has regressed.
+ *   the code." Acceptance rate is the simplest meta-metric: of the AI PRs
+ *   we open, what fraction merges? A drop across two consecutive runs is
+ *   the earliest signal that something in the loop has regressed.
  */
 
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, readFileSync, mkdirSync, existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const cwd = process.cwd();
-const HISTORY_PATH = join(cwd, 'metrics/acmm-pr-history.jsonl');
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const METRICS_PATH = resolve(__dirname, '..', 'docs', 'metrics', 'pr-acceptance.json');
 
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes('--dry-run');
-const PRINT_HISTORY = args.includes('--print-history');
 const daysIdx = args.indexOf('--days');
 const DAYS = daysIdx >= 0 ? parseInt(args[daysIdx + 1] ?? '30', 10) : 30;
 
-if (PRINT_HISTORY) {
-  if (!existsSync(HISTORY_PATH)) {
-    console.log('No history yet at', HISTORY_PATH);
-    process.exit(0);
-  }
-  const body = readFileSync(HISTORY_PATH, 'utf-8');
-  const lines = body.split('\n').filter(Boolean).slice(-10);
-  console.log(`PR metrics history (last ${lines.length} entries):`);
-  console.log('');
-  console.log('Date        Window  Total  Merged  Closed  Accept%  Agent%');
-  for (const line of lines) {
-    const e = JSON.parse(line);
-    const accept = e.total === 0 ? '—' : `${Math.round((e.merged / e.total) * 100)}%`;
-    const agent = e.merged === 0 ? '—' : `${Math.round((e.agentMerged / e.merged) * 100)}%`;
-    console.log(
-      `${e.date}  ${String(e.windowDays).padStart(3)}d   ${String(e.total).padStart(4)}   ${String(e.merged).padStart(5)}   ${String(e.closed).padStart(5)}    ${accept.padStart(5)}  ${agent.padStart(5)}`,
-    );
-  }
-  process.exit(0);
-}
-
-/* ── 1. Pull PRs from gh ─────────────────────────────────── */
+/* ── 1. Pull PRs from gh CLI ─────────────────────────────── */
 
 const sinceMs = Date.now() - DAYS * 24 * 60 * 60 * 1000;
 const since = new Date(sinceMs).toISOString().slice(0, 10);
+
 let prsRaw;
 try {
   prsRaw = execFileSync(
@@ -72,9 +47,9 @@ try {
       '--state',
       'all',
       '--limit',
-      '200',
+      '300',
       '--json',
-      'number,title,state,createdAt,closedAt,mergedAt,body,author,labels',
+      'number,title,state,headRefName,createdAt,closedAt,mergedAt,labels',
     ],
     { encoding: 'utf-8' },
   );
@@ -83,86 +58,117 @@ try {
   process.exit(1);
 }
 
-/** @type {Array<{number:number, title:string, state:string, createdAt:string, closedAt:string|null, mergedAt:string|null, body:string|null, author:{login:string}, labels:Array<{name:string}>}>} */
+/**
+ * @typedef {{
+ *   number: number,
+ *   title: string,
+ *   state: string,
+ *   headRefName: string,
+ *   createdAt: string,
+ *   closedAt: string | null,
+ *   mergedAt: string | null,
+ *   labels: Array<{ name: string }>
+ * }} PR
+ */
+
+/** @type {PR[]} */
 const allPrs = JSON.parse(prsRaw);
 
-// Filter to PRs whose terminal event (merge or close) happened in window.
-// PRs still OPEN are skipped — they're undecided.
+// Filter to PRs whose terminal event (merge or close) is within the window.
+// Open PRs are excluded — they haven't been decided yet.
 const prs = allPrs.filter((p) => {
   const terminal = p.mergedAt ?? p.closedAt;
   if (!terminal) return false;
   return new Date(terminal).getTime() >= sinceMs;
 });
 
-/* ── 2. Compute metrics ──────────────────────────────────── */
+/* ── 2. Identify AI-generated PRs ────────────────────────── */
 
-function isAgentAuthored(pr) {
-  // Two signals: body contains Co-Authored-By: Claude, or PR has 'has-pr' label
-  // (added by mbe-issue-worker after a successful agent run).
-  const body = pr.body ?? '';
-  if (/Co-Authored-By:\s*Claude/i.test(body)) return true;
+/** @type {RegExp[]} */
+const AI_BRANCH_PATTERNS = [
+  /^agent-/,
+  /^worktree-agent-/,
+  /^fix\/agent-/,
+  /^feat\/agent-/,
+];
+
+/**
+ * A PR is considered AI-generated if its branch name matches one of the
+ * known agent patterns, or it carries the `has-pr` label (applied by
+ * mbe-issue-worker after a successful agent run).
+ *
+ * @param {PR} pr
+ * @returns {boolean}
+ */
+function isAiPr(pr) {
+  const branch = pr.headRefName ?? '';
+  if (AI_BRANCH_PATTERNS.some((re) => re.test(branch))) return true;
   if (pr.labels?.some((l) => l.name === 'has-pr')) return true;
   return false;
 }
 
-function timeToCloseHours(pr) {
-  const end = pr.mergedAt ?? pr.closedAt;
-  if (!end || !pr.createdAt) return null;
-  return (new Date(end).getTime() - new Date(pr.createdAt).getTime()) / (1000 * 60 * 60);
-}
+/* ── 3. Compute metrics ──────────────────────────────────── */
 
-const merged = prs.filter((p) => p.mergedAt !== null);
-const closed = prs.filter((p) => p.state === 'CLOSED' && p.mergedAt === null);
-const total = merged.length + closed.length;
+const aiPrs = prs.filter(isAiPr);
+const merged = aiPrs.filter((p) => p.mergedAt !== null);
+const rejected = aiPrs.filter((p) => p.state === 'CLOSED' && p.mergedAt === null);
+const totalAiPrs = merged.length + rejected.length;
+const acceptanceRate =
+  totalAiPrs === 0 ? null : Math.round((merged.length / totalAiPrs) * 100) / 100;
 
-const agentMerged = merged.filter(isAgentAuthored).length;
-const agentClosed = closed.filter(isAgentAuthored).length;
-
-const closeTimes = [...merged, ...closed].map(timeToCloseHours).filter((h) => h !== null);
-const meanCloseHours = closeTimes.length > 0 ? closeTimes.reduce((a, b) => a + b, 0) / closeTimes.length : null;
-
-/* ── 3. Build entry ──────────────────────────────────────── */
+/* ── 4. Build entry ──────────────────────────────────────── */
 
 const date = new Date().toISOString().slice(0, 10);
+
 const entry = {
   date,
-  windowDays: DAYS,
-  total,
+  window_days: DAYS,
+  total_ai_prs: totalAiPrs,
   merged: merged.length,
-  closed: closed.length,
-  acceptanceRate: total === 0 ? null : Math.round((merged.length / total) * 1000) / 1000,
-  agentMerged,
-  agentClosed,
-  agentMergeShare: merged.length === 0 ? null : Math.round((agentMerged / merged.length) * 1000) / 1000,
-  meanCloseHours: meanCloseHours === null ? null : Math.round(meanCloseHours * 10) / 10,
+  rejected: rejected.length,
+  acceptance_rate: acceptanceRate,
 };
 
-/* ── 4. Print summary ────────────────────────────────────── */
+/* ── 5. Print summary ────────────────────────────────────── */
 
 console.log('');
 console.log(`PR acceptance metric — last ${DAYS} days (since ${since})`);
 console.log('');
-console.log(`  Total decisions:      ${total}  (merged: ${merged.length}, closed-unmerged: ${closed.length})`);
-if (total > 0) {
-  console.log(`  Acceptance rate:      ${(entry.acceptanceRate * 100).toFixed(1)}%`);
+console.log(`  Total AI PRs decided: ${totalAiPrs}  (merged: ${merged.length}, rejected: ${rejected.length})`);
+if (totalAiPrs > 0) {
+  console.log(`  Acceptance rate:      ${(acceptanceRate * 100).toFixed(1)}%`);
 }
-if (merged.length > 0) {
-  console.log(`  Agent-authored merges: ${agentMerged} (${(entry.agentMergeShare * 100).toFixed(1)}% of merges)`);
-}
-if (meanCloseHours !== null) {
-  console.log(`  Mean time-to-close:   ${entry.meanCloseHours} hours`);
-}
+console.log('');
 
-/* ── 5. Persist ──────────────────────────────────────────── */
+/* ── 6. Persist ──────────────────────────────────────────── */
 
 if (DRY_RUN) {
-  console.log('');
-  console.log('--dry-run: not appending. Entry would have been:');
+  console.log('--dry-run: not writing. Entry would have been:');
   console.log(JSON.stringify(entry, null, 2));
   process.exit(0);
 }
 
-mkdirSync(dirname(HISTORY_PATH), { recursive: true });
-appendFileSync(HISTORY_PATH, JSON.stringify(entry) + '\n', 'utf-8');
-console.log('');
-console.log(`Appended to: ${HISTORY_PATH}`);
+// Read existing entries (or start with empty array)
+let entries = [];
+if (existsSync(METRICS_PATH)) {
+  try {
+    const raw = readFileSync(METRICS_PATH, 'utf-8');
+    entries = JSON.parse(raw);
+    if (!Array.isArray(entries)) {
+      console.error(`Expected array in ${METRICS_PATH}, got ${typeof entries}. Resetting.`);
+      entries = [];
+    }
+  } catch {
+    console.error(`Failed to parse ${METRICS_PATH}. Starting fresh.`);
+    entries = [];
+  }
+}
+
+entries.push(entry);
+
+// Ensure directory exists, then write
+mkdirSync(dirname(METRICS_PATH), { recursive: true });
+writeFileSync(METRICS_PATH, JSON.stringify(entries, null, 2) + '\n', 'utf-8');
+
+console.log(`Appended entry to: ${METRICS_PATH}`);
+console.log(`Total entries: ${entries.length}`);
