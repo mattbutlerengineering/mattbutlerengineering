@@ -104,7 +104,7 @@
     <item priority="low">
       interface CreateHoldResult {
         success: boolean;
-        hold?: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
+        hold?: import("/Users/mbutler/github/issue-622-fix/packages/type...;
         error?: string | undefined;
       }
     </item>
@@ -159,10 +159,10 @@
     </item>
     <item priority="low">
       interface ReservationEvent {
-        type: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
+        type: import("/Users/mbutler/github/issue-622-fix/services/rese...;
         venueId: string;
         timestamp: string;
-        data: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
+        data: import("/Users/mbutler/github/issue-622-fix/packages/type...;
       }
     </item>
   </file>
@@ -185,7 +185,7 @@
         name: string;
         slug: string;
         ianaTimezone: string;
-        settings: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
+        settings: import("/Users/mbutler/github/issue-622-fix/packages/type...;
       }
     </item>
     <item priority="high">
@@ -209,12 +209,12 @@
   <section priority="medium" role="routes">
   <file path="src/routes/venues.ts">
     <item priority="high">
-      export const venueRoutes: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
+      export const venueRoutes: import("/Users/mbutler/github/issue-622-fix/node_modules/...;
     </item>
   </file>
   <file path="src/routes/tables.ts">
     <item priority="high">
-      export const tableRoutes: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
+      export const tableRoutes: import("/Users/mbutler/github/issue-622-fix/node_modules/...;
     </item>
   </file>
   <file path="src/routes/reservations.ts">
@@ -222,12 +222,12 @@
       function isAdmin(user: AuthUser | undefined): boolean { /* ... */ }
     </item>
     <item priority="high">
-      export const reservationRoutes: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
+      export const reservationRoutes: import("/Users/mbutler/github/issue-622-fix/node_modules/...;
     </item>
   </file>
   <file path="src/routes/ready.ts">
     <item priority="high">
-      export const readinessRoutes: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
+      export const readinessRoutes: import("/Users/mbutler/github/issue-622-fix/node_modules/...;
     </item>
   </file>
   <file path="src/routes/holds.ts">
@@ -235,7 +235,7 @@
       function getSessionId(request: FastifyRequest): string { /* ... */ }
     </item>
     <item priority="high">
-      export const holdRoutes: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
+      export const holdRoutes: import("/Users/mbutler/github/issue-622-fix/node_modules/...;
     </item>
   </file>
   <file path="src/routes/health.ts">
@@ -245,17 +245,17 @@
         IncomingMessage...;
     </item>
     <item priority="high">
-      export const healthRoutes: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
+      export const healthRoutes: import("/Users/mbutler/github/issue-622-fix/node_modules/...;
     </item>
   </file>
   <file path="src/routes/guests.ts">
     <item priority="high">
-      export const guestRoutes: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
+      export const guestRoutes: import("/Users/mbutler/github/issue-622-fix/node_modules/...;
     </item>
   </file>
   <file path="src/routes/floor-plans.ts">
     <item priority="high">
-      export const floorPlanRoutes: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
+      export const floorPlanRoutes: import("/Users/mbutler/github/issue-622-fix/node_modules/...;
     </item>
   </file>
   <file path="src/routes/events.ts">
@@ -265,7 +265,7 @@
   </file>
   <file path="src/routes/availability.ts">
     <item priority="high">
-      export const availabilityRoutes: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
+      export const availabilityRoutes: import("/Users/mbutler/github/issue-622-fix/node_modules/...;
     </item>
   </file>
   </section>

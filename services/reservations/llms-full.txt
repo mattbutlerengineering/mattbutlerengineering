@@ -1925,6 +1925,15 @@
         },
         async (request, reply) => {
           const userId = request.user?.id;
+    
+          // Check feature flag for enhanced validation
+          const flags = parseFeatureFlags(request.headers["x-feature-flags"] as string | undefined);
+          const useEnhancedValidation = isEnabled(flags, "enhanced-validation");
+    
+          if (useEnhancedValidation && request.body.partySize > 20) {
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", "Party size exceeds limit for enhanced validation"));
+          }
+    
           const result = await reservationService.createWithConflictCheck(
             request.body,
             userId

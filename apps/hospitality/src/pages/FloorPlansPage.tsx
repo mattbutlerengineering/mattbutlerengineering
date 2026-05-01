@@ -159,7 +159,7 @@ export function FloorPlansPage() {
       {!isLoading && !error && floorPlans.length > 0 && (
         <div className={styles.cardGrid}>
           {floorPlans.map((floorPlan) => (
-            <button
+            <Button
               key={floorPlan.id}
               onClick={() => navigate(`/floor-plans/${floorPlan.id}`)}
               className={styles.card}
@@ -216,7 +216,7 @@ export function FloorPlansPage() {
                   </Text>
                 </div>
               </div>
-            </button>
+            </Button>
           ))}
         </div>
       )}
