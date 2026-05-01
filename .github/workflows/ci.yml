@@ -238,9 +238,11 @@ jobs:
       - name: Ensure dependencies installed
         run: pnpm install --frozen-lockfile
 
+      - name: Build dependencies
+        run: pnpm build
+
       - name: Run ADR and Dependency Checks
         run: |
-          pnpm --filter @mbe/cli build
           pnpm --filter @mbe/cli start check-adr
           pnpm --filter @mbe/cli start check-deps
 
