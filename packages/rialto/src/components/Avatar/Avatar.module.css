@@ -81,78 +81,27 @@
   font-size: var(--rialto-text-base);
 }
 
-/* ── Status LED ──────────────────────────────── */
+/* ── Status LED positioning ───────────────────── */
 .status {
   position: absolute;
-  border-radius: var(--rialto-radius-round);
-  /* Ring separating LED from the avatar, inset shadow for recessed housing,
-     outer halo in currentColor so each variant glows its own hue. */
-  box-shadow:
-    0 0 0 2px var(--rialto-surface),
-    inset 0 0 1px rgb(0 0 0 / 0.35),
-    0 0 6px currentColor;
   z-index: 2;
 }
 
 .sm .status {
-  width: 8px;
-  height: 8px;
   bottom: -1px;
   inset-inline-end: -1px;
 }
 .md .status {
-  width: 10px;
-  height: 10px;
   bottom: -1px;
   inset-inline-end: -1px;
 }
 .lg .status {
-  width: 12px;
-  height: 12px;
   bottom: 0;
   inset-inline-end: 0;
 }
 .xl .status {
-  width: 14px;
-  height: 14px;
   bottom: 1px;
   inset-inline-end: 1px;
-}
-
-.online {
-  background: var(--rialto-success);
-  color: var(--rialto-success);
-}
-.offline {
-  background: var(--rialto-surface-matte);
-  color: transparent; /* suppress halo — offline has no light */
-}
-.busy {
-  background: var(--rialto-error);
-  color: var(--rialto-error);
-}
-.away {
-  background: var(--rialto-accent);
-  color: var(--rialto-accent);
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .online,
-  .busy,
-  .away {
-    animation: rialto-avatar-led-breathe 3.4s ease-in-out infinite;
-  }
-}
-
-@keyframes rialto-avatar-led-breathe {
-  0%, 100% { box-shadow:
-    0 0 0 2px var(--rialto-surface),
-    inset 0 0 1px rgb(0 0 0 / 0.35),
-    0 0 6px currentColor; }
-  50% { box-shadow:
-    0 0 0 2px var(--rialto-surface),
-    inset 0 0 1px rgb(0 0 0 / 0.35),
-    0 0 9px currentColor; }
 }
 
 /* ── Group stacking ──────────────────────────── */

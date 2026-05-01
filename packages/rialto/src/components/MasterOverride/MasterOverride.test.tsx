@@ -1,7 +1,13 @@
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
-import { MasterOverride } from "./MasterOverride";
+import { MasterOverride, OverridePanel } from "./MasterOverride";
+import * as feedbackUtils from "../../utils/feedback";
+
+vi.mock("../../utils/feedback", () => ({
+  playClickSound: vi.fn(),
+  triggerHapticFeedback: vi.fn(),
+}));
 
 function Harness(props: { initial?: boolean }) {
   const [on, setOn] = useState(props.initial ?? false);
@@ -520,6 +526,132 @@ describe("MasterOverride", () => {
       );
       const cells = container.querySelectorAll('[class*="board"] > [class*="cell"]');
       expect(cells.length).toBe(7); // length of "RUNNING"
+    });
+  });
+
+  describe("LED telltale", () => {
+    it("renders the LED indicator", () => {
+      const { container } = render(<Harness />);
+      const led = container.querySelector('[class*="led"]');
+      expect(led).toBeInTheDocument();
+    });
+
+    it("updates LED variant based on state", async () => {
+      const user = userEvent.setup();
+      const { container, rerender } = render(
+        <MasterOverride label="Kill" on={false} onChange={() => {}} />
+      );
+
+      const getLed = () => container.querySelector('[class*="led"]');
+
+      // Default: idle (off variant)
+      expect(getLed()?.className).toMatch(/off/);
+
+      // Armed: warning + pulse
+      await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
+      expect(getLed()?.className).toMatch(/warning/);
+      expect(getLed()?.className).toMatch(/pulse/);
+
+      // Engaged: danger (no pulse)
+      rerender(<MasterOverride label="Kill" on={true} onChange={() => {}} />);
+      expect(getLed()?.className).toMatch(/danger/);
+      expect(getLed()?.className).not.toMatch(/pulse/);
+    });
+  });
+
+  describe("feedback", () => {
+    it("calls feedback utilities when engaged via click", async () => {
+      const user = userEvent.setup();
+      const playSpy = vi.spyOn(feedbackUtils, "playClickSound");
+      const hapticSpy = vi.spyOn(feedbackUtils, "triggerHapticFeedback");
+
+      render(
+        <MasterOverride
+          label="Kill"
+          on={false}
+          onChange={() => {}}
+          feedback="both"
+        />
+      );
+
+      await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
+      await user.click(screen.getByRole("switch"));
+
+      expect(playSpy).toHaveBeenCalled();
+      expect(hapticSpy).toHaveBeenCalled();
+    });
+
+    it("calls feedback utilities when engaged via hold", async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const playSpy = vi.spyOn(feedbackUtils, "playClickSound");
+
+      render(
+        <MasterOverride
+          label="Kill"
+          on={false}
+          onChange={() => {}}
+          requireHold
+          feedback="click"
+        />
+      );
+
+      await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
+      const switchEl = screen.getByRole("switch");
+      fireEvent.pointerDown(switchEl);
+
+      await act(async () => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      expect(playSpy).toHaveBeenCalled();
+      vi.useRealTimers();
+    });
+  });
+
+  describe("autoReclose", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("automatically closes the cover after engagement", async () => {
+      const onChange = vi.fn();
+      const { rerender } = render(
+        <MasterOverride label="Kill" on={false} onChange={onChange} autoReclose />
+      );
+
+      const cover = screen.getByRole("button", { name: /lift safety cover/i });
+      fireEvent.click(cover);
+      expect(cover).toHaveAttribute("aria-expanded", "true");
+
+      // Transition to ON
+      rerender(<MasterOverride label="Kill" on={true} onChange={onChange} autoReclose />);
+
+      // Wait for autoRecloseMs (default 800)
+      act(() => {
+        vi.advanceTimersByTime(800);
+      });
+
+      expect(cover).toHaveAttribute("aria-expanded", "false");
+    });
+  });
+
+  describe("OverridePanel", () => {
+    it("renders children in a rack", () => {
+      render(
+        <OverridePanel title="Console">
+          <MasterOverride label="Switch 1" on={false} onChange={() => {}} />
+          <MasterOverride label="Switch 2" on={false} onChange={() => {}} />
+        </OverridePanel>
+      );
+      expect(screen.getByText("Console")).toBeInTheDocument();
+      // Use getByRole to be more specific and avoid multiple label matches
+      expect(screen.getByRole("button", { name: /lift safety cover for switch 1/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /lift safety cover for switch 2/i })).toBeInTheDocument();
     });
   });
 });

@@ -254,6 +254,10 @@
       "types": "./dist/lib/components/Stat/index.d.ts",
       "import": "./dist/lib/components/Stat/index.js"
     },
+    "./StatusLED": {
+      "types": "./dist/lib/components/StatusLED/index.d.ts",
+      "import": "./dist/lib/components/StatusLED/index.js"
+    },
     "./Steps": {
       "types": "./dist/lib/components/Steps/index.d.ts",
       "import": "./dist/lib/components/Steps/index.js"

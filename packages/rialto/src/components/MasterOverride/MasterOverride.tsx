@@ -3,6 +3,8 @@ import { motion, useReducedMotion, useMotionValue, useMotionValueEvent, animate 
 import { spring, springGentle, reduced } from "../../tokens/motion";
 import styles from "./MasterOverride.module.css";
 import { SplitFlap } from "../SplitFlap";
+import { StatusLED } from "../StatusLED";
+import { playClickSound, triggerHapticFeedback } from "../../utils/feedback";
 
 /**
  * A safety-cover toggle: a hinged protective cover flips up to reveal a
@@ -46,6 +48,24 @@ export interface MasterOverrideProps {
    * When `labelTransition="splitflap"`, the fixed cell count for the display.
    */
   labelLength?: number;
+
+  /**
+   * Optional audio/haptic feedback when the switch engages.
+   * @default "none"
+   */
+  feedback?: "none" | "click" | "haptic" | "both";
+
+  /**
+   * Automatically close the safety cover after engaging the switch.
+   * @default false
+   */
+  autoReclose?: boolean;
+
+  /**
+   * Delay in milliseconds before auto-closing the cover.
+   * @default 800
+   */
+  autoRecloseMs?: number;
 }
 
 export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
@@ -64,6 +84,9 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
       requireHold = false,
       labelTransition = "fade",
       labelLength,
+      feedback = "none",
+      autoReclose = false,
+      autoRecloseMs = 800,
       className,
     },
     ref
@@ -72,6 +95,12 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
     const switchRef = useRef<HTMLButtonElement>(null);
     const coverRef = useRef<HTMLButtonElement>(null);
     const shouldReduceMotion = useReducedMotion();
+
+    const triggerFeedback = useCallback(() => {
+      if (feedback === "none") return;
+      if (feedback === "click" || feedback === "both") playClickSound();
+      if (feedback === "haptic" || feedback === "both") triggerHapticFeedback();
+    }, [feedback]);
 
     const holdThresholdMs =
       requireHold === true ? 1000
@@ -108,9 +137,10 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
         setIsHolding(false);
         setHoldAnnouncement({ text: `${label} engaged`, armed: true, on: false });
         holdProgress.set(0);
+        triggerFeedback();
         onChange(true);
       }, holdThresholdMs);
-    }, [armed, disabled, on, holdThresholdMs, shouldReduceMotion, holdProgress, onChange, label]);
+    }, [armed, disabled, on, holdThresholdMs, shouldReduceMotion, holdProgress, onChange, label, triggerFeedback]);
 
     const cancelHold = useCallback(() => {
       if (holdTimerRef.current === null && !isHolding) return;
@@ -170,6 +200,15 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
       [cancelHold]
     );
 
+    useEffect(() => {
+      if (on && autoReclose && armed) {
+        const timer = setTimeout(() => {
+          setArmed(false);
+        }, autoRecloseMs);
+        return () => clearTimeout(timer);
+      }
+    }, [on, autoReclose, autoRecloseMs, armed]);
+
     const labelId = useId();
     const descriptionId = useId();
     const switchId = useId();
@@ -192,6 +231,7 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
     function handleSwitchToggle() {
       if (disabled || !armed) return;
       if (holdThresholdMs > 0 && !on) return;
+      if (!on) triggerFeedback();
       onChange(!on);
     }
 
@@ -227,10 +267,11 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
 
         <div className={styles.bezel} aria-labelledby={labelId}>
           {/* LED Telltale */}
-          <div 
-            className={styles.led} 
-            data-status={on ? "engaged" : armed ? "armed" : "idle"} 
-            aria-hidden="true" 
+          <StatusLED
+            variant={on ? "danger" : armed ? "warning" : "off"}
+            size="xs"
+            pulse={armed && !on}
+            className={styles.led}
           />
 
           {/* Cover — hinged at top, rotates up on X axis */}
@@ -330,3 +371,29 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
 );
 
 MasterOverride.displayName = "MasterOverride";
+
+/* ── OverridePanel ─────────────────────────── */
+/**
+ * A horizontal rack that groups multiple MasterOverrides with a shared
+ * bezel and power-rail aesthetic. Ideal for building complex control panels
+ * or "launch consoles".
+ */
+export interface OverridePanelProps {
+  children: ReactNode;
+  /** Optional title for the entire panel */
+  title?: string;
+  className?: string;
+}
+
+export const OverridePanel = forwardRef<HTMLDivElement, OverridePanelProps>(
+  ({ children, title, className }, ref) => {
+    return (
+      <div ref={ref} className={[styles.panel, className].filter(Boolean).join(" ")}>
+        {title && <span className={styles.panelTitle}>{title}</span>}
+        <div className={styles.panelRack}>{children}</div>
+      </div>
+    );
+  }
+);
+
+OverridePanel.displayName = "OverridePanel";
