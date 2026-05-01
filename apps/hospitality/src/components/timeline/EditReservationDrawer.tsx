@@ -23,8 +23,8 @@ export function EditReservationDrawer({
   onSave,
   onClose,
 }: EditReservationDrawerProps) {
-  const [startTime, setStartTime] = useState(toTimeInputValue(reservation.startTime));
-  const [endTime, setEndTime] = useState(toTimeInputValue(reservation.endTime));
+  const [startTime, setStartTime] = useState(() => toTimeInputValue(reservation.startTime));
+  const [endTime, setEndTime] = useState(() => toTimeInputValue(reservation.endTime));
   const [partySize, setPartySize] = useState(String(reservation.partySize));
   const [tableId, setTableId] = useState(reservation.tableId);
   const [notes, setNotes] = useState(reservation.notes ?? "");
@@ -113,7 +113,7 @@ export function EditReservationDrawer({
           />
 
           <Select
-            label="Table"
+            label="Assign Table"
             value={tableId}
             onChange={setTableId}
             disabled={isLoading}
@@ -124,17 +124,17 @@ export function EditReservationDrawer({
             label="Notes"
             value={notes}
             rows={4}
-            placeholder="Any special requests or notes…"
             onChange={(e) => setNotes(e.target.value)}
             disabled={isLoading}
           />
-        </Stack>
+          </Stack>
 
-        <div className={styles.footer}>
+          <div className={styles.drawerActions}>
           <Button
             variant="secondary"
             onClick={onClose}
             disabled={isLoading}
+            className={styles.fullWidth}
           >
             Cancel
           </Button>
@@ -143,11 +143,12 @@ export function EditReservationDrawer({
             onClick={handleSave}
             isLoading={isLoading}
             loadingText="Saving…"
+            className={styles.fullWidth}
           >
             Save Changes
           </Button>
-        </div>
-      </Stack>
-    </Drawer>
-  );
+          </div>
+        </Stack>
+      </Drawer>
+    );
 }

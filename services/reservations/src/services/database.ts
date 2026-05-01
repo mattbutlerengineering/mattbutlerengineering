@@ -53,7 +53,8 @@ export function getPoolStats() {
     active: p.activeCount,
     waiting: p.waitingCount,
     idle: p.idleCount,
-    utilization: p.totalCount > 0 ? p.activeCount / p.max : 0,
+ 
+    utilization: p.totalCount > 0 ? p.activeCount / CONNECTION_LIMIT : 0,
   };
 }
 
