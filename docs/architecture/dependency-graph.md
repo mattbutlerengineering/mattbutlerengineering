@@ -20,15 +20,17 @@ flowchart TD
   end
   subgraph packages["Shared Packages"]
     agent_core["agent-core"]
+    agent_test_utils["agent-test-utils"]
     api_client["api-client"]
     api_versioning["api-versioning"]
     auth["auth"]
     config["config"]
+    feature_flags["feature-flags"]
+    mcp_server["mcp-server"]
     observability["observability"]
     @mattbutlerengineering/rialto["rialto"]
     rialto_catalog["rialto-catalog"]
     rialto_plugin["rialto-plugin"]
-    sentry["sentry"]
     types["types"]
   end
   subgraph tools["Developer Tools"]
@@ -42,48 +44,50 @@ flowchart TD
   hospitality --> api_client
   hospitality --> auth
   hospitality --> rialto_catalog
-  hospitality --> sentry
+  hospitality --> observability
   hospitality --> types
   hospitality --> config
-  marketing --> sentry
+  marketing --> observability
   marketing --> config
-  rialto_web --> sentry
+  rialto_web --> observability
   rialto_web --> config
   agent_service --> agent_core
   agent_service --> api_versioning
   agent_service --> auth
   agent_service --> observability
   agent_service --> rialto_catalog
-  agent_service --> sentry
   agent_service --> types
+  agent_service --> agent_test_utils
   agent_service --> config
   reservations_service --> api_versioning
   reservations_service --> auth
+  reservations_service --> feature_flags
   reservations_service --> observability
-  reservations_service --> sentry
   reservations_service --> types
   reservations_service --> config
   users_service --> api_versioning
   users_service --> auth
   users_service --> observability
-  users_service --> sentry
   users_service --> types
   users_service --> config
   agent_core --> types
   agent_core --> config
+  agent_test_utils --> agent_core
+  agent_test_utils --> types
+  agent_test_utils --> config
   api_client --> types
   api_client --> config
   api_versioning --> config
   auth --> types
   auth --> config
+  feature_flags --> config
+  mcp_server --> config
   observability --> types
   observability --> config
   @mattbutlerengineering/rialto --> api_client
   @mattbutlerengineering/rialto --> config
   rialto_catalog --> config
   rialto_plugin --> config
-  sentry --> types
-  sentry --> config
   types --> config
   cli --> agent_core
   cli --> types
@@ -101,15 +105,17 @@ flowchart TD
   class reservations_service backend
   class users_service backend
   class agent_core shared
+  class agent_test_utils shared
   class api_client shared
   class api_versioning shared
   class auth shared
   class config shared
+  class feature_flags shared
+  class mcp_server shared
   class observability shared
   class @mattbutlerengineering/rialto shared
   class rialto_catalog shared
   class rialto_plugin shared
-  class sentry shared
   class types shared
   class cli tooling
 ```
