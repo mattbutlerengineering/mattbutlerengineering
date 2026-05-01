@@ -1,14 +1,110 @@
 rules:
+  # Code injection patterns
   - id: avoid-eval
     pattern: eval(...)
-    message: "Avoid using eval() as it can lead to security vulnerabilities."
+    message: "Avoid using eval() as it can lead to code injection vulnerabilities."
     languages: [javascript, typescript]
     severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-95"
+
+  - id: avoid-function-constructor
+    pattern: new Function(...)
+    message: "Avoid using Function constructor as it can lead to code injection."
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-95"
+
+  # Hardcoded secrets
   - id: avoid-hardcoded-secrets
     pattern: |
       $S = "..."
-    message: "Potential hardcoded secret detected."
+    message: "Potential hardcoded secret detected. Use environment variables instead."
     languages: [javascript, typescript, python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-798"
+
+  # SQL injection
+  - id: avoid-sql-string-concat
+    pattern: |
+      $DB.query($QUERY + $VAR)
+    message: "SQL query built with string concatenation. Use parameterized queries instead."
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-89"
+
+  # XSS vulnerabilities
+  - id: avoid-dangerouslysetinnerhtml
+    pattern: dangerouslySetInnerHTML = ...
+    message: "dangerouslySetInnerHTML can lead to XSS vulnerabilities. Sanitize input first."
+    languages: [javascript, typescript]
     severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-79"
+
+  # Insecure random
+  - id: avoid-math-random-for-security
+    pattern: Math.random(...)
+    message: "Math.random() is not cryptographically secure. Use crypto.getRandomValues() for security-sensitive operations."
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-338"
+
+  # Missing auth checks
+  - id: fastify-route-missing-auth
+    pattern: |
+      $APP.$METHOD($PATH, async (...) => {...})
+    message: "Route handler without authentication. Consider adding requireAuth() or verifyJWT."
+    languages: [javascript, typescript]
+    severity: WARNING
+    paths:
+      include:
+        - "services/**/*route*.ts"
+        - "services/**/*handler*.ts"
+    metadata:
+      category: security
+
+  # Environment variable exposure
+  - id: avoid-logging-secrets
+    pattern: |
+      console.log(..., $SECRET, ...)
+    message: "Potential secret logged to console. Avoid logging sensitive data."
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-532"
+
+  # Insecure JWT handling
+  - id: jwt-verify-missing-audience
+    pattern: |
+      jwt.verify($TOKEN, $SECRET, {...})
+    message: "JWT verification without audience or issuer check. Verify these claims for proper validation."
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-287"
+
+  # Dependency confusion
+  - id: npm-install-script
+    pattern: |
+      "preinstall": "..."
+    message: "preinstall scripts can be used for dependency confusion attacks. Review carefully."
+    languages: [json]
+    severity: WARNING
+    paths:
+      include:
+        - "**/package.json"
     metadata:
       category: security
