@@ -815,6 +815,17 @@ const CRITERIA= [
     details: 'AI health monitoring tracks the agent system itself — session success rate, API errors, stuck loops, cost per session. Without this, degraded AI service goes undetected until humans notice bad output.',
     detection: { type: 'any-of', pattern: ['docs/acmm/ai-health-monitoring.md', 'scripts/acmm/ai-health-check.sh'] },
   },
+  {
+    id: 'acmm:prompt-injection-sandbox',
+    source: 'acmm',
+    level: 5,
+    category: 'governance',
+    name: 'Prompt injection defense',
+    description: 'Documented threat model and defense layers for AI prompt injection.',
+    rationale: 'L5 signal: autonomous systems that ingest untrusted text need documented defenses against injection attacks.',
+    details: 'L5/L6 systems process untrusted text from GitHub issues, PR comments, and external APIs. A prompt injection threat model documents the attack surface, existing defenses (sandboxing, scanning, budget limits), and gaps. Without this, the team cannot assess the security posture of their AI pipeline.',
+    detection: { type: 'any-of', pattern: ['docs/security/ai-prompt-injection.md', 'docs/security/ai-threat-model.md'] },
+  },
 
   // ── L6 — Autonomous ─────────────────────────────────────────────
   {
