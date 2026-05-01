@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { HeroSection } from "../components/HeroSection";
 import { ProjectsSection } from "../components/ProjectsSection";
 import { TechStackSection } from "../components/TechStackSection";
@@ -16,10 +17,12 @@ export function HomePage() {
       <ContactSection />
       <section className={styles.weeklyCta}>
         <Heading level={2}>Stay Current</Heading>
-        <Text>Check out my weekly information intake from the best dev newsletters.</Text>
-        <Button variant="primary" size="md" onClick={() => window.location.href = "/weekly"}>
-          View Weekly Reads
-        </Button>
+        <p>Check out my weekly information intake from the best dev newsletters.</p>
+        <Link to="/weekly">
+          <Button variant="primary" size="md">
+            View Weekly Reads
+          </Button>
+        </Link>
       </section>
     </>
   );

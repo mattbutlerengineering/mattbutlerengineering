@@ -12,7 +12,7 @@ export const PROJECTS: Project[] = [
       "A precision component library with 65+ components built on a warm neutral token system. " +
       "Every surface, radius, shadow, and motion value is tokenized — components compose, not collide.",
     tags: ["React", "TypeScript", "Vite", "Framer Motion"],
-    href: "/rialto",
+    href: "/rialto/",
   },
   {
     title: "Hospitality Platform",
@@ -20,6 +20,6 @@ export const PROJECTS: Project[] = [
       "A full-stack restaurant management app with Auth0 authentication, dark mode, " +
       "offline-capable PWA support, and route-level code splitting. Built on the Rialto design system.",
     tags: ["React", "Auth0", "PWA", "Fastify", "Prisma"],
-    href: "/hospitality",
+    href: "/hospitality/",
   },
 ];
