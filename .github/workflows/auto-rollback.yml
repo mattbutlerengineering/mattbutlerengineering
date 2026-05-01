@@ -1,0 +1,94 @@
+name: Auto-Rollback on Agent Regression
+
+on:
+  workflow_run:
+    workflows: ["Post-Deploy Check"]
+    types:
+      - completed
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  check-and-rollback:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 10
+
+      - name: Identify agent commits
+        id: agent-check
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          # Check if the failing commit was authored by an agent
+          AUTHOR=$(git log -1 --format='%an' "$HEAD_SHA" 2>/dev/null || echo "unknown")
+          BRANCH=$(git log -1 --format='%D' "$HEAD_SHA" 2>/dev/null || echo "")
+
+          IS_AGENT="false"
+          if echo "$BRANCH" | grep -qE '(agent-|worktree-agent-)'; then
+            IS_AGENT="true"
+          fi
+          if echo "$AUTHOR" | grep -qiE '(bot|agent|claude)'; then
+            IS_AGENT="true"
+          fi
+
+          echo "is_agent=$IS_AGENT" >> "$GITHUB_OUTPUT"
+          echo "commit_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+          echo "author=$AUTHOR" >> "$GITHUB_OUTPUT"
+
+      - name: Create revert PR
+        if: steps.agent-check.outputs.is_agent == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMIT_SHA: ${{ steps.agent-check.outputs.commit_sha }}
+          COMMIT_AUTHOR: ${{ steps.agent-check.outputs.author }}
+        run: |
+          SHORT_SHA="${COMMIT_SHA:0:7}"
+
+          REVERT_BRANCH="revert/agent-${SHORT_SHA}"
+          git checkout -b "$REVERT_BRANCH"
+
+          if git revert --no-edit "$COMMIT_SHA"; then
+            git push origin "$REVERT_BRANCH"
+
+            gh pr create \
+              --title "revert: auto-rollback agent commit ${SHORT_SHA}" \
+              --body "## Auto-Rollback
+
+          Post-deploy smoke tests failed after agent commit \`${COMMIT_SHA}\`.
+
+          This revert PR was created automatically by the auto-rollback workflow.
+
+          **Original author:** ${COMMIT_AUTHOR}
+          **Failure:** Post-Deploy Check workflow failed
+
+          ### Next Steps
+          1. Review this revert PR
+          2. Merge to restore stability
+          3. Investigate the original change
+          4. File a new issue if the original intent was valid" \
+              --label "agent-regression"
+
+            echo "Revert PR created for agent commit ${SHORT_SHA}"
+          else
+            echo "Could not cleanly revert ${SHORT_SHA} — manual intervention needed"
+            gh issue create \
+              --title "Manual rollback needed: agent commit ${SHORT_SHA} caused regression" \
+              --body "Post-deploy checks failed after agent commit \`${COMMIT_SHA}\` but automatic revert failed (merge conflict). Manual intervention required." \
+              --label "agent-regression,urgent"
+          fi
+
+      - name: Skip non-agent failures
+        if: steps.agent-check.outputs.is_agent != 'true'
+        env:
+          COMMIT_SHA: ${{ steps.agent-check.outputs.commit_sha }}
+          COMMIT_AUTHOR: ${{ steps.agent-check.outputs.author }}
+        run: |
+          echo "Post-deploy failure was not from an agent commit — skipping auto-rollback"
+          echo "Commit: ${COMMIT_SHA}"
+          echo "Author: ${COMMIT_AUTHOR}"
