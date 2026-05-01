@@ -400,6 +400,33 @@ describe("Edge Router", () => {
       // Should NOT have detailed subsystem info without auth
       expect(body).not.toHaveProperty("subsystems");
     });
+
+    it("omits CORS header when no Origin is sent", async () => {
+      const response = await edgeRouter.fetch(makeRequest("/health/system"), env);
+      expect(response.headers.get("Access-Control-Allow-Origin")).toBeNull();
+    });
+
+    it("returns CORS header for allowed origin on health/system", async () => {
+      const response = await edgeRouter.fetch(
+        makeRequest("/health/system", {
+          headers: { Origin: "https://hospitality.mattbutlerengineering.com" },
+        }),
+        env
+      );
+      expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
+        "https://hospitality.mattbutlerengineering.com"
+      );
+    });
+
+    it("omits CORS header for disallowed origin on health/system", async () => {
+      const response = await edgeRouter.fetch(
+        makeRequest("/health/system", {
+          headers: { Origin: "https://attacker.example.com" },
+        }),
+        env
+      );
+      expect(response.headers.get("Access-Control-Allow-Origin")).toBeNull();
+    });
   });
 
   describe("Health endpoint with auth — migration status", () => {
@@ -451,13 +478,36 @@ describe("Edge Router", () => {
       expect(response.status).toBe(200);
       expect(response.headers.get("Content-Type")).toBe("application/json");
       expect(response.headers.get("Cache-Control")).toBe("public, max-age=300");
-      expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
+      // No Origin header → no CORS header in response
+      expect(response.headers.get("Access-Control-Allow-Origin")).toBeNull();
       const body = await response.json();
       expect(body).toHaveProperty("nodes");
       expect(body).toHaveProperty("edges");
       expect(body).toHaveProperty("generatedAt");
       expect(Array.isArray(body.nodes)).toBe(true);
       expect(Array.isArray(body.edges)).toBe(true);
+    });
+
+    it("returns CORS header for allowed origin", async () => {
+      const response = await edgeRouter.fetch(
+        makeRequest("/health/deps", {
+          headers: { Origin: "https://mattbutlerengineering.com" },
+        }),
+        env
+      );
+      expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
+        "https://mattbutlerengineering.com"
+      );
+    });
+
+    it("omits CORS header for disallowed origin", async () => {
+      const response = await edgeRouter.fetch(
+        makeRequest("/health/deps", {
+          headers: { Origin: "https://evil.example.com" },
+        }),
+        env
+      );
+      expect(response.headers.get("Access-Control-Allow-Origin")).toBeNull();
     });
 
     it("includes node properties (name, type, path)", async () => {
