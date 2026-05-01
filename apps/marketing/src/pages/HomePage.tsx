@@ -17,8 +17,8 @@ export function HomePage() {
       <section className={styles.weeklyCta}>
         <Heading level={2}>Stay Current</Heading>
         <Text>Check out my weekly information intake from the best dev newsletters.</Text>
-        <Button asChild variant="primary" size="md">
-          <a href="/weekly">View Weekly Reads</a>
+        <Button variant="primary" size="md" onClick={() => window.location.href = "/weekly"}>
+          View Weekly Reads
         </Button>
       </section>
     </>
