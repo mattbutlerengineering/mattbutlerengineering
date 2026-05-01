@@ -1086,24 +1086,29 @@ export default {
     if (url.pathname.startsWith("/canary/")) {
       let canaryBinding;
       let canaryPrefix = "";
+      let canaryOrigin = "";
 
       if (url.pathname.startsWith("/canary/marketing")) {
         canaryBinding = env.MARKETING_CANARY;
         canaryPrefix = "/canary/marketing";
+        canaryOrigin = "https://mattbutlerengineering-marketing-canary.workers.dev";
       } else if (url.pathname.startsWith("/canary/hospitality")) {
         canaryBinding = env.HOSPITALITY_CANARY;
         canaryPrefix = "/canary/hospitality";
+        canaryOrigin = "https://mattbutlerengineering-hospitality-canary.workers.dev";
       } else if (url.pathname.startsWith("/canary/rialto")) {
         canaryBinding = env.RIALTO_CANARY;
         canaryPrefix = "/canary/rialto";
+        canaryOrigin = "https://mattbutlerengineering-rialto-web-canary.workers.dev";
       } else if (url.pathname.startsWith("/canary/gen")) {
         canaryBinding = env.GEN_CANARY;
         canaryPrefix = "/canary/gen";
+        canaryOrigin = "https://mattbutlerengineering-gen-canary.workers.dev";
       }
 
       if (canaryBinding) {
         const strippedCanaryPath = url.pathname.slice(canaryPrefix.length) || "/";
-        const canaryUrl = new URL(strippedCanaryPath + url.search, url.origin);
+        const canaryUrl = new URL(strippedCanaryPath + url.search, canaryOrigin);
         const canaryRequest = new Request(canaryUrl, request);
         const canaryResponse = await canaryBinding.fetch(canaryRequest);
         return addHeaders(canaryResponse, url.pathname);
@@ -1116,25 +1121,30 @@ export default {
     // ── Static sites → Service Binding (CDN-free) ───────────────────
     let binding;
     let prefix = "";
+    let bindingOrigin = "";
 
     if (url.pathname.startsWith("/hospitality")) {
       binding = env.HOSPITALITY;
       prefix = "/hospitality";
+      bindingOrigin = "https://mattbutlerengineering-hospitality.workers.dev";
     } else if (url.pathname.startsWith("/rialto")) {
       binding = env.RIALTO;
       prefix = "/rialto";
+      bindingOrigin = "https://mattbutlerengineering-rialto-web.workers.dev";
     } else if (url.pathname.startsWith("/gen")) {
       binding = env.GEN;
       prefix = "/gen";
+      bindingOrigin = "https://mattbutlerengineering-gen.workers.dev";
     } else {
       binding = env.MARKETING;
+      bindingOrigin = "https://mattbutlerengineering-marketing.workers.dev";
     }
 
     // Strip path prefix before forwarding to the app Worker.
     // Each app is built with base: "/<name>/" in Vite, but the Worker
     // serves from root — so /hospitality/foo → /foo on the app Worker.
     const strippedPath = prefix ? (url.pathname.slice(prefix.length) || "/") : url.pathname;
-    const appUrl = new URL(strippedPath + url.search, url.origin);
+    const appUrl = new URL(strippedPath + url.search, bindingOrigin);
     const appHeaders = new Headers(request.headers);
     appHeaders.set("X-Request-ID", requestId);
     const appRequest = new Request(appUrl, {
