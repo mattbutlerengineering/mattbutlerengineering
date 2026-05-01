@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Card, Badge, Heading } from "@mattbutlerengineering/rialto";
+import { Card, Badge, Heading, Text, Button } from "@mattbutlerengineering/rialto";
 import { weeklyResources } from "../data/weekly-intake";
 import type { WeeklyResource } from "../data/weekly-intake";
 import styles from "./WeeklyIntakePage.module.css";
@@ -29,7 +29,7 @@ function ResourceCard({ resource }: { readonly resource: WeeklyResource }) {
           {sourceLabels[resource.source]}
         </Badge>
       </div>
-      <p className={styles.description}>{resource.description}</p>
+      <Text className={styles.description}>{resource.description}</Text>
       <div className={styles.meta}>
         <time dateTime={resource.publishedAt}>
           {new Date(resource.publishedAt).toLocaleDateString("en-US", {
@@ -69,23 +69,23 @@ export function WeeklyIntakePage() {
   return (
     <section className={styles.container}>
       <Heading level={1} className={styles.heading}>Weekly Information Intake</Heading>
-      <p className={styles.subtitle}>
+      <Text className={styles.subtitle}>
         Curated resources from the best weekly newsletters to keep you up to date.
-      </p>
+      </Text>
 
       <nav className={styles.filters} aria-label="Filter resources by source">
         {filters.map((f) => (
-          <button
+          <Button
             key={f.value}
             className={`${styles.filterBtn} ${activeFilter === f.value ? styles.active : ""}`}
             onClick={() => setActiveFilter(f.value)}
           >
             {f.label}
-          </button>
+          </Button>
         ))}
       </nav>
 
-      <div className={styles.grid}>
+      <div className={styles.resourceGrid}>
         {filtered.map((resource) => (
           <ResourceCard key={resource.id} resource={resource} />
         ))}
