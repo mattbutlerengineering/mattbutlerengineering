@@ -93,7 +93,7 @@ function verifySignature(
 // ── Constants ────────────────────────────────────────────────────────
 
 const GITHUB_REPO_RE = /^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/;
-const GITHUB_USERNAME_RE = /^[a-zA-Z0-9-]+$/;
+const GITHUB_USERNAME_RE = /^[a-zA-Z0-9_.-]+$/;
 
 const AGENT_LABEL = "agent";
 const AGENT_COMMAND_PATTERN = /^\/agent\s+(.+)/i;
