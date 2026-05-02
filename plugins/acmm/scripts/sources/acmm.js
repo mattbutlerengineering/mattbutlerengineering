@@ -700,6 +700,18 @@ const CRITERIA= [
     detection: { type: 'any-of', pattern: ['scripts/acmm/onboarding-bench.js', 'docs/acmm/onboarding-benchmark.md'] },
   },
 
+  {
+    id: 'acmm:repo-bench',
+    source: 'acmm',
+    level: 4,
+    category: 'readiness',
+    name: 'Repo benchmark',
+    description: 'Seeded-bug benchmark that measures AI capability on this specific codebase.',
+    rationale: 'L4 signal: acceptance rate is binary; benchmarks show capability progression and model comparison.',
+    details: 'A repo benchmark injects known bugs (missing imports, wrong status codes, type errors) and measures how many turns and how long the AI takes to fix them. This enables model comparison and tracks capability improvement over time.',
+    detection: { type: 'any-of', pattern: ['scripts/acmm/repo-bench.js', 'docs/acmm/repo-benchmark.md'] },
+  },
+
   // ── L5 — Semi-Automated ────────────────────────────
   {
     id: 'acmm:github-actions-ai',
