@@ -21,6 +21,8 @@ import {
   removeWorktree,
   commitChanges,
   hasChanges,
+  validateGitRef,
+  validatePath,
 } from "../worktree-manager.js";
 
 // Helper to set up promisified execFile mock
@@ -40,6 +42,86 @@ function setupExecFileMock(stdoutResponses: string[] = [""]) {
     }) as typeof execFile
   );
 }
+
+// ── Input validation ─────────────────────────────────────────────────────────
+
+describe("validateGitRef", () => {
+  it("accepts valid branch names", () => {
+    expect(() => validateGitRef("main", "branch")).not.toThrow();
+    expect(() => validateGitRef("feature/foo-bar", "branch")).not.toThrow();
+    expect(() => validateGitRef("agent/fix-login-abc123", "branch")).not.toThrow();
+    expect(() => validateGitRef("v1.2.3", "tag")).not.toThrow();
+    expect(() => validateGitRef("release_2024", "branch")).not.toThrow();
+  });
+
+  it("rejects refs starting with a dash (argument injection)", () => {
+    expect(() => validateGitRef("--evil", "branch")).toThrow("Invalid branch");
+    expect(() => validateGitRef("-n", "branch")).toThrow("Invalid branch");
+  });
+
+  it("rejects refs starting with a dot", () => {
+    expect(() => validateGitRef(".hidden", "branch")).toThrow("Invalid branch");
+  });
+
+  it("rejects refs with shell metacharacters", () => {
+    expect(() => validateGitRef("main;rm -rf /", "branch")).toThrow("Invalid branch");
+    expect(() => validateGitRef("main$(whoami)", "branch")).toThrow("Invalid branch");
+    expect(() => validateGitRef("main`id`", "branch")).toThrow("Invalid branch");
+    expect(() => validateGitRef("a|b", "branch")).toThrow("Invalid branch");
+    expect(() => validateGitRef("a&b", "branch")).toThrow("Invalid branch");
+  });
+
+  it("rejects empty strings", () => {
+    expect(() => validateGitRef("", "branch")).toThrow("Invalid branch");
+  });
+});
+
+describe("validatePath", () => {
+  it("accepts valid paths", () => {
+    expect(() => validatePath("/repo/path", "repoPath")).not.toThrow();
+    expect(() => validatePath("/home/user/project", "repoPath")).not.toThrow();
+    expect(() => validatePath("relative/path", "repoPath")).not.toThrow();
+  });
+
+  it("rejects paths with shell metacharacters", () => {
+    expect(() => validatePath("/repo;rm -rf /", "path")).toThrow("Invalid path");
+    expect(() => validatePath("/repo$(whoami)", "path")).toThrow("Invalid path");
+    expect(() => validatePath("/repo`id`", "path")).toThrow("Invalid path");
+    expect(() => validatePath("/repo|cat", "path")).toThrow("Invalid path");
+    expect(() => validatePath("/repo&bg", "path")).toThrow("Invalid path");
+    expect(() => validatePath("/repo\ncd /", "path")).toThrow("Invalid path");
+  });
+
+  it("rejects empty strings", () => {
+    expect(() => validatePath("", "path")).toThrow("Invalid path");
+  });
+});
+
+// ── createWorktree rejects malicious inputs ──────────────────────────────────
+
+describe("createWorktree input validation", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("rejects baseBranch starting with --", async () => {
+    await expect(
+      createWorktree("/repo", "--upload-pack=evil", "task")
+    ).rejects.toThrow("Invalid baseBranch");
+  });
+
+  it("rejects baseBranch with shell metacharacters", async () => {
+    await expect(
+      createWorktree("/repo", "main;rm -rf /", "task")
+    ).rejects.toThrow("Invalid baseBranch");
+  });
+
+  it("rejects repoPath with shell metacharacters", async () => {
+    await expect(
+      createWorktree("/repo$(whoami)", "main", "task")
+    ).rejects.toThrow("Invalid repoPath");
+  });
+});
 
 // ── Full worktree mode (default) ──────────────────────────────────────────────
 
@@ -67,17 +149,18 @@ describe("createWorktree (full mode)", () => {
     expect(result.mode).toBe("full");
   });
 
-  it("explicitly uses full mode when mode: 'full' is passed", async () => {
+  it("explicitly uses full mode when mode: 'full' is passed with -- separator", async () => {
     setupExecFileMock([""]);
 
     const result = await createWorktree("/repo", "main", "task", { mode: "full" });
 
     expect(result.mode).toBe("full");
-    // 'git worktree add' should be the command used
+    // 'git worktree add' should be the command used with `--` separator
     const calls = vi.mocked(execFile).mock.calls;
     const gitArgs = calls[0][1] as string[];
     expect(gitArgs).toContain("worktree");
     expect(gitArgs).toContain("add");
+    expect(gitArgs).toContain("--");
   });
 
   it("generates branch names from task descriptions", async () => {
@@ -118,7 +201,7 @@ describe("createWorktree (lightweight mode)", () => {
     expect(result.mode).toBe("lightweight");
   });
 
-  it("uses git clone --depth 1 for the shallow clone step", async () => {
+  it("uses git clone --depth 1 for the shallow clone step with -- separator", async () => {
     setupExecFileMock(["", ""]);
 
     await createWorktree("/repo", "main", "Fix typo", { mode: "lightweight" });
@@ -129,6 +212,8 @@ describe("createWorktree (lightweight mode)", () => {
     expect(firstArgs).toContain("clone");
     expect(firstArgs).toContain("--depth");
     expect(firstArgs).toContain("1");
+    // `--` should appear to separate options from positional args
+    expect(firstArgs).toContain("--");
   });
 
   it("creates a new branch in the cloned directory", async () => {
@@ -160,7 +245,7 @@ describe("removeWorktree", () => {
     vi.clearAllMocks();
   });
 
-  it("removes an existing full worktree via git worktree remove", async () => {
+  it("removes an existing full worktree via git worktree remove with -- separator", async () => {
     vi.mocked(existsSync).mockReturnValueOnce(true);
     setupExecFileMock([""]);
 
@@ -169,6 +254,11 @@ describe("removeWorktree", () => {
     const gitArgs = vi.mocked(execFile).mock.calls[0][1] as string[];
     expect(gitArgs).toContain("worktree");
     expect(gitArgs).toContain("remove");
+    expect(gitArgs).toContain("--");
+    // `--` must come before the path (positional arg)
+    const dashDashIdx = gitArgs.indexOf("--");
+    const pathIdx = gitArgs.indexOf("/repo/.agent-worktrees/test");
+    expect(dashDashIdx).toBeLessThan(pathIdx);
   });
 
   it("removes an existing lightweight worktree via rm (no git command)", async () => {
