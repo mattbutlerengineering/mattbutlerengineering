@@ -883,6 +883,17 @@ const CRITERIA= [
     details: 'Override analytics categorizes human corrections (safety, correctness, style, scope) and trends them over time. This distinguishes "AI was wrong" from "AI was right but user preferred different style" and identifies systemic weaknesses.',
     detection: { type: 'any-of', pattern: ['docs/acmm/override-analytics.md'] },
   },
+  {
+    id: 'acmm:ai-compliance-doc',
+    source: 'acmm',
+    level: 5,
+    category: 'governance',
+    name: 'AI compliance documentation',
+    description: 'Documentation mapping AI workflows to regulatory and compliance requirements.',
+    rationale: 'L5 signal: regulated environments need to audit not just code but AI process compliance.',
+    details: 'AI compliance documentation maps what data agents can access, how decisions are traced, and how the system relates to regulatory frameworks (GDPR, SOC2). Without this, compliance teams cannot assess the AI pipeline.',
+    detection: { type: 'any-of', pattern: ['docs/acmm/ai-compliance-doc.md', 'docs/compliance/ai-workflows.md'] },
+  },
 
   // ── L6 — Autonomous ─────────────────────────────────────────────
   {
