@@ -214,6 +214,152 @@ describe("Webhook Routes", () => {
       });
     });
 
+    describe("SSRF protection in collaborator permission check", () => {
+      const makeIssuePayload = (repo: string, sender: string) => ({
+        action: "labeled",
+        label: { name: "agent" },
+        issue: {
+          number: 99,
+          title: "SSRF test issue",
+          body: "Test body",
+          html_url: `https://github.com/${repo}/issues/99`,
+          labels: [{ name: "agent" }],
+        },
+        repository: {
+          full_name: repo,
+          default_branch: "main",
+        },
+        sender: { login: sender, type: "User" },
+      });
+
+      it("rejects repository with path traversal (../../evil.com)", async () => {
+        const payload = makeIssuePayload("../../evil.com", "alice");
+        const payloadStr = JSON.stringify(payload);
+        const signature = signPayload(payloadStr, WEBHOOK_SECRET);
+
+        await app.inject({
+          method: "POST",
+          url: "/v1/webhooks/github",
+          payload,
+          headers: {
+            "x-github-event": "issues",
+            "x-hub-signature-256": signature,
+          },
+        });
+
+        // Permission check should fail (returns false), so no session created
+        expect(mockFetch).not.toHaveBeenCalled();
+        expect(vi.mocked(sessionService.create)).not.toHaveBeenCalled();
+      });
+
+      it("rejects repository with query string injection (evil.com/foo?)", async () => {
+        const payload = makeIssuePayload("evil.com/foo?", "alice");
+        const payloadStr = JSON.stringify(payload);
+        const signature = signPayload(payloadStr, WEBHOOK_SECRET);
+
+        await app.inject({
+          method: "POST",
+          url: "/v1/webhooks/github",
+          payload,
+          headers: {
+            "x-github-event": "issues",
+            "x-hub-signature-256": signature,
+          },
+        });
+
+        expect(mockFetch).not.toHaveBeenCalled();
+        expect(vi.mocked(sessionService.create)).not.toHaveBeenCalled();
+      });
+
+      it("rejects username with path traversal (../evil)", async () => {
+        const payload = makeIssuePayload("org/repo", "../evil");
+        const payloadStr = JSON.stringify(payload);
+        const signature = signPayload(payloadStr, WEBHOOK_SECRET);
+
+        await app.inject({
+          method: "POST",
+          url: "/v1/webhooks/github",
+          payload,
+          headers: {
+            "x-github-event": "issues",
+            "x-hub-signature-256": signature,
+          },
+        });
+
+        expect(mockFetch).not.toHaveBeenCalled();
+        expect(vi.mocked(sessionService.create)).not.toHaveBeenCalled();
+      });
+
+      it("rejects repository with URL scheme injection", async () => {
+        const payload = makeIssuePayload("http://evil.com/x", "alice");
+        const payloadStr = JSON.stringify(payload);
+        const signature = signPayload(payloadStr, WEBHOOK_SECRET);
+
+        await app.inject({
+          method: "POST",
+          url: "/v1/webhooks/github",
+          payload,
+          headers: {
+            "x-github-event": "issues",
+            "x-hub-signature-256": signature,
+          },
+        });
+
+        expect(mockFetch).not.toHaveBeenCalled();
+        expect(vi.mocked(sessionService.create)).not.toHaveBeenCalled();
+      });
+
+      it("rejects username with encoded characters (%2F)", async () => {
+        const payload = makeIssuePayload("org/repo", "alice%2F..%2Fevil");
+        const payloadStr = JSON.stringify(payload);
+        const signature = signPayload(payloadStr, WEBHOOK_SECRET);
+
+        await app.inject({
+          method: "POST",
+          url: "/v1/webhooks/github",
+          payload,
+          headers: {
+            "x-github-event": "issues",
+            "x-hub-signature-256": signature,
+          },
+        });
+
+        expect(mockFetch).not.toHaveBeenCalled();
+        expect(vi.mocked(sessionService.create)).not.toHaveBeenCalled();
+      });
+
+      it("allows valid repository and username with hyphens and dots", async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ permission: "write" }),
+        } as Response);
+
+        const payload = makeIssuePayload("my-org.corp/my-repo.js", "alice-bob.dev");
+        const payloadStr = JSON.stringify(payload);
+        const signature = signPayload(payloadStr, WEBHOOK_SECRET);
+
+        await app.inject({
+          method: "POST",
+          url: "/v1/webhooks/github",
+          payload,
+          headers: {
+            "x-github-event": "issues",
+            "x-hub-signature-256": signature,
+          },
+        });
+
+        // Valid inputs should reach the GitHub API
+        expect(mockFetch).toHaveBeenCalledWith(
+          "https://api.github.com/repos/my-org.corp/my-repo.js/collaborators/alice-bob.dev/permission",
+          expect.objectContaining({
+            headers: expect.objectContaining({
+              Authorization: expect.stringContaining("Bearer"),
+            }),
+          })
+        );
+      });
+    });
+
     describe("PR comment event", () => {
       const commentPayload = {
         action: "created",
