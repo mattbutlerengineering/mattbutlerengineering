@@ -1009,6 +1009,18 @@ const CRITERIA= [
     detection: { type: 'any-of', pattern: ['.claude/budget-policy.json', '.claude/acmm/cost-metrics.json', 'docs/acmm/cost-governance.md'] },
   },
   {
+    id: 'acmm:accessibility-ai-check',
+    source: 'acmm',
+    level: 5,
+    category: 'governance',
+    name: 'Accessibility checks for AI code',
+    description: 'Accessibility regression checks specifically targeting AI-generated UI code.',
+    rationale: 'L5 signal: AI can inadvertently introduce a11y regressions that axe-core catches, but without agent-specific tracking the pattern goes unnoticed.',
+    details: 'AI-generated Rialto components could miss ARIA attributes or keyboard navigation. Agent-specific a11y tracking ensures these patterns are caught and trended, adding a safety net beyond the existing per-component axe tests.',
+    detection: { type: 'any-of', pattern: ['docs/acmm/accessibility-ai-check.md'] },
+  },
+
+  {
     id: 'acmm:auto-rollback',
     source: 'acmm',
     level: 6,
