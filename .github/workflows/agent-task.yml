@@ -27,6 +27,8 @@ on:
         default: false
         type: boolean
 
+permissions: {}
+
 jobs:
   run-agent:
     runs-on: ubuntu-latest

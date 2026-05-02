@@ -11,6 +11,10 @@ on:
   push:
     branches: [main]
 
+
+permissions:
+  contents: read
+
 jobs:
   check-adr:
     name: ADR compliance

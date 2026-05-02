@@ -16,6 +16,9 @@ concurrency:
   group: deploy-static-${{ github.ref }}
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   circuit-check:
     name: Circuit Breaker Check
