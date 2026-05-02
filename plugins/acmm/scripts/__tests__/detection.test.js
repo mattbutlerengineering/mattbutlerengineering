@@ -82,6 +82,48 @@ test("detect: glob type throws (not implemented)", () => {
   fx.cleanup();
 });
 
+test("detect: mcp-server-config — .mcp.json present", () => {
+  const fx = fixture();
+  fx.file(".mcp.json", "{}");
+  const c = {
+    id: "acmm:mcp-server-config",
+    detection: { type: "any-of", pattern: [".mcp.json", ".claude/mcp.json", ".cursor/mcp.json", "mcp.json"] },
+  };
+  assert.equal(detect(fx.root, c), true);
+  fx.cleanup();
+});
+
+test("detect: mcp-server-config — no MCP config present", () => {
+  const fx = fixture();
+  const c = {
+    id: "acmm:mcp-server-config",
+    detection: { type: "any-of", pattern: [".mcp.json", ".claude/mcp.json", ".cursor/mcp.json", "mcp.json"] },
+  };
+  assert.equal(detect(fx.root, c), false);
+  fx.cleanup();
+});
+
+test("detect: code-graph — llms.txt present", () => {
+  const fx = fixture();
+  fx.file("llms.txt", "# index");
+  const c = {
+    id: "acmm:code-graph",
+    detection: { type: "any-of", pattern: [".vscode/settings.json", "tags", "TAGS", ".ctags", ".tree-sitter/", "llms.txt", "llms-full.txt"] },
+  };
+  assert.equal(detect(fx.root, c), true);
+  fx.cleanup();
+});
+
+test("detect: code-graph — no code intelligence files present", () => {
+  const fx = fixture();
+  const c = {
+    id: "acmm:code-graph",
+    detection: { type: "any-of", pattern: [".vscode/settings.json", "tags", "TAGS", ".ctags", ".tree-sitter/", "llms.txt", "llms-full.txt"] },
+  };
+  assert.equal(detect(fx.root, c), false);
+  fx.cleanup();
+});
+
 test("detectAll: returns set of detected ids only", () => {
   const fx = fixture();
   fx.file("README.md");

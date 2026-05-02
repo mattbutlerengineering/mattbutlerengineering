@@ -33,6 +33,41 @@ const INCONCLUSIVE_RESULT: EvaluationResult = {
 
 const MAX_DIFF_LENGTH = 50_000;
 
+/**
+ * Extract the body of a markdown section by heading text.
+ * Uses indexOf for linear-time safety (no regex backtracking).
+ * Returns null if the heading is not found.
+ */
+function extractMarkdownSection(text: string, headingPattern: RegExp): string | null {
+  // Find the heading line-by-line to avoid ReDoS on the full text
+  const lines = text.split("\n");
+  let startIdx = -1;
+  let charOffset = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    if (headingPattern.test(lines[i])) {
+      // Start capturing from the line after the heading
+      startIdx = charOffset + lines[i].length + 1; // +1 for the \n
+      break;
+    }
+    charOffset += lines[i].length + 1;
+  }
+
+  if (startIdx === -1 || startIdx >= text.length) return null;
+
+  const body = text.slice(startIdx);
+
+  // Find the next section boundary: "\n##" or "\n---"
+  let endIdx = body.length;
+  const nextHeading = body.indexOf("\n##");
+  const nextHr = body.indexOf("\n---");
+
+  if (nextHeading !== -1 && nextHeading < endIdx) endIdx = nextHeading;
+  if (nextHr !== -1 && nextHr < endIdx) endIdx = nextHr;
+
+  return body.slice(0, endIdx);
+}
+
 // ── Skip-evaluation heuristics ──────────────────────────────────────
 
 export interface ShouldEvaluateConfig {
@@ -125,12 +160,13 @@ const EVALUATION_SCHEMA = {
  * Looks for "## Acceptance Criteria" section with checkbox items.
  */
 export function extractAcceptanceCriteria(taskDescription: string): readonly string[] {
-  const criteriaSection = taskDescription.match(
-    /##\s*Acceptance\s*Criteria\s*\n([\s\S]*?)(?=\n##|\n---|$)/i
+  const sectionBody = extractMarkdownSection(
+    taskDescription,
+    /^##\s*Acceptance\s*Criteria\s*$/i,
   );
-  if (!criteriaSection) return [];
+  if (!sectionBody) return [];
 
-  return criteriaSection[1]
+  return sectionBody
     .split("\n")
     .filter((line) => /^\s*-\s*\[[ x]\]/.test(line))
     .map((line) => line.replace(/^\s*-\s*\[[ x]\]\s*/, "").trim())
@@ -142,12 +178,13 @@ export function extractAcceptanceCriteria(taskDescription: string): readonly str
  * Looks for "## Files to Modify" section or inline backtick paths.
  */
 export function extractExpectedFiles(taskDescription: string): readonly string[] {
-  const filesSection = taskDescription.match(
-    /##\s*Files\s*to\s*(?:Modify|Create)[^\n]*\n([\s\S]*?)(?=\n##|\n---|$)/i
+  const sectionBody = extractMarkdownSection(
+    taskDescription,
+    /^##\s*Files\s*to\s*(?:Modify|Create)/i,
   );
-  if (!filesSection) return [];
+  if (!sectionBody) return [];
 
-  return filesSection[1]
+  return sectionBody
     .split("\n")
     .map((line) => {
       const match = line.match(/`([^`]+\.\w+)`/);

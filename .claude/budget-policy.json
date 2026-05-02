@@ -1,0 +1,36 @@
+{
+  "$schema": "https://mattbutlerengineering.com/schemas/budget-policy.json",
+  "version": "1.0.0",
+  "description": "Cost governance policy for AI agent operations",
+  "limits": {
+    "perTask": {
+      "maxBudgetUsd": 1.00,
+      "maxTurns": 50,
+      "description": "Default limits for mbe agent run"
+    },
+    "perDay": {
+      "maxBudgetUsd": 25.00,
+      "description": "Aggregate daily spend limit across all agent sessions"
+    },
+    "perWeek": {
+      "maxBudgetUsd": 100.00,
+      "description": "Weekly aggregate spend limit"
+    }
+  },
+  "alerting": {
+    "warnAtPercent": 80,
+    "channels": ["github-issue"],
+    "description": "Create a GitHub issue when spend reaches 80% of daily/weekly limit"
+  },
+  "modelTiering": {
+    "default": "claude-sonnet-4-6",
+    "lightweight": "claude-haiku-4-5-20251001",
+    "complex": "claude-opus-4-6",
+    "description": "Model selection strategy — see CLAUDE.md performance section"
+  },
+  "tracking": {
+    "backend": "langfuse",
+    "metricsPath": ".claude/acmm/cost-metrics.json",
+    "description": "Token and cost data tracked via Langfuse session traces"
+  }
+}

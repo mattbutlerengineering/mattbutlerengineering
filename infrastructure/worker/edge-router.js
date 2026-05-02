@@ -27,6 +27,24 @@ import {
 } from "./circuit-breaker.js";
 import { checkRateLimit, rateLimitResponse } from "./rate-limiter.js";
 import depGraph from "./dep-graph.json";
+
+// ── CORS Origin Allowlist ──────────────────────────────────────────────
+// Only these production origins may receive Access-Control-Allow-Origin.
+// If a request's Origin header does not match, the header is omitted entirely.
+const ALLOWED_ORIGINS = new Set([
+  "https://mattbutlerengineering.com",
+  "https://hospitality.mattbutlerengineering.com",
+  "https://gen.mattbutlerengineering.com",
+]);
+
+/**
+ * Return the request's Origin if it is in the allowlist, or null otherwise.
+ */
+function corsOriginFor(request) {
+  const origin = request.headers.get("Origin");
+  return origin && ALLOWED_ORIGINS.has(origin) ? origin : null;
+}
+
 /**
  * Build security headers with a per-request nonce for CSP script-src.
  * The nonce replaces 'unsafe-inline', preventing injected scripts from
@@ -485,13 +503,14 @@ function isHealthAuthorized(request, env) {
 /**
  * Return a coarse health response with no infrastructure details.
  */
-function coarseHealthResponse(status, timestamp, requestId) {
+function coarseHealthResponse(status, timestamp, requestId, request) {
+  const corsOrigin = corsOriginFor(request);
   return new Response(JSON.stringify({ status, timestamp, requestId }), {
     status: 200,
     headers: {
       "Content-Type": "application/json",
       "Cache-Control": "no-store",
-      "Access-Control-Allow-Origin": "*",
+      ...(corsOrigin ? { "Access-Control-Allow-Origin": corsOrigin } : {}),
     },
   });
 }
@@ -557,9 +576,10 @@ async function handleHealthSystem(request, env, requestId) {
 
   // Gate detailed output behind token auth (safe by default)
   if (!isHealthAuthorized(request, env)) {
-    return coarseHealthResponse(status, timestamp, requestId);
+    return coarseHealthResponse(status, timestamp, requestId, request);
   }
 
+  const corsOrigin = corsOriginFor(request);
   return new Response(
     JSON.stringify({
       status,
@@ -572,7 +592,7 @@ async function handleHealthSystem(request, env, requestId) {
       headers: {
         "Content-Type": "application/json",
         "Cache-Control": "no-store",
-        "Access-Control-Allow-Origin": "*",
+        ...(corsOrigin ? { "Access-Control-Allow-Origin": corsOrigin } : {}),
       },
     }
   );
@@ -850,13 +870,14 @@ async function handleHealthLighthouse(env) {
  * The graph is built at CI time by `scripts/generate-dep-graph.mjs` and
  * imported as a static JSON module.  Cached for 5 minutes at the edge.
  */
-function handleHealthDeps() {
+function handleHealthDeps(request) {
+  const corsOrigin = corsOriginFor(request);
   return new Response(JSON.stringify(depGraph), {
     status: 200,
     headers: {
       "Content-Type": "application/json",
       "Cache-Control": "public, max-age=300",
-      "Access-Control-Allow-Origin": "*",
+      ...(corsOrigin ? { "Access-Control-Allow-Origin": corsOrigin } : {}),
     },
   });
 }
@@ -961,7 +982,7 @@ export default {
     }
 
     if (url.pathname === "/health/deps") {
-      return handleHealthDeps();
+      return handleHealthDeps(request);
     }
 
     // ── Feature flags admin API ─────────────────────────────────────

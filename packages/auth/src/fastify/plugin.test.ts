@@ -330,4 +330,48 @@ describe("Auth Plugin", () => {
       );
     });
   });
+
+  describe("rate-limit registration check", () => {
+    it("logs a warning when rateLimit decorator is missing", async () => {
+      const warnSpy = vi.fn();
+      const warnApp = Fastify({
+        logger: { level: "warn" },
+      });
+      // Override the log.warn to capture calls
+      warnApp.log.warn = warnSpy;
+
+      await warnApp.register(testRoutesPlugin);
+      await warnApp.ready();
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Auth plugin registered without rate limiting")
+      );
+
+      await warnApp.close();
+    });
+
+    it("does not log a warning when rateLimit decorator is present", async () => {
+      const warnSpy = vi.fn();
+      const limitApp = Fastify({
+        logger: { level: "warn" },
+      });
+      limitApp.log.warn = warnSpy;
+
+      // Simulate @fastify/rate-limit by decorating with rateLimit
+      limitApp.decorate("rateLimit", () => {});
+
+      await limitApp.register(testRoutesPlugin);
+      await limitApp.ready();
+
+      // Ensure the specific rate-limit warning was NOT emitted
+      const rateLimitWarnings = warnSpy.mock.calls.filter(
+        (call: unknown[]) =>
+          typeof call[0] === "string" &&
+          call[0].includes("Auth plugin registered without rate limiting")
+      );
+      expect(rateLimitWarnings).toHaveLength(0);
+
+      await limitApp.close();
+    });
+  });
 });

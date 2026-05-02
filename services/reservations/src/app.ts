@@ -20,6 +20,31 @@ import { eventRoutes } from "./routes/events.js";
 import { floorPlanRoutes } from "./routes/floor-plans.js";
 import { guestRoutes } from "./routes/guests.js";
 
+/**
+ * Validates CORS origins from the CORS_ORIGINS env var against an allowlist.
+ * Accepts *.mattbutlerengineering.com in all environments and localhost
+ * origins only in development. Returns only the origins that pass validation.
+ */
+function validateCorsOrigins(origins: string[]): string[] {
+  const validPatterns = [
+    /^https:\/\/([a-z-]+\.)?mattbutlerengineering\.com$/,
+    ...(process.env.NODE_ENV === "development"
+      ? [/^http:\/\/localhost:\d+$/]
+      : []),
+  ];
+
+  const validated: string[] = [];
+  for (const origin of origins) {
+    const trimmed = origin.trim();
+    if (validPatterns.some((p) => p.test(trimmed))) {
+      validated.push(trimmed);
+    } else {
+      console.warn(`[CORS] Rejected invalid origin from CORS_ORIGINS: ${trimmed}`);
+    }
+  }
+  return validated;
+}
+
 export interface AppOptions {
   logger?: boolean | object;
 }
@@ -52,10 +77,21 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
     "https://gen.mattbutlerengineering.com",
   ];
 
-  const corsOrigins = process.env.CORS_ORIGINS?.split(",") || [
+  const defaultOrigins = [
     ...prodOrigins,
     ...(process.env.NODE_ENV === "development" ? defaultDevOrigins : []),
   ];
+
+  const envOrigins = process.env.CORS_ORIGINS?.split(",");
+  const validatedEnv = envOrigins ? validateCorsOrigins(envOrigins) : null;
+
+  if (validatedEnv && validatedEnv.length === 0) {
+    console.warn("[CORS] All CORS_ORIGINS were rejected; falling back to defaults");
+  }
+
+  const corsOrigins = validatedEnv && validatedEnv.length > 0
+    ? validatedEnv
+    : defaultOrigins;
 
   await fastify.register(cors, {
     origin: corsOrigins,
