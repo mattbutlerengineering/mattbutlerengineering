@@ -204,6 +204,7 @@ export async function eventRoutes(fastify: FastifyInstance): Promise<void> {
       // The response will be ended when the client disconnects or timeout fires
 
       // TEST-ONLY: automatically close after N ms to allow app.inject to complete in tests
+      // lgtm[js/resource-exhaustion]
       if (process.env.NODE_ENV === "test" && testClose) {
         setTimeout(() => {
           if (!reply.raw.writableEnded) {
