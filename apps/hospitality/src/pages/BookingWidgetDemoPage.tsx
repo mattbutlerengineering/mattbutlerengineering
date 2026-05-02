@@ -99,21 +99,22 @@ function highlightEmbedCode(code: string): ReactNode[] {
       const commentMatch = remaining.match(/^(<!--.*?-->)/);
       if (commentMatch) {
         parts.push(
-          <span key={keyIndex++} className={styles.syntaxComment}>
+          <Text key={keyIndex++} className={styles.syntaxComment}>
             {commentMatch[1]}
-          </span>
+          </Text>
         );
         remaining = remaining.slice(commentMatch[1].length);
         continue;
       }
 
-      // HTML tags
+      // HTML tags (syntax highlighting only — not security filtering)
+      // lgtm[js/bad-tag-filter]
       const tagMatch = remaining.match(/^(<\/?[a-zA-Z][a-zA-Z0-9]*[^>]*>)/);
       if (tagMatch) {
         parts.push(
-          <span key={keyIndex++} className={styles.syntaxTag}>
+          <Text key={keyIndex++} className={styles.syntaxTag}>
             {tagMatch[1]}
-          </span>
+          </Text>
         );
         remaining = remaining.slice(tagMatch[1].length);
         continue;
@@ -123,9 +124,9 @@ function highlightEmbedCode(code: string): ReactNode[] {
       const stringMatch = remaining.match(/^('[^']*'|"[^"]*")/);
       if (stringMatch) {
         parts.push(
-          <span key={keyIndex++} className={styles.syntaxString}>
+          <Text key={keyIndex++} className={styles.syntaxString}>
             {stringMatch[1]}
-          </span>
+          </Text>
         );
         remaining = remaining.slice(stringMatch[1].length);
         continue;
@@ -135,24 +136,24 @@ function highlightEmbedCode(code: string): ReactNode[] {
       const jsCommentMatch = remaining.match(/^(\/\/.*)/);
       if (jsCommentMatch) {
         parts.push(
-          <span key={keyIndex++} className={styles.syntaxComment}>
+          <Text key={keyIndex++} className={styles.syntaxComment}>
             {jsCommentMatch[1]}
-          </span>
+          </Text>
         );
         remaining = "";
         continue;
       }
 
       // Plain text (advance one character)
-      parts.push(<span key={keyIndex++}>{remaining[0]}</span>);
+      parts.push(<Text key={keyIndex++}>{remaining[0]}</Text>);
       remaining = remaining.slice(1);
     }
 
     return (
-      <span key={lineIndex}>
+      <Text key={lineIndex}>
         {parts}
         {lineIndex < lines.length - 1 ? "\n" : null}
-      </span>
+      </Text>
     );
   });
 }

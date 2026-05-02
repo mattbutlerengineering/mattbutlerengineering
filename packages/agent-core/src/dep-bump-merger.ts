@@ -36,7 +36,7 @@ function extractChangedFiles(diff: string): readonly string[] {
   for (const line of diff.split("\n")) {
     if (!line.startsWith("diff --git ")) continue;
     // e.g. "diff --git a/some/path/package.json b/some/path/package.json"
-    const match = line.match(/diff --git a\/.+ b\/(.+)$/);
+    const match = line.match(/^diff --git a\/\S+ b\/(\S+)$/);
     if (match) {
       files.push(match[1]);
     }
