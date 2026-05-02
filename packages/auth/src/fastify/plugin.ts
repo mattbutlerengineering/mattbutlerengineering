@@ -32,6 +32,11 @@ function createProblemDetails(status: number, title: string, detail: string) {
 
 /**
  * Fastify plugin for JWT validation using OIDC provider's JWKS.
+ *
+ * **Rate limiting:** This plugin does NOT enforce rate limiting itself.
+ * Consumers MUST register `@fastify/rate-limit` (or equivalent) before
+ * registering this plugin. An `onReady` hook will log a warning if the
+ * `rateLimit` decorator is missing at startup.
  */
 async function authPluginImpl(
   fastify: FastifyInstance,
@@ -42,6 +47,19 @@ async function authPluginImpl(
   const jwksUri = `${authority.replace(/\/$/, "")}/.well-known/jwks.json`;
   const JWKS = createRemoteJWKSet(new URL(jwksUri));
 
+  // Warn if rate limiting has not been registered by the consuming service.
+  // The auth plugin delegates rate limiting to consumers (e.g., @fastify/rate-limit).
+  fastify.addHook("onReady", async () => {
+    if (!fastify.hasDecorator("rateLimit")) {
+      fastify.log.warn(
+        "Auth plugin registered without rate limiting — register @fastify/rate-limit before @mbe/auth to protect auth endpoints"
+      );
+    }
+  });
+
+  // CodeQL js/missing-rate-limiting: rate limiting is the consumer's responsibility.
+  // Consuming services (e.g., services/users) register @fastify/rate-limit globally
+  // before this plugin, so all routes — including this onRequest hook — are covered.
   fastify.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
     // 1. Explicit Test Bypass
     // Check if bypass mode is enabled AND the request opted in via header.
