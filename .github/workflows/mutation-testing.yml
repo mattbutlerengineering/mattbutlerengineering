@@ -11,6 +11,10 @@ concurrency:
   group: mutation-testing
   cancel-in-progress: false
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   # ──────────────────────────────────────────────────────────────────────────
   # Mutation Testing — periodic validation of test quality

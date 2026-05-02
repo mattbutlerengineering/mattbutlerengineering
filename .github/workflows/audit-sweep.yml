@@ -4,6 +4,9 @@ on:
     - cron: '23 16 * * 1' # Monday 9:23am PT (16:23 UTC)
   workflow_dispatch: {} # Manual trigger
 
+permissions:
+  contents: read
+
 jobs:
   sweep:
     runs-on: ubuntu-latest

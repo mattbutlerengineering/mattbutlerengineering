@@ -5,6 +5,8 @@ on:
     - cron: "17 0 * * *" # Daily at 00:17 UTC (off-minute to avoid fleet congestion)
   workflow_dispatch: # Manual trigger
 
+permissions: {}
+
 jobs:
   snapshot:
     name: Record Health Snapshot
