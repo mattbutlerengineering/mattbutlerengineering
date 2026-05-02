@@ -110,8 +110,9 @@ export function shouldEvaluate(diff: string, config: ShouldEvaluateConfig = {}):
     .filter((line) => line.startsWith("diff --git "))
     .map((line) => {
       // e.g. "diff --git a/src/foo.test.ts b/src/foo.test.ts"
-      const match = line.match(/diff --git a\/.+ b\/(.+)$/);
-      return match ? match[1] : "";
+      // Use string splitting instead of regex to avoid ReDoS on greedy `.+`
+      const parts = line.split(" b/");
+      return parts.length > 1 ? parts[parts.length - 1] : "";
     })
     .filter(Boolean);
 

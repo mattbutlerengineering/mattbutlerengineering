@@ -25,11 +25,23 @@ const API_ERROR_SIGNALS: readonly RegExp[] = [
   /enotfound/i,
 ];
 
-const BUDGET_SIGNALS: readonly RegExp[] = [
+/**
+ * Check whether substrings `a` and `b` both appear in `str` (case-insensitive),
+ * with `a` occurring before `b`. Replaces `.*` regex patterns to avoid ReDoS.
+ */
+function containsInOrder(str: string, a: string, b: string): boolean {
+  const lower = str.toLowerCase();
+  const idx = lower.indexOf(a);
+  return idx !== -1 && lower.indexOf(b, idx + a.length) !== -1;
+}
+
+type BudgetSignal = RegExp | ((str: string) => boolean);
+
+const BUDGET_SIGNALS: readonly BudgetSignal[] = [
   /budget/i,
-  /cost.*exceeded/i,
-  /exceeded.*budget/i,
-  /max.*budget/i,
+  (str: string) => containsInOrder(str, "cost", "exceeded"),
+  (str: string) => containsInOrder(str, "exceeded", "budget"),
+  (str: string) => containsInOrder(str, "max", "budget"),
 ];
 
 const TOOL_ERROR_SIGNALS: readonly RegExp[] = [
@@ -61,8 +73,9 @@ export function categorizeFailure(
     if (pattern.test(combined)) return "rate_limited";
   }
 
-  for (const pattern of BUDGET_SIGNALS) {
-    if (pattern.test(combined)) return "budget_exceeded";
+  for (const signal of BUDGET_SIGNALS) {
+    const matched = typeof signal === "function" ? signal(combined) : signal.test(combined);
+    if (matched) return "budget_exceeded";
   }
 
   for (const pattern of TOOL_ERROR_SIGNALS) {
