@@ -10,6 +10,41 @@ const execFileAsync = promisify(execFile);
 
 const WORKTREE_DIR = ".agent-worktrees";
 
+// ── Input validation ─────────────────────────────────────────────────────────
+// Defence-in-depth: although execFile avoids shell injection, we validate
+// inputs to prevent git argument injection (e.g. branch names starting with
+// `--`) and reject clearly malicious values before they reach any subprocess.
+
+/** Safe git ref pattern: alphanumeric, `/`, `.`, `-`, `_`, no leading `-` or `.` */
+const SAFE_GIT_REF = /^[a-zA-Z0-9][a-zA-Z0-9/_.-]*$/;
+
+/** Characters that must never appear in filesystem paths passed to subprocesses */
+const UNSAFE_PATH_CHARS = /[;&|$`(){}\n\r]/;
+
+/**
+ * Validate a git ref (branch name, tag) against safe patterns.
+ * Rejects refs containing shell metacharacters or starting with `-` (argument injection).
+ */
+export function validateGitRef(ref: string, label: string): void {
+  if (!ref || !SAFE_GIT_REF.test(ref)) {
+    throw new Error(
+      `Invalid ${label}: "${ref}" — must match ${String(SAFE_GIT_REF)} (no leading dash, no shell metacharacters)`
+    );
+  }
+}
+
+/**
+ * Validate a filesystem path against unsafe characters.
+ * Rejects paths containing shell metacharacters.
+ */
+export function validatePath(path: string, label: string): void {
+  if (!path || UNSAFE_PATH_CHARS.test(path)) {
+    throw new Error(
+      `Invalid ${label}: "${path}" — must not contain shell metacharacters (${String(UNSAFE_PATH_CHARS)})`
+    );
+  }
+}
+
 function generateBranchName(taskDescription: string): string {
   const slug = taskDescription
     .toLowerCase()
@@ -36,7 +71,9 @@ async function createFullWorktree(
   branchName: string
 ): Promise<string> {
   const worktreePath = join(repoPath, WORKTREE_DIR, branchName.replace(/\//g, "-"));
-  await git(["worktree", "add", "-b", branchName, worktreePath, baseBranch], repoPath);
+  // `--` separates options from positional args, preventing branchName/baseBranch
+  // from being interpreted as flags if they ever started with `-`.
+  await git(["worktree", "add", "-b", branchName, "--", worktreePath, baseBranch], repoPath);
   return worktreePath;
 }
 
@@ -52,9 +89,10 @@ async function createLightweightWorktree(
 ): Promise<string> {
   const clonePath = join(repoPath, WORKTREE_DIR, branchName.replace(/\//g, "-"));
   // Shallow clone from the local repo; --depth 1 keeps it fast and minimal.
-  await execFileAsync("git", ["clone", "--depth", "1", "--branch", baseBranch, repoPath, clonePath]);
+  // `--` prevents baseBranch/repoPath from being parsed as flags.
+  await execFileAsync("git", ["clone", "--depth", "1", "--branch", baseBranch, "--", repoPath, clonePath]);
   // Create and switch to the task branch inside the clone.
-  await git(["checkout", "-b", branchName], clonePath);
+  await git(["checkout", "-b", branchName, "--"], clonePath);
   return clonePath;
 }
 
@@ -72,6 +110,9 @@ export async function createWorktree(
   taskDescription: string,
   options: CreateWorktreeOptions = {}
 ): Promise<WorktreeInfo> {
+  validatePath(repoPath, "repoPath");
+  validateGitRef(baseBranch, "baseBranch");
+
   const mode = options.mode ?? "full";
   const branchName = generateBranchName(taskDescription);
 
@@ -88,6 +129,9 @@ export async function removeWorktree(
   worktreePath: string,
   mode: WorktreeMode = "full"
 ): Promise<void> {
+  validatePath(repoPath, "repoPath");
+  validatePath(worktreePath, "worktreePath");
+
   if (!existsSync(worktreePath)) {
     return;
   }
@@ -96,11 +140,13 @@ export async function removeWorktree(
     // Lightweight clones are standalone directories — just remove them.
     await rm(worktreePath, { recursive: true, force: true });
   } else {
-    await git(["worktree", "remove", worktreePath, "--force"], repoPath);
+    await git(["worktree", "remove", "--force", "--", worktreePath], repoPath);
   }
 }
 
 export async function cleanupWorktrees(repoPath: string): Promise<void> {
+  validatePath(repoPath, "repoPath");
+
   const worktreesDir = join(repoPath, WORKTREE_DIR);
   if (!existsSync(worktreesDir)) {
     return;
@@ -113,10 +159,12 @@ export async function commitChanges(
   worktreePath: string,
   message: string
 ): Promise<string> {
+  validatePath(worktreePath, "worktreePath");
+
   await git(["add", "-A"], worktreePath);
 
-  const status = await git(["status", "--porcelain"], worktreePath);
-  if (!status) {
+  const gitStatus = await git(["status", "--porcelain"], worktreePath);
+  if (!gitStatus) {
     return "";
   }
 
@@ -129,12 +177,17 @@ export async function pushBranch(
   worktreePath: string,
   branchName: string
 ): Promise<void> {
-  await git(["push", "-u", "origin", branchName], worktreePath);
+  validatePath(worktreePath, "worktreePath");
+  validateGitRef(branchName, "branchName");
+
+  await git(["push", "-u", "origin", "--", branchName], worktreePath);
 }
 
 export async function hasChanges(worktreePath: string): Promise<boolean> {
-  const status = await git(["status", "--porcelain"], worktreePath);
-  return status.length > 0;
+  validatePath(worktreePath, "worktreePath");
+
+  const gitStatus = await git(["status", "--porcelain"], worktreePath);
+  return gitStatus.length > 0;
 }
 
 export interface VerificationResult {
