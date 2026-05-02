@@ -872,6 +872,17 @@ const CRITERIA= [
     details: 'A fallback policy defines retry strategies, circuit breakers, and escalation paths for AI API failures. Without this, L6 autonomous loops stop silently when the API is unavailable, and scheduled tasks skip without notification.',
     detection: { type: 'any-of', pattern: ['.claude/fallback-policy.json', 'docs/acmm/ai-service-fallback.md'] },
   },
+  {
+    id: 'acmm:override-analytics',
+    source: 'acmm',
+    level: 5,
+    category: 'feedback-loop',
+    name: 'Override analytics',
+    description: 'Taxonomy and trending for human corrections of AI suggestions.',
+    rationale: 'L5 signal: understanding WHY humans correct AI enables systematic improvement, not just counting corrections.',
+    details: 'Override analytics categorizes human corrections (safety, correctness, style, scope) and trends them over time. This distinguishes "AI was wrong" from "AI was right but user preferred different style" and identifies systemic weaknesses.',
+    detection: { type: 'any-of', pattern: ['docs/acmm/override-analytics.md'] },
+  },
 
   // ── L6 — Autonomous ─────────────────────────────────────────────
   {
