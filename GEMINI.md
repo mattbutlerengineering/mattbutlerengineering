@@ -30,6 +30,19 @@ Always run `mbe log-session` before finalizing a directive to quantify process i
 ### 6. Model Verification
 For high-complexity tasks (milestones, architectural refactors), run `mbe check-model` to verify you are using the correct tier (Sonnet/Opus). Report your current model version if asked.
 
+## ACMM Audit
+
+Score the repo against the AI Codebase Maturity Model (6-level rubric, 100+ criteria). This is a plain Node.js script — invoke directly:
+
+```bash
+node plugins/acmm/scripts/audit.js              # Dry run — scores repo, writes report
+node plugins/acmm/scripts/audit.js --apply       # Also files GitHub issues for next-level gaps
+node plugins/acmm/scripts/audit.js --badge        # Also rewrites README badge
+node plugins/acmm/scripts/audit.js --trend        # Print level history
+```
+
+Run as part of your review phase to verify the repo's AI-operability score hasn't regressed.
+
 ## AI Context Catalog
 - `llms.txt` — Rialto component catalog (UI patterns).
 - `llms-full.txt` — Detailed prop tables and advanced examples.

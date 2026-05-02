@@ -40,6 +40,20 @@ Quick reference:
 - `/progress-tracker` — metrics + circuit breaker
 - `/acmm-audit` — score repo against AI Codebase Maturity Model
 
+### ACMM Audit (All Agents)
+
+The AI Codebase Maturity Model audit is a plain Node.js script — no Claude Code plugin required:
+
+```bash
+node plugins/acmm/scripts/audit.js              # Dry run — scores repo, writes report
+node plugins/acmm/scripts/audit.js --apply       # Also files GitHub issues for next-level gaps
+node plugins/acmm/scripts/audit.js --badge        # Also rewrites README badge
+node plugins/acmm/scripts/audit.js --apply --badge # Full run
+node plugins/acmm/scripts/audit.js --trend        # Print level history from state.json
+```
+
+Output: `.claude/acmm/state.json` (machine-readable) and `.claude/acmm/report.md` (human-readable scorecard). Tests: `node --test plugins/acmm/scripts/__tests__/`.
+
 `mbe` CLI subcommands (real binary): `agent`, `stats`, `up`, `pack`, `prime`, `new`, `generate`, `check-adr`, `check-deps`, `check-model`, `cleanup-worktrees`, `health`, `compound`, `loop`, `wave`, `visual`, `users`, `login`/`logout`/`whoami`, `sync-rules`. Run `mbe --help` for current list.
 
 ---

@@ -27,6 +27,8 @@
       "pnpm *": "allow",
       "npm *": "allow",
       "npx *": "allow",
+      "node plugins/acmm/*": "allow",
+      "node --test *": "allow",
       "rm *": "deny"
     }
   },
