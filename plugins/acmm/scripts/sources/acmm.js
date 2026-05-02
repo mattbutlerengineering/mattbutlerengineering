@@ -861,6 +861,17 @@ const CRITERIA= [
     details: 'Agent attestation covers how AI-authored commits are identified (branch naming, bot accounts, GPG signing) and how the audit trail connects git history to session traces. Without this, agent changes are indistinguishable from human changes.',
     detection: { type: 'any-of', pattern: ['docs/acmm/agent-attestation.md', 'docs/security/agent-identity.md'] },
   },
+  {
+    id: 'acmm:ai-service-fallback',
+    source: 'acmm',
+    level: 5,
+    category: 'governance',
+    name: 'AI service fallback policy',
+    description: 'Defined behavior for when AI APIs are unavailable or degraded.',
+    rationale: 'L5 signal: autonomous systems must degrade gracefully when their AI service is down, not break silently.',
+    details: 'A fallback policy defines retry strategies, circuit breakers, and escalation paths for AI API failures. Without this, L6 autonomous loops stop silently when the API is unavailable, and scheduled tasks skip without notification.',
+    detection: { type: 'any-of', pattern: ['.claude/fallback-policy.json', 'docs/acmm/ai-service-fallback.md'] },
+  },
 
   // ── L6 — Autonomous ─────────────────────────────────────────────
   {

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://mattbutlerengineering.com/schemas/fallback-policy.json",
+  "version": "1.0.0",
+  "description": "Defines behavior when AI services are unavailable or degraded",
+  "retryPolicy": {
+    "maxRetries": 3,
+    "initialDelayMs": 1000,
+    "maxDelayMs": 30000,
+    "backoffMultiplier": 2,
+    "retryableErrors": ["rate_limit", "overloaded", "timeout", "connection_error"]
+  },
+  "degradedMode": {
+    "onApiUnavailable": "queue-and-notify",
+    "onRateLimit": "backoff-and-retry",
+    "onBudgetExhausted": "stop-and-notify",
+    "notificationChannel": "github-issue"
+  },
+  "circuitBreaker": {
+    "failureThreshold": 5,
+    "resetTimeoutMs": 300000,
+    "halfOpenRequests": 1,
+    "description": "After 5 consecutive failures, stop for 5 minutes before retrying"
+  },
+  "scheduledTasks": {
+    "onFailure": "skip-and-log",
+    "maxConsecutiveSkips": 3,
+    "escalation": "Create GitHub issue with 'agent-health' label after 3 consecutive skips"
+  }
+}
