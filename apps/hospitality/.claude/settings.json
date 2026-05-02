@@ -9,7 +9,7 @@
       "Bash(pnpm --dir apps/hospitality typecheck)",
       "Bash(wrangler deploy)",
       "Bash(wrangler --config apps/hospitality/wrangler.canary.toml deploy)",
-      "Bash(node scripts/acmm/audit.js --project apps/hospitality)"
+      "Bash(node plugins/acmm/scripts/audit.js --project apps/hospitality)"
     ],
     "deny": [
       "Bash(**drop**)",

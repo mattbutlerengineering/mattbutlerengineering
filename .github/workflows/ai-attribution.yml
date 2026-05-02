@@ -10,10 +10,8 @@ name: ai-attribution
 # audit trail distinguishing agent merges from human merges in this
 # repo. See memory/REFLECTIONS.md.
 #
-# NOTE: GitHub Actions billing is intentionally unpaid on this repo
-# (CLAUDE.md). The workflow exists as encoded policy. The runtime
-# equivalent of attribution today is the `has-pr` label on the
-# originating issue plus the Langfuse session-ID column in the
+# The runtime equivalent of attribution today is the `has-pr` label on
+# the originating issue plus the Langfuse session-ID column in the
 # tracing UI.
 
 on:

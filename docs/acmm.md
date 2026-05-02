@@ -9,7 +9,7 @@ AI agents** rather than just edited by them. It evaluates the **meta-properties*
 of the repo — instructions, metrics, loops, gates, autonomy — not the
 quality of the application code itself.
 
-The catalog (89 criteria across 4 cited frameworks) is ported verbatim from
+The catalog (100+ criteria across 4 cited frameworks) is ported verbatim from
 [kubestellar/console](https://github.com/kubestellar/console/tree/main/web/src/lib/acmm/sources),
 the reference implementation validated in [arXiv:2604.09388](https://arxiv.org/abs/2604.09388).
 Source IDs and detection paths are 1:1 with upstream — verified by diff.
@@ -52,22 +52,22 @@ locally-derived from the source tree).
 
 ```bash
 # Dry run — score the repo, write report, create nothing
-node scripts/acmm/audit.js
+node plugins/acmm/scripts/audit.js
 
 # Score a specific sub-project (app or package)
-node scripts/acmm/audit.js --project apps/marketing
+node plugins/acmm/scripts/audit.js --project apps/marketing
 
 # + create deduplicated GitHub issues for next-level gaps
-node scripts/acmm/audit.js --apply
+node plugins/acmm/scripts/audit.js --apply
 
 # + rewrite README badge between <!-- acmm:begin -->/<!-- acmm:end -->
-node scripts/acmm/audit.js --badge
+node plugins/acmm/scripts/audit.js --badge
 
 # Full run (what scheduled trigger calls)
-node scripts/acmm/audit.js --apply --badge
+node plugins/acmm/scripts/audit.js --apply --badge
 
 # Print trend history only
-node scripts/acmm/audit.js --trend
+node plugins/acmm/scripts/audit.js --trend
 ```
 
 ## Monorepo vs Package implementation
@@ -98,13 +98,13 @@ When `inherit: true` is set:
 By default, the following paths are considered global and can be inherited:
 - `.github/` (Workflows, templates)
 - `docs/` (Runbooks, maturity model docs)
-- `scripts/acmm/` (Audit tools)
+- `plugins/acmm/scripts/` (Audit tools)
 - `CONTRIBUTING.md`
 - `package.json`, `pnpm-workspace.yaml`, `turbo.json` (Monorepo config)
 
 ## Internally:
 
-1. Loads 89 criteria from `scripts/acmm/sources/{acmm,fullsend,agentic-engineering-framework,claude-reflect}.js`.
+1. Loads 100+ criteria from `plugins/acmm/scripts/sources/{acmm,fullsend,agentic-engineering-framework,claude-reflect}.js`.
 2. Runs file-presence detection on each (no network, native `fs` only):
    - `path` — single file or directory; trailing `/` requires a directory
    - `any-of` — array of paths; ANY match satisfies
@@ -137,7 +137,7 @@ the criterion's underlying need, not just file-presence theater. See
 
 ```mermaid
 flowchart LR
-    A([Run audit<br/>node scripts/acmm/audit.js]) --> B{--diff vs<br/>prior state}
+    A([Run audit<br/>node plugins/acmm/scripts/audit.js]) --> B{--diff vs<br/>prior state}
     B -->|Level changed| C[Update README badge<br/>--badge]
     B -->|No change| D[Read missing-for-next-level]
     C --> D
@@ -196,7 +196,7 @@ features at the current level and start moving up.
 Runs daily at **10:00 AM PT** via the `mbe-acmm-audit` RemoteTrigger:
 
 ```
-node scripts/acmm/audit.js --apply --badge
+node plugins/acmm/scripts/audit.js --apply --badge
 ```
 
 This:
@@ -225,24 +225,24 @@ SKILL.md, etc.) so future sessions start smarter than the last one.
 | Artifact | Purpose |
 |---|---|
 | `.claude/skills/acmm-audit/SKILL.md` | Slash-command interface (`/acmm-audit`) |
-| `scripts/acmm/audit.js` | The audit runner |
-| `scripts/acmm/sources/*.js` | The 89-criterion catalog (1:1 port of upstream) |
-| `scripts/acmm/computeLevel.js` | Threshold walk + missing-for-next-level computation |
-| `scripts/acmm/outputs/{report,badge,issues}.js` | Output renderers |
+| `plugins/acmm/scripts/audit.js` | The audit runner |
+| `plugins/acmm/scripts/sources/*.js` | The 100+ criterion catalog (1:1 port of upstream) |
+| `plugins/acmm/scripts/computeLevel.js` | Threshold walk + missing-for-next-level computation |
+| `plugins/acmm/scripts/outputs/{report,badge,issues}.js` | Output renderers |
 | `.claude/acmm/state.json` | Last run state (gitignored, locally derived) |
 | `.claude/acmm/report.md` | Scorecard (gitignored, locally derived) |
-| `metrics/acmm-pr-history.jsonl` | PR-history backfill for trend analysis |
+| `docs/metrics/pr-acceptance.json` | PR-history backfill for trend analysis |
 | `docs/reflections/` | Lessons-learned committed log |
 | `docs/ai-ops-runbook.md` | How to debug/override the autonomous systems |
 
 ## Adding a new criterion
 
-We don't extend the canonical 89-criterion catalog locally — that would
+We don't extend the canonical 100+ criterion catalog locally — that would
 break upstream parity. Instead:
 
 1. Open an issue or PR upstream at [kubestellar/console](https://github.com/kubestellar/console).
-2. Once it lands, port the new criterion into the matching `scripts/acmm/sources/<source>.js` file.
-3. Re-run `node scripts/acmm/audit.js` to confirm parity (89 → 90).
+2. Once it lands, port the new criterion into the matching `plugins/acmm/scripts/sources/<source>.js` file.
+3. Re-run `node plugins/acmm/scripts/audit.js` to confirm parity (89 → 90).
 
 For repo-specific quality gates that aren't part of ACMM, use the
 existing systems: `/site-audit` for UX/perf, `/ci-monitor` for CI

@@ -16,7 +16,7 @@
       "Bash(pnpm --dir services/users db:push)",
       "Bash(pnpm --dir services/users db:migrate)",
       "Bash(pnpm --dir services/users db:studio)",
-      "Bash(node scripts/acmm/audit.js --project services/users)"
+      "Bash(node plugins/acmm/scripts/audit.js --project services/users)"
     ],
     "deny": [
       "Bash(**drop**)",

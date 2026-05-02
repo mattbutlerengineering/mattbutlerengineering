@@ -4,10 +4,8 @@ name: claude
 # @claude mentions in issues, PRs, and review comments. Mirrors the
 # pattern in kubestellar/console (the canonical ACMM reference repo).
 #
-# NOTE: GitHub Actions billing is intentionally unpaid on this repo
-# (CLAUDE.md). The workflow exists as encoded policy. The runtime
-# equivalent is `mbe agent run "<prompt>"` invoked locally or via the
-# mbe-issue-worker RemoteTrigger.
+# The runtime equivalent is `mbe agent run "<prompt>"` invoked locally
+# or via the mbe-issue-worker RemoteTrigger.
 
 on:
   issue_comment:

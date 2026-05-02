@@ -8,10 +8,9 @@ name: nightly-compliance
 # `mbe-deep-audit` RemoteTriggers, but as a workflow so the policy is in
 # source. The workflow is the policy; the RemoteTrigger is the runtime.
 #
-# NOTE: GitHub Actions billing is intentionally unpaid on this repo
-# (CLAUDE.md). The workflow does not currently execute. The equivalent
-# checks run nightly via the claude.ai RemoteTriggers; this file is what
-# gets activated when budget is restored.
+# This workflow runs on its cron schedule alongside the claude.ai
+# RemoteTriggers. Both exist intentionally: the workflow is the policy
+# in source control; the RemoteTrigger is the runtime backup.
 
 on:
   schedule:
@@ -85,7 +84,7 @@ jobs:
           {
             echo '## Gating scripts'
             echo
-              for script in plugins/acmm/scripts/check-*.js; do
+              for script in scripts/check-*.js; do
               name=$(basename "$script" .js)
               if node "$script" 2>&1 > "/tmp/$name.out"; then
                 echo "- ✓ \`$name\` passed"

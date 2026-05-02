@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/specs/auto-qa-tuning",
-  "$comment": "Self-tuning thresholds for the agent QA loop. The auto-qa.yml workflow reads this file before each agent dispatch and writes back adjusted thresholds based on observed PR-acceptance metrics from metrics/acmm-pr-history.jsonl. See docs/review-criteria.md for the rubric the QA loop applies.",
+  "$comment": "Self-tuning thresholds for the agent QA loop. These thresholds are consumed by agent dispatch (mbe agent run) and reviewer agents. A future auto-qa.yml workflow will read this file and write back adjusted thresholds based on observed PR-acceptance metrics from docs/metrics/pr-acceptance.json. See docs/review-criteria.md for the rubric the QA loop applies.",
   "version": 1,
   "lastTunedAt": "2026-04-25",
   "thresholds": {
@@ -31,7 +31,7 @@
     {
       "date": "2026-04-25",
       "trigger": "seed",
-      "note": "Initial values; not yet tuned from data. The first auto-qa run on >=14 days of metrics/acmm-pr-history.jsonl will adjust based on observed acceptance and close-time."
+      "note": "Initial values; not yet tuned from data. The first auto-qa run on >=14 days of docs/metrics/pr-acceptance.json will adjust based on observed acceptance and close-time."
     }
   ]
 }

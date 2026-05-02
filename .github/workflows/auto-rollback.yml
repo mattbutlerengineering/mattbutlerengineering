@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'failure' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 10
 
@@ -24,17 +24,31 @@ jobs:
         id: agent-check
         env:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Check if the failing commit was authored by an agent
           AUTHOR=$(git log -1 --format='%an' "$HEAD_SHA" 2>/dev/null || echo "unknown")
+          MESSAGE=$(git log -1 --format='%B' "$HEAD_SHA" 2>/dev/null || echo "")
           BRANCH=$(git log -1 --format='%D' "$HEAD_SHA" 2>/dev/null || echo "")
 
           IS_AGENT="false"
-          if echo "$BRANCH" | grep -qE '(agent-|worktree-agent-)'; then
+
+          # Check branch name patterns (worktree agents, agent branches)
+          if echo "$BRANCH" | grep -qE '(agent-|worktree-agent-|fix/agent-|feat/agent-)'; then
             IS_AGENT="true"
           fi
-          if echo "$AUTHOR" | grep -qiE '(bot|agent|claude)'; then
+
+          # Check for Co-Authored-By: Claude in commit message (most reliable signal)
+          if echo "$MESSAGE" | grep -qi 'Co-Authored-By:.*Claude'; then
             IS_AGENT="true"
+          fi
+
+          # Check for has-pr label on the merge commit's PR
+          PR_NUM=$(echo "$MESSAGE" | grep -oE '#[0-9]+' | head -1 | tr -d '#')
+          if [ -n "$PR_NUM" ]; then
+            LABELS=$(gh pr view "$PR_NUM" --json labels --jq '.labels[].name' 2>/dev/null || echo "")
+            if echo "$LABELS" | grep -q 'has-pr'; then
+              IS_AGENT="true"
+            fi
           fi
 
           echo "is_agent=$IS_AGENT" >> "$GITHUB_OUTPUT"

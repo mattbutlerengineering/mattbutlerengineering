@@ -4,11 +4,8 @@ name: tier-classifier
 # docs/change-tiers.md. Reviewers (and reviewer agents) read the label
 # to decide which scrutiny applies.
 #
-# NOTE: GitHub Actions billing is intentionally unpaid on this repo
-# (see CLAUDE.md), so this workflow does not currently execute. The
-# rules are still encoded here so they can be activated when budget
-# allows. Until then, agents and humans applying review-criteria.md
-# can read this file (or docs/change-tiers.md) to classify by hand.
+# Agents and humans applying review-criteria.md can also read
+# docs/change-tiers.md to classify by hand when needed.
 
 on:
   pull_request:

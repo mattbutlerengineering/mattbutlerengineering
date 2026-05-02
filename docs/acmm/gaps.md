@@ -1,7 +1,7 @@
 # ACMM Framework Gaps — What the Model Doesn't Measure
 
 > **Context:** Issue #645 — analyze and document gaps in the current AI Codebase Maturity Model.
-> The canonical ACMM (89 criteria, 6 levels, 4 sources) measures structural and procedural readiness well.
+> The canonical ACMM (100+ criteria, 6 levels, 4 sources) measures structural and procedural readiness well.
 > This document identifies **what it does not measure** about real-world AI readiness.
 
 ## Summary

@@ -9,7 +9,7 @@ moved.
 
 | System | Where it runs | What it does | How to pause |
 |---|---|---|---|
-| `mbe-acmm-audit` | RemoteTrigger, daily 10:00 PT | `node scripts/acmm/audit.js --apply --badge` — files L+1 gap issues, updates README badge | Disable trigger at https://claude.ai/code/routines |
+| `mbe-acmm-audit` | RemoteTrigger, daily 10:00 PT | `node plugins/acmm/scripts/audit.js --apply --badge` — files L+1 gap issues, updates README badge | Disable trigger at https://claude.ai/code/routines |
 | `mbe-light-audit` | RemoteTrigger, Tue–Sun 9:41 PT | `/site-audit` lite — crawls live site, files perf/a11y issues | Same |
 | `mbe-deep-audit` | RemoteTrigger, Mon 8:23 PT | `/site-audit` deep — Lighthouse + Playwright full sweep | Same |
 | `mbe-issue-worker` | RemoteTrigger, every 2h | Picks up `ready`-labeled issues, runs `mbe agent run`, opens PRs | Same |
@@ -71,9 +71,70 @@ The system favors human override at every layer:
 | Signal | Where | Notes |
 |---|---|---|
 | LLM session traces | Langfuse Cloud | `LANGFUSE_PUBLIC_KEY`-gated; one trace per `runSession()` call |
-| ACMM trend | `.claude/acmm/state.json` history array | Each run appended; `node scripts/acmm/audit.js --trend` prints |
+| ACMM trend | `.claude/acmm/state.json` history array | Each run appended; `node plugins/acmm/scripts/audit.js --trend` prints |
 | Agent metrics | `metrics/*.jsonl` | Per-PR success rate, cost, turn count |
-| ACMM PR metrics | `metrics/acmm-pr-history.jsonl` | Backfilled from PR history |
+| ACMM PR metrics | `docs/metrics/pr-acceptance.json` | Backfilled from PR history |
+
+## Incident severity classification
+
+| Severity | Definition | Examples | Response time |
+|---|---|---|---|
+| **S1 — Production down** | User-facing service is unreachable or returning errors | Deploy broke a live site; agent pushed a migration that corrupted data | Immediately — pause all routines, revert, then investigate |
+| **S2 — Autonomous misfire** | Agent acted correctly per its rules but the outcome was wrong | Auto-merged a PR that breaks a downstream consumer; wrong label caused cascading agent pickups | Within 1 hour — close/revert the bad output, pause the trigger |
+| **S3 — Drift / noise** | System is working but producing low-value output | Flaky issue filed repeatedly; stale metric inflating dashboard; ACMM badge flickering | Next business day — file `meta-improvement` issue |
+
+## Incident response flowchart
+
+```
+Something unexpected happened
+        │
+        ├─ Is production affected?
+        │   YES → S1: revert immediately, pause all routines
+        │   NO ─┐
+        │       ├─ Did an agent act on its own?
+        │       │   YES → S2: close/revert output, pause that trigger
+        │       │   NO ─┐
+        │       │       └─ S3: file meta-improvement issue
+        │       │
+        ├─ Trace the commit (see "Trace a commit" above)
+        ├─ Identify root cause (see "Root cause checklist" below)
+        ├─ Fix and verify
+        └─ Run post-incident review
+```
+
+## Root cause checklist
+
+When investigating an autonomous failure, check these in order:
+
+1. **Was the trigger input wrong?** Check the issue body or audit output that triggered the agent. Bad input → bad output.
+2. **Did the agent misread the codebase?** Check if the agent's tool calls read stale files (worktree not updated, cached checkout).
+3. **Did CI pass but the change was still wrong?** This means a test gap — file a `ci-fix` issue for the missing coverage.
+4. **Did the agent exceed its budget/turns?** Check `mbe agent status <id>` — a stuck agent may have committed partial work.
+5. **Did a concurrent agent conflict?** Two agents editing the same file race. Check `git log --all --oneline --graph` for branch conflicts.
+6. **Did credentials or quotas expire?** Check `gh auth status`, `doctl auth list`, and Langfuse dashboard for auth errors.
+
+## Discovering problems proactively
+
+Don't wait for users to report issues. These signals surface problems early:
+
+| Signal | Where to check | What it means |
+|---|---|---|
+| `agent-failed` label count rising | `gh issue list --label agent-failed` | Agent capability gap or recurring bad input |
+| ACMM level regression | `.claude/acmm/state.json` → `history` array | A file was deleted or a workflow broke |
+| CI flake rate > 1% | ACMM report `Signal quality` section | Test isolation problem or infrastructure flake |
+| Agent PR rejection rate > 20% | `docs/metrics/pr-acceptance.json` | Agent instructions need tuning |
+| Langfuse error rate spike | Langfuse Cloud dashboard → Traces | API quota, model error, or prompt regression |
+| RemoteTrigger consecutive failures | https://claude.ai/code/routines | Auth token expired or repo state invalid |
+
+## Post-incident review process
+
+After resolving any S1 or S2 incident:
+
+1. **Document what happened.** Create a `docs/incidents/YYYY-MM-DD-<slug>.md` file with: timeline, root cause, impact, and resolution.
+2. **Identify the missing gate.** Every autonomous failure represents a missing check. What test, hook, or policy would have caught this?
+3. **Implement the gate.** Add the test, hook, or workflow that prevents recurrence. Link the incident doc in the commit message.
+4. **Update this runbook.** If the incident revealed a new failure mode, add it to the severity table or root cause checklist.
+5. **Re-enable the paused trigger.** Only after the gate is in place and verified.
 
 ## When to escalate to human-only mode
 

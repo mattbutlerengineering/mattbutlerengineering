@@ -90,13 +90,13 @@ Areas that require either user approval or specialist-agent review before modifi
 | `prisma/schema.prisma` | `migration-reviewer` agent run |
 | `infrastructure/pulumi/` | User approval + ADR for prod-affecting changes |
 | `services/users/src/auth/`, `packages/auth/` | `adr-compliance-reviewer` for any change |
-| `scripts/acmm/backfill-metrics.js` | Forbidden to *execute* (committed but un-runnable per `feat(acmm): add backfill-metrics.js tool — do NOT run for M5.1 gaming`) |
+| `plugins/acmm/scripts/backfill-metrics.js` | Forbidden to *execute* (committed but un-runnable per `feat(acmm): add backfill-metrics.js tool — do NOT run for M5.1 gaming`) |
 | `scripts/check-*.js` | User approval — these are the gate enforcement |
 
 ## Audit and observability
 
 1. **Langfuse traces** every agent session — task, model, budget, turns, success/failure. The trace ID is the audit primary key.
-2. **`metrics/acmm-pr-history.jsonl`** records PR acceptance over time, used to detect regressions in the agent loop.
+2. **`docs/metrics/pr-acceptance.json`** records PR acceptance over time, used to detect regressions in the agent loop.
 3. **Co-Authored-By attribution** is currently disabled globally in `~/.claude/settings.json`. As a result, agent merges are *not* distinguishable in `git log` from human merges. Until attribution is re-enabled, the audit trail relies on Langfuse session IDs and the `has-pr` label history on closed issues.
 4. **Every PR opened by an agent** must carry a `Closes #N` reference linking it to the originating issue. This is the only durable trail when attribution is off.
 

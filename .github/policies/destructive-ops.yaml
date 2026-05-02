@@ -80,7 +80,7 @@ restricted_paths:
   - path: "packages/auth/src/middleware/**"
     rule: requires adr-compliance-reviewer
     severity: high
-  - path: "scripts/acmm/backfill-metrics.js"
+  - path: "plugins/acmm/scripts/backfill-metrics.js"
     rule: forbidden to execute (committed but un-runnable per gaming guardrail)
     severity: critical
   - path: "scripts/check-*.js"

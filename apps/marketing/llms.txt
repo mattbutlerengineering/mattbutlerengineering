@@ -22,7 +22,7 @@
       }
     </item>
     <item priority="high">
-      export const TECH_STACK: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
+      export const TECH_STACK: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
     </item>
   </file>
   <file path="src/data/projects.ts">
@@ -35,7 +35,7 @@
       }
     </item>
     <item priority="high">
-      export const PROJECTS: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
+      export const PROJECTS: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
     </item>
   </file>
   </section>

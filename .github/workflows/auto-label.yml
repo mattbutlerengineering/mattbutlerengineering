@@ -4,10 +4,8 @@ name: auto-label
 # keywords, and path mentions. Removes a manual step from the default path
 # without taking any irreversible action — labels can always be removed.
 #
-# NOTE: GitHub Actions billing is intentionally unpaid on this repo
-# (CLAUDE.md). The workflow encodes the triage policy in source. Until
-# billing is restored, run-bare-bones triage is performed manually or by
-# the `mbe-issue-worker` RemoteTrigger when it picks up a new issue.
+# Triage is also performed by the `mbe-issue-worker` RemoteTrigger
+# when it picks up a new issue.
 
 on:
   issues:

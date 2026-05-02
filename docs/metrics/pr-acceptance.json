@@ -1,1 +1,10 @@
-[]
+[
+  {
+    "date": "2026-05-02",
+    "window_days": 30,
+    "total_ai_prs": 40,
+    "merged": 40,
+    "rejected": 0,
+    "acceptance_rate": 1
+  }
+]

@@ -30,7 +30,7 @@
 - [ ] `pnpm typecheck` passes
 - [ ] `pnpm test` passes
 - [ ] **No hardcoded secrets or credentials**
-- [ ] ACMM Level 4 compliance verified
+- [ ] ACMM compliance verified
 - [ ] llms.txt updated (if applicable)
 - [ ] Documentation updated (if applicable)
 

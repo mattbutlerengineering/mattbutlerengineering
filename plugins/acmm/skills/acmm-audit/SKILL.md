@@ -1,6 +1,6 @@
 ---
 name: acmm-audit
-description: "Audit this repo against the AI Codebase Maturity Model (ACMM) — canonical 6-level rubric with 85 criteria from 4 source frameworks (ACMM, Fullsend, AEF, Reflect). Writes a report to .claude/acmm/, files GitHub issues for the next-level gaps, and rewrites the README badge. Invoke with /acmm-audit [--apply] [--badge] [--trend]."
+description: "Audit this repo against the AI Codebase Maturity Model (ACMM) — canonical 6-level rubric with 100+ criteria from 4 source frameworks (ACMM, Fullsend, AEF, Reflect). Writes a report to .claude/acmm/, files GitHub issues for the next-level gaps, and rewrites the README badge. Invoke with /acmm-audit [--apply] [--badge] [--trend]."
 user-invocable: true
 ---
 
@@ -8,7 +8,7 @@ user-invocable: true
 
 Canonical AI Codebase Maturity Model — scores how AI-operable a repo is on a 6-level scale (L1 Assisted → L6 Fully Autonomous). Fills the gap between `/site-audit` (UX/code health) and `/progress-tracker` (loop metrics): ACMM evaluates the **meta-properties** of the repo — do we have the instructions, metrics, loops, and gates in place to be AI-driven?
 
-The criterion catalog is **ported verbatim** from [kubestellar/console](https://github.com/kubestellar/console/tree/main/web/src/lib/acmm/sources) — the reference implementation validated in the [arXiv paper (2604.09388)](https://arxiv.org/abs/2604.09388). 85 criteria total across 4 cited source frameworks.
+The criterion catalog is **ported verbatim** from [kubestellar/console](https://github.com/kubestellar/console/tree/main/web/src/lib/acmm/sources) — the reference implementation validated in the [arXiv paper (2604.09388)](https://arxiv.org/abs/2604.09388). 100+ criteria total across 4 cited source frameworks.
 
 ## Invocation
 
@@ -31,7 +31,7 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/audit.js --trend
 
 ## What it does
 
-1. Loads 85 criteria from `scripts/acmm/sources/{acmm,fullsend,agentic-engineering-framework,claude-reflect}.js`.
+1. Loads 100+ criteria from `${CLAUDE_PLUGIN_ROOT}/scripts/sources/{acmm,fullsend,agentic-engineering-framework,claude-reflect}.js`.
 2. Runs file-presence detection on each (no network, native `fs` only):
    - `path` — single file or directory; trailing `/` requires a directory
    - `any-of` — array of paths; ANY match satisfies

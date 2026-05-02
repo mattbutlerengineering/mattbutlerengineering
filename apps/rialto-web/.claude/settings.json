@@ -9,7 +9,7 @@
       "Bash(pnpm --dir apps/rialto-web test:a11y)",
       "Bash(pnpm test:visual)",
       "Bash(pnpm dlx wrangler@latest deploy --config apps/rialto-web/wrangler.toml)",
-      "Bash(node scripts/acmm/audit.js --project apps/rialto-web)"
+      "Bash(node plugins/acmm/scripts/audit.js --project apps/rialto-web)"
     ],
     "deny": [
       "Bash(**import** from ../../packages/rialto/src/**)"

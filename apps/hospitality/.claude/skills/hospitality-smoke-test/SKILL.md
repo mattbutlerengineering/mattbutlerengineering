@@ -19,5 +19,5 @@ pnpm --dir apps/hospitality test:e2e
 ## Verification
 
 ```bash
-node scripts/acmm/audit.js --project apps/hospitality
+node plugins/acmm/scripts/audit.js --project apps/hospitality
 ```

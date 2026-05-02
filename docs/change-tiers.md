@@ -85,7 +85,7 @@ These signals can shift a PR's tier independent of file paths.
 
 ## Auto-merge eligibility
 
-Currently, **only T1 PRs with all CI checks green are auto-mergeable**. The auto-merge workflow (`.github/workflows/auto-merge.yml`) is intentionally **not yet wired**. When budget allows GH Actions to run, T1 auto-merge is the first thing to enable.
+Currently, **only T1 PRs with all CI checks green are auto-mergeable**. The merge queue workflow (`.github/workflows/merge-queue.yml`) auto-merges PRs labeled `has-pr` (and not `needs-review`) when all CI checks pass.
 
 T2 and above always require human approval. The user (Matt) is the only required reviewer.
 

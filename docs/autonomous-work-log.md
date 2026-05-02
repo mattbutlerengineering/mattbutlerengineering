@@ -19,30 +19,30 @@ auto-generated (see "Make this auto-update" at bottom).
 
 ## Recent autonomous activity
 
-Last refreshed manually on **2026-04-25 16:00 PT**. All times UTC unless noted.
+Last refreshed on **2026-05-02 09:46 PT**. All times UTC unless noted.
 
 ### PRs merged (last 8)
 
-| Merged | # | Title | Origin |
-|---|---|---|---|
-| 2026-04-25 23:10 | [#642](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/642) | fix(ci): silence false-positive SC2016 in migrate Dockerfile | Manual + CI feedback |
-| 2026-04-25 23:07 | [#641](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/641) | fix(ci): lazy DATABASE_URL in prisma.config so generate works without DB | Manual + CI feedback |
-| 2026-04-25 23:01 | [#640](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/640) | fix(ci): unblock 3 more workflows with same multi-line bash bug | Manual + actionlint |
-| 2026-04-25 22:56 | [#639](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/639) | fix(ci): unblock 3 workflows rejected at parse-time | Manual + actionlint |
-| 2026-04-25 22:44 | [#638](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/638) | fix(infra): add node types to Pulumi tsconfig | CI failure follow-up |
-| 2026-04-25 22:42 | [#637](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/637) | fix(infra): add node types to Pulumi tsconfig | CI failure follow-up |
-| 2026-04-25 21:49 | [#632](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/632) | fix(rialto-catalog): add node types | Pre-existing typecheck gap |
-| 2026-04-25 17:42 | [#628](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/628) | feat(acmm): land L4 + L5 artifacts → Level 4 (45/85) | Manual L4→L5 climb |
+| Merged | # | Title |
+|---|---|---|
+| 2026-05-02 16:27 | [#979](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/979) | fix(security): suppress false-positive CodeQL alerts in embed code highlighter |
+| 2026-05-02 16:17 | [#978](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/978) | fix(security): anchor regex in dep-bump-merger to prevent ReDoS |
+| 2026-05-02 05:51 | [#976](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/976) | fix(security): ReDoS and bad HTML filter |
+| 2026-05-02 05:49 | [#975](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/975) | fix(security): command injection in worktree-manager |
+| 2026-05-02 05:48 | [#974](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/974) | fix(security): suppress false-positive rate-limiting alerts |
+| 2026-05-02 05:47 | [#973](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/973) | fix(security): SSRF in webhook collaborator permission check |
+| 2026-05-02 05:50 | [#972](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/972) | fix(security): prevent command injection in worktree-manager |
+| 2026-05-02 05:44 | [#966](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/966) | fix(security): validate webhook inputs to prevent SSRF |
 
 ### Most-recent workflow runs
 
 | Time (UTC) | Workflow | Outcome |
 |---|---|---|
-| 2026-04-25 23:15 | Post-Deploy Smoke Tests | skipped |
-| 2026-04-25 23:15 | Circuit Breaker | failure |
-| 2026-04-25 23:10 | Secret Scan | success |
-| 2026-04-25 23:10 | CI | failure |
-| 2026-04-25 23:10 | ADR check | success |
+| 2026-05-02 16:30 | Deploy Storybook to GitHub Pages | success |
+| 2026-05-02 16:29 | Post-Deploy Smoke Tests | success |
+| 2026-05-02 16:29 | Post-Deploy Check | success |
+| 2026-05-02 16:29 | Auto-Rollback on Agent Regression | skipped |
+| 2026-05-02 16:27 | Auto-Rollback on Agent Regression | skipped |
 
 (See `gh run list` for the full feed.)
 
@@ -50,7 +50,7 @@ Last refreshed manually on **2026-04-25 16:00 PT**. All times UTC unless noted.
 
 | Open | Total filed | Notes |
 |---|---|---|
-| 0 | 0 | None filed yet — `--apply` hasn't surfaced an unmet gap that wasn't already closed manually inside this session. The daily 10:00 PT trigger may file new ones at the next L6 catch-up. |
+| 0 | 20+ | All filed ACMM gap issues (#920–#949) have been closed. Zero open ACMM gaps remain. |
 
 ### ACMM trend
 
@@ -58,21 +58,14 @@ Last refreshed manually on **2026-04-25 16:00 PT**. All times UTC unless noted.
 |---|---|---|---|
 | 2026-04-23 | L4 | (early seed) | Initial scoring, soft pass |
 | 2026-04-25 | L5 | 49/85 | Reflection log + observability runbook landed; L6 = 1/6 |
+| 2026-04-30 | L6 | 54/85 | First full L6 pass — all 6 L6 criteria detected |
+| 2026-05-01 | L6 | 85/85 | Perfect score — all criteria across 4 frameworks detected |
 
-(See `node scripts/acmm/audit.js --trend` for the live history.)
+(See `node plugins/acmm/scripts/audit.js --trend` for the live history.)
 
 ## Open audit-derived work
 
-| # | Title | Age |
-|---|---|---|
-| [#504](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/504) | Audit: mcp-server build failing | ~18 days |
-| [#39](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/39) | [Audit] hospitality service worker hijacks /rialto routes | ~27 days |
-| [#38](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/38) | [Audit] CI: rialto-catalog drift-check test times out | ~27 days |
-| [#36](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/36) | [Audit] Bug: Rialto test suite failing | ~27 days |
-
-(These are old — the audit cadence is finding them but the issue-worker
-hasn't picked them up. Investigate why the `ready` label isn't sticking,
-or whether the issue-worker's prompt is filtering them out.)
+No open audit-derived issues remain. All previously tracked items (#36, #38, #39, #504) have been resolved.
 
 ## How to read this doc
 
@@ -91,7 +84,7 @@ or whether the issue-worker's prompt is filtering them out.)
 
 Today this doc is hand-refreshed. The honest path forward (separate
 issue): a workflow that runs every 6h and rewrites this file from
-`gh` queries + `node scripts/acmm/audit.js --trend`. Block markers
+`gh` queries + `node plugins/acmm/scripts/audit.js --trend`. Block markers
 between `<!-- autonomous-log:begin -->` and `<!-- autonomous-log:end -->`
 would let it preserve manual annotations outside the auto-rewritten
 section.

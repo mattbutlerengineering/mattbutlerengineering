@@ -48,7 +48,7 @@ These are preferences, not gates. If you bring them up, mark them `nit:` so the 
 ## Cross-cutting rules
 
 - **Trust the pre-commit hook.** It runs `eslint --fix` + `check-adr` + `pack-changed`. If a PR's tests pass and ADR check passes, the *style* is fine — focus on substance.
-- **GH Actions checks are intentionally unpaid** — every PR's CI status is red by design. **Do not** treat the red as a problem in the PR; verify the work locally with `pnpm lint`/`typecheck`/`test` if you need confirmation.
+- **GH Actions runs on every PR.** If CI is red, investigate — it's a real failure unless it's a known baseline issue on `main` (see `.claude/rules/gotchas.md` for current baseline failures). Don't dismiss CI failures without checking `gh run list --limit 5`.
 - **Agent-authored PRs** (commits with `Co-Authored-By: Claude`) get the *same* rubric as human PRs. The author field doesn't lower or raise the bar.
 - **Surface the why.** "Bug at line 42: `arr[i]` reads past `arr.length` when `i === arr.length`" beats "fix bounds check". Quote the symbol; explain the failure mode.
 
