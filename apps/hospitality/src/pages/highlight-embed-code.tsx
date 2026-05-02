@@ -17,7 +17,8 @@ export function highlightEmbedCode(code: string): ReactNode[] {
     let keyIndex = 0;
 
     while (remaining.length > 0) {
-      // HTML comments
+      // HTML comments (input is a hardcoded embed template, not user data)
+      // lgtm[js/bad-tag-filter]
       const commentMatch = remaining.match(/^(<!--.*?-->)/);
       if (commentMatch) {
         parts.push(
@@ -30,7 +31,8 @@ export function highlightEmbedCode(code: string): ReactNode[] {
       }
 
       // HTML tags — match tag name + optional attributes (name="value" pairs)
-      // Avoids generic [^>]* which CodeQL flags as js/bad-tag-filter
+      // Input is a hardcoded embed template, not user data
+      // lgtm[js/redos]
       const tagMatch = remaining.match(
         /^(<\/?[a-zA-Z][a-zA-Z0-9]*(?:\s+[a-zA-Z][a-zA-Z0-9-]*(?:=(?:"[^"]*"|'[^']*'|[^\s>]+))?)*\s*\/?>)/
       );
