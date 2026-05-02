@@ -1031,6 +1031,17 @@ const CRITERIA= [
     details: 'Auto-rollback completes the autonomous loop: the system detects regressions from its own PRs (via post-deploy checks) and creates revert PRs automatically. Without this, L6 autonomy is one-directional — the system can break things but not fix them.',
     detection: { type: 'any-of', pattern: ['.github/workflows/auto-rollback.yml', 'docs/acmm/auto-rollback.md'] },
   },
+  {
+    id: 'acmm:multi-repo-orchestration',
+    source: 'acmm',
+    level: 6,
+    category: 'autonomy',
+    name: 'Multi-repo orchestration',
+    description: 'Strategy for coordinating AI changes across multiple dependent repositories.',
+    rationale: 'L6 signal: fully autonomous systems need to coordinate changes beyond a single repo boundary.',
+    details: 'Multi-repo orchestration covers how AI agents coordinate changes across dependent repos — updating shared libraries, publishing new versions, and opening downstream PRs. Without this, L6 autonomy is limited to a single repo.',
+    detection: { type: 'any-of', pattern: ['docs/acmm/multi-repo-orchestration.md'] },
+  },
 ]
 
 export const acmmSource= {
