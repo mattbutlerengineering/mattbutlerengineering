@@ -222,6 +222,33 @@ index aaaaaaa..bbbbbbb 100644
       expect(result.isTrivial).toBe(false);
     });
 
+    it("handles adversarial diff header without polynomial backtracking (ReDoS)", () => {
+      // Craft a line that would cause catastrophic backtracking with a `.+`
+      // pattern: many `b/` sequences force exponential retries when the
+      // engine backtracks through `a/.+`.  With `\S+` the match is linear.
+      const adversarial =
+        "diff --git a/" +
+        "b/".repeat(50) +
+        "package.json b/package.json";
+      const diff = [
+        adversarial,
+        "index 1234567..abcdefg 100644",
+        "--- a/package.json",
+        "+++ b/package.json",
+        "@@ -3,3 +3,3 @@",
+        `-    "react": "18.2.0",`,
+        `+    "react": "18.3.0",`,
+      ].join("\n");
+
+      // Should complete in < 100ms (a ReDoS would hang for seconds/minutes)
+      const start = performance.now();
+      const result = isTrivialDepBump(diff);
+      const elapsed = performance.now() - start;
+
+      expect(elapsed).toBeLessThan(100);
+      expect(result.isTrivial).toBe(true);
+    });
+
     it("lockfile lines do NOT count toward the 20-line limit", () => {
       // Large lockfile diff but tiny package.json diff — should still be trivial
       const lockfileLines = Array.from(
