@@ -92,6 +92,9 @@ function verifySignature(
 
 // ── Constants ────────────────────────────────────────────────────────
 
+const GITHUB_REPO_RE = /^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/;
+const GITHUB_USERNAME_RE = /^[a-zA-Z0-9-]+$/;
+
 const AGENT_LABEL = "agent";
 const AGENT_COMMAND_PATTERN = /^\/agent\s+(.+)/i;
 const MAX_CI_RETRIES = 3;
@@ -102,6 +105,10 @@ async function checkCollaboratorPermission(
   repository: string,
   githubToken: string
 ): Promise<boolean> {
+  if (!GITHUB_REPO_RE.test(repository) || !GITHUB_USERNAME_RE.test(username)) {
+    return false;
+  }
+
   try {
     const response = await fetch(
       `${GITHUB_API_BASE}/repos/${repository}/collaborators/${username}/permission`,
