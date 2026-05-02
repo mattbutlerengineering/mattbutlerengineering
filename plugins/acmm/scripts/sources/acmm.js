@@ -894,6 +894,17 @@ const CRITERIA= [
     details: 'AI compliance documentation maps what data agents can access, how decisions are traced, and how the system relates to regulatory frameworks (GDPR, SOC2). Without this, compliance teams cannot assess the AI pipeline.',
     detection: { type: 'any-of', pattern: ['docs/acmm/ai-compliance-doc.md', 'docs/compliance/ai-workflows.md'] },
   },
+  {
+    id: 'acmm:review-burden',
+    source: 'acmm',
+    level: 5,
+    category: 'observability',
+    name: 'Review burden tracking',
+    description: 'Metrics tracking human review fatigue and sustainable review load.',
+    rationale: 'L5 signal: autonomous systems can overwhelm reviewers; measuring review burden prevents quality degradation.',
+    details: 'Review burden tracking monitors PRs per reviewer, review time, and auto-merge ratio. Without it, high-volume agent output may cause rubber-stamping or review abandonment, undermining the human oversight that L5 depends on.',
+    detection: { type: 'any-of', pattern: ['docs/acmm/review-burden.md'] },
+  },
 
   // ── L6 — Autonomous ─────────────────────────────────────────────
   {
