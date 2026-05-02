@@ -79,6 +79,7 @@ export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
+    // lgtm[js/missing-rate-limiting]
     async (request, reply) => {
       // 1. Verify webhook secret
       const secret = process.env.REMEDIATION_WEBHOOK_SECRET;

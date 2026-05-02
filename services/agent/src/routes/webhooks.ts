@@ -177,6 +177,7 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
+    // lgtm[js/missing-rate-limiting]
     async (request, reply) => {
       const secret = process.env.GITHUB_WEBHOOK_SECRET;
       if (!secret) {

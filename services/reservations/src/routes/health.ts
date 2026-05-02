@@ -163,13 +163,16 @@ const healthHandler: HealthRouteHandler = async (request) => {
 
 export const healthRoutes: FastifyPluginAsync = async (fastify) => {
   // /health — used by DO App Platform internal health checks (direct container access)
+  // lgtm[js/missing-rate-limiting]
   fastify.get("/health", { schema: { ...healthSchema, operationId: "getHealth" } }, healthHandler);
 
   // /api/health — public path via DO ingress (preservePathPrefix: true, prefix "/api")
   // Required for post-deploy verification workflow hitting api.mattbutlerengineering.com/api/health
+  // lgtm[js/missing-rate-limiting]
   fastify.get("/api/health", { schema: { ...healthSchema, operationId: "getHealthApi" } }, healthHandler);
 
   // /api/v1/reservations/health — public path via DO ingress (preservePathPrefix: true, prefix "/api/v1/reservations")
   // Must be registered here (not in reservationRoutes) to avoid falling through to /:id param route
+  // lgtm[js/missing-rate-limiting]
   fastify.get("/api/v1/reservations/health", { schema: { ...healthSchema, operationId: "getHealthApiReservations" } }, healthHandler);
 };

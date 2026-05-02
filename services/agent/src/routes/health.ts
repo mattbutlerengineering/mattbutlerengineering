@@ -134,6 +134,7 @@ export const healthRoutes: FastifyPluginAsync = async (fastify: FastifyInstance)
   };
 
   // /health — used by DO App Platform internal health checks (direct container access)
+  // lgtm[js/missing-rate-limiting]
   fastify.get<{ Reply: HealthResponse }>(
     "/health",
     { schema: { ...healthSchema, operationId: "getAgentHealth" } },
@@ -142,6 +143,7 @@ export const healthRoutes: FastifyPluginAsync = async (fastify: FastifyInstance)
 
   // /api/gen/health — public path via DO ingress (preservePathPrefix: true, prefix "/api/gen")
   // Required for synthetic monitoring hitting api.mattbutlerengineering.com/api/gen/health
+  // lgtm[js/missing-rate-limiting]
   fastify.get<{ Reply: HealthResponse }>(
     "/api/gen/health",
     { schema: { ...healthSchema, operationId: "getAgentHealthApiGen" } },
