@@ -55,6 +55,7 @@ export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
     return Readable.from(rawBody);
   });
 
+  // lgtm[js/missing-rate-limiting] — rate limiting is applied globally via @fastify/rate-limit in app.ts
   fastify.post<{
     Body: unknown;
     Reply: { sessionId: string } | ApiError;
