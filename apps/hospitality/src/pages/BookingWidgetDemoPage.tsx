@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, type ReactNode } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
 import {
@@ -17,6 +17,7 @@ import {
 import type { Venue } from "@mbe/types";
 import { PageHeader } from "../components/PageHeader";
 import { BookingWidget } from "../components/booking-widget";
+import { highlightEmbedCode } from "./highlight-embed-code.js";
 import styles from "./BookingWidgetDemoPage.module.css";
 
 /* ── Constants ─────────────────────────────── */
@@ -84,78 +85,6 @@ const FEATURES: readonly Feature[] = [
     svgPath: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z",
   },
 ] as const;
-
-/* ── Syntax highlighting ───────────────────── */
-
-function highlightEmbedCode(code: string): ReactNode[] {
-  const lines = code.split("\n");
-  return lines.map((line, lineIndex) => {
-    const parts: ReactNode[] = [];
-    let remaining = line;
-    let keyIndex = 0;
-
-    while (remaining.length > 0) {
-      // HTML comments
-      const commentMatch = remaining.match(/^(<!--.*?-->)/);
-      if (commentMatch) {
-        parts.push(
-          <span key={keyIndex++} className={styles.syntaxComment}>
-            {commentMatch[1]}
-          </span>
-        );
-        remaining = remaining.slice(commentMatch[1].length);
-        continue;
-      }
-
-      // HTML tags
-      const tagMatch = remaining.match(/^(<\/?[a-zA-Z][a-zA-Z0-9]*[^>]*>)/);
-      if (tagMatch) {
-        parts.push(
-          <span key={keyIndex++} className={styles.syntaxTag}>
-            {tagMatch[1]}
-          </span>
-        );
-        remaining = remaining.slice(tagMatch[1].length);
-        continue;
-      }
-
-      // Strings (single or double quoted)
-      const stringMatch = remaining.match(/^('[^']*'|"[^"]*")/);
-      if (stringMatch) {
-        parts.push(
-          <span key={keyIndex++} className={styles.syntaxString}>
-            {stringMatch[1]}
-          </span>
-        );
-        remaining = remaining.slice(stringMatch[1].length);
-        continue;
-      }
-
-      // JS line comments
-      const jsCommentMatch = remaining.match(/^(\/\/.*)/);
-      if (jsCommentMatch) {
-        parts.push(
-          <span key={keyIndex++} className={styles.syntaxComment}>
-            {jsCommentMatch[1]}
-          </span>
-        );
-        remaining = "";
-        continue;
-      }
-
-      // Plain text (advance one character)
-      parts.push(<span key={keyIndex++}>{remaining[0]}</span>);
-      remaining = remaining.slice(1);
-    }
-
-    return (
-      <span key={lineIndex}>
-        {parts}
-        {lineIndex < lines.length - 1 ? "\n" : null}
-      </span>
-    );
-  });
-}
 
 /* ── Loading skeleton ──────────────────────── */
 
