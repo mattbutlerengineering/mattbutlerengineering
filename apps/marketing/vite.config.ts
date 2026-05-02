@@ -8,7 +8,9 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      injectRegister: "script-defer",
       registerType: "autoUpdate",
+      scope: "/",
       includeAssets: ["favicon.svg", "apple-touch-icon.png", "robots.txt"],
       manifest: {
         name: "Matt Butler Engineering",
@@ -17,16 +19,61 @@ export default defineConfig({
         theme_color: "#ffffff",
         background_color: "#ffffff",
         display: "standalone",
+        scope: "/",
+        start_url: "/",
         icons: [
           {
-            src: "favicon.svg",
-            sizes: "any",
+            src: "pwa-192x192.svg",
+            sizes: "192x192",
             type: "image/svg+xml",
           },
           {
-            src: "apple-touch-icon.png",
-            sizes: "180x180",
-            type: "image/png",
+            src: "pwa-512x512.svg",
+            sizes: "512x512",
+            type: "image/svg+xml",
+          },
+          {
+            src: "pwa-512x512.svg",
+            sizes: "512x512",
+            type: "image/svg+xml",
+            purpose: "any maskable",
+          },
+        ],
+      },
+      workbox: {
+        // Precache assets only — NOT html. JS/CSS have content hashes so
+        // stale cache is harmless; HTML must always come from the network
+        // to avoid serving old bundles after a deploy.
+        globPatterns: ["**/*.{js,css,ico,png,svg,woff,woff2}"],
+        navigateFallback: null,
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "google-fonts-cache",
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+          {
+            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "gstatic-fonts-cache",
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
           },
         ],
       },
