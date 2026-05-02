@@ -838,6 +838,17 @@ const CRITERIA= [
     details: 'L5/L6 systems process untrusted text from GitHub issues, PR comments, and external APIs. A prompt injection threat model documents the attack surface, existing defenses (sandboxing, scanning, budget limits), and gaps. Without this, the team cannot assess the security posture of their AI pipeline.',
     detection: { type: 'any-of', pattern: ['docs/security/ai-prompt-injection.md', 'docs/security/ai-threat-model.md'] },
   },
+  {
+    id: 'acmm:agent-attestation',
+    source: 'acmm',
+    level: 5,
+    category: 'governance',
+    name: 'Agent identity attestation',
+    description: 'Documented strategy for AI agent identity and non-repudiation of agent-authored changes.',
+    rationale: 'L5 signal: autonomous systems need verifiable identity so changes can be attributed and audited.',
+    details: 'Agent attestation covers how AI-authored commits are identified (branch naming, bot accounts, GPG signing) and how the audit trail connects git history to session traces. Without this, agent changes are indistinguishable from human changes.',
+    detection: { type: 'any-of', pattern: ['docs/acmm/agent-attestation.md', 'docs/security/agent-identity.md'] },
+  },
 
   // ── L6 — Autonomous ─────────────────────────────────────────────
   {
