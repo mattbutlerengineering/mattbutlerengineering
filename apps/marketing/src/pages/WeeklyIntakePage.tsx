@@ -23,7 +23,7 @@ function ResourceCard({ resource }: { readonly resource: WeeklyResource }) {
     <Card className={styles.card}>
       <div className={styles.cardHeader}>
         <a href={resource.url} target="_blank" rel="noopener noreferrer" className={styles.link}>
-          <Heading level={3} className={styles.title}>{resource.title}</Heading>
+          <Heading level={2} className={styles.title}>{resource.title}</Heading>
         </a>
         <Badge color={sourceColors[resource.source]} size="sm">
           {sourceLabels[resource.source]}

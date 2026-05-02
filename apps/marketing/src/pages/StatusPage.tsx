@@ -150,7 +150,7 @@ export function StatusPage() {
   return (
     <div className={styles.container}>
       <header className={styles.header}>
-        <Heading>System Status</Heading>
+        <Heading level={1}>System Status</Heading>
         <div className={styles.overallStatus}>
           <Badge color={statusColor(overall)} size="md">
             {overall === "loading" ? "Checking..." : statusLabel(overall)}
@@ -165,7 +165,7 @@ export function StatusPage() {
       </header>
 
       <section className={styles.section}>
-        <Heading>API Services</Heading>
+        <Heading level={2}>API Services</Heading>
         <div className={styles.serviceGrid}>
           {services.map((service) => (
             <Card key={service.name} className={styles.card}>
@@ -191,7 +191,7 @@ export function StatusPage() {
       </section>
 
       <section className={styles.section}>
-        <Heading>Static Sites</Heading>
+        <Heading level={2}>Static Sites</Heading>
         <div className={styles.serviceGrid}>
           {sites.map((site) => (
             <Card key={site.name} className={styles.card}>

@@ -63,6 +63,7 @@ export function ContactSection() {
               >
                 <motion.a
                   href={`mailto:${EMAIL}`}
+                  aria-label="Send an email to Matt Butler Engineering"
                   className={styles.contactLink}
                   whileHover={hoverEffect}
                   transition={boop.transition}
