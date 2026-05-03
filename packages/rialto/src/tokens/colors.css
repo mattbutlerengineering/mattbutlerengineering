@@ -22,10 +22,10 @@
   --rialto-text-on-accent: #1a1918;
 
   /* ── Borders ───────────────────────────────── */
-  /* Default borders for cards, inputs, dividers */
-  --rialto-border: #d8d4cd;
-  /* Emphasized borders, active input outlines */
-  --rialto-border-strong: #b8b4ad;
+  /* Default borders for cards, inputs, dividers (3.12:1 on surface) */
+  --rialto-border: #b0aca4;
+  /* Emphasized borders, active input outlines (4.68:1 on surface) */
+  --rialto-border-strong: #88837c;
 
   /* ── Accent (amber gold — surgical use only) ─ */
   /* Primary buttons, focus rings, active/selected states only */
@@ -75,8 +75,8 @@
   --rialto-text-on-accent: #1a1918;
 
   /* ── Borders ───────────────────────────────── */
-  --rialto-border: rgb(255 255 255 / 0.1);
-  --rialto-border-strong: rgb(255 255 255 / 0.2);
+  --rialto-border: rgb(255 255 255 / 0.4);
+  --rialto-border-strong: rgb(255 255 255 / 0.6);
 
   /* ── Accent (same gold, slightly brighter for dark bg) */
   --rialto-accent: #d4a23a;
