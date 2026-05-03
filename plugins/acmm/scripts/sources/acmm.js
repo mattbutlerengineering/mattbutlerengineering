@@ -916,7 +916,7 @@ const CRITERIA= [
     description: 'Workflow or cron that generates work items for the AI to pick up — the system identifies its own problems and creates tasks.',
     rationale: 'L6 self-direction: the codebase proposes its own next task.',
     details: 'Automated issue generation is a cron-triggered workflow that scans the codebase for TODOs, stale dependencies, failing tests, or coverage gaps and files GitHub issues for each finding. The codebase identifies its own work rather than waiting for humans to notice problems. An AI mission will add a workflow that scans for common improvement opportunities and creates prioritized issues automatically.',
-    detection: { type: 'any-of', pattern: ['.github/workflows/auto-issue.yml', '.github/workflows/issue-gen.yml', '.github/workflows/auto-generate-issues.yml'] },
+    detection: { type: 'active', pattern: ['.github/workflows/auto-issue.yml', '.github/workflows/issue-gen.yml', '.github/workflows/auto-generate-issues.yml'], maxAgeDays: 7 },
   },
   {
     id: 'acmm:multi-agent-orchestration',
@@ -972,7 +972,7 @@ const CRITERIA= [
     rationale: 'Closes the gap between deployment and development.',
     scannable: false,
     details: 'Error rates from production monitoring creating GitHub issues tagged production-regression, which trigger RCA workflows.',
-    detection: { type: 'any-of', pattern: ['.github/workflows/production-feedback.yml'] },
+    detection: { type: 'active', pattern: ['.github/workflows/production-feedback.yml'], maxAgeDays: 30 },
   },
   {
     id: 'acmm:observability-runbook',
@@ -1051,7 +1051,7 @@ const CRITERIA= [
     description: 'Automated detection and revert of regressions caused by AI-authored changes.',
     rationale: 'L6 signal: the system not only acts but also undoes mistakes without human initiation.',
     details: 'Auto-rollback completes the autonomous loop: the system detects regressions from its own PRs (via post-deploy checks) and creates revert PRs automatically. Without this, L6 autonomy is one-directional — the system can break things but not fix them.',
-    detection: { type: 'any-of', pattern: ['.github/workflows/auto-rollback.yml', 'docs/acmm/auto-rollback.md'] },
+    detection: { type: 'active', pattern: ['.github/workflows/auto-rollback.yml', 'docs/acmm/auto-rollback.md'], maxAgeDays: 365 },
   },
   {
     id: 'acmm:multi-repo-orchestration',
