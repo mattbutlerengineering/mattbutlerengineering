@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useAuth } from "@mbe/auth/react";
+import { captureException } from "@mbe/observability/sentry/react";
 import { ErrorBoundary, useToast } from "@mattbutlerengineering/rialto";
 import type { CommandItem } from "@mattbutlerengineering/rialto";
 import type { Spec } from "@json-render/react";
@@ -70,12 +71,20 @@ export function PlaygroundPage() {
         setActiveId(stored.id);
       });
     },
+    onError: (err) => {
+      captureException(err);
+    },
   });
 
   // Show error toast when generation fails
   useEffect(() => {
     if (error) {
-      toast({ title: "Generation failed", description: error.message, variant: "error", duration: 5000 });
+      toast({
+        title: "Generation failed",
+        description: error.message,
+        variant: "error",
+        duration: 5000,
+      });
     }
   }, [error, toast]);
 
@@ -390,19 +399,13 @@ export function PlaygroundPage() {
       >
         {/* Backdrop for mobile/tablet overlays */}
         {isMobileOrTablet && (showHistoryPanel || showInspectorPanel) && (
-          <div
-            className={styles.backdrop}
-            onClick={closeOverlays}
-            aria-hidden="true"
-          />
+          <div className={styles.backdrop} onClick={closeOverlays} aria-hidden="true" />
         )}
 
         {showHistoryPanel && (
           <div
             className={
-              isMobileOrTablet
-                ? `${styles.overlayPanel} ${styles.overlayStart}`
-                : styles.sidePanel
+              isMobileOrTablet ? `${styles.overlayPanel} ${styles.overlayStart}` : styles.sidePanel
             }
           >
             <HistoryPanel
@@ -459,9 +462,7 @@ export function PlaygroundPage() {
         {showInspectorPanel && (
           <div
             className={
-              isMobileOrTablet
-                ? `${styles.overlayPanel} ${styles.overlayEnd}`
-                : styles.sidePanel
+              isMobileOrTablet ? `${styles.overlayPanel} ${styles.overlayEnd}` : styles.sidePanel
             }
           >
             <ErrorBoundary
@@ -504,10 +505,7 @@ export function PlaygroundPage() {
         onClose={handleGalleryClose}
         onSelect={handleTemplateSelect}
       />
-      <KeyboardShortcuts
-        open={shortcutsOpen}
-        onClose={() => setShortcutsOpen(false)}
-      />
+      <KeyboardShortcuts open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       <HelpButton onClick={() => setShortcutsOpen(true)} />
     </AppShell>
   );

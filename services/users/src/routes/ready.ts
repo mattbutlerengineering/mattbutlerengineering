@@ -87,6 +87,6 @@ export const readinessRoutes: FastifyPluginAsync = async (fastify) => {
         })),
       };
       return reply.status(snapshot.ready ? 200 : 503).send(response);
-    },
+    }
   );
 };

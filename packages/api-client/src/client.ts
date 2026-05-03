@@ -30,8 +30,8 @@ export class ApiClient {
   }
 
   async request<T>(
-    path: string, 
-    options: RequestOptions = {}, 
+    path: string,
+    options: RequestOptions = {},
     schema?: z.ZodSchema<T>
   ): Promise<T> {
     const { baseUrl, getAccessToken } = this.config;
@@ -97,17 +97,25 @@ export class ApiClient {
   }
 
   post<T>(path: string, body: unknown, schema?: z.ZodSchema<T>): Promise<T> {
-    return this.request<T>(path, {
-      method: "POST",
-      body: JSON.stringify(body),
-    }, schema);
+    return this.request<T>(
+      path,
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+      },
+      schema
+    );
   }
 
   patch<T>(path: string, body: unknown, schema?: z.ZodSchema<T>): Promise<T> {
-    return this.request<T>(path, {
-      method: "PATCH",
-      body: JSON.stringify(body),
-    }, schema);
+    return this.request<T>(
+      path,
+      {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      },
+      schema
+    );
   }
 
   delete(path: string): Promise<void> {
@@ -149,10 +157,7 @@ export class ApiValidationError extends Error {
  * Creates an AbortSignal that fires when either the timeout expires
  * or the caller-provided signal aborts (whichever comes first).
  */
-function createCombinedSignal(
-  timeoutMs: number,
-  callerSignal?: AbortSignal | null
-): AbortSignal {
+function createCombinedSignal(timeoutMs: number, callerSignal?: AbortSignal | null): AbortSignal {
   const timeoutSignal = AbortSignal.timeout(timeoutMs);
 
   if (!callerSignal) {

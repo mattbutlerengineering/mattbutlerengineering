@@ -1,5 +1,14 @@
 import { useState } from "react";
-import { Button, Card, Checkbox, DataList, Hero, Input, Stack, Text } from "@mattbutlerengineering/rialto";
+import {
+  Button,
+  Card,
+  Checkbox,
+  DataList,
+  Hero,
+  Input,
+  Stack,
+  Text,
+} from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";
@@ -30,11 +39,7 @@ function HeroPlayground() {
               Precision meets <span className="accent">warmth</span>
             </>
           }
-          subtitle={
-            showSubtitle
-              ? "A component library for premium digital products."
-              : undefined
-          }
+          subtitle={showSubtitle ? "A component library for premium digital products." : undefined}
           actions={
             showActions ? (
               <>
@@ -48,26 +53,10 @@ function HeroPlayground() {
         />
       </div>
       <div className={styles.row}>
-        <Checkbox
-          label="Eyebrow"
-          checked={showEyebrow}
-          onCheckedChange={setShowEyebrow}
-        />
-        <Checkbox
-          label="Subtitle"
-          checked={showSubtitle}
-          onCheckedChange={setShowSubtitle}
-        />
-        <Checkbox
-          label="Actions"
-          checked={showActions}
-          onCheckedChange={setShowActions}
-        />
-        <Checkbox
-          label="Divider"
-          checked={showDivider}
-          onCheckedChange={setShowDivider}
-        />
+        <Checkbox label="Eyebrow" checked={showEyebrow} onCheckedChange={setShowEyebrow} />
+        <Checkbox label="Subtitle" checked={showSubtitle} onCheckedChange={setShowSubtitle} />
+        <Checkbox label="Actions" checked={showActions} onCheckedChange={setShowActions} />
+        <Checkbox label="Divider" checked={showDivider} onCheckedChange={setShowDivider} />
       </div>
     </Stack>
   );
@@ -113,7 +102,7 @@ export function HeroPage() {
           <Text variant="caption" color="secondary">
             Wrap text in{" "}
             <code style={{ fontFamily: "var(--rialto-font-mono)" }}>
-              {"<span className=\"accent\">"}
+              {'<span className="accent">'}
             </code>{" "}
             inside the title prop to apply the gold accent color.
           </Text>
@@ -129,11 +118,7 @@ export function HeroPage() {
             overflow: "hidden",
           }}
         >
-          <Hero
-            title="Clean and focused"
-            showDivider={false}
-            minHeight="240px"
-          />
+          <Hero title="Clean and focused" showDivider={false} minHeight="240px" />
         </div>
       </Section>
 
@@ -148,7 +133,11 @@ export function HeroPage() {
         >
           <Hero
             eyebrow="v2.0 Released"
-            title={<>Something <span className="accent">new</span> is here</>}
+            title={
+              <>
+                Something <span className="accent">new</span> is here
+              </>
+            }
             actions={<Button variant="primary">Read the announcement</Button>}
             minHeight="240px"
           />

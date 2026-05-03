@@ -8,11 +8,11 @@ Fastify + Prisma service for user management. Port **3001**.
 
 ```typescript
 interface User {
-  id: string;              // UUID, primary key
-  email: string;           // Unique, used for login
-  name: string | null;     // Display name
-  picture: string | null;  // Avatar URL
-  emailVerified: boolean;   // Email verification status
+  id: string; // UUID, primary key
+  email: string; // Unique, used for login
+  name: string | null; // Display name
+  picture: string | null; // Avatar URL
+  emailVerified: boolean; // Email verification status
   preferences: UserPreferences; // JSON object
   createdAt: Date;
   updatedAt: Date;
@@ -75,12 +75,13 @@ src/
 
 ### Health Check
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/health` | Internal health check (DO App Platform) |
-| GET | `/api/v1/users/health` | Public health endpoint |
+| Method | Path                   | Description                             |
+| ------ | ---------------------- | --------------------------------------- |
+| GET    | `/health`              | Internal health check (DO App Platform) |
+| GET    | `/api/v1/users/health` | Public health endpoint                  |
 
 **Response:**
+
 ```json
 {
   "status": "ok",
@@ -96,14 +97,15 @@ src/
 
 ### User Management
 
-| Method | Path | Description | Auth |
-|--------|------|-------------|------|
-| GET | `/api/v1/users/me` | Get current user profile | Required |
-| PUT | `/api/v1/users/me` | Update profile | Required |
-| PUT | `/api/v1/users/me/preferences` | Update preferences | Required |
-| POST | `/api/v1/users/me/preferences` | Partial preferences update | Required |
+| Method | Path                           | Description                | Auth     |
+| ------ | ------------------------------ | -------------------------- | -------- |
+| GET    | `/api/v1/users/me`             | Get current user profile   | Required |
+| PUT    | `/api/v1/users/me`             | Update profile             | Required |
+| PUT    | `/api/v1/users/me/preferences` | Update preferences         | Required |
+| POST   | `/api/v1/users/me/preferences` | Partial preferences update | Required |
 
 **GET /api/v1/users/me Response:**
+
 ```json
 {
   "data": {
@@ -124,6 +126,7 @@ src/
 ```
 
 **PUT /api/v1/users/me Request:**
+
 ```json
 {
   "name": "Jane Doe",
@@ -147,14 +150,20 @@ Auth0 ──(ROPC/PKCE)──> Hospitality UI ──(JWT)──> Users Service
 
 ```typescript
 // Route handler with auth
-fastify.get("/api/v1/users/me", {
-  preHandler: [fastify.requireAuth],
-  schema: { /* ... */ }
-}, async (request) => {
-  const userId = request.user.sub; // From verified JWT
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  return { data: user };
-});
+fastify.get(
+  "/api/v1/users/me",
+  {
+    preHandler: [fastify.requireAuth],
+    schema: {
+      /* ... */
+    },
+  },
+  async (request) => {
+    const userId = request.user.sub; // From verified JWT
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    return { data: user };
+  }
+);
 ```
 
 ### API Client Usage
@@ -180,8 +189,8 @@ const profile = await api.users.me();
 
 ```typescript
 interface ApiError {
-  error: string;      // Error code (e.g., "NOT_FOUND")
-  message: string;   // Human-readable message
+  error: string; // Error code (e.g., "NOT_FOUND")
+  message: string; // Human-readable message
   statusCode: number;
   details?: Record<string, unknown>;
 }
@@ -189,13 +198,13 @@ interface ApiError {
 
 ### Error Codes
 
-| Code | HTTP Status | Description |
-|------|-------------|-------------|
-| `UNAUTHORIZED` | 401 | Missing or invalid JWT |
-| `FORBIDDEN` | 403 | Valid JWT but insufficient permissions |
-| `NOT_FOUND` | 404 | User not found |
-| `VALIDATION_ERROR` | 422 | Invalid request body |
-| `INTERNAL_ERROR` | 500 | Server error |
+| Code               | HTTP Status | Description                            |
+| ------------------ | ----------- | -------------------------------------- |
+| `UNAUTHORIZED`     | 401         | Missing or invalid JWT                 |
+| `FORBIDDEN`        | 403         | Valid JWT but insufficient permissions |
+| `NOT_FOUND`        | 404         | User not found                         |
+| `VALIDATION_ERROR` | 422         | Invalid request body                   |
+| `INTERNAL_ERROR`   | 500         | Server error                           |
 
 ### Error Response Example
 
@@ -286,14 +295,14 @@ vi.mock("@mbe/auth/fastify", () => ({
 
 ## Environment Variables
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `PORT` | No | 3001 | Service port |
-| `LOG_LEVEL` | No | info | Logging level |
-| `CORS_ORIGIN` | No | `*` | Allowed CORS origins |
-| `AUTH_AUTHORITY` | Yes (prod) | — | Auth0 domain URL |
-| `AUTH_AUDIENCE` | Yes (prod) | — | Auth0 API identifier |
-| `DATABASE_URL` | Yes | — | Postgres connection string |
+| Variable         | Required   | Default | Description                |
+| ---------------- | ---------- | ------- | -------------------------- |
+| `PORT`           | No         | 3001    | Service port               |
+| `LOG_LEVEL`      | No         | info    | Logging level              |
+| `CORS_ORIGIN`    | No         | `*`     | Allowed CORS origins       |
+| `AUTH_AUTHORITY` | Yes (prod) | —       | Auth0 domain URL           |
+| `AUTH_AUDIENCE`  | Yes (prod) | —       | Auth0 API identifier       |
+| `DATABASE_URL`   | Yes        | —       | Postgres connection string |
 
 ## Commands
 

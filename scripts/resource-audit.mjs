@@ -98,10 +98,7 @@ function getKnownWorkers() {
 
   // Workers created by Pulumi (from index.ts resource names)
   // These are the scriptName values in WorkersScript resources
-  const pulumiIndex = readFileSync(
-    resolve(ROOT, "infrastructure/pulumi/index.ts"),
-    "utf-8",
-  );
+  const pulumiIndex = readFileSync(resolve(ROOT, "infrastructure/pulumi/index.ts"), "utf-8");
   const scriptNameMatches = pulumiIndex.matchAll(/scriptName:\s*"([^"]+)"/g);
   for (const m of scriptNameMatches) {
     names.add(m[1]);
@@ -112,15 +109,12 @@ function getKnownWorkers() {
 
 function getKnownDoApps() {
   // DO apps defined in Pulumi index.ts
-  const pulumiIndex = readFileSync(
-    resolve(ROOT, "infrastructure/pulumi/index.ts"),
-    "utf-8",
-  );
+  const pulumiIndex = readFileSync(resolve(ROOT, "infrastructure/pulumi/index.ts"), "utf-8");
 
   const names = new Set();
   // Match spec.name values in DO App resources
   const specNameMatches = pulumiIndex.matchAll(
-    /new\s+digitalocean\.App\([^)]+,\s*\{[\s\S]*?spec:\s*\{[\s\S]*?name:\s*"([^"]+)"/g,
+    /new\s+digitalocean\.App\([^)]+,\s*\{[\s\S]*?spec:\s*\{[\s\S]*?name:\s*"([^"]+)"/g
   );
   for (const m of specNameMatches) {
     names.add(m[1]);
@@ -131,15 +125,12 @@ function getKnownDoApps() {
 
 function getKnownDnsRecords() {
   // DNS records defined in Pulumi index.ts
-  const pulumiIndex = readFileSync(
-    resolve(ROOT, "infrastructure/pulumi/index.ts"),
-    "utf-8",
-  );
+  const pulumiIndex = readFileSync(resolve(ROOT, "infrastructure/pulumi/index.ts"), "utf-8");
 
   const records = [];
   // Match DnsRecord definitions — extract name and type
   const dnsMatches = pulumiIndex.matchAll(
-    /new\s+cloudflare\.DnsRecord\(\s*"[^"]+"\s*,\s*\{[^}]*name:\s*"([^"]+)"[^}]*type:\s*"([^"]+)"/gs,
+    /new\s+cloudflare\.DnsRecord\(\s*"[^"]+"\s*,\s*\{[^}]*name:\s*"([^"]+)"[^}]*type:\s*"([^"]+)"/gs
   );
   for (const m of dnsMatches) {
     records.push({ name: m[1], type: m[2] });
@@ -174,7 +165,7 @@ async function getLiveDnsRecords() {
   while (page <= totalPages) {
     const raw = await fetch(
       `https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records?page=${page}&per_page=100`,
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: { Authorization: `Bearer ${token}` } }
     );
     if (!raw.ok) {
       throw new Error(`CF DNS list failed: ${raw.status} ${await raw.text()}`);
@@ -190,7 +181,7 @@ async function getLiveDnsRecords() {
         name: r.name,
         type: r.type,
         content: r.content,
-      })),
+      }))
     );
     totalPages = json.result_info?.total_pages || 1;
     page += 1;
@@ -229,9 +220,7 @@ function findOrphanedDnsRecords(liveRecords, knownRecords, allowlist, domain) {
     .filter((live) => {
       // Normalize: Pulumi uses "@" for root, CF API uses the full domain name
       const liveName = live.name === domain ? "@" : live.name.replace(`.${domain}`, "");
-      return !knownRecords.some(
-        (known) => known.name === liveName && known.type === live.type,
-      );
+      return !knownRecords.some((known) => known.name === liveName && known.type === live.type);
     })
     .filter((r) => {
       const normalized = r.name === domain ? "@" : r.name.replace(`.${domain}`, "");
@@ -242,8 +231,7 @@ function findOrphanedDnsRecords(liveRecords, knownRecords, allowlist, domain) {
 // ── Report Generation ───────────────────────────────────────────────
 
 function buildReport(orphanedWorkers, orphanedApps, orphanedDns) {
-  const totalOrphaned =
-    orphanedWorkers.length + orphanedApps.length + orphanedDns.length;
+  const totalOrphaned = orphanedWorkers.length + orphanedApps.length + orphanedDns.length;
 
   if (totalOrphaned === 0) {
     return null;
@@ -253,31 +241,24 @@ function buildReport(orphanedWorkers, orphanedApps, orphanedDns) {
 
   if (orphanedWorkers.length > 0) {
     const lines = orphanedWorkers.map(
-      (name) => `- \`${name}\` — delete with: \`wrangler delete --name ${name}\``,
+      (name) => `- \`${name}\` — delete with: \`wrangler delete --name ${name}\``
     );
-    sections.push(
-      `### Cloudflare Workers (${orphanedWorkers.length})\n\n${lines.join("\n")}`,
-    );
+    sections.push(`### Cloudflare Workers (${orphanedWorkers.length})\n\n${lines.join("\n")}`);
   }
 
   if (orphanedApps.length > 0) {
     const lines = orphanedApps.map(
       (app) =>
-        `- \`${app.name}\` (id: \`${app.id}\`) — delete with: \`doctl apps delete ${app.id}\``,
+        `- \`${app.name}\` (id: \`${app.id}\`) — delete with: \`doctl apps delete ${app.id}\``
     );
-    sections.push(
-      `### DigitalOcean Apps (${orphanedApps.length})\n\n${lines.join("\n")}`,
-    );
+    sections.push(`### DigitalOcean Apps (${orphanedApps.length})\n\n${lines.join("\n")}`);
   }
 
   if (orphanedDns.length > 0) {
     const lines = orphanedDns.map(
-      (r) =>
-        `- \`${r.type}\` \`${r.name}\` → \`${r.content}\` (id: \`${r.id}\`)`,
+      (r) => `- \`${r.type}\` \`${r.name}\` → \`${r.content}\` (id: \`${r.id}\`)`
     );
-    sections.push(
-      `### Cloudflare DNS Records (${orphanedDns.length})\n\n${lines.join("\n")}`,
-    );
+    sections.push(`### Cloudflare DNS Records (${orphanedDns.length})\n\n${lines.join("\n")}`);
   }
 
   const body = [

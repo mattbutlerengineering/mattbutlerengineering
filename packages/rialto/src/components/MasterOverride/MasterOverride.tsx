@@ -1,5 +1,20 @@
-import { forwardRef, useState, useId, useRef, useEffect, useCallback, type ReactNode, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import { motion, useReducedMotion, useMotionValue, useMotionValueEvent, animate } from "framer-motion";
+import {
+  forwardRef,
+  useState,
+  useId,
+  useRef,
+  useEffect,
+  useCallback,
+  type ReactNode,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
+import {
+  motion,
+  useReducedMotion,
+  useMotionValue,
+  useMotionValueEvent,
+  animate,
+} from "framer-motion";
 import { spring, springGentle, reduced } from "../../tokens/motion";
 import styles from "./MasterOverride.module.css";
 import { SplitFlap } from "../SplitFlap";
@@ -103,12 +118,13 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
     }, [feedback]);
 
     const holdThresholdMs =
-      requireHold === true ? 1000
-      : typeof requireHold === "number" ? Math.max(250, Math.min(5000, requireHold))
-      : 0;
+      requireHold === true
+        ? 1000
+        : typeof requireHold === "number"
+          ? Math.max(250, Math.min(5000, requireHold))
+          : 0;
     const useSplitFlap = labelTransition === "splitflap";
-    const resolvedLabelLength =
-      labelLength ?? Math.max(idleLabel.length, activeLabel.length);
+    const resolvedLabelLength = labelLength ?? Math.max(idleLabel.length, activeLabel.length);
     const splitFlapSize: "sm" | "md" = size === "lg" ? "md" : "sm";
     const holdProgress = useMotionValue(0);
     const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -140,7 +156,17 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
         triggerFeedback();
         onChange(true);
       }, holdThresholdMs);
-    }, [armed, disabled, on, holdThresholdMs, shouldReduceMotion, holdProgress, onChange, label, triggerFeedback]);
+    }, [
+      armed,
+      disabled,
+      on,
+      holdThresholdMs,
+      shouldReduceMotion,
+      holdProgress,
+      onChange,
+      label,
+      triggerFeedback,
+    ]);
 
     const cancelHold = useCallback(() => {
       if (holdTimerRef.current === null && !isHolding) return;
@@ -253,9 +279,7 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
       : `${label} safety cover open. Switch is ${on ? activeLabel : idleLabel}.`;
 
     const liveRegionText =
-      holdAnnouncement !== null &&
-      holdAnnouncement.armed === armed &&
-      holdAnnouncement.on === on
+      holdAnnouncement !== null && holdAnnouncement.armed === armed && holdAnnouncement.on === on
         ? holdAnnouncement.text
         : statusMessage;
 
@@ -281,7 +305,9 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
             className={styles.cover}
             aria-expanded={armed}
             aria-controls={switchId}
-            aria-label={armed ? `Close safety cover for ${label}` : `Lift safety cover for ${label}`}
+            aria-label={
+              armed ? `Close safety cover for ${label}` : `Lift safety cover for ${label}`
+            }
             disabled={disabled}
             onClick={handleCoverToggle}
             animate={{

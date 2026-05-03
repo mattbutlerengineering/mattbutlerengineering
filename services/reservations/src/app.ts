@@ -5,7 +5,11 @@ import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import ScalarApiReference from "@scalar/fastify-api-reference";
 import { authPlugin, getAuthPluginOptionsFromEnv } from "@mbe/auth/fastify";
-import { createRequestIdMiddleware, errorRatePlugin_, createRateLimitMonitor } from "@mbe/observability";
+import {
+  createRequestIdMiddleware,
+  errorRatePlugin_,
+  createRateLimitMonitor,
+} from "@mbe/observability";
 import { sentryFastifyPlugin } from "@mbe/observability/sentry/node";
 import { apiVersioningPlugin } from "@mbe/api-versioning/fastify";
 import { registerSchemas } from "./schemas/index.js";
@@ -28,9 +32,7 @@ import { guestRoutes } from "./routes/guests.js";
 function validateCorsOrigins(origins: string[]): string[] {
   const validPatterns = [
     /^https:\/\/([a-z-]+\.)?mattbutlerengineering\.com$/,
-    ...(process.env.NODE_ENV === "development"
-      ? [/^http:\/\/localhost:\d+$/]
-      : []),
+    ...(process.env.NODE_ENV === "development" ? [/^http:\/\/localhost:\d+$/] : []),
   ];
 
   const validated: string[] = [];
@@ -89,9 +91,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
     console.warn("[CORS] All CORS_ORIGINS were rejected; falling back to defaults");
   }
 
-  const corsOrigins = validatedEnv && validatedEnv.length > 0
-    ? validatedEnv
-    : defaultOrigins;
+  const corsOrigins = validatedEnv && validatedEnv.length > 0 ? validatedEnv : defaultOrigins;
 
   await fastify.register(cors, {
     origin: corsOrigins,

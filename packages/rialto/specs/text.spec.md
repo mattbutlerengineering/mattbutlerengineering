@@ -20,49 +20,49 @@ Default elements per variant: `body` → `<p>`, `caption` → `<p>`, `detail` �
 
 ## States
 
-| State | Description | Prop/Trigger |
-|-------|-------------|--------------|
-| Default | variant="body", primary text color | No overrides |
-| Truncated | Single-line ellipsis clamp | `truncate={true}` |
-| Monospace | Switches to monospace font family | `mono={true}` |
+| State     | Description                        | Prop/Trigger      |
+| --------- | ---------------------------------- | ----------------- |
+| Default   | variant="body", primary text color | No overrides      |
+| Truncated | Single-line ellipsis clamp         | `truncate={true}` |
+| Monospace | Switches to monospace font family  | `mono={true}`     |
 
 ## Design Tokens Used
 
-| Token | Purpose |
-|-------|---------|
-| `--rialto-font-sans` | Default font family (all variants) |
-| `--rialto-font-display` | Display variant font family |
-| `--rialto-font-mono` | Monospace modifier |
-| `--rialto-text-xs` | detail, label variant size |
-| `--rialto-text-sm` | caption variant size |
-| `--rialto-text-base` | body variant size |
-| `--rialto-text-xl` | display variant size |
-| `--rialto-text-primary` | body, display default color |
-| `--rialto-text-secondary` | caption default color |
-| `--rialto-text-tertiary` | detail, label default color |
-| `--rialto-accent` | color="accent" override |
-| `--rialto-error` | color="error" override |
-| `--rialto-success` | color="success" override |
-| `--rialto-warning` | color="warning" override |
+| Token                     | Purpose                            |
+| ------------------------- | ---------------------------------- |
+| `--rialto-font-sans`      | Default font family (all variants) |
+| `--rialto-font-display`   | Display variant font family        |
+| `--rialto-font-mono`      | Monospace modifier                 |
+| `--rialto-text-xs`        | detail, label variant size         |
+| `--rialto-text-sm`        | caption variant size               |
+| `--rialto-text-base`      | body variant size                  |
+| `--rialto-text-xl`        | display variant size               |
+| `--rialto-text-primary`   | body, display default color        |
+| `--rialto-text-secondary` | caption default color              |
+| `--rialto-text-tertiary`  | detail, label default color        |
+| `--rialto-accent`         | color="accent" override            |
+| `--rialto-error`          | color="error" override             |
+| `--rialto-success`        | color="success" override           |
+| `--rialto-warning`        | color="warning" override           |
 
 ## Props
 
 > See `registry.json` for authoritative prop types.
 
-| Prop | Type | Default | Required | Description |
-|------|------|---------|----------|-------------|
-| `variant` | `"body" \| "caption" \| "detail" \| "label" \| "display"` | `"body"` | No | Typography preset — sets size, weight, color, and tracking |
-| `color` | `"primary" \| "secondary" \| "tertiary" \| "accent" \| "success" \| "warning" \| "error" \| "on-accent"` | `undefined` | No | Override the variant's default text color |
-| `align` | `"left" \| "center" \| "right"` | `undefined` | No | Text alignment (maps to logical `start`/`end` in CSS) |
-| `as` | `ElementType` | variant default | No | Render as a different HTML element |
-| `mono` | `boolean` | `false` | No | Use monospace font family |
-| `truncate` | `boolean` | `false` | No | Truncate with ellipsis (single line) |
+| Prop       | Type                                                                                                     | Default         | Required | Description                                                |
+| ---------- | -------------------------------------------------------------------------------------------------------- | --------------- | -------- | ---------------------------------------------------------- |
+| `variant`  | `"body" \| "caption" \| "detail" \| "label" \| "display"`                                                | `"body"`        | No       | Typography preset — sets size, weight, color, and tracking |
+| `color`    | `"primary" \| "secondary" \| "tertiary" \| "accent" \| "success" \| "warning" \| "error" \| "on-accent"` | `undefined`     | No       | Override the variant's default text color                  |
+| `align`    | `"left" \| "center" \| "right"`                                                                          | `undefined`     | No       | Text alignment (maps to logical `start`/`end` in CSS)      |
+| `as`       | `ElementType`                                                                                            | variant default | No       | Render as a different HTML element                         |
+| `mono`     | `boolean`                                                                                                | `false`         | No       | Use monospace font family                                  |
+| `truncate` | `boolean`                                                                                                | `false`         | No       | Truncate with ellipsis (single line)                       |
 
 ## Accessibility
 
-| Attribute | Value | Notes |
-|-----------|-------|-------|
-| — | — | Text is semantic — use `as` to choose correct heading level or element |
+| Attribute | Value | Notes                                                                  |
+| --------- | ----- | ---------------------------------------------------------------------- |
+| —         | —     | Text is semantic — use `as` to choose correct heading level or element |
 
 **Keyboard:** Not applicable (non-interactive).
 **Screen reader:** The rendered element determines semantic meaning — use `as="h2"` for headings, `as="time"` for timestamps, etc.

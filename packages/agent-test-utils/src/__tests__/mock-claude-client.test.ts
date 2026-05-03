@@ -1,9 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createMockClaudeClient } from "../mock-claude-client.js";
 
-async function drainGenerator(
-  gen: AsyncGenerator<unknown>
-): Promise<unknown[]> {
+async function drainGenerator(gen: AsyncGenerator<unknown>): Promise<unknown[]> {
   const results: unknown[] = [];
   for await (const item of gen) {
     results.push(item);
@@ -38,7 +36,7 @@ describe("createMockClaudeClient", () => {
       await drainGenerator(client.query({ prompt: "call 1" }));
       await drainGenerator(client.query({ prompt: "call 2" }));
 
-      expect(client.totalCostUsd()).toBeCloseTo(0.10);
+      expect(client.totalCostUsd()).toBeCloseTo(0.1);
     });
 
     it("accumulates total token usage across calls", async () => {
@@ -149,9 +147,9 @@ describe("createMockClaudeClient", () => {
       await drainGenerator(client.query({ prompt: "call 1" }));
 
       // Second call should throw
-      await expect(
-        drainGenerator(client.query({ prompt: "call 2" }))
-      ).rejects.toThrow("Rate limit exceeded");
+      await expect(drainGenerator(client.query({ prompt: "call 2" }))).rejects.toThrow(
+        "Rate limit exceeded"
+      );
     });
 
     it("throws immediately when errorOnCall is 1", async () => {
@@ -160,9 +158,9 @@ describe("createMockClaudeClient", () => {
         errorToInject: new Error("Connection timeout"),
       });
 
-      await expect(
-        drainGenerator(client.query({ prompt: "will fail" }))
-      ).rejects.toThrow("Connection timeout");
+      await expect(drainGenerator(client.query({ prompt: "will fail" }))).rejects.toThrow(
+        "Connection timeout"
+      );
     });
   });
 

@@ -53,32 +53,37 @@ mattbutlerengineering/
 
 All apps and packages upgraded:
 
-| Package | From | To |
-|---------|------|----|
-| react | 18.3 | 19.x |
-| react-dom | 18.3 | 19.x |
-| @types/react | 18.3 | 19.x |
-| @types/react-dom | 18.3 | 19.x |
-| vite | 6.0 | 7.x |
-| @vitejs/plugin-react | 4.3 | 5.x |
-| typescript | 5.7 | 5.9 |
-| eslint | 9.x | 10.x |
-| eslint-plugin-react-hooks | 5.x | 7.x |
+| Package                   | From | To   |
+| ------------------------- | ---- | ---- |
+| react                     | 18.3 | 19.x |
+| react-dom                 | 18.3 | 19.x |
+| @types/react              | 18.3 | 19.x |
+| @types/react-dom          | 18.3 | 19.x |
+| vite                      | 6.0  | 7.x  |
+| @vitejs/plugin-react      | 4.3  | 5.x  |
+| typescript                | 5.7  | 5.9  |
+| eslint                    | 9.x  | 10.x |
+| eslint-plugin-react-hooks | 5.x  | 7.x  |
 
 ## Config Integration
 
 ### Prettier
+
 Monorepo's config takes precedence:
+
 - `singleQuote: false` (double quotes)
 - `printWidth: 100`
 
 All rialto source files will be reformatted after copy.
 
 ### ESLint
+
 Upgrade `@mbe/config` to ESLint 10. Add `jsx-a11y` plugin to `@mbe/config/eslint/react.js` for accessibility linting.
 
 ### TypeScript
+
 Rialto packages extend `@mbe/config/typescript/react` with overrides:
+
 - `noUncheckedIndexedAccess: true`
 - `useDefineForClassFields: true`
 - `moduleDetection: "force"`
@@ -87,32 +92,39 @@ Rialto packages extend `@mbe/config/typescript/react` with overrides:
 Rialto keeps its `tsconfig.lib.json` for the library build (used by `vite-plugin-dts`).
 
 ### .npmrc
+
 Keep monorepo's `auto-install-peers=true`. Drop rialto's `shamefully-hoist=true`.
 
 ## Root Config Additions
 
 ### package.json devDependencies
+
 - `@changesets/cli`, `@changesets/changelog-github`
 - `@size-limit/file`, `size-limit`
 - `@playwright/test`
 - `@lhci/cli`
 
 ### Root Scripts
+
 - `changeset` — create changeset
 - `release` — build rialto + publish via changesets
 - `test:visual` — run Playwright visual tests
 - `lighthouse` — run Lighthouse CI
 
 ### turbo.json
+
 Add `test:visual` task (no cache, depends on build).
 
 ### .changeset/config.json
+
 Copy from rialto, update repo reference to `mattbutlerengineering/mattbutlerengineering`.
 
 ### lighthouserc.json
+
 Copy from rialto, update `@mbe/showcase` references to `@mbe/rialto-web`.
 
 ### .gitignore
+
 Add: `e2e/test-results/`, `.lighthouseci/`
 
 ## What Gets Dropped

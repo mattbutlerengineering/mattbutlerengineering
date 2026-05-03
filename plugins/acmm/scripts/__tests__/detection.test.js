@@ -12,7 +12,9 @@ function fixture() {
     root,
     file(rel, body = "") {
       const p = join(root, rel);
-      mkdirSync(join(p, "..").endsWith("..") ? root : p.slice(0, p.lastIndexOf("/")), { recursive: true });
+      mkdirSync(join(p, "..").endsWith("..") ? root : p.slice(0, p.lastIndexOf("/")), {
+        recursive: true,
+      });
       writeFileSync(p, body);
     },
     dir(rel) {
@@ -87,7 +89,10 @@ test("detect: mcp-server-config — .mcp.json present", () => {
   fx.file(".mcp.json", "{}");
   const c = {
     id: "acmm:mcp-server-config",
-    detection: { type: "any-of", pattern: [".mcp.json", ".claude/mcp.json", ".cursor/mcp.json", "mcp.json"] },
+    detection: {
+      type: "any-of",
+      pattern: [".mcp.json", ".claude/mcp.json", ".cursor/mcp.json", "mcp.json"],
+    },
   };
   assert.equal(detect(fx.root, c), true);
   fx.cleanup();
@@ -97,7 +102,10 @@ test("detect: mcp-server-config — no MCP config present", () => {
   const fx = fixture();
   const c = {
     id: "acmm:mcp-server-config",
-    detection: { type: "any-of", pattern: [".mcp.json", ".claude/mcp.json", ".cursor/mcp.json", "mcp.json"] },
+    detection: {
+      type: "any-of",
+      pattern: [".mcp.json", ".claude/mcp.json", ".cursor/mcp.json", "mcp.json"],
+    },
   };
   assert.equal(detect(fx.root, c), false);
   fx.cleanup();
@@ -108,7 +116,18 @@ test("detect: code-graph — llms.txt present", () => {
   fx.file("llms.txt", "# index");
   const c = {
     id: "acmm:code-graph",
-    detection: { type: "any-of", pattern: [".vscode/settings.json", "tags", "TAGS", ".ctags", ".tree-sitter/", "llms.txt", "llms-full.txt"] },
+    detection: {
+      type: "any-of",
+      pattern: [
+        ".vscode/settings.json",
+        "tags",
+        "TAGS",
+        ".ctags",
+        ".tree-sitter/",
+        "llms.txt",
+        "llms-full.txt",
+      ],
+    },
   };
   assert.equal(detect(fx.root, c), true);
   fx.cleanup();
@@ -118,7 +137,18 @@ test("detect: code-graph — no code intelligence files present", () => {
   const fx = fixture();
   const c = {
     id: "acmm:code-graph",
-    detection: { type: "any-of", pattern: [".vscode/settings.json", "tags", "TAGS", ".ctags", ".tree-sitter/", "llms.txt", "llms-full.txt"] },
+    detection: {
+      type: "any-of",
+      pattern: [
+        ".vscode/settings.json",
+        "tags",
+        "TAGS",
+        ".ctags",
+        ".tree-sitter/",
+        "llms.txt",
+        "llms-full.txt",
+      ],
+    },
   };
   assert.equal(detect(fx.root, c), false);
   fx.cleanup();

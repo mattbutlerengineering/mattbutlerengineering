@@ -14,14 +14,14 @@ Pulumi (TypeScript) IaC + Cloudflare Worker edge router.
 
 Single DO app (`mattbutlerengineering-api`) with 3 services + 3 per-service pre-deploy migration jobs:
 
-| Component | Dockerfile | Port | Ingress Prefix |
-|-----------|-----------|------|----------------|
-| `users-api` | `services/users/Dockerfile` | 3001 | `/api/v1/users` |
-| `reservations-api` | `services/reservations/Dockerfile` | 3004 | `/api` (catch-all) |
-| `agent-api` | `services/agent/Dockerfile` | 3003 | `/api/gen`, `/v1/sessions`, `/v1/orchestrate`, `/v1/webhooks` |
-| `db-migrate-users` (job) | `infrastructure/migrate/Dockerfile` | — | PRE_DEPLOY |
-| `db-migrate-reservations` (job) | `infrastructure/migrate/Dockerfile` | — | PRE_DEPLOY |
-| `db-migrate-agent` (job) | `infrastructure/migrate/Dockerfile` | — | PRE_DEPLOY |
+| Component                       | Dockerfile                          | Port | Ingress Prefix                                                |
+| ------------------------------- | ----------------------------------- | ---- | ------------------------------------------------------------- |
+| `users-api`                     | `services/users/Dockerfile`         | 3001 | `/api/v1/users`                                               |
+| `reservations-api`              | `services/reservations/Dockerfile`  | 3004 | `/api` (catch-all)                                            |
+| `agent-api`                     | `services/agent/Dockerfile`         | 3003 | `/api/gen`, `/v1/sessions`, `/v1/orchestrate`, `/v1/webhooks` |
+| `db-migrate-users` (job)        | `infrastructure/migrate/Dockerfile` | —    | PRE_DEPLOY                                                    |
+| `db-migrate-reservations` (job) | `infrastructure/migrate/Dockerfile` | —    | PRE_DEPLOY                                                    |
+| `db-migrate-agent` (job)        | `infrastructure/migrate/Dockerfile` | —    | PRE_DEPLOY                                                    |
 
 Each migration job uses the same parameterized Dockerfile with `SERVICE_NAME` env var selecting which service's Prisma migrations to run. Failure in one service's migrations does not block other services.
 

@@ -4,19 +4,19 @@ Measures how effectively this repository's instruction files, code patterns, and
 
 ## Concept: Codebase as Model
 
-The ACMM paper (arXiv:2604.09388v2, Section 2.4) introduces the idea that accumulated code patterns, instruction files (CLAUDE.md, AGENTS.md), and test suites collectively *teach* AI agents how to operate -- the "codebase as model" concept. A mature repo should onboard new sessions faster than an immature one.
+The ACMM paper (arXiv:2604.09388v2, Section 2.4) introduces the idea that accumulated code patterns, instruction files (CLAUDE.md, AGENTS.md), and test suites collectively _teach_ AI agents how to operate -- the "codebase as model" concept. A mature repo should onboard new sessions faster than an immature one.
 
 ## Methodology
 
 Five tasks of increasing difficulty, each measuring a different aspect of codebase understanding:
 
-| Task | Difficulty | Expected Time | What It Measures |
-|------|-----------|---------------|------------------|
-| Add a TODO to CLAUDE.md | Trivial | ~1 min | File access, instruction awareness |
-| Run tests and report results | Easy | ~3 min | Repo navigation, toolchain |
-| Fix lint errors in a file | Medium | ~5 min | Tool configuration knowledge |
-| Add a new API endpoint | Hard | ~15 min | Pattern recognition, architecture |
-| Cross-service feature | Expert | ~30 min | Multi-service understanding |
+| Task                         | Difficulty | Expected Time | What It Measures                   |
+| ---------------------------- | ---------- | ------------- | ---------------------------------- |
+| Add a TODO to CLAUDE.md      | Trivial    | ~1 min        | File access, instruction awareness |
+| Run tests and report results | Easy       | ~3 min        | Repo navigation, toolchain         |
+| Fix lint errors in a file    | Medium     | ~5 min        | Tool configuration knowledge       |
+| Add a new API endpoint       | Hard       | ~15 min       | Pattern recognition, architecture  |
+| Cross-service feature        | Expert     | ~30 min       | Multi-service understanding        |
 
 ## Running
 
@@ -47,21 +47,21 @@ If a benchmark task takes too long:
 
 ### Common documentation fixes
 
-| Symptom | Fix |
-|---------|-----|
-| AI cannot find the right directory | Add file structure to package CLAUDE.md |
-| AI uses wrong patterns | Add code examples to CLAUDE.md conventions section |
-| AI misses a required step | Add to the package's build/test commands section |
-| AI creates wrong file structure | Add component authoring pattern |
+| Symptom                            | Fix                                                |
+| ---------------------------------- | -------------------------------------------------- |
+| AI cannot find the right directory | Add file structure to package CLAUDE.md            |
+| AI uses wrong patterns             | Add code examples to CLAUDE.md conventions section |
+| AI misses a required step          | Add to the package's build/test commands section   |
+| AI creates wrong file structure    | Add component authoring pattern                    |
 
 ## Difference from Repo Benchmark
 
-| | Onboarding Benchmark | Repo Benchmark |
-|---|---|---|
-| Measures | Navigation + doc quality | Diagnostic + repair ability |
-| Task type | Build something new | Fix a known bug |
-| Script | `onboarding-benchmark.js` | `repo-bench.js` |
-| Key metric | Time to completion | Fix success rate |
+|            | Onboarding Benchmark      | Repo Benchmark              |
+| ---------- | ------------------------- | --------------------------- |
+| Measures   | Navigation + doc quality  | Diagnostic + repair ability |
+| Task type  | Build something new       | Fix a known bug             |
+| Script     | `onboarding-benchmark.js` | `repo-bench.js`             |
+| Key metric | Time to completion        | Fix success rate            |
 
 ## Baseline
 

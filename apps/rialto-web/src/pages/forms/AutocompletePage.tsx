@@ -73,16 +73,8 @@ function AutocompletePlayground() {
         </Stack>
       </Card>
       <div className={styles.row}>
-        <Checkbox
-          label="Show Optional"
-          checked={showOptional}
-          onCheckedChange={setShowOptional}
-        />
-        <Checkbox
-          label="Required"
-          checked={required}
-          onCheckedChange={setRequired}
-        />
+        <Checkbox label="Show Optional" checked={showOptional} onCheckedChange={setShowOptional} />
+        <Checkbox label="Required" checked={required} onCheckedChange={setRequired} />
       </div>
     </Stack>
   );
@@ -123,16 +115,8 @@ export function AutocompletePage() {
       {/* ── Multiple Instances ────────────────────────────────────────── */}
       <Section title="Multiple Fields">
         <div className={styles.row}>
-          <Autocomplete
-            label="Circuit"
-            options={TRACKS}
-            placeholder="Search circuits..."
-          />
-          <Autocomplete
-            label="Driver"
-            options={DRIVERS}
-            placeholder="Search drivers..."
-          />
+          <Autocomplete label="Circuit" options={TRACKS} placeholder="Search circuits..." />
+          <Autocomplete label="Driver" options={DRIVERS} placeholder="Search drivers..." />
         </div>
       </Section>
 

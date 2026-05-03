@@ -176,14 +176,10 @@ describe("Auth Plugin", () => {
         },
       });
 
-      expect(mockJwtVerify).toHaveBeenCalledWith(
-        "valid-token",
-        "mock-jwks",
-        {
-          issuer: "https://test.auth0.com/",
-          audience: "https://api.example.com",
-        }
-      );
+      expect(mockJwtVerify).toHaveBeenCalledWith("valid-token", "mock-jwks", {
+        issuer: "https://test.auth0.com/",
+        audience: "https://api.example.com",
+      });
     });
   });
 

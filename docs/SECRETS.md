@@ -1,6 +1,6 @@
 # Secret Rotation Schedule
 
-> **WARNING:** This document catalogs secret *names*, purposes, and rotation procedures.
+> **WARNING:** This document catalogs secret _names_, purposes, and rotation procedures.
 > It must NEVER contain actual secret values.
 
 ## Overview
@@ -12,28 +12,28 @@ Production infrastructure secrets are injected by Pulumi at deploy time (see `in
 
 ## Rotation Schedule
 
-| Secret | Purpose | Cadence | Next Rotation |
-|--------|---------|---------|---------------|
-| `DIGITALOCEAN_TOKEN` | DigitalOcean API (deploy-services, Pulumi) | Quarterly | — |
-| `MBE_CLOUDFLARE_API_TOKEN` | Cloudflare API (Pages deploys, KV, DNS, Pulumi) | Quarterly | — |
-| `DATABASE_URL` | PostgreSQL connection string (services) | Quarterly | — |
-| `R2_ACCESS_KEY_ID` | Cloudflare R2 / S3-compat access key (Pulumi state backend) | Quarterly | — |
-| `R2_SECRET_ACCESS_KEY` | Cloudflare R2 / S3-compat secret key (Pulumi state backend) | Quarterly | — |
-| `PULUMI_ACCESS_TOKEN` | Pulumi Cloud API (if used; currently state is in R2) | Semi-annually | — |
-| `PULUMI_CONFIG_PASSPHRASE` | Encrypts Pulumi stack config values | Semi-annually | — |
-| `AUTH0_CLIENT_SECRET` | Auth0 Machine-to-Machine secret (Pulumi provider) | Semi-annually | — |
-| `LANGFUSE_SECRET_KEY` | Langfuse observability API secret | Semi-annually | — |
-| `GITLEAKS_LICENSE` | Gitleaks commercial license key (secret-scan workflow) | Semi-annually | — |
-| `SENTRY_DSN` | Sentry ingest endpoint (public identifier) | No rotation needed | N/A |
-| `GITHUB_TOKEN` | GitHub Actions built-in token | Auto-rotated by Actions | N/A |
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account identifier (not a secret per se) | No rotation needed | N/A |
-| `HEALTH_KV_NAMESPACE_ID` | Cloudflare KV namespace ID for health checks | No rotation needed | N/A |
-| `AUTH0_DOMAIN` | Auth0 tenant domain (e.g. `xxx.auth0.com`) | No rotation needed | N/A |
-| `AUTH0_CLIENT_ID` | Auth0 application client ID (public) | No rotation needed | N/A |
-| `AUTH0_GEN_CLIENT_ID` | Auth0 general SPA client ID (public) | No rotation needed | N/A |
-| `AUTH0_HOSPITALITY_CLIENT_ID` | Auth0 hospitality app client ID (public) | No rotation needed | N/A |
-| `TURBO_TOKEN` | Turborepo remote cache token | Semi-annually | — |
-| `AGENT_API_URL` | Agent service API base URL (not a credential) | No rotation needed | N/A |
+| Secret                        | Purpose                                                     | Cadence                 | Next Rotation |
+| ----------------------------- | ----------------------------------------------------------- | ----------------------- | ------------- |
+| `DIGITALOCEAN_TOKEN`          | DigitalOcean API (deploy-services, Pulumi)                  | Quarterly               | —             |
+| `MBE_CLOUDFLARE_API_TOKEN`    | Cloudflare API (Pages deploys, KV, DNS, Pulumi)             | Quarterly               | —             |
+| `DATABASE_URL`                | PostgreSQL connection string (services)                     | Quarterly               | —             |
+| `R2_ACCESS_KEY_ID`            | Cloudflare R2 / S3-compat access key (Pulumi state backend) | Quarterly               | —             |
+| `R2_SECRET_ACCESS_KEY`        | Cloudflare R2 / S3-compat secret key (Pulumi state backend) | Quarterly               | —             |
+| `PULUMI_ACCESS_TOKEN`         | Pulumi Cloud API (if used; currently state is in R2)        | Semi-annually           | —             |
+| `PULUMI_CONFIG_PASSPHRASE`    | Encrypts Pulumi stack config values                         | Semi-annually           | —             |
+| `AUTH0_CLIENT_SECRET`         | Auth0 Machine-to-Machine secret (Pulumi provider)           | Semi-annually           | —             |
+| `LANGFUSE_SECRET_KEY`         | Langfuse observability API secret                           | Semi-annually           | —             |
+| `GITLEAKS_LICENSE`            | Gitleaks commercial license key (secret-scan workflow)      | Semi-annually           | —             |
+| `SENTRY_DSN`                  | Sentry ingest endpoint (public identifier)                  | No rotation needed      | N/A           |
+| `GITHUB_TOKEN`                | GitHub Actions built-in token                               | Auto-rotated by Actions | N/A           |
+| `CLOUDFLARE_ACCOUNT_ID`       | Cloudflare account identifier (not a secret per se)         | No rotation needed      | N/A           |
+| `HEALTH_KV_NAMESPACE_ID`      | Cloudflare KV namespace ID for health checks                | No rotation needed      | N/A           |
+| `AUTH0_DOMAIN`                | Auth0 tenant domain (e.g. `xxx.auth0.com`)                  | No rotation needed      | N/A           |
+| `AUTH0_CLIENT_ID`             | Auth0 application client ID (public)                        | No rotation needed      | N/A           |
+| `AUTH0_GEN_CLIENT_ID`         | Auth0 general SPA client ID (public)                        | No rotation needed      | N/A           |
+| `AUTH0_HOSPITALITY_CLIENT_ID` | Auth0 hospitality app client ID (public)                    | No rotation needed      | N/A           |
+| `TURBO_TOKEN`                 | Turborepo remote cache token                                | Semi-annually           | —             |
+| `AGENT_API_URL`               | Agent service API base URL (not a credential)               | No rotation needed      | N/A           |
 
 ## Rotation Runbooks
 
@@ -141,41 +141,41 @@ Production infrastructure secrets are injected by Pulumi at deploy time (see `in
 
 These values are identifiers or public configuration, not credentials:
 
-| Secret | Reason |
-|--------|--------|
-| `SENTRY_DSN` | Public ingest URL; safe to expose in client bundles |
-| `GITHUB_TOKEN` | Automatically provisioned per workflow run by GitHub Actions |
-| `CLOUDFLARE_ACCOUNT_ID` | Account identifier, not a credential |
-| `HEALTH_KV_NAMESPACE_ID` | KV namespace identifier, not a credential |
-| `AUTH0_DOMAIN` | Public tenant URL |
-| `AUTH0_CLIENT_ID` | Public OIDC client identifier |
-| `AUTH0_GEN_CLIENT_ID` | Public OIDC client identifier |
-| `AUTH0_HOSPITALITY_CLIENT_ID` | Public OIDC client identifier |
-| `AGENT_API_URL` | Service URL, not a credential |
+| Secret                        | Reason                                                       |
+| ----------------------------- | ------------------------------------------------------------ |
+| `SENTRY_DSN`                  | Public ingest URL; safe to expose in client bundles          |
+| `GITHUB_TOKEN`                | Automatically provisioned per workflow run by GitHub Actions |
+| `CLOUDFLARE_ACCOUNT_ID`       | Account identifier, not a credential                         |
+| `HEALTH_KV_NAMESPACE_ID`      | KV namespace identifier, not a credential                    |
+| `AUTH0_DOMAIN`                | Public tenant URL                                            |
+| `AUTH0_CLIENT_ID`             | Public OIDC client identifier                                |
+| `AUTH0_GEN_CLIENT_ID`         | Public OIDC client identifier                                |
+| `AUTH0_HOSPITALITY_CLIENT_ID` | Public OIDC client identifier                                |
+| `AGENT_API_URL`               | Service URL, not a credential                                |
 
 ## Where Secrets Are Used
 
-| Workflow File | Secrets Referenced |
-|---------------|-------------------|
-| `deploy-services.yml` | `GITHUB_TOKEN`, `DIGITALOCEAN_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `MBE_CLOUDFLARE_API_TOKEN`, `HEALTH_KV_NAMESPACE_ID` |
-| `deploy-static.yml` | `MBE_CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `AUTH0_HOSPITALITY_CLIENT_ID`, `HEALTH_KV_NAMESPACE_ID` |
-| `pulumi-up.yml` | `AUTH0_GEN_CLIENT_ID`, `PULUMI_CONFIG_PASSPHRASE`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `DIGITALOCEAN_TOKEN`, `MBE_CLOUDFLARE_API_TOKEN`, `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET`, `CLOUDFLARE_ACCOUNT_ID`, `HEALTH_KV_NAMESPACE_ID` |
-| `ci.yml` | `TURBO_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `MBE_CLOUDFLARE_API_TOKEN`, `HEALTH_KV_NAMESPACE_ID` |
-| `lighthouse.yml` | `CLOUDFLARE_ACCOUNT_ID`, `MBE_CLOUDFLARE_API_TOKEN`, `HEALTH_KV_NAMESPACE_ID` |
-| `uptime-snapshot.yml` | `CLOUDFLARE_ACCOUNT_ID`, `MBE_CLOUDFLARE_API_TOKEN`, `HEALTH_KV_NAMESPACE_ID` |
-| `synthetic-monitoring.yml` | `CLOUDFLARE_ACCOUNT_ID`, `MBE_CLOUDFLARE_API_TOKEN`, `HEALTH_KV_NAMESPACE_ID` |
-| `load-test.yml` | `CLOUDFLARE_ACCOUNT_ID`, `MBE_CLOUDFLARE_API_TOKEN`, `HEALTH_KV_NAMESPACE_ID` |
-| `secret-scan.yml` | `GITHUB_TOKEN`, `GITLEAKS_LICENSE` |
-| `changelog.yml` | `GITHUB_TOKEN` |
-| `dependabot-auto-merge.yml` | `GITHUB_TOKEN` |
-| `agent-task.yml` | `AGENT_API_URL` |
+| Workflow File               | Secrets Referenced                                                                                                                                                                                                                                           |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `deploy-services.yml`       | `GITHUB_TOKEN`, `DIGITALOCEAN_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `MBE_CLOUDFLARE_API_TOKEN`, `HEALTH_KV_NAMESPACE_ID`                                                                                                                                          |
+| `deploy-static.yml`         | `MBE_CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `AUTH0_HOSPITALITY_CLIENT_ID`, `HEALTH_KV_NAMESPACE_ID`                                                                                                                                                 |
+| `pulumi-up.yml`             | `AUTH0_GEN_CLIENT_ID`, `PULUMI_CONFIG_PASSPHRASE`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `DIGITALOCEAN_TOKEN`, `MBE_CLOUDFLARE_API_TOKEN`, `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET`, `CLOUDFLARE_ACCOUNT_ID`, `HEALTH_KV_NAMESPACE_ID` |
+| `ci.yml`                    | `TURBO_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `MBE_CLOUDFLARE_API_TOKEN`, `HEALTH_KV_NAMESPACE_ID`                                                                                                                                                                 |
+| `lighthouse.yml`            | `CLOUDFLARE_ACCOUNT_ID`, `MBE_CLOUDFLARE_API_TOKEN`, `HEALTH_KV_NAMESPACE_ID`                                                                                                                                                                                |
+| `uptime-snapshot.yml`       | `CLOUDFLARE_ACCOUNT_ID`, `MBE_CLOUDFLARE_API_TOKEN`, `HEALTH_KV_NAMESPACE_ID`                                                                                                                                                                                |
+| `synthetic-monitoring.yml`  | `CLOUDFLARE_ACCOUNT_ID`, `MBE_CLOUDFLARE_API_TOKEN`, `HEALTH_KV_NAMESPACE_ID`                                                                                                                                                                                |
+| `load-test.yml`             | `CLOUDFLARE_ACCOUNT_ID`, `MBE_CLOUDFLARE_API_TOKEN`, `HEALTH_KV_NAMESPACE_ID`                                                                                                                                                                                |
+| `secret-scan.yml`           | `GITHUB_TOKEN`, `GITLEAKS_LICENSE`                                                                                                                                                                                                                           |
+| `changelog.yml`             | `GITHUB_TOKEN`                                                                                                                                                                                                                                               |
+| `dependabot-auto-merge.yml` | `GITHUB_TOKEN`                                                                                                                                                                                                                                               |
+| `agent-task.yml`            | `AGENT_API_URL`                                                                                                                                                                                                                                              |
 
 ## Runtime Secrets (Not in GitHub Actions)
 
 These secrets are injected at deploy time by Pulumi into DigitalOcean App Platform:
 
-| Secret | Purpose |
-|--------|---------|
-| `DATABASE_URL` | PostgreSQL connection string for all services |
-| `SENTRY_DSN` | Sentry error reporting endpoint |
-| `LANGFUSE_SECRET_KEY` | Observability trace export |
+| Secret                | Purpose                                       |
+| --------------------- | --------------------------------------------- |
+| `DATABASE_URL`        | PostgreSQL connection string for all services |
+| `SENTRY_DSN`          | Sentry error reporting endpoint               |
+| `LANGFUSE_SECRET_KEY` | Observability trace export                    |

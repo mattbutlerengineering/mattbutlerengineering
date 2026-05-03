@@ -31,9 +31,9 @@ pnpm --dir services/users db:migrate:status
 
 ## Health Checks
 
-| Endpoint | Type | Behavior |
-|-----------|------|-------------|
-| `/health` | Liveness | Always returns `{"status": "ok"}` — no DB touch |
+| Endpoint               | Type      | Behavior                                                          |
+| ---------------------- | --------- | ----------------------------------------------------------------- |
+| `/health`              | Liveness  | Always returns `{"status": "ok"}` — no DB touch                   |
 | `/api/v1/users/health` | Readiness | Runs `prisma.$queryRaw` — returns `degraded` with actual DB error |
 
 ```bash
@@ -46,21 +46,21 @@ curl https://api.mattbutlerengineering.com/api/v1/users/health
 
 Auth0 tenant: `dev-ytbgmz5ls3wh4xdx.us.auth0.com`
 
-| Scenario | Detection | Mitigation |
-|----------|-----------|------------|
-| Auth0 down | JWT verification fails with `UNAUTHORIZED`, upstream timeout | Check Auth0 status page; fail closed (reject all requests) |
-| Key rotation | Tokens valid in Auth0 but fail verification | Check JWKS cache; restart service to refresh keys |
-| API identifier mismatch | All tokens rejected | Verify `AUTH_AUDIENCE` env var matches `https://api.mattbutlerengineering.com` |
+| Scenario                | Detection                                                    | Mitigation                                                                     |
+| ----------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| Auth0 down              | JWT verification fails with `UNAUTHORIZED`, upstream timeout | Check Auth0 status page; fail closed (reject all requests)                     |
+| Key rotation            | Tokens valid in Auth0 but fail verification                  | Check JWKS cache; restart service to refresh keys                              |
+| API identifier mismatch | All tokens rejected                                          | Verify `AUTH_AUDIENCE` env var matches `https://api.mattbutlerengineering.com` |
 
 **Never fail open** — expired or unverifiable tokens must be rejected.
 
 ## DB Connectivity Loss
 
-| Symptom | Detection | Action |
-|----------|-----------|--------|
-| Postgres down | `/api/v1/users/health` returns `degraded` | Check DO database status; verify `DATABASE_URL` |
-| Connection pool exhausted | Slow responses, timeouts | Check Prisma metrics; consider scaling connection limit |
-| Query timeout | 500 errors on user endpoints | Check query performance; verify indexes |
+| Symptom                   | Detection                                 | Action                                                  |
+| ------------------------- | ----------------------------------------- | ------------------------------------------------------- |
+| Postgres down             | `/api/v1/users/health` returns `degraded` | Check DO database status; verify `DATABASE_URL`         |
+| Connection pool exhausted | Slow responses, timeouts                  | Check Prisma metrics; consider scaling connection limit |
+| Query timeout             | 500 errors on user endpoints              | Check query performance; verify indexes                 |
 
 **Fail closed** — return 503 if DB is unavailable (don't serve stale data).
 

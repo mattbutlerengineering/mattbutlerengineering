@@ -81,9 +81,7 @@ const InputGroupPage = lazy(() =>
 );
 
 /* ── Data Display ────────────────────────────── */
-const CardPage = lazy(() =>
-  import("./pages/data/CardPage").then((m) => ({ default: m.CardPage }))
-);
+const CardPage = lazy(() => import("./pages/data/CardPage").then((m) => ({ default: m.CardPage })));
 const TablePage = lazy(() =>
   import("./pages/data/TablePage").then((m) => ({ default: m.TablePage }))
 );
@@ -94,9 +92,7 @@ const TagPage = lazy(() => import("./pages/data/TagPage").then((m) => ({ default
 const AvatarPage = lazy(() =>
   import("./pages/data/AvatarPage").then((m) => ({ default: m.AvatarPage }))
 );
-const StatPage = lazy(() =>
-  import("./pages/data/StatPage").then((m) => ({ default: m.StatPage }))
-);
+const StatPage = lazy(() => import("./pages/data/StatPage").then((m) => ({ default: m.StatPage })));
 const DataListPage = lazy(() =>
   import("./pages/data/DataListPage").then((m) => ({ default: m.DataListPage }))
 );
@@ -139,9 +135,7 @@ const PaginationPage = lazy(() =>
 const NavigationMenuPage = lazy(() =>
   import("./pages/navigation/NavigationMenuPage").then((m) => ({ default: m.NavigationMenuPage }))
 );
-const TreePage = lazy(() =>
-  import("./pages/data/TreePage").then((m) => ({ default: m.TreePage }))
-);
+const TreePage = lazy(() => import("./pages/data/TreePage").then((m) => ({ default: m.TreePage })));
 const SidebarPage = lazy(() =>
   import("./pages/navigation/SidebarPage").then((m) => ({ default: m.SidebarPage }))
 );
@@ -385,10 +379,7 @@ export const routeTree: RouteObject[] = [
   // Showcase shell (sidebar + header) — eagerly imported to avoid double lazy-load waterfall on /rialto
   {
     element: <ShowcaseLayout />,
-    children: [
-      { index: true, element: <OverviewPage /> },
-      ...componentRoutes,
-    ],
+    children: [{ index: true, element: <OverviewPage /> }, ...componentRoutes],
   },
   // Demo pages — explicit "demos" path prefix avoids pathless layout ambiguity
   {

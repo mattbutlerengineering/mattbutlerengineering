@@ -103,9 +103,7 @@ export function createSanitizedStream(
 }
 
 /** Convert an AsyncIterable to a ReadableStream for uniform handling. */
-function readableStreamFromAsyncIterable(
-  iterable: AsyncIterable<string>
-): ReadableStream<string> {
+function readableStreamFromAsyncIterable(iterable: AsyncIterable<string>): ReadableStream<string> {
   const iterator = iterable[Symbol.asyncIterator]();
   return new ReadableStream<string>({
     async pull(controller) {

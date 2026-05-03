@@ -122,7 +122,8 @@ describe("withRetry", () => {
   });
 
   it("retries on transient error and succeeds", async () => {
-    const fn = vi.fn()
+    const fn = vi
+      .fn()
       .mockRejectedValueOnce(new Error("connect ETIMEDOUT"))
       .mockResolvedValueOnce("ok");
 
@@ -135,41 +136,42 @@ describe("withRetry", () => {
   it("throws after maxRetries transient failures", async () => {
     const fn = vi.fn().mockRejectedValue(new Error("connect ETIMEDOUT"));
 
-    await expect(
-      withRetry(fn, { maxRetries: 2, baseDelayMs: 1, maxDelayMs: 5 })
-    ).rejects.toThrow("connect ETIMEDOUT");
+    await expect(withRetry(fn, { maxRetries: 2, baseDelayMs: 1, maxDelayMs: 5 })).rejects.toThrow(
+      "connect ETIMEDOUT"
+    );
     expect(fn).toHaveBeenCalledTimes(3); // 1 initial + 2 retries
   });
 
   it("throws immediately on non-transient error", async () => {
     const fn = vi.fn().mockRejectedValue(new Error("File not found"));
 
-    await expect(
-      withRetry(fn, { baseDelayMs: 1, maxDelayMs: 5 })
-    ).rejects.toThrow("File not found");
+    await expect(withRetry(fn, { baseDelayMs: 1, maxDelayMs: 5 })).rejects.toThrow(
+      "File not found"
+    );
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
   it("throws ContextWindowExhaustedError on context length errors", async () => {
     const fn = vi.fn().mockRejectedValue(new Error("context_length_exceeded"));
 
-    await expect(
-      withRetry(fn, { baseDelayMs: 1, maxDelayMs: 5 })
-    ).rejects.toThrow(ContextWindowExhaustedError);
+    await expect(withRetry(fn, { baseDelayMs: 1, maxDelayMs: 5 })).rejects.toThrow(
+      ContextWindowExhaustedError
+    );
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
   it("never retries context window exhaustion errors", async () => {
     const fn = vi.fn().mockRejectedValue(new Error("maximum context length exceeded"));
 
-    await expect(
-      withRetry(fn, { maxRetries: 5, baseDelayMs: 1, maxDelayMs: 5 })
-    ).rejects.toThrow(ContextWindowExhaustedError);
+    await expect(withRetry(fn, { maxRetries: 5, baseDelayMs: 1, maxDelayMs: 5 })).rejects.toThrow(
+      ContextWindowExhaustedError
+    );
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
   it("respects custom isRetryable predicate", async () => {
-    const fn = vi.fn()
+    const fn = vi
+      .fn()
       .mockRejectedValueOnce(new Error("custom-retriable"))
       .mockResolvedValueOnce("ok");
 

@@ -78,14 +78,12 @@ index aaaaaaa..bbbbbbb 100644
  * Diff whose non-lockfile portion exceeds the 20-line threshold.
  */
 function buildLargePackageJsonDiff(): string {
-  const removedLines = Array.from(
-    { length: 12 },
-    (_, i) => `-    "dep-${i}": "1.0.${i}",`
-  ).join("\n");
-  const addedLines = Array.from(
-    { length: 12 },
-    (_, i) => `+    "dep-${i}": "1.0.${i + 1}",`
-  ).join("\n");
+  const removedLines = Array.from({ length: 12 }, (_, i) => `-    "dep-${i}": "1.0.${i}",`).join(
+    "\n"
+  );
+  const addedLines = Array.from({ length: 12 }, (_, i) => `+    "dep-${i}": "1.0.${i + 1}",`).join(
+    "\n"
+  );
 
   return [
     "diff --git a/package.json b/package.json",
@@ -226,10 +224,7 @@ index aaaaaaa..bbbbbbb 100644
       // Craft a line that would cause catastrophic backtracking with a `.+`
       // pattern: many `b/` sequences force exponential retries when the
       // engine backtracks through `a/.+`.  With `\S+` the match is linear.
-      const adversarial =
-        "diff --git a/" +
-        "b/".repeat(50) +
-        "package.json b/package.json";
+      const adversarial = "diff --git a/" + "b/".repeat(50) + "package.json b/package.json";
       const diff = [
         adversarial,
         "index 1234567..abcdefg 100644",
@@ -251,10 +246,9 @@ index aaaaaaa..bbbbbbb 100644
 
     it("lockfile lines do NOT count toward the 20-line limit", () => {
       // Large lockfile diff but tiny package.json diff — should still be trivial
-      const lockfileLines = Array.from(
-        { length: 100 },
-        (_, i) => `+  resolution-${i}: 1.0.0`
-      ).join("\n");
+      const lockfileLines = Array.from({ length: 100 }, (_, i) => `+  resolution-${i}: 1.0.0`).join(
+        "\n"
+      );
 
       const diff = [
         "diff --git a/package.json b/package.json",

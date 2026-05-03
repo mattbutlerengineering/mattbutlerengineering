@@ -70,7 +70,12 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
   };
 
   return (
-    <div className={styles.overlay} role="dialog" aria-modal="true" aria-labelledby="walkin-dialog-title">
+    <div
+      className={styles.overlay}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="walkin-dialog-title"
+    >
       <div className={styles.dialog}>
         <Stack gap="lg">
           <div className={styles.header}>
@@ -83,7 +88,11 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
 
           <Stack gap="md">
             <div>
-              <Text variant="label" color="secondary" style={{ marginBottom: "var(--rialto-space-xs)" }}>
+              <Text
+                variant="label"
+                color="secondary"
+                style={{ marginBottom: "var(--rialto-space-xs)" }}
+              >
                 Party Size
               </Text>
               <div className={styles.partySizeRow}>
@@ -103,9 +112,7 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
             </div>
 
             {availableTables.length === 0 ? (
-              <Text color="secondary">
-                No available tables for a party of {partySize}.
-              </Text>
+              <Text color="secondary">No available tables for a party of {partySize}.</Text>
             ) : (
               <Select
                 label="Table"
@@ -127,11 +134,7 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
           </Stack>
 
           <div className={styles.actions}>
-            <Button
-              variant="secondary"
-              onClick={onClose}
-              disabled={isLoading}
-            >
+            <Button variant="secondary" onClick={onClose} disabled={isLoading}>
               Cancel
             </Button>
             <Button

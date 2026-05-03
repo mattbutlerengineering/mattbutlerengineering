@@ -11,6 +11,7 @@ OpenAI Codex CLI uses `.codex/config.toml` for project-specific configuration.
 ## Project Config
 
 The project config is at `.codex/config.toml` in the repo root. It defines:
+
 - Model selection (`model`)
 - Approval policy (`approval_policy`)
 - Sandbox settings (`[sandbox]`)
@@ -19,16 +20,19 @@ The project config is at `.codex/config.toml` in the repo root. It defines:
 ## Quick Setup
 
 **Verify Codex CLI is installed:**
+
 ```bash
 which codex
 ```
 
 **Create project config** (already exists at `.codex/config.toml`):
+
 ```bash
 cat .codex/config.toml
 ```
 
 **Test Codex with the project:**
+
 ```bash
 codex "List the files in the apps directory"
 ```
@@ -55,12 +59,12 @@ workspace_write = "read-only"
 
 ## Key Settings
 
-| Setting | Purpose | Default |
-|---------|---------|---------|
-| `model` | Model to use | `gpt-4.1` |
-| `approval_policy` | How code changes are approved | `suggest` |
-| `model_instructions_file` | File with project context | `AGENTS.md` |
-| `sandbox.enable` | Enable sandboxing | `true` |
+| Setting                   | Purpose                       | Default     |
+| ------------------------- | ----------------------------- | ----------- |
+| `model`                   | Model to use                  | `gpt-4.1`   |
+| `approval_policy`         | How code changes are approved | `suggest`   |
+| `model_instructions_file` | File with project context     | `AGENTS.md` |
+| `sandbox.enable`          | Enable sandboxing             | `true`      |
 
 ## Approval Policies
 
@@ -72,6 +76,7 @@ workspace_write = "read-only"
 ## MCP Servers
 
 Add MCP servers in `.codex/config.toml`:
+
 ```toml
 [mcp_servers.filesystem]
 command = "npx"

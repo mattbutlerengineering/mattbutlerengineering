@@ -33,16 +33,16 @@ function App() {
 
 These components are designed to work together:
 
-| Primary | Companion | Usage |
-|---------|-----------|-------|
-| Table | Pagination | Paginated data tables |
-| Card | Stack | Card content layout |
-| Dialog | Stack + form inputs | Modal forms |
-| Drawer | Stack + controls | Settings panels |
-| Input | Alert (error) | Form validation |
-| Button | ConfirmDialog | Destructive actions |
-| Tag | TagGroup | Filter chips, labels |
-| Avatar | AvatarGroup | User lists |
+| Primary | Companion           | Usage                 |
+| ------- | ------------------- | --------------------- |
+| Table   | Pagination          | Paginated data tables |
+| Card    | Stack               | Card content layout   |
+| Dialog  | Stack + form inputs | Modal forms           |
+| Drawer  | Stack + controls    | Settings panels       |
+| Input   | Alert (error)       | Form validation       |
+| Button  | ConfirmDialog       | Destructive actions   |
+| Tag     | TagGroup            | Filter chips, labels  |
+| Avatar  | AvatarGroup         | User lists            |
 
 ---
 
@@ -55,7 +55,9 @@ These components are designed to work together:
     <Input label="Password" type="password" />
     <Stack direction="row" gap="sm" align="center" justify="between">
       <Checkbox label="Remember me" />
-      <Button variant="ghost" size="sm">Forgot password?</Button>
+      <Button variant="ghost" size="sm">
+        Forgot password?
+      </Button>
     </Stack>
     <Button variant="primary">Sign in</Button>
   </Stack>
@@ -116,11 +118,15 @@ Always use ConfirmDialog (not Dialog) for destructive yes/no confirmations.
     columns={[
       { key: "name", header: "Name", sortable: true },
       { key: "role", header: "Role" },
-      { key: "status", header: "Status", render: (row) => (
-        <Badge variant={row.active ? "success" : "neutral"}>
-          {row.active ? "Active" : "Inactive"}
-        </Badge>
-      )},
+      {
+        key: "status",
+        header: "Status",
+        render: (row) => (
+          <Badge variant={row.active ? "success" : "neutral"}>
+            {row.active ? "Active" : "Inactive"}
+          </Badge>
+        ),
+      },
     ]}
     data={users}
     rowKey={(u) => u.id}
@@ -139,16 +145,12 @@ Always use ConfirmDialog (not Dialog) for destructive yes/no confirmations.
 // 1. Wrap app with ToastProvider (once, at root):
 <ToastProvider>
   <App />
-</ToastProvider>
+</ToastProvider>;
 
 // 2. Use the hook anywhere inside the provider:
 function SaveButton() {
   const { toast } = useToast();
-  return (
-    <Button onClick={() => toast({ title: "Saved!", variant: "success" })}>
-      Save
-    </Button>
-  );
+  return <Button onClick={() => toast({ title: "Saved!", variant: "success" })}>Save</Button>;
 }
 ```
 
@@ -163,15 +165,21 @@ Toast variants: `"default"` | `"success"` | `"error"`
   {errors.length > 0 && (
     <Alert variant="error" title="Please fix the following:">
       <ul style={{ margin: 0, paddingLeft: "var(--rialto-space-md)" }}>
-        {errors.map((err) => <li key={err}>{err}</li>)}
+        {errors.map((err) => (
+          <li key={err}>{err}</li>
+        ))}
       </ul>
     </Alert>
   )}
   <Input label="Name" value={name} onChange={handleName} error={nameError} required />
   <Select label="Team" value={team} onChange={setTeam} options={teamOptions} />
   <Stack direction="row" gap="sm" justify="end">
-    <Button variant="secondary" onClick={onCancel}>Cancel</Button>
-    <Button variant="primary" onClick={handleSubmit}>Save</Button>
+    <Button variant="secondary" onClick={onCancel}>
+      Cancel
+    </Button>
+    <Button variant="primary" onClick={handleSubmit}>
+      Save
+    </Button>
   </Stack>
 </Stack>
 ```
@@ -184,12 +192,12 @@ Toast variants: `"default"` | `"success"` | `"error"`
 
 ```tsx
 <Stack direction="column" gap="lg">
-  <Breadcrumb items={[
-    { label: "Home", href: "/" },
-    { label: "Users", href: "/users" },
-    { label: "Details" },
-  ]} />
-  <Text variant="display" as="h1">User Details</Text>
+  <Breadcrumb
+    items={[{ label: "Home", href: "/" }, { label: "Users", href: "/users" }, { label: "Details" }]}
+  />
+  <Text variant="display" as="h1">
+    User Details
+  </Text>
   {/* page content */}
 </Stack>
 ```
@@ -230,6 +238,10 @@ Toast variants: `"default"` | `"success"` | `"error"`
   title="No projects yet"
   description="Create your first project to get started."
   icon={FolderOpen}
-  action={<Button variant="primary" onClick={onCreate}>Create Project</Button>}
+  action={
+    <Button variant="primary" onClick={onCreate}>
+      Create Project
+    </Button>
+  }
 />
 ```

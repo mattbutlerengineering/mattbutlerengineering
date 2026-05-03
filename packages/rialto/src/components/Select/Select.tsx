@@ -229,7 +229,9 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
     return (
       <div ref={ref} className={[styles.wrapper, className].filter(Boolean).join(" ")}>
         {label && (
-          <label htmlFor={triggerId} className={styles.label}>{label}</label>
+          <label htmlFor={triggerId} className={styles.label}>
+            {label}
+          </label>
         )}
         <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>
           <button

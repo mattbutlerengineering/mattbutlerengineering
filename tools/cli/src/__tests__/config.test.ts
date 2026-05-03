@@ -19,7 +19,13 @@ vi.mock("conf", () => {
   };
 });
 
-import type { getApiUrl, getAccessToken, setTokens, clearTokens, isAuthenticated } from "../config.js";
+import type {
+  getApiUrl,
+  getAccessToken,
+  setTokens,
+  clearTokens,
+  isAuthenticated,
+} from "../config.js";
 
 interface ConfigModule {
   getApiUrl: typeof getApiUrl;

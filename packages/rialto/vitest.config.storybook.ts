@@ -1,5 +1,5 @@
-import { defineConfig } from 'vitest/config';
-import { storybookTest } from '@storybook/addon-vitest/vitest-plugin';
+import { defineConfig } from "vitest/config";
+import { storybookTest } from "@storybook/addon-vitest/vitest-plugin";
 
 export default defineConfig({
   test: {
@@ -7,16 +7,16 @@ export default defineConfig({
       {
         plugins: [
           storybookTest({
-            configDir: '.storybook',
+            configDir: ".storybook",
           }),
         ],
         test: {
-          name: 'storybook',
+          name: "storybook",
           browser: {
             enabled: true,
             headless: true,
-            provider: 'playwright',
-            instances: [{ browser: 'chromium' }],
+            provider: "playwright",
+            instances: [{ browser: "chromium" }],
           },
         },
       },

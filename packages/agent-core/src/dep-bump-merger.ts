@@ -66,9 +66,7 @@ function countDiffLines(diff: string): number {
  */
 function extractNonLockfileDiff(diff: string): string {
   const sections = diff.split(/(?=^diff --git )/m);
-  return sections
-    .filter((section) => !section.includes("pnpm-lock.yaml"))
-    .join("");
+  return sections.filter((section) => !section.includes("pnpm-lock.yaml")).join("");
 }
 
 // ── Public API ───────────────────────────────────────────────────────
@@ -160,14 +158,7 @@ export async function mergeDirectly(options: {
   const { url } = JSON.parse(createOut.trim()) as { url: string };
 
   // Step 2: Squash-merge and delete the branch immediately
-  const mergeArgs = [
-    "pr",
-    "merge",
-    "--squash",
-    "--delete-branch",
-    "--auto",
-    url,
-  ];
+  const mergeArgs = ["pr", "merge", "--squash", "--delete-branch", "--auto", url];
 
   await execFileAsync("gh", mergeArgs, { cwd: repoPath });
 

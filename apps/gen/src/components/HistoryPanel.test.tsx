@@ -121,11 +121,7 @@ describe("HistoryPanel", () => {
     const onToggleFavorite = vi.fn();
     const entries = [createMockEntry({ id: "spec-1", isFavorite: false })];
     render(
-      <HistoryPanel
-        {...defaultProps}
-        entries={entries}
-        onToggleFavorite={onToggleFavorite}
-      />
+      <HistoryPanel {...defaultProps} entries={entries} onToggleFavorite={onToggleFavorite} />
     );
     fireEvent.click(screen.getByLabelText("Favorite"));
     expect(onToggleFavorite).toHaveBeenCalledWith("spec-1");
@@ -171,10 +167,10 @@ describe("HistoryPanel", () => {
       createMockEntry({ id: "2", prompt: "Second prompt" }),
     ];
     render(<HistoryPanel {...defaultProps} entries={entries} />);
-    
+
     const searchInput = screen.getByPlaceholderText("Search prompts...");
     fireEvent.change(searchInput, { target: { value: "first" } });
-    
+
     expect(screen.getByText(/first prompt/i)).toBeDefined();
     expect(screen.queryByText(/second prompt/i)).toBeNull();
   });
@@ -182,17 +178,17 @@ describe("HistoryPanel", () => {
   it("should show 'No matching prompts' when search has no results", () => {
     const entries = [createMockEntry({ prompt: "First prompt" })];
     render(<HistoryPanel {...defaultProps} entries={entries} />);
-    
+
     const searchInput = screen.getByPlaceholderText("Search prompts...");
     fireEvent.change(searchInput, { target: { value: "nonexistent" } });
-    
+
     expect(screen.getByText("No matching prompts")).toBeDefined();
   });
 
   it("should call onFilterChange when filter tab is clicked", () => {
     const onFilterChange = vi.fn();
     render(<HistoryPanel {...defaultProps} onFilterChange={onFilterChange} />);
-    
+
     fireEvent.click(screen.getByText("Favorites"));
     expect(onFilterChange).toHaveBeenCalledWith("favorites");
   });

@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import type { Preview } from '@storybook/react';
-import { RialtoProvider } from '../src/providers/RialtoProvider';
-import '../src/styles-entry.css';
+import React, { useEffect, useState } from "react";
+import type { Preview } from "@storybook/react";
+import { RialtoProvider } from "../src/providers/RialtoProvider";
+import "../src/styles-entry.css";
 
 const preview: Preview = {
   parameters: {
@@ -12,27 +12,25 @@ const preview: Preview = {
       },
     },
     backgrounds: {
-      default: 'light',
+      default: "light",
       values: [
-        { name: 'light', value: '#f8f6f3' },
-        { name: 'dark', value: '#1a1918' },
+        { name: "light", value: "#f8f6f3" },
+        { name: "dark", value: "#1a1918" },
       ],
     },
     a11y: {
       config: {
-        rules: [
-          { id: 'color-contrast', enabled: true },
-        ],
+        rules: [{ id: "color-contrast", enabled: true }],
       },
     },
   },
   decorators: [
     (Story, context) => {
-      const [theme, setTheme] = useState<'light' | 'dark'>('light');
+      const [theme, setTheme] = useState<"light" | "dark">("light");
 
       useEffect(() => {
-        const selected = context.globals.backgrounds?.value || '#f8f6f3';
-        setTheme(selected === '#1a1918' ? 'dark' : 'light');
+        const selected = context.globals.backgrounds?.value || "#f8f6f3";
+        setTheme(selected === "#1a1918" ? "dark" : "light");
       }, [context.globals.backgrounds?.value]);
 
       return (
@@ -44,8 +42,8 @@ const preview: Preview = {
   ],
   globalTypes: {
     backgrounds: {
-      description: 'Global background color',
-      defaultValue: { value: '#f8f6f3', name: 'light' },
+      description: "Global background color",
+      defaultValue: { value: "#f8f6f3", name: "light" },
     },
   },
 };

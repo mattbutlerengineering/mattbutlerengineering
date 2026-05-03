@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useAuth } from "@mbe/auth/react";
+import { captureException } from "@mbe/observability/sentry/react";
 import type { StoredSpec } from "../types.js";
 
 export interface SaveSpecData {
@@ -58,7 +59,7 @@ export function useSpecsApi(): UseSpecsApiReturn {
       const json = (await response.json()) as { data: StoredSpec[] };
       setSpecs(json.data);
     } catch (err) {
-      console.error("[useSpecsApi] fetchSpecs error:", err);
+      captureException(err instanceof Error ? err : new Error(String(err)));
     } finally {
       setIsLoading(false);
     }
@@ -85,9 +86,7 @@ export function useSpecsApi(): UseSpecsApiReturn {
   const toggleFavorite = useCallback(
     async (id: string): Promise<void> => {
       // Optimistic update — immediately flip isFavorite
-      setSpecs((prev) =>
-        prev.map((s) => (s.id === id ? { ...s, isFavorite: !s.isFavorite } : s))
-      );
+      setSpecs((prev) => prev.map((s) => (s.id === id ? { ...s, isFavorite: !s.isFavorite } : s)));
       try {
         const response = await authFetch(`/api/gen/specs/${id}/favorite`, {
           method: "PATCH",
@@ -100,7 +99,7 @@ export function useSpecsApi(): UseSpecsApiReturn {
         setSpecs((prev) =>
           prev.map((s) => (s.id === id ? { ...s, isFavorite: !s.isFavorite } : s))
         );
-        console.error("[useSpecsApi] toggleFavorite error:", err);
+        captureException(err instanceof Error ? err : new Error(String(err)));
       }
     },
     [authFetch]
@@ -121,7 +120,7 @@ export function useSpecsApi(): UseSpecsApiReturn {
       } catch (err) {
         // Revert on error
         setSpecs(previous);
-        console.error("[useSpecsApi] deleteSpec error:", err);
+        captureException(err instanceof Error ? err : new Error(String(err)));
       }
     },
     [authFetch, specs]

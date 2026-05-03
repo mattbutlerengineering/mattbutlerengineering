@@ -37,9 +37,7 @@ export function ReservationList({ reservations, isLoading }: ReservationListProp
     );
   }
 
-  const active = reservations.filter(
-    (r) => r.status !== "CANCELLED" && r.status !== "NO_SHOW"
-  );
+  const active = reservations.filter((r) => r.status !== "CANCELLED" && r.status !== "NO_SHOW");
 
   if (active.length === 0) {
     return (
@@ -60,12 +58,8 @@ export function ReservationList({ reservations, isLoading }: ReservationListProp
           <li key={r.id} className={styles.reservationItem}>
             <span className={styles.reservationTime}>{formatTime(r.startTime)}</span>
             <div className={styles.reservationDetails}>
-              <div className={styles.reservationGuest}>
-                {r.guestName ?? "Walk-in"}
-              </div>
-              <div className={styles.reservationMeta}>
-                Party of {r.partySize}
-              </div>
+              <div className={styles.reservationGuest}>{r.guestName ?? "Walk-in"}</div>
+              <div className={styles.reservationMeta}>Party of {r.partySize}</div>
             </div>
             <Badge variant={STATUS_VARIANT[r.status] ?? "neutral"} size="sm">
               {r.status}

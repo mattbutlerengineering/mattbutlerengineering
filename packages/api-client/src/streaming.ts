@@ -44,7 +44,8 @@ export async function* streamNDJSON<T>(config: StreamConfig): AsyncGenerator<T> 
   });
 
   if (!response.ok) {
-    throw new Error(`Request failed: ${response.statusText}`);
+    const statusText = response.statusText || response.status.toString();
+    throw new Error(`Request failed: ${response.status} ${statusText}`.trimEnd());
   }
 
   if (!response.body) {

@@ -41,7 +41,12 @@ export function CancelReservationDialog({
   };
 
   return (
-    <div className={styles.overlay} role="dialog" aria-modal="true" aria-labelledby="cancel-dialog-title">
+    <div
+      className={styles.overlay}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="cancel-dialog-title"
+    >
       <div className={styles.dialog}>
         <Stack gap="lg">
           <div className={styles.header}>
@@ -75,11 +80,7 @@ export function CancelReservationDialog({
           </Stack>
 
           <div className={styles.actions}>
-            <Button
-              variant="secondary"
-              onClick={onClose}
-              disabled={isLoading}
-            >
+            <Button variant="secondary" onClick={onClose} disabled={isLoading}>
               Keep Reservation
             </Button>
             <Button

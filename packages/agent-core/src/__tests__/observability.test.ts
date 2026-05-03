@@ -14,57 +14,43 @@ describe("categorizeFailure", () => {
   });
 
   it("returns stuck_loop when stuckPattern is provided", () => {
-    expect(
-      categorizeFailure([], "repeated_action_observation" as StuckPatternType)
-    ).toBe("stuck_loop");
+    expect(categorizeFailure([], "repeated_action_observation" as StuckPatternType)).toBe(
+      "stuck_loop"
+    );
   });
 
   it("returns stuck_loop even when errors are also present", () => {
-    expect(
-      categorizeFailure(["some error"], "zero_progress" as StuckPatternType)
-    ).toBe("stuck_loop");
+    expect(categorizeFailure(["some error"], "zero_progress" as StuckPatternType)).toBe(
+      "stuck_loop"
+    );
   });
 
   it("returns rate_limited for 429 errors", () => {
-    expect(categorizeFailure(["Request failed: 429 Too Many Requests"])).toBe(
-      "rate_limited"
-    );
+    expect(categorizeFailure(["Request failed: 429 Too Many Requests"])).toBe("rate_limited");
   });
 
   it("returns rate_limited for rate limit message", () => {
-    expect(categorizeFailure(["Rate limit exceeded, try again later"])).toBe(
-      "rate_limited"
-    );
+    expect(categorizeFailure(["Rate limit exceeded, try again later"])).toBe("rate_limited");
   });
 
   it("returns rate_limited for overloaded message", () => {
-    expect(categorizeFailure(["API overloaded, try later"])).toBe(
-      "rate_limited"
-    );
+    expect(categorizeFailure(["API overloaded, try later"])).toBe("rate_limited");
   });
 
   it("returns budget_exceeded for budget messages", () => {
-    expect(
-      categorizeFailure(["Cost exceeded budget of $1.00"])
-    ).toBe("budget_exceeded");
+    expect(categorizeFailure(["Cost exceeded budget of $1.00"])).toBe("budget_exceeded");
   });
 
   it("returns budget_exceeded for max budget message", () => {
-    expect(categorizeFailure(["Session max budget reached"])).toBe(
-      "budget_exceeded"
-    );
+    expect(categorizeFailure(["Session max budget reached"])).toBe("budget_exceeded");
   });
 
   it("returns tool_error for ENOENT errors", () => {
-    expect(
-      categorizeFailure(["Tool error: ENOENT: no such file or directory"])
-    ).toBe("tool_error");
+    expect(categorizeFailure(["Tool error: ENOENT: no such file or directory"])).toBe("tool_error");
   });
 
   it("returns tool_error for permission denied", () => {
-    expect(categorizeFailure(["Permission denied: EACCES /etc/shadow"])).toBe(
-      "tool_error"
-    );
+    expect(categorizeFailure(["Permission denied: EACCES /etc/shadow"])).toBe("tool_error");
   });
 
   it("returns api_error for network errors", () => {
@@ -78,28 +64,22 @@ describe("categorizeFailure", () => {
   });
 
   it("returns logic_error for evaluation failures", () => {
-    expect(categorizeFailure(["Evaluation failed: output did not match"])).toBe(
-      "logic_error"
-    );
+    expect(categorizeFailure(["Evaluation failed: output did not match"])).toBe("logic_error");
   });
 
   it("returns logic_error for security review failures", () => {
-    expect(
-      categorizeFailure(["Security review failed: hardcoded secret found"])
-    ).toBe("logic_error");
+    expect(categorizeFailure(["Security review failed: hardcoded secret found"])).toBe(
+      "logic_error"
+    );
   });
 
   it("returns logic_error as default when errors exist", () => {
-    expect(categorizeFailure(["Something went wrong, unknown reason"])).toBe(
-      "logic_error"
-    );
+    expect(categorizeFailure(["Something went wrong, unknown reason"])).toBe("logic_error");
   });
 
   it("rate_limited takes priority over api_error signals", () => {
     // Both 429 and network are present — rate_limited should win
-    expect(
-      categorizeFailure(["Network error: 429 rate limited"])
-    ).toBe("rate_limited");
+    expect(categorizeFailure(["Network error: 429 rate limited"])).toBe("rate_limited");
   });
 });
 
@@ -207,9 +187,7 @@ describe("buildToolCallMetricsList", () => {
   });
 
   it("preserves all fields immutably", () => {
-    const raw = [
-      { toolName: "Write", toolUseId: "tu_003", latencyMs: 200, isError: false },
-    ];
+    const raw = [{ toolName: "Write", toolUseId: "tu_003", latencyMs: 200, isError: false }];
 
     const result = buildToolCallMetricsList(raw);
     expect(result[0]).not.toBe(raw[0]);

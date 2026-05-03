@@ -199,7 +199,11 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
               </svg>
             </button>
           </div>
-          {hint && <span id={`${id}-hint`} className={styles.hint}>{hint}</span>}
+          {hint && (
+            <span id={`${id}-hint`} className={styles.hint}>
+              {hint}
+            </span>
+          )}
         </div>
       </DisabledTooltip>
     );

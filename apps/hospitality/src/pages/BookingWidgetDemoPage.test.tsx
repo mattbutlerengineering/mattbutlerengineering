@@ -5,7 +5,11 @@ import { highlightEmbedCode } from "./highlight-embed-code.js";
 describe("highlightEmbedCode", () => {
   function renderHighlighted(code: string) {
     const nodes = highlightEmbedCode(code);
-    const { container } = render(<pre><code>{nodes}</code></pre>);
+    const { container } = render(
+      <pre>
+        <code>{nodes}</code>
+      </pre>
+    );
     return container;
   }
 
@@ -44,9 +48,7 @@ describe("highlightEmbedCode", () => {
     );
     const tags = container.querySelectorAll(".syntaxTag");
     expect(tags).toHaveLength(2);
-    expect(tags[0].textContent).toBe(
-      '<script src="https://mattbutlerengineering.com/widget.js">'
-    );
+    expect(tags[0].textContent).toBe('<script src="https://mattbutlerengineering.com/widget.js">');
     expect(tags[1].textContent).toBe("</script>");
   });
 

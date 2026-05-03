@@ -9,7 +9,10 @@
       rel="preload"
       as="style"
       href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300;1,9..40,400&family=DM+Mono:wght@300;400&family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500&display=swap"
-      onload="this.onload=null;this.rel='stylesheet'"
+      onload="
+        this.onload = null;
+        this.rel = 'stylesheet';
+      "
     />
     <noscript>
       <link
@@ -28,7 +31,10 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/rialto/apple-touch-icon.png" />
     <link rel="canonical" href="https://mattbutlerengineering.com/rialto/" />
     <meta property="og:title" content="Rialto Design System" />
-    <meta property="og:description" content="Rialto Design System — a precision-crafted React component library with warm material surfaces, gold accents, and full WCAG AA accessibility." />
+    <meta
+      property="og:description"
+      content="Rialto Design System — a precision-crafted React component library with warm material surfaces, gold accents, and full WCAG AA accessibility."
+    />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://mattbutlerengineering.com/rialto/" />
     <meta property="og:image" content="https://mattbutlerengineering.com/og-image.png" />
@@ -37,7 +43,10 @@
     <meta property="og:image:type" content="image/png" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Rialto Design System" />
-    <meta name="twitter:description" content="Rialto Design System — a precision-crafted React component library with warm material surfaces, gold accents, and full WCAG AA accessibility." />
+    <meta
+      name="twitter:description"
+      content="Rialto Design System — a precision-crafted React component library with warm material surfaces, gold accents, and full WCAG AA accessibility."
+    />
     <meta name="twitter:image" content="https://mattbutlerengineering.com/og-image.png" />
     <title>Rialto — Design System</title>
     <script type="application/ld+json">
@@ -53,14 +62,19 @@
     <script>
       if ("serviceWorker" in navigator) {
         navigator.serviceWorker.getRegistrations().then(function (regs) {
-          regs.forEach(function (r) { r.unregister(); });
+          regs.forEach(function (r) {
+            r.unregister();
+          });
         });
       }
     </script>
     <noscript>
-      <div style="padding: 2rem; text-align: center; font-family: system-ui, sans-serif;">
+      <div style="padding: 2rem; text-align: center; font-family: system-ui, sans-serif">
         <h1>JavaScript Required</h1>
-        <p>This application requires JavaScript to run. Please enable JavaScript in your browser settings.</p>
+        <p>
+          This application requires JavaScript to run. Please enable JavaScript in your browser
+          settings.
+        </p>
       </div>
     </noscript>
     <div id="root"></div>

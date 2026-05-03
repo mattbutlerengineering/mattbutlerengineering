@@ -24,9 +24,7 @@ describe("Chalkboard", () => {
           </ChalkboardSection>
         </Chalkboard>
       );
-      expect(
-        screen.getByRole("heading", { level: 3, name: "Starters" })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 3, name: "Starters" })).toBeInTheDocument();
     });
 
     it("renders items as a proper list", () => {
@@ -49,11 +47,7 @@ describe("Chalkboard", () => {
       render(
         <Chalkboard title="Menu">
           <ChalkboardSection>
-            <ChalkboardItem
-              name="Caesar Salad"
-              price="$10"
-              description="with shaved parmesan"
-            />
+            <ChalkboardItem name="Caesar Salad" price="$10" description="with shaved parmesan" />
           </ChalkboardSection>
         </Chalkboard>
       );

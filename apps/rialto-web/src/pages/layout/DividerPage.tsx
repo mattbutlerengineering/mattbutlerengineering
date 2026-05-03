@@ -25,10 +25,7 @@ export function DividerPage() {
 
       {/* ── Vertical ──────────────────────────────────────────────── */}
       <Section title="Vertical">
-        <div
-          className={styles.row}
-          style={{ height: 60, alignItems: "stretch" }}
-        >
+        <div className={styles.row} style={{ height: 60, alignItems: "stretch" }}>
           <span
             style={{
               fontSize: "var(--rialto-text-sm)",
@@ -152,9 +149,15 @@ export function DividerPage() {
       <Section title="Accessibility">
         <DataList
           items={[
-            { label: "Element", value: "<hr> element for horizontal, <div> with role=separator for vertical" },
+            {
+              label: "Element",
+              value: "<hr> element for horizontal, <div> with role=separator for vertical",
+            },
             { label: "Label", value: "Rendered as visible text — not screen reader only" },
-            { label: "Color", value: "Color uses CSS gradients — no meaning conveyed by color alone" },
+            {
+              label: "Color",
+              value: "Color uses CSS gradients — no meaning conveyed by color alone",
+            },
           ]}
         />
       </Section>

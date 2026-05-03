@@ -59,9 +59,7 @@ describe("recordFailure", () => {
 
     await recordFailure("/repo", SAMPLE_RECORD);
 
-    const written = JSON.parse(
-      vi.mocked(writeFile).mock.calls[0][1] as string
-    );
+    const written = JSON.parse(vi.mocked(writeFile).mock.calls[0][1] as string);
     expect(written.records).toHaveLength(2);
     expect(written.records[1].taskDescription).toBe("Fix the login button styling");
   });
@@ -78,9 +76,7 @@ describe("recordFailure", () => {
 
     await recordFailure("/repo", SAMPLE_RECORD);
 
-    const written = JSON.parse(
-      vi.mocked(writeFile).mock.calls[0][1] as string
-    );
+    const written = JSON.parse(vi.mocked(writeFile).mock.calls[0][1] as string);
     expect(written.records).toHaveLength(100);
     expect(written.records[99].taskDescription).toBe("Fix the login button styling");
   });

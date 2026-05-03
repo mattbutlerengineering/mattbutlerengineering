@@ -28,6 +28,7 @@
 **Problem:** Most pages show errors but offer no retry. Network timeouts leave buttons stuck in "Saving..." state.
 
 **Acceptance Criteria:**
+
 - [ ] All API calls have a 10-second timeout
 - [ ] Error state includes a "Retry" button that re-fetches
 - [ ] Buttons show "Saving..." for max 10 seconds, then revert with error
@@ -44,6 +45,7 @@
 **Problem:** Timeline is unusable on mobile — grid requires horizontal scroll, sidebar takes 50% width, stats overflow.
 
 **Acceptance Criteria:**
+
 - [ ] On mobile (<768px), sidebar appears as a slide-up sheet (not side panel)
 - [ ] Stats row wraps or collapses to essential items only
 - [ ] Timeline grid allows horizontal swipe with momentum
@@ -61,11 +63,13 @@
 **Problem:** Data diverges between pages. Edit on Timeline doesn't reflect on ReservationsPage without reload.
 
 **Acceptance Criteria:**
+
 - [ ] Reservation changes on any page reflect on all other pages within 2 seconds
 - [ ] SSE events are consumed by all pages that display reservation data
 - [ ] No duplicate entries after optimistic update + SSE confirmation
 
 **Implementation Hint:** Either:
+
 - (Simple) Add `useReservationEvents` to ReservationsPage and HomePage
 - (Better) Use TanStack Query with SSE-driven cache invalidation
 - (Best) Zustand store shared across pages with SSE subscription
@@ -81,6 +85,7 @@
 **Problem:** Some pages have venue selectors (Timeline, Guests), others don't (Home, Reservations, Floor Plans). Multi-venue operators see mixed data.
 
 **Acceptance Criteria:**
+
 - [ ] All data-displaying pages filter by venue
 - [ ] Venue selection persists across page navigation (stored in URL param or context)
 - [ ] If only one venue, selector is hidden
@@ -97,6 +102,7 @@
 **Problem:** Timeline still uses raw `<select>` instead of Rialto `<Select>`.
 
 **Acceptance Criteria:**
+
 - [ ] Venue selector uses `<Select>` from `@mattbutlerengineering/rialto`
 - [ ] Matches the styling of venue selectors on other pages
 
@@ -109,6 +115,7 @@
 **Problem:** Guest detail view is read-only. "Edit" button exists but is non-functional.
 
 **Acceptance Criteria:**
+
 - [ ] Clicking "Edit" on guest detail opens an edit form
 - [ ] Can edit: name, email, phone, notes, tags
 - [ ] Tags can be added/removed
@@ -124,6 +131,7 @@
 **Problem:** No way to search by guest name — must manually scan the table.
 
 **Acceptance Criteria:**
+
 - [ ] Search input filters table by guest name (client-side)
 - [ ] Search is case-insensitive
 - [ ] Results update immediately as user types
@@ -138,6 +146,7 @@
 **Problem:** Can't share a link to a specific reservation, guest, or floor plan.
 
 **Acceptance Criteria:**
+
 - [ ] URLs encode query params: `/timeline?date=2026-04-15&reservationId=123`
 - [ ] Opening a deep link scrolls to / highlights the referenced item
 - [ ] Date picker syncs with URL param
@@ -155,6 +164,7 @@
 **Problem:** Users lose sense of location when navigating between pages.
 
 **Acceptance Criteria:**
+
 - [ ] Breadcrumb trail shows: Home > Floor Plans > "My Restaurant"
 - [ ] Each breadcrumb is clickable
 - [ ] Uses Rialto `<Breadcrumb>` component
@@ -168,6 +178,7 @@
 **Problem:** Timeline grid is mouse-only — can't navigate cells with keyboard.
 
 **Acceptance Criteria:**
+
 - [ ] Arrow keys move between table rows and time slots
 - [ ] Enter/Space selects a reservation block
 - [ ] Tab moves to the next interactive element
@@ -182,6 +193,7 @@
 **Problem:** Screen readers miss dynamic content updates (SSE events, search results, pagination).
 
 **Acceptance Criteria:**
+
 - [ ] ActivityFeed has `aria-live="polite"` on the list container
 - [ ] Search result counts announced with `aria-live="polite"`
 - [ ] Stats updates after filter changes are announced
@@ -196,6 +208,7 @@
 **Problem:** FloorPlanEditorPage doesn't warn before navigating away with unsaved changes.
 
 **Acceptance Criteria:**
+
 - [ ] Browser beforeunload event fires when unsaved changes exist
 - [ ] react-router navigation blocked with confirmation dialog
 - [ ] "Save & Continue" option in confirmation

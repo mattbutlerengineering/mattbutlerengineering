@@ -4,14 +4,14 @@ This document covers rollback procedures for all deployment targets in the mattb
 
 ## Decision: Rollback vs. Fix-Forward
 
-| Scenario | Action | Rationale |
-|----------|--------|-----------|
-| User-facing breakage (500s, blank pages, auth failures) | **Rollback immediately** | Restore service first, investigate later |
-| Performance degradation (slow but functional) | **Fix-forward** | Users can still use the service |
-| Data corruption or security vulnerability | **Rollback immediately** + incident response | Limit blast radius |
-| Visual regression (styling, layout) | **Fix-forward** | Non-blocking for users |
-| Feature bug (new feature broken, old features fine) | **Fix-forward** with feature flag | Isolate the new code path |
-| CI/deploy pipeline broken | **Fix-forward** | Rollback won't help pipeline issues |
+| Scenario                                                | Action                                       | Rationale                                |
+| ------------------------------------------------------- | -------------------------------------------- | ---------------------------------------- |
+| User-facing breakage (500s, blank pages, auth failures) | **Rollback immediately**                     | Restore service first, investigate later |
+| Performance degradation (slow but functional)           | **Fix-forward**                              | Users can still use the service          |
+| Data corruption or security vulnerability               | **Rollback immediately** + incident response | Limit blast radius                       |
+| Visual regression (styling, layout)                     | **Fix-forward**                              | Non-blocking for users                   |
+| Feature bug (new feature broken, old features fine)     | **Fix-forward** with feature flag            | Isolate the new code path                |
+| CI/deploy pipeline broken                               | **Fix-forward**                              | Rollback won't help pipeline issues      |
 
 **Rule of thumb:** If users are blocked or data is at risk, rollback. If users can work around it, fix-forward.
 
@@ -44,6 +44,7 @@ cd apps/<app-name> && pnpm dlx wrangler@latest deploy
 ### Cache Invalidation
 
 Cloudflare edge caches HTML aggressively. After rollback:
+
 - The edge-router Worker serves fresh content on next request (no TTL for HTML — see CDN cache bypass for SPA routes)
 - Static assets use content-hashed filenames, so old assets are still available
 
@@ -147,12 +148,14 @@ pulumi refresh --stack prod  # Sync state with actual cloud resources
 When all else fails and the site is down:
 
 1. **Revert the commit immediately:**
+
    ```bash
    git revert <commit-sha> --no-edit
    git push origin main
    ```
 
 2. **Force deploy all targets:**
+
    ```bash
    # Static sites
    for app in marketing hospitality rialto-web; do
@@ -165,6 +168,7 @@ When all else fails and the site is down:
    ```
 
 3. **Verify recovery:**
+
    ```bash
    # Check static sites
    curl -s -o /dev/null -w "%{http_code}" https://mattbutlerengineering.com

@@ -7,6 +7,7 @@ This guide covers common migration issues and their solutions.
 ### P3009: Failed Migration
 
 **Error:**
+
 ```
 Error: P3009
 migrate found failed migrations in the target database, new migrations will not be applied.
@@ -15,6 +16,7 @@ migrate found failed migrations in the target database, new migrations will not 
 **Cause**: A previous migration failed partway through, leaving the database in an inconsistent state.
 
 **Solution 1: Fix and Mark Resolved**
+
 ```bash
 # Check what failed
 npx prisma migrate status
@@ -27,6 +29,7 @@ npx prisma migrate resolve --applied 20240115_failing_migration
 ```
 
 **Solution 2: Mark as Rolled Back**
+
 ```bash
 # If you've reverted the partial changes
 npx prisma migrate resolve --rolled-back 20240115_failing_migration
@@ -38,6 +41,7 @@ npx prisma migrate deploy
 ### Schema Drift Detected
 
 **Error:**
+
 ```
 Drift detected: Your database schema is not in sync with your migration history.
 ```
@@ -45,6 +49,7 @@ Drift detected: Your database schema is not in sync with your migration history.
 **Cause**: Someone made changes directly to the database that aren't in migration files.
 
 **Solution: Identify and Reconcile**
+
 ```bash
 # See what's different
 npx prisma migrate diff \
@@ -65,6 +70,7 @@ npx prisma migrate reset
 ### Migration Checksum Mismatch
 
 **Error:**
+
 ```
 The migration `20240115_add_users` has been modified after it was applied.
 ```
@@ -72,6 +78,7 @@ The migration `20240115_add_users` has been modified after it was applied.
 **Cause**: The `migration.sql` file was edited after being applied to the database.
 
 **Solution:**
+
 ```bash
 # Get the original file from git
 git checkout main -- prisma/migrations/20240115_add_users/migration.sql
@@ -85,6 +92,7 @@ npx prisma migrate reset
 ### Shadow Database Access Denied
 
 **Error:**
+
 ```
 Error creating shadow database. You must have CREATE and DROP privileges.
 ```
@@ -92,6 +100,7 @@ Error creating shadow database. You must have CREATE and DROP privileges.
 **Cause**: The database user can't create/drop databases (needed for `migrate dev`).
 
 **Solution 1: Grant Permissions**
+
 ```sql
 -- PostgreSQL
 GRANT CREATE ON DATABASE mydb TO myuser;
@@ -101,11 +110,13 @@ CREATE DATABASE mydb_shadow OWNER myuser;
 ```
 
 Then in `.env`:
+
 ```
 SHADOW_DATABASE_URL="postgresql://myuser:pass@localhost:5432/mydb_shadow"
 ```
 
 **Solution 2: Use Superuser for Development**
+
 ```bash
 # Use a superuser for local development
 DATABASE_URL="postgresql://postgres:pass@localhost:5432/mydb"
@@ -114,6 +125,7 @@ DATABASE_URL="postgresql://postgres:pass@localhost:5432/mydb"
 ### Connection Pool Exhausted
 
 **Error:**
+
 ```
 Error: Connection pool timeout
 ```
@@ -133,10 +145,11 @@ DATABASE_URL="postgresql://user:pass@direct.host:5432/db"
 ```
 
 In CI/CD, use separate URLs:
+
 ```yaml
 - name: Migrate
   env:
-    DATABASE_URL: ${{ secrets.DATABASE_URL_DIRECT }}  # Direct connection
+    DATABASE_URL: ${{ secrets.DATABASE_URL_DIRECT }} # Direct connection
 ```
 
 ## Migration File Issues
@@ -161,6 +174,7 @@ npx prisma migrate dev --name fix_users_table
 **Error**: Conflicts when merging branches with migrations.
 
 **Solution:**
+
 ```bash
 # Option 1: Re-sequence migrations
 # Rename the conflicting migration to have a later timestamp
@@ -178,6 +192,7 @@ npx prisma migrate dev --name combined_feature
 ### Non-Empty Column Added
 
 **Error:**
+
 ```
 The column `email` is required, but there are 100 rows with no value.
 ```
@@ -212,6 +227,7 @@ npx prisma migrate dev --name make_email_required
 ### Foreign Key Constraint Violations
 
 **Error:**
+
 ```
 Foreign key constraint failed on the field: `user_id`
 ```
@@ -228,6 +244,7 @@ DELETE FROM users WHERE id = 1;
 ```
 
 Or add cascading in schema:
+
 ```prisma
 model Post {
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -320,11 +337,13 @@ npx prisma migrate resolve --rolled-back 20240115_migration
 ### Reset Not Working
 
 **Error:**
+
 ```
 Error: Database reset failed
 ```
 
 **Solution:**
+
 ```bash
 # Force drop connections (PostgreSQL)
 psql "$DATABASE_URL" -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'mydb' AND pid <> pg_backend_pid();"
@@ -375,6 +394,7 @@ psql "$DATABASE_URL" -c "SELECT * FROM _prisma_migrations ORDER BY finished_at D
 - Shadow database issues in managed database environments
 
 Document the issue with:
+
 1. Full error message
 2. `prisma migrate status` output
 3. Schema and migration files involved

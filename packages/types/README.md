@@ -12,11 +12,11 @@ import type { AgentSession } from "@mbe/types/agent";
 
 ## Exports
 
-| Entry Point | Contents |
-|-------------|----------|
-| `@mbe/types` | All types (re-exported) |
-| `@mbe/types/api` | API response and error types |
-| `@mbe/types/user` | User model types |
+| Entry Point        | Contents                      |
+| ------------------ | ----------------------------- |
+| `@mbe/types`       | All types (re-exported)       |
+| `@mbe/types/api`   | API response and error types  |
+| `@mbe/types/user`  | User model types              |
 | `@mbe/types/agent` | Agent session and event types |
 
 ## Commands

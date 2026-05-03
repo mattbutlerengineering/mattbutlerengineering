@@ -12,9 +12,7 @@ import {
 import { compareSchema } from "@mbe/types/schema-compat";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const baseline = JSON.parse(
-  readFileSync(join(__dirname, "schema-baseline.json"), "utf-8")
-);
+const baseline = JSON.parse(readFileSync(join(__dirname, "schema-baseline.json"), "utf-8"));
 
 const allSchemas = {
   SessionSchema,

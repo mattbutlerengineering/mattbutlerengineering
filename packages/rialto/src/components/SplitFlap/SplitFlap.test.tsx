@@ -25,9 +25,7 @@ describe("SplitFlap", () => {
     });
 
     it("creates one cell per character of value", () => {
-      const { container } = render(
-        <SplitFlap value="ABC" aria-label="Three letters" />
-      );
+      const { container } = render(<SplitFlap value="ABC" aria-label="Three letters" />);
       // Cells are aria-hidden, so find them via the class marker
       const cells = container.querySelectorAll('[aria-hidden="true"]');
       // One per character + the sr-only summary element
@@ -35,9 +33,7 @@ describe("SplitFlap", () => {
     });
 
     it("pads value to length with spaces when length > value length", () => {
-      const { container } = render(
-        <SplitFlap value="HI" length={5} aria-label="Padded" />
-      );
+      const { container } = render(<SplitFlap value="HI" length={5} aria-label="Padded" />);
       // First-level aria-hidden cells should be 5
       const topLevel = container.firstElementChild;
       const cells = topLevel?.querySelectorAll(":scope > div[aria-hidden='true']");
@@ -56,9 +52,7 @@ describe("SplitFlap", () => {
 
   describe("accessibility", () => {
     it("animated cells are aria-hidden so AT only reads the label", () => {
-      const { container } = render(
-        <SplitFlap value="ABC" aria-label="Three letters" />
-      );
+      const { container } = render(<SplitFlap value="ABC" aria-label="Three letters" />);
       const cells = container.querySelectorAll(":scope > div > [aria-hidden='true']");
       cells.forEach((cell) => {
         expect(cell).toHaveAttribute("aria-hidden", "true");
@@ -73,9 +67,7 @@ describe("SplitFlap", () => {
 
   describe("value changes", () => {
     it("updates when value prop changes (allows re-rendering)", () => {
-      const { rerender } = render(
-        <SplitFlap value="OLD" aria-label="Status" />
-      );
+      const { rerender } = render(<SplitFlap value="OLD" aria-label="Status" />);
       expect(screen.getByRole("img")).toHaveAccessibleName("Status");
 
       act(() => {

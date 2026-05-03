@@ -24,7 +24,13 @@ export function PopoverPage() {
             }
             title="Telemetry Info"
           >
-            <p style={{ margin: 0, fontSize: "var(--rialto-text-sm)", color: "var(--rialto-text-secondary)" }}>
+            <p
+              style={{
+                margin: 0,
+                fontSize: "var(--rialto-text-sm)",
+                color: "var(--rialto-text-secondary)",
+              }}
+            >
               Current session: Fiorano, Lap 14. Ambient temperature 22°C, track temperature 38°C.
             </p>
           </Popover>
@@ -37,10 +43,22 @@ export function PopoverPage() {
             title="Tire Pressure"
             placement="top"
           >
-            <p style={{ marginBottom: "var(--rialto-space-xs)", fontSize: "var(--rialto-text-sm)", color: "var(--rialto-text-secondary)" }}>
+            <p
+              style={{
+                marginBottom: "var(--rialto-space-xs)",
+                fontSize: "var(--rialto-text-sm)",
+                color: "var(--rialto-text-secondary)",
+              }}
+            >
               FL: 32.1 PSI &middot; FR: 31.8 PSI
             </p>
-            <p style={{ margin: 0, fontSize: "var(--rialto-text-sm)", color: "var(--rialto-text-secondary)" }}>
+            <p
+              style={{
+                margin: 0,
+                fontSize: "var(--rialto-text-sm)",
+                color: "var(--rialto-text-secondary)",
+              }}
+            >
               RL: 28.4 PSI &middot; RR: 31.2 PSI
             </p>
           </Popover>
@@ -58,7 +76,13 @@ export function PopoverPage() {
             }
             title="Session Export"
           >
-            <p style={{ marginBottom: "var(--rialto-space-sm)", fontSize: "var(--rialto-text-sm)", color: "var(--rialto-text-secondary)" }}>
+            <p
+              style={{
+                marginBottom: "var(--rialto-space-sm)",
+                fontSize: "var(--rialto-text-sm)",
+                color: "var(--rialto-text-secondary)",
+              }}
+            >
               Export the current telemetry session data for offline analysis.
             </p>
             <div style={{ display: "flex", gap: "var(--rialto-space-xs)" }}>
@@ -86,7 +110,13 @@ export function PopoverPage() {
           >
             <Stack gap="sm">
               <Input placeholder="FP1 — Fiorano" />
-              <div style={{ display: "flex", gap: "var(--rialto-space-xs)", justifyContent: "flex-end" }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "var(--rialto-space-xs)",
+                  justifyContent: "flex-end",
+                }}
+              >
                 <Button variant="primary" size="sm">
                   Save
                 </Button>

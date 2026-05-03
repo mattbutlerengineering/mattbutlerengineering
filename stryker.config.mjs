@@ -20,10 +20,7 @@ export default {
 
   // Files to mutate (services/users business logic and routes)
   // Using glob patterns relative to the directory containing stryker.config.mjs
-  mutate: [
-    "services/users/src/routes/*.ts",
-    "services/users/src/services/*.ts",
-  ],
+  mutate: ["services/users/src/routes/*.ts", "services/users/src/services/*.ts"],
 
   // Ignore patterns to exclude from mutation
   ignorePatterns: [
