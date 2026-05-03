@@ -9,6 +9,14 @@ vi.mock("../services/database.js", () => ({
   },
   getSlowQueryStats: vi.fn().mockReturnValue({ count5min: 0, slowestMs: 0 }),
   getServiceStatus: vi.fn().mockReturnValue("ok"),
+  getPoolMetrics: vi.fn().mockReturnValue({
+    active: 1,
+    idle: 4,
+    busy: 1,
+    size: 5,
+    utilization: 0.2,
+    isDegraded: false,
+  }),
 }));
 
 // Mock health checks
@@ -59,7 +67,7 @@ vi.mock("@mbe/observability", async (importOriginal) => {
   };
 });
 
-import { prisma } from "../services/database.js";
+import { prisma, getPoolMetrics } from "../services/database.js";
 
 describe("Health Routes", () => {
   let app: FastifyInstance;
@@ -117,6 +125,48 @@ describe("Health Routes", () => {
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       expect(body.status).toBe("degraded");
+    });
+
+    it("includes pool check in health response", async () => {
+      vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([{ "?column?": 1 }]);
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/health",
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.checks.pool).toBeDefined();
+      expect(body.checks.pool.status).toBe("ok");
+      expect(body.checks.pool.active).toBe(1);
+      expect(body.checks.pool.idle).toBe(4);
+      expect(body.checks.pool.busy).toBe(1);
+      expect(body.checks.pool.size).toBe(5);
+      expect(body.checks.pool.utilization).toBe(0.2);
+    });
+
+    it("returns degraded status when pool utilization is high", async () => {
+      vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([{ "?column?": 1 }]);
+      vi.mocked(getPoolMetrics).mockReturnValueOnce({
+        active: 5,
+        idle: 0,
+        busy: 5,
+        size: 5,
+        utilization: 1.0,
+        isDegraded: true,
+      });
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/health",
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.status).toBe("degraded");
+      expect(body.checks.pool.status).toBe("degraded");
+      expect(body.checks.pool.message).toContain("Pool utilization high");
     });
   });
 });

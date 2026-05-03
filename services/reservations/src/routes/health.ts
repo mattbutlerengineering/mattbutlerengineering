@@ -2,7 +2,7 @@ import type { FastifyPluginAsync, RouteHandlerMethod, RawServerDefault } from "f
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { HealthResponse } from "@mbe/types";
 import type { RateLimitMonitor } from "@mbe/observability";
-import { prisma, getSlowQueryStats, getServiceStatus } from "../services/database.js";
+import { prisma, getSlowQueryStats, getServiceStatus, getPoolMetrics } from "../services/database.js";
 import { checkAuth0, checkLatencyAnomaly, recordDbLatency } from "../services/health-checks.js";
 
 type HealthRouteHandler = RouteHandlerMethod<
@@ -137,6 +137,21 @@ const healthHandler: HealthRouteHandler = async (request) => {
     }),
   };
 
+  const poolMetrics = getPoolMetrics();
+  checks.pool = {
+    status: poolMetrics.isDegraded ? "degraded" : "ok",
+    ...(poolMetrics.isDegraded && {
+      message: `Pool utilization high: ${Math.round(poolMetrics.utilization * 100)}% (${poolMetrics.busy}/${poolMetrics.size} busy)`,
+    }),
+    ...{
+      active: poolMetrics.active,
+      idle: poolMetrics.idle,
+      busy: poolMetrics.busy,
+      size: poolMetrics.size,
+      utilization: poolMetrics.utilization,
+    },
+  };
+
   const errorRates = request.server.getErrorRates();
   const degradedEndpoints = errorRates.endpoints.filter((e) => e.rate > 0.1 && e.total >= 5);
   checks.error_rates = {
@@ -147,7 +162,7 @@ const healthHandler: HealthRouteHandler = async (request) => {
     }),
   };
 
-  const hasErrors = dbStatus === "error" || slowQueryStatus === "degraded" || auth0Result.status === "degraded" || rateLimitSnapshot.isDegraded || errorRates.degraded;
+  const hasErrors = dbStatus === "error" || slowQueryStatus === "degraded" || auth0Result.status === "degraded" || rateLimitSnapshot.isDegraded || poolMetrics.isDegraded || errorRates.degraded;
 
   return {
     status: hasErrors ? "degraded" : "ok",
