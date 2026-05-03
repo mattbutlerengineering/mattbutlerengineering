@@ -199,6 +199,7 @@ export function computeLevel(rawDetectedIds, behavioral = {}, options = {}){
 
   return {
     level: currentLevel,
+    strict,
     levelName: current?.name ?? `L${currentLevel}`,
     role: current?.role ?? '',
     characteristic: current?.characteristic ?? '',
