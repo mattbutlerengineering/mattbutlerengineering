@@ -31,17 +31,17 @@
       "primary": {
         "$value": "#1a1918",
         "$type": "color",
-        "$description": "Headings, body text, primary labels"
+        "$description": "Headings, body text, primary labels (16.28:1 on surface — WCAG AAA)"
       },
       "secondary": {
         "$value": "#6b6660",
         "$type": "color",
-        "$description": "Descriptions, helper text, secondary labels"
+        "$description": "Descriptions, helper text, secondary labels (5.27:1 on surface — WCAG AA)"
       },
       "tertiary": {
         "$value": "#747070",
         "$type": "color",
-        "$description": "Placeholders, disabled text, timestamps"
+        "$description": "Placeholders, disabled text, timestamps (4.53:1 on surface — WCAG AA minimum)"
       },
       "on-accent": {
         "$value": "#1a1918",
@@ -51,14 +51,14 @@
     },
     "border": {
       "default": {
-        "$value": "#d8d4cd",
+        "$value": "#918d87",
         "$type": "color",
-        "$description": "Default borders for cards, inputs, dividers"
+        "$description": "Default borders for cards, inputs, dividers (3.06:1 on surface — WCAG AA UI)"
       },
       "strong": {
-        "$value": "#b8b4ad",
+        "$value": "#88837c",
         "$type": "color",
-        "$description": "Emphasized borders, active input outlines"
+        "$description": "Emphasized borders, active input outlines (3.49:1 on surface — WCAG AA UI)"
       }
     },
     "accent": {
