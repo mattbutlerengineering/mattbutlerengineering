@@ -12,9 +12,9 @@ import {
   Text,
   Toggle,
 } from "@mattbutlerengineering/rialto";
-import { ApiClient, UsersClient } from "@mbe/api-client";
 import type { User, UserPreferences } from "@mbe/types";
 import { useTheme } from "../hooks/use-theme";
+import { useApiClient } from "../hooks/useApiClient.js";
 import { PageHeader } from "../components/PageHeader";
 import styles from "./SettingsPage.module.css";
 
@@ -91,7 +91,8 @@ function SettingsLoadingSkeleton() {
 /* ── Main component ─────────────────────────── */
 
 export function SettingsPage() {
-  const { accessToken, signOut } = useAuth();
+  const { signOut } = useAuth();
+  const apiClient = useApiClient();
   const { setTheme: setLocalTheme } = useTheme();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -112,55 +113,45 @@ export function SettingsPage() {
 
   useEffect(() => {
     async function fetchUser() {
-      if (!accessToken) return;
-
       try {
         setIsLoading(true);
-        const apiClient = new ApiClient({
-          baseUrl: import.meta.env.VITE_API_URL ?? "",
-          getAccessToken: () => accessToken,
-        });
-        const usersClient = new UsersClient(apiClient);
-        const userData = await usersClient.me();
+        const userData = await apiClient.users.me();
         setUser(userData);
         if (userData.preferences.theme) {
           setLocalTheme(userData.preferences.theme);
         }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load settings");
+      } catch (err: unknown) {
+        const detail = (err as Record<string, unknown>)?.detail;
+        const message = err instanceof Error ? err.message : "Failed to load settings";
+        setError(typeof detail === "string" ? detail : message);
       } finally {
         setIsLoading(false);
       }
     }
 
     fetchUser();
-  }, [accessToken, setLocalTheme]);
+  }, [apiClient, setLocalTheme]);
 
   const updatePreference = useCallback(
     async <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => {
-      if (!accessToken) return;
-
       try {
         setIsSaving(true);
         setError(null);
         setSuccessMessage(null);
 
-        const apiClient = new ApiClient({
-          baseUrl: import.meta.env.VITE_API_URL ?? "",
-          getAccessToken: () => accessToken,
-        });
-        const usersClient = new UsersClient(apiClient);
-        const updatedUser = await usersClient.updatePreferences({ [key]: value });
+        const updatedUser = await apiClient.users.updatePreferences({ [key]: value });
         setUser(updatedUser);
         setSuccessMessage("Settings saved");
         setTimeout(() => setSuccessMessage(null), 3000);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to save settings");
+      } catch (err: unknown) {
+        const detail = (err as Record<string, unknown>)?.detail;
+        const message = err instanceof Error ? err.message : "Failed to save settings";
+        setError(typeof detail === "string" ? detail : message);
       } finally {
         setIsSaving(false);
       }
     },
-    [accessToken]
+    [apiClient]
   );
 
   if (isLoading) {
