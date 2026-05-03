@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { within, expect } from '@storybook/test';
 import { Avatar, AvatarGroup } from './Avatar';
 
 const meta: Meta<typeof Avatar> = {
@@ -36,6 +37,12 @@ export const WithImage: Story = {
     src: 'https://i.pravatar.cc/150?u=mbe',
     name: 'User Name',
     size: 'lg',
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // Test fallback - when image fails to load, shows initials
+    const avatar = canvas.getByText('UN');
+    await expect(avatar).toBeInTheDocument();
   },
 };
 

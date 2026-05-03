@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { within, expect } from '@storybook/test';
 import { Heading } from './Heading';
 
 const meta: Meta<typeof Heading> = {
@@ -35,6 +36,11 @@ export const Default: Story = {
   args: {
     children: 'The quick brown fox',
     level: 2,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole('heading', { level: 2 })).toBeInTheDocument();
+    await expect(canvas.getByText('The quick brown fox')).toBeInTheDocument();
   },
 };
 

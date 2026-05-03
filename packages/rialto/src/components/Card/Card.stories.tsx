@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { within, expect } from '@storybook/test';
 import { Card } from './Card';
 import { Text } from '../Text/Text';
 import { Stack } from '../Stack/Stack';
@@ -26,6 +27,11 @@ export const Default: Story = {
       </Stack>
     </Card>
   ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText('Card Title')).toBeInTheDocument();
+    await expect(canvas.getByText(/sample card component/)).toBeInTheDocument();
+  },
 };
 
 export const Elevated: Story = {

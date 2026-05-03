@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { within, expect } from '@storybook/test';
 import { Badge } from './Badge';
 
 const meta: Meta<typeof Badge> = {
@@ -24,6 +25,10 @@ type Story = StoryObj<typeof Badge>;
 export const Default: Story = {
   args: {
     children: 'Label',
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText('Label')).toBeInTheDocument();
   },
 };
 
