@@ -51,16 +51,9 @@
   </head>
   <body>
     <script>
-      // Unregister stale hospitality service workers that were registered at
-      // root scope before the scope fix (#39). Without this, browsers that
-      // visited hospitality before the fix will redirect all pages to /hospitality.
       if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.getRegistrations().then(function (registrations) {
-          for (var i = 0; i < registrations.length; i++) {
-            if (registrations[i].scope.includes("/hospitality")) {
-              registrations[i].unregister();
-            }
-          }
+        navigator.serviceWorker.getRegistrations().then(function (regs) {
+          regs.forEach(function (r) { r.unregister(); });
         });
       }
     </script>
