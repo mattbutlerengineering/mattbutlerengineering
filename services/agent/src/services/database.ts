@@ -58,6 +58,31 @@ export function getPoolStats() {
   };
 }
 
+export interface PoolMetrics {
+  active: number;
+  idle: number;
+  busy: number;
+  size: number;
+  utilization: number;
+  isDegraded: boolean;
+}
+
+export function getPoolMetrics(): PoolMetrics {
+  const stats = getPoolStats();
+  const busy = stats.active;
+  const idle = stats.idle;
+  const utilization = CONNECTION_LIMIT > 0 ? busy / CONNECTION_LIMIT : 0;
+
+  return {
+    active: stats.total,
+    idle,
+    busy,
+    size: CONNECTION_LIMIT,
+    utilization,
+    isDegraded: utilization > POOL_UTILIZATION_THRESHOLD,
+  };
+}
+
 export function getServiceStatus(): "ok" | "degraded" {
   const stats = getSlowQueryStats();
   const poolStats = getPoolStats();
