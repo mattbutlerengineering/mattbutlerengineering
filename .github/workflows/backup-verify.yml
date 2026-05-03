@@ -40,14 +40,17 @@ jobs:
           PGUSER: verify
           PGPASSWORD: verify_test_only
           PGDATABASE: verify_restore
+          NODE_PATH: /usr/local/lib/node_modules
         run: |
-          npm install -g prisma@6
+          npm install -g prisma@7
 
           for SERVICE in users reservations agent; do
-            SCHEMA_PATH="services/$SERVICE/prisma/schema.prisma"
-            if [ -f "$SCHEMA_PATH" ]; then
-              DATABASE_URL="postgresql://verify:verify_test_only@localhost:5432/verify_restore" \
-                prisma db push --schema "$SCHEMA_PATH" --skip-generate --accept-data-loss 2>&1 || {
+            if [ -f "services/$SERVICE/prisma.config.ts" ]; then
+              (
+                cd "services/$SERVICE"
+                DATABASE_URL="postgresql://verify:verify_test_only@localhost:5432/verify_restore" \
+                  prisma db push --skip-generate --accept-data-loss 2>&1
+              ) || {
                 echo "::error::Schema push failed for $SERVICE"
                 exit 1
               }
