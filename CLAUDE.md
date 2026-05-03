@@ -82,6 +82,7 @@ Managed at https://claude.ai/code/scheduled
 | `mbe-issue-worker` | Every 2h (includes CI monitoring) |
 | `mbe-progress-tracker` | Daily 5:11pm |
 | `mbe-acmm-audit` | Daily 10:00am (runs `/acmm-audit --apply --badge`) |
+| `mbe-learning-loop` | Daily 11:00am (sensor report → verify fixes → triage regressions) |
 
 ---
 
