@@ -1,16 +1,13 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { Stat, Button, Skeleton } from "@mattbutlerengineering/rialto";
 import { PageHeader } from "../components/PageHeader";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import { ReservationList, ActivityFeed } from "../components/dashboard";
-import { useVenue } from "../contexts/VenueContext.js";
+import { useReservationData } from "../contexts/ReservationDataContext.js";
 import { useDashboardStats } from "../hooks/useDashboardStats";
-import {
-  useReservationEvents,
-  type ReservationEvent,
-} from "../hooks/useReservationEvents";
+import type { ReservationEvent } from "../hooks/useReservationEvents";
 import styles from "./HomePage.module.css";
 
 const MAX_FEED_ITEMS = 5;
@@ -28,7 +25,7 @@ function StatsLoading() {
 export function HomePage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { selectedVenueId } = useVenue();
+  const { isConnected, subscribeToEvents } = useReservationData();
   const { reservations, stats, isLoading, error, refetch } = useDashboardStats();
   const [feedEvents, setFeedEvents] = useState<readonly ReservationEvent[]>([]);
 
@@ -36,37 +33,10 @@ export function HomePage() {
     setFeedEvents((prev) => [event, ...prev].slice(0, MAX_FEED_ITEMS));
   }, []);
 
-  const { isConnected } = useReservationEvents({
-    venueId: selectedVenueId ?? undefined,
-    onReservationCreated: (data) =>
-      handleEvent({
-        type: "reservation:created",
-        venueId: "",
-        timestamp: new Date().toISOString(),
-        data,
-      }),
-    onReservationUpdated: (data) =>
-      handleEvent({
-        type: "reservation:updated",
-        venueId: "",
-        timestamp: new Date().toISOString(),
-        data,
-      }),
-    onReservationCancelled: (data) =>
-      handleEvent({
-        type: "reservation:cancelled",
-        venueId: "",
-        timestamp: new Date().toISOString(),
-        data,
-      }),
-    onTableUpdated: (data) =>
-      handleEvent({
-        type: "table:updated",
-        venueId: "",
-        timestamp: new Date().toISOString(),
-        data,
-      }),
-  });
+  // Subscribe to SSE events via the shared context (no extra EventSource connection)
+  useEffect(() => {
+    return subscribeToEvents(handleEvent);
+  }, [subscribeToEvents, handleEvent]);
 
   return (
     <div>
