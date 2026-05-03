@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "@mbe/auth/react";
 import {
   Alert,
@@ -12,8 +12,9 @@ import {
   Text,
   Toggle,
 } from "@mattbutlerengineering/rialto";
-import { ApiClient, UsersClient } from "@mbe/api-client";
+import { UsersClient, ApiClientError } from "@mbe/api-client";
 import type { User, UserPreferences } from "@mbe/types";
+import { useApiClient } from "../hooks/useApiClient.js";
 import { useTheme } from "../hooks/use-theme";
 import { PageHeader } from "../components/PageHeader";
 import styles from "./SettingsPage.module.css";
@@ -88,10 +89,25 @@ function SettingsLoadingSkeleton() {
   );
 }
 
+/* ── Error extraction ──────────────────────── */
+
+function extractErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof ApiClientError) {
+    const detail = err.response.detail ?? err.response.message;
+    return detail ? `${fallback}: ${detail}` : err.message;
+  }
+  if (err instanceof Error) {
+    return err.message;
+  }
+  return fallback;
+}
+
 /* ── Main component ─────────────────────────── */
 
 export function SettingsPage() {
-  const { accessToken, signOut } = useAuth();
+  const { accessToken, isLoading: isAuthLoading, signOut } = useAuth();
+  const apiClient = useApiClient();
+  const usersClient = useMemo(() => new UsersClient(apiClient.client), [apiClient]);
   const { setTheme: setLocalTheme } = useTheme();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -116,25 +132,20 @@ export function SettingsPage() {
 
       try {
         setIsLoading(true);
-        const apiClient = new ApiClient({
-          baseUrl: import.meta.env.VITE_API_URL ?? "",
-          getAccessToken: () => accessToken,
-        });
-        const usersClient = new UsersClient(apiClient);
         const userData = await usersClient.me();
         setUser(userData);
         if (userData.preferences.theme) {
           setLocalTheme(userData.preferences.theme);
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load settings");
+        setError(extractErrorMessage(err, "Failed to load settings"));
       } finally {
         setIsLoading(false);
       }
     }
 
     fetchUser();
-  }, [accessToken, setLocalTheme]);
+  }, [accessToken, usersClient, setLocalTheme]);
 
   const updatePreference = useCallback(
     async <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => {
@@ -145,25 +156,21 @@ export function SettingsPage() {
         setError(null);
         setSuccessMessage(null);
 
-        const apiClient = new ApiClient({
-          baseUrl: import.meta.env.VITE_API_URL ?? "",
-          getAccessToken: () => accessToken,
-        });
-        const usersClient = new UsersClient(apiClient);
         const updatedUser = await usersClient.updatePreferences({ [key]: value });
         setUser(updatedUser);
         setSuccessMessage("Settings saved");
         setTimeout(() => setSuccessMessage(null), 3000);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to save settings");
+        setError(extractErrorMessage(err, "Failed to save settings"));
       } finally {
         setIsSaving(false);
       }
     },
-    [accessToken]
+    [accessToken, usersClient]
   );
 
-  if (isLoading) {
+  // Show skeleton while auth is loading or data is being fetched
+  if (isAuthLoading || isLoading) {
     return <SettingsLoadingSkeleton />;
   }
 
