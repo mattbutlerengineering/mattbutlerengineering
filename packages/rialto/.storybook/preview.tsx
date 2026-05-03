@@ -26,6 +26,11 @@ const preview: Preview = {
       },
     },
   },
+  // Enable automated axe-core a11y checks on every story (not manual-only).
+  // color-contrast is disabled here because it is covered by token-contrast.test.ts.
+  initialGlobals: {
+    a11y: { manual: false },
+  },
   parameters: {
     controls: {
       matchers: {
@@ -41,9 +46,12 @@ const preview: Preview = {
       ],
     },
     a11y: {
+      // Violations will cause test failures when running via vitest storybook runner.
+      test: 'error',
       config: {
         rules: [
-          { id: 'color-contrast', enabled: true },
+          // color-contrast is tested separately in token-contrast.test.ts
+          { id: 'color-contrast', enabled: false },
         ],
       },
     },
