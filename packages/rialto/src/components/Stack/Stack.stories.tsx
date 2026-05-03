@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { within, expect } from '@storybook/test';
 import { Stack } from './Stack';
 import { Card } from '../Card/Card';
 import { Text } from '../Text/Text';
@@ -57,6 +58,12 @@ export const Vertical: Story = {
         <Box>Item 3</Box>
       </>
     ),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText('Item 1')).toBeInTheDocument();
+    await expect(canvas.getByText('Item 2')).toBeInTheDocument();
+    await expect(canvas.getByText('Item 3')).toBeInTheDocument();
   },
 };
 

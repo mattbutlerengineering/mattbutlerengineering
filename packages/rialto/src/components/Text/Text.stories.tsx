@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { within, expect } from '@storybook/test';
 import { Text } from './Text';
 
 const meta: Meta<typeof Text> = {
@@ -34,6 +35,10 @@ export const Default: Story = {
   args: {
     children: 'The quick brown fox jumps over the lazy dog.',
     variant: 'body',
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText(/quick brown fox/)).toBeInTheDocument();
   },
 };
 

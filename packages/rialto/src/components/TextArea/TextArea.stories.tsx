@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { within, userEvent, expect } from '@storybook/test';
 import { TextArea } from './TextArea';
 
 const meta: Meta<typeof TextArea> = {
@@ -20,6 +21,13 @@ export const Default: Story = {
   args: {
     label: 'Description',
     placeholder: 'Enter details...',
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const textarea = canvas.getByPlaceholderText('Enter details...');
+    await expect(textarea).toBeInTheDocument();
+    await userEvent.type(textarea, 'Hello World');
+    await expect(textarea).toHaveValue('Hello World');
   },
 };
 

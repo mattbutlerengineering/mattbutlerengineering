@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { within, userEvent, expect } from '@storybook/test';
 import { Alert } from './Alert';
 import { Button } from '../Button/Button';
 
@@ -64,5 +65,14 @@ export const Dismissible: Story = {
     title: 'Dismissible Alert',
     children: 'You can close this alert by clicking the X button.',
     dismissible: true,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const alert = canvas.getByRole('alert');
+    await expect(alert).toBeInTheDocument();
+    const closeButton = canvas.getByRole('button', { name: /close/i });
+    await userEvent.click(closeButton);
+    // After dismiss, alert should be removed
+    await expect(alert).not.toBeInTheDocument();
   },
 };
