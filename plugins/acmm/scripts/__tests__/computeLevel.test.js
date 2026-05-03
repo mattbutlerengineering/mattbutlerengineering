@@ -66,22 +66,27 @@ test("ALL_CRITERIA: 4 sources, level distribution covers L0–L6", () => {
 test("ALL_CRITERIA: every criterion has detection.type and pattern", () => {
   for (const c of ALL_CRITERIA) {
     assert.ok(c.detection, `criterion ${c.id} missing detection`);
-    assert.ok(["path", "any-of", "glob"].includes(c.detection.type), `${c.id} has invalid detection type`);
+    assert.ok(["path", "any-of", "glob", "active"].includes(c.detection.type), `${c.id} has invalid detection type`);
     assert.ok(c.detection.pattern, `${c.id} missing detection pattern`);
   }
 });
 
 /* ── Behavioral gates ───────────────────────────────────── */
 
-// Helper: IDs that satisfy L2 + L3 (need 70% of L3's 4 items = 3)
+// Helper: IDs that satisfy L2 + L3+ levels
+// L2 has 3 scannable items; the OR-group virtual criterion only needs 1 file
 const L2_IDS = ["acmm:claude-md"];
-const L3_IDS = ["acmm:ci-matrix", "acmm:pr-acceptance-metric", "acmm:pr-review-rubric"];
+// L3 has 5 items; 70% = 4 needed
+const L3_IDS = [
+  "acmm:ci-matrix", "acmm:pr-acceptance-metric", "acmm:pr-review-rubric",
+  "acmm:onboarding-benchmark",
+];
 // L4 has 14 items; 70% = 10
 const L4_IDS = [
   "acmm:auto-qa-tuning", "acmm:nightly-compliance", "acmm:copilot-review-apply",
   "acmm:auto-label", "acmm:ai-fix-workflow", "acmm:tier-classifier",
   "acmm:security-ai-md", "acmm:mcp-server-config", "acmm:code-graph",
-  "acmm:onboarding-benchmark",
+  "acmm:repo-bench",
 ];
 // L5 has 16 items; 70% = 12
 const L5_IDS = [

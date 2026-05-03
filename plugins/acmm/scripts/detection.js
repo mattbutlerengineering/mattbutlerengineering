@@ -8,7 +8,7 @@
  * Detection types in the canonical sources (as of port date):
  *   - `path`   — single file or directory path; trailing `/` matches a dir
  *   - `any-of` — array of paths; ANY one existing satisfies the criterion
- *   - `active` — file exists AND workflow ran recently (via `gh run list`)
+ *   - `active` — file exists AND a recent successful workflow run is found (via `gh run list`)
  *   - `glob`   — reserved; not used in current canonical data
  */
 
@@ -38,11 +38,13 @@ function existsAt(cwd, pattern) {
  * @param {string} cwd        — repo root
  * @param {string} workflowFile — workflow filename (e.g. 'auto-issue.yml')
  * @param {number} maxAgeDays  — max age in days for the most recent run
+ * @param {{ execFileSyncFn?: Function }} [opts] — injectable for testing
  * @returns {{ active: boolean | null, degraded?: boolean, conclusion?: string, reason: string }}
  */
-export function isWorkflowActive(cwd, workflowFile, maxAgeDays) {
+export function isWorkflowActive(cwd, workflowFile, maxAgeDays, opts = {}) {
+  const fn = opts.execFileSyncFn ?? execFileSync;
   try {
-    const result = execFileSync(
+    const result = fn(
       'gh',
       ['run', 'list', `--workflow=${workflowFile}`, '--status=completed', '--limit=1', '--json', 'conclusion,updatedAt'],
       { cwd, encoding: 'utf-8', timeout: 10_000, stdio: ['pipe', 'pipe', 'pipe'] },
@@ -68,10 +70,11 @@ export function isWorkflowActive(cwd, workflowFile, maxAgeDays) {
  *
  * @param {string} cwd
  * @param {{ detection: { type: 'path' | 'glob' | 'any-of' | 'active', pattern: string | string[], maxAgeDays?: number }}} criterion
+ * @param {{ execFileSyncFn?: Function }} [opts]
  * @returns {boolean}
  */
-export function detect(cwd, criterion) {
-  const { type, pattern } = criterion.detection;
+export function detect(cwd, criterion, opts = {}) {
+  const { type, pattern, maxAgeDays = 30 } = criterion.detection;
   if (type === 'path') {
     if (Array.isArray(pattern)) return pattern.some((p) => existsAt(cwd, p));
     return existsAt(cwd, pattern);
@@ -81,13 +84,12 @@ export function detect(cwd, criterion) {
     return patterns.some((p) => existsAt(cwd, p));
   }
   if (type === 'active') {
-    const { maxAgeDays = 7 } = criterion.detection;
     const patterns = Array.isArray(pattern) ? pattern : [pattern];
     const filePresent = patterns.some((p) => existsAt(cwd, p));
     if (!filePresent) return false;
     // Check first matching file for workflow activity
     const workflowFile = patterns.find((p) => existsAt(cwd, p));
-    const result = isWorkflowActive(cwd, workflowFile, maxAgeDays);
+    const result = isWorkflowActive(cwd, workflowFile, maxAgeDays, opts);
     if (result.degraded) return true; // graceful degradation: file exists, gh unavailable
     return result.active;
   }
@@ -107,9 +109,10 @@ export function detect(cwd, criterion) {
  *
  * @param {string} cwd
  * @param {Array<{ id: string, detection: any }>} criteria
+ * @param {{ execFileSyncFn?: Function }} [opts]
  * @returns {{ detected: Set<string>, meta: Map<string, { status: 'active' | 'inactive' | 'degraded' | 'missing', reason?: string }> }}
  */
-export function detectAll(cwd, criteria) {
+export function detectAll(cwd, criteria, opts = {}) {
   const detected = new Set();
   const meta = new Map();
   for (const c of criteria) {
@@ -122,7 +125,7 @@ export function detectAll(cwd, criteria) {
         continue;
       }
       const workflowFile = patterns.find((p) => existsAt(cwd, p));
-      const result = isWorkflowActive(cwd, workflowFile, maxAgeDays);
+      const result = isWorkflowActive(cwd, workflowFile, maxAgeDays, opts);
       if (result.degraded) {
         detected.add(c.id);
         meta.set(c.id, { status: 'degraded', reason: result.reason });
@@ -133,7 +136,7 @@ export function detectAll(cwd, criteria) {
         meta.set(c.id, { status: 'inactive', reason: result.reason });
       }
     } else {
-      if (detect(cwd, c)) detected.add(c.id);
+      if (detect(cwd, c, opts)) detected.add(c.id);
     }
   }
   return { detected, meta };

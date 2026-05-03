@@ -81,6 +81,16 @@ try {
   // Ignore
 }
 
+/** Read .github/auto-qa-tuning.json and return the history entry count. */
+function measureAutoQaTuning(root) {
+  try {
+    const p = path.join(root, ".github/auto-qa-tuning.json");
+    if (!fs.existsSync(p)) return null;
+    const data = JSON.parse(fs.readFileSync(p, "utf-8"));
+    return { history_count: Array.isArray(data.history) ? data.history.length : 0 };
+  } catch { return null; }
+}
+
 /* ── --trend mode: just print history and exit ─────────── */
 if (TREND) {
   const state = loadState(cwd);
@@ -128,10 +138,14 @@ for (const c of ALL_CRITERIA) {
   if (passed) detectedIds.add(c.id);
 }
 
+const detectedCount = detectedIds.size;
+const totalCount = ALL_CRITERIA.length;
+
 /* ── Behavioral signals (non-fatal — null when tools unavailable) ── */
 const flake = measureFlakeRate();
 const prOutcomes = measurePrOutcomes();
 const evalsSummary = measureEvals(cwd);
+const autoQaTuning = measureAutoQaTuning(repoRoot);
 const behavioral = {
   ...(prior.behavioral ?? {}),
   flake: flake
@@ -148,27 +162,20 @@ const behavioral = {
   evals: evalsSummary.n > 0
     ? { ...evalsSummary, measured_at: new Date().toISOString() }
     : (prior.behavioral?.evals ?? null),
+  auto_qa_tuning: autoQaTuning
+    ? { ...autoQaTuning, measured_at: new Date().toISOString() }
+    : (prior.behavioral?.auto_qa_tuning ?? null),
 };
 
-// Read auto-qa tuning history length for L5 behavioral gate
-let autoQaHistoryCount = 0;
-try {
-  const tuningPath = path.join(repoRoot, ".github", "auto-qa-tuning.json");
-  if (fs.existsSync(tuningPath)) {
-    const tuning = JSON.parse(fs.readFileSync(tuningPath, "utf-8"));
-    autoQaHistoryCount = Array.isArray(tuning.history) ? tuning.history.length : 0;
-  }
-} catch {
-  // Non-fatal — gate will see 0 and pass (no data = no block)
-}
-
-const computation = computeLevel(detectedIds, {
+// Build the behavioral snapshot that computeLevel expects:
+// top-level flake/agent_pr for L3/L4/L6 gates, auto_qa_history_count for L5 gate
+const computeBehavioral = {
   flake: behavioral.flake,
   agent_pr: behavioral.agent_pr,
-  auto_qa_history_count: autoQaHistoryCount,
-}, { strict: STRICT });
-const detectedCount = detectedIds.size;
-const totalCount = ALL_CRITERIA.length;
+  auto_qa_history_count: autoQaTuning ? autoQaTuning.history_count : 0,
+};
+
+const computation = computeLevel(detectedIds, computeBehavioral, { strict: STRICT });
 
 /* ── Diff vs prior saved state ──────────────────────────── */
 const priorIds = new Set(prior.detectedIds ?? []);
@@ -188,11 +195,26 @@ const diff = isFirstRun
 const results = {};
 for (const c of ALL_CRITERIA) {
   const passed = detectedIds.has(c.id);
-  const patterns = Array.isArray(c.detection.pattern) ? c.detection.pattern : [c.detection.pattern];
-  results[c.id] = {
-    passed,
-    evidence: passed ? `detected at one of: ${patterns.join(", ")}` : `none of: ${patterns.join(", ")}`,
-  };
+  const { type, pattern } = c.detection;
+  const patterns = Array.isArray(pattern) ? pattern : [pattern];
+
+  let evidence;
+  if (passed) {
+    evidence = `detected at one of: ${patterns.join(", ")}`;
+  } else if (type === 'active') {
+    // Distinguish "file present but no recent run" from "file not found"
+    const filePath = patterns[0];
+    const fileExists = fs.existsSync(path.join(cwd, filePath));
+    if (fileExists) {
+      evidence = `file present but no recent successful run: ${filePath}`;
+    } else {
+      evidence = `file not found: ${filePath}`;
+    }
+  } else {
+    evidence = `none of: ${patterns.join(", ")}`;
+  }
+
+  results[c.id] = { passed, evidence };
 }
 
 const nextState = recordHistory(
@@ -238,7 +260,8 @@ if (APPLY) {
 
 /* ── Console summary ─────────────────────────────────────── */
 console.log("");
-console.log(`ACMM Level ${computation.level} (${computation.levelName})  ·  ${detectedCount}/${totalCount} criteria detected`);
+const levelDisplay = `${computation.level} (${computation.levelName})`;
+console.log(`ACMM Level ${levelDisplay}  ·  ${detectedCount}/${totalCount} criteria detected`);
 console.log(`Role: ${computation.role}`);
 
 if (diff) {
@@ -316,6 +339,23 @@ if (behavioral.evals) {
   console.log(`Agent evals: ${pct}% pass · score ${e.medianScore.toFixed(2)} (n=${e.n}, status: ${e.status})`);
 } else {
   console.log("Agent evals: no runs (seed via `node scripts/acmm/evals/index.js`)");
+}
+
+console.log("");
+console.log(`Behavioral gates${STRICT ? " (strict — failures cap level)" : " (soft — failures are warnings)"}:`);
+for (const gate of computation.behavioralGates) {
+  let icon, note;
+  if (!gate.dataAvailable) {
+    icon = "?";
+    note = "data unavailable";
+  } else if (gate.passed) {
+    icon = "✓";
+    note = "pass";
+  } else {
+    icon = STRICT ? "✗" : "!";
+    note = STRICT ? "FAIL (level capped)" : "WARN";
+  }
+  console.log(`  ${icon} L${gate.level}: ${gate.description}  [${note}]`);
 }
 
 if (computation.nextTransitionTrigger) {
