@@ -691,13 +691,13 @@ const CRITERIA= [
   {
     id: 'acmm:onboarding-benchmark',
     source: 'acmm',
-    level: 4,
-    category: 'readiness',
+    level: 3,
+    category: 'feedback-loop',
     name: 'Onboarding benchmark',
-    description: 'Benchmark script that measures time-to-first-contribution for fresh AI sessions.',
-    rationale: 'L4 signal: file-presence alone does not ensure the AI can navigate the codebase; benchmarks measure actual readiness.',
-    details: 'An onboarding benchmark defines known tasks and expected completion times. Running these tasks in fresh AI sessions measures how well project documentation enables the AI to work independently. Improvements to CLAUDE.md and package docs should reduce benchmark times.',
-    detection: { type: 'any-of', pattern: ['scripts/acmm/onboarding-bench.js', 'docs/acmm/onboarding-benchmark.md'] },
+    description: 'A benchmark script measuring how effectively the codebase teaches new AI sessions.',
+    rationale: 'Quantifies the "codebase as model" concept -- whether instruction files and patterns effectively onboard new agents.',
+    details: 'An onboarding benchmark defines known tasks of increasing difficulty and expected completion times. Running these tasks in fresh AI sessions measures how well project documentation enables the AI to work independently. Improvements to CLAUDE.md and package docs should reduce benchmark times.',
+    detection: { type: 'path', pattern: 'plugins/acmm/scripts/onboarding-benchmark.js' },
   },
 
   {

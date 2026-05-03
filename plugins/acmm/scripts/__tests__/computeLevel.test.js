@@ -20,17 +20,17 @@ test("computeLevel: any single agent-instructions file satisfies L2", () => {
 });
 
 test("computeLevel: 70% threshold gates L3+", () => {
-  // L3 has 4 scannable items. 70% = 3 of 4 needed.
-  // Two hits (besides the L2 OR-group) should NOT be enough.
-  const twoHits = computeLevel(
-    new Set(["acmm:claude-md", "acmm:ci-matrix", "acmm:pr-acceptance-metric"]),
-  );
-  assert.equal(twoHits.level, 2, "2 of 4 = 50%, below 70% threshold, stays at L2");
-
+  // L3 has 5 scannable items. 70% = 4 of 5 needed.
+  // Three hits (besides the L2 OR-group) should NOT be enough.
   const threeHits = computeLevel(
     new Set(["acmm:claude-md", "acmm:ci-matrix", "acmm:pr-acceptance-metric", "acmm:pr-review-rubric"]),
   );
-  assert.equal(threeHits.level, 3, "3 of 4 = 75%, crosses 70% threshold, advances to L3");
+  assert.equal(threeHits.level, 2, "3 of 5 = 60%, below 70% threshold, stays at L2");
+
+  const fourHits = computeLevel(
+    new Set(["acmm:claude-md", "acmm:ci-matrix", "acmm:pr-acceptance-metric", "acmm:pr-review-rubric", "acmm:onboarding-benchmark"]),
+  );
+  assert.equal(fourHits.level, 3, "4 of 5 = 80%, crosses 70% threshold, advances to L3");
 });
 
 test("computeLevel: stops at first failed level", () => {
