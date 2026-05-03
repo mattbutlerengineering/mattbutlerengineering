@@ -337,7 +337,8 @@
     "exports:check": "pnpm exec tsx scripts/generate-exports.ts --check",
     "build:registry": "pnpm exec tsx scripts/generate-registry.ts",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "test:storybook": "vitest run --config vitest.config.storybook.ts"
   },
   "peerDependencies": {
     "framer-motion": "^12.0.0",

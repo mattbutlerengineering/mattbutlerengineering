@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { within, userEvent, expect } from '@storybook/test';
 import { Input } from './Input';
 
 const meta: Meta<typeof Input> = {
@@ -20,6 +21,13 @@ export const Default: Story = {
   args: {
     placeholder: 'Enter text...',
     style: { width: '300px' },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const input = canvas.getByPlaceholderText('Enter text...');
+    await expect(input).toBeInTheDocument();
+    await userEvent.type(input, 'Hello World');
+    await expect(input).toHaveValue('Hello World');
   },
 };
 
