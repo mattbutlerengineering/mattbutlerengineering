@@ -10,6 +10,24 @@ Autonomous issue resolver. Picks up one ready issue, delegates implementation to
 
 ## Workflow
 
+### Step 0: Governor Check
+
+Before picking up work, check the adaptive cadence governor:
+
+```bash
+node plugins/acmm/scripts/cadence-governor.js
+```
+
+If the governor exits with code 1 (SKIP), exit cleanly: "Governor says SKIP (mode: \<MODE\>). No work this cycle."
+
+If the governor exits with code 0 (EXECUTE), proceed to Step 1.
+
+After completing work (Step 5a or 5b), mark that execution happened:
+
+```bash
+node plugins/acmm/scripts/cadence-governor.js --execute
+```
+
 ### Step 1: Find an Issue
 
 ```bash
