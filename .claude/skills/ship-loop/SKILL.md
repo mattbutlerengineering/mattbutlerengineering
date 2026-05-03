@@ -50,12 +50,14 @@ Run ALL discovery steps simultaneously:
 **CRITICAL: If any health check fails, the loop MUST pause and prioritize fixing the system.**
 
 **1. CI Health Check:**
+
 ```bash
 gh run list --branch main --limit 5 --json status,conclusion,name,databaseId \
   | jq '[.[] | select(.conclusion == "failure")]'
 ```
 
 **2. Production Health Check:**
+
 ```bash
 # Verify live endpoints are healthy before starting new work
 for endpoint in \
@@ -138,6 +140,7 @@ gh pr diff <number> --name-only
 ```
 
 **Low-risk patterns** — a PR is low-risk when ALL changed files fall into one of:
+
 - Test files: `*.test.ts`, `*.test.tsx`, `*.spec.ts`, `*.spec.tsx`, `*.test.js`, `*.spec.js`, `*.test.jsx`, `*.spec.jsx`
 - Documentation: `*.md`, `docs/**`
 - Dependency manifests: `package.json`, `pnpm-lock.yaml`, `package-lock.json`, `yarn.lock`
@@ -147,13 +150,13 @@ Use `isLowRiskPR(files)` from `@mbe/agent-core` if scripting this check.
 
 **Decision matrix:**
 
-| CI status | Risk level | Action |
-|-----------|-----------|--------|
-| passed | low-risk | **Merge immediately** — do not wait for next iteration |
-| passed | other | Merge it, close the linked issue |
-| failed | any | Create `ci-fix` issue, label original as `agent-failed` |
-| changes requested | any | Queue for PR feedback loop (if wired in) |
-| pending | any | Skip — check again next iteration |
+| CI status         | Risk level | Action                                                  |
+| ----------------- | ---------- | ------------------------------------------------------- |
+| passed            | low-risk   | **Merge immediately** — do not wait for next iteration  |
+| passed            | other      | Merge it, close the linked issue                        |
+| failed            | any        | Create `ci-fix` issue, label original as `agent-failed` |
+| changes requested | any        | Queue for PR feedback loop (if wired in)                |
+| pending           | any        | Skip — check again next iteration                       |
 
 ```bash
 # Auto-merge PRs where CI passed (low-risk: merge right now)
@@ -178,12 +181,14 @@ gh issue list --label "ready" --state open --json number,title,body,labels --lim
 ```
 
 **Sort by priority:**
+
 1. Security vulnerabilities (`ci-fix` + `fix(security):`)
 2. CI failures (other `ci-fix`)
 3. Features (`feature`)
 4. Audit findings (`audit`)
 
 **Filter for independence:**
+
 - Skip issues with unresolved `Depends on: #N` in their body
 - Skip issues in the same zone as another issue in this batch (prevent merge conflicts)
 - Skip issues labeled `in-progress` or `stealable`
@@ -286,6 +291,7 @@ wait
 ```
 
 **If verification fails:**
+
 1. Rollback (CF: `wrangler rollback`, DO: `git revert HEAD -m 1`)
 2. Create `ci-fix` issue
 3. Counts as failure toward circuit breaker
@@ -300,12 +306,14 @@ wait
 ## Concurrency Rules
 
 ### Safe to Parallelize
+
 - Issues in **different zones** (hospitality page + rialto component + API endpoint)
 - Issues that touch **different files** (check sourceFiles in audit inventory)
 - Discovery steps (CI check + Dependabot + smoke audit)
 - Health checks across different endpoints
 
 ### NOT Safe to Parallelize
+
 - Issues in the **same zone** that likely touch the same files → merge conflicts
 - Issues with `Depends on: #N` where #N is in the same batch
 - Multiple changes to the same service's schema/migrations
@@ -348,25 +356,25 @@ If two issues would conflict, pick the higher-priority one. The other waits for 
 
 ## GitHub Labels (State Machine)
 
-| Label | Meaning |
-|-------|---------|
-| `ready` | Available for agent pickup |
-| `in-progress` | Agent is working on it |
-| `has-pr` | PR created, awaiting merge/review |
-| `agent-failed` | Agent could not complete — needs manual review |
-| `needs-review` | Agent created draft PR from failed/partial work |
-| `stealable` | Agent failed twice — needs different approach or human help |
-| `audit` | Found by site-audit |
-| `ci-fix` | CI failure or security vulnerability needing fix |
-| `feature` | New feature (created by `/decompose`) |
-| `tracking` | Parent issue tracking multi-part feature |
-| `meta-improvement` | Process improvement suggestion |
+| Label              | Meaning                                                     |
+| ------------------ | ----------------------------------------------------------- |
+| `ready`            | Available for agent pickup                                  |
+| `in-progress`      | Agent is working on it                                      |
+| `has-pr`           | PR created, awaiting merge/review                           |
+| `agent-failed`     | Agent could not complete — needs manual review              |
+| `needs-review`     | Agent created draft PR from failed/partial work             |
+| `stealable`        | Agent failed twice — needs different approach or human help |
+| `audit`            | Found by site-audit                                         |
+| `ci-fix`           | CI failure or security vulnerability needing fix            |
+| `feature`          | New feature (created by `/decompose`)                       |
+| `tracking`         | Parent issue tracking multi-part feature                    |
+| `meta-improvement` | Process improvement suggestion                              |
 
 ## Throughput Targets
 
-| Metric | Serial (old) | Parallel (new) |
-|--------|-------------|----------------|
-| Issues per iteration | 1 | 3-5 |
-| Time per iteration | 10-20 min | 8-12 min |
-| Issues per hour | 3-6 | 15-30 |
-| CI wait overhead | Blocking | Pipelined (zero) |
+| Metric               | Serial (old) | Parallel (new)   |
+| -------------------- | ------------ | ---------------- |
+| Issues per iteration | 1            | 3-5              |
+| Time per iteration   | 10-20 min    | 8-12 min         |
+| Issues per hour      | 3-6          | 15-30            |
+| CI wait overhead     | Blocking     | Pipelined (zero) |

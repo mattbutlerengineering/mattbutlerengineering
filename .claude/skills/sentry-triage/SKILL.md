@@ -25,6 +25,7 @@ Use sentry:getIssues to fetch the most recent issues from Sentry.
 If the Sentry MCP requires authentication, use the `sentry:seer` skill or the `mcp__plugin_sentry_sentry__authenticate` tool to authenticate first.
 
 Parse the response to extract:
+
 - Issue ID and URL
 - Title / error message
 - Level (error, fatal, warning)
@@ -37,6 +38,7 @@ Parse the response to extract:
 ### Step 2: Filter Issues
 
 Apply these filters:
+
 1. **Recency**: Only issues with events in the last 7 days
 2. **Severity**: Only `error` or `fatal` level (skip `warning`, `info`)
 3. **Frequency**: Only issues with >5 occurrences in the window
@@ -54,6 +56,7 @@ gh issue list --state open --search "sentry <SENTRY_ISSUE_ID>" --json number,tit
 ```
 
 Also search by error message title:
+
 ```bash
 gh issue list --state open --search "<error_message_snippet>" --json number,title --limit 5
 ```
@@ -93,7 +96,9 @@ gh issue create \
 ## Stack Trace Summary
 
 ```
+
 <relevant stack trace lines, max 20 lines>
+
 ```
 
 ## Affected Area
@@ -119,6 +124,7 @@ EOF
 ### Step 6: Summary
 
 Print a summary:
+
 ```
 Sentry Triage Complete
   Queried: <N> issues from Sentry

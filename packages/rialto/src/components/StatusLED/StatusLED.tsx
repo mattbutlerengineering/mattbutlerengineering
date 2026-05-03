@@ -19,13 +19,17 @@ export interface StatusLEDProps {
  */
 export const StatusLED = forwardRef<HTMLSpanElement, StatusLEDProps>(
   ({ variant = "neutral", size = "md", pulse = false, label, className }, ref) => {
-    const isCustomSize = typeof size === "number" || (typeof size === "string" && !["xs", "sm", "md", "lg", "xl"].includes(size));
-    
-    const style = isCustomSize ? { 
-      width: size, 
-      height: size,
-      "--rialto-led-size": typeof size === "number" ? `${size}px` : size 
-    } as React.CSSProperties : undefined;
+    const isCustomSize =
+      typeof size === "number" ||
+      (typeof size === "string" && !["xs", "sm", "md", "lg", "xl"].includes(size));
+
+    const style = isCustomSize
+      ? ({
+          width: size,
+          height: size,
+          "--rialto-led-size": typeof size === "number" ? `${size}px` : size,
+        } as React.CSSProperties)
+      : undefined;
 
     const classes = [
       styles.led,

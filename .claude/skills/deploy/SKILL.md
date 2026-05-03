@@ -25,11 +25,11 @@ Push to main
 
 **Change detection**: Uses `dorny/paths-filter` — only deploys apps whose deps changed. `workflow_dispatch` deploys all three.
 
-| App | Build | Deploy |
-|-----|-------|--------|
-| Marketing | `pnpm build --filter=@mbe/marketing` | `wrangler deploy --config apps/marketing/wrangler.toml` |
+| App         | Build                                                         | Deploy                                                    |
+| ----------- | ------------------------------------------------------------- | --------------------------------------------------------- |
+| Marketing   | `pnpm build --filter=@mbe/marketing`                          | `wrangler deploy --config apps/marketing/wrangler.toml`   |
 | Hospitality | `pnpm build --filter=@mbe/hospitality` (needs Auth0 env vars) | `wrangler deploy --config apps/hospitality/wrangler.toml` |
-| Rialto Web | `pnpm build --filter=@mbe/rialto-web` | `wrangler deploy --config apps/rialto-web/wrangler.toml` |
+| Rialto Web  | `pnpm build --filter=@mbe/rialto-web`                         | `wrangler deploy --config apps/rialto-web/wrangler.toml`  |
 
 **Secrets needed**: `MBE_CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `AUTH0_HOSPITALITY_CLIENT_ID`
 
@@ -92,6 +92,7 @@ gh workflow run pulumi-up.yml
 ### 4. Debug failures
 
 Common issues:
+
 - **Static deploy fails**: Usually a build error. Check `pnpm build --filter=@mbe/<app>` locally.
 - **Service deploy fails**: Check `doctl apps list` to verify the app exists. Review DO dashboard logs.
 - **Pulumi fails**: Run `pulumi preview` locally in `infrastructure/pulumi/` to see what changed.

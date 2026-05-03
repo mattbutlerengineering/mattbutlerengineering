@@ -103,11 +103,16 @@ export async function defaultRunner(task, opts = {}) {
 
   const cli = `${repoPath}/tools/cli/dist/index.js`;
   const args = [
-    "agent", "run", task.prompt,
+    "agent",
+    "run",
+    task.prompt,
     "--no-pr",
-    "--model", task.model,
-    "--max-budget", String(task.maxBudgetUsd),
-    "--max-turns", String(task.maxTurns),
+    "--model",
+    task.model,
+    "--max-budget",
+    String(task.maxBudgetUsd),
+    "--max-turns",
+    String(task.maxTurns),
   ];
 
   const TIMEOUT_MS = 300000; // 5 min
@@ -119,9 +124,14 @@ export async function defaultRunner(task, opts = {}) {
       stdio: ["ignore", "pipe", "pipe"],
     });
 
-    let stdout = "", stderr = "";
-    proc.stdout?.on("data", (d) => { stdout += d; });
-    proc.stderr?.on("data", (d) => { stderr += d; });
+    let stdout = "",
+      stderr = "";
+    proc.stdout?.on("data", (d) => {
+      stdout += d;
+    });
+    proc.stderr?.on("data", (d) => {
+      stderr += d;
+    });
 
     const timer = setTimeout(() => {
       proc.kill("SIGTERM");
@@ -158,18 +168,27 @@ export async function defaultRunner(task, opts = {}) {
 function countDiffLines(worktreePath) {
   try {
     const { execFileSync } = require("node:child_process");
-    const out = execFileSync("git", ["-C", worktreePath, "diff", "--shortstat", "HEAD"], { encoding: "utf-8" });
-    const ins = out.match(/(\d+) insertion/), del = out.match(/(\d+) deletion/);
+    const out = execFileSync("git", ["-C", worktreePath, "diff", "--shortstat", "HEAD"], {
+      encoding: "utf-8",
+    });
+    const ins = out.match(/(\d+) insertion/),
+      del = out.match(/(\d+) deletion/);
     return (ins ? Number(ins[1]) : 0) + (del ? Number(del[1]) : 0);
-  } catch { return 0; }
+  } catch {
+    return 0;
+  }
 }
 
 function listChangedFiles(worktreePath) {
   try {
     const { execFileSync } = require("node:child_process");
-    const out = execFileSync("git", ["-C", worktreePath, "diff", "--name-only", "HEAD"], { encoding: "utf-8" });
+    const out = execFileSync("git", ["-C", worktreePath, "diff", "--name-only", "HEAD"], {
+      encoding: "utf-8",
+    });
     return out.trim().split("\n").filter(Boolean);
-  } catch { return []; }
+  } catch {
+    return [];
+  }
 }
 
 /**

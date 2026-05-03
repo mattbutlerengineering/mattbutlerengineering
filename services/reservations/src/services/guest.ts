@@ -49,11 +49,7 @@ function mapPrismaGuest(guest: {
 }
 
 export const guestService = {
-  async list(
-    venueId: string,
-    page: number,
-    limit: number
-  ): Promise<PaginatedResponse<Guest>> {
+  async list(venueId: string, page: number, limit: number): Promise<PaginatedResponse<Guest>> {
     const skip = (page - 1) * limit;
 
     const [guests, total] = await Promise.all([
@@ -217,11 +213,7 @@ export const guestService = {
   /**
    * Update visit statistics after a completed reservation.
    */
-  async recordVisit(
-    guestId: string,
-    visitDate: Date,
-    spendAmount?: number
-  ): Promise<Guest | null> {
+  async recordVisit(guestId: string, visitDate: Date, spendAmount?: number): Promise<Guest | null> {
     try {
       const guest = await prisma.guest.update({
         where: { id: guestId },
@@ -271,10 +263,7 @@ export const guestService = {
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - hasNotVisitedInDays);
       conditions.push({
-        OR: [
-          { lastVisit: { lt: cutoffDate } },
-          { lastVisit: null },
-        ],
+        OR: [{ lastVisit: { lt: cutoffDate } }, { lastVisit: null }],
       });
     }
 
@@ -284,10 +273,10 @@ export const guestService = {
 
     // Filter by visit count
     if (minVisitCount !== undefined) {
-      where.visitCount = { ...where.visitCount as object, gte: minVisitCount };
+      where.visitCount = { ...(where.visitCount as object), gte: minVisitCount };
     }
     if (maxVisitCount !== undefined) {
-      where.visitCount = { ...where.visitCount as object, lte: maxVisitCount };
+      where.visitCount = { ...(where.visitCount as object), lte: maxVisitCount };
     }
 
     const [guests, total] = await Promise.all([
@@ -320,51 +309,42 @@ export const guestService = {
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
 
-    const [
-      totalGuests,
-      vipGuests,
-      recentVisitors,
-      atRiskGuests,
-      lapsedGuests,
-      newGuests,
-    ] = await Promise.all([
-      // Total guests
-      prisma.guest.count({ where: { venueId } }),
+    const [totalGuests, vipGuests, recentVisitors, atRiskGuests, lapsedGuests, newGuests] =
+      await Promise.all([
+        // Total guests
+        prisma.guest.count({ where: { venueId } }),
 
-      // VIP: 5+ visits
-      prisma.guest.count({
-        where: { venueId, visitCount: { gte: 5 } },
-      }),
+        // VIP: 5+ visits
+        prisma.guest.count({
+          where: { venueId, visitCount: { gte: 5 } },
+        }),
 
-      // Recent: visited in last 30 days
-      prisma.guest.count({
-        where: { venueId, lastVisit: { gte: thirtyDaysAgo } },
-      }),
+        // Recent: visited in last 30 days
+        prisma.guest.count({
+          where: { venueId, lastVisit: { gte: thirtyDaysAgo } },
+        }),
 
-      // At-risk: no visit in 30-90 days
-      prisma.guest.count({
-        where: {
-          venueId,
-          lastVisit: { lt: thirtyDaysAgo, gte: ninetyDaysAgo },
-        },
-      }),
+        // At-risk: no visit in 30-90 days
+        prisma.guest.count({
+          where: {
+            venueId,
+            lastVisit: { lt: thirtyDaysAgo, gte: ninetyDaysAgo },
+          },
+        }),
 
-      // Lapsed: no visit in 90+ days
-      prisma.guest.count({
-        where: {
-          venueId,
-          OR: [
-            { lastVisit: { lt: ninetyDaysAgo } },
-            { lastVisit: null, visitCount: { gt: 0 } },
-          ],
-        },
-      }),
+        // Lapsed: no visit in 90+ days
+        prisma.guest.count({
+          where: {
+            venueId,
+            OR: [{ lastVisit: { lt: ninetyDaysAgo } }, { lastVisit: null, visitCount: { gt: 0 } }],
+          },
+        }),
 
-      // New: never visited (visitCount = 0)
-      prisma.guest.count({
-        where: { venueId, visitCount: 0 },
-      }),
-    ]);
+        // New: never visited (visitCount = 0)
+        prisma.guest.count({
+          where: { venueId, visitCount: 0 },
+        }),
+      ]);
 
     return [
       {

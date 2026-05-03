@@ -57,7 +57,11 @@ describe("Circuit Breaker", () => {
     });
 
     it("returns default state on KV error", async () => {
-      const kv = { get: vi.fn(async () => { throw new Error("KV down"); }) };
+      const kv = {
+        get: vi.fn(async () => {
+          throw new Error("KV down");
+        }),
+      };
       const state = await getCircuitState(kv);
       expect(state.state).toBe("closed");
     });
@@ -68,21 +72,17 @@ describe("Circuit Breaker", () => {
       const kv = createMockKv();
       const openState = { state: "open", failures: 3, lastFailure: 1000, openedAt: 1000 };
       await saveCircuitState(kv, openState);
-      expect(kv.put).toHaveBeenCalledWith(
-        "circuit-breaker:api",
-        JSON.stringify(openState),
-        { expirationTtl: OPEN_DURATION_SECONDS + 10 }
-      );
+      expect(kv.put).toHaveBeenCalledWith("circuit-breaker:api", JSON.stringify(openState), {
+        expirationTtl: OPEN_DURATION_SECONDS + 10,
+      });
     });
 
     it("saves state with standard TTL when closed", async () => {
       const kv = createMockKv();
       await saveCircuitState(kv, defaultState());
-      expect(kv.put).toHaveBeenCalledWith(
-        "circuit-breaker:api",
-        expect.any(String),
-        { expirationTtl: 120 }
-      );
+      expect(kv.put).toHaveBeenCalledWith("circuit-breaker:api", expect.any(String), {
+        expirationTtl: 120,
+      });
     });
   });
 

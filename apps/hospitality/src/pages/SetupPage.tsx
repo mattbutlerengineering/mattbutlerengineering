@@ -50,7 +50,13 @@ export function SetupPage() {
         description="Complete a few setup steps to start taking reservations."
       />
 
-      <div className={styles.progressBar} role="progressbar" aria-valuenow={readiness.progress} aria-valuemin={0} aria-valuemax={100}>
+      <div
+        className={styles.progressBar}
+        role="progressbar"
+        aria-valuenow={readiness.progress}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
         <div className={styles.progressFill} style={{ width: `${readiness.progress}%` }} />
       </div>
       <p className={styles.progressLabel}>{readiness.progress}% complete</p>
@@ -74,18 +80,49 @@ export function SetupPage() {
           }
 
           return (
-            <li key={step.id} className={`${styles.step} ${stepClass}`} aria-label={`${step.label} — ${statusLabel}`}>
+            <li
+              key={step.id}
+              className={`${styles.step} ${stepClass}`}
+              aria-label={`${step.label} — ${statusLabel}`}
+            >
               <div className={styles.stepIcon} aria-hidden="true">
                 {isCompleted ? (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                 ) : isCurrent ? (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <polyline points="9 18 15 12 9 6" />
                   </svg>
                 ) : (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                     <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                   </svg>

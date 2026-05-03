@@ -17,13 +17,13 @@ This skill provides patterns and workflows for developing the Users Service, a F
 
 ### Key Files
 
-| File | Purpose |
-|------|---------|
-| `src/app.ts` | Fastify app setup, plugin registration |
-| `src/routes/users.ts` | User CRUD endpoints and auth endpoints |
-| `src/services/user.ts` | Business logic (Prisma operations) |
-| `src/schemas/index.ts` | OpenAPI schema definitions |
-| `prisma/schema.prisma` | Database schema |
+| File                   | Purpose                                |
+| ---------------------- | -------------------------------------- |
+| `src/app.ts`           | Fastify app setup, plugin registration |
+| `src/routes/users.ts`  | User CRUD endpoints and auth endpoints |
+| `src/services/user.ts` | Business logic (Prisma operations)     |
+| `src/schemas/index.ts` | OpenAPI schema definitions             |
+| `prisma/schema.prisma` | Database schema                        |
 
 ## Adding New Endpoints
 
@@ -33,28 +33,32 @@ Follow this pattern when adding new routes to `src/routes/users.ts`:
 
 ```typescript
 fastify.get<{
-  Params: { id: string };           // URL params
-  Querystring: { page?: string };   // Query params
-  Body: CreateUserRequest;          // Request body
-  Reply: ApiResponse<User> | ApiError;  // Response types
+  Params: { id: string }; // URL params
+  Querystring: { page?: string }; // Query params
+  Body: CreateUserRequest; // Request body
+  Reply: ApiResponse<User> | ApiError; // Response types
 }>(
   "/endpoint-path",
   {
-    preHandler: verifyAuth,  // Add for protected routes
+    preHandler: verifyAuth, // Add for protected routes
     schema: {
       summary: "Short action description",
       operationId: "uniqueOperationName",
       description: "Detailed description for API docs.",
       tags: ["Users"],
-      security: [{ bearerAuth: [] }],  // Add for auth routes
-      params: { /* JSON Schema */ },
-      body: { /* JSON Schema */ },
+      security: [{ bearerAuth: [] }], // Add for auth routes
+      params: {
+        /* JSON Schema */
+      },
+      body: {
+        /* JSON Schema */
+      },
       response: {
         200: {
           description: "Success case",
           type: "object",
           properties: {
-            data: { $ref: "User#" },  // Reference shared schemas
+            data: { $ref: "User#" }, // Reference shared schemas
           },
         },
         404: { $ref: "Error#" },
@@ -75,14 +79,16 @@ Protected endpoints require JWT authentication. Add `preHandler: verifyAuth` and
 fastify.get<{ Reply: ApiResponse<User> }>(
   "/me/profile",
   {
-    preHandler: verifyAuth,  // JWT verification
+    preHandler: verifyAuth, // JWT verification
     schema: {
       summary: "Get extended profile",
       operationId: "getExtendedProfile",
       tags: ["Users"],
-      security: [{ bearerAuth: [] }],  // Documents auth requirement
+      security: [{ bearerAuth: [] }], // Documents auth requirement
       response: {
-        200: { /* ... */ },
+        200: {
+          /* ... */
+        },
         401: { $ref: "Error#" },
       },
     },
@@ -177,13 +183,11 @@ describe("User Routes", () => {
 
   describe("GET /v1/users", () => {
     it("should return paginated users", async () => {
-      const mockUsers = [
-        { id: "1", email: "test@example.com", /* ... */ },
-      ];
+      const mockUsers = [{ id: "1", email: "test@example.com" /* ... */ }];
 
       vi.mocked(userService.list).mockResolvedValueOnce({
         data: mockUsers,
-        pagination: { page: 1, limit: 10, total: 1, /* ... */ },
+        pagination: { page: 1, limit: 10, total: 1 /* ... */ },
       });
 
       const response = await app.inject({
@@ -236,8 +240,8 @@ AUTH_AUDIENCE=https://api.mattbutlerengineering.com
 
 ```typescript
 interface JWTPayload {
-  sub: string;           // User ID (from Auth0)
-  email: string;         // Email address
+  sub: string; // User ID (from Auth0)
+  email: string; // Email address
   email_verified: boolean;
   name?: string;
   picture?: string;
@@ -253,7 +257,7 @@ In protected routes, access the authenticated user:
 async (request, reply) => {
   const authUser = request.user;
   // authUser.id, authUser.email, authUser.name, etc.
-}
+};
 ```
 
 ## Database Schema
@@ -277,16 +281,16 @@ For schema changes, use the `prisma-migrations` skill.
 
 ## API Endpoints Reference
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/v1/users` | No | List users (paginated) |
-| GET | `/v1/users/:id` | No | Get user by ID |
-| POST | `/v1/users` | No | Create user |
-| PATCH | `/v1/users/:id` | No | Update user |
-| DELETE | `/v1/users/:id` | No | Delete user |
-| GET | `/v1/users/me` | Yes | Get current user (auto-creates) |
-| PATCH | `/v1/users/me/preferences` | Yes | Update preferences |
-| GET | `/health` | No | Health check |
+| Method | Path                       | Auth | Description                     |
+| ------ | -------------------------- | ---- | ------------------------------- |
+| GET    | `/v1/users`                | No   | List users (paginated)          |
+| GET    | `/v1/users/:id`            | No   | Get user by ID                  |
+| POST   | `/v1/users`                | No   | Create user                     |
+| PATCH  | `/v1/users/:id`            | No   | Update user                     |
+| DELETE | `/v1/users/:id`            | No   | Delete user                     |
+| GET    | `/v1/users/me`             | Yes  | Get current user (auto-creates) |
+| PATCH  | `/v1/users/me/preferences` | Yes  | Update preferences              |
+| GET    | `/health`                  | No   | Health check                    |
 
 ## Common Development Tasks
 

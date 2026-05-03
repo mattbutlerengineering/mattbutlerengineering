@@ -23,11 +23,7 @@ export function NavigationMenuPage() {
             },
             {
               label: "Configuration",
-              children: [
-                { label: "Driving Mode" },
-                { label: "Suspension" },
-                { label: "Aero" },
-              ],
+              children: [{ label: "Driving Mode" }, { label: "Suspension" }, { label: "Aero" }],
             },
             { label: "About", href: "#" },
           ]}
@@ -145,7 +141,10 @@ export function NavigationMenuPage() {
             { label: "Trigger", value: "aria-haspopup=true, aria-expanded on dropdown triggers" },
             { label: "Keyboard", value: "Enter/Space opens dropdown; Arrow Down moves into panel" },
             { label: "Keyboard", value: "Escape closes dropdown and returns focus to trigger" },
-            { label: "Delay", value: "200ms open delay prevents accidental trigger on mouse pass-over" },
+            {
+              label: "Delay",
+              value: "200ms open delay prevents accidental trigger on mouse pass-over",
+            },
           ]}
         />
       </Section>

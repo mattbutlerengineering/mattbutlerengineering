@@ -1,8 +1,18 @@
-import type { FastifyInstance, FastifyPluginAsync, RouteHandlerMethod, RawServerDefault } from "fastify";
+import type {
+  FastifyInstance,
+  FastifyPluginAsync,
+  RouteHandlerMethod,
+  RawServerDefault,
+} from "fastify";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { HealthResponse } from "@mbe/types";
 import type { RateLimitMonitor } from "@mbe/observability";
-import { prisma, getSlowQueryStats, getServiceStatus, getPoolMetrics } from "../services/database.js";
+import {
+  prisma,
+  getSlowQueryStats,
+  getServiceStatus,
+  getPoolMetrics,
+} from "../services/database.js";
 import { checkAuth0, checkLatencyAnomaly, recordDbLatency } from "../services/health-checks.js";
 
 type HealthRouteHandler = RouteHandlerMethod<
@@ -24,7 +34,8 @@ export const healthRoutes: FastifyPluginAsync = async (fastify: FastifyInstance)
           status: {
             type: "string",
             enum: ["ok", "degraded", "error"],
-            description: "Overall service status: ok (all checks pass), degraded (some checks failing), error (critical failure)",
+            description:
+              "Overall service status: ok (all checks pass), degraded (some checks failing), error (critical failure)",
             example: "ok",
           },
           version: {
@@ -141,7 +152,8 @@ export const healthRoutes: FastifyPluginAsync = async (fastify: FastifyInstance)
       ...(auth0Result.message && { message: auth0Result.message }),
     };
 
-    const rateLimitMonitor = (request.server as unknown as { rateLimitMonitor: RateLimitMonitor }).rateLimitMonitor;
+    const rateLimitMonitor = (request.server as unknown as { rateLimitMonitor: RateLimitMonitor })
+      .rateLimitMonitor;
     const rateLimitSnapshot = rateLimitMonitor.getSnapshot();
     checks.rate_limits = {
       status: rateLimitSnapshot.isDegraded ? "degraded" : "ok",
@@ -169,7 +181,13 @@ export const healthRoutes: FastifyPluginAsync = async (fastify: FastifyInstance)
     const errorRates = fastify.getErrorRates();
     const degradedEndpoints = errorRates.endpoints.filter((e) => e.rate > 0.1 && e.total >= 5);
 
-    const hasErrors = dbStatus === "error" || slowQueryStatus === "degraded" || auth0Result.status === "degraded" || rateLimitSnapshot.isDegraded || poolMetrics.isDegraded || errorRates.degraded;
+    const hasErrors =
+      dbStatus === "error" ||
+      slowQueryStatus === "degraded" ||
+      auth0Result.status === "degraded" ||
+      rateLimitSnapshot.isDegraded ||
+      poolMetrics.isDegraded ||
+      errorRates.degraded;
 
     return {
       status: hasErrors ? "degraded" : "ok",
@@ -192,5 +210,9 @@ export const healthRoutes: FastifyPluginAsync = async (fastify: FastifyInstance)
 
   // /api/v1/users/health — public path via DO ingress (preservePathPrefix: true, prefix "/api/v1/users")
   // lgtm[js/missing-rate-limiting] — rate limiting is applied globally via @fastify/rate-limit in app.ts
-  fastify.get("/api/v1/users/health", { schema: { ...healthSchema, operationId: "getHealthApiUsers" } }, healthHandler);
+  fastify.get(
+    "/api/v1/users/health",
+    { schema: { ...healthSchema, operationId: "getHealthApiUsers" } },
+    healthHandler
+  );
 };

@@ -5,7 +5,10 @@ import { Button, Stack, Text } from "@mattbutlerengineering/rialto";
 import { createApiClient } from "@mbe/api-client";
 import type { OperatingHours } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";
-import { OperatingHoursStep, validateOperatingHours } from "../components/venue-onboarding/OperatingHoursStep.js";
+import {
+  OperatingHoursStep,
+  validateOperatingHours,
+} from "../components/venue-onboarding/OperatingHoursStep.js";
 import type { OperatingHoursValidationErrors } from "../components/venue-onboarding/OperatingHoursStep.js";
 import { PageHeader } from "../components/PageHeader.js";
 import styles from "./SetupHoursPage.module.css";
@@ -15,9 +18,7 @@ export function SetupHoursPage() {
   const { accessToken } = useAuth();
   const { selectedVenue, selectedVenueId } = useVenue();
 
-  const [hours, setHours] = useState<OperatingHours>(
-    selectedVenue?.operatingHours ?? {}
-  );
+  const [hours, setHours] = useState<OperatingHours>(selectedVenue?.operatingHours ?? {});
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hoursErrors, setHoursErrors] = useState<OperatingHoursValidationErrors | null>(null);
@@ -62,7 +63,9 @@ export function SetupHoursPage() {
 
       {error && (
         <div className={styles.errorBanner} role="alert">
-          <Text variant="body" color="error">{error}</Text>
+          <Text variant="body" color="error">
+            {error}
+          </Text>
         </div>
       )}
 
@@ -78,18 +81,10 @@ export function SetupHoursPage() {
       </div>
 
       <Stack direction="row" gap="sm" justify="end">
-        <Button
-          variant="secondary"
-          onClick={() => navigate("/setup")}
-          disabled={isSaving}
-        >
+        <Button variant="secondary" onClick={() => navigate("/setup")} disabled={isSaving}>
           Cancel
         </Button>
-        <Button
-          variant="primary"
-          onClick={handleSave}
-          disabled={isSaving}
-        >
+        <Button variant="primary" onClick={handleSave} disabled={isSaving}>
           {isSaving ? "Saving..." : "Save Hours"}
         </Button>
       </Stack>

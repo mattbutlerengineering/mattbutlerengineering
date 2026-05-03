@@ -28,9 +28,7 @@ export class TablesClient {
     if (params.activeOnly !== undefined) searchParams.set("activeOnly", String(params.activeOnly));
 
     const query = searchParams.toString();
-    return this.client.get<PaginatedResponse<Table>>(
-      `/api/v1/tables${query ? `?${query}` : ""}`
-    );
+    return this.client.get<PaginatedResponse<Table>>(`/api/v1/tables${query ? `?${query}` : ""}`);
   }
 
   /**
@@ -68,10 +66,9 @@ export class TablesClient {
    * Update the status of a table
    */
   async updateStatus(id: string, status: string): Promise<Table> {
-    const response = await this.client.patch<ApiResponse<Table>>(
-      `/api/v1/tables/${id}/status`,
-      { status }
-    );
+    const response = await this.client.patch<ApiResponse<Table>>(`/api/v1/tables/${id}/status`, {
+      status,
+    });
     return response.data;
   }
 }

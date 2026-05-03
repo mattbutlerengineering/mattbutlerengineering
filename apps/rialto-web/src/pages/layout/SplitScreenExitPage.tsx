@@ -30,8 +30,8 @@ function SignInDemo() {
       <Stack gap="md" align="start">
         <Text variant="label">Welcome back.</Text>
         <Text variant="body" color="secondary">
-          The sign-in page split and slid offscreen; the parent&apos;s
-          onExitComplete fired to navigate you here.
+          The sign-in page split and slid offscreen; the parent&apos;s onExitComplete fired to
+          navigate you here.
         </Text>
         <Button variant="secondary" onClick={reset}>
           Try again
@@ -94,8 +94,8 @@ export function SplitScreenExitPage() {
             <li>Paywall / upgrade gate → unlocked content</li>
           </ul>
           <Text variant="caption" color="secondary">
-            Not for regular route changes — use Framer Motion layout animations
-            or React Router transitions for those.
+            Not for regular route changes — use Framer Motion layout animations or React Router
+            transitions for those.
           </Text>
         </Stack>
       </Section>
@@ -104,10 +104,26 @@ export function SplitScreenExitPage() {
       <Section title="Props">
         <PropsTable
           props={[
-            { name: "active", type: "boolean", description: "Set to true to trigger the exit animation." },
-            { name: "onExitComplete", type: "() => void", description: "Fires once after both halves finish — use it to navigate." },
-            { name: "announcement", type: "string", description: "Polite live-region text that plays during the transition." },
-            { name: "children", type: "ReactNode", description: "Content to display and split on exit." },
+            {
+              name: "active",
+              type: "boolean",
+              description: "Set to true to trigger the exit animation.",
+            },
+            {
+              name: "onExitComplete",
+              type: "() => void",
+              description: "Fires once after both halves finish — use it to navigate.",
+            },
+            {
+              name: "announcement",
+              type: "string",
+              description: "Polite live-region text that plays during the transition.",
+            },
+            {
+              name: "children",
+              type: "ReactNode",
+              description: "Content to display and split on exit.",
+            },
           ]}
         />
       </Section>
@@ -116,11 +132,27 @@ export function SplitScreenExitPage() {
       <Section title="Accessibility">
         <DataList
           items={[
-            { label: "Children render once when idle", value: "Full AT and keyboard fidelity while active is false" },
-            { label: "Halves hidden from AT during exit", value: "aria-hidden prevents duplicate readings" },
-            { label: "Live region announcement", value: "Polite aria-live covers the ~600ms blind window" },
-            { label: "Reduced motion", value: "Animation collapses; onExitComplete fires on next tick so parents still receive the callback" },
-            { label: "Pointer events frozen during exit", value: "pointer-events: none on the wrapper — no stale clicks mid-transition" },
+            {
+              label: "Children render once when idle",
+              value: "Full AT and keyboard fidelity while active is false",
+            },
+            {
+              label: "Halves hidden from AT during exit",
+              value: "aria-hidden prevents duplicate readings",
+            },
+            {
+              label: "Live region announcement",
+              value: "Polite aria-live covers the ~600ms blind window",
+            },
+            {
+              label: "Reduced motion",
+              value:
+                "Animation collapses; onExitComplete fires on next tick so parents still receive the callback",
+            },
+            {
+              label: "Pointer events frozen during exit",
+              value: "pointer-events: none on the wrapper — no stale clicks mid-transition",
+            },
           ]}
         />
       </Section>

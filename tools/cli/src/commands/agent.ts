@@ -9,12 +9,7 @@ import {
   resolveModel,
   routeModelWithReason,
 } from "@mbe/agent-core";
-import type {
-  AgentSession,
-  ApiResponse,
-  PaginatedResponse,
-  AgentSessionEvent,
-} from "@mbe/types";
+import type { AgentSession, ApiResponse, PaginatedResponse, AgentSessionEvent } from "@mbe/types";
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -103,10 +98,7 @@ function printSession(session: AgentSession, verbose = false): void {
   }
 }
 
-async function agentApiRequest<T>(
-  path: string,
-  options: RequestInit = {}
-): Promise<T> {
+async function agentApiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${AGENT_API_URL}${path}`, {
     ...options,
     headers: {
@@ -169,9 +161,7 @@ export const checkModelCommand = new Command("check-model")
     console.log("");
   });
 
-export const agentCommand = new Command("agent").description(
-  "Run autonomous coding agents"
-);
+export const agentCommand = new Command("agent").description("Run autonomous coding agents");
 
 // ── Local execution: mbe agent run ───────────────────────────────────────
 
@@ -184,12 +174,12 @@ agentCommand
     "Maximum budget in USD",
     String(DEFAULT_SESSION_CONFIG.maxBudgetUsd)
   )
+  .option("--max-turns <n>", "Maximum conversation turns", String(DEFAULT_SESSION_CONFIG.maxTurns))
   .option(
-    "--max-turns <n>",
-    "Maximum conversation turns",
-    String(DEFAULT_SESSION_CONFIG.maxTurns)
+    "--base-branch <branch>",
+    "Base branch for the worktree",
+    DEFAULT_SESSION_CONFIG.baseBranch
   )
-  .option("--base-branch <branch>", "Base branch for the worktree", DEFAULT_SESSION_CONFIG.baseBranch)
   .option("--no-pr", "Skip PR creation, keep worktree for inspection")
   .option("-v, --verbose", "Stream all agent events", false)
   .action(
@@ -236,9 +226,7 @@ agentCommand
       console.log("");
 
       try {
-        const result = await runSession(config, (event) =>
-          handleEvent(event, options.verbose)
-        );
+        const result = await runSession(config, (event) => handleEvent(event, options.verbose));
 
         console.log("");
         console.log("Result");
@@ -290,11 +278,7 @@ agentCommand
     "Maximum budget in USD",
     String(DEFAULT_SESSION_CONFIG.maxBudgetUsd)
   )
-  .option(
-    "--max-turns <n>",
-    "Maximum conversation turns",
-    String(DEFAULT_SESSION_CONFIG.maxTurns)
-  )
+  .option("--max-turns <n>", "Maximum conversation turns", String(DEFAULT_SESSION_CONFIG.maxTurns))
   .option("--base-branch <branch>", "Base branch", DEFAULT_SESSION_CONFIG.baseBranch)
   .option("-f, --follow", "Follow session logs after creation", false)
   .action(
@@ -347,63 +331,61 @@ agentCommand
     "-s, --status <status>",
     "Filter by status (pending, running, succeeded, failed, cancelled)"
   )
-  .action(
-    async (options: { page: string; limit: string; status?: string }) => {
-      try {
-        const params = new URLSearchParams({
-          page: options.page,
-          limit: options.limit,
-        });
-        if (options.status) {
-          params.set("status", options.status);
-        }
-
-        const response = await agentApiRequest<PaginatedResponse<AgentSession>>(
-          `/v1/sessions?${params.toString()}`
-        );
-
-        if (response.data.length === 0) {
-          console.log("No sessions found");
-          return;
-        }
-
-        console.log("Sessions");
-        console.log("────────");
-        console.log("");
-
-        // Table header
-        const header = [
-          "ID".padEnd(28),
-          "Status".padEnd(14),
-          "Task".padEnd(40),
-          "Cost".padEnd(10),
-          "Created",
-        ].join("  ");
-        console.log(header);
-        console.log("─".repeat(header.length));
-
-        for (const session of response.data) {
-          const row = [
-            session.id.padEnd(28),
-            formatStatus(session.status).padEnd(14),
-            session.taskDescription.slice(0, 40).padEnd(40),
-            (session.costUsd !== null ? formatCost(session.costUsd) : "-").padEnd(10),
-            formatTimestamp(session.createdAt),
-          ].join("  ");
-          console.log(row);
-        }
-
-        console.log("");
-        console.log(
-          `Page ${response.pagination.page} of ${response.pagination.totalPages} (${response.pagination.total} total)`
-        );
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        console.error(`Error: ${message}`);
-        process.exit(1);
+  .action(async (options: { page: string; limit: string; status?: string }) => {
+    try {
+      const params = new URLSearchParams({
+        page: options.page,
+        limit: options.limit,
+      });
+      if (options.status) {
+        params.set("status", options.status);
       }
+
+      const response = await agentApiRequest<PaginatedResponse<AgentSession>>(
+        `/v1/sessions?${params.toString()}`
+      );
+
+      if (response.data.length === 0) {
+        console.log("No sessions found");
+        return;
+      }
+
+      console.log("Sessions");
+      console.log("────────");
+      console.log("");
+
+      // Table header
+      const header = [
+        "ID".padEnd(28),
+        "Status".padEnd(14),
+        "Task".padEnd(40),
+        "Cost".padEnd(10),
+        "Created",
+      ].join("  ");
+      console.log(header);
+      console.log("─".repeat(header.length));
+
+      for (const session of response.data) {
+        const row = [
+          session.id.padEnd(28),
+          formatStatus(session.status).padEnd(14),
+          session.taskDescription.slice(0, 40).padEnd(40),
+          (session.costUsd !== null ? formatCost(session.costUsd) : "-").padEnd(10),
+          formatTimestamp(session.createdAt),
+        ].join("  ");
+        console.log(row);
+      }
+
+      console.log("");
+      console.log(
+        `Page ${response.pagination.page} of ${response.pagination.totalPages} (${response.pagination.total} total)`
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`Error: ${message}`);
+      process.exit(1);
     }
-  );
+  });
 
 agentCommand
   .command("status <id>")
@@ -411,9 +393,7 @@ agentCommand
   .option("-v, --verbose", "Show full output text", false)
   .action(async (id: string, options: { verbose: boolean }) => {
     try {
-      const response = await agentApiRequest<ApiResponse<AgentSession>>(
-        `/v1/sessions/${id}`
-      );
+      const response = await agentApiRequest<ApiResponse<AgentSession>>(`/v1/sessions/${id}`);
 
       console.log("Session");
       console.log("───────");
@@ -607,9 +587,8 @@ agentCommand
     try {
       if (options.summary || !id) {
         // Summary mode: fetch all sessions and aggregate
-        const response = await agentApiRequest<PaginatedResponse<AgentSession>>(
-          "/v1/sessions?limit=100"
-        );
+        const response =
+          await agentApiRequest<PaginatedResponse<AgentSession>>("/v1/sessions?limit=100");
 
         const sessions = response.data;
 
@@ -626,7 +605,9 @@ agentCommand
         const succeeded = sessions.filter((s) => s.status === "succeeded").length;
         const failed = sessions.filter((s) => s.status === "failed").length;
 
-        console.log(`Sessions:   ${sessions.length} total (${succeeded} succeeded, ${failed} failed)`);
+        console.log(
+          `Sessions:   ${sessions.length} total (${succeeded} succeeded, ${failed} failed)`
+        );
         console.log(`Total cost: ${formatCost(totalCost)}`);
         console.log(`Avg cost:   ${formatCost(totalCost / sessions.length)}`);
 
@@ -635,7 +616,9 @@ agentCommand
           const maxSession = withCost.reduce((a, b) =>
             (a.costUsd ?? 0) > (b.costUsd ?? 0) ? a : b
           );
-          console.log(`Max cost:   ${formatCost(maxSession.costUsd ?? 0)} (${maxSession.id.slice(0, 16)}...)`);
+          console.log(
+            `Max cost:   ${formatCost(maxSession.costUsd ?? 0)} (${maxSession.id.slice(0, 16)}...)`
+          );
         }
 
         console.log("");
@@ -694,11 +677,7 @@ agentCommand
     "Budget cap per child session in USD",
     String(DEFAULT_SESSION_CONFIG.maxBudgetUsd)
   )
-  .option(
-    "--max-turns <n>",
-    "Max turns per child session",
-    String(DEFAULT_SESSION_CONFIG.maxTurns)
-  )
+  .option("--max-turns <n>", "Max turns per child session", String(DEFAULT_SESSION_CONFIG.maxTurns))
   .option("--base-branch <branch>", "Base branch", DEFAULT_SESSION_CONFIG.baseBranch)
   .option("--max-concurrent <n>", "Max parallel child sessions", "3")
   .action(

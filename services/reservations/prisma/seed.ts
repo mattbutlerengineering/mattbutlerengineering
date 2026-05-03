@@ -94,11 +94,51 @@ async function main() {
 
   // --- Tables for Venue A ---
   const tableConfigs = [
-    { name: "Table 1", tableNumber: "1", capacity: 2, minCovers: 1, maxCovers: 2, location: "window", shapeMetadata: { shape: "round", radius: 30 } },
-    { name: "Table 2", tableNumber: "2", capacity: 2, minCovers: 1, maxCovers: 2, location: "window", shapeMetadata: { shape: "round", radius: 30 } },
-    { name: "Table 3", tableNumber: "3", capacity: 4, minCovers: 2, maxCovers: 4, location: "center", shapeMetadata: { shape: "square", width: 60, height: 60 } },
-    { name: "Booth A", tableNumber: "B1", capacity: 6, minCovers: 2, maxCovers: 6, location: "wall", shapeMetadata: { shape: "rectangle", width: 80, height: 50 } },
-    { name: "Private Room", tableNumber: "PR", capacity: 10, minCovers: 4, maxCovers: 10, location: "private", shapeMetadata: { shape: "rectangle", width: 120, height: 80 } },
+    {
+      name: "Table 1",
+      tableNumber: "1",
+      capacity: 2,
+      minCovers: 1,
+      maxCovers: 2,
+      location: "window",
+      shapeMetadata: { shape: "round", radius: 30 },
+    },
+    {
+      name: "Table 2",
+      tableNumber: "2",
+      capacity: 2,
+      minCovers: 1,
+      maxCovers: 2,
+      location: "window",
+      shapeMetadata: { shape: "round", radius: 30 },
+    },
+    {
+      name: "Table 3",
+      tableNumber: "3",
+      capacity: 4,
+      minCovers: 2,
+      maxCovers: 4,
+      location: "center",
+      shapeMetadata: { shape: "square", width: 60, height: 60 },
+    },
+    {
+      name: "Booth A",
+      tableNumber: "B1",
+      capacity: 6,
+      minCovers: 2,
+      maxCovers: 6,
+      location: "wall",
+      shapeMetadata: { shape: "rectangle", width: 80, height: 50 },
+    },
+    {
+      name: "Private Room",
+      tableNumber: "PR",
+      capacity: 10,
+      minCovers: 4,
+      maxCovers: 10,
+      location: "private",
+      shapeMetadata: { shape: "rectangle", width: 120, height: 80 },
+    },
   ] as const;
 
   const tablesA = await Promise.all(
@@ -118,17 +158,57 @@ async function main() {
           shapeMetadata: cfg.shapeMetadata,
           priority: cfg.location === "window" ? 2 : cfg.location === "private" ? 0 : 1,
         },
-      }),
-    ),
+      })
+    )
   );
 
   // --- Tables for Venue B ---
   const rooftopConfigs = [
-    { name: "Lounge 1", tableNumber: "L1", capacity: 4, minCovers: 1, maxCovers: 4, location: "terrace", shapeMetadata: { shape: "round", radius: 40 } },
-    { name: "Lounge 2", tableNumber: "L2", capacity: 4, minCovers: 1, maxCovers: 4, location: "terrace", shapeMetadata: { shape: "round", radius: 40 } },
-    { name: "High Top 1", tableNumber: "H1", capacity: 2, minCovers: 1, maxCovers: 2, location: "bar", shapeMetadata: { shape: "round", radius: 25 } },
-    { name: "High Top 2", tableNumber: "H2", capacity: 2, minCovers: 1, maxCovers: 2, location: "bar", shapeMetadata: { shape: "round", radius: 25 } },
-    { name: "VIP Booth", tableNumber: "V1", capacity: 8, minCovers: 4, maxCovers: 8, location: "corner", shapeMetadata: { shape: "rectangle", width: 100, height: 60 } },
+    {
+      name: "Lounge 1",
+      tableNumber: "L1",
+      capacity: 4,
+      minCovers: 1,
+      maxCovers: 4,
+      location: "terrace",
+      shapeMetadata: { shape: "round", radius: 40 },
+    },
+    {
+      name: "Lounge 2",
+      tableNumber: "L2",
+      capacity: 4,
+      minCovers: 1,
+      maxCovers: 4,
+      location: "terrace",
+      shapeMetadata: { shape: "round", radius: 40 },
+    },
+    {
+      name: "High Top 1",
+      tableNumber: "H1",
+      capacity: 2,
+      minCovers: 1,
+      maxCovers: 2,
+      location: "bar",
+      shapeMetadata: { shape: "round", radius: 25 },
+    },
+    {
+      name: "High Top 2",
+      tableNumber: "H2",
+      capacity: 2,
+      minCovers: 1,
+      maxCovers: 2,
+      location: "bar",
+      shapeMetadata: { shape: "round", radius: 25 },
+    },
+    {
+      name: "VIP Booth",
+      tableNumber: "V1",
+      capacity: 8,
+      minCovers: 4,
+      maxCovers: 8,
+      location: "corner",
+      shapeMetadata: { shape: "rectangle", width: 100, height: 60 },
+    },
   ] as const;
 
   const tablesB = await Promise.all(
@@ -148,8 +228,8 @@ async function main() {
           shapeMetadata: cfg.shapeMetadata,
           priority: cfg.location === "corner" ? 0 : 1,
         },
-      }),
-    ),
+      })
+    )
   );
 
   // --- Guests ---
@@ -261,7 +341,7 @@ async function main() {
   ];
 
   const createdReservations = await Promise.all(
-    reservations.map((r) => prisma.reservation.create({ data: r })),
+    reservations.map((r) => prisma.reservation.create({ data: r }))
   );
 
   console.log("Seeded reservations database:", {

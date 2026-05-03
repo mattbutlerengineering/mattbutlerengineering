@@ -7,10 +7,7 @@
  * fresh copy each time.
  */
 
-import type {
-  TableShapeMetadata,
-  TableStatus,
-} from "@mbe/types";
+import type { TableShapeMetadata, TableStatus } from "@mbe/types";
 
 // ---------------------------------------------------------------------------
 // Types — keep in sync with Prisma-generated models
@@ -104,7 +101,7 @@ export function createMockTable(overrides?: Partial<MockTable>): MockTable {
 }
 
 export function createMockReservation(
-  overrides?: Partial<Omit<MockReservation, "table">> & { table?: Partial<MockTable> },
+  overrides?: Partial<Omit<MockReservation, "table">> & { table?: Partial<MockTable> }
 ): MockReservation {
   const { table: tableOverrides, ...restOverrides } = overrides ?? {};
   const table = createMockTable(tableOverrides);

@@ -3,9 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { Footer, GlobalNav, Text } from "@mattbutlerengineering/rialto";
 import styles from "./App.module.css";
 
-const HomePage = lazy(() =>
-  import("./pages/HomePage").then((m) => ({ default: m.HomePage }))
-);
+const HomePage = lazy(() => import("./pages/HomePage").then((m) => ({ default: m.HomePage })));
 const StatusPage = lazy(() =>
   import("./pages/StatusPage").then((m) => ({ default: m.StatusPage }))
 );

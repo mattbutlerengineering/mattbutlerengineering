@@ -67,9 +67,7 @@ function generateMermaid(packages) {
 
   // Group packages by category into subgraphs
   for (const dir of WORKSPACE_DIRS) {
-    const members = [...packages.entries()].filter(
-      ([, info]) => info.category === dir
-    );
+    const members = [...packages.entries()].filter(([, info]) => info.category === dir);
     if (members.length === 0) continue;
 
     lines.push(`  subgraph ${dir}["${CLASSIFICATION_LABELS[dir]}"]`);
@@ -139,6 +137,4 @@ const markdown = generateMarkdown(mermaid);
 const outputPath = join(root, "docs", "architecture", "dependency-graph.md");
 
 writeFileSync(outputPath, markdown);
-console.log(
-  `Generated dependency graph with ${packages.size} packages → ${outputPath}`
-);
+console.log(`Generated dependency graph with ${packages.size} packages → ${outputPath}`);

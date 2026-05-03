@@ -8,6 +8,10 @@
     "mustPass": ["lint", "tests"],
     "diffSizeMax": 12,
     "mustTouch": ["scripts/acmm/state.js"],
-    "mustNotTouch": ["scripts/acmm/audit.js", "scripts/acmm/computeLevel.js", "scripts/acmm/detection.js"]
+    "mustNotTouch": [
+      "scripts/acmm/audit.js",
+      "scripts/acmm/computeLevel.js",
+      "scripts/acmm/detection.js"
+    ]
   }
 }

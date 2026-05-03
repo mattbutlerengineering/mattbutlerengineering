@@ -4,7 +4,7 @@ Ongoing notes on improving the autonomous ship-loop process.
 
 ## 2026-03-29 — Harness Design Best Practices
 
-*Source: [Anthropic Engineering — Harness Design for Long-Running Apps](https://www.anthropic.com/engineering/harness-design-long-running-apps)*
+_Source: [Anthropic Engineering — Harness Design for Long-Running Apps](https://www.anthropic.com/engineering/harness-design-long-running-apps)_
 
 ### Key insight: Self-evaluation bias
 
@@ -20,11 +20,11 @@ When an agent fails and the next agent starts from scratch, effort is duplicated
 
 ### Changes applied (closes #46)
 
-| Phase | Change | Priority |
-|-------|--------|----------|
-| B0 (new) | Issue enrichment — planner expands issue to spec before agent launch | P1 |
-| B2 (new) | Evaluator phase — separate skeptical agent reviews PR diff vs criteria | P0 |
-| B3 (updated) | Structured failure handoffs — agent-failed comments include full context | P2 |
+| Phase        | Change                                                                   | Priority |
+| ------------ | ------------------------------------------------------------------------ | -------- |
+| B0 (new)     | Issue enrichment — planner expands issue to spec before agent launch     | P1       |
+| B2 (new)     | Evaluator phase — separate skeptical agent reviews PR diff vs criteria   | P0       |
+| B3 (updated) | Structured failure handoffs — agent-failed comments include full context | P2       |
 
 ### Future improvements to consider
 

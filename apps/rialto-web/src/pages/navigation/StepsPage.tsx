@@ -28,11 +28,7 @@ export function StepsPage() {
       {/* ── Interactive ───────────────────────────────────────────── */}
       <Section title="Interactive">
         <Stack gap="md">
-          <Steps
-            steps={RACE_STEPS}
-            currentStep={wizardStep}
-            onStepClick={setWizardStep}
-          />
+          <Steps steps={RACE_STEPS} currentStep={wizardStep} onStepClick={setWizardStep} />
           <div className={styles.row}>
             <Button
               variant="ghost"

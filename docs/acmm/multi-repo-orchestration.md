@@ -21,8 +21,8 @@ Because of this structure, the vast majority of cross-package changes are alread
 
 Published packages have downstream consumers outside this monorepo:
 
-| Package | Registry | Known Consumers |
-|---------|----------|-----------------|
+| Package                         | Registry        | Known Consumers                           |
+| ------------------------------- | --------------- | ----------------------------------------- |
 | `@mattbutlerengineering/rialto` | GitHub Packages | External projects using the design system |
 
 When a published package ships a breaking change, external consumers must update their dependency and adapt to the new API. Without coordination, they discover the breakage only when they next run `npm install` or their CI fails on a seemingly unrelated update.

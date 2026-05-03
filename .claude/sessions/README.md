@@ -9,6 +9,7 @@ YYYY-MM-DD-<descriptive-slug>.md
 ```
 
 Examples:
+
 - `2026-05-01-acmm-learning-infra.md`
 - `2026-04-28-fix-undici-override.md`
 - `2026-04-25-hospitality-sidebar-ship.md`
@@ -37,9 +38,9 @@ The slug should be short (3-5 words) and describe the primary task of the sessio
 
 ## Relationship to other systems
 
-| System | Relationship |
-|--------|-------------|
-| `.claude/memory/` | Summaries reference corrections and reinforcements by date |
-| `.claude/reflections/` | Reflections are synthesized from one or more session summaries |
-| `.claude/preferences.json` | Updated when a session summary reveals a new or changed preference |
-| `.claude/task-log.jsonl` | Each task in the log corresponds to work described in a session summary |
+| System                     | Relationship                                                            |
+| -------------------------- | ----------------------------------------------------------------------- |
+| `.claude/memory/`          | Summaries reference corrections and reinforcements by date              |
+| `.claude/reflections/`     | Reflections are synthesized from one or more session summaries          |
+| `.claude/preferences.json` | Updated when a session summary reveals a new or changed preference      |
+| `.claude/task-log.jsonl`   | Each task in the log corresponds to work described in a session summary |

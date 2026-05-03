@@ -53,9 +53,7 @@ export class ReservationsClient {
    * Get a reservation by ID
    */
   async get(id: string): Promise<Reservation> {
-    const response = await this.client.get<ApiResponse<Reservation>>(
-      `/api/v1/reservations/${id}`
-    );
+    const response = await this.client.get<ApiResponse<Reservation>>(`/api/v1/reservations/${id}`);
     return response.data;
   }
 
@@ -63,10 +61,7 @@ export class ReservationsClient {
    * Create a new reservation
    */
   async create(data: CreateReservationRequest): Promise<Reservation> {
-    const response = await this.client.post<ApiResponse<Reservation>>(
-      "/api/v1/reservations",
-      data
-    );
+    const response = await this.client.post<ApiResponse<Reservation>>("/api/v1/reservations", data);
     return response.data;
   }
 
@@ -85,7 +80,10 @@ export class ReservationsClient {
    * Cancel a reservation
    */
   async cancel(id: string): Promise<Reservation> {
-    const response = await this.client.request<ApiResponse<Reservation>>(`/api/v1/reservations/${id}`, { method: "DELETE" });
+    const response = await this.client.request<ApiResponse<Reservation>>(
+      `/api/v1/reservations/${id}`,
+      { method: "DELETE" }
+    );
     return response.data;
   }
 

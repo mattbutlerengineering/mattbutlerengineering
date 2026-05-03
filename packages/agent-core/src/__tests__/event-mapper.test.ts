@@ -72,10 +72,7 @@ function makeAssistantWithUsage(
   } as unknown as SDKMessage;
 }
 
-function makeUserToolResult(
-  toolUseId: string,
-  isError = false
-): SDKMessage {
+function makeUserToolResult(toolUseId: string, isError = false): SDKMessage {
   return {
     type: "user",
     message: {
@@ -236,10 +233,7 @@ describe("mapSdkMessage", () => {
     });
 
     it("uses turnIndex=0 when called without the argument", () => {
-      const msg = makeAssistantWithUsage(
-        "text",
-        { input_tokens: 100, output_tokens: 50 }
-      );
+      const msg = makeAssistantWithUsage("text", { input_tokens: 100, output_tokens: 50 });
 
       const events = mapSdkMessage(msg);
       const turnEvent = events.find((e) => e.type === "session:turn_metrics") as

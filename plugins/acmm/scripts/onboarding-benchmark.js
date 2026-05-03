@@ -12,50 +12,50 @@
  *   node plugins/acmm/scripts/onboarding-benchmark.js --record   # record a result
  */
 
-import fs from 'node:fs';
-import path from 'node:path';
+import fs from "node:fs";
+import path from "node:path";
 
-const RESULTS_PATH = path.resolve('.claude/acmm/onboarding-benchmark.json');
+const RESULTS_PATH = path.resolve(".claude/acmm/onboarding-benchmark.json");
 
 const TASKS = [
   {
-    id: 'trivial-file-access',
-    difficulty: 'trivial',
-    description: 'Add a TODO comment to CLAUDE.md',
-    measures: 'Basic file read/write capability, instruction file awareness',
-    successCriteria: 'CLAUDE.md contains a new TODO comment',
+    id: "trivial-file-access",
+    difficulty: "trivial",
+    description: "Add a TODO comment to CLAUDE.md",
+    measures: "Basic file read/write capability, instruction file awareness",
+    successCriteria: "CLAUDE.md contains a new TODO comment",
     expectedMinutes: 1,
   },
   {
-    id: 'easy-test-suite',
-    difficulty: 'easy',
-    description: 'Run the test suite and report the number of passing/failing tests',
-    measures: 'Repo navigation, package manager awareness, test runner knowledge',
-    successCriteria: 'Accurate report of test results with pass/fail counts',
+    id: "easy-test-suite",
+    difficulty: "easy",
+    description: "Run the test suite and report the number of passing/failing tests",
+    measures: "Repo navigation, package manager awareness, test runner knowledge",
+    successCriteria: "Accurate report of test results with pass/fail counts",
     expectedMinutes: 3,
   },
   {
-    id: 'medium-lint-fix',
-    difficulty: 'medium',
-    description: 'Find and fix all ESLint errors in a specific file without introducing new ones',
-    measures: 'Tool chain knowledge, lint configuration understanding',
-    successCriteria: 'File passes eslint with zero errors',
+    id: "medium-lint-fix",
+    difficulty: "medium",
+    description: "Find and fix all ESLint errors in a specific file without introducing new ones",
+    measures: "Tool chain knowledge, lint configuration understanding",
+    successCriteria: "File passes eslint with zero errors",
     expectedMinutes: 5,
   },
   {
-    id: 'hard-api-endpoint',
-    difficulty: 'hard',
-    description: 'Add a new GET /api/v1/users/stats endpoint following existing patterns',
-    measures: 'Pattern recognition, service architecture understanding, test writing',
-    successCriteria: 'Endpoint works, follows existing patterns, has tests, passes CI checks',
+    id: "hard-api-endpoint",
+    difficulty: "hard",
+    description: "Add a new GET /api/v1/users/stats endpoint following existing patterns",
+    measures: "Pattern recognition, service architecture understanding, test writing",
+    successCriteria: "Endpoint works, follows existing patterns, has tests, passes CI checks",
     expectedMinutes: 15,
   },
   {
-    id: 'expert-cross-service',
-    difficulty: 'expert',
-    description: 'Implement a feature that spans two services with proper API contracts',
-    measures: 'Multi-service architecture, API design, integration understanding',
-    successCriteria: 'Feature works end-to-end across services with tests',
+    id: "expert-cross-service",
+    difficulty: "expert",
+    description: "Implement a feature that spans two services with proper API contracts",
+    measures: "Multi-service architecture, API design, integration understanding",
+    successCriteria: "Feature works end-to-end across services with tests",
     expectedMinutes: 30,
   },
 ];
@@ -66,7 +66,7 @@ const TASKS = [
  */
 function loadResults() {
   if (fs.existsSync(RESULTS_PATH)) {
-    return JSON.parse(fs.readFileSync(RESULTS_PATH, 'utf-8'));
+    return JSON.parse(fs.readFileSync(RESULTS_PATH, "utf-8"));
   }
   return { runs: [], lastUpdated: null };
 }
@@ -77,7 +77,7 @@ function loadResults() {
  */
 function saveResults(results) {
   fs.mkdirSync(path.dirname(RESULTS_PATH), { recursive: true });
-  fs.writeFileSync(RESULTS_PATH, JSON.stringify(results, null, 2) + '\n');
+  fs.writeFileSync(RESULTS_PATH, JSON.stringify(results, null, 2) + "\n");
 }
 
 /**
@@ -89,13 +89,13 @@ function saveResults(results) {
 function recordResult(taskId, minutes, success) {
   const task = TASKS.find((t) => t.id === taskId);
   if (!task) {
-    const valid = TASKS.map((t) => t.id).join(', ');
+    const valid = TASKS.map((t) => t.id).join(", ");
     console.error(`Unknown task: ${taskId}. Valid: ${valid}`);
     process.exit(1);
   }
 
   if (isNaN(minutes) || minutes <= 0) {
-    console.error('--minutes must be a positive number');
+    console.error("--minutes must be a positive number");
     process.exit(1);
   }
 
@@ -107,7 +107,7 @@ function recordResult(taskId, minutes, success) {
     difficulty: task.difficulty,
     minutes,
     success,
-    date: new Date().toISOString().split('T')[0],
+    date: new Date().toISOString().split("T")[0],
     ratio: parseFloat(ratio.toFixed(2)),
   };
 
@@ -119,16 +119,18 @@ function recordResult(taskId, minutes, success) {
 
   saveResults(updatedResults);
 
-  const indicator = success ? 'PASS' : 'FAIL';
-  console.log(`[${indicator}] Recorded: ${taskId} -- ${minutes}min (${ratio.toFixed(1)}x expected)`);
+  const indicator = success ? "PASS" : "FAIL";
+  console.log(
+    `[${indicator}] Recorded: ${taskId} -- ${minutes}min (${ratio.toFixed(1)}x expected)`
+  );
 }
 
 /**
  * Print the task catalog to stdout.
  */
 function printCatalog() {
-  console.log('Onboarding Benchmark Tasks');
-  console.log('==========================\n');
+  console.log("Onboarding Benchmark Tasks");
+  console.log("==========================\n");
   for (const task of TASKS) {
     console.log(`[${task.difficulty.toUpperCase()}] ${task.id}`);
     console.log(`  ${task.description}`);
@@ -137,7 +139,7 @@ function printCatalog() {
     console.log(`  Success: ${task.successCriteria}\n`);
   }
   console.log(
-    'Record a result: node plugins/acmm/scripts/onboarding-benchmark.js --record <task-id> --minutes <N> [--success]',
+    "Record a result: node plugins/acmm/scripts/onboarding-benchmark.js --record <task-id> --minutes <N> [--success]"
   );
 }
 
@@ -145,15 +147,15 @@ function printCatalog() {
 
 const args = process.argv.slice(2);
 
-if (args.includes('--record')) {
-  const recordIdx = args.indexOf('--record');
+if (args.includes("--record")) {
+  const recordIdx = args.indexOf("--record");
   const taskId = args[recordIdx + 1];
-  const minutesIdx = args.indexOf('--minutes');
+  const minutesIdx = args.indexOf("--minutes");
   const minutes = minutesIdx !== -1 ? parseFloat(args[minutesIdx + 1]) : NaN;
-  const success = args.includes('--success');
+  const success = args.includes("--success");
 
   if (!taskId || isNaN(minutes)) {
-    console.error('Usage: --record <task-id> --minutes <N> [--success]');
+    console.error("Usage: --record <task-id> --minutes <N> [--success]");
     process.exit(1);
   }
 

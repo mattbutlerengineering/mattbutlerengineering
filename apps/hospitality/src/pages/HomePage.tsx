@@ -7,10 +7,7 @@ import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import { ReservationList, ActivityFeed } from "../components/dashboard";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useDashboardStats } from "../hooks/useDashboardStats";
-import {
-  useReservationEvents,
-  type ReservationEvent,
-} from "../hooks/useReservationEvents";
+import { useReservationEvents, type ReservationEvent } from "../hooks/useReservationEvents";
 import styles from "./HomePage.module.css";
 
 const MAX_FEED_ITEMS = 5;

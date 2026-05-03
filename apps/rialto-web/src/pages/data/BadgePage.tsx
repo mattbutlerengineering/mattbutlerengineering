@@ -189,7 +189,10 @@ export function BadgePage() {
         <DataList
           items={[
             { label: "Element", value: "<span> — inline element" },
-            { label: "Semantics", value: "No implicit role; wrap in aria-label if status dot carries meaning" },
+            {
+              label: "Semantics",
+              value: "No implicit role; wrap in aria-label if status dot carries meaning",
+            },
             { label: "Color", value: "Color is supplemental — text content must convey meaning" },
             { label: "Contrast", value: "All variants meet WCAG AA 4.5:1 contrast ratio" },
           ]}

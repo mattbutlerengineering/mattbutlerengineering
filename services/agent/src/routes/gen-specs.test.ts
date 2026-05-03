@@ -255,9 +255,7 @@ describe("Gen Specs Routes", () => {
     });
 
     it("returns 404 for wrong user (ownership check)", async () => {
-      vi.mocked(storedSpecService.toggleFavorite).mockRejectedValueOnce(
-        new Error("Not found")
-      );
+      vi.mocked(storedSpecService.toggleFavorite).mockRejectedValueOnce(new Error("Not found"));
 
       const response = await app.inject({
         method: "PATCH",
@@ -281,9 +279,7 @@ describe("Gen Specs Routes", () => {
     });
 
     it("returns 404 for wrong user (ownership check)", async () => {
-      vi.mocked(storedSpecService.delete).mockRejectedValueOnce(
-        new Error("Not found")
-      );
+      vi.mocked(storedSpecService.delete).mockRejectedValueOnce(new Error("Not found"));
 
       const response = await app.inject({
         method: "DELETE",

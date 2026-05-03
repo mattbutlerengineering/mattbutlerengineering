@@ -1,5 +1,14 @@
 import { useState } from "react";
-import { Button, Card, Checkbox, DataList, Radio, RadioGroup, Stack, Text } from "@mattbutlerengineering/rialto";
+import {
+  Button,
+  Card,
+  Checkbox,
+  DataList,
+  Radio,
+  RadioGroup,
+  Stack,
+  Text,
+} from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";
@@ -44,11 +53,7 @@ export function CheckboxRadioPage() {
               setCheckC(v);
             }}
           />
-          <Checkbox
-            label="Launch control"
-            checked={checkC}
-            onCheckedChange={setCheckC}
-          />
+          <Checkbox label="Launch control" checked={checkC} onCheckedChange={setCheckC} />
           <Checkbox label="Disabled option" disabled />
           <Checkbox label="Disabled checked" disabled checked />
         </div>
@@ -81,12 +86,7 @@ export function CheckboxRadioPage() {
             <Radio label="Wet" value="wet" disabled />
           </RadioGroup>
 
-          <RadioGroup
-            label="Tyre Compound"
-            name="showcase-tyre"
-            value="medium"
-            onChange={() => {}}
-          >
+          <RadioGroup label="Tyre Compound" name="showcase-tyre" value="medium" onChange={() => {}}>
             <Radio label="Soft (C5)" value="soft" />
             <Radio label="Medium (C3)" value="medium" />
             <Radio label="Hard (C1)" value="hard" />

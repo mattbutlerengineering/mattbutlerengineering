@@ -9,7 +9,9 @@
 -
 
 ## RIPER Phase
+
 <!-- Which RIPER phase does this PR represent? -->
+
 - [ ] Research
 - [ ] Innovate
 - [ ] Plan
@@ -35,4 +37,5 @@
 - [ ] Documentation updated (if applicable)
 
 ## Linked Issue
+
 Closes #

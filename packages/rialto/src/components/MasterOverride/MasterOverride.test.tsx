@@ -78,14 +78,10 @@ describe("MasterOverride", () => {
       render(<Harness />);
       const cover = screen.getByRole("button", { name: /lift safety cover/i });
       await user.click(cover);
-      await user.click(
-        screen.getByRole("button", { name: /close safety cover for kill switch/i })
-      );
+      await user.click(screen.getByRole("button", { name: /close safety cover for kill switch/i }));
 
       expect(screen.getByRole("switch")).toBeDisabled();
-      expect(
-        screen.getByRole("button", { name: /lift safety cover/i })
-      ).toHaveFocus();
+      expect(screen.getByRole("button", { name: /lift safety cover/i })).toHaveFocus();
     });
   });
 
@@ -107,12 +103,7 @@ describe("MasterOverride", () => {
 
     it("associates description via aria-describedby", () => {
       render(
-        <MasterOverride
-          label="Kill"
-          on={false}
-          onChange={vi.fn()}
-          description="Halts production"
-        />
+        <MasterOverride label="Kill" on={false} onChange={vi.fn()} description="Halts production" />
       );
       expect(screen.getByRole("switch")).toHaveAccessibleDescription("Halts production");
     });
@@ -154,9 +145,7 @@ describe("MasterOverride", () => {
     it("does not engage on a single click (no hold)", async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       const onChange = vi.fn();
-      render(
-        <MasterOverride label="Primary" on={false} onChange={onChange} requireHold />
-      );
+      render(<MasterOverride label="Primary" on={false} onChange={onChange} requireHold />);
       await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
       await user.click(screen.getByRole("switch"));
       expect(onChange).not.toHaveBeenCalled();
@@ -165,9 +154,7 @@ describe("MasterOverride", () => {
     it("disengages on a single click — asymmetric (on → off is instant)", async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       const onChange = vi.fn();
-      render(
-        <MasterOverride label="Primary" on={true} onChange={onChange} requireHold />
-      );
+      render(<MasterOverride label="Primary" on={true} onChange={onChange} requireHold />);
       await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
       await user.click(screen.getByRole("switch"));
       expect(onChange).toHaveBeenCalledWith(false);
@@ -175,9 +162,7 @@ describe("MasterOverride", () => {
 
     it("engages after holding the switch for the default 1000ms threshold", async () => {
       const onChange = vi.fn();
-      render(
-        <MasterOverride label="Primary" on={false} onChange={onChange} requireHold />
-      );
+      render(<MasterOverride label="Primary" on={false} onChange={onChange} requireHold />);
 
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
@@ -197,45 +182,47 @@ describe("MasterOverride", () => {
     it("engages when Enter is held past threshold", async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       const onChange = vi.fn();
-      render(
-        <MasterOverride label="Primary" on={false} onChange={onChange} requireHold />
-      );
+      render(<MasterOverride label="Primary" on={false} onChange={onChange} requireHold />);
       await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
       const switchEl = screen.getByRole("switch");
       switchEl.focus();
       fireEvent.keyDown(switchEl, { key: "Enter" });
-      await act(async () => { vi.advanceTimersByTime(1000); });
+      await act(async () => {
+        vi.advanceTimersByTime(1000);
+      });
       expect(onChange).toHaveBeenCalledWith(true);
     });
 
     it("engages when Space is held past threshold", async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       const onChange = vi.fn();
-      render(
-        <MasterOverride label="Primary" on={false} onChange={onChange} requireHold />
-      );
+      render(<MasterOverride label="Primary" on={false} onChange={onChange} requireHold />);
       await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
       const switchEl = screen.getByRole("switch");
       switchEl.focus();
       fireEvent.keyDown(switchEl, { key: " " });
-      await act(async () => { vi.advanceTimersByTime(1000); });
+      await act(async () => {
+        vi.advanceTimersByTime(1000);
+      });
       expect(onChange).toHaveBeenCalledWith(true);
     });
 
     it("ignores key-repeat events (does not reset the hold timer)", async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       const onChange = vi.fn();
-      render(
-        <MasterOverride label="Primary" on={false} onChange={onChange} requireHold />
-      );
+      render(<MasterOverride label="Primary" on={false} onChange={onChange} requireHold />);
       await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
       const switchEl = screen.getByRole("switch");
       switchEl.focus();
       fireEvent.keyDown(switchEl, { key: "Enter" });
-      await act(async () => { vi.advanceTimersByTime(500); });
+      await act(async () => {
+        vi.advanceTimersByTime(500);
+      });
       // Simulate OS key-repeat firing a second keydown midway
       fireEvent.keyDown(switchEl, { key: "Enter", repeat: true });
-      await act(async () => { vi.advanceTimersByTime(500); });
+      await act(async () => {
+        vi.advanceTimersByTime(500);
+      });
       // Total elapsed = 1000ms; if repeat had reset, threshold would not have fired
       expect(onChange).toHaveBeenCalledWith(true);
     });
@@ -243,101 +230,109 @@ describe("MasterOverride", () => {
     it("cancels when pointer is released before threshold", async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       const onChange = vi.fn();
-      render(
-        <MasterOverride label="Primary" on={false} onChange={onChange} requireHold />
-      );
+      render(<MasterOverride label="Primary" on={false} onChange={onChange} requireHold />);
       await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
       const switchEl = screen.getByRole("switch");
       fireEvent.pointerDown(switchEl);
-      await act(async () => { vi.advanceTimersByTime(500); });
+      await act(async () => {
+        vi.advanceTimersByTime(500);
+      });
       fireEvent.pointerUp(switchEl);
-      await act(async () => { vi.advanceTimersByTime(2000); });
+      await act(async () => {
+        vi.advanceTimersByTime(2000);
+      });
       expect(onChange).not.toHaveBeenCalled();
     });
 
     it("cancels when pointer leaves the switch before threshold", async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       const onChange = vi.fn();
-      render(
-        <MasterOverride label="Primary" on={false} onChange={onChange} requireHold />
-      );
+      render(<MasterOverride label="Primary" on={false} onChange={onChange} requireHold />);
       await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
       const switchEl = screen.getByRole("switch");
       fireEvent.pointerDown(switchEl);
-      await act(async () => { vi.advanceTimersByTime(400); });
+      await act(async () => {
+        vi.advanceTimersByTime(400);
+      });
       fireEvent.pointerLeave(switchEl);
-      await act(async () => { vi.advanceTimersByTime(2000); });
+      await act(async () => {
+        vi.advanceTimersByTime(2000);
+      });
       expect(onChange).not.toHaveBeenCalled();
     });
 
     it("cancels when key is released before threshold", async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       const onChange = vi.fn();
-      render(
-        <MasterOverride label="Primary" on={false} onChange={onChange} requireHold />
-      );
+      render(<MasterOverride label="Primary" on={false} onChange={onChange} requireHold />);
       await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
       const switchEl = screen.getByRole("switch");
       switchEl.focus();
       fireEvent.keyDown(switchEl, { key: "Enter" });
-      await act(async () => { vi.advanceTimersByTime(300); });
+      await act(async () => {
+        vi.advanceTimersByTime(300);
+      });
       fireEvent.keyUp(switchEl, { key: "Enter" });
-      await act(async () => { vi.advanceTimersByTime(2000); });
+      await act(async () => {
+        vi.advanceTimersByTime(2000);
+      });
       expect(onChange).not.toHaveBeenCalled();
     });
 
     it("cancels when pointer is released outside the element (document pointerup)", async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       const onChange = vi.fn();
-      render(
-        <MasterOverride label="Primary" on={false} onChange={onChange} requireHold />
-      );
+      render(<MasterOverride label="Primary" on={false} onChange={onChange} requireHold />);
       await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
       const switchEl = screen.getByRole("switch");
       fireEvent.pointerDown(switchEl);
-      await act(async () => { vi.advanceTimersByTime(300); });
+      await act(async () => {
+        vi.advanceTimersByTime(300);
+      });
       // Release somewhere other than the switch
       fireEvent.pointerUp(document.body);
-      await act(async () => { vi.advanceTimersByTime(2000); });
+      await act(async () => {
+        vi.advanceTimersByTime(2000);
+      });
       expect(onChange).not.toHaveBeenCalled();
     });
 
     it("clamps requireHold below 250ms to 250ms", async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       const onChange = vi.fn();
-      render(
-        <MasterOverride label="Primary" on={false} onChange={onChange} requireHold={100} />
-      );
+      render(<MasterOverride label="Primary" on={false} onChange={onChange} requireHold={100} />);
       await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
       const switchEl = screen.getByRole("switch");
       fireEvent.pointerDown(switchEl);
       // At 100ms (requested) — should NOT have fired yet
-      await act(async () => { vi.advanceTimersByTime(100); });
+      await act(async () => {
+        vi.advanceTimersByTime(100);
+      });
       expect(onChange).not.toHaveBeenCalled();
       // At 250ms (clamp minimum) — should fire
-      await act(async () => { vi.advanceTimersByTime(150); });
+      await act(async () => {
+        vi.advanceTimersByTime(150);
+      });
       expect(onChange).toHaveBeenCalledWith(true);
     });
 
     it("clamps requireHold above 5000ms to 5000ms", async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       const onChange = vi.fn();
-      render(
-        <MasterOverride label="Primary" on={false} onChange={onChange} requireHold={10000} />
-      );
+      render(<MasterOverride label="Primary" on={false} onChange={onChange} requireHold={10000} />);
       await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
       const switchEl = screen.getByRole("switch");
       fireEvent.pointerDown(switchEl);
       // At 5000ms (clamp ceiling) — should fire
-      await act(async () => { vi.advanceTimersByTime(5000); });
+      await act(async () => {
+        vi.advanceTimersByTime(5000);
+      });
       expect(onChange).toHaveBeenCalledWith(true);
     });
 
     it("announces 'Hold to arm' when hold begins", async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-      render(
-        <MasterOverride label="Primary" on={false} onChange={() => {}} requireHold />
-      );
+      render(<MasterOverride label="Primary" on={false} onChange={() => {}} requireHold />);
       await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
       fireEvent.pointerDown(screen.getByRole("switch"));
       const live = screen.getByRole("status");
@@ -346,13 +341,13 @@ describe("MasterOverride", () => {
 
     it("announces 'Arming cancelled' on early release", async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-      render(
-        <MasterOverride label="Primary" on={false} onChange={() => {}} requireHold />
-      );
+      render(<MasterOverride label="Primary" on={false} onChange={() => {}} requireHold />);
       await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
       const switchEl = screen.getByRole("switch");
       fireEvent.pointerDown(switchEl);
-      await act(async () => { vi.advanceTimersByTime(200); });
+      await act(async () => {
+        vi.advanceTimersByTime(200);
+      });
       fireEvent.pointerUp(switchEl);
       expect(screen.getByRole("status").textContent).toMatch(/arming cancelled/i);
     });
@@ -362,12 +357,12 @@ describe("MasterOverride", () => {
       // Use a non-reactive onChange so `on` stays false — the announcement fires
       // and is not immediately cleared by the armed/on-change clear effect.
       const onChange = vi.fn();
-      render(
-        <MasterOverride label="Primary" on={false} onChange={onChange} requireHold />
-      );
+      render(<MasterOverride label="Primary" on={false} onChange={onChange} requireHold />);
       await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
       fireEvent.pointerDown(screen.getByRole("switch"));
-      await act(async () => { vi.advanceTimersByTime(1000); });
+      await act(async () => {
+        vi.advanceTimersByTime(1000);
+      });
       expect(screen.getByRole("status").textContent).toMatch(/primary engaged/i);
       expect(onChange).toHaveBeenCalledWith(true);
     });
@@ -388,14 +383,14 @@ describe("MasterOverride", () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       const Harness = () => {
         const [on, setOn] = useState(false);
-        return (
-          <MasterOverride label="Primary" on={on} onChange={setOn} requireHold />
-        );
+        return <MasterOverride label="Primary" on={on} onChange={setOn} requireHold />;
       };
       render(<Harness />);
       await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
       fireEvent.pointerDown(screen.getByRole("switch"));
-      await act(async () => { vi.advanceTimersByTime(1000); });
+      await act(async () => {
+        vi.advanceTimersByTime(1000);
+      });
       // After engagement, the live region briefly says "Primary engaged"…
       // (may already be cleared by React flush order, so we allow either value)
       // The load-bearing assertion is after closing the cover:
@@ -408,14 +403,14 @@ describe("MasterOverride", () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       const Harness = () => {
         const [on, setOn] = useState(false);
-        return (
-          <MasterOverride label="Primary" on={on} onChange={setOn} requireHold />
-        );
+        return <MasterOverride label="Primary" on={on} onChange={setOn} requireHold />;
       };
       render(<Harness />);
       await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
       fireEvent.pointerDown(screen.getByRole("switch"));
-      await act(async () => { vi.advanceTimersByTime(1000); });
+      await act(async () => {
+        vi.advanceTimersByTime(1000);
+      });
       // At this point: hold completed → setOn(true) fired → parent re-rendered
       // with on=true. The snapshot holds on=false, so the mismatch should
       // cause the live region to fall back to statusMessage (NOT "Primary engaged").
@@ -430,12 +425,12 @@ describe("MasterOverride", () => {
     it("still engages at threshold when prefers-reduced-motion is true (default in tests)", async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       const onChange = vi.fn();
-      render(
-        <MasterOverride label="Primary" on={false} onChange={onChange} requireHold />
-      );
+      render(<MasterOverride label="Primary" on={false} onChange={onChange} requireHold />);
       await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
       fireEvent.pointerDown(screen.getByRole("switch"));
-      await act(async () => { vi.advanceTimersByTime(1000); });
+      await act(async () => {
+        vi.advanceTimersByTime(1000);
+      });
       expect(onChange).toHaveBeenCalledWith(true);
     });
 
@@ -447,9 +442,13 @@ describe("MasterOverride", () => {
       );
       await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
       fireEvent.pointerDown(screen.getByRole("switch"));
-      await act(async () => { vi.advanceTimersByTime(400); });
+      await act(async () => {
+        vi.advanceTimersByTime(400);
+      });
       unmount();
-      await act(async () => { vi.advanceTimersByTime(2000); });
+      await act(async () => {
+        vi.advanceTimersByTime(2000);
+      });
       expect(onChange).not.toHaveBeenCalled();
     });
   });
@@ -463,12 +462,7 @@ describe("MasterOverride", () => {
 
     it("renders a single SplitFlap when splitflap mode", () => {
       const { container } = render(
-        <MasterOverride
-          label="Kill"
-          on={false}
-          onChange={() => {}}
-          labelTransition="splitflap"
-        />
+        <MasterOverride label="Kill" on={false} onChange={() => {}} labelTransition="splitflap" />
       );
       // SplitFlap's root element has a className containing "board".
       const board = container.querySelector('[class*="board"]');
@@ -482,14 +476,7 @@ describe("MasterOverride", () => {
       const user = userEvent.setup();
       const Harness = () => {
         const [on, setOn] = useState(false);
-        return (
-          <MasterOverride
-            label="Kill"
-            on={on}
-            onChange={setOn}
-            labelTransition="splitflap"
-          />
-        );
+        return <MasterOverride label="Kill" on={on} onChange={setOn} labelTransition="splitflap" />;
       };
       const { container } = render(<Harness />);
       await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
@@ -565,14 +552,7 @@ describe("MasterOverride", () => {
       const playSpy = vi.spyOn(feedbackUtils, "playClickSound");
       const hapticSpy = vi.spyOn(feedbackUtils, "triggerHapticFeedback");
 
-      render(
-        <MasterOverride
-          label="Kill"
-          on={false}
-          onChange={() => {}}
-          feedback="both"
-        />
-      );
+      render(<MasterOverride label="Kill" on={false} onChange={() => {}} feedback="both" />);
 
       await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
       await user.click(screen.getByRole("switch"));
@@ -587,13 +567,7 @@ describe("MasterOverride", () => {
       const playSpy = vi.spyOn(feedbackUtils, "playClickSound");
 
       render(
-        <MasterOverride
-          label="Kill"
-          on={false}
-          onChange={() => {}}
-          requireHold
-          feedback="click"
-        />
+        <MasterOverride label="Kill" on={false} onChange={() => {}} requireHold feedback="click" />
       );
 
       await user.click(screen.getByRole("button", { name: /lift safety cover/i }));
@@ -650,8 +624,12 @@ describe("MasterOverride", () => {
       );
       expect(screen.getByText("Console")).toBeInTheDocument();
       // Use getByRole to be more specific and avoid multiple label matches
-      expect(screen.getByRole("button", { name: /lift safety cover for switch 1/i })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /lift safety cover for switch 2/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /lift safety cover for switch 1/i })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /lift safety cover for switch 2/i })
+      ).toBeInTheDocument();
     });
   });
 });

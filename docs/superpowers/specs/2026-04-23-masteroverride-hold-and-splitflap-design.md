@@ -6,7 +6,7 @@
 
 ## Problem
 
-`MasterOverride` (`packages/rialto/src/components/MasterOverride/MasterOverride.tsx`) nails the visual language of a missile-silo arming switch — hinged cover, warning stripes, machined bezel — but the *engage* action is a single click. A single click undermines the whole "this is dangerous" framing. The component also has a bespoke crossfade between `idleLabel` and `activeLabel` that doesn't reuse the library's flagship mechanical primitive (`SplitFlap`).
+`MasterOverride` (`packages/rialto/src/components/MasterOverride/MasterOverride.tsx`) nails the visual language of a missile-silo arming switch — hinged cover, warning stripes, machined bezel — but the _engage_ action is a single click. A single click undermines the whole "this is dangerous" framing. The component also has a bespoke crossfade between `idleLabel` and `activeLabel` that doesn't reuse the library's flagship mechanical primitive (`SplitFlap`).
 
 This spec covers two opt-in enhancements that invest in the **moment of engagement** without changing default behavior for existing consumers:
 
@@ -48,6 +48,7 @@ export interface MasterOverrideProps {
 **Defaults preserve today's behavior.** A consumer on `@mattbutlerengineering/rialto@0.1.10` upgrading to `0.1.11` sees no visual or behavioral change unless they opt in.
 
 Defaults resolution:
+
 - `requireHold === true` → threshold = `1000`
 - `requireHold === false | undefined` → no hold gating
 - `requireHold: number` → threshold = that number (clamped to `[250, 5000]` to prevent degenerate UX)
@@ -68,13 +69,13 @@ Hold-to-engage adds **only a transient sub-state** during the off → on transit
 
 **Transition table (when `requireHold` is set):**
 
-| Starting state | User action | Result |
-|---|---|---|
-| `armed=true, on=false` | pointerdown / keydown on switch | `isHolding=true`; start threshold timer; `holdProgress` animates 0 → 1 over threshold ms |
-| hold active | pointerup / keyup before threshold | `isHolding=false`; `holdProgress` animates back to 0; announce "Arming cancelled" |
-| hold active | pointerleave before threshold | same as above (cancel) |
-| hold active | threshold fires | clear timer; `onChange(true)`; `isHolding=false`; `holdProgress` snaps to 0; announce `"{label} engaged"` |
-| `armed=true, on=true` | click on switch | `onChange(false)` immediately (no hold required — asymmetric) |
+| Starting state         | User action                        | Result                                                                                                    |
+| ---------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `armed=true, on=false` | pointerdown / keydown on switch    | `isHolding=true`; start threshold timer; `holdProgress` animates 0 → 1 over threshold ms                  |
+| hold active            | pointerup / keyup before threshold | `isHolding=false`; `holdProgress` animates back to 0; announce "Arming cancelled"                         |
+| hold active            | pointerleave before threshold      | same as above (cancel)                                                                                    |
+| hold active            | threshold fires                    | clear timer; `onChange(true)`; `isHolding=false`; `holdProgress` snaps to 0; announce `"{label} engaged"` |
+| `armed=true, on=true`  | click on switch                    | `onChange(false)` immediately (no hold required — asymmetric)                                             |
 
 When `requireHold` is not set, the component behaves exactly as today.
 
@@ -94,10 +95,8 @@ A new `<span className={styles.progressRing} aria-hidden="true">` nested inside 
     transparent 0
   );
   /* Mask to ring only — hollow center */
-  mask:
-    radial-gradient(circle, transparent 55%, #000 58%);
-  -webkit-mask:
-    radial-gradient(circle, transparent 55%, #000 58%);
+  mask: radial-gradient(circle, transparent 55%, #000 58%);
+  -webkit-mask: radial-gradient(circle, transparent 55%, #000 58%);
   transition: opacity var(--rialto-duration-fast) var(--rialto-ease-precision);
   filter: drop-shadow(0 0 6px var(--rialto-accent-glow));
 }
@@ -125,17 +124,18 @@ When `labelTransition === "splitflap"`:
 
 ### 5. Motion & reduced motion
 
-| Motion | Normal | Reduced |
-|---|---|---|
-| Cover flip | `springGentle` (existing) | `reduced` (existing) |
-| Lever flip | `spring` (existing) | `reduced` (existing) |
-| Progress ring fill | Framer `animate` value 0 → 1 over threshold ms, ease `precision` | No animation; ring stays invisible, threshold timer still runs, engage fires at threshold |
-| Progress ring cancel | `animate` back to 0 over 200ms | Instant (no animation) |
-| SplitFlap cascade | SplitFlap's own motion (per-cell `flipInterval`) | SplitFlap handles internally (`instant` prop) |
+| Motion               | Normal                                                           | Reduced                                                                                   |
+| -------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Cover flip           | `springGentle` (existing)                                        | `reduced` (existing)                                                                      |
+| Lever flip           | `spring` (existing)                                              | `reduced` (existing)                                                                      |
+| Progress ring fill   | Framer `animate` value 0 → 1 over threshold ms, ease `precision` | No animation; ring stays invisible, threshold timer still runs, engage fires at threshold |
+| Progress ring cancel | `animate` back to 0 over 200ms                                   | Instant (no animation)                                                                    |
+| SplitFlap cascade    | SplitFlap's own motion (per-cell `flipInterval`)                 | SplitFlap handles internally (`instant` prop)                                             |
 
 ### 6. Accessibility
 
 **`requireHold`:**
+
 - Switch button retains `role="switch" aria-checked={on}`.
 - Live region announcements (existing `role="status" aria-live="polite"`):
   - Hold start: `"Hold to arm {label}"`
@@ -146,6 +146,7 @@ When `labelTransition === "splitflap"`:
 - No countdown announcement — screen readers throttle `aria-live` polite regions inconsistently; a countdown ("3… 2… 1…") produces laggy, confusing audio.
 
 **`labelTransition="splitflap"`:**
+
 - SplitFlap container is `aria-hidden="true"`; relies on the switch's `aria-checked` for state announcement.
 - axe-core test must still pass.
 
@@ -264,32 +265,67 @@ New `describe` blocks in `MasterOverride.test.tsx`:
 
 ```tsx
 describe("requireHold", () => {
-  it("does not engage on single click", async () => { /* click → onChange not called */ });
-  it("engages after hold threshold via pointer", async () => { /* pointerdown + advance timers + assert onChange(true) */ });
-  it("engages after hold via Enter key", async () => { /* keydown Enter, advance, assert */ });
-  it("engages after hold via Space key", async () => { /* keydown Space, advance, assert */ });
-  it("cancels when released before threshold", async () => { /* pointerup early → no engage */ });
-  it("cancels on pointerleave", async () => { /* pointerleave → no engage */ });
-  it("ignores key-repeat events", async () => { /* multiple keydowns don't reset timer */ });
-  it("does not gate disengaging (asymmetric)", async () => { /* on=true, click → onChange(false) instantly */ });
-  it("clamps threshold below 250ms", async () => { /* requireHold={100} → uses 250 */ });
-  it("clamps threshold above 5000ms", async () => { /* requireHold={10000} → uses 5000 */ });
-  it("announces hold start, cancel, and success", async () => { /* status region content */ });
-  it("respects prefers-reduced-motion", async () => { /* motion mock, threshold still fires, ring not animated */ });
+  it("does not engage on single click", async () => {
+    /* click → onChange not called */
+  });
+  it("engages after hold threshold via pointer", async () => {
+    /* pointerdown + advance timers + assert onChange(true) */
+  });
+  it("engages after hold via Enter key", async () => {
+    /* keydown Enter, advance, assert */
+  });
+  it("engages after hold via Space key", async () => {
+    /* keydown Space, advance, assert */
+  });
+  it("cancels when released before threshold", async () => {
+    /* pointerup early → no engage */
+  });
+  it("cancels on pointerleave", async () => {
+    /* pointerleave → no engage */
+  });
+  it("ignores key-repeat events", async () => {
+    /* multiple keydowns don't reset timer */
+  });
+  it("does not gate disengaging (asymmetric)", async () => {
+    /* on=true, click → onChange(false) instantly */
+  });
+  it("clamps threshold below 250ms", async () => {
+    /* requireHold={100} → uses 250 */
+  });
+  it("clamps threshold above 5000ms", async () => {
+    /* requireHold={10000} → uses 5000 */
+  });
+  it("announces hold start, cancel, and success", async () => {
+    /* status region content */
+  });
+  it("respects prefers-reduced-motion", async () => {
+    /* motion mock, threshold still fires, ring not animated */
+  });
 });
 
 describe("labelTransition", () => {
-  it("renders crossfade labels by default", () => { /* labelOn + labelOff spans present */ });
-  it("renders a single SplitFlap when splitflap", () => { /* SplitFlap present, labelOn/Off absent */ });
-  it("updates SplitFlap value when switch toggles", async () => { /* value=STANDBY → value=ENGAGED */ });
-  it("uses labelLength prop when provided", () => { /* SplitFlap length matches */ });
-  it("derives length from longest label by default", () => { /* max(idle, active) */ });
+  it("renders crossfade labels by default", () => {
+    /* labelOn + labelOff spans present */
+  });
+  it("renders a single SplitFlap when splitflap", () => {
+    /* SplitFlap present, labelOn/Off absent */
+  });
+  it("updates SplitFlap value when switch toggles", async () => {
+    /* value=STANDBY → value=ENGAGED */
+  });
+  it("uses labelLength prop when provided", () => {
+    /* SplitFlap length matches */
+  });
+  it("derives length from longest label by default", () => {
+    /* max(idle, active) */
+  });
 });
 ```
 
 All existing tests must continue to pass unchanged (behavior is fully additive).
 
 Plus:
+
 - `accessibility.test.tsx` — add one axe-core entry with `requireHold={true}` + `labelTransition="splitflap"` to guarantee the composed state is WCAG-clean.
 
 ### 10. Showcase update
@@ -310,14 +346,14 @@ Plus:
 
 ## Risks & mitigations
 
-| Risk | Mitigation |
-|---|---|
-| Pointer capture edge cases (drag off element then release) | `pointerleave` cancels immediately; documented in test. Also: `pointerup` listener on the document, not just the element, to catch orphan releases. |
-| Key-repeat flooding `keydown` handler | Check `e.repeat` on keydown — only first event starts the hold. |
-| Timer leak if component unmounts mid-hold | `useEffect` cleanup stops animation ref on unmount. |
-| SplitFlap visual mismatch at `size="sm"` | Manually verified — map `md → sm` SplitFlap size so the cell fits the 7rem bezel. |
-| Reduced-motion + requireHold — threshold still elapses without visual progress | Deliberate: hold gate is a safety property, not a visual flourish. Document in JSDoc. |
-| Tests for hold depend on fake timers | Use `vi.useFakeTimers()` + `vi.advanceTimersByTime()` — already used elsewhere in the package (pattern established). |
+| Risk                                                                           | Mitigation                                                                                                                                          |
+| ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pointer capture edge cases (drag off element then release)                     | `pointerleave` cancels immediately; documented in test. Also: `pointerup` listener on the document, not just the element, to catch orphan releases. |
+| Key-repeat flooding `keydown` handler                                          | Check `e.repeat` on keydown — only first event starts the hold.                                                                                     |
+| Timer leak if component unmounts mid-hold                                      | `useEffect` cleanup stops animation ref on unmount.                                                                                                 |
+| SplitFlap visual mismatch at `size="sm"`                                       | Manually verified — map `md → sm` SplitFlap size so the cell fits the 7rem bezel.                                                                   |
+| Reduced-motion + requireHold — threshold still elapses without visual progress | Deliberate: hold gate is a safety property, not a visual flourish. Document in JSDoc.                                                               |
+| Tests for hold depend on fake timers                                           | Use `vi.useFakeTimers()` + `vi.advanceTimersByTime()` — already used elsewhere in the package (pattern established).                                |
 
 ## Delivery
 

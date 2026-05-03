@@ -16,11 +16,11 @@ node scripts/acmm/repo-bench.js --record missing-import 4 90     # Record: 4 tur
 
 ## Available Bugs
 
-| ID | Difficulty | File | What It Tests |
-|----|-----------|------|---------------|
-| `missing-import` | Easy | `packages/config/eslint/base.js` | Can the AI identify and restore a missing import? |
-| `wrong-status-code` | Easy | `services/users/src/routes/users.ts` | Can the AI spot a semantic bug (201→200) in a POST handler? |
-| `type-narrowing` | Medium | `packages/api-client/src/client.ts` | Can the AI diagnose a null-guard removal from TypeScript errors? |
+| ID                  | Difficulty | File                                 | What It Tests                                                    |
+| ------------------- | ---------- | ------------------------------------ | ---------------------------------------------------------------- |
+| `missing-import`    | Easy       | `packages/config/eslint/base.js`     | Can the AI identify and restore a missing import?                |
+| `wrong-status-code` | Easy       | `services/users/src/routes/users.ts` | Can the AI spot a semantic bug (201→200) in a POST handler?      |
+| `type-narrowing`    | Medium     | `packages/api-client/src/client.ts`  | Can the AI diagnose a null-guard removal from TypeScript errors? |
 
 ## Running a Benchmark
 
@@ -31,6 +31,7 @@ node scripts/acmm/repo-bench.js --seed missing-import
 ```
 
 The script:
+
 - Creates a `.bench-backup` of the original file
 - Injects the bug using a transform function
 - Prints the task description to give the AI
@@ -57,14 +58,15 @@ Results are appended to `.claude/acmm/repo-bench-results.json`.
 
 ## Interpreting Results
 
-| Metric | Good | Warning | Investigate |
-|--------|------|---------|-------------|
-| Easy bug turns | ≤5 | 6-10 | >10 |
-| Easy bug time | ≤2min | 2-5min | >5min |
-| Medium bug turns | ≤10 | 11-20 | >20 |
-| Medium bug time | ≤5min | 5-10min | >10min |
+| Metric           | Good  | Warning | Investigate |
+| ---------------- | ----- | ------- | ----------- |
+| Easy bug turns   | ≤5    | 6-10    | >10         |
+| Easy bug time    | ≤2min | 2-5min  | >5min       |
+| Medium bug turns | ≤10   | 11-20   | >20         |
+| Medium bug time  | ≤5min | 5-10min | >10min      |
 
 If results are worse than expected:
+
 1. Check if the relevant `CLAUDE.md` or package docs are missing context
 2. Add the missing information
 3. Re-run the benchmark to verify improvement
@@ -100,6 +102,7 @@ Add entries to the `SEEDED_BUGS` array in `scripts/acmm/repo-bench.js`:
 ```
 
 Guidelines for good benchmark bugs:
+
 - **Deterministic** — `seed()` and `verify()` must produce consistent results
 - **Single-file** — keep it to one file so the AI doesn't need cross-file context
 - **Realistic** — bugs should resemble real mistakes, not puzzles

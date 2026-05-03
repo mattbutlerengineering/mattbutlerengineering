@@ -94,9 +94,7 @@ describe("fetchCIFailures", () => {
 
   it("returns empty when all checks pass", async () => {
     mockExecFile.mockResolvedValue({
-      stdout: JSON.stringify([
-        { name: "test", state: "completed", conclusion: "success" },
-      ]),
+      stdout: JSON.stringify([{ name: "test", state: "completed", conclusion: "success" }]),
     });
 
     const failures = await fetchCIFailures(42, "/repo");
@@ -108,9 +106,7 @@ describe("fetchCIFailures", () => {
     // First call: pr checks
     mockExecFile
       .mockResolvedValueOnce({
-        stdout: JSON.stringify([
-          { name: "test", state: "completed", conclusion: "failure" },
-        ]),
+        stdout: JSON.stringify([{ name: "test", state: "completed", conclusion: "failure" }]),
       })
       // Second call: run list
       .mockResolvedValueOnce({

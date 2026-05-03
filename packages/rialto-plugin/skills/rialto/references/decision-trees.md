@@ -32,17 +32,17 @@ What kind of input?
 
 ### Quick lookup
 
-| Need | Component |
-|------|-----------|
-| Single text value | Input |
-| Multi-line text | TextArea |
-| Number with +/- controls | NumberInput |
-| One choice (2-5 visible options) | RadioGroup or SegmentedControl |
-| One choice (5+ options) | Select |
-| Multiple choices | Checkbox group |
-| On/off toggle | Toggle (immediate) or Checkbox (form) |
-| Fixed-length code entry | PinInput |
-| Continuous range | Slider |
+| Need                             | Component                             |
+| -------------------------------- | ------------------------------------- |
+| Single text value                | Input                                 |
+| Multi-line text                  | TextArea                              |
+| Number with +/- controls         | NumberInput                           |
+| One choice (2-5 visible options) | RadioGroup or SegmentedControl        |
+| One choice (5+ options)          | Select                                |
+| Multiple choices                 | Checkbox group                        |
+| On/off toggle                    | Toggle (immediate) or Checkbox (form) |
+| Fixed-length code entry          | PinInput                              |
+| Continuous range                 | Slider                                |
 
 ---
 
@@ -63,17 +63,17 @@ What kind of action?
 
 ## Overlays
 
-| Need | Use | Don't Use For |
-|------|-----|---------------|
-| Form/task in a modal | Dialog | Simple yes/no (use ConfirmDialog) |
-| Yes/no confirmation | ConfirmDialog | Complex forms (use Dialog) |
-| Settings/detail panel | Drawer | Quick info (use Popover) |
-| Positioned floating content | Popover | Simple text hints (use Tooltip) |
-| Short help text on hover | Tooltip | Rich content (use HoverCard) |
-| Rich preview on hover | HoverCard | Interactive content (use Popover) |
-| Keyboard command interface | CommandPalette | Simple dropdowns (use DropdownMenu) |
-| Click-triggered menu | DropdownMenu | Navigation links (use NavigationMenu) |
-| Right-click menu | ContextMenu | Primary actions (use Button) |
+| Need                        | Use            | Don't Use For                         |
+| --------------------------- | -------------- | ------------------------------------- |
+| Form/task in a modal        | Dialog         | Simple yes/no (use ConfirmDialog)     |
+| Yes/no confirmation         | ConfirmDialog  | Complex forms (use Dialog)            |
+| Settings/detail panel       | Drawer         | Quick info (use Popover)              |
+| Positioned floating content | Popover        | Simple text hints (use Tooltip)       |
+| Short help text on hover    | Tooltip        | Rich content (use HoverCard)          |
+| Rich preview on hover       | HoverCard      | Interactive content (use Popover)     |
+| Keyboard command interface  | CommandPalette | Simple dropdowns (use DropdownMenu)   |
+| Click-triggered menu        | DropdownMenu   | Navigation links (use NavigationMenu) |
+| Right-click menu            | ContextMenu    | Primary actions (use Button)          |
 
 ---
 
@@ -81,34 +81,34 @@ What kind of action?
 
 Route by urgency. Stop at the first match:
 
-| Priority | Condition | Component |
-|----------|-----------|-----------|
-| P1 | Destructive / irreversible | ConfirmDialog |
-| P2 | Must act before continuing | Dialog / Drawer |
-| P3 | Page-wide notice | Banner |
-| P4 | Tied to a specific element | Alert |
-| P5 | Brief notification | Toast |
-| P6 | Supplemental hover info | Tooltip / HoverCard |
+| Priority | Condition                  | Component           |
+| -------- | -------------------------- | ------------------- |
+| P1       | Destructive / irreversible | ConfirmDialog       |
+| P2       | Must act before continuing | Dialog / Drawer     |
+| P3       | Page-wide notice           | Banner              |
+| P4       | Tied to a specific element | Alert               |
+| P5       | Brief notification         | Toast               |
+| P6       | Supplemental hover info    | Tooltip / HoverCard |
 
 ### Comparison
 
-| Attribute | ConfirmDialog | Dialog/Drawer | Banner | Alert | Toast | Tooltip |
-|-----------|--------------|---------------|--------|-------|-------|---------|
-| Blocks workflow | Yes | Yes | No | No | No | No |
-| User must act | Yes | Yes | Optional | Optional | No | No |
-| Scope | Action | Task | Page | Element | Global | Element |
-| Persistence | Until resolved | Until closed | Until closed | Inline | ~4 seconds | Hover only |
-| Focus trapped | Yes | Yes | No | No | No | No |
+| Attribute       | ConfirmDialog  | Dialog/Drawer | Banner       | Alert    | Toast      | Tooltip    |
+| --------------- | -------------- | ------------- | ------------ | -------- | ---------- | ---------- |
+| Blocks workflow | Yes            | Yes           | No           | No       | No         | No         |
+| User must act   | Yes            | Yes           | Optional     | Optional | No         | No         |
+| Scope           | Action         | Task          | Page         | Element  | Global     | Element    |
+| Persistence     | Until resolved | Until closed  | Until closed | Inline   | ~4 seconds | Hover only |
+| Focus trapped   | Yes            | Yes           | No           | No       | No         | No         |
 
 ### Loading States
 
-| Scenario | Component |
-|----------|-----------|
-| Page loading | Skeleton matching final layout |
-| Button action pending | Button with `loading` prop |
-| Data fetch in flight | Spinner inside content area |
-| Upload/download | Progress with percentage |
-| Empty result set | EmptyState with CTA |
+| Scenario              | Component                      |
+| --------------------- | ------------------------------ |
+| Page loading          | Skeleton matching final layout |
+| Button action pending | Button with `loading` prop     |
+| Data fetch in flight  | Spinner inside content area    |
+| Upload/download       | Progress with percentage       |
+| Empty result set      | EmptyState with CTA            |
 
 ---
 
@@ -128,21 +128,21 @@ What navigation pattern?
 
 ### App Shell Patterns
 
-| Pattern | Components |
-|---------|-----------|
-| App shell | Navbar (top) + Sidebar (left) + Breadcrumb (content header) |
-| Content page | Breadcrumb (top) + Tabs (sections) + Pagination (bottom) |
-| Multi-step form | Steps (top) + form content + Button (next/back) |
-| Data explorer | Sidebar or Tree (left) + Table + Pagination (bottom) |
+| Pattern         | Components                                                  |
+| --------------- | ----------------------------------------------------------- |
+| App shell       | Navbar (top) + Sidebar (left) + Breadcrumb (content header) |
+| Content page    | Breadcrumb (top) + Tabs (sections) + Pagination (bottom)    |
+| Multi-step form | Steps (top) + form content + Button (next/back)             |
+| Data explorer   | Sidebar or Tree (left) + Table + Pagination (bottom)        |
 
 ### Common Mistakes
 
-| Mistake | Better Approach |
-|---------|----------------|
-| Tabs for sequential flow | Steps — shows progress and order |
-| Breadcrumb as primary nav | Navbar or Sidebar |
-| Sidebar with only 3 items | Tabs or NavigationMenu |
-| Pagination for <20 items | Show all items |
+| Mistake                   | Better Approach                  |
+| ------------------------- | -------------------------------- |
+| Tabs for sequential flow  | Steps — shows progress and order |
+| Breadcrumb as primary nav | Navbar or Sidebar                |
+| Sidebar with only 3 items | Tabs or NavigationMenu           |
+| Pagination for <20 items  | Show all items                   |
 
 ---
 
@@ -186,20 +186,20 @@ What structural need?
 
 ## Error Handling Patterns
 
-| Scenario | Component Pattern |
-|----------|------------------|
-| Field validation | Input with `error` prop |
-| Form-level error | Alert variant="error" above form |
-| Failed async action | Toast variant="error" |
-| System outage | Banner variant="error" at page top |
-| Destructive undo | ConfirmDialog variant="danger" |
+| Scenario            | Component Pattern                  |
+| ------------------- | ---------------------------------- |
+| Field validation    | Input with `error` prop            |
+| Form-level error    | Alert variant="error" above form   |
+| Failed async action | Toast variant="error"              |
+| System outage       | Banner variant="error" at page top |
+| Destructive undo    | ConfirmDialog variant="danger"     |
 
 ## Search & Selection Flows
 
-| Scenario | Pattern |
-|----------|---------|
-| Filter a flat list | Input + Tag group for active filters |
-| Search with keyboard shortcuts | CommandPalette |
-| Select from long list | Select with options |
-| Multi-select with visual tokens | Tag group with `dismissible` |
-| Hierarchical selection | Tree with `selectedId` |
+| Scenario                        | Pattern                              |
+| ------------------------------- | ------------------------------------ |
+| Filter a flat list              | Input + Tag group for active filters |
+| Search with keyboard shortcuts  | CommandPalette                       |
+| Select from long list           | Select with options                  |
+| Multi-select with visual tokens | Tag group with `dismissible`         |
+| Hierarchical selection          | Tree with `selectedId`               |

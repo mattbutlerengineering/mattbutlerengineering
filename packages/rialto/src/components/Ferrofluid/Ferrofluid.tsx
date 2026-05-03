@@ -60,11 +60,7 @@ export const Ferrofluid = forwardRef<HTMLDivElement, FerrofluidProps>(
         className={[styles.wrapper, className].filter(Boolean).join(" ")}
         {...rest}
       >
-        <svg
-          className={styles.svg}
-          viewBox="0 0 100 100"
-          preserveAspectRatio="xMidYMid slice"
-        >
+        <svg className={styles.svg} viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice">
           <defs>
             <filter id={filterId}>
               <feGaussianBlur in="SourceGraphic" stdDeviation={blurAmount} />
@@ -80,13 +76,7 @@ export const Ferrofluid = forwardRef<HTMLDivElement, FerrofluidProps>(
           <g filter={`url(#${filterId})`}>
             {blobs.map((blob, i) =>
               shouldReduceMotion ? (
-                <circle
-                  key={i}
-                  cx={blob.cx}
-                  cy={blob.cy}
-                  r={blob.r}
-                  fill={color}
-                />
+                <circle key={i} cx={blob.cx} cy={blob.cy} r={blob.r} fill={color} />
               ) : (
                 <motion.circle
                   key={i}
@@ -130,7 +120,7 @@ function generateBlobs(count: number): Blob[] {
   // reproducible but varies with configuration.
   let seed = count * 2654435761;
   const rand = () => {
-    seed = (seed + 0x6D2B79F5) | 0;
+    seed = (seed + 0x6d2b79f5) | 0;
     let t = seed;
     t = Math.imul(t ^ (t >>> 15), t | 1);
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);

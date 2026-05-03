@@ -55,7 +55,7 @@ export const checkAdrCommand = new Command("check-adr")
       return;
     }
 
-    const adrFiles = readdirSync(adrDir).filter(f => f.endsWith(".md"));
+    const adrFiles = readdirSync(adrDir).filter((f) => f.endsWith(".md"));
     const activeADRs: ADRFrontmatter[] = [];
 
     for (const file of adrFiles) {
@@ -86,7 +86,9 @@ export const checkAdrCommand = new Command("check-adr")
         files = stagedFiles
           .split("\n")
           .filter((f) => f.endsWith(".ts") || f.endsWith(".tsx"))
-          .filter((f) => !f.includes("node_modules") && !f.includes("dist") && !f.includes("generated"));
+          .filter(
+            (f) => !f.includes("node_modules") && !f.includes("dist") && !f.includes("generated")
+          );
       } catch {
         files = [];
       }
@@ -108,7 +110,7 @@ export const checkAdrCommand = new Command("check-adr")
         for (const pattern of adr.prohibited_patterns!) {
           const regex = new RegExp(pattern, "g");
           const matches = content.match(regex);
-          
+
           if (matches) {
             totalViolations += matches.length;
             console.error(`❌ Violation in ${file}:`);

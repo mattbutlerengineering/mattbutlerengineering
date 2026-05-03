@@ -16,6 +16,13 @@ export interface AuthPluginOptions {
   audience: string;
   /** Routes to exclude from token verification (e.g., ["/health"]) */
   excludePaths?: string[];
+  /**
+   * When true, call the OIDC /userinfo endpoint to enrich missing profile
+   * claims (email, name, picture) after successful JWT verification.
+   * Auth0 access tokens issued for custom API audiences omit these claims
+   * by default; enabling this option restores them.
+   */
+  fetchUserInfo?: boolean;
 }
 
 function createProblemDetails(status: number, title: string, detail: string) {
@@ -38,11 +45,8 @@ function createProblemDetails(status: number, title: string, detail: string) {
  * registering this plugin. An `onReady` hook will log a warning if the
  * `rateLimit` decorator is missing at startup.
  */
-async function authPluginImpl(
-  fastify: FastifyInstance,
-  options: AuthPluginOptions
-) {
-  const { authority, audience, excludePaths = [] } = options;
+async function authPluginImpl(fastify: FastifyInstance, options: AuthPluginOptions) {
+  const { authority, audience, excludePaths = [], fetchUserInfo = false } = options;
 
   const jwksUri = `${authority.replace(/\/$/, "")}/.well-known/jwks.json`;
   const JWKS = createRemoteJWKSet(new URL(jwksUri));
@@ -64,7 +68,10 @@ async function authPluginImpl(
   fastify.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
     // 1. Explicit Test Bypass
     // Check if bypass mode is enabled AND the request opted in via header.
-    if (process.env.AUTH_BYPASS_IN_TESTS === "true" && request.headers["x-auth-bypass"] === "true") {
+    if (
+      process.env.AUTH_BYPASS_IN_TESTS === "true" &&
+      request.headers["x-auth-bypass"] === "true"
+    ) {
       request.user = {
         id: "auth0|user-123",
         email: "test@example.com",
@@ -101,7 +108,9 @@ async function authPluginImpl(
 
       if (!result || !result.payload || typeof result.payload.sub !== "string") {
         request.log.warn("JWT missing required 'sub' claim");
-        return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Invalid token: missing sub"));
+        return reply
+          .code(401)
+          .send(createProblemDetails(401, "Unauthorized", "Invalid token: missing sub"));
       }
 
       const { payload } = result;
@@ -127,6 +136,43 @@ async function authPluginImpl(
         emailVerified: jwtPayload.email_verified,
         raw: jwtPayload,
       };
+
+      // Auth0 access tokens issued for custom API audiences omit profile
+      // claims (email, name, picture) by default. When fetchUserInfo is
+      // enabled and email is missing, enrich from the /userinfo endpoint.
+      if (fetchUserInfo && !request.user.email) {
+        const userInfoUrl = `${authority.replace(/\/$/, "")}/userinfo`;
+        try {
+          const userInfoResponse = await fetch(userInfoUrl, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (userInfoResponse.ok) {
+            const userInfo = (await userInfoResponse.json()) as {
+              email?: string;
+              name?: string;
+              picture?: string;
+              email_verified?: boolean;
+            };
+            request.user = {
+              ...request.user,
+              email: userInfo.email ?? request.user.email,
+              name: userInfo.name ?? request.user.name,
+              picture: userInfo.picture ?? request.user.picture,
+              emailVerified: userInfo.email_verified ?? request.user.emailVerified,
+            };
+          } else {
+            request.log.warn(
+              { userInfoStatus: userInfoResponse.status },
+              "Userinfo request returned non-OK status; profile claims may be incomplete"
+            );
+          }
+        } catch (userInfoErr) {
+          request.log.warn(
+            { error: userInfoErr },
+            "Failed to fetch userinfo for profile enrichment; profile claims may be incomplete"
+          );
+        }
+      }
     } catch (error) {
       request.log.warn({ error }, "JWT validation failed");
       return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Invalid token"));
@@ -140,9 +186,12 @@ export const authPlugin: FastifyPluginAsync<AuthPluginOptions> = fp(authPluginIm
 });
 
 export async function requireAuth(request: FastifyRequest, reply: FastifyReply) {
-  const isBypassed = process.env.AUTH_BYPASS_IN_TESTS === "true" && request.headers["x-auth-bypass"] === "true";
+  const isBypassed =
+    process.env.AUTH_BYPASS_IN_TESTS === "true" && request.headers["x-auth-bypass"] === "true";
   if (!request.user && !isBypassed) {
-    return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Missing or invalid authorization header"));
+    return reply
+      .code(401)
+      .send(createProblemDetails(401, "Unauthorized", "Missing or invalid authorization header"));
   }
 }
 

@@ -1,13 +1,7 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "model": "anthropic/claude-sonnet-4-6",
-  "contextPaths": [
-    "AGENTS.md",
-    "CLAUDE.md",
-    "GEMINI.md",
-    ".cursorrules",
-    ".codex/config.toml"
-  ],
+  "contextPaths": ["AGENTS.md", "CLAUDE.md", "GEMINI.md", ".cursorrules", ".codex/config.toml"],
   "permission": {
     "read": {
       "*": "allow",

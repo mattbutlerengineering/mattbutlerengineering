@@ -31,7 +31,7 @@ export function playClickSound(): void {
     osc.type = "sine";
     // Mechanical click frequency around 80Hz
     osc.frequency.setValueAtTime(80, audioCtx.currentTime);
-    
+
     // Fast decay envelope
     gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);

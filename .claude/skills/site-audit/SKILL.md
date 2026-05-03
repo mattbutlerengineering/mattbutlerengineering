@@ -65,15 +65,15 @@ If no files in `apps/`, `services/`, `packages/`, or `infrastructure/` changed, 
 
 ### Zones
 
-| Zone | Surfaces | Auth |
-|------|----------|------|
-| `marketing` | 1 page | none |
-| `hospitality` | 11 pages | auth0 |
-| `rialto` | 7 pages | none |
-| `gen` | 1 page | auth0 |
-| `api:users` | 1 endpoint | none |
-| `api:reservations` | 1 endpoint | none |
-| `api:agent` | 1 endpoint | none |
+| Zone               | Surfaces   | Auth  |
+| ------------------ | ---------- | ----- |
+| `marketing`        | 1 page     | none  |
+| `hospitality`      | 11 pages   | auth0 |
+| `rialto`           | 7 pages    | none  |
+| `gen`              | 1 page     | auth0 |
+| `api:users`        | 1 endpoint | none  |
+| `api:reservations` | 1 endpoint | none  |
+| `api:agent`        | 1 endpoint | none  |
 
 ### Steps
 
@@ -96,6 +96,7 @@ git log --since='$LAST_CHECKED' --name-only -- $SOURCE_FILES | head -1
 - If `lastChecked` is **null** (never audited) → always include
 
 Log skipped surfaces in the final report:
+
 ```
 Skipped 4 unchanged surfaces: marketing/home, rialto/tokens, ...
 ```
@@ -177,6 +178,7 @@ If a substantially similar issue already exists, **skip it**.
 **Title:** `[Audit] <Category>: <Specific finding>`
 
 **Labels:** Always apply `audit` + `ready` + one category label:
+
 - `performance` — Lighthouse perf score, slow loads, large bundles
 - `accessibility` — Missing labels, poor contrast, keyboard navigation
 - `seo` — Missing meta tags, poor scores
@@ -185,6 +187,7 @@ If a substantially similar issue already exists, **skip it**.
 For regressions detected by smoke mode, also add `ci-fix`.
 
 **Body:**
+
 ```markdown
 ## Finding
 
@@ -203,7 +206,8 @@ For regressions detected by smoke mode, also add `ci-fix`.
 [Brief suggestion if obvious, otherwise "Investigate and fix"]
 
 ---
-*Found by automated site audit ({{mode}} mode) on YYYY-MM-DD*
+
+_Found by automated site audit ({{mode}} mode) on YYYY-MM-DD_
 ```
 
 ## Authenticated Testing (Hospitality + Gen)

@@ -48,7 +48,9 @@
   inset-inline-start: var(--rialto-space-lg);
   z-index: 90;
   box-shadow: var(--rialto-shadow-md);
-  transition: color 0.15s ease, background-color 0.15s ease;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease;
 }
 
 .mobileSidebarToggle:hover {

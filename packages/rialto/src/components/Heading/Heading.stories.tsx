@@ -1,29 +1,38 @@
-import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Heading } from './Heading';
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import { Heading } from "./Heading";
 
 const meta: Meta<typeof Heading> = {
-  title: 'Foundation/Heading',
+  title: "Foundation/Heading",
   component: Heading,
-  tags: ['autodocs'],
+  tags: ["autodocs"],
   argTypes: {
     level: {
-      control: { type: 'select' },
+      control: { type: "select" },
       options: [1, 2, 3, 4, 5, 6],
     },
     size: {
-      control: { type: 'select' },
+      control: { type: "select" },
       options: [1, 2, 3, 4, 5, 6],
     },
     color: {
-      control: { type: 'select' },
-      options: ['primary', 'secondary', 'tertiary', 'accent', 'success', 'warning', 'error', 'on-accent'],
+      control: { type: "select" },
+      options: [
+        "primary",
+        "secondary",
+        "tertiary",
+        "accent",
+        "success",
+        "warning",
+        "error",
+        "on-accent",
+      ],
     },
     align: {
-      control: { type: 'radio' },
-      options: ['left', 'center', 'right'],
+      control: { type: "radio" },
+      options: ["left", "center", "right"],
     },
     truncate: {
-      control: 'boolean',
+      control: "boolean",
     },
   },
 };
@@ -33,14 +42,14 @@ type Story = StoryObj<typeof Heading>;
 
 export const Default: Story = {
   args: {
-    children: 'The quick brown fox',
+    children: "The quick brown fox",
     level: 2,
   },
 };
 
 export const Levels: Story = {
   render: () => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
       <Heading level={1}>Heading 1</Heading>
       <Heading level={2}>Heading 2</Heading>
       <Heading level={3}>Heading 3</Heading>
@@ -53,7 +62,7 @@ export const Levels: Story = {
 
 export const Colors: Story = {
   render: () => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
       <Heading color="primary">Primary Heading</Heading>
       <Heading color="secondary">Secondary Heading</Heading>
       <Heading color="accent">Accent Heading</Heading>
@@ -68,6 +77,6 @@ export const SizeOverride: Story = {
   args: {
     level: 2,
     size: 1,
-    children: 'Semantic H2, Visual Size 1',
+    children: "Semantic H2, Visual Size 1",
   },
 };

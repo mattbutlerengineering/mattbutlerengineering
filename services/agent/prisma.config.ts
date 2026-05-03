@@ -6,8 +6,7 @@ import { defineConfig } from "prisma/config";
 // connection (db push, migrate dev/deploy) will fail with a proper connection
 // error if DATABASE_URL was never set.
 const url =
-  process.env.DATABASE_URL ??
-  "postgresql://placeholder:placeholder@localhost:5432/placeholder";
+  process.env.DATABASE_URL ?? "postgresql://placeholder:placeholder@localhost:5432/placeholder";
 
 export default defineConfig({
   schema: "prisma/schema.prisma",

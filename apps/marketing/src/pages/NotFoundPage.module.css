@@ -33,7 +33,9 @@
   padding-inline: var(--rialto-space-sm);
   border: 1px solid var(--rialto-border);
   border-radius: var(--rialto-radius-default);
-  transition: color 150ms ease, border-color 150ms ease;
+  transition:
+    color 150ms ease,
+    border-color 150ms ease;
 }
 
 .suggestedLink:hover {
