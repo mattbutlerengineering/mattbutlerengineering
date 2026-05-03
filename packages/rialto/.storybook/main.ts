@@ -1,8 +1,8 @@
 import type { StorybookConfig } from '@storybook/react-vite';
 
 import { dirname } from "path"
-
 import { fileURLToPath } from "url"
+import type { InlineConfig } from 'vite';
 
 /**
 * This function is used to resolve the absolute path of a package.
@@ -23,6 +23,14 @@ const config: StorybookConfig = {
     getAbsolutePath('@storybook/addon-docs'),
     getAbsolutePath('@storybook/addon-onboarding')
   ],
-  "framework": getAbsolutePath('@storybook/react-vite')
+  "framework": getAbsolutePath('@storybook/react-vite'),
+  viteFinal(viteConfig: InlineConfig) {
+    viteConfig.resolve = viteConfig.resolve ?? {};
+    viteConfig.resolve.alias = {
+      ...(viteConfig.resolve.alias as Record<string, string>),
+      '@storybook/test': 'storybook/test',
+    };
+    return viteConfig;
+  },
 };
 export default config;
