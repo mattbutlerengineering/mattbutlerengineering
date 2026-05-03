@@ -77,24 +77,26 @@ export const SmallSize: Story = {
   },
 };
 
+function ControlledDemo() {
+  const [view, setView] = useState('grid');
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center' }}>
+      <SegmentedControl
+        segments={[
+          { id: 'list', label: 'List' },
+          { id: 'grid', label: 'Grid' },
+          { id: 'map', label: 'Map' },
+        ]}
+        value={view}
+        onChange={setView}
+      />
+      <span style={{ fontSize: '14px', color: 'var(--rialto-text-secondary)' }}>
+        Active view: <strong>{view}</strong>
+      </span>
+    </div>
+  );
+}
+
 export const Controlled: Story = {
-  render: () => {
-    const [view, setView] = useState('grid');
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center' }}>
-        <SegmentedControl
-          segments={[
-            { id: 'list', label: 'List' },
-            { id: 'grid', label: 'Grid' },
-            { id: 'map', label: 'Map' },
-          ]}
-          value={view}
-          onChange={setView}
-        />
-        <span style={{ fontSize: '14px', color: 'var(--rialto-text-secondary)' }}>
-          Active view: <strong>{view}</strong>
-        </span>
-      </div>
-    );
-  },
+  render: () => <ControlledDemo />,
 };

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { within, userEvent, expect } from '@storybook/test';
+import { within, expect } from '@storybook/test';
 import { Checkbox } from './Checkbox';
 
 const meta: Meta<typeof Checkbox> = {
