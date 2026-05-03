@@ -22,6 +22,14 @@ Read the output. The script queries 7 sensors (ACMM, PR metrics, agent cost, CI 
 
 If the script exits with code 1, regressions were detected. Note them for Step 3.
 
+### Step 1b: Sentry Triage
+
+If the Sentry MCP is available, run production error triage:
+
+Invoke `/sentry-triage` to query Sentry for new/regressed production errors and create GitHub issues for any that pass the severity/frequency/deduplication filters.
+
+This step is optional — if Sentry is not authenticated or unavailable, skip with a note in the summary.
+
 ### Step 2: Verify Past Fixes
 
 Run fix verification on recently-closed issues:
