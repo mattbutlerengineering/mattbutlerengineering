@@ -44,7 +44,16 @@ export async function* streamNDJSON<T>(config: StreamConfig): AsyncGenerator<T> 
   });
 
   if (!response.ok) {
-    throw new Error(`Request failed: ${response.statusText}`);
+    let detail = response.statusText || `HTTP ${response.status}`;
+    try {
+      const body = await response.json();
+      detail = (body as Record<string, unknown>).detail as string
+        ?? (body as Record<string, unknown>).message as string
+        ?? detail;
+    } catch {
+      // Response body is not JSON — use status text
+    }
+    throw new Error(`Request failed: ${detail}`);
   }
 
   if (!response.body) {
