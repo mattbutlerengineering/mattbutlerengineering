@@ -144,10 +144,10 @@ describe("SseConnectionManager", () => {
     });
 
     it("merges partial overrides with defaults", () => {
-      const manager = new SseConnectionManager({ maxConnectionsPerIp: 10 });
+      const manager = new SseConnectionManager({ maxConnectionsPerIp: 20 });
       const config = manager.getConfig();
 
-      expect(config.maxConnectionsPerIp).toBe(10);
+      expect(config.maxConnectionsPerIp).toBe(20);
       expect(config.connectionTimeoutMs).toBe(DEFAULT_SSE_CONFIG.connectionTimeoutMs);
     });
   });

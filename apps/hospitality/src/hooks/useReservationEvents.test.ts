@@ -278,6 +278,55 @@ describe("useReservationEvents", () => {
     expect(MockEventSource.instances.length).toBe(initialCount + 2);
   });
 
+  it("closes EventSource on error before scheduling reconnect", () => {
+    renderHook(() => useReservationEvents({ venueId: "v1" }));
+
+    const es = latestEventSource();
+    expect(es.readyState).not.toBe(2);
+
+    act(() => {
+      es.simulateError();
+    });
+
+    // The onerror handler should close the EventSource immediately
+    // to prevent the browser's built-in auto-reconnect from firing
+    expect(es.readyState).toBe(2);
+  });
+
+  it("applies longer cooldown after many consecutive failures", () => {
+    renderHook(() => useReservationEvents({ venueId: "v1" }));
+
+    // Simulate 8 consecutive errors to trigger rate-limit cooldown
+    for (let i = 0; i < 8; i++) {
+      act(() => {
+        latestEventSource().simulateError();
+      });
+      // Advance past the normal exponential backoff
+      act(() => {
+        vi.advanceTimersByTime(30_001);
+      });
+    }
+
+    const countBefore = MockEventSource.instances.length;
+
+    // 9th error should use 60s cooldown instead of 30s max
+    act(() => {
+      latestEventSource().simulateError();
+    });
+
+    // At 30s, should NOT have reconnected (would have if using normal backoff)
+    act(() => {
+      vi.advanceTimersByTime(30_000);
+    });
+    expect(MockEventSource.instances.length).toBe(countBefore);
+
+    // At 60s, should reconnect
+    act(() => {
+      vi.advanceTimersByTime(30_001);
+    });
+    expect(MockEventSource.instances.length).toBe(countBefore + 1);
+  });
+
   it("cleans up EventSource on unmount", () => {
     const { unmount } = renderHook(() =>
       useReservationEvents({ venueId: "v1" })

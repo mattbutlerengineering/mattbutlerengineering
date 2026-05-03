@@ -36,6 +36,16 @@ export interface UseReservationEventsResult {
   reconnect: () => void;
 }
 
+/**
+ * Initial backoff delay in ms. Doubles on each consecutive failure up to MAX_BACKOFF_MS.
+ * After MAX_BACKOFF_ATTEMPTS consecutive failures (likely 429 rate-limiting),
+ * a longer cooldown is applied to avoid hammering the server.
+ */
+const INITIAL_BACKOFF_MS = 1_000;
+const MAX_BACKOFF_MS = 30_000;
+const RATE_LIMIT_COOLDOWN_MS = 60_000;
+const MAX_BACKOFF_ATTEMPTS = 8;
+
 export function useReservationEvents(
   options: UseReservationEventsOptions = {}
 ): UseReservationEventsResult {
@@ -86,8 +96,12 @@ export function useReservationEvents(
   });
 
   const connect = useCallback(() => {
+    // Always close existing connection first to prevent duplicates.
+    // EventSource's built-in auto-reconnect fires immediately after onerror,
+    // so we must close() before opening a new one.
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
+      eventSourceRef.current = null;
     }
 
     const baseUrl = import.meta.env.VITE_API_URL ?? "";
@@ -106,14 +120,25 @@ export function useReservationEvents(
     };
 
     eventSource.onerror = () => {
+      // Close the EventSource immediately to prevent the browser's built-in
+      // auto-reconnect from racing with our manual backoff reconnect.
+      // Without this, both fire and you get 2x connections on every error.
+      eventSource.close();
+      eventSourceRef.current = null;
+
       setIsConnected(false);
       const err = new Error("SSE connection error");
       setError(err);
       callbacksRef.current.onError?.(err);
 
-      // Exponential backoff reconnection
-      const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);
-      reconnectAttempts.current += 1;
+      // After many consecutive failures, apply a longer cooldown.
+      // This is the likely 429 scenario — the server has rate-limited us.
+      const attempts = reconnectAttempts.current;
+      const delay =
+        attempts >= MAX_BACKOFF_ATTEMPTS
+          ? RATE_LIMIT_COOLDOWN_MS
+          : Math.min(INITIAL_BACKOFF_MS * Math.pow(2, attempts), MAX_BACKOFF_MS);
+      reconnectAttempts.current = attempts + 1;
 
       reconnectTimeoutRef.current = setTimeout(() => {
         connectRef.current?.();

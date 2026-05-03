@@ -3,12 +3,11 @@ import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
 import { Drawer, Button, Stack, Text, Card } from "@mattbutlerengineering/rialto";
-import type { Reservation, Table, TableStatus, UpdateReservationRequest } from "@mbe/types";
+import type { Reservation, TableStatus, UpdateReservationRequest } from "@mbe/types";
 import { TimelineGrid } from "../components/timeline";
 import { CancelReservationDialog } from "../components/timeline/CancelReservationDialog";
 import { EditReservationDrawer } from "../components/timeline/EditReservationDrawer";
 import { WalkInDialog } from "../components/timeline/WalkInDialog";
-import { useReservationEvents } from "../hooks/useReservationEvents";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useReservationData } from "../contexts/ReservationDataContext.js";
 import { PageHeader } from "../components/PageHeader";
@@ -167,13 +166,14 @@ export function TimelinePage() {
   const { selectedVenueId } = useVenue();
   const {
     reservations: sharedReservations,
+    tables,
     isConnected,
     setReservations: setSharedReservations,
+    setTables,
     addReservation,
     updateReservation,
   } = useReservationData();
 
-  const [tables, setTables] = useState<Table[]>([]);
   const [searchParams, setSearchParams] = useSearchParams();
   const todayStr = useMemo(() => new Date().toLocaleDateString("en-CA"), []);
   const selectedDate = searchParams.get("date") ?? todayStr;
@@ -195,22 +195,8 @@ export function TimelinePage() {
     [accessToken]
   );
 
-  // SSE for table updates and hold confirmations (reservation events handled by context)
-  useReservationEvents({
-    venueId: selectedVenueId ?? undefined,
-    enabled: !!selectedVenueId,
-    onHoldConfirmed: useCallback(
-      (reservation: Reservation) => {
-        if (reservation.date === selectedDate) {
-          addReservation(reservation);
-        }
-      },
-      [selectedDate, addReservation]
-    ),
-    onTableUpdated: useCallback((table: Table) => {
-      setTables((prev) => prev.map((t) => (t.id === table.id ? table : t)));
-    }, []),
-  });
+  // Table updates and hold confirmations are now handled by the shared
+  // ReservationDataContext — no separate useReservationEvents needed.
 
   // Filter shared reservations to the selected date
   const reservations = useMemo(

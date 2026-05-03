@@ -23,7 +23,7 @@ export interface SseConnectionConfig {
 
 /** Default configuration values. */
 export const DEFAULT_SSE_CONFIG: SseConnectionConfig = Object.freeze({
-  maxConnectionsPerIp: 5,
+  maxConnectionsPerIp: 10,
   connectionTimeoutMs: 30 * 60 * 1000, // 30 minutes
   maxEventBufferSize: 100,
   heartbeatIntervalMs: 30_000, // 30 seconds
