@@ -1,0 +1,41 @@
+name: Auto-QA Threshold Tuner
+
+on:
+  schedule:
+    # Monday 9am UTC
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  tune:
+    name: Tune QA Thresholds
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Run auto-qa-tune
+        run: node scripts/auto-qa-tune.mjs
+
+      - name: Commit updated thresholds (if changed)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet .github/auto-qa-tuning.json; then
+            echo "No threshold changes — nothing to commit."
+          else
+            git add .github/auto-qa-tuning.json
+            git commit -m "chore(acmm): auto-tune QA thresholds [skip ci]"
+            git push
+          fi
