@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/specs/auto-qa-tuning",
-  "$comment": "Self-tuning thresholds for the agent QA loop. These thresholds are consumed by agent dispatch (mbe agent run) and reviewer agents. A future auto-qa.yml workflow will read this file and write back adjusted thresholds based on observed PR-acceptance metrics from docs/metrics/pr-acceptance.json. See docs/review-criteria.md for the rubric the QA loop applies.",
+  "$comment": "Self-tuning thresholds for the agent QA loop. These thresholds are consumed by agent dispatch (mbe agent run) and reviewer agents. Run `node plugins/acmm/scripts/auto-qa-tune.js` to read PR-acceptance metrics from docs/metrics/pr-acceptance.json and write back adjusted thresholds. See docs/review-criteria.md for the rubric the QA loop applies.",
   "version": 1,
   "lastTunedAt": "2026-04-25",
   "thresholds": {
