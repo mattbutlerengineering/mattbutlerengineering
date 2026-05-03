@@ -1,12 +1,13 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Toast, useToast, ToastProvider } from './Toast';
+import { ToastProvider } from './Toast';
+import { useToast } from './ToastContext';
 import { Button } from '../Button/Button';
 import { Stack } from '../Stack/Stack';
 import { within, userEvent, expect } from '@storybook/test';
 
-const meta: Meta<typeof Toast> = {
+const meta: Meta<typeof ToastProvider> = {
   title: 'Overlay/Toast',
-  component: Toast,
+  component: ToastProvider,
   tags: ['autodocs'],
   decorators: [
     (Story) => (
@@ -18,12 +19,12 @@ const meta: Meta<typeof Toast> = {
 };
 
 export default meta;
-type Story = StoryObj<typeof Toast>;
+type Story = StoryObj<typeof ToastProvider>;
 
 function SuccessToast() {
-  const { addToast } = useToast();
+  const { toast } = useToast();
   return (
-    <Button onClick={() => addToast({ title: 'Success!', description: 'Your changes have been saved.', variant: 'success' })}>
+    <Button onClick={() => toast({ title: 'Success!', description: 'Your changes have been saved.', variant: 'success' })}>
       Show Success Toast
     </Button>
   );
@@ -40,9 +41,9 @@ export const Success: Story = {
 };
 
 function ErrorToast() {
-  const { addToast } = useToast();
+  const { toast } = useToast();
   return (
-    <Button variant="ghost" onClick={() => addToast({ title: 'Error!', description: 'Failed to save changes.', variant: 'error' })}>
+    <Button variant="ghost" onClick={() => toast({ title: 'Error!', description: 'Failed to save changes.', variant: 'error' })}>
       Show Error Toast
     </Button>
   );
@@ -52,24 +53,24 @@ export const Error: Story = {
   render: () => <ErrorToast />,
 };
 
-function WarningToast() {
-  const { addToast } = useToast();
+function AccentToast() {
+  const { toast } = useToast();
   return (
-    <Button onClick={() => addToast({ title: 'Warning', description: 'This action cannot be undone.', variant: 'warning' })}>
-      Show Warning Toast
+    <Button onClick={() => toast({ title: 'Notice', description: 'This action cannot be undone.', variant: 'accent' })}>
+      Show Accent Toast
     </Button>
   );
 }
 
-export const Warning: Story = {
-  render: () => <WarningToast />,
+export const Accent: Story = {
+  render: () => <AccentToast />,
 };
 
 function InfoToast() {
-  const { addToast } = useToast();
+  const { toast } = useToast();
   return (
     <Stack direction="row" gap="sm">
-      <Button onClick={() => addToast({ title: 'Notification', description: 'You have a new message.' })}>
+      <Button onClick={() => toast({ title: 'Notification', description: 'You have a new message.' })}>
         Show Info Toast
       </Button>
     </Stack>
@@ -80,19 +81,15 @@ export const Info: Story = {
   render: () => <InfoToast />,
 };
 
-function ActionToast() {
-  const { addToast } = useToast();
+function PersistentToast() {
+  const { toast } = useToast();
   return (
-    <Button onClick={() => addToast({
-      title: 'Undo changes?',
-      description: 'This action can be reverted.',
-      action: <Button size="sm" variant="ghost">Undo</Button>,
-    })}>
-      Show Toast with Action
+    <Button onClick={() => toast({ title: 'Manual dismiss', description: 'This toast stays until dismissed.', duration: 0 })}>
+      Show Persistent Toast
     </Button>
   );
 }
 
-export const WithAction: Story = {
-  render: () => <ActionToast />,
+export const Persistent: Story = {
+  render: () => <PersistentToast />,
 };
