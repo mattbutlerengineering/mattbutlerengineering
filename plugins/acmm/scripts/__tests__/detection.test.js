@@ -137,3 +137,97 @@ test("detectAll: returns set of detected ids only", () => {
   assert.deepEqual([...result].sort(), ["a", "c"]);
   fx.cleanup();
 });
+
+// ── active detection type ────────────────────────────────────────────
+
+function recentRunOutput(daysAgo = 1) {
+  const d = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
+  return JSON.stringify([{ updatedAt: d.toISOString() }]);
+}
+
+function staleRunOutput(daysAgo) {
+  const d = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
+  return JSON.stringify([{ updatedAt: d.toISOString() }]);
+}
+
+test("detect: active type — file present AND recent gh run → true", () => {
+  const fx = fixture();
+  fx.dir(".github/workflows");
+  fx.file(".github/workflows/auto-issue.yml", "on: schedule");
+
+  const criterion = {
+    id: "acmm:auto-issue-gen",
+    detection: { type: "active", pattern: ".github/workflows/auto-issue.yml", maxAgeDays: 7 },
+  };
+
+  const mockExecFileSync = () => recentRunOutput(1);
+  assert.equal(detect(fx.root, criterion, { execFileSyncFn: mockExecFileSync }), true);
+  fx.cleanup();
+});
+
+test("detect: active type — file missing → false (no gh call needed)", () => {
+  const fx = fixture();
+
+  const criterion = {
+    id: "acmm:auto-issue-gen",
+    detection: { type: "active", pattern: ".github/workflows/auto-issue.yml", maxAgeDays: 7 },
+  };
+
+  let ghCalled = false;
+  const mockExecFileSync = () => {
+    ghCalled = true;
+    return recentRunOutput(1);
+  };
+  assert.equal(detect(fx.root, criterion, { execFileSyncFn: mockExecFileSync }), false);
+  assert.equal(ghCalled, false, "gh should not be called when file is absent");
+  fx.cleanup();
+});
+
+test("detect: active type — file present but no recent run → false", () => {
+  const fx = fixture();
+  fx.dir(".github/workflows");
+  fx.file(".github/workflows/auto-issue.yml", "on: schedule");
+
+  const criterion = {
+    id: "acmm:auto-issue-gen",
+    detection: { type: "active", pattern: ".github/workflows/auto-issue.yml", maxAgeDays: 7 },
+  };
+
+  // Run was 10 days ago, maxAgeDays is 7
+  const mockExecFileSync = () => staleRunOutput(10);
+  assert.equal(detect(fx.root, criterion, { execFileSyncFn: mockExecFileSync }), false);
+  fx.cleanup();
+});
+
+test("detect: active type — gh CLI unavailable → fallback to file presence (true)", () => {
+  const fx = fixture();
+  fx.dir(".github/workflows");
+  fx.file(".github/workflows/auto-issue.yml", "on: schedule");
+
+  const criterion = {
+    id: "acmm:auto-issue-gen",
+    detection: { type: "active", pattern: ".github/workflows/auto-issue.yml", maxAgeDays: 7 },
+  };
+
+  const mockExecFileSync = () => {
+    throw new Error("gh: command not found");
+  };
+  // Should fall back to file-presence → true (with stderr warning)
+  assert.equal(detect(fx.root, criterion, { execFileSyncFn: mockExecFileSync }), true);
+  fx.cleanup();
+});
+
+test("detect: active type — gh returns empty runs array → false", () => {
+  const fx = fixture();
+  fx.dir(".github/workflows");
+  fx.file(".github/workflows/auto-rollback.yml", "on: workflow_run");
+
+  const criterion = {
+    id: "acmm:auto-rollback",
+    detection: { type: "active", pattern: ".github/workflows/auto-rollback.yml", maxAgeDays: 365 },
+  };
+
+  const mockExecFileSync = () => JSON.stringify([]);
+  assert.equal(detect(fx.root, criterion, { execFileSyncFn: mockExecFileSync }), false);
+  fx.cleanup();
+});
