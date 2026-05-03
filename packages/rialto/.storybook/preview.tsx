@@ -1,9 +1,31 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import type { Preview } from '@storybook/react';
 import { RialtoProvider } from '../src/providers/RialtoProvider';
 import '../src/styles-entry.css';
 
+const BACKGROUNDS = {
+  light: '#f8f6f3',
+  dark: '#1a1918',
+  system: '#f8f6f3',
+};
+
 const preview: Preview = {
+  globalTypes: {
+    theme: {
+      description: 'RialtoProvider theme',
+      defaultValue: 'light',
+      toolbar: {
+        title: 'Theme',
+        icon: 'circlehollow',
+        items: [
+          { value: 'light', icon: 'sun', title: 'Light' },
+          { value: 'dark', icon: 'moon', title: 'Dark' },
+          { value: 'system', icon: 'mirror', title: 'System' },
+        ],
+        dynamicTitle: true,
+      },
+    },
+  },
   parameters: {
     controls: {
       matchers: {
@@ -14,8 +36,8 @@ const preview: Preview = {
     backgrounds: {
       default: 'light',
       values: [
-        { name: 'light', value: '#f8f6f3' },
-        { name: 'dark', value: '#1a1918' },
+        { name: 'light', value: BACKGROUNDS.light },
+        { name: 'dark', value: BACKGROUNDS.dark },
       ],
     },
     a11y: {
@@ -28,26 +50,25 @@ const preview: Preview = {
   },
   decorators: [
     (Story, context) => {
-      const [theme, setTheme] = useState<'light' | 'dark'>('light');
+      const selectedTheme = (context.globals.theme ?? 'light') as 'light' | 'dark' | 'system';
 
-      useEffect(() => {
-        const selected = context.globals.backgrounds?.value || '#f8f6f3';
-        setTheme(selected === '#1a1918' ? 'dark' : 'light');
-      }, [context.globals.backgrounds?.value]);
+      // Resolve which background name to activate based on the theme toggle.
+      // 'system' falls back to 'light' canvas since we can't know the OS preference at build time.
+      const backgroundName = selectedTheme === 'dark' ? 'dark' : 'light';
+
+      // Override the active background to stay in sync with the theme toggle.
+      context.parameters.backgrounds = {
+        ...context.parameters.backgrounds,
+        default: backgroundName,
+      };
 
       return (
-        <RialtoProvider theme={theme}>
+        <RialtoProvider theme={selectedTheme}>
           <Story />
         </RialtoProvider>
       );
     },
   ],
-  globalTypes: {
-    backgrounds: {
-      description: 'Global background color',
-      defaultValue: { value: '#f8f6f3', name: 'light' },
-    },
-  },
 };
 
 export default preview;
