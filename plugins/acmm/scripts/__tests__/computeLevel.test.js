@@ -70,3 +70,87 @@ test("ALL_CRITERIA: every criterion has detection.type and pattern", () => {
     assert.ok(c.detection.pattern, `${c.id} missing detection pattern`);
   }
 });
+
+// ── Behavioral gate tests ───────────────────────────────────────────────────
+
+// IDs that push infrastructure to L3 (L2 OR-group + 3/4 L3 criteria = 75%)
+const L3_IDS = new Set([
+  "acmm:claude-md",
+  "acmm:pr-acceptance-metric",
+  "acmm:pr-review-rubric",
+  "acmm:ci-matrix",
+]);
+
+test("computeLevel: behavioral gates returned with null when no behavioral data", () => {
+  const result = computeLevel(L3_IDS);
+  assert.ok(result.behavioralGates, "behavioralGates should be present");
+  for (const gate of Object.values(result.behavioralGates)) {
+    assert.equal(gate.passed, null, "all gates should be null when no behavioral data");
+    assert.equal(gate.dataAvailable, false);
+  }
+});
+
+test("computeLevel: soft mode — failed gate is a warning, level unchanged", () => {
+  // L3 gate: flake rate must be < 20%. Rate of 0.25 fails the gate.
+  const behavioral = { flake: { rate_30d: 0.25, sample_size: 10, flaky_shas: [] } };
+  const result = computeLevel(L3_IDS, behavioral, false);
+  assert.equal(result.level, 3, "soft mode: level stays at infrastructure level despite gate failure");
+  assert.equal(result.infrastructureLevel, 3);
+  assert.equal(result.behavioralGates[3].passed, false, "L3 gate should report failure");
+});
+
+test("computeLevel: strict mode — failed L3 gate caps level at L2", () => {
+  const behavioral = { flake: { rate_30d: 0.25, sample_size: 10, flaky_shas: [] } };
+  const result = computeLevel(L3_IDS, behavioral, true);
+  assert.equal(result.infrastructureLevel, 3, "infrastructure level still 3");
+  assert.equal(result.level, 2, "strict mode: level capped at L2 by L3 gate failure");
+  assert.equal(result.strict, true);
+});
+
+test("computeLevel: strict mode — passing gates do not reduce level", () => {
+  const behavioral = {
+    flake: { rate_30d: 0.05, sample_size: 20, flaky_shas: [] },   // L3 gate passes
+    agent_pr: {
+      acceptance_rate_30d: 0.80,
+      revert_rate_30d: 0.02,
+      insufficient_data: false,
+      sample_size: 30,
+    },
+    auto_qa_tuning: { history_count: 3 },                          // L5 gate passes
+  };
+  const result = computeLevel(L3_IDS, behavioral, true);
+  assert.equal(result.level, 3, "all relevant gates pass — level unchanged");
+  assert.equal(result.behavioralGates[3].passed, true);
+});
+
+test("computeLevel: L4 behavioral gate — acceptance rate <= 50% fails", () => {
+  const behavioral = {
+    agent_pr: { acceptance_rate_30d: 0.45, revert_rate_30d: 0.05, insufficient_data: false, sample_size: 20 },
+  };
+  const result = computeLevel(L3_IDS, behavioral, false);
+  assert.equal(result.behavioralGates[4].passed, false, "L4 gate fails when acceptance_rate <= 50%");
+  assert.equal(result.behavioralGates[4].dataAvailable, true);
+});
+
+test("computeLevel: insufficient_data skips L4 and L6 gates", () => {
+  const behavioral = {
+    agent_pr: { acceptance_rate_30d: 0.20, revert_rate_30d: 0.50, insufficient_data: true, sample_size: 2 },
+  };
+  const result = computeLevel(L3_IDS, behavioral, true);
+  assert.equal(result.behavioralGates[4].passed, null, "L4 gate: null when insufficient_data");
+  assert.equal(result.behavioralGates[6].passed, null, "L6 gate: null when insufficient_data");
+  // No gate caps the level
+  assert.equal(result.level, result.infrastructureLevel, "level unchanged when all data is unavailable");
+});
+
+test("computeLevel: L5 auto_qa_tuning gate — history_count <= 1 fails", () => {
+  const behavioral = { auto_qa_tuning: { history_count: 1 } };
+  const result = computeLevel(L3_IDS, behavioral, false);
+  assert.equal(result.behavioralGates[5].passed, false, "L5 gate fails when history_count <= 1");
+});
+
+test("computeLevel: L5 auto_qa_tuning gate — history_count > 1 passes", () => {
+  const behavioral = { auto_qa_tuning: { history_count: 2 } };
+  const result = computeLevel(L3_IDS, behavioral, false);
+  assert.equal(result.behavioralGates[5].passed, true, "L5 gate passes when history_count > 1");
+});

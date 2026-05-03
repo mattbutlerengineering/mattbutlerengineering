@@ -60,7 +60,72 @@ function levelDef(n) {
   return ACMM_LEVELS.find((l) => l.n === n)
 }
 
-export function computeLevel(rawDetectedIds){
+/**
+ * Behavioral gate definitions per level.
+ * check(behavioral) → true (pass) | false (fail) | null (data unavailable → gate skipped)
+ *
+ * These gates shift the audit from "infrastructure exists" to "infrastructure operates."
+ * Soft mode (default): failures produce warnings but don't lower the reported level.
+ * Strict mode (--strict): first failed gate caps the level at n-1.
+ */
+const BEHAVIORAL_GATE_DEFS = {
+  3: {
+    label: 'CI flake rate < 20%',
+    check: (b) => {
+      if (!b?.flake) return null
+      return b.flake.rate_30d < 0.20
+    },
+  },
+  4: {
+    label: 'Agent PR acceptance rate > 50%',
+    check: (b) => {
+      if (!b?.agent_pr || b.agent_pr.insufficient_data) return null
+      return b.agent_pr.acceptance_rate_30d > 0.50
+    },
+  },
+  5: {
+    label: 'Auto-QA tuning loop has fired (history > 1 entry)',
+    check: (b) => {
+      if (!b?.auto_qa_tuning) return null
+      return b.auto_qa_tuning.history_count > 1
+    },
+  },
+  6: {
+    label: 'Agent PR revert rate < 10%',
+    check: (b) => {
+      if (!b?.agent_pr || b.agent_pr.insufficient_data) return null
+      return b.agent_pr.revert_rate_30d < 0.10
+    },
+  },
+}
+
+/**
+ * Evaluate all behavioral gates against the provided behavioral snapshot.
+ * @param {object|null} behavioral
+ * @returns {Record<number, {label: string, passed: boolean|null, dataAvailable: boolean}>}
+ */
+function evaluateBehavioralGates(behavioral) {
+  const gates = {}
+  for (const [levelStr, def] of Object.entries(BEHAVIORAL_GATE_DEFS)) {
+    const level = Number(levelStr)
+    const result = def.check(behavioral)
+    gates[level] = {
+      label: def.label,
+      passed: result,          // true | false | null (null = data unavailable)
+      dataAvailable: result !== null,
+    }
+  }
+  return gates
+}
+
+/**
+ * Compute the ACMM maturity level from detected criterion IDs and optional behavioral signals.
+ *
+ * @param {Set<string>|string[]} rawDetectedIds - detected criterion IDs from file-presence scan
+ * @param {object|null} behavioral - behavioral signals snapshot (flake, agent_pr, auto_qa_tuning, evals)
+ * @param {boolean} strict - if true, failed behavioral gates cap the reported level at n-1
+ */
+export function computeLevel(rawDetectedIds, behavioral = null, strict = false){
   // Synthesise the virtual L2 OR-group criterion before the level walk.
   const detectedIds = new Set(rawDetectedIds)
   if ([...AGENT_INSTRUCTION_FILE_IDS].some((id) => detectedIds.has(id))) {
@@ -77,7 +142,8 @@ export function computeLevel(rawDetectedIds){
     detectedByLevel[n] = required.filter((c) => detectedIds.has(c.id)).length
   }
 
-  let currentLevel = MIN_LEVEL
+  // Artifact-presence level (ignores behavioral signals)
+  let infrastructureLevel = MIN_LEVEL
   for (let n = MIN_LEVEL + 1; n <= MAX_LEVEL; n++) {
     const required = requiredByLevel[n]
     const detected = detectedByLevel[n]
@@ -86,9 +152,25 @@ export function computeLevel(rawDetectedIds){
     const threshold = n === 2 ? 1 / required : LEVEL_COMPLETION_THRESHOLD
     const ratio = detected / required
     if (ratio >= threshold) {
-      currentLevel = n
+      infrastructureLevel = n
     } else {
       break
+    }
+  }
+
+  const behavioralGates = evaluateBehavioralGates(behavioral)
+
+  // In strict mode, cap at the first level whose behavioral gate explicitly fails.
+  // Gates with null passed (data unavailable) are skipped — absence of data is not a penalty.
+  let currentLevel = infrastructureLevel
+  if (strict) {
+    for (let n = MIN_LEVEL + 1; n <= MAX_LEVEL; n++) {
+      const gate = behavioralGates[n]
+      if (!gate || gate.passed !== false) continue
+      if (currentLevel >= n) {
+        currentLevel = n - 1
+        break
+      }
     }
   }
 
@@ -114,6 +196,8 @@ export function computeLevel(rawDetectedIds){
 
   return {
     level: currentLevel,
+    infrastructureLevel,
+    strict,
     levelName: current?.name ?? `L${currentLevel}`,
     role: current?.role ?? '',
     characteristic: current?.characteristic ?? '',
@@ -136,6 +220,7 @@ export function computeLevel(rawDetectedIds){
         total: traceabilityCriteria.length,
       },
     },
+    behavioralGates,
   }
 }
 
