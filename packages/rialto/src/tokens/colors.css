@@ -12,20 +12,20 @@
   --rialto-surface-deep: #a8a49d;
 
   /* ── Text ──────────────────────────────────── */
-  /* Headings, body text, primary labels */
+  /* Headings, body text, primary labels (16.28:1 on surface — WCAG AAA) */
   --rialto-text-primary: #1a1918;
-  /* Descriptions, helper text, secondary labels */
+  /* Descriptions, helper text, secondary labels (5.27:1 on surface — WCAG AA) */
   --rialto-text-secondary: #6b6660;
-  /* Placeholders, disabled text, timestamps */
+  /* Placeholders, disabled text, timestamps (4.53:1 on surface — WCAG AA minimum) */
   --rialto-text-tertiary: #747070;
   /* Text on accent-filled backgrounds (primary buttons, badges) */
   --rialto-text-on-accent: #1a1918;
 
   /* ── Borders ───────────────────────────────── */
-  /* Default borders for cards, inputs, dividers */
-  --rialto-border: #d8d4cd;
-  /* Emphasized borders, active input outlines */
-  --rialto-border-strong: #b8b4ad;
+  /* Default borders for cards, inputs, dividers (3.06:1 on surface — WCAG AA UI) */
+  --rialto-border: #918d87;
+  /* Emphasized borders, active input outlines (3.49:1 on surface — WCAG AA UI) */
+  --rialto-border-strong: #88837c;
 
   /* ── Accent (amber gold — surgical use only) ─ */
   /* Primary buttons, focus rings, active/selected states only */
@@ -75,8 +75,8 @@
   --rialto-text-on-accent: #1a1918;
 
   /* ── Borders ───────────────────────────────── */
-  --rialto-border: rgb(255 255 255 / 0.1);
-  --rialto-border-strong: rgb(255 255 255 / 0.2);
+  --rialto-border: rgb(255 255 255 / 0.4);
+  --rialto-border-strong: rgb(255 255 255 / 0.6);
 
   /* ── Accent (same gold, slightly brighter for dark bg) */
   --rialto-accent: #d4a23a;

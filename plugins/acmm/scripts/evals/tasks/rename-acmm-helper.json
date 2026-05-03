@@ -1,6 +1,6 @@
 {
   "id": "rename-acmm-helper",
-  "prompt": "In scripts/acmm/state.js, rename the local function 'emptyState' to 'createEmptyState' across all callers in the scripts/acmm/ directory. Update every reference. Do not change behavior.",
+  "prompt": "In plugins/acmm/scripts/state.js, rename the local function 'emptyState' to 'createEmptyState' across all callers in the plugins/acmm/scripts/ directory. Update every reference. Do not change behavior.",
   "model": "claude-sonnet-4-6",
   "maxBudgetUsd": 0.20,
   "maxTurns": 12,

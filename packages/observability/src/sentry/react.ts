@@ -31,3 +31,7 @@ export function handleErrorBoundary(error: Error, errorInfo: ErrorInfo): void {
     Sentry.captureException(error);
   });
 }
+
+export const captureException = Sentry.captureException.bind(Sentry);
+export const captureMessage = Sentry.captureMessage.bind(Sentry);
+export const addBreadcrumb = Sentry.addBreadcrumb.bind(Sentry);

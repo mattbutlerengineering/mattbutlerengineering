@@ -13,6 +13,7 @@ export interface ClientConfig {
   getAccessToken?: () => string | null | Promise<string | null>;
   timeout?: number;
   maxRetries?: number;
+  onError?: (error: ApiClientError) => void;
 }
 
 export interface RequestOptions extends RequestInit {
@@ -69,7 +70,9 @@ export class ApiClient {
         status: response.status,
         detail: response.statusText,
       }))) as ApiError;
-      throw new ApiClientError(error, method, path);
+      const clientError = new ApiClientError(error, method, path);
+      this.config.onError?.(clientError);
+      throw clientError;
     }
 
     if (response.status === 204) {

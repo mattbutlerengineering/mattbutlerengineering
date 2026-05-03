@@ -1,10 +1,10 @@
-import { test } from "node:test";
+import { test, mock } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { detect, detectAll } from "../detection.js";
+import { detect, detectAll, isWorkflowActive } from "../detection.js";
 
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), "acmm-detect-"));
@@ -124,7 +124,7 @@ test("detect: code-graph — no code intelligence files present", () => {
   fx.cleanup();
 });
 
-test("detectAll: returns set of detected ids only", () => {
+test("detectAll: returns detected set and meta map", () => {
   const fx = fixture();
   fx.file("README.md");
   fx.file("AGENTS.md");
@@ -134,7 +134,83 @@ test("detectAll: returns set of detected ids only", () => {
     { id: "c", detection: { type: "any-of", pattern: ["AGENTS.md", "x.md"] } },
   ];
   const result = detectAll(fx.root, criteria);
-  assert.deepEqual([...result].sort(), ["a", "c"]);
+  assert.deepEqual([...result.detected].sort(), ["a", "c"]);
+  // non-active criteria produce no meta entries
+  assert.equal(result.meta.size, 0);
+  fx.cleanup();
+});
+
+// ── active detection type tests ────────────────────────────
+
+test("isWorkflowActive: returns degraded when gh CLI is unavailable", () => {
+  // Use a temp dir that's not a git repo — gh will fail
+  const fx = fixture();
+  const result = isWorkflowActive(fx.root, "nonexistent.yml", 7);
+  assert.equal(result.active, null);
+  assert.equal(result.degraded, true);
+  assert.ok(result.reason.includes("gh CLI unavailable"));
+  fx.cleanup();
+});
+
+test("detect: active type — file missing → false", () => {
+  const fx = fixture();
+  const c = {
+    id: "x",
+    detection: { type: "active", pattern: "workflow.yml", maxAgeDays: 7 },
+  };
+  assert.equal(detect(fx.root, c), false);
+  fx.cleanup();
+});
+
+test("detect: active type — file exists, gh unavailable → true (degraded)", () => {
+  // In a temp dir that's not a git repo, gh will fail → graceful degradation
+  const fx = fixture();
+  fx.file("workflow.yml", "name: test");
+  const c = {
+    id: "x",
+    detection: { type: "active", pattern: "workflow.yml", maxAgeDays: 7 },
+  };
+  // gh will error in temp dir (not a repo) → degraded → returns true
+  assert.equal(detect(fx.root, c), true);
+  fx.cleanup();
+});
+
+test("detect: active type — gh unavailable, file missing → false", () => {
+  const fx = fixture();
+  const c = {
+    id: "x",
+    detection: { type: "active", pattern: "does-not-exist.yml", maxAgeDays: 7 },
+  };
+  assert.equal(detect(fx.root, c), false);
+  fx.cleanup();
+});
+
+test("detect: active type — array pattern, first file missing second exists, gh degraded → true", () => {
+  const fx = fixture();
+  fx.file("b.yml", "name: b");
+  const c = {
+    id: "x",
+    detection: { type: "active", pattern: ["a.yml", "b.yml"], maxAgeDays: 7 },
+  };
+  // b.yml exists, gh will degrade → true
+  assert.equal(detect(fx.root, c), true);
+  fx.cleanup();
+});
+
+test("detectAll: active type — meta includes degraded status", () => {
+  const fx = fixture();
+  fx.file("workflow.yml", "name: test");
+  const criteria = [
+    { id: "active-one", detection: { type: "active", pattern: "workflow.yml", maxAgeDays: 7 } },
+    { id: "active-missing", detection: { type: "active", pattern: "missing.yml", maxAgeDays: 7 } },
+  ];
+  const result = detectAll(fx.root, criteria);
+  // workflow.yml exists, gh fails → degraded → detected
+  assert.ok(result.detected.has("active-one"));
+  assert.ok(!result.detected.has("active-missing"));
+  // meta should have entries for both active criteria
+  assert.equal(result.meta.get("active-one").status, "degraded");
+  assert.equal(result.meta.get("active-missing").status, "missing");
   fx.cleanup();
 });
 
@@ -142,12 +218,12 @@ test("detectAll: returns set of detected ids only", () => {
 
 function recentRunOutput(daysAgo = 1) {
   const d = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
-  return JSON.stringify([{ updatedAt: d.toISOString() }]);
+  return JSON.stringify([{ conclusion: 'success', updatedAt: d.toISOString() }]);
 }
 
 function staleRunOutput(daysAgo) {
   const d = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
-  return JSON.stringify([{ updatedAt: d.toISOString() }]);
+  return JSON.stringify([{ conclusion: 'success', updatedAt: d.toISOString() }]);
 }
 
 test("detect: active type — file present AND recent gh run → true", () => {

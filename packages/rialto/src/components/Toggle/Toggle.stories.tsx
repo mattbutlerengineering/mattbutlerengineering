@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { within, userEvent, expect } from '@storybook/test';
 import { Toggle } from './Toggle';
 
 const meta: Meta<typeof Toggle> = {
@@ -17,6 +18,14 @@ type Story = StoryObj<typeof Toggle>;
 export const Default: Story = {
   args: {
     label: 'Enable notifications',
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const toggle = canvas.getByRole('switch');
+    await expect(toggle).toBeInTheDocument();
+    await expect(toggle).not.toBeChecked();
+    await userEvent.click(toggle);
+    await expect(toggle).toBeChecked();
   },
 };
 

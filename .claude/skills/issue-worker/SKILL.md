@@ -10,13 +10,33 @@ Autonomous issue resolver. Picks up one ready issue, delegates implementation to
 
 ## Workflow
 
+### Step 0: Governor Check
+
+Before picking up work, check the adaptive cadence governor:
+
+```bash
+node plugins/acmm/scripts/cadence-governor.js
+```
+
+If the governor exits with code 1 (SKIP), exit cleanly: "Governor says SKIP (mode: \<MODE\>). No work this cycle."
+
+If the governor exits with code 0 (EXECUTE), proceed to Step 1.
+
+After completing work (Step 5a or 5b), mark that execution happened:
+
+```bash
+node plugins/acmm/scripts/cadence-governor.js --execute
+```
+
 ### Step 1: Find an Issue
 
 ```bash
-gh issue list --label "ready" --state open --limit 1 --sort created --json number,title,body,labels
+gh issue list --label "ready" --state open --limit 5 --sort created --json number,title,body,labels
 ```
 
-If no issues are returned, **exit cleanly** with a message: "No ready issues found. Nothing to do."
+Filter the results to exclude issues that also have the `agent-skip` label. Pick the first issue that passes all filters (no `agent-skip`, dependencies met, etc.).
+
+If no issues remain after filtering, **exit cleanly** with a message: "No ready issues found. Nothing to do."
 
 ### Step 1b: Check Dependencies
 
@@ -37,6 +57,32 @@ done
 ```
 
 If any dependency is still open, skip this issue and try the next oldest `ready` issue. This prevents out-of-order execution for issues created by `/decompose`.
+
+### Step 1c: Check Retry Count
+
+Before claiming, check how many times this issue has already failed:
+
+```bash
+# Count previous agent-failed attempt comments on this issue
+ATTEMPT_COUNT=$(gh issue view <NUMBER> --json comments --jq '[.comments[] | select(.body | test("agent-failed attempt"))] | length')
+
+# Read maxRetries from auto-qa-tuning.json
+MAX_RETRIES=$(node -e "console.log(JSON.parse(require('fs').readFileSync('.github/auto-qa-tuning.json','utf-8')).thresholds.maxRetries)")
+
+if [ "$ATTEMPT_COUNT" -ge "$MAX_RETRIES" ]; then
+  echo "Issue #<NUMBER> has failed $ATTEMPT_COUNT times (max: $MAX_RETRIES). Skipping."
+  gh issue edit <NUMBER> --add-label "agent-skip" --remove-label "ready"
+  gh issue comment <NUMBER> --body "**Auto-skipped** after $ATTEMPT_COUNT failed attempts (max retries: $MAX_RETRIES).
+
+This issue needs manual review or a different approach. To retry:
+\`\`\`bash
+gh issue edit <NUMBER> --add-label ready --remove-label agent-skip
+\`\`\`"
+  # Try the next ready issue instead, or exit if none remain
+fi
+```
+
+If the issue has reached `maxRetries`, skip it and move to the next candidate from the filtered list. If no candidates remain, exit cleanly.
 
 ### Step 2: Claim the Issue
 
@@ -100,16 +146,35 @@ Closes #<ISSUE_NUMBER>"
 
 ### Step 5b: On Failure (Agent Could Not Complete)
 
-```bash
-# Add agent-failed label, remove in-progress
-gh issue edit <NUMBER> --add-label "agent-failed" --remove-label "in-progress"
+First, determine the current attempt count:
 
-# Comment the failure details
-gh issue comment <NUMBER> --body "Automated agent was unable to resolve this issue.
+```bash
+# Count previous agent-failed attempt comments on this issue
+ATTEMPT_COUNT=$(gh issue view <NUMBER> --json comments --jq '[.comments[] | select(.body | test("agent-failed attempt"))] | length')
+
+# Read maxRetries from auto-qa-tuning.json
+MAX_RETRIES=$(node -e "console.log(JSON.parse(require('fs').readFileSync('.github/auto-qa-tuning.json','utf-8')).thresholds.maxRetries)")
+
+NEXT_ATTEMPT=$((ATTEMPT_COUNT + 1))
+```
+
+Then comment with attempt tracking and set labels based on whether max retries have been reached:
+
+```bash
+# Comment the failure details with attempt tracking
+gh issue comment <NUMBER> --body "**agent-failed attempt #$NEXT_ATTEMPT** — Automated agent was unable to resolve this issue.
 
 **Error**: <error summary>
 
-This issue may require manual intervention or a more detailed task description."
+Attempts so far: $NEXT_ATTEMPT/$MAX_RETRIES
+$(if [ "$NEXT_ATTEMPT" -ge "$MAX_RETRIES" ]; then echo 'This issue will be auto-skipped on next worker run.'; else echo 'Will retry on next worker cycle.'; fi)"
+
+# Set labels based on retry status
+if [ "$NEXT_ATTEMPT" -ge "$MAX_RETRIES" ]; then
+  gh issue edit <NUMBER> --add-label "agent-skip" --remove-label "in-progress"
+else
+  gh issue edit <NUMBER> --add-label "agent-failed" --add-label "ready" --remove-label "in-progress"
+fi
 ```
 
 ## Safety Rules
@@ -129,19 +194,30 @@ Issues with the `ci-fix` label should be treated with higher urgency — if both
 
 ```bash
 # Check for ci-fix issues first
-CI_ISSUE=$(gh issue list --label "ready" --label "ci-fix" --state open --limit 1 --sort created --json number -q '.[0].number')
+CI_ISSUE=$(gh issue list --label "ready" --label "ci-fix" --state open --limit 5 --sort created --json number,labels -q '[.[] | select(.labels | map(.name) | index("agent-skip") | not)] | .[0].number')
 
 if [ -n "$CI_ISSUE" ]; then
   # Work the CI fix issue
 else
-  # Fall back to any ready issue
-  gh issue list --label "ready" --state open --limit 1 --sort created --json number,title,body,labels
+  # Fall back to any ready issue (excluding agent-skip)
+  gh issue list --label "ready" --state open --limit 5 --sort created --json number,title,body,labels
+  # Filter out issues with agent-skip label from results
 fi
 ```
 
 ## Retry Policy
 
-If an issue has the `agent-failed` label AND the `ready` label (someone manually re-queued it), the worker will pick it up again. This allows manual retry by:
+Failed issues are automatically re-queued with both `agent-failed` and `ready` labels (unless max retries have been reached). The attempt count is tracked via comments matching the `agent-failed attempt` pattern.
+
+After `maxRetries` (from `.github/auto-qa-tuning.json`, currently 2) failed attempts, the issue is labeled `agent-skip` instead of being re-queued. This prevents infinite retry loops.
+
+To manually retry a skipped issue:
+
+```bash
+gh issue edit <NUMBER> --add-label "ready" --remove-label "agent-skip"
+```
+
+To manually retry a failed issue that has not been auto-skipped:
 
 ```bash
 gh issue edit <NUMBER> --add-label "ready" --remove-label "agent-failed"

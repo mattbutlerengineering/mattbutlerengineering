@@ -34,6 +34,8 @@ const SEGMENT_ACCENT_COLORS = [
   "var(--rialto-success)",
   "var(--rialto-warning)",
   "var(--rialto-text-secondary)",
+  "var(--rialto-error)",
+  "var(--rialto-info, var(--rialto-accent))",
 ] as const;
 
 /* ── Loading skeleton ───────────────────────── */
@@ -583,7 +585,7 @@ export function GuestsPage() {
       {segments.length > 0 && (
         <div className={styles.segmentsGrid}>
           {segments.map((segment, index) => (
-            <div
+            <Card
               key={segment.name}
               className={styles.segmentCard}
               style={{
@@ -592,7 +594,7 @@ export function GuestsPage() {
               }}
             >
               <Stat label={segment.name} value={segment.count} />
-            </div>
+            </Card>
           ))}
         </div>
       )}

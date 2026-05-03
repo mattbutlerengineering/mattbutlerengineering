@@ -22,7 +22,8 @@ Autonomous continuous improvement loop with **parallel dispatch**. Runs discover
 │  ├── A1. System health check      ─┐                    │
 │  ├── A2. Dependabot alerts         ├── all in parallel  │
 │  ├── A2.5. Smoke audit (if merge)  │                    │
-│  └── A3. Check previous PRs/CI    ─┘                    │
+│  ├── A3. Check previous PRs/CI     │                    │
+│  └── A4. Sentry triage (if avail) ─┘                    │
 │            │                                            │
 │  Phase B: Dispatch (parallel batch)                     │
 │  ├── Agent 1: issue #59 ──┐                             │
@@ -164,7 +165,11 @@ gh issue close <linked-number> --comment "Merged via ship-loop. Deployed."
 
 **Why immediate merge for low-risk PRs?** Test/docs/deps/config changes cannot break the running application. Merging them right away frees up issue slots and keeps the backlog moving without wasting an entire loop iteration on a trivial wait.
 
-### A4. Gather & Claim Batch
+### A4. Sentry Triage (optional)
+
+If Sentry MCP is available, invoke `/sentry-triage` to check for new production errors. Issues created here enter the same queue as audit/CI findings.
+
+### A5. Gather & Claim Batch
 
 After all discovery steps complete, gather the full issue backlog:
 

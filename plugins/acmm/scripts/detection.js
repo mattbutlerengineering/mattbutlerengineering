@@ -8,13 +8,13 @@
  * Detection types in the canonical sources (as of port date):
  *   - `path`   — single file or directory path; trailing `/` matches a dir
  *   - `any-of` — array of paths; ANY one existing satisfies the criterion
+ *   - `active` — file exists AND a recent successful workflow run is found (via `gh run list`)
  *   - `glob`   — reserved; not used in current canonical data
- *   - `active` — file exists AND a recent successful workflow run is found
  */
 
+import { execFileSync } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
-import { join, basename } from 'node:path';
-import { execFileSync as _execFileSync } from 'node:child_process';
+import { join } from 'node:path';
 
 function existsAt(cwd, pattern) {
   const isDir = pattern.endsWith('/');
@@ -32,33 +32,36 @@ function existsAt(cwd, pattern) {
 }
 
 /**
- * Check if a workflow had a successful run within maxAgeDays.
- * Returns true on success, false when run is too old or absent.
- * Falls back to true (file-presence only) when gh CLI is unavailable.
+ * Check whether a GitHub Actions workflow has run successfully within a
+ * time window, using the `gh` CLI.
  *
- * @param {string} workflowFile - filename of the workflow (e.g. 'auto-issue.yml')
- * @param {number} maxAgeDays
- * @param {Function} execFileSyncFn - injectable for testing
- * @returns {{ active: boolean, fallback: boolean }}
+ * @param {string} cwd        — repo root
+ * @param {string} workflowFile — workflow filename (e.g. 'auto-issue.yml')
+ * @param {number} maxAgeDays  — max age in days for the most recent run
+ * @param {{ execFileSyncFn?: Function }} [opts] — injectable for testing
+ * @returns {{ active: boolean | null, degraded?: boolean, conclusion?: string, reason: string }}
  */
-function checkWorkflowActivity(workflowFile, maxAgeDays, execFileSyncFn) {
-  const fn = execFileSyncFn ?? _execFileSync;
+export function isWorkflowActive(cwd, workflowFile, maxAgeDays, opts = {}) {
+  const fn = opts.execFileSyncFn ?? execFileSync;
   try {
-    const out = fn(
+    const result = fn(
       'gh',
-      ['run', 'list', `--workflow=${workflowFile}`, '--status=success', '--limit=1', '--json', 'updatedAt'],
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
+      ['run', 'list', `--workflow=${workflowFile}`, '--status=completed', '--limit=1', '--json', 'conclusion,updatedAt'],
+      { cwd, encoding: 'utf-8', timeout: 10_000, stdio: ['pipe', 'pipe', 'pipe'] },
     );
-    const runs = JSON.parse(out);
-    if (!Array.isArray(runs) || runs.length === 0) return { active: false, fallback: false };
-    const updatedAt = new Date(runs[0].updatedAt);
-    const cutoff = new Date(Date.now() - maxAgeDays * 24 * 60 * 60 * 1000);
-    return { active: updatedAt >= cutoff, fallback: false };
+    const runs = JSON.parse(result);
+    if (runs.length === 0) {
+      return { active: false, reason: 'no completed runs' };
+    }
+    const lastRun = new Date(runs[0].updatedAt);
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - maxAgeDays);
+    if (lastRun < cutoff) {
+      return { active: false, reason: `last run ${runs[0].updatedAt} exceeds ${maxAgeDays}d window` };
+    }
+    return { active: true, conclusion: runs[0].conclusion, reason: 'recent run found' };
   } catch {
-    process.stderr.write(
-      `[acmm] gh CLI unavailable or errored for workflow "${workflowFile}"; falling back to file-presence only\n`,
-    );
-    return { active: true, fallback: true };
+    return { active: null, degraded: true, reason: 'gh CLI unavailable or error' };
   }
 }
 
@@ -81,11 +84,14 @@ export function detect(cwd, criterion, opts = {}) {
     return patterns.some((p) => existsAt(cwd, p));
   }
   if (type === 'active') {
-    const filePath = Array.isArray(pattern) ? pattern[0] : pattern;
-    if (!existsAt(cwd, filePath)) return false;
-    const workflowFile = basename(filePath);
-    const { active } = checkWorkflowActivity(workflowFile, maxAgeDays, opts.execFileSyncFn);
-    return active;
+    const patterns = Array.isArray(pattern) ? pattern : [pattern];
+    const filePresent = patterns.some((p) => existsAt(cwd, p));
+    if (!filePresent) return false;
+    // Check first matching file for workflow activity
+    const workflowFile = patterns.find((p) => existsAt(cwd, p));
+    const result = isWorkflowActive(cwd, workflowFile, maxAgeDays, opts);
+    if (result.degraded) return true; // graceful degradation: file exists, gh unavailable
+    return result.active;
   }
   if (type === 'glob') {
     throw new Error(`detection.type='glob' is not implemented (no canonical criterion uses it).`);
@@ -96,15 +102,42 @@ export function detect(cwd, criterion, opts = {}) {
 /**
  * Run detection for all criteria.
  *
+ * Returns both a Set of detected IDs (backward-compatible) and a Map
+ * with per-criterion metadata for `active` detections, distinguishing
+ * "file exists and operating" from "file exists but inactive" and
+ * "file exists, gh degraded".
+ *
  * @param {string} cwd
  * @param {Array<{ id: string, detection: any }>} criteria
  * @param {{ execFileSyncFn?: Function }} [opts]
- * @returns {Set<string>} set of detected criterion IDs
+ * @returns {{ detected: Set<string>, meta: Map<string, { status: 'active' | 'inactive' | 'degraded' | 'missing', reason?: string }> }}
  */
 export function detectAll(cwd, criteria, opts = {}) {
   const detected = new Set();
+  const meta = new Map();
   for (const c of criteria) {
-    if (detect(cwd, c, opts)) detected.add(c.id);
+    if (c.detection.type === 'active') {
+      const { maxAgeDays = 7 } = c.detection;
+      const patterns = Array.isArray(c.detection.pattern) ? c.detection.pattern : [c.detection.pattern];
+      const filePresent = patterns.some((p) => existsAt(cwd, p));
+      if (!filePresent) {
+        meta.set(c.id, { status: 'missing', reason: 'file not found' });
+        continue;
+      }
+      const workflowFile = patterns.find((p) => existsAt(cwd, p));
+      const result = isWorkflowActive(cwd, workflowFile, maxAgeDays, opts);
+      if (result.degraded) {
+        detected.add(c.id);
+        meta.set(c.id, { status: 'degraded', reason: result.reason });
+      } else if (result.active) {
+        detected.add(c.id);
+        meta.set(c.id, { status: 'active', reason: result.reason });
+      } else {
+        meta.set(c.id, { status: 'inactive', reason: result.reason });
+      }
+    } else {
+      if (detect(cwd, c, opts)) detected.add(c.id);
+    }
   }
-  return detected;
+  return { detected, meta };
 }

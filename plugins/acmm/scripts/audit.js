@@ -33,6 +33,7 @@ const args = new Set(process.argv.slice(2));
 const APPLY = args.has("--apply");
 const BADGE = args.has("--badge");
 const TREND = args.has("--trend");
+const STRICT = args.has("--strict");
 
 // --project <path> support
 let projectPath = process.cwd();
@@ -127,7 +128,45 @@ for (const c of ALL_CRITERIA) {
   if (passed) detectedIds.add(c.id);
 }
 
-const computation = computeLevel(detectedIds);
+/* ── Behavioral signals (non-fatal — null when tools unavailable) ── */
+const flake = measureFlakeRate();
+const prOutcomes = measurePrOutcomes();
+const evalsSummary = measureEvals(cwd);
+const behavioral = {
+  ...(prior.behavioral ?? {}),
+  flake: flake
+    ? {
+        rate_30d: flake.flake_rate_30d,
+        sample_size: flake.flake_sample_size,
+        flaky_shas: flake.flaky_shas,
+        measured_at: new Date().toISOString(),
+      }
+    : (prior.behavioral?.flake ?? null),
+  agent_pr: prOutcomes
+    ? { ...prOutcomes, measured_at: new Date().toISOString() }
+    : (prior.behavioral?.agent_pr ?? null),
+  evals: evalsSummary.n > 0
+    ? { ...evalsSummary, measured_at: new Date().toISOString() }
+    : (prior.behavioral?.evals ?? null),
+};
+
+// Read auto-qa tuning history length for L5 behavioral gate
+let autoQaHistoryCount = 0;
+try {
+  const tuningPath = path.join(repoRoot, ".github", "auto-qa-tuning.json");
+  if (fs.existsSync(tuningPath)) {
+    const tuning = JSON.parse(fs.readFileSync(tuningPath, "utf-8"));
+    autoQaHistoryCount = Array.isArray(tuning.history) ? tuning.history.length : 0;
+  }
+} catch {
+  // Non-fatal — gate will see 0 and pass (no data = no block)
+}
+
+const computation = computeLevel(detectedIds, {
+  flake: behavioral.flake,
+  agent_pr: behavioral.agent_pr,
+  auto_qa_history_count: autoQaHistoryCount,
+}, { strict: STRICT });
 const detectedCount = detectedIds.size;
 const totalCount = ALL_CRITERIA.length;
 
@@ -170,28 +209,6 @@ for (const c of ALL_CRITERIA) {
 
   results[c.id] = { passed, evidence };
 }
-
-/* ── Behavioral signals (non-fatal — null when tools unavailable) ── */
-const flake = measureFlakeRate();
-const prOutcomes = measurePrOutcomes();
-const evalsSummary = measureEvals(cwd);
-const behavioral = {
-  ...(prior.behavioral ?? {}),
-  flake: flake
-    ? {
-        rate_30d: flake.flake_rate_30d,
-        sample_size: flake.flake_sample_size,
-        flaky_shas: flake.flaky_shas,
-        measured_at: new Date().toISOString(),
-      }
-    : (prior.behavioral?.flake ?? null),
-  agent_pr: prOutcomes
-    ? { ...prOutcomes, measured_at: new Date().toISOString() }
-    : (prior.behavioral?.agent_pr ?? null),
-  evals: evalsSummary.n > 0
-    ? { ...evalsSummary, measured_at: new Date().toISOString() }
-    : (prior.behavioral?.evals ?? null),
-};
 
 const nextState = recordHistory(
   {
@@ -269,6 +286,22 @@ console.log("");
 console.log(`Prerequisites (soft): ${computation.prerequisites.met}/${computation.prerequisites.total}`);
 console.log(`Cross-cutting learning: ${computation.crossCutting.learning.met}/${computation.crossCutting.learning.total}`);
 console.log(`Cross-cutting traceability: ${computation.crossCutting.traceability.met}/${computation.crossCutting.traceability.total}`);
+
+if (computation.behavioralGates.length > 0) {
+  console.log("");
+  console.log(`Behavioral gates (${STRICT ? "strict" : "soft"}):`);
+  for (const g of computation.behavioralGates) {
+    const icon = g.passed ? "✓" : STRICT ? "✗" : "⚠";
+    const val = g.dataAvailable
+      ? g.direction === "below"
+        ? `${(g.value * 100).toFixed(1)}% < ${(g.threshold * 100).toFixed(0)}%`
+        : typeof g.value === "number" && g.threshold < 1
+          ? `${(g.value * 100).toFixed(1)}% > ${(g.threshold * 100).toFixed(0)}%`
+          : `${g.value} > ${g.threshold}`
+      : "no data";
+    console.log(`  ${icon} L${g.level} ${g.name}: ${val}${!g.passed && !STRICT ? " (warning)" : ""}`);
+  }
+}
 
 if (behavioral.flake) {
   const pct = (behavioral.flake.rate_30d * 100).toFixed(1);

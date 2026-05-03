@@ -88,6 +88,9 @@ const textOnAccent = colors.color["text"]["on-accent"].$value;
 
 const accent = colors.color.accent.default.$value;
 
+const borderDefault = colors.color.border.default.$value;
+const borderStrong = colors.color.border.strong.$value;
+
 const error = colors.color.semantic.error.default.$value;
 const warning = colors.color.semantic.warning.default.$value;
 const success = colors.color.semantic.success.default.$value;
@@ -137,6 +140,20 @@ describe("Light theme — accent text and UI controls", () => {
 
   it("accent as UI control on surface (3:1 minimum)", () => {
     expect(contrastRatio(accent, surface)).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe("Light theme — border UI controls on surface (3:1 minimum)", () => {
+  it("border on surface", () => {
+    expect(contrastRatio(borderDefault, surface)).toBeGreaterThanOrEqual(3);
+  });
+
+  it("border-strong on surface", () => {
+    expect(contrastRatio(borderStrong, surface)).toBeGreaterThanOrEqual(3);
+  });
+
+  it("border on surface-elevated", () => {
+    expect(contrastRatio(borderDefault, surfaceElevated)).toBeGreaterThanOrEqual(3);
   });
 });
 

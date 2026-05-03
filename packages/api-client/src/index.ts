@@ -27,12 +27,14 @@ export function createApiClient(config: {
   getAccessToken?: () => string | null | Promise<string | null>;
   timeout?: number;
   maxRetries?: number;
+  onError?: (error: import("./client.js").ApiClientError) => void;
 }) {
   const client = new ApiClient({
     baseUrl: config.baseUrl ?? "",
     getAccessToken: config.getAccessToken,
     timeout: config.timeout,
     maxRetries: config.maxRetries,
+    onError: config.onError,
   });
 
   return {
