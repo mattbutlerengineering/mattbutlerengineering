@@ -63,6 +63,7 @@ apps/*/vite.config.d.ts
 .claude/settings.local.json
 .claude/improvement-loop/
 .claude/agent-spend.jsonl
+.claude/session-logs/*.json
 .claude/acmm/
 .claude/*.lock
 .superpowers/

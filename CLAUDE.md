@@ -28,6 +28,7 @@ Automated system that audits the live site, finds and fixes issues, builds featu
 | `/issue-worker` | Pick up ready issues, implement via `mbe agent run`, create PRs |
 | `/ci-monitor` | Check CI health, auto-fix simple failures, escalate complex ones |
 | `/progress-tracker` | Metrics, self-tuning circuit breaker, trend analysis |
+| `/learning-loop` | Sensor-driven improvement: collect metrics → detect regressions → create issues → verify fixes → self-tune |
 | `/acmm-audit` | Score repo against canonical AI Codebase Maturity Model (6 levels, 100+ criteria from ACMM/Fullsend/AEF/Reflect), file next-level-gap issues, update README badge |
 
 ## mbe CLI Commands

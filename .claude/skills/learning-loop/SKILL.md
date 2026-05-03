@@ -1,0 +1,132 @@
+---
+name: learning-loop
+description: Sensor-driven continuous improvement loop. Collects metrics from all sensors, detects regressions, creates issues, verifies past fixes, and self-tunes thresholds. Invoke with /learning-loop.
+user-invocable: true
+---
+
+# Learning Loop
+
+Closed-loop improvement system: collect sensor data → detect regressions → create issues → verify fixes → learn from results.
+
+## Workflow
+
+### Step 1: Collect Sensor Data
+
+Run the unified sensor report to gather metrics from all available sensors:
+
+```bash
+node scripts/sensor-report.mjs
+```
+
+Read the output. The script queries 7 sensors (ACMM, PR metrics, agent cost, CI health, Lighthouse, GitHub issues, session logs) and persists the report to `metrics/sensor-report.json`. It also detects regressions by comparing against the previous report.
+
+If the script exits with code 1, regressions were detected. Note them for Step 3.
+
+### Step 2: Verify Past Fixes
+
+Run fix verification on recently-closed issues:
+
+```bash
+node scripts/verify-fixes.mjs
+```
+
+This finds issues closed in the last 48 hours with sensor labels (`ci-fix`, `audit`, `acmm`, `sentry`, `bug`), queries the originating sensor, and:
+- Comments on the issue with verification evidence
+- Reopens issues where the fix didn't improve the metric
+
+Note any reopened issues for the summary.
+
+### Step 3: Triage Regressions
+
+Read the sensor report from `metrics/sensor-report.json`. For each regression in the `regressions` array:
+
+1. **Check for duplicates** — search open issues for the same sensor + metric combination:
+   ```bash
+   gh issue list --state open --search "<sensor> <metric>" --json number,title --limit 5
+   ```
+
+2. **Skip if duplicate exists** — don't create noise.
+
+3. **Create issue** if novel — use this format:
+   ```bash
+   gh issue create \
+     --title "fix(<sensor>): <metric> regressed (<delta>)" \
+     --label "ready,<sensor-label>,bug" \
+     --body "## Regression Detected\n\n**Sensor:** <sensor>\n**Metric:** <metric>\n**Current:** <value>\n**Previous:** <value>\n**Delta:** <delta>\n**Severity:** <high|medium>\n\n## Acceptance Criteria\n\n- [ ] <metric> returns to previous level or better\n- [ ] Verified by next learning loop run\n\n_Detected by [learning-loop](../.claude/skills/learning-loop/SKILL.md) sensor report_"
+   ```
+
+4. **Max 3 issues per run** — prioritize high severity over medium.
+
+### Step 4: Analyze Session Logs (Weekly)
+
+Check if today is the configured skill-extraction day (default: Friday). If so:
+
+1. Read session logs from `.claude/session-logs/*.json` (last 7 days)
+2. Group sessions by branch prefix, files touched, and git diff patterns
+3. Identify repeated workflows (3+ sessions with similar patterns):
+   - Same file set modified across sessions
+   - Same branch prefix pattern (e.g., `fix/security-*`)
+   - High commit count with specific file patterns
+4. Check existing skills in `.claude/skills/*/SKILL.md` for coverage
+5. If a novel pattern is found, create a `skill-proposal` issue:
+   ```bash
+   gh issue create \
+     --title "[skill-proposal] <Descriptive Name>" \
+     --label "skill-proposal,ready" \
+     --body "<draft skill content based on observed pattern>"
+   ```
+6. **Max 2 proposals per run**
+
+### Step 5: Threshold Self-Tuning
+
+Read the verification log at `.claude/improvement-loop/verifications.jsonl` (last 30 days):
+
+1. Compute **false positive rate**: issues closed as `wontfix` or `invalid` / total issues created by learning loop
+2. Compute **fix effectiveness rate**: verified fixes / total verifications
+3. If false positive rate > 30%, note in the summary that thresholds should be loosened
+4. If fix effectiveness rate < 50%, note that fix strategies may need review
+
+### Step 6: Log and Summarize
+
+Append a dated entry to `.claude/improvement-loop/log.md`:
+
+```markdown
+## YYYY-MM-DD
+
+**Sensors:** N/M available
+**Regressions:** N detected, M issues created
+**Verifications:** N checked, M verified, K failed (reopened)
+**Skill proposals:** N (if Friday)
+**Threshold notes:** <any self-tuning observations>
+```
+
+Print a summary to stdout.
+
+## Sensor Label Map
+
+| Sensor | Issue Label | What It Checks |
+|--------|------------|----------------|
+| CI Health | `ci-fix` | Pass rate on main branch |
+| ACMM | `acmm` | Maturity criteria met |
+| Lighthouse | `audit` | Performance/a11y scores |
+| Sentry | `sentry` | Error rates (needs MCP auth) |
+| General | `bug` | CI pass after fix |
+
+## Scheduling
+
+This skill is designed to run daily. Add a RemoteTrigger:
+
+| Trigger | Schedule | Notes |
+|---------|----------|-------|
+| `mbe-learning-loop` | Daily 11:00am PT | After ACMM audit (10am) |
+
+Or invoke manually: `/learning-loop`
+
+## Guardrails
+
+- Max 3 regression issues per run (avoid noise)
+- Max 2 skill proposals per run
+- Deduplication: always check open issues before creating
+- Reopened issues get `ready` label for ship-loop pickup
+- Session log analysis only on Fridays (configurable)
+- Verification runs on 48h-old closures (configurable via `--hours`)

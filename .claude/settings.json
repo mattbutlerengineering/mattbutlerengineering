@@ -78,6 +78,15 @@
             "command": "node .claude/hooks/gsd-check-update.js"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/session-log-rotate.sh",
+            "timeout": 3000
+          }
+        ]
       }
     ]
   },
