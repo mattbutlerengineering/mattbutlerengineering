@@ -20,7 +20,7 @@
       interface HistoryEntry {
         id: string;
         prompt: string;
-        spec: import("/Users/mbutler/github/mattbutlerengineering/.work...;
+        spec: import("/Users/mbutler/github/mattbutlerengineering/node_...;
         rawLines: string[];
         timestamp: Date;
       }
@@ -54,7 +54,7 @@
     </item>
     <item priority="low">
       interface UseSpecsApiReturn {
-        specs: import("/Users/mbutler/github/mattbutlerengineering/.work...;
+        specs: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
         isLoading: boolean;
         fetchSpecs: () => Promise<void>;
         saveSpec: (data: import("/Users/mbutler/github/mattbutlerengineerin...;
