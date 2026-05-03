@@ -5,8 +5,14 @@ import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
 import { ErrorBoundary, RialtoProvider, Text, ToastProvider } from "@mattbutlerengineering/rialto";
 import { AuthProvider } from "@mbe/auth/react";
+import { initSentry, handleErrorBoundary } from "@mbe/observability/sentry/react";
 import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
 import { App, CallbackRedirect } from "./App";
+
+initSentry({
+  appName: "gen",
+  dsn: import.meta.env.VITE_SENTRY_DSN,
+});
 
 // Lazy-loaded route components — each becomes its own chunk
 const PlaygroundPage = lazy(() =>
@@ -43,7 +49,7 @@ function ThemedApp() {
     <RialtoProvider theme={theme}>
       <ToastProvider>
         <AuthProvider config={authConfig}>
-          <ErrorBoundary>
+          <ErrorBoundary onError={handleErrorBoundary}>
             <RouterProvider router={router} />
           </ErrorBoundary>
         </AuthProvider>
