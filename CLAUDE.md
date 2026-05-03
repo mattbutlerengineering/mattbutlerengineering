@@ -64,6 +64,7 @@ mbe up                                           # Start dev servers
 | `in-progress` | Agent is working on it |
 | `has-pr` | PR created, awaiting merge/review |
 | `agent-failed` | Agent could not complete — needs manual review or retry |
+| `agent-skip` | Exhausted max retries — needs manual review or different approach |
 | `audit` | Found by site-audit |
 | `ci-fix` | CI failure needing fix |
 | `feature` | New feature (created by `/decompose`) |
