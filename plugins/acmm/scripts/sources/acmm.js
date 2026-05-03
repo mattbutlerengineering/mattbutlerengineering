@@ -998,6 +998,17 @@ const CRITERIA= [
     detection: { type: 'any-of', pattern: ['docs/rollback-drill.md', 'docs/ai-ops-runbook.md'] },
   },
   {
+    id: 'acmm:feedback-loop-inventory',
+    source: 'acmm',
+    level: 4,
+    category: 'feedback-loop',
+    name: 'Feedback loop inventory',
+    description: 'A document cataloging all feedback loops with their ACMM level, frequency, and operating status.',
+    rationale: 'Making feedback loop topology explicit enables auditing and prevents the "dashboard graveyard" anti-pattern.',
+    details: 'The ACMM paper defines maturity as feedback loop topology. This inventory makes that topology explicit: every loop has a name, ACMM level, frequency, trigger mechanism, status (active/planned/broken), and last-verified date. Without it, loops accumulate silently and broken ones go unnoticed.',
+    detection: { type: 'path', pattern: 'docs/acmm/feedback-loop-inventory.md' },
+  },
+  {
     id: 'acmm:budget-policy',
     source: 'acmm',
     level: 4,
