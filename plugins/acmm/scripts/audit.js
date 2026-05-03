@@ -188,11 +188,26 @@ const diff = isFirstRun
 const results = {};
 for (const c of ALL_CRITERIA) {
   const passed = detectedIds.has(c.id);
-  const patterns = Array.isArray(c.detection.pattern) ? c.detection.pattern : [c.detection.pattern];
-  results[c.id] = {
-    passed,
-    evidence: passed ? `detected at one of: ${patterns.join(", ")}` : `none of: ${patterns.join(", ")}`,
-  };
+  const { type, pattern } = c.detection;
+  const patterns = Array.isArray(pattern) ? pattern : [pattern];
+
+  let evidence;
+  if (passed) {
+    evidence = `detected at one of: ${patterns.join(", ")}`;
+  } else if (type === 'active') {
+    // Distinguish "file present but no recent run" from "file not found"
+    const filePath = patterns[0];
+    const fileExists = fs.existsSync(path.join(cwd, filePath));
+    if (fileExists) {
+      evidence = `file present but no recent successful run: ${filePath}`;
+    } else {
+      evidence = `file not found: ${filePath}`;
+    }
+  } else {
+    evidence = `none of: ${patterns.join(", ")}`;
+  }
+
+  results[c.id] = { passed, evidence };
 }
 
 const nextState = recordHistory(
