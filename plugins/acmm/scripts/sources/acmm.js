@@ -691,13 +691,13 @@ const CRITERIA= [
   {
     id: 'acmm:onboarding-benchmark',
     source: 'acmm',
-    level: 4,
-    category: 'readiness',
+    level: 3,
+    category: 'feedback-loop',
     name: 'Onboarding benchmark',
-    description: 'Benchmark script that measures time-to-first-contribution for fresh AI sessions.',
-    rationale: 'L4 signal: file-presence alone does not ensure the AI can navigate the codebase; benchmarks measure actual readiness.',
-    details: 'An onboarding benchmark defines known tasks and expected completion times. Running these tasks in fresh AI sessions measures how well project documentation enables the AI to work independently. Improvements to CLAUDE.md and package docs should reduce benchmark times.',
-    detection: { type: 'any-of', pattern: ['scripts/acmm/onboarding-bench.js', 'docs/acmm/onboarding-benchmark.md'] },
+    description: 'A benchmark script measuring how effectively the codebase teaches new AI sessions.',
+    rationale: 'Quantifies the "codebase as model" concept -- whether instruction files and patterns effectively onboard new agents.',
+    details: 'An onboarding benchmark defines known tasks of increasing difficulty and expected completion times. Running these tasks in fresh AI sessions measures how well project documentation enables the AI to work independently. Improvements to CLAUDE.md and package docs should reduce benchmark times.',
+    detection: { type: 'path', pattern: 'plugins/acmm/scripts/onboarding-benchmark.js' },
   },
 
   {
@@ -916,7 +916,7 @@ const CRITERIA= [
     description: 'Workflow or cron that generates work items for the AI to pick up — the system identifies its own problems and creates tasks.',
     rationale: 'L6 self-direction: the codebase proposes its own next task.',
     details: 'Automated issue generation is a cron-triggered workflow that scans the codebase for TODOs, stale dependencies, failing tests, or coverage gaps and files GitHub issues for each finding. The codebase identifies its own work rather than waiting for humans to notice problems. An AI mission will add a workflow that scans for common improvement opportunities and creates prioritized issues automatically.',
-    detection: { type: 'any-of', pattern: ['.github/workflows/auto-issue.yml', '.github/workflows/issue-gen.yml', '.github/workflows/auto-generate-issues.yml'] },
+    detection: { type: 'active', pattern: ['.github/workflows/auto-issue.yml', '.github/workflows/issue-gen.yml', '.github/workflows/auto-generate-issues.yml'], maxAgeDays: 7 },
   },
   {
     id: 'acmm:multi-agent-orchestration',
@@ -972,7 +972,7 @@ const CRITERIA= [
     rationale: 'Closes the gap between deployment and development.',
     scannable: false,
     details: 'Error rates from production monitoring creating GitHub issues tagged production-regression, which trigger RCA workflows.',
-    detection: { type: 'any-of', pattern: ['.github/workflows/production-feedback.yml'] },
+    detection: { type: 'active', pattern: ['.github/workflows/production-feedback.yml'], maxAgeDays: 30 },
   },
   {
     id: 'acmm:observability-runbook',
@@ -996,6 +996,17 @@ const CRITERIA= [
     scannable: false,
     details: 'A documented procedure: "If a nightly AI-merged PR breaks production: (1) revert PR, (2) disable auto-merge, (3) file incident issue, (4) RCA workflow runs on the reverted commit."',
     detection: { type: 'any-of', pattern: ['docs/rollback-drill.md', 'docs/ai-ops-runbook.md'] },
+  },
+  {
+    id: 'acmm:feedback-loop-inventory',
+    source: 'acmm',
+    level: 4,
+    category: 'feedback-loop',
+    name: 'Feedback loop inventory',
+    description: 'A document cataloging all feedback loops with their ACMM level, frequency, and operating status.',
+    rationale: 'Making feedback loop topology explicit enables auditing and prevents the "dashboard graveyard" anti-pattern.',
+    details: 'The ACMM paper defines maturity as feedback loop topology. This inventory makes that topology explicit: every loop has a name, ACMM level, frequency, trigger mechanism, status (active/planned/broken), and last-verified date. Without it, loops accumulate silently and broken ones go unnoticed.',
+    detection: { type: 'path', pattern: 'docs/acmm/feedback-loop-inventory.md' },
   },
   {
     id: 'acmm:budget-policy',
@@ -1040,7 +1051,7 @@ const CRITERIA= [
     description: 'Automated detection and revert of regressions caused by AI-authored changes.',
     rationale: 'L6 signal: the system not only acts but also undoes mistakes without human initiation.',
     details: 'Auto-rollback completes the autonomous loop: the system detects regressions from its own PRs (via post-deploy checks) and creates revert PRs automatically. Without this, L6 autonomy is one-directional — the system can break things but not fix them.',
-    detection: { type: 'any-of', pattern: ['.github/workflows/auto-rollback.yml', 'docs/acmm/auto-rollback.md'] },
+    detection: { type: 'active', pattern: ['.github/workflows/auto-rollback.yml', 'docs/acmm/auto-rollback.md'], maxAgeDays: 365 },
   },
   {
     id: 'acmm:multi-repo-orchestration',

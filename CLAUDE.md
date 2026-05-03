@@ -29,6 +29,7 @@ Automated system that audits the live site, finds and fixes issues, builds featu
 | `/ci-monitor` | Check CI health, auto-fix simple failures, escalate complex ones |
 | `/progress-tracker` | Metrics, self-tuning circuit breaker, trend analysis |
 | `/learning-loop` | Sensor-driven improvement: collect metrics → detect regressions → create issues → verify fixes → self-tune |
+| `/sentry-triage` | Query Sentry for production errors, filter by severity/frequency, deduplicate, create GitHub issues for ship-loop |
 | `/acmm-audit` | Score repo against canonical AI Codebase Maturity Model (6 levels, 100+ criteria from ACMM/Fullsend/AEF/Reflect), file next-level-gap issues, update README badge |
 
 ## mbe CLI Commands
@@ -64,12 +65,14 @@ mbe up                                           # Start dev servers
 | `in-progress` | Agent is working on it |
 | `has-pr` | PR created, awaiting merge/review |
 | `agent-failed` | Agent could not complete — needs manual review or retry |
+| `agent-skip` | Exhausted max retries — needs manual review or different approach |
 | `audit` | Found by site-audit |
 | `ci-fix` | CI failure needing fix |
 | `feature` | New feature (created by `/decompose`) |
 | `tracking` | Parent issue tracking multi-part feature |
 | `meta-improvement` | Process improvement suggestion |
 | `acmm` | AI Codebase Maturity Model finding (created by `/acmm-audit --apply`) |
+| `sentry` | Production error triaged from Sentry |
 
 ### RemoteTriggers (scheduled background agents)
 

@@ -1,7 +1,7 @@
-import { test } from "node:test";
+import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
-import { computeLevel } from "../computeLevel.js";
+import { computeLevel, BEHAVIORAL_GATES } from "../computeLevel.js";
 import { ALL_CRITERIA, SOURCES } from "../sources/index.js";
 
 test("computeLevel: empty detection set → L1 (Assisted)", () => {
@@ -20,17 +20,17 @@ test("computeLevel: any single agent-instructions file satisfies L2", () => {
 });
 
 test("computeLevel: 70% threshold gates L3+", () => {
-  // L3 has 4 scannable items. 70% = 3 of 4 needed.
-  // Two hits (besides the L2 OR-group) should NOT be enough.
-  const twoHits = computeLevel(
-    new Set(["acmm:claude-md", "acmm:ci-matrix", "acmm:pr-acceptance-metric"]),
-  );
-  assert.equal(twoHits.level, 2, "2 of 4 = 50%, below 70% threshold, stays at L2");
-
+  // L3 has 5 scannable items. 70% = 4 of 5 needed.
+  // Three hits (besides the L2 OR-group) should NOT be enough.
   const threeHits = computeLevel(
     new Set(["acmm:claude-md", "acmm:ci-matrix", "acmm:pr-acceptance-metric", "acmm:pr-review-rubric"]),
   );
-  assert.equal(threeHits.level, 3, "3 of 4 = 75%, crosses 70% threshold, advances to L3");
+  assert.equal(threeHits.level, 2, "3 of 5 = 60%, below 70% threshold, stays at L2");
+
+  const fourHits = computeLevel(
+    new Set(["acmm:claude-md", "acmm:ci-matrix", "acmm:pr-acceptance-metric", "acmm:pr-review-rubric", "acmm:onboarding-benchmark"]),
+  );
+  assert.equal(fourHits.level, 3, "4 of 5 = 80%, crosses 70% threshold, advances to L3");
 });
 
 test("computeLevel: stops at first failed level", () => {
@@ -66,91 +66,193 @@ test("ALL_CRITERIA: 4 sources, level distribution covers L0–L6", () => {
 test("ALL_CRITERIA: every criterion has detection.type and pattern", () => {
   for (const c of ALL_CRITERIA) {
     assert.ok(c.detection, `criterion ${c.id} missing detection`);
-    assert.ok(["path", "any-of", "glob"].includes(c.detection.type), `${c.id} has invalid detection type`);
+    assert.ok(["path", "any-of", "glob", "active"].includes(c.detection.type), `${c.id} has invalid detection type`);
     assert.ok(c.detection.pattern, `${c.id} missing detection pattern`);
   }
 });
 
-// ── Behavioral gate tests ───────────────────────────────────────────────────
+/* ── Behavioral gates ───────────────────────────────────── */
 
-// IDs that push infrastructure to L3 (L2 OR-group + 3/4 L3 criteria = 75%)
-const L3_IDS = new Set([
-  "acmm:claude-md",
-  "acmm:pr-acceptance-metric",
-  "acmm:pr-review-rubric",
-  "acmm:ci-matrix",
-]);
+// Helper: IDs that satisfy L2 + L3+ levels
+// L2 has 3 scannable items; the OR-group virtual criterion only needs 1 file
+const L2_IDS = ["acmm:claude-md"];
+// L3 has 5 items; 70% = 4 needed
+const L3_IDS = [
+  "acmm:ci-matrix", "acmm:pr-acceptance-metric", "acmm:pr-review-rubric",
+  "acmm:onboarding-benchmark",
+];
+// L4 has 14 items; 70% = 10
+const L4_IDS = [
+  "acmm:auto-qa-tuning", "acmm:nightly-compliance", "acmm:copilot-review-apply",
+  "acmm:auto-label", "acmm:ai-fix-workflow", "acmm:tier-classifier",
+  "acmm:security-ai-md", "acmm:mcp-server-config", "acmm:code-graph",
+  "acmm:repo-bench",
+];
+// L5 has 16 items; 70% = 12
+const L5_IDS = [
+  "acmm:github-actions-ai", "acmm:auto-qa-self-tuning", "acmm:public-metrics",
+  "acmm:policy-as-code", "acmm:reflection-log", "acmm:audit-trail",
+  "acmm:self-correction-metric", "acmm:state-backup", "acmm:ai-health-dashboard",
+  "acmm:prompt-injection-sandbox", "acmm:agent-attestation", "acmm:ai-service-fallback",
+];
+// L6 has 8 items; 70% = 6
+const L6_IDS = [
+  "acmm:auto-issue-gen", "acmm:multi-agent-orchestration", "acmm:merge-queue",
+  "acmm:strategic-dashboard", "acmm:risk-assessment-config", "acmm:observability-runbook",
+];
 
-test("computeLevel: behavioral gates returned with null when no behavioral data", () => {
-  const result = computeLevel(L3_IDS);
-  assert.ok(result.behavioralGates, "behavioralGates should be present");
-  for (const gate of Object.values(result.behavioralGates)) {
-    assert.equal(gate.passed, null, "all gates should be null when no behavioral data");
-    assert.equal(gate.dataAvailable, false);
-  }
-});
+/** Builds a Set of all IDs up to and including the given level */
+function idsThrough(level) {
+  const all = [...L2_IDS];
+  if (level >= 3) all.push(...L3_IDS);
+  if (level >= 4) all.push(...L4_IDS);
+  if (level >= 5) all.push(...L5_IDS);
+  if (level >= 6) all.push(...L6_IDS);
+  return new Set(all);
+}
 
-test("computeLevel: soft mode — failed gate is a warning, level unchanged", () => {
-  // L3 gate: flake rate must be < 20%. Rate of 0.25 fails the gate.
-  const behavioral = { flake: { rate_30d: 0.25, sample_size: 10, flaky_shas: [] } };
-  const result = computeLevel(L3_IDS, behavioral, false);
-  assert.equal(result.level, 3, "soft mode: level stays at infrastructure level despite gate failure");
-  assert.equal(result.infrastructureLevel, 3);
-  assert.equal(result.behavioralGates[3].passed, false, "L3 gate should report failure");
-});
+describe("computeLevel with behavioral gates", () => {
+  test("backward compatible: no behavioral param returns behavioralGates array", () => {
+    const result = computeLevel(new Set(L2_IDS));
+    assert.ok(Array.isArray(result.behavioralGates), "behavioralGates should be an array");
+    assert.equal(result.behavioralGates.length, BEHAVIORAL_GATES.length);
+    assert.equal(result.level, 2);
+  });
 
-test("computeLevel: strict mode — failed L3 gate caps level at L2", () => {
-  const behavioral = { flake: { rate_30d: 0.25, sample_size: 10, flaky_shas: [] } };
-  const result = computeLevel(L3_IDS, behavioral, true);
-  assert.equal(result.infrastructureLevel, 3, "infrastructure level still 3");
-  assert.equal(result.level, 2, "strict mode: level capped at L2 by L3 gate failure");
-  assert.equal(result.strict, true);
-});
+  test("backward compatible: empty behavioral param does not block advancement", () => {
+    const ids = idsThrough(3);
+    const result = computeLevel(ids, {});
+    assert.equal(result.level, 3, "should reach L3 with no behavioral data");
+    // Gates with no data should all pass
+    for (const g of result.behavioralGates) {
+      assert.equal(g.passed, true, `gate ${g.name} should pass when no data`);
+      assert.equal(g.dataAvailable, false, `gate ${g.name} should report no data`);
+    }
+  });
 
-test("computeLevel: strict mode — passing gates do not reduce level", () => {
-  const behavioral = {
-    flake: { rate_30d: 0.05, sample_size: 20, flaky_shas: [] },   // L3 gate passes
-    agent_pr: {
-      acceptance_rate_30d: 0.80,
-      revert_rate_30d: 0.02,
-      insufficient_data: false,
-      sample_size: 30,
-    },
-    auto_qa_tuning: { history_count: 3 },                          // L5 gate passes
-  };
-  const result = computeLevel(L3_IDS, behavioral, true);
-  assert.equal(result.level, 3, "all relevant gates pass — level unchanged");
-  assert.equal(result.behavioralGates[3].passed, true);
-});
+  test("L3 blocked by high flake rate in strict mode", () => {
+    const ids = idsThrough(3);
+    const behavioral = { flake: { rate_30d: 0.25 } }; // 25% > 20% threshold
+    const result = computeLevel(ids, behavioral, { strict: true });
+    assert.equal(result.level, 2, "L3 should be blocked by high flake rate in strict mode");
 
-test("computeLevel: L4 behavioral gate — acceptance rate <= 50% fails", () => {
-  const behavioral = {
-    agent_pr: { acceptance_rate_30d: 0.45, revert_rate_30d: 0.05, insufficient_data: false, sample_size: 20 },
-  };
-  const result = computeLevel(L3_IDS, behavioral, false);
-  assert.equal(result.behavioralGates[4].passed, false, "L4 gate fails when acceptance_rate <= 50%");
-  assert.equal(result.behavioralGates[4].dataAvailable, true);
-});
+    const flakeGate = result.behavioralGates.find((g) => g.name === "ci-flake-rate");
+    assert.equal(flakeGate.passed, false);
+    assert.equal(flakeGate.value, 0.25);
+    assert.equal(flakeGate.strict, true);
+    assert.equal(flakeGate.dataAvailable, true);
+  });
 
-test("computeLevel: insufficient_data skips L4 and L6 gates", () => {
-  const behavioral = {
-    agent_pr: { acceptance_rate_30d: 0.20, revert_rate_30d: 0.50, insufficient_data: true, sample_size: 2 },
-  };
-  const result = computeLevel(L3_IDS, behavioral, true);
-  assert.equal(result.behavioralGates[4].passed, null, "L4 gate: null when insufficient_data");
-  assert.equal(result.behavioralGates[6].passed, null, "L6 gate: null when insufficient_data");
-  // No gate caps the level
-  assert.equal(result.level, result.infrastructureLevel, "level unchanged when all data is unavailable");
-});
+  test("L3 warning but not blocked by high flake rate in soft mode", () => {
+    const ids = idsThrough(3);
+    const behavioral = { flake: { rate_30d: 0.25 } }; // 25% > 20% threshold
+    const result = computeLevel(ids, behavioral, { strict: false });
+    assert.equal(result.level, 3, "L3 should NOT be blocked in soft mode");
 
-test("computeLevel: L5 auto_qa_tuning gate — history_count <= 1 fails", () => {
-  const behavioral = { auto_qa_tuning: { history_count: 1 } };
-  const result = computeLevel(L3_IDS, behavioral, false);
-  assert.equal(result.behavioralGates[5].passed, false, "L5 gate fails when history_count <= 1");
-});
+    const flakeGate = result.behavioralGates.find((g) => g.name === "ci-flake-rate");
+    assert.equal(flakeGate.passed, false, "gate should report failure");
+    assert.equal(flakeGate.strict, false);
+  });
 
-test("computeLevel: L5 auto_qa_tuning gate — history_count > 1 passes", () => {
-  const behavioral = { auto_qa_tuning: { history_count: 2 } };
-  const result = computeLevel(L3_IDS, behavioral, false);
-  assert.equal(result.behavioralGates[5].passed, true, "L5 gate passes when history_count > 1");
+  test("L3 passes when flake rate is below threshold", () => {
+    const ids = idsThrough(3);
+    const behavioral = { flake: { rate_30d: 0.10 } }; // 10% < 20%
+    const result = computeLevel(ids, behavioral, { strict: true });
+    assert.equal(result.level, 3, "L3 should pass when flake rate is low");
+
+    const flakeGate = result.behavioralGates.find((g) => g.name === "ci-flake-rate");
+    assert.equal(flakeGate.passed, true);
+  });
+
+  test("L4 blocked by low PR acceptance rate in strict mode", () => {
+    const ids = idsThrough(4);
+    const behavioral = {
+      flake: { rate_30d: 0.05 },       // L3 gate passes
+      agent_pr: { acceptance_rate_30d: 0.40 }, // 40% < 50% threshold
+    };
+    const result = computeLevel(ids, behavioral, { strict: true });
+    assert.equal(result.level, 3, "L4 should be blocked by low PR acceptance");
+
+    const prGate = result.behavioralGates.find((g) => g.name === "agent-pr-acceptance");
+    assert.equal(prGate.passed, false);
+    assert.equal(prGate.value, 0.40);
+  });
+
+  test("L5 blocked by insufficient auto-qa history in strict mode", () => {
+    const ids = idsThrough(5);
+    const behavioral = {
+      flake: { rate_30d: 0.05 },
+      agent_pr: { acceptance_rate_30d: 0.80 },
+      auto_qa_history_count: 1, // must be > 1
+    };
+    const result = computeLevel(ids, behavioral, { strict: true });
+    assert.equal(result.level, 4, "L5 should be blocked by auto_qa_history_count <= 1");
+
+    const qaGate = result.behavioralGates.find((g) => g.name === "auto-qa-tuning-history");
+    assert.equal(qaGate.passed, false);
+    assert.equal(qaGate.value, 1);
+  });
+
+  test("L6 blocked by high revert rate in strict mode", () => {
+    const ids = idsThrough(6);
+    const behavioral = {
+      flake: { rate_30d: 0.05 },
+      agent_pr: { acceptance_rate_30d: 0.80, revert_rate_30d: 0.15 }, // 15% > 10%
+      auto_qa_history_count: 3,
+    };
+    const result = computeLevel(ids, behavioral, { strict: true });
+    assert.equal(result.level, 5, "L6 should be blocked by high revert rate");
+
+    const revertGate = result.behavioralGates.find((g) => g.name === "agent-pr-revert-rate");
+    assert.equal(revertGate.passed, false);
+    assert.equal(revertGate.value, 0.15);
+  });
+
+  test("all gates pass: full advancement to L6", () => {
+    const ids = idsThrough(6);
+    const behavioral = {
+      flake: { rate_30d: 0.05 },
+      agent_pr: { acceptance_rate_30d: 0.80, revert_rate_30d: 0.02 },
+      auto_qa_history_count: 5,
+    };
+    const result = computeLevel(ids, behavioral, { strict: true });
+    assert.equal(result.level, 6, "should reach L6 when all gates pass");
+
+    for (const g of result.behavioralGates) {
+      assert.equal(g.passed, true, `gate ${g.name} should pass`);
+    }
+  });
+
+  test("gate results include expected fields", () => {
+    const ids = idsThrough(3);
+    const behavioral = { flake: { rate_30d: 0.25 } };
+    const result = computeLevel(ids, behavioral, { strict: true });
+
+    const gate = result.behavioralGates[0];
+    assert.ok("level" in gate, "gate should have level");
+    assert.ok("name" in gate, "gate should have name");
+    assert.ok("passed" in gate, "gate should have passed");
+    assert.ok("value" in gate, "gate should have value");
+    assert.ok("threshold" in gate, "gate should have threshold");
+    assert.ok("strict" in gate, "gate should have strict");
+    assert.ok("direction" in gate, "gate should have direction");
+    assert.ok("dataAvailable" in gate, "gate should have dataAvailable");
+    assert.ok("description" in gate, "gate should have description");
+  });
+
+  test("soft mode: multiple failing gates produce warnings but allow advancement", () => {
+    const ids = idsThrough(4);
+    const behavioral = {
+      flake: { rate_30d: 0.25 },                // L3 gate fails
+      agent_pr: { acceptance_rate_30d: 0.30 },   // L4 gate fails
+    };
+    const result = computeLevel(ids, behavioral, { strict: false });
+    assert.equal(result.level, 4, "should still reach L4 in soft mode");
+
+    const failedGates = result.behavioralGates.filter((g) => !g.passed);
+    assert.equal(failedGates.length, 2, "two gates should fail");
+    for (const g of failedGates) {
+      assert.equal(g.strict, false, "failed gates should be marked as soft");
+    }
+  });
 });

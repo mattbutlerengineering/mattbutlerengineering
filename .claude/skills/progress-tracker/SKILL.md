@@ -26,6 +26,7 @@ gh issue list --label "ready" --state open --json number,title
 gh issue list --label "in-progress" --state open --json number,title
 gh issue list --label "has-pr" --state open --json number,title
 gh issue list --label "agent-failed" --state open --json number,title
+gh issue list --label "agent-skip" --state open --json number,title,createdAt
 
 # PRs merged recently
 gh pr list --state merged --json number,title,mergedAt,headRefName --limit 50
@@ -65,6 +66,7 @@ Calculate these key indicators:
 | **Queue Depth** | Count of issues with `ready` label (target: < 5) |
 | **Stale Issues** | Issues with `ready` label open > 7 days |
 | **Blocked Issues** | Issues with `agent-failed` label not re-queued |
+| **Skipped Issues** | Issues with `agent-skip` label (exceeded max retries, need manual review) |
 | **Daily Agent Spend** | Sum of costUsd from .claude/agent-spend.jsonl for today (target: < $10) |
 | **7d Agent Spend** | Sum of costUsd from last 7 days of entries |
 | **Avg Cost/Issue** | 7d spend / issues closed in 7d |
@@ -106,6 +108,7 @@ Append a dated entry to `.claude/improvement-loop/log.md`:
 | CI Pass Rate | N% | >95% | ✅/⚠️/❌ |
 | Queue Depth | N | <5 | ✅/⚠️/❌ |
 | Stale Issues | N | 0 | ✅/⚠️/❌ |
+| Skipped Issues | N | 0 | ✅/⚠️/❌ |
 | Daily Agent Spend | $N.NN | <$10 | ✅/⚠️/❌ |
 | 7d Agent Spend | $N.NN | <$50 | ✅/⚠️/❌ |
 | Avg Cost/Issue | $N.NN | <$2 | ✅/⚠️/❌ |
@@ -115,7 +118,18 @@ Append a dated entry to `.claude/improvement-loop/log.md`:
 
 ### Recommendations
 - [Actionable suggestions]
+
+### Skipped Issues (agent-skip)
+[List any issues with the `agent-skip` label that need manual attention]
 ```
+
+Query skipped issues for the report:
+
+```bash
+gh issue list --label "agent-skip" --state open --json number,title,createdAt --jq '.[] | "  #\(.number) \(.title) (created: \(.createdAt | split("T")[0]))"'
+```
+
+If any `agent-skip` issues exist, include a summary line in the report: "N issues skipped after max retries -- need manual review"
 
 Create the file if it does not exist. Always **append** — never overwrite previous entries.
 
@@ -183,11 +197,11 @@ $(gh issue list --label agent-failed --state open --json number,title -q '.[] | 
 
 ### Auto-Retry Stale Failures
 
-If an issue has been `agent-failed` for 3+ days with no activity, re-queue it (the agent or skills may have improved):
+If an issue has been `agent-failed` for 3+ days with no activity, re-queue it (the agent or skills may have improved). Issues with the `agent-skip` label are excluded -- they have already exhausted their retry budget and need manual intervention:
 
 ```bash
-# Find stale agent-failed issues (created > 3 days ago)
-STALE=$(gh issue list --label "agent-failed" --state open --json number,createdAt -q '[.[] | select(.createdAt < (now - 259200 | todate))] | .[].number')
+# Find stale agent-failed issues (created > 3 days ago), excluding agent-skip
+STALE=$(gh issue list --label "agent-failed" --state open --json number,createdAt,labels -q '[.[] | select(.createdAt < (now - 259200 | todate)) | select(.labels | map(.name) | index("agent-skip") | not)] | .[].number')
 
 for NUM in $STALE; do
   gh issue edit $NUM --add-label "ready" --remove-label "agent-failed"

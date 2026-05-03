@@ -13,4 +13,5 @@ export default defineWorkspace([
   "services/*/vitest.config.ts",
   "apps/*/vitest.config.ts",
   "tools/*/vitest.config.ts",
+  "scripts/vitest.config.mjs",
 ]);

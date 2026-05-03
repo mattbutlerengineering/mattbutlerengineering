@@ -167,7 +167,15 @@ const behavioral = {
     : (prior.behavioral?.auto_qa_tuning ?? null),
 };
 
-const computation = computeLevel(detectedIds, behavioral, STRICT);
+// Build the behavioral snapshot that computeLevel expects:
+// top-level flake/agent_pr for L3/L4/L6 gates, auto_qa_history_count for L5 gate
+const computeBehavioral = {
+  flake: behavioral.flake,
+  agent_pr: behavioral.agent_pr,
+  auto_qa_history_count: autoQaTuning ? autoQaTuning.history_count : 0,
+};
+
+const computation = computeLevel(detectedIds, computeBehavioral, { strict: STRICT });
 
 /* ── Diff vs prior saved state ──────────────────────────── */
 const priorIds = new Set(prior.detectedIds ?? []);
@@ -237,9 +245,7 @@ if (APPLY) {
 
 /* ── Console summary ─────────────────────────────────────── */
 console.log("");
-const levelDisplay = STRICT && computation.infrastructureLevel !== computation.level
-  ? `${computation.level} (${computation.levelName})  [infrastructure L${computation.infrastructureLevel} capped by behavioral gate]`
-  : `${computation.level} (${computation.levelName})`;
+const levelDisplay = `${computation.level} (${computation.levelName})`;
 console.log(`ACMM Level ${levelDisplay}  ·  ${detectedCount}/${totalCount} criteria detected`);
 console.log(`Role: ${computation.role}`);
 
@@ -274,6 +280,22 @@ console.log(`Prerequisites (soft): ${computation.prerequisites.met}/${computatio
 console.log(`Cross-cutting learning: ${computation.crossCutting.learning.met}/${computation.crossCutting.learning.total}`);
 console.log(`Cross-cutting traceability: ${computation.crossCutting.traceability.met}/${computation.crossCutting.traceability.total}`);
 
+if (computation.behavioralGates.length > 0) {
+  console.log("");
+  console.log(`Behavioral gates (${STRICT ? "strict" : "soft"}):`);
+  for (const g of computation.behavioralGates) {
+    const icon = g.passed ? "✓" : STRICT ? "✗" : "⚠";
+    const val = g.dataAvailable
+      ? g.direction === "below"
+        ? `${(g.value * 100).toFixed(1)}% < ${(g.threshold * 100).toFixed(0)}%`
+        : typeof g.value === "number" && g.threshold < 1
+          ? `${(g.value * 100).toFixed(1)}% > ${(g.threshold * 100).toFixed(0)}%`
+          : `${g.value} > ${g.threshold}`
+      : "no data";
+    console.log(`  ${icon} L${g.level} ${g.name}: ${val}${!g.passed && !STRICT ? " (warning)" : ""}`);
+  }
+}
+
 if (behavioral.flake) {
   const pct = (behavioral.flake.rate_30d * 100).toFixed(1);
   const n = behavioral.flake.sample_size;
@@ -306,8 +328,7 @@ if (behavioral.evals) {
 
 console.log("");
 console.log(`Behavioral gates${STRICT ? " (strict — failures cap level)" : " (soft — failures are warnings)"}:`);
-for (const [levelStr, gate] of Object.entries(computation.behavioralGates).sort()) {
-  const n = Number(levelStr);
+for (const gate of computation.behavioralGates) {
   let icon, note;
   if (!gate.dataAvailable) {
     icon = "?";
@@ -319,7 +340,7 @@ for (const [levelStr, gate] of Object.entries(computation.behavioralGates).sort(
     icon = STRICT ? "✗" : "!";
     note = STRICT ? "FAIL (level capped)" : "WARN";
   }
-  console.log(`  ${icon} L${n}: ${gate.label}  [${note}]`);
+  console.log(`  ${icon} L${gate.level}: ${gate.description}  [${note}]`);
 }
 
 if (computation.nextTransitionTrigger) {

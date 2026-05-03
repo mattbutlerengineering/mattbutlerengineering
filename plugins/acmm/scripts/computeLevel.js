@@ -8,6 +8,72 @@ const LEVEL_COMPLETION_THRESHOLD = 0.7
 /** Level 0 = prerequisites (soft indicator, not gating) */
 const PREREQUISITE_LEVEL = 0
 
+/**
+ * Behavioral gates — each ties a runtime signal to a level advancement check.
+ * When `strict` is true, a failing gate blocks level advancement (hard gate).
+ * When `strict` is false (default), a failing gate emits a warning but allows advancement (soft gate).
+ */
+const BEHAVIORAL_GATES = [
+  {
+    level: 3,
+    name: 'ci-flake-rate',
+    description: 'CI flake rate must be below 20%',
+    threshold: 0.20,
+    direction: 'below', // value must be below threshold to pass
+    extract: (b) => b?.flake?.rate_30d,
+  },
+  {
+    level: 4,
+    name: 'agent-pr-acceptance',
+    description: 'Agent PR acceptance rate must exceed 50%',
+    threshold: 0.50,
+    direction: 'above', // value must be above threshold to pass
+    extract: (b) => b?.agent_pr?.acceptance_rate_30d,
+  },
+  {
+    level: 5,
+    name: 'auto-qa-tuning-history',
+    description: 'Auto-QA tuning history must have more than 1 entry',
+    threshold: 1,
+    direction: 'above', // value must be above threshold to pass
+    extract: (b) => b?.auto_qa_history_count,
+  },
+  {
+    level: 6,
+    name: 'agent-pr-revert-rate',
+    description: 'Agent PR revert rate must be below 10%',
+    threshold: 0.10,
+    direction: 'below', // value must be below threshold to pass
+    extract: (b) => b?.agent_pr?.revert_rate_30d,
+  },
+]
+
+/**
+ * Evaluate a single behavioral gate against the provided behavioral data.
+ * Returns a gate result object with pass/fail status and metadata.
+ */
+function evaluateGate(gate, behavioral, strict) {
+  const value = gate.extract(behavioral)
+  const hasValue = value !== undefined && value !== null
+  // Gates with no data are treated as passed (data unavailable = no block)
+  const passed = !hasValue
+    ? true
+    : gate.direction === 'below'
+      ? value < gate.threshold
+      : value > gate.threshold
+  return {
+    level: gate.level,
+    name: gate.name,
+    description: gate.description,
+    passed,
+    value: hasValue ? value : null,
+    threshold: gate.threshold,
+    direction: gate.direction,
+    strict,
+    dataAvailable: hasValue,
+  }
+}
+
 /** Virtual criterion representing the OR group above (not in acmm.ts source). */
 const VIRTUAL_AGENT_INSTRUCTIONS= {
   id: 'acmm:agent-instructions',
@@ -60,72 +126,9 @@ function levelDef(n) {
   return ACMM_LEVELS.find((l) => l.n === n)
 }
 
-/**
- * Behavioral gate definitions per level.
- * check(behavioral) → true (pass) | false (fail) | null (data unavailable → gate skipped)
- *
- * These gates shift the audit from "infrastructure exists" to "infrastructure operates."
- * Soft mode (default): failures produce warnings but don't lower the reported level.
- * Strict mode (--strict): first failed gate caps the level at n-1.
- */
-const BEHAVIORAL_GATE_DEFS = {
-  3: {
-    label: 'CI flake rate < 20%',
-    check: (b) => {
-      if (!b?.flake) return null
-      return b.flake.rate_30d < 0.20
-    },
-  },
-  4: {
-    label: 'Agent PR acceptance rate > 50%',
-    check: (b) => {
-      if (!b?.agent_pr || b.agent_pr.insufficient_data) return null
-      return b.agent_pr.acceptance_rate_30d > 0.50
-    },
-  },
-  5: {
-    label: 'Auto-QA tuning loop has fired (history > 1 entry)',
-    check: (b) => {
-      if (!b?.auto_qa_tuning) return null
-      return b.auto_qa_tuning.history_count > 1
-    },
-  },
-  6: {
-    label: 'Agent PR revert rate < 10%',
-    check: (b) => {
-      if (!b?.agent_pr || b.agent_pr.insufficient_data) return null
-      return b.agent_pr.revert_rate_30d < 0.10
-    },
-  },
-}
+export function computeLevel(rawDetectedIds, behavioral = {}, options = {}){
+  const strict = options.strict ?? false
 
-/**
- * Evaluate all behavioral gates against the provided behavioral snapshot.
- * @param {object|null} behavioral
- * @returns {Record<number, {label: string, passed: boolean|null, dataAvailable: boolean}>}
- */
-function evaluateBehavioralGates(behavioral) {
-  const gates = {}
-  for (const [levelStr, def] of Object.entries(BEHAVIORAL_GATE_DEFS)) {
-    const level = Number(levelStr)
-    const result = def.check(behavioral)
-    gates[level] = {
-      label: def.label,
-      passed: result,          // true | false | null (null = data unavailable)
-      dataAvailable: result !== null,
-    }
-  }
-  return gates
-}
-
-/**
- * Compute the ACMM maturity level from detected criterion IDs and optional behavioral signals.
- *
- * @param {Set<string>|string[]} rawDetectedIds - detected criterion IDs from file-presence scan
- * @param {object|null} behavioral - behavioral signals snapshot (flake, agent_pr, auto_qa_tuning, evals)
- * @param {boolean} strict - if true, failed behavioral gates cap the reported level at n-1
- */
-export function computeLevel(rawDetectedIds, behavioral = null, strict = false){
   // Synthesise the virtual L2 OR-group criterion before the level walk.
   const detectedIds = new Set(rawDetectedIds)
   if ([...AGENT_INSTRUCTION_FILE_IDS].some((id) => detectedIds.has(id))) {
@@ -142,8 +145,17 @@ export function computeLevel(rawDetectedIds, behavioral = null, strict = false){
     detectedByLevel[n] = required.filter((c) => detectedIds.has(c.id)).length
   }
 
-  // Artifact-presence level (ignores behavioral signals)
-  let infrastructureLevel = MIN_LEVEL
+  // Evaluate all behavioral gates up front
+  const behavioralGates = BEHAVIORAL_GATES.map((gate) =>
+    evaluateGate(gate, behavioral, strict),
+  )
+  // Index gate results by level for quick lookup
+  const gateByLevel = {}
+  for (const g of behavioralGates) {
+    gateByLevel[g.level] = g
+  }
+
+  let currentLevel = MIN_LEVEL
   for (let n = MIN_LEVEL + 1; n <= MAX_LEVEL; n++) {
     const required = requiredByLevel[n]
     const detected = detectedByLevel[n]
@@ -152,25 +164,16 @@ export function computeLevel(rawDetectedIds, behavioral = null, strict = false){
     const threshold = n === 2 ? 1 / required : LEVEL_COMPLETION_THRESHOLD
     const ratio = detected / required
     if (ratio >= threshold) {
-      infrastructureLevel = n
-    } else {
-      break
-    }
-  }
-
-  const behavioralGates = evaluateBehavioralGates(behavioral)
-
-  // In strict mode, cap at the first level whose behavioral gate explicitly fails.
-  // Gates with null passed (data unavailable) are skipped — absence of data is not a penalty.
-  let currentLevel = infrastructureLevel
-  if (strict) {
-    for (let n = MIN_LEVEL + 1; n <= MAX_LEVEL; n++) {
-      const gate = behavioralGates[n]
-      if (!gate || gate.passed !== false) continue
-      if (currentLevel >= n) {
-        currentLevel = n - 1
+      // Check behavioral gate for this level (if one exists)
+      const gate = gateByLevel[n]
+      if (gate && !gate.passed && strict) {
+        // Hard gate: block advancement
         break
       }
+      // Soft gate failure or no gate: advance
+      currentLevel = n
+    } else {
+      break
     }
   }
 
@@ -196,7 +199,6 @@ export function computeLevel(rawDetectedIds, behavioral = null, strict = false){
 
   return {
     level: currentLevel,
-    infrastructureLevel,
     strict,
     levelName: current?.name ?? `L${currentLevel}`,
     role: current?.role ?? '',
@@ -238,4 +240,4 @@ export function getCriteriaByLevel() {
   return byLevel
 }
 
-export { LEVEL_COMPLETION_THRESHOLD, MIN_LEVEL, MAX_LEVEL, PREREQUISITE_LEVEL }
+export { BEHAVIORAL_GATES, LEVEL_COMPLETION_THRESHOLD, MIN_LEVEL, MAX_LEVEL, PREREQUISITE_LEVEL }
