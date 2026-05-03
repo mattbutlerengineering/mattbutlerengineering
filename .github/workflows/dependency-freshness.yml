@@ -30,7 +30,7 @@ jobs:
         run: |
           OUTPUT=$(pnpm outdated --json 2>/dev/null || echo "{}")
           echo "outdated=$OUTPUT" >> "$GITHUB_OUTPUT"
-          
+
           # Count outdated
           COUNT=$(echo "$OUTPUT" | jq 'if type == "object" then keys | length else 0 end')
           echo "count=$COUNT" >> "$GITHUB_OUTPUT"

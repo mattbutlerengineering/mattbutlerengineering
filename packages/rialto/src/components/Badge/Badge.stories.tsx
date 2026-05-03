@@ -1,20 +1,20 @@
-import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Badge } from './Badge';
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import { Badge } from "./Badge";
 
 const meta: Meta<typeof Badge> = {
-  title: 'Display/Badge',
+  title: "Display/Badge",
   component: Badge,
-  tags: ['autodocs'],
+  tags: ["autodocs"],
   argTypes: {
     variant: {
-      control: { type: 'select' },
-      options: ['neutral', 'accent', 'success', 'warning', 'error'],
+      control: { type: "select" },
+      options: ["neutral", "accent", "success", "warning", "error"],
     },
     size: {
-      control: { type: 'radio' },
-      options: ['sm', 'md'],
+      control: { type: "radio" },
+      options: ["sm", "md"],
     },
-    dot: { control: 'boolean' },
+    dot: { control: "boolean" },
   },
 };
 
@@ -23,13 +23,13 @@ type Story = StoryObj<typeof Badge>;
 
 export const Default: Story = {
   args: {
-    children: 'Label',
+    children: "Label",
   },
 };
 
 export const Variants: Story = {
   render: () => (
-    <div style={{ display: 'flex', gap: '0.5rem' }}>
+    <div style={{ display: "flex", gap: "0.5rem" }}>
       <Badge variant="neutral">Neutral</Badge>
       <Badge variant="accent">Accent</Badge>
       <Badge variant="success">Success</Badge>
@@ -41,17 +41,23 @@ export const Variants: Story = {
 
 export const WithDot: Story = {
   render: () => (
-    <div style={{ display: 'flex', gap: '0.5rem' }}>
-      <Badge variant="success" dot>Online</Badge>
-      <Badge variant="error" dot>Offline</Badge>
-      <Badge variant="warning" dot>Away</Badge>
+    <div style={{ display: "flex", gap: "0.5rem" }}>
+      <Badge variant="success" dot>
+        Online
+      </Badge>
+      <Badge variant="error" dot>
+        Offline
+      </Badge>
+      <Badge variant="warning" dot>
+        Away
+      </Badge>
     </div>
   ),
 };
 
 export const Sizes: Story = {
   render: () => (
-    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+    <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
       <Badge size="sm">Small</Badge>
       <Badge size="md">Medium</Badge>
     </div>

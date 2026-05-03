@@ -2,7 +2,12 @@ import type { FastifyPluginAsync, RouteHandlerMethod, RawServerDefault } from "f
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { HealthResponse } from "@mbe/types";
 import type { RateLimitMonitor } from "@mbe/observability";
-import { prisma, getSlowQueryStats, getServiceStatus, getPoolMetrics } from "../services/database.js";
+import {
+  prisma,
+  getSlowQueryStats,
+  getServiceStatus,
+  getPoolMetrics,
+} from "../services/database.js";
 import { checkAuth0, checkLatencyAnomaly, recordDbLatency } from "../services/health-checks.js";
 
 type HealthRouteHandler = RouteHandlerMethod<
@@ -127,7 +132,8 @@ const healthHandler: HealthRouteHandler = async (request) => {
     ...(auth0Result.message && { message: auth0Result.message }),
   };
 
-  const rateLimitMonitor = (request.server as unknown as { rateLimitMonitor: RateLimitMonitor }).rateLimitMonitor;
+  const rateLimitMonitor = (request.server as unknown as { rateLimitMonitor: RateLimitMonitor })
+    .rateLimitMonitor;
   const rateLimitSnapshot = rateLimitMonitor.getSnapshot();
   checks.rate_limits = {
     status: rateLimitSnapshot.isDegraded ? "degraded" : "ok",
@@ -162,7 +168,13 @@ const healthHandler: HealthRouteHandler = async (request) => {
     }),
   };
 
-  const hasErrors = dbStatus === "error" || slowQueryStatus === "degraded" || auth0Result.status === "degraded" || rateLimitSnapshot.isDegraded || poolMetrics.isDegraded || errorRates.degraded;
+  const hasErrors =
+    dbStatus === "error" ||
+    slowQueryStatus === "degraded" ||
+    auth0Result.status === "degraded" ||
+    rateLimitSnapshot.isDegraded ||
+    poolMetrics.isDegraded ||
+    errorRates.degraded;
 
   return {
     status: hasErrors ? "degraded" : "ok",
@@ -184,10 +196,18 @@ export const healthRoutes: FastifyPluginAsync = async (fastify) => {
   // /api/health — public path via DO ingress (preservePathPrefix: true, prefix "/api")
   // Required for post-deploy verification workflow hitting api.mattbutlerengineering.com/api/health
   // lgtm[js/missing-rate-limiting] — rate limiting is applied globally via @fastify/rate-limit in app.ts
-  fastify.get("/api/health", { schema: { ...healthSchema, operationId: "getHealthApi" } }, healthHandler);
+  fastify.get(
+    "/api/health",
+    { schema: { ...healthSchema, operationId: "getHealthApi" } },
+    healthHandler
+  );
 
   // /api/v1/reservations/health — public path via DO ingress (preservePathPrefix: true, prefix "/api/v1/reservations")
   // Must be registered here (not in reservationRoutes) to avoid falling through to /:id param route
   // lgtm[js/missing-rate-limiting] — rate limiting is applied globally via @fastify/rate-limit in app.ts
-  fastify.get("/api/v1/reservations/health", { schema: { ...healthSchema, operationId: "getHealthApiReservations" } }, healthHandler);
+  fastify.get(
+    "/api/v1/reservations/health",
+    { schema: { ...healthSchema, operationId: "getHealthApiReservations" } },
+    healthHandler
+  );
 };

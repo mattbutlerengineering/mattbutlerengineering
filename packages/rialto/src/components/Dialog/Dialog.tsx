@@ -129,7 +129,12 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
                     {title}
                   </Heading>
                 )}
-                <button type="button" className={styles.close} onClick={onClose} aria-label="Close dialog">
+                <button
+                  type="button"
+                  className={styles.close}
+                  onClick={onClose}
+                  aria-label="Close dialog"
+                >
                   <svg
                     width="14"
                     height="14"
@@ -144,7 +149,11 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
                   </svg>
                 </button>
               </div>
-              {description && <p id={descriptionId} className={styles.description}>{description}</p>}
+              {description && (
+                <p id={descriptionId} className={styles.description}>
+                  {description}
+                </p>
+              )}
               {children}
               {footer && <div className={styles.footer}>{footer}</div>}
             </motion.div>

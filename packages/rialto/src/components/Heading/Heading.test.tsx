@@ -9,19 +9,16 @@ describe("Heading", () => {
     expect(el).toHaveTextContent("Section");
   });
 
-  it.each([1, 2, 3, 4, 5, 6] as const)(
-    "renders h%i when level=%i",
-    (level) => {
-      render(<Heading level={level}>Title {level}</Heading>);
-      expect(screen.getByRole("heading", { level })).toBeInTheDocument();
-    },
-  );
+  it.each([1, 2, 3, 4, 5, 6] as const)("renders h%i when level=%i", (level) => {
+    render(<Heading level={level}>Title {level}</Heading>);
+    expect(screen.getByRole("heading", { level })).toBeInTheDocument();
+  });
 
   it("decouples size from level — h2 rendered at size 1", () => {
     render(
       <Heading level={2} size={1} data-testid="h">
         Big h2
-      </Heading>,
+      </Heading>
     );
     const el = screen.getByTestId("h");
     expect(el.tagName.toLowerCase()).toBe("h2");
@@ -33,7 +30,7 @@ describe("Heading", () => {
     render(
       <Heading as="div" level={3} data-testid="h">
         Visual only
-      </Heading>,
+      </Heading>
     );
     const el = screen.getByTestId("h");
     expect(el.tagName.toLowerCase()).toBe("div");
@@ -45,7 +42,7 @@ describe("Heading", () => {
     render(
       <Heading color="accent" align="center" data-testid="h">
         Tokenized
-      </Heading>,
+      </Heading>
     );
     const el = screen.getByTestId("h");
     expect(el.className).toMatch(/colorAccent/);
@@ -56,7 +53,7 @@ describe("Heading", () => {
     render(
       <Heading truncate data-testid="h">
         Long heading that should clip with an ellipsis
-      </Heading>,
+      </Heading>
     );
     expect(screen.getByTestId("h").className).toMatch(/truncate/);
   });
@@ -65,7 +62,7 @@ describe("Heading", () => {
     render(
       <Heading id="dialog-title" aria-describedby="dialog-desc">
         Dialog
-      </Heading>,
+      </Heading>
     );
     const el = screen.getByRole("heading");
     expect(el).toHaveAttribute("id", "dialog-title");

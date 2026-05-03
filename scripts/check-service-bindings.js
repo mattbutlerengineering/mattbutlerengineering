@@ -23,10 +23,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
 
 function parseWranglerBindings() {
-  const content = readFileSync(
-    join(root, "infrastructure", "worker", "wrangler.toml"),
-    "utf-8"
-  );
+  const content = readFileSync(join(root, "infrastructure", "worker", "wrangler.toml"), "utf-8");
   const bindings = [];
   const pattern = /\[\[services\]\]\s*\nbinding\s*=\s*"(\w+)"/g;
   let found;
@@ -37,10 +34,7 @@ function parseWranglerBindings() {
 }
 
 function parseEdgeRouterBindings() {
-  const content = readFileSync(
-    join(root, "infrastructure", "worker", "edge-router.js"),
-    "utf-8"
-  );
+  const content = readFileSync(join(root, "infrastructure", "worker", "edge-router.js"), "utf-8");
   const found = content.match(/STATIC_SITE_BINDINGS\s*=\s*\[([^\]]+)\]/);
   if (!found) return [];
   return found[1]
@@ -51,10 +45,7 @@ function parseEdgeRouterBindings() {
 }
 
 function parsePulumiBindings() {
-  const content = readFileSync(
-    join(root, "infrastructure", "pulumi", "index.ts"),
-    "utf-8"
-  );
+  const content = readFileSync(join(root, "infrastructure", "pulumi", "index.ts"), "utf-8");
   const bindings = [];
   const pattern = /\{\s*name:\s*"(\w+)",\s*service:/g;
   let found;
@@ -104,8 +95,6 @@ if (allMatch) {
       console.log(`  In pulumi/index.ts but NOT edge-router.js: ${inPulumi.join(", ")}`);
   }
 
-  console.log(
-    "\nUpdate all 3 files to use the same set of service bindings."
-  );
+  console.log("\nUpdate all 3 files to use the same set of service bindings.");
   process.exit(1);
 }

@@ -30,12 +30,15 @@ Each reflection file contains:
 **Type:** correction-capture | positive-reinforcement | architecture | debugging
 
 ## What happened
+
 <Narrative of the event or decision>
 
 ## What was learned
+
 <Key takeaway, stated as a reusable principle>
 
 ## Action items
+
 - [ ] Update CLAUDE.md if a new convention was discovered
 - [ ] Add to preferences.json if a preference was clarified
 - [ ] File an issue if a systemic problem was found

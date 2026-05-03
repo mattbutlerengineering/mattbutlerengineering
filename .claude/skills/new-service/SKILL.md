@@ -11,6 +11,7 @@ Creates a new backend service following the exact patterns used by `services/use
 ## Arguments
 
 The user should provide:
+
 - **Service name** (kebab-case, e.g., `payments`) — becomes `services/<name>/`
 - **Port number** — next in sequence (current: 3000 marketing, 3001 users, 3002 hospitality, 3003 agent, 3004 reservations, 3005+ available)
 - **Auth required?** — whether routes need JWT verification via `@mbe/auth`
@@ -40,6 +41,7 @@ services/<name>/
 ### 2. File templates
 
 **package.json** — use `@mbe/<name>-service` naming:
+
 ```json
 {
   "name": "@mbe/<name>-service",
@@ -84,12 +86,14 @@ services/<name>/
 ```
 
 If auth required, also add:
+
 ```json
 "@mbe/auth": "workspace:*",
 "jose": "^5.2.0"
 ```
 
 **tsconfig.json**:
+
 ```json
 {
   "extends": "@mbe/config/typescript/node",
@@ -99,6 +103,7 @@ If auth required, also add:
 ```
 
 **vitest.config.ts**:
+
 ```typescript
 import { defineConfig } from "vitest/config";
 
@@ -118,6 +123,7 @@ export default defineConfig({
 ```
 
 **prisma/schema.prisma**:
+
 ```prisma
 generator client {
   provider = "prisma-client-js"
@@ -131,6 +137,7 @@ datasource db {
 ```
 
 **src/index.ts**:
+
 ```typescript
 import { buildApp } from "./app.js";
 
@@ -153,6 +160,7 @@ main();
 ```
 
 **src/app.ts** — follow the exact pattern from `services/users/src/app.ts`:
+
 - Register `@fastify/cors`, `@fastify/swagger`, `@scalar/fastify-api-reference`
 - Register schemas, then routes
 - Health routes at root, domain routes at `/api/v1/<name>`
@@ -161,10 +169,13 @@ main();
 **src/routes/health.ts** — standard health endpoint (copy from any existing service).
 
 **.env**:
+
 ```
 DATABASE_URL=postgresql://mbe:mbe_dev_password@localhost:5432/mbe
 ```
+
 If auth required, add:
+
 ```
 AUTH_AUTHORITY=https://dev-ytbgmz5ls3wh4xdx.us.auth0.com
 AUTH_AUDIENCE=https://api.mattbutlerengineering.com

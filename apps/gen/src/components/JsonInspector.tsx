@@ -55,7 +55,8 @@ function wrapMatches(text: string, search: string, keyBase: number): ReactNode[]
  * Safe by construction: builds React elements, never uses innerHTML.
  */
 function highlightJson(json: string, search: string): ReactNode[] {
-  const TOKEN_REGEX = /("(?:[^"\\]|\\.)*"(?:\s*:)?|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null|[{}[\],:])/g;
+  const TOKEN_REGEX =
+    /("(?:[^"\\]|\\.)*"(?:\s*:)?|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null|[{}[\],:])/g;
 
   const parts: ReactNode[] = [];
   let lastIndex = 0;
@@ -244,11 +245,7 @@ export function JsonInspector({ rawLines, isStreaming }: JsonInspectorProps) {
         </Button>
       </div>
 
-      <div
-        className={styles.scrollArea}
-        ref={scrollContainerRef}
-        onScroll={handleScroll}
-      >
+      <div className={styles.scrollArea} ref={scrollContainerRef} onScroll={handleScroll}>
         {rawLines.length === 0 ? (
           <p className={styles.empty}>No data yet</p>
         ) : (
@@ -256,8 +253,7 @@ export function JsonInspector({ rawLines, isStreaming }: JsonInspectorProps) {
             const isCollapsed = collapsed.has(i);
             const lines = block.pretty.split("\n");
             const firstLine = lines[0] ?? "";
-            const truncated =
-              firstLine.length > 60 ? firstLine.slice(0, 60) + "..." : firstLine;
+            const truncated = firstLine.length > 60 ? firstLine.slice(0, 60) + "..." : firstLine;
 
             return (
               <div key={i} className={styles.block}>
@@ -277,9 +273,7 @@ export function JsonInspector({ rawLines, isStreaming }: JsonInspectorProps) {
                     <pre className={styles.pre}>
                       <code className={styles.collapsedCode}>
                         {highlightJson(truncated, search)}
-                        {lines.length > 1 && (
-                          <span className={styles.ellipsis}> ...</span>
-                        )}
+                        {lines.length > 1 && <span className={styles.ellipsis}> ...</span>}
                       </code>
                     </pre>
                   </div>
@@ -287,9 +281,7 @@ export function JsonInspector({ rawLines, isStreaming }: JsonInspectorProps) {
                   <div className={styles.expandedBlock}>
                     {lines.map((line, li) => (
                       <div key={li} className={styles.lineRow}>
-                        <span className={styles.lineNumber}>
-                          {block.startLine + li}
-                        </span>
+                        <span className={styles.lineNumber}>{block.startLine + li}</span>
                         <pre className={styles.pre}>
                           <code>{highlightJson(line, search)}</code>
                         </pre>

@@ -29,10 +29,7 @@ async function loadMemory(repoPath: string): Promise<FailureMemory> {
   }
 }
 
-async function saveMemory(
-  repoPath: string,
-  memory: FailureMemory
-): Promise<void> {
+async function saveMemory(repoPath: string, memory: FailureMemory): Promise<void> {
   const filePath = join(repoPath, DEFAULT_MEMORY_PATH);
   await mkdir(dirname(filePath), { recursive: true });
   await writeFile(filePath, JSON.stringify(memory, null, 2));
@@ -44,10 +41,7 @@ async function saveMemory(
  * Record a failed session for future reference.
  * Keeps the most recent 100 records to prevent unbounded growth.
  */
-export async function recordFailure(
-  repoPath: string,
-  record: FailureRecord
-): Promise<void> {
+export async function recordFailure(repoPath: string, record: FailureRecord): Promise<void> {
   const memory = await loadMemory(repoPath);
   const updatedRecords = [...memory.records, record].slice(-100);
   await saveMemory(repoPath, { records: updatedRecords });
@@ -63,14 +57,20 @@ export function queryPastFailures(
   maxResults = 3
 ): readonly FailureRecord[] {
   const queryWords = new Set(
-    taskDescription.toLowerCase().split(/\s+/).filter((w) => w.length > 3)
+    taskDescription
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((w) => w.length > 3)
   );
 
   if (queryWords.size === 0) return [];
 
   const scored = memory.records.map((record) => {
     const recordWords = new Set(
-      record.taskDescription.toLowerCase().split(/\s+/).filter((w) => w.length > 3)
+      record.taskDescription
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((w) => w.length > 3)
     );
     const overlap = [...queryWords].filter((w) => recordWords.has(w)).length;
     const score = overlap / Math.max(queryWords.size, recordWords.size);
@@ -87,9 +87,7 @@ export function queryPastFailures(
 /**
  * Build a system prompt appendix from past failures.
  */
-export function buildFailureContext(
-  pastFailures: readonly FailureRecord[]
-): string {
+export function buildFailureContext(pastFailures: readonly FailureRecord[]): string {
   if (pastFailures.length === 0) return "";
 
   const lines = [

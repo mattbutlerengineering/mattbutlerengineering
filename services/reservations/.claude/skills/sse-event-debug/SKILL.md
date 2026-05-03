@@ -32,9 +32,9 @@ node -e "const { prisma } = require('./dist/services/database.js'); prisma.reser
 // Check current reservation status
 const res = await prisma.reservation.findUnique({
   where: { id: reservationId },
-  select: { status: true, updatedAt: true }
+  select: { status: true, updatedAt: true },
 });
-console.log('State:', res.status, 'Updated:', res.updatedAt);
+console.log("State:", res.status, "Updated:", res.updatedAt);
 ```
 
 ## State Machine Transitions

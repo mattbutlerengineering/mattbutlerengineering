@@ -46,9 +46,7 @@ export function TableShape({
   const rotation = table.shapeMetadata?.rotation ?? 0;
 
   // Determine color based on table state
-  const fillColor = !table.isActive
-    ? TABLE_COLORS.inactive
-    : TABLE_COLORS.available;
+  const fillColor = !table.isActive ? TABLE_COLORS.inactive : TABLE_COLORS.available;
 
   const handleDragStart = () => {
     onDragStart(table.id);

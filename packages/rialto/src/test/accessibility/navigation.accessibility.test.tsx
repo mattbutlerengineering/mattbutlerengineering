@@ -53,10 +53,7 @@ describe("Accessibility — Navigation Components", () => {
     const { container } = render(
       <PageHeader
         title="Account Settings"
-        breadcrumbs={[
-          { label: "Home", href: "/" },
-          { label: "Settings" },
-        ]}
+        breadcrumbs={[{ label: "Home", href: "/" }, { label: "Settings" }]}
       />
     );
     expect(await axe(container)).toHaveNoViolations();
@@ -81,24 +78,14 @@ describe("Accessibility — Navigation Components", () => {
 
   it("Steps", async () => {
     const { container } = render(
-      <Steps
-        currentStep={1}
-        steps={[
-          { label: "Step 1" },
-          { label: "Step 2" },
-        ]}
-      />
+      <Steps currentStep={1} steps={[{ label: "Step 1" }, { label: "Step 2" }]} />
     );
     expect(await axe(container)).toHaveNoViolations();
   });
 
   it("Tree", async () => {
     const { container } = render(
-      <Tree
-        data={[
-          { id: "1", label: "Root", children: [{ id: "2", label: "Child" }] },
-        ]}
-      />
+      <Tree data={[{ id: "1", label: "Root", children: [{ id: "2", label: "Child" }] }]} />
     );
     expect(await axe(container)).toHaveNoViolations();
   });

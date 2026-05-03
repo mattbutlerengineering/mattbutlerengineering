@@ -20,15 +20,13 @@
 /* Segments grid */
 .segmentsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  grid-template-columns: repeat(6, 1fr);
   gap: var(--rialto-space-md);
   margin-block-end: var(--rialto-space-lg);
 }
 
 .segmentCard {
   border-inline-start: 3px solid var(--rialto-border);
-  border-radius: var(--rialto-radius-soft);
-  padding-inline-start: var(--rialto-space-xs);
 }
 
 /* Result count */
@@ -140,7 +138,8 @@
   text-align: start;
   font: inherit;
   color: inherit;
-  transition: background-color 150ms var(--rialto-ease-precision),
+  transition:
+    background-color 150ms var(--rialto-ease-precision),
     box-shadow 150ms var(--rialto-ease-precision);
 }
 
@@ -180,6 +179,12 @@
 }
 
 /* ── Responsive breakpoints ────────────────── */
+
+@media (max-width: 1024px) {
+  .segmentsGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
 
 @media (max-width: 768px) {
   .header {

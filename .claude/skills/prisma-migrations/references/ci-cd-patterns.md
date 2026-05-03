@@ -29,8 +29,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
@@ -41,7 +41,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
   deploy:
-    needs: migrate  # Wait for migrations to complete
+    needs: migrate # Wait for migrations to complete
     runs-on: ubuntu-latest
     steps:
       - name: Deploy application
@@ -61,8 +61,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
       - run: npm ci
 
       - name: Check pending migrations
@@ -85,8 +85,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
       - run: npm ci
       - run: npx prisma migrate deploy
         env:
@@ -101,8 +101,8 @@ name: Deploy to Environment
 on:
   push:
     branches:
-      - main      # Production
-      - staging   # Staging
+      - main # Production
+      - staging # Staging
 
 jobs:
   migrate-and-deploy:
@@ -111,8 +111,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
       - run: npm ci
 
       - name: Set environment
@@ -156,7 +156,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
       - run: npm ci
       - run: npx prisma migrate deploy
         env:
@@ -229,7 +229,7 @@ CMD ["npx", "prisma", "migrate", "deploy"]
 Docker Compose:
 
 ```yaml
-version: '3.8'
+version: "3.8"
 services:
   migrate:
     build:
@@ -333,7 +333,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
       - run: npm ci
 
       - name: Test migrations
@@ -380,6 +380,7 @@ npx prisma migrate resolve --rolled-back 20240101_add_feature
 ### GitHub Actions
 
 Store in repository secrets:
+
 - `DATABASE_URL` - Production database URL
 - `STAGING_DATABASE_URL` - Staging database URL
 

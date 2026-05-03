@@ -17,9 +17,9 @@ doctl apps logs $DO_APP_ID agent-api --type=build --deployment <deployment-id>
 
 ## Health Checks
 
-| Endpoint | Type | Behavior |
-|-----------|------|-------------|
-| `/health` | Liveness | Always returns `{"status": "ok"}` — no DB touch |
+| Endpoint               | Type      | Behavior                                                          |
+| ---------------------- | --------- | ----------------------------------------------------------------- |
+| `/health`              | Liveness  | Always returns `{"status": "ok"}` — no DB touch                   |
 | `/api/v1/agent/health` | Readiness | Runs `prisma.$queryRaw` — returns `degraded` with actual DB error |
 
 ```bash
@@ -44,6 +44,7 @@ rm -rf /tmp/agent-worktrees/<sessionId>/
 ```
 
 **Detection signals:**
+
 - Session `totalCostUsd` > 80% of `maxBudgetUsd` with no PR created
 - Session `totalTurns` > 80% of `maxTurns` with no progress
 - Session running > 30 minutes with `status: RUNNING`
@@ -100,6 +101,7 @@ curl -s https://api.anthropic.com/v1/organization/billing/usage \
 ```
 
 **Behavior on budget exhaustion:**
+
 - Session receives 402 Payment Required
 - Session status set to `FAILED`
 - Worktree cleaned up
@@ -150,6 +152,7 @@ When Anthropic API rate-limits:
 ```
 
 **Fallback strategy:**
+
 - Opus rate-limited → retry with Sonnet
 - Sonnet rate-limited → retry with Haiku
 - Haiku rate-limited → FAILED (no cheaper tier available)
@@ -178,12 +181,12 @@ doctl apps create-deployment $DO_APP_ID --deployment-id <previous-deployment-id>
 
 ## Environment Variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `ANTHROPIC_API_KEY` | Yes | Claude API key |
-| `LANGFUSE_PUBLIC_KEY` | No | Langfuse tracing (optional) |
-| `DO_APP_ID` | Yes (deploy) | DigitalOcean App ID |
-| `MAX_CONCURRENT_SESSIONS` | No | Max parallel sessions (default: 5) |
+| Variable                  | Required     | Description                        |
+| ------------------------- | ------------ | ---------------------------------- |
+| `ANTHROPIC_API_KEY`       | Yes          | Claude API key                     |
+| `LANGFUSE_PUBLIC_KEY`     | No           | Langfuse tracing (optional)        |
+| `DO_APP_ID`               | Yes (deploy) | DigitalOcean App ID                |
+| `MAX_CONCURRENT_SESSIONS` | No           | Max parallel sessions (default: 5) |
 
 ## Auth0 Configuration
 

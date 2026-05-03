@@ -65,7 +65,7 @@ const FONT: Record<string, readonly number[]> = {
   '"': [0b01010, 0b01010, 0b10100, 0b00000, 0b00000, 0b00000, 0b00000],
   "@": [0b01110, 0b10001, 0b10111, 0b10101, 0b10110, 0b10000, 0b01110],
   "#": [0b01010, 0b01010, 0b11111, 0b01010, 0b11111, 0b01010, 0b01010],
-  "$": [0b00100, 0b01111, 0b10100, 0b01110, 0b00101, 0b11110, 0b00100],
+  $: [0b00100, 0b01111, 0b10100, 0b01110, 0b00101, 0b11110, 0b00100],
   "%": [0b11001, 0b11001, 0b00010, 0b00100, 0b01000, 0b10011, 0b10011],
   "&": [0b01100, 0b10010, 0b10100, 0b01000, 0b10101, 0b10010, 0b01101],
   "*": [0b00000, 0b00100, 0b10101, 0b01110, 0b10101, 0b00100, 0b00000],
@@ -113,7 +113,7 @@ export interface TextToMatrixOptions {
  */
 export function textToMatrix(
   text: string,
-  options: TextToMatrixOptions = {},
+  options: TextToMatrixOptions = {}
 ): readonly (readonly boolean[])[] {
   const { letterSpacing = 1, rows, cols, align = "start" } = options;
 
@@ -127,13 +127,11 @@ export function textToMatrix(
   const charMatrices = [...text].map(charToMatrix);
 
   // Calculate total width
-  const rawWidth =
-    charMatrices.length * CHAR_WIDTH +
-    (charMatrices.length - 1) * letterSpacing;
+  const rawWidth = charMatrices.length * CHAR_WIDTH + (charMatrices.length - 1) * letterSpacing;
 
   // Compose into a single matrix (CHAR_HEIGHT rows)
   const composed: boolean[][] = Array.from({ length: CHAR_HEIGHT }, () =>
-    Array<boolean>(rawWidth).fill(false),
+    Array<boolean>(rawWidth).fill(false)
   );
 
   let colOffset = 0;
@@ -167,12 +165,7 @@ export function textToMatrix(
     const currentWidth = result[0]?.length ?? 0;
     if (currentWidth < cols) {
       const pad = cols - currentWidth;
-      const leftPad =
-        align === "center"
-          ? Math.floor(pad / 2)
-          : align === "end"
-            ? pad
-            : 0;
+      const leftPad = align === "center" ? Math.floor(pad / 2) : align === "end" ? pad : 0;
       result = result.map((row) => [
         ...Array<boolean>(leftPad).fill(false),
         ...row,
@@ -187,10 +180,7 @@ export function textToMatrix(
 }
 
 /** Create a matrix of all-false (off) dots. */
-export function createEmptyMatrix(
-  rows: number,
-  cols: number,
-): readonly (readonly boolean[])[] {
+export function createEmptyMatrix(rows: number, cols: number): readonly (readonly boolean[])[] {
   return Array.from({ length: rows }, () => Array<boolean>(cols).fill(false));
 }
 
@@ -202,7 +192,7 @@ export function mergeMatrices(
   target: readonly (readonly boolean[])[],
   source: readonly (readonly boolean[])[],
   offsetRow: number,
-  offsetCol: number,
+  offsetCol: number
 ): readonly (readonly boolean[])[] {
   return target.map((row, r) => {
     const srcRow = r - offsetRow;

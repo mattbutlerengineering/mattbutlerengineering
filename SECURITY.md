@@ -4,12 +4,12 @@
 
 Only the `main` branch receives security updates. There are no maintained release branches; downstream consumers should pin to a commit SHA or to a published `@mattbutlerengineering/*` package version on npm.
 
-| Surface | Supported |
-|---|---|
-| `main` branch | ✅ |
-| `@mattbutlerengineering/rialto` (latest published version on npm) | ✅ |
-| Other published `@mattbutlerengineering/*` packages | ✅ for the latest published version only |
-| Older commits / older published versions | ❌ — please update before reporting |
+| Surface                                                           | Supported                                |
+| ----------------------------------------------------------------- | ---------------------------------------- |
+| `main` branch                                                     | ✅                                       |
+| `@mattbutlerengineering/rialto` (latest published version on npm) | ✅                                       |
+| Other published `@mattbutlerengineering/*` packages               | ✅ for the latest published version only |
+| Older commits / older published versions                          | ❌ — please update before reporting      |
 
 ## Reporting a vulnerability
 

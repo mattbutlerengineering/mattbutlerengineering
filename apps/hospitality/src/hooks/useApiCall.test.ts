@@ -58,9 +58,7 @@ describe("useApiCall", () => {
     const { result } = renderHook(() => useApiCall<string>());
 
     await act(async () => {
-      await result.current.execute(() =>
-        Promise.reject(new Error("Network error"))
-      );
+      await result.current.execute(() => Promise.reject(new Error("Network error")));
     });
 
     expect(result.current.data).toBeNull();
@@ -120,9 +118,7 @@ describe("useApiCall", () => {
     const { result } = renderHook(() => useApiCall<string>());
 
     await act(async () => {
-      await result.current.execute(() =>
-        Promise.reject(new Error("some error"))
-      );
+      await result.current.execute(() => Promise.reject(new Error("some error")));
     });
 
     expect(result.current.error).toBe("some error");
@@ -135,9 +131,7 @@ describe("useApiCall", () => {
   });
 
   it("should timeout after configured duration", async () => {
-    const { result } = renderHook(() =>
-      useApiCall<string>({ timeout: 500 })
-    );
+    const { result } = renderHook(() => useApiCall<string>({ timeout: 500 }));
 
     const neverResolves = new Promise<string>(() => {
       // intentionally never resolves
@@ -162,9 +156,7 @@ describe("useApiCall", () => {
   });
 
   it("should timeout with signal-aware function", async () => {
-    const { result } = renderHook(() =>
-      useApiCall<string>({ timeout: 500 })
-    );
+    const { result } = renderHook(() => useApiCall<string>({ timeout: 500 }));
 
     const signalAwareFn = (signal: AbortSignal): Promise<string> =>
       new Promise((_resolve, reject) => {

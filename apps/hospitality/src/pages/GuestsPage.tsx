@@ -29,11 +29,13 @@ import styles from "./GuestsPage.module.css";
 
 /* ── Constants ─────────────────────────────── */
 
-const SEGMENT_ACCENT_COLORS = [
+export const SEGMENT_ACCENT_COLORS = [
   "var(--rialto-accent)",
   "var(--rialto-success)",
+  "var(--rialto-error)",
   "var(--rialto-warning)",
   "var(--rialto-text-secondary)",
+  "var(--rialto-border-strong)",
 ] as const;
 
 /* ── Loading skeleton ───────────────────────── */
@@ -44,7 +46,7 @@ function GuestsLoadingSkeleton() {
       <PageHeader title="Guests" description="Manage your guest directory" />
       <SkeletonGroup>
         <div className={styles.segmentsGrid}>
-          {Array.from({ length: 4 }, (_, i) => (
+          {Array.from({ length: 6 }, (_, i) => (
             <Skeleton key={i} variant="card" width="100%" height={80} />
           ))}
         </div>
@@ -288,11 +290,7 @@ function GuestDetailDrawer({ guest, open, onClose, onSave, api }: GuestDetailDra
             <Button variant="ghost" onClick={handleCancelEdit} disabled={isSaving}>
               Cancel
             </Button>
-            <Button
-              variant="primary"
-              onClick={handleSave}
-              disabled={isSaving || !isNameValid}
-            >
+            <Button variant="primary" onClick={handleSave} disabled={isSaving || !isNameValid}>
               {isSaving ? "Saving..." : "Save"}
             </Button>
           </Stack>
@@ -536,10 +534,7 @@ export function GuestsPage() {
     [api, fetchGuests]
   );
 
-  const totalGuestCount = useMemo(
-    () => segments.reduce((sum, s) => sum + s.count, 0),
-    [segments]
-  );
+  const totalGuestCount = useMemo(() => segments.reduce((sum, s) => sum + s.count, 0), [segments]);
 
   if (!selectedVenueId && !isLoading) {
     return (
@@ -583,26 +578,21 @@ export function GuestsPage() {
       {segments.length > 0 && (
         <div className={styles.segmentsGrid}>
           {segments.map((segment, index) => (
-            <div
+            <Card
               key={segment.name}
               className={styles.segmentCard}
               style={{
-                borderInlineStartColor:
-                  SEGMENT_ACCENT_COLORS[index % SEGMENT_ACCENT_COLORS.length],
+                borderInlineStartColor: SEGMENT_ACCENT_COLORS[index % SEGMENT_ACCENT_COLORS.length],
               }}
             >
               <Stat label={segment.name} value={segment.count} />
-            </div>
+            </Card>
           ))}
         </div>
       )}
 
       {error && (
-        <ErrorRetryBanner
-          error={error}
-          onRetry={fetchGuests}
-          onDismiss={() => setError(null)}
-        />
+        <ErrorRetryBanner error={error} onRetry={fetchGuests} onDismiss={() => setError(null)} />
       )}
 
       <span className={styles.srOnly} aria-live="polite" role="status">
@@ -667,11 +657,7 @@ export function GuestsPage() {
                           {guest.name}
                         </Text>
                         {guest.notes && (
-                          <Text
-                            variant="caption"
-                            color="secondary"
-                            className={styles.guestNotes}
-                          >
+                          <Text variant="caption" color="secondary" className={styles.guestNotes}>
                             {guest.notes}
                           </Text>
                         )}

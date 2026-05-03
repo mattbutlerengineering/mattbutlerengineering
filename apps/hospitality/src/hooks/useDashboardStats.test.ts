@@ -5,9 +5,7 @@ import type { Reservation } from "@mbe/types";
 
 /* ── Helpers ────────────────────────────────────────────────── */
 
-function makeReservation(
-  overrides: Partial<Reservation> = {}
-): Reservation {
+function makeReservation(overrides: Partial<Reservation> = {}): Reservation {
   return {
     id: "res-1",
     date: "2026-01-15",
@@ -91,9 +89,7 @@ describe("computeStats", () => {
       makeReservation({ id: `r${i}`, status: "CONFIRMED" })
     );
     // Add 1 cancelled to get 1/26 = ~4%
-    reservations.push(
-      makeReservation({ id: "cancelled-1", status: "CANCELLED" })
-    );
+    reservations.push(makeReservation({ id: "cancelled-1", status: "CANCELLED" }));
 
     const stats = computeStats(reservations);
 

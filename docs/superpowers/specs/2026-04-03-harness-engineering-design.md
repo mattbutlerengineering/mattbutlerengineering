@@ -12,12 +12,12 @@ The article's framework distinguishes feedforward controls (steer before action)
 
 ## Decisions
 
-| Area | Decision | Rationale |
-|------|----------|-----------|
-| Module boundaries | `no-restricted-imports` in existing ESLint configs | Zero new deps, leverages existing react.js/node.js split |
-| Schema snapshots | Direct import + `toMatchSnapshot()` | Static `as const` objects don't need Fastify boot |
-| Pre-commit typecheck | `turbo typecheck --filter='...[HEAD]'` | Scopes to changed packages, cache makes repeats fast |
-| `@mbe/rialto-catalog` | Classified as shared, not frontend-only | Agent service imports it for AI code gen |
+| Area                  | Decision                                           | Rationale                                                |
+| --------------------- | -------------------------------------------------- | -------------------------------------------------------- |
+| Module boundaries     | `no-restricted-imports` in existing ESLint configs | Zero new deps, leverages existing react.js/node.js split |
+| Schema snapshots      | Direct import + `toMatchSnapshot()`                | Static `as const` objects don't need Fastify boot        |
+| Pre-commit typecheck  | `turbo typecheck --filter='...[HEAD]'`             | Scopes to changed packages, cache makes repeats fast     |
+| `@mbe/rialto-catalog` | Classified as shared, not frontend-only            | Agent service imports it for AI code gen                 |
 
 ## What Was Implemented
 
@@ -26,10 +26,12 @@ The article's framework distinguishes feedforward controls (steer before action)
 **Files:** `packages/config/eslint/react.js`, `packages/config/eslint/node.js`
 
 Frontend apps cannot import:
+
 - `@mbe/agent-core`, `@mbe/observability` (backend-only)
 - `@mbe/auth/fastify`, `@mbe/sentry/node` (backend entrypoints)
 
 Backend services cannot import:
+
 - `@mattbutlerengineering/rialto`, `@mbe/api-client` (frontend-only)
 - `@mbe/auth/react`, `@mbe/sentry/react` (frontend entrypoints)
 
@@ -77,9 +79,9 @@ Pre-commit hook regenerates `registry.json` and `generated-schemas.ts`, then che
 
 ## Package Classification
 
-| Category | Packages |
-|----------|----------|
-| Frontend-only | `@mattbutlerengineering/rialto`, `@mbe/api-client` |
-| Backend-only | `@mbe/agent-core`, `@mbe/observability` |
-| Shared (subpath) | `@mbe/auth`, `@mbe/sentry` |
-| Shared/neutral | `@mbe/types`, `@mbe/config`, `@mbe/rialto-catalog` |
+| Category         | Packages                                           |
+| ---------------- | -------------------------------------------------- |
+| Frontend-only    | `@mattbutlerengineering/rialto`, `@mbe/api-client` |
+| Backend-only     | `@mbe/agent-core`, `@mbe/observability`            |
+| Shared (subpath) | `@mbe/auth`, `@mbe/sentry`                         |
+| Shared/neutral   | `@mbe/types`, `@mbe/config`, `@mbe/rialto-catalog` |

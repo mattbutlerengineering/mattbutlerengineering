@@ -36,7 +36,7 @@ for await (const msg of client.query({ prompt: "Fix the bug", model: "claude-son
   console.log(msg); // { type: "result", subtype: "success", total_cost_usd: 0.05, ... }
 }
 
-console.log(client.calls);          // [{ callIndex: 1, prompt: "Fix the bug", ... }]
+console.log(client.calls); // [{ callIndex: 1, prompt: "Fix the bug", ... }]
 console.log(client.totalCostUsd()); // 0.05
 ```
 
@@ -51,7 +51,7 @@ const client = createMockClaudeClient({
     // Load from a file: JSON.parse(readFileSync("fixtures/session-1.json", "utf-8"))
     [
       { type: "system", subtype: "init" },
-      { type: "result", subtype: "success", total_cost_usd: 0.12, /* ... */ },
+      { type: "result", subtype: "success", total_cost_usd: 0.12 /* ... */ },
     ],
   ],
 });
@@ -209,10 +209,7 @@ import {
 const tokens = estimateTokenCount("Fix the authentication bug in the login flow");
 
 // Calculate cost for known token usage
-const cost = calculateCost(
-  { inputTokens: 50_000, outputTokens: 5_000 },
-  "claude-sonnet-4-6"
-);
+const cost = calculateCost({ inputTokens: 50_000, outputTokens: 5_000 }, "claude-sonnet-4-6");
 console.log(`Estimated cost: $${cost.totalCostUsd.toFixed(4)}`);
 
 // Budget planning before running a session
@@ -224,7 +221,7 @@ const estimate = estimateSessionCost("Implement OAuth2 login", {
 console.log(`Estimated: $${estimate.totalCostUsd.toFixed(4)}`);
 
 // Guard: would this session exceed budget?
-const tooExpensive = wouldExceedBudget("Rewrite entire codebase", 0.50, {
+const tooExpensive = wouldExceedBudget("Rewrite entire codebase", 0.5, {
   numTurns: 100,
 });
 ```

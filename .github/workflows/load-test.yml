@@ -2,7 +2,7 @@ name: Load Test
 
 on:
   schedule:
-    - cron: "0 6 * * 6"  # Saturday 6am UTC
+    - cron: "0 6 * * 6" # Saturday 6am UTC
   workflow_dispatch:
     inputs:
       baseline:
@@ -66,7 +66,7 @@ jobs:
         run: |
           DATE=$(date +%Y-%m-%d)
           SCENARIO=${{ inputs.scenario || 'load' }}
-          
+
           cat <<EOF > results.json
           {
             "date": "$DATE",
@@ -79,7 +79,7 @@ jobs:
             "events": {"status": "tested"}
           }
           EOF
-          
+
           curl -X PUT "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/kv/namespaces/$KV_NS_ID/keys/loadtest/$DATE" \
             -H "Authorization: Bearer $CF_API_TOKEN" \
             -H "Content-Type: application/json" \
@@ -94,10 +94,10 @@ jobs:
         run: |
           DATE=$(date +%Y-%m-%d)
           PREV_DATE=$(date -d "7 days ago" +%Y-%m-%d)
-          
+
           curl -s "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/kv/namespaces/$KV_NS_ID/values/loadtest/$PREV_DATE" \
             -H "Authorization: Bearer $CF_API_TOKEN" > prev.json || true
-          
+
           echo "## Load Test Comparison" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Comparing $DATE with $PREV_DATE" >> $GITHUB_STEP_SUMMARY

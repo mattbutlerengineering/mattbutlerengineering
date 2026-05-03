@@ -160,9 +160,7 @@ describe("runOrchestrator", () => {
       ])() as ReturnType<typeof query>
     );
 
-    await runOrchestrator(
-      createConfig({ model: "claude-haiku-4-5" })
-    );
+    await runOrchestrator(createConfig({ model: "claude-haiku-4-5" }));
 
     const callArgs = vi.mocked(query).mock.calls[0]?.[0] as {
       options: {

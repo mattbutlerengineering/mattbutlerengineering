@@ -29,12 +29,7 @@ export const checkDepsCommand = new Command("check-deps")
 
     const packageFiles = await glob("**/package.json", {
       cwd: root,
-      ignore: [
-        "**/node_modules/**",
-        "**/dist/**",
-        "**/generated/**",
-        "**/.claude/worktrees/**",
-      ],
+      ignore: ["**/node_modules/**", "**/dist/**", "**/generated/**", "**/.claude/worktrees/**"],
     });
 
     const dependencyMap = new Map<string, Map<string, string>>();
@@ -42,7 +37,7 @@ export const checkDepsCommand = new Command("check-deps")
     for (const file of packageFiles) {
       const pkg = JSON.parse(readFileSync(join(root, file), "utf8"));
       const pkgName = pkg.name || file;
-      
+
       const allDeps = {
         ...pkg.dependencies,
         ...pkg.devDependencies,
@@ -53,7 +48,7 @@ export const checkDepsCommand = new Command("check-deps")
 
       for (const [name, version] of Object.entries(allDeps as Record<string, string>)) {
         if (version.startsWith("workspace:") || version.startsWith("catalog:")) continue;
-        
+
         if (!dependencyMap.has(name)) {
           dependencyMap.set(name, new Map());
         }

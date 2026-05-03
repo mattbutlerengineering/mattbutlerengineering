@@ -4,12 +4,12 @@ Infrastructure as Code and edge routing for mattbutlerengineering.com.
 
 ## Components
 
-| Directory | Purpose |
-|-----------|---------|
-| `pulumi/` | Pulumi (TypeScript) IaC -- manages DigitalOcean, Cloudflare, and Auth0 resources |
-| `worker/` | Cloudflare Worker edge router -- routes traffic by path prefix |
-| `migrate/` | Pre-deploy migration job Dockerfile |
-| `docker-compose.yml` | Local PostgreSQL for development |
+| Directory            | Purpose                                                                          |
+| -------------------- | -------------------------------------------------------------------------------- |
+| `pulumi/`            | Pulumi (TypeScript) IaC -- manages DigitalOcean, Cloudflare, and Auth0 resources |
+| `worker/`            | Cloudflare Worker edge router -- routes traffic by path prefix                   |
+| `migrate/`           | Pre-deploy migration job Dockerfile                                              |
+| `docker-compose.yml` | Local PostgreSQL for development                                                 |
 
 ## Architecture
 

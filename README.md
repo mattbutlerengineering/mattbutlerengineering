@@ -1,6 +1,7 @@
 # Matt Butler Engineering
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](./LICENSE)
+
 <!-- acmm:begin -->![ACMM Level 6](https://img.shields.io/badge/ACMM-Level%206-d4a030?style=flat-square)<!-- acmm:end -->
 
 > **Build status:** GitHub Actions billing is intentionally unconfigured on this repo. Workflows in `.github/workflows/` exist as encoded policy and run via [claude.ai RemoteTriggers](https://claude.ai/code/scheduled), not on PR open. Verify changes locally with `pnpm lint`/`typecheck`/`test`. See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full story.
@@ -32,13 +33,13 @@ This starts PostgreSQL in Docker, syncs all database schemas, and launches all d
 
 ### Access Points
 
-| App | URL |
-|-----|-----|
-| Marketing site | http://localhost:3000 |
-| Hospitality app | http://localhost:3002/hospitality |
-| Users API (+ docs) | http://localhost:3001/docs |
-| Agent API (+ docs) | http://localhost:3003/docs |
-| Reservations API (+ docs) | http://localhost:3004/docs |
+| App                       | URL                               |
+| ------------------------- | --------------------------------- |
+| Marketing site            | http://localhost:3000             |
+| Hospitality app           | http://localhost:3002/hospitality |
+| Users API (+ docs)        | http://localhost:3001/docs        |
+| Agent API (+ docs)        | http://localhost:3003/docs        |
+| Reservations API (+ docs) | http://localhost:3004/docs        |
 
 ## Project Structure
 
@@ -72,24 +73,24 @@ mattbutlerengineering/
 
 This repository is measured against the [AI Codebase Maturity Model (ACMM)](docs/acmm.md) to track how well each project is set up for autonomous agent workflows.
 
-| Project | Level | Role | Next Gap |
-|---|---|---|---|
-| **Repository Root** | **L6** | **Strategist** | ✓ |
-| [apps/gen](apps/gen/) | L1 | Executor | Agent instructions (any) |
-| [apps/hospitality](apps/hospitality/) | L2 | Rule-writer | PR acceptance tracking |
-| [apps/marketing](apps/marketing/) | L6 | Strategist | ✓ |
-| [apps/rialto-web](apps/rialto-web/) | L1 | Executor | Agent instructions (any) |
-| [packages/agent-core](packages/agent-core/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/api-client](packages/api-client/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/api-versioning](packages/api-versioning/) | L1 | Executor | Agent instructions (any) |
-| [packages/auth](packages/auth/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/config](packages/config/) | L1 | Executor | Agent instructions (any) |
-| [packages/observability](packages/observability/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/rialto](packages/rialto/) | L6 | Strategist | ✓ |
-| [packages/rialto-catalog](packages/rialto-catalog/) | L1 | Executor | Agent instructions (any) |
-| [packages/rialto-plugin](packages/rialto-plugin/) | L1 | Executor | Agent instructions (any) |
-| [packages/sentry](packages/sentry/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/types](packages/types/) | L1 | Executor | Agent instructions (any) |
+| Project                                             | Level  | Role           | Next Gap                 |
+| --------------------------------------------------- | ------ | -------------- | ------------------------ |
+| **Repository Root**                                 | **L6** | **Strategist** | ✓                        |
+| [apps/gen](apps/gen/)                               | L1     | Executor       | Agent instructions (any) |
+| [apps/hospitality](apps/hospitality/)               | L2     | Rule-writer    | PR acceptance tracking   |
+| [apps/marketing](apps/marketing/)                   | L6     | Strategist     | ✓                        |
+| [apps/rialto-web](apps/rialto-web/)                 | L1     | Executor       | Agent instructions (any) |
+| [packages/agent-core](packages/agent-core/)         | L2     | Rule-writer    | PR acceptance tracking   |
+| [packages/api-client](packages/api-client/)         | L2     | Rule-writer    | PR acceptance tracking   |
+| [packages/api-versioning](packages/api-versioning/) | L1     | Executor       | Agent instructions (any) |
+| [packages/auth](packages/auth/)                     | L2     | Rule-writer    | PR acceptance tracking   |
+| [packages/config](packages/config/)                 | L1     | Executor       | Agent instructions (any) |
+| [packages/observability](packages/observability/)   | L2     | Rule-writer    | PR acceptance tracking   |
+| [packages/rialto](packages/rialto/)                 | L6     | Strategist     | ✓                        |
+| [packages/rialto-catalog](packages/rialto-catalog/) | L1     | Executor       | Agent instructions (any) |
+| [packages/rialto-plugin](packages/rialto-plugin/)   | L1     | Executor       | Agent instructions (any) |
+| [packages/sentry](packages/sentry/)                 | L2     | Rule-writer    | PR acceptance tracking   |
+| [packages/types](packages/types/)                   | L1     | Executor       | Agent instructions (any) |
 
 Full details for every requirement can be found in [ACMM_PROJECT_AUDITS.md](ACMM_PROJECT_AUDITS.md).
 

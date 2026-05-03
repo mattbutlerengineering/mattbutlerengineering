@@ -1,5 +1,14 @@
 import { useState } from "react";
-import { Button, Card, Checkbox, DataList, Input, Select, Stack, Text } from "@mattbutlerengineering/rialto";
+import {
+  Button,
+  Card,
+  Checkbox,
+  DataList,
+  Input,
+  Select,
+  Stack,
+  Text,
+} from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";
@@ -76,11 +85,7 @@ export function InputPage() {
       <Section title="Variants">
         <Stack direction="row" gap="sm" align="end" wrap>
           <Input label="Default" placeholder="e.g. Charles Leclerc" />
-          <Input
-            label="With hint"
-            placeholder="F80-001"
-            hint="Alphanumeric, 6+ characters"
-          />
+          <Input label="With hint" placeholder="F80-001" hint="Alphanumeric, 6+ characters" />
         </Stack>
       </Section>
 

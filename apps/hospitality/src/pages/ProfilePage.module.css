@@ -18,7 +18,9 @@
 }
 
 .avatarRing {
-  box-shadow: 0 0 0 3px var(--rialto-surface), 0 0 0 5px var(--rialto-accent);
+  box-shadow:
+    0 0 0 3px var(--rialto-surface),
+    0 0 0 5px var(--rialto-accent);
 }
 
 .heroInfo {

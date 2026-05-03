@@ -41,10 +41,22 @@ export const DEFAULT_VERIFICATION_CONFIG: VerificationConfig = {
 
 export const DEFAULT_HEALTH_CHECKS: readonly HealthCheck[] = [
   { name: "Marketing", url: "https://mattbutlerengineering.com/", type: "http_status" },
-  { name: "Hospitality", url: "https://mattbutlerengineering.com/hospitality", type: "http_status" },
+  {
+    name: "Hospitality",
+    url: "https://mattbutlerengineering.com/hospitality",
+    type: "http_status",
+  },
   { name: "Rialto Web", url: "https://mattbutlerengineering.com/rialto", type: "http_status" },
-  { name: "Users API", url: "https://mattbutlerengineering.com/api/v1/users/health", type: "json_health" },
-  { name: "Reservations API", url: "https://mattbutlerengineering.com/api/health", type: "json_health" },
+  {
+    name: "Users API",
+    url: "https://mattbutlerengineering.com/api/v1/users/health",
+    type: "json_health",
+  },
+  {
+    name: "Reservations API",
+    url: "https://mattbutlerengineering.com/api/health",
+    type: "json_health",
+  },
 ];
 
 // ── Health check execution ──────────────────────────────────────────
@@ -58,10 +70,16 @@ async function checkHttpStatus(
   timeoutMs: number
 ): Promise<{ passed: boolean; status: string }> {
   try {
-    const { stdout } = await execFileAsync(
-      "curl",
-      ["-sf", "-o", "/dev/null", "-w", "%{http_code}", "--max-time", String(timeoutMs / 1000), url],
-    );
+    const { stdout } = await execFileAsync("curl", [
+      "-sf",
+      "-o",
+      "/dev/null",
+      "-w",
+      "%{http_code}",
+      "--max-time",
+      String(timeoutMs / 1000),
+      url,
+    ]);
     const code = stdout.trim();
     return { passed: code === "200", status: `HTTP ${code}` };
   } catch {
@@ -74,10 +92,12 @@ async function checkJsonHealth(
   timeoutMs: number
 ): Promise<{ passed: boolean; status: string }> {
   try {
-    const { stdout } = await execFileAsync(
-      "curl",
-      ["-sf", "--max-time", String(timeoutMs / 1000), url],
-    );
+    const { stdout } = await execFileAsync("curl", [
+      "-sf",
+      "--max-time",
+      String(timeoutMs / 1000),
+      url,
+    ]);
     const response = JSON.parse(stdout) as { status?: string };
     const status = response.status ?? "unknown";
     return { passed: status === "ok", status };
@@ -131,13 +151,9 @@ export async function verifyDeployment(
 ): Promise<VerificationResult> {
   const config = { ...DEFAULT_VERIFICATION_CONFIG, ...configOverrides };
 
-  const results = await Promise.all(
-    checks.map((check) => runSingleCheck(check, config))
-  );
+  const results = await Promise.all(checks.map((check) => runSingleCheck(check, config)));
 
-  const failedChecks = results
-    .filter((r) => !r.passed)
-    .map((r) => r.name);
+  const failedChecks = results.filter((r) => !r.passed).map((r) => r.name);
 
   return {
     passed: failedChecks.length === 0,
@@ -158,9 +174,13 @@ export async function rollbackCloudflareWorker(
 ): Promise<boolean> {
   try {
     await execFileAsync("npx", [
-      "wrangler", "rollback", versionId,
-      "--name", workerName,
-      "--message", reason,
+      "wrangler",
+      "rollback",
+      versionId,
+      "--name",
+      workerName,
+      "--message",
+      reason,
       "--yes",
     ]);
     return true;
@@ -172,13 +192,14 @@ export async function rollbackCloudflareWorker(
 /**
  * Get the current version ID of a Cloudflare Worker (for pre-deploy snapshot).
  */
-export async function getCloudflareWorkerVersion(
-  workerName: string
-): Promise<string | null> {
+export async function getCloudflareWorkerVersion(workerName: string): Promise<string | null> {
   try {
     const { stdout } = await execFileAsync("npx", [
-      "wrangler", "versions", "list",
-      "--name", workerName,
+      "wrangler",
+      "versions",
+      "list",
+      "--name",
+      workerName,
       "--json",
     ]);
     const versions = JSON.parse(stdout) as readonly { id: string }[];

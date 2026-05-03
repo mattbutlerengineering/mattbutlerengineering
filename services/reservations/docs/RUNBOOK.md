@@ -34,9 +34,9 @@ npx prisma validate
 
 ## Health Checks
 
-| Endpoint | Type | Behavior |
-|-----------|------|-------------|
-| `/health` | Liveness | Always returns `{"status": "ok"}` — no DB touch |
+| Endpoint                      | Type      | Behavior                                                          |
+| ----------------------------- | --------- | ----------------------------------------------------------------- |
+| `/health`                     | Liveness  | Always returns `{"status": "ok"}` — no DB touch                   |
 | `/api/v1/reservations/health` | Readiness | Runs `prisma.$queryRaw` — returns `degraded` with actual DB error |
 
 ```bash
@@ -57,6 +57,7 @@ curl -s http://localhost:3004/api/v1/events/stream?venueId=<id> -H "Authorizatio
 ```
 
 **Backfill procedure:**
+
 ```bash
 # Query missed reservations since last known event
 node -e "

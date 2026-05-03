@@ -57,7 +57,9 @@ function ReservationDetails({ reservation, onEdit, onSeat, onCancel }: Reservati
   return (
     <Stack gap="lg" className={styles.detailsStack}>
       <div>
-        <Text variant="label" color="secondary">Guest</Text>
+        <Text variant="label" color="secondary">
+          Guest
+        </Text>
         <Text variant="display" as="div">
           {reservation.guestName || "Guest"}
         </Text>
@@ -65,7 +67,9 @@ function ReservationDetails({ reservation, onEdit, onSeat, onCancel }: Reservati
 
       {reservation.guestEmail && (
         <div>
-          <Text variant="label" color="secondary">Email</Text>
+          <Text variant="label" color="secondary">
+            Email
+          </Text>
           <Text variant="body" as="div">
             {reservation.guestEmail}
           </Text>
@@ -74,7 +78,9 @@ function ReservationDetails({ reservation, onEdit, onSeat, onCancel }: Reservati
 
       {reservation.guestPhone && (
         <div>
-          <Text variant="label" color="secondary">Phone</Text>
+          <Text variant="label" color="secondary">
+            Phone
+          </Text>
           <Text variant="body" as="div">
             {reservation.guestPhone}
           </Text>
@@ -82,7 +88,9 @@ function ReservationDetails({ reservation, onEdit, onSeat, onCancel }: Reservati
       )}
 
       <div>
-        <Text variant="label" color="secondary">Time</Text>
+        <Text variant="label" color="secondary">
+          Time
+        </Text>
         <Text variant="body" as="div">
           {new Date(reservation.startTime).toLocaleTimeString("en-US", {
             hour: "numeric",
@@ -99,61 +107,54 @@ function ReservationDetails({ reservation, onEdit, onSeat, onCancel }: Reservati
       </div>
 
       <div>
-        <Text variant="label" color="secondary">Party Size</Text>
+        <Text variant="label" color="secondary">
+          Party Size
+        </Text>
         <Text variant="body" as="div">
-          {reservation.partySize}{" "}
-          {reservation.partySize === 1 ? "guest" : "guests"}
+          {reservation.partySize} {reservation.partySize === 1 ? "guest" : "guests"}
         </Text>
       </div>
 
       <div>
-        <Text variant="label" color="secondary">Table</Text>
+        <Text variant="label" color="secondary">
+          Table
+        </Text>
         <Text variant="body" as="div">
-          {reservation.table?.tableNumber ||
-            reservation.table?.name ||
-            "Unassigned"}
+          {reservation.table?.tableNumber || reservation.table?.name || "Unassigned"}
         </Text>
       </div>
 
       <div>
-        <Text variant="label" color="secondary">Status</Text>
-        <Text
-          className={`${styles.statusBadge} ${getStatusBadgeClass(reservation.status)}`}
-        >
+        <Text variant="label" color="secondary">
+          Status
+        </Text>
+        <Text className={`${styles.statusBadge} ${getStatusBadgeClass(reservation.status)}`}>
           {reservation.status}
         </Text>
       </div>
 
       {reservation.notes && (
         <div>
-          <Text variant="label" color="secondary">Notes</Text>
-          <Text variant="body" as="div" className={styles.notesValue}>{reservation.notes}</Text>
+          <Text variant="label" color="secondary">
+            Notes
+          </Text>
+          <Text variant="body" as="div" className={styles.notesValue}>
+            {reservation.notes}
+          </Text>
         </div>
       )}
 
       <Stack gap="sm" className={styles.actionsDivider}>
-        <Button
-          variant="primary"
-          onClick={onEdit}
-          className={styles.fullWidth}
-        >
+        <Button variant="primary" onClick={onEdit} className={styles.fullWidth}>
           Edit Reservation
         </Button>
         {reservation.status === "CONFIRMED" && (
-          <Button
-            variant="secondary"
-            onClick={onSeat}
-            className={styles.fullWidth}
-          >
+          <Button variant="secondary" onClick={onSeat} className={styles.fullWidth}>
             Seat Guest
           </Button>
         )}
         {reservation.status !== "CANCELLED" && (
-          <Button
-            variant="ghost"
-            onClick={onCancel}
-            className={styles.fullWidth}
-          >
+          <Button variant="ghost" onClick={onCancel} className={styles.fullWidth}>
             Cancel Reservation
           </Button>
         )}
@@ -294,9 +295,7 @@ export function TimelinePage() {
       await api.tables.updateStatus(reservation.tableId, "OCCUPIED");
       updateReservation(updated);
       setTables((prev) =>
-        prev.map((t) =>
-          t.id === reservation.tableId ? { ...t, status: "OCCUPIED" as const } : t
-        )
+        prev.map((t) => (t.id === reservation.tableId ? { ...t, status: "OCCUPIED" as const } : t))
       );
       setSelectedReservation(null);
     } catch (err) {
@@ -389,12 +388,7 @@ export function TimelinePage() {
               className={styles.navButton}
               aria-label="Previous day"
             >
-              <svg
-                className={styles.navIcon}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
+              <svg className={styles.navIcon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -411,12 +405,7 @@ export function TimelinePage() {
               className={styles.navButton}
               aria-label="Next day"
             >
-              <svg
-                className={styles.navIcon}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
+              <svg className={styles.navIcon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -426,7 +415,12 @@ export function TimelinePage() {
               </svg>
             </Button>
             {!isToday && (
-              <Button variant="secondary" size="sm" onClick={handleToday} className={styles.todayButton}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleToday}
+                className={styles.todayButton}
+              >
                 Today
               </Button>
             )}
@@ -452,12 +446,10 @@ export function TimelinePage() {
               </Text>
             </div>
             <div className={styles.statItem}>
-              Reservations:{" "}
-              <Text className={styles.statValue}>{stats.total}</Text>
+              Reservations: <Text className={styles.statValue}>{stats.total}</Text>
             </div>
             <div className={styles.statItem}>
-              Covers:{" "}
-              <Text className={styles.statValue}>{stats.totalCovers}</Text>
+              Covers: <Text className={styles.statValue}>{stats.totalCovers}</Text>
             </div>
             <div>
               <Text className={styles.statConfirmed}>{stats.confirmed}</Text>
@@ -482,7 +474,9 @@ export function TimelinePage() {
               <div className={styles.spinner} aria-label="Loading" role="status" />
             </div>
           ) : error ? (
-            <div className={styles.errorBox} role="alert">{error}</div>
+            <div className={styles.errorBox} role="alert">
+              {error}
+            </div>
           ) : tables.length === 0 ? (
             <div className={styles.emptyState}>
               <Text className={styles.emptyStateText}>No tables configured for this venue.</Text>
@@ -504,7 +498,9 @@ export function TimelinePage() {
         {selectedReservation && (
           <Card className={styles.sidebar} variant="elevated">
             <div className={styles.sidebarHeader}>
-              <Text variant="display" as="h2" className={styles.sidebarTitle}>Reservation Details</Text>
+              <Text variant="display" as="h2" className={styles.sidebarTitle}>
+                Reservation Details
+              </Text>
               <Button
                 variant="ghost"
                 size="sm"

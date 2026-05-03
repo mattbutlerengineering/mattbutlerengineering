@@ -1,12 +1,12 @@
-import { acmmSource } from './sources/acmm.js'
-import { SCANNABLE_IDS_BY_LEVEL, AGENT_INSTRUCTION_FILE_IDS } from './scannableIdsByLevel.js'
+import { acmmSource } from "./sources/acmm.js";
+import { SCANNABLE_IDS_BY_LEVEL, AGENT_INSTRUCTION_FILE_IDS } from "./scannableIdsByLevel.js";
 
-const MIN_LEVEL = 1
-const MAX_LEVEL = 6
+const MIN_LEVEL = 1;
+const MAX_LEVEL = 6;
 /** Minimum fraction of scannable criteria at a level to consider it "passed" */
-const LEVEL_COMPLETION_THRESHOLD = 0.7
+const LEVEL_COMPLETION_THRESHOLD = 0.7;
 /** Level 0 = prerequisites (soft indicator, not gating) */
-const PREREQUISITE_LEVEL = 0
+const PREREQUISITE_LEVEL = 0;
 
 /**
  * Behavioral gates — each ties a runtime signal to a level advancement check.
@@ -16,51 +16,51 @@ const PREREQUISITE_LEVEL = 0
 const BEHAVIORAL_GATES = [
   {
     level: 3,
-    name: 'ci-flake-rate',
-    description: 'CI flake rate must be below 20%',
-    threshold: 0.20,
-    direction: 'below', // value must be below threshold to pass
+    name: "ci-flake-rate",
+    description: "CI flake rate must be below 20%",
+    threshold: 0.2,
+    direction: "below", // value must be below threshold to pass
     extract: (b) => b?.flake?.rate_30d,
   },
   {
     level: 4,
-    name: 'agent-pr-acceptance',
-    description: 'Agent PR acceptance rate must exceed 50%',
-    threshold: 0.50,
-    direction: 'above', // value must be above threshold to pass
+    name: "agent-pr-acceptance",
+    description: "Agent PR acceptance rate must exceed 50%",
+    threshold: 0.5,
+    direction: "above", // value must be above threshold to pass
     extract: (b) => b?.agent_pr?.acceptance_rate_30d,
   },
   {
     level: 5,
-    name: 'auto-qa-tuning-history',
-    description: 'Auto-QA tuning history must have more than 1 entry',
+    name: "auto-qa-tuning-history",
+    description: "Auto-QA tuning history must have more than 1 entry",
     threshold: 1,
-    direction: 'above', // value must be above threshold to pass
+    direction: "above", // value must be above threshold to pass
     extract: (b) => b?.auto_qa_history_count,
   },
   {
     level: 6,
-    name: 'agent-pr-revert-rate',
-    description: 'Agent PR revert rate must be below 10%',
-    threshold: 0.10,
-    direction: 'below', // value must be below threshold to pass
+    name: "agent-pr-revert-rate",
+    description: "Agent PR revert rate must be below 10%",
+    threshold: 0.1,
+    direction: "below", // value must be below threshold to pass
     extract: (b) => b?.agent_pr?.revert_rate_30d,
   },
-]
+];
 
 /**
  * Evaluate a single behavioral gate against the provided behavioral data.
  * Returns a gate result object with pass/fail status and metadata.
  */
 function evaluateGate(gate, behavioral, strict) {
-  const value = gate.extract(behavioral)
-  const hasValue = value !== undefined && value !== null
+  const value = gate.extract(behavioral);
+  const hasValue = value !== undefined && value !== null;
   // Gates with no data are treated as passed (data unavailable = no block)
   const passed = !hasValue
     ? true
-    : gate.direction === 'below'
+    : gate.direction === "below"
       ? value < gate.threshold
-      : value > gate.threshold
+      : value > gate.threshold;
   return {
     level: gate.level,
     name: gate.name,
@@ -71,24 +71,27 @@ function evaluateGate(gate, behavioral, strict) {
     direction: gate.direction,
     strict,
     dataAvailable: hasValue,
-  }
+  };
 }
 
 /** Virtual criterion representing the OR group above (not in acmm.ts source). */
-const VIRTUAL_AGENT_INSTRUCTIONS= {
-  id: 'acmm:agent-instructions',
-  source: 'acmm',
+const VIRTUAL_AGENT_INSTRUCTIONS = {
+  id: "acmm:agent-instructions",
+  source: "acmm",
   level: 2,
-  category: 'feedback-loop',
-  name: 'Agent instructions (any)',
-  description: 'Any one of CLAUDE.md, AGENTS.md, .github/copilot-instructions.md, or .cursorrules.',
-  rationale: 'Any vendor-neutral or vendor-specific instruction file satisfies the L2 Instructed signal.',
-  detection: { type: 'any-of', pattern: ['CLAUDE.md', 'AGENTS.md', '.github/copilot-instructions.md', '.cursorrules'] },
-}
+  category: "feedback-loop",
+  name: "Agent instructions (any)",
+  description: "Any one of CLAUDE.md, AGENTS.md, .github/copilot-instructions.md, or .cursorrules.",
+  rationale:
+    "Any vendor-neutral or vendor-specific instruction file satisfies the L2 Instructed signal.",
+  detection: {
+    type: "any-of",
+    pattern: ["CLAUDE.md", "AGENTS.md", ".github/copilot-instructions.md", ".cursorrules"],
+  },
+};
 
-
-const ACMM_CRITERIA = acmmSource.criteria.filter((c) => c.source === 'acmm')
-const ACMM_LEVELS = acmmSource.levels ?? []
+const ACMM_CRITERIA = acmmSource.criteria.filter((c) => c.source === "acmm");
+const ACMM_LEVELS = acmmSource.levels ?? [];
 
 /** Return scannable criteria for a given level (non-scannable items are
  *  displayed in the UI but excluded from threshold calculations).
@@ -98,115 +101,113 @@ const ACMM_LEVELS = acmmSource.levels ?? []
  *  The set of IDs is governed by SCANNABLE_IDS_BY_LEVEL (shared with the
  *  badge endpoint) to guarantee both compute identical levels. */
 function scannableCriteriaForLevel(level) {
-  const ids = SCANNABLE_IDS_BY_LEVEL[level]
+  const ids = SCANNABLE_IDS_BY_LEVEL[level];
   if (!ids) {
     // Levels not in the threshold walk (e.g. L0 prerequisites)
-    return ACMM_CRITERIA.filter((c) => c.level === level && c.scannable !== false)
+    return ACMM_CRITERIA.filter((c) => c.level === level && c.scannable !== false);
   }
   // Build Criterion objects: real criteria come from the catalog; the virtual
   // "acmm:agent-instructions" is synthesised above.
-  const result = []
+  const result = [];
   for (const id of ids) {
-    if (id === 'acmm:agent-instructions') {
-      result.push(VIRTUAL_AGENT_INSTRUCTIONS)
+    if (id === "acmm:agent-instructions") {
+      result.push(VIRTUAL_AGENT_INSTRUCTIONS);
     } else {
-      const found = ACMM_CRITERIA.find((c) => c.id === id)
-      if (found) result.push(found)
+      const found = ACMM_CRITERIA.find((c) => c.id === id);
+      if (found) result.push(found);
     }
   }
-  return result
+  return result;
 }
 
 /** Return ALL criteria for a given level (including non-scannable). */
 function allCriteriaForLevel(level) {
-  return ACMM_CRITERIA.filter((c) => c.level === level)
+  return ACMM_CRITERIA.filter((c) => c.level === level);
 }
 
 function levelDef(n) {
-  return ACMM_LEVELS.find((l) => l.n === n)
+  return ACMM_LEVELS.find((l) => l.n === n);
 }
 
-export function computeLevel(rawDetectedIds, behavioral = {}, options = {}){
-  const strict = options.strict ?? false
+export function computeLevel(rawDetectedIds, behavioral = {}, options = {}) {
+  const strict = options.strict ?? false;
 
   // Synthesise the virtual L2 OR-group criterion before the level walk.
-  const detectedIds = new Set(rawDetectedIds)
+  const detectedIds = new Set(rawDetectedIds);
   if ([...AGENT_INSTRUCTION_FILE_IDS].some((id) => detectedIds.has(id))) {
-    detectedIds.add('acmm:agent-instructions')
+    detectedIds.add("acmm:agent-instructions");
   }
 
-  const detectedByLevel= {}
-  const requiredByLevel= {}
+  const detectedByLevel = {};
+  const requiredByLevel = {};
 
   // L2–L6 threshold walk (L0 prerequisites and L1 are not gated)
   for (let n = MIN_LEVEL + 1; n <= MAX_LEVEL; n++) {
-    const required = scannableCriteriaForLevel(n)
-    requiredByLevel[n] = required.length
-    detectedByLevel[n] = required.filter((c) => detectedIds.has(c.id)).length
+    const required = scannableCriteriaForLevel(n);
+    requiredByLevel[n] = required.length;
+    detectedByLevel[n] = required.filter((c) => detectedIds.has(c.id)).length;
   }
 
   // Evaluate all behavioral gates up front
-  const behavioralGates = BEHAVIORAL_GATES.map((gate) =>
-    evaluateGate(gate, behavioral, strict),
-  )
+  const behavioralGates = BEHAVIORAL_GATES.map((gate) => evaluateGate(gate, behavioral, strict));
   // Index gate results by level for quick lookup
-  const gateByLevel = {}
+  const gateByLevel = {};
   for (const g of behavioralGates) {
-    gateByLevel[g.level] = g
+    gateByLevel[g.level] = g;
   }
 
-  let currentLevel = MIN_LEVEL
+  let currentLevel = MIN_LEVEL;
   for (let n = MIN_LEVEL + 1; n <= MAX_LEVEL; n++) {
-    const required = requiredByLevel[n]
-    const detected = detectedByLevel[n]
-    if (required === 0) continue
+    const required = requiredByLevel[n];
+    const detected = detectedByLevel[n];
+    if (required === 0) continue;
     // L2 "Instructed" is reached with any single criterion; higher levels use 70%
-    const threshold = n === 2 ? 1 / required : LEVEL_COMPLETION_THRESHOLD
-    const ratio = detected / required
+    const threshold = n === 2 ? 1 / required : LEVEL_COMPLETION_THRESHOLD;
+    const ratio = detected / required;
     if (ratio >= threshold) {
       // Check behavioral gate for this level (if one exists)
-      const gate = gateByLevel[n]
+      const gate = gateByLevel[n];
       if (gate && !gate.passed && strict) {
         // Hard gate: block advancement
-        break
+        break;
       }
       // Soft gate failure or no gate: advance
-      currentLevel = n
+      currentLevel = n;
     } else {
-      break
+      break;
     }
   }
 
-  const nextLevel = currentLevel < MAX_LEVEL ? currentLevel + 1 : null
+  const nextLevel = currentLevel < MAX_LEVEL ? currentLevel + 1 : null;
   const missingForNextLevel = nextLevel
     ? scannableCriteriaForLevel(nextLevel).filter((c) => !detectedIds.has(c.id))
-    : []
+    : [];
 
-  const current = levelDef(currentLevel)
-  const next = nextLevel ? levelDef(nextLevel) : null
+  const current = levelDef(currentLevel);
+  const next = nextLevel ? levelDef(nextLevel) : null;
 
   // Prerequisite soft indicator
-  const prereqCriteria = scannableCriteriaForLevel(PREREQUISITE_LEVEL)
-  const prereqMet = prereqCriteria.filter((c) => detectedIds.has(c.id)).length
+  const prereqCriteria = scannableCriteriaForLevel(PREREQUISITE_LEVEL);
+  const prereqMet = prereqCriteria.filter((c) => detectedIds.has(c.id)).length;
 
   // Cross-cutting dimension counts (only scannable items)
   const learningCriteria = ACMM_CRITERIA.filter(
-    (c) => c.crossCutting === 'learning' && c.scannable !== false,
-  )
+    (c) => c.crossCutting === "learning" && c.scannable !== false
+  );
   const traceabilityCriteria = ACMM_CRITERIA.filter(
-    (c) => c.crossCutting === 'traceability' && c.scannable !== false,
-  )
+    (c) => c.crossCutting === "traceability" && c.scannable !== false
+  );
 
   return {
     level: currentLevel,
     levelName: current?.name ?? `L${currentLevel}`,
-    role: current?.role ?? '',
-    characteristic: current?.characteristic ?? '',
+    role: current?.role ?? "",
+    characteristic: current?.characteristic ?? "",
     detectedByLevel,
     requiredByLevel,
     missingForNextLevel,
     nextTransitionTrigger: next?.transitionTrigger ?? null,
-    antiPattern: current?.antiPattern ?? '',
+    antiPattern: current?.antiPattern ?? "",
     prerequisites: {
       met: prereqMet,
       total: prereqCriteria.length,
@@ -222,21 +223,21 @@ export function computeLevel(rawDetectedIds, behavioral = {}, options = {}){
       },
     },
     behavioralGates,
-  }
+  };
 }
 
 /** Return all criteria (including non-scannable) for UI display. */
 export function getAllCriteria() {
-  return ACMM_CRITERIA
+  return ACMM_CRITERIA;
 }
 
 /** Return all criteria grouped by level. */
 export function getCriteriaByLevel() {
-  const byLevel= {}
+  const byLevel = {};
   for (let n = PREREQUISITE_LEVEL; n <= MAX_LEVEL; n++) {
-    byLevel[n] = allCriteriaForLevel(n)
+    byLevel[n] = allCriteriaForLevel(n);
   }
-  return byLevel
+  return byLevel;
 }
 
-export { BEHAVIORAL_GATES, LEVEL_COMPLETION_THRESHOLD, MIN_LEVEL, MAX_LEVEL, PREREQUISITE_LEVEL }
+export { BEHAVIORAL_GATES, LEVEL_COMPLETION_THRESHOLD, MIN_LEVEL, MAX_LEVEL, PREREQUISITE_LEVEL };

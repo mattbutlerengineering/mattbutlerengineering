@@ -42,7 +42,7 @@ export interface UseFlipDotAnimationReturn {
  * Feed the returned matrix directly into `<FlipDot matrix={matrix} />`.
  */
 export function useFlipDotAnimation(
-  options: UseFlipDotAnimationOptions,
+  options: UseFlipDotAnimationOptions
 ): UseFlipDotAnimationReturn {
   const {
     text = "",
@@ -81,20 +81,18 @@ export function useFlipDotAnimation(
     (
       source: readonly (readonly boolean[])[],
       startCol: number,
-      width: number,
+      width: number
     ): readonly (readonly boolean[])[] => {
       return source.map((row) => {
         const result: boolean[] = [];
         for (let i = 0; i < width; i++) {
           const srcCol = startCol + i;
-          result.push(
-            srcCol >= 0 && srcCol < row.length ? (row[srcCol] ?? false) : false,
-          );
+          result.push(srcCol >= 0 && srcCol < row.length ? (row[srcCol] ?? false) : false);
         }
         return result;
       });
     },
-    [],
+    []
   );
 
   const tick = useCallback(() => {
@@ -112,7 +110,7 @@ export function useFlipDotAnimation(
           sliced.map((row) => [
             ...row,
             ...Array<boolean>(Math.max(0, cols - row.length)).fill(false),
-          ]),
+          ])
         );
         if (visibleCols >= Math.min(cols, fullWidth)) {
           if (loop) {
@@ -166,9 +164,7 @@ export function useFlipDotAnimation(
 
       case "frames": {
         if (!frames || frames.length === 0) return;
-        const frameIndex = loop
-          ? step % frames.length
-          : Math.min(step, frames.length - 1);
+        const frameIndex = loop ? step % frames.length : Math.min(step, frames.length - 1);
         setMatrix(frames[frameIndex]!);
         if (!loop && step >= frames.length - 1) {
           clearTimer();

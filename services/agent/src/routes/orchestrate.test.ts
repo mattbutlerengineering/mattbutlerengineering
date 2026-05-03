@@ -94,10 +94,13 @@ describe("Orchestrate Routes", () => {
         createdAt: "2026-02-27T00:00:00.000Z",
       });
 
-      const expectedCost = calculateCost({
-        inputTokens: 300000,
-        outputTokens: 50000,
-      }, "claude-sonnet-4-6").totalCostUsd;
+      const expectedCost = calculateCost(
+        {
+          inputTokens: 300000,
+          outputTokens: 50000,
+        },
+        "claude-sonnet-4-6"
+      ).totalCostUsd;
 
       vi.mocked(runOrchestrator).mockResolvedValueOnce({
         status: "succeeded",

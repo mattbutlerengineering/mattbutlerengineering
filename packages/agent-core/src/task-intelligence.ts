@@ -45,7 +45,8 @@ function detectTaskContexts(taskDescription: string): string[] {
 // Extract file paths mentioned in the task description and resolve
 // related files (test files, shared schemas, route handlers).
 
-const FILE_PATH_PATTERN = /(?:^|\s|`)((?:apps|packages|services|tools|infrastructure)\/[^\s`'"]+\.\w+)/g;
+const FILE_PATH_PATTERN =
+  /(?:^|\s|`)((?:apps|packages|services|tools|infrastructure)\/[^\s`'"]+\.\w+)/g;
 const DIRECTORY_PATTERN = /(?:^|\s|`)((?:apps|packages|services|tools)\/[^\s`'"]+\/)/g;
 
 /**
@@ -174,23 +175,30 @@ export async function fetchRecentPrExamples(
     const { stdout } = await execFileAsync(
       "gh",
       [
-        "pr", "list",
-        "--state", "merged",
-        "--limit", String(limit),
-        "--json", "title,body,files",
-        "--jq", `.[] | {title, body: (.body | split("\n")[0:5] | join("\n")), filesChanged: (.files | length)}`,
+        "pr",
+        "list",
+        "--state",
+        "merged",
+        "--limit",
+        String(limit),
+        "--json",
+        "title,body,files",
+        "--jq",
+        `.[] | {title, body: (.body | split("\n")[0:5] | join("\n")), filesChanged: (.files | length)}`,
       ],
       { cwd: repoPath, timeout: 10_000 }
     );
 
     const lines = stdout.trim().split("\n").filter(Boolean);
-    return lines.map((line) => {
-      try {
-        return JSON.parse(line) as PrExample;
-      } catch {
-        return { title: "", body: "", filesChanged: 0 };
-      }
-    }).filter((pr) => pr.title.length > 0);
+    return lines
+      .map((line) => {
+        try {
+          return JSON.parse(line) as PrExample;
+        } catch {
+          return { title: "", body: "", filesChanged: 0 };
+        }
+      })
+      .filter((pr) => pr.title.length > 0);
   } catch {
     return [];
   }
@@ -202,15 +210,11 @@ export async function fetchRecentPrExamples(
 export function formatPrExamples(examples: readonly PrExample[]): string {
   if (examples.length === 0) return "";
 
-  const formatted = examples.map((pr, i) =>
-    `### Example ${i + 1}: ${pr.title}\nFiles changed: ${pr.filesChanged}\n${pr.body}`
-  ).join("\n\n");
+  const formatted = examples
+    .map(
+      (pr, i) => `### Example ${i + 1}: ${pr.title}\nFiles changed: ${pr.filesChanged}\n${pr.body}`
+    )
+    .join("\n\n");
 
-  return [
-    "",
-    "",
-    "## Recent Successful PRs (follow this style)",
-    "",
-    formatted,
-  ].join("\n");
+  return ["", "", "## Recent Successful PRs (follow this style)", "", formatted].join("\n");
 }

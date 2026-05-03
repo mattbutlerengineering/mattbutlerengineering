@@ -47,9 +47,7 @@ const MIN_SAMPLE_SIZE = 5;
  */
 export function latestSnapshot(snapshots) {
   if (!Array.isArray(snapshots) || snapshots.length === 0) return null;
-  const sorted = [...snapshots].sort(
-    (a, b) => Date.parse(b.date) - Date.parse(a.date),
-  );
+  const sorted = [...snapshots].sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
   return sorted[0] ?? null;
 }
 
@@ -70,7 +68,7 @@ export function computeAdjustments(snapshot, thresholds) {
   // Gate: insufficient data
   if (snapshot.total_ai_prs < MIN_SAMPLE_SIZE) {
     adjustments.push(
-      `Insufficient data: only ${snapshot.total_ai_prs} AI PRs in window (need >= ${MIN_SAMPLE_SIZE}). No adjustments made.`,
+      `Insufficient data: only ${snapshot.total_ai_prs} AI PRs in window (need >= ${MIN_SAMPLE_SIZE}). No adjustments made.`
     );
     return { thresholds: next, adjustments };
   }
@@ -80,10 +78,7 @@ export function computeAdjustments(snapshot, thresholds) {
 
   if (rate < floor) {
     const oldBudget = next.maxBudgetUSD;
-    const newBudget = Math.max(
-      BUDGET_FLOOR,
-      +(oldBudget * BUDGET_REDUCTION_FACTOR).toFixed(2),
-    );
+    const newBudget = Math.max(BUDGET_FLOOR, +(oldBudget * BUDGET_REDUCTION_FACTOR).toFixed(2));
     next.maxBudgetUSD = newBudget;
 
     const pct = (rate * 100).toFixed(0);
@@ -92,7 +87,7 @@ export function computeAdjustments(snapshot, thresholds) {
       `Acceptance rate ${pct}% is below the ${floorPct}% floor ` +
         `(${snapshot.merged} merged, ${snapshot.rejected} rejected out of ${snapshot.total_ai_prs} PRs). ` +
         `Budget reduced from $${oldBudget.toFixed(2)} to $${newBudget.toFixed(2)} ` +
-        `to tighten quality gate — agents that cost more should produce higher-quality PRs.`,
+        `to tighten quality gate — agents that cost more should produce higher-quality PRs.`
     );
   }
 
@@ -101,7 +96,7 @@ export function computeAdjustments(snapshot, thresholds) {
     const floorPct = (floor * 100).toFixed(0);
     adjustments.push(
       `Acceptance rate ${pct}% meets or exceeds the ${floorPct}% floor ` +
-        `(${snapshot.merged} merged, ${snapshot.rejected} rejected). No adjustments needed.`,
+        `(${snapshot.merged} merged, ${snapshot.rejected} rejected). No adjustments needed.`
     );
   }
 
@@ -116,7 +111,7 @@ export function computeAdjustments(snapshot, thresholds) {
  */
 export function buildHistoryEntry({ adjustments, date, snapshotDate }) {
   const changed = adjustments.some(
-    (a) => !a.includes("No adjustments") && !a.includes("Insufficient data"),
+    (a) => !a.includes("No adjustments") && !a.includes("Insufficient data")
   );
   return {
     date,
@@ -161,10 +156,7 @@ function main() {
 
   // --- Compute ---
   const today = new Date().toISOString().split("T")[0];
-  const { thresholds: adjusted, adjustments } = computeAdjustments(
-    snapshot,
-    config.thresholds,
-  );
+  const { thresholds: adjusted, adjustments } = computeAdjustments(snapshot, config.thresholds);
 
   const historyEntry = buildHistoryEntry({
     adjustments,
@@ -185,16 +177,14 @@ function main() {
     console.log(JSON.stringify(historyEntry, null, 2));
     if (adjusted.maxBudgetUSD !== config.thresholds.maxBudgetUSD) {
       console.log(
-        `\nBudget would change: $${config.thresholds.maxBudgetUSD} -> $${adjusted.maxBudgetUSD}`,
+        `\nBudget would change: $${config.thresholds.maxBudgetUSD} -> $${adjusted.maxBudgetUSD}`
       );
     }
     process.exit(0);
   }
 
   writeFileSync(configPath, JSON.stringify(updatedConfig, null, 2) + "\n");
-  console.log(
-    `Auto-QA tuning complete. ${adjustments.length} finding(s). History entry added.`,
-  );
+  console.log(`Auto-QA tuning complete. ${adjustments.length} finding(s). History entry added.`);
   for (const a of adjustments) {
     console.log(`  - ${a}`);
   }

@@ -39,6 +39,7 @@ This creates `prisma/migrations/<timestamp>_initial_baseline/migration.sql` cont
 ### Step 3: Review the Migration
 
 Open the generated `migration.sql` and verify it represents your current schema. It should contain:
+
 - All `CREATE TABLE` statements
 - All indexes and constraints
 - Any custom types or enums
@@ -52,6 +53,7 @@ npx prisma migrate resolve --applied <migration_name>
 ```
 
 Example:
+
 ```bash
 npx prisma migrate resolve --applied 20240115120000_initial_baseline
 ```
@@ -77,6 +79,7 @@ npx prisma migrate status
 ```
 
 Should show:
+
 ```
 Database schema is up to date!
 ```
@@ -199,6 +202,7 @@ npx prisma migrate diff \
 ```
 
 Fix the drift manually, then verify:
+
 ```bash
 npx prisma migrate status
 ```
@@ -224,7 +228,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
       - run: npm ci
 
       - name: Check if baseline needed

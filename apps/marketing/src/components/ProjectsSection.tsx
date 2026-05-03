@@ -1,4 +1,10 @@
-import { Stack, Text, Heading, useScrollReveal, staggerReveal } from "@mattbutlerengineering/rialto";
+import {
+  Stack,
+  Text,
+  Heading,
+  useScrollReveal,
+  staggerReveal,
+} from "@mattbutlerengineering/rialto";
 import { motion } from "framer-motion";
 import { PROJECTS } from "../data/projects";
 import { ProjectCard } from "./ProjectCard";

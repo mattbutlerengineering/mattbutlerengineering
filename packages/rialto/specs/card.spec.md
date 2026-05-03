@@ -23,51 +23,51 @@ Card uses Framer Motion to enable optional cursor-tracking 3D tilt (`tilt` prop)
 
 ## States
 
-| State | Description | Prop/Trigger |
-|-------|-------------|--------------|
-| Default (elevated) | Aluminum-polished surface with `--rialto-shadow-sm` | `variant="elevated"` |
-| Hover (elevated) | Lifts 3px, luminous shadow | Mouse hover |
-| Tilt | 3D perspective tilt tracking cursor | `tilt={true}` — not available on glass variant |
-| Glass | Frosted glass surface with blur | `variant="glass"` |
-| Flat | Elevated surface color, border, no shadow | `variant="flat"` |
+| State              | Description                                         | Prop/Trigger                                   |
+| ------------------ | --------------------------------------------------- | ---------------------------------------------- |
+| Default (elevated) | Aluminum-polished surface with `--rialto-shadow-sm` | `variant="elevated"`                           |
+| Hover (elevated)   | Lifts 3px, luminous shadow                          | Mouse hover                                    |
+| Tilt               | 3D perspective tilt tracking cursor                 | `tilt={true}` — not available on glass variant |
+| Glass              | Frosted glass surface with blur                     | `variant="glass"`                              |
+| Flat               | Elevated surface color, border, no shadow           | `variant="flat"`                               |
 
 ## Design Tokens Used
 
-| Token | Purpose |
-|-------|---------|
-| `--rialto-radius-soft` | Container border radius |
-| `--rialto-space-lg` | Internal padding |
-| `--rialto-space-md` | Header bottom margin |
-| `--rialto-space-2xs` | Subtitle top margin |
-| `--rialto-shadow-sm` | Elevated variant resting shadow |
-| `--rialto-shadow-luminous` | Elevated variant hover shadow |
-| `--rialto-surface-elevated` | Flat variant background |
-| `--rialto-border` | Flat variant border |
-| `--rialto-text-md` | Title font size |
-| `--rialto-text-sm` | Subtitle font size |
-| `--rialto-text-primary` | Title text color |
-| `--rialto-text-secondary` | Subtitle text color |
-| `--rialto-weight-medium` | Title font weight |
-| `--rialto-tracking-tight` | Title letter-spacing |
-| `--rialto-ease-precision` | Hover transition easing |
+| Token                       | Purpose                         |
+| --------------------------- | ------------------------------- |
+| `--rialto-radius-soft`      | Container border radius         |
+| `--rialto-space-lg`         | Internal padding                |
+| `--rialto-space-md`         | Header bottom margin            |
+| `--rialto-space-2xs`        | Subtitle top margin             |
+| `--rialto-shadow-sm`        | Elevated variant resting shadow |
+| `--rialto-shadow-luminous`  | Elevated variant hover shadow   |
+| `--rialto-surface-elevated` | Flat variant background         |
+| `--rialto-border`           | Flat variant border             |
+| `--rialto-text-md`          | Title font size                 |
+| `--rialto-text-sm`          | Subtitle font size              |
+| `--rialto-text-primary`     | Title text color                |
+| `--rialto-text-secondary`   | Subtitle text color             |
+| `--rialto-weight-medium`    | Title font weight               |
+| `--rialto-tracking-tight`   | Title letter-spacing            |
+| `--rialto-ease-precision`   | Hover transition easing         |
 
 ## Props
 
 > See `registry.json` for authoritative prop types.
 
-| Prop | Type | Default | Required | Description |
-|------|------|---------|----------|-------------|
-| `variant` | `"elevated" \| "glass" \| "flat"` | `"elevated"` | No | Surface treatment |
-| `tilt` | `boolean` | `false` | No | Enable 3D cursor-tracking tilt — ignored for glass variant |
-| `title` | `string` | `undefined` | No | Card heading rendered as `<h3>` |
-| `subtitle` | `string` | `undefined` | No | Supporting text below title |
-| `children` | `ReactNode` | `undefined` | No | Card body content |
+| Prop       | Type                              | Default      | Required | Description                                                |
+| ---------- | --------------------------------- | ------------ | -------- | ---------------------------------------------------------- |
+| `variant`  | `"elevated" \| "glass" \| "flat"` | `"elevated"` | No       | Surface treatment                                          |
+| `tilt`     | `boolean`                         | `false`      | No       | Enable 3D cursor-tracking tilt — ignored for glass variant |
+| `title`    | `string`                          | `undefined`  | No       | Card heading rendered as `<h3>`                            |
+| `subtitle` | `string`                          | `undefined`  | No       | Supporting text below title                                |
+| `children` | `ReactNode`                       | `undefined`  | No       | Card body content                                          |
 
 ## Accessibility
 
-| Attribute | Value | Notes |
-|-----------|-------|-------|
-| — | — | Card is a container — no intrinsic ARIA role |
+| Attribute | Value | Notes                                        |
+| --------- | ----- | -------------------------------------------- |
+| —         | —     | Card is a container — no intrinsic ARIA role |
 
 **Keyboard:** Not applicable unless card contains interactive elements.
 **Screen reader:** `title` renders as `<h3>` — ensure heading hierarchy is appropriate for the page. Tilt animation is purely visual and does not emit accessibility events.

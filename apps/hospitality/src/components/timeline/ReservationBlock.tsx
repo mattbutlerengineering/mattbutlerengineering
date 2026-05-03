@@ -41,7 +41,12 @@ export function ReservationBlock({
     <button
       type="button"
       onClick={onClick}
-      className={[styles.block, statusClass, isSelected ? styles.blockSelected : "", isFocused ? styles.blockFocused : ""].join(" ")}
+      className={[
+        styles.block,
+        statusClass,
+        isSelected ? styles.blockSelected : "",
+        isFocused ? styles.blockFocused : "",
+      ].join(" ")}
       style={{
         left: style.left,
         width: style.width,

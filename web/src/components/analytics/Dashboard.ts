@@ -217,9 +217,7 @@ function renderPrTrend(entries: readonly PrAcceptanceEntry[]): string {
     .join("\n")}`;
 }
 
-function renderServiceHealth(
-  snapshots: readonly ServiceHealthSnapshot[],
-): string {
+function renderServiceHealth(snapshots: readonly ServiceHealthSnapshot[]): string {
   if (snapshots.length === 0) {
     return `<p class="qd-empty">No service health data available.</p>`;
   }
@@ -232,7 +230,7 @@ function renderServiceHealth(
         <span class="qd-svc__dot qd-svc__dot--${svc.status}"></span>
         <span class="qd-svc__name">${svc.service}</span>
         ${svc.latency_ms !== null ? `<span class="qd-svc__latency">${svc.latency_ms}ms</span>` : ""}
-      </div>`,
+      </div>`
       )
       .join("\n")}
   </div>

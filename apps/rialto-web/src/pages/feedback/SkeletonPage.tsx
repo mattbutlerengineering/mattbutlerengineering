@@ -1,4 +1,11 @@
-import { Card, DataList, Select, Skeleton, SkeletonGroup, Stack } from "@mattbutlerengineering/rialto";
+import {
+  Card,
+  DataList,
+  Select,
+  Skeleton,
+  SkeletonGroup,
+  Stack,
+} from "@mattbutlerengineering/rialto";
 import { useState } from "react";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
@@ -21,25 +28,33 @@ export function SkeletonPage() {
         <div className={styles.row} style={{ alignItems: "center", flexWrap: "wrap" }}>
           <div className={styles.stack} style={{ alignItems: "center" }}>
             <Skeleton variant="circle" width={40} />
-            <span style={{ fontSize: "var(--rialto-text-xs)", color: "var(--rialto-text-tertiary)" }}>
+            <span
+              style={{ fontSize: "var(--rialto-text-xs)", color: "var(--rialto-text-tertiary)" }}
+            >
               circle
             </span>
           </div>
           <div className={styles.stack} style={{ alignItems: "center" }}>
             <Skeleton variant="text" width={120} />
-            <span style={{ fontSize: "var(--rialto-text-xs)", color: "var(--rialto-text-tertiary)" }}>
+            <span
+              style={{ fontSize: "var(--rialto-text-xs)", color: "var(--rialto-text-tertiary)" }}
+            >
               text
             </span>
           </div>
           <div className={styles.stack} style={{ alignItems: "center" }}>
             <Skeleton variant="heading" width={180} />
-            <span style={{ fontSize: "var(--rialto-text-xs)", color: "var(--rialto-text-tertiary)" }}>
+            <span
+              style={{ fontSize: "var(--rialto-text-xs)", color: "var(--rialto-text-tertiary)" }}
+            >
               heading
             </span>
           </div>
           <div className={styles.stack} style={{ alignItems: "center" }}>
             <Skeleton variant="rect" width={80} height={40} />
-            <span style={{ fontSize: "var(--rialto-text-xs)", color: "var(--rialto-text-tertiary)" }}>
+            <span
+              style={{ fontSize: "var(--rialto-text-xs)", color: "var(--rialto-text-tertiary)" }}
+            >
               rect
             </span>
           </div>
