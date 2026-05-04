@@ -55,7 +55,7 @@
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "size-limit": "^12.1.0",
-    "turbo": "^2.9.6",
+    "turbo": "^2.9.9",
     "vitest": "catalog:"
   },
   "lint-staged": {
