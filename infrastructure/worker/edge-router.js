@@ -1132,7 +1132,7 @@ export default {
         const canaryUrl = new URL(strippedCanaryPath + url.search, canaryOrigin);
         const canaryRequest = new Request(canaryUrl, request);
         const canaryResponse = await canaryBinding.fetch(canaryRequest);
-        return addHeaders(canaryResponse, url.pathname);
+        return addHeaders(canaryResponse, url.pathname, nonce);
       }
 
       // Unknown /canary/* path — 404

@@ -57,6 +57,14 @@ jobs:
           VITE_AUTH_REDIRECT_URI: https://mattbutlerengineering.com/gen/callback
           VITE_API_URL: https://mattbutlerengineering.com
 
+      - name: Bundle edge router worker
+        run: |
+          mkdir -p infrastructure/worker/dist
+          npx esbuild infrastructure/worker/edge-router.js \
+            --bundle \
+            --format=esm \
+            --outfile=infrastructure/worker/dist/edge-router.js
+
       - name: Pulumi Cancel (Clear stale locks)
         run: |
           cd infrastructure/pulumi

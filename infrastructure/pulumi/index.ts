@@ -270,10 +270,15 @@ const healthKv = new cloudflare.WorkersKvNamespace("mattbutlerengineering-health
 // are all managed as Pulumi WorkersScript resources. Service Bindings
 // call app Workers in-process, bypassing the CDN entirely.
 
+// edge-router.js imports circuit-breaker.js, rate-limiter.js, and dep-graph.json.
+// The Cloudflare Workers API rejects a worker whose modules are missing at
+// initialization — which surfaces as HTTP 403 for every route the worker covers.
+// The wrangler.toml `bundle` step (added to pulumi-up.yml) inlines all imports
+// into a single ESM file before Pulumi reads it.
 const workerScript = new cloudflare.WorkersScript("mattbutlerengineering-edge-router", {
   accountId: cloudflareAccountId,
   scriptName: "mattbutlerengineering-edge-router",
-  content: readFileSync("../worker/edge-router.js", "utf-8"),
+  content: readFileSync("../worker/dist/edge-router.js", "utf-8"),
   mainModule: "edge-router.js",
   compatibilityDate: "2026-03-25",
   bindings: [
