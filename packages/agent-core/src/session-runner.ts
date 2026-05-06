@@ -1,5 +1,8 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import type { SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
+import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { createRequire } from "node:module";
 import { trace, SpanStatusCode } from "@opentelemetry/api";
 import type {
   SessionConfig,
@@ -63,6 +66,38 @@ const tracer = trace.getTracer("@mbe/agent-core");
 
 /** Maximum compaction events before treating the session as exhausted. */
 const MAX_COMPACTIONS = 5;
+
+/**
+ * Resolve the Claude Code executable path.
+ * The SDK bundles a musl-linked binary on linux-x64 which won't run on glibc
+ * systems. We prefer the env var override, then the glibc sibling package, then
+ * whatever `which claude` resolves to.
+ */
+function resolveClaudeExecutable(): string | undefined {
+  if (process.env["CLAUDE_CODE_EXECUTABLE"]) {
+    return process.env["CLAUDE_CODE_EXECUTABLE"];
+  }
+  // Try the glibc (non-musl) sibling package
+  try {
+    const req = createRequire(import.meta.url);
+    const glibcPkg = req.resolve(
+      "@anthropic-ai/claude-agent-sdk-linux-x64/claude",
+    );
+    if (existsSync(glibcPkg)) {
+      return glibcPkg;
+    }
+  } catch {
+    // Package not installed — fall through
+  }
+  // Fall back to PATH
+  try {
+    const which = execFileSync("which", ["claude"], { encoding: "utf8" }).trim();
+    if (which) return which;
+  } catch {
+    // Not in PATH
+  }
+  return undefined;
+}
 
 export async function runSession(
   config: SessionConfig,
@@ -171,6 +206,7 @@ export async function runSession(
         let resultMessage: SDKResultMessage | null = null;
 
         const detector = createStuckDetector(config.stuckDetectorConfig);
+        const claudeExecutable = resolveClaudeExecutable();
         const conversation = query({
           prompt: config.taskDescription,
           options: {
@@ -188,6 +224,7 @@ export async function runSession(
               append: systemPrompt,
             },
             canUseTool: async (toolName, input) => canUseTool(toolName, input),
+            ...(claudeExecutable ? { pathToClaudeCodeExecutable: claudeExecutable } : {}),
           },
         });
 
