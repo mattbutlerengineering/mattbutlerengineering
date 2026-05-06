@@ -11,6 +11,7 @@ export { AvailabilityClient, HoldsClient, type GetTimeSlotsParams, type GetDates
 export { streamNDJSON, type StreamConfig } from "./streaming.js";
 
 import { ApiClient } from "./client.js";
+import type { ApiClientError } from "./client.js";
 import { UsersClient } from "./users.js";
 import { ReservationsClient } from "./reservations.js";
 import { VenuesClient, VenueGroupsClient } from "./venues.js";
@@ -27,7 +28,7 @@ export function createApiClient(config: {
   getAccessToken?: () => string | null | Promise<string | null>;
   timeout?: number;
   maxRetries?: number;
-  onError?: (error: import("./client.js").ApiClientError) => void;
+  onError?: (error: ApiClientError) => void;
 }) {
   const client = new ApiClient({
     baseUrl: config.baseUrl ?? "",
