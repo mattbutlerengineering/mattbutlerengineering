@@ -1,18 +1,19 @@
 <codebase path="packages/agent-core">
   <section priority="medium" role="src">
   <file path="src/worktree-manager.ts">
-    function generateBranchName(taskDescription: string): string {
-      const slug = taskDescription
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "")
-        .slice(0, 40);
-      const suffix = randomBytes(3).toString("hex");
-      return `agent/${slug}-${suffix}`;
+    export function validateGitRef(ref: string, label: string): void {
+      if (!ref || !SAFE_GIT_REF.test(ref)) {
+        throw new Error(
+          `Invalid ${label}: "${ref}" — must match ${String(SAFE_GIT_REF)} (no leading dash, no shell metacharacters)`
+        );
+      }
     }
-    async function git(args: readonly string[], cwd: string): Promise<string> {
-      const { stdout } = await execFileAsync("git", [...args], { cwd });
-      return stdout.trim();
+    export function validatePath(path: string, label: string): void {
+      if (!path || UNSAFE_PATH_CHARS.test(path)) {
+        throw new Error(
+          `Invalid ${label}: "${path}" — must not contain shell metacharacters (${String(UNSAFE_PATH_CHARS)})`
+        );
+      }
     }
   </file>
   <file path="src/verification-orchestrator.ts">
@@ -256,6 +257,31 @@
     export type StuckSeverity = "warning" | "error";
   </file>
   <file path="src/session-runner.ts">
+    function resolveClaudeExecutable(): string | undefined {
+      if (process.env["CLAUDE_CODE_EXECUTABLE"]) {
+        return process.env["CLAUDE_CODE_EXECUTABLE"];
+      }
+      // Try the glibc (non-musl) sibling package
+      try {
+        const req = createRequire(import.meta.url);
+        const glibcPkg = req.resolve(
+          "@anthropic-ai/claude-agent-sdk-linux-x64/claude",
+        );
+        if (existsSync(glibcPkg)) {
+          return glibcPkg;
+        }
+      } catch {
+        // Package not installed — fall through
+      }
+      // Fall back to PATH
+      try {
+        const which = execFileSync("which", ["claude"], { encoding: "utf8" }).trim();
+        if (which) return which;
+      } catch {
+        // Not in PATH
+      }
+      return undefined;
+    }
     export async function runSession(
       config: SessionConfig,
       onEvent?: SessionEventCallback
@@ -363,6 +389,7 @@
             let resultMessage: SDKResultMessage | null = null;
     
             const detector = createStuckDetector(config.stuckDetectorConfig);
+            const claudeExecutable = resolveClaudeExecutable();
             const conversation = query({
               prompt: config.taskDescription,
               options: {
@@ -380,6 +407,7 @@
                   append: systemPrompt,
                 },
                 canUseTool: async (toolName, input) => canUseTool(toolName, input),
+                ...(claudeExecutable ? { pathToClaudeCodeExecutable: claudeExecutable } : {}),
               },
             });
     
@@ -1204,43 +1232,10 @@
   </file>
   <file path="src/observability.ts">
     export const observabilityTracer: Tracer = trace.getTracer("@mbe/agent-core");
-    export function categorizeFailure(
-      errors: readonly string[],
-      stuckPattern?: StuckPatternType
-    ): FailureCategory | undefined {
-      // Stuck-loop takes priority — it's always a stuck_loop failure
-      if (stuckPattern) {
-        return "stuck_loop";
-      }
-    
-      const combined = errors.join(" ").toLowerCase();
-    
-      for (const pattern of RATE_LIMIT_SIGNALS) {
-        if (pattern.test(combined)) return "rate_limited";
-      }
-    
-      for (const pattern of BUDGET_SIGNALS) {
-        if (pattern.test(combined)) return "budget_exceeded";
-      }
-    
-      for (const pattern of TOOL_ERROR_SIGNALS) {
-        if (pattern.test(combined)) return "tool_error";
-      }
-    
-      for (const pattern of API_ERROR_SIGNALS) {
-        if (pattern.test(combined)) return "api_error";
-      }
-    
-      // Evaluation / review failures → logic_error
-      if (combined.includes("evaluation failed") || combined.includes("security review")) {
-        return "logic_error";
-      }
-    
-      if (errors.length > 0) {
-        return "logic_error";
-      }
-    
-      return undefined;
+    function containsInOrder(str: string, a: string, b: string): boolean {
+      const lower = str.toLowerCase();
+      const idx = lower.indexOf(a);
+      return idx !== -1 && lower.indexOf(b, idx + a.length) !== -1;
     }
   </file>
   <file path="src/model-router.ts">
@@ -1359,7 +1354,7 @@
       for (const line of diff.split("\n")) {
         if (!line.startsWith("diff --git ")) continue;
         // e.g. "diff --git a/some/path/package.json b/some/path/package.json"
-        const match = line.match(/diff --git a\/.+ b\/(.+)$/);
+        const match = line.match(/^diff --git a\/\S+ b\/(\S+)$/);
         if (match) {
           files.push(match[1]);
         }

@@ -1,11 +1,11 @@
 <codebase path="packages/agent-core">
   <section priority="medium" role="src">
   <file path="src/worktree-manager.ts">
-    <item priority="medium">
-      function generateBranchName(taskDescription: string): string { /* ... */ }
+    <item priority="high">
+      export function validateGitRef(ref: string, label: string): void { /* ... */ }
     </item>
-    <item priority="low">
-      async function git(args: readonly string[], cwd: string): Promise<string> { /* ... */ }
+    <item priority="high">
+      export function validatePath(path: string, label: string): void { /* ... */ }
     </item>
   </file>
   <file path="src/verification-orchestrator.ts">
@@ -76,7 +76,7 @@
       }
     </item>
     <item priority="high">
-      export const DEFAULT_ORCHESTRATOR_CONFIG: Omit<import("/Users/mbutler/github/mattbutlerengineering/...;
+      export const DEFAULT_ORCHESTRATOR_CONFIG: Omit<import("/home/user/mattbutlerengineering/packages/ag...;
     </item>
   </file>
   <file path="src/success-evaluator.ts">
@@ -104,6 +104,9 @@
     </item>
   </file>
   <file path="src/session-runner.ts">
+    <item priority="medium">
+      function resolveClaudeExecutable(): string | undefined { /* ... */ }
+    </item>
     <item priority="high">
       export async function runSession(
         config: SessionConfig,
@@ -138,8 +141,8 @@
   <file path="src/quality-gates.ts">
     <item priority="low">
       interface QualityGatesResult {
-        evaluation?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
-        securityReview?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        evaluation?: import("/home/user/mattbutlerengineering/packages/agent-c...;
+        securityReview?: import("/home/user/mattbutlerengineering/packages/agent-c...;
         staticAnalysisClean: boolean;
         errors: string[];
       }
@@ -167,7 +170,7 @@
     </item>
     <item priority="low">
       interface PromptBuilderConfig {
-        sourceFileEntries?: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        sourceFileEntries?: readonly import("/home/user/mattbutlerengineering/package...;
         relevantLlmsFiles?: readonly string[] | undefined;
         relevantIssueContext?: string | undefined;
         failureContext?: string | undefined;
@@ -224,13 +227,10 @@
   </file>
   <file path="src/observability.ts">
     <item priority="high">
-      export const observabilityTracer: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+      export const observabilityTracer: import("/home/user/mattbutlerengineering/node_modules/.pn...;
     </item>
-    <item priority="high">
-      export function categorizeFailure(
-        errors: readonly string[],
-        stuckPattern?: StuckPatternType
-      ): FailureCategory | undefined { /* ... */ }
+    <item priority="medium">
+      function containsInOrder(str: string, a: string, b: string): boolean { /* ... */ }
     </item>
   </file>
   <file path="src/model-router.ts">
@@ -298,7 +298,7 @@
     </item>
     <item priority="low">
       interface FailureMemory {
-        records: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        records: readonly import("/home/user/mattbutlerengineering/package...;
       }
     </item>
   </file>
@@ -332,7 +332,7 @@
     <item priority="low">
       interface StaticAnalysisResult {
         clean: boolean;
-        violations: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        violations: readonly import("/home/user/mattbutlerengineering/package...;
         durationMs: number;
       }
     </item>
@@ -407,7 +407,7 @@
       interface BundleSizeEntry {
         app: string;
         totalBytes: number;
-        files: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        files: readonly import("/home/user/mattbutlerengineering/package...;
         timestamp: string;
       }
     </item>
@@ -417,7 +417,7 @@
       type Zone = "marketing" | "hospitality" | "rialto" | "gen" | "api:users" | "api:reservations" | "api:agent";
     </item>
     <item priority="high">
-      export const ZONES: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+      export const ZONES: readonly import("/home/user/mattbutlerengineering/package...;
     </item>
   </file>
   </section>
