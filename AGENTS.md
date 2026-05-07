@@ -58,19 +58,21 @@ Output: `.claude/acmm/state.json` (machine-readable) and `.claude/acmm/report.md
 
 ---
 
-## Common Pitfalls & Anti-Patterns (Pre-Commit Checklist)
+## Zero-Touch Audit (Quality Mandate)
 
-To reduce the human-touch ratio in agent PRs, agents MUST verify these items before finalizing:
+To minimize human intervention and maintain a low human-touch ratio, agents must perform a **Zero-Touch Audit** before finalizing any PR.
 
-- **Residual Conflict Markers:** Search for `<<<<`, `====`, or `>>>>` in all modified files. Never commit them.
-- **Missing Imports:** When adding a component or function usage (especially from Rialto or other packages), ensure the corresponding `import` statement exists.
-- **Stale Generated Files:** If you modify schemas, dependencies, or Rialto components, you MUST run the relevant regeneration scripts:
+### Pre-Commit Checklist
+- [ ] **No Residual Conflict Markers:** Scan for `<<<<`, `====`, `>>>>` in all modified files. Never commit them.
+- [ ] **No Missing Imports:** Ensure every new component or utility (especially from Rialto or other packages) has a corresponding `import` statement.
+- [ ] **Stale Generated Files:** If you modify schemas, dependencies, or Rialto components, run the relevant regeneration scripts:
   - `pnpm build` (to update dist/exports)
   - `mbe pack` (to update AI context skeletons)
   - `pnpm --dir tools/mbe generate-dep-graph` (if package dependencies changed)
-- **Infrastructure Sync:** If you add a new package dependency to a service (e.g., `services/users`), you MUST also update its `Dockerfile` and `infrastructure/pulumi` if necessary.
-- **Linting Hacks:** Do NOT use `eslint-disable` or `@ts-ignore` to "fix" violations. Resolve the root cause (e.g., fix the type, add the import, use the correct prop).
-- **Silent TDD:** Do not skip the Red-Green-Refactor cycle. A change is not "done" until a failing test has been made to pass.
+- [ ] **Synchronize Infrastructure:** If service dependencies (`package.json`) change, update the corresponding `Dockerfile` and `infrastructure/pulumi` if necessary.
+- [ ] **No Linting Hacks:** Do NOT use `eslint-disable` or `@ts-ignore` to "fix" violations. Resolve the root cause.
+- [ ] **No Silent TDD:** Do not skip the Red-Green-Refactor cycle. A change is not "done" until a failing test has been made to pass.
+- [ ] **Verified verification:** Don't just run tests; provide the command output showing they passed.
 
 ---
 
