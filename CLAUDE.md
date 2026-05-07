@@ -91,12 +91,19 @@ Managed at https://claude.ai/code/scheduled
 
 ## Before Committing
 
-Always run these commands before committing:
-```bash
-pnpm lint        # Check code style
-pnpm typecheck   # Verify types
-pnpm test        # Run all tests
-```
+Always perform this **Zero-Touch Audit** before committing:
+1.  **Run Verifications:**
+    ```bash
+    pnpm lint        # Check code style
+    pnpm typecheck   # Verify types
+    pnpm test        # Run all tests
+    ```
+2.  **Scan for Markers:** Search for `<<<<`, `====`, or `>>>>` in modified files.
+3.  **Verify Imports:** Check that every new component/function usage has an import.
+4.  **Update Generated Files:**
+    - If schemas/RIALTO changed: `pnpm build && mbe pack`
+    - If dependencies changed: `pnpm --dir tools/mbe generate-dep-graph`
+5.  **Sync Infrastructure:** Check Dockerfiles if package dependencies changed.
 
 **Known gotchas:** see [.claude/rules/gotchas.md](./.claude/rules/gotchas.md) — covers pre-commit, builds, CI, dependencies, releases, tooling artifacts, and Prisma/DO migrate.
 

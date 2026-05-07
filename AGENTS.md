@@ -58,6 +58,22 @@ Output: `.claude/acmm/state.json` (machine-readable) and `.claude/acmm/report.md
 
 ---
 
+## Common Pitfalls & Anti-Patterns (Pre-Commit Checklist)
+
+To reduce the human-touch ratio in agent PRs, agents MUST verify these items before finalizing:
+
+- **Residual Conflict Markers:** Search for `<<<<`, `====`, or `>>>>` in all modified files. Never commit them.
+- **Missing Imports:** When adding a component or function usage (especially from Rialto or other packages), ensure the corresponding `import` statement exists.
+- **Stale Generated Files:** If you modify schemas, dependencies, or Rialto components, you MUST run the relevant regeneration scripts:
+  - `pnpm build` (to update dist/exports)
+  - `mbe pack` (to update AI context skeletons)
+  - `pnpm --dir tools/mbe generate-dep-graph` (if package dependencies changed)
+- **Infrastructure Sync:** If you add a new package dependency to a service (e.g., `services/users`), you MUST also update its `Dockerfile` and `infrastructure/pulumi` if necessary.
+- **Linting Hacks:** Do NOT use `eslint-disable` or `@ts-ignore` to "fix" violations. Resolve the root cause (e.g., fix the type, add the import, use the correct prop).
+- **Silent TDD:** Do not skip the Red-Green-Refactor cycle. A change is not "done" until a failing test has been made to pass.
+
+---
+
 ## Architecture & Conventions
 
 ### Routing & URLs

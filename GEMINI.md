@@ -22,7 +22,12 @@ Before executing any logic changes, write a failing Vitest/Playwright test, writ
 Use sub-agents (`codebase_investigator`, `generalist`, `gsd-executor`) aggressively for multi-file or repetitive tasks to keep the main session context lean.
 
 ### 4. Validation & Goal-Backward Verification
-A task is not complete until it satisfies the original requirements and passes all automated tests. Always run `pnpm typecheck` and `pnpm test` after changes.
+A task is not complete until it satisfies the original requirements and passes all automated tests. Always perform a **Zero-Touch Audit** before committing:
+- **Verifications:** Run `pnpm lint`, `pnpm typecheck`, and `pnpm test`.
+- **Scan for Markers:** Search for `<<<<`, `====`, or `>>>>` in modified files.
+- **Verify Imports:** Check that every new component/function usage has an import.
+- **Update Generated Files:** Run `pnpm build && mbe pack` and `pnpm --dir tools/mbe generate-dep-graph` if needed.
+- **Sync Infrastructure:** Check Dockerfiles if package dependencies changed.
 
 ### 5. Performance Logging
 Always run `mbe log-session` before finalizing a directive to quantify process improvements. Track research turns (discovery) vs. execution turns (coding/testing).
@@ -42,6 +47,7 @@ node plugins/acmm/scripts/audit.js --trend        # Print level history
 ```
 
 Run as part of your review phase to verify the repo's AI-operability score hasn't regressed.
+See [docs/acmm/TASKS.md](./docs/acmm/TASKS.md) for current improvement goals.
 
 ## AI Context Catalog
 - `llms.txt` — Rialto component catalog (UI patterns).
