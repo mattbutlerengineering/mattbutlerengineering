@@ -323,6 +323,45 @@ jobs:
       - name: Check bundle size budgets
         run: pnpm size:check
 
+  a11y-attribution:
+    name: Accessibility AI Attribution
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && (startsWith(github.head_ref, 'agent-') || startsWith(github.head_ref, 'worktree-agent-'))
+    needs: [prepare]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Restore node_modules
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            node_modules
+            packages/*/node_modules
+            apps/*/node_modules
+            services/*/node_modules
+            tools/*/node_modules
+          key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Ensure dependencies installed
+        run: pnpm install --frozen-lockfile
+
+      - name: Run a11y tests with JSON output
+        run: pnpm --filter @mattbutlerengineering/rialto test -- --reporter=json --outputFile=a11y-results.json src/test/accessibility src/test/token-contrast.test.ts
+        continue-on-error: true
+
+      - name: Process results for attribution
+        run: node scripts/process-a11y-results.js
+        env:
+          GITHUB_HEAD_REF: ${{ github.head_ref }}
+          GITHUB_ACTOR: ${{ github.actor }}
+
   test:
     name: Test (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
