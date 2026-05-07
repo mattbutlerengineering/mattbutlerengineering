@@ -870,7 +870,13 @@ const CRITERIA= [
     description: 'Defined behavior for when AI APIs are unavailable or degraded.',
     rationale: 'L5 signal: autonomous systems must degrade gracefully when their AI service is down, not break silently.',
     details: 'A fallback policy defines retry strategies, circuit breakers, and escalation paths for AI API failures. Without this, L6 autonomous loops stop silently when the API is unavailable, and scheduled tasks skip without notification.',
-    detection: { type: 'any-of', pattern: ['.claude/fallback-policy.json', 'docs/acmm/ai-service-fallback.md'] },
+    detection: { 
+      type: 'grep', 
+      pattern: { 
+        file: 'infrastructure/worker/circuit-breaker.js', 
+        contains: 'CIRCUIT_BREAKER_KEY' 
+      } 
+    },
   },
   {
     id: 'acmm:override-analytics',
@@ -1039,7 +1045,13 @@ const CRITERIA= [
     description: 'Accessibility regression checks specifically targeting AI-generated UI code.',
     rationale: 'L5 signal: AI can inadvertently introduce a11y regressions that axe-core catches, but without agent-specific tracking the pattern goes unnoticed.',
     details: 'AI-generated Rialto components could miss ARIA attributes or keyboard navigation. Agent-specific a11y tracking ensures these patterns are caught and trended, adding a safety net beyond the existing per-component axe tests.',
-    detection: { type: 'any-of', pattern: ['docs/acmm/accessibility-ai-check.md'] },
+    detection: { 
+      type: 'grep', 
+      pattern: { 
+        file: '.github/workflows/ci.yml', 
+        contains: 'pnpm --dir packages/rialto vitest .* accessibility' 
+      } 
+    },
   },
 
   {
