@@ -94,6 +94,12 @@ export async function runSession(
           task: config.taskDescription,
           model: config.model,
           maxBudgetUsd: String(config.maxBudgetUsd),
+          ...(config.modelRoutingReason
+            ? { modelRoutingReason: config.modelRoutingReason }
+            : {}),
+          ...(config.modelRoutingTier
+            ? { modelRoutingTier: config.modelRoutingTier }
+            : {}),
         },
       },
       async (): Promise<SessionResult> => {
@@ -130,6 +136,12 @@ export async function runSession(
       "session.max_budget_usd": effectiveConfig.maxBudgetUsd,
       "session.base_branch": effectiveConfig.baseBranch,
       ...(tuning ? { "session.qa_tuning_applied": true } : {}),
+      ...(effectiveConfig.modelRoutingReason
+        ? { "session.model_routing_reason": effectiveConfig.modelRoutingReason }
+        : {}),
+      ...(effectiveConfig.modelRoutingTier
+        ? { "session.model_routing_tier": effectiveConfig.modelRoutingTier }
+        : {}),
     },
   });
 

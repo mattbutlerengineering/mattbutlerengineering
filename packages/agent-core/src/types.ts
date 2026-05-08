@@ -80,6 +80,10 @@ export interface SessionConfig {
   readonly sourceFiles?: readonly string[];
   readonly feedbackLoop?: FeedbackLoopConfig;
   readonly stuckDetectorConfig?: Partial<StuckDetectorConfig>;
+  /** The reason string from model routing (e.g. "Feature label with simple scope") */
+  readonly modelRoutingReason?: string;
+  /** The selected model tier from routing (e.g. "haiku", "sonnet", "opus") */
+  readonly modelRoutingTier?: string;
 }
 
 export const DEFAULT_SESSION_CONFIG: Omit<SessionConfig, "taskDescription" | "repoPath"> = {
