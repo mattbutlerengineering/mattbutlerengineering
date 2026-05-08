@@ -247,6 +247,17 @@ export {
 } from "./retry.js";
 export type { RetryConfig, RetryResult } from "./retry.js";
 
+// QA tuning — adaptive thresholds from .github/auto-qa-tuning.json
+export {
+  loadQaTuning,
+  parseThresholds,
+  applyTuningDefaults,
+} from "./qa-tuning-loader.js";
+export type {
+  QaTuningThresholds,
+  QaTuningConfig,
+} from "./qa-tuning-loader.js";
+
 // Output sanitization (XSS prevention for AI-generated content)
 export { escapeHtml, sanitizeStreamChunk, createSanitizedStream } from "./sanitize-output.js";
 
