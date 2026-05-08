@@ -125,6 +125,7 @@ describe("ReservationsClient", () => {
         partySize: 2,
         date: "2026-06-01",
         startTime: "19:00",
+        endTime: "21:00",
       });
 
       const [url, options] = mockFetch.mock.calls[0]!;
@@ -142,6 +143,7 @@ describe("ReservationsClient", () => {
         partySize: 2,
         date: "2026-06-01",
         startTime: "19:00",
+        endTime: "21:00",
       });
       expect(result).toEqual(fakeReservation);
     });
