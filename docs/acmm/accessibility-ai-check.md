@@ -38,7 +38,7 @@ Add a CI step that detects agent-authored branches (prefix `agent-*` or `worktre
 # In .github/workflows/build-deploy.yml or a dedicated a11y workflow
 - name: Run a11y checks on agent branches
   if: startsWith(github.head_ref, 'agent-') || startsWith(github.head_ref, 'worktree-agent-') || startsWith(github.head_ref, 'acmm/')
-  run: pnpm --dir packages/rialto vitest run --reporter=json --outputFile=a11y-results.json src/test/accessibility src/test/token-contrast.test.ts
+  run: pnpm --dir packages/rialto vitest run --reporter=json --outputFile=../../a11y-results.json src/test/accessibility src/test/token-contrast.test.ts
 ```
 
 ### Violation attribution
