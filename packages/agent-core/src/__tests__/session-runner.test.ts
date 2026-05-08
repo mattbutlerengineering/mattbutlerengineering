@@ -341,6 +341,98 @@ describe("runSession", () => {
     expect(removeWorktree).not.toHaveBeenCalled();
   });
 
+  it("surfaces cleanup errors in cleanupErrors when removeWorktree fails", async () => {
+    const mockResult = createMockResultMessage();
+
+    vi.mocked(query).mockReturnValue(
+      mockQueryGenerator([mockResult]) as ReturnType<typeof query>
+    );
+    vi.mocked(hasChanges).mockResolvedValue(true);
+    vi.mocked(commitChanges).mockResolvedValue("abc123");
+    vi.mocked(pushBranch).mockResolvedValue(undefined);
+    vi.mocked(buildPrTitle).mockReturnValue("feat: test");
+    vi.mocked(buildPrBody).mockReturnValue("body");
+    vi.mocked(createPullRequest).mockResolvedValue({
+      url: "https://github.com/repo/pull/1",
+      number: 1,
+    });
+    vi.mocked(removeWorktree).mockRejectedValue(
+      new Error("fatal: worktree is locked")
+    );
+
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const result = await runSession(BASE_CONFIG);
+
+    // Session itself should still succeed
+    expect(result.status).toBe("succeeded");
+    expect(result.prUrl).toBe("https://github.com/repo/pull/1");
+
+    // Cleanup error should be surfaced
+    expect(result.cleanupErrors).toEqual(["fatal: worktree is locked"]);
+    expect(warnSpy).toHaveBeenCalledWith(
+      "Worktree cleanup failed: fatal: worktree is locked"
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it("emits session:cleanup_warning event when removeWorktree fails", async () => {
+    const mockResult = createMockResultMessage();
+
+    vi.mocked(query).mockReturnValue(
+      mockQueryGenerator([mockResult]) as ReturnType<typeof query>
+    );
+    vi.mocked(hasChanges).mockResolvedValue(true);
+    vi.mocked(commitChanges).mockResolvedValue("abc123");
+    vi.mocked(pushBranch).mockResolvedValue(undefined);
+    vi.mocked(buildPrTitle).mockReturnValue("feat: test");
+    vi.mocked(buildPrBody).mockReturnValue("body");
+    vi.mocked(createPullRequest).mockResolvedValue({
+      url: "https://github.com/repo/pull/1",
+      number: 1,
+    });
+    vi.mocked(removeWorktree).mockRejectedValue(
+      new Error("fatal: worktree is locked")
+    );
+
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const events: SessionEvent[] = [];
+    await runSession(BASE_CONFIG, (event) => events.push(event));
+
+    const cleanupEvents = events.filter(
+      (e) => e.type === "session:cleanup_warning"
+    );
+    expect(cleanupEvents).toHaveLength(1);
+    expect(
+      (cleanupEvents[0].data as { message: string }).message
+    ).toContain("fatal: worktree is locked");
+
+    vi.restoreAllMocks();
+  });
+
+  it("omits cleanupErrors when removeWorktree succeeds", async () => {
+    const mockResult = createMockResultMessage();
+
+    vi.mocked(query).mockReturnValue(
+      mockQueryGenerator([mockResult]) as ReturnType<typeof query>
+    );
+    vi.mocked(hasChanges).mockResolvedValue(true);
+    vi.mocked(commitChanges).mockResolvedValue("abc123");
+    vi.mocked(pushBranch).mockResolvedValue(undefined);
+    vi.mocked(buildPrTitle).mockReturnValue("feat: test");
+    vi.mocked(buildPrBody).mockReturnValue("body");
+    vi.mocked(createPullRequest).mockResolvedValue({
+      url: "https://github.com/repo/pull/1",
+      number: 1,
+    });
+    vi.mocked(removeWorktree).mockResolvedValue(undefined);
+
+    const result = await runSession(BASE_CONFIG);
+
+    expect(result.status).toBe("succeeded");
+    expect(result.cleanupErrors).toBeUndefined();
+  });
+
   it("handles createWorktree failure gracefully", async () => {
     vi.mocked(createWorktree).mockRejectedValue(new Error("git worktree add failed"));
 

@@ -124,6 +124,8 @@ export interface SessionResult {
   readonly numTurns: number;
   readonly resultText: string;
   readonly errors: readonly string[];
+  /** Non-fatal errors from post-session cleanup (e.g. worktree removal failures). */
+  readonly cleanupErrors?: readonly string[];
   readonly stuckPattern?: string;
   readonly failureCategory?: FailureCategory;
   readonly turnMetrics?: readonly TurnMetrics[];
@@ -151,7 +153,8 @@ export type SessionEventType =
   | "session:tool_result"
   | "session:turn_metrics"
   | "session:tool_latency"
-  | "session:heartbeat";
+  | "session:heartbeat"
+  | "session:cleanup_warning";
 
 // ── Heartbeat / liveness configuration ──────────────────────────────
 
