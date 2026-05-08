@@ -9,11 +9,12 @@
  *   - `path`   — single file or directory path; trailing `/` matches a dir
  *   - `any-of` — array of paths; ANY one existing satisfies the criterion
  *   - `active` — file exists AND a recent successful workflow run is found (via `gh run list`)
+ *   - `grep`   — file exists AND contains a specific regex pattern
  *   - `glob`   — reserved; not used in current canonical data
  */
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, statSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 function existsAt(cwd, pattern) {
@@ -92,6 +93,18 @@ export function detect(cwd, criterion, opts = {}) {
     const result = isWorkflowActive(cwd, workflowFile, maxAgeDays, opts);
     if (result.degraded) return true; // graceful degradation: file exists, gh unavailable
     return result.active;
+  }
+  if (type === 'grep') {
+    const { file, contains } = pattern;
+    const abs = join(cwd, file);
+    if (!existsSync(abs)) return false;
+    try {
+      const content = readFileSync(abs, 'utf-8');
+      const regex = new RegExp(contains);
+      return regex.test(content);
+    } catch {
+      return false;
+    }
   }
   if (type === 'glob') {
     throw new Error(`detection.type='glob' is not implemented (no canonical criterion uses it).`);
