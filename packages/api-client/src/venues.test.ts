@@ -113,7 +113,12 @@ describe("VenuesClient", () => {
     it("sends POST /api/v1/venues with body", async () => {
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: fakeVenue }));
 
-      await makeVenuesClient().create({ name: "The Grand", venueGroupId: "vg1" });
+      await makeVenuesClient().create({
+        name: "The Grand",
+        slug: "the-grand",
+        ianaTimezone: "America/New_York",
+        venueGroupId: "vg1",
+      });
 
       const [url, options] = mockFetch.mock.calls[0]!;
       expect(url).toBe("https://api.test.com/api/v1/venues");
@@ -123,7 +128,12 @@ describe("VenuesClient", () => {
     it("returns the created venue", async () => {
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: fakeVenue }));
 
-      const result = await makeVenuesClient().create({ name: "The Grand", venueGroupId: "vg1" });
+      const result = await makeVenuesClient().create({
+        name: "The Grand",
+        slug: "the-grand",
+        ianaTimezone: "America/New_York",
+        venueGroupId: "vg1",
+      });
       expect(result).toEqual(fakeVenue);
     });
   });
@@ -208,7 +218,7 @@ describe("VenueGroupsClient", () => {
     it("sends POST /api/v1/venues/groups with body", async () => {
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: fakeVenueGroup }));
 
-      await makeGroupsClient().create({ name: "Grand Group" });
+      await makeGroupsClient().create({ name: "Grand Group", slug: "grand-group" });
 
       const [url, options] = mockFetch.mock.calls[0]!;
       expect(url).toBe("https://api.test.com/api/v1/venues/groups");
