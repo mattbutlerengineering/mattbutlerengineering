@@ -14,8 +14,10 @@ const REQUIRED_STATUS_CHECKS = [
   "Container Security Scan",
   "Lint",
   "Typecheck",
+  "Architecture Audit",
   "Build",
-  "Test",
+  "Test (Node 20)",
+  "Test (Node 22)",
   "Validate Migrations",
 ] as const;
 
