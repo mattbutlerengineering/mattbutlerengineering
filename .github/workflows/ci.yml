@@ -414,9 +414,37 @@ jobs:
       - name: Upload coverage reports
         uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6
         with:
-          files: ./packages/auth/coverage/coverage-final.json,./services/users/coverage/coverage-final.json
+          files: ./packages/auth/coverage/coverage-final.json,./services/users/coverage/coverage-final.json,./packages/agent-core/coverage/coverage-final.json
           fail_ci_if_error: false
           verbose: true
+
+      - name: Enforce agent-core coverage threshold
+        if: matrix.node-version == 22
+        run: |
+          COVERAGE_FILE="./packages/agent-core/coverage/coverage-final.json"
+          if [ ! -f "$COVERAGE_FILE" ]; then
+            echo "ERROR: agent-core coverage report not found at $COVERAGE_FILE"
+            exit 1
+          fi
+          TOTAL_STMTS=0
+          COVERED_STMTS=0
+          while IFS= read -r line; do
+            file_total=$(echo "$line" | jq -r ".s | to_entries | length")
+            file_covered=$(echo "$line" | jq -r "[.s | to_entries[] | select(.value > 0)] | length")
+            TOTAL_STMTS=$((TOTAL_STMTS + file_total))
+            COVERED_STMTS=$((COVERED_STMTS + file_covered))
+          done < <(jq -c ".[]" "$COVERAGE_FILE")
+          if [ "$TOTAL_STMTS" -eq 0 ]; then
+            echo "ERROR: No statements found in coverage report"
+            exit 1
+          fi
+          PCT=$((COVERED_STMTS * 100 / TOTAL_STMTS))
+          echo "agent-core statement coverage: ${PCT}% (${COVERED_STMTS}/${TOTAL_STMTS})"
+          if [ "$PCT" -lt 80 ]; then
+            echo "ERROR: agent-core coverage ${PCT}% is below the 80% threshold"
+            exit 1
+          fi
+          echo "agent-core coverage threshold met"
 
   migrations:
     name: Validate Migrations
