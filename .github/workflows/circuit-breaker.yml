@@ -23,9 +23,10 @@ jobs:
       contents: write
       issues: write
     outputs:
-      blocked: ${{ steps.check.outputs.blocked }}
+      blocked: ${{ steps.analyze.outputs.blocked || steps.check.outputs.blocked }}
     env:
       GH_TOKEN: ${{ github.token }}
+      STATE_FILE: .github/circuit-breaker-state
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
@@ -33,41 +34,52 @@ jobs:
           sparse-checkout: |
             .github/circuit-breaker-state
           sparse-checkout-cone-mode: false
+          token: ${{ github.token }}
 
       - name: Configure GitHub CLI
         run: gh config set prompt disabled
 
-      - name: Check circuit breaker state
-        id: check
+      - name: Read current state
+        id: read
         run: |
-          FORCE=${{ github.event.inputs.force }}
-          
-          if [ "$FORCE" = "true" ]; then
-            echo "Force flag set - resetting circuit breaker"
-            echo "closed" > .github/circuit-breaker-state
-            echo "blocked=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          
-          if [ -f ".github/circuit-breaker-state" ]; then
-            STATE=$(cat .github/circuit-breaker-state)
+          if [ -f "$STATE_FILE" ]; then
+            STATE=$(jq -r '.state // "closed"' "$STATE_FILE" 2>/dev/null || echo "closed")
           else
             STATE="closed"
           fi
-          
+          echo "state=$STATE" >> "$GITHUB_OUTPUT"
           echo "Current state: $STATE"
-          if [ "$STATE" = "open" ]; then
+
+      - name: Check circuit breaker state
+        id: check
+        env:
+          FORCE: ${{ github.event.inputs.force }}
+          CURRENT_STATE: ${{ steps.read.outputs.state }}
+        run: |
+          NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          if [ "$FORCE" = "true" ]; then
+            echo "Force flag set - resetting circuit breaker"
+            printf '{"state":"closed","updatedAt":"%s"}\n' "$NOW" > "$STATE_FILE"
+            echo "blocked=false" >> "$GITHUB_OUTPUT"
+            echo "new_state=closed" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$CURRENT_STATE" = "open" ]; then
             echo "blocked=true" >> "$GITHUB_OUTPUT"
           else
             echo "blocked=false" >> "$GITHUB_OUTPUT"
           fi
+          echo "new_state=$CURRENT_STATE" >> "$GITHUB_OUTPUT"
 
       - name: Analyze deploy results
+        id: analyze
         if: github.event.workflow_run.conclusion != ''
         run: |
           # Get recent deploy workflow runs (skip the current one)
           RUNS=$(gh run list --workflow "Deploy Services" --limit 5 --json conclusion --jq '.[].conclusion')
-          
+
           FAIL_COUNT=0
           for RUN in $RUNS; do
             if [ "$RUN" = "failure" ] || [ "$RUN" = "timed_out" ]; then
@@ -76,20 +88,36 @@ jobs:
               break
             fi
           done
-          
+
           echo "Recent consecutive failures: $FAIL_COUNT"
-          
+          NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
           # Update state based on failure count
           if [ "$FAIL_COUNT" -ge 2 ]; then
-            echo "open" > .github/circuit-breaker-state
+            printf '{"state":"open","updatedAt":"%s"}\n' "$NOW" > "$STATE_FILE"
             echo "blocked=true" >> "$GITHUB_OUTPUT"
+            echo "new_state=open" >> "$GITHUB_OUTPUT"
           else
-            echo "closed" > .github/circuit-breaker-state
+            printf '{"state":"closed","updatedAt":"%s"}\n' "$NOW" > "$STATE_FILE"
             echo "blocked=false" >> "$GITHUB_OUTPUT"
+            echo "new_state=closed" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Persist state to git
+        run: |
+          if git diff --quiet "$STATE_FILE"; then
+            echo "No state change — skipping commit"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$STATE_FILE"
+          git commit -m "ci(circuit-breaker): persist state [skip ci]"
+          git push
+
       - name: Create issue on circuit trip
-        if: steps.check.outputs.blocked == 'true'
+        if: steps.check.outputs.blocked == 'true' || steps.analyze.outputs.blocked == 'true'
         run: |
           {
             echo "The deploy circuit breaker has tripped after 2+ consecutive failures."
