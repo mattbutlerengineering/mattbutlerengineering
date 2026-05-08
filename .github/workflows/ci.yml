@@ -353,7 +353,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run a11y tests with JSON output
-        run: pnpm --filter @mattbutlerengineering/rialto test -- --reporter=json --outputFile=a11y-results.json src/test/accessibility src/test/token-contrast.test.ts
+        run: pnpm --filter @mattbutlerengineering/rialto test -- --reporter=json --outputFile=../../a11y-results.json src/test/accessibility src/test/token-contrast.test.ts
         continue-on-error: true
 
       - name: Process results for attribution
