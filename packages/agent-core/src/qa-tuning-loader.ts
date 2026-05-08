@@ -1,5 +1,6 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { z } from "zod";
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -18,6 +19,30 @@ export interface QaTuningConfig {
   readonly thresholds: QaTuningThresholds;
 }
 
+// ── Zod Schema ─────────────────────────────────────────────────────
+
+const QaTuningThresholdsSchema = z.object({
+  acceptanceRateFloor: z.number(),
+  maxBudgetUSD: z.number(),
+  maxRetries: z.number(),
+  stuckTurnsThreshold: z.number(),
+  meanCloseHoursTarget: z.number(),
+  agentMergeShareTarget: z.number(),
+});
+
+/**
+ * Full config schema — validates the top-level shape plus thresholds.
+ * Uses `.passthrough()` so extra keys (like `$comment` fields, `rules`,
+ * `history`) don't cause validation failures.
+ */
+export const QaTuningConfigSchema = z
+  .object({
+    version: z.number(),
+    lastTunedAt: z.string(),
+    thresholds: QaTuningThresholdsSchema.passthrough(),
+  })
+  .passthrough();
+
 // ── Constants ───────────────────────────────────────────────────────
 
 const CONFIG_FILENAME = ".github/auto-qa-tuning.json";
@@ -26,54 +51,26 @@ const CONFIG_FILENAME = ".github/auto-qa-tuning.json";
 
 /**
  * Extract only the threshold values we care about from a parsed config.
- * Returns null if the config shape is invalid.
+ * Validates `raw` against the Zod schema and returns null on failure.
  */
 export function parseThresholds(
   raw: unknown,
 ): QaTuningThresholds | null {
-  if (
-    typeof raw !== "object" ||
-    raw === null ||
-    !("thresholds" in raw)
-  ) {
+  const result = QaTuningConfigSchema.safeParse(raw);
+
+  if (!result.success) {
     return null;
   }
 
-  const config = raw as { thresholds: Record<string, unknown> };
-  const t = config.thresholds;
-
-  if (typeof t !== "object" || t === null) return null;
-
-  const maxBudgetUSD = typeof t.maxBudgetUSD === "number" ? t.maxBudgetUSD : null;
-  const stuckTurnsThreshold =
-    typeof t.stuckTurnsThreshold === "number" ? t.stuckTurnsThreshold : null;
-  const acceptanceRateFloor =
-    typeof t.acceptanceRateFloor === "number" ? t.acceptanceRateFloor : null;
-  const maxRetries =
-    typeof t.maxRetries === "number" ? t.maxRetries : null;
-  const meanCloseHoursTarget =
-    typeof t.meanCloseHoursTarget === "number" ? t.meanCloseHoursTarget : null;
-  const agentMergeShareTarget =
-    typeof t.agentMergeShareTarget === "number" ? t.agentMergeShareTarget : null;
-
-  if (
-    maxBudgetUSD === null ||
-    stuckTurnsThreshold === null ||
-    acceptanceRateFloor === null ||
-    maxRetries === null ||
-    meanCloseHoursTarget === null ||
-    agentMergeShareTarget === null
-  ) {
-    return null;
-  }
+  const { thresholds } = result.data;
 
   return {
-    acceptanceRateFloor,
-    maxBudgetUSD,
-    maxRetries,
-    stuckTurnsThreshold,
-    meanCloseHoursTarget,
-    agentMergeShareTarget,
+    acceptanceRateFloor: thresholds.acceptanceRateFloor,
+    maxBudgetUSD: thresholds.maxBudgetUSD,
+    maxRetries: thresholds.maxRetries,
+    stuckTurnsThreshold: thresholds.stuckTurnsThreshold,
+    meanCloseHoursTarget: thresholds.meanCloseHoursTarget,
+    agentMergeShareTarget: thresholds.agentMergeShareTarget,
   };
 }
 
@@ -128,8 +125,11 @@ export function applyTuningDefaults(
  *
  * Returns null when:
  *   - The file doesn't exist (first run, or running outside the repo)
- *   - The file is malformed
- *   - Any field is missing or has the wrong type
+ *   - The JSON is syntactically invalid
+ *   - Schema validation fails (missing/wrong-type fields)
+ *
+ * On validation failure a structured warning is logged so operators can
+ * diagnose bad config without the agent crashing.
  *
  * Callers should treat null as "use hard-coded defaults" — this function
  * never throws.
@@ -139,10 +139,38 @@ export function loadQaTuning(repoPath: string): QaTuningThresholds | null {
 
   if (!existsSync(configPath)) return null;
 
+  let raw: unknown;
   try {
-    const raw = JSON.parse(readFileSync(configPath, "utf-8"));
-    return parseThresholds(raw);
-  } catch {
+    raw = JSON.parse(readFileSync(configPath, "utf-8"));
+  } catch (err) {
+    console.warn("[qa-tuning] Failed to parse config JSON", {
+      path: configPath,
+      error: err instanceof Error ? err.message : String(err),
+    });
     return null;
   }
+
+  const result = QaTuningConfigSchema.safeParse(raw);
+
+  if (!result.success) {
+    console.warn("[qa-tuning] Config validation failed", {
+      path: configPath,
+      issues: result.error.issues.map((issue) => ({
+        path: issue.path.join("."),
+        message: issue.message,
+      })),
+    });
+    return null;
+  }
+
+  const { thresholds } = result.data;
+
+  return {
+    acceptanceRateFloor: thresholds.acceptanceRateFloor,
+    maxBudgetUSD: thresholds.maxBudgetUSD,
+    maxRetries: thresholds.maxRetries,
+    stuckTurnsThreshold: thresholds.stuckTurnsThreshold,
+    meanCloseHoursTarget: thresholds.meanCloseHoursTarget,
+    agentMergeShareTarget: thresholds.agentMergeShareTarget,
+  };
 }

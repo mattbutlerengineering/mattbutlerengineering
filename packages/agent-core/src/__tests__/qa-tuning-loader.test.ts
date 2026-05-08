@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { parseThresholds, applyTuningDefaults } from "../qa-tuning-loader.js";
+import {
+  parseThresholds,
+  applyTuningDefaults,
+  QaTuningConfigSchema,
+} from "../qa-tuning-loader.js";
 import type { QaTuningThresholds } from "../qa-tuning-loader.js";
 
 // ── parseThresholds ─────────────────────────────────────────────────
@@ -57,6 +61,7 @@ describe("parseThresholds", () => {
 
   it("ignores extra $comment fields", () => {
     const withComments = {
+      ...validConfig,
       thresholds: {
         ...validConfig.thresholds,
         "maxBudgetUSD.$comment": "some explanation",
@@ -144,3 +149,78 @@ describe("applyTuningDefaults", () => {
     expect(original.maxBudgetUsd).toBe(1.0);
   });
 });
+
+// ── QaTuningConfigSchema ───────────────────────────────────────────
+
+describe("QaTuningConfigSchema", () => {
+  const validRaw = {
+    version: 1,
+    lastTunedAt: "2026-05-01",
+    thresholds: {
+      acceptanceRateFloor: 0.85,
+      maxBudgetUSD: 1.5,
+      maxRetries: 2,
+      stuckTurnsThreshold: 8,
+      meanCloseHoursTarget: 24,
+      agentMergeShareTarget: 0.3,
+    },
+  };
+
+  it("accepts a valid config", () => {
+    const result = QaTuningConfigSchema.safeParse(validRaw);
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts config with extra passthrough keys", () => {
+    const withExtras = {
+      ...validRaw,
+      $schema: "https://example.com",
+      $comment: "test",
+      rules: { "tier:trivial": { maxBudgetUSDOverride: 0.5 } },
+      history: [{ date: "2026-04-25", trigger: "seed" }],
+      thresholds: {
+        ...validRaw.thresholds,
+        "maxBudgetUSD.$comment": "explanation",
+      },
+    };
+    const result = QaTuningConfigSchema.safeParse(withExtras);
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects config with wrong threshold type", () => {
+    const bad = {
+      ...validRaw,
+      thresholds: { ...validRaw.thresholds, maxBudgetUSD: "not-a-number" },
+    };
+    const result = QaTuningConfigSchema.safeParse(bad);
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects config missing version", () => {
+    const { version: _, ...noVersion } = validRaw;
+    const result = QaTuningConfigSchema.safeParse(noVersion);
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects config missing lastTunedAt", () => {
+    const { lastTunedAt: _, ...noDate } = validRaw;
+    const result = QaTuningConfigSchema.safeParse(noDate);
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects config with missing threshold field", () => {
+    const { stuckTurnsThreshold: _, ...partial } = validRaw.thresholds;
+    const result = QaTuningConfigSchema.safeParse({
+      ...validRaw,
+      thresholds: partial,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects non-object input", () => {
+    expect(QaTuningConfigSchema.safeParse(null).success).toBe(false);
+    expect(QaTuningConfigSchema.safeParse("string").success).toBe(false);
+    expect(QaTuningConfigSchema.safeParse(42).success).toBe(false);
+  });
+});
+
