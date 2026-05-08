@@ -106,3 +106,43 @@ jobs:
           echo "Post-deploy failure was not from an agent commit — skipping auto-rollback"
           echo "Commit: ${COMMIT_SHA}"
           echo "Author: ${COMMIT_AUTHOR}"
+
+      - name: File issue on rollback failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          today=$(date -u +%Y-%m-%d)
+          title="[URGENT] Auto-rollback failed [${today}]"
+
+          # Dedup: skip if an open issue with the same title already exists.
+          existing=$(gh issue list --state open --label ci-fix --search "$title" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            echo "Issue #$existing already open for today; skipping."
+            exit 0
+          fi
+
+          printf '%s\n' \
+            "## Auto-rollback workflow failed" \
+            "" \
+            "The auto-rollback workflow failed on ${today}." \
+            "This means a post-deploy regression was detected but the" \
+            "automatic revert could not be completed (merge conflict," \
+            "branch deletion failure, or other infrastructure issue)." \
+            "" \
+            "**Commit:** \`${HEAD_SHA}\`" \
+            "**Run:** ${RUN_URL}" \
+            "" \
+            "### Next steps" \
+            "1. Check the [workflow run](${RUN_URL}) for error details" \
+            "2. Manually revert the offending commit if needed" \
+            "3. The \`ci-fix\` label will trigger \`mbe-issue-worker\` to attempt an auto-fix" \
+            > /tmp/rollback-failure-body.md
+
+          gh issue create \
+            --title "$title" \
+            --body-file /tmp/rollback-failure-body.md \
+            --label ci-fix \
+            --label audit
