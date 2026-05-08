@@ -32,6 +32,8 @@ import { resolve } from "node:path";
 
 const BUDGET_FLOOR = 0.25;
 const BUDGET_REDUCTION_FACTOR = 0.75;
+const STUCK_THRESHOLD_FLOOR = 3;
+const STUCK_THRESHOLD_CEILING = 12;
 const MIN_SAMPLE_SIZE = 5;
 
 // ---------------------------------------------------------------------------
@@ -60,8 +62,8 @@ export function latestSnapshot(snapshots) {
  * array of human-readable adjustment rationale strings.
  *
  * @param {{total_ai_prs: number, merged: number, rejected: number, acceptance_rate: number}} snapshot
- * @param {{acceptanceRateFloor: number, maxBudgetUSD: number}} thresholds
- * @returns {{thresholds: {acceptanceRateFloor: number, maxBudgetUSD: number}, adjustments: string[]}}
+ * @param {{acceptanceRateFloor: number, maxBudgetUSD: number, stuckTurnsThreshold: number}} thresholds
+ * @returns {{thresholds: {acceptanceRateFloor: number, maxBudgetUSD: number, stuckTurnsThreshold: number}, adjustments: string[]}}
  */
 export function computeAdjustments(snapshot, thresholds) {
   const adjustments = [];
@@ -79,6 +81,7 @@ export function computeAdjustments(snapshot, thresholds) {
   const floor = thresholds.acceptanceRateFloor;
 
   if (rate < floor) {
+    // Tighten budget when acceptance is low
     const oldBudget = next.maxBudgetUSD;
     const newBudget = Math.max(
       BUDGET_FLOOR,
@@ -94,6 +97,38 @@ export function computeAdjustments(snapshot, thresholds) {
         `Budget reduced from $${oldBudget.toFixed(2)} to $${newBudget.toFixed(2)} ` +
         `to tighten quality gate — agents that cost more should produce higher-quality PRs.`,
     );
+
+    // Also tighten stuck threshold when acceptance is low — agents should bail
+    // earlier rather than spinning on bad approaches
+    if (typeof next.stuckTurnsThreshold === "number") {
+      const oldStuck = next.stuckTurnsThreshold;
+      const newStuck = Math.max(STUCK_THRESHOLD_FLOOR, oldStuck - 1);
+      if (newStuck !== oldStuck) {
+        next.stuckTurnsThreshold = newStuck;
+        adjustments.push(
+          `Stuck-turns threshold tightened from ${oldStuck} to ${newStuck} — ` +
+            `low acceptance rate suggests agents should bail earlier.`,
+        );
+      }
+    }
+  } else if (
+    rate >= 0.95 &&
+    typeof next.stuckTurnsThreshold === "number" &&
+    next.stuckTurnsThreshold < STUCK_THRESHOLD_CEILING
+  ) {
+    // Relax stuck threshold when acceptance is very high — agents are producing
+    // quality work and may benefit from more turns to complete complex tasks
+    const oldStuck = next.stuckTurnsThreshold;
+    const newStuck = Math.min(STUCK_THRESHOLD_CEILING, oldStuck + 1);
+    if (newStuck !== oldStuck) {
+      next.stuckTurnsThreshold = newStuck;
+      const pct = (rate * 100).toFixed(0);
+      adjustments.push(
+        `Acceptance rate ${pct}% is excellent (>=95%). ` +
+          `Stuck-turns threshold relaxed from ${oldStuck} to ${newStuck} — ` +
+          `agents are producing quality work and may benefit from more turns.`,
+      );
+    }
   }
 
   if (adjustments.length === 0) {

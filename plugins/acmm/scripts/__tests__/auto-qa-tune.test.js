@@ -107,6 +107,62 @@ test("computeAdjustments: does not mutate input thresholds", () => {
 });
 
 // ---------------------------------------------------------------------------
+// computeAdjustments — stuck threshold tuning
+// ---------------------------------------------------------------------------
+
+test("computeAdjustments: rate below floor tightens stuck threshold", () => {
+  const snapshot = { total_ai_prs: 20, merged: 15, rejected: 5, acceptance_rate: 0.75 };
+  const thresholds = { acceptanceRateFloor: 0.85, maxBudgetUSD: 1.5, stuckTurnsThreshold: 8 };
+  const result = computeAdjustments(snapshot, thresholds);
+
+  assert.equal(result.thresholds.stuckTurnsThreshold, 7, "Stuck threshold should decrease by 1");
+  assert.ok(result.adjustments.some((a) => a.includes("Stuck-turns threshold tightened")));
+});
+
+test("computeAdjustments: stuck threshold never goes below 3", () => {
+  const snapshot = { total_ai_prs: 20, merged: 10, rejected: 10, acceptance_rate: 0.5 };
+  const thresholds = { acceptanceRateFloor: 0.85, maxBudgetUSD: 1.5, stuckTurnsThreshold: 3 };
+  const result = computeAdjustments(snapshot, thresholds);
+
+  assert.equal(result.thresholds.stuckTurnsThreshold, 3, "Floor is 3");
+});
+
+test("computeAdjustments: excellent acceptance (>=95%) relaxes stuck threshold", () => {
+  const snapshot = { total_ai_prs: 40, merged: 39, rejected: 1, acceptance_rate: 0.975 };
+  const thresholds = { acceptanceRateFloor: 0.85, maxBudgetUSD: 1.5, stuckTurnsThreshold: 8 };
+  const result = computeAdjustments(snapshot, thresholds);
+
+  assert.equal(result.thresholds.stuckTurnsThreshold, 9, "Should increase by 1");
+  assert.ok(result.adjustments.some((a) => a.includes("Stuck-turns threshold relaxed")));
+});
+
+test("computeAdjustments: stuck threshold never goes above 12", () => {
+  const snapshot = { total_ai_prs: 40, merged: 40, rejected: 0, acceptance_rate: 1.0 };
+  const thresholds = { acceptanceRateFloor: 0.85, maxBudgetUSD: 1.5, stuckTurnsThreshold: 12 };
+  const result = computeAdjustments(snapshot, thresholds);
+
+  assert.equal(result.thresholds.stuckTurnsThreshold, 12, "Ceiling is 12");
+});
+
+test("computeAdjustments: missing stuckTurnsThreshold is handled gracefully", () => {
+  const snapshot = { total_ai_prs: 20, merged: 15, rejected: 5, acceptance_rate: 0.75 };
+  const thresholds = { acceptanceRateFloor: 0.85, maxBudgetUSD: 1.5 };
+  const result = computeAdjustments(snapshot, thresholds);
+
+  // Budget should still be adjusted even without stuckTurnsThreshold
+  assert.equal(result.thresholds.maxBudgetUSD, 1.13);
+  assert.equal(result.thresholds.stuckTurnsThreshold, undefined);
+});
+
+test("computeAdjustments: does not mutate input stuckTurnsThreshold", () => {
+  const snapshot = { total_ai_prs: 20, merged: 15, rejected: 5, acceptance_rate: 0.75 };
+  const thresholds = { acceptanceRateFloor: 0.85, maxBudgetUSD: 1.5, stuckTurnsThreshold: 8 };
+  computeAdjustments(snapshot, thresholds);
+
+  assert.equal(thresholds.stuckTurnsThreshold, 8, "Original should be untouched");
+});
+
+// ---------------------------------------------------------------------------
 // buildHistoryEntry
 // ---------------------------------------------------------------------------
 

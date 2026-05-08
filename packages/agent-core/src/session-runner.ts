@@ -58,6 +58,10 @@ import { orchestrateVerification } from "./verification-orchestrator.js";
 import { runQualityGates } from "./quality-gates.js";
 import type { QualityGatesResult } from "./quality-gates.js";
 
+// QA tuning — adaptive thresholds from .github/auto-qa-tuning.json
+import { loadQaTuning, applyTuningDefaults } from "./qa-tuning-loader.js";
+import { DEFAULT_SESSION_CONFIG } from "./types.js";
+
 // OTel API is a noop when no SDK is registered (e.g., in tests or local CLI).
 const tracer = trace.getTracer("@mbe/agent-core");
 
@@ -78,13 +82,39 @@ export async function runSession(
         },
       },
       async (): Promise<SessionResult> => {
+  // Apply QA tuning defaults from .github/auto-qa-tuning.json.
+  // Explicit config (e.g. CLI --max-budget) wins over tuning values.
+  const tuning = loadQaTuning(config.repoPath);
+  const tuningOverrides = tuning
+    ? applyTuningDefaults(
+        {
+          maxBudgetUsd: config.maxBudgetUsd,
+          stuckDetectorConfig: config.stuckDetectorConfig,
+        },
+        tuning,
+        DEFAULT_SESSION_CONFIG.maxBudgetUsd,
+      )
+    : null;
+
+  const effectiveConfig = tuningOverrides
+    ? {
+        ...config,
+        maxBudgetUsd: tuningOverrides.maxBudgetUsd,
+        stuckDetectorConfig: {
+          ...config.stuckDetectorConfig,
+          ...tuningOverrides.stuckDetectorConfig,
+        },
+      }
+    : config;
+
   const rootSpan = tracer.startSpan("agent_core.run_session", {
     attributes: {
-      "session.task": config.taskDescription.slice(0, 200),
-      "session.model": config.model,
-      "session.max_turns": config.maxTurns,
-      "session.max_budget_usd": config.maxBudgetUsd,
-      "session.base_branch": config.baseBranch,
+      "session.task": effectiveConfig.taskDescription.slice(0, 200),
+      "session.model": effectiveConfig.model,
+      "session.max_turns": effectiveConfig.maxTurns,
+      "session.max_budget_usd": effectiveConfig.maxBudgetUsd,
+      "session.base_branch": effectiveConfig.baseBranch,
+      ...(tuning ? { "session.qa_tuning_applied": true } : {}),
     },
   });
 
@@ -170,16 +200,16 @@ export async function runSession(
 
         let resultMessage: SDKResultMessage | null = null;
 
-        const detector = createStuckDetector(config.stuckDetectorConfig);
+        const detector = createStuckDetector(effectiveConfig.stuckDetectorConfig);
         const conversation = query({
-          prompt: config.taskDescription,
+          prompt: effectiveConfig.taskDescription,
           options: {
             abortController,
             cwd: worktree.path,
-            model: config.model,
-            maxTurns: config.maxTurns,
-            maxBudgetUsd: config.maxBudgetUsd,
-            allowedTools: [...config.allowedTools],
+            model: effectiveConfig.model,
+            maxTurns: effectiveConfig.maxTurns,
+            maxBudgetUsd: effectiveConfig.maxBudgetUsd,
+            allowedTools: [...effectiveConfig.allowedTools],
             permissionMode: "acceptEdits",
             settingSources: ["project"],
             systemPrompt: {
@@ -523,7 +553,7 @@ export async function runSession(
                 if (config.feedbackLoop?.enabled) {
                   // Use remaining budget instead of fixed 50% ratio
                   const sessionCost = resultMessage?.total_cost_usd ?? 0;
-                  const remainingBudget = Math.max(0, config.maxBudgetUsd - sessionCost);
+                  const remainingBudget = Math.max(0, effectiveConfig.maxBudgetUsd - sessionCost);
 
                   const fbSpan = tracer.startSpan("agent_core.feedback_loop");
                   let feedbackResult;
