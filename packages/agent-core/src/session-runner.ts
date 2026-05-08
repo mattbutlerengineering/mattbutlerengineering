@@ -40,6 +40,7 @@ import {
 import { runFeedbackLoop } from "./feedback-loop.js";
 import { getFeedbackLoopModel } from "./model-router.js";
 import { withRetry, ContextWindowExhaustedError } from "./retry.js";
+import { CircuitBreaker, CircuitState } from "./circuit-breaker.js";
 import {
   categorizeFailure,
   buildTurnMetricsList,
@@ -67,6 +68,20 @@ const tracer = trace.getTracer("@mbe/agent-core");
 
 /** Maximum compaction events before treating the session as exhausted. */
 const MAX_COMPACTIONS = 5;
+
+/** Circuit breaker default configuration. */
+const CIRCUIT_BREAKER_FAILURE_THRESHOLD = 5;
+const CIRCUIT_BREAKER_RESET_TIMEOUT_MS = 60_000;
+
+/**
+ * Module-level circuit breaker protecting Anthropic API calls.
+ * Persists across `runSession` invocations so repeated failures
+ * trip the breaker and prevent hammering a degraded API.
+ */
+const apiCircuitBreaker = new CircuitBreaker({
+  failureThreshold: CIRCUIT_BREAKER_FAILURE_THRESHOLD,
+  resetTimeoutMs: CIRCUIT_BREAKER_RESET_TIMEOUT_MS,
+});
 
 export async function runSession(
   config: SessionConfig,
@@ -119,6 +134,27 @@ export async function runSession(
   });
 
   {
+      // Fail fast if the circuit breaker is open (API is degraded)
+      if (apiCircuitBreaker.getState() === CircuitState.Open) {
+        const circuitMsg = "Circuit breaker is OPEN — Anthropic API appears degraded. Skipping session.";
+        emitEvent(onEvent, "session:error", { message: circuitMsg });
+        rootSpan.setAttribute("session.status", "failed");
+        rootSpan.setAttribute("session.circuit_breaker", "open");
+        rootSpan.end();
+        return {
+          sessionId: "",
+          status: "failed",
+          branchName: "",
+          prUrl: null,
+          costUsd: 0,
+          tokenUsage: { inputTokens: 0, outputTokens: 0 },
+          durationMs: 0,
+          numTurns: 0,
+          resultText: "",
+          errors: [circuitMsg],
+        };
+      }
+
       const abortController = new AbortController();
       let worktree: WorktreeInfo | undefined;
       let stuckReason: StuckPattern | null = null;
@@ -197,8 +233,6 @@ export async function runSession(
         });
 
         const canUseTool = createToolPermissionHandler(worktree.path);
-
-        let resultMessage: SDKResultMessage | null = null;
 
         const detector = createStuckDetector(effectiveConfig.stuckDetectorConfig);
         const conversation = query({
@@ -280,157 +314,213 @@ export async function runSession(
           }
         }, heartbeat.intervalMs);
 
+        // Wrap the SDK streaming loop with the circuit breaker so that
+        // repeated API failures trip the breaker and subsequent sessions
+        // fail fast instead of hammering a degraded API.
+        interface StreamingResult {
+          readonly resultMessage: SDKResultMessage | null;
+          readonly stuckDetected: StuckPattern | null;
+        }
+
+        let streamResult: StreamingResult = { resultMessage: null, stuckDetected: null };
+        let circuitBreakerTripped = false;
+
         try {
-          for await (const message of conversation) {
-            lastActivityMs = Date.now();
-            emitEvent(onEvent, "session:message", message);
+          streamResult = await apiCircuitBreaker.wrap(async (): Promise<StreamingResult> => {
+            let innerResult: SDKResultMessage | null = null;
+            let innerStuck: StuckPattern | null = null;
+            try {
+              for await (const message of conversation) {
+                lastActivityMs = Date.now();
+                emitEvent(onEvent, "session:message", message);
 
-            // Increment turn counter for assistant messages
-            if (message.type === "assistant") {
-              turnIndex++;
-            }
+                // Increment turn counter for assistant messages
+                if (message.type === "assistant") {
+                  turnIndex++;
+                }
 
-            // Track assistant messages as Langfuse generation observations
-            if (message.type === "assistant" && "message" in message) {
-              const msg = message.message as {
-                role: string;
-                content: unknown;
-                usage?: { input_tokens?: number; output_tokens?: number };
-              };
-              const gen = startObservation(
-                `llm-turn-${turnIndex}`,
-                { model: config.model, input: msg.content },
-                { asType: "generation" }
-              );
-              gen.update({
-                output: msg.content,
-                usageDetails: {
-                  input: msg.usage?.input_tokens ?? 0,
-                  output: msg.usage?.output_tokens ?? 0,
-                },
-              }).end();
-            }
+                // Track assistant messages as Langfuse generation observations
+                if (message.type === "assistant" && "message" in message) {
+                  const msg = message.message as {
+                    role: string;
+                    content: unknown;
+                    usage?: { input_tokens?: number; output_tokens?: number };
+                  };
+                  const gen = startObservation(
+                    `llm-turn-${turnIndex}`,
+                    { model: config.model, input: msg.content },
+                    { asType: "generation" }
+                  );
+                  gen.update({
+                    output: msg.content,
+                    usageDetails: {
+                      input: msg.usage?.input_tokens ?? 0,
+                      output: msg.usage?.output_tokens ?? 0,
+                    },
+                  }).end();
+                }
 
-            // Emit typed events for observability (pass current turn index)
-            for (const mapped of mapSdkMessage(message, turnIndex)) {
-              emitEvent(onEvent, mapped.type, { message: sanitizeStreamChunk(JSON.stringify(mapped)) });
+                // Emit typed events for observability (pass current turn index)
+                for (const mapped of mapSdkMessage(message, turnIndex)) {
+                  emitEvent(onEvent, mapped.type, { message: sanitizeStreamChunk(JSON.stringify(mapped)) });
 
-              // Accumulate per-turn metrics
-              if (mapped.type === "session:turn_metrics") {
-                const tm = mapped as TurnMetricsEvent;
-                rawTurnMetrics.push({
-                  turnIndex: tm.turnIndex,
-                  startedAt: new Date().toISOString(),
-                  inputTokens: tm.inputTokens,
-                  outputTokens: tm.outputTokens,
-                  thinkingTokens: tm.thinkingTokens,
-                  costUsd: tm.costUsd,
-                  modelId: tm.modelId,
-                });
-              }
+                  // Accumulate per-turn metrics
+                  if (mapped.type === "session:turn_metrics") {
+                    const tm = mapped as TurnMetricsEvent;
+                    rawTurnMetrics.push({
+                      turnIndex: tm.turnIndex,
+                      startedAt: new Date().toISOString(),
+                      inputTokens: tm.inputTokens,
+                      outputTokens: tm.outputTokens,
+                      thinkingTokens: tm.thinkingTokens,
+                      costUsd: tm.costUsd,
+                      modelId: tm.modelId,
+                    });
+                  }
 
-              // Record tool call start time for latency tracking
-              if (mapped.type === "session:tool_use") {
-                pendingToolCalls.set(mapped.toolUseId, {
-                  toolName: mapped.toolName,
-                  startMs: Date.now(),
-                });
-              }
+                  // Record tool call start time for latency tracking
+                  if (mapped.type === "session:tool_use") {
+                    pendingToolCalls.set(mapped.toolUseId, {
+                      toolName: mapped.toolName,
+                      startMs: Date.now(),
+                    });
+                  }
 
-              // Record tool call completion and compute latency
-              if (mapped.type === "session:tool_result") {
-                const pending = pendingToolCalls.get(mapped.toolUseId);
-                if (pending) {
-                  const latencyMs = Date.now() - pending.startMs;
-                  rawToolCallMetrics.push({
-                    toolName: pending.toolName,
-                    toolUseId: mapped.toolUseId,
-                    latencyMs,
-                    isError: mapped.isError,
-                  });
-                  pendingToolCalls.delete(mapped.toolUseId);
-                  emitEvent(onEvent, "session:tool_latency", {
-                    message: JSON.stringify({
-                      toolName: pending.toolName,
-                      toolUseId: mapped.toolUseId,
-                      latencyMs,
-                      isError: mapped.isError,
-                    }),
+                  // Record tool call completion and compute latency
+                  if (mapped.type === "session:tool_result") {
+                    const pending = pendingToolCalls.get(mapped.toolUseId);
+                    if (pending) {
+                      const latencyMs = Date.now() - pending.startMs;
+                      rawToolCallMetrics.push({
+                        toolName: pending.toolName,
+                        toolUseId: mapped.toolUseId,
+                        latencyMs,
+                        isError: mapped.isError,
+                      });
+                      pendingToolCalls.delete(mapped.toolUseId);
+                      emitEvent(onEvent, "session:tool_latency", {
+                        message: JSON.stringify({
+                          toolName: pending.toolName,
+                          toolUseId: mapped.toolUseId,
+                          latencyMs,
+                          isError: mapped.isError,
+                        }),
+                      });
+                    }
+                  }
+                }
+
+                // Track compaction events for context window exhaustion detection
+                if (
+                  message.type === "system" &&
+                  "subtype" in message &&
+                  message.subtype === "compact_boundary"
+                ) {
+                  compactionCount++;
+                  if (compactionCount >= MAX_COMPACTIONS) {
+                    innerStuck = {
+                      type: "context_window_loop",
+                      count: compactionCount,
+                      threshold: MAX_COMPACTIONS,
+                      description: `Context window compacted ${compactionCount} times — session exhausted`,
+                      severity: "error",
+                    };
+                    emitEvent(onEvent, "session:stuck", {
+                      message: `Context window exhaustion: ${compactionCount} compactions reached limit of ${MAX_COMPACTIONS}`,
+                    });
+                    querySpan.setAttribute("sdk.compaction_count", compactionCount);
+                    abortController.abort();
+                    break;
+                  }
+                }
+
+                if (message.type === "result") {
+                  innerResult = message as SDKResultMessage;
+                  continue;
+                }
+
+                const stuckPattern = detector.ingest(message);
+                if (stuckPattern) {
+                  if (stuckPattern.severity === "error") {
+                    innerStuck = stuckPattern;
+                    emitEvent(onEvent, "session:stuck", {
+                      message: `Stuck detected: ${stuckPattern.description}`,
+                    });
+                    querySpan.setAttribute("sdk.stuck_pattern", stuckPattern.type);
+                    abortController.abort();
+                    break;
+                  }
+                  // Warnings are emitted but don't abort the session
+                  emitEvent(onEvent, "session:stuck", {
+                    message: `Stuck warning: ${stuckPattern.description}`,
                   });
                 }
               }
-            }
 
-            // Track compaction events for context window exhaustion detection
-            if (
-              message.type === "system" &&
-              "subtype" in message &&
-              message.subtype === "compact_boundary"
-            ) {
-              compactionCount++;
-              if (compactionCount >= MAX_COMPACTIONS) {
-                stuckReason = {
+              querySpan.setAttribute("sdk.turns_completed", innerResult?.num_turns ?? 0);
+              querySpan.setAttribute("sdk.compaction_count", compactionCount);
+            } catch (err) {
+              // Detect context window exhaustion from SDK errors
+              if (err instanceof ContextWindowExhaustedError) {
+                innerStuck = {
                   type: "context_window_loop",
                   count: compactionCount,
                   threshold: MAX_COMPACTIONS,
-                  description: `Context window compacted ${compactionCount} times — session exhausted`,
+                  description: err.message,
                   severity: "error",
                 };
                 emitEvent(onEvent, "session:stuck", {
-                  message: `Context window exhaustion: ${compactionCount} compactions reached limit of ${MAX_COMPACTIONS}`,
+                  message: `Context window exhaustion: ${err.message}`,
                 });
-                querySpan.setAttribute("sdk.compaction_count", compactionCount);
-                abortController.abort();
-                break;
+              } else {
+                querySpan.recordException(err as Error);
+                querySpan.setStatus({ code: SpanStatusCode.ERROR });
+                throw err;
               }
             }
-
-            if (message.type === "result") {
-              resultMessage = message as SDKResultMessage;
-              continue;
-            }
-
-            const stuckPattern = detector.ingest(message);
-            if (stuckPattern) {
-              if (stuckPattern.severity === "error") {
-                stuckReason = stuckPattern;
-                emitEvent(onEvent, "session:stuck", {
-                  message: `Stuck detected: ${stuckPattern.description}`,
-                });
-                querySpan.setAttribute("sdk.stuck_pattern", stuckPattern.type);
-                abortController.abort();
-                break;
-              }
-              // Warnings are emitted but don't abort the session
-              emitEvent(onEvent, "session:stuck", {
-                message: `Stuck warning: ${stuckPattern.description}`,
-              });
-            }
-          }
-
-          querySpan.setAttribute("sdk.turns_completed", resultMessage?.num_turns ?? 0);
-          querySpan.setAttribute("sdk.compaction_count", compactionCount);
+            return { resultMessage: innerResult, stuckDetected: innerStuck };
+          });
         } catch (err) {
-          // Detect context window exhaustion from SDK errors
-          if (err instanceof ContextWindowExhaustedError) {
-            stuckReason = {
-              type: "context_window_loop",
-              count: compactionCount,
-              threshold: MAX_COMPACTIONS,
-              description: err.message,
-              severity: "error",
-            };
-            emitEvent(onEvent, "session:stuck", {
-              message: `Context window exhaustion: ${err.message}`,
+          // Handle circuit breaker OPEN — graceful exit instead of crash
+          const errMsg = err instanceof Error ? err.message : String(err);
+          if (errMsg.includes("Circuit breaker is OPEN")) {
+            circuitBreakerTripped = true;
+            emitEvent(onEvent, "session:error", {
+              message: `Circuit breaker tripped: ${errMsg}`,
             });
+            querySpan.setAttribute("session.circuit_breaker", "tripped");
           } else {
-            querySpan.recordException(err as Error);
-            querySpan.setStatus({ code: SpanStatusCode.ERROR });
+            // Re-throw non-circuit-breaker errors for the outer handler
             throw err;
           }
         } finally {
           clearInterval(heartbeatInterval);
           querySpan.end();
+        }
+
+        // Unpack streaming results for downstream consumption
+        const resultMessage = streamResult.resultMessage;
+        stuckReason = streamResult.stuckDetected;
+
+        // If the circuit breaker tripped mid-session, treat as a failed session
+        if (circuitBreakerTripped) {
+          const circuitMsg = "Circuit breaker tripped — too many consecutive API failures";
+          emitEvent(onEvent, "session:error", { message: circuitMsg });
+          rootSpan.setAttribute("session.status", "failed");
+          rootSpan.setAttribute("session.circuit_breaker", "tripped");
+          rootSpan.end();
+          return {
+            sessionId: "",
+            status: "failed",
+            branchName: worktree?.branchName ?? "",
+            prUrl: null,
+            costUsd: 0,
+            tokenUsage: { inputTokens: 0, outputTokens: 0 },
+            durationMs: 0,
+            numTurns: 0,
+            resultText: "",
+            errors: [circuitMsg],
+          };
         }
 
         // 5. Determine success/failure

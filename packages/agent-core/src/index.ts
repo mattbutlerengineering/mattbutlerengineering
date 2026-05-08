@@ -236,6 +236,11 @@ export type {
 export { analyzeDiff, formatViolations, ANALYSIS_RULES } from "./diff-static-analyzer.js";
 export type { StaticAnalysisResult, Violation, AnalysisRule } from "./diff-static-analyzer.js";
 
+// Circuit breaker (API call protection)
+export { CircuitBreaker } from "./circuit-breaker.js";
+export { CircuitState } from "./circuit-breaker.js";
+export type { CircuitBreakerOptions } from "./circuit-breaker.js";
+
 // Retry utilities
 export {
   withRetry,
