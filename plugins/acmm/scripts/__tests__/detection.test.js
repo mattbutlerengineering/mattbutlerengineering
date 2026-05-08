@@ -108,7 +108,29 @@ test("detect: code-graph — llms.txt present", () => {
   fx.file("llms.txt", "# index");
   const c = {
     id: "acmm:code-graph",
-    detection: { type: "any-of", pattern: [".vscode/settings.json", "tags", "TAGS", ".ctags", ".tree-sitter/", "llms.txt", "llms-full.txt"] },
+    detection: { type: "any-of", pattern: [".vscode/settings.json", "tags", "TAGS", ".ctags", ".tree-sitter/", "llms.txt", "llms-full.txt", "tsconfig.json", ".clangd", "pyrightconfig.json", ".claude/plugins/"] },
+  };
+  assert.equal(detect(fx.root, c), true);
+  fx.cleanup();
+});
+
+test("detect: code-graph — tsconfig.json present (TypeScript LSP)", () => {
+  const fx = fixture();
+  fx.file("tsconfig.json", '{"compilerOptions":{}}');
+  const c = {
+    id: "acmm:code-graph",
+    detection: { type: "any-of", pattern: [".vscode/settings.json", "tags", "TAGS", ".ctags", ".tree-sitter/", "llms.txt", "llms-full.txt", "tsconfig.json", ".clangd", "pyrightconfig.json", ".claude/plugins/"] },
+  };
+  assert.equal(detect(fx.root, c), true);
+  fx.cleanup();
+});
+
+test("detect: code-graph — .claude/plugins/ directory present (tree-sitter via plugin)", () => {
+  const fx = fixture();
+  fx.dir(".claude/plugins");
+  const c = {
+    id: "acmm:code-graph",
+    detection: { type: "any-of", pattern: [".vscode/settings.json", "tags", "TAGS", ".ctags", ".tree-sitter/", "llms.txt", "llms-full.txt", "tsconfig.json", ".clangd", "pyrightconfig.json", ".claude/plugins/"] },
   };
   assert.equal(detect(fx.root, c), true);
   fx.cleanup();
@@ -118,7 +140,7 @@ test("detect: code-graph — no code intelligence files present", () => {
   const fx = fixture();
   const c = {
     id: "acmm:code-graph",
-    detection: { type: "any-of", pattern: [".vscode/settings.json", "tags", "TAGS", ".ctags", ".tree-sitter/", "llms.txt", "llms-full.txt"] },
+    detection: { type: "any-of", pattern: [".vscode/settings.json", "tags", "TAGS", ".ctags", ".tree-sitter/", "llms.txt", "llms-full.txt", "tsconfig.json", ".clangd", "pyrightconfig.json", ".claude/plugins/"] },
   };
   assert.equal(detect(fx.root, c), false);
   fx.cleanup();

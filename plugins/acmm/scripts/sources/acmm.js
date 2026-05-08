@@ -685,7 +685,7 @@ const CRITERIA= [
     description: 'LSP, AST, or code graph tooling that helps AI navigate the codebase.',
     rationale: 'L4 signal: the AI can navigate complex type hierarchies and dependency graphs efficiently, not just read file text.',
     details: 'Code intelligence tools (LSP configs, tags files, tree-sitter grammars, or code graph generators) help the AI understand codebase structure beyond raw text. This enables faster navigation, better refactoring, and more accurate changes.',
-    detection: { type: 'any-of', pattern: ['.vscode/settings.json', 'tags', 'TAGS', '.ctags', '.tree-sitter/', 'llms.txt', 'llms-full.txt'] },
+    detection: { type: 'any-of', pattern: ['.vscode/settings.json', 'tags', 'TAGS', '.ctags', '.tree-sitter/', 'llms.txt', 'llms-full.txt', 'tsconfig.json', '.clangd', 'pyrightconfig.json', '.claude/plugins/'] },
   },
 
   {
