@@ -51,8 +51,8 @@ describe("Tooltip", () => {
         <button>Hover me</button>
       </Tooltip>
     );
-    const wrapper = screen.getByRole("button").closest("[onmouseenter]") ??
-      screen.getByRole("button").parentElement!;
+    const wrapper = (screen.getByRole("button").closest("[onmouseenter]") ??
+      screen.getByRole("button").parentElement!) as HTMLElement;
     hoverIn(wrapper, 0);
     // Not visible yet
     expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();

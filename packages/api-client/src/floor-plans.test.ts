@@ -96,7 +96,7 @@ describe("FloorPlansClient", () => {
     it("sends POST /api/v1/floor-plans with body", async () => {
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: fakeFloorPlan }));
 
-      await makeClient().create({ venueId: "v1", name: "Main Floor" });
+      await makeClient().create({ venueId: "v1", name: "Main Floor", layoutJson: { width: 800, height: 600 } });
 
       const [url, options] = mockFetch.mock.calls[0]!;
       expect(url).toBe("https://api.test.com/api/v1/floor-plans");
@@ -155,7 +155,7 @@ describe("FloorPlansClient", () => {
     it("sends POST /api/v1/floor-plans/:id/bulk-update-positions with positions", async () => {
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: [fakeTable] }));
 
-      const positions = [{ tableId: "t1", x: 10, y: 20 }];
+      const positions = [{ tableId: "t1", shapeMetadata: { x: 10, y: 20, width: 60, height: 60, shape: "square" as const } }];
       const result = await makeClient().bulkUpdatePositions("fp1", positions);
 
       const [url, options] = mockFetch.mock.calls[0]!;

@@ -167,7 +167,7 @@ describe("HoldsClient", () => {
         venueId: "v1",
         tableId: "t1",
         date: "2026-06-01",
-        startTime: "19:00",
+        time: "19:00",
         partySize: 2,
       });
 
@@ -185,7 +185,7 @@ describe("HoldsClient", () => {
         venueId: "v1",
         tableId: "t1",
         date: "2026-06-01",
-        startTime: "19:00",
+        time: "19:00",
         partySize: 2,
       });
 
@@ -203,7 +203,7 @@ describe("HoldsClient", () => {
         venueId: "v1",
         tableId: "t1",
         date: "2026-06-01",
-        startTime: "19:00",
+        time: "19:00",
         partySize: 2,
       });
 

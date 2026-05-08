@@ -10,7 +10,7 @@ const mockOIDCProvider = vi.fn(
 );
 
 vi.mock("react-oidc-context", () => ({
-  AuthProvider: (props: Record<string, unknown>) => mockOIDCProvider(props),
+  AuthProvider: (props: Record<string, unknown> & { children: React.ReactNode }) => mockOIDCProvider(props),
 }));
 
 import { AuthProvider } from "./provider.js";
