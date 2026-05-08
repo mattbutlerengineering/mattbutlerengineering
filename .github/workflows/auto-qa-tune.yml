@@ -2,8 +2,8 @@ name: Auto-QA Threshold Tuner
 
 on:
   schedule:
-    # Monday 9am UTC
-    - cron: "0 9 * * 1"
+    # Sunday at midnight UTC
+    - cron: "0 0 * * 0"
   workflow_dispatch:
 
 permissions:
@@ -17,6 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-node@v4
@@ -24,7 +25,7 @@ jobs:
           node-version: "22"
 
       - name: Run auto-qa-tune
-        run: node scripts/auto-qa-tune.mjs
+        run: node plugins/acmm/scripts/auto-qa-tune.js
 
       - name: Commit updated thresholds (if changed)
         env:
@@ -37,5 +38,5 @@ jobs:
           else
             git add .github/auto-qa-tuning.json
             git commit -m "chore(acmm): auto-tune QA thresholds [skip ci]"
-            git push
+            git push origin main
           fi
