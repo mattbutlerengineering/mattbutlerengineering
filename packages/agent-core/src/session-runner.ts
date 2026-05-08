@@ -170,6 +170,8 @@ export async function runSession(
       const abortController = new AbortController();
       let worktree: WorktreeInfo | undefined;
       let stuckReason: StuckPattern | null = null;
+      const cleanupErrors: string[] = [];
+      let pendingResult: SessionResult | undefined;
 
       // Cached git diff — computed once, reused across evaluation, static analysis,
       // security review, dep-bump check, and PR body generation.
@@ -796,29 +798,29 @@ export async function runSession(
             },
           });
 
-          return finalResult;
+          pendingResult = finalResult;
+        } else {
+          const failureCategoryNoResult = categorizeFailure(errors, stuckReason?.type);
+
+          rootSpan.setAttribute("session.status", "failed");
+          pendingResult = {
+            sessionId: "",
+            status: "failed",
+            branchName: worktree?.branchName ?? "",
+            prUrl,
+            costUsd: 0,
+            tokenUsage: { inputTokens: 0, outputTokens: 0 },
+            durationMs: 0,
+            numTurns: 0,
+            resultText: "",
+            errors,
+            stuckPattern: stuckReason?.type,
+            evaluation: evalSummary,
+            ...(failureCategoryNoResult ? { failureCategory: failureCategoryNoResult } : {}),
+            turnMetrics: collectedTurnMetrics,
+            toolCallMetrics: collectedToolCallMetrics,
+          };
         }
-
-        const failureCategoryNoResult = categorizeFailure(errors, stuckReason?.type);
-
-        rootSpan.setAttribute("session.status", "failed");
-        return {
-          sessionId: "",
-          status: "failed",
-          branchName: worktree?.branchName ?? "",
-          prUrl,
-          costUsd: 0,
-          tokenUsage: { inputTokens: 0, outputTokens: 0 },
-          durationMs: 0,
-          numTurns: 0,
-          resultText: "",
-          errors,
-          stuckPattern: stuckReason?.type,
-          evaluation: evalSummary,
-          ...(failureCategoryNoResult ? { failureCategory: failureCategoryNoResult } : {}),
-          turnMetrics: collectedTurnMetrics,
-          toolCallMetrics: collectedToolCallMetrics,
-        };
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         emitEvent(onEvent, "session:error", { message: errorMessage });
@@ -861,7 +863,7 @@ export async function runSession(
         }
 
         rootSpan.setAttribute("session.status", "failed");
-        return {
+        pendingResult = {
           sessionId: "",
           status: "failed",
           branchName: worktree?.branchName ?? "",
@@ -880,12 +882,24 @@ export async function runSession(
         if (worktree && config.createPr) {
           try {
             await removeWorktree(config.repoPath, worktree.path);
-          } catch {
-            // Worktree cleanup is best-effort
+          } catch (cleanupErr) {
+            const cleanupMsg = cleanupErr instanceof Error
+              ? cleanupErr.message
+              : String(cleanupErr);
+            cleanupErrors.push(cleanupMsg);
+            console.warn(`Worktree cleanup failed: ${cleanupMsg}`);
+            emitEvent(onEvent, "session:cleanup_warning", {
+              message: `Worktree cleanup failed: ${cleanupMsg}`,
+            });
           }
         }
         rootSpan.end();
       }
+
+      // Attach any cleanup errors to the final result (immutable spread)
+      return cleanupErrors.length > 0
+        ? { ...pendingResult!, cleanupErrors }
+        : pendingResult!;
   }
       },
     );
