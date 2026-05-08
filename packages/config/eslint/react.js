@@ -26,9 +26,7 @@ export default [
       ...jsxA11y.flatConfigs.recommended.rules,
       "react-hooks/set-state-in-effect": "warn",
       "react-hooks/purity": "warn",
-      "@eslint-react/set-state-in-effect": "warn",
-      "@eslint-react/component-hook-factories": "warn",
-      "@eslint-react/purity": "warn",
+      "react-hooks/component-hook-factories": "warn",
       "@typescript-eslint/no-explicit-any": "warn",
       "react/prop-types": "off",
       "react-refresh/only-export-components": [
