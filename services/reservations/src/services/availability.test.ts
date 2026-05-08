@@ -142,12 +142,19 @@ describe("availabilityService.generateTimeSlots", () => {
   });
 
   it("returns empty array when venue is closed on that day", async () => {
+    const allClosed = {
+      sunday: { open: "10:00", close: "21:00", closed: true },
+      monday: { open: "11:00", close: "22:00", closed: true },
+      tuesday: { open: "11:00", close: "22:00", closed: true },
+      wednesday: { open: "11:00", close: "22:00", closed: true },
+      thursday: { open: "11:00", close: "22:00", closed: true },
+      friday: { open: "11:00", close: "23:00", closed: true },
+      saturday: { open: "10:00", close: "23:00", closed: true },
+    };
     vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce(
-      makePrismaVenue() as never
+      makePrismaVenue({ operatingHours: allClosed }) as never
     );
 
-    // Use a date that resolves to Sunday in the runtime timezone (closed=true)
-    // 2026-05-04 getDay()=0 (Sunday) in PT
     const slots = await availabilityService.generateTimeSlots(VENUE_ID, "2026-05-04", 2);
 
     expect(slots).toEqual([]);
@@ -353,12 +360,20 @@ describe("availabilityService.getAvailableDates", () => {
   });
 
   it("marks closed days as unavailable", async () => {
-    vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce(makePrismaVenue() as never);
+    const allClosed = {
+      sunday: { open: "10:00", close: "21:00", closed: true },
+      monday: { open: "11:00", close: "22:00", closed: true },
+      tuesday: { open: "11:00", close: "22:00", closed: true },
+      wednesday: { open: "11:00", close: "22:00", closed: true },
+      thursday: { open: "11:00", close: "22:00", closed: true },
+      friday: { open: "11:00", close: "23:00", closed: true },
+      saturday: { open: "10:00", close: "23:00", closed: true },
+    };
+    vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce(
+      makePrismaVenue({ operatingHours: allClosed }) as never
+    );
     vi.mocked(prisma.table.findMany).mockResolvedValueOnce([makePrismaTable()] as never);
-    vi.mocked(prisma.reservation.findMany).mockResolvedValueOnce([] as never);
-    vi.mocked(prisma.reservationHold.findMany).mockResolvedValueOnce([] as never);
 
-    // 2026-05-04 is Sunday in PT (closed)
     const dates = await availabilityService.getAvailableDates(
       VENUE_ID,
       "2026-05-04",
@@ -366,8 +381,8 @@ describe("availabilityService.getAvailableDates", () => {
       2
     );
 
-    expect(dates[0].hasAvailability).toBe(false);
-    expect(dates[0].slotCount).toBe(0);
+    expect(dates[0]!.hasAvailability).toBe(false);
+    expect(dates[0]!.slotCount).toBe(0);
   });
 
   it("returns slot counts for open days", async () => {
