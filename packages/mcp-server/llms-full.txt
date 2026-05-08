@@ -1,0 +1,175 @@
+<codebase path="packages/mcp-server">
+  <section priority="medium" role="src">
+  <file path="src/index.ts">
+    async function main() {
+      const transport = new StdioServerTransport();
+      await server.connect(transport);
+      console.error("MBE Infra MCP Server running on stdio");
+    }
+  </file>
+  </section>
+  <section priority="medium" role="tools">
+  <file path="src/tools/pulumi.ts">
+    export async function pulumiStackOutputs(): Promise<string> {
+      try {
+        const output = execSync("pulumi stack output --json", {
+          encoding: "utf-8",
+          timeout: 30000,
+        });
+        return output;
+      } catch (error) {
+        return JSON.stringify({ error: "Failed to get Pulumi outputs", message: error instanceof Error ? error.message : String(error) });
+      }
+    }
+  </file>
+  <file path="src/tools/logs.ts">
+    export async function checkLogs(service?: string) {
+      const logDir = service ? join("services", service, "logs") : "services/*/logs";
+      const files = await glob(join(logDir, "*.log"));
+      
+      if (files.length === 0) {
+        return "No log files found.";
+      }
+    
+      let result = "Recent Logs:\n\n";
+      for (const file of files.slice(-3)) { // Limit to 3 most recent files
+        const content = await readFile(file, "utf8");
+        result += `--- ${file} ---\n${content.split("\n").slice(-20).join("\n")}\n\n`;
+      }
+      
+      return result;
+    }
+  </file>
+  <file path="src/tools/health.ts">
+    export async function serviceHealthCheck(): Promise<string> {
+      const results = await Promise.allSettled(
+        SERVICES.map(async (svc) => {
+          const start = Date.now();
+          try {
+            const res = await fetch(svc.url, { method: "GET" });
+            const latency = Date.now() - start;
+            return {
+              service: svc.name,
+              status: res.ok ? "healthy" : "unhealthy",
+              statusCode: res.status,
+              latencyMs: latency,
+            };
+          } catch {
+            return {
+              service: svc.name,
+              status: "unreachable",
+              statusCode: null,
+              latencyMs: null,
+            };
+          }
+        })
+      );
+    
+      const output = results.map((r) => (r.status === "fulfilled" ? r.value : r.reason));
+      return JSON.stringify(output, null, 2);
+    }
+  </file>
+  <file path="src/tools/git.ts">
+    export async function gitWorkflowStatus(): Promise<string> {
+      try {
+        const branch = execSync("git rev-parse --abbrev-ref HEAD", { encoding: "utf-8" }).trim();
+        const status = execSync("git status --porcelain", { encoding: "utf-8" }).trim();
+        const commits = execSync("git log --oneline -5", { encoding: "utf-8" }).trim();
+        
+        let ciStatus = "unknown";
+        try {
+          const run = execSync("gh run list --branch main --limit 1 --json conclusion", { encoding: "utf-8" });
+          const result = JSON.parse(run);
+          ciStatus = result[0]?.conclusion || "unknown";
+        } catch {
+          // gh CLI not available or failed - ciStatus remains "unknown"
+        }
+    
+        return JSON.stringify({
+          currentBranch: branch,
+          hasUncommittedChanges: status.length > 0,
+          pendingChanges: status.split("\n").filter(Boolean),
+          recentCommits: commits.split("\n"),
+          mainBranchCI: ciStatus,
+        }, null, 2);
+      } catch (error) {
+        return JSON.stringify({ error: "Failed to get git status", message: error instanceof Error ? error.message : String(error) });
+      }
+    }
+  </file>
+  <file path="src/tools/deploy_status.ts">
+    export async function deployStatus(): Promise<string> {
+      try {
+        const output = execSync(`doctl apps list --format ID,Spec.Name,ActiveDeployment.Phase,InProgressDeployment.Phase --no-header`, {
+          encoding: "utf-8",
+        });
+        const lines = output.trim().split("\n").filter(Boolean);
+        const apps = lines.map((line) => {
+          const parts = line.trim().split(/\s{2,}/);
+          return {
+            id: parts[0],
+            name: parts[1],
+            activePhase: parts[2] || "unknown",
+            inProgressPhase: parts[3] || "none",
+          };
+        });
+        return JSON.stringify({ apps }, null, 2);
+      } catch (error) {
+        return JSON.stringify({
+          error: "Failed to get deploy status",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+  </file>
+  <file path="src/tools/database.ts">
+    export async function dbListTables(): Promise<string> {
+      try {
+        const dbUrl = process.env.DATABASE_URL;
+        if (!dbUrl) {
+          return JSON.stringify({ error: "DATABASE_URL not set" });
+        }
+    
+        const output = execSync(
+          `psql "${dbUrl}" -t -c "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;"`,
+          { encoding: "utf-8" }
+        );
+        const tables = output.trim().split("\n").filter(Boolean);
+        return JSON.stringify({ tables }, null, 2);
+      } catch (error) {
+        return JSON.stringify({ error: "Failed to list tables", message: error instanceof Error ? error.message : String(error) });
+      }
+    }
+    export async function dbMigrationStatus(): Promise<string> {
+      try {
+        const dbUrl = process.env.DATABASE_URL;
+        if (!dbUrl) {
+          return JSON.stringify({ error: "DATABASE_URL not set" });
+        }
+    
+        const output = execSync(
+          `psql "${dbUrl}" -t -c "SELECT migration_name, finished_at FROM _prisma_migrations ORDER BY finished_at DESC LIMIT 20;"`,
+          { encoding: "utf-8" }
+        );
+        const migrations = output.trim().split("\n").filter(Boolean).map((line) => line.trim());
+        return JSON.stringify({ migrations }, null, 2);
+      } catch (error) {
+        return JSON.stringify({ error: "Failed to get migration status", message: error instanceof Error ? error.message : String(error) });
+      }
+    }
+  </file>
+  <file path="src/tools/ci.ts">
+    export async function ciRunStatus(): Promise<string> {
+      try {
+        const output = execSync(`gh run list --limit 10 --json name,status,conclusion,workflowName`, {
+          encoding: "utf-8",
+        });
+        const runs = JSON.parse(output);
+        return JSON.stringify(runs, null, 2);
+      } catch (error) {
+        return JSON.stringify({ error: "Failed to get CI status", message: error instanceof Error ? error.message : String(error) });
+      }
+    }
+  </file>
+  </section>
+</codebase>
