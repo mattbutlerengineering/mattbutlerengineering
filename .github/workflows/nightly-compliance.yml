@@ -150,3 +150,39 @@ jobs:
             --body-file "$REPORT_PATH" \
             --label meta-improvement \
             --label ready
+
+      - name: File issue on scan failure
+        if: failure()
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          today=$(date -u +%Y-%m-%d)
+          title="Nightly compliance scan failed [${today}]"
+
+          # Dedup: skip if an open issue with the same title already exists.
+          existing=$(gh issue list --state open --label ci-fix --search "$title" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            echo "Issue #$existing already open for today; skipping."
+            exit 0
+          fi
+
+          printf '%s\n' \
+            "## Nightly compliance scan failed" \
+            "" \
+            "The nightly compliance workflow failed on ${today}." \
+            "This indicates an infrastructure or configuration problem" \
+            "(not a drift detection — those are filed separately)." \
+            "" \
+            "**Run:** ${RUN_URL}" \
+            "" \
+            "### Next steps" \
+            "1. Check the [workflow run](${RUN_URL}) for error details" \
+            "2. The \`ci-fix\` label will trigger \`mbe-issue-worker\` to attempt an auto-fix" \
+            "3. If the auto-fix fails, manual intervention is required" \
+            > /tmp/failure-body.md
+
+          gh issue create \
+            --title "$title" \
+            --body-file /tmp/failure-body.md \
+            --label ci-fix \
+            --label audit
