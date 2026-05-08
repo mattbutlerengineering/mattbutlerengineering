@@ -630,12 +630,18 @@ importers:
       '@types/pg':
         specifier: ^8.20.0
         version: 8.20.0
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 4.1.5(@vitest/browser@4.1.5)(vitest@4.1.5)
       tsx:
         specifier: ^4.19.0
         version: 4.21.0
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@vitest/browser-playwright@4.1.5)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0)(vite@8.0.10(@types/node@25.6.0)(esbuild@0.27.2)(jiti@2.6.1)(terser@5.46.2)(tsx@4.21.0)(yaml@2.8.3))
 
   packages/observability:
     dependencies:

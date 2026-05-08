@@ -10,6 +10,8 @@
     "build": "tsc",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "start": "tsx src/index.ts"
   },
   "dependencies": {
@@ -21,7 +23,9 @@
     "@mbe/config": "workspace:*",
     "@types/node": "catalog:",
     "@types/pg": "^8.20.0",
+    "@vitest/coverage-v8": "catalog:",
     "tsx": "^4.19.0",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }
