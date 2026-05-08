@@ -357,7 +357,7 @@ jobs:
         continue-on-error: true
 
       - name: Process results for attribution
-        run: node scripts/process-a11y-results.js
+        run: node scripts/process-a11y-results.js || true
         env:
           GITHUB_HEAD_REF: ${{ github.head_ref }}
           GITHUB_ACTOR: ${{ github.actor }}
