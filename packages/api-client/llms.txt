@@ -65,7 +65,7 @@
         page?: number | undefined;
         limit?: number | undefined;
         date?: string | undefined;
-        status?: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
+        status?: import("/home/user/mattbutlerengineering/packages/types/s...;
         tableId?: string | undefined;
       }
     </item>
@@ -85,6 +85,7 @@
         getAccessToken?: () => string | null | Promise<string | null>;
         timeout?: number;
         maxRetries?: number;
+        onError?: (error: ApiClientError) => void;
       }) { /* ... */ }
     </item>
   </file>
@@ -122,6 +123,7 @@
         getAccessToken?: (() => string | Promise<string | null> | null) | undefined;
         timeout?: number | undefined;
         maxRetries?: number | undefined;
+        onError?: ((error: import("/home/user/mattbutlerengineering/package...;
       }
     </item>
     <item priority="low">
