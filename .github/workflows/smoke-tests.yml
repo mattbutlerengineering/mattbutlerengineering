@@ -1,84 +1,18 @@
-name: Post-Deploy Smoke Tests
+# This workflow has been consolidated into post-deploy-check.yml
+# See the "playwright-smoke" job in that workflow.
+# Kept as a stub to avoid breaking any workflow_run references.
+
+name: Post-Deploy Smoke Tests (deprecated)
 
 on:
-  workflow_run:
-    workflows: ["Deploy Services", "Deploy Static Sites"]
-    types: [completed]
-    branches: [main]
   workflow_dispatch:
 
-permissions: {}
-
 jobs:
-  smoke:
-    name: Smoke Tests
+  redirect:
+    name: Redirected to post-deploy-check
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
-    timeout-minutes: 5
-    permissions:
-      contents: read
-      issues: write
-
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
-
-      - name: Install pnpm
-        run: npm install -g pnpm@9
-
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Install Playwright
-        run: npx playwright install --with-deps chromium
-
-      - name: Run smoke tests
-        env:
-          SMOKE_BASE_URL: "https://mattbutlerengineering.com"
-          SMOKE_API_URL: "https://api.mattbutlerengineering.com"
-        run: npx playwright test --config tests/smoke/playwright.config.ts
-
-      - name: Upload failure artifacts
-        if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: smoke-test-results
-          path: |
-            tests/smoke/test-results/
-            tests/smoke/playwright-report/
-          retention-days: 7
-
-      - name: Create issue on failure
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          TRIGGER_NAME: ${{ github.event.workflow_run.name }}
-        run: |
-          {
-            echo "## Smoke Test Failure"
-            echo
-            echo "Post-deploy smoke tests failed after a successful deploy."
-            echo
-            echo "**Run:** ${RUN_URL}"
-            echo "**Date:** $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            echo "**Trigger:** ${TRIGGER_NAME:-manual}"
-            echo
-            echo "### Next Steps"
-            echo "1. Check test artifacts for failure screenshots"
-            echo "2. Verify deploy didn't break critical user flows"
-            echo "3. Consider rollback if critical paths are broken"
-            echo
-            echo "---"
-            echo "*Auto-created by smoke-tests workflow*"
-          } > /tmp/smoke-body.md
-          gh issue create \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "Post-deploy smoke tests failed" \
-            --label "ci-fix" \
-            --label "ready" \
-            --body-file /tmp/smoke-body.md
+      - run: |
+          echo "This workflow has been consolidated into post-deploy-check.yml."
+          echo "The Playwright smoke tests now run as the 'playwright-smoke' job there."
+          echo "See: .github/workflows/post-deploy-check.yml"
