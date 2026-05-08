@@ -110,36 +110,54 @@ export async function defaultRunner(task, opts = {}) {
     "--max-turns", String(task.maxTurns),
   ];
 
-  const TIMEOUT_MS = 300000; // 5 min
+  const TIMEOUT_MS = 600000; // 10 min (increased from 5)
+  const MAX_ATTEMPTS = 3;
+  let lastResult;
 
-  const { stdout, stderr, status } = await new Promise((resolve) => {
-    const proc = spawn("node", [cli, ...args], {
-      cwd: repoPath,
-      env: process.env,
-      stdio: ["ignore", "pipe", "pipe"],
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const { stdout, stderr, status } = await new Promise((resolve) => {
+      const proc = spawn("node", [cli, ...args], {
+        cwd: repoPath,
+        env: process.env,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+
+      let stdout = "", stderr = "";
+      proc.stdout?.on("data", (d) => { stdout += d; });
+      proc.stderr?.on("data", (d) => { stderr += d; });
+
+      const timer = setTimeout(() => {
+        proc.kill("SIGTERM");
+        resolve({ stdout, stderr, status: -1 });
+      }, TIMEOUT_MS);
+
+      proc.on("close", (code) => {
+        clearTimeout(timer);
+        resolve({ stdout, stderr, status: code ?? -1 });
+      });
     });
 
-    let stdout = "", stderr = "";
-    proc.stdout?.on("data", (d) => { stdout += d; });
-    proc.stderr?.on("data", (d) => { stderr += d; });
+    lastResult = { stdout, stderr, status };
+    const succeeded = /Status:\s+✓ succeeded/.test(stdout);
+    
+    if (succeeded) break;
 
-    const timer = setTimeout(() => {
-      proc.kill("SIGTERM");
-      resolve({ stdout, stderr, status: -1 });
-    }, TIMEOUT_MS);
+    const isRateLimit = /You've hit your limit/.test(stdout) || /You've hit your limit/.test(stderr);
+    if (isRateLimit && attempt < MAX_ATTEMPTS) {
+      const waitTime = attempt * 60000; // 1 min, 2 min...
+      console.log(`  Rate limit hit. Attempt ${attempt}/${MAX_ATTEMPTS} failed. Waiting ${waitTime/1000}s...`);
+      await new Promise(r => setTimeout(r, waitTime));
+      continue;
+    }
 
-    proc.on("close", (code) => {
-      clearTimeout(timer);
-      resolve({ stdout, stderr, status: code ?? -1 });
-    });
-  });
-
-  // Parse the CLI output — exit code is unreliable when spawned
-  const succeeded = /Status:\s+✓ succeeded/.test(stdout);
-  if (!succeeded) {
-    const snippet = stdout.slice(-800) || stderr.slice(-400);
-    throw new Error(`agent failed (exit ${status}): ${snippet}`);
+    // If not a rate limit or we're out of attempts, fail
+    if (!succeeded) {
+      const snippet = stdout.slice(-800) || stderr.slice(-400);
+      throw new Error(`agent failed (exit ${status}): ${snippet}`);
+    }
   }
+
+  const { stdout } = lastResult;
 
   // Extract worktree path and measure diff
   const worktreeMatch = stdout.match(/Branch:\s+(\S+)/);
