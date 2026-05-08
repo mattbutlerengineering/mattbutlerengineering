@@ -35,6 +35,9 @@ Always run `mbe log-session` before finalizing a directive to quantify process i
 ### 6. Model Verification
 For high-complexity tasks (milestones, architectural refactors), run `mbe check-model` to verify you are using the correct tier (Sonnet/Opus). Report your current model version if asked.
 
+### 7. Zero-Touch Audit
+Before finalizing any directive, perform the **Zero-Touch Audit** defined in **`AGENTS.md`**. Ensure no residual conflict markers exist, all imports are present, and infrastructure is synchronized.
+
 ## ACMM Audit
 
 Score the repo against the AI Codebase Maturity Model (6-level rubric, 100+ criteria). This is a plain Node.js script — invoke directly:
