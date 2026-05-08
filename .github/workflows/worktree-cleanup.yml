@@ -1,0 +1,87 @@
+name: Worktree Cleanup
+
+on:
+  schedule:
+    - cron: "37 2 * * 0" # Sunday 2:37 UTC (after branch-cleanup)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run mode (log but don't delete)"
+        required: false
+        default: "true"
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup-agent-branches:
+    name: Cleanup stale agent branches
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+        with:
+          fetch-depth: 0
+
+      - name: Delete remote branches from stale agent sessions
+        env:
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        run: |
+          # Agent worktrees live under .claude/worktrees/ locally (gitignored).
+          # This job cleans the remote branches those sessions created.
+          # Local worktree cleanup: run scripts/clean-worktrees.sh on dev machines.
+
+          REMOVED=0
+          SKIPPED=0
+          AGE_THRESHOLD_DAYS=7
+
+          echo "=== Scanning remote branches for stale agent sessions ==="
+          echo "Mode: $([ "$DRY_RUN" = "true" ] && echo "DRY RUN" || echo "LIVE")"
+          echo ""
+
+          # Fetch all remote branch info
+          git fetch --prune origin
+
+          # Find remote branches that are merged into main
+          MERGED_BRANCHES=$(git branch -r --merged main | grep -v "HEAD" | grep -v "origin/main" | sed 's|origin/||' | xargs)
+
+          for branch in $MERGED_BRANCHES; do
+            # Only target agent-created branches (common patterns)
+            case "$branch" in
+              agent/*|fix/issue-*|feat/issue-*|chore/issue-*)
+                ;;
+              *)
+                continue
+                ;;
+            esac
+
+            # Check branch age
+            last_commit_date=$(git log -1 --format=%ci "origin/$branch" 2>/dev/null | head -1)
+            if [ -z "$last_commit_date" ]; then
+              continue
+            fi
+
+            days_since=$(( ($(date +%s) - $(date -d "$last_commit_date" +%s)) / 86400 ))
+            if [ "$days_since" -lt "$AGE_THRESHOLD_DAYS" ]; then
+              echo "Skipping $branch — only $days_since days old"
+              SKIPPED=$((SKIPPED + 1))
+              continue
+            fi
+
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "[DRY RUN] Would delete: $branch ($days_since days old, merged)"
+            else
+              echo "Deleting: $branch ($days_since days old, merged)"
+              git push origin --delete "$branch" || true
+            fi
+            REMOVED=$((REMOVED + 1))
+          done
+
+          echo ""
+          echo "=== Summary ==="
+          echo "Removed: $REMOVED"
+          echo "Skipped: $SKIPPED"
+          echo "Dry run: $DRY_RUN"
+          echo ""
+          echo "NOTE: For local worktree cleanup, run: scripts/clean-worktrees.sh"
