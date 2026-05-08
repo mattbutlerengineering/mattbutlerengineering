@@ -50,18 +50,20 @@ interface MockRateLimitMonitor {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const { _mockGetSnapshot, mockRateLimitMonitor } = vi.hoisted((): { _mockGetSnapshot: any; mockRateLimitMonitor: MockRateLimitMonitor } => {
-  const mockGetSnapshot = vi.fn().mockReturnValue({
-    stats: { hits_last_hour: 0, blocked_ips: 0 },
-    isDegraded: false,
-  });
-  const mockRateLimitMonitor = {
-    recordHit: vi.fn(),
-    getSnapshot: mockGetSnapshot,
-    reset: vi.fn(),
-  };
-  return { _mockGetSnapshot: mockGetSnapshot, mockRateLimitMonitor };
-});
+const { _mockGetSnapshot, mockRateLimitMonitor } = vi.hoisted(
+  (): { _mockGetSnapshot: any; mockRateLimitMonitor: MockRateLimitMonitor } => {
+    const mockGetSnapshot = vi.fn().mockReturnValue({
+      stats: { hits_last_hour: 0, blocked_ips: 0 },
+      isDegraded: false,
+    });
+    const mockRateLimitMonitor = {
+      recordHit: vi.fn(),
+      getSnapshot: mockGetSnapshot,
+      reset: vi.fn(),
+    };
+    return { _mockGetSnapshot: mockGetSnapshot, mockRateLimitMonitor };
+  }
+);
 
 // Use the mock to satisfy noUnusedLocals
 void _mockGetSnapshot;

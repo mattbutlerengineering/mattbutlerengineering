@@ -7,6 +7,7 @@ Operational procedures for managing the mattbutlerengineering infrastructure.
 ## 1. Deploy a New Service
 
 ### Prerequisites
+
 - Service code in `services/<name>/`
 - Dockerfile in `services/<name>/Dockerfile`
 - Pulumi resource in `infrastructure/pulumi/`
@@ -14,6 +15,7 @@ Operational procedures for managing the mattbutlerengineering infrastructure.
 ### Steps
 
 1. **Add Pulumi resource:**
+
    ```typescript
    // infrastructure/pulumi/index.ts
    import { Service } from "./service-template.js";
@@ -29,6 +31,7 @@ Operational procedures for managing the mattbutlerengineering infrastructure.
    ```
 
 2. **Update edge router routing:**
+
    ```javascript
    // infrastructure/worker/edge-router.js
    const routes = {
@@ -36,28 +39,31 @@ Operational procedures for managing the mattbutlerengineering infrastructure.
      "/api/my-service": {
        type: "service",
        url: "http://my-service:3005",
-       headers: { "X-Service-Name": "my-service" }
-     }
+       headers: { "X-Service-Name": "my-service" },
+     },
    };
    ```
 
 3. **Add health check endpoint:**
+
    ```typescript
    // services/my-service/src/routes/health.ts
    fastify.get("/health", async () => ({
      status: "ok",
      service: "my-service",
-     timestamp: new Date().toISOString()
+     timestamp: new Date().toISOString(),
    }));
    ```
 
 4. **Build and push image:**
+
    ```bash
    docker build -t ghcr.io/mattbutlerengineering/my-service:latest ./services/my-service
    docker push ghcr.io/mattbutlerengineering/my-service:latest
    ```
 
 5. **Deploy with Pulumi:**
+
    ```bash
    cd infrastructure/pulumi
    pulumi up
@@ -161,11 +167,13 @@ pg_restore --no-owner \
 **Symptom: 502 Bad Gateway**
 
 1. Check service health:
+
    ```bash
    curl -v https://api.mattbutlerengineering.com/api/<service>/health
    ```
 
 2. Check service logs:
+
    ```bash
    doctl apps logs <app-id> --deployment <deployment-id> --service <service-name>
    ```
@@ -185,6 +193,7 @@ pg_restore --no-owner \
 **Symptom: Connection Timeout**
 
 1. Check if service is running:
+
    ```bash
    doctl apps list-deployments
    ```
@@ -203,28 +212,28 @@ const routes = {
   "/api/users": {
     type: "service",
     url: "http://users-service:3001",
-    headers: { "X-Service-Name": "users" }
+    headers: { "X-Service-Name": "users" },
   },
   "/api/reservations": {
-    type: "service", 
+    type: "service",
     url: "http://reservations-service:3004",
-    headers: { "X-Service-Name": "reservations" }
+    headers: { "X-Service-Name": "reservations" },
   },
   "/api/agent": {
     type: "service",
     url: "http://agent-service:3003",
-    headers: { "X-Service-Name": "agent" }
+    headers: { "X-Service-Name": "agent" },
   },
   // SSE routes preserve connection
   "/api/v1/events": {
     type: "sse",
-    url: "http://reservations-service:3004"
+    url: "http://reservations-service:3004",
   },
   // Static assets
   "/_assets/*": {
     type: "static",
-    url: "https://assets.mattbutlerengineering.com"
-  }
+    url: "https://assets.mattbutlerengineering.com",
+  },
 };
 ```
 
@@ -341,11 +350,11 @@ doctl apps list-deployments <app-id> --format id,created_at,phase
 
 ### Emergency Contacts
 
-| Service | Contact |
-|---------|---------|
+| Service              | Contact                |
+| -------------------- | ---------------------- |
 | DigitalOcean Support | `doctl support ticket` |
-| Auth0 Support | auth0.com/support |
-| Claude API | console.anthropic.com |
+| Auth0 Support        | auth0.com/support      |
+| Claude API           | console.anthropic.com  |
 
 ---
 
@@ -360,12 +369,12 @@ doctl apps list-deployments <app-id> --format id,created_at,phase
 
 ### Alert Thresholds
 
-| Alert | Threshold | Action |
-|-------|-----------|--------|
-| High Error Rate | > 1% | Page on-call |
-| Slow Response | P99 > 2s | Investigate |
-| Database Full | > 90% | Scale or cleanup |
-| Disk Usage | > 85% | Cleanup logs |
+| Alert           | Threshold | Action           |
+| --------------- | --------- | ---------------- |
+| High Error Rate | > 1%      | Page on-call     |
+| Slow Response   | P99 > 2s  | Investigate      |
+| Database Full   | > 90%     | Scale or cleanup |
+| Disk Usage      | > 85%     | Cleanup logs     |
 
 ### View Metrics
 

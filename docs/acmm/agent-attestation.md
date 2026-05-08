@@ -6,29 +6,32 @@ Establish non-repudiation for AI agent actions — prove which agent made which 
 
 ## Current State
 
-| Mechanism | Status | Notes |
-|-----------|--------|-------|
-| Git author | Partial | Agents use the repo owner's git config — not distinguishable from human commits |
-| Co-Authored-By | Active | Agent PRs include `Co-Authored-By: Claude` trailer |
-| Branch naming | Active | Agent branches use `agent-*` or `worktree-agent-*` prefix |
-| GitHub labels | Active | Agent PRs labeled `has-pr`, issues labeled `in-progress` during work |
-| Langfuse traces | Active | Each session has a trace with model, cost, and task metadata |
+| Mechanism       | Status  | Notes                                                                           |
+| --------------- | ------- | ------------------------------------------------------------------------------- |
+| Git author      | Partial | Agents use the repo owner's git config — not distinguishable from human commits |
+| Co-Authored-By  | Active  | Agent PRs include `Co-Authored-By: Claude` trailer                              |
+| Branch naming   | Active  | Agent branches use `agent-*` or `worktree-agent-*` prefix                       |
+| GitHub labels   | Active  | Agent PRs labeled `has-pr`, issues labeled `in-progress` during work            |
+| Langfuse traces | Active  | Each session has a trace with model, cost, and task metadata                    |
 
 ## Attestation Strategy
 
 ### Phase 1: Metadata-Based (Current)
+
 - Branch name prefix identifies agent-authored code
 - `Co-Authored-By` trailer in commit messages
 - GitHub labels for state machine tracking
 - Langfuse session traces for audit trail
 
 ### Phase 2: Bot Account (Recommended Next Step)
+
 - Create a dedicated GitHub bot account (e.g., `mbe-agent-bot`)
 - Configure `@mbe/agent-core` to commit as the bot user
 - Bot commits show distinct avatar and author in GitHub UI
 - Enables per-agent permission scoping
 
 ### Phase 3: GPG-Signed Commits (Future)
+
 - Generate a GPG key for the bot account
 - Sign all agent commits — shows "Verified" badge on GitHub
 - Cryptographic proof of which key (agent) made which change
@@ -68,6 +71,7 @@ git config commit.gpgsign true
 ### Audit trail
 
 All agent actions are already traced to Langfuse with:
+
 - Session ID (links to git branch)
 - Model used (sonnet, opus, haiku)
 - Cost and token usage
@@ -76,11 +80,11 @@ All agent actions are already traced to Langfuse with:
 
 ## Non-Repudiation Guarantees
 
-| Level | Guarantee | How |
-|-------|-----------|-----|
-| Weak | "This looks like an agent commit" | Branch naming convention |
-| Medium | "This was committed by the agent account" | Dedicated bot user |
-| Strong | "This was cryptographically signed by the agent" | GPG-signed commits |
+| Level  | Guarantee                                        | How                      |
+| ------ | ------------------------------------------------ | ------------------------ |
+| Weak   | "This looks like an agent commit"                | Branch naming convention |
+| Medium | "This was committed by the agent account"        | Dedicated bot user       |
+| Strong | "This was cryptographically signed by the agent" | GPG-signed commits       |
 
 ## References
 

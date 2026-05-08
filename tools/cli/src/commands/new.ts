@@ -191,21 +191,21 @@ function generateExamplePage(): string {
     "    <Stack",
     '      direction="column"',
     '      gap="lg"',
-    "      style={{ padding: \"var(--rialto-space-xl)\", maxWidth: \"800px\", margin: \"0 auto\" }}",
+    '      style={{ padding: "var(--rialto-space-xl)", maxWidth: "800px", margin: "0 auto" }}',
     "    >",
-    "      <Text variant=\"display\" size=\"2xl\">",
+    '      <Text variant="display" size="2xl">',
     "        Welcome",
     "      </Text>",
-    "      <Text variant=\"body\" size=\"md\">",
+    '      <Text variant="body" size="md">',
     "        This app is powered by Rialto.",
     "      </Text>",
     "      <Card>",
     '        <Stack direction="column" gap="md">',
-    "          <Text variant=\"heading\" size=\"lg\">",
+    '          <Text variant="heading" size="lg">',
     "            Getting Started",
     "          </Text>",
-    "          <Text variant=\"body\">Edit src/pages/ExamplePage.tsx to start building.</Text>",
-    "          <Button variant=\"primary\">Learn More</Button>",
+    '          <Text variant="body">Edit src/pages/ExamplePage.tsx to start building.</Text>',
+    '          <Button variant="primary">Learn More</Button>',
     "        </Stack>",
     "      </Card>",
     "    </Stack>",
@@ -268,9 +268,7 @@ export const newCommand = new Command("new")
     const port = options.port ? parseInt(options.port, 10) : detectNextPort(appsDir);
 
     if (options.port && (isNaN(port) || port < 1 || port > 65535)) {
-      console.error(
-        `Error: Invalid port "${options.port}". Must be a number between 1 and 65535.`
-      );
+      console.error(`Error: Invalid port "${options.port}". Must be a number between 1 and 65535.`);
       process.exit(1);
     }
 

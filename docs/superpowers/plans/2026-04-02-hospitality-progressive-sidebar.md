@@ -14,25 +14,25 @@
 
 ## File Structure
 
-| File | Action | Responsibility |
-|------|--------|---------------|
-| `src/hooks/useVenueReadiness.ts` | Create | Derive `VenueReadiness` from venue + floor plans |
-| `src/hooks/useVenueReadiness.test.ts` | Create | Unit tests for all gate combinations |
-| `src/nav-sections.ts` | Modify | Replace static `NAV_SECTIONS` with `buildNavSections(readiness)` |
-| `src/nav-sections.test.ts` | Create | Unit tests for setup vs operational section generation |
-| `src/components/VenueSwitcher.tsx` | Create | Sidebar venue dropdown |
-| `src/components/VenueSwitcher.module.css` | Create | Styles for venue switcher |
-| `src/components/VenueSwitcher.test.tsx` | Create | Unit tests for venue switching |
-| `src/components/DashboardSidebar.tsx` | Modify | Add `stepStatus`/`disabled` support, VenueSwitcher slot |
-| `src/components/DashboardSidebar.module.css` | Modify | Styles for step icons and disabled state |
-| `src/components/DashboardLayout.tsx` | Modify | Use readiness hook, dynamic sections, redirects |
-| `src/hooks/use-command-palette.ts` | Modify | Accept sections as parameter instead of importing static `NAV_SECTIONS` |
-| `src/pages/SetupPage.tsx` | Create | Setup landing with stepper progress |
-| `src/pages/SetupPage.module.css` | Create | Styles for setup page |
-| `src/pages/SetupHoursPage.tsx` | Create | Standalone operating hours editor |
-| `src/pages/SetupHoursPage.module.css` | Create | Styles for hours page |
-| `src/main.tsx` | Modify | Add new routes, change default landing |
-| `src/pages/TimelinePage.tsx` | Modify | Remove per-page venue selector |
+| File                                         | Action | Responsibility                                                          |
+| -------------------------------------------- | ------ | ----------------------------------------------------------------------- |
+| `src/hooks/useVenueReadiness.ts`             | Create | Derive `VenueReadiness` from venue + floor plans                        |
+| `src/hooks/useVenueReadiness.test.ts`        | Create | Unit tests for all gate combinations                                    |
+| `src/nav-sections.ts`                        | Modify | Replace static `NAV_SECTIONS` with `buildNavSections(readiness)`        |
+| `src/nav-sections.test.ts`                   | Create | Unit tests for setup vs operational section generation                  |
+| `src/components/VenueSwitcher.tsx`           | Create | Sidebar venue dropdown                                                  |
+| `src/components/VenueSwitcher.module.css`    | Create | Styles for venue switcher                                               |
+| `src/components/VenueSwitcher.test.tsx`      | Create | Unit tests for venue switching                                          |
+| `src/components/DashboardSidebar.tsx`        | Modify | Add `stepStatus`/`disabled` support, VenueSwitcher slot                 |
+| `src/components/DashboardSidebar.module.css` | Modify | Styles for step icons and disabled state                                |
+| `src/components/DashboardLayout.tsx`         | Modify | Use readiness hook, dynamic sections, redirects                         |
+| `src/hooks/use-command-palette.ts`           | Modify | Accept sections as parameter instead of importing static `NAV_SECTIONS` |
+| `src/pages/SetupPage.tsx`                    | Create | Setup landing with stepper progress                                     |
+| `src/pages/SetupPage.module.css`             | Create | Styles for setup page                                                   |
+| `src/pages/SetupHoursPage.tsx`               | Create | Standalone operating hours editor                                       |
+| `src/pages/SetupHoursPage.module.css`        | Create | Styles for hours page                                                   |
+| `src/main.tsx`                               | Modify | Add new routes, change default landing                                  |
+| `src/pages/TimelinePage.tsx`                 | Modify | Remove per-page venue selector                                          |
 
 All paths are relative to `apps/hospitality/`.
 
@@ -41,6 +41,7 @@ All paths are relative to `apps/hospitality/`.
 ### Task 1: useVenueReadiness Hook
 
 **Files:**
+
 - Create: `apps/hospitality/src/hooks/useVenueReadiness.ts`
 - Create: `apps/hospitality/src/hooks/useVenueReadiness.test.ts`
 
@@ -199,18 +200,14 @@ export function computeReadiness(
   // Gate 2: Operating hours — at least one day configured
   if (venue.operatingHours) {
     const days = Object.values(venue.operatingHours);
-    const hasOpenDay = days.some(
-      (day) => day !== undefined && day.closed !== true
-    );
+    const hasOpenDay = days.some((day) => day !== undefined && day.closed !== true);
     if (hasOpenDay) {
       completed.push("operating-hours");
     }
   }
 
   // Gate 3: Floor plan with tables
-  const hasFloorPlanWithTables = floorPlans.some(
-    (fp) => fp.tables && fp.tables.length > 0
-  );
+  const hasFloorPlanWithTables = floorPlans.some((fp) => fp.tables && fp.tables.length > 0);
   if (hasFloorPlanWithTables) {
     completed.push("floor-plan");
   }
@@ -302,6 +299,7 @@ git commit -m "feat(hospitality): add useVenueReadiness hook with setup gate log
 ### Task 2: Nav Section Generator
 
 **Files:**
+
 - Modify: `apps/hospitality/src/nav-sections.ts`
 - Create: `apps/hospitality/src/nav-sections.test.ts`
 
@@ -430,7 +428,12 @@ interface SetupStepDef {
 
 const SETUP_STEPS: readonly SetupStepDef[] = [
   { step: "onboarding", id: "onboarding", label: "Venue Basics", path: "/onboarding" },
-  { step: "operating-hours", id: "setup-hours", label: "Set Operating Hours", path: "/setup/hours" },
+  {
+    step: "operating-hours",
+    id: "setup-hours",
+    label: "Set Operating Hours",
+    path: "/setup/hours",
+  },
   { step: "floor-plan", id: "floor-plans", label: "Create Floor Plan", path: "/floor-plans" },
 ];
 
@@ -490,9 +493,7 @@ function buildOperationalSections(): readonly NavSection[] {
     },
     {
       label: "Account",
-      items: [
-        { id: "profile", label: "Profile", path: "/profile" },
-      ],
+      items: [{ id: "profile", label: "Profile", path: "/profile" }],
     },
   ];
 }
@@ -524,6 +525,7 @@ git commit -m "feat(hospitality): replace static NAV_SECTIONS with buildNavSecti
 ### Task 3: Update DashboardSidebar for Step Status and Disabled Items
 
 **Files:**
+
 - Modify: `apps/hospitality/src/components/DashboardSidebar.tsx`
 - Modify: `apps/hospitality/src/components/DashboardSidebar.module.css`
 
@@ -561,7 +563,7 @@ Then update the nav item button rendering (both flat and collapsible sections) t
 
 - Before `{item.label}`: `{item.stepStatus && <StepIcon status={item.stepStatus} />}`
 - On the button: `disabled={item.disabled}` and `aria-disabled={item.disabled ? "true" : undefined}`
-- Add disabled class: `` className={`${styles.navLink} ${active ? styles.navLinkActive : ""} ${item.disabled ? styles.navLinkDisabled : ""}`} ``
+- Add disabled class: ``className={`${styles.navLink} ${active ? styles.navLinkActive : ""} ${item.disabled ? styles.navLinkDisabled : ""}`}``
 
 Also update the `NavItem` import to include `stepStatus` and `disabled` fields (already added to the type in Task 2).
 
@@ -577,10 +579,10 @@ header?: React.ReactNode;
 In the JSX, render it above `<div className={styles.sections}>`:
 
 ```tsx
-{header}
-<div className={styles.sections}>
-  {/* existing section rendering */}
-</div>
+{
+  header;
+}
+<div className={styles.sections}>{/* existing section rendering */}</div>;
 ```
 
 - [ ] **Step 3: Add CSS for step icons and disabled state**
@@ -617,6 +619,7 @@ git commit -m "feat(hospitality): add step status icons and disabled state to si
 ### Task 4: VenueSwitcher Component
 
 **Files:**
+
 - Create: `apps/hospitality/src/components/VenueSwitcher.tsx`
 - Create: `apps/hospitality/src/components/VenueSwitcher.module.css`
 - Create: `apps/hospitality/src/components/VenueSwitcher.test.tsx`
@@ -964,6 +967,7 @@ git commit -m "feat(hospitality): add VenueSwitcher component for sidebar"
 ### Task 5: Update Command Palette to Accept Dynamic Sections
 
 **Files:**
+
 - Modify: `apps/hospitality/src/hooks/use-command-palette.ts`
 
 - [ ] **Step 1: Update useCommandPalette to accept sections as a parameter**
@@ -1028,6 +1032,7 @@ git commit -m "refactor(hospitality): make command palette accept dynamic nav se
 ### Task 6: Wire Up DashboardLayout
 
 **Files:**
+
 - Modify: `apps/hospitality/src/components/DashboardLayout.tsx`
 
 - [ ] **Step 1: Update DashboardLayout to use dynamic sections and readiness**
@@ -1036,6 +1041,7 @@ Key changes to `DashboardLayout.tsx`:
 
 1. Remove import of `NAV_SECTIONS`
 2. Add imports:
+
    ```typescript
    import { useVenueReadiness } from "../hooks/useVenueReadiness.js";
    import { buildNavSections } from "../nav-sections.js";
@@ -1118,24 +1124,26 @@ function DashboardLayoutInner() {
 ```
 
 5. Update `ROUTE_LABELS` to include new routes:
+
 ```typescript
 const ROUTE_LABELS: Record<string, string> = {
   "": "Home",
-  "timeline": "Timeline",
-  "dashboard": "Dashboard",
-  "reservations": "Reservations",
-  "guests": "Guests",
+  timeline: "Timeline",
+  dashboard: "Dashboard",
+  reservations: "Reservations",
+  guests: "Guests",
   "floor-plans": "Floor Plans",
   "booking-widget": "Booking Widget",
-  "onboarding": "New Venue",
-  "setup": "Setup",
-  "profile": "Profile",
-  "settings": "Settings",
-  "admin": "Admin",
+  onboarding: "New Venue",
+  setup: "Setup",
+  profile: "Profile",
+  settings: "Settings",
+  admin: "Admin",
 };
 ```
 
 6. The outer `DashboardLayout` export wraps `DashboardLayoutInner` in `VenueProvider`:
+
 ```typescript
 export function DashboardLayout() {
   return (
@@ -1163,6 +1171,7 @@ git commit -m "feat(hospitality): wire readiness-driven sidebar and redirects in
 ### Task 7: SetupPage
 
 **Files:**
+
 - Create: `apps/hospitality/src/pages/SetupPage.tsx`
 - Create: `apps/hospitality/src/pages/SetupPage.module.css`
 
@@ -1358,6 +1367,7 @@ git commit -m "feat(hospitality): add SetupPage with stepper progress"
 ### Task 8: SetupHoursPage
 
 **Files:**
+
 - Create: `apps/hospitality/src/pages/SetupHoursPage.tsx`
 - Create: `apps/hospitality/src/pages/SetupHoursPage.module.css`
 
@@ -1477,6 +1487,7 @@ git commit -m "feat(hospitality): add standalone SetupHoursPage"
 ### Task 9: Update Routes and Default Landing
 
 **Files:**
+
 - Modify: `apps/hospitality/src/main.tsx`
 - Modify: `apps/hospitality/src/pages/TimelinePage.tsx`
 
@@ -1496,6 +1507,7 @@ const SetupHoursPage = lazy(() =>
 Update the route tree inside the DashboardLayout children array:
 
 1. Change the index route from `HomePage` to `TimelinePage`:
+
 ```typescript
 {
   index: true,
@@ -1508,6 +1520,7 @@ Update the route tree inside the DashboardLayout children array:
 ```
 
 2. Add a `/dashboard` route for the old HomePage:
+
 ```typescript
 {
   path: "dashboard",
@@ -1520,6 +1533,7 @@ Update the route tree inside the DashboardLayout children array:
 ```
 
 3. Add setup routes:
+
 ```typescript
 {
   path: "setup",
@@ -1594,6 +1608,7 @@ Expected: No errors
 Run: `cd apps/hospitality && pnpm dev`
 
 Manual verification:
+
 1. Navigate to `http://localhost:3002/hospitality` — should show setup stepper (if no floor plan exists) or redirect to Timeline (if fully set up)
 2. If in setup mode: sidebar shows "Get Started" stepper with correct step statuses
 3. If in operational mode: sidebar shows Timeline first, Manage section, venue switcher at top

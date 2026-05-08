@@ -58,8 +58,9 @@ vi.mock("../tool-permissions.js", () => ({
 }));
 
 vi.mock("@langfuse/tracing", () => ({
-  startActiveObservation: vi.fn().mockImplementation(
-    async (_name: string, fn: (span: unknown) => Promise<unknown>) => {
+  startActiveObservation: vi
+    .fn()
+    .mockImplementation(async (_name: string, fn: (span: unknown) => Promise<unknown>) => {
       const mockSpan = {
         update: vi.fn().mockReturnThis(),
         end: vi.fn(),
@@ -70,22 +71,21 @@ vi.mock("@langfuse/tracing", () => ({
         }),
       };
       return fn(mockSpan);
-    }
-  ),
+    }),
   startObservation: vi.fn().mockReturnValue({
     update: vi.fn().mockReturnThis(),
     end: vi.fn(),
   }),
-  propagateAttributes: vi.fn().mockImplementation(
-    async (_attrs: unknown, fn: () => Promise<unknown>) => {
+  propagateAttributes: vi
+    .fn()
+    .mockImplementation(async (_attrs: unknown, fn: () => Promise<unknown>) => {
       return fn();
-    }
-  ),
+    }),
   updateActiveObservation: vi.fn(),
 }));
 
 vi.mock("../retry.js", async () => {
-  const actual = await vi.importActual("../retry.js") as Record<string, unknown>;
+  const actual = (await vi.importActual("../retry.js")) as Record<string, unknown>;
   return {
     ...actual,
     // Override withRetry to skip actual delays in tests
@@ -114,7 +114,12 @@ import { loadMemory, queryPastFailures, buildFailureContext } from "../failure-m
 import { buildSystemPrompt } from "../prompt-builder.js";
 import { createToolPermissionHandler } from "../tool-permissions.js";
 import { withRetry } from "../retry.js";
-import { startActiveObservation, startObservation, propagateAttributes, updateActiveObservation } from "@langfuse/tracing";
+import {
+  startActiveObservation,
+  startObservation,
+  propagateAttributes,
+  updateActiveObservation,
+} from "@langfuse/tracing";
 import { runSession } from "../session-runner.js";
 
 const BASE_CONFIG: SessionConfig = {
@@ -206,9 +211,7 @@ describe("runSession", () => {
   it("runs a successful session with PR creation", async () => {
     const mockResult = createMockResultMessage();
 
-    vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([mockResult]) as ReturnType<typeof query>
-    );
+    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
     vi.mocked(hasChanges).mockResolvedValue(true);
     vi.mocked(commitChanges).mockResolvedValue("abc123");
     vi.mocked(pushBranch).mockResolvedValue(undefined);
@@ -232,9 +235,7 @@ describe("runSession", () => {
   it("skips PR creation when no changes are made", async () => {
     const mockResult = createMockResultMessage();
 
-    vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([mockResult]) as ReturnType<typeof query>
-    );
+    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
     vi.mocked(hasChanges).mockResolvedValue(false);
 
     const result = await runSession(BASE_CONFIG);
@@ -249,9 +250,7 @@ describe("runSession", () => {
   it("skips PR when createPr is false", async () => {
     const mockResult = createMockResultMessage();
 
-    vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([mockResult]) as ReturnType<typeof query>
-    );
+    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
     vi.mocked(hasChanges).mockResolvedValue(true);
     vi.mocked(commitChanges).mockResolvedValue("abc123");
     vi.mocked(pushBranch).mockResolvedValue(undefined);
@@ -290,9 +289,7 @@ describe("runSession", () => {
   it("emits events when callback is provided", async () => {
     const mockResult = createMockResultMessage();
 
-    vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([mockResult]) as ReturnType<typeof query>
-    );
+    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
     vi.mocked(hasChanges).mockResolvedValue(false);
 
     const events: SessionEvent[] = [];
@@ -305,9 +302,7 @@ describe("runSession", () => {
   it("cleans up worktree after successful PR creation", async () => {
     const mockResult = createMockResultMessage();
 
-    vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([mockResult]) as ReturnType<typeof query>
-    );
+    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
     vi.mocked(hasChanges).mockResolvedValue(true);
     vi.mocked(commitChanges).mockResolvedValue("abc123");
     vi.mocked(pushBranch).mockResolvedValue(undefined);
@@ -329,9 +324,7 @@ describe("runSession", () => {
   it("preserves worktree when createPr is false (--no-pr)", async () => {
     const mockResult = createMockResultMessage();
 
-    vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([mockResult]) as ReturnType<typeof query>
-    );
+    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
     vi.mocked(hasChanges).mockResolvedValue(true);
     vi.mocked(commitChanges).mockResolvedValue("abc123");
     vi.mocked(pushBranch).mockResolvedValue(undefined);
@@ -344,9 +337,7 @@ describe("runSession", () => {
   it("surfaces cleanup errors in cleanupErrors when removeWorktree fails", async () => {
     const mockResult = createMockResultMessage();
 
-    vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([mockResult]) as ReturnType<typeof query>
-    );
+    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
     vi.mocked(hasChanges).mockResolvedValue(true);
     vi.mocked(commitChanges).mockResolvedValue("abc123");
     vi.mocked(pushBranch).mockResolvedValue(undefined);
@@ -356,9 +347,7 @@ describe("runSession", () => {
       url: "https://github.com/repo/pull/1",
       number: 1,
     });
-    vi.mocked(removeWorktree).mockRejectedValue(
-      new Error("fatal: worktree is locked")
-    );
+    vi.mocked(removeWorktree).mockRejectedValue(new Error("fatal: worktree is locked"));
 
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const result = await runSession(BASE_CONFIG);
@@ -369,9 +358,7 @@ describe("runSession", () => {
 
     // Cleanup error should be surfaced
     expect(result.cleanupErrors).toEqual(["fatal: worktree is locked"]);
-    expect(warnSpy).toHaveBeenCalledWith(
-      "Worktree cleanup failed: fatal: worktree is locked"
-    );
+    expect(warnSpy).toHaveBeenCalledWith("Worktree cleanup failed: fatal: worktree is locked");
 
     warnSpy.mockRestore();
   });
@@ -379,9 +366,7 @@ describe("runSession", () => {
   it("emits session:cleanup_warning event when removeWorktree fails", async () => {
     const mockResult = createMockResultMessage();
 
-    vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([mockResult]) as ReturnType<typeof query>
-    );
+    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
     vi.mocked(hasChanges).mockResolvedValue(true);
     vi.mocked(commitChanges).mockResolvedValue("abc123");
     vi.mocked(pushBranch).mockResolvedValue(undefined);
@@ -391,21 +376,17 @@ describe("runSession", () => {
       url: "https://github.com/repo/pull/1",
       number: 1,
     });
-    vi.mocked(removeWorktree).mockRejectedValue(
-      new Error("fatal: worktree is locked")
-    );
+    vi.mocked(removeWorktree).mockRejectedValue(new Error("fatal: worktree is locked"));
 
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const events: SessionEvent[] = [];
     await runSession(BASE_CONFIG, (event) => events.push(event));
 
-    const cleanupEvents = events.filter(
-      (e) => e.type === "session:cleanup_warning"
-    );
+    const cleanupEvents = events.filter((e) => e.type === "session:cleanup_warning");
     expect(cleanupEvents).toHaveLength(1);
-    expect(
-      (cleanupEvents[0].data as { message: string }).message
-    ).toContain("fatal: worktree is locked");
+    expect((cleanupEvents[0].data as { message: string }).message).toContain(
+      "fatal: worktree is locked"
+    );
 
     vi.restoreAllMocks();
   });
@@ -413,9 +394,7 @@ describe("runSession", () => {
   it("omits cleanupErrors when removeWorktree succeeds", async () => {
     const mockResult = createMockResultMessage();
 
-    vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([mockResult]) as ReturnType<typeof query>
-    );
+    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
     vi.mocked(hasChanges).mockResolvedValue(true);
     vi.mocked(commitChanges).mockResolvedValue("abc123");
     vi.mocked(pushBranch).mockResolvedValue(undefined);
@@ -447,9 +426,7 @@ describe("runSession", () => {
 
   it("uses withRetry for createWorktree", async () => {
     const mockResult = createMockResultMessage();
-    vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([mockResult]) as ReturnType<typeof query>
-    );
+    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
     vi.mocked(hasChanges).mockResolvedValue(false);
 
     await runSession(BASE_CONFIG);
@@ -463,9 +440,7 @@ describe("runSession", () => {
 
   it("uses withRetry for pushBranch with 3 retries", async () => {
     const mockResult = createMockResultMessage();
-    vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([mockResult]) as ReturnType<typeof query>
-    );
+    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
     vi.mocked(hasChanges).mockResolvedValue(true);
     vi.mocked(commitChanges).mockResolvedValue("abc123");
     vi.mocked(pushBranch).mockResolvedValue(undefined);
@@ -492,9 +467,7 @@ describe("runSession", () => {
 
   it("uses withRetry for createPullRequest", async () => {
     const mockResult = createMockResultMessage();
-    vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([mockResult]) as ReturnType<typeof query>
-    );
+    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
     vi.mocked(hasChanges).mockResolvedValue(true);
     vi.mocked(commitChanges).mockResolvedValue("abc123");
     vi.mocked(pushBranch).mockResolvedValue(undefined);
@@ -535,8 +508,8 @@ describe("runSession", () => {
     // Verify context exhaustion stuck event was emitted
     const stuckEvents = events.filter((e) => e.type === "session:stuck");
     expect(stuckEvents.length).toBeGreaterThan(0);
-    const exhaustionEvent = stuckEvents.find(
-      (e) => (e.data as { message: string }).message.includes("Context window exhaustion")
+    const exhaustionEvent = stuckEvents.find((e) =>
+      (e.data as { message: string }).message.includes("Context window exhaustion")
     );
     expect(exhaustionEvent).toBeDefined();
   });
@@ -564,9 +537,7 @@ describe("runSession", () => {
 
   it("uses remaining budget for feedback loop instead of fixed 50%", async () => {
     const mockResult = createMockResultMessage(); // cost: 0.25
-    vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([mockResult]) as ReturnType<typeof query>
-    );
+    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
     vi.mocked(hasChanges).mockResolvedValue(true);
     vi.mocked(commitChanges).mockResolvedValue("abc123");
     vi.mocked(pushBranch).mockResolvedValue(undefined);
@@ -601,9 +572,7 @@ describe("runSession", () => {
 
   it("caches git diff across evaluation, static analysis, and security review", async () => {
     const mockResult = createMockResultMessage();
-    vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([mockResult]) as ReturnType<typeof query>
-    );
+    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
     vi.mocked(hasChanges).mockResolvedValue(true);
     vi.mocked(commitChanges).mockResolvedValue("abc123");
     vi.mocked(pushBranch).mockResolvedValue(undefined);
@@ -648,7 +617,12 @@ describe("Langfuse tracing", () => {
       is_error: false,
       num_turns: 3,
       stop_reason: "end_turn",
-      usage: { input_tokens: 100, output_tokens: 50, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+      usage: {
+        input_tokens: 100,
+        output_tokens: 50,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 0,
+      },
     };
 
     vi.mocked(query).mockReturnValue(
@@ -659,10 +633,7 @@ describe("Langfuse tracing", () => {
 
     await runSession(BASE_CONFIG);
 
-    expect(startActiveObservation).toHaveBeenCalledWith(
-      "agent-session",
-      expect.any(Function)
-    );
+    expect(startActiveObservation).toHaveBeenCalledWith("agent-session", expect.any(Function));
     expect(propagateAttributes).toHaveBeenCalledWith(
       expect.objectContaining({
         metadata: expect.objectContaining({
@@ -709,7 +680,12 @@ describe("Langfuse tracing", () => {
       is_error: false,
       num_turns: 3,
       stop_reason: "end_turn",
-      usage: { input_tokens: 100, output_tokens: 50, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+      usage: {
+        input_tokens: 100,
+        output_tokens: 50,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 0,
+      },
     };
 
     vi.mocked(query).mockReturnValue(
@@ -753,7 +729,12 @@ describe("Langfuse tracing", () => {
       is_error: false,
       num_turns: 3,
       stop_reason: "end_turn",
-      usage: { input_tokens: 100, output_tokens: 50, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+      usage: {
+        input_tokens: 100,
+        output_tokens: 50,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 0,
+      },
     };
 
     vi.mocked(query).mockReturnValue(

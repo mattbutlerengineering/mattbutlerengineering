@@ -8,10 +8,11 @@ Read all files referenced by the invoking prompt's execution_context before star
 
 <available_agent_types>
 Valid GSD subagent types (use exact names — do not fall back to 'general-purpose'):
+
 - gsd-project-researcher — Researches project-level technical decisions
 - gsd-research-synthesizer — Synthesizes findings from parallel research agents
 - gsd-roadmapper — Creates phased execution roadmaps
-</available_agent_types>
+  </available_agent_types>
 
 <auto_mode>
 
@@ -339,16 +340,17 @@ Initialize with any decisions made during questioning:
 ```markdown
 ## Key Decisions
 
-| Decision | Rationale | Outcome |
-|----------|-----------|---------|
-| [Choice from questioning] | [Why] | — Pending |
+| Decision                  | Rationale | Outcome   |
+| ------------------------- | --------- | --------- |
+| [Choice from questioning] | [Why]     | — Pending |
 ```
 
 **Last updated footer:**
 
 ```markdown
 ---
-*Last updated: [date] after initialization*
+
+_Last updated: [date] after initialization_
 ```
 
 **Evolution section** (include at the end of PROJECT.md, before the footer):
@@ -359,6 +361,7 @@ Initialize with any decisions made during questioning:
 This document evolves at phase transitions and milestone boundaries.
 
 **After each phase transition** (via `/gsd:transition`):
+
 1. Requirements invalidated? → Move to Out of Scope with reason
 2. Requirements validated? → Move to Validated with phase reference
 3. New requirements emerged? → Add to Active
@@ -366,6 +369,7 @@ This document evolves at phase transitions and milestone boundaries.
 5. "What This Is" still accurate? → Update if drifted
 
 **After each milestone** (via `/gsd:complete-milestone`):
+
 1. Full review of all sections
 2. Core Value check — still the right priority?
 3. Audit Out of Scope — reasons still valid?
@@ -453,11 +457,11 @@ questions: [
 
 These spawn additional agents during planning/execution. They add tokens and time but improve quality.
 
-| Agent | When it runs | What it does |
-|-------|--------------|--------------|
-| **Researcher** | Before planning each phase | Investigates domain, finds patterns, surfaces gotchas |
-| **Plan Checker** | After plan is created | Verifies plan actually achieves the phase goal |
-| **Verifier** | After phase execution | Confirms must-haves were delivered |
+| Agent            | When it runs               | What it does                                          |
+| ---------------- | -------------------------- | ----------------------------------------------------- |
+| **Researcher**   | Before planning each phase | Investigates domain, finds patterns, surfaces gotchas |
+| **Plan Checker** | After plan is created      | Verifies plan actually achieves the phase goal        |
+| **Verifier**     | After phase execution      | Confirms must-haves were delivered                    |
 
 All recommended for important projects. Skip for quick experiments.
 

@@ -38,9 +38,7 @@ describe("Avatar", () => {
     });
 
     it("renders the flap stage when src changes with transition='splitflap'", () => {
-      const { rerender } = render(
-        <Avatar src="/a.jpg" name="A" transition="splitflap" />,
-      );
+      const { rerender } = render(<Avatar src="/a.jpg" name="A" transition="splitflap" />);
       expect(screen.queryByTestId("avatar-flap-stage")).not.toBeInTheDocument();
 
       rerender(<Avatar src="/b.jpg" name="A" transition="splitflap" />);
@@ -54,9 +52,7 @@ describe("Avatar", () => {
     });
 
     it("does not render the flap stage if src is unchanged", () => {
-      const { rerender } = render(
-        <Avatar src="/a.jpg" name="A" transition="splitflap" />,
-      );
+      const { rerender } = render(<Avatar src="/a.jpg" name="A" transition="splitflap" />);
       rerender(<Avatar src="/a.jpg" name="A" transition="splitflap" />);
       expect(screen.queryByTestId("avatar-flap-stage")).not.toBeInTheDocument();
     });

@@ -14,7 +14,10 @@ export async function dbListTables(): Promise<string> {
     const tables = output.trim().split("\n").filter(Boolean);
     return JSON.stringify({ tables }, null, 2);
   } catch (error) {
-    return JSON.stringify({ error: "Failed to list tables", message: error instanceof Error ? error.message : String(error) });
+    return JSON.stringify({
+      error: "Failed to list tables",
+      message: error instanceof Error ? error.message : String(error),
+    });
   }
 }
 
@@ -29,9 +32,16 @@ export async function dbMigrationStatus(): Promise<string> {
       `psql "${dbUrl}" -t -c "SELECT migration_name, finished_at FROM _prisma_migrations ORDER BY finished_at DESC LIMIT 20;"`,
       { encoding: "utf-8" }
     );
-    const migrations = output.trim().split("\n").filter(Boolean).map((line) => line.trim());
+    const migrations = output
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => line.trim());
     return JSON.stringify({ migrations }, null, 2);
   } catch (error) {
-    return JSON.stringify({ error: "Failed to get migration status", message: error instanceof Error ? error.message : String(error) });
+    return JSON.stringify({
+      error: "Failed to get migration status",
+      message: error instanceof Error ? error.message : String(error),
+    });
   }
 }

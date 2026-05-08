@@ -1,11 +1,4 @@
-import {
-  forwardRef,
-  useCallback,
-  useMemo,
-  useRef,
-  useState,
-  type ForwardedRef,
-} from "react";
+import { forwardRef, useCallback, useMemo, useRef, useState, type ForwardedRef } from "react";
 import styles from "./TapeChart.module.css";
 import { useDeviceContext } from "../../providers/useDeviceContext";
 import { SegmentedControl } from "../SegmentedControl/SegmentedControl";
@@ -19,16 +12,12 @@ import { TapeChartStatPills } from "./TapeChartStatPills";
 import { useTapeChartI18n } from "./useTapeChartI18n";
 import { useTapeChartLayout } from "./useTapeChartLayout";
 import { mergeStrings } from "./defaultStrings";
-import type {
-  TapeChartProps,
-  TapeChartReservation,
-  TapeChartViewMode,
-} from "./types";
+import type { TapeChartProps, TapeChartReservation, TapeChartViewMode } from "./types";
 
 function dayWidthForViewport(
   viewport: "mobile" | "tablet" | "desktop",
   pointer: "fine" | "coarse",
-  override?: number,
+  override?: number
 ): number {
   if (override != null) return override;
   if (viewport === "desktop") return 80;
@@ -38,7 +27,7 @@ function dayWidthForViewport(
 
 export const TapeChart = forwardRef(function TapeChart(
   props: TapeChartProps,
-  ref: ForwardedRef<HTMLDivElement>,
+  ref: ForwardedRef<HTMLDivElement>
 ) {
   const {
     reservations,
@@ -71,7 +60,7 @@ export const TapeChart = forwardRef(function TapeChart(
       if (typeof ref === "function") ref(node);
       else if (ref) (ref as { current: HTMLDivElement | null }).current = node;
     },
-    [ref],
+    [ref]
   );
 
   const device = useDeviceContext();
@@ -87,7 +76,7 @@ export const TapeChart = forwardRef(function TapeChart(
       if (viewMode === undefined) setInternalViewMode(next);
       onViewModeChange?.(next);
     },
-    [viewMode, onViewModeChange],
+    [viewMode, onViewModeChange]
   );
 
   const [focusedReservationId, setFocusedReservationId] = useState<string | null>(null);
@@ -96,7 +85,7 @@ export const TapeChart = forwardRef(function TapeChart(
       setFocusedReservationId(r.id);
       onReservationClick?.(r);
     },
-    [onReservationClick],
+    [onReservationClick]
   );
 
   const dayWidth = dayWidthForViewport(device.viewport, device.pointer, dayWidthOverride);
@@ -109,7 +98,11 @@ export const TapeChart = forwardRef(function TapeChart(
   // ── Non-happy-path states ──────────────────
   if (error) {
     return (
-      <div ref={setRefs} className={`${styles.root}${className ? " " + className : ""}`} data-density={density}>
+      <div
+        ref={setRefs}
+        className={`${styles.root}${className ? " " + className : ""}`}
+        data-density={density}
+      >
         <Banner
           variant="error"
           action={
@@ -155,9 +148,17 @@ export const TapeChart = forwardRef(function TapeChart(
 
   if (!loading && rooms.length === 0) {
     return (
-      <div ref={setRefs} className={`${styles.root}${className ? " " + className : ""}`} data-density={density}>
+      <div
+        ref={setRefs}
+        className={`${styles.root}${className ? " " + className : ""}`}
+        data-density={density}
+      >
         <div className={styles.stateWrapper}>
-          <EmptyState heading={resolved.emptyTitle} description={resolved.emptyBody} action={emptyAction} />
+          <EmptyState
+            heading={resolved.emptyTitle}
+            description={resolved.emptyBody}
+            action={emptyAction}
+          />
         </div>
       </div>
     );

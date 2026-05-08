@@ -2,7 +2,7 @@
   "id": "add-readme-to-acmm",
   "prompt": "Create a README.md file in the plugins/acmm/ directory. It should describe the purpose of the ACMM plugin, its core scripts (audit.js, state.js, detection.js), and how to run a local audit. Use the existing AGENTS.md for context on the ACMM framework.",
   "model": "claude-sonnet-4-6",
-  "maxBudgetUsd": 0.50,
+  "maxBudgetUsd": 0.5,
   "maxTurns": 20,
   "rubric": {
     "mustPass": ["lint"],

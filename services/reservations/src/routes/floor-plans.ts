@@ -56,7 +56,9 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const floorPlan = await floorPlanService.getActiveByVenueId(request.params.venueId);
       if (!floorPlan) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "No active floor plan found for venue"));
+        return reply
+          .code(404)
+          .send(createProblemDetails(404, "Not Found", "No active floor plan found for venue"));
       }
       return { data: floorPlan };
     }
@@ -132,7 +134,11 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  fastify.patch<{ Params: { id: string }; Body: UpdateFloorPlanRequest; Reply: ApiResponse<FloorPlan> | ApiError }>(
+  fastify.patch<{
+    Params: { id: string };
+    Body: UpdateFloorPlanRequest;
+    Reply: ApiResponse<FloorPlan> | ApiError;
+  }>(
     "/:id",
     {
       preHandler: requireAuth,

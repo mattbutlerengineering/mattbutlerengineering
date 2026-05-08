@@ -6,12 +6,12 @@ Risk classification for pull requests in this monorepo. Used by the `tier-classi
 
 ## The tiers
 
-| Tier | Label | Routing | Approval needed |
-|---|---|---|---|
-| **T1 — trivial** | `tier:trivial` | Auto-mergeable when CI green | Pre-commit hook only |
-| **T2 — standard** | `tier:standard` | Reviewer agent + human approval | `code-reviewer` agent + 1 human review |
-| **T3 — sensitive** | `tier:sensitive` | Reviewer agent + specialist agents + human approval | `code-reviewer` + at least one specialist (`adr-compliance-reviewer`, `migration-reviewer`, or `silent-failure-hunter`) + 1 human review |
-| **T4 — critical** | `tier:critical` | All of T3, plus an ADR or `meta-improvement` issue documenting why | Same as T3, plus the user (Matt) personally |
+| Tier               | Label            | Routing                                                            | Approval needed                                                                                                                          |
+| ------------------ | ---------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| **T1 — trivial**   | `tier:trivial`   | Auto-mergeable when CI green                                       | Pre-commit hook only                                                                                                                     |
+| **T2 — standard**  | `tier:standard`  | Reviewer agent + human approval                                    | `code-reviewer` agent + 1 human review                                                                                                   |
+| **T3 — sensitive** | `tier:sensitive` | Reviewer agent + specialist agents + human approval                | `code-reviewer` + at least one specialist (`adr-compliance-reviewer`, `migration-reviewer`, or `silent-failure-hunter`) + 1 human review |
+| **T4 — critical**  | `tier:critical`  | All of T3, plus an ADR or `meta-improvement` issue documenting why | Same as T3, plus the user (Matt) personally                                                                                              |
 
 The classifier assigns the **highest tier** any matched rule produces. T4 wins over T3 wins over T2 wins over T1.
 
@@ -40,7 +40,7 @@ Rules are evaluated against the PR diff. Each rule maps a path glob (or a struct
 - Changes to `scripts/check-*.js` (the gate-enforcement scripts).
 - Changes to `.husky/*` (pre-commit hook).
 - Changes to `apps/*/wrangler.toml` (Cloudflare Worker config).
-- Database migration that *adds* a column or table (no destructive ops, but still mutates schema).
+- Database migration that _adds_ a column or table (no destructive ops, but still mutates schema).
 - Any `*.test.ts` deletion or `it.skip`/`describe.skip` addition (loosens test coverage).
 
 ### T2 — standard
@@ -68,17 +68,20 @@ Rules are evaluated against the PR diff. Each rule maps a path glob (or a struct
 These signals can shift a PR's tier independent of file paths.
 
 **Always escalate to T4:**
+
 - PR title or body contains "secret", "credential", "rotate", "leak", "incident".
 - PR body explicitly asks reviewers to bypass a check.
 - Author is a new agent (first PR from a new RemoteTrigger or new agent type).
 
 **Escalate one tier:**
+
 - Diff is > 1000 lines added (size correlates with risk).
 - PR is from a fork (external contributor).
 - PR has been force-pushed since the last review approval.
 - PR removes a test file.
 
 **De-escalate one tier (cap at T2):**
+
 - Diff is < 20 lines added AND only touches files matching T1 globs.
 - PR is a Dependabot update for a `devDependencies`-only package with patch-version bump.
 - PR is a `chore(deps):` security update with no behavioral change (auto-detected by lockfile-only diff).

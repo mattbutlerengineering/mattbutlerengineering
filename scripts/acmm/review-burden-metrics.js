@@ -21,13 +21,13 @@
  * Closes #1086
  */
 
-import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { execFileSync } from "node:child_process";
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const METRICS_PATH = resolve(__dirname, '..', '..', 'docs', 'metrics', 'review-burden.json');
+const METRICS_PATH = resolve(__dirname, "..", "..", "docs", "metrics", "review-burden.json");
 
 const RUBBER_STAMP_DEFAULT_MINUTES = 5;
 
@@ -35,12 +35,12 @@ const RUBBER_STAMP_DEFAULT_MINUTES = 5;
 
 function parseArgs(argv) {
   const args = argv.slice(2);
-  const dryRun = args.includes('--dry-run');
+  const dryRun = args.includes("--dry-run");
 
-  const daysIdx = args.indexOf('--days');
-  const days = daysIdx >= 0 ? parseInt(args[daysIdx + 1] ?? '7', 10) : 7;
+  const daysIdx = args.indexOf("--days");
+  const days = daysIdx >= 0 ? parseInt(args[daysIdx + 1] ?? "7", 10) : 7;
 
-  const threshIdx = args.indexOf('--threshold');
+  const threshIdx = args.indexOf("--threshold");
   const thresholdMinutes =
     threshIdx >= 0
       ? parseInt(args[threshIdx + 1] ?? String(RUBBER_STAMP_DEFAULT_MINUTES), 10)
@@ -68,18 +68,18 @@ function parseArgs(argv) {
  */
 function fetchClosedPrs(limit) {
   const raw = execFileSync(
-    'gh',
+    "gh",
     [
-      'pr',
-      'list',
-      '--state',
-      'closed',
-      '--limit',
+      "pr",
+      "list",
+      "--state",
+      "closed",
+      "--limit",
       String(limit),
-      '--json',
-      'author,reviews,createdAt,closedAt',
+      "--json",
+      "author,reviews,createdAt,closedAt",
     ],
-    { encoding: 'utf-8' },
+    { encoding: "utf-8" }
   );
   return JSON.parse(raw);
 }
@@ -210,7 +210,7 @@ function rubberStampRatio(prs, thresholdMinutes) {
         reviewerVotes[login] = { approved: false, firstApprovalMs: null };
       }
 
-      if (review.state === 'APPROVED') {
+      if (review.state === "APPROVED") {
         const submittedMs = new Date(review.submittedAt).getTime();
         reviewerVotes[login] = {
           ...reviewerVotes[login],
@@ -310,32 +310,32 @@ function buildEntry({ days, thresholdMinutes, prs }) {
  * @param {object} entry
  */
 function printSummary(entry) {
-  console.log('');
+  console.log("");
   console.log(`Review burden metrics — last ${entry.window_days} days`);
   console.log(`Rubber-stamp threshold: < ${entry.rubber_stamp_threshold_minutes} minutes`);
-  console.log('');
+  console.log("");
   console.log(`  Closed PRs in window: ${entry.total_closed_prs}`);
   console.log(`  Unique reviewers:     ${entry.summary.total_reviewers}`);
   console.log(`  Total reviews:        ${entry.summary.total_reviews}`);
-  console.log('');
+  console.log("");
 
   if (entry.reviewers.length > 0) {
-    console.log('  Per-reviewer breakdown:');
+    console.log("  Per-reviewer breakdown:");
     for (const r of entry.reviewers) {
-      const meanStr = r.mean_review_minutes !== null ? `${r.mean_review_minutes} min` : 'n/a';
+      const meanStr = r.mean_review_minutes !== null ? `${r.mean_review_minutes} min` : "n/a";
       console.log(
         `    ${r.login}: ${r.prs_reviewed} PRs, mean ${meanStr}, ` +
-          `rubber-stamp ${(r.rubber_stamp_ratio * 100).toFixed(1)}% (${r.rubber_stamps}/${r.approvals})`,
+          `rubber-stamp ${(r.rubber_stamp_ratio * 100).toFixed(1)}% (${r.rubber_stamps}/${r.approvals})`
       );
     }
-    console.log('');
+    console.log("");
   }
 
   console.log(
     `  Overall rubber-stamp ratio: ${(entry.summary.overall_rubber_stamp_ratio * 100).toFixed(1)}% ` +
-      `(${entry.summary.overall_rubber_stamps}/${entry.summary.overall_approvals})`,
+      `(${entry.summary.overall_rubber_stamps}/${entry.summary.overall_approvals})`
   );
-  console.log('');
+  console.log("");
 }
 
 /**
@@ -347,7 +347,7 @@ function persistEntry(entry) {
   let entries = [];
   if (existsSync(METRICS_PATH)) {
     try {
-      const raw = readFileSync(METRICS_PATH, 'utf-8');
+      const raw = readFileSync(METRICS_PATH, "utf-8");
       entries = JSON.parse(raw);
       if (!Array.isArray(entries)) {
         console.error(`Expected array in ${METRICS_PATH}, got ${typeof entries}. Resetting.`);
@@ -362,7 +362,7 @@ function persistEntry(entry) {
   const updated = [...entries, entry];
 
   mkdirSync(dirname(METRICS_PATH), { recursive: true });
-  writeFileSync(METRICS_PATH, JSON.stringify(updated, null, 2) + '\n', 'utf-8');
+  writeFileSync(METRICS_PATH, JSON.stringify(updated, null, 2) + "\n", "utf-8");
 
   console.log(`Appended entry to: ${METRICS_PATH}`);
   console.log(`Total entries: ${updated.length}`);
@@ -389,7 +389,7 @@ function main() {
   printSummary(entry);
 
   if (dryRun) {
-    console.log('--dry-run: not writing. Entry would have been:');
+    console.log("--dry-run: not writing. Entry would have been:");
     console.log(JSON.stringify(entry, null, 2));
     return;
   }

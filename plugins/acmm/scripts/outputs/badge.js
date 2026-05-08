@@ -15,13 +15,20 @@ const END = "<!-- acmm:end -->";
 /** L1 red → L6 gold, matches rialto --rialto-accent (#d4a030). */
 function colorFor(level) {
   switch (level) {
-    case 6: return "d4a030";
-    case 5: return "c4952c";
-    case 4: return "a07230";
-    case 3: return "7a5a36";
-    case 2: return "8b6914";
-    case 1: return "a14444";
-    default: return "888888";
+    case 6:
+      return "d4a030";
+    case 5:
+      return "c4952c";
+    case 4:
+      return "a07230";
+    case 3:
+      return "7a5a36";
+    case 2:
+      return "8b6914";
+    case 1:
+      return "a14444";
+    default:
+      return "888888";
   }
 }
 

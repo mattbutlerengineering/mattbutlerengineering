@@ -77,9 +77,7 @@ afterEach(() => {
 
 describe("useReservationEvents", () => {
   it("connects with the correct URL containing venueId", () => {
-    renderHook(() =>
-      useReservationEvents({ venueId: "venue-42" })
-    );
+    renderHook(() => useReservationEvents({ venueId: "venue-42" }));
 
     const es = latestEventSource();
     expect(es.url).toContain("/api/v1/events/stream");
@@ -87,9 +85,7 @@ describe("useReservationEvents", () => {
   });
 
   it("sets isConnected to true on open", () => {
-    const { result } = renderHook(() =>
-      useReservationEvents({ venueId: "v1" })
-    );
+    const { result } = renderHook(() => useReservationEvents({ venueId: "v1" }));
 
     expect(result.current.isConnected).toBe(false);
 
@@ -179,10 +175,7 @@ describe("useReservationEvents", () => {
     };
 
     act(() => {
-      latestEventSource().simulateEvent(
-        "reservation:cancelled",
-        eventPayload
-      );
+      latestEventSource().simulateEvent("reservation:cancelled", eventPayload);
     });
 
     expect(onCancelled).toHaveBeenCalledOnce();
@@ -190,9 +183,7 @@ describe("useReservationEvents", () => {
 
   it("calls onTableUpdated when table:updated event fires", () => {
     const onTable = vi.fn();
-    renderHook(() =>
-      useReservationEvents({ venueId: "v1", onTableUpdated: onTable })
-    );
+    renderHook(() => useReservationEvents({ venueId: "v1", onTableUpdated: onTable }));
 
     const eventPayload: ReservationEvent = {
       type: "table:updated",
@@ -227,9 +218,7 @@ describe("useReservationEvents", () => {
 
   it("sets error and calls onError on EventSource error", () => {
     const onError = vi.fn();
-    const { result } = renderHook(() =>
-      useReservationEvents({ venueId: "v1", onError })
-    );
+    const { result } = renderHook(() => useReservationEvents({ venueId: "v1", onError }));
 
     act(() => {
       latestEventSource().simulateOpen();
@@ -328,9 +317,7 @@ describe("useReservationEvents", () => {
   });
 
   it("cleans up EventSource on unmount", () => {
-    const { unmount } = renderHook(() =>
-      useReservationEvents({ venueId: "v1" })
-    );
+    const { unmount } = renderHook(() => useReservationEvents({ venueId: "v1" }));
 
     const es = latestEventSource();
     expect(es.readyState).not.toBe(2);
@@ -343,9 +330,7 @@ describe("useReservationEvents", () => {
   it("does not connect when enabled is false", () => {
     const initialCount = MockEventSource.instances.length;
 
-    renderHook(() =>
-      useReservationEvents({ venueId: "v1", enabled: false })
-    );
+    renderHook(() => useReservationEvents({ venueId: "v1", enabled: false }));
 
     expect(MockEventSource.instances.length).toBe(initialCount);
   });

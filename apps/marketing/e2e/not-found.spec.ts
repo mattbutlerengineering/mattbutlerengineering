@@ -10,9 +10,7 @@ test.describe("404 Not Found page", () => {
   test("shows descriptive message", async ({ page }) => {
     await page.goto("/this-page-does-not-exist");
 
-    await expect(
-      page.getByText("This page doesn't exist")
-    ).toBeVisible();
+    await expect(page.getByText("This page doesn't exist")).toBeVisible();
   });
 
   test("Back to home button navigates to homepage", async ({ page }) => {

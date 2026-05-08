@@ -4,13 +4,13 @@ import type { PermissionResult } from "@anthropic-ai/claude-agent-sdk";
 /** Patterns that should never be executed by an agent session. */
 const BLOCKED_BASH_PATTERNS: readonly RegExp[] = [
   /\brm\s+(-[a-zA-Z]*r[a-zA-Z]*\s+(-[a-zA-Z]*f[a-zA-Z]*\s+)?|(-[a-zA-Z]*f[a-zA-Z]*\s+)?-[a-zA-Z]*r[a-zA-Z]*\s+|--recursive\s+).*\//,
-  /\brm\s+.*\/\*/,              // rm ... /*
-  /\bsudo\b/,                    // sudo anything
-  /\bcurl\b.*\|\s*\bbash\b/,    // curl | bash (pipe to shell)
-  /\bwget\b.*\|\s*\bbash\b/,    // wget | bash
-  /\bgit\s+push\b/,             // git push (orchestrator handles this)
-  /\bnpm\s+publish\b/,          // npm publish
-  /\bpnpm\s+publish\b/,         // pnpm publish
+  /\brm\s+.*\/\*/, // rm ... /*
+  /\bsudo\b/, // sudo anything
+  /\bcurl\b.*\|\s*\bbash\b/, // curl | bash (pipe to shell)
+  /\bwget\b.*\|\s*\bbash\b/, // wget | bash
+  /\bgit\s+push\b/, // git push (orchestrator handles this)
+  /\bnpm\s+publish\b/, // npm publish
+  /\bpnpm\s+publish\b/, // pnpm publish
 ];
 
 /**
@@ -71,7 +71,10 @@ export function normalizeBashCommand(command: string): readonly string[] {
   }
 
   // Split on unescaped newlines and semicolons to catch injection
-  const lines = command.split(/(?<!\\)[;\n]+/).map((l) => l.trim()).filter(Boolean);
+  const lines = command
+    .split(/(?<!\\)[;\n]+/)
+    .map((l) => l.trim())
+    .filter(Boolean);
   if (lines.length > 1) {
     for (const line of lines) {
       variants.push(line);
@@ -114,10 +117,7 @@ function isPathWithinWorktree(filePath: string, worktreePath: string): boolean {
 }
 
 export function createToolPermissionHandler(worktreePath: string) {
-  return async (
-    toolName: string,
-    input: Record<string, unknown>
-  ): Promise<PermissionResult> => {
+  return async (toolName: string, input: Record<string, unknown>): Promise<PermissionResult> => {
     // Block explicitly disallowed tools
     if (BLOCKED_TOOLS.has(toolName)) {
       return {

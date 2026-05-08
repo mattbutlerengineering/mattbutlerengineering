@@ -33,7 +33,7 @@ export function useTapeChartLayout(
   reservations: TapeChartReservation[],
   rooms: TapeChartRoom[],
   startDate: string,
-  endDate: string,
+  endDate: string
 ): TapeChartLayout {
   return useMemo(() => {
     const dayCount = Math.max(0, daysBetween(startDate, endDate));
@@ -92,7 +92,7 @@ export function applyReservationEvent(
   prev: TapeChartReservation[],
   event:
     | { type: "created" | "updated"; reservation: TapeChartReservation }
-    | { type: "cancelled"; id: string },
+    | { type: "cancelled"; id: string }
 ): TapeChartReservation[] {
   if (event.type === "cancelled") {
     return prev.filter((r) => r.id !== event.id);

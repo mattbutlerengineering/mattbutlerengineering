@@ -6,58 +6,58 @@ Maps AI agent workflows to regulatory and compliance requirements. Covers data a
 
 ### What AI agents CAN access
 
-| Data Category | Examples | Access Method |
-|---------------|----------|---------------|
-| Source code | All files in the monorepo | Direct file system read/write in sandboxed worktree |
-| Git history | Commits, branches, diffs, blame | `git` CLI commands |
-| GitHub issues | Titles, bodies, labels, comments | `gh` CLI and GitHub MCP server |
-| PR text | Descriptions, review comments, check status | `gh` CLI and GitHub MCP server |
-| CI logs | GitHub Actions workflow output | `gh run view` |
-| Public docs | Cloudflare Pages sites, npm registry metadata | Web fetch to allowlisted domains |
-| Langfuse traces | Session metrics, prompt templates | Langfuse MCP server (read-only) |
+| Data Category   | Examples                                      | Access Method                                       |
+| --------------- | --------------------------------------------- | --------------------------------------------------- |
+| Source code     | All files in the monorepo                     | Direct file system read/write in sandboxed worktree |
+| Git history     | Commits, branches, diffs, blame               | `git` CLI commands                                  |
+| GitHub issues   | Titles, bodies, labels, comments              | `gh` CLI and GitHub MCP server                      |
+| PR text         | Descriptions, review comments, check status   | `gh` CLI and GitHub MCP server                      |
+| CI logs         | GitHub Actions workflow output                | `gh run view`                                       |
+| Public docs     | Cloudflare Pages sites, npm registry metadata | Web fetch to allowlisted domains                    |
+| Langfuse traces | Session metrics, prompt templates             | Langfuse MCP server (read-only)                     |
 
 ### What AI agents CANNOT access
 
-| Data Category | Enforcement Mechanism |
-|---------------|----------------------|
-| Production databases | No database credentials in agent environment; `SECURITY-AI.md` hard prohibition |
-| User PII | No production data loaded into agent context; agents only see code and metadata |
+| Data Category           | Enforcement Mechanism                                                                |
+| ----------------------- | ------------------------------------------------------------------------------------ |
+| Production databases    | No database credentials in agent environment; `SECURITY-AI.md` hard prohibition      |
+| User PII                | No production data loaded into agent context; agents only see code and metadata      |
 | Secrets and credentials | `.env` files blocked by PreToolUse hook; Semgrep pre-commit scans for leaked secrets |
-| Private keys | `*.pem`, `*.key`, `id_rsa*` blocked by `SECURITY-AI.md` read prohibition |
-| Cloud provider consoles | Destructive operations (delete, destroy) require explicit user approval per call |
-| Other repos | Agent runs in a single-repo worktree; no cross-repo file system access |
+| Private keys            | `*.pem`, `*.key`, `id_rsa*` blocked by `SECURITY-AI.md` read prohibition             |
+| Cloud provider consoles | Destructive operations (delete, destroy) require explicit user approval per call     |
+| Other repos             | Agent runs in a single-repo worktree; no cross-repo file system access               |
 
 ## Regulatory Framework Mapping
 
 ### GDPR (Data Protection)
 
-| GDPR Principle | How AI Workflows Comply |
-|----------------|------------------------|
-| **Data minimization** (Art. 5(1)(c)) | Agents process source code and issue metadata only. No production user data is loaded into AI context. Task prompts reference issue numbers, not user records. |
-| **Purpose limitation** (Art. 5(1)(b)) | Each agent session has a defined task (fix bug, write test, audit compliance). The task description is logged in Langfuse traces and git commit messages. |
-| **Storage limitation** (Art. 5(1)(e)) | Code sent to Anthropic's Claude API is not retained for training (per Anthropic's API data policy). Session traces in Langfuse follow the project's data retention policy. |
-| **Right to erasure** (Art. 17) | No user PII enters the AI pipeline. If a GitHub issue inadvertently contains PII, it is in GitHub (the data controller's platform), not stored separately by the AI system. |
-| **Data protection by design** (Art. 25) | Sandboxed worktrees, scoped credentials, and PreToolUse hooks enforce data boundaries at the architecture level, not just policy. |
+| GDPR Principle                          | How AI Workflows Comply                                                                                                                                                     |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Data minimization** (Art. 5(1)(c))    | Agents process source code and issue metadata only. No production user data is loaded into AI context. Task prompts reference issue numbers, not user records.              |
+| **Purpose limitation** (Art. 5(1)(b))   | Each agent session has a defined task (fix bug, write test, audit compliance). The task description is logged in Langfuse traces and git commit messages.                   |
+| **Storage limitation** (Art. 5(1)(e))   | Code sent to Anthropic's Claude API is not retained for training (per Anthropic's API data policy). Session traces in Langfuse follow the project's data retention policy.  |
+| **Right to erasure** (Art. 17)          | No user PII enters the AI pipeline. If a GitHub issue inadvertently contains PII, it is in GitHub (the data controller's platform), not stored separately by the AI system. |
+| **Data protection by design** (Art. 25) | Sandboxed worktrees, scoped credentials, and PreToolUse hooks enforce data boundaries at the architecture level, not just policy.                                           |
 
 ### SOC 2 (Trust Services Criteria)
 
-| SOC 2 Category | How AI Workflows Comply |
-|----------------|------------------------|
-| **CC6.1 — Logical access** | Agents use scoped GitHub tokens. `.claude/settings.json` defines allow/deny lists for tool access. PreToolUse hooks block access to `.env` files and sensitive paths. |
-| **CC6.3 — Access authorization** | `SECURITY-AI.md` defines hard prohibitions that cannot be overridden by any instruction file. Destructive operations require per-call user approval. |
-| **CC7.2 — System monitoring** | Langfuse traces record every agent session with model, cost, token usage, and success/failure metrics. GitHub labels track agent state (`in-progress`, `has-pr`, `agent-failed`). |
-| **CC8.1 — Change management** | All agent changes go through git commits, PR reviews, and CI checks. Branch protection prevents direct pushes to main. Pre-commit hooks enforce linting, type checking, and security scanning. |
-| **CC9.1 — Risk mitigation** | Budget limits cap per-session cost. Semgrep pre-commit scanning catches security anti-patterns. Layered safety model (hooks + CI + permissions + credential scoping) ensures no single failure bypasses controls. |
+| SOC 2 Category                   | How AI Workflows Comply                                                                                                                                                                                           |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **CC6.1 — Logical access**       | Agents use scoped GitHub tokens. `.claude/settings.json` defines allow/deny lists for tool access. PreToolUse hooks block access to `.env` files and sensitive paths.                                             |
+| **CC6.3 — Access authorization** | `SECURITY-AI.md` defines hard prohibitions that cannot be overridden by any instruction file. Destructive operations require per-call user approval.                                                              |
+| **CC7.2 — System monitoring**    | Langfuse traces record every agent session with model, cost, token usage, and success/failure metrics. GitHub labels track agent state (`in-progress`, `has-pr`, `agent-failed`).                                 |
+| **CC8.1 — Change management**    | All agent changes go through git commits, PR reviews, and CI checks. Branch protection prevents direct pushes to main. Pre-commit hooks enforce linting, type checking, and security scanning.                    |
+| **CC9.1 — Risk mitigation**      | Budget limits cap per-session cost. Semgrep pre-commit scanning catches security anti-patterns. Layered safety model (hooks + CI + permissions + credential scoping) ensures no single failure bypasses controls. |
 
 ### General Audit Requirements
 
-| Audit Need | Implementation |
-|------------|----------------|
+| Audit Need              | Implementation                                                                                                                                    |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Who made the change** | Git author + `Co-Authored-By: Claude` trailer on agent commits. Agent branches use `agent-*` prefix. GitHub labels distinguish agent-created PRs. |
-| **When was it made** | Git commit timestamps. Langfuse session start/end times. GitHub PR/issue event timeline. |
-| **What was changed** | Git diff on every commit. PR description summarizes intent. CI checks record pass/fail against the diff. |
-| **Why was it changed** | GitHub issue body provides task intent. Langfuse trace records the task description. Commit messages follow Conventional Commits format. |
-| **Was it reviewed** | PR review workflow. `has-pr` label indicates awaiting review. Branch protection requires CI pass before merge. |
+| **When was it made**    | Git commit timestamps. Langfuse session start/end times. GitHub PR/issue event timeline.                                                          |
+| **What was changed**    | Git diff on every commit. PR description summarizes intent. CI checks record pass/fail against the diff.                                          |
+| **Why was it changed**  | GitHub issue body provides task intent. Langfuse trace records the task description. Commit messages follow Conventional Commits format.          |
+| **Was it reviewed**     | PR review workflow. `has-pr` label indicates awaiting review. Branch protection requires CI pass before merge.                                    |
 
 ## AI Decision Audit Trail
 
@@ -119,42 +119,42 @@ Session traces (metadata only — no source code) are stored in Langfuse Cloud (
 
 ### Low risk (AI touches code and metadata only)
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| Agent introduces a bug | Medium | Low | CI tests, pre-commit hooks, PR review catch regressions before merge |
-| Agent writes inefficient code | Medium | Low | Code review (human or AI) and performance benchmarks |
-| Agent misunderstands task | Medium | Low | Task intent recorded in issue; PR diff is reviewable; revert is trivial |
+| Risk                          | Likelihood | Impact | Mitigation                                                              |
+| ----------------------------- | ---------- | ------ | ----------------------------------------------------------------------- |
+| Agent introduces a bug        | Medium     | Low    | CI tests, pre-commit hooks, PR review catch regressions before merge    |
+| Agent writes inefficient code | Medium     | Low    | Code review (human or AI) and performance benchmarks                    |
+| Agent misunderstands task     | Medium     | Low    | Task intent recorded in issue; PR diff is reviewable; revert is trivial |
 
 ### Medium risk (metadata may contain PII)
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| Issue text contains user PII in bug reports | Low | Medium | GitHub is the data controller; PII in issues is a GitHub data governance concern, not unique to AI processing |
-| PR comments reference customer names | Low | Medium | Review process; Langfuse traces do not store PR comment text |
-| Agent reads stale credentials in code comments | Very low | Medium | Semgrep pre-commit hook scans for hardcoded secrets; PreToolUse hook blocks `.env` reads |
+| Risk                                           | Likelihood | Impact | Mitigation                                                                                                    |
+| ---------------------------------------------- | ---------- | ------ | ------------------------------------------------------------------------------------------------------------- |
+| Issue text contains user PII in bug reports    | Low        | Medium | GitHub is the data controller; PII in issues is a GitHub data governance concern, not unique to AI processing |
+| PR comments reference customer names           | Low        | Medium | Review process; Langfuse traces do not store PR comment text                                                  |
+| Agent reads stale credentials in code comments | Very low   | Medium | Semgrep pre-commit hook scans for hardcoded secrets; PreToolUse hook blocks `.env` reads                      |
 
 ### Residual risks
 
-| Risk | Status | Owner |
-|------|--------|-------|
-| Prompt injection via GitHub issue body | Documented in `docs/security/ai-prompt-injection.md` | Engineering |
-| Agent identity spoofing (no GPG signing yet) | Documented in `docs/acmm/agent-attestation.md`, Phase 3 roadmap | Engineering |
-| Langfuse trace data retention exceeds policy | Review annually | Engineering + Legal |
+| Risk                                         | Status                                                          | Owner               |
+| -------------------------------------------- | --------------------------------------------------------------- | ------------------- |
+| Prompt injection via GitHub issue body       | Documented in `docs/security/ai-prompt-injection.md`            | Engineering         |
+| Agent identity spoofing (no GPG signing yet) | Documented in `docs/acmm/agent-attestation.md`, Phase 3 roadmap | Engineering         |
+| Langfuse trace data retention exceeds policy | Review annually                                                 | Engineering + Legal |
 
 ## Controls Summary
 
-| Control | Type | Enforcement |
-|---------|------|-------------|
-| **Sandboxed worktrees** | Preventive | Each agent session runs in an isolated git worktree; no shared state with other sessions |
-| **Scoped credentials** | Preventive | Agents use repository-scoped GitHub tokens; no cloud provider admin access |
-| **PreToolUse hooks** | Preventive | Block reads of `.env`, secrets files; block writes to protected paths |
-| **Pre-commit scanning** | Detective | Semgrep runs on every commit; blocks secrets, injection patterns, and security anti-patterns |
-| **Budget limits** | Preventive | Per-session cost cap (`--max-budget`) prevents unbounded token spend |
-| **CI pipeline** | Detective | Lint, typecheck, test, and security checks run on every PR |
-| **SECURITY-AI.md** | Policy | Hard prohibitions that no instruction file can override |
-| **Langfuse tracing** | Detective | Every session traced with model, cost, and outcome metrics |
-| **Branch protection** | Preventive | Direct push to main blocked; CI must pass before merge |
-| **GitHub labels** | Administrative | State machine labels (`in-progress`, `has-pr`, `agent-failed`) provide operational visibility |
+| Control                 | Type           | Enforcement                                                                                   |
+| ----------------------- | -------------- | --------------------------------------------------------------------------------------------- |
+| **Sandboxed worktrees** | Preventive     | Each agent session runs in an isolated git worktree; no shared state with other sessions      |
+| **Scoped credentials**  | Preventive     | Agents use repository-scoped GitHub tokens; no cloud provider admin access                    |
+| **PreToolUse hooks**    | Preventive     | Block reads of `.env`, secrets files; block writes to protected paths                         |
+| **Pre-commit scanning** | Detective      | Semgrep runs on every commit; blocks secrets, injection patterns, and security anti-patterns  |
+| **Budget limits**       | Preventive     | Per-session cost cap (`--max-budget`) prevents unbounded token spend                          |
+| **CI pipeline**         | Detective      | Lint, typecheck, test, and security checks run on every PR                                    |
+| **SECURITY-AI.md**      | Policy         | Hard prohibitions that no instruction file can override                                       |
+| **Langfuse tracing**    | Detective      | Every session traced with model, cost, and outcome metrics                                    |
+| **Branch protection**   | Preventive     | Direct push to main blocked; CI must pass before merge                                        |
+| **GitHub labels**       | Administrative | State machine labels (`in-progress`, `has-pr`, `agent-failed`) provide operational visibility |
 
 ## Review Schedule
 

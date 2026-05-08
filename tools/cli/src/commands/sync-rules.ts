@@ -46,14 +46,14 @@ export const syncRulesCommand = new Command("sync-rules")
     // 2. Update GEMINI.md (Injecting core content into specialized mandates)
     const geminiPath = join(root, "GEMINI.md");
     if (existsSync(geminiPath)) {
-        let geminiContent = readFileSync(geminiPath, "utf8");
-        // We want to keep the "Gemini-Specific Mandates" but sync the rest or reference it
-        // For simplicity in this first version, we'll ensure AGENTS.md is referenced
-        if (!geminiContent.includes("AGENTS.md")) {
-            geminiContent = `${MANAGED_HEADER}${geminiContent}\n\n## Core Reference\n- [AGENTS.md](./AGENTS.md)`;
-            writeFileSync(geminiPath, geminiContent);
-        }
-        console.log("✅ Verified GEMINI.md reference");
+      let geminiContent = readFileSync(geminiPath, "utf8");
+      // We want to keep the "Gemini-Specific Mandates" but sync the rest or reference it
+      // For simplicity in this first version, we'll ensure AGENTS.md is referenced
+      if (!geminiContent.includes("AGENTS.md")) {
+        geminiContent = `${MANAGED_HEADER}${geminiContent}\n\n## Core Reference\n- [AGENTS.md](./AGENTS.md)`;
+        writeFileSync(geminiPath, geminiContent);
+      }
+      console.log("✅ Verified GEMINI.md reference");
     }
 
     console.log("Successfully synchronized all agent rules.");

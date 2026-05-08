@@ -2,7 +2,7 @@
   "id": "extract-config-loader",
   "prompt": "The logic for loading .mcp.json and .claude/settings.json is duplicated in several scripts. Create a new utility plugins/acmm/scripts/config-loader.js that provides a single, robust function to load these files with proper error handling and defaults. Update audit.js to use this new utility.",
   "model": "claude-sonnet-4-6",
-  "maxBudgetUsd": 0.50,
+  "maxBudgetUsd": 0.5,
   "maxTurns": 20,
   "rubric": {
     "mustPass": ["lint", "typecheck", "tests"],

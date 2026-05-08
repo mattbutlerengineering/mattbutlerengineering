@@ -33,7 +33,7 @@ export interface ErrorRateSnapshot {
 }
 
 const WINDOW_MS = 5 * 60 * 1000; // 5 minutes
-const DEGRADATION_THRESHOLD = 0.10; // 10% error rate
+const DEGRADATION_THRESHOLD = 0.1; // 10% error rate
 const IGNORED_PATHS = new Set(["/health", "/docs", "/reference"]);
 
 function createErrorRateTracker() {
@@ -90,26 +90,21 @@ function createErrorRateTracker() {
 
 function normalizeRoute(request: FastifyRequest): string {
   // Use the route pattern (e.g., "/api/v1/users/:id") not the actual URL
-  const routeUrl =
-    (request.routeOptions as { url?: string })?.url ??
-    request.url.split("?")[0];
+  const routeUrl = (request.routeOptions as { url?: string })?.url ?? request.url.split("?")[0];
   return routeUrl;
 }
 
 async function errorRatePlugin(fastify: FastifyInstance): Promise<void> {
   const tracker = createErrorRateTracker();
 
-  fastify.addHook(
-    "onResponse",
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      const route = normalizeRoute(request);
+  fastify.addHook("onResponse", async (request: FastifyRequest, reply: FastifyReply) => {
+    const route = normalizeRoute(request);
 
-      // Skip health/docs endpoints
-      if (IGNORED_PATHS.has(route) || route.startsWith("/docs")) return;
+    // Skip health/docs endpoints
+    if (IGNORED_PATHS.has(route) || route.startsWith("/docs")) return;
 
-      tracker.record(route, reply.statusCode);
-    }
-  );
+    tracker.record(route, reply.statusCode);
+  });
 
   fastify.decorate("getErrorRates", () => tracker.snapshot());
 }

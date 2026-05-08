@@ -125,8 +125,7 @@ export function ContextMenuPage() {
                     flex: 1,
                     fontFamily: "var(--rialto-font-mono)",
                     fontSize: "var(--rialto-text-xs)",
-                    color:
-                      row.gap === "—" ? "var(--rialto-accent)" : "var(--rialto-text-tertiary)",
+                    color: row.gap === "—" ? "var(--rialto-accent)" : "var(--rialto-text-tertiary)",
                   }}
                 >
                   {row.gap}

@@ -1,10 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import type {
-  TimeSlot,
-  DateAvailability,
-  ApiResponse,
-  ApiError,
-} from "@mbe/types";
+import type { TimeSlot, DateAvailability, ApiResponse, ApiError } from "@mbe/types";
 import { createProblemDetails } from "@mbe/types";
 import { availabilityService } from "../services/availability.js";
 import { venueService } from "../services/venue.js";
@@ -140,17 +135,35 @@ export const availabilityRoutes: FastifyPluginAsync = async (fastify) => {
       // Validate date format
       const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
       if (!dateRegex.test(date)) {
-        return reply.code(400).send(createProblemDetails(400, "Bad Request", "Invalid date format. Use YYYY-MM-DD."));
+        return reply
+          .code(400)
+          .send(createProblemDetails(400, "Bad Request", "Invalid date format. Use YYYY-MM-DD."));
       }
 
       const partySizeNum = parseInt(partySize, 10);
       if (isNaN(partySizeNum) || partySizeNum < 1) {
-        return reply.code(400).send(createProblemDetails(400, "Bad Request", "Invalid party size. Must be a positive integer."));
+        return reply
+          .code(400)
+          .send(
+            createProblemDetails(
+              400,
+              "Bad Request",
+              "Invalid party size. Must be a positive integer."
+            )
+          );
       }
 
       const durationNum = duration ? parseInt(duration, 10) : undefined;
       if (duration && (isNaN(durationNum!) || durationNum! < 15)) {
-        return reply.code(400).send(createProblemDetails(400, "Bad Request", "Invalid duration. Must be at least 15 minutes."));
+        return reply
+          .code(400)
+          .send(
+            createProblemDetails(
+              400,
+              "Bad Request",
+              "Invalid duration. Must be at least 15 minutes."
+            )
+          );
       }
 
       const slots = await availabilityService.generateTimeSlots(
@@ -235,19 +248,37 @@ export const availabilityRoutes: FastifyPluginAsync = async (fastify) => {
       // Validate date formats
       const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
       if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
-        return reply.code(400).send(createProblemDetails(400, "Bad Request", "Invalid date format. Use YYYY-MM-DD."));
+        return reply
+          .code(400)
+          .send(createProblemDetails(400, "Bad Request", "Invalid date format. Use YYYY-MM-DD."));
       }
 
       // Validate date range
       const start = new Date(startDate);
       const end = new Date(endDate);
       if (start > end) {
-        return reply.code(400).send(createProblemDetails(400, "Bad Request", "startDate must be before or equal to endDate."));
+        return reply
+          .code(400)
+          .send(
+            createProblemDetails(
+              400,
+              "Bad Request",
+              "startDate must be before or equal to endDate."
+            )
+          );
       }
 
       const partySizeNum = parseInt(partySize, 10);
       if (isNaN(partySizeNum) || partySizeNum < 1) {
-        return reply.code(400).send(createProblemDetails(400, "Bad Request", "Invalid party size. Must be a positive integer."));
+        return reply
+          .code(400)
+          .send(
+            createProblemDetails(
+              400,
+              "Bad Request",
+              "Invalid party size. Must be a positive integer."
+            )
+          );
       }
 
       const dates = await availabilityService.getAvailableDates(

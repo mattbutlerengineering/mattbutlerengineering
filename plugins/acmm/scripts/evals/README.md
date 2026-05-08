@@ -26,17 +26,17 @@ Results are appended to `metrics/acmm-evals.jsonl` (committed; same convention a
 
 ```jsonc
 {
-  "id": "fix-typo-in-readme",        // stable identifier (filename should match)
-  "prompt": "There is a typo …",     // verbatim agent input
+  "id": "fix-typo-in-readme", // stable identifier (filename should match)
+  "prompt": "There is a typo …", // verbatim agent input
   "model": "claude-sonnet-4-6",
-  "maxBudgetUsd": 0.10,
+  "maxBudgetUsd": 0.1,
   "maxTurns": 8,
   "rubric": {
-    "mustPass": ["lint"],            // gates: "build" | "tests" | "lint"
-    "diffSizeMax": 4,                // additions + deletions
-    "mustTouch": ["README.md"],      // substring match against changed file paths
-    "mustNotTouch": ["package.json"]
-  }
+    "mustPass": ["lint"], // gates: "build" | "tests" | "lint"
+    "diffSizeMax": 4, // additions + deletions
+    "mustTouch": ["README.md"], // substring match against changed file paths
+    "mustNotTouch": ["package.json"],
+  },
 }
 ```
 
@@ -46,12 +46,12 @@ Add a fixture by dropping a JSON file into `tasks/`. The runner picks them up au
 
 Each run produces a 0..1 weighted score:
 
-| Criterion       | Weight | Pass condition                                    |
-|-----------------|--------|---------------------------------------------------|
-| `completed`     | 1.0    | Session reached terminal state without error      |
-| `verification`  | 1.0    | All `mustPass` gates passed                       |
-| `diffSize`      | 0.5    | `diffSize <= rubric.diffSizeMax`                  |
-| `filePaths`     | 0.5    | All `mustTouch` matched, no `mustNotTouch` matched |
+| Criterion      | Weight | Pass condition                                     |
+| -------------- | ------ | -------------------------------------------------- |
+| `completed`    | 1.0    | Session reached terminal state without error       |
+| `verification` | 1.0    | All `mustPass` gates passed                        |
+| `diffSize`     | 0.5    | `diffSize <= rubric.diffSizeMax`                   |
+| `filePaths`    | 0.5    | All `mustTouch` matched, no `mustNotTouch` matched |
 
 A run is `success: true` if score ≥ 0.75 (configurable in `schema.js`).
 

@@ -20,23 +20,13 @@
       },
       "shape": {
         "type": "string",
-        "enum": [
-          "rectangle",
-          "circle",
-          "square"
-        ]
+        "enum": ["rectangle", "circle", "square"]
       },
       "color": {
         "type": "string"
       }
     },
-    "required": [
-      "x",
-      "y",
-      "width",
-      "height",
-      "shape"
-    ]
+    "required": ["x", "y", "width", "height", "shape"]
   },
   "Table": {
     "$id": "Table",
@@ -92,12 +82,7 @@
       },
       "status": {
         "type": "string",
-        "enum": [
-          "AVAILABLE",
-          "OCCUPIED",
-          "DIRTY",
-          "READY"
-        ]
+        "enum": ["AVAILABLE", "OCCUPIED", "DIRTY", "READY"]
       },
       "venueId": {
         "anyOf": [
@@ -141,23 +126,13 @@
               },
               "shape": {
                 "type": "string",
-                "enum": [
-                  "rectangle",
-                  "circle",
-                  "square"
-                ]
+                "enum": ["rectangle", "circle", "square"]
               },
               "color": {
                 "type": "string"
               }
             },
-            "required": [
-              "x",
-              "y",
-              "width",
-              "height",
-              "shape"
-            ]
+            "required": ["x", "y", "width", "height", "shape"]
           },
           {
             "type": "null"
@@ -210,13 +185,7 @@
       },
       "status": {
         "type": "string",
-        "enum": [
-          "PENDING",
-          "CONFIRMED",
-          "CANCELLED",
-          "COMPLETED",
-          "NO_SHOW"
-        ]
+        "enum": ["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED", "NO_SHOW"]
       },
       "notes": {
         "anyOf": [
@@ -354,12 +323,7 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "AVAILABLE",
-              "OCCUPIED",
-              "DIRTY",
-              "READY"
-            ]
+            "enum": ["AVAILABLE", "OCCUPIED", "DIRTY", "READY"]
           },
           "venueId": {
             "anyOf": [
@@ -403,23 +367,13 @@
                   },
                   "shape": {
                     "type": "string",
-                    "enum": [
-                      "rectangle",
-                      "circle",
-                      "square"
-                    ]
+                    "enum": ["rectangle", "circle", "square"]
                   },
                   "color": {
                     "type": "string"
                   }
                 },
-                "required": [
-                  "x",
-                  "y",
-                  "width",
-                  "height",
-                  "shape"
-                ]
+                "required": ["x", "y", "width", "height", "shape"]
               },
               {
                 "type": "null"
@@ -512,14 +466,7 @@
         "type": "boolean"
       }
     },
-    "required": [
-      "page",
-      "limit",
-      "total",
-      "totalPages",
-      "hasNext",
-      "hasPrev"
-    ]
+    "required": ["page", "limit", "total", "totalPages", "hasNext", "hasPrev"]
   },
   "Error": {
     "$id": "Error",
@@ -535,11 +482,7 @@
         "type": "number"
       }
     },
-    "required": [
-      "error",
-      "message",
-      "statusCode"
-    ]
+    "required": ["error", "message", "statusCode"]
   },
   "VenueGroup": {
     "$id": "VenueGroup",
@@ -568,13 +511,7 @@
         "type": "string"
       }
     },
-    "required": [
-      "id",
-      "name",
-      "slug",
-      "settings",
-      "createdAt"
-    ]
+    "required": ["id", "name", "slug", "settings", "createdAt"]
   },
   "Venue": {
     "$id": "Venue",
@@ -619,13 +556,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "id",
-          "name",
-          "slug",
-          "settings",
-          "createdAt"
-        ]
+        "required": ["id", "name", "slug", "settings", "createdAt"]
       },
       "name": {
         "type": "string"
@@ -657,10 +588,7 @@
                     "type": "boolean"
                   }
                 },
-                "required": [
-                  "open",
-                  "close"
-                ]
+                "required": ["open", "close"]
               },
               "tuesday": {
                 "type": "object",
@@ -675,10 +603,7 @@
                     "type": "boolean"
                   }
                 },
-                "required": [
-                  "open",
-                  "close"
-                ]
+                "required": ["open", "close"]
               },
               "wednesday": {
                 "type": "object",
@@ -693,10 +618,7 @@
                     "type": "boolean"
                   }
                 },
-                "required": [
-                  "open",
-                  "close"
-                ]
+                "required": ["open", "close"]
               },
               "thursday": {
                 "type": "object",
@@ -711,10 +633,7 @@
                     "type": "boolean"
                   }
                 },
-                "required": [
-                  "open",
-                  "close"
-                ]
+                "required": ["open", "close"]
               },
               "friday": {
                 "type": "object",
@@ -729,10 +648,7 @@
                     "type": "boolean"
                   }
                 },
-                "required": [
-                  "open",
-                  "close"
-                ]
+                "required": ["open", "close"]
               },
               "saturday": {
                 "type": "object",
@@ -747,10 +663,7 @@
                     "type": "boolean"
                   }
                 },
-                "required": [
-                  "open",
-                  "close"
-                ]
+                "required": ["open", "close"]
               },
               "sunday": {
                 "type": "object",
@@ -765,10 +678,7 @@
                     "type": "boolean"
                   }
                 },
-                "required": [
-                  "open",
-                  "close"
-                ]
+                "required": ["open", "close"]
               }
             }
           },
@@ -922,11 +832,7 @@
         "type": "number"
       }
     },
-    "required": [
-      "name",
-      "description",
-      "count"
-    ]
+    "required": ["name", "description", "count"]
   },
   "FloorPlanLayout": {
     "$id": "FloorPlanLayout",
@@ -948,10 +854,7 @@
         "type": "boolean"
       }
     },
-    "required": [
-      "width",
-      "height"
-    ]
+    "required": ["width", "height"]
   },
   "FloorPlan": {
     "$id": "FloorPlan",
@@ -988,10 +891,7 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "width",
-          "height"
-        ]
+        "required": ["width", "height"]
       },
       "tables": {
         "type": "array",
@@ -1048,12 +948,7 @@
             },
             "status": {
               "type": "string",
-              "enum": [
-                "AVAILABLE",
-                "OCCUPIED",
-                "DIRTY",
-                "READY"
-              ]
+              "enum": ["AVAILABLE", "OCCUPIED", "DIRTY", "READY"]
             },
             "venueId": {
               "anyOf": [
@@ -1097,23 +992,13 @@
                     },
                     "shape": {
                       "type": "string",
-                      "enum": [
-                        "rectangle",
-                        "circle",
-                        "square"
-                      ]
+                      "enum": ["rectangle", "circle", "square"]
                     },
                     "color": {
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "x",
-                    "y",
-                    "width",
-                    "height",
-                    "shape"
-                  ]
+                  "required": ["x", "y", "width", "height", "shape"]
                 },
                 {
                   "type": "null"
@@ -1153,14 +1038,6 @@
         "type": "string"
       }
     },
-    "required": [
-      "id",
-      "venueId",
-      "name",
-      "isActive",
-      "layoutJson",
-      "createdAt",
-      "updatedAt"
-    ]
+    "required": ["id", "venueId", "name", "isActive", "layoutJson", "createdAt", "updatedAt"]
   }
 }

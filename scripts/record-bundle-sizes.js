@@ -69,9 +69,7 @@ function measure() {
 function main() {
   const outputIdx = process.argv.indexOf("--output");
   const outputPath =
-    outputIdx !== -1
-      ? resolve(process.argv[outputIdx + 1])
-      : join(ROOT, "bundle-sizes.json");
+    outputIdx !== -1 ? resolve(process.argv[outputIdx + 1]) : join(ROOT, "bundle-sizes.json");
 
   const snapshot = measure();
 
@@ -82,9 +80,7 @@ function main() {
     const jsKB = (sizes.jsBytes / 1024).toFixed(1);
     const cssKB = (sizes.cssBytes / 1024).toFixed(1);
     const totalKB = (sizes.totalBytes / 1024).toFixed(1);
-    console.log(
-      `${name}: JS=${jsKB}kB  CSS=${cssKB}kB  total=${totalKB}kB`,
-    );
+    console.log(`${name}: JS=${jsKB}kB  CSS=${cssKB}kB  total=${totalKB}kB`);
   }
   console.log(`\nSnapshot written to ${outputPath}`);
 }

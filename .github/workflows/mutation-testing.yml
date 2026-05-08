@@ -3,7 +3,7 @@ name: Mutation Testing
 on:
   # Weekly schedule on Monday morning (adjusted to avoid common CI peaks)
   schedule:
-    - cron: "23 9 * * 1"  # Monday 9:23 AM UTC
+    - cron: "23 9 * * 1" # Monday 9:23 AM UTC
   # Allow manual triggering via GitHub UI or API
   workflow_dispatch:
 

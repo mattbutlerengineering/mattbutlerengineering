@@ -11,6 +11,7 @@ OpenCode is an AI coding assistant that uses `opencode.json` for project-specifi
 ## Project Config
 
 The project config is at `opencode.json` in the repo root. It defines:
+
 - Model selection (`model`, `small_model`)
 - Permissions (`permission` object)
 - MCP servers (`mcpServers`)
@@ -19,16 +20,19 @@ The project config is at `opencode.json` in the repo root. It defines:
 ## Quick Setup
 
 **Verify OpenCode is installed:**
+
 ```bash
 which opencode
 ```
 
 **Create project config** (already exists at `opencode.json`):
+
 ```bash
 cat opencode.json
 ```
 
 **Test OpenCode with the project:**
+
 ```bash
 opencode "List the files in the apps directory"
 ```
@@ -50,16 +54,17 @@ opencode "List the files in the apps directory"
 
 ## Key Settings
 
-| Setting | Purpose | Default |
-|---------|---------|---------|
-| `model` | Primary model (format: `provider/model`) | `anthropic/claude-sonnet-4-6` |
-| `small_model` | Lightweight model for simple tasks | `anthropic/claude-haiku-4-5` |
-| `contextPaths` | Files loaded as context | `[]` |
-| `permission` | Tool access rules | See OpenCode docs |
+| Setting        | Purpose                                  | Default                       |
+| -------------- | ---------------------------------------- | ----------------------------- |
+| `model`        | Primary model (format: `provider/model`) | `anthropic/claude-sonnet-4-6` |
+| `small_model`  | Lightweight model for simple tasks       | `anthropic/claude-haiku-4-5`  |
+| `contextPaths` | Files loaded as context                  | `[]`                          |
+| `permission`   | Tool access rules                        | See OpenCode docs             |
 
 ## MCP Servers
 
 Add MCP servers in `opencode.json`:
+
 ```json
 {
   "mcpServers": {

@@ -39,9 +39,11 @@ if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 ```
 
 Check `roadmap_exists` from init JSON. If false:
+
 ```
 ERROR: No roadmap found (.planning/ROADMAP.md)
 ```
+
 Exit.
 </step>
 
@@ -53,6 +55,7 @@ RESULT=$(node "${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shi
 ```
 
 The CLI handles:
+
 - Verifying target phase exists in ROADMAP.md
 - Calculating next decimal phase number (checking existing decimals on disk)
 - Generating slug from description
@@ -105,6 +108,7 @@ Project state updated: .planning/STATE.md
 
 ---
 ```
+
 </step>
 
 </process>
@@ -117,7 +121,7 @@ Project state updated: .planning/STATE.md
 - Don't modify the target phase content
 - Don't create plans yet (that's /gsd:plan-phase)
 - Don't commit changes (user decides when to commit)
-</anti_patterns>
+  </anti_patterns>
 
 <success_criteria>
 Phase insertion is complete when:
@@ -127,4 +131,4 @@ Phase insertion is complete when:
 - [ ] Roadmap updated with new phase entry (includes "(INSERTED)" marker)
 - [ ] STATE.md updated with roadmap evolution note
 - [ ] User informed of next steps and dependency implications
-</success_criteria>
+      </success_criteria>

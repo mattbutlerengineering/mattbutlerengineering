@@ -98,36 +98,86 @@ const SURFACE_REGISTRY: readonly AuditSurface[] = [
   ]),
 
   // Hospitality
-  surface("hospitality:home", "hospitality", "page", "/hospitality", [
-    "apps/hospitality/src/pages/HomePage.tsx",
-  ], "auth0"),
-  surface("hospitality:reservations", "hospitality", "page", "/hospitality/reservations", [
-    "apps/hospitality/src/pages/ReservationsPage.tsx",
-  ], "auth0"),
-  surface("hospitality:timeline", "hospitality", "page", "/hospitality/timeline", [
-    "apps/hospitality/src/pages/TimelinePage.tsx",
-  ], "auth0"),
-  surface("hospitality:guests", "hospitality", "page", "/hospitality/guests", [
-    "apps/hospitality/src/pages/GuestsPage.tsx",
-  ], "auth0"),
-  surface("hospitality:floor-plans", "hospitality", "page", "/hospitality/floor-plans", [
-    "apps/hospitality/src/pages/FloorPlansPage.tsx",
-  ], "auth0"),
-  surface("hospitality:booking-widget", "hospitality", "page", "/hospitality/booking-widget", [
-    "apps/hospitality/src/pages/BookingWidgetDemoPage.tsx",
-  ], "auth0"),
-  surface("hospitality:onboarding", "hospitality", "page", "/hospitality/onboarding", [
-    "apps/hospitality/src/pages/VenueOnboardingPage.tsx",
-  ], "auth0"),
-  surface("hospitality:profile", "hospitality", "page", "/hospitality/profile", [
-    "apps/hospitality/src/pages/ProfilePage.tsx",
-  ], "auth0"),
-  surface("hospitality:settings", "hospitality", "page", "/hospitality/settings", [
-    "apps/hospitality/src/pages/SettingsPage.tsx",
-  ], "auth0"),
-  surface("hospitality:admin", "hospitality", "page", "/hospitality/admin", [
-    "apps/hospitality/src/pages/AdminPage.tsx",
-  ], "auth0"),
+  surface(
+    "hospitality:home",
+    "hospitality",
+    "page",
+    "/hospitality",
+    ["apps/hospitality/src/pages/HomePage.tsx"],
+    "auth0"
+  ),
+  surface(
+    "hospitality:reservations",
+    "hospitality",
+    "page",
+    "/hospitality/reservations",
+    ["apps/hospitality/src/pages/ReservationsPage.tsx"],
+    "auth0"
+  ),
+  surface(
+    "hospitality:timeline",
+    "hospitality",
+    "page",
+    "/hospitality/timeline",
+    ["apps/hospitality/src/pages/TimelinePage.tsx"],
+    "auth0"
+  ),
+  surface(
+    "hospitality:guests",
+    "hospitality",
+    "page",
+    "/hospitality/guests",
+    ["apps/hospitality/src/pages/GuestsPage.tsx"],
+    "auth0"
+  ),
+  surface(
+    "hospitality:floor-plans",
+    "hospitality",
+    "page",
+    "/hospitality/floor-plans",
+    ["apps/hospitality/src/pages/FloorPlansPage.tsx"],
+    "auth0"
+  ),
+  surface(
+    "hospitality:booking-widget",
+    "hospitality",
+    "page",
+    "/hospitality/booking-widget",
+    ["apps/hospitality/src/pages/BookingWidgetDemoPage.tsx"],
+    "auth0"
+  ),
+  surface(
+    "hospitality:onboarding",
+    "hospitality",
+    "page",
+    "/hospitality/onboarding",
+    ["apps/hospitality/src/pages/VenueOnboardingPage.tsx"],
+    "auth0"
+  ),
+  surface(
+    "hospitality:profile",
+    "hospitality",
+    "page",
+    "/hospitality/profile",
+    ["apps/hospitality/src/pages/ProfilePage.tsx"],
+    "auth0"
+  ),
+  surface(
+    "hospitality:settings",
+    "hospitality",
+    "page",
+    "/hospitality/settings",
+    ["apps/hospitality/src/pages/SettingsPage.tsx"],
+    "auth0"
+  ),
+  surface(
+    "hospitality:admin",
+    "hospitality",
+    "page",
+    "/hospitality/admin",
+    ["apps/hospitality/src/pages/AdminPage.tsx"],
+    "auth0"
+  ),
 
   // Rialto Web — Overview
   surface("rialto:overview", "rialto", "page", "/rialto", [
@@ -435,9 +485,14 @@ const SURFACE_REGISTRY: readonly AuditSurface[] = [
   ]),
 
   // Gen
-  surface("gen:playground", "gen", "page", "/gen", [
-    "apps/gen/src/pages/PlaygroundPage.tsx",
-  ], "auth0"),
+  surface(
+    "gen:playground",
+    "gen",
+    "page",
+    "/gen",
+    ["apps/gen/src/pages/PlaygroundPage.tsx"],
+    "auth0"
+  ),
 
   // API Health Endpoints
   surface("api:users:health", "api:users", "api_endpoint", "/api/v1/users/health", [
@@ -466,10 +521,7 @@ export function buildInventory(): AuditInventory {
 
 // ── Merge ───────────────────────────────────────────────────────────
 
-export function mergeInventory(
-  fresh: AuditInventory,
-  existing: AuditInventory
-): AuditInventory {
+export function mergeInventory(fresh: AuditInventory, existing: AuditInventory): AuditInventory {
   const existingMap = new Map(existing.surfaces.map((s) => [s.id, s]));
 
   const merged = fresh.surfaces.map((freshSurface) => {
@@ -509,10 +561,7 @@ export async function loadInventory(repoPath: string): Promise<AuditInventory> {
   }
 }
 
-export async function saveInventory(
-  repoPath: string,
-  inventory: AuditInventory
-): Promise<void> {
+export async function saveInventory(repoPath: string, inventory: AuditInventory): Promise<void> {
   const filePath = join(repoPath, INVENTORY_PATH);
   await mkdir(dirname(filePath), { recursive: true });
   await writeFile(filePath, JSON.stringify(inventory, null, 2));
@@ -664,10 +713,7 @@ export function findStalestZone(inventory: AuditInventory): Zone {
 
 const MAX_HISTORY = 10;
 
-export function updateSurfaceScore(
-  s: AuditSurface,
-  scores: LighthouseScores
-): AuditSurface {
+export function updateSurfaceScore(s: AuditSurface, scores: LighthouseScores): AuditSurface {
   const entry: ScoreEntry = { timestamp: new Date().toISOString(), scores };
   const history = [...s.checkHistory, entry].slice(-MAX_HISTORY);
 
@@ -684,10 +730,7 @@ export function updateSurfaceScore(
 
 const REGRESSION_THRESHOLD = 0.05;
 
-export function detectRegression(
-  s: AuditSurface,
-  newScores: LighthouseScores
-): Regression | null {
+export function detectRegression(s: AuditSurface, newScores: LighthouseScores): Regression | null {
   if (!s.lastScore) return null;
 
   const categories: (keyof LighthouseScores)[] = [

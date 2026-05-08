@@ -45,6 +45,7 @@ If missing both ROADMAP.md and PROJECT.md: suggest `/gsd:new-project`.
 **Use structured extraction from gsd-tools:**
 
 Instead of reading full files, use targeted tools to get only the data needed for the report:
+
 - `ROADMAP=$(node "${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/bin/gsd-tools.cjs" roadmap analyze)`
 - `STATE=$(node "${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/bin/gsd-tools.cjs" state-snapshot)`
 
@@ -59,6 +60,7 @@ ROADMAP=$(node "${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-sh
 ```
 
 This returns structured JSON with:
+
 - All phases with disk status (complete/partial/planned/empty/no_directory)
 - Goal and dependencies per phase
 - Plan and summary counts per phase
@@ -160,6 +162,7 @@ grep -l "status: diagnosed\|status: partial" .planning/phases/[current-phase-dir
 ```
 
 Track:
+
 - `uat_with_gaps`: UAT.md files with status "diagnosed" (gaps need fixing)
 - `uat_partial`: UAT.md files with status "partial" (incomplete testing)
 
@@ -180,10 +183,10 @@ Track: `outstanding_debt` — `summary.total_items` from the audit.
 ```markdown
 ## Verification Debt ({N} files across prior phases)
 
-| Phase | File | Issue |
-|-------|------|-------|
+| Phase   | File       | Issue                                                                     |
+| ------- | ---------- | ------------------------------------------------------------------------- |
 | {phase} | {filename} | {pending_count} pending, {skipped_count} skipped, {blocked_count} blocked |
-| {phase} | {filename} | human_needed — {count} items |
+| {phase} | {filename} | human_needed — {count} items                                              |
 
 Review: `/gsd:audit-uat ${GSD_WS}` — full cross-phase audit
 Resume testing: `/gsd:verify-work {phase} ${GSD_WS}` — retest specific phase
@@ -193,13 +196,13 @@ This is a WARNING, not a blocker — routing proceeds normally. The debt is visi
 
 **Step 2: Route based on counts**
 
-| Condition | Meaning | Action |
-|-----------|---------|--------|
-| uat_partial > 0 | UAT testing incomplete | Go to **Route E.2** |
-| uat_with_gaps > 0 | UAT gaps need fix plans | Go to **Route E** |
-| summaries < plans | Unexecuted plans exist | Go to **Route A** |
-| summaries = plans AND plans > 0 | Phase complete | Go to Step 3 |
-| plans = 0 | Phase not yet planned | Go to **Route B** |
+| Condition                       | Meaning                 | Action              |
+| ------------------------------- | ----------------------- | ------------------- |
+| uat_partial > 0                 | UAT testing incomplete  | Go to **Route E.2** |
+| uat_with_gaps > 0               | UAT gaps need fix plans | Go to **Route E**   |
+| summaries < plans               | Unexecuted plans exist  | Go to **Route A**   |
+| summaries = plans AND plans > 0 | Phase complete          | Go to Step 3        |
+| plans = 0                       | Phase not yet planned   | Go to **Route B**   |
 
 ---
 
@@ -354,6 +357,7 @@ UAT.md exists with `status: partial` — testing session ended before all items 
 **Step 3: Check milestone status (only when phase complete)**
 
 Read ROADMAP.md and identify:
+
 1. Current phase number
 2. All phase numbers in the current milestone section
 
@@ -363,8 +367,8 @@ State: "Current phase is {X}. Milestone has {N} phases (highest: {Y})."
 
 **Route based on milestone status:**
 
-| Condition | Meaning | Action |
-|-----------|---------|--------|
+| Condition                     | Meaning            | Action            |
+| ----------------------------- | ------------------ | ----------------- |
 | current phase < highest phase | More phases remain | Go to **Route C** |
 | current phase = highest phase | Milestone complete | Go to **Route D** |
 

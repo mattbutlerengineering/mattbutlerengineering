@@ -140,18 +140,21 @@ export function FloorPlanEditorPage() {
     }
   }, [pendingUpdates, tables, api, floorPlan]);
 
-  const handleDeleteTable = useCallback(async (tableId: string) => {
-    const confirmed = window.confirm("Delete this table? This action cannot be undone.");
-    if (!confirmed) return;
+  const handleDeleteTable = useCallback(
+    async (tableId: string) => {
+      const confirmed = window.confirm("Delete this table? This action cannot be undone.");
+      if (!confirmed) return;
 
-    try {
-      await api.tables.delete(tableId);
-      setTables((prev) => prev.filter((t) => t.id !== tableId));
-      setSelectedTableId((prev) => (prev === tableId ? null : prev));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete table");
-    }
-  }, [api]);
+      try {
+        await api.tables.delete(tableId);
+        setTables((prev) => prev.filter((t) => t.id !== tableId));
+        setSelectedTableId((prev) => (prev === tableId ? null : prev));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to delete table");
+      }
+    },
+    [api]
+  );
 
   // Auto-save with 1s debounce after changes
   useEffect(() => {
@@ -193,10 +196,7 @@ export function FloorPlanEditorPage() {
       }
 
       // Arrow keys — nudge selected table by 1 grid unit (20px)
-      if (
-        selectedTableId &&
-        ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)
-      ) {
+      if (selectedTableId && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
         e.preventDefault();
         const selectedTable = tables.find((t) => t.id === selectedTableId);
         if (!selectedTable) return;
@@ -242,10 +242,7 @@ export function FloorPlanEditorPage() {
   if (error || !floorPlan) {
     return (
       <div className={styles.errorContainer}>
-        <ErrorRetryBanner
-          error={error ?? "Floor plan not found"}
-          onRetry={fetchFloorPlan}
-        />
+        <ErrorRetryBanner error={error ?? "Floor plan not found"} onRetry={fetchFloorPlan} />
         <Button onClick={() => navigate("/floor-plans")} className={styles.backLink}>
           Back to Floor Plans
         </Button>
@@ -264,7 +261,12 @@ export function FloorPlanEditorPage() {
             aria-label="Back to floor plans"
           >
             <svg className={styles.backIcon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </Button>
           <Heading className={styles.floorPlanTitle}>{floorPlan.name}</Heading>
@@ -351,8 +353,7 @@ export function FloorPlanEditorPage() {
               <div>
                 <Text className={styles.detailLabel}>Position</Text>
                 <div className={styles.detailValueMono}>
-                  x: {selectedTable.shapeMetadata?.x ?? 0}, y:{" "}
-                  {selectedTable.shapeMetadata?.y ?? 0}
+                  x: {selectedTable.shapeMetadata?.x ?? 0}, y: {selectedTable.shapeMetadata?.y ?? 0}
                 </div>
               </div>
               <Button
@@ -401,4 +402,4 @@ export function FloorPlanEditorPage() {
       )}
     </div>
   );
-  }
+}

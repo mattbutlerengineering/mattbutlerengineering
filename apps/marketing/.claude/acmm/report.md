@@ -14,24 +14,24 @@ Canonical 6-level model ported from [kubestellar/console](https://github.com/kub
 
 Each level needs ≥70% of its scannable criteria detected (L2 needs only 1).
 
-| Level | Detected | Required | % | Passed |
-|---|---|---|---|---|
-| L2 | 1 | 3 | 33% | ✅ |
-| L3 | 3 | 4 | 75% | ✅ |
-| L4 | 6 | 7 | 86% | ✅ |
-| L5 | 5 | 6 | 83% | ✅ |
-| L6 | 6 | 6 | 100% | ✅ |
+| Level | Detected | Required | %    | Passed |
+| ----- | -------- | -------- | ---- | ------ |
+| L2    | 1        | 3        | 33%  | ✅     |
+| L3    | 3        | 4        | 75%  | ✅     |
+| L4    | 6        | 7        | 86%  | ✅     |
+| L5    | 5        | 6        | 83%  | ✅     |
+| L6    | 6        | 6        | 100% | ✅     |
 
 Prerequisites (L0, soft indicator): **6/8**
 
 ## By source framework
 
-| Source | Detected | Total | Citation |
-|---|---|---|---|
-| [AI Codebase Maturity Model](https://arxiv.org/abs/2604.09388) | 40 | 65 | Anderson, A. (2026). The AI Codebase Maturity Model. arXiv:2604.09388 |
-| [Fullsend](https://github.com/fullsend-ai/fullsend) | 3 | 8 | Fullsend: Vision for fully autonomous agentic engineering. github.com/fullsend-ai/fullsend |
-| [Agentic Engineering Framework](https://github.com/DimitriGeelen/agentic-engineering-framework) | 2 | 6 | Agentic Engineering Framework: Governance patterns for AI coding agents. github.com/DimitriGeelen/agentic-engineering-framework |
-| [Claude Reflect](https://github.com/BayramAnnakov/claude-reflect) | 0 | 6 | Claude Reflect: A self-learning system for Claude Code that captures corrections and syncs them to CLAUDE.md. github.com/BayramAnnakov/claude-reflect |
+| Source                                                                                          | Detected | Total | Citation                                                                                                                                              |
+| ----------------------------------------------------------------------------------------------- | -------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [AI Codebase Maturity Model](https://arxiv.org/abs/2604.09388)                                  | 40       | 65    | Anderson, A. (2026). The AI Codebase Maturity Model. arXiv:2604.09388                                                                                 |
+| [Fullsend](https://github.com/fullsend-ai/fullsend)                                             | 3        | 8     | Fullsend: Vision for fully autonomous agentic engineering. github.com/fullsend-ai/fullsend                                                            |
+| [Agentic Engineering Framework](https://github.com/DimitriGeelen/agentic-engineering-framework) | 2        | 6     | Agentic Engineering Framework: Governance patterns for AI coding agents. github.com/DimitriGeelen/agentic-engineering-framework                       |
+| [Claude Reflect](https://github.com/BayramAnnakov/claude-reflect)                               | 0        | 6     | Claude Reflect: A self-learning system for Claude Code that captures corrections and syncs them to CLAUDE.md. github.com/BayramAnnakov/claude-reflect |
 
 ## Signal quality
 
@@ -329,6 +329,6 @@ _Agent PR detection: branch starts with `agent-`/`worktree-agent-`/`fix/agent-`/
 
 ## Trend
 
-| Date | Level | Detected |
-|---|---|---|
-| 2026-04-26 | L6 | 45/85 |
+| Date       | Level | Detected |
+| ---------- | ----- | -------- |
+| 2026-04-26 | L6    | 45/85    |

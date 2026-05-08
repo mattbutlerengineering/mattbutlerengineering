@@ -38,10 +38,7 @@ function createProblemDetails(status: number, title: string, detail: string) {
  * registering this plugin. An `onReady` hook will log a warning if the
  * `rateLimit` decorator is missing at startup.
  */
-async function authPluginImpl(
-  fastify: FastifyInstance,
-  options: AuthPluginOptions
-) {
+async function authPluginImpl(fastify: FastifyInstance, options: AuthPluginOptions) {
   const { authority, audience, excludePaths = [] } = options;
 
   const jwksUri = `${authority.replace(/\/$/, "")}/.well-known/jwks.json`;
@@ -64,7 +61,10 @@ async function authPluginImpl(
   fastify.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
     // 1. Explicit Test Bypass
     // Check if bypass mode is enabled AND the request opted in via header.
-    if (process.env.AUTH_BYPASS_IN_TESTS === "true" && request.headers["x-auth-bypass"] === "true") {
+    if (
+      process.env.AUTH_BYPASS_IN_TESTS === "true" &&
+      request.headers["x-auth-bypass"] === "true"
+    ) {
       request.user = {
         id: "auth0|user-123",
         email: "test@example.com",
@@ -101,7 +101,9 @@ async function authPluginImpl(
 
       if (!result || !result.payload || typeof result.payload.sub !== "string") {
         request.log.warn("JWT missing required 'sub' claim");
-        return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Invalid token: missing sub"));
+        return reply
+          .code(401)
+          .send(createProblemDetails(401, "Unauthorized", "Invalid token: missing sub"));
       }
 
       const { payload } = result;
@@ -140,9 +142,12 @@ export const authPlugin: FastifyPluginAsync<AuthPluginOptions> = fp(authPluginIm
 });
 
 export async function requireAuth(request: FastifyRequest, reply: FastifyReply) {
-  const isBypassed = process.env.AUTH_BYPASS_IN_TESTS === "true" && request.headers["x-auth-bypass"] === "true";
+  const isBypassed =
+    process.env.AUTH_BYPASS_IN_TESTS === "true" && request.headers["x-auth-bypass"] === "true";
   if (!request.user && !isBypassed) {
-    return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Missing or invalid authorization header"));
+    return reply
+      .code(401)
+      .send(createProblemDetails(401, "Unauthorized", "Missing or invalid authorization header"));
   }
 }
 

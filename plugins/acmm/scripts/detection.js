@@ -13,12 +13,12 @@
  *   - `glob`   — reserved; not used in current canonical data
  */
 
-import { execFileSync } from 'node:child_process';
-import { existsSync, statSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { execFileSync } from "node:child_process";
+import { existsSync, statSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 
 function existsAt(cwd, pattern) {
-  const isDir = pattern.endsWith('/');
+  const isDir = pattern.endsWith("/");
   const target = isDir ? pattern.slice(0, -1) : pattern;
   const abs = join(cwd, target);
   if (!existsSync(abs)) return false;
@@ -46,23 +46,34 @@ export function isWorkflowActive(cwd, workflowFile, maxAgeDays, opts = {}) {
   const fn = opts.execFileSyncFn ?? execFileSync;
   try {
     const result = fn(
-      'gh',
-      ['run', 'list', `--workflow=${workflowFile}`, '--status=completed', '--limit=1', '--json', 'conclusion,updatedAt'],
-      { cwd, encoding: 'utf-8', timeout: 10_000, stdio: ['pipe', 'pipe', 'pipe'] },
+      "gh",
+      [
+        "run",
+        "list",
+        `--workflow=${workflowFile}`,
+        "--status=completed",
+        "--limit=1",
+        "--json",
+        "conclusion,updatedAt",
+      ],
+      { cwd, encoding: "utf-8", timeout: 10_000, stdio: ["pipe", "pipe", "pipe"] }
     );
     const runs = JSON.parse(result);
     if (runs.length === 0) {
-      return { active: false, reason: 'no completed runs' };
+      return { active: false, reason: "no completed runs" };
     }
     const lastRun = new Date(runs[0].updatedAt);
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - maxAgeDays);
     if (lastRun < cutoff) {
-      return { active: false, reason: `last run ${runs[0].updatedAt} exceeds ${maxAgeDays}d window` };
+      return {
+        active: false,
+        reason: `last run ${runs[0].updatedAt} exceeds ${maxAgeDays}d window`,
+      };
     }
-    return { active: true, conclusion: runs[0].conclusion, reason: 'recent run found' };
+    return { active: true, conclusion: runs[0].conclusion, reason: "recent run found" };
   } catch {
-    return { active: null, degraded: true, reason: 'gh CLI unavailable or error' };
+    return { active: null, degraded: true, reason: "gh CLI unavailable or error" };
   }
 }
 
@@ -76,15 +87,15 @@ export function isWorkflowActive(cwd, workflowFile, maxAgeDays, opts = {}) {
  */
 export function detect(cwd, criterion, opts = {}) {
   const { type, pattern, maxAgeDays = 30 } = criterion.detection;
-  if (type === 'path') {
+  if (type === "path") {
     if (Array.isArray(pattern)) return pattern.some((p) => existsAt(cwd, p));
     return existsAt(cwd, pattern);
   }
-  if (type === 'any-of') {
+  if (type === "any-of") {
     const patterns = Array.isArray(pattern) ? pattern : [pattern];
     return patterns.some((p) => existsAt(cwd, p));
   }
-  if (type === 'active') {
+  if (type === "active") {
     const patterns = Array.isArray(pattern) ? pattern : [pattern];
     const filePresent = patterns.some((p) => existsAt(cwd, p));
     if (!filePresent) return false;
@@ -94,19 +105,19 @@ export function detect(cwd, criterion, opts = {}) {
     if (result.degraded) return true; // graceful degradation: file exists, gh unavailable
     return result.active;
   }
-  if (type === 'grep') {
+  if (type === "grep") {
     const { file, contains } = pattern;
     const abs = join(cwd, file);
     if (!existsSync(abs)) return false;
     try {
-      const content = readFileSync(abs, 'utf-8');
+      const content = readFileSync(abs, "utf-8");
       const regex = new RegExp(contains);
       return regex.test(content);
     } catch {
       return false;
     }
   }
-  if (type === 'glob') {
+  if (type === "glob") {
     throw new Error(`detection.type='glob' is not implemented (no canonical criterion uses it).`);
   }
   throw new Error(`unknown detection.type: ${type}`);
@@ -129,24 +140,26 @@ export function detectAll(cwd, criteria, opts = {}) {
   const detected = new Set();
   const meta = new Map();
   for (const c of criteria) {
-    if (c.detection.type === 'active') {
+    if (c.detection.type === "active") {
       const { maxAgeDays = 7 } = c.detection;
-      const patterns = Array.isArray(c.detection.pattern) ? c.detection.pattern : [c.detection.pattern];
+      const patterns = Array.isArray(c.detection.pattern)
+        ? c.detection.pattern
+        : [c.detection.pattern];
       const filePresent = patterns.some((p) => existsAt(cwd, p));
       if (!filePresent) {
-        meta.set(c.id, { status: 'missing', reason: 'file not found' });
+        meta.set(c.id, { status: "missing", reason: "file not found" });
         continue;
       }
       const workflowFile = patterns.find((p) => existsAt(cwd, p));
       const result = isWorkflowActive(cwd, workflowFile, maxAgeDays, opts);
       if (result.degraded) {
         detected.add(c.id);
-        meta.set(c.id, { status: 'degraded', reason: result.reason });
+        meta.set(c.id, { status: "degraded", reason: result.reason });
       } else if (result.active) {
         detected.add(c.id);
-        meta.set(c.id, { status: 'active', reason: result.reason });
+        meta.set(c.id, { status: "active", reason: result.reason });
       } else {
-        meta.set(c.id, { status: 'inactive', reason: result.reason });
+        meta.set(c.id, { status: "inactive", reason: result.reason });
       }
     } else {
       if (detect(cwd, c, opts)) detected.add(c.id);

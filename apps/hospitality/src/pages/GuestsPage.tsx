@@ -290,11 +290,7 @@ function GuestDetailDrawer({ guest, open, onClose, onSave, api }: GuestDetailDra
             <Button variant="ghost" onClick={handleCancelEdit} disabled={isSaving}>
               Cancel
             </Button>
-            <Button
-              variant="primary"
-              onClick={handleSave}
-              disabled={isSaving || !isNameValid}
-            >
+            <Button variant="primary" onClick={handleSave} disabled={isSaving || !isNameValid}>
               {isSaving ? "Saving..." : "Save"}
             </Button>
           </Stack>
@@ -538,10 +534,7 @@ export function GuestsPage() {
     [api, fetchGuests]
   );
 
-  const totalGuestCount = useMemo(
-    () => segments.reduce((sum, s) => sum + s.count, 0),
-    [segments]
-  );
+  const totalGuestCount = useMemo(() => segments.reduce((sum, s) => sum + s.count, 0), [segments]);
 
   if (!selectedVenueId && !isLoading) {
     return (
@@ -589,8 +582,7 @@ export function GuestsPage() {
               key={segment.name}
               className={styles.segmentCard}
               style={{
-                borderInlineStartColor:
-                  SEGMENT_ACCENT_COLORS[index % SEGMENT_ACCENT_COLORS.length],
+                borderInlineStartColor: SEGMENT_ACCENT_COLORS[index % SEGMENT_ACCENT_COLORS.length],
               }}
             >
               <Stat label={segment.name} value={segment.count} />
@@ -600,11 +592,7 @@ export function GuestsPage() {
       )}
 
       {error && (
-        <ErrorRetryBanner
-          error={error}
-          onRetry={fetchGuests}
-          onDismiss={() => setError(null)}
-        />
+        <ErrorRetryBanner error={error} onRetry={fetchGuests} onDismiss={() => setError(null)} />
       )}
 
       <span className={styles.srOnly} aria-live="polite" role="status">
@@ -669,11 +657,7 @@ export function GuestsPage() {
                           {guest.name}
                         </Text>
                         {guest.notes && (
-                          <Text
-                            variant="caption"
-                            color="secondary"
-                            className={styles.guestNotes}
-                          >
+                          <Text variant="caption" color="secondary" className={styles.guestNotes}>
                             {guest.notes}
                           </Text>
                         )}

@@ -13,11 +13,7 @@
         "type": "number"
       }
     },
-    "required": [
-      "error",
-      "message",
-      "statusCode"
-    ]
+    "required": ["error", "message", "statusCode"]
   },
   "Pagination": {
     "$id": "Pagination",
@@ -42,14 +38,7 @@
         "type": "boolean"
       }
     },
-    "required": [
-      "page",
-      "limit",
-      "total",
-      "totalPages",
-      "hasNext",
-      "hasPrev"
-    ]
+    "required": ["page", "limit", "total", "totalPages", "hasNext", "hasPrev"]
   },
   "UserPreferences": {
     "$id": "UserPreferences",
@@ -57,11 +46,7 @@
     "properties": {
       "theme": {
         "type": "string",
-        "enum": [
-          "light",
-          "dark",
-          "system"
-        ]
+        "enum": ["light", "dark", "system"]
       },
       "emailNotifications": {
         "type": "boolean"
@@ -111,11 +96,7 @@
         "properties": {
           "theme": {
             "type": "string",
-            "enum": [
-              "light",
-              "dark",
-              "system"
-            ]
+            "enum": ["light", "dark", "system"]
           },
           "emailNotifications": {
             "type": "boolean"

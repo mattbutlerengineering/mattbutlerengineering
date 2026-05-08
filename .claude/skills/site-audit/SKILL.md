@@ -51,6 +51,7 @@ git diff HEAD~1 --name-only
    - For API endpoints: use the **audit curl pattern** below and check for `"status":"ok"` in response. If 403, flag as `access-restricted` and continue.
 
 **Audit curl pattern (use for all curl-based checks):**
+
 ```bash
 AUDIT_CURL_OPTS=(-sf -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36")
 [ -n "${AUDIT_TOKEN:-}" ] && AUDIT_CURL_OPTS+=(-H "X-Audit-Token: $AUDIT_TOKEN")
@@ -75,15 +76,15 @@ If no files in `apps/`, `services/`, `packages/`, or `infrastructure/` changed, 
 
 ### Zones
 
-| Zone | Surfaces | Auth |
-|------|----------| -----|
-| `marketing` | 1 page | none |
-| `hospitality` | 11 pages | auth0 |
-| `rialto` | 7 pages | none |
-| `gen` | 1 page | auth0 |
-| `api:users` | 1 endpoint | none |
-| `api:reservations` | 1 endpoint | none |
-| `api:agent` | 1 endpoint | none |
+| Zone               | Surfaces   | Auth  |
+| ------------------ | ---------- | ----- |
+| `marketing`        | 1 page     | none  |
+| `hospitality`      | 11 pages   | auth0 |
+| `rialto`           | 7 pages    | none  |
+| `gen`              | 1 page     | auth0 |
+| `api:users`        | 1 endpoint | none  |
+| `api:reservations` | 1 endpoint | none  |
+| `api:agent`        | 1 endpoint | none  |
 
 ### Steps
 
@@ -106,6 +107,7 @@ git log --since='$LAST_CHECKED' --name-only -- $SOURCE_FILES | head -1
 - If `lastChecked` is **null** (never audited) → always include
 
 Log skipped surfaces in the final report:
+
 ```
 Skipped 4 unchanged surfaces: marketing/home, rialto/tokens, ...
 ```
@@ -188,6 +190,7 @@ If a substantially similar issue already exists, **skip it**.
 **Title:** `[Audit] <Category>: <Specific finding>`
 
 **Labels:** Always apply `audit` + `ready` + one category label:
+
 - `performance` — Lighthouse perf score, slow loads, large bundles
 - `accessibility` — Missing labels, poor contrast, keyboard navigation
 - `seo` — Missing meta tags, poor scores
@@ -196,6 +199,7 @@ If a substantially similar issue already exists, **skip it**.
 For regressions detected by smoke mode, also add `ci-fix`.
 
 **Body:**
+
 ```markdown
 ## Finding
 
@@ -214,7 +218,8 @@ For regressions detected by smoke mode, also add `ci-fix`.
 [Brief suggestion if obvious, otherwise "Investigate and fix"]
 
 ---
-*Found by automated site audit ({{mode}} mode) on YYYY-MM-DD*
+
+_Found by automated site audit ({{mode}} mode) on YYYY-MM-DD_
 ```
 
 ## Authenticated Testing (Hospitality + Gen)
@@ -258,6 +263,7 @@ If auth credentials are not available, skip auth-protected surfaces and note the
 The audit environment (cloud/RemoteTrigger) may receive `403 host_not_allowed` responses from Cloudflare Bot Management when accessing production surfaces without a real browser context.
 
 **When a surface returns 403:**
+
 1. Log: `ACCESS-RESTRICTED: <url> — Cloudflare blocking non-browser request`
 2. Mark surface as `restricted` in inventory (not `error`)
 3. Skip Lighthouse/Playwright for that surface
@@ -265,6 +271,7 @@ The audit environment (cloud/RemoteTrigger) may receive `403 host_not_allowed` r
 5. If >50% of zone surfaces are restricted, create one `[Audit] Infrastructure: Site unreachable from audit environment` issue (label `infrastructure`) and stop
 
 **To enable full production access** (requires a one-time manual Cloudflare step):
+
 1. Go to Cloudflare Dashboard → Security → WAF → Custom Rules
 2. Add rule: If request header `X-Audit-Token` equals `<your-secret>` → Skip → Bot Fight Mode
 3. Set `wrangler secret put AUDIT_TOKEN` on the edge router Worker (same secret value)

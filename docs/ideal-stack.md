@@ -11,30 +11,30 @@ Default technology choices for new APIs, frontends, and infrastructure in the ma
 
 ## Stack at a Glance
 
-| Layer | Tool | Free Tier | Upgrade Trigger | Eval |
-|-------|------|-----------|-----------------|------|
-| Language & Runtime | TypeScript + Node.js | $0 | — | — |
-| Frontend (marketing) | Astro + React islands | $0 | — | [eval](evaluations/2026-02-26-frontend-meta-frameworks.md) |
-| Frontend (apps) | React + Vite | $0 | — | [eval](evaluations/2026-02-26-frontend-meta-frameworks.md) |
-| Backend API | Fastify | $0 | — | — |
-| Database | Supabase (Postgres) | 500 MB, 50K MAU | >500 MB or need backups | [eval](evaluations/2026-02-26-database-providers.md) |
-| ORM | Prisma | $0 | — | [eval](evaluations/2026-02-26-database-providers.md) |
-| Authentication | Auth0 | 25K MAU | >25K MAU | [eval](evaluations/2026-02-26-auth-providers.md) |
-| Hosting | Railway | $5 trial credit | Trial ends or multiple services | [eval](evaluations/2026-02-26-hosting-providers.md) |
-| IaC | Pulumi (TypeScript) | 200 resources | >200 resources | [eval](evaluations/2026-02-26-iac-tooling.md) |
-| CI/CD | GitHub Actions | 2,000 min/mo | >2,000 min/mo | [eval](evaluations/2026-02-26-ci-cd-providers.md) |
-| Monorepo | pnpm + Turborepo + Changesets | $0 | — | [eval](evaluations/2026-02-26-monorepo-tooling.md) |
-| Email | Resend | 3K emails/mo | >3K emails/mo | [eval](evaluations/2026-02-26-email-sms-providers.md) |
-| Payments | Stripe | 2.9% + $0.30/txn | — | [eval](evaluations/2026-02-26-payment-processing.md) |
-| Background Jobs | BullMQ + Upstash Redis | 10K req/day | >10K req/day | [eval](evaluations/2026-02-26-background-jobs.md) |
-| Caching | Upstash Redis | 10K req/day (shared) | >10K req/day | [eval](evaluations/2026-02-26-caching.md) |
-| Object Storage | Cloudflare R2 | 10 GB, $0 egress | >10 GB stored | [eval](evaluations/2026-02-26-object-storage.md) |
-| Real-Time | SSE (native) | $0 | Need bidirectional → WebSocket | [eval](evaluations/2026-02-26-real-time.md) |
-| Analytics & Flags | PostHog | 1M events/mo | >1M events/mo | [eval](evaluations/2026-02-26-analytics-feature-flags.md) |
-| Observability | Sentry | 5K errors/mo | >5K errors/mo | [eval](evaluations/2026-02-26-observability-monitoring.md) |
-| E2E Testing | Playwright | $0 (OSS) | — | [eval](evaluations/2026-02-26-e2e-testing.md) |
-| Unit/Integration Testing | Vitest | $0 (OSS) | — | — |
-| DNS & CDN | Cloudflare | Unlimited DNS, free CDN | — | — |
+| Layer                    | Tool                          | Free Tier               | Upgrade Trigger                 | Eval                                                       |
+| ------------------------ | ----------------------------- | ----------------------- | ------------------------------- | ---------------------------------------------------------- |
+| Language & Runtime       | TypeScript + Node.js          | $0                      | —                               | —                                                          |
+| Frontend (marketing)     | Astro + React islands         | $0                      | —                               | [eval](evaluations/2026-02-26-frontend-meta-frameworks.md) |
+| Frontend (apps)          | React + Vite                  | $0                      | —                               | [eval](evaluations/2026-02-26-frontend-meta-frameworks.md) |
+| Backend API              | Fastify                       | $0                      | —                               | —                                                          |
+| Database                 | Supabase (Postgres)           | 500 MB, 50K MAU         | >500 MB or need backups         | [eval](evaluations/2026-02-26-database-providers.md)       |
+| ORM                      | Prisma                        | $0                      | —                               | [eval](evaluations/2026-02-26-database-providers.md)       |
+| Authentication           | Auth0                         | 25K MAU                 | >25K MAU                        | [eval](evaluations/2026-02-26-auth-providers.md)           |
+| Hosting                  | Railway                       | $5 trial credit         | Trial ends or multiple services | [eval](evaluations/2026-02-26-hosting-providers.md)        |
+| IaC                      | Pulumi (TypeScript)           | 200 resources           | >200 resources                  | [eval](evaluations/2026-02-26-iac-tooling.md)              |
+| CI/CD                    | GitHub Actions                | 2,000 min/mo            | >2,000 min/mo                   | [eval](evaluations/2026-02-26-ci-cd-providers.md)          |
+| Monorepo                 | pnpm + Turborepo + Changesets | $0                      | —                               | [eval](evaluations/2026-02-26-monorepo-tooling.md)         |
+| Email                    | Resend                        | 3K emails/mo            | >3K emails/mo                   | [eval](evaluations/2026-02-26-email-sms-providers.md)      |
+| Payments                 | Stripe                        | 2.9% + $0.30/txn        | —                               | [eval](evaluations/2026-02-26-payment-processing.md)       |
+| Background Jobs          | BullMQ + Upstash Redis        | 10K req/day             | >10K req/day                    | [eval](evaluations/2026-02-26-background-jobs.md)          |
+| Caching                  | Upstash Redis                 | 10K req/day (shared)    | >10K req/day                    | [eval](evaluations/2026-02-26-caching.md)                  |
+| Object Storage           | Cloudflare R2                 | 10 GB, $0 egress        | >10 GB stored                   | [eval](evaluations/2026-02-26-object-storage.md)           |
+| Real-Time                | SSE (native)                  | $0                      | Need bidirectional → WebSocket  | [eval](evaluations/2026-02-26-real-time.md)                |
+| Analytics & Flags        | PostHog                       | 1M events/mo            | >1M events/mo                   | [eval](evaluations/2026-02-26-analytics-feature-flags.md)  |
+| Observability            | Sentry                        | 5K errors/mo            | >5K errors/mo                   | [eval](evaluations/2026-02-26-observability-monitoring.md) |
+| E2E Testing              | Playwright                    | $0 (OSS)                | —                               | [eval](evaluations/2026-02-26-e2e-testing.md)              |
+| Unit/Integration Testing | Vitest                        | $0 (OSS)                | —                               | —                                                          |
+| DNS & CDN                | Cloudflare                    | Unlimited DNS, free CDN | —                               | —                                                          |
 
 ## Stack Layers
 
@@ -222,11 +222,11 @@ No evaluation needed — Cloudflare is best-in-class at the free tier. Unlimited
 
 ## Cost Summary
 
-| Stage | Monthly Cost | What Changes |
-|-------|-------------|--------------|
-| **Launch** | ~$0 | Everything on free tiers |
-| **Growing** (hundreds of users) | ~$25–50 | Database Pro ($25), Railway Pro (~$10–20) |
-| **Scaling** (thousands of users) | ~$100–200 | Add Sentry Team ($29), Resend Pro ($20), Upstash pay-as-you-go |
+| Stage                            | Monthly Cost | What Changes                                                   |
+| -------------------------------- | ------------ | -------------------------------------------------------------- |
+| **Launch**                       | ~$0          | Everything on free tiers                                       |
+| **Growing** (hundreds of users)  | ~$25–50      | Database Pro ($25), Railway Pro (~$10–20)                      |
+| **Scaling** (thousands of users) | ~$100–200    | Add Sentry Team ($29), Resend Pro ($20), Upstash pay-as-you-go |
 
 Stripe is excluded from the table — it's a percentage of revenue, not a fixed cost.
 
@@ -244,21 +244,21 @@ When deviating, document the reason in the project's README or a linked ADR.
 
 All evaluations are in [`docs/evaluations/`](evaluations/):
 
-| # | Evaluation | File |
-|---|-----------|------|
-| 1 | Database providers | [2026-02-26-database-providers.md](evaluations/2026-02-26-database-providers.md) |
-| 2 | Hosting/PaaS providers | [2026-02-26-hosting-providers.md](evaluations/2026-02-26-hosting-providers.md) |
-| 3 | Auth providers | [2026-02-26-auth-providers.md](evaluations/2026-02-26-auth-providers.md) |
-| 4 | Observability/monitoring | [2026-02-26-observability-monitoring.md](evaluations/2026-02-26-observability-monitoring.md) |
-| 5 | CI/CD providers | [2026-02-26-ci-cd-providers.md](evaluations/2026-02-26-ci-cd-providers.md) |
-| 6 | Frontend meta-frameworks | [2026-02-26-frontend-meta-frameworks.md](evaluations/2026-02-26-frontend-meta-frameworks.md) |
-| 7 | IaC tooling | [2026-02-26-iac-tooling.md](evaluations/2026-02-26-iac-tooling.md) |
-| 8 | Email/SMS providers | [2026-02-26-email-sms-providers.md](evaluations/2026-02-26-email-sms-providers.md) |
-| 9 | Monorepo tooling | [2026-02-26-monorepo-tooling.md](evaluations/2026-02-26-monorepo-tooling.md) |
-| 10 | Background jobs | [2026-02-26-background-jobs.md](evaluations/2026-02-26-background-jobs.md) |
-| 11 | Payment processing | [2026-02-26-payment-processing.md](evaluations/2026-02-26-payment-processing.md) |
-| 12 | Object storage | [2026-02-26-object-storage.md](evaluations/2026-02-26-object-storage.md) |
-| 13 | Caching | [2026-02-26-caching.md](evaluations/2026-02-26-caching.md) |
-| 14 | Real-time updates | [2026-02-26-real-time.md](evaluations/2026-02-26-real-time.md) |
-| 15 | Analytics & feature flags | [2026-02-26-analytics-feature-flags.md](evaluations/2026-02-26-analytics-feature-flags.md) |
-| 16 | E2E testing | [2026-02-26-e2e-testing.md](evaluations/2026-02-26-e2e-testing.md) |
+| #   | Evaluation                | File                                                                                         |
+| --- | ------------------------- | -------------------------------------------------------------------------------------------- |
+| 1   | Database providers        | [2026-02-26-database-providers.md](evaluations/2026-02-26-database-providers.md)             |
+| 2   | Hosting/PaaS providers    | [2026-02-26-hosting-providers.md](evaluations/2026-02-26-hosting-providers.md)               |
+| 3   | Auth providers            | [2026-02-26-auth-providers.md](evaluations/2026-02-26-auth-providers.md)                     |
+| 4   | Observability/monitoring  | [2026-02-26-observability-monitoring.md](evaluations/2026-02-26-observability-monitoring.md) |
+| 5   | CI/CD providers           | [2026-02-26-ci-cd-providers.md](evaluations/2026-02-26-ci-cd-providers.md)                   |
+| 6   | Frontend meta-frameworks  | [2026-02-26-frontend-meta-frameworks.md](evaluations/2026-02-26-frontend-meta-frameworks.md) |
+| 7   | IaC tooling               | [2026-02-26-iac-tooling.md](evaluations/2026-02-26-iac-tooling.md)                           |
+| 8   | Email/SMS providers       | [2026-02-26-email-sms-providers.md](evaluations/2026-02-26-email-sms-providers.md)           |
+| 9   | Monorepo tooling          | [2026-02-26-monorepo-tooling.md](evaluations/2026-02-26-monorepo-tooling.md)                 |
+| 10  | Background jobs           | [2026-02-26-background-jobs.md](evaluations/2026-02-26-background-jobs.md)                   |
+| 11  | Payment processing        | [2026-02-26-payment-processing.md](evaluations/2026-02-26-payment-processing.md)             |
+| 12  | Object storage            | [2026-02-26-object-storage.md](evaluations/2026-02-26-object-storage.md)                     |
+| 13  | Caching                   | [2026-02-26-caching.md](evaluations/2026-02-26-caching.md)                                   |
+| 14  | Real-time updates         | [2026-02-26-real-time.md](evaluations/2026-02-26-real-time.md)                               |
+| 15  | Analytics & feature flags | [2026-02-26-analytics-feature-flags.md](evaluations/2026-02-26-analytics-feature-flags.md)   |
+| 16  | E2E testing               | [2026-02-26-e2e-testing.md](evaluations/2026-02-26-e2e-testing.md)                           |

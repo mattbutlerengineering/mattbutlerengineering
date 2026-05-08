@@ -15,11 +15,7 @@ export function BreadcrumbPage() {
       {/* ── Short Path ────────────────────────────────────────────── */}
       <Section title="Short Path">
         <Breadcrumb
-          items={[
-            { label: "Home", href: "#" },
-            { label: "Vehicles", href: "#" },
-            { label: "F80" },
-          ]}
+          items={[{ label: "Home", href: "#" }, { label: "Vehicles", href: "#" }, { label: "F80" }]}
         />
       </Section>
 

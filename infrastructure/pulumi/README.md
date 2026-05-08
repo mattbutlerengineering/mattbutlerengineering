@@ -42,27 +42,27 @@ pulumi stack output
 
 ## What Gets Created
 
-| Resource | Description |
-|----------|-------------|
-| `DatabaseCluster` | Managed PostgreSQL 16 (1 vCPU, 1GB) |
-| `DatabaseUser` | Application database user |
-| `DatabaseDb` | Application database |
-| `App` | DigitalOcean App Platform app |
-| └─ `users-api` | Fastify API service |
-| └─ `marketing` | Landing page static site |
-| └─ `rialto-web` | Rialto design system showcase |
-| └─ `hospitality` | Hospitality static site |
-| `DnsRecord` (root) | CNAME pointing to DO App |
-| `DnsRecord` (www) | CNAME redirecting to apex |
+| Resource           | Description                         |
+| ------------------ | ----------------------------------- |
+| `DatabaseCluster`  | Managed PostgreSQL 16 (1 vCPU, 1GB) |
+| `DatabaseUser`     | Application database user           |
+| `DatabaseDb`       | Application database                |
+| `App`              | DigitalOcean App Platform app       |
+| └─ `users-api`     | Fastify API service                 |
+| └─ `marketing`     | Landing page static site            |
+| └─ `rialto-web`    | Rialto design system showcase       |
+| └─ `hospitality`   | Hospitality static site             |
+| `DnsRecord` (root) | CNAME pointing to DO App            |
+| `DnsRecord` (www)  | CNAME redirecting to apex           |
 
 ## Configuration
 
 Set in `Pulumi.prod.yaml`:
 
-| Key | Description |
-|-----|-------------|
-| `domain` | Your domain name |
-| `environment` | `production` or `staging` |
+| Key                   | Description                 |
+| --------------------- | --------------------------- |
+| `domain`              | Your domain name            |
+| `environment`         | `production` or `staging`   |
 | `digitalocean:region` | DO region (default: `nyc1`) |
 
 ## Secrets

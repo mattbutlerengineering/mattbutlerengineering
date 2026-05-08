@@ -31,20 +31,13 @@ for (const service of SERVICES) {
 
   const baseline = {};
   for (const [exportName, value] of Object.entries(mod)) {
-    if (
-      value &&
-      typeof value === "object" &&
-      "$id" in value &&
-      "properties" in value
-    ) {
+    if (value && typeof value === "object" && "$id" in value && "properties" in value) {
       // Deep clone to strip TypeScript readonly markers
       baseline[value.$id] = JSON.parse(JSON.stringify(value));
     }
   }
 
-  const outPath = join(
-    root, "services", service, "src", "schemas", "schema-baseline.json"
-  );
+  const outPath = join(root, "services", service, "src", "schemas", "schema-baseline.json");
   writeFileSync(outPath, JSON.stringify(baseline, null, 2) + "\n");
   console.log(`  ${service}: wrote ${Object.keys(baseline).length} schemas → ${outPath}`);
 }

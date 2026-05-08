@@ -65,8 +65,10 @@ export function parseTask(raw) {
     if (t[k] === undefined) throw new Error(`task: missing required field "${k}"`);
   }
   if (typeof t.id !== "string" || !t.id) throw new Error("task.id: must be non-empty string");
-  if (typeof t.prompt !== "string" || !t.prompt) throw new Error("task.prompt: must be non-empty string");
-  if (typeof t.model !== "string" || !t.model) throw new Error("task.model: must be non-empty string");
+  if (typeof t.prompt !== "string" || !t.prompt)
+    throw new Error("task.prompt: must be non-empty string");
+  if (typeof t.model !== "string" || !t.model)
+    throw new Error("task.model: must be non-empty string");
   if (typeof t.maxBudgetUsd !== "number" || t.maxBudgetUsd <= 0) {
     throw new Error("task.maxBudgetUsd: must be positive number");
   }
@@ -123,6 +125,9 @@ function parseRubric(raw) {
     diffSizeMax: r.diffSizeMax,
     mustTouch: /** @type {string[]} */ (r.mustTouch),
     mustNotTouch: Array.isArray(r.mustNotTouch) ? /** @type {string[]} */ (r.mustNotTouch) : [],
-    weights: r.weights && typeof r.weights === "object" ? /** @type {Record<string, number>} */ (r.weights) : undefined,
+    weights:
+      r.weights && typeof r.weights === "object"
+        ? /** @type {Record<string, number>} */ (r.weights)
+        : undefined,
   };
 }

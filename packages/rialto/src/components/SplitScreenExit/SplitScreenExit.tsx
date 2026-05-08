@@ -73,9 +73,7 @@ export const SplitScreenExit = forwardRef<HTMLDivElement, SplitScreenExitProps>(
       onExitComplete?.();
     }
 
-    const classes = [styles.wrapper, active && styles.active, className]
-      .filter(Boolean)
-      .join(" ");
+    const classes = [styles.wrapper, active && styles.active, className].filter(Boolean).join(" ");
 
     return (
       <div ref={ref} className={classes}>

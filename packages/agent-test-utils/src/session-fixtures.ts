@@ -160,10 +160,30 @@ export function buildBugFixFixture(opts: FixtureOptions = {}): readonly SessionE
     durationMs: 8000,
     resultText: "Fixed the bug by updating the validation logic",
     toolCalls: [
-      { toolName: "Read", input: { file_path: "/repo/src/auth.ts" }, output: "export function validate() {...}" },
-      { toolName: "Grep", input: { pattern: "validateToken", path: "/repo/src" }, output: "src/auth.ts:12: validateToken" },
-      { toolName: "Edit", input: { file_path: "/repo/src/auth.ts", old_string: "if (token)", new_string: "if (token && token.length > 0)" }, output: "File updated" },
-      { toolName: "Bash", input: { command: "cd /repo && pnpm test --filter auth" }, output: "All 12 tests passed" },
+      {
+        toolName: "Read",
+        input: { file_path: "/repo/src/auth.ts" },
+        output: "export function validate() {...}",
+      },
+      {
+        toolName: "Grep",
+        input: { pattern: "validateToken", path: "/repo/src" },
+        output: "src/auth.ts:12: validateToken",
+      },
+      {
+        toolName: "Edit",
+        input: {
+          file_path: "/repo/src/auth.ts",
+          old_string: "if (token)",
+          new_string: "if (token && token.length > 0)",
+        },
+        output: "File updated",
+      },
+      {
+        toolName: "Bash",
+        input: { command: "cd /repo && pnpm test --filter auth" },
+        output: "All 12 tests passed",
+      },
     ] as ToolCallRecord[],
     ...opts,
   };
@@ -172,7 +192,9 @@ export function buildBugFixFixture(opts: FixtureOptions = {}): readonly SessionE
   let offset = 500;
 
   for (const call of o.toolCalls) {
-    events.push(buildAssistantEvent(`Let me ${call.toolName.toLowerCase()} the relevant files.`, offset));
+    events.push(
+      buildAssistantEvent(`Let me ${call.toolName.toLowerCase()} the relevant files.`, offset)
+    );
     offset += 200;
     events.push(buildToolUseEvent(call, offset));
     offset += 100;

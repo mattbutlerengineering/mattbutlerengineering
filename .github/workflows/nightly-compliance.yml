@@ -16,7 +16,7 @@ on:
   schedule:
     # 09:00 UTC daily (~02:00 PT in standard time, ~01:00 PT during DST).
     # Staggered from the manual mbe-acmm-audit (17:00 UTC).
-    - cron: '0 9 * * *'
+    - cron: "0 9 * * *"
   workflow_dispatch:
     inputs:
       file_issue:
@@ -50,7 +50,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version-file: '.nvmrc'
+          node-version-file: ".nvmrc"
           cache: pnpm
 
       - name: Install

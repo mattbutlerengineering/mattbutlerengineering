@@ -23,12 +23,23 @@ test("computeLevel: 70% threshold gates L3+", () => {
   // L3 has 5 scannable items. 70% = 4 of 5 needed.
   // Three hits (besides the L2 OR-group) should NOT be enough.
   const threeHits = computeLevel(
-    new Set(["acmm:claude-md", "acmm:ci-matrix", "acmm:pr-acceptance-metric", "acmm:pr-review-rubric"]),
+    new Set([
+      "acmm:claude-md",
+      "acmm:ci-matrix",
+      "acmm:pr-acceptance-metric",
+      "acmm:pr-review-rubric",
+    ])
   );
   assert.equal(threeHits.level, 2, "3 of 5 = 60%, below 70% threshold, stays at L2");
 
   const fourHits = computeLevel(
-    new Set(["acmm:claude-md", "acmm:ci-matrix", "acmm:pr-acceptance-metric", "acmm:pr-review-rubric", "acmm:onboarding-benchmark"]),
+    new Set([
+      "acmm:claude-md",
+      "acmm:ci-matrix",
+      "acmm:pr-acceptance-metric",
+      "acmm:pr-review-rubric",
+      "acmm:onboarding-benchmark",
+    ])
   );
   assert.equal(fourHits.level, 3, "4 of 5 = 80%, crosses 70% threshold, advances to L3");
 });
@@ -45,7 +56,7 @@ test("computeLevel: stops at first failed level", () => {
       "acmm:tier-classifier",
       "acmm:security-ai-md",
       "acmm:structured-workflows",
-    ]),
+    ])
   );
   assert.equal(result.level, 2, "skipping L3 caps at L2 even with strong L4 signals");
 });
@@ -66,7 +77,10 @@ test("ALL_CRITERIA: 4 sources, level distribution covers L0–L6", () => {
 test("ALL_CRITERIA: every criterion has detection.type and pattern", () => {
   for (const c of ALL_CRITERIA) {
     assert.ok(c.detection, `criterion ${c.id} missing detection`);
-    assert.ok(["path", "any-of", "glob", "active"].includes(c.detection.type), `${c.id} has invalid detection type`);
+    assert.ok(
+      ["path", "any-of", "glob", "active"].includes(c.detection.type),
+      `${c.id} has invalid detection type`
+    );
     assert.ok(c.detection.pattern, `${c.id} missing detection pattern`);
   }
 });
@@ -78,27 +92,47 @@ test("ALL_CRITERIA: every criterion has detection.type and pattern", () => {
 const L2_IDS = ["acmm:claude-md"];
 // L3 has 5 items; 70% = 4 needed
 const L3_IDS = [
-  "acmm:ci-matrix", "acmm:pr-acceptance-metric", "acmm:pr-review-rubric",
+  "acmm:ci-matrix",
+  "acmm:pr-acceptance-metric",
+  "acmm:pr-review-rubric",
   "acmm:onboarding-benchmark",
 ];
 // L4 has 14 items; 70% = 10
 const L4_IDS = [
-  "acmm:auto-qa-tuning", "acmm:nightly-compliance", "acmm:copilot-review-apply",
-  "acmm:auto-label", "acmm:ai-fix-workflow", "acmm:tier-classifier",
-  "acmm:security-ai-md", "acmm:mcp-server-config", "acmm:code-graph",
+  "acmm:auto-qa-tuning",
+  "acmm:nightly-compliance",
+  "acmm:copilot-review-apply",
+  "acmm:auto-label",
+  "acmm:ai-fix-workflow",
+  "acmm:tier-classifier",
+  "acmm:security-ai-md",
+  "acmm:mcp-server-config",
+  "acmm:code-graph",
   "acmm:repo-bench",
 ];
 // L5 has 16 items; 70% = 12
 const L5_IDS = [
-  "acmm:github-actions-ai", "acmm:auto-qa-self-tuning", "acmm:public-metrics",
-  "acmm:policy-as-code", "acmm:reflection-log", "acmm:audit-trail",
-  "acmm:self-correction-metric", "acmm:state-backup", "acmm:ai-health-dashboard",
-  "acmm:prompt-injection-sandbox", "acmm:agent-attestation", "acmm:ai-service-fallback",
+  "acmm:github-actions-ai",
+  "acmm:auto-qa-self-tuning",
+  "acmm:public-metrics",
+  "acmm:policy-as-code",
+  "acmm:reflection-log",
+  "acmm:audit-trail",
+  "acmm:self-correction-metric",
+  "acmm:state-backup",
+  "acmm:ai-health-dashboard",
+  "acmm:prompt-injection-sandbox",
+  "acmm:agent-attestation",
+  "acmm:ai-service-fallback",
 ];
 // L6 has 8 items; 70% = 6
 const L6_IDS = [
-  "acmm:auto-issue-gen", "acmm:multi-agent-orchestration", "acmm:merge-queue",
-  "acmm:strategic-dashboard", "acmm:risk-assessment-config", "acmm:observability-runbook",
+  "acmm:auto-issue-gen",
+  "acmm:multi-agent-orchestration",
+  "acmm:merge-queue",
+  "acmm:strategic-dashboard",
+  "acmm:risk-assessment-config",
+  "acmm:observability-runbook",
 ];
 
 /** Builds a Set of all IDs up to and including the given level */
@@ -156,7 +190,7 @@ describe("computeLevel with behavioral gates", () => {
 
   test("L3 passes when flake rate is below threshold", () => {
     const ids = idsThrough(3);
-    const behavioral = { flake: { rate_30d: 0.10 } }; // 10% < 20%
+    const behavioral = { flake: { rate_30d: 0.1 } }; // 10% < 20%
     const result = computeLevel(ids, behavioral, { strict: true });
     assert.equal(result.level, 3, "L3 should pass when flake rate is low");
 
@@ -167,22 +201,22 @@ describe("computeLevel with behavioral gates", () => {
   test("L4 blocked by low PR acceptance rate in strict mode", () => {
     const ids = idsThrough(4);
     const behavioral = {
-      flake: { rate_30d: 0.05 },       // L3 gate passes
-      agent_pr: { acceptance_rate_30d: 0.40 }, // 40% < 50% threshold
+      flake: { rate_30d: 0.05 }, // L3 gate passes
+      agent_pr: { acceptance_rate_30d: 0.4 }, // 40% < 50% threshold
     };
     const result = computeLevel(ids, behavioral, { strict: true });
     assert.equal(result.level, 3, "L4 should be blocked by low PR acceptance");
 
     const prGate = result.behavioralGates.find((g) => g.name === "agent-pr-acceptance");
     assert.equal(prGate.passed, false);
-    assert.equal(prGate.value, 0.40);
+    assert.equal(prGate.value, 0.4);
   });
 
   test("L5 blocked by insufficient auto-qa history in strict mode", () => {
     const ids = idsThrough(5);
     const behavioral = {
       flake: { rate_30d: 0.05 },
-      agent_pr: { acceptance_rate_30d: 0.80 },
+      agent_pr: { acceptance_rate_30d: 0.8 },
       auto_qa_history_count: 1, // must be > 1
     };
     const result = computeLevel(ids, behavioral, { strict: true });
@@ -197,7 +231,7 @@ describe("computeLevel with behavioral gates", () => {
     const ids = idsThrough(6);
     const behavioral = {
       flake: { rate_30d: 0.05 },
-      agent_pr: { acceptance_rate_30d: 0.80, revert_rate_30d: 0.15 }, // 15% > 10%
+      agent_pr: { acceptance_rate_30d: 0.8, revert_rate_30d: 0.15 }, // 15% > 10%
       auto_qa_history_count: 3,
     };
     const result = computeLevel(ids, behavioral, { strict: true });
@@ -212,7 +246,7 @@ describe("computeLevel with behavioral gates", () => {
     const ids = idsThrough(6);
     const behavioral = {
       flake: { rate_30d: 0.05 },
-      agent_pr: { acceptance_rate_30d: 0.80, revert_rate_30d: 0.02 },
+      agent_pr: { acceptance_rate_30d: 0.8, revert_rate_30d: 0.02 },
       auto_qa_history_count: 5,
     };
     const result = computeLevel(ids, behavioral, { strict: true });
@@ -243,8 +277,8 @@ describe("computeLevel with behavioral gates", () => {
   test("soft mode: multiple failing gates produce warnings but allow advancement", () => {
     const ids = idsThrough(4);
     const behavioral = {
-      flake: { rate_30d: 0.25 },                // L3 gate fails
-      agent_pr: { acceptance_rate_30d: 0.30 },   // L4 gate fails
+      flake: { rate_30d: 0.25 }, // L3 gate fails
+      agent_pr: { acceptance_rate_30d: 0.3 }, // L4 gate fails
     };
     const result = computeLevel(ids, behavioral, { strict: false });
     assert.equal(result.level, 4, "should still reach L4 in soft mode");

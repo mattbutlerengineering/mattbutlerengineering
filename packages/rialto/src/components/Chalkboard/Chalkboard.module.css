@@ -7,8 +7,7 @@
 
 .framed {
   padding: var(--rialto-space-md);
-  background:
-    linear-gradient(135deg, #5c3b1e 0%, #3d2410 50%, #5c3b1e 100%);
+  background: linear-gradient(135deg, #5c3b1e 0%, #3d2410 50%, #5c3b1e 100%);
   border-radius: var(--rialto-radius-default);
   box-shadow:
     var(--rialto-shadow-lg),
@@ -68,13 +67,12 @@
   left: 0;
   right: 0;
   height: 12px;
-  background:
-    linear-gradient(
-      180deg,
-      transparent 0%,
-      rgb(255 255 255 / 0.04) 50%,
-      rgb(255 255 255 / 0.08) 100%
-    );
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgb(255 255 255 / 0.04) 50%,
+    rgb(255 255 255 / 0.08) 100%
+  );
   pointer-events: none;
 }
 
