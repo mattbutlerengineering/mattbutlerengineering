@@ -6,13 +6,13 @@
     </item>
   </file>
   <file path="src/app.ts">
+    <item priority="medium">
+      function validateCorsOrigins(origins: string[]): string[] { /* ... */ }
+    </item>
     <item priority="low">
       interface AppOptions {
         logger?: boolean | object | undefined;
       }
-    </item>
-    <item priority="high">
-      export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> { /* ... */ }
     </item>
   </file>
   </section>
@@ -87,6 +87,19 @@
       }): Table { /* ... */ }
     </item>
   </file>
+  <file path="src/services/sse-connection-manager.ts">
+    <item priority="low">
+      interface SseConnectionConfig {
+        maxConnectionsPerIp: number;
+        connectionTimeoutMs: number;
+        maxEventBufferSize: number;
+        heartbeatIntervalMs: number;
+      }
+    </item>
+    <item priority="high">
+      export const DEFAULT_SSE_CONFIG: import("/Users/mbutler/github/mattbutlerengineering/servi...;
+    </item>
+  </file>
   <file path="src/services/reservation.ts">
     <item priority="medium">
       function isPrismaNotFound(err: unknown): boolean { /* ... */ }
@@ -104,7 +117,7 @@
     <item priority="low">
       interface CreateHoldResult {
         success: boolean;
-        hold?: import("/Users/mbutler/github/issue-622-fix/packages/type...;
+        hold?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
         error?: string | undefined;
       }
     </item>
@@ -155,14 +168,14 @@
   </file>
   <file path="src/services/events.ts">
     <item priority="low">
-      type ReservationEventType = "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:created" | "hold:released" | "hold:confirmed" | "table:updated";
+      type ReservationEventType = "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:created" | "hold:released" | "hold:confirmed" | "table:updated" | "floor-plan:created";
     </item>
     <item priority="low">
       interface ReservationEvent {
-        type: import("/Users/mbutler/github/issue-622-fix/services/rese...;
+        type: import("/Users/mbutler/github/mattbutlerengineering/servi...;
         venueId: string;
         timestamp: string;
-        data: import("/Users/mbutler/github/issue-622-fix/packages/type...;
+        data: import("/Users/mbutler/github/mattbutlerengineering/packa...;
       }
     </item>
   </file>
@@ -185,7 +198,7 @@
         name: string;
         slug: string;
         ianaTimezone: string;
-        settings: import("/Users/mbutler/github/issue-622-fix/packages/type...;
+        settings: import("/Users/mbutler/github/mattbutlerengineering/packa...;
       }
     </item>
     <item priority="high">
@@ -209,12 +222,12 @@
   <section priority="medium" role="routes">
   <file path="src/routes/venues.ts">
     <item priority="high">
-      export const venueRoutes: import("/Users/mbutler/github/issue-622-fix/node_modules/...;
+      export const venueRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
     </item>
   </file>
   <file path="src/routes/tables.ts">
     <item priority="high">
-      export const tableRoutes: import("/Users/mbutler/github/issue-622-fix/node_modules/...;
+      export const tableRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
     </item>
   </file>
   <file path="src/routes/reservations.ts">
@@ -222,12 +235,12 @@
       function isAdmin(user: AuthUser | undefined): boolean { /* ... */ }
     </item>
     <item priority="high">
-      export const reservationRoutes: import("/Users/mbutler/github/issue-622-fix/node_modules/...;
+      export const reservationRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
     </item>
   </file>
   <file path="src/routes/ready.ts">
     <item priority="high">
-      export const readinessRoutes: import("/Users/mbutler/github/issue-622-fix/node_modules/...;
+      export const readinessRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
     </item>
   </file>
   <file path="src/routes/holds.ts">
@@ -235,7 +248,7 @@
       function getSessionId(request: FastifyRequest): string { /* ... */ }
     </item>
     <item priority="high">
-      export const holdRoutes: import("/Users/mbutler/github/issue-622-fix/node_modules/...;
+      export const holdRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
     </item>
   </file>
   <file path="src/routes/health.ts">
@@ -245,27 +258,35 @@
         IncomingMessage...;
     </item>
     <item priority="high">
-      export const healthRoutes: import("/Users/mbutler/github/issue-622-fix/node_modules/...;
+      export const healthRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
     </item>
   </file>
   <file path="src/routes/guests.ts">
     <item priority="high">
-      export const guestRoutes: import("/Users/mbutler/github/issue-622-fix/node_modules/...;
+      export const guestRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
     </item>
   </file>
   <file path="src/routes/floor-plans.ts">
     <item priority="high">
-      export const floorPlanRoutes: import("/Users/mbutler/github/issue-622-fix/node_modules/...;
+      export const floorPlanRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
     </item>
   </file>
   <file path="src/routes/events.ts">
+    <item priority="medium">
+      class EventBuffer {
+        maxSize: number;
+        buffer: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        _droppedCount: number;
+        async push(): Promise<unknown>;
+      }
+    </item>
     <item priority="high">
-      export async function eventRoutes(fastify: FastifyInstance): Promise<void> { /* ... */ }
+      export function getConnectionManager(): SseConnectionManager { /* ... */ }
     </item>
   </file>
   <file path="src/routes/availability.ts">
     <item priority="high">
-      export const availabilityRoutes: import("/Users/mbutler/github/issue-622-fix/node_modules/...;
+      export const availabilityRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
     </item>
   </file>
   </section>

@@ -1,18 +1,19 @@
 <codebase path="packages/agent-core">
   <section priority="medium" role="src">
   <file path="src/worktree-manager.ts">
-    function generateBranchName(taskDescription: string): string {
-      const slug = taskDescription
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "")
-        .slice(0, 40);
-      const suffix = randomBytes(3).toString("hex");
-      return `agent/${slug}-${suffix}`;
+    export function validateGitRef(ref: string, label: string): void {
+      if (!ref || !SAFE_GIT_REF.test(ref)) {
+        throw new Error(
+          `Invalid ${label}: "${ref}" — must match ${String(SAFE_GIT_REF)} (no leading dash, no shell metacharacters)`
+        );
+      }
     }
-    async function git(args: readonly string[], cwd: string): Promise<string> {
-      const { stdout } = await execFileAsync("git", [...args], { cwd });
-      return stdout.trim();
+    export function validatePath(path: string, label: string): void {
+      if (!path || UNSAFE_PATH_CHARS.test(path)) {
+        throw new Error(
+          `Invalid ${label}: "${path}" — must not contain shell metacharacters (${String(UNSAFE_PATH_CHARS)})`
+        );
+      }
     }
   </file>
   <file path="src/verification-orchestrator.ts">
@@ -270,17 +271,64 @@
             },
           },
           async (): Promise<SessionResult> => {
+      // Apply QA tuning defaults from .github/auto-qa-tuning.json.
+      // Explicit config (e.g. CLI --max-budget) wins over tuning values.
+      const tuning = loadQaTuning(config.repoPath);
+      const tuningOverrides = tuning
+        ? applyTuningDefaults(
+            {
+              maxBudgetUsd: config.maxBudgetUsd,
+              stuckDetectorConfig: config.stuckDetectorConfig,
+            },
+            tuning,
+            DEFAULT_SESSION_CONFIG.maxBudgetUsd,
+          )
+        : null;
+    
+      const effectiveConfig = tuningOverrides
+        ? {
+            ...config,
+            maxBudgetUsd: tuningOverrides.maxBudgetUsd,
+            stuckDetectorConfig: {
+              ...config.stuckDetectorConfig,
+              ...tuningOverrides.stuckDetectorConfig,
+            },
+          }
+        : config;
+    
       const rootSpan = tracer.startSpan("agent_core.run_session", {
         attributes: {
-          "session.task": config.taskDescription.slice(0, 200),
-          "session.model": config.model,
-          "session.max_turns": config.maxTurns,
-          "session.max_budget_usd": config.maxBudgetUsd,
-          "session.base_branch": config.baseBranch,
+          "session.task": effectiveConfig.taskDescription.slice(0, 200),
+          "session.model": effectiveConfig.model,
+          "session.max_turns": effectiveConfig.maxTurns,
+          "session.max_budget_usd": effectiveConfig.maxBudgetUsd,
+          "session.base_branch": effectiveConfig.baseBranch,
+          ...(tuning ? { "session.qa_tuning_applied": true } : {}),
         },
       });
     
       {
+          // Fail fast if the circuit breaker is open (API is degraded)
+          if (apiCircuitBreaker.getState() === CircuitState.Open) {
+            const circuitMsg = "Circuit breaker is OPEN — Anthropic API appears degraded. Skipping session.";
+            emitEvent(onEvent, "session:error", { message: circuitMsg });
+            rootSpan.setAttribute("session.status", "failed");
+            rootSpan.setAttribute("session.circuit_breaker", "open");
+            rootSpan.end();
+            return {
+              sessionId: "",
+              status: "failed",
+              branchName: "",
+              prUrl: null,
+              costUsd: 0,
+              tokenUsage: { inputTokens: 0, outputTokens: 0 },
+              durationMs: 0,
+              numTurns: 0,
+              resultText: "",
+              errors: [circuitMsg],
+            };
+          }
+    
           const abortController = new AbortController();
           let worktree: WorktreeInfo | undefined;
           let stuckReason: StuckPattern | null = null;
@@ -360,18 +408,16 @@
     
             const canUseTool = createToolPermissionHandler(worktree.path);
     
-            let resultMessage: SDKResultMessage | null = null;
-    
-            const detector = createStuckDetector(config.stuckDetectorConfig);
+            const detector = createStuckDetector(effectiveConfig.stuckDetectorConfig);
             const conversation = query({
-              prompt: config.taskDescription,
+              prompt: effectiveConfig.taskDescription,
               options: {
                 abortController,
                 cwd: worktree.path,
-                model: config.model,
-                maxTurns: config.maxTurns,
-                maxBudgetUsd: config.maxBudgetUsd,
-                allowedTools: [...config.allowedTools],
+                model: effectiveConfig.model,
+                maxTurns: effectiveConfig.maxTurns,
+                maxBudgetUsd: effectiveConfig.maxBudgetUsd,
+                allowedTools: [...effectiveConfig.allowedTools],
                 permissionMode: "acceptEdits",
                 settingSources: ["project"],
                 systemPrompt: {
@@ -442,157 +488,213 @@
               }
             }, heartbeat.intervalMs);
     
+            // Wrap the SDK streaming loop with the circuit breaker so that
+            // repeated API failures trip the breaker and subsequent sessions
+            // fail fast instead of hammering a degraded API.
+            interface StreamingResult {
+              readonly resultMessage: SDKResultMessage | null;
+              readonly stuckDetected: StuckPattern | null;
+            }
+    
+            let streamResult: StreamingResult = { resultMessage: null, stuckDetected: null };
+            let circuitBreakerTripped = false;
+    
             try {
-              for await (const message of conversation) {
-                lastActivityMs = Date.now();
-                emitEvent(onEvent, "session:message", message);
+              streamResult = await apiCircuitBreaker.wrap(async (): Promise<StreamingResult> => {
+                let innerResult: SDKResultMessage | null = null;
+                let innerStuck: StuckPattern | null = null;
+                try {
+                  for await (const message of conversation) {
+                    lastActivityMs = Date.now();
+                    emitEvent(onEvent, "session:message", message);
     
-                // Increment turn counter for assistant messages
-                if (message.type === "assistant") {
-                  turnIndex++;
-                }
+                    // Increment turn counter for assistant messages
+                    if (message.type === "assistant") {
+                      turnIndex++;
+                    }
     
-                // Track assistant messages as Langfuse generation observations
-                if (message.type === "assistant" && "message" in message) {
-                  const msg = message.message as {
-                    role: string;
-                    content: unknown;
-                    usage?: { input_tokens?: number; output_tokens?: number };
-                  };
-                  const gen = startObservation(
-                    `llm-turn-${turnIndex}`,
-                    { model: config.model, input: msg.content },
-                    { asType: "generation" }
-                  );
-                  gen.update({
-                    output: msg.content,
-                    usageDetails: {
-                      input: msg.usage?.input_tokens ?? 0,
-                      output: msg.usage?.output_tokens ?? 0,
-                    },
-                  }).end();
-                }
+                    // Track assistant messages as Langfuse generation observations
+                    if (message.type === "assistant" && "message" in message) {
+                      const msg = message.message as {
+                        role: string;
+                        content: unknown;
+                        usage?: { input_tokens?: number; output_tokens?: number };
+                      };
+                      const gen = startObservation(
+                        `llm-turn-${turnIndex}`,
+                        { model: config.model, input: msg.content },
+                        { asType: "generation" }
+                      );
+                      gen.update({
+                        output: msg.content,
+                        usageDetails: {
+                          input: msg.usage?.input_tokens ?? 0,
+                          output: msg.usage?.output_tokens ?? 0,
+                        },
+                      }).end();
+                    }
     
-                // Emit typed events for observability (pass current turn index)
-                for (const mapped of mapSdkMessage(message, turnIndex)) {
-                  emitEvent(onEvent, mapped.type, { message: sanitizeStreamChunk(JSON.stringify(mapped)) });
+                    // Emit typed events for observability (pass current turn index)
+                    for (const mapped of mapSdkMessage(message, turnIndex)) {
+                      emitEvent(onEvent, mapped.type, { message: sanitizeStreamChunk(JSON.stringify(mapped)) });
     
-                  // Accumulate per-turn metrics
-                  if (mapped.type === "session:turn_metrics") {
-                    const tm = mapped as TurnMetricsEvent;
-                    rawTurnMetrics.push({
-                      turnIndex: tm.turnIndex,
-                      startedAt: new Date().toISOString(),
-                      inputTokens: tm.inputTokens,
-                      outputTokens: tm.outputTokens,
-                      thinkingTokens: tm.thinkingTokens,
-                      costUsd: tm.costUsd,
-                      modelId: tm.modelId,
-                    });
-                  }
+                      // Accumulate per-turn metrics
+                      if (mapped.type === "session:turn_metrics") {
+                        const tm = mapped as TurnMetricsEvent;
+                        rawTurnMetrics.push({
+                          turnIndex: tm.turnIndex,
+                          startedAt: new Date().toISOString(),
+                          inputTokens: tm.inputTokens,
+                          outputTokens: tm.outputTokens,
+                          thinkingTokens: tm.thinkingTokens,
+                          costUsd: tm.costUsd,
+                          modelId: tm.modelId,
+                        });
+                      }
     
-                  // Record tool call start time for latency tracking
-                  if (mapped.type === "session:tool_use") {
-                    pendingToolCalls.set(mapped.toolUseId, {
-                      toolName: mapped.toolName,
-                      startMs: Date.now(),
-                    });
-                  }
+                      // Record tool call start time for latency tracking
+                      if (mapped.type === "session:tool_use") {
+                        pendingToolCalls.set(mapped.toolUseId, {
+                          toolName: mapped.toolName,
+                          startMs: Date.now(),
+                        });
+                      }
     
-                  // Record tool call completion and compute latency
-                  if (mapped.type === "session:tool_result") {
-                    const pending = pendingToolCalls.get(mapped.toolUseId);
-                    if (pending) {
-                      const latencyMs = Date.now() - pending.startMs;
-                      rawToolCallMetrics.push({
-                        toolName: pending.toolName,
-                        toolUseId: mapped.toolUseId,
-                        latencyMs,
-                        isError: mapped.isError,
-                      });
-                      pendingToolCalls.delete(mapped.toolUseId);
-                      emitEvent(onEvent, "session:tool_latency", {
-                        message: JSON.stringify({
-                          toolName: pending.toolName,
-                          toolUseId: mapped.toolUseId,
-                          latencyMs,
-                          isError: mapped.isError,
-                        }),
+                      // Record tool call completion and compute latency
+                      if (mapped.type === "session:tool_result") {
+                        const pending = pendingToolCalls.get(mapped.toolUseId);
+                        if (pending) {
+                          const latencyMs = Date.now() - pending.startMs;
+                          rawToolCallMetrics.push({
+                            toolName: pending.toolName,
+                            toolUseId: mapped.toolUseId,
+                            latencyMs,
+                            isError: mapped.isError,
+                          });
+                          pendingToolCalls.delete(mapped.toolUseId);
+                          emitEvent(onEvent, "session:tool_latency", {
+                            message: JSON.stringify({
+                              toolName: pending.toolName,
+                              toolUseId: mapped.toolUseId,
+                              latencyMs,
+                              isError: mapped.isError,
+                            }),
+                          });
+                        }
+                      }
+                    }
+    
+                    // Track compaction events for context window exhaustion detection
+                    if (
+                      message.type === "system" &&
+                      "subtype" in message &&
+                      message.subtype === "compact_boundary"
+                    ) {
+                      compactionCount++;
+                      if (compactionCount >= MAX_COMPACTIONS) {
+                        innerStuck = {
+                          type: "context_window_loop",
+                          count: compactionCount,
+                          threshold: MAX_COMPACTIONS,
+                          description: `Context window compacted ${compactionCount} times — session exhausted`,
+                          severity: "error",
+                        };
+                        emitEvent(onEvent, "session:stuck", {
+                          message: `Context window exhaustion: ${compactionCount} compactions reached limit of ${MAX_COMPACTIONS}`,
+                        });
+                        querySpan.setAttribute("sdk.compaction_count", compactionCount);
+                        abortController.abort();
+                        break;
+                      }
+                    }
+    
+                    if (message.type === "result") {
+                      innerResult = message as SDKResultMessage;
+                      continue;
+                    }
+    
+                    const stuckPattern = detector.ingest(message);
+                    if (stuckPattern) {
+                      if (stuckPattern.severity === "error") {
+                        innerStuck = stuckPattern;
+                        emitEvent(onEvent, "session:stuck", {
+                          message: `Stuck detected: ${stuckPattern.description}`,
+                        });
+                        querySpan.setAttribute("sdk.stuck_pattern", stuckPattern.type);
+                        abortController.abort();
+                        break;
+                      }
+                      // Warnings are emitted but don't abort the session
+                      emitEvent(onEvent, "session:stuck", {
+                        message: `Stuck warning: ${stuckPattern.description}`,
                       });
                     }
                   }
-                }
     
-                // Track compaction events for context window exhaustion detection
-                if (
-                  message.type === "system" &&
-                  "subtype" in message &&
-                  message.subtype === "compact_boundary"
-                ) {
-                  compactionCount++;
-                  if (compactionCount >= MAX_COMPACTIONS) {
-                    stuckReason = {
+                  querySpan.setAttribute("sdk.turns_completed", innerResult?.num_turns ?? 0);
+                  querySpan.setAttribute("sdk.compaction_count", compactionCount);
+                } catch (err) {
+                  // Detect context window exhaustion from SDK errors
+                  if (err instanceof ContextWindowExhaustedError) {
+                    innerStuck = {
                       type: "context_window_loop",
                       count: compactionCount,
                       threshold: MAX_COMPACTIONS,
-                      description: `Context window compacted ${compactionCount} times — session exhausted`,
+                      description: err.message,
                       severity: "error",
                     };
                     emitEvent(onEvent, "session:stuck", {
-                      message: `Context window exhaustion: ${compactionCount} compactions reached limit of ${MAX_COMPACTIONS}`,
+                      message: `Context window exhaustion: ${err.message}`,
                     });
-                    querySpan.setAttribute("sdk.compaction_count", compactionCount);
-                    abortController.abort();
-                    break;
+                  } else {
+                    querySpan.recordException(err as Error);
+                    querySpan.setStatus({ code: SpanStatusCode.ERROR });
+                    throw err;
                   }
                 }
-    
-                if (message.type === "result") {
-                  resultMessage = message as SDKResultMessage;
-                  continue;
-                }
-    
-                const stuckPattern = detector.ingest(message);
-                if (stuckPattern) {
-                  if (stuckPattern.severity === "error") {
-                    stuckReason = stuckPattern;
-                    emitEvent(onEvent, "session:stuck", {
-                      message: `Stuck detected: ${stuckPattern.description}`,
-                    });
-                    querySpan.setAttribute("sdk.stuck_pattern", stuckPattern.type);
-                    abortController.abort();
-                    break;
-                  }
-                  // Warnings are emitted but don't abort the session
-                  emitEvent(onEvent, "session:stuck", {
-                    message: `Stuck warning: ${stuckPattern.description}`,
-                  });
-                }
-              }
-    
-              querySpan.setAttribute("sdk.turns_completed", resultMessage?.num_turns ?? 0);
-              querySpan.setAttribute("sdk.compaction_count", compactionCount);
+                return { resultMessage: innerResult, stuckDetected: innerStuck };
+              });
             } catch (err) {
-              // Detect context window exhaustion from SDK errors
-              if (err instanceof ContextWindowExhaustedError) {
-                stuckReason = {
-                  type: "context_window_loop",
-                  count: compactionCount,
-                  threshold: MAX_COMPACTIONS,
-                  description: err.message,
-                  severity: "error",
-                };
-                emitEvent(onEvent, "session:stuck", {
-                  message: `Context window exhaustion: ${err.message}`,
+              // Handle circuit breaker OPEN — graceful exit instead of crash
+              const errMsg = err instanceof Error ? err.message : String(err);
+              if (errMsg.includes("Circuit breaker is OPEN")) {
+                circuitBreakerTripped = true;
+                emitEvent(onEvent, "session:error", {
+                  message: `Circuit breaker tripped: ${errMsg}`,
                 });
+                querySpan.setAttribute("session.circuit_breaker", "tripped");
               } else {
-                querySpan.recordException(err as Error);
-                querySpan.setStatus({ code: SpanStatusCode.ERROR });
+                // Re-throw non-circuit-breaker errors for the outer handler
                 throw err;
               }
             } finally {
               clearInterval(heartbeatInterval);
               querySpan.end();
+            }
+    
+            // Unpack streaming results for downstream consumption
+            const resultMessage = streamResult.resultMessage;
+            stuckReason = streamResult.stuckDetected;
+    
+            // If the circuit breaker tripped mid-session, treat as a failed session
+            if (circuitBreakerTripped) {
+              const circuitMsg = "Circuit breaker tripped — too many consecutive API failures";
+              emitEvent(onEvent, "session:error", { message: circuitMsg });
+              rootSpan.setAttribute("session.status", "failed");
+              rootSpan.setAttribute("session.circuit_breaker", "tripped");
+              rootSpan.end();
+              return {
+                sessionId: "",
+                status: "failed",
+                branchName: worktree?.branchName ?? "",
+                prUrl: null,
+                costUsd: 0,
+                tokenUsage: { inputTokens: 0, outputTokens: 0 },
+                durationMs: 0,
+                numTurns: 0,
+                resultText: "",
+                errors: [circuitMsg],
+              };
             }
     
             // 5. Determine success/failure
@@ -715,7 +817,7 @@
                     if (config.feedbackLoop?.enabled) {
                       // Use remaining budget instead of fixed 50% ratio
                       const sessionCost = resultMessage?.total_cost_usd ?? 0;
-                      const remainingBudget = Math.max(0, config.maxBudgetUsd - sessionCost);
+                      const remainingBudget = Math.max(0, effectiveConfig.maxBudgetUsd - sessionCost);
     
                       const fbSpan = tracer.startSpan("agent_core.feedback_loop");
                       let feedbackResult;
@@ -1114,6 +1216,21 @@
       return result;
     }
   </file>
+  <file path="src/qa-tuning-loader.ts">
+    export interface QaTuningThresholds {
+      readonly acceptanceRateFloor: number;
+      readonly maxBudgetUSD: number;
+      readonly maxRetries: number;
+      readonly stuckTurnsThreshold: number;
+      readonly meanCloseHoursTarget: number;
+      readonly agentMergeShareTarget: number;
+    }
+    export interface QaTuningConfig {
+      readonly version: number;
+      readonly lastTunedAt: string;
+      readonly thresholds: QaTuningThresholds;
+    }
+  </file>
   <file path="src/prompt-builder.ts">
     export interface SourceFileEntry {
       readonly path: string;
@@ -1204,43 +1321,10 @@
   </file>
   <file path="src/observability.ts">
     export const observabilityTracer: Tracer = trace.getTracer("@mbe/agent-core");
-    export function categorizeFailure(
-      errors: readonly string[],
-      stuckPattern?: StuckPatternType
-    ): FailureCategory | undefined {
-      // Stuck-loop takes priority — it's always a stuck_loop failure
-      if (stuckPattern) {
-        return "stuck_loop";
-      }
-    
-      const combined = errors.join(" ").toLowerCase();
-    
-      for (const pattern of RATE_LIMIT_SIGNALS) {
-        if (pattern.test(combined)) return "rate_limited";
-      }
-    
-      for (const pattern of BUDGET_SIGNALS) {
-        if (pattern.test(combined)) return "budget_exceeded";
-      }
-    
-      for (const pattern of TOOL_ERROR_SIGNALS) {
-        if (pattern.test(combined)) return "tool_error";
-      }
-    
-      for (const pattern of API_ERROR_SIGNALS) {
-        if (pattern.test(combined)) return "api_error";
-      }
-    
-      // Evaluation / review failures → logic_error
-      if (combined.includes("evaluation failed") || combined.includes("security review")) {
-        return "logic_error";
-      }
-    
-      if (errors.length > 0) {
-        return "logic_error";
-      }
-    
-      return undefined;
+    function containsInOrder(str: string, a: string, b: string): boolean {
+      const lower = str.toLowerCase();
+      const idx = lower.indexOf(a);
+      return idx !== -1 && lower.indexOf(b, idx + a.length) !== -1;
     }
   </file>
   <file path="src/model-router.ts">
@@ -1359,7 +1443,7 @@
       for (const line of diff.split("\n")) {
         if (!line.startsWith("diff --git ")) continue;
         // e.g. "diff --git a/some/path/package.json b/some/path/package.json"
-        const match = line.match(/diff --git a\/.+ b\/(.+)$/);
+        const match = line.match(/^diff --git a\/\S+ b\/(\S+)$/);
         if (match) {
           files.push(match[1]);
         }
@@ -1376,6 +1460,18 @@
     }
     export function extractCost(result: SDKResultMessage): number {
       return result.total_cost_usd;
+    }
+  </file>
+  <file path="src/circuit-breaker.ts">
+    export enum CircuitState {
+      Closed = "CLOSED",
+      Open = "OPEN",
+      HalfOpen = "HALF_OPEN",
+    }
+    export interface CircuitBreakerOptions {
+      failureThreshold: number;
+      resetTimeoutMs: number;
+      onStateChange?: (state: CircuitState, error?: Error) => void;
     }
   </file>
   <file path="src/change-type-classifier.ts">

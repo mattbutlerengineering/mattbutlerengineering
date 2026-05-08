@@ -34,6 +34,9 @@ export const checkDepsCommand = new Command("check-deps")
         "**/dist/**",
         "**/generated/**",
         "**/.claude/worktrees/**",
+        "**/.agent-worktrees/**",
+        "**/.worktrees/**",
+        "**/fix-ci-and-merge-task/**",
       ],
     });
 

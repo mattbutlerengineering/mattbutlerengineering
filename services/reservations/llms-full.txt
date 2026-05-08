@@ -15,135 +15,27 @@
     }
   </file>
   <file path="src/app.ts">
+    function validateCorsOrigins(origins: string[]): string[] {
+      const validPatterns = [
+        /^https:\/\/([a-z-]+\.)?mattbutlerengineering\.com$/,
+        ...(process.env.NODE_ENV === "development"
+          ? [/^http:\/\/localhost:\d+$/]
+          : []),
+      ];
+    
+      const validated: string[] = [];
+      for (const origin of origins) {
+        const trimmed = origin.trim();
+        if (validPatterns.some((p) => p.test(trimmed))) {
+          validated.push(trimmed);
+        } else {
+          console.warn(`[CORS] Rejected invalid origin from CORS_ORIGINS: ${trimmed}`);
+        }
+      }
+      return validated;
+    }
     export interface AppOptions {
       logger?: boolean | object;
-    }
-    export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
-      const fastify = Fastify({
-        logger: options.logger ?? true,
-     
-        disableRequestLogging: true,
-        ajv: { customOptions: { strict: false } },
-     
-      });
-    
-      // Register schemas
-      registerSchemas(fastify);
-    
-      // Core plugins
-      const defaultDevOrigins = [
-        "http://localhost:3000",
-        "http://localhost:3002",
-        "http://localhost:3003",
-        "http://localhost:3004",
-        "http://localhost:5173",
-        "http://localhost:5174",
-      ];
-      const prodOrigins = [
-        "https://mattbutlerengineering.com",
-        "https://hospitality.mattbutlerengineering.com",
-        "https://gen.mattbutlerengineering.com",
-      ];
-    
-      const corsOrigins = process.env.CORS_ORIGINS?.split(",") || [
-        ...prodOrigins,
-        ...(process.env.NODE_ENV === "development" ? defaultDevOrigins : []),
-      ];
-    
-      await fastify.register(cors, {
-        origin: corsOrigins,
-        credentials: true,
-        allowedHeaders: ["Content-Type", "Authorization"],
-        methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-      });
-    
-      // Propagate X-Request-ID from edge router for distributed tracing
-      await fastify.register(createRequestIdMiddleware());
-    
-      // Track per-endpoint error rates (exposed via health check)
-      await fastify.register(errorRatePlugin_);
-    
-      const rateLimitMonitor = createRateLimitMonitor();
-      fastify.decorate("rateLimitMonitor", rateLimitMonitor);
-    
-      await fastify.register(rateLimit, {
-        max: 100,
-        timeWindow: "1 minute",
-        onExceeded: (req) => {
-          const ip = req.ip;
-          const endpoint = req.url;
-          rateLimitMonitor.recordHit(ip, endpoint);
-          req.log.warn({ ip, endpoint, timestamp: new Date().toISOString() }, "Rate limit exceeded");
-        },
-      });
-    
-      await fastify.register(swagger, {
-        openapi: {
-          info: {
-            title: "MBE Reservations API",
-            description: "API for managing table reservations and availability",
-            version: "1.0.0",
-          },
-          servers: [{ url: "http://localhost:3004" }],
-          components: {
-            securitySchemes: {
-              bearerAuth: {
-                type: "http",
-                scheme: "bearer",
-                bearerFormat: "JWT",
-              },
-            },
-          },
-        },
-      });
-    
-      await fastify.register(swaggerUi, {
-        routePrefix: "/docs",
-        uiConfig: {
-          docExpansion: "list",
-          deepLinking: false,
-        },
-      });
-    
-      await fastify.register(ScalarApiReference, {
-        routePrefix: "/reference",
-        configuration: {
-          content: () => fastify.swagger(),
-        },
-      });
-    
-      // Register Auth0 plugin
-      if (process.env.AUTH_AUTHORITY && process.env.AUTH_AUDIENCE) {
-        await fastify.register(authPlugin, getAuthPluginOptionsFromEnv());
-      } else if (process.env.NODE_ENV === "production") {
-        throw new Error("Fail-closed: AUTH_AUTHORITY and AUTH_AUDIENCE are required in production");
-      } else {
-        fastify.log.warn("Skipping Auth0 plugin registration (dev/test mode)");
-      }
-    
-      // Register Sentry error handler (no-op without SENTRY_DSN)
-      await fastify.register(sentryFastifyPlugin);
-    
-      // Register API versioning headers
-      await fastify.register(apiVersioningPlugin, {
-        currentVersion: "v1",
-        successorVersion: "v2",
-        sunsetMonthsFromNow: 6,
-      });
-    
-      // Register routes
-      await fastify.register(healthRoutes);
-      await fastify.register(readinessRoutes);
-      await fastify.register(tableRoutes, { prefix: "/api/v1/tables" });
-      await fastify.register(reservationRoutes, { prefix: "/api/v1/reservations" });
-      await fastify.register(venueRoutes, { prefix: "/api/v1/venues" });
-      await fastify.register(availabilityRoutes, { prefix: "/api/v1/availability" });
-      await fastify.register(holdRoutes, { prefix: "/api/v1/holds" });
-      await fastify.register(eventRoutes, { prefix: "/api/v1/events" });
-      await fastify.register(floorPlanRoutes, { prefix: "/api/v1/floor-plans" });
-      await fastify.register(guestRoutes, { prefix: "/api/v1/guests" });
-    
-      return fastify;
     }
   </file>
   </section>
@@ -274,6 +166,24 @@
       };
     }
   </file>
+  <file path="src/services/sse-connection-manager.ts">
+    export interface SseConnectionConfig {
+      /** Maximum concurrent SSE connections per IP address. */
+      readonly maxConnectionsPerIp: number;
+      /** Maximum connection lifetime in milliseconds. */
+      readonly connectionTimeoutMs: number;
+      /** Maximum queued events per connection before dropping oldest. */
+      readonly maxEventBufferSize: number;
+      /** Heartbeat interval in milliseconds. */
+      readonly heartbeatIntervalMs: number;
+    }
+    export const DEFAULT_SSE_CONFIG: SseConnectionConfig = Object.freeze({
+      maxConnectionsPerIp: 10,
+      connectionTimeoutMs: 30 * 60 * 1000, // 30 minutes
+      maxEventBufferSize: 100,
+      heartbeatIntervalMs: 30_000, // 30 seconds
+    });
+  </file>
   <file path="src/services/reservation.ts">
     function isPrismaNotFound(err: unknown): boolean {
       return (
@@ -397,12 +307,13 @@
       | "hold:created"
       | "hold:released"
       | "hold:confirmed"
-      | "table:updated";
+      | "table:updated"
+      | "floor-plan:created";
     export interface ReservationEvent {
       type: ReservationEventType;
       venueId: string;
       timestamp: string;
-      data: Reservation | Table | ReservationHold;
+      data: Reservation | Table | ReservationHold | FloorPlan;
     }
   </file>
   <file path="src/services/database.ts">
@@ -2502,14 +2413,17 @@
     >;
     export const healthRoutes: FastifyPluginAsync = async (fastify) => {
       // /health — used by DO App Platform internal health checks (direct container access)
+      // lgtm[js/missing-rate-limiting] — rate limiting is applied globally via @fastify/rate-limit in app.ts
       fastify.get("/health", { schema: { ...healthSchema, operationId: "getHealth" } }, healthHandler);
     
       // /api/health — public path via DO ingress (preservePathPrefix: true, prefix "/api")
       // Required for post-deploy verification workflow hitting api.mattbutlerengineering.com/api/health
+      // lgtm[js/missing-rate-limiting] — rate limiting is applied globally via @fastify/rate-limit in app.ts
       fastify.get("/api/health", { schema: { ...healthSchema, operationId: "getHealthApi" } }, healthHandler);
     
       // /api/v1/reservations/health — public path via DO ingress (preservePathPrefix: true, prefix "/api/v1/reservations")
       // Must be registered here (not in reservationRoutes) to avoid falling through to /:id param route
+      // lgtm[js/missing-rate-limiting] — rate limiting is applied globally via @fastify/rate-limit in app.ts
       fastify.get("/api/v1/reservations/health", { schema: { ...healthSchema, operationId: "getHealthApiReservations" } }, healthHandler);
     };
   </file>
@@ -3316,137 +3230,44 @@
     };
   </file>
   <file path="src/routes/events.ts">
-    export async function eventRoutes(fastify: FastifyInstance): Promise<void> {
-      // GET /events/stream - Server-Sent Events stream
-      fastify.get<{
-        Querystring: { venueId?: string };
-      }>(
-        "/stream",
-        {
-          schema: {
-            summary: "Subscribe to real-time reservation events",
-            operationId: "streamEvents",
-            description:
-              "Server-Sent Events (SSE) endpoint for real-time updates. " +
-              "Connect to receive live notifications of reservation changes, holds, and table updates. " +
-              "Optionally filter by venueId.",
-            tags: ["Events"],
-            querystring: {
-              type: "object",
-              properties: {
-                venueId: {
-                  type: "string",
-                  description: "Filter events to a specific venue",
-                },
-              },
-            },
-            response: {
-              200: {
-                description: "SSE stream established",
-                type: "string",
-              },
-            },
-          },
-        },
-        async (
-          request: FastifyRequest<{ Querystring: { venueId?: string; testClose?: string } }>,
-          reply: FastifyReply
-        ) => {
-          const { venueId, testClose } = request.query;
+    class EventBuffer {
+      private readonly maxSize: number;
+      private buffer: readonly ReservationEvent[] = [];
+      private _droppedCount = 0;
     
-          // Set SSE headers
-          reply.raw.writeHead(200, {
-            "Content-Type": "text/event-stream",
-            "Cache-Control": "no-cache",
-            Connection: "keep-alive",
-            "Access-Control-Allow-Origin": "*",
-          });
-    
-          // Send initial connection event
-          reply.raw.write(`event: connected\ndata: ${JSON.stringify({ message: "Connected to event stream" })}\n\n`);
-    
-          // Keep-alive ping every 30 seconds
-          const pingInterval = setInterval(() => {
-            reply.raw.write(`: ping\n\n`);
-          }, 30000);
-    
-          // Event handler
-          const handleEvent = (event: ReservationEvent) => {
-            // Filter by venueId if specified
-            if (venueId && event.venueId !== venueId) {
-              return;
-            }
-    
-            reply.raw.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
-          };
-    
-          // Subscribe to events
-          reservationEvents.onChange(handleEvent);
-          fastify.log.info(
-            { connections: reservationEvents.getConnectionCount() },
-            "SSE client connected"
-          );
-    
-          // Cleanup on disconnect
-          request.raw.on("close", () => {
-            clearInterval(pingInterval);
-            reservationEvents.offChange(handleEvent);
-            fastify.log.info(
-              { connections: reservationEvents.getConnectionCount() },
-              "SSE client disconnected"
-            );
-          });
-    
-          // Don't end the response - keep the connection open
-          // The response will be ended when the client disconnects
-    
-          // TEST-ONLY: automatically close after N ms to allow app.inject to complete in tests
-          if (process.env.NODE_ENV === "test" && testClose) {
-            setTimeout(() => {
-              if (!reply.raw.writableEnded) {
-                reply.raw.end();
-              }
-            }, parseInt(testClose, 10));
-          }
-        }
-      );
-    
-      // GET /events/test - Test endpoint to trigger an event (development only)
-      if (process.env.NODE_ENV !== "production") {
-        fastify.post<{
-          Body: { type: string; venueId: string; data: unknown };
-        }>(
-          "/test",
-          {
-            schema: {
-              summary: "Trigger a test event (development only)",
-              operationId: "testEvent",
-              tags: ["Events"],
-              body: {
-                type: "object",
-                required: ["type", "venueId", "data"],
-                properties: {
-                  type: { type: "string" },
-                  venueId: { type: "string" },
-                  data: { type: "object" },
-                },
-              },
-            },
-          },
-          async (request, reply) => {
-            const { type, venueId, data } = request.body;
-    
-            reservationEvents.emitChange({
-              type: type as ReservationEvent["type"],
-              venueId,
-              timestamp: new Date().toISOString(),
-              data: data as ReservationEvent["data"],
-            });
-    
-            return reply.send({ success: true, message: "Event emitted" });
-          }
-        );
+      constructor(maxSize: number) {
+        this.maxSize = maxSize;
       }
+    
+      /** Push an event, dropping the oldest if the buffer is full. Returns true if an event was dropped. */
+      push(event: ReservationEvent): boolean {
+        if (this.buffer.length >= this.maxSize) {
+          // Drop oldest, append new — immutable replacement
+          this.buffer = [...this.buffer.slice(1), event];
+          this._droppedCount += 1;
+          return true;
+        }
+        this.buffer = [...this.buffer, event];
+        return false;
+      }
+    
+      /** Drain all buffered events, resetting the buffer. */
+      drain(): readonly ReservationEvent[] {
+        const events = this.buffer;
+        this.buffer = [];
+        return events;
+      }
+    
+      get length(): number {
+        return this.buffer.length;
+      }
+    
+      get droppedCount(): number {
+        return this._droppedCount;
+      }
+    }
+    export function getConnectionManager(): SseConnectionManager {
+      return connectionManager;
     }
   </file>
   <file path="src/routes/availability.ts">

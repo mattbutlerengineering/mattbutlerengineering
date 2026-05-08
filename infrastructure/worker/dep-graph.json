@@ -124,6 +124,11 @@
     },
     {
       "from": "@mbe/gen",
+      "to": "@mbe/observability",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/gen",
       "to": "@mbe/rialto-catalog",
       "type": "dependency"
     },

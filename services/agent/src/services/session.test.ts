@@ -49,6 +49,7 @@ const makePrismaSession = (overrides = {}) => ({
   completedAt: null,
   createdAt: baseDate,
   updatedAt: baseDate,
+  failureCategory: null,
   ...overrides,
 });
 
@@ -58,6 +59,19 @@ const makePrismaEvent = (overrides = {}) => ({
   type: "session:start",
   data: { message: "Started" },
   createdAt: baseDate,
+  costUsd: null,
+  inputTokens: null,
+  outputTokens: null,
+  turnIndex: null,
+  toolCallId: null,
+  toolName: null,
+  toolInput: null,
+  toolResult: null,
+  toolIsError: null,
+  thinkingTokens: null,
+  modelId: null,
+  toolUseId: null,
+  toolLatencyMs: null,
   ...overrides,
 });
 

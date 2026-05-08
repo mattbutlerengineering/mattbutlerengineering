@@ -36,8 +36,8 @@
         "!src/**/*.spec.ts",
         "!src/**/*.spec.tsx",
         "package.json",
-        "tsconfig.json",
-        "vite.config.ts",
+        "tsconfig*.json",
+        "vite.config*.ts",
         "prisma/schema.prisma"
       ],
       "outputs": ["dist/**", "generated/**", ".next/**", "!.next/cache/**"],
@@ -49,12 +49,12 @@
     },
     "lint": {
       "dependsOn": ["^build"],
-      "inputs": ["src/**", "package.json", "eslint.config.js", "../../eslint.config.js"],
+      "inputs": ["src/**", "package.json", "eslint.config.js", "../../eslint.config.js", "tsconfig*.json"],
       "outputs": [".eslintcache"]
     },
     "typecheck": {
       "dependsOn": ["^build"],
-      "inputs": ["src/**", "package.json", "tsconfig.json", "../../packages/config/typescript/**"],
+      "inputs": ["src/**", "package.json", "tsconfig*.json", "../../packages/config/typescript/**"],
       "outputs": ["*.tsbuildinfo"]
     },
     "test": {

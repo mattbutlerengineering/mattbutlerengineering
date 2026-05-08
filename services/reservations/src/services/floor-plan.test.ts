@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("./database.js", () => ({
@@ -192,7 +193,7 @@ describe("floorPlanService", () => {
       vi.mocked(prisma.floorPlan.findMany).mockResolvedValueOnce([] as never);
 
       const cloned = makePrismaFloorPlan({ id: "fp-2", name: "Copy of Main Floor", isActive: false });
-      vi.mocked(prisma.$transaction).mockImplementationOnce(async (fn: (tx: unknown) => Promise<unknown>) => {
+      vi.mocked(prisma.$transaction).mockImplementationOnce(async (fn: (tx: any) => Promise<unknown>) => {
         const tx = {
           floorPlan: {
             create: vi.fn().mockResolvedValue({ id: "fp-2" }),
@@ -225,7 +226,7 @@ describe("floorPlanService", () => {
         name: "Main Floor (Copy 2)",
         isActive: false,
       });
-      vi.mocked(prisma.$transaction).mockImplementationOnce(async (fn: (tx: unknown) => Promise<unknown>) => {
+      vi.mocked(prisma.$transaction).mockImplementationOnce(async (fn: (tx: any) => Promise<unknown>) => {
         const tx = {
           floorPlan: {
             create: vi.fn().mockResolvedValue({ id: "fp-3" }),
@@ -292,7 +293,7 @@ describe("floorPlanService", () => {
   describe("setActive", () => {
     it("deactivates all then activates the target", async () => {
       const activated = makePrismaFloorPlan({ isActive: true });
-      vi.mocked(prisma.$transaction).mockImplementationOnce(async (fn: (tx: unknown) => Promise<unknown>) => {
+      vi.mocked(prisma.$transaction).mockImplementationOnce(async (fn: (tx: any) => Promise<unknown>) => {
         const tx = {
           floorPlan: {
             updateMany: vi.fn().mockResolvedValue({ count: 1 }),

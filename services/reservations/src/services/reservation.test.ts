@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("./database.js", () => ({
@@ -554,7 +555,7 @@ describe("reservationService", () => {
         guestName: "Walk-in",
       });
       vi.mocked(prisma.$transaction).mockImplementationOnce(
-        async (fn: (tx: unknown) => Promise<unknown>) => {
+        async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
             reservation: {
               findFirst: vi.fn().mockResolvedValue(null),
@@ -581,7 +582,7 @@ describe("reservationService", () => {
       } as never);
 
       vi.mocked(prisma.$transaction).mockImplementationOnce(
-        async (fn: (tx: unknown) => Promise<unknown>) => {
+        async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
             reservation: {
               findFirst: vi.fn().mockResolvedValue(null),
@@ -611,7 +612,7 @@ describe("reservationService", () => {
       } as never);
 
       vi.mocked(prisma.$transaction).mockImplementationOnce(
-        async (fn: (tx: unknown) => Promise<unknown>) => {
+        async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
             reservation: {
               findFirst: vi.fn().mockResolvedValue(null),
@@ -658,7 +659,7 @@ describe("reservationService", () => {
       } as never);
 
       vi.mocked(prisma.$transaction).mockImplementationOnce(
-        async (fn: (tx: unknown) => Promise<unknown>) => {
+        async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
             reservation: {
               findFirst: vi.fn().mockResolvedValue({ id: "conflict" }),
@@ -685,7 +686,7 @@ describe("reservationService", () => {
       } as never);
 
       vi.mocked(prisma.$transaction).mockImplementationOnce(
-        async (fn: (tx: unknown) => Promise<unknown>) => {
+        async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
             reservation: {
               findFirst: vi.fn().mockResolvedValue(null),

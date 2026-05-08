@@ -15,5 +15,5 @@
     "src/lib-entry.ts",
     "src/vite-env.d.ts"
   ],
-  "exclude": ["src/**/*.test.*", "src/test"]
+  "exclude": ["src/**/*.test.*", "src/test", "src/**/*.stories.*"]
 }

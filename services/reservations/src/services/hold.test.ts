@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("./database.js", () => ({
@@ -119,7 +120,7 @@ describe("holdService", () => {
 
       const hold = makePrismaHold();
       vi.mocked(prisma.$transaction).mockImplementationOnce(
-        async (fn: (tx: unknown) => Promise<unknown>) => {
+        async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
             reservation: { findFirst: vi.fn().mockResolvedValue(null) },
             reservationHold: {
@@ -186,7 +187,7 @@ describe("holdService", () => {
 
       const hold = makePrismaHold();
       vi.mocked(prisma.$transaction).mockImplementationOnce(
-        async (fn: (tx: unknown) => Promise<unknown>) => {
+        async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
             reservation: { findFirst: vi.fn().mockResolvedValue(null) },
             reservationHold: {
@@ -285,7 +286,7 @@ describe("holdService", () => {
       } as never);
 
       vi.mocked(prisma.$transaction).mockImplementationOnce(
-        async (fn: (tx: unknown) => Promise<unknown>) => {
+        async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
             reservation: {
               findFirst: vi.fn().mockResolvedValue({ id: "conflict-res" }),
@@ -331,7 +332,7 @@ describe("holdService", () => {
       } as never);
 
       vi.mocked(prisma.$transaction).mockImplementationOnce(
-        async (fn: (tx: unknown) => Promise<unknown>) => {
+        async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
             reservation: {
               findFirst: vi.fn().mockResolvedValue(null),
@@ -377,7 +378,7 @@ describe("holdService", () => {
 
       const deleteManyMock = vi.fn().mockResolvedValue({ count: 1 });
       vi.mocked(prisma.$transaction).mockImplementationOnce(
-        async (fn: (tx: unknown) => Promise<unknown>) => {
+        async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
             reservation: { findFirst: vi.fn().mockResolvedValue(null) },
             reservationHold: {
@@ -423,7 +424,7 @@ describe("holdService", () => {
 
       const createMock = vi.fn().mockResolvedValue(makePrismaHold());
       vi.mocked(prisma.$transaction).mockImplementationOnce(
-        async (fn: (tx: unknown) => Promise<unknown>) => {
+        async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
             reservation: { findFirst: vi.fn().mockResolvedValue(null) },
             reservationHold: {
@@ -471,7 +472,7 @@ describe("holdService", () => {
 
       const createMock = vi.fn().mockResolvedValue(makePrismaHold());
       vi.mocked(prisma.$transaction).mockImplementationOnce(
-        async (fn: (tx: unknown) => Promise<unknown>) => {
+        async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
             reservation: { findFirst: vi.fn().mockResolvedValue(null) },
             reservationHold: {
@@ -517,7 +518,7 @@ describe("holdService", () => {
 
       const createMock = vi.fn().mockResolvedValue(makePrismaHold());
       vi.mocked(prisma.$transaction).mockImplementationOnce(
-        async (fn: (tx: unknown) => Promise<unknown>) => {
+        async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
             reservation: { findFirst: vi.fn().mockResolvedValue(null) },
             reservationHold: {
@@ -667,7 +668,7 @@ describe("holdService", () => {
       };
 
       vi.mocked(prisma.$transaction).mockImplementationOnce(
-        async (fn: (tx: unknown) => Promise<unknown>) => {
+        async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
             reservation: {
               findFirst: vi.fn().mockResolvedValue(null),
@@ -744,7 +745,7 @@ describe("holdService", () => {
       );
 
       vi.mocked(prisma.$transaction).mockImplementationOnce(
-        async (fn: (tx: unknown) => Promise<unknown>) => {
+        async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
             reservation: {
               findFirst: vi.fn().mockResolvedValue({ id: "conflict-res" }),
@@ -775,7 +776,7 @@ describe("holdService", () => {
       );
 
       vi.mocked(prisma.$transaction).mockImplementationOnce(
-        async (fn: (tx: unknown) => Promise<unknown>) => {
+        async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
             reservation: {
               findFirst: vi.fn().mockResolvedValue(null),

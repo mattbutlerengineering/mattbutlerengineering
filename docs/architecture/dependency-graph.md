@@ -39,6 +39,7 @@ flowchart TD
 
   gen --> api_client
   gen --> auth
+  gen --> observability
   gen --> rialto_catalog
   gen --> config
   hospitality --> api_client
