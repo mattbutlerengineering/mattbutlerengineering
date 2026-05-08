@@ -89,6 +89,12 @@ Managed at https://claude.ai/code/scheduled
 
 ---
 
+## Dispatching Worktree Agents
+
+When spawning subagents with `isolation: "worktree"`, always include `pnpm install --frozen-lockfile` as the first step in the agent prompt. Worktrees are bare checkouts without `node_modules` — without this, every `vitest`/`pnpm test`/`pnpm build` call fails with `command not found`. The retry cost of a failed agent (wasted tokens + time) far exceeds the 15s install step.
+
+---
+
 ## Before Committing
 
 Always perform this **Zero-Touch Audit** before committing:
