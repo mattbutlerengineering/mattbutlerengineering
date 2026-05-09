@@ -83,6 +83,7 @@ overrides:
   lodash-es: '>=4.18.0'
   protobufjs@<7.5.5: ^7.5.5
   '@babel/plugin-transform-modules-systemjs': '>=7.29.4'
+  '@babel/preset-env': '>=7.29.5'
   basic-ftp@<5.3.1: '>=5.3.1'
   ip-address: '>=10.1.1'
   fast-uri@<3.1.1: '>=3.1.1'
@@ -1831,8 +1832,8 @@ packages:
     peerDependencies:
       '@babel/core': ^7.0.0
 
-  '@babel/preset-env@7.29.3':
-    resolution: {integrity: sha512-ySZypNLAIH1ClygLDQzVMoGQRViATnkHkYYV6TcNDz+8+jwZCdsguGvsb3EY5d9wyWyhmF1iSuFM0Yh5XPnqSA==}
+  '@babel/preset-env@7.29.5':
+    resolution: {integrity: sha512-/69t2aEzGKHD76DyLbHysF/QH2LJOB8iFnYO37unDTKBTubzcMRv0f3H5EiN1Q6ajOd/eB7dAInF0qdFVS06kA==}
     engines: {node: '>=6.9.0'}
     peerDependencies:
       '@babel/core': ^7.0.0-0
@@ -9641,7 +9642,7 @@ snapshots:
       '@babel/helper-create-regexp-features-plugin': 7.28.5(@babel/core@7.29.0)
       '@babel/helper-plugin-utils': 7.28.6
 
-  '@babel/preset-env@7.29.3(@babel/core@7.29.0)':
+  '@babel/preset-env@7.29.5(@babel/core@7.29.0)':
     dependencies:
       '@babel/compat-data': 7.29.3
       '@babel/core': 7.29.0
@@ -17648,7 +17649,7 @@ snapshots:
     dependencies:
       '@apideck/better-ajv-errors': 0.3.7(ajv@8.20.0)
       '@babel/core': 7.29.0
-      '@babel/preset-env': 7.29.3(@babel/core@7.29.0)
+      '@babel/preset-env': 7.29.5(@babel/core@7.29.0)
       '@babel/runtime': 7.29.2
       '@rollup/plugin-babel': 5.3.1(@babel/core@7.29.0)(@types/babel__core@7.20.5)(rollup@4.60.3)
       '@rollup/plugin-node-resolve': 15.3.1(rollup@4.60.3)
