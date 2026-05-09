@@ -54,7 +54,7 @@ export const STATE_DIR = ".claude/acmm";
 export const STATE_PATH = `${STATE_DIR}/state.json`;
 
 /** @returns {State} Fresh empty state shape. */
-export function emptyState() {
+export function createEmptyState() {
   return {
     lastRun: "",
     currentLevel: 0,
@@ -72,12 +72,12 @@ export function emptyState() {
  */
 export function loadState(cwd) {
   const p = join(cwd, STATE_PATH);
-  if (!existsSync(p)) return emptyState();
+  if (!existsSync(p)) return createEmptyState();
   try {
     const parsed = JSON.parse(readFileSync(p, "utf-8"));
     // Merge to forward-compat fields
-    return { ...emptyState(), ...parsed };
-  } catch { return emptyState(); }
+    return { ...createEmptyState(), ...parsed };
+  } catch { return createEmptyState(); }
 }
 
 /**
