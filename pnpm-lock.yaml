@@ -417,12 +417,21 @@ importers:
         specifier: ^4.19.2
         version: 4.19.2(typescript@6.0.3)
     devDependencies:
+      '@mbe/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@types/node':
         specifier: 'catalog:'
         version: 25.6.0
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 4.1.5(@vitest/browser@4.1.5)(vitest@4.1.5)
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@vitest/browser-playwright@4.1.5)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1)(vite@8.0.10(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.46.2)(tsx@4.21.0)(yaml@2.8.4))
 
   packages/agent-core:
     dependencies:
@@ -15497,7 +15506,7 @@ snapshots:
 
   magicast@0.5.2:
     dependencies:
-      '@babel/parser': 7.29.2
+      '@babel/parser': 7.29.3
       '@babel/types': 7.29.0
       source-map-js: 1.2.1
 
