@@ -1,0 +1,148 @@
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { Input } from "./Input";
+
+describe("Input", () => {
+  describe("rendering", () => {
+    it("renders an input element", () => {
+      render(<Input />);
+      expect(screen.getByRole("textbox")).toBeInTheDocument();
+    });
+
+    it("renders label when provided", () => {
+      render(<Input label="Email" />);
+      expect(screen.getByLabelText("Email")).toBeInTheDocument();
+    });
+
+    it("renders hint text below the input", () => {
+      render(<Input hint="Use your work email" />);
+      expect(screen.getByText("Use your work email")).toBeInTheDocument();
+    });
+
+    it("associates hint via aria-describedby", () => {
+      render(<Input hint="Use your work email" />);
+      const input = screen.getByRole("textbox");
+      const hintId = input.getAttribute("aria-describedby");
+      expect(hintId).toBeTruthy();
+      const hintEl = document.getElementById(hintId!);
+      expect(hintEl).toHaveTextContent("Use your work email");
+    });
+
+    it("renders startIcon when provided", () => {
+      render(<Input startIcon={<span data-testid="start-icon" />} />);
+      expect(screen.getByTestId("start-icon")).toBeInTheDocument();
+    });
+
+    it("renders endIcon when provided", () => {
+      render(<Input endIcon={<span data-testid="end-icon" />} />);
+      expect(screen.getByTestId("end-icon")).toBeInTheDocument();
+    });
+
+    it("shows (optional) suffix when showOptional and not required", () => {
+      render(<Input label="Phone" showOptional />);
+      expect(screen.getByText("(optional)", { exact: false })).toBeInTheDocument();
+    });
+
+    it("does not show (optional) when required is true", () => {
+      render(<Input label="Phone" showOptional required />);
+      expect(screen.queryByText("(optional)", { exact: false })).not.toBeInTheDocument();
+    });
+
+    it("shows required asterisk when required", () => {
+      render(<Input label="Name" required />);
+      expect(screen.getByText("*", { exact: false })).toBeInTheDocument();
+    });
+  });
+
+  describe("controlled input", () => {
+    it("displays controlled value", () => {
+      render(<Input value="hello" onChange={() => {}} />);
+      expect(screen.getByRole("textbox")).toHaveValue("hello");
+    });
+
+    it("calls onChange on user input", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(<Input value="" onChange={onChange} />);
+      await user.type(screen.getByRole("textbox"), "a");
+      expect(onChange).toHaveBeenCalled();
+    });
+  });
+
+  describe("uncontrolled input", () => {
+    it("accepts user input when uncontrolled", async () => {
+      const user = userEvent.setup();
+      render(<Input placeholder="Type here" />);
+      const input = screen.getByRole("textbox");
+      await user.type(input, "hello");
+      expect(input).toHaveValue("hello");
+    });
+
+    it("uses defaultValue as initial value", () => {
+      render(<Input defaultValue="initial" />);
+      expect(screen.getByRole("textbox")).toHaveValue("initial");
+    });
+  });
+
+  describe("validation / error state", () => {
+    it("applies aria-invalid when error is true", () => {
+      render(<Input error />);
+      expect(screen.getByRole("textbox")).toHaveAttribute("aria-invalid", "true");
+    });
+
+    it("does not apply aria-invalid when error is false", () => {
+      render(<Input />);
+      expect(screen.getByRole("textbox")).not.toHaveAttribute("aria-invalid");
+    });
+
+    it("applies error class to wrapper when error is true", () => {
+      const { container } = render(<Input error />);
+      const wrapper = container.firstElementChild;
+      expect(wrapper?.className).toMatch(/error/);
+    });
+  });
+
+  describe("disabled state", () => {
+    it("renders disabled input", () => {
+      render(<Input disabled />);
+      expect(screen.getByRole("textbox")).toBeDisabled();
+    });
+
+    it("does not accept typing when disabled", async () => {
+      const user = userEvent.setup();
+      render(<Input disabled />);
+      const input = screen.getByRole("textbox");
+      await user.type(input, "test");
+      expect(input).toHaveValue("");
+    });
+  });
+
+  describe("focus management", () => {
+    it("receives focus on tab", async () => {
+      const user = userEvent.setup();
+      render(<Input />);
+      await user.tab();
+      expect(screen.getByRole("textbox")).toHaveFocus();
+    });
+
+    it("forwards ref to the input element", () => {
+      const ref = { current: null as HTMLInputElement | null };
+      render(<Input ref={ref} />);
+      expect(ref.current).toBeInstanceOf(HTMLInputElement);
+    });
+  });
+
+  describe("placeholder", () => {
+    it("renders placeholder attribute", () => {
+      render(<Input placeholder="Search..." />);
+      expect(screen.getByPlaceholderText("Search...")).toBeInTheDocument();
+    });
+  });
+
+  describe("readOnly", () => {
+    it("sets readOnly attribute on the input", () => {
+      render(<Input readOnly value="fixed" onChange={() => {}} />);
+      expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
+    });
+  });
+});
