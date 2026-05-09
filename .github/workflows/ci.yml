@@ -353,7 +353,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run a11y tests (accessibility vitest)
-        run: pnpm --dir packages/rialto vitest run --reporter=json --outputFile=../../a11y-results.json src/test/accessibility src/test/token-contrast.test.ts
+        run: pnpm --dir packages/rialto vitest run --reporter=json --outputFile=../../a11y-results.json src/test/accessibility src/test/token-contrast.test.ts  # accessibility
         continue-on-error: true
 
       - name: Process results for attribution
