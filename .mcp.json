@@ -30,6 +30,13 @@
       "env": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": ""
       }
+    },
+    "sentry": {
+      "command": "npx",
+      "args": ["@sentry/mcp-server@latest"],
+      "env": {
+        "SENTRY_ACCESS_TOKEN": "${SENTRY_ACCESS_TOKEN}"
+      }
     }
   }
 }
