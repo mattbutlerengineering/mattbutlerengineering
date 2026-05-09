@@ -89,8 +89,9 @@ describe("TablesClient", () => {
       await makeClient().create({
         venueId: "v1",
         name: "Table 1",
-        minCapacity: 2,
-        maxCapacity: 4,
+        capacity: 4,
+        minCovers: 2,
+        maxCovers: 4,
       });
 
       const [url, options] = mockFetch.mock.calls[0]!;
@@ -105,8 +106,9 @@ describe("TablesClient", () => {
       const result = await makeClient().create({
         venueId: "v1",
         name: "Table 1",
-        minCapacity: 2,
-        maxCapacity: 4,
+        capacity: 4,
+        minCovers: 2,
+        maxCovers: 4,
       });
       expect(result).toEqual(fakeTable);
     });
