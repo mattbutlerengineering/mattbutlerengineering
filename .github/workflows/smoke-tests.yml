@@ -7,6 +7,9 @@ name: Post-Deploy Smoke Tests (deprecated)
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   redirect:
     name: Redirected to post-deploy-check
