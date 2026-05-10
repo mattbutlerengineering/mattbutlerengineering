@@ -31,6 +31,7 @@
   "dependencies": {
     "@mattbutlerengineering/rialto": "workspace:*",
     "@mbe/observability": "workspace:^",
+    "framer-motion": "^12.38.0",
     "lucide-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",

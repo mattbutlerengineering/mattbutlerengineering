@@ -367,6 +367,9 @@ importers:
       '@mbe/observability':
         specifier: workspace:^
         version: link:../../packages/observability
+      framer-motion:
+        specifier: ^12.38.0
+        version: 12.38.0(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       lucide-react:
         specifier: 'catalog:'
         version: 1.14.0(react@19.2.5)
