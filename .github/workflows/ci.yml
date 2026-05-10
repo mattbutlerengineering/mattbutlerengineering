@@ -107,6 +107,23 @@ jobs:
         if: env.TURBO_TOKEN != ''
         run: pnpm turbo link --team "$TURBO_TEAM" --token "$TURBO_TOKEN"
 
+  dependency-audit:
+    name: Dependency Sync
+    needs: [prepare]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Run Dependency Audit
+        run: node scripts/check-dep-sync.mjs
+
   hadolint:
     name: Dockerfile Lint
     needs: [detect-changes]
@@ -707,7 +724,7 @@ jobs:
   ci-gate:
     name: CI Gate
     if: always()
-    needs: [lint, typecheck, architecture-audit, build, test, hadolint, migrations, migration-dry-run]
+    needs: [lint, typecheck, architecture-audit, build, test, hadolint, migrations, migration-dry-run, dependency-audit]
     runs-on: ubuntu-latest
     steps:
       - name: Check required job results
@@ -720,9 +737,10 @@ jobs:
           HADOLINT: ${{ needs.hadolint.result }}
           MIGRATIONS: ${{ needs.migrations.result }}
           DRY_RUN: ${{ needs.migration-dry-run.result }}
+          DEPS: ${{ needs.dependency-audit.result }}
         run: |
-          echo "lint=$LINT typecheck=$TYPECHECK arch=$ARCH build=$BUILD test=$TEST hadolint=$HADOLINT migrations=$MIGRATIONS dry-run=$DRY_RUN"
-          for job_result in "$LINT" "$TYPECHECK" "$ARCH" "$BUILD" "$TEST" "$HADOLINT" "$MIGRATIONS" "$DRY_RUN"; do
+          echo "lint=$LINT typecheck=$TYPECHECK arch=$ARCH build=$BUILD test=$TEST hadolint=$HADOLINT migrations=$MIGRATIONS dry-run=$DRY_RUN deps=$DEPS"
+          for job_result in "$LINT" "$TYPECHECK" "$ARCH" "$BUILD" "$TEST" "$HADOLINT" "$MIGRATIONS" "$DRY_RUN" "$DEPS"; do
             if [ "$job_result" = "failure" ] || [ "$job_result" = "cancelled" ]; then
               echo "::error::Required job failed or was cancelled"
               exit 1
