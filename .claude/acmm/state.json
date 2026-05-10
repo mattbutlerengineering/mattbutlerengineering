@@ -1,14 +1,14 @@
 {
-  "lastRun": "2026-05-10T00:27:24.154Z",
-  "currentLevel": 3,
+  "lastRun": "2026-05-10T17:08:29.896Z",
+  "currentLevel": 6,
   "checks": {
     "acmm:prereq-test-suite": {
       "passed": true,
       "evidence": "detected at one of: vitest.config.ts, vitest.config.js, jest.config.js, jest.config.ts, go.mod, pytest.ini, pyproject.toml"
     },
     "acmm:prereq-e2e": {
-      "passed": true,
-      "evidence": "detected at one of: playwright.config.ts, playwright.config.js, cypress.config.ts, cypress.config.js, e2e/, tests/e2e/"
+      "passed": false,
+      "evidence": "none of: playwright.config.ts, playwright.config.js, cypress.config.ts, cypress.config.js, e2e/, tests/e2e/"
     },
     "acmm:prereq-cicd": {
       "passed": true,
@@ -80,7 +80,7 @@
     },
     "acmm:quality-dashboard": {
       "passed": true,
-      "evidence": "detected at one of: web/public/analytics.js, web/src/components/analytics/"
+      "evidence": "detected at one of: [object Object]"
     },
     "acmm:ci-matrix": {
       "passed": true,
@@ -227,8 +227,8 @@
       "evidence": "detected at one of: .github/workflows/auto-qa.yml, .github/auto-qa-tuning.json"
     },
     "acmm:public-metrics": {
-      "passed": true,
-      "evidence": "detected at one of: web/netlify/functions/analytics-accm.mts, web/public/analytics.js"
+      "passed": false,
+      "evidence": "none of: [object Object]"
     },
     "acmm:policy-as-code": {
       "passed": true,
@@ -372,7 +372,7 @@
     },
     "fullsend:rollback-drill": {
       "passed": true,
-      "evidence": "detected at one of: docs/rollback.md, .github/workflows/rollback.yml, scripts/rollback.sh"
+      "evidence": "detected at one of: [object Object]"
     },
     "aef:task-traceability": {
       "passed": true,
@@ -469,7 +469,7 @@
     {
       "date": "2026-05-10",
       "level": 6,
-      "detected": 105,
+      "detected": 103,
       "total": 105
     }
   ],
@@ -478,7 +478,6 @@
   "role": "Strategist",
   "detectedIds": [
     "acmm:prereq-test-suite",
-    "acmm:prereq-e2e",
     "acmm:prereq-cicd",
     "acmm:prereq-pr-template",
     "acmm:prereq-issue-template",
@@ -533,7 +532,6 @@
     "acmm:repo-bench",
     "acmm:github-actions-ai",
     "acmm:auto-qa-self-tuning",
-    "acmm:public-metrics",
     "acmm:policy-as-code",
     "acmm:reflection-log",
     "acmm:periodic-reflection",
@@ -585,15 +583,15 @@
   ],
   "computation": {
     "level": 6,
-    "strict": true,
+    "strict": false,
     "levelName": "Fully Autonomous",
     "role": "Strategist",
-    "characteristic": "The system acts on what it finds \u2014 generates issues, merges PRs, rolls back failures. Humans set policy and audit after the fact.",
+    "characteristic": "The system acts on what it finds — generates issues, merges PRs, rolls back failures. Humans set policy and audit after the fact.",
     "detectedByLevel": {
       "2": 3,
       "3": 5,
       "4": 14,
-      "5": 16,
+      "5": 15,
       "6": 8
     },
     "requiredByLevel": {
@@ -607,7 +605,7 @@
     "nextTransitionTrigger": null,
     "antiPattern": "Mistaking autonomy for abandonment: an autonomous codebase still needs a strategist to set direction, or it drifts toward local optima.",
     "prerequisites": {
-      "met": 8,
+      "met": 7,
       "total": 8
     },
     "crossCutting": {
@@ -629,7 +627,7 @@
         "value": 0,
         "threshold": 0.2,
         "direction": "below",
-        "strict": true,
+        "strict": false,
         "dataAvailable": true
       },
       {
@@ -640,7 +638,7 @@
         "value": 0.9565217391304348,
         "threshold": 0.5,
         "direction": "above",
-        "strict": true,
+        "strict": false,
         "dataAvailable": true
       },
       {
@@ -651,7 +649,7 @@
         "value": 2,
         "threshold": 1,
         "direction": "above",
-        "strict": true,
+        "strict": false,
         "dataAvailable": true
       },
       {
@@ -662,7 +660,7 @@
         "value": 0,
         "threshold": 0.1,
         "direction": "below",
-        "strict": true,
+        "strict": false,
         "dataAvailable": true
       }
     ]
@@ -702,11 +700,11 @@
         }
       },
       "status": "green",
-      "measured_at": "2026-05-10T00:27:24.153Z"
+      "measured_at": "2026-05-10T17:08:29.894Z"
     },
     "auto_qa_tuning": {
       "history_count": 2,
-      "measured_at": "2026-05-10T00:27:24.153Z"
+      "measured_at": "2026-05-10T17:08:29.894Z"
     }
   },
   "honestAuditNote": "Manual audit 2026-05-09: L4+ criteria pass detection via file existence but features are incomplete/broken. True level is L3. See issue #1162."

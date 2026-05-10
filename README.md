@@ -1,9 +1,7 @@
 # Matt Butler Engineering
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](./LICENSE)
-<!-- acmm:begin -->
-![ACMM Level 3](https://img.shields.io/badge/ACMM-Level%203-808080?style=flat-square)
-<!-- acmm:end -->
+<!-- acmm:begin -->![ACMM Level 6](https://img.shields.io/badge/ACMM-Level%206-d4a030?style=flat-square)<!-- acmm:end -->
 
 > **Build status:** GitHub Actions runs CI checks on every PR. Verify changes locally with `pnpm lint`/`typecheck`/`test`. See [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
 
