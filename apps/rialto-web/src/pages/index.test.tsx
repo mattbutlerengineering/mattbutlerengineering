@@ -3,7 +3,6 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { OverviewPage } from "./OverviewPage.js";
 import { DemoLayout } from "../layouts/DemoLayout.js";
-import React from "react";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Button: ({ children }: any) => <button>{children}</button>,

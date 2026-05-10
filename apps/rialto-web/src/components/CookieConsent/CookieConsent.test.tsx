@@ -2,7 +2,6 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { CookieBanner, CookiePreferencesDialog } from "./CookieConsent.js";
-import React from "react";
 
 vi.mock("framer-motion", () => ({
   motion: {
