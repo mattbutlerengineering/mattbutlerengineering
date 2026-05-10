@@ -295,8 +295,11 @@ jobs:
 
   integrity:
     name: Integrity
-    needs: [prepare]
+    needs: [prepare, build]
     runs-on: ubuntu-latest
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
 
@@ -322,7 +325,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build CLI
-        run: pnpm --filter @mbe/cli build
+        run: pnpm build --filter @mbe/cli
 
       - name: Check instruction sync (llms.txt)
         run: |
