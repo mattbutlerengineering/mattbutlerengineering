@@ -45,7 +45,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
       - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -64,13 +64,15 @@ jobs:
             echo '## Lint, typecheck, test'
             echo
             for cmd in lint typecheck test; do
-              if pnpm "$cmd" 2>&1 | tail -10 > "/tmp/$cmd.out"; then
+              pnpm "$cmd" > "/tmp/$cmd.out" 2>&1
+              cmd_status=$?
+              if [ "$cmd_status" -eq 0 ]; then
                 echo "- ✓ \`pnpm $cmd\` passed"
               else
                 echo "- ✗ \`pnpm $cmd\` FAILED"
                 echo
                 echo '  ```'
-                sed 's/^/  /' "/tmp/$cmd.out"
+                tail -10 "/tmp/$cmd.out" | sed 's/^/  /'
                 echo '  ```'
               fi
               echo
@@ -86,7 +88,7 @@ jobs:
             echo
               for script in scripts/check-*.js; do
               name=$(basename "$script" .js)
-              if node "$script" 2>&1 > "/tmp/$name.out"; then
+              if node "$script" > "/tmp/$name.out" 2>&1; then
                 echo "- ✓ \`$name\` passed"
               else
                 echo "- ✗ \`$name\` FAILED"
