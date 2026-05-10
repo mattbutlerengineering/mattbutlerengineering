@@ -1,12 +1,12 @@
 {
   "id": "fix-typo-in-readme",
-  "prompt": "There is a typo in the root README.md. Find any single misspelled word and fix it. Do not modify any other files. Do not change formatting.",
+  "prompt": "In the root README.md, line 8 contains an outdated statement saying GitHub Actions billing is 'intentionally unconfigured'. This is stale — GitHub Actions IS configured and runs on every PR. Update only that line to say: 'GitHub Actions runs CI checks on every PR.' Keep the blockquote format. Do not modify any other files or lines.",
   "model": "claude-sonnet-4-6",
   "maxBudgetUsd": 0.50,
   "maxTurns": 20,
   "rubric": {
     "mustPass": ["lint"],
-    "diffSizeMax": 4,
+    "diffSizeMax": 6,
     "mustTouch": ["README.md"],
     "mustNotTouch": ["package.json", "pnpm-lock.yaml", "src/"]
   }
