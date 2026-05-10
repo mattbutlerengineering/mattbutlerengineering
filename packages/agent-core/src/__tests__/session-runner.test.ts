@@ -443,6 +443,90 @@ describe("runSession", () => {
     expect(result.branchName).toBe("");
   });
 
+  it("creates draft PR when verification fails", async () => {
+    const mockResult = createMockResultMessage();
+    vi.mocked(query).mockReturnValue(
+      mockQueryGenerator([mockResult]) as ReturnType<typeof query>
+    );
+    vi.mocked(hasChanges).mockResolvedValue(true);
+    vi.mocked(commitChanges).mockResolvedValue("abc123");
+    vi.mocked(pushBranch).mockResolvedValue(undefined);
+    vi.mocked(runVerification).mockResolvedValue({
+      passed: false,
+      lintOk: true,
+      typecheckOk: false,
+      testsOk: true,
+    });
+    vi.mocked(buildPrTitle).mockReturnValue("wip: Fix the login bug");
+    vi.mocked(buildPrBody).mockReturnValue("body");
+    vi.mocked(createPullRequest).mockResolvedValue({
+      url: "https://github.com/repo/pull/2",
+      number: 2,
+    });
+
+    const result = await runSession(BASE_CONFIG);
+
+    // Should still produce a PR URL even when verification fails
+    expect(result.prUrl).toBe("https://github.com/repo/pull/2");
+    expect(createPullRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ draft: true })
+    );
+  });
+
+  it("attempts to push partial work when session throws mid-execution", async () => {
+    // Simulate worktree creation succeeding then query throwing
+    vi.mocked(query).mockImplementation(() => {
+      throw new Error("Unexpected API error");
+    });
+    vi.mocked(hasChanges).mockResolvedValue(true);
+    vi.mocked(commitChanges).mockResolvedValue("partial-commit");
+    vi.mocked(pushBranch).mockResolvedValue(undefined);
+    vi.mocked(createPullRequest).mockResolvedValue({
+      url: "https://github.com/repo/pull/3",
+      number: 3,
+    });
+
+    const events: SessionEvent[] = [];
+    const result = await runSession(BASE_CONFIG, (event) => events.push(event));
+
+    expect(result.status).toBe("failed");
+    expect(result.errors).toContain("Unexpected API error");
+    // Partial work should be pushed and a draft PR created
+    expect(result.prUrl).toBe("https://github.com/repo/pull/3");
+  });
+
+  it("handles partial work push failure gracefully (best-effort)", async () => {
+    vi.mocked(query).mockImplementation(() => {
+      throw new Error("Unexpected API error");
+    });
+    // hasChanges returns true but pushBranch fails
+    vi.mocked(hasChanges).mockResolvedValue(true);
+    vi.mocked(commitChanges).mockResolvedValue("partial-commit");
+    vi.mocked(pushBranch).mockRejectedValue(new Error("git push failed"));
+
+    const result = await runSession(BASE_CONFIG);
+
+    // Should still return failed with original error, not the push error
+    expect(result.status).toBe("failed");
+    expect(result.errors).toContain("Unexpected API error");
+    expect(result.prUrl).toBeNull();
+  });
+
+  it("handles partial work when no changes exist after crash", async () => {
+    vi.mocked(query).mockImplementation(() => {
+      throw new Error("Unexpected API error");
+    });
+    vi.mocked(hasChanges).mockResolvedValue(false);
+
+    const result = await runSession(BASE_CONFIG);
+
+    expect(result.status).toBe("failed");
+    expect(result.errors).toContain("Unexpected API error");
+    expect(result.prUrl).toBeNull();
+    // commitChanges should not be called since there are no changes
+    expect(commitChanges).not.toHaveBeenCalled();
+  });
+
   // ── Retry logic tests ──────────────────────────────────────────────
 
   it("uses withRetry for createWorktree", async () => {
