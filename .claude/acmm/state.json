@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-05-10T00:27:24.154Z",
+  "lastRun": "2026-05-10T17:24:13.853Z",
   "currentLevel": 3,
   "checks": {
     "acmm:prereq-test-suite": {
@@ -272,7 +272,7 @@
     },
     "acmm:ai-service-fallback": {
       "passed": true,
-      "evidence": "detected at one of: [object Object]"
+      "evidence": "detected at one of: infrastructure/worker/circuit-breaker.js (contains: CIRCUIT_BREAKER_KEY)"
     },
     "acmm:override-analytics": {
       "passed": true,
@@ -332,7 +332,7 @@
     },
     "acmm:accessibility-ai-check": {
       "passed": true,
-      "evidence": "detected at one of: [object Object]"
+      "evidence": "detected at one of: .github/workflows/ci.yml (contains: pnpm --dir packages/rialto vitest .* accessibility)"
     },
     "acmm:auto-rollback": {
       "passed": true,
@@ -468,7 +468,7 @@
     },
     {
       "date": "2026-05-10",
-      "level": 6,
+      "level": 3,
       "detected": 105,
       "total": 105
     }
@@ -584,11 +584,11 @@
     "claude-reflect:session-summary"
   ],
   "computation": {
-    "level": 6,
+    "level": 3,
     "strict": true,
     "levelName": "Fully Autonomous",
     "role": "Strategist",
-    "characteristic": "The system acts on what it finds \u2014 generates issues, merges PRs, rolls back failures. Humans set policy and audit after the fact.",
+    "characteristic": "The system acts on what it finds — generates issues, merges PRs, rolls back failures. Humans set policy and audit after the fact.",
     "detectedByLevel": {
       "2": 3,
       "3": 5,
@@ -637,7 +637,7 @@
         "name": "agent-pr-acceptance",
         "description": "Agent PR acceptance rate must exceed 50%",
         "passed": true,
-        "value": 0.9565217391304348,
+        "value": 0.9615384615384616,
         "threshold": 0.5,
         "direction": "above",
         "strict": true,
@@ -665,26 +665,28 @@
         "strict": true,
         "dataAvailable": true
       }
-    ]
+    ],
+    "capped": true,
+    "computedLevel": 6
   },
   "behavioral": {
     "flake": {
       "rate_30d": 0,
-      "sample_size": 99,
+      "sample_size": 100,
       "flaky_shas": [],
-      "measured_at": "2026-05-10T00:27:24.153Z"
+      "measured_at": "2026-05-10T17:24:13.852Z"
     },
     "agent_pr": {
-      "sample_size": 25,
-      "merged_count": 22,
+      "sample_size": 26,
+      "merged_count": 25,
       "closed_unmerged_count": 1,
-      "open_count": 2,
-      "acceptance_rate_30d": 0.9565217391304348,
+      "open_count": 0,
+      "acceptance_rate_30d": 0.9615384615384616,
       "revert_rate_30d": 0,
-      "median_time_to_merge_hours": 0.049444444444444444,
+      "median_time_to_merge_hours": 0.059166666666666666,
       "human_touch_ratio": 1,
       "insufficient_data": false,
-      "measured_at": "2026-05-10T00:27:24.153Z"
+      "measured_at": "2026-05-10T17:24:13.852Z"
     },
     "evals": {
       "n": 21,
@@ -702,12 +704,13 @@
         }
       },
       "status": "green",
-      "measured_at": "2026-05-10T00:27:24.153Z"
+      "measured_at": "2026-05-10T17:24:13.852Z"
     },
     "auto_qa_tuning": {
       "history_count": 2,
-      "measured_at": "2026-05-10T00:27:24.153Z"
+      "measured_at": "2026-05-10T17:24:13.852Z"
     }
   },
-  "honestAuditNote": "Manual audit 2026-05-09: L4+ criteria pass detection via file existence but features are incomplete/broken. True level is L3. See issue #1162."
+  "levelCap": 3,
+  "honestAuditNote": "Manual audit 2026-05-09: L4+ criteria pass detection via file existence but features are incomplete/broken. True level is L3. See issue #1162. levelCap enforces this until detection criteria are tightened."
 }
