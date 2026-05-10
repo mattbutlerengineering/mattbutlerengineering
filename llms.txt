@@ -1,218 +1,2738 @@
-# Rialto Design System — AI Quick Reference
-
-> Package: `@mattbutlerengineering/rialto`
-> Version: `0.1.0`
-> Peer deps: `react`, `react-dom`, `framer-motion`
-> Import: `import { Button, Input, Card, Text, Stack } from "@mattbutlerengineering/rialto"`
-> Styles: `import "@mattbutlerengineering/rialto/styles"` (must load before any rendering)
-> Motion tokens: `import { spring, precision } from "@mattbutlerengineering/rialto/motion"`
-
----
-
-## Provider Setup
-
-```tsx
-import { RialtoProvider } from "@mattbutlerengineering/rialto";
-
-// Wrap your app root (main.tsx):
-<RialtoProvider theme="light"> {/* "light" | "dark" | "system" */}
-  <App />
-</RialtoProvider>
-```
-
-`RialtoProvider` props: `theme` (`"light" | "dark" | "system"`, default `"system"`), `vibe` (`"default" | "transacting" | "presenting"`), `vibeOverrides` (CSS custom property overrides).
-
----
-
-## Component Catalog
-
-### Form Inputs
-
-| Component        | Description                              | Key Props                                      |
-| ---------------- | ---------------------------------------- | ---------------------------------------------- |
-| Input            | Single-line text field with label/hint   | `label`, `hint`, `error`, `type`, `placeholder` |
-| TextArea         | Multi-line text with optional auto-grow  | `label`, `rows`, `autoResize`, `maxLength`     |
-| NumberInput      | Numeric value with stepper buttons       | `label`, `min`, `max`, `step`, `size`          |
-| Checkbox         | Multi-select checkbox                    | `label`, `checked`, `indeterminate`            |
-| Radio            | Single radio option (use inside RadioGroup) | `value`, `label`                            |
-| RadioGroup       | Single-select from visible options       | `label`, `value`, `onChange`                   |
-| Toggle           | Binary on/off switch                     | `label`, `checked`, `onChange`, `disabled`     |
-| Select           | Dropdown for one choice from a list      | `label`, `options`, `placeholder`, `value`, `onChange` |
-| SegmentedControl | Pill-style mutually exclusive toggle     | `segments`, `value`, `onChange`, `size`        |
-| Slider           | Continuous value range selector          | `min`, `max`, `step`, `value`, `onChange`      |
-| PinInput         | Fixed-length code entry (OTP, PINs)      | `label`, `length`, `mask`, `type`             |
-
-### Navigation
-
-| Component      | Description                       | Key Props                              |
-| -------------- | --------------------------------- | -------------------------------------- |
-| Button         | Action trigger with press physics | `variant`, `size`, `loading`, `disabled`, `onClick` |
-| Breadcrumb     | Navigation trail                  | `items`, `maxItems`                    |
-| Tabs           | Switch between content panels     | `tabs`, `activeId`                     |
-| Steps          | Multi-step progress indicator     | `steps`, `currentStep`, `orientation`  |
-| Pagination     | Page-by-page navigation           | `page`, `totalPages`, `onChange`       |
-| NavigationMenu | Horizontal nav with dropdowns     | `items`                                |
-| Sidebar        | Vertical app navigation           | `items`, `collapsed`, `onCollapse`     |
-| Navbar         | Top navigation bar with logo/user | `links`, `logo`, `user`, `search`      |
-
-### Data Display
-
-| Component  | Description                        | Key Props                                     |
-| ---------- | ---------------------------------- | --------------------------------------------- |
-| Card       | Content container with surfaces    | `variant`, `padding`, `title`, `subtitle`     |
-| Table      | Generic `<Table<T>>` with sorting  | `columns`, `data`, `rowKey`, `striped`        |
-| Badge      | Small status indicator             | `variant`, `size`, `dot`                      |
-| Tag        | Selectable/dismissible label       | `variant`, `selected`, `dismissible`          |
-| TagGroup   | Layout wrapper for multiple Tags   | `children`                                    |
-| Avatar     | User image with fallback initials  | `src`, `name`, `size`, `status`               |
-| AvatarGroup | Stacked avatars with overflow     | `avatars`, `max`                              |
-| Stat       | Metric display with trend          | `value`, `label`, `delta`, `trend`, `size`    |
-| DataList   | Key-value pairs                    | `items`, `orientation`, `striped`             |
-| Meter      | Gauge for bounded values           | `value`, `min`, `max`, `label`, `variant`     |
-| Timeline   | Chronological event sequence       | `items`                                       |
-| Tree       | Recursive expandable hierarchy     | `data`, `defaultExpanded`, `selectedId`       |
-
-### Layout & Typography
-
-| Component   | Description                        | Key Props                               |
-| ----------- | ---------------------------------- | --------------------------------------- |
-| Stack       | Flexbox layout helper              | `direction`, `gap`, `align`, `justify`  |
-| Text        | Typography with semantic variants  | `variant`, `size`, `weight`, `as`       |
-| Divider     | Visual separator line              | `label`, `spacing`                      |
-| Collapsible | Single expand/collapse section     | `open`, `onOpenChange`, `label`         |
-| Accordion   | Grouped collapsible panels         | `items`, `allowMultiple`                |
-| AspectRatio | Responsive proportional container  | `ratio`                                 |
-| ScrollArea  | Custom-styled scroll container     | `width`, `height`                       |
-| Kbd         | Keyboard key display               | `children`                              |
-
-### Feedback
-
-| Component     | Description                        | Key Props                                  |
-| ------------- | ---------------------------------- | ------------------------------------------ |
-| Toast         | Transient notification (Provider!) | use `useToast()` hook; `toast({ title, variant })` |
-| Alert         | Inline contextual message          | `variant`, `title`, `dismissible`          |
-| Banner        | Full-width page-level message      | `variant`, `title`, `action`, `dismissible`|
-| Progress      | Determinate/indeterminate bar      | `value`, `max`, `indeterminate`, `variant` |
-| Spinner       | Loading indicator (unknown duration)| `size`, `label`                           |
-| Skeleton      | Loading content placeholder        | `variant`, `width`, `height`               |
-| SkeletonGroup | Groups multiple skeletons          | `children`                                 |
-| EmptyState    | No-content display with CTA        | `heading`, `description`, `action`, `icon` |
-
-### Overlays
-
-| Component      | Description                       | Key Props                                  |
-| -------------- | --------------------------------- | ------------------------------------------ |
-| Dialog         | Modal dialog with focus trap      | `open`, `onClose`, `title`, `children`     |
-| ConfirmDialog  | Pre-built confirmation modal      | `open`, `onConfirm`, `onCancel`, `title`, `variant` |
-| Drawer         | Slide-out edge panel              | `open`, `onClose`, `title`, `side`, `size` |
-| Popover        | Positioned floating content       | `trigger`, `children`, `placement`, `title` |
-| Tooltip        | Short hover text                  | `content`, `placement`, `delay`            |
-| HoverCard      | Rich hover preview                | `content`                                  |
-| CommandPalette | Keyboard command interface (Cmd+K)| `open`, `onOpenChange`, `items`            |
-| DropdownMenu   | Action menu triggered by click    | `trigger`, `items`, `align`                |
-| ContextMenu    | Right-click action menu           | `items`                                    |
-
----
-
-## Design Token Quick Reference
-
-### Surface tokens
-- `--rialto-surface` — page backgrounds, default component bg
-- `--rialto-surface-elevated` — cards, popovers, elevated containers
-- `--rialto-surface-recessed` — input fields, slider tracks
-- `--rialto-surface-matte` — disabled fills, subtle divider bg
-- `--rialto-surface-deep` — heavy separators, decorative accents
-
-### Text tokens
-- `--rialto-text-primary` — headings, body text, primary labels
-- `--rialto-text-secondary` — descriptions, helper text
-- `--rialto-text-tertiary` — placeholders, disabled, timestamps
-- `--rialto-text-on-accent` — text on accent-filled backgrounds
-
-### Border tokens
-- `--rialto-border` — default borders (cards, inputs)
-- `--rialto-border-strong` — emphasized borders, active outlines
-
-### Accent tokens (gold — surgical use only)
-- `--rialto-accent` — primary buttons, focus rings, active/selected states
-- `--rialto-accent-hover` — primary button hover
-- `--rialto-accent-muted` — selected rows, active tab bg
-- `--rialto-accent-glow` — focus ring outer glow
-
-### Semantic tokens
-- `--rialto-error` / `--rialto-error-muted` — error text, destructive actions / backgrounds
-- `--rialto-success` / `--rialto-success-muted` — success text / backgrounds
-
-### Spacing (4px base)
-- `--rialto-space-xs` (8px), `--rialto-space-sm` (12px), `--rialto-space-md` (16px)
-- `--rialto-space-lg` (24px), `--rialto-space-xl` (32px), `--rialto-space-2xl` (48px), `--rialto-space-3xl` (64px)
-
-### Radius hierarchy
-- `--rialto-radius-sharp` (2px) — badges, chips
-- `--rialto-radius-default` (6px) — buttons, inputs
-- `--rialto-radius-soft` (10px) — cards, dialogs
-- `--rialto-radius-round` (9999px) — pills, avatars
-
-### Shadow tiers
-- `--rialto-shadow-elevated` — cards, dropdowns, popovers
-- `--rialto-shadow-pressed` — recessed inputs, active press states
-- `--rialto-shadow-focus` — focus-visible ring on interactive elements
-- `--rialto-shadow-glass` — floating glass panels, command palette
-
-### Easing
-- `--rialto-ease-precision` — crisp UI transitions, hover, small movements
-- `--rialto-ease-smooth` — gentle entrances and exits
-
----
-
-## Key Patterns
-
-### Form layout
-```tsx
-<Card title="Sign in">
-  <Stack direction="column" gap="md">
-    <Input label="Email" type="email" />
-    <Input label="Password" type="password" />
-    <Button variant="primary">Sign in</Button>
-  </Stack>
-</Card>
-```
-
-### Card grid page
-```tsx
-<Stack direction="column" gap="lg">
-  <Text variant="heading" as="h1">Dashboard</Text>
-  <Stack direction="row" gap="md" wrap>
-    <Card title="Users" padding="lg"><Stat value="1,024" label="Total users" /></Card>
-    <Card title="Revenue" padding="lg"><Stat value="$12.4k" label="This month" /></Card>
-  </Stack>
-</Stack>
-```
-
-### Page layout with sidebar
-```tsx
-<Stack direction="row" gap="none" align="stretch">
-  <Sidebar items={navItems} collapsed={collapsed} onCollapse={setCollapsed} />
-  <Stack direction="column" gap="xl" style={{ flex: 1, padding: "var(--rialto-space-xl)" }}>
-    {children}
-  </Stack>
-</Stack>
-```
-
-### Modal with form
-```tsx
-<Dialog open={open} onClose={() => setOpen(false)} title="Add member">
-  <Stack direction="column" gap="md">
-    <Input label="Name" />
-    <Input label="Email" type="email" />
-    <Stack direction="row" gap="sm" justify="end">
-      <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-      <Button variant="primary">Add</Button>
-    </Stack>
-  </Stack>
-</Dialog>
-```
-
----
-
-For complete prop tables, composition examples, and advanced patterns, see `llms-full.txt`.
+<codebase path=".">
+  <section priority="medium" role="pulumi">
+  <file path="infrastructure/pulumi/index.ts">
+    <item priority="high">
+      export const auth0ApiIdentifier: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+    <item priority="high">
+      export const auth0ClientId: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="infrastructure/pulumi/github.ts">
+    <item priority="high">
+      export const branchProtectionId: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="infrastructure/pulumi/auth0.ts">
+    <item priority="high">
+      export const api: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+    <item priority="high">
+      export const hospitalityApp: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="src">
+  <file path="tools/cli/src/config.ts">
+    <item priority="high">
+      interface ConfigSchema {
+        accessToken?: string | undefined;
+        refreshToken?: string | undefined;
+        tokenExpiry?: number | undefined;
+        apiUrl?: string | undefined;
+      }
+    </item>
+    <item priority="high">
+      export const config: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="tools/cli/src/api.ts">
+    <item priority="high">
+      class ApiError {
+        
+      }
+    </item>
+    <item priority="high">
+      interface ErrorResponse {
+        message?: string | undefined;
+      }
+    </item>
+  </file>
+  <file path="services/users/src/index.ts">
+    <item priority="low">
+      async function main() { /* ... */ }
+    </item>
+  </file>
+  <file path="services/users/src/app.ts">
+    <item priority="medium">
+      function validateCorsOrigins(origins: string[]): string[] { /* ... */ }
+    </item>
+    <item priority="low">
+      interface AppOptions {
+        logger?: boolean | object | undefined;
+      }
+    </item>
+  </file>
+  <file path="services/reservations/src/index.ts">
+    <item priority="low">
+      async function main() { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/app.ts">
+    <item priority="medium">
+      function validateCorsOrigins(origins: string[]): string[] { /* ... */ }
+    </item>
+    <item priority="low">
+      interface AppOptions {
+        logger?: boolean | object | undefined;
+      }
+    </item>
+  </file>
+  <file path="services/agent/src/index.ts">
+    <item priority="low">
+      async function main() { /* ... */ }
+    </item>
+  </file>
+  <file path="services/agent/src/app.ts">
+    <item priority="medium">
+      function validateCorsOrigins(origins: string[]): string[] { /* ... */ }
+    </item>
+    <item priority="low">
+      interface AppOptions {
+        logger?: boolean | object | undefined;
+      }
+    </item>
+  </file>
+  <file path="packages/types/src/venue.ts">
+    <item priority="low">
+      interface VenueGroup {
+        id: string;
+        name: string;
+        slug: string;
+        settings: Record<string, unknown> | null;
+        createdAt: string;
+      }
+    </item>
+    <item priority="low">
+      interface Venue {
+        id: string;
+        venueGroupId: string | null;
+        venueGroup?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        name: string;
+        slug: string;
+      }
+    </item>
+  </file>
+  <file path="packages/types/src/user.ts">
+    <item priority="low">
+      interface UserPreferences {
+        theme?: "light" | "dark" | "system" | undefined;
+        emailNotifications?: boolean | undefined;
+        marketingEmails?: boolean | undefined;
+      }
+    </item>
+    <item priority="low">
+      interface User {
+        id: string;
+        email: string;
+        name: string | null;
+        picture: string | null;
+        emailVerified: boolean;
+      }
+    </item>
+  </file>
+  <file path="packages/types/src/schema-compat.ts">
+    <item priority="high">
+      interface JsonSchemaProperty {
+        type?: string | undefined;
+        enum?: readonly unknown[] | undefined;
+        nullable?: boolean | undefined;
+        description?: string | undefined;
+        example?: unknown;
+      }
+    </item>
+    <item priority="high">
+      interface JsonSchema {
+        $id?: string | undefined;
+        type?: string | undefined;
+        properties?: Record<string, JsonSchemaProperty> | undefined;
+        required?: readonly string[] | undefined;
+      }
+    </item>
+  </file>
+  <file path="packages/types/src/reservation.ts">
+    <item priority="low">
+      type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
+    </item>
+    <item priority="low">
+      type TableStatus = "AVAILABLE" | "OCCUPIED" | "DIRTY" | "READY";
+    </item>
+  </file>
+  <file path="packages/types/src/guest.ts">
+    <item priority="low">
+      interface Guest {
+        id: string;
+        venueId: string;
+        venue?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        email: string | null;
+        phone: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface CreateGuestRequest {
+        venueId: string;
+        email?: string | undefined;
+        phone?: string | undefined;
+        name: string;
+        notes?: string | undefined;
+      }
+    </item>
+  </file>
+  <file path="packages/types/src/floor-plan.ts">
+    <item priority="low">
+      interface FloorPlan {
+        id: string;
+        venueId: string;
+        name: string;
+        isActive: boolean;
+        layoutJson: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+      }
+    </item>
+    <item priority="low">
+      interface FloorPlanLayout {
+        width: number;
+        height: number;
+        backgroundImage?: string | undefined;
+        gridSize?: number | undefined;
+        showGrid?: boolean | undefined;
+      }
+    </item>
+  </file>
+  <file path="packages/types/src/date.ts">
+    <item priority="high">
+      export function toDateString(date: Date): string { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/types/src/availability.ts">
+    <item priority="low">
+      interface TimeSlot {
+        time: string;
+        available: boolean;
+        tables?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+      }
+    </item>
+    <item priority="low">
+      interface AvailableTable {
+        id: string;
+        name: string;
+        capacity: number;
+        minCovers: number;
+        maxCovers: number | null;
+      }
+    </item>
+  </file>
+  <file path="packages/types/src/api.ts">
+    <item priority="low">
+      interface ApiResponse {
+        data: T;
+        meta?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+      }
+    </item>
+    <item priority="low">
+      interface ApiMeta {
+        timestamp: string;
+        requestId?: string | undefined;
+      }
+    </item>
+  </file>
+  <file path="packages/types/src/agent.ts">
+    <item priority="low">
+      type AgentSessionStatus = "pending" | "running" | "succeeded" | "failed" | "cancelled";
+    </item>
+    <item priority="low">
+      interface AgentSession {
+        id: string;
+        status: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        taskDescription: string;
+        branchName: string | null;
+        baseBranch: string;
+      }
+    </item>
+  </file>
+  <file path="packages/rialto-catalog/src/generated-schemas.ts">
+    <item priority="high">
+      export const generatedSchemas: { readonly Accordion: import("/Users/mbutler/github/mattb...;
+    </item>
+  </file>
+  <file path="packages/rialto-catalog/src/catalog.ts">
+    <item priority="high">
+      export const catalog: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="packages/rialto-catalog/src/catalog-config.ts">
+    <item priority="low">
+      interface ComponentConfig {
+        include: boolean;
+        description: string;
+        slots?: string[] | undefined;
+      }
+    </item>
+    <item priority="high">
+      export const catalogConfig: Record<string, import("/Users/mbutler/github/mattbutleren...;
+    </item>
+  </file>
+  <file path="packages/observability/src/sdk.ts">
+    <item priority="low">
+      interface OtelConfig {
+        serviceName: string;
+        serviceVersion?: string | undefined;
+      }
+    </item>
+    <item priority="high">
+      export function shouldIgnoreRequest(req: IncomingMessage): boolean { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/observability/src/request-id.ts">
+    <item priority="low">
+      interface RequestIdOptions {
+        headerName?: string | undefined;
+        generator?: (() => string) | undefined;
+      }
+    </item>
+    <item priority="high">
+      export function createRequestIdMiddleware(options: RequestIdOptions = {}) { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/observability/src/readiness.ts">
+    <item priority="low">
+      interface ReadinessCheckResult {
+        name: string;
+        status: "ok" | "error";
+        message?: string | undefined;
+      }
+    </item>
+    <item priority="low">
+      interface ReadinessSnapshot {
+        ready: boolean;
+        checks: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        timestamp: string;
+      }
+    </item>
+  </file>
+  <file path="packages/observability/src/rate-limit-monitor.ts">
+    <item priority="low">
+      interface RateLimitHit {
+        ip: string;
+        endpoint: string;
+        timestamp: number;
+      }
+    </item>
+    <item priority="low">
+      interface RateLimitHealthStats {
+        hits_last_hour: number;
+        blocked_ips: number;
+      }
+    </item>
+  </file>
+  <file path="packages/observability/src/error-rates.ts">
+    <item priority="high">
+      interface RequestRecord {
+        timestamp: number;
+        isError: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface EndpointErrorRate {
+        endpoint: string;
+        total: number;
+        errors: number;
+        rate: number;
+      }
+    </item>
+  </file>
+  <file path="packages/observability/src/baggage.ts">
+    <item priority="high">
+      export const BAGGAGE_KEYS: { readonly SESSION_ID: "agent.session_id"; readonly PR_NU...;
+    </item>
+    <item priority="low">
+      interface AgentBaggage {
+        sessionId?: string | undefined;
+        prNumber?: string | undefined;
+        issueNumber?: string | undefined;
+        deploySha?: string | undefined;
+      }
+    </item>
+  </file>
+  <file path="packages/mcp-server/src/index.ts">
+    <item priority="low">
+      async function main() { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/feature-flags/src/index.ts">
+    <item priority="low">
+      interface FeatureFlag {
+        enabled: boolean;
+        percentage: number;
+      }
+    </item>
+    <item priority="low">
+      type FeatureFlagMap = Record<string, FeatureFlag>;
+    </item>
+  </file>
+  <file path="packages/api-versioning/src/fastify.ts">
+    <item priority="low">
+      interface ApiVersioningOptions {
+        currentVersion: string;
+        successorVersion?: string | undefined;
+        sunsetMonthsFromNow?: number | undefined;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-test-utils/src/worktree-simulator.ts">
+    <item priority="low">
+      type RepoState = "clean" | "dirty" | "conflicted";
+    </item>
+    <item priority="low">
+      interface SimulatedFile {
+        path: string;
+        content: string;
+        status?: "modified" | "added" | "deleted" | "conflicted" | undefined;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-test-utils/src/session-fixtures.ts">
+    <item priority="low">
+      interface ToolCallRecord {
+        toolName: string;
+        input: Record<string, unknown>;
+        output?: string | undefined;
+      }
+    </item>
+    <item priority="low">
+      interface FixtureOptions {
+        sessionId?: string | undefined;
+        numTurns?: number | undefined;
+        costUsd?: number | undefined;
+        inputTokens?: number | undefined;
+        outputTokens?: number | undefined;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-test-utils/src/mock-claude-client.ts">
+    <item priority="low">
+      type MockMode = "replay" | "deterministic";
+    </item>
+    <item priority="low">
+      interface MockTokenUsage {
+        input_tokens: number;
+        output_tokens: number;
+        cache_creation_input_tokens: number;
+        cache_read_input_tokens: number;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-test-utils/src/cost-estimator.ts">
+    <item priority="low">
+      interface ModelPricing {
+        model: string;
+        inputCostPer1MTokens: number;
+        outputCostPer1MTokens: number;
+        cacheWritePer1MTokens?: number | undefined;
+        cacheReadPer1MTokens?: number | undefined;
+      }
+    </item>
+    <item priority="high">
+      export const MODEL_PRICING: Record<string, import("/Users/mbutler/github/mattbutleren...;
+    </item>
+  </file>
+  <file path="packages/api-client/src/venues.ts">
+    <item priority="high">
+      class VenuesClient {
+        async list(): Promise<unknown>;
+        async get(): Promise<unknown>;
+        async getBySlug(): Promise<unknown>;
+        async create(): Promise<unknown>;
+      }
+    </item>
+    <item priority="high">
+      class VenueGroupsClient {
+        async list(): Promise<unknown>;
+        async get(): Promise<unknown>;
+        async getBySlug(): Promise<unknown>;
+        async create(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  <file path="packages/api-client/src/users.ts">
+    <item priority="high">
+      class UsersClient {
+        async list(): Promise<unknown>;
+        async get(): Promise<unknown>;
+        async me(): Promise<unknown>;
+        async create(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  <file path="packages/api-client/src/tables.ts">
+    <item priority="low">
+      interface ListTablesParams {
+        page?: number | undefined;
+        limit?: number | undefined;
+        venueId?: string | undefined;
+        activeOnly?: boolean | undefined;
+      }
+    </item>
+    <item priority="high">
+      class TablesClient {
+        async list(): Promise<unknown>;
+        async get(): Promise<unknown>;
+        async create(): Promise<unknown>;
+        async update(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  <file path="packages/api-client/src/streaming.ts">
+    <item priority="low">
+      interface StreamConfig {
+        url: string;
+        body: unknown;
+        headers?: Record<string, string> | undefined;
+        signal?: AbortSignal | undefined;
+      }
+    </item>
+    <item priority="high">
+      export async function* streamNDJSON<T>(config: StreamConfig): AsyncGenerator<T> { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/api-client/src/reservations.ts">
+    <item priority="low">
+      interface ListReservationsParams {
+        page?: number | undefined;
+        limit?: number | undefined;
+        date?: string | undefined;
+        status?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        tableId?: string | undefined;
+      }
+    </item>
+    <item priority="high">
+      class ReservationsClient {
+        async list(): Promise<unknown>;
+        async me(): Promise<unknown>;
+        async get(): Promise<unknown>;
+        async create(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  <file path="packages/api-client/src/index.ts">
+    <item priority="high">
+      export function createApiClient(config: {
+        baseUrl?: string;
+        getAccessToken?: () => string | null | Promise<string | null>;
+        timeout?: number;
+        maxRetries?: number;
+        onError?: (error: ApiClientError) => void;
+      }) { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/api-client/src/guests.ts">
+    <item priority="low">
+      interface FindOrCreateGuestRequest {
+        venueId: string;
+        email?: string | undefined;
+        phone?: string | undefined;
+        name: string;
+      }
+    </item>
+    <item priority="low">
+      interface ListGuestsParams {
+        page?: number | undefined;
+        limit?: number | undefined;
+        venueId: string;
+      }
+    </item>
+  </file>
+  <file path="packages/api-client/src/floor-plans.ts">
+    <item priority="high">
+      class FloorPlansClient {
+        async list(): Promise<unknown>;
+        async getById(): Promise<unknown>;
+        async get(): Promise<unknown>;
+        async create(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  <file path="packages/api-client/src/client.ts">
+    <item priority="low">
+      interface ClientConfig {
+        baseUrl: string;
+        getAccessToken?: (() => string | Promise<string | null> | null) | undefined;
+        timeout?: number | undefined;
+        maxRetries?: number | undefined;
+        onError?: ((error: import("/Users/mbutler/github/mattbutlerengineer...;
+      }
+    </item>
+    <item priority="low">
+      interface RequestOptions {
+        signal?: AbortSignal | undefined;
+      }
+    </item>
+  </file>
+  <file path="packages/api-client/src/availability.ts">
+    <item priority="low">
+      interface GetTimeSlotsParams {
+        venueId: string;
+        date: string;
+        partySize: number;
+        duration?: number | undefined;
+      }
+    </item>
+    <item priority="low">
+      interface GetDatesParams {
+        venueId: string;
+        startDate: string;
+        endDate: string;
+        partySize: number;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/worktree-manager.ts">
+    <item priority="high">
+      export function validateGitRef(ref: string, label: string): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function validatePath(path: string, label: string): void { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/verification-orchestrator.ts">
+    <item priority="low">
+      interface VerificationResult {
+        passed: boolean;
+        logPath?: string | undefined;
+        error?: string | undefined;
+      }
+    </item>
+    <item priority="high">
+      export async function orchestrateVerification(
+        worktreePath: string,
+        onEvent?: SessionEventCallback
+      ): Promise<VerificationResult> { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/utils.ts">
+    <item priority="high">
+      export function emitEvent(
+        onEvent: SessionEventCallback | undefined,
+        type: SessionEvent["type"],
+        data: SessionEvent["data"]
+      ): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function sanitizeForCommitMessage(text: string): string { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/types.ts">
+    <item priority="low">
+      type FailureCategory = "api_error" | "rate_limited" | "stuck_loop" | "budget_exceeded" | "tool_error" | "logic_error";
+    </item>
+    <item priority="low">
+      interface TurnMetrics {
+        turnIndex: number;
+        startedAt: string;
+        inputTokens: number;
+        outputTokens: number;
+        thinkingTokens: number;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/tool-permissions.ts">
+    <item priority="high">
+      export function normalizeBashCommand(command: string): readonly string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isBashCommandBlocked(command: string): string | null { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/task-intelligence.ts">
+    <item priority="medium">
+      function detectTaskContexts(taskDescription: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resolveSourceFiles(taskDescription: string): readonly string[] { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/task-decomposer.ts">
+    <item priority="low">
+      interface OrchestratorConfig {
+        taskDescription: string;
+        apiBaseUrl: string;
+        model: string;
+        sessionModel: string;
+        maxBudgetPerSession: number;
+      }
+    </item>
+    <item priority="high">
+      export const DEFAULT_ORCHESTRATOR_CONFIG: Omit<import("/Users/mbutler/github/mattbutlerengineering/...;
+    </item>
+  </file>
+  <file path="packages/agent-core/src/success-evaluator.ts">
+    <item priority="low">
+      interface EvaluationResult {
+        passed: boolean;
+        confidence: number;
+        reasoning: string;
+        issues: readonly string[];
+      }
+    </item>
+    <item priority="low">
+      interface EvaluationConfig {
+        model: string;
+        maxBudgetUsd: number;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/stuck-detector.ts">
+    <item priority="low">
+      type StuckPatternType = "repeated_action_observation" | "repeated_error" | "self_message_loop" | "alternating_pairs" | "context_window_loop" | "context_window_warning" | "zero_progress" | "silent_failure_loop";
+    </item>
+    <item priority="low">
+      type StuckSeverity = "warning" | "error";
+    </item>
+  </file>
+  <file path="packages/agent-core/src/session-runner.ts">
+    <item priority="high">
+      export async function runSession(
+        config: SessionConfig,
+        onEvent?: SessionEventCallback
+      ): Promise<SessionResult> { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/sanitize-output.ts">
+    <item priority="high">
+      export function escapeHtml(text: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function sanitizeStreamChunk(chunk: string): string { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/retry.ts">
+    <item priority="low">
+      interface RetryConfig {
+        maxRetries: number;
+        baseDelayMs: number;
+        maxDelayMs: number;
+        isRetryable: (error: unknown) => boolean;
+      }
+    </item>
+    <item priority="low">
+      interface RetryResult {
+        value: T;
+        attempts: number;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/quality-gates.ts">
+    <item priority="low">
+      interface QualityGatesResult {
+        evaluation?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        securityReview?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        staticAnalysisClean: boolean;
+        errors: string[];
+      }
+    </item>
+    <item priority="high">
+      export async function runQualityGates(
+        taskDescription: string,
+        diff: string,
+        commitMsg: string,
+        options: {
+          evaluateSuccess?: boolean;
+          runSecurityReview?: boolean;
+          runStaticAnalysis?: boolean;
+        },
+        onEvent?: SessionEventCallback
+      ): Promise<QualityGatesResult> { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/qa-tuning-loader.ts">
+    <item priority="low">
+      interface QaTuningThresholds {
+        acceptanceRateFloor: number;
+        maxBudgetUSD: number;
+        maxRetries: number;
+        stuckTurnsThreshold: number;
+        meanCloseHoursTarget: number;
+      }
+    </item>
+    <item priority="low">
+      interface QaTuningConfig {
+        version: number;
+        lastTunedAt: string;
+        thresholds: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/prompt-builder.ts">
+    <item priority="low">
+      interface SourceFileEntry {
+        path: string;
+        content: string;
+      }
+    </item>
+    <item priority="low">
+      interface PromptBuilderConfig {
+        sourceFileEntries?: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        relevantLlmsFiles?: readonly string[] | undefined;
+        relevantIssueContext?: string | undefined;
+        failureContext?: string | undefined;
+        model?: string | undefined;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/pr-risk-classifier.ts">
+    <item priority="high">
+      export function isLowRiskPR(files: readonly string[]): boolean { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/pr-feedback-poller.ts">
+    <item priority="low">
+      interface ReviewComment {
+        threadId: string;
+        author: string;
+        body: string;
+        path: string | null;
+        line: number | null;
+      }
+    </item>
+    <item priority="low">
+      interface CIFailure {
+        checkName: string;
+        conclusion: string;
+        logSnippet: string;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/pr-creator.ts">
+    <item priority="high">
+      export async function createPullRequest(options: PrOptions): Promise<PrResult> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildPrTitle(taskDescription: string): string { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/orchestrator.ts">
+    <item priority="high">
+      interface SessionApiResponse {
+        data: T;
+      }
+    </item>
+    <item priority="high">
+      interface SessionSummary {
+        id: string;
+        status: string;
+        taskDescription: string;
+        branchName: string | null;
+        prUrl: string | null;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/observability.ts">
+    <item priority="high">
+      export const observabilityTracer: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+    <item priority="medium">
+      function containsInOrder(str: string, a: string, b: string): boolean { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/model-router.ts">
+    <item priority="low">
+      type ModelTier = "haiku" | "sonnet" | "opus";
+    </item>
+    <item priority="low">
+      interface IssueInput {
+        title: string;
+        labels: string[];
+        body: string;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/intent-extractor.ts">
+    <item priority="high">
+      interface ContentBlock {
+        type: string;
+        input?: unknown;
+      }
+    </item>
+    <item priority="high">
+      interface AnthropicMessagesResponse {
+        content: readonly ContentBlock[];
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/feedback-prompt-builder.ts">
+    <item priority="high">
+      export const CI_LOG_MAX_CHARS: 500;
+    </item>
+    <item priority="low">
+      interface BuildReviewFixPromptOptions {
+        ciLogMaxChars?: number | undefined;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/feedback-loop.ts">
+    <item priority="low">
+      interface FeedbackLoopParams {
+        prNumber: number;
+        branchName: string;
+        repoPath: string;
+        model: string;
+        maxRetries: number;
+      }
+    </item>
+    <item priority="low">
+      interface FeedbackLoopResult {
+        retriesUsed: number;
+        resolved: boolean;
+        lastFingerprint: string | null;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/failure-memory.ts">
+    <item priority="low">
+      interface FailureRecord {
+        taskDescription: string;
+        timestamp: string;
+        stuckPattern?: string | undefined;
+        errors: readonly string[];
+        approach: string;
+      }
+    </item>
+    <item priority="low">
+      interface FailureMemory {
+        records: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/event-mapper.ts">
+    <item priority="low">
+      interface ToolUseEvent {
+        type: "session:tool_use";
+        toolName: string;
+        toolInput: Record<string, unknown>;
+        toolUseId: string;
+      }
+    </item>
+    <item priority="low">
+      interface ToolResultEvent {
+        type: "session:tool_result";
+        toolUseId: string;
+        isError: boolean;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/diff-static-analyzer.ts">
+    <item priority="low">
+      interface Violation {
+        rule: string;
+        file: string;
+        line: number;
+        message: string;
+        severity: "warning" | "error";
+      }
+    </item>
+    <item priority="low">
+      interface StaticAnalysisResult {
+        clean: boolean;
+        violations: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        durationMs: number;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/diff-reviewer.ts">
+    <item priority="low">
+      interface ReviewResult {
+        approved: boolean;
+        issues: readonly string[];
+      }
+    </item>
+    <item priority="low">
+      interface ReviewConfig {
+        model: string;
+        maxBudgetUsd: number;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/deploy-verifier.ts">
+    <item priority="low">
+      interface HealthCheck {
+        name: string;
+        url: string;
+        type: "http_status" | "json_health";
+      }
+    </item>
+    <item priority="low">
+      interface HealthCheckResult {
+        name: string;
+        url: string;
+        passed: boolean;
+        status: string;
+        attempts: number;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/dep-bump-merger.ts">
+    <item priority="low">
+      interface TrivialDepBumpResult {
+        isTrivial: boolean;
+        reason?: string | undefined;
+      }
+    </item>
+    <item priority="medium">
+      function extractChangedFiles(diff: string): readonly string[] { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/cost-tracker.ts">
+    <item priority="high">
+      export function extractTokenUsage(result: SDKResultMessage): TokenUsage { /* ... */ }
+    </item>
+    <item priority="high">
+      export function extractCost(result: SDKResultMessage): number { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/circuit-breaker.ts">
+    <item priority="low">
+      enum CircuitState { Closed = CLOSED, Open = OPEN, HalfOpen = HALF_OPEN }
+    </item>
+    <item priority="low">
+      interface CircuitBreakerOptions {
+        failureThreshold: number;
+        resetTimeoutMs: number;
+        onStateChange?: ((state: import("/Users/mbutler/github/mattbutlerengineer...;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/change-type-classifier.ts">
+    <item priority="low">
+      type ChangeType = "dependency" | "docs" | "config" | "test" | "infrastructure" | "frontend" | "backend" | "mixed";
+    </item>
+    <item priority="low">
+      type SkippablePhase = "smoke-audit" | "deploy-verify" | "lighthouse" | "e2e";
+    </item>
+  </file>
+  <file path="packages/agent-core/src/bundle-size-tracker.ts">
+    <item priority="low">
+      interface FileSize {
+        path: string;
+        bytes: number;
+      }
+    </item>
+    <item priority="low">
+      interface BundleSizeEntry {
+        app: string;
+        totalBytes: number;
+        files: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        timestamp: string;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/audit-inventory.ts">
+    <item priority="low">
+      type Zone = "marketing" | "hospitality" | "rialto" | "gen" | "api:users" | "api:reservations" | "api:agent";
+    </item>
+    <item priority="high">
+      export const ZONES: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+    </item>
+  </file>
+  <file path="apps/gen/src/vite-env.d.ts">
+    <item priority="high">
+      interface ImportMetaEnv {
+        VITE_AUTH_AUTHORITY: string;
+        VITE_AUTH_CLIENT_ID: string;
+        VITE_AUTH_REDIRECT_URI: string;
+        VITE_AUTH_AUDIENCE: string;
+      }
+    </item>
+    <item priority="high">
+      interface ImportMeta {
+        env: ImportMetaEnv;
+      }
+    </item>
+  </file>
+  <file path="apps/gen/src/types.ts">
+    <item priority="low">
+      interface HistoryEntry {
+        id: string;
+        prompt: string;
+        spec: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+        rawLines: string[];
+        timestamp: Date;
+      }
+    </item>
+    <item priority="low">
+      interface StoredSpec {
+        id: string;
+        userId: string;
+        prompt: string;
+        spec: unknown;
+        rawLines: string[];
+      }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/vite-env.d.ts">
+    <item priority="high">
+      interface ImportMetaEnv {
+        VITE_AUTH_AUTHORITY: string;
+        VITE_AUTH_CLIENT_ID: string;
+        VITE_AUTH_REDIRECT_URI: string;
+        VITE_AUTH_AUDIENCE: string;
+      }
+    </item>
+    <item priority="high">
+      interface ImportMeta {
+        env: ImportMetaEnv;
+      }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/nav-sections.ts">
+    <item priority="low">
+      interface NavItem {
+        id: string;
+        label: string;
+        path: string;
+        stepStatus?: "completed" | "current" | "locked" | undefined;
+        disabled?: boolean | undefined;
+      }
+    </item>
+    <item priority="low">
+      interface NavSection {
+        label?: string | undefined;
+        items: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+      }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="prisma">
+  <file path="services/users/prisma/seed.ts">
+    <item priority="low">
+      async function main() { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/prisma/seed.ts">
+    <item priority="medium">
+      function todayAt(hours: number, minutes: number): Date { /* ... */ }
+    </item>
+    <item priority="medium">
+      function todayDate(): Date { /* ... */ }
+    </item>
+  </file>
+  <file path="services/agent/prisma/seed.ts">
+    <item priority="low">
+      async function main() { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="scripts">
+  <file path="packages/rialto-plugin/scripts/generate-reference.ts">
+    <item priority="high">
+      interface ManifestProp {
+        name: string;
+        type: string;
+        required: boolean;
+        description?: string | undefined;
+        default?: string | undefined;
+      }
+    </item>
+    <item priority="high">
+      interface CharacterLimit {
+        prop: string;
+        max: number;
+        reason?: string | undefined;
+      }
+    </item>
+  </file>
+  <file path="packages/rialto-catalog/scripts/generate-catalog.ts">
+    <item priority="high">
+      interface CharacterLimit {
+        component: string;
+        prop: string;
+        max: number;
+      }
+    </item>
+    <item priority="medium">
+      function stripUndefined(typeStr: string): { inner: string; wasOptional: boolean } { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/rialto/scripts/lib-entrypoints.ts">
+    <item priority="low">
+      interface LibEntry {
+        subpath: string;
+        source: string;
+        chunkName: string;
+      }
+    </item>
+    <item priority="medium">
+      function listComponentEntries(): LibEntry[] { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/rialto/scripts/generate-registry.ts">
+    <item priority="high">
+      interface PropInfo {
+        name: string;
+        type: string;
+        required: boolean;
+        default?: string | undefined;
+        description?: string | undefined;
+      }
+    </item>
+    <item priority="high">
+      interface CharacterLimitInfo {
+        prop: string;
+        max: number;
+        reason: string;
+      }
+    </item>
+  </file>
+  <file path="packages/rialto/scripts/generate-manifest.ts">
+    <item priority="high">
+      interface PropInfo {
+        name: string;
+        type: string;
+        required: boolean;
+        default?: string | undefined;
+        description?: string | undefined;
+      }
+    </item>
+    <item priority="high">
+      interface CharacterLimitInfo {
+        prop: string;
+        max: number;
+        reason: string;
+      }
+    </item>
+  </file>
+  <file path="packages/rialto/scripts/generate-figma-tokens.ts">
+    <item priority="high">
+      interface DtcgToken {
+        $value: string | number;
+        $type: string;
+        $description?: string | undefined;
+      }
+    </item>
+    <item priority="high">
+      interface TokenGroup {
+        
+      }
+    </item>
+  </file>
+  <file path="packages/rialto/scripts/generate-exports.ts">
+    <item priority="high">
+      interface ExportEntry {
+        types?: string | undefined;
+        import?: string | undefined;
+        default?: string | undefined;
+      }
+    </item>
+    <item priority="high">
+      type ExportsMap = Record<string, string | ExportEntry>;
+    </item>
+  </file>
+  <file path="packages/rialto/scripts/character-limits.ts">
+    <item priority="low">
+      interface CharacterLimit {
+        component: string;
+        prop: string;
+        max: number;
+        reason: string;
+      }
+    </item>
+    <item priority="high">
+      export const characterLimits: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="analytics">
+  <file path="web/src/components/analytics/QualityMetrics.ts">
+    <item priority="low">
+      interface PrAcceptanceEntry {
+        date: string;
+        windowDays: number;
+        total: number;
+        merged: number;
+        closed: number;
+      }
+    </item>
+    <item priority="low">
+      interface ServiceHealthEntry {
+        service: string;
+        status: "ok" | "degraded" | "down";
+        error_rates: number | null;
+        latency_ms: number | null;
+      }
+    </item>
+  </file>
+  <file path="web/src/components/analytics/Dashboard.ts">
+    <item priority="high">
+      export function renderStyles(): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function badgeVariant(rate: number): string { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="e2e">
+  <file path="apps/gen/e2e/fixtures.ts">
+    <item priority="high">
+      export const test: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="apps/gen/e2e/auth-helpers.ts">
+    <item priority="high">
+      interface Auth0Config {
+        domain: string;
+        clientId: string;
+        audience: string;
+        email: string;
+        password: string;
+      }
+    </item>
+    <item priority="medium">
+      function getAuth0Config(): Auth0Config { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/e2e/fixtures.ts">
+    <item priority="high">
+      export const test: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="apps/hospitality/e2e/auth-helpers.ts">
+    <item priority="high">
+      interface Auth0Config {
+        domain: string;
+        clientId: string;
+        audience: string;
+        email: string;
+        password: string;
+      }
+    </item>
+    <item priority="medium">
+      function getAuth0Config(): Auth0Config { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="commands">
+  <file path="tools/cli/src/commands/whoami.ts">
+    <item priority="high">
+      export const whoamiCommand: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="tools/cli/src/commands/wave.ts">
+    <item priority="medium">
+      function findMonorepoRoot(startDir: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      interface WaveResult {
+        task: string;
+        branchName: string;
+        worktreePath: string;
+        success: boolean;
+        error?: string | undefined;
+      }
+    </item>
+  </file>
+  <file path="tools/cli/src/commands/visual.ts">
+    <item priority="medium">
+      function findMonorepoRoot(startDir: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export const visualCommand: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="tools/cli/src/commands/users.ts">
+    <item priority="high">
+      export const usersCommand: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="tools/cli/src/commands/up.ts">
+    <item priority="medium">
+      function findMonorepoRoot(startDir: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function run(command: string, cwd: string) { /* ... */ }
+    </item>
+  </file>
+  <file path="tools/cli/src/commands/sync-rules.ts">
+    <item priority="medium">
+      function findMonorepoRoot(startDir: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export const syncRulesCommand: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="tools/cli/src/commands/stats.ts">
+    <item priority="medium">
+      function findMonorepoRoot(startDir: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      interface AgentSessionRecord {
+        timestamp: string;
+        sessionId: string;
+        milestone?: string | undefined;
+        modelId: string;
+        researchTurns: number;
+      }
+    </item>
+  </file>
+  <file path="tools/cli/src/commands/prime.ts">
+    <item priority="medium">
+      function findMonorepoRoot(startDir: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export const primeCommand: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="tools/cli/src/commands/pack.ts">
+    <item priority="medium">
+      function findMonorepoRoot(startDir: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function truncateType(type: string, maxLength = 60): string { /* ... */ }
+    </item>
+  </file>
+  <file path="tools/cli/src/commands/new.ts">
+    <item priority="medium">
+      function findMonorepoRoot(startDir: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toTitleCase(name: string): string { /* ... */ }
+    </item>
+  </file>
+  <file path="tools/cli/src/commands/mcp.ts">
+    <item priority="medium">
+      function findMonorepoRoot(startDir: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export const mcpCommand: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="tools/cli/src/commands/loop.ts">
+    <item priority="high">
+      export const loopCommand: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="tools/cli/src/commands/logout.ts">
+    <item priority="high">
+      export const logoutCommand: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="tools/cli/src/commands/login.ts">
+    <item priority="high">
+      export const loginCommand: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="tools/cli/src/commands/health.ts">
+    <item priority="high">
+      interface ServiceHealth {
+        status: string;
+        version?: string | undefined;
+        latency?: number | undefined;
+        checks?: { name: string; status: string; latency?: number | undefi...;
+      }
+    </item>
+    <item priority="high">
+      interface SystemHealth {
+        status: string;
+        timestamp: string;
+        services?: Record<string, ServiceHealth> | undefined;
+        staticSites?: Record<string, { status: string; }> | undefined;
+        ci?: { status: string; } | undefined;
+      }
+    </item>
+  </file>
+  <file path="tools/cli/src/commands/generate.ts">
+    <item priority="medium">
+      function findMonorepoRoot(startDir: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function writeFile(filePath: string, content: string): void { /* ... */ }
+    </item>
+  </file>
+  <file path="tools/cli/src/commands/compound.ts">
+    <item priority="medium">
+      function findMonorepoRoot(startDir: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export const compoundCommand: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="tools/cli/src/commands/cleanup-worktrees.ts">
+    <item priority="medium">
+      function getGitRoot(): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function getWorktreeDirs(): string[] { /* ... */ }
+    </item>
+  </file>
+  <file path="tools/cli/src/commands/check-deps.ts">
+    <item priority="medium">
+      function findMonorepoRoot(startDir: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export const checkDepsCommand: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="tools/cli/src/commands/agent.ts">
+    <item priority="medium">
+      function formatDuration(ms: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function formatCost(usd: number): string { /* ... */ }
+    </item>
+  </file>
+  <file path="tools/cli/src/commands/adr.ts">
+    <item priority="medium">
+      function findMonorepoRoot(startDir: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      interface ADRFrontmatter {
+        id: string;
+        title: string;
+        status: string;
+        prohibited_patterns?: string[] | undefined;
+      }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="test">
+  <file path="services/users/src/test/fixtures.ts">
+    <item priority="low">
+      interface UserFixture {
+        id: string;
+        email: string;
+        name: string | null;
+        picture: string | null;
+        emailVerified: boolean;
+      }
+    </item>
+    <item priority="high">
+      export const MOCK_USER: import("/Users/mbutler/github/mattbutlerengineering/servi...;
+    </item>
+  </file>
+  <file path="services/reservations/src/test/mocks.ts">
+    <item priority="low">
+      interface MockTable {
+        id: string;
+        name: string;
+        tableNumber: string | null;
+        capacity: number;
+        minCovers: number;
+      }
+    </item>
+    <item priority="low">
+      interface MockReservation {
+        id: string;
+        date: string;
+        startTime: string;
+        endTime: string;
+        partySize: number;
+      }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="schemas">
+  <file path="services/users/src/schemas/index.ts">
+    <item priority="high">
+      export const UserPreferencesSchema: { $id: string; };
+    </item>
+    <item priority="high">
+      export const UserSchema: { $id: string; };
+    </item>
+  </file>
+  <file path="services/reservations/src/schemas/index.ts">
+    <item priority="high">
+      export const TableShapeMetadataSchema: { $id: string; };
+    </item>
+    <item priority="high">
+      export const TableSchema: { $id: string; };
+    </item>
+  </file>
+  <file path="services/agent/src/schemas/index.ts">
+    <item priority="high">
+      export const SessionSchema: { $id: string; };
+    </item>
+    <item priority="high">
+      export const SessionEventSchema: { $id: string; };
+    </item>
+  </file>
+  <file path="packages/types/src/schemas/venue.ts">
+    <item priority="high">
+      export const DayScheduleSchema: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+    <item priority="high">
+      export const VenueGroupSchema: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="packages/types/src/schemas/user.ts">
+    <item priority="high">
+      export const UserPreferencesSchema: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+    <item priority="high">
+      export const UserSchema: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="packages/types/src/schemas/reservation.ts">
+    <item priority="high">
+      export const ReservationStatusSchema: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+    <item priority="high">
+      export const ReservationSchema: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="packages/types/src/schemas/json-schema.ts">
+    <item priority="medium">
+      function stripAdditionalProperties(obj: Record<string, unknown>): Record<string, unknown> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toFastifyJsonSchema(id: string, zodSchema: ZodType) { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/types/src/schemas/guest.ts">
+    <item priority="high">
+      export const GuestSchema: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+    <item priority="high">
+      export const GuestSegmentSchema: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="packages/types/src/schemas/floor-plan.ts">
+    <item priority="high">
+      export const TableShapeMetadataSchema: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+    <item priority="high">
+      export const FloorPlanLayoutSchema: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="packages/types/src/schemas/common.ts">
+    <item priority="high">
+      export const PaginationSchema: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+    <item priority="high">
+      export const ErrorResponseSchema: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="packages/types/src/schemas/api.ts">
+    <item priority="high">
+      export const ProblemDetailsSchema: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="packages/types/src/schemas/agent.ts">
+    <item priority="high">
+      export const AgentSessionStatusSchema: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+    <item priority="high">
+      export const AgentSessionSchema: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="routes">
+  <file path="services/users/src/routes/users.ts">
+    <item priority="medium">
+      function isAdmin(user: AuthUser | undefined): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export const userRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="services/users/src/routes/ready.ts">
+    <item priority="high">
+      export const readinessRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="services/users/src/routes/health.ts">
+    <item priority="high">
+      type HealthRouteHandler = RouteHandlerMethod<
+        RawServerDefault,
+        IncomingMessage...;
+    </item>
+    <item priority="high">
+      export const healthRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="services/reservations/src/routes/venues.ts">
+    <item priority="high">
+      export const venueRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="services/reservations/src/routes/tables.ts">
+    <item priority="high">
+      export const tableRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="services/reservations/src/routes/reservations.ts">
+    <item priority="medium">
+      function isAdmin(user: AuthUser | undefined): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export const reservationRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="services/reservations/src/routes/ready.ts">
+    <item priority="high">
+      export const readinessRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="services/reservations/src/routes/holds.ts">
+    <item priority="medium">
+      function getSessionId(request: FastifyRequest): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export const holdRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="services/reservations/src/routes/health.ts">
+    <item priority="high">
+      type HealthRouteHandler = RouteHandlerMethod<
+        RawServerDefault,
+        IncomingMessage...;
+    </item>
+    <item priority="high">
+      export const healthRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="services/reservations/src/routes/guests.ts">
+    <item priority="high">
+      export const guestRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="services/reservations/src/routes/floor-plans.ts">
+    <item priority="high">
+      export const floorPlanRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="services/reservations/src/routes/events.ts">
+    <item priority="medium">
+      class EventBuffer {
+        maxSize: number;
+        buffer: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        _droppedCount: number;
+        async push(): Promise<unknown>;
+      }
+    </item>
+    <item priority="high">
+      export function getConnectionManager(): SseConnectionManager { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/routes/availability.ts">
+    <item priority="high">
+      export const availabilityRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="services/agent/src/routes/webhooks.ts">
+    <item priority="high">
+      interface CollaboratorPermission {
+        permission: string;
+        role_name: string;
+      }
+    </item>
+    <item priority="high">
+      interface GitHubIssueEvent {
+        action: string;
+        label?: { name: string; } | undefined;
+        issue: { number: number; title: string; body: string | null; htm...;
+        repository: { full_name: string; default_branch: string; };
+        sender: { login: string; type: string; };
+      }
+    </item>
+  </file>
+  <file path="services/agent/src/routes/sessions.ts">
+    <item priority="high">
+      export const sessionRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="services/agent/src/routes/session-events.ts">
+    <item priority="high">
+      export const sessionEventsRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="services/agent/src/routes/remediation.ts">
+    <item priority="high">
+      type AlertPayload = z.infer<typeof AlertPayloadSchema>;
+    </item>
+    <item priority="medium">
+      function verifyRemediationSignature(
+        payload: Buffer,
+        signature: string | undefined,
+        secret: string
+      ): boolean { /* ... */ }
+    </item>
+  </file>
+  <file path="services/agent/src/routes/ready.ts">
+    <item priority="high">
+      export const readinessRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="services/agent/src/routes/orchestrate.ts">
+    <item priority="high">
+      interface OrchestrateBody {
+        taskDescription: string;
+        model?: string | undefined;
+        sessionModel?: string | undefined;
+        maxBudgetPerSession?: number | undefined;
+        maxTurnsPerSession?: number | undefined;
+      }
+    </item>
+    <item priority="high">
+      interface OrchestrateResponse {
+        parentSessionId: string;
+        status: "succeeded" | "failed" | "partially_succeeded";
+        childSessionIds: readonly string[];
+        summary: string;
+        totalCostUsd: number;
+      }
+    </item>
+  </file>
+  <file path="services/agent/src/routes/health.ts">
+    <item priority="high">
+      export const healthRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="services/agent/src/routes/gen-ui.ts">
+    <item priority="high">
+      export const genUiRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="services/agent/src/routes/gen-specs.ts">
+    <item priority="high">
+      export const genSpecsRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="services/agent/src/routes/gen-chat.ts">
+    <item priority="high">
+      export const genChatRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="services">
+  <file path="services/users/src/services/user.ts">
+    <item priority="medium">
+      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function mapPrismaUser(user: {
+        id: string;
+        email: string;
+        name: string | null;
+        picture: string | null;
+        emailVerified: boolean;
+        preferences: unknown;
+        createdAt: Date;
+        updatedAt: Date;
+      }): User { /* ... */ }
+    </item>
+  </file>
+  <file path="services/users/src/services/health-checks.ts">
+    <item priority="high">
+      export function recordDbLatency(ms: number): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function checkLatencyAnomaly(currentMs: number): {
+        isAnomaly: boolean;
+        rollingAvg: number;
+      } { /* ... */ }
+    </item>
+  </file>
+  <file path="services/users/src/services/database.ts">
+    <item priority="high">
+      interface SlowQueryStats {
+        count5min: number;
+        slowestMs: number;
+        queries: { model: string; operation: string; duration: number; tim...;
+      }
+    </item>
+    <item priority="high">
+      export function getSlowQueryStats(): { count5min: number; slowestMs: number } { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/venue.ts">
+    <item priority="medium">
+      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function mapPrismaVenueGroup(group: {
+        id: string;
+        name: string;
+        slug: string;
+        settings: unknown;
+        createdAt: Date;
+      }): VenueGroup { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/table.ts">
+    <item priority="medium">
+      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function mapPrismaTable(table: {
+        id: string;
+        name: string;
+        tableNumber: string | null;
+        capacity: number;
+        minCovers: number;
+        maxCovers: number | null;
+        location: string | null;
+        isActive: boolean;
+        priority: number;
+        status: string;
+        venueId: string | null;
+        floorPlanId: string | null;
+        shapeMetadata: unknown;
+        createdAt: Date;
+        updatedAt: Date;
+      }): Table { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/sse-connection-manager.ts">
+    <item priority="low">
+      interface SseConnectionConfig {
+        maxConnectionsPerIp: number;
+        connectionTimeoutMs: number;
+        maxEventBufferSize: number;
+        heartbeatIntervalMs: number;
+      }
+    </item>
+    <item priority="high">
+      export const DEFAULT_SSE_CONFIG: import("/Users/mbutler/github/mattbutlerengineering/servi...;
+    </item>
+  </file>
+  <file path="services/reservations/src/services/reservation.ts">
+    <item priority="medium">
+      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      type PrismaReservationWithTable = PrismaReservation & {
+        table?: PrismaTable;
+      };
+    </item>
+  </file>
+  <file path="services/reservations/src/services/hold.ts">
+    <item priority="medium">
+      function mapPrismaHold(hold: PrismaHold): ReservationHold { /* ... */ }
+    </item>
+    <item priority="low">
+      interface CreateHoldResult {
+        success: boolean;
+        hold?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        error?: string | undefined;
+      }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/health-checks.ts">
+    <item priority="high">
+      export function recordDbLatency(ms: number): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function checkLatencyAnomaly(currentMs: number): {
+        isAnomaly: boolean;
+        rollingAvg: number;
+      } { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/guest.ts">
+    <item priority="medium">
+      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function mapPrismaGuest(guest: {
+        id: string;
+        venueId: string;
+        email: string | null;
+        phone: string | null;
+        name: string;
+        notes: string | null;
+        visitCount: number;
+        lifetimeSpend: Prisma.Decimal | null;
+        lastVisit: Date | null;
+        tags: unknown;
+        createdAt: Date;
+        updatedAt: Date;
+      }): Guest { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/floor-plan.ts">
+    <item priority="medium">
+      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      type PrismaFloorPlan = {
+        id: string;
+        venueId: string;
+        name: string;
+        isAc...;
+    </item>
+  </file>
+  <file path="services/reservations/src/services/events.ts">
+    <item priority="low">
+      type ReservationEventType = "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:created" | "hold:released" | "hold:confirmed" | "table:updated" | "floor-plan:created";
+    </item>
+    <item priority="low">
+      interface ReservationEvent {
+        type: import("/Users/mbutler/github/mattbutlerengineering/servi...;
+        venueId: string;
+        timestamp: string;
+        data: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+      }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/database.ts">
+    <item priority="high">
+      interface SlowQueryStats {
+        count5min: number;
+        slowestMs: number;
+        queries: { model: string; operation: string; duration: number; tim...;
+      }
+    </item>
+    <item priority="high">
+      export function getSlowQueryStats(): { count5min: number; slowestMs: number } { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/availability.ts">
+    <item priority="high">
+      interface VenueWithSettings {
+        id: string;
+        name: string;
+        slug: string;
+        ianaTimezone: string;
+        settings: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+      }
+    </item>
+    <item priority="high">
+      export function estimateDuration(
+        partySize: number,
+        venueSettings?: VenueSettings | null
+      ): number { /* ... */ }
+    </item>
+  </file>
+  <file path="services/agent/src/services/stored-spec.ts">
+    <item priority="low">
+      interface StoredSpecResponse {
+        id: string;
+        userId: string;
+        prompt: string;
+        spec: unknown;
+        rawLines: unknown;
+      }
+    </item>
+    <item priority="high">
+      export function mapStoredSpec(s: StoredSpec): StoredSpecResponse { /* ... */ }
+    </item>
+  </file>
+  <file path="services/agent/src/services/session.ts">
+    <item priority="medium">
+      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function mapPrismaSession(session: Session): AgentSession { /* ... */ }
+    </item>
+  </file>
+  <file path="services/agent/src/services/session-executor.ts">
+    <item priority="medium">
+      function truncate(text: string, maxLen: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function extractText(content: unknown): string { /* ... */ }
+    </item>
+  </file>
+  <file path="services/agent/src/services/remediation-circuit-breaker.ts">
+    <item priority="high">
+      interface CircuitState {
+        consecutiveFailures: number;
+        lastFailureAt: number | null;
+        isOpen: boolean;
+        openedAt: number | null;
+      }
+    </item>
+    <item priority="low">
+      interface CircuitCheckResult {
+        allowed: boolean;
+        reason?: string | undefined;
+      }
+    </item>
+  </file>
+  <file path="services/agent/src/services/liveness-monitor.ts">
+    <item priority="low">
+      async function checkStaleSessions(): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function startLivenessMonitor(): void { /* ... */ }
+    </item>
+  </file>
+  <file path="services/agent/src/services/health-checks.ts">
+    <item priority="high">
+      export function recordDbLatency(ms: number): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function checkLatencyAnomaly(currentMs: number): {
+        isAnomaly: boolean;
+        rollingAvg: number;
+      } { /* ... */ }
+    </item>
+  </file>
+  <file path="services/agent/src/services/database.ts">
+    <item priority="high">
+      interface SlowQueryStats {
+        count5min: number;
+        slowestMs: number;
+        queries: { model: string; operation: string; duration: number; tim...;
+      }
+    </item>
+    <item priority="high">
+      export function getSlowQueryStats(): { count5min: number; slowestMs: number } { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="sentry">
+  <file path="packages/observability/src/sentry/react.ts">
+    <item priority="low">
+      interface InitOptions {
+        appName: string;
+        dsn: string;
+      }
+    </item>
+    <item priority="high">
+      export function initSentry(options: InitOptions): void { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/observability/src/sentry/node.ts">
+    <item priority="high">
+      interface SentryUser {
+        id: string;
+        email?: string | undefined;
+      }
+    </item>
+    <item priority="medium">
+      function isSentryUser(value: unknown): value is SentryUser { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/observability/src/sentry/config.ts">
+    <item priority="low">
+      interface SentryConfig {
+        dsn: string;
+        environment: string;
+        release: string | undefined;
+        enabled: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function resolveConfig(dsn: string | undefined): SentryConfig { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="tools">
+  <file path="packages/mcp-server/src/tools/pulumi.ts">
+    <item priority="high">
+      export async function pulumiStackOutputs(): Promise<string> { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/mcp-server/src/tools/logs.ts">
+    <item priority="high">
+      export async function checkLogs(service?: string) { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/mcp-server/src/tools/health.ts">
+    <item priority="high">
+      export async function serviceHealthCheck(): Promise<string> { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/mcp-server/src/tools/git.ts">
+    <item priority="high">
+      export async function gitWorkflowStatus(): Promise<string> { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/mcp-server/src/tools/deploy_status.ts">
+    <item priority="high">
+      export async function deployStatus(): Promise<string> { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/mcp-server/src/tools/database.ts">
+    <item priority="high">
+      export async function dbListTables(): Promise<string> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function dbMigrationStatus(): Promise<string> { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/mcp-server/src/tools/ci.ts">
+    <item priority="high">
+      export async function ciRunStatus(): Promise<string> { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="utils">
+  <file path="packages/rialto/src/utils/service-worker.ts">
+    <item priority="high">
+      export function unregisterStaleServiceWorkers(exemptedScopes: string[] = ["/hospitality/"]): void { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/rialto/src/utils/feedback.ts">
+    <item priority="high">
+      export function triggerHapticFeedback(): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function playClickSound(): void { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/gen/src/utils/relative-time.ts">
+    <item priority="high">
+      export function relativeTime(date: Date): string { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="tokens">
+  <file path="packages/rialto/src/tokens/motion.ts">
+    <item priority="high">
+      export const ms: (s: React.CSSProperties) => import("/Users/mbutler/github...;
+    </item>
+    <item priority="high">
+      export const precision: { duration: number; ease: readonly [0.2, 0, 0, 1]; };
+    </item>
+  </file>
+  <file path="packages/rialto/src/tokens/icons.ts">
+    <item priority="high">
+      export const iconCategories: readonly ["navigation", "actions", "communication", "stat...;
+    </item>
+    <item priority="low">
+      type IconCategory = (typeof iconCategories)[number];
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="providers">
+  <file path="packages/rialto/src/providers/vibes.ts">
+    <item priority="low">
+      type VibeName = "default" | "transacting" | "presenting";
+    </item>
+    <item priority="low">
+      type VibeOverrides = Record<string, string>;
+    </item>
+  </file>
+  <file path="packages/rialto/src/providers/useUIEnvironment.ts">
+    <item priority="low">
+      interface UIEnvironment {
+        device: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        vibe: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        theme: "light" | "dark";
+      }
+    </item>
+    <item priority="high">
+      export const UIEnvironmentContext: React.Context<import("/Users/mbutler/github/mattbutlereng...;
+    </item>
+  </file>
+  <file path="packages/rialto/src/providers/useDeviceContext.ts">
+    <item priority="low">
+      interface DeviceContext {
+        pointer: "fine" | "coarse";
+        viewport: "mobile" | "tablet" | "desktop";
+        reducedMotion: boolean;
+        colorScheme: "light" | "dark";
+        saveData: boolean;
+      }
+    </item>
+    <item priority="high">
+      interface MediaEntry {
+        query: string;
+        key: keyof import("/Users/mbutler/github/mattbutlerengineering...;
+        matchValue: boolean | "light" | "dark" | "fine" | "coarse" | "mobile"...;
+        noMatchValue: boolean | "light" | "dark" | "fine" | "coarse" | "mobile"...;
+      }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="hooks">
+  <file path="packages/rialto/src/hooks/useTilt.ts">
+    <item priority="high">
+      export function useTilt(
+        enabled: boolean,
+        maxTilt = 2
+      ): {
+        ref: (el: HTMLDivElement | null) => void;
+        style: MotionStyle;
+        onMouseMove: (e: React.MouseEvent) => void;
+        onMouseLeave: () => void;
+      } { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/rialto/src/hooks/useThemeState.ts">
+    <item priority="low">
+      type ThemePreference = "light" | "dark" | "system";
+    </item>
+    <item priority="medium">
+      function getStoredTheme(): ThemePreference { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/rialto/src/hooks/useScrollReveal.ts">
+    <item priority="high">
+      interface UseScrollRevealOptions {
+        margin?: string | undefined;
+        once?: boolean | undefined;
+        fallbackTimeout?: number | undefined;
+      }
+    </item>
+    <item priority="high">
+      export function useScrollReveal({
+        margin = "-80px",
+        once = true,
+        fallbackTimeout = FALLBACK_TIMEOUT_MS,
+      }: UseScrollRevealOptions = {}) { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/rialto/src/hooks/useDirection.ts">
+    <item priority="high">
+      type Direction = "ltr" | "rtl";
+    </item>
+    <item priority="high">
+      export function useDirection(ref: RefObject<HTMLElement | null>): Direction { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/gen/src/hooks/useSpecsApi.ts">
+    <item priority="low">
+      interface SaveSpecData {
+        prompt: string;
+        spec: unknown;
+        rawLines: string[];
+      }
+    </item>
+    <item priority="low">
+      interface UseSpecsApiReturn {
+        specs: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+        isLoading: boolean;
+        fetchSpecs: () => Promise<void>;
+        saveSpec: (data: import("/Users/mbutler/github/mattbutlerengineerin...;
+        toggleFavorite: (id: string) => Promise<void>;
+      }
+    </item>
+  </file>
+  <file path="apps/gen/src/hooks/usePanelLayout.ts">
+    <item priority="high">
+      type Breakpoint = "mobile" | "tablet" | "desktop";
+    </item>
+    <item priority="high">
+      interface PanelState {
+        historyVisible: boolean;
+        inspectorVisible: boolean;
+      }
+    </item>
+  </file>
+  <file path="apps/gen/src/hooks/useGenStream.ts">
+    <item priority="high">
+      type FlatElement = Parameters<typeof flatToTree>[0][number];
+    </item>
+    <item priority="low">
+      interface UseGenStreamOptions {
+        api: string;
+        onComplete?: ((spec: import("/Users/mbutler/github/mattbutlerengineeri...;
+        onError?: ((error: Error) => void) | undefined;
+      }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useVenueReadiness.ts">
+    <item priority="low">
+      type SetupStep = "onboarding" | "operating-hours" | "floor-plan";
+    </item>
+    <item priority="low">
+      interface VenueReadiness {
+        status: "no-venue" | "setup" | "operational";
+        completedSteps: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        nextStep: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+        progress: number;
+      }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useReservationEvents.ts">
+    <item priority="low">
+      type ReservationEventType = "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:created" | "hold:released" | "hold:confirmed" | "table:updated";
+    </item>
+    <item priority="low">
+      interface ReservationEvent {
+        type: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+        venueId: string;
+        timestamp: string;
+        data: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+      }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useDashboardStats.ts">
+    <item priority="low">
+      interface DashboardStats {
+        totalReservations: number;
+        expectedCovers: number;
+        upcomingCount: number;
+        cancellationRate: number;
+        cancellationTrend: "up" | "down" | "neutral";
+      }
+    </item>
+    <item priority="low">
+      interface UseDashboardStatsResult {
+        reservations: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        stats: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+        isLoading: boolean;
+        error: string | null;
+        refetch: () => Promise<void>;
+      }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useApiClient.ts">
+    <item priority="medium">
+      function reportToSentry(error: ApiClientError) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useApiClient() { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useApiCall.ts">
+    <item priority="low">
+      interface UseApiCallOptions {
+        timeout?: number | undefined;
+      }
+    </item>
+    <item priority="low">
+      interface UseApiCallResult {
+        data: T | null;
+        isLoading: boolean;
+        error: string | null;
+        retry: () => void;
+        execute: (fn: (signal: AbortSignal) => Promise<T>) => Promise<T | ...;
+      }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/use-theme.ts">
+    <item priority="low">
+      interface ThemeContextValue {
+        theme: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        setTheme: (theme: import("/Users/mbutler/github/mattbutlerengineeri...;
+      }
+    </item>
+    <item priority="high">
+      export const ThemeContext: React.Context<import("/Users/mbutler/github/mattbutlereng...;
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/use-command-palette.ts">
+    <item priority="high">
+      interface UseCommandPaletteOptions {
+        sections: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        navigate: (path: string) => void;
+        toggleTheme: () => void;
+        signOut: () => void;
+      }
+    </item>
+    <item priority="high">
+      interface UseCommandPaletteResult {
+        open: boolean;
+        setOpen: (open: boolean) => void;
+        items: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        groups: string[];
+      }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="types">
+  <file path="packages/auth/src/types/index.ts">
+    <item priority="low">
+      interface OIDCConfig {
+        authority: string;
+        clientId: string;
+        redirectUri: string;
+        postLogoutRedirectUri?: string | undefined;
+        scope?: string | undefined;
+      }
+    </item>
+    <item priority="low">
+      interface JWTPayload {
+        sub: string;
+        iss: string;
+        aud: string | string[];
+        exp: number;
+        iat: number;
+      }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="react">
+  <file path="packages/auth/src/react/hooks.ts">
+    <item priority="high">
+      export function useAuth() { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useAccessToken(): string | null { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="fastify">
+  <file path="packages/auth/src/fastify/plugin.ts">
+    <item priority="low">
+      interface AuthPluginOptions {
+        authority: string;
+        audience: string;
+        excludePaths?: string[] | undefined;
+      }
+    </item>
+    <item priority="medium">
+      function createProblemDetails(status: number, title: string, detail: string) { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="data">
+  <file path="apps/rialto-web/src/data/tapechart-fixtures.ts">
+    <item priority="medium">
+      function mulberry32(seed: number) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function addDaysISO(iso: string, n: number): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/rialto-web/src/data/nav-sections.ts">
+    <item priority="low">
+      interface NavItem {
+        id: string;
+        label: string;
+        path: string;
+        comingSoon?: boolean | undefined;
+      }
+    </item>
+    <item priority="low">
+      interface NavSection {
+        label: string;
+        items: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+      }
+    </item>
+  </file>
+  <file path="apps/marketing/src/data/weekly-intake.ts">
+    <item priority="low">
+      interface WeeklyResource {
+        id: string;
+        title: string;
+        url: string;
+        source: "js-weekly" | "react-weekly" | "ai-weekly" | "other";
+        description: string;
+      }
+    </item>
+    <item priority="high">
+      export const weeklyResources: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+    </item>
+  </file>
+  <file path="apps/marketing/src/data/tech-stack.ts">
+    <item priority="low">
+      interface TechCategory {
+        title: string;
+        items: string[];
+      }
+    </item>
+    <item priority="high">
+      export const TECH_STACK: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+    </item>
+  </file>
+  <file path="apps/marketing/src/data/projects.ts">
+    <item priority="low">
+      interface Project {
+        title: string;
+        description: string;
+        tags: string[];
+        href?: string | undefined;
+      }
+    </item>
+    <item priority="high">
+      export const PROJECTS: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="constants">
+  <file path="apps/hospitality/src/constants/copilotContext.ts">
+    <item priority="high">
+      export const HOSPITALITY_DOMAIN_CONTEXT: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+    </item>
+  </file>
+  <file path="apps/hospitality/src/constants/auth.ts">
+    <item priority="low">
+      interface AuthConfigResult {
+        valid: true;
+        config: { readonly authority: string; readonly clientId: string; ...;
+      }
+    </item>
+    <item priority="low">
+      interface AuthConfigFailure {
+        valid: false;
+        missing: readonly string[];
+      }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Toast">
+  <file path="packages/rialto/src/components/Toast/ToastContext.ts">
+    <item priority="low">
+      type ToastVariant = "default" | "success" | "error" | "accent";
+    </item>
+    <item priority="low">
+      interface ToastData {
+        id: string;
+        title: string;
+        description?: string | undefined;
+        variant?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        duration?: number | undefined;
+      }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="TapeChart">
+  <file path="packages/rialto/src/components/TapeChart/useTapeChartLayout.ts">
+    <item priority="medium">
+      function assignLanes(bars: TapeChartPositionedBar[]): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useTapeChartLayout(
+        reservations: TapeChartReservation[],
+        rooms: TapeChartRoom[],
+        startDate: string,
+        endDate: string,
+      ): TapeChartLayout { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/rialto/src/components/TapeChart/useTapeChartI18n.ts">
+    <item priority="low">
+      interface TapeChartFormatters {
+        dayWeekdayShort: (iso: string) => string;
+        dayNumeric: (iso: string) => string;
+        dayLong: (iso: string) => string;
+        monthYearLong: (iso: string) => string;
+        currency: (minorUnits: number, currencyCode?: string | undefined) =...;
+      }
+    </item>
+    <item priority="high">
+      export function useTapeChartI18n(locale?: string, timeZone?: string, defaultCurrency?: string): TapeChartFormatters { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/rialto/src/components/TapeChart/types.ts">
+    <item priority="low">
+      type TapeChartStatus = "tentative" | "confirmed" | "checkedIn" | "checkedOut" | "cancelled" | "noShow";
+    </item>
+    <item priority="low">
+      type TapeChartRoomStatus = "ready" | "dirty" | "outOfOrder" | "occupied";
+    </item>
+  </file>
+  <file path="packages/rialto/src/components/TapeChart/defaultStrings.ts">
+    <item priority="low">
+      type ResolvedStrings = Required<
+        Omit<
+          TapeChartStrings,
+          "reservationA...;
+    </item>
+    <item priority="high">
+      export const DEFAULT_STRINGS: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+    </item>
+  </file>
+  <file path="packages/rialto/src/components/TapeChart/dateMath.ts">
+    <item priority="high">
+      export function parseISOMs(iso: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function daysBetween(a: string, b: string): number { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="SplitFlap">
+  <file path="packages/rialto/src/components/SplitFlap/charset.ts">
+    <item priority="high">
+      export const CHARSETS: { readonly alpha: " ABCDEFGHIJKLMNOPQRSTUVWXYZ"; readonly...;
+    </item>
+    <item priority="low">
+      type CharsetName = keyof typeof CHARSETS;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="GenCopilot">
+  <file path="packages/rialto/src/components/GenCopilot/useGenCopilotStream.ts">
+    <item priority="high">
+      type FlatElement = Parameters<typeof flatToTree>[0][number];
+    </item>
+    <item priority="low">
+      interface UseGenCopilotStreamOptions {
+        api: string;
+        domainContext: DomainContext;
+        getAccessToken: () => string | Promise<string | null> | null;
+        onComplete?: ((spec: import("/Users/mbutler/github/mattbutlerengineeri...;
+        onError?: ((error: Error) => void) | undefined;
+      }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="FlipDot">
+  <file path="packages/rialto/src/components/FlipDot/use-flip-dot-sound.ts">
+    <item priority="high">
+      interface UseFlipDotSoundOptions {
+        enabled: boolean;
+        volume?: number | undefined;
+      }
+    </item>
+    <item priority="high">
+      interface UseFlipDotSoundReturn {
+        playClick: () => void;
+        playBatchClick: (count: number) => void;
+      }
+    </item>
+  </file>
+  <file path="packages/rialto/src/components/FlipDot/use-flip-dot-animation.ts">
+    <item priority="low">
+      type FlipDotAnimationMode = "typewriter" | "scroll-left" | "scroll-right" | "blink" | "frames";
+    </item>
+    <item priority="low">
+      interface UseFlipDotAnimationOptions {
+        text?: string | undefined;
+        frames?: readonly (readonly (readonly boolean[])[])[] | undefined;
+        rows: number;
+        cols: number;
+        mode?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+      }
+    </item>
+  </file>
+  <file path="packages/rialto/src/components/FlipDot/pixel-font.ts">
+    <item priority="medium">
+      function decodeBitmaskRow(mask: number): boolean[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function charToMatrix(char: string): readonly (readonly boolean[])[] { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="drivers">
+  <file path="apps/rialto-web/src/pages/drivers/DriverContext.ts">
+    <item priority="low">
+      interface Driver {
+        id: string;
+        name: string;
+        number: number;
+        team: string;
+        nationality: string;
+      }
+    </item>
+    <item priority="high">
+      interface DriverContextValue {
+        drivers: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+        getDriver: (id: string) => import("/Users/mbutler/github/mattbutlere...;
+        addDriver: (driver: Omit<import("/Users/mbutler/github/mattbutlereng...;
+        updateDriver: (id: string, updates: Partial<Omit<import("/Users/mbutler...;
+        deleteDriver: (id: string) => void;
+      }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="CookieConsent">
+  <file path="apps/rialto-web/src/components/CookieConsent/useCookieConsent.ts">
+    <item priority="low">
+      interface CookiePreferences {
+        essential: true;
+        analytics: boolean;
+        functional: boolean;
+        marketing: boolean;
+      }
+    </item>
+    <item priority="high">
+      interface ConsentState {
+        consented: boolean;
+        preferences: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+      }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="venue-onboarding">
+  <file path="apps/hospitality/src/components/venue-onboarding/generate-slug.ts">
+    <item priority="high">
+      export function generateSlug(name: string): string { /* ... */ }
+    </item>
+  </file>
+  </section>
+</codebase>

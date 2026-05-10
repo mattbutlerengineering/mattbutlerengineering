@@ -74,12 +74,9 @@ describe("Components and Pages", () => {
     render(
       <ProjectCard 
         project={{
-          id: "1",
           title: "Test Project",
           description: "Desc",
           tags: ["React"],
-          githubUrl: "https://github.com",
-          features: [],
         }} 
       />
     );
