@@ -266,6 +266,14 @@ export type {
 // Output sanitization (XSS prevention for AI-generated content)
 export { escapeHtml, sanitizeStreamChunk, createSanitizedStream } from "./sanitize-output.js";
 
+// CLI adapter interface (multi-backend dispatch)
+export type {
+  AdapterConfig,
+  AdapterResult,
+  AdapterState,
+  AgentAdapter,
+} from "./cli-adapter.js";
+
 // Bundle size tracking
 export {
   measureAppBundleSize,
