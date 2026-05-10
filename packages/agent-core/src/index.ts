@@ -274,6 +274,8 @@ export type {
   AgentAdapter,
 } from "./cli-adapter.js";
 
+// Rate-limit detection and cooldown management
+export { RateLimitDetector, scanForRateLimitPatterns } from "./rate-limit-detector.js";
 // Bundle size tracking
 export {
   measureAppBundleSize,
