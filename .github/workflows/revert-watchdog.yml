@@ -69,3 +69,12 @@ jobs:
             --label "critical" \
             --base main \
             --head "$BRANCH"
+
+      - name: Trigger RCA
+        if: ${{ steps.culprit.outputs.pr_number != '' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ steps.culprit.outputs.pr_number }}
+          SHA: ${{ steps.culprit.outputs.culprit_sha }}
+        run: |
+          node scripts/revert-rca.mjs --pr "$PR" --revert-sha "$SHA"

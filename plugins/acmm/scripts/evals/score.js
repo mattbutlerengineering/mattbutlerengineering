@@ -14,6 +14,7 @@ import { DEFAULT_WEIGHTS, PASS_THRESHOLD } from "./schema.js";
  * @property {"pass"|"fail"|"skip"} verification  Aggregate result of mustPass gates
  * @property {number} diffSize                  Total changed lines (additions + deletions)
  * @property {string[]} touchedFiles            File paths the agent modified
+ * @property {string[]} calledTools             Tools the agent invoked
  *
  * @typedef {Object} ScoreOutput
  * @property {number}  score
@@ -36,6 +37,8 @@ export function scoreRun(task, outcome) {
     diffSizeOk: outcome.diffSize <= task.rubric.diffSizeMax,
     touchedRequired: matchesAll(task.rubric.mustTouch, outcome.touchedFiles),
     avoidedForbidden: !matchesAny(task.rubric.mustNotTouch ?? [], outcome.touchedFiles),
+    calledRequired: matchesAll(task.rubric.mustCall ?? [], outcome.calledTools ?? []),
+    avoidedForbiddenCalls: !matchesAny(task.rubric.mustNotCall ?? [], outcome.calledTools ?? []),
   };
 
   // Weighted contribution per criterion (each yields 0 or 1, then weighted sum is normalized)
@@ -44,6 +47,7 @@ export function scoreRun(task, outcome) {
     { weight: weights.verification, pass: breakdown.verification === "pass" },
     { weight: weights.diffSize, pass: breakdown.diffSizeOk },
     { weight: weights.filePaths, pass: breakdown.touchedRequired && breakdown.avoidedForbidden },
+    { weight: weights.toolCalls, pass: breakdown.calledRequired && breakdown.avoidedForbiddenCalls },
   ];
 
   const totalWeight = checks.reduce((sum, c) => sum + c.weight, 0);
