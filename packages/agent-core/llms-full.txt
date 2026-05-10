@@ -1147,6 +1147,74 @@
       readonly attempts: number;
     }
   </file>
+  <file path="src/rate-limit-detector.ts">
+    export function scanForRateLimitPatterns(output: string): boolean {
+      return RATE_LIMIT_PATTERNS.some((pattern) => pattern.test(output));
+    }
+    export class RateLimitDetector {
+      private readonly states: Map<string, AdapterState> = new Map();
+      private readonly cooldownMs: number;
+    
+      constructor(adapterNames: readonly string[], cooldownMs = DEFAULT_COOLDOWN_MS) {
+        this.cooldownMs = cooldownMs;
+        for (const name of adapterNames) {
+          this.states.set(name, {
+            name,
+            available: true,
+            cooldownUntil: null,
+            consecutiveFailures: 0,
+          });
+        }
+      }
+    
+      markRateLimited(adapterName: string): void {
+        const state = this.states.get(adapterName);
+        if (!state) return;
+        // Create new state object (immutability pattern)
+        this.states.set(adapterName, {
+          ...state,
+          available: false,
+          cooldownUntil: Date.now() + this.cooldownMs,
+          consecutiveFailures: state.consecutiveFailures + 1,
+        });
+      }
+    
+      markSuccess(adapterName: string): void {
+        const state = this.states.get(adapterName);
+        if (!state) return;
+        this.states.set(adapterName, {
+          ...state,
+          available: true,
+          cooldownUntil: null,
+          consecutiveFailures: 0,
+        });
+      }
+    
+      isAvailable(adapterName: string): boolean {
+        const state = this.states.get(adapterName);
+        if (!state) return false;
+        if (state.available) return true;
+        // Check if cooldown has expired
+        if (state.cooldownUntil !== null && Date.now() >= state.cooldownUntil) {
+          this.states.set(adapterName, {
+            ...state,
+            available: true,
+            cooldownUntil: null,
+          });
+          return true;
+        }
+        return false;
+      }
+    
+      getAvailableAdapters(): readonly string[] {
+        return [...this.states.keys()].filter((name) => this.isAvailable(name));
+      }
+    
+      getState(adapterName: string): AdapterState | undefined {
+        return this.states.get(adapterName);
+      }
+    }
+  </file>
   <file path="src/quality-gates.ts">
     export interface QualityGatesResult {
       evaluation?: EvaluationResult;
@@ -1407,6 +1475,22 @@
       readonly records: readonly FailureRecord[];
     }
   </file>
+  <file path="src/failover-router.ts">
+    export class AllAdaptersUnavailableError extends Error {
+      /** Per-adapter cooldown timestamps (ms epoch). Only includes adapters that have an active cooldown. */
+      readonly cooldowns: ReadonlyMap<string, number>;
+    
+      constructor(cooldowns: ReadonlyMap<string, number>) {
+        super("All agent adapters are rate-limited or unavailable");
+        this.name = "AllAdaptersUnavailableError";
+        this.cooldowns = cooldowns;
+      }
+    }
+    export type RoutedAdapterResult = AdapterResult & {
+      /** Name of the adapter that produced this result. */
+      readonly adapter: string;
+    };
+  </file>
   <file path="src/event-mapper.ts">
     export interface ToolUseEvent {
       readonly type: "session:tool_use";
@@ -1488,6 +1572,36 @@
       return result.total_cost_usd;
     }
   </file>
+  <file path="src/cli-adapter.ts">
+    export interface AdapterConfig {
+      /** Human-readable description of the task for the agent to perform. */
+      readonly taskDescription: string;
+      /** Absolute path to the isolated worktree where the agent operates. */
+      readonly worktreePath: string;
+      /** Absolute path to the original repository root. */
+      readonly repoPath: string;
+      /** Git branch to base work on (e.g. "main"). */
+      readonly baseBranch: string;
+      /** Model identifier override (adapter-specific, e.g. "claude-sonnet-4-6", "gemini-2.5-pro"). */
+      readonly model?: string;
+      /** Maximum number of conversation turns before the adapter should stop. */
+      readonly maxTurns?: number;
+      /** Hard wall-clock timeout in milliseconds for the entire run. */
+      readonly timeoutMs?: number;
+    }
+    export interface AdapterResult {
+      /** Whether the agent session completed successfully. */
+      readonly success: boolean;
+      /** Whether the agent made any git-visible changes in the worktree. */
+      readonly hasChanges: boolean;
+      /** Whether the run was terminated due to rate limiting (maps to FailureCategory "rate_limited"). */
+      readonly rateLimited: boolean;
+      /** Human-readable error message when success is false. */
+      readonly error?: string;
+      /** Wall-clock duration of the run in milliseconds. */
+      readonly durationMs: number;
+    }
+  </file>
   <file path="src/circuit-breaker.ts">
     export enum CircuitState {
       Closed = "CLOSED",
@@ -1542,6 +1656,38 @@
       "api:reservations",
       "api:agent",
     ];
+  </file>
+  </section>
+  <section priority="medium" role="adapters">
+  <file path="src/adapters/opencode-adapter.ts">
+    function truncateTask(task: string, maxLength: number = MAX_TASK_LENGTH): string {
+      if (task.length <= maxLength) return task;
+      return task.slice(0, maxLength - 3) + "...";
+    }
+    function detectRateLimiting(output: string): boolean {
+      return RATE_LIMIT_PATTERNS.some((pattern) => pattern.test(output));
+    }
+  </file>
+  <file path="src/adapters/gemini-adapter.ts">
+    function truncateTask(task: string, maxLength: number = MAX_TASK_LENGTH): string {
+      if (task.length <= maxLength) return task;
+      return task.slice(0, maxLength - 3) + "...";
+    }
+    function detectRateLimiting(output: string): boolean {
+      return RATE_LIMIT_PATTERNS.some((pattern) => pattern.test(output));
+    }
+  </file>
+  <file path="src/adapters/claude-adapter.ts">
+    function detectRateLimitInError(message: string): boolean {
+      return RATE_LIMIT_PATTERNS.some((pattern) => pattern.test(message));
+    }
+    function deriveHasChanges(result: SessionResult): boolean {
+      if (result.prUrl !== null) return true;
+      // If the session succeeded and produced a branch, there were likely changes
+      // even if the PR wasn't created (createPr: false path).
+      if (result.status === "succeeded" && result.branchName.length > 0) return true;
+      return false;
+    }
   </file>
   </section>
 </codebase>
