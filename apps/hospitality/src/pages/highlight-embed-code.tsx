@@ -29,9 +29,9 @@ export function highlightEmbedCode(code: string): ReactNode[] {
         continue;
       }
 
-      // HTML tags — matches: <tag>, <tag attr="val">, </tag>, <tag/>
-      // Uses [^\s>]* for unquoted attr values (no exponential backtracking)
-      const tagMatch = remaining.match(/^<\/?[a-zA-Z][a-zA-Z0-9]*(?:\s+[a-zA-Z][a-zA-Z0-9-]*(?:="[^"]*"|='[^']*'|[^\s>]*))*(?:\s*\/)?>/);
+// HTML tags — matches: <tag>, <tag attr="val">, </tag>, <tag/>
+      // Uses simple pattern that avoids ReDoS by not using nested quantifiers
+      const tagMatch = remaining.match(/^<\/?[a-zA-Z][a-zA-Z0-9]*(?:\s+[a-zA-Z][a-zA-Z0-9-]*="[^"]*")*\s*\/?>/);
       if (tagMatch) {
         parts.push(
           <span key={keyIndex++} className={styles.syntaxTag}>
