@@ -72,6 +72,7 @@ export function highlightEmbedCode(code: string): ReactNode[] {
     }
 
     return (
+      // eslint-disable-next-line @eslint-react/no-array-index-key -- lines from string split are stable and have no unique ID
       <span key={lineIndex}>
         {parts}
         {lineIndex < lines.length - 1 ? "\n" : null}

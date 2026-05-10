@@ -65,7 +65,7 @@
         page?: number | undefined;
         limit?: number | undefined;
         date?: string | undefined;
-        status?: import("/home/user/mattbutlerengineering/packages/types/s...;
+        status?: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
         tableId?: string | undefined;
       }
     </item>
@@ -123,7 +123,7 @@
         getAccessToken?: (() => string | Promise<string | null> | null) | undefined;
         timeout?: number | undefined;
         maxRetries?: number | undefined;
-        onError?: ((error: import("/home/user/mattbutlerengineering/package...;
+        onError?: ((error: import("/Users/mbutler/github/mattbutlerengineer...;
       }
     </item>
     <item priority="low">

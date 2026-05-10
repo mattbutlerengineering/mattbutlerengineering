@@ -1,0 +1,43 @@
+name: Revert RCA Loop
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  rca:
+    if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.title, 'revert:')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Identify Reverted PR
+        id: info
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          # Extract PR number from title e.g. "revert: #123", "Revert '...' (#123)"
+          REVERTED_PR=$(echo "$TITLE" | grep -oE '#[0-9]+' | head -1 | tr -d '#')
+          if [ -n "$REVERTED_PR" ]; then
+            echo "reverted_pr=$REVERTED_PR" >> "$GITHUB_OUTPUT"
+          else
+            echo "Could not identify reverted PR from title: $TITLE"
+            exit 0
+          fi
+
+      - name: Trigger RCA
+        if: ${{ steps.info.outputs.reverted_pr != '' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ steps.info.outputs.reverted_pr }}
+          SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          node scripts/revert-rca.mjs --pr "$PR" --revert-sha "$SHA"

@@ -11,6 +11,8 @@ on:
       - "LICENSE"
   pull_request:
     branches: [main]
+  merge_group:
+    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -283,13 +285,62 @@ jobs:
       - name: Ensure dependencies installed
         run: pnpm install --frozen-lockfile
 
-      - name: Build dependencies
-        run: pnpm build
+      - name: Build CLI and its dependencies
+        run: pnpm build --filter @mbe/cli...
 
       - name: Run ADR and Dependency Checks
         run: |
           pnpm --filter @mbe/cli start check-adr
           pnpm --filter @mbe/cli start check-deps
+
+  integrity:
+    name: Integrity
+    needs: [prepare]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Restore node_modules
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            node_modules
+            packages/*/node_modules
+            apps/*/node_modules
+            services/*/node_modules
+            tools/*/node_modules
+          key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Ensure dependencies installed
+        run: pnpm install --frozen-lockfile
+
+      - name: Build CLI
+        run: pnpm --filter @mbe/cli build
+
+      - name: Check instruction sync (llms.txt)
+        run: |
+          for pkg in packages/* apps/* services/*; do
+            if [ -f "$pkg/llms.txt" ]; then
+              echo "Checking $pkg..."
+              node tools/cli/dist/index.js pack "$pkg" --check
+            fi
+          done
+
+      - name: Check for instruction rot
+        run: node scripts/detect-instruction-rot.mjs
+
+      - name: Check component registry integrity
+        run: |
+          pnpm --filter @mbe/rialto build:registry
+          git diff --exit-code packages/rialto/registry.json || \
+            (echo "ERROR: registry.json is stale. Run 'pnpm --filter @mbe/rialto build:registry' locally and commit the result." && exit 1)
 
   build:
     name: Build
@@ -343,12 +394,6 @@ jobs:
           node scripts/generate-dep-graph.mjs
           git diff --exit-code infrastructure/worker/dep-graph.json || \
             (echo "ERROR: dep-graph.json is stale. Run 'pnpm generate:dep-graph' locally and commit the result." && exit 1)
-
-      - name: Check registry.json is up to date
-        run: |
-          pnpm --filter @mbe/rialto build:registry
-          git diff --exit-code packages/rialto/registry.json || \
-            (echo "ERROR: registry.json is stale. Run 'pnpm --filter @mbe/rialto build:registry' locally and commit the result." && exit 1)
 
       - name: Check catalog drift
         run: |
@@ -724,7 +769,7 @@ jobs:
   ci-gate:
     name: CI Gate
     if: always()
-    needs: [lint, typecheck, architecture-audit, build, test, hadolint, migrations, migration-dry-run, dependency-audit]
+    needs: [lint, typecheck, architecture-audit, build, test, hadolint, migrations, migration-dry-run, dependency-audit, integrity]
     runs-on: ubuntu-latest
     steps:
       - name: Check required job results
@@ -738,9 +783,10 @@ jobs:
           MIGRATIONS: ${{ needs.migrations.result }}
           DRY_RUN: ${{ needs.migration-dry-run.result }}
           DEPS: ${{ needs.dependency-audit.result }}
+          INTEGRITY: ${{ needs.integrity.result }}
         run: |
-          echo "lint=$LINT typecheck=$TYPECHECK arch=$ARCH build=$BUILD test=$TEST hadolint=$HADOLINT migrations=$MIGRATIONS dry-run=$DRY_RUN deps=$DEPS"
-          for job_result in "$LINT" "$TYPECHECK" "$ARCH" "$BUILD" "$TEST" "$HADOLINT" "$MIGRATIONS" "$DRY_RUN" "$DEPS"; do
+          echo "lint=$LINT typecheck=$TYPECHECK arch=$ARCH build=$BUILD test=$TEST hadolint=$HADOLINT migrations=$MIGRATIONS dry-run=$DRY_RUN deps=$DEPS integrity=$INTEGRITY"
+          for job_result in "$LINT" "$TYPECHECK" "$ARCH" "$BUILD" "$TEST" "$HADOLINT" "$MIGRATIONS" "$DRY_RUN" "$DEPS" "$INTEGRITY"; do
             if [ "$job_result" = "failure" ] || [ "$job_result" = "cancelled" ]; then
               echo "::error::Required job failed or was cancelled"
               exit 1

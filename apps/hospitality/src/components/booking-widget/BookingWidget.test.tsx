@@ -4,6 +4,8 @@ import { BookingWidget } from "./BookingWidget.js";
 import { createApiClient } from "@mbe/api-client";
 import React from "react";
 
+process.env.TZ = "UTC";
+
 vi.mock("@mbe/api-client", () => ({
   createApiClient: vi.fn(),
 }));
@@ -31,10 +33,10 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     return (
       <div>
         <label htmlFor={id}>{props.label}</label>
-        <input 
-          id={id} 
-          {...props} 
-          onChange={(e) => props.onChange?.({ target: { value: e.target.value } } as any)} 
+        <input
+          id={id}
+          {...props}
+          onChange={(e) => props.onChange?.({ target: { value: e.target.value } } as any)}
         />
       </div>
     );

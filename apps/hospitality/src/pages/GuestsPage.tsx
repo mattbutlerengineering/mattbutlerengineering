@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, type ChangeEvent } from "react";
+import { useState, useEffect, useMemo, useCallback, useReducer, type ChangeEvent } from "react";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
 import {
@@ -161,30 +161,80 @@ interface GuestDetailDrawerProps {
   api: ReturnType<typeof createApiClient>;
 }
 
+type DrawerState = {
+  isEditing: boolean;
+  formData: GuestEditFormData;
+  isSaving: boolean;
+  saveError: string | null;
+  reservationHistory: Reservation[];
+  historyLoading: boolean;
+};
+
+type DrawerAction =
+  | { type: "reset"; guest: Guest }
+  | { type: "set_editing"; isEditing: boolean }
+  | { type: "set_form_data"; formData: GuestEditFormData }
+  | { type: "update_field"; field: keyof GuestEditFormData; value: string }
+  | { type: "save_start" }
+  | { type: "save_success" }
+  | { type: "save_error"; error: string }
+  | { type: "clear_save_error" }
+  | { type: "history_loading" }
+  | { type: "history_loaded"; data: Reservation[] }
+  | { type: "history_error" };
+
+const INITIAL_DRAWER_STATE: DrawerState = {
+  isEditing: false,
+  formData: { name: "", email: "", phone: "", notes: "" },
+  isSaving: false,
+  saveError: null,
+  reservationHistory: [],
+  historyLoading: false,
+};
+
+function drawerReducer(state: DrawerState, action: DrawerAction): DrawerState {
+  switch (action.type) {
+    case "reset":
+      return {
+        ...INITIAL_DRAWER_STATE,
+        formData: {
+          name: action.guest.name,
+          email: action.guest.email ?? "",
+          phone: action.guest.phone ?? "",
+          notes: action.guest.notes ?? "",
+        },
+      };
+    case "set_editing":
+      return { ...state, isEditing: action.isEditing };
+    case "set_form_data":
+      return { ...state, formData: action.formData };
+    case "update_field":
+      return { ...state, formData: { ...state.formData, [action.field]: action.value } };
+    case "save_start":
+      return { ...state, isSaving: true, saveError: null };
+    case "save_success":
+      return { ...state, isSaving: false, isEditing: false };
+    case "save_error":
+      return { ...state, isSaving: false, saveError: action.error };
+    case "clear_save_error":
+      return { ...state, saveError: null };
+    case "history_loading":
+      return { ...state, historyLoading: true };
+    case "history_loaded":
+      return { ...state, historyLoading: false, reservationHistory: action.data };
+    case "history_error":
+      return { ...state, historyLoading: false, reservationHistory: [] };
+  }
+}
+
 function GuestDetailDrawer({ guest, open, onClose, onSave, api }: GuestDetailDrawerProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState<GuestEditFormData>({
-    name: "",
-    email: "",
-    phone: "",
-    notes: "",
-  });
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [_reservationHistory, setReservationHistory] = useState<Reservation[]>([]);
-  const [_historyLoading, setHistoryLoading] = useState(false);
+  const [state, drawerDispatch] = useReducer(drawerReducer, INITIAL_DRAWER_STATE);
+  const { isEditing, formData, isSaving, saveError } = state;
 
   // Reset form when guest changes or drawer opens
   useEffect(() => {
     if (guest && open) {
-      setFormData({
-        name: guest.name,
-        email: guest.email ?? "",
-        phone: guest.phone ?? "",
-        notes: guest.notes ?? "",
-      });
-      setIsEditing(false);
-      setSaveError(null);
+      drawerDispatch({ type: "reset", guest });
     }
   }, [guest, open]);
 
@@ -194,17 +244,14 @@ function GuestDetailDrawer({ guest, open, onClose, onSave, api }: GuestDetailDra
     if (!guestId || !open || !api) return;
     let cancelled = false;
 
-    setHistoryLoading(true);
+    drawerDispatch({ type: "history_loading" });
     api.reservations
       .list({ guestId, limit: 10 })
       .then((response) => {
-        if (!cancelled) setReservationHistory(response.data);
+        if (!cancelled) drawerDispatch({ type: "history_loaded", data: response.data });
       })
       .catch(() => {
-        if (!cancelled) setReservationHistory([]);
-      })
-      .finally(() => {
-        if (!cancelled) setHistoryLoading(false);
+        if (!cancelled) drawerDispatch({ type: "history_error" });
       });
 
     return () => {
@@ -215,15 +262,14 @@ function GuestDetailDrawer({ guest, open, onClose, onSave, api }: GuestDetailDra
   const handleFieldChange = useCallback(
     (field: keyof GuestEditFormData) =>
       (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        setFormData((prev) => ({ ...prev, [field]: e.target.value }));
+        drawerDispatch({ type: "update_field", field, value: e.target.value });
       },
     []
   );
 
   const handleSave = useCallback(async () => {
     if (!guest) return;
-    setIsSaving(true);
-    setSaveError(null);
+    drawerDispatch({ type: "save_start" });
     try {
       await onSave(guest.id, {
         name: formData.name.trim(),
@@ -231,25 +277,29 @@ function GuestDetailDrawer({ guest, open, onClose, onSave, api }: GuestDetailDra
         phone: formData.phone.trim() || undefined,
         notes: formData.notes.trim() || undefined,
       });
-      setIsEditing(false);
+      drawerDispatch({ type: "save_success" });
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Failed to save guest");
-    } finally {
-      setIsSaving(false);
+      drawerDispatch({
+        type: "save_error",
+        error: err instanceof Error ? err.message : "Failed to save guest",
+      });
     }
   }, [guest, formData, onSave]);
 
   const handleCancelEdit = useCallback(() => {
     if (guest) {
-      setFormData({
-        name: guest.name,
-        email: guest.email ?? "",
-        phone: guest.phone ?? "",
-        notes: guest.notes ?? "",
+      drawerDispatch({
+        type: "set_form_data",
+        formData: {
+          name: guest.name,
+          email: guest.email ?? "",
+          phone: guest.phone ?? "",
+          notes: guest.notes ?? "",
+        },
       });
     }
-    setIsEditing(false);
-    setSaveError(null);
+    drawerDispatch({ type: "set_editing", isEditing: false });
+    drawerDispatch({ type: "clear_save_error" });
   }, [guest]);
 
   if (!guest) return null;
@@ -303,7 +353,7 @@ function GuestDetailDrawer({ guest, open, onClose, onSave, api }: GuestDetailDra
             <Button variant="ghost" onClick={onClose}>
               Close
             </Button>
-            <Button variant="secondary" onClick={() => setIsEditing(true)}>
+            <Button variant="secondary" onClick={() => drawerDispatch({ type: "set_editing", isEditing: true })}>
               Edit Guest
             </Button>
           </Stack>
@@ -390,7 +440,7 @@ interface MobileGuestCardProps {
 
 function MobileGuestCard({ guest, onClick }: MobileGuestCardProps) {
   return (
-    <button type="button" className={styles.mobileCard} onClick={onClick}>
+    <Button type="button" className={styles.mobileCard} onClick={onClick}>
       <div className={styles.mobileCardHeader}>
         <Text variant="body" color="primary" className={styles.guestName}>
           {guest.name}
@@ -418,7 +468,7 @@ function MobileGuestCard({ guest, onClick }: MobileGuestCardProps) {
           ))}
         </div>
       )}
-    </button>
+    </Button>
   );
 }
 
@@ -484,7 +534,7 @@ export function GuestsPage() {
   }, [api, selectedVenueId, searchQuery]);
 
   useEffect(() => {
-    fetchGuests();
+    fetchGuests();  
   }, [fetchGuests]);
 
   const venueOptions = useMemo(
@@ -607,9 +657,9 @@ export function GuestsPage() {
         />
       )}
 
-      <span className={styles.srOnly} aria-live="polite" role="status">
+      <Text className={styles.srOnly} aria-live="polite" role="status">
         {`${guests.length} guest${guests.length !== 1 ? "s" : ""} shown`}
-      </span>
+      </Text>
 
       {!isLoading && !error && guests.length === 0 && (
         <div aria-live="polite" role="status">
@@ -633,6 +683,7 @@ export function GuestsPage() {
           {/* Desktop table */}
           <Card className={styles.desktopTable}>
             <div className={styles.tableWrapper}>
+              {/* eslint-disable mbe-local/prefer-rialto-components -- HTML table elements are correct here; Rialto Table has a different API */}
               <table className={styles.table}>
                 <thead className={styles.thead}>
                   <tr>
@@ -703,6 +754,7 @@ export function GuestsPage() {
                   ))}
                 </tbody>
               </table>
+              {/* eslint-enable mbe-local/prefer-rialto-components */}
             </div>
           </Card>
 

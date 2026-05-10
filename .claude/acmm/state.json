@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-05-10T20:57:57.103Z",
+  "lastRun": "2026-05-10T21:49:19.416Z",
   "currentLevel": 3,
   "checks": {
     "acmm:prereq-test-suite": {
@@ -185,6 +185,18 @@
     "acmm:github-coordination": {
       "passed": true,
       "evidence": "detected at one of: .github/workflows/"
+    },
+    "acmm:instruction-sync-gate": {
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/ci.yml"
+    },
+    "acmm:component-registry-integrity": {
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/ci.yml"
+    },
+    "acmm:instruction-rot-detection": {
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/ci.yml"
     },
     "acmm:feedback-loops": {
       "passed": true,
@@ -469,8 +481,8 @@
     {
       "date": "2026-05-10",
       "level": 3,
-      "detected": 91,
-      "total": 105
+      "detected": 106,
+      "total": 108
     }
   ],
   "issuesCreated": {},
@@ -519,6 +531,9 @@
     "acmm:cross-session-knowledge",
     "acmm:cross-repo-skills",
     "acmm:github-coordination",
+    "acmm:instruction-sync-gate",
+    "acmm:component-registry-integrity",
+    "acmm:instruction-rot-detection",
     "acmm:feedback-loops",
     "acmm:preference-index",
     "acmm:mcp-server-config",
@@ -577,15 +592,15 @@
     "characteristic": "The system detects problems and proposes fixes without human initiation. Humans still approve; the system proposes.",
     "detectedByLevel": {
       "2": 3,
-      "3": 4,
-      "4": 11,
+      "3": 6,
+      "4": 16,
       "5": 15,
-      "6": 5
+      "6": 8
     },
     "requiredByLevel": {
       "2": 3,
-      "3": 5,
-      "4": 14,
+      "3": 6,
+      "4": 16,
       "5": 16,
       "6": 8
     },
@@ -715,7 +730,7 @@
       "rate_30d": 0,
       "sample_size": 100,
       "flaky_shas": [],
-      "measured_at": "2026-05-10T20:57:57.103Z"
+      "measured_at": "2026-05-10T21:49:19.415Z"
     },
     "agent_pr": {
       "sample_size": 26,
@@ -727,7 +742,7 @@
       "median_time_to_merge_hours": 0.059166666666666666,
       "human_touch_ratio": 1,
       "insufficient_data": false,
-      "measured_at": "2026-05-10T20:57:57.103Z"
+      "measured_at": "2026-05-10T21:49:19.415Z"
     },
     "evals": {
       "n": 21,
@@ -745,11 +760,11 @@
         }
       },
       "status": "green",
-      "measured_at": "2026-05-10T20:57:57.103Z"
+      "measured_at": "2026-05-10T21:49:19.415Z"
     },
     "auto_qa_tuning": {
       "history_count": 2,
-      "measured_at": "2026-05-10T20:57:57.103Z"
+      "measured_at": "2026-05-10T21:49:19.415Z"
     }
   },
   "levelCap": 3,
