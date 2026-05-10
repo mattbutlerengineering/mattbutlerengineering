@@ -288,10 +288,15 @@ export function writeReport(cwd, { state, criteria, sources, computation, diff }
  */
 function remediationHint(patterns) {
   const canonical = patterns[0];
+  // Handle grep-type patterns (objects with { file, contains })
+  if (typeof canonical !== "string") {
+    const file = canonical.file || JSON.stringify(canonical);
+    return `ensure \`${file}\` exists with matching content`;
+  }
   const isDir = canonical.endsWith("/");
   const action = isDir ? `mkdir -p ${canonical}` : `touch ${canonical}`;
   if (patterns.length === 1) return `\`${action}\``;
-  return `\`${action}\` (or any of: ${patterns.slice(1).map((p) => `\`${p}\``).join(", ")})`;
+  return `\`${action}\` (or any of: ${patterns.slice(1).map((p) => typeof p === "string" ? `\`${p}\`` : `\`${p.file || JSON.stringify(p)}\``).join(", ")})`;
 }
 
 /**

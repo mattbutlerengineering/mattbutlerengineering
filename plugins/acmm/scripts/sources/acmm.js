@@ -443,7 +443,7 @@ const CRITERIA= [
     description: 'Workflow that applies AI-review suggestions automatically to PRs.',
     rationale: 'L4 action-taking: the loop closes when suggestions become commits without human intervention.',
     details: 'Automated review application is a workflow that takes AI-generated review comments and applies the suggested fixes directly as commits on the PR branch. Instead of a human reading "change X to Y" and making the edit, the system does it automatically. This is L4 because the feedback loop acts on its own output. An AI mission will add a workflow that parses review bot suggestions and commits the fixes.',
-    detection: { type: 'any-of', pattern: ['.github/workflows/copilot-review-apply.yml', '.github/workflows/ai-fix.yml', '.github/workflows/auto-review.yml'] },
+    detection: { type: 'active', pattern: ['.github/workflows/copilot-review-apply.yml', '.github/workflows/ai-fix.yml'], maxAgeDays: 30 },
   },
   {
     id: 'acmm:auto-label',
@@ -572,7 +572,7 @@ const CRITERIA= [
     rationale: 'Bridges the gap between what git/CI can tell you (what was done) and what can\'t be derived (what was planned).',
     details: 'A .claude/checkpoint.md recording current branch, active worktree, plan path, completed tasks, and remaining steps. A Stop hook auto-updates it at session end.',
     scannable: false,
-    detection: { type: 'any-of', pattern: ['.claude/checkpoint.md', '.claude/session-summary.md'] },
+    detection: { type: 'grep', pattern: { file: '.claude/session-summary.md', contains: '\\d{4}-\\d{2}-\\d{2}' } },
     crossCutting: 'learning',
   },
   {
@@ -669,7 +669,7 @@ const CRITERIA= [
     rationale: 'Keeps instruction files current with accumulated learnings without manual editing.',
     scannable: false,
     details: 'A weekly workflow reviews new entries in the knowledge base and correction log, drafts updates to CLAUDE.md, and opens a PR for human review before merging.',
-    detection: { type: 'any-of', pattern: ['.github/workflows/claude-md-sync.yml'] },
+    detection: { type: 'active', pattern: ['.github/workflows/claude-md-sync.yml'], maxAgeDays: 14 },
     crossCutting: 'learning',
   },
   {
@@ -682,7 +682,7 @@ const CRITERIA= [
     rationale: 'Allows the AI to look up relevant preferences without loading everything into context.',
     scannable: false,
     details: 'A preferences.json indexed by file path pattern: {"auth/*": ["use token exchange"], "tests/*": ["use table-driven tests"]}.',
-    detection: { type: 'any-of', pattern: ['preferences.json', '.claude/preferences.json'] },
+    detection: { type: 'grep', pattern: { file: '.claude/preferences.json', contains: '"priority":\\s*"(critical|high|medium|low)"' } },
     crossCutting: 'learning',
   },
   {
@@ -695,7 +695,7 @@ const CRITERIA= [
     rationale: 'Creates an audit trail of what the AI was asked to do and what it did.',
     scannable: false,
     details: 'A JSONL log where each entry records: timestamp, task description, files read, files modified, commands run, test results, commit SHA.',
-    detection: { type: 'any-of', pattern: ['task-log.jsonl', '.claude/task-log.jsonl'] },
+    detection: { type: 'grep', pattern: { file: '.claude/task-log.jsonl', contains: '^\\{"timestamp"' } },
     crossCutting: 'traceability',
   },
   {
@@ -730,7 +730,7 @@ const CRITERIA= [
     description: 'A benchmark script measuring how effectively the codebase teaches new AI sessions.',
     rationale: 'Quantifies the "codebase as model" concept -- whether instruction files and patterns effectively onboard new agents.',
     details: 'An onboarding benchmark defines known tasks of increasing difficulty and expected completion times. Running these tasks in fresh AI sessions measures how well project documentation enables the AI to work independently. Improvements to CLAUDE.md and package docs should reduce benchmark times.',
-    detection: { type: 'path', pattern: 'plugins/acmm/scripts/onboarding-benchmark.js' },
+    detection: { type: 'grep', pattern: { file: '.claude/acmm/onboarding-benchmark.json', contains: '"results"' } },
   },
 
   {
@@ -742,7 +742,7 @@ const CRITERIA= [
     description: 'Seeded-bug benchmark that measures AI capability on this specific codebase.',
     rationale: 'L4 signal: acceptance rate is binary; benchmarks show capability progression and model comparison.',
     details: 'A repo benchmark injects known bugs (missing imports, wrong status codes, type errors) and measures how many turns and how long the AI takes to fix them. This enables model comparison and tracks capability improvement over time.',
-    detection: { type: 'any-of', pattern: ['scripts/acmm/repo-bench.js', 'docs/acmm/repo-benchmark.md'] },
+    detection: { type: 'grep', pattern: { file: '.claude/acmm/repo-bench-results.json', contains: '"results"' } },
   },
 
   // ── L5 — Semi-Automated ────────────────────────────
@@ -813,7 +813,7 @@ const CRITERIA= [
     rationale: 'Prevents the knowledge base from growing stale.',
     scannable: false,
     details: 'A monthly cron posts a summary of new knowledge base entries, correction captures, and preference changes to a GitHub issue for the team to review, confirm, and prune.',
-    detection: { type: 'any-of', pattern: ['.github/workflows/reflection-review.yml'] },
+    detection: { type: 'active', pattern: ['.github/workflows/reflection-review.yml'], maxAgeDays: 45 },
     crossCutting: 'learning',
   },
   {
@@ -1034,7 +1034,7 @@ const CRITERIA= [
     rationale: 'Autonomy without a kill switch is recklessness.',
     scannable: false,
     details: 'A documented procedure: "If a nightly AI-merged PR breaks production: (1) revert PR, (2) disable auto-merge, (3) file incident issue, (4) RCA workflow runs on the reverted commit."',
-    detection: { type: 'any-of', pattern: ['docs/rollback-drill.md', 'docs/ai-ops-runbook.md'] },
+    detection: { type: 'grep', pattern: { file: 'docs/rollback.md', contains: 'Last drill: \\d{4}' } },
   },
   {
     id: 'acmm:feedback-loop-inventory',
@@ -1107,7 +1107,7 @@ const CRITERIA= [
     description: 'Strategy for coordinating AI changes across multiple dependent repositories.',
     rationale: 'L6 signal: fully autonomous systems need to coordinate changes beyond a single repo boundary.',
     details: 'Multi-repo orchestration covers how AI agents coordinate changes across dependent repos — updating shared libraries, publishing new versions, and opening downstream PRs. Without this, L6 autonomy is limited to a single repo.',
-    detection: { type: 'any-of', pattern: ['docs/acmm/multi-repo-orchestration.md'] },
+    detection: { type: 'grep', pattern: { file: 'docs/acmm/multi-repo-orchestration.md', contains: 'Executed: \\d{4}-\\d{2}-\\d{2}' } },
   },
 ]
 

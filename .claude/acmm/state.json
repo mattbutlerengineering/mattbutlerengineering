@@ -123,12 +123,12 @@
       "evidence": "detected at one of: .github/auto-qa-tuning.json, .github/qa-tuning.yml"
     },
     "acmm:nightly-compliance": {
-      "passed": true,
-      "evidence": "detected at one of: .github/workflows/nightly-compliance.yml, .github/workflows/nightly.yml, .github/workflows/nightly-test.yml, .github/workflows/nightly-test-suite.yml"
+      "passed": false,
+      "evidence": "file present but no recent successful run: .github/workflows/nightly-compliance.yml"
     },
     "acmm:copilot-review-apply": {
-      "passed": true,
-      "evidence": "detected at one of: .github/workflows/copilot-review-apply.yml, .github/workflows/ai-fix.yml, .github/workflows/auto-review.yml"
+      "passed": false,
+      "evidence": "file not found: .github/workflows/copilot-review-apply.yml"
     },
     "acmm:auto-label": {
       "passed": true,
@@ -171,8 +171,8 @@
       "evidence": "detected at one of: CLAUDE.md"
     },
     "acmm:session-continuity": {
-      "passed": true,
-      "evidence": "detected at one of: .claude/checkpoint.md, .claude/session-summary.md"
+      "passed": false,
+      "evidence": "none of: .claude/session-summary.md (contains: \\d{4}-\\d{2}-\\d{2})"
     },
     "acmm:cross-session-knowledge": {
       "passed": true,
@@ -203,16 +203,16 @@
       "evidence": "detected at one of: CLAUDE.md"
     },
     "acmm:claude-md-auto-sync": {
-      "passed": true,
-      "evidence": "detected at one of: .github/workflows/claude-md-sync.yml"
+      "passed": false,
+      "evidence": "file present but no recent successful run: .github/workflows/claude-md-sync.yml"
     },
     "acmm:preference-index": {
       "passed": true,
-      "evidence": "detected at one of: preferences.json, .claude/preferences.json"
+      "evidence": "detected at one of: .claude/preferences.json (contains: \"priority\":\\s*\"(critical|high|medium|low)\")"
     },
     "acmm:task-ledger": {
-      "passed": true,
-      "evidence": "detected at one of: task-log.jsonl, .claude/task-log.jsonl"
+      "passed": false,
+      "evidence": "none of: .claude/task-log.jsonl (contains: ^\\{\"timestamp\")"
     },
     "acmm:mcp-server-config": {
       "passed": true,
@@ -223,12 +223,12 @@
       "evidence": "detected at one of: .vscode/settings.json, tags, TAGS, .ctags, .tree-sitter/, llms.txt, llms-full.txt, tsconfig.json, .clangd, pyrightconfig.json, .claude/plugins/"
     },
     "acmm:onboarding-benchmark": {
-      "passed": true,
-      "evidence": "detected at one of: plugins/acmm/scripts/onboarding-benchmark.js"
+      "passed": false,
+      "evidence": "none of: .claude/acmm/onboarding-benchmark.json (contains: \"results\")"
     },
     "acmm:repo-bench": {
-      "passed": true,
-      "evidence": "detected at one of: scripts/acmm/repo-bench.js, docs/acmm/repo-benchmark.md"
+      "passed": false,
+      "evidence": "none of: .claude/acmm/repo-bench-results.json (contains: \"results\")"
     },
     "acmm:github-actions-ai": {
       "passed": true,
@@ -251,8 +251,8 @@
       "evidence": "detected at one of: docs/reflections/, memory/, .memory/, REFLECTIONS.md"
     },
     "acmm:periodic-reflection": {
-      "passed": true,
-      "evidence": "detected at one of: .github/workflows/reflection-review.yml"
+      "passed": false,
+      "evidence": "file present but no recent successful run: .github/workflows/reflection-review.yml"
     },
     "acmm:audit-trail": {
       "passed": true,
@@ -299,8 +299,8 @@
       "evidence": "detected at one of: docs/acmm/review-burden.md"
     },
     "acmm:auto-issue-gen": {
-      "passed": true,
-      "evidence": "detected at one of: .github/workflows/auto-issue.yml, .github/workflows/issue-gen.yml, .github/workflows/auto-generate-issues.yml"
+      "passed": false,
+      "evidence": "file present but no recent successful run: .github/workflows/auto-issue.yml"
     },
     "acmm:multi-agent-orchestration": {
       "passed": true,
@@ -319,8 +319,8 @@
       "evidence": "detected at one of: risk-config.json, .claude/risk-config.json, .github/risk-assessment.yml"
     },
     "acmm:production-feedback": {
-      "passed": true,
-      "evidence": "detected at one of: .github/workflows/production-feedback.yml"
+      "passed": false,
+      "evidence": "file present but no recent successful run: .github/workflows/production-feedback.yml"
     },
     "acmm:observability-runbook": {
       "passed": true,
@@ -328,7 +328,7 @@
     },
     "acmm:rollback-drill": {
       "passed": true,
-      "evidence": "detected at one of: docs/rollback-drill.md, docs/ai-ops-runbook.md"
+      "evidence": "detected at one of: docs/rollback.md (contains: Last drill: \\d{4})"
     },
     "acmm:feedback-loop-inventory": {
       "passed": true,
@@ -347,12 +347,12 @@
       "evidence": "detected at one of: .github/workflows/ci.yml (contains: pnpm --dir packages/rialto vitest .* accessibility)"
     },
     "acmm:auto-rollback": {
-      "passed": true,
-      "evidence": "detected at one of: .github/workflows/auto-rollback.yml, docs/acmm/auto-rollback.md"
+      "passed": false,
+      "evidence": "file present but no recent successful run: .github/workflows/auto-rollback.yml"
     },
     "acmm:multi-repo-orchestration": {
-      "passed": true,
-      "evidence": "detected at one of: docs/acmm/multi-repo-orchestration.md"
+      "passed": false,
+      "evidence": "none of: docs/acmm/multi-repo-orchestration.md (contains: Executed: \\d{4}-\\d{2}-\\d{2})"
     },
     "fullsend:test-coverage": {
       "passed": true,
@@ -486,8 +486,8 @@
     }
   ],
   "issuesCreated": {},
-  "levelName": "Fully Autonomous",
-  "role": "Strategist",
+  "levelName": "Semi-Automated",
+  "role": "Operator",
   "detectedIds": [
     "acmm:prereq-test-suite",
     "acmm:prereq-cicd",
@@ -518,8 +518,6 @@
     "acmm:session-summary",
     "acmm:structural-gates",
     "acmm:auto-qa-tuning",
-    "acmm:nightly-compliance",
-    "acmm:copilot-review-apply",
     "acmm:auto-label",
     "acmm:ai-fix-workflow",
     "acmm:tier-classifier",
@@ -530,7 +528,6 @@
     "acmm:structured-rca",
     "acmm:multi-perspective-review",
     "acmm:idempotent-workflows",
-    "acmm:session-continuity",
     "acmm:cross-session-knowledge",
     "acmm:cross-repo-skills",
     "acmm:github-coordination",
@@ -538,18 +535,13 @@
     "acmm:component-registry-integrity",
     "acmm:instruction-rot-detection",
     "acmm:feedback-loops",
-    "acmm:claude-md-auto-sync",
     "acmm:preference-index",
-    "acmm:task-ledger",
     "acmm:mcp-server-config",
     "acmm:code-graph",
-    "acmm:onboarding-benchmark",
-    "acmm:repo-bench",
     "acmm:github-actions-ai",
     "acmm:auto-qa-self-tuning",
     "acmm:policy-as-code",
     "acmm:reflection-log",
-    "acmm:periodic-reflection",
     "acmm:audit-trail",
     "acmm:explanation-standards",
     "acmm:self-correction-metric",
@@ -561,20 +553,16 @@
     "acmm:override-analytics",
     "acmm:ai-compliance-doc",
     "acmm:review-burden",
-    "acmm:auto-issue-gen",
     "acmm:multi-agent-orchestration",
     "acmm:merge-queue",
     "acmm:strategic-dashboard",
     "acmm:risk-assessment-config",
-    "acmm:production-feedback",
     "acmm:observability-runbook",
     "acmm:rollback-drill",
     "acmm:feedback-loop-inventory",
     "acmm:budget-policy",
     "acmm:token-tracking",
     "acmm:accessibility-ai-check",
-    "acmm:auto-rollback",
-    "acmm:multi-repo-orchestration",
     "fullsend:test-coverage",
     "fullsend:ci-cd-maturity",
     "fullsend:auto-merge-policy",
@@ -599,9 +587,9 @@
   "computation": {
     "level": 3,
     "strict": true,
-    "levelName": "Fully Autonomous",
-    "role": "Strategist",
-    "characteristic": "The system acts on what it finds — generates issues, merges PRs, rolls back failures. Humans set policy and audit after the fact.",
+    "levelName": "Semi-Automated",
+    "role": "Operator",
+    "characteristic": "The system detects problems and proposes fixes without human initiation. Humans still approve; the system proposes.",
     "detectedByLevel": {
       "2": 3,
       "3": 6,
@@ -616,9 +604,64 @@
       "5": 16,
       "6": 8
     },
-    "missingForNextLevel": [],
-    "nextTransitionTrigger": null,
-    "antiPattern": "Mistaking autonomy for abandonment: an autonomous codebase still needs a strategist to set direction, or it drifts toward local optima.",
+    "missingForNextLevel": [
+      {
+        "id": "acmm:auto-issue-gen",
+        "source": "acmm",
+        "level": 6,
+        "category": "autonomy",
+        "name": "Automated issue generation",
+        "description": "Workflow or cron that generates work items for the AI to pick up — the system identifies its own problems and creates tasks.",
+        "rationale": "L6 self-direction: the codebase proposes its own next task.",
+        "details": "Automated issue generation is a cron-triggered workflow that scans the codebase for TODOs, stale dependencies, failing tests, or coverage gaps and files GitHub issues for each finding. The codebase identifies its own work rather than waiting for humans to notice problems. An AI mission will add a workflow that scans for common improvement opportunities and creates prioritized issues automatically.",
+        "detection": {
+          "type": "active",
+          "pattern": [
+            ".github/workflows/auto-issue.yml",
+            ".github/workflows/issue-gen.yml",
+            ".github/workflows/auto-generate-issues.yml"
+          ],
+          "maxAgeDays": 7
+        }
+      },
+      {
+        "id": "acmm:auto-rollback",
+        "source": "acmm",
+        "level": 6,
+        "category": "autonomy",
+        "name": "Automated rollback",
+        "description": "Automated detection and revert of regressions caused by AI-authored changes.",
+        "rationale": "L6 signal: the system not only acts but also undoes mistakes without human initiation.",
+        "details": "Auto-rollback completes the autonomous loop: the system detects regressions from its own PRs (via post-deploy checks) and creates revert PRs automatically. Without this, L6 autonomy is one-directional — the system can break things but not fix them.",
+        "detection": {
+          "type": "active",
+          "pattern": [
+            ".github/workflows/auto-rollback.yml",
+            "docs/acmm/auto-rollback.md"
+          ],
+          "maxAgeDays": 365
+        }
+      },
+      {
+        "id": "acmm:multi-repo-orchestration",
+        "source": "acmm",
+        "level": 6,
+        "category": "autonomy",
+        "name": "Multi-repo orchestration",
+        "description": "Strategy for coordinating AI changes across multiple dependent repositories.",
+        "rationale": "L6 signal: fully autonomous systems need to coordinate changes beyond a single repo boundary.",
+        "details": "Multi-repo orchestration covers how AI agents coordinate changes across dependent repos — updating shared libraries, publishing new versions, and opening downstream PRs. Without this, L6 autonomy is limited to a single repo.",
+        "detection": {
+          "type": "grep",
+          "pattern": {
+            "file": "docs/acmm/multi-repo-orchestration.md",
+            "contains": "Executed: \\d{4}-\\d{2}-\\d{2}"
+          }
+        }
+      }
+    ],
+    "nextTransitionTrigger": "None — L6 is the terminal state. The human role becomes direction-setting, not code writing.",
+    "antiPattern": "Alert fatigue: generating proposals no one reviews. An unread suggestion is noise, not maturity.",
     "prerequisites": {
       "met": 7,
       "total": 8
@@ -680,7 +723,7 @@
       }
     ],
     "capped": true,
-    "computedLevel": 6
+    "computedLevel": 5
   },
   "behavioral": {
     "flake": {

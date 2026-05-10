@@ -47,20 +47,25 @@ export function isWorkflowActive(cwd, workflowFile, maxAgeDays, opts = {}) {
   try {
     const result = fn(
       'gh',
-      ['run', 'list', `--workflow=${workflowFile}`, '--status=completed', '--limit=1', '--json', 'conclusion,updatedAt'],
+      ['run', 'list', `--workflow=${workflowFile}`, '--status=completed', '--limit=5', '--json', 'conclusion,updatedAt'],
       { cwd, encoding: 'utf-8', timeout: 10_000, stdio: ['pipe', 'pipe', 'pipe'] },
     );
     const runs = JSON.parse(result);
     if (runs.length === 0) {
       return { active: false, reason: 'no completed runs' };
     }
-    const lastRun = new Date(runs[0].updatedAt);
+    // Only count successful runs — failed/skipped/cancelled runs don't prove the workflow works
+    const successfulRuns = runs.filter((r) => r.conclusion === 'success');
+    if (successfulRuns.length === 0) {
+      return { active: false, conclusion: runs[0].conclusion, reason: `no successful runs (last was ${runs[0].conclusion})` };
+    }
+    const lastSuccess = new Date(successfulRuns[0].updatedAt);
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - maxAgeDays);
-    if (lastRun < cutoff) {
-      return { active: false, reason: `last run ${runs[0].updatedAt} exceeds ${maxAgeDays}d window` };
+    if (lastSuccess < cutoff) {
+      return { active: false, reason: `last success ${successfulRuns[0].updatedAt} exceeds ${maxAgeDays}d window` };
     }
-    return { active: true, conclusion: runs[0].conclusion, reason: 'recent run found' };
+    return { active: true, conclusion: 'success', reason: 'recent successful run found' };
   } catch {
     return { active: null, degraded: true, reason: 'gh CLI unavailable or error' };
   }
