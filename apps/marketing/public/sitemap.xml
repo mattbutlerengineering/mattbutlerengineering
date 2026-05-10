@@ -7,6 +7,13 @@
     <priority>1.0</priority>
   </url>
 
+  <!-- Metrics -->
+  <url>
+    <loc>https://mattbutlerengineering.com/metrics</loc>
+    <lastmod>2026-05-10</lastmod>
+    <priority>0.6</priority>
+  </url>
+
   <!-- Hospitality -->
   <url>
     <loc>https://mattbutlerengineering.com/hospitality</loc>
