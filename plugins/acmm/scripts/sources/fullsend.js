@@ -86,7 +86,7 @@ const CRITERIA= [
     description: 'A documented or automated rollback procedure.',
     rationale: 'Fullsend: autonomy requires the ability to undo, not just to do.',
     details: 'A rollback drill is a documented or scripted procedure for reverting a bad deployment or merge to the last known-good state. Autonomy is only safe when you can undo quickly — if rolling back takes hours, the cost of an AI mistake is too high to tolerate. An AI mission will create a rollback script or document that covers your deployment method (git revert, helm rollback, image tag pin).',
-    detection: { type: 'any-of', pattern: ['docs/rollback.md', '.github/workflows/rollback.yml', 'scripts/rollback.sh'] },
+    detection: { type: 'grep', pattern: { file: 'docs/rollback.md', contains: 'Last drill:' } },
   },
 ]
 

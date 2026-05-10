@@ -135,11 +135,24 @@
       }
     </item>
   </file>
+  <file path="src/rate-limit-detector.ts">
+    <item priority="high">
+      export function scanForRateLimitPatterns(output: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      class RateLimitDetector {
+        states: Map<string, import("/Users/mbutler/github/mattbutlerengin...;
+        cooldownMs: number;
+        async markRateLimited(): Promise<unknown>;
+        async markSuccess(): Promise<unknown>;
+      }
+    </item>
+  </file>
   <file path="src/quality-gates.ts">
     <item priority="low">
       interface QualityGatesResult {
-        evaluation?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
-        securityReview?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        evaluation?: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
+        securityReview?: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
         staticAnalysisClean: boolean;
         errors: string[];
       }
@@ -172,7 +185,7 @@
       interface QaTuningConfig {
         version: number;
         lastTunedAt: string;
-        thresholds: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        thresholds: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
       }
     </item>
   </file>
@@ -242,7 +255,7 @@
   </file>
   <file path="src/observability.ts">
     <item priority="high">
-      export const observabilityTracer: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+      export const observabilityTracer: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
     </item>
     <item priority="medium">
       function containsInOrder(str: string, a: string, b: string): boolean { /* ... */ }
@@ -315,6 +328,17 @@
       interface FailureMemory {
         records: readonly import("/Users/mbutler/github/mattbutlerengineer...;
       }
+    </item>
+  </file>
+  <file path="src/failover-router.ts">
+    <item priority="high">
+      class AllAdaptersUnavailableError {
+        cooldowns: ReadonlyMap<string, number>;
+      }
+    </item>
+    <item priority="low">
+      type RoutedAdapterResult = AdapterResult & {
+        /** Name of the adapter that produced...;
     </item>
   </file>
   <file path="src/event-mapper.ts">
@@ -403,6 +427,26 @@
       export function extractCost(result: SDKResultMessage): number { /* ... */ }
     </item>
   </file>
+  <file path="src/cli-adapter.ts">
+    <item priority="low">
+      interface AdapterConfig {
+        taskDescription: string;
+        worktreePath: string;
+        repoPath: string;
+        baseBranch: string;
+        model?: string | undefined;
+      }
+    </item>
+    <item priority="low">
+      interface AdapterResult {
+        success: boolean;
+        hasChanges: boolean;
+        rateLimited: boolean;
+        error?: string | undefined;
+        durationMs: number;
+      }
+    </item>
+  </file>
   <file path="src/circuit-breaker.ts">
     <item priority="low">
       enum CircuitState { Closed = CLOSED, Open = OPEN, HalfOpen = HALF_OPEN }
@@ -445,6 +489,32 @@
     </item>
     <item priority="high">
       export const ZONES: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="adapters">
+  <file path="src/adapters/opencode-adapter.ts">
+    <item priority="medium">
+      function truncateTask(task: string, maxLength: number = MAX_TASK_LENGTH): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function detectRateLimiting(output: string): boolean { /* ... */ }
+    </item>
+  </file>
+  <file path="src/adapters/gemini-adapter.ts">
+    <item priority="medium">
+      function truncateTask(task: string, maxLength: number = MAX_TASK_LENGTH): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function detectRateLimiting(output: string): boolean { /* ... */ }
+    </item>
+  </file>
+  <file path="src/adapters/claude-adapter.ts">
+    <item priority="medium">
+      function detectRateLimitInError(message: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function deriveHasChanges(result: SessionResult): boolean { /* ... */ }
     </item>
   </file>
   </section>

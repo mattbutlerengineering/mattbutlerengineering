@@ -57,10 +57,9 @@ async function authPluginImpl(
     }
   });
 
-  // CodeQL js/missing-rate-limiting: rate limiting is the consumer's responsibility.
+  // github[js/missing-rate-limiting] - rate limiting is the consumer's responsibility.
   // Consuming services (e.g., services/users) register @fastify/rate-limit globally
   // before this plugin, so all routes — including this onRequest hook — are covered.
-  // lgtm[js/missing-rate-limiting]
   fastify.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
     // 1. Explicit Test Bypass
     // Check if bypass mode is enabled AND the request opted in via header.

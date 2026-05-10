@@ -1,0 +1,70 @@
+{
+  "schema": "acmm/v1",
+  "generatedAt": "2026-05-10T00:27:24.154Z",
+  "level": 6,
+  "levelName": "Fully Autonomous",
+  "role": "Strategist",
+  "summary": {
+    "detected": 105,
+    "total": 105,
+    "coverage": 1.0
+  },
+  "prerequisites": {
+    "met": 8,
+    "total": 8
+  },
+  "behavioral": {
+    "ciFlakeRate": 0,
+    "agentPrAcceptanceRate": 0.9565,
+    "agentPrRevertRate": 0,
+    "evalPassRate": 0.8095,
+    "evalMedianScore": 0.8333
+  },
+  "history": [
+    { "date": "2026-04-30", "level": 6, "detected": 54, "total": 85 },
+    { "date": "2026-05-01", "level": 6, "detected": 85, "total": 85 },
+    { "date": "2026-05-02", "level": 6, "detected": 104, "total": 104 },
+    { "date": "2026-05-03", "level": 6, "detected": 105, "total": 105 },
+    { "date": "2026-05-05", "level": 6, "detected": 105, "total": 105 },
+    { "date": "2026-05-08", "level": 6, "detected": 104, "total": 105 },
+    { "date": "2026-05-09", "level": 6, "detected": 104, "total": 105 },
+    { "date": "2026-05-10", "level": 6, "detected": 105, "total": 105 }
+  ],
+  "detectedByLevel": {
+    "2": 3,
+    "3": 5,
+    "4": 14,
+    "5": 16,
+    "6": 8
+  },
+  "behavioralGates": [
+    {
+      "level": 3,
+      "name": "ci-flake-rate",
+      "passed": true,
+      "value": 0,
+      "threshold": 0.2
+    },
+    {
+      "level": 4,
+      "name": "agent-pr-acceptance",
+      "passed": true,
+      "value": 0.9565,
+      "threshold": 0.5
+    },
+    {
+      "level": 5,
+      "name": "auto-qa-tuning-history",
+      "passed": true,
+      "value": 2,
+      "threshold": 1
+    },
+    {
+      "level": 6,
+      "name": "agent-pr-revert-rate",
+      "passed": true,
+      "value": 0,
+      "threshold": 0.1
+    }
+  ]
+}

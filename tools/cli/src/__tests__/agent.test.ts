@@ -305,6 +305,22 @@ describe("agent command", () => {
       const allOutput = logSpy.mock.calls.flat().join("\n");
       expect(allOutput).toContain("No sessions found");
     });
+
+    it("handles API errors gracefully", async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        statusText: "Internal Server Error",
+        json: () => Promise.resolve({ message: "API Error Message" }),
+      });
+
+      const { agentCommand } = await import("../commands/agent.js");
+      await agentCommand.parseAsync(["list"], { from: "user" });
+
+      expect(exitSpy).toHaveBeenCalledWith(1);
+      const errOutput = errorSpy.mock.calls.flat().join("\n");
+      expect(errOutput).toContain("API Error Message");
+    });
   });
 
   // ── agent status ──────────────────────────────────────────────────────────

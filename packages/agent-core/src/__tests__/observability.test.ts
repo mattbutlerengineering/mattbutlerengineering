@@ -3,6 +3,10 @@ import {
   categorizeFailure,
   buildTurnMetricsList,
   buildToolCallMetricsList,
+  withModelSelectionSpan,
+  withToolPermissionSpan,
+  withStuckDetectionSpan,
+  withSuccessEvaluationSpan,
 } from "../observability.js";
 import type { StuckPatternType } from "../stuck-detector.js";
 
@@ -214,5 +218,171 @@ describe("buildToolCallMetricsList", () => {
     const result = buildToolCallMetricsList(raw);
     expect(result[0]).not.toBe(raw[0]);
     expect(result[0]).toEqual(raw[0]);
+  });
+});
+
+// ── withModelSelectionSpan ───────────────────────────────────────────
+
+describe("withModelSelectionSpan", () => {
+  it("returns the result of the wrapped function", () => {
+    const result = withModelSelectionSpan(() => ({
+      tier: "sonnet",
+      modelId: "claude-sonnet-4-6",
+      reason: "default routing",
+    }));
+
+    expect(result.tier).toBe("sonnet");
+    expect(result.modelId).toBe("claude-sonnet-4-6");
+    expect(result.reason).toBe("default routing");
+  });
+
+  it("propagates errors from the wrapped function", () => {
+    expect(() =>
+      withModelSelectionSpan(() => {
+        throw new Error("model selection failed");
+      })
+    ).toThrow("model selection failed");
+  });
+
+  it("returns result with different model tiers", () => {
+    const opus = withModelSelectionSpan(() => ({
+      tier: "opus",
+      modelId: "claude-opus-4-6",
+      reason: "complexity keywords: migration, schema change",
+    }));
+    expect(opus.tier).toBe("opus");
+
+    const haiku = withModelSelectionSpan(() => ({
+      tier: "haiku",
+      modelId: "claude-haiku-4-5",
+      reason: "dep bump pattern",
+    }));
+    expect(haiku.tier).toBe("haiku");
+  });
+});
+
+// ── withToolPermissionSpan ───────────────────────────────────────────
+
+describe("withToolPermissionSpan", () => {
+  it("returns the result when tool is allowed", async () => {
+    const result = await withToolPermissionSpan("Read", async () => ({
+      behavior: "allow",
+    }));
+
+    expect(result.behavior).toBe("allow");
+  });
+
+  it("returns the result when tool is denied", async () => {
+    const result = await withToolPermissionSpan("WebSearch", async () => ({
+      behavior: "deny",
+    }));
+
+    expect(result.behavior).toBe("deny");
+  });
+
+  it("propagates errors from the wrapped function", async () => {
+    await expect(
+      withToolPermissionSpan("Bash", async () => {
+        throw new Error("permission check failed");
+      })
+    ).rejects.toThrow("permission check failed");
+  });
+
+  it("records tool name for span attributes", async () => {
+    const result = await withToolPermissionSpan("Edit", async () => ({
+      behavior: "allow",
+    }));
+
+    expect(result.behavior).toBe("allow");
+  });
+});
+
+// ── withStuckDetectionSpan ──────────────────────────────────────────
+
+describe("withStuckDetectionSpan", () => {
+  it("returns null when no stuck pattern detected", () => {
+    const result = withStuckDetectionSpan(() => null);
+    expect(result).toBeNull();
+  });
+
+  it("returns the stuck pattern when detected", () => {
+    const pattern = {
+      type: "repeated_action_observation",
+      description: "4 identical action+observation pairs",
+    };
+
+    const result = withStuckDetectionSpan(() => pattern);
+
+    expect(result).toEqual(pattern);
+    expect(result!.type).toBe("repeated_action_observation");
+    expect(result!.description).toBe("4 identical action+observation pairs");
+  });
+
+  it("propagates errors from the wrapped function", () => {
+    expect(() =>
+      withStuckDetectionSpan(() => {
+        throw new Error("stuck detection error");
+      })
+    ).toThrow("stuck detection error");
+  });
+
+  it("handles different stuck pattern types", () => {
+    const zeroProgress = withStuckDetectionSpan(() => ({
+      type: "zero_progress",
+      description: "5 turns with no tool use",
+    }));
+    expect(zeroProgress!.type).toBe("zero_progress");
+
+    const selfLoop = withStuckDetectionSpan(() => ({
+      type: "self_message_loop",
+      description: "3 identical text messages",
+    }));
+    expect(selfLoop!.type).toBe("self_message_loop");
+  });
+});
+
+// ── withSuccessEvaluationSpan ───────────────────────────────────────
+
+describe("withSuccessEvaluationSpan", () => {
+  it("returns the result when evaluation passes", async () => {
+    const result = await withSuccessEvaluationSpan(async () => ({
+      passed: true,
+      confidence: 0.95,
+    }));
+
+    expect(result.passed).toBe(true);
+    expect(result.confidence).toBe(0.95);
+  });
+
+  it("returns the result when evaluation fails", async () => {
+    const result = await withSuccessEvaluationSpan(async () => ({
+      passed: false,
+      confidence: 0.3,
+    }));
+
+    expect(result.passed).toBe(false);
+    expect(result.confidence).toBe(0.3);
+  });
+
+  it("propagates errors from the wrapped function", async () => {
+    await expect(
+      withSuccessEvaluationSpan(async () => {
+        throw new Error("evaluation crashed");
+      })
+    ).rejects.toThrow("evaluation crashed");
+  });
+
+  it("handles edge case confidence values", async () => {
+    const zero = await withSuccessEvaluationSpan(async () => ({
+      passed: false,
+      confidence: 0,
+    }));
+    expect(zero.confidence).toBe(0);
+
+    const one = await withSuccessEvaluationSpan(async () => ({
+      passed: true,
+      confidence: 1.0,
+    }));
+    expect(one.confidence).toBe(1.0);
   });
 });

@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { resolve } from "node:path";
-import type { SessionConfig, SessionEvent } from "@mbe/agent-core";
+import type { SessionConfig, SessionEvent, AdapterConfig, AdapterResult } from "@mbe/agent-core";
 import {
   runSession,
   DEFAULT_SESSION_CONFIG,
@@ -8,6 +8,19 @@ import {
   resolveBudget,
   resolveModel,
   routeModelWithReason,
+  FailoverRouter,
+  AllAdaptersUnavailableError,
+  ClaudeAdapter,
+  GeminiCliAdapter,
+  OpenCodeAdapter,
+  RateLimitDetector,
+  createWorktree,
+  removeWorktree,
+  runVerification,
+  pushBranch,
+  createPullRequest,
+  buildPrTitle,
+  buildPrBody,
 } from "@mbe/agent-core";
 import type {
   AgentSession,
@@ -190,6 +203,7 @@ agentCommand
     String(DEFAULT_SESSION_CONFIG.maxTurns)
   )
   .option("--base-branch <branch>", "Base branch for the worktree", DEFAULT_SESSION_CONFIG.baseBranch)
+  .option("--adapter <type>", "Agent adapter: auto, claude, gemini, opencode", "claude")
   .option("--no-pr", "Skip PR creation, keep worktree for inspection")
   .option("-v, --verbose", "Stream all agent events", false)
   .action(
@@ -200,11 +214,19 @@ agentCommand
         maxBudget: string;
         maxTurns: string;
         baseBranch: string;
+        adapter: string;
         pr: boolean;
         verbose: boolean;
       }
     ) => {
       const repoPath = resolve(process.cwd());
+      const adapterType = options.adapter;
+
+      const validAdapters = ["auto", "claude", "gemini", "opencode"];
+      if (!validAdapters.includes(adapterType)) {
+        console.error(`Invalid adapter: "${adapterType}". Must be one of: ${validAdapters.join(", ")}`);
+        process.exit(1);
+      }
 
       // Use task intelligence for smart defaults when user doesn't override
       const smartBudget = resolveBudget(task);
@@ -214,70 +236,218 @@ agentCommand
       const isDefaultBudget = options.maxBudget === String(DEFAULT_SESSION_CONFIG.maxBudgetUsd);
       const isDefaultTurns = options.maxTurns === String(DEFAULT_SESSION_CONFIG.maxTurns);
 
-      const config: SessionConfig = {
-        taskDescription: task,
-        repoPath,
-        baseBranch: options.baseBranch,
-        model: isDefaultModel ? smartModel : options.model,
-        maxTurns: isDefaultTurns ? smartBudget.maxTurns : parseInt(options.maxTurns, 10),
-        maxBudgetUsd: isDefaultBudget ? smartBudget.budgetUsd : parseFloat(options.maxBudget),
-        allowedTools: [...DEFAULT_SESSION_CONFIG.allowedTools],
-        createPr: options.pr,
-        feedbackLoop: DEFAULT_FEEDBACK_LOOP_CONFIG,
-      };
+      const resolvedModel = isDefaultModel ? smartModel : options.model;
+      const resolvedMaxTurns = isDefaultTurns ? smartBudget.maxTurns : parseInt(options.maxTurns, 10);
+      const resolvedMaxBudgetUsd = isDefaultBudget ? smartBudget.budgetUsd : parseFloat(options.maxBudget);
 
+      // ── claude adapter: preserve existing runSession() behavior ──────
+      if (adapterType === "claude") {
+        const config: SessionConfig = {
+          taskDescription: task,
+          repoPath,
+          baseBranch: options.baseBranch,
+          model: resolvedModel,
+          maxTurns: resolvedMaxTurns,
+          maxBudgetUsd: resolvedMaxBudgetUsd,
+          allowedTools: [...DEFAULT_SESSION_CONFIG.allowedTools],
+          createPr: options.pr,
+          feedbackLoop: DEFAULT_FEEDBACK_LOOP_CONFIG,
+        };
+
+        console.log("Agent Session (local)");
+        console.log("─────────────────────");
+        console.log(`Task:       ${task}`);
+        console.log(`Model:      ${config.model}`);
+        console.log(`Budget:     ${formatCost(config.maxBudgetUsd)}`);
+        console.log(`Max turns:  ${config.maxTurns}`);
+        console.log(`Create PR:  ${config.createPr ? "yes" : "no"}`);
+        console.log("");
+
+        try {
+          const result = await runSession(config, (event) =>
+            handleEvent(event, options.verbose)
+          );
+
+          console.log("");
+          console.log("Result");
+          console.log("──────");
+          console.log(`Status:     ${formatStatus(result.status)}`);
+          console.log(`Branch:     ${result.branchName}`);
+          console.log(`Duration:   ${formatDuration(result.durationMs)}`);
+          console.log(`Cost:       ${formatCost(result.costUsd)}`);
+          console.log(`Turns:      ${result.numTurns}`);
+          console.log(
+            `Tokens:     ${result.tokenUsage.inputTokens.toLocaleString()} in / ${result.tokenUsage.outputTokens.toLocaleString()} out`
+          );
+
+          if (result.prUrl) {
+            console.log(`PR:         ${result.prUrl}`);
+          }
+
+          if (result.errors.length > 0) {
+            console.log("");
+            console.log("Errors:");
+            for (const error of result.errors) {
+              console.log(`  - ${error}`);
+            }
+          }
+
+          if (result.resultText && options.verbose) {
+            console.log("");
+            console.log("Agent output:");
+            console.log(result.resultText);
+          }
+
+          process.exit(result.status === "succeeded" ? 0 : 1);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          console.error(`\nFatal error: ${message}`);
+          process.exit(1);
+        }
+        return;
+      }
+
+      // ── auto / gemini / opencode: worktree-managed adapter path ──────
       console.log("Agent Session (local)");
       console.log("─────────────────────");
       console.log(`Task:       ${task}`);
-      console.log(`Model:      ${config.model}`);
-      console.log(`Budget:     ${formatCost(config.maxBudgetUsd)}`);
-      console.log(`Max turns:  ${config.maxTurns}`);
-      console.log(`Create PR:  ${config.createPr ? "yes" : "no"}`);
+      console.log(`Adapter:    ${adapterType}`);
+      console.log(`Model:      ${resolvedModel}`);
+      console.log(`Max turns:  ${resolvedMaxTurns}`);
+      console.log(`Create PR:  ${options.pr ? "yes" : "no"}`);
       console.log("");
 
       try {
-        const result = await runSession(config, (event) =>
-          handleEvent(event, options.verbose)
-        );
-
+        // Create isolated worktree for the adapter
+        const worktree = await createWorktree(repoPath, options.baseBranch, task);
+        console.log(`Worktree:   ${worktree.path}`);
+        console.log(`Branch:     ${worktree.branchName}`);
         console.log("");
-        console.log("Result");
-        console.log("──────");
-        console.log(`Status:     ${formatStatus(result.status)}`);
-        console.log(`Branch:     ${result.branchName}`);
-        console.log(`Duration:   ${formatDuration(result.durationMs)}`);
-        console.log(`Cost:       ${formatCost(result.costUsd)}`);
-        console.log(`Turns:      ${result.numTurns}`);
-        console.log(
-          `Tokens:     ${result.tokenUsage.inputTokens.toLocaleString()} in / ${result.tokenUsage.outputTokens.toLocaleString()} out`
-        );
 
-        if (result.prUrl) {
-          console.log(`PR:         ${result.prUrl}`);
-        }
+        const adapterCfg: AdapterConfig = {
+          taskDescription: task,
+          worktreePath: worktree.path,
+          repoPath,
+          baseBranch: options.baseBranch,
+          model: resolvedModel,
+          maxTurns: resolvedMaxTurns,
+          timeoutMs: resolvedMaxTurns * 120_000, // ~2 min per turn
+        };
 
-        if (result.errors.length > 0) {
-          console.log("");
-          console.log("Errors:");
-          for (const error of result.errors) {
-            console.log(`  - ${error}`);
+        try {
+          if (adapterType === "auto") {
+            // Failover routing across all adapters
+            const adapters = [new ClaudeAdapter(), new GeminiCliAdapter(), new OpenCodeAdapter()];
+            const detector = new RateLimitDetector(adapters.map((a) => a.name));
+            const router = new FailoverRouter(adapters, detector);
+
+            console.log("Routing to best available adapter...");
+            const routedResult = await router.route(adapterCfg);
+            console.log(`Routed to: ${routedResult.adapter}`);
+            console.log("");
+
+            await handleAdapterResult(
+              routedResult, worktree.path, worktree.branchName,
+              repoPath, options.baseBranch, task, options.pr,
+            );
+          } else {
+            // Direct adapter invocation (gemini or opencode)
+            const adapter = adapterType === "gemini"
+              ? new GeminiCliAdapter()
+              : new OpenCodeAdapter();
+
+            console.log(`Running ${adapter.name} adapter...`);
+            console.log("");
+
+            const adapterResult = await adapter.run(adapterCfg);
+
+            await handleAdapterResult(
+              adapterResult, worktree.path, worktree.branchName,
+              repoPath, options.baseBranch, task, options.pr,
+            );
+          }
+        } finally {
+          if (options.pr) {
+            await removeWorktree(repoPath, worktree.path, worktree.mode);
+          } else {
+            console.log(`Worktree preserved at: ${worktree.path}`);
           }
         }
-
-        if (result.resultText && options.verbose) {
-          console.log("");
-          console.log("Agent output:");
-          console.log(result.resultText);
-        }
-
-        process.exit(result.status === "succeeded" ? 0 : 1);
       } catch (error) {
+        if (error instanceof AllAdaptersUnavailableError) {
+          console.error("\nAll agent adapters are rate-limited or unavailable.");
+          if (error.cooldowns.size > 0) {
+            console.error("Cooldown times:");
+            for (const [adapterName, until] of error.cooldowns) {
+              const remainingMs = Math.max(0, until - Date.now());
+              const remainingSec = Math.ceil(remainingMs / 1000);
+              console.error(`  ${adapterName}: ${remainingSec}s remaining`);
+            }
+          }
+          process.exit(1);
+        }
         const message = error instanceof Error ? error.message : String(error);
         console.error(`\nFatal error: ${message}`);
         process.exit(1);
       }
     }
   );
+
+// ── Adapter result handler ──────────────────────────────────────────────
+
+async function handleAdapterResult(
+  result: AdapterResult,
+  worktreePath: string,
+  branchName: string,
+  repoPath: string,
+  baseBranch: string,
+  task: string,
+  createPr: boolean,
+): Promise<void> {
+  console.log("Result");
+  console.log("──────");
+  console.log(`Success:    ${result.success ? "yes" : "no"}`);
+  console.log(`Changes:    ${result.hasChanges ? "yes" : "no"}`);
+  console.log(`Duration:   ${formatDuration(result.durationMs)}`);
+
+  if (result.error) {
+    console.log(`Error:      ${result.error}`);
+  }
+
+  if (result.hasChanges && createPr) {
+    console.log("");
+    console.log("Running quality gates...");
+
+    const verification = await runVerification(worktreePath);
+    const verificationPassed = verification.passed;
+
+    if (!verificationPassed) {
+      const failures = [
+        !verification.lintOk && "lint",
+        !verification.typecheckOk && "typecheck",
+        !verification.testsOk && "tests",
+      ].filter(Boolean).join(", ");
+      console.log(`Quality gates failed (${failures}) - PR will be created as draft.`);
+    } else {
+      console.log("Quality gates passed.");
+    }
+
+    await pushBranch(worktreePath, branchName);
+
+    const pr = await createPullRequest({
+      title: buildPrTitle(task),
+      body: buildPrBody(task, "cli-adapter", 0, 0),
+      baseBranch,
+      branchName,
+      repoPath,
+      draft: !verificationPassed,
+    });
+
+    console.log(`PR:         ${pr.url}`);
+  }
+
+  process.exit(result.success ? 0 : 1);
+}
 
 // ── API-backed commands ──────────────────────────────────────────────────
 

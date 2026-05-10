@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useReducer } from "react";
 import type { TimeSlot, ReservationHold } from "@mbe/types";
 import { Input, TextArea, Button, Alert, Text } from "@mattbutlerengineering/rialto";
 import styles from "./GuestDetailsForm.module.css";
@@ -45,22 +45,16 @@ export function GuestDetailsForm({
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
-  const [holdTimeRemaining, setHoldTimeRemaining] = useState<string | null>(
-    hold ? computeHoldTimeRemaining(hold) : null
-  );
+  // Force re-render every second so the hold countdown stays current
+  const [, forceRender] = useReducer((c: number) => c + 1, 0);
 
-  // Tick the hold timer every second
   useEffect(() => {
     if (!hold) return;
-
-    const tick = () => {
-      setHoldTimeRemaining(computeHoldTimeRemaining(hold));
-    };
-
-    tick();
-    const interval = setInterval(tick, 1000);
+    const interval = setInterval(forceRender, 1000);
     return () => clearInterval(interval);
   }, [hold]);
+
+  const holdTimeRemaining = hold ? computeHoldTimeRemaining(hold) : null;
 
   // Format date and time for display
   const formattedDate = new Date(date + "T00:00:00").toLocaleDateString("en-US", {
@@ -102,11 +96,11 @@ export function GuestDetailsForm({
       <div className={styles.summaryCard}>
         <Text className={styles.summaryTitle}>Reservation Details</Text>
         <div className={styles.summaryDetails}>
-          <p>{formattedDate}</p>
-          <p>{formattedTime}</p>
-          <p>
+          <Text>{formattedDate}</Text>
+          <Text>{formattedTime}</Text>
+          <Text>
             {partySize} {partySize === 1 ? "guest" : "guests"}
-          </p>
+          </Text>
         </div>
       </div>
 
@@ -137,7 +131,7 @@ export function GuestDetailsForm({
           placeholder="(555) 123-4567"
         />
 
-        <p className={styles.hint}>Please provide either email or phone for confirmation.</p>
+        <Text className={styles.hint}>Please provide either email or phone for confirmation.</Text>
 
         <TextArea
           label="Special Requests"

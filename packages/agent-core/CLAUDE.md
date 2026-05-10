@@ -94,6 +94,49 @@ Agents run in `permissionMode: "acceptEdits"` with a `canUseTool` handler.
 | sonnet | `ci-fix` label, simple features, default | claude-sonnet-4-6 |
 | opus | `feature` label + complexity keywords (architect, refactor, migration, breaking change, schema change, multi-service) | claude-opus-4-6 |
 
+## Multi-CLI Adapters
+
+Supports dispatching agent tasks to Claude Code (SDK), Gemini CLI, or OpenCode CLI via a unified `AgentAdapter` interface.
+
+### Architecture
+
+```
+AdapterConfig (task + worktree + model)
+  → FailoverRouter (priority-cascade)
+    → RateLimitDetector (per-adapter cooldown tracking)
+    → Try adapters in order: claude → gemini → opencode
+    → Skip if rate-limited or CLI not installed
+    → Return RoutedAdapterResult (includes adapter attribution)
+```
+
+### Adapters
+
+| Adapter | Backend | CLI binary | Key behavior |
+|---------|---------|-----------|--------------|
+| `ClaudeAdapter` | Claude Agent SDK | `claude` | Native SDK integration via `runSession()` |
+| `GeminiCliAdapter` | Gemini CLI | `gemini` | Subprocess: `gemini run --non-interactive` |
+| `OpenCodeAdapter` | OpenCode CLI | `opencode` | Subprocess: `opencode run --json` |
+
+### Key Modules
+
+| Module | Responsibility |
+|--------|---------------|
+| `cli-adapter.ts` | `AgentAdapter` interface, `AdapterConfig`, `AdapterResult` types |
+| `adapters/claude-adapter.ts` | Wraps `runSession()` as an adapter |
+| `adapters/gemini-adapter.ts` | Subprocess dispatch to Gemini CLI |
+| `adapters/opencode-adapter.ts` | Subprocess dispatch to OpenCode CLI |
+| `rate-limit-detector.ts` | Tracks consecutive failures and cooldown expiry per adapter |
+| `failover-router.ts` | Priority-cascade dispatch, throws `AllAdaptersUnavailableError` when exhausted |
+
+### Usage via CLI
+
+```bash
+mbe agent run "task" --adapter auto      # Failover: claude → gemini → opencode
+mbe agent run "task" --adapter gemini    # Direct dispatch to Gemini CLI
+mbe agent run "task" --adapter opencode  # Direct dispatch to OpenCode CLI
+mbe agent run "task" --adapter claude    # Default — uses Claude SDK directly
+```
+
 ## Stuck Detection
 
 `createStuckDetector()` ingests SDK messages and returns `StuckPattern | null`.

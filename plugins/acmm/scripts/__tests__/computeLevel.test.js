@@ -66,7 +66,7 @@ test("ALL_CRITERIA: 4 sources, level distribution covers L0–L6", () => {
 test("ALL_CRITERIA: every criterion has detection.type and pattern", () => {
   for (const c of ALL_CRITERIA) {
     assert.ok(c.detection, `criterion ${c.id} missing detection`);
-    assert.ok(["path", "any-of", "glob", "active"].includes(c.detection.type), `${c.id} has invalid detection type`);
+    assert.ok(["path", "any-of", "glob", "active", "grep"].includes(c.detection.type), `${c.id} has invalid detection type`);
     assert.ok(c.detection.pattern, `${c.id} missing detection pattern`);
   }
 });

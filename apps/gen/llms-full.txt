@@ -31,6 +31,46 @@
     }
   </file>
   </section>
+  <section priority="medium" role="e2e">
+  <file path="e2e/fixtures.ts">
+    export const test = base.extend<{ authPage: Page }>({
+      authPage: async ({ page }, use) => {
+        await injectAuth0Session(page);
+        await use(page);
+      },
+    });
+  </file>
+  <file path="e2e/auth-helpers.ts">
+    interface Auth0Config {
+      domain: string;
+      clientId: string;
+      audience: string;
+      email: string;
+      password: string;
+    }
+    function getAuth0Config(): Auth0Config {
+      const domain = process.env.E2E_AUTH0_DOMAIN;
+      const clientId = process.env.E2E_AUTH0_CLIENT_ID;
+      const audience = process.env.E2E_AUTH0_AUDIENCE;
+      const email = process.env.E2E_AUTH_EMAIL;
+      const password = process.env.E2E_AUTH_PASSWORD;
+    
+      if (!domain || !clientId || !audience || !email || !password) {
+        throw new Error(
+          "Missing required E2E auth env vars. Required:\n" +
+            "  E2E_AUTH0_DOMAIN      — Auth0 tenant domain (e.g. dev-xxx.us.auth0.com)\n" +
+            "  E2E_AUTH0_CLIENT_ID   — Auth0 app client ID (ROPC-enabled)\n" +
+            "  E2E_AUTH0_AUDIENCE    — API audience identifier\n" +
+            "  E2E_AUTH_EMAIL        — Test user email\n" +
+            "  E2E_AUTH_PASSWORD     — Test user password\n\n" +
+            "The Auth0 app must have the Password grant type enabled and the test user must not have MFA."
+        );
+      }
+    
+      return { domain, clientId, audience, email, password };
+    }
+  </file>
+  </section>
   <section priority="medium" role="utils">
   <file path="src/utils/relative-time.ts">
     export function relativeTime(date: Date): string {

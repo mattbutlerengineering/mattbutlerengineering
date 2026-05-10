@@ -79,7 +79,7 @@ export function getPoolMetrics(): PoolMetrics {
     busy,
     size: CONNECTION_LIMIT,
     utilization,
-    isDegraded: utilization > POOL_UTILIZATION_THRESHOLD,
+    isDegraded: utilization >= POOL_UTILIZATION_THRESHOLD,
   };
 }
 

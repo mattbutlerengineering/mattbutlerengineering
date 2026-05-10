@@ -33,6 +33,10 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
 
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+
       - name: Validate schema via Prisma migrations
         env:
           PGHOST: localhost
@@ -40,9 +44,12 @@ jobs:
           PGUSER: verify
           PGPASSWORD: verify_test_only
           PGDATABASE: verify_restore
-          NODE_PATH: /usr/local/lib/node_modules
         run: |
           npm install -g prisma@7
+          # Set NODE_PATH dynamically so "prisma/config" is resolvable from any
+          # service directory regardless of whether Node is nvm-managed or system.
+          # Hardcoding /usr/local/lib/node_modules breaks when setup-node uses nvm.
+          export NODE_PATH="$(npm root -g)"
 
           for SERVICE in users reservations agent; do
             if [ -f "services/$SERVICE/prisma.config.ts" ]; then
