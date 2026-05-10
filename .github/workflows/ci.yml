@@ -11,12 +11,6 @@ on:
       - "LICENSE"
   pull_request:
     branches: [main]
-    paths-ignore:
-      - "**.md"
-      - "docs/**"
-      - "*.png"
-      - ".gitignore"
-      - "LICENSE"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -26,8 +20,37 @@ permissions:
   contents: read
 
 jobs:
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      has_code: ${{ steps.filter.outputs.has_code }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+        with:
+          fetch-depth: 0
+
+      - name: Check for code changes
+        id: filter
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "has_code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          CODE_CHANGES=$(git diff --name-only "origin/$BASE_REF"...HEAD -- . ':!*.md' ':!docs/' ':!*.png' ':!.gitignore' ':!LICENSE' | wc -l | tr -d ' ')
+          if [ "$CODE_CHANGES" -gt 0 ]; then
+            echo "has_code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_code=false" >> "$GITHUB_OUTPUT"
+          fi
+
   prepare:
     name: Prepare
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.has_code == 'true'
     runs-on: ubuntu-latest
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
@@ -86,6 +109,8 @@ jobs:
 
   hadolint:
     name: Dockerfile Lint
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.has_code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -353,7 +378,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run a11y tests (accessibility vitest)
-        run: pnpm --dir packages/rialto vitest run --reporter=json --outputFile=../../a11y-results.json src/test/accessibility src/test/token-contrast.test.ts
+        run: pnpm --dir packages/rialto vitest run --reporter=json --outputFile=../../a11y-results.json src/test/accessibility src/test/token-contrast.test.ts  # accessibility
         continue-on-error: true
 
       - name: Process results for attribution
@@ -573,7 +598,8 @@ jobs:
   # ──────────────────────────────────────────────────────────────────────────
   migration-dry-run:
     name: Migration Dry-Run
-    if: github.event_name == 'pull_request'
+    needs: [detect-changes]
+    if: github.event_name == 'pull_request' && needs.detect-changes.outputs.has_code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -677,3 +703,28 @@ jobs:
           fi
 
           echo "✓ All migrations applied successfully"
+
+  ci-gate:
+    name: CI Gate
+    if: always()
+    needs: [lint, typecheck, architecture-audit, build, test, hadolint, migrations, migration-dry-run]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check required job results
+        env:
+          LINT: ${{ needs.lint.result }}
+          TYPECHECK: ${{ needs.typecheck.result }}
+          ARCH: ${{ needs.architecture-audit.result }}
+          BUILD: ${{ needs.build.result }}
+          TEST: ${{ needs.test.result }}
+          HADOLINT: ${{ needs.hadolint.result }}
+          MIGRATIONS: ${{ needs.migrations.result }}
+          DRY_RUN: ${{ needs.migration-dry-run.result }}
+        run: |
+          echo "lint=$LINT typecheck=$TYPECHECK arch=$ARCH build=$BUILD test=$TEST hadolint=$HADOLINT migrations=$MIGRATIONS dry-run=$DRY_RUN"
+          for job_result in "$LINT" "$TYPECHECK" "$ARCH" "$BUILD" "$TEST" "$HADOLINT" "$MIGRATIONS" "$DRY_RUN"; do
+            if [ "$job_result" = "failure" ] || [ "$job_result" = "cancelled" ]; then
+              echo "::error::Required job failed or was cancelled"
+              exit 1
+            fi
+          done
