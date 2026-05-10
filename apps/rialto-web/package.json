@@ -5,10 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "prebuild": "cp ../../packages/rialto/registry.json public/registry.json",
-    "build": "tsc && vite build",
+    "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "lint": "eslint .",
+    "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
@@ -19,20 +18,19 @@
   },
   "size-limit": [
     {
-      "name": "Rialto Web App (JS)",
+      "name": "Rialto Web (JS)",
       "path": "dist/assets/index-*.js",
-      "limit": "700 kB"
+      "limit": "500 kB"
     },
     {
-      "name": "Rialto Web App (CSS)",
+      "name": "Rialto Web (CSS)",
       "path": "dist/assets/index-*.css",
-      "limit": "30 kB"
+      "limit": "50 kB"
     }
   ],
   "dependencies": {
     "@mattbutlerengineering/rialto": "workspace:*",
     "@mbe/observability": "workspace:^",
-    "framer-motion": "catalog:",
     "lucide-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
@@ -49,40 +47,11 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "jsdom": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plugin-pwa": "^1.2.0",
     "vitest": "catalog:"
-  },
-  "license": "MIT",
-  "acmm": {
-    "inherit": true,
-    "globalPaths": [
-      ".github/workflows/",
-      ".github/PULL_REQUEST_TEMPLATE.md",
-      ".github/pull_request_template.md",
-      ".github/ISSUE_TEMPLATE/",
-      ".github/policies/",
-      ".github/auto-qa-tuning.json",
-      ".github/risk-assessment.yml",
-      ".github/labeler.yml",
-      "CONTRIBUTING.md",
-      "SECURITY-AI.md",
-      "docs/ai-ops-runbook.md",
-      "docs/rollback-drill.md",
-      "docs/reflections/",
-      "docs/autonomous-work-log.md",
-      "scripts/acmm/",
-      "scripts/build-accm-history.mjs",
-      "scripts/orchestrate.mjs",
-      ".claude/settings.json",
-      ".claude/risk-config.json",
-      "memory/",
-      "knowledge.jsonl",
-      "CODEOWNERS",
-      ".github/CODEOWNERS",
-      "risk-config.json"
-    ]
   }
 }

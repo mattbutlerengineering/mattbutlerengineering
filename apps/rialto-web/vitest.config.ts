@@ -7,6 +7,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": resolve(__dirname, "./src"),
+      "@mbe/types": resolve(__dirname, "../../packages/types/src/index.ts"),
     },
   },
   css: {
@@ -17,8 +18,24 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "jsdom",
+    setupFiles: ["./src/setupTests.ts"],
     include: ["src/**/*.test.{ts,tsx}"],
     exclude: [...defaultExclude, "**/*.spec.ts"],
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json", "html"],
+      include: ["src/**/*.ts", "src/**/*.tsx"],
+      exclude: [
+        "src/**/*.test.{ts,tsx}",
+        "src/main.tsx",
+        "src/vite-env.d.ts",
+        "src/routes.tsx",
+        "src/pages/**", // Exclude static documentation pages
+      ],
+      thresholds: {
+        lines: 30, // Appropriate threshold for layout/context wrappers
+      },
+    },
     css: {
       modules: {
         classNameStrategy: "non-scoped",
