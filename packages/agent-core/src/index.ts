@@ -266,6 +266,17 @@ export type {
 // Output sanitization (XSS prevention for AI-generated content)
 export { escapeHtml, sanitizeStreamChunk, createSanitizedStream } from "./sanitize-output.js";
 
+// CLI adapter interface (multi-backend dispatch)
+export type {
+  AdapterConfig,
+  AdapterResult,
+  AdapterState,
+  AgentAdapter,
+} from "./cli-adapter.js";
+
+// Rate-limit detection and cooldown management
+export { RateLimitDetector, scanForRateLimitPatterns } from "./rate-limit-detector.js";
+
 // Bundle size tracking
 export {
   measureAppBundleSize,
