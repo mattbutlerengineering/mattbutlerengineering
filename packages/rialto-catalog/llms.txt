@@ -7,7 +7,7 @@
   </file>
   <file path="src/catalog.ts">
     <item priority="high">
-      export const catalog: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
+      export const catalog: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
     </item>
   </file>
   <file path="src/catalog-config.ts">
