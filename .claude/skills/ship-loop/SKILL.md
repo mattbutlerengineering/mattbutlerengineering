@@ -207,7 +207,8 @@ for issue in $BATCH; do
   mbe agent run "<issue title> (closes #<issue_number>)" \
     --model claude-sonnet-4-6 \
     --max-budget 1.00 \
-    --max-turns 50 &
+    --max-turns 50 \
+    --adapter auto &
 done
 
 # Wait for all to complete

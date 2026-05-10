@@ -29,11 +29,21 @@ import { measureEvals } from "./evals.js";
 import path from "node:path";
 import fs from "node:fs";
 
-const args = new Set(process.argv.slice(2));
-const APPLY = args.has("--apply");
-const BADGE = args.has("--badge");
-const TREND = args.has("--trend");
-const STRICT = !args.has("--no-strict");
+const args = process.argv.slice(2);
+const argSet = new Set(args);
+const APPLY = argSet.has("--apply");
+const BADGE = argSet.has("--badge");
+const TREND = argSet.has("--trend");
+const STRICT = !argSet.has("--no-strict");
+
+// Parse --label <label> support
+const EXTRA_LABELS = [];
+for (let i = 0; i < args.length; i++) {
+  if (args[i] === "--label" && args[i + 1]) {
+    EXTRA_LABELS.push(args[i + 1]);
+    i++;
+  }
+}
 
 // --project <path> support
 let projectPath = process.cwd();
@@ -257,7 +267,7 @@ if (APPLY) {
     // File issues only for criteria gating the NEXT level — avoids issue spam
     // for L5/L6 items when we're still climbing L3.
     const failingForNext = computation.missingForNextLevel;
-    applyResult = applyIssuesForFailures(failingForNext, prior.issuesCreated || {});
+    applyResult = applyIssuesForFailures(failingForNext, prior.issuesCreated || {}, { extraLabels: EXTRA_LABELS });
     saveState(cwd, { ...nextState, issuesCreated: applyResult.issuesCreated });
   } catch (err) {
     console.error(`--apply failed: ${err instanceof Error ? err.message : String(err)}`);

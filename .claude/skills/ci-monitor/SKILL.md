@@ -53,7 +53,7 @@ If an open `ci-fix` issue already exists for this failure, **skip it** — it is
 #### 2c: Auto-Fix Simple Failures
 
 ```bash
-mbe agent run "Fix CI failure: <concise description of error from logs>" --max-budget 0.50
+mbe agent run "Fix CI failure: <concise description of error from logs>" --max-budget 0.50 --adapter auto
 ```
 
 The agent will create a PR with the fix. After completion:
@@ -112,7 +112,7 @@ If an agent-created PR has failing checks:
 gh pr checks <NUMBER> --json name,state,conclusion
 
 # Attempt a fix on the PR branch
-mbe agent run "Fix failing CI checks on PR #<NUMBER>: <failure description>" --max-budget 0.50
+mbe agent run "Fix failing CI checks on PR #<NUMBER>: <failure description>" --max-budget 0.50 --adapter auto
 ```
 
 ### Step 4: Report Status
