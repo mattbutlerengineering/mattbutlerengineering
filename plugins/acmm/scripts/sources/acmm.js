@@ -297,8 +297,8 @@ const CRITERIA= [
     description: 'A dashboard or page that renders the AI loop metrics.',
     rationale: 'L3 visibility: metrics you can see are the ones that get acted on.',
     details: 'A quality dashboard is a visible page or widget that renders your AI loop metrics — PR acceptance rates, coverage trends, review turnaround, test pass rates — in one place. Metrics that are not visible are metrics that get ignored; a dashboard makes them actionable. An AI mission will create an analytics page or embed that pulls data from your CI and displays it as charts and trend lines.',
-    detection: { type: 'any-of', pattern: ['web/public/analytics.js', 'web/src/components/analytics/'] },
-    referencePath: 'web/public/analytics.js',
+    detection: { type: 'grep', pattern: { file: 'apps/marketing/src/App.tsx', contains: '/metrics' } },
+    referencePath: 'apps/marketing/src/App.tsx',
   },
   {
     id: 'acmm:ci-matrix',
@@ -432,7 +432,7 @@ const CRITERIA= [
     description: 'Scheduled workflow that re-validates the codebase against its rules every night.',
     rationale: 'L4 drift detection: noticing when the loop itself has broken.',
     details: 'A nightly compliance scan is a scheduled CI workflow that runs your full test suite, linters, and security checks on a cron schedule (typically every night). It catches regressions that slip through PR-level checks — like a dependency update that passes its own tests but breaks an unrelated feature. An AI mission will add a nightly GitHub Actions workflow that runs your complete validation pipeline and opens issues on failure.',
-    detection: { type: 'any-of', pattern: ['.github/workflows/nightly-compliance.yml', '.github/workflows/nightly.yml', '.github/workflows/nightly-test.yml', '.github/workflows/nightly-test-suite.yml'] },
+    detection: { type: 'active', pattern: ['.github/workflows/nightly-compliance.yml', '.github/workflows/nightly.yml', '.github/workflows/nightly-test.yml', '.github/workflows/nightly-test-suite.yml'], maxAgeDays: 7 },
   },
   {
     id: 'acmm:copilot-review-apply',
@@ -744,7 +744,7 @@ const CRITERIA= [
     description: 'A published metrics endpoint or analytics page that external reviewers can audit.',
     rationale: 'The self-running codebase must be inspectable from outside.',
     details: 'A public metrics endpoint is an API or web page that exposes your project\'s health and maturity metrics to external stakeholders — CNCF reviewers, adopters, or the community. It makes the project\'s quality claims verifiable rather than self-reported. An AI mission will create an endpoint that serves your ACMM level, coverage stats, and CI pass rates as JSON or a web page.',
-    detection: { type: 'any-of', pattern: ['web/netlify/functions/analytics-accm.mts', 'web/public/analytics.js'] },
+    detection: { type: 'grep', pattern: { file: '.github/workflows/pr-metrics.yml', contains: 'pages' } },
   },
   {
     id: 'acmm:policy-as-code',
