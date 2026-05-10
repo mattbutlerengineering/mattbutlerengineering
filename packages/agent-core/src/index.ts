@@ -275,7 +275,9 @@ export type {
 } from "./cli-adapter.js";
 
 // CLI adapters (multi-backend dispatch)
+export { ClaudeAdapter } from "./adapters/claude-adapter.js";
 export { GeminiCliAdapter } from "./adapters/gemini-adapter.js";
+export { OpenCodeAdapter } from "./adapters/opencode-adapter.js";
 
 // Rate-limit detection and cooldown management
 export { RateLimitDetector, scanForRateLimitPatterns } from "./rate-limit-detector.js";
