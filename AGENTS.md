@@ -54,7 +54,14 @@ node plugins/acmm/scripts/audit.js --trend        # Print level history from sta
 
 Output: `.claude/acmm/state.json` (machine-readable) and `.claude/acmm/report.md` (human-readable scorecard). Tests: `node --test plugins/acmm/scripts/__tests__/`.
 
-`mbe` CLI subcommands (real binary): `agent`, `stats`, `up`, `pack`, `prime`, `new`, `generate`, `check-adr`, `check-deps`, `check-model`, `cleanup-worktrees`, `health`, `compound`, `loop`, `wave`, `visual`, `users`, `login`/`logout`/`whoami`, `sync-rules`. Run `mbe --help` for current list.
+### Synthetic Bug Audit (#1191)
+
+The system includes a **Chaos Agent** and **Revert RCA Loop** to ensure high signal quality and continuous learning:
+- **Chaos Agent:** Scheduled script (`scripts/chaos-agent.mjs`) that seeds detectable non-breaking bugs (console errors, Lighthouse regressions, a11y violations) to verify that audit loops catch them.
+- **Revert RCA Loop:** Automatic trigger (`scripts/revert-rca.mjs`) that fires when an AI PR is reverted. It creates a critical RCA issue tasked for an agent to perform a Root Cause Analysis and update `.claude/rules/gotchas.md`.
+
+`mbe` CLI subcommands (real binary):
+ `agent`, `stats`, `up`, `pack`, `prime`, `new`, `generate`, `check-adr`, `check-deps`, `check-model`, `cleanup-worktrees`, `health`, `compound`, `loop`, `wave`, `visual`, `users`, `login`/`logout`/`whoami`, `sync-rules`. Run `mbe --help` for current list.
 
 ---
 
