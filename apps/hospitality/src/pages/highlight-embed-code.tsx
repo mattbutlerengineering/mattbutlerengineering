@@ -5,9 +5,9 @@ import styles from "./BookingWidgetDemoPage.module.css";
 /**
  * Syntax-highlights embed code for display in a `<pre><code>` block.
  *
- * The regex for HTML tags explicitly matches tag-name + attribute pairs
- * rather than using a generic `[^>]*` pattern, which avoids the CodeQL
- * `js/bad-tag-filter` alert.
+ * The regex patterns are carefully crafted to:
+ * 1. Match HTML comments including multi-line comments (no ReDoS risk on hardcoded input)
+ * 2. Match HTML tags with proper attribute handling (no exponential backtracking)
  */
 export function highlightEmbedCode(code: string): ReactNode[] {
   const lines = code.split("\n");
@@ -17,32 +17,28 @@ export function highlightEmbedCode(code: string): ReactNode[] {
     let keyIndex = 0;
 
     while (remaining.length > 0) {
-      // HTML comments (input is a hardcoded embed template, not user data)
-      // lgtm[js/bad-tag-filter]
-      const commentMatch = remaining.match(/^(<!--.*?-->)/);
+      // HTML comments — match single-line or multi-line comments
+      const commentMatch = remaining.match(/^<!--[\s\S]*?-->/);
       if (commentMatch) {
         parts.push(
           <span key={keyIndex++} className={styles.syntaxComment}>
-            {commentMatch[1]}
+            {commentMatch[0]}
           </span>
         );
-        remaining = remaining.slice(commentMatch[1].length);
+        remaining = remaining.slice(commentMatch[0].length);
         continue;
       }
 
-      // HTML tags — match tag name + optional attributes (name="value" pairs)
-      // Input is a hardcoded embed template, not user data
-      // lgtm[js/redos]
-      const tagMatch = remaining.match(
-        /^(<\/?[a-zA-Z][a-zA-Z0-9]*(?:\s+[a-zA-Z][a-zA-Z0-9-]*(?:=(?:"[^"]*"|'[^']*'|[^\s>]+))?)*\s*\/?>)/
-      );
+      // HTML tags — matches: <tag>, <tag attr="val">, </tag>, <tag/>
+      // Uses [^\s>]* for unquoted attr values (no exponential backtracking)
+      const tagMatch = remaining.match(/^<\/?[a-zA-Z][a-zA-Z0-9]*(?:\s+[a-zA-Z][a-zA-Z0-9-]*(?:="[^"]*"|='[^']*'|[^\s>]*))*(?:\s*\/)?>/);
       if (tagMatch) {
         parts.push(
           <span key={keyIndex++} className={styles.syntaxTag}>
-            {tagMatch[1]}
+            {tagMatch[0]}
           </span>
         );
-        remaining = remaining.slice(tagMatch[1].length);
+        remaining = remaining.slice(tagMatch[0].length);
         continue;
       }
 
@@ -58,8 +54,8 @@ export function highlightEmbedCode(code: string): ReactNode[] {
         continue;
       }
 
-      // JS line comments
-      const jsCommentMatch = remaining.match(/^(\/\/.*)/);
+      // JS line comments (with optional leading whitespace)
+      const jsCommentMatch = remaining.match(/^\s*(\/\/.*)/);
       if (jsCommentMatch) {
         parts.push(
           <span key={keyIndex++} className={styles.syntaxComment}>
