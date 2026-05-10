@@ -50,6 +50,7 @@ node plugins/acmm/scripts/audit.js --apply       # Also files GitHub issues for 
 node plugins/acmm/scripts/audit.js --badge        # Also rewrites README badge
 node plugins/acmm/scripts/audit.js --apply --badge # Full run
 node plugins/acmm/scripts/audit.js --trend        # Print level history from state.json
+node plugins/acmm/scripts/evals/index.js --report # Print instruction regression results
 ```
 
 Output: `.claude/acmm/state.json` (machine-readable) and `.claude/acmm/report.md` (human-readable scorecard). Tests: `node --test plugins/acmm/scripts/__tests__/`.

@@ -98,19 +98,7 @@ When spawning subagents with `isolation: "worktree"`, always include `pnpm insta
 
 ## Before Committing
 
-Always perform this **Zero-Touch Audit** before committing:
-1.  **Run Verifications:**
-    ```bash
-    pnpm lint        # Check code style
-    pnpm typecheck   # Verify types
-    pnpm test        # Run all tests
-    ```
-2.  **Scan for Markers:** Search for `<<<<`, `====`, or `>>>>` in modified files.
-3.  **Verify Imports:** Check that every new component/function usage has an import.
-4.  **Update Generated Files:**
-    - If schemas/RIALTO changed: `pnpm build && mbe pack`
-    - If dependencies changed: `pnpm --dir tools/mbe generate-dep-graph`
-5.  **Sync Infrastructure:** Check Dockerfiles if package dependencies changed.
+Always perform the **Zero-Touch Audit** defined in [AGENTS.md](./AGENTS.md) before committing. This includes running `pnpm lint`, `pnpm typecheck`, and `pnpm test`, scanning for conflict markers, verifying imports, and updating generated files.
 
 **Known gotchas:** see [.claude/rules/gotchas.md](./.claude/rules/gotchas.md) — covers pre-commit, builds, CI, dependencies, releases, tooling artifacts, and Prisma/DO migrate.
 
