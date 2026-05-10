@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+/* global console, process */
+
 /**
  * Onboarding Benchmark -- measures 'codebase as model' effectiveness.
  *
