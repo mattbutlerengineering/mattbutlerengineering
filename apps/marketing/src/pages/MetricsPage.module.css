@@ -1,0 +1,42 @@
+.container {
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+.header {
+  margin-bottom: 2.5rem;
+}
+
+.subtitle {
+  margin-top: 0.5rem;
+  opacity: 0.6;
+  font-size: 0.9375rem;
+}
+
+.section {
+  margin-bottom: 2.5rem;
+}
+
+.sectionTitle {
+  margin-bottom: 1rem;
+  opacity: 0.8;
+}
+
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 1rem;
+}
+
+.statCard {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.meta {
+  font-size: 0.8125rem;
+  opacity: 0.55;
+}
