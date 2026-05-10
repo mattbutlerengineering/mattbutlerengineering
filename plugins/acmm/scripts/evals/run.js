@@ -31,7 +31,7 @@ export async function runEval(task, opts = {}) {
   const t0 = Date.now();
 
   /** @type {import("./score.js").SessionOutcome} */
-  let outcome = { completed: false, verification: "skip", diffSize: 0, touchedFiles: [] };
+  let outcome = { completed: false, verification: "skip", diffSize: 0, touchedFiles: [], calledTools: [] };
   /** @type {number | undefined} */
   let costUsd;
   /** @type {number | undefined} */
@@ -83,6 +83,7 @@ export async function dryRunRunner(task) {
       verification: willPass ? "pass" : "fail",
       diffSize: willPass ? Math.min(task.rubric.diffSizeMax, 3) : task.rubric.diffSizeMax + 5,
       touchedFiles: willPass ? [...task.rubric.mustTouch] : [],
+      calledTools: willPass ? [...(task.rubric.mustCall || [])] : [],
     },
     costUsd: 0,
     numTurns: 0,
@@ -105,6 +106,7 @@ export async function defaultRunner(task, opts = {}) {
   const args = [
     "agent", "run", task.prompt,
     "--no-pr",
+    "--verbose",
     "--model", task.model,
     "--max-budget", String(task.maxBudgetUsd),
     "--max-turns", String(task.maxTurns),
@@ -163,11 +165,17 @@ export async function defaultRunner(task, opts = {}) {
   const worktreeMatch = stdout.match(/Branch:\s+(\S+)/);
   const worktreePath = worktreeMatch ? `${repoPath}/../${worktreeMatch[1]}` : null;
 
+  // Extract tool calls from verbose output
+  // Matches "Tool: name" or "Calling tool: name"
+  const toolMatches = stdout.matchAll(/(?:Tool|Calling tool):\s+(\w+)/g);
+  const calledTools = [...new Set([...toolMatches].map(m => m[1]))];
+
   const outcome = {
     completed: true,
     verification: "pass",
     diffSize: worktreePath && existsSync(worktreePath) ? countDiffLines(worktreePath) : 0,
     touchedFiles: worktreePath && existsSync(worktreePath) ? listChangedFiles(worktreePath) : [],
+    calledTools,
   };
 
   return { outcome, costUsd: undefined, numTurns: undefined };
