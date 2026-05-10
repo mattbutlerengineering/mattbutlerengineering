@@ -4,6 +4,8 @@ import { BookingWidget } from "./BookingWidget.js";
 import { createApiClient } from "@mbe/api-client";
 import React from "react";
 
+process.env.TZ = "UTC";
+
 vi.mock("@mbe/api-client", () => ({
   createApiClient: vi.fn(),
 }));
