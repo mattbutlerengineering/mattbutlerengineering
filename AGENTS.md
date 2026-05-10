@@ -81,7 +81,7 @@ To minimize human intervention and maintain a low human-touch ratio, agents must
 
 ### Routing & URLs
 - Served via Cloudflare Worker `edge-router` at `mattbutlerengineering.com`.
-- Apps use path-prefix routing (e.g., `apps/foo` -> `/foo`).
+- Apps use path-prefix routing (e.g., `apps/hospitality` -> `/hospitality`).
 - API services at `api.mattbutlerengineering.com` (DO App Platform).
 
 ### Auth0 Configuration

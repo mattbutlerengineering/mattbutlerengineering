@@ -84,7 +84,7 @@
       }
     </item>
     <item priority="high">
-      export const characterLimits: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
+      export const characterLimits: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
     </item>
   </file>
   </section>
@@ -92,6 +92,14 @@
   <file path="src/utils/service-worker.ts">
     <item priority="high">
       export function unregisterStaleServiceWorkers(exemptedScopes: string[] = ["/hospitality/"]): void { /* ... */ }
+    </item>
+  </file>
+  <file path="src/utils/feedback.ts">
+    <item priority="high">
+      export function triggerHapticFeedback(): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function playClickSound(): void { /* ... */ }
     </item>
   </file>
   </section>
@@ -125,8 +133,8 @@
   <file path="src/providers/useUIEnvironment.ts">
     <item priority="low">
       interface UIEnvironment {
-        device: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
-        vibe: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
+        device: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
+        vibe: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
         theme: "light" | "dark";
       }
     </item>
@@ -211,7 +219,7 @@
         id: string;
         title: string;
         description?: string | undefined;
-        variant?: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
+        variant?: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
         duration?: number | undefined;
       }
     </item>
@@ -261,7 +269,7 @@
           "reservationA...;
     </item>
     <item priority="high">
-      export const DEFAULT_STRINGS: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
+      export const DEFAULT_STRINGS: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
     </item>
   </file>
   <file path="src/components/TapeChart/dateMath.ts">
@@ -324,7 +332,7 @@
         frames?: readonly (readonly (readonly boolean[])[])[] | undefined;
         rows: number;
         cols: number;
-        mode?: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
+        mode?: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
       }
     </item>
   </file>

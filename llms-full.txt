@@ -795,83 +795,6 @@
     }
     export type FeatureFlagMap = Record<string, FeatureFlag>;
   </file>
-  <file path="packages/api-versioning/src/fastify.ts">
-    export interface ApiVersioningOptions {
-      currentVersion: string;
-      successorVersion?: string;
-      sunsetMonthsFromNow?: number;
-    }
-  </file>
-  <file path="packages/agent-test-utils/src/worktree-simulator.ts">
-    export type RepoState = "clean" | "dirty" | "conflicted";
-    export interface SimulatedFile {
-      readonly path: string;
-      readonly content: string;
-      readonly status?: "modified" | "added" | "deleted" | "conflicted";
-    }
-  </file>
-  <file path="packages/agent-test-utils/src/session-fixtures.ts">
-    export interface ToolCallRecord {
-      readonly toolName: string;
-      readonly input: Record<string, unknown>;
-      readonly output?: string;
-    }
-    export interface FixtureOptions {
-      readonly sessionId?: string;
-      readonly numTurns?: number;
-      readonly costUsd?: number;
-      readonly inputTokens?: number;
-      readonly outputTokens?: number;
-      readonly durationMs?: number;
-      readonly resultText?: string;
-      readonly toolCalls?: readonly ToolCallRecord[];
-    }
-  </file>
-  <file path="packages/agent-test-utils/src/mock-claude-client.ts">
-    export type MockMode = "replay" | "deterministic";
-    export interface MockTokenUsage {
-      readonly input_tokens: number;
-      readonly output_tokens: number;
-      readonly cache_creation_input_tokens: number;
-      readonly cache_read_input_tokens: number;
-    }
-  </file>
-  <file path="packages/agent-test-utils/src/cost-estimator.ts">
-    export interface ModelPricing {
-      readonly model: string;
-      /** Cost per 1M input tokens in USD */
-      readonly inputCostPer1MTokens: number;
-      /** Cost per 1M output tokens in USD */
-      readonly outputCostPer1MTokens: number;
-      /** Cost per 1M cache-write tokens in USD */
-      readonly cacheWritePer1MTokens?: number;
-      /** Cost per 1M cache-read tokens in USD */
-      readonly cacheReadPer1MTokens?: number;
-    }
-    export const MODEL_PRICING: Record<string, ModelPricing> = {
-      "claude-sonnet-4-6": {
-        model: "claude-sonnet-4-6",
-        inputCostPer1MTokens: 3.0,
-        outputCostPer1MTokens: 15.0,
-        cacheWritePer1MTokens: 3.75,
-        cacheReadPer1MTokens: 0.3,
-      },
-      "claude-haiku-4-5": {
-        model: "claude-haiku-4-5",
-        inputCostPer1MTokens: 0.8,
-        outputCostPer1MTokens: 4.0,
-        cacheWritePer1MTokens: 1.0,
-        cacheReadPer1MTokens: 0.08,
-      },
-      "claude-opus-4-5": {
-        model: "claude-opus-4-5",
-        inputCostPer1MTokens: 15.0,
-        outputCostPer1MTokens: 75.0,
-        cacheWritePer1MTokens: 18.75,
-        cacheReadPer1MTokens: 1.5,
-      },
-    } as const;
-  </file>
   <file path="packages/api-client/src/venues.ts">
     export class VenuesClient {
       constructor(private client: ApiClient) {}
@@ -1454,6 +1377,83 @@
       endDate: string;
       partySize: number;
     }
+  </file>
+  <file path="packages/api-versioning/src/fastify.ts">
+    export interface ApiVersioningOptions {
+      currentVersion: string;
+      successorVersion?: string;
+      sunsetMonthsFromNow?: number;
+    }
+  </file>
+  <file path="packages/agent-test-utils/src/worktree-simulator.ts">
+    export type RepoState = "clean" | "dirty" | "conflicted";
+    export interface SimulatedFile {
+      readonly path: string;
+      readonly content: string;
+      readonly status?: "modified" | "added" | "deleted" | "conflicted";
+    }
+  </file>
+  <file path="packages/agent-test-utils/src/session-fixtures.ts">
+    export interface ToolCallRecord {
+      readonly toolName: string;
+      readonly input: Record<string, unknown>;
+      readonly output?: string;
+    }
+    export interface FixtureOptions {
+      readonly sessionId?: string;
+      readonly numTurns?: number;
+      readonly costUsd?: number;
+      readonly inputTokens?: number;
+      readonly outputTokens?: number;
+      readonly durationMs?: number;
+      readonly resultText?: string;
+      readonly toolCalls?: readonly ToolCallRecord[];
+    }
+  </file>
+  <file path="packages/agent-test-utils/src/mock-claude-client.ts">
+    export type MockMode = "replay" | "deterministic";
+    export interface MockTokenUsage {
+      readonly input_tokens: number;
+      readonly output_tokens: number;
+      readonly cache_creation_input_tokens: number;
+      readonly cache_read_input_tokens: number;
+    }
+  </file>
+  <file path="packages/agent-test-utils/src/cost-estimator.ts">
+    export interface ModelPricing {
+      readonly model: string;
+      /** Cost per 1M input tokens in USD */
+      readonly inputCostPer1MTokens: number;
+      /** Cost per 1M output tokens in USD */
+      readonly outputCostPer1MTokens: number;
+      /** Cost per 1M cache-write tokens in USD */
+      readonly cacheWritePer1MTokens?: number;
+      /** Cost per 1M cache-read tokens in USD */
+      readonly cacheReadPer1MTokens?: number;
+    }
+    export const MODEL_PRICING: Record<string, ModelPricing> = {
+      "claude-sonnet-4-6": {
+        model: "claude-sonnet-4-6",
+        inputCostPer1MTokens: 3.0,
+        outputCostPer1MTokens: 15.0,
+        cacheWritePer1MTokens: 3.75,
+        cacheReadPer1MTokens: 0.3,
+      },
+      "claude-haiku-4-5": {
+        model: "claude-haiku-4-5",
+        inputCostPer1MTokens: 0.8,
+        outputCostPer1MTokens: 4.0,
+        cacheWritePer1MTokens: 1.0,
+        cacheReadPer1MTokens: 0.08,
+      },
+      "claude-opus-4-5": {
+        model: "claude-opus-4-5",
+        inputCostPer1MTokens: 15.0,
+        outputCostPer1MTokens: 75.0,
+        cacheWritePer1MTokens: 18.75,
+        cacheReadPer1MTokens: 1.5,
+      },
+    } as const;
   </file>
   <file path="packages/agent-core/src/worktree-manager.ts">
     export function validateGitRef(ref: string, label: string): void {
@@ -2602,6 +2602,74 @@
       readonly attempts: number;
     }
   </file>
+  <file path="packages/agent-core/src/rate-limit-detector.ts">
+    export function scanForRateLimitPatterns(output: string): boolean {
+      return RATE_LIMIT_PATTERNS.some((pattern) => pattern.test(output));
+    }
+    export class RateLimitDetector {
+      private readonly states: Map<string, AdapterState> = new Map();
+      private readonly cooldownMs: number;
+    
+      constructor(adapterNames: readonly string[], cooldownMs = DEFAULT_COOLDOWN_MS) {
+        this.cooldownMs = cooldownMs;
+        for (const name of adapterNames) {
+          this.states.set(name, {
+            name,
+            available: true,
+            cooldownUntil: null,
+            consecutiveFailures: 0,
+          });
+        }
+      }
+    
+      markRateLimited(adapterName: string): void {
+        const state = this.states.get(adapterName);
+        if (!state) return;
+        // Create new state object (immutability pattern)
+        this.states.set(adapterName, {
+          ...state,
+          available: false,
+          cooldownUntil: Date.now() + this.cooldownMs,
+          consecutiveFailures: state.consecutiveFailures + 1,
+        });
+      }
+    
+      markSuccess(adapterName: string): void {
+        const state = this.states.get(adapterName);
+        if (!state) return;
+        this.states.set(adapterName, {
+          ...state,
+          available: true,
+          cooldownUntil: null,
+          consecutiveFailures: 0,
+        });
+      }
+    
+      isAvailable(adapterName: string): boolean {
+        const state = this.states.get(adapterName);
+        if (!state) return false;
+        if (state.available) return true;
+        // Check if cooldown has expired
+        if (state.cooldownUntil !== null && Date.now() >= state.cooldownUntil) {
+          this.states.set(adapterName, {
+            ...state,
+            available: true,
+            cooldownUntil: null,
+          });
+          return true;
+        }
+        return false;
+      }
+    
+      getAvailableAdapters(): readonly string[] {
+        return [...this.states.keys()].filter((name) => this.isAvailable(name));
+      }
+    
+      getState(adapterName: string): AdapterState | undefined {
+        return this.states.get(adapterName);
+      }
+    }
+  </file>
   <file path="packages/agent-core/src/quality-gates.ts">
     export interface QualityGatesResult {
       evaluation?: EvaluationResult;
@@ -2862,6 +2930,22 @@
       readonly records: readonly FailureRecord[];
     }
   </file>
+  <file path="packages/agent-core/src/failover-router.ts">
+    export class AllAdaptersUnavailableError extends Error {
+      /** Per-adapter cooldown timestamps (ms epoch). Only includes adapters that have an active cooldown. */
+      readonly cooldowns: ReadonlyMap<string, number>;
+    
+      constructor(cooldowns: ReadonlyMap<string, number>) {
+        super("All agent adapters are rate-limited or unavailable");
+        this.name = "AllAdaptersUnavailableError";
+        this.cooldowns = cooldowns;
+      }
+    }
+    export type RoutedAdapterResult = AdapterResult & {
+      /** Name of the adapter that produced this result. */
+      readonly adapter: string;
+    };
+  </file>
   <file path="packages/agent-core/src/event-mapper.ts">
     export interface ToolUseEvent {
       readonly type: "session:tool_use";
@@ -2941,6 +3025,36 @@
     }
     export function extractCost(result: SDKResultMessage): number {
       return result.total_cost_usd;
+    }
+  </file>
+  <file path="packages/agent-core/src/cli-adapter.ts">
+    export interface AdapterConfig {
+      /** Human-readable description of the task for the agent to perform. */
+      readonly taskDescription: string;
+      /** Absolute path to the isolated worktree where the agent operates. */
+      readonly worktreePath: string;
+      /** Absolute path to the original repository root. */
+      readonly repoPath: string;
+      /** Git branch to base work on (e.g. "main"). */
+      readonly baseBranch: string;
+      /** Model identifier override (adapter-specific, e.g. "claude-sonnet-4-6", "gemini-2.5-pro"). */
+      readonly model?: string;
+      /** Maximum number of conversation turns before the adapter should stop. */
+      readonly maxTurns?: number;
+      /** Hard wall-clock timeout in milliseconds for the entire run. */
+      readonly timeoutMs?: number;
+    }
+    export interface AdapterResult {
+      /** Whether the agent session completed successfully. */
+      readonly success: boolean;
+      /** Whether the agent made any git-visible changes in the worktree. */
+      readonly hasChanges: boolean;
+      /** Whether the run was terminated due to rate limiting (maps to FailureCategory "rate_limited"). */
+      readonly rateLimited: boolean;
+      /** Human-readable error message when success is false. */
+      readonly error?: string;
+      /** Wall-clock duration of the run in milliseconds. */
+      readonly durationMs: number;
     }
   </file>
   <file path="packages/agent-core/src/circuit-breaker.ts">
@@ -3238,6 +3352,19 @@
   </file>
   </section>
   <section priority="medium" role="scripts">
+  <file path="packages/rialto-catalog/scripts/generate-catalog.ts">
+    interface CharacterLimit {
+      component: string;
+      prop: string;
+      max: number;
+    }
+    function stripUndefined(typeStr: string): { inner: string; wasOptional: boolean } {
+      const parts = typeStr.split(" | ").map((p) => p.trim());
+      const withoutUndefined = parts.filter((p) => p !== "undefined");
+      const wasOptional = withoutUndefined.length < parts.length;
+      return { inner: withoutUndefined.join(" | "), wasOptional };
+    }
+  </file>
   <file path="packages/rialto-plugin/scripts/generate-reference.ts">
     interface ManifestProp {
       name: string;
@@ -3250,19 +3377,6 @@
       prop: string;
       max: number;
       reason?: string;
-    }
-  </file>
-  <file path="packages/rialto-catalog/scripts/generate-catalog.ts">
-    interface CharacterLimit {
-      component: string;
-      prop: string;
-      max: number;
-    }
-    function stripUndefined(typeStr: string): { inner: string; wasOptional: boolean } {
-      const parts = typeStr.split(" | ").map((p) => p.trim());
-      const withoutUndefined = parts.filter((p) => p !== "undefined");
-      const wasOptional = withoutUndefined.length < parts.length;
-      return { inner: withoutUndefined.join(" | "), wasOptional };
     }
   </file>
   <file path="packages/rialto/scripts/lib-entrypoints.ts">
@@ -3652,6 +3766,84 @@
     ];
   </file>
   </section>
+  <section priority="medium" role="e2e">
+  <file path="apps/gen/e2e/fixtures.ts">
+    export const test = base.extend<{ authPage: Page }>({
+      authPage: async ({ page }, use) => {
+        await injectAuth0Session(page);
+        await use(page);
+      },
+    });
+  </file>
+  <file path="apps/gen/e2e/auth-helpers.ts">
+    interface Auth0Config {
+      domain: string;
+      clientId: string;
+      audience: string;
+      email: string;
+      password: string;
+    }
+    function getAuth0Config(): Auth0Config {
+      const domain = process.env.E2E_AUTH0_DOMAIN;
+      const clientId = process.env.E2E_AUTH0_CLIENT_ID;
+      const audience = process.env.E2E_AUTH0_AUDIENCE;
+      const email = process.env.E2E_AUTH_EMAIL;
+      const password = process.env.E2E_AUTH_PASSWORD;
+    
+      if (!domain || !clientId || !audience || !email || !password) {
+        throw new Error(
+          "Missing required E2E auth env vars. Required:\n" +
+            "  E2E_AUTH0_DOMAIN      — Auth0 tenant domain (e.g. dev-xxx.us.auth0.com)\n" +
+            "  E2E_AUTH0_CLIENT_ID   — Auth0 app client ID (ROPC-enabled)\n" +
+            "  E2E_AUTH0_AUDIENCE    — API audience identifier\n" +
+            "  E2E_AUTH_EMAIL        — Test user email\n" +
+            "  E2E_AUTH_PASSWORD     — Test user password\n\n" +
+            "The Auth0 app must have the Password grant type enabled and the test user must not have MFA."
+        );
+      }
+    
+      return { domain, clientId, audience, email, password };
+    }
+  </file>
+  <file path="apps/hospitality/e2e/fixtures.ts">
+    export const test = base.extend<{ authPage: Page }>({
+      authPage: async ({ page }, use) => {
+        await injectAuth0Session(page);
+        await use(page);
+      },
+    });
+  </file>
+  <file path="apps/hospitality/e2e/auth-helpers.ts">
+    interface Auth0Config {
+      domain: string;
+      clientId: string;
+      audience: string;
+      email: string;
+      password: string;
+    }
+    function getAuth0Config(): Auth0Config {
+      const domain = process.env.E2E_AUTH0_DOMAIN;
+      const clientId = process.env.E2E_AUTH0_CLIENT_ID;
+      const audience = process.env.E2E_AUTH0_AUDIENCE;
+      const email = process.env.E2E_AUTH_EMAIL;
+      const password = process.env.E2E_AUTH_PASSWORD;
+    
+      if (!domain || !clientId || !audience || !email || !password) {
+        throw new Error(
+          "Missing required E2E auth env vars. Required:\n" +
+            "  E2E_AUTH0_DOMAIN      — Auth0 tenant domain (e.g. dev-xxx.us.auth0.com)\n" +
+            "  E2E_AUTH0_CLIENT_ID   — Auth0 app client ID (ROPC-enabled)\n" +
+            "  E2E_AUTH0_AUDIENCE    — API audience identifier\n" +
+            "  E2E_AUTH_EMAIL        — Test user email\n" +
+            "  E2E_AUTH_PASSWORD     — Test user password\n\n" +
+            "The Auth0 app must have the Password grant type enabled and the test user must not have MFA."
+        );
+      }
+    
+      return { domain, clientId, audience, email, password };
+    }
+  </file>
+  </section>
   <section priority="medium" role="analytics">
   <file path="web/src/components/analytics/QualityMetrics.ts">
     export interface PrAcceptanceEntry {
@@ -3816,84 +4008,6 @@
       if (rate >= 0.9) return "ok";
       if (rate >= 0.7) return "warn";
       return "err";
-    }
-  </file>
-  </section>
-  <section priority="medium" role="e2e">
-  <file path="apps/gen/e2e/fixtures.ts">
-    export const test = base.extend<{ authPage: Page }>({
-      authPage: async ({ page }, use) => {
-        await injectAuth0Session(page);
-        await use(page);
-      },
-    });
-  </file>
-  <file path="apps/gen/e2e/auth-helpers.ts">
-    interface Auth0Config {
-      domain: string;
-      clientId: string;
-      audience: string;
-      email: string;
-      password: string;
-    }
-    function getAuth0Config(): Auth0Config {
-      const domain = process.env.E2E_AUTH0_DOMAIN;
-      const clientId = process.env.E2E_AUTH0_CLIENT_ID;
-      const audience = process.env.E2E_AUTH0_AUDIENCE;
-      const email = process.env.E2E_AUTH_EMAIL;
-      const password = process.env.E2E_AUTH_PASSWORD;
-    
-      if (!domain || !clientId || !audience || !email || !password) {
-        throw new Error(
-          "Missing required E2E auth env vars. Required:\n" +
-            "  E2E_AUTH0_DOMAIN      — Auth0 tenant domain (e.g. dev-xxx.us.auth0.com)\n" +
-            "  E2E_AUTH0_CLIENT_ID   — Auth0 app client ID (ROPC-enabled)\n" +
-            "  E2E_AUTH0_AUDIENCE    — API audience identifier\n" +
-            "  E2E_AUTH_EMAIL        — Test user email\n" +
-            "  E2E_AUTH_PASSWORD     — Test user password\n\n" +
-            "The Auth0 app must have the Password grant type enabled and the test user must not have MFA."
-        );
-      }
-    
-      return { domain, clientId, audience, email, password };
-    }
-  </file>
-  <file path="apps/hospitality/e2e/fixtures.ts">
-    export const test = base.extend<{ authPage: Page }>({
-      authPage: async ({ page }, use) => {
-        await injectAuth0Session(page);
-        await use(page);
-      },
-    });
-  </file>
-  <file path="apps/hospitality/e2e/auth-helpers.ts">
-    interface Auth0Config {
-      domain: string;
-      clientId: string;
-      audience: string;
-      email: string;
-      password: string;
-    }
-    function getAuth0Config(): Auth0Config {
-      const domain = process.env.E2E_AUTH0_DOMAIN;
-      const clientId = process.env.E2E_AUTH0_CLIENT_ID;
-      const audience = process.env.E2E_AUTH0_AUDIENCE;
-      const email = process.env.E2E_AUTH_EMAIL;
-      const password = process.env.E2E_AUTH_PASSWORD;
-    
-      if (!domain || !clientId || !audience || !email || !password) {
-        throw new Error(
-          "Missing required E2E auth env vars. Required:\n" +
-            "  E2E_AUTH0_DOMAIN      — Auth0 tenant domain (e.g. dev-xxx.us.auth0.com)\n" +
-            "  E2E_AUTH0_CLIENT_ID   — Auth0 app client ID (ROPC-enabled)\n" +
-            "  E2E_AUTH0_AUDIENCE    — API audience identifier\n" +
-            "  E2E_AUTH_EMAIL        — Test user email\n" +
-            "  E2E_AUTH_PASSWORD     — Test user password\n\n" +
-            "The Auth0 app must have the Password grant type enabled and the test user must not have MFA."
-        );
-      }
-    
-      return { domain, clientId, audience, email, password };
     }
   </file>
   </section>
@@ -4631,6 +4745,525 @@
       readonly venueId: string | null;
       readonly createdAt: string;
       readonly updatedAt: string;
+    }
+  </file>
+  </section>
+  <section priority="medium" role="services">
+  <file path="services/users/src/services/user.ts">
+    function isPrismaNotFound(err: unknown): boolean {
+      return (
+        err !== null &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code: string }).code === "P2025"
+      );
+    }
+    function mapPrismaUser(user: {
+      id: string;
+      email: string;
+      name: string | null;
+      picture: string | null;
+      emailVerified: boolean;
+      preferences: unknown;
+      createdAt: Date;
+      updatedAt: Date;
+    }): User {
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        picture: user.picture,
+        emailVerified: user.emailVerified,
+        preferences: (user.preferences as UserPreferences) ?? {},
+        createdAt: user.createdAt.toISOString(),
+        updatedAt: user.updatedAt.toISOString(),
+      };
+    }
+  </file>
+  <file path="services/users/src/services/health-checks.ts">
+    export function recordDbLatency(ms: number): void {
+      dbLatencyHistory.push(ms);
+      if (dbLatencyHistory.length > LATENCY_WINDOW) {
+        dbLatencyHistory.shift();
+      }
+    }
+    export function checkLatencyAnomaly(currentMs: number): {
+      isAnomaly: boolean;
+      rollingAvg: number;
+    } {
+      if (dbLatencyHistory.length < 5) {
+        return { isAnomaly: false, rollingAvg: 0 };
+      }
+      const sum = dbLatencyHistory.reduce((a, b) => a + b, 0);
+      const rollingAvg = sum / dbLatencyHistory.length;
+      return {
+        isAnomaly: rollingAvg > 0 && currentMs > LATENCY_ANOMALY_THRESHOLD * rollingAvg,
+        rollingAvg: Math.round(rollingAvg),
+      };
+    }
+  </file>
+  <file path="services/users/src/services/database.ts">
+    interface SlowQueryStats {
+      count5min: number;
+      slowestMs: number;
+      queries: { model: string; operation: string; duration: number; timestamp: number }[];
+    }
+    export function getSlowQueryStats(): { count5min: number; slowestMs: number } {
+      const now = Date.now();
+      const windowStart = now - SLOW_QUERY_WINDOW_MS;
+      
+      slowQueryStats.queries = slowQueryStats.queries.filter((q) => q.timestamp > windowStart);
+      slowQueryStats.count5min = slowQueryStats.queries.length;
+      slowQueryStats.slowestMs = slowQueryStats.queries.reduce((max, q) => Math.max(max, q.duration), 0);
+      
+      return {
+        count5min: slowQueryStats.count5min,
+        slowestMs: slowQueryStats.slowestMs,
+      };
+    }
+  </file>
+  <file path="services/reservations/src/services/venue.ts">
+    function isPrismaNotFound(err: unknown): boolean {
+      return (
+        err !== null &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code: string }).code === "P2025"
+      );
+    }
+    function mapPrismaVenueGroup(group: {
+      id: string;
+      name: string;
+      slug: string;
+      settings: unknown;
+      createdAt: Date;
+    }): VenueGroup {
+      return {
+        id: group.id,
+        name: group.name,
+        slug: group.slug,
+        settings: group.settings as Record<string, unknown> | null,
+        createdAt: group.createdAt.toISOString(),
+      };
+    }
+  </file>
+  <file path="services/reservations/src/services/table.ts">
+    function isPrismaNotFound(err: unknown): boolean {
+      return (
+        err !== null &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code: string }).code === "P2025"
+      );
+    }
+    function mapPrismaTable(table: {
+      id: string;
+      name: string;
+      tableNumber: string | null;
+      capacity: number;
+      minCovers: number;
+      maxCovers: number | null;
+      location: string | null;
+      isActive: boolean;
+      priority: number;
+      status: string;
+      venueId: string | null;
+      floorPlanId: string | null;
+      shapeMetadata: unknown;
+      createdAt: Date;
+      updatedAt: Date;
+    }): Table {
+      return {
+        id: table.id,
+        name: table.name,
+        tableNumber: table.tableNumber,
+        capacity: table.capacity,
+        minCovers: table.minCovers,
+        maxCovers: table.maxCovers,
+        location: table.location,
+        isActive: table.isActive,
+        priority: table.priority,
+        status: table.status as TableStatus,
+        venueId: table.venueId,
+        floorPlanId: table.floorPlanId,
+        shapeMetadata: table.shapeMetadata as TableShapeMetadata | null,
+        createdAt: table.createdAt.toISOString(),
+        updatedAt: table.updatedAt.toISOString(),
+      };
+    }
+  </file>
+  <file path="services/reservations/src/services/sse-connection-manager.ts">
+    export interface SseConnectionConfig {
+      /** Maximum concurrent SSE connections per IP address. */
+      readonly maxConnectionsPerIp: number;
+      /** Maximum connection lifetime in milliseconds. */
+      readonly connectionTimeoutMs: number;
+      /** Maximum queued events per connection before dropping oldest. */
+      readonly maxEventBufferSize: number;
+      /** Heartbeat interval in milliseconds. */
+      readonly heartbeatIntervalMs: number;
+    }
+    export const DEFAULT_SSE_CONFIG: SseConnectionConfig = Object.freeze({
+      maxConnectionsPerIp: 10,
+      connectionTimeoutMs: 30 * 60 * 1000, // 30 minutes
+      maxEventBufferSize: 100,
+      heartbeatIntervalMs: 30_000, // 30 seconds
+    });
+  </file>
+  <file path="services/reservations/src/services/reservation.ts">
+    function isPrismaNotFound(err: unknown): boolean {
+      return (
+        err !== null &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code: string }).code === "P2025"
+      );
+    }
+    type PrismaReservationWithTable = PrismaReservation & {
+      table?: PrismaTable;
+    };
+  </file>
+  <file path="services/reservations/src/services/hold.ts">
+    function mapPrismaHold(hold: PrismaHold): ReservationHold {
+      return {
+        id: hold.id,
+        venueId: hold.venueId,
+        tableId: hold.tableId,
+        date: toDateString(hold.date),
+        startTime: hold.startTime.toISOString(),
+        endTime: hold.endTime.toISOString(),
+        partySize: hold.partySize,
+        sessionId: hold.sessionId,
+        expiresAt: hold.expiresAt.toISOString(),
+        createdAt: hold.createdAt.toISOString(),
+      };
+    }
+    export interface CreateHoldResult {
+      success: boolean;
+      hold?: ReservationHold;
+      error?: string;
+    }
+  </file>
+  <file path="services/reservations/src/services/health-checks.ts">
+    export function recordDbLatency(ms: number): void {
+      dbLatencyHistory.push(ms);
+      if (dbLatencyHistory.length > LATENCY_WINDOW) {
+        dbLatencyHistory.shift();
+      }
+    }
+    export function checkLatencyAnomaly(currentMs: number): {
+      isAnomaly: boolean;
+      rollingAvg: number;
+    } {
+      if (dbLatencyHistory.length < 5) {
+        return { isAnomaly: false, rollingAvg: 0 };
+      }
+      const sum = dbLatencyHistory.reduce((a, b) => a + b, 0);
+      const rollingAvg = sum / dbLatencyHistory.length;
+      return {
+        isAnomaly: rollingAvg > 0 && currentMs > LATENCY_ANOMALY_THRESHOLD * rollingAvg,
+        rollingAvg: Math.round(rollingAvg),
+      };
+    }
+  </file>
+  <file path="services/reservations/src/services/guest.ts">
+    function isPrismaNotFound(err: unknown): boolean {
+      return (
+        err !== null &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code: string }).code === "P2025"
+      );
+    }
+    function mapPrismaGuest(guest: {
+      id: string;
+      venueId: string;
+      email: string | null;
+      phone: string | null;
+      name: string;
+      notes: string | null;
+      visitCount: number;
+      lifetimeSpend: Prisma.Decimal | null;
+      lastVisit: Date | null;
+      tags: unknown;
+      createdAt: Date;
+      updatedAt: Date;
+    }): Guest {
+      return {
+        id: guest.id,
+        venueId: guest.venueId,
+        email: guest.email,
+        phone: guest.phone,
+        name: guest.name,
+        notes: guest.notes,
+        visitCount: guest.visitCount,
+        lifetimeSpend: guest.lifetimeSpend?.toString() ?? null,
+        lastVisit: guest.lastVisit?.toISOString() ?? null,
+        tags: guest.tags as string[] | null,
+        createdAt: guest.createdAt.toISOString(),
+        updatedAt: guest.updatedAt.toISOString(),
+      };
+    }
+  </file>
+  <file path="services/reservations/src/services/floor-plan.ts">
+    function isPrismaNotFound(err: unknown): boolean {
+      return (
+        err !== null &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code: string }).code === "P2025"
+      );
+    }
+    type PrismaFloorPlan = {
+      id: string;
+      venueId: string;
+      name: string;
+      isActive: boolean;
+      layoutJson: unknown;
+      createdAt: Date;
+      updatedAt: Date;
+      tables?: PrismaTable[];
+    };
+  </file>
+  <file path="services/reservations/src/services/events.ts">
+    export type ReservationEventType =
+      | "reservation:created"
+      | "reservation:updated"
+      | "reservation:cancelled"
+      | "hold:created"
+      | "hold:released"
+      | "hold:confirmed"
+      | "table:updated"
+      | "floor-plan:created";
+    export interface ReservationEvent {
+      type: ReservationEventType;
+      venueId: string;
+      timestamp: string;
+      data: Reservation | Table | ReservationHold | FloorPlan;
+    }
+  </file>
+  <file path="services/reservations/src/services/database.ts">
+    interface SlowQueryStats {
+      count5min: number;
+      slowestMs: number;
+      queries: { model: string; operation: string; duration: number; timestamp: number }[];
+    }
+    export function getSlowQueryStats(): { count5min: number; slowestMs: number } {
+      const now = Date.now();
+      const windowStart = now - SLOW_QUERY_WINDOW_MS;
+      
+      slowQueryStats.queries = slowQueryStats.queries.filter((q) => q.timestamp > windowStart);
+      slowQueryStats.count5min = slowQueryStats.queries.length;
+      slowQueryStats.slowestMs = slowQueryStats.queries.reduce((max, q) => Math.max(max, q.duration), 0);
+      
+      return {
+        count5min: slowQueryStats.count5min,
+        slowestMs: slowQueryStats.slowestMs,
+      };
+    }
+  </file>
+  <file path="services/reservations/src/services/availability.ts">
+    interface VenueWithSettings {
+      id: string;
+      name: string;
+      slug: string;
+      ianaTimezone: string;
+      settings: VenueSettings | null;
+      operatingHours: OperatingHours | null;
+    }
+    export function estimateDuration(
+      partySize: number,
+      venueSettings?: VenueSettings | null
+    ): number {
+      // Use venue-specific rules if available
+      const rules = venueSettings?.durationRules ?? DEFAULT_DURATION_RULES;
+    
+      // Find the matching rule
+      const rule = rules.find(
+        (r) => partySize >= r.minPartySize && partySize <= r.maxPartySize
+      );
+    
+      if (rule) {
+        return rule.durationMinutes;
+      }
+    
+      // Fallback: use default duration or extrapolate for large parties
+      if (venueSettings?.defaultReservationDuration) {
+        return venueSettings.defaultReservationDuration;
+      }
+    
+      // For parties larger than rules cover, use the largest rule + 15min per additional 2 guests
+      const largestRule = rules.reduce((max, r) =>
+        r.maxPartySize > max.maxPartySize ? r : max
+      );
+      const extraGuests = partySize - largestRule.maxPartySize;
+      const extraTime = Math.ceil(extraGuests / 2) * 15;
+      return largestRule.durationMinutes + extraTime;
+    }
+  </file>
+  <file path="services/agent/src/services/stored-spec.ts">
+    export interface StoredSpecResponse {
+      id: string;
+      userId: string;
+      prompt: string;
+      spec: unknown;
+      rawLines: unknown;
+      isFavorite: boolean;
+      createdAt: string;
+      updatedAt: string;
+    }
+    export function mapStoredSpec(s: StoredSpec): StoredSpecResponse {
+      return {
+        id: s.id,
+        userId: s.userId,
+        prompt: s.prompt,
+        spec: s.spec,
+        rawLines: s.rawLines,
+        isFavorite: s.isFavorite,
+        createdAt: s.createdAt.toISOString(),
+        updatedAt: s.updatedAt.toISOString(),
+      };
+    }
+  </file>
+  <file path="services/agent/src/services/session.ts">
+    function isPrismaNotFound(err: unknown): boolean {
+      return (
+        err !== null &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code: string }).code === "P2025"
+      );
+    }
+    function mapPrismaSession(session: Session): AgentSession {
+      return {
+        id: session.id,
+        status: session.status.toLowerCase() as AgentSession["status"],
+        taskDescription: session.taskDescription,
+        branchName: session.branchName,
+        baseBranch: session.baseBranch,
+        model: session.model,
+        maxTurns: session.maxTurns,
+        maxBudgetUsd: session.maxBudgetUsd,
+        prUrl: session.prUrl,
+        prNumber: session.prNumber,
+        resultText: session.resultText,
+        costUsd: session.costUsd,
+        inputTokens: session.inputTokens,
+        outputTokens: session.outputTokens,
+        numTurns: session.numTurns,
+        durationMs: session.durationMs,
+        parentId: session.parentId,
+        errors: (session.errors as string[]) ?? [],
+        startedAt: session.startedAt?.toISOString() ?? null,
+        completedAt: session.completedAt?.toISOString() ?? null,
+        createdAt: session.createdAt.toISOString(),
+        updatedAt: session.updatedAt.toISOString(),
+      };
+    }
+  </file>
+  <file path="services/agent/src/services/session-executor.ts">
+    function truncate(text: string, maxLen: number): string {
+      if (text.length <= maxLen) return text;
+      return text.slice(0, maxLen - 1) + "…";
+    }
+    function extractText(content: unknown): string {
+      if (typeof content === "string") return content;
+      if (!Array.isArray(content)) return "";
+      return content
+        .filter((block: Record<string, unknown>) => block.type === "text" && typeof block.text === "string")
+        .map((block: Record<string, unknown>) => block.text as string)
+        .join("\n");
+    }
+  </file>
+  <file path="services/agent/src/services/remediation-circuit-breaker.ts">
+    interface CircuitState {
+      consecutiveFailures: number;
+      lastFailureAt: number | null;
+      isOpen: boolean;
+      openedAt: number | null;
+    }
+    export interface CircuitCheckResult {
+      readonly allowed: boolean;
+      readonly reason?: string;
+    }
+  </file>
+  <file path="services/agent/src/services/liveness-monitor.ts">
+    async function checkStaleSessions(): Promise<void> {
+      try {
+        const runningSessions = await sessionService.findByStatus("RUNNING");
+        const now = Date.now();
+    
+        for (const session of runningSessions) {
+          const lastEvent = await sessionService.getLastEvent(session.id);
+          const lastActivityAt = lastEvent?.createdAt ?? session.updatedAt;
+          const silenceMs = now - new Date(lastActivityAt).getTime();
+    
+          if (silenceMs >= INACTIVITY_THRESHOLD_MS) {
+            console.warn(
+              `[liveness] Session ${session.id} has been inactive for ${Math.round(silenceMs / 1000)}s — auto-cancelling`
+            );
+    
+            const cancelled = await cancelSession(session.id);
+            if (cancelled) {
+              await sessionService.addEvent(session.id, "session:error", {
+                message: `Auto-cancelled: no activity for ${Math.round(silenceMs / 1000)}s (threshold: ${INACTIVITY_THRESHOLD_MS / 1000}s)`,
+                reason: "liveness_timeout",
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error("[liveness] Error checking stale sessions:", error);
+      }
+    }
+    export function startLivenessMonitor(): void {
+      if (intervalHandle) return;
+      intervalHandle = setInterval(checkStaleSessions, CHECK_INTERVAL_MS);
+      console.log(
+        `[liveness] Monitor started (check every ${CHECK_INTERVAL_MS / 1000}s, timeout ${INACTIVITY_THRESHOLD_MS / 1000}s)`
+      );
+    }
+  </file>
+  <file path="services/agent/src/services/health-checks.ts">
+    export function recordDbLatency(ms: number): void {
+      dbLatencyHistory.push(ms);
+      if (dbLatencyHistory.length > LATENCY_WINDOW) {
+        dbLatencyHistory.shift();
+      }
+    }
+    export function checkLatencyAnomaly(currentMs: number): {
+      isAnomaly: boolean;
+      rollingAvg: number;
+    } {
+      if (dbLatencyHistory.length < 5) {
+        return { isAnomaly: false, rollingAvg: 0 };
+      }
+      const sum = dbLatencyHistory.reduce((a, b) => a + b, 0);
+      const rollingAvg = sum / dbLatencyHistory.length;
+      return {
+        isAnomaly: rollingAvg > 0 && currentMs > LATENCY_ANOMALY_THRESHOLD * rollingAvg,
+        rollingAvg: Math.round(rollingAvg),
+      };
+    }
+  </file>
+  <file path="services/agent/src/services/database.ts">
+    interface SlowQueryStats {
+      count5min: number;
+      slowestMs: number;
+      queries: { model: string; operation: string; duration: number; timestamp: number }[];
+    }
+    export function getSlowQueryStats(): { count5min: number; slowestMs: number } {
+      const now = Date.now();
+      const windowStart = now - SLOW_QUERY_WINDOW_MS;
+      
+      slowQueryStats.queries = slowQueryStats.queries.filter((q) => q.timestamp > windowStart);
+      slowQueryStats.count5min = slowQueryStats.queries.length;
+      slowQueryStats.slowestMs = slowQueryStats.queries.reduce((max, q) => Math.max(max, q.duration), 0);
+      
+      return {
+        count5min: slowQueryStats.count5min,
+        slowestMs: slowQueryStats.slowestMs,
+      };
     }
   </file>
   </section>
@@ -9432,525 +10065,6 @@
     };
   </file>
   </section>
-  <section priority="medium" role="services">
-  <file path="services/users/src/services/user.ts">
-    function isPrismaNotFound(err: unknown): boolean {
-      return (
-        err !== null &&
-        typeof err === "object" &&
-        "code" in err &&
-        (err as { code: string }).code === "P2025"
-      );
-    }
-    function mapPrismaUser(user: {
-      id: string;
-      email: string;
-      name: string | null;
-      picture: string | null;
-      emailVerified: boolean;
-      preferences: unknown;
-      createdAt: Date;
-      updatedAt: Date;
-    }): User {
-      return {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        picture: user.picture,
-        emailVerified: user.emailVerified,
-        preferences: (user.preferences as UserPreferences) ?? {},
-        createdAt: user.createdAt.toISOString(),
-        updatedAt: user.updatedAt.toISOString(),
-      };
-    }
-  </file>
-  <file path="services/users/src/services/health-checks.ts">
-    export function recordDbLatency(ms: number): void {
-      dbLatencyHistory.push(ms);
-      if (dbLatencyHistory.length > LATENCY_WINDOW) {
-        dbLatencyHistory.shift();
-      }
-    }
-    export function checkLatencyAnomaly(currentMs: number): {
-      isAnomaly: boolean;
-      rollingAvg: number;
-    } {
-      if (dbLatencyHistory.length < 5) {
-        return { isAnomaly: false, rollingAvg: 0 };
-      }
-      const sum = dbLatencyHistory.reduce((a, b) => a + b, 0);
-      const rollingAvg = sum / dbLatencyHistory.length;
-      return {
-        isAnomaly: rollingAvg > 0 && currentMs > LATENCY_ANOMALY_THRESHOLD * rollingAvg,
-        rollingAvg: Math.round(rollingAvg),
-      };
-    }
-  </file>
-  <file path="services/users/src/services/database.ts">
-    interface SlowQueryStats {
-      count5min: number;
-      slowestMs: number;
-      queries: { model: string; operation: string; duration: number; timestamp: number }[];
-    }
-    export function getSlowQueryStats(): { count5min: number; slowestMs: number } {
-      const now = Date.now();
-      const windowStart = now - SLOW_QUERY_WINDOW_MS;
-      
-      slowQueryStats.queries = slowQueryStats.queries.filter((q) => q.timestamp > windowStart);
-      slowQueryStats.count5min = slowQueryStats.queries.length;
-      slowQueryStats.slowestMs = slowQueryStats.queries.reduce((max, q) => Math.max(max, q.duration), 0);
-      
-      return {
-        count5min: slowQueryStats.count5min,
-        slowestMs: slowQueryStats.slowestMs,
-      };
-    }
-  </file>
-  <file path="services/reservations/src/services/venue.ts">
-    function isPrismaNotFound(err: unknown): boolean {
-      return (
-        err !== null &&
-        typeof err === "object" &&
-        "code" in err &&
-        (err as { code: string }).code === "P2025"
-      );
-    }
-    function mapPrismaVenueGroup(group: {
-      id: string;
-      name: string;
-      slug: string;
-      settings: unknown;
-      createdAt: Date;
-    }): VenueGroup {
-      return {
-        id: group.id,
-        name: group.name,
-        slug: group.slug,
-        settings: group.settings as Record<string, unknown> | null,
-        createdAt: group.createdAt.toISOString(),
-      };
-    }
-  </file>
-  <file path="services/reservations/src/services/table.ts">
-    function isPrismaNotFound(err: unknown): boolean {
-      return (
-        err !== null &&
-        typeof err === "object" &&
-        "code" in err &&
-        (err as { code: string }).code === "P2025"
-      );
-    }
-    function mapPrismaTable(table: {
-      id: string;
-      name: string;
-      tableNumber: string | null;
-      capacity: number;
-      minCovers: number;
-      maxCovers: number | null;
-      location: string | null;
-      isActive: boolean;
-      priority: number;
-      status: string;
-      venueId: string | null;
-      floorPlanId: string | null;
-      shapeMetadata: unknown;
-      createdAt: Date;
-      updatedAt: Date;
-    }): Table {
-      return {
-        id: table.id,
-        name: table.name,
-        tableNumber: table.tableNumber,
-        capacity: table.capacity,
-        minCovers: table.minCovers,
-        maxCovers: table.maxCovers,
-        location: table.location,
-        isActive: table.isActive,
-        priority: table.priority,
-        status: table.status as TableStatus,
-        venueId: table.venueId,
-        floorPlanId: table.floorPlanId,
-        shapeMetadata: table.shapeMetadata as TableShapeMetadata | null,
-        createdAt: table.createdAt.toISOString(),
-        updatedAt: table.updatedAt.toISOString(),
-      };
-    }
-  </file>
-  <file path="services/reservations/src/services/sse-connection-manager.ts">
-    export interface SseConnectionConfig {
-      /** Maximum concurrent SSE connections per IP address. */
-      readonly maxConnectionsPerIp: number;
-      /** Maximum connection lifetime in milliseconds. */
-      readonly connectionTimeoutMs: number;
-      /** Maximum queued events per connection before dropping oldest. */
-      readonly maxEventBufferSize: number;
-      /** Heartbeat interval in milliseconds. */
-      readonly heartbeatIntervalMs: number;
-    }
-    export const DEFAULT_SSE_CONFIG: SseConnectionConfig = Object.freeze({
-      maxConnectionsPerIp: 10,
-      connectionTimeoutMs: 30 * 60 * 1000, // 30 minutes
-      maxEventBufferSize: 100,
-      heartbeatIntervalMs: 30_000, // 30 seconds
-    });
-  </file>
-  <file path="services/reservations/src/services/reservation.ts">
-    function isPrismaNotFound(err: unknown): boolean {
-      return (
-        err !== null &&
-        typeof err === "object" &&
-        "code" in err &&
-        (err as { code: string }).code === "P2025"
-      );
-    }
-    type PrismaReservationWithTable = PrismaReservation & {
-      table?: PrismaTable;
-    };
-  </file>
-  <file path="services/reservations/src/services/hold.ts">
-    function mapPrismaHold(hold: PrismaHold): ReservationHold {
-      return {
-        id: hold.id,
-        venueId: hold.venueId,
-        tableId: hold.tableId,
-        date: toDateString(hold.date),
-        startTime: hold.startTime.toISOString(),
-        endTime: hold.endTime.toISOString(),
-        partySize: hold.partySize,
-        sessionId: hold.sessionId,
-        expiresAt: hold.expiresAt.toISOString(),
-        createdAt: hold.createdAt.toISOString(),
-      };
-    }
-    export interface CreateHoldResult {
-      success: boolean;
-      hold?: ReservationHold;
-      error?: string;
-    }
-  </file>
-  <file path="services/reservations/src/services/health-checks.ts">
-    export function recordDbLatency(ms: number): void {
-      dbLatencyHistory.push(ms);
-      if (dbLatencyHistory.length > LATENCY_WINDOW) {
-        dbLatencyHistory.shift();
-      }
-    }
-    export function checkLatencyAnomaly(currentMs: number): {
-      isAnomaly: boolean;
-      rollingAvg: number;
-    } {
-      if (dbLatencyHistory.length < 5) {
-        return { isAnomaly: false, rollingAvg: 0 };
-      }
-      const sum = dbLatencyHistory.reduce((a, b) => a + b, 0);
-      const rollingAvg = sum / dbLatencyHistory.length;
-      return {
-        isAnomaly: rollingAvg > 0 && currentMs > LATENCY_ANOMALY_THRESHOLD * rollingAvg,
-        rollingAvg: Math.round(rollingAvg),
-      };
-    }
-  </file>
-  <file path="services/reservations/src/services/guest.ts">
-    function isPrismaNotFound(err: unknown): boolean {
-      return (
-        err !== null &&
-        typeof err === "object" &&
-        "code" in err &&
-        (err as { code: string }).code === "P2025"
-      );
-    }
-    function mapPrismaGuest(guest: {
-      id: string;
-      venueId: string;
-      email: string | null;
-      phone: string | null;
-      name: string;
-      notes: string | null;
-      visitCount: number;
-      lifetimeSpend: Prisma.Decimal | null;
-      lastVisit: Date | null;
-      tags: unknown;
-      createdAt: Date;
-      updatedAt: Date;
-    }): Guest {
-      return {
-        id: guest.id,
-        venueId: guest.venueId,
-        email: guest.email,
-        phone: guest.phone,
-        name: guest.name,
-        notes: guest.notes,
-        visitCount: guest.visitCount,
-        lifetimeSpend: guest.lifetimeSpend?.toString() ?? null,
-        lastVisit: guest.lastVisit?.toISOString() ?? null,
-        tags: guest.tags as string[] | null,
-        createdAt: guest.createdAt.toISOString(),
-        updatedAt: guest.updatedAt.toISOString(),
-      };
-    }
-  </file>
-  <file path="services/reservations/src/services/floor-plan.ts">
-    function isPrismaNotFound(err: unknown): boolean {
-      return (
-        err !== null &&
-        typeof err === "object" &&
-        "code" in err &&
-        (err as { code: string }).code === "P2025"
-      );
-    }
-    type PrismaFloorPlan = {
-      id: string;
-      venueId: string;
-      name: string;
-      isActive: boolean;
-      layoutJson: unknown;
-      createdAt: Date;
-      updatedAt: Date;
-      tables?: PrismaTable[];
-    };
-  </file>
-  <file path="services/reservations/src/services/events.ts">
-    export type ReservationEventType =
-      | "reservation:created"
-      | "reservation:updated"
-      | "reservation:cancelled"
-      | "hold:created"
-      | "hold:released"
-      | "hold:confirmed"
-      | "table:updated"
-      | "floor-plan:created";
-    export interface ReservationEvent {
-      type: ReservationEventType;
-      venueId: string;
-      timestamp: string;
-      data: Reservation | Table | ReservationHold | FloorPlan;
-    }
-  </file>
-  <file path="services/reservations/src/services/database.ts">
-    interface SlowQueryStats {
-      count5min: number;
-      slowestMs: number;
-      queries: { model: string; operation: string; duration: number; timestamp: number }[];
-    }
-    export function getSlowQueryStats(): { count5min: number; slowestMs: number } {
-      const now = Date.now();
-      const windowStart = now - SLOW_QUERY_WINDOW_MS;
-      
-      slowQueryStats.queries = slowQueryStats.queries.filter((q) => q.timestamp > windowStart);
-      slowQueryStats.count5min = slowQueryStats.queries.length;
-      slowQueryStats.slowestMs = slowQueryStats.queries.reduce((max, q) => Math.max(max, q.duration), 0);
-      
-      return {
-        count5min: slowQueryStats.count5min,
-        slowestMs: slowQueryStats.slowestMs,
-      };
-    }
-  </file>
-  <file path="services/reservations/src/services/availability.ts">
-    interface VenueWithSettings {
-      id: string;
-      name: string;
-      slug: string;
-      ianaTimezone: string;
-      settings: VenueSettings | null;
-      operatingHours: OperatingHours | null;
-    }
-    export function estimateDuration(
-      partySize: number,
-      venueSettings?: VenueSettings | null
-    ): number {
-      // Use venue-specific rules if available
-      const rules = venueSettings?.durationRules ?? DEFAULT_DURATION_RULES;
-    
-      // Find the matching rule
-      const rule = rules.find(
-        (r) => partySize >= r.minPartySize && partySize <= r.maxPartySize
-      );
-    
-      if (rule) {
-        return rule.durationMinutes;
-      }
-    
-      // Fallback: use default duration or extrapolate for large parties
-      if (venueSettings?.defaultReservationDuration) {
-        return venueSettings.defaultReservationDuration;
-      }
-    
-      // For parties larger than rules cover, use the largest rule + 15min per additional 2 guests
-      const largestRule = rules.reduce((max, r) =>
-        r.maxPartySize > max.maxPartySize ? r : max
-      );
-      const extraGuests = partySize - largestRule.maxPartySize;
-      const extraTime = Math.ceil(extraGuests / 2) * 15;
-      return largestRule.durationMinutes + extraTime;
-    }
-  </file>
-  <file path="services/agent/src/services/stored-spec.ts">
-    export interface StoredSpecResponse {
-      id: string;
-      userId: string;
-      prompt: string;
-      spec: unknown;
-      rawLines: unknown;
-      isFavorite: boolean;
-      createdAt: string;
-      updatedAt: string;
-    }
-    export function mapStoredSpec(s: StoredSpec): StoredSpecResponse {
-      return {
-        id: s.id,
-        userId: s.userId,
-        prompt: s.prompt,
-        spec: s.spec,
-        rawLines: s.rawLines,
-        isFavorite: s.isFavorite,
-        createdAt: s.createdAt.toISOString(),
-        updatedAt: s.updatedAt.toISOString(),
-      };
-    }
-  </file>
-  <file path="services/agent/src/services/session.ts">
-    function isPrismaNotFound(err: unknown): boolean {
-      return (
-        err !== null &&
-        typeof err === "object" &&
-        "code" in err &&
-        (err as { code: string }).code === "P2025"
-      );
-    }
-    function mapPrismaSession(session: Session): AgentSession {
-      return {
-        id: session.id,
-        status: session.status.toLowerCase() as AgentSession["status"],
-        taskDescription: session.taskDescription,
-        branchName: session.branchName,
-        baseBranch: session.baseBranch,
-        model: session.model,
-        maxTurns: session.maxTurns,
-        maxBudgetUsd: session.maxBudgetUsd,
-        prUrl: session.prUrl,
-        prNumber: session.prNumber,
-        resultText: session.resultText,
-        costUsd: session.costUsd,
-        inputTokens: session.inputTokens,
-        outputTokens: session.outputTokens,
-        numTurns: session.numTurns,
-        durationMs: session.durationMs,
-        parentId: session.parentId,
-        errors: (session.errors as string[]) ?? [],
-        startedAt: session.startedAt?.toISOString() ?? null,
-        completedAt: session.completedAt?.toISOString() ?? null,
-        createdAt: session.createdAt.toISOString(),
-        updatedAt: session.updatedAt.toISOString(),
-      };
-    }
-  </file>
-  <file path="services/agent/src/services/session-executor.ts">
-    function truncate(text: string, maxLen: number): string {
-      if (text.length <= maxLen) return text;
-      return text.slice(0, maxLen - 1) + "…";
-    }
-    function extractText(content: unknown): string {
-      if (typeof content === "string") return content;
-      if (!Array.isArray(content)) return "";
-      return content
-        .filter((block: Record<string, unknown>) => block.type === "text" && typeof block.text === "string")
-        .map((block: Record<string, unknown>) => block.text as string)
-        .join("\n");
-    }
-  </file>
-  <file path="services/agent/src/services/remediation-circuit-breaker.ts">
-    interface CircuitState {
-      consecutiveFailures: number;
-      lastFailureAt: number | null;
-      isOpen: boolean;
-      openedAt: number | null;
-    }
-    export interface CircuitCheckResult {
-      readonly allowed: boolean;
-      readonly reason?: string;
-    }
-  </file>
-  <file path="services/agent/src/services/liveness-monitor.ts">
-    async function checkStaleSessions(): Promise<void> {
-      try {
-        const runningSessions = await sessionService.findByStatus("RUNNING");
-        const now = Date.now();
-    
-        for (const session of runningSessions) {
-          const lastEvent = await sessionService.getLastEvent(session.id);
-          const lastActivityAt = lastEvent?.createdAt ?? session.updatedAt;
-          const silenceMs = now - new Date(lastActivityAt).getTime();
-    
-          if (silenceMs >= INACTIVITY_THRESHOLD_MS) {
-            console.warn(
-              `[liveness] Session ${session.id} has been inactive for ${Math.round(silenceMs / 1000)}s — auto-cancelling`
-            );
-    
-            const cancelled = await cancelSession(session.id);
-            if (cancelled) {
-              await sessionService.addEvent(session.id, "session:error", {
-                message: `Auto-cancelled: no activity for ${Math.round(silenceMs / 1000)}s (threshold: ${INACTIVITY_THRESHOLD_MS / 1000}s)`,
-                reason: "liveness_timeout",
-              });
-            }
-          }
-        }
-      } catch (error) {
-        console.error("[liveness] Error checking stale sessions:", error);
-      }
-    }
-    export function startLivenessMonitor(): void {
-      if (intervalHandle) return;
-      intervalHandle = setInterval(checkStaleSessions, CHECK_INTERVAL_MS);
-      console.log(
-        `[liveness] Monitor started (check every ${CHECK_INTERVAL_MS / 1000}s, timeout ${INACTIVITY_THRESHOLD_MS / 1000}s)`
-      );
-    }
-  </file>
-  <file path="services/agent/src/services/health-checks.ts">
-    export function recordDbLatency(ms: number): void {
-      dbLatencyHistory.push(ms);
-      if (dbLatencyHistory.length > LATENCY_WINDOW) {
-        dbLatencyHistory.shift();
-      }
-    }
-    export function checkLatencyAnomaly(currentMs: number): {
-      isAnomaly: boolean;
-      rollingAvg: number;
-    } {
-      if (dbLatencyHistory.length < 5) {
-        return { isAnomaly: false, rollingAvg: 0 };
-      }
-      const sum = dbLatencyHistory.reduce((a, b) => a + b, 0);
-      const rollingAvg = sum / dbLatencyHistory.length;
-      return {
-        isAnomaly: rollingAvg > 0 && currentMs > LATENCY_ANOMALY_THRESHOLD * rollingAvg,
-        rollingAvg: Math.round(rollingAvg),
-      };
-    }
-  </file>
-  <file path="services/agent/src/services/database.ts">
-    interface SlowQueryStats {
-      count5min: number;
-      slowestMs: number;
-      queries: { model: string; operation: string; duration: number; timestamp: number }[];
-    }
-    export function getSlowQueryStats(): { count5min: number; slowestMs: number } {
-      const now = Date.now();
-      const windowStart = now - SLOW_QUERY_WINDOW_MS;
-      
-      slowQueryStats.queries = slowQueryStats.queries.filter((q) => q.timestamp > windowStart);
-      slowQueryStats.count5min = slowQueryStats.queries.length;
-      slowQueryStats.slowestMs = slowQueryStats.queries.reduce((max, q) => Math.max(max, q.duration), 0);
-      
-      return {
-        count5min: slowQueryStats.count5min,
-        slowestMs: slowQueryStats.slowestMs,
-      };
-    }
-  </file>
-  </section>
   <section priority="medium" role="sentry">
   <file path="packages/observability/src/sentry/react.ts">
     export interface InitOptions {
@@ -10009,170 +10123,6 @@
           (typeof process !== "undefined" ? process.env.npm_package_version : undefined),
         enabled: resolvedDsn.length > 0,
       };
-    }
-  </file>
-  </section>
-  <section priority="medium" role="tools">
-  <file path="packages/mcp-server/src/tools/pulumi.ts">
-    export async function pulumiStackOutputs(): Promise<string> {
-      try {
-        const output = execSync("pulumi stack output --json", {
-          encoding: "utf-8",
-          timeout: 30000,
-        });
-        return output;
-      } catch (error) {
-        return JSON.stringify({ error: "Failed to get Pulumi outputs", message: error instanceof Error ? error.message : String(error) });
-      }
-    }
-  </file>
-  <file path="packages/mcp-server/src/tools/logs.ts">
-    export async function checkLogs(service?: string) {
-      const logDir = service ? join("services", service, "logs") : "services/*/logs";
-      const files = await glob(join(logDir, "*.log"));
-      
-      if (files.length === 0) {
-        return "No log files found.";
-      }
-    
-      let result = "Recent Logs:\n\n";
-      for (const file of files.slice(-3)) { // Limit to 3 most recent files
-        const content = await readFile(file, "utf8");
-        result += `--- ${file} ---\n${content.split("\n").slice(-20).join("\n")}\n\n`;
-      }
-      
-      return result;
-    }
-  </file>
-  <file path="packages/mcp-server/src/tools/health.ts">
-    export async function serviceHealthCheck(): Promise<string> {
-      const results = await Promise.allSettled(
-        SERVICES.map(async (svc) => {
-          const start = Date.now();
-          try {
-            const res = await fetch(svc.url, { method: "GET" });
-            const latency = Date.now() - start;
-            return {
-              service: svc.name,
-              status: res.ok ? "healthy" : "unhealthy",
-              statusCode: res.status,
-              latencyMs: latency,
-            };
-          } catch {
-            return {
-              service: svc.name,
-              status: "unreachable",
-              statusCode: null,
-              latencyMs: null,
-            };
-          }
-        })
-      );
-    
-      const output = results.map((r) => (r.status === "fulfilled" ? r.value : r.reason));
-      return JSON.stringify(output, null, 2);
-    }
-  </file>
-  <file path="packages/mcp-server/src/tools/git.ts">
-    export async function gitWorkflowStatus(): Promise<string> {
-      try {
-        const branch = execSync("git rev-parse --abbrev-ref HEAD", { encoding: "utf-8" }).trim();
-        const status = execSync("git status --porcelain", { encoding: "utf-8" }).trim();
-        const commits = execSync("git log --oneline -5", { encoding: "utf-8" }).trim();
-        
-        let ciStatus = "unknown";
-        try {
-          const run = execSync("gh run list --branch main --limit 1 --json conclusion", { encoding: "utf-8" });
-          const result = JSON.parse(run);
-          ciStatus = result[0]?.conclusion || "unknown";
-        } catch {
-          // gh CLI not available or failed - ciStatus remains "unknown"
-        }
-    
-        return JSON.stringify({
-          currentBranch: branch,
-          hasUncommittedChanges: status.length > 0,
-          pendingChanges: status.split("\n").filter(Boolean),
-          recentCommits: commits.split("\n"),
-          mainBranchCI: ciStatus,
-        }, null, 2);
-      } catch (error) {
-        return JSON.stringify({ error: "Failed to get git status", message: error instanceof Error ? error.message : String(error) });
-      }
-    }
-  </file>
-  <file path="packages/mcp-server/src/tools/deploy_status.ts">
-    export async function deployStatus(): Promise<string> {
-      try {
-        const output = execSync(`doctl apps list --format ID,Spec.Name,ActiveDeployment.Phase,InProgressDeployment.Phase --no-header`, {
-          encoding: "utf-8",
-        });
-        const lines = output.trim().split("\n").filter(Boolean);
-        const apps = lines.map((line) => {
-          const parts = line.trim().split(/\s{2,}/);
-          return {
-            id: parts[0],
-            name: parts[1],
-            activePhase: parts[2] || "unknown",
-            inProgressPhase: parts[3] || "none",
-          };
-        });
-        return JSON.stringify({ apps }, null, 2);
-      } catch (error) {
-        return JSON.stringify({
-          error: "Failed to get deploy status",
-          message: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
-  </file>
-  <file path="packages/mcp-server/src/tools/database.ts">
-    export async function dbListTables(): Promise<string> {
-      try {
-        const dbUrl = process.env.DATABASE_URL;
-        if (!dbUrl) {
-          return JSON.stringify({ error: "DATABASE_URL not set" });
-        }
-    
-        const output = execSync(
-          `psql "${dbUrl}" -t -c "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;"`,
-          { encoding: "utf-8" }
-        );
-        const tables = output.trim().split("\n").filter(Boolean);
-        return JSON.stringify({ tables }, null, 2);
-      } catch (error) {
-        return JSON.stringify({ error: "Failed to list tables", message: error instanceof Error ? error.message : String(error) });
-      }
-    }
-    export async function dbMigrationStatus(): Promise<string> {
-      try {
-        const dbUrl = process.env.DATABASE_URL;
-        if (!dbUrl) {
-          return JSON.stringify({ error: "DATABASE_URL not set" });
-        }
-    
-        const output = execSync(
-          `psql "${dbUrl}" -t -c "SELECT migration_name, finished_at FROM _prisma_migrations ORDER BY finished_at DESC LIMIT 20;"`,
-          { encoding: "utf-8" }
-        );
-        const migrations = output.trim().split("\n").filter(Boolean).map((line) => line.trim());
-        return JSON.stringify({ migrations }, null, 2);
-      } catch (error) {
-        return JSON.stringify({ error: "Failed to get migration status", message: error instanceof Error ? error.message : String(error) });
-      }
-    }
-  </file>
-  <file path="packages/mcp-server/src/tools/ci.ts">
-    export async function ciRunStatus(): Promise<string> {
-      try {
-        const output = execSync(`gh run list --limit 10 --json name,status,conclusion,workflowName`, {
-          encoding: "utf-8",
-        });
-        const runs = JSON.parse(output);
-        return JSON.stringify(runs, null, 2);
-      } catch (error) {
-        return JSON.stringify({ error: "Failed to get CI status", message: error instanceof Error ? error.message : String(error) });
-      }
     }
   </file>
   </section>
@@ -10272,35 +10222,6 @@
       "commerce",
     ] as const;
     export type IconCategory = (typeof iconCategories)[number];
-  </file>
-  </section>
-  <section priority="medium" role="providers">
-  <file path="packages/rialto/src/providers/vibes.ts">
-    export type VibeName = "default" | "transacting" | "presenting";
-    export type VibeOverrides = Record<string, string>;
-  </file>
-  <file path="packages/rialto/src/providers/useUIEnvironment.ts">
-    export interface UIEnvironment {
-      device: DeviceContext;
-      vibe: VibeName;
-      theme: "light" | "dark";
-    }
-    export const UIEnvironmentContext = createContext<UIEnvironment | null>(null);
-  </file>
-  <file path="packages/rialto/src/providers/useDeviceContext.ts">
-    export interface DeviceContext {
-      pointer: "fine" | "coarse";
-      viewport: "mobile" | "tablet" | "desktop";
-      reducedMotion: boolean;
-      colorScheme: "light" | "dark";
-      saveData: boolean;
-    }
-    interface MediaEntry {
-      query: string;
-      key: keyof DeviceContext;
-      matchValue: DeviceContext[keyof DeviceContext];
-      noMatchValue: DeviceContext[keyof DeviceContext];
-    }
   </file>
   </section>
   <section priority="medium" role="hooks">
@@ -10611,6 +10532,199 @@
     }
   </file>
   </section>
+  <section priority="medium" role="providers">
+  <file path="packages/rialto/src/providers/vibes.ts">
+    export type VibeName = "default" | "transacting" | "presenting";
+    export type VibeOverrides = Record<string, string>;
+  </file>
+  <file path="packages/rialto/src/providers/useUIEnvironment.ts">
+    export interface UIEnvironment {
+      device: DeviceContext;
+      vibe: VibeName;
+      theme: "light" | "dark";
+    }
+    export const UIEnvironmentContext = createContext<UIEnvironment | null>(null);
+  </file>
+  <file path="packages/rialto/src/providers/useDeviceContext.ts">
+    export interface DeviceContext {
+      pointer: "fine" | "coarse";
+      viewport: "mobile" | "tablet" | "desktop";
+      reducedMotion: boolean;
+      colorScheme: "light" | "dark";
+      saveData: boolean;
+    }
+    interface MediaEntry {
+      query: string;
+      key: keyof DeviceContext;
+      matchValue: DeviceContext[keyof DeviceContext];
+      noMatchValue: DeviceContext[keyof DeviceContext];
+    }
+  </file>
+  </section>
+  <section priority="medium" role="tools">
+  <file path="packages/mcp-server/src/tools/pulumi.ts">
+    export async function pulumiStackOutputs(): Promise<string> {
+      try {
+        const output = execSync("pulumi stack output --json", {
+          encoding: "utf-8",
+          timeout: 30000,
+        });
+        return output;
+      } catch (error) {
+        return JSON.stringify({ error: "Failed to get Pulumi outputs", message: error instanceof Error ? error.message : String(error) });
+      }
+    }
+  </file>
+  <file path="packages/mcp-server/src/tools/logs.ts">
+    export async function checkLogs(service?: string) {
+      const logDir = service ? join("services", service, "logs") : "services/*/logs";
+      const files = await glob(join(logDir, "*.log"));
+      
+      if (files.length === 0) {
+        return "No log files found.";
+      }
+    
+      let result = "Recent Logs:\n\n";
+      for (const file of files.slice(-3)) { // Limit to 3 most recent files
+        const content = await readFile(file, "utf8");
+        result += `--- ${file} ---\n${content.split("\n").slice(-20).join("\n")}\n\n`;
+      }
+      
+      return result;
+    }
+  </file>
+  <file path="packages/mcp-server/src/tools/health.ts">
+    export async function serviceHealthCheck(): Promise<string> {
+      const results = await Promise.allSettled(
+        SERVICES.map(async (svc) => {
+          const start = Date.now();
+          try {
+            const res = await fetch(svc.url, { method: "GET" });
+            const latency = Date.now() - start;
+            return {
+              service: svc.name,
+              status: res.ok ? "healthy" : "unhealthy",
+              statusCode: res.status,
+              latencyMs: latency,
+            };
+          } catch {
+            return {
+              service: svc.name,
+              status: "unreachable",
+              statusCode: null,
+              latencyMs: null,
+            };
+          }
+        })
+      );
+    
+      const output = results.map((r) => (r.status === "fulfilled" ? r.value : r.reason));
+      return JSON.stringify(output, null, 2);
+    }
+  </file>
+  <file path="packages/mcp-server/src/tools/git.ts">
+    export async function gitWorkflowStatus(): Promise<string> {
+      try {
+        const branch = execSync("git rev-parse --abbrev-ref HEAD", { encoding: "utf-8" }).trim();
+        const status = execSync("git status --porcelain", { encoding: "utf-8" }).trim();
+        const commits = execSync("git log --oneline -5", { encoding: "utf-8" }).trim();
+        
+        let ciStatus = "unknown";
+        try {
+          const run = execSync("gh run list --branch main --limit 1 --json conclusion", { encoding: "utf-8" });
+          const result = JSON.parse(run);
+          ciStatus = result[0]?.conclusion || "unknown";
+        } catch {
+          // gh CLI not available or failed - ciStatus remains "unknown"
+        }
+    
+        return JSON.stringify({
+          currentBranch: branch,
+          hasUncommittedChanges: status.length > 0,
+          pendingChanges: status.split("\n").filter(Boolean),
+          recentCommits: commits.split("\n"),
+          mainBranchCI: ciStatus,
+        }, null, 2);
+      } catch (error) {
+        return JSON.stringify({ error: "Failed to get git status", message: error instanceof Error ? error.message : String(error) });
+      }
+    }
+  </file>
+  <file path="packages/mcp-server/src/tools/deploy_status.ts">
+    export async function deployStatus(): Promise<string> {
+      try {
+        const output = execSync(`doctl apps list --format ID,Spec.Name,ActiveDeployment.Phase,InProgressDeployment.Phase --no-header`, {
+          encoding: "utf-8",
+        });
+        const lines = output.trim().split("\n").filter(Boolean);
+        const apps = lines.map((line) => {
+          const parts = line.trim().split(/\s{2,}/);
+          return {
+            id: parts[0],
+            name: parts[1],
+            activePhase: parts[2] || "unknown",
+            inProgressPhase: parts[3] || "none",
+          };
+        });
+        return JSON.stringify({ apps }, null, 2);
+      } catch (error) {
+        return JSON.stringify({
+          error: "Failed to get deploy status",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+  </file>
+  <file path="packages/mcp-server/src/tools/database.ts">
+    export async function dbListTables(): Promise<string> {
+      try {
+        const dbUrl = process.env.DATABASE_URL;
+        if (!dbUrl) {
+          return JSON.stringify({ error: "DATABASE_URL not set" });
+        }
+    
+        const output = execSync(
+          `psql "${dbUrl}" -t -c "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;"`,
+          { encoding: "utf-8" }
+        );
+        const tables = output.trim().split("\n").filter(Boolean);
+        return JSON.stringify({ tables }, null, 2);
+      } catch (error) {
+        return JSON.stringify({ error: "Failed to list tables", message: error instanceof Error ? error.message : String(error) });
+      }
+    }
+    export async function dbMigrationStatus(): Promise<string> {
+      try {
+        const dbUrl = process.env.DATABASE_URL;
+        if (!dbUrl) {
+          return JSON.stringify({ error: "DATABASE_URL not set" });
+        }
+    
+        const output = execSync(
+          `psql "${dbUrl}" -t -c "SELECT migration_name, finished_at FROM _prisma_migrations ORDER BY finished_at DESC LIMIT 20;"`,
+          { encoding: "utf-8" }
+        );
+        const migrations = output.trim().split("\n").filter(Boolean).map((line) => line.trim());
+        return JSON.stringify({ migrations }, null, 2);
+      } catch (error) {
+        return JSON.stringify({ error: "Failed to get migration status", message: error instanceof Error ? error.message : String(error) });
+      }
+    }
+  </file>
+  <file path="packages/mcp-server/src/tools/ci.ts">
+    export async function ciRunStatus(): Promise<string> {
+      try {
+        const output = execSync(`gh run list --limit 10 --json name,status,conclusion,workflowName`, {
+          encoding: "utf-8",
+        });
+        const runs = JSON.parse(output);
+        return JSON.stringify(runs, null, 2);
+      } catch (error) {
+        return JSON.stringify({ error: "Failed to get CI status", message: error instanceof Error ? error.message : String(error) });
+      }
+    }
+  </file>
+  </section>
   <section priority="medium" role="types">
   <file path="packages/auth/src/types/index.ts">
     export interface OIDCConfig {
@@ -10727,6 +10841,38 @@
         message: detail,
         statusCode: status,
       };
+    }
+  </file>
+  </section>
+  <section priority="medium" role="adapters">
+  <file path="packages/agent-core/src/adapters/opencode-adapter.ts">
+    function truncateTask(task: string, maxLength: number = MAX_TASK_LENGTH): string {
+      if (task.length <= maxLength) return task;
+      return task.slice(0, maxLength - 3) + "...";
+    }
+    function detectRateLimiting(output: string): boolean {
+      return RATE_LIMIT_PATTERNS.some((pattern) => pattern.test(output));
+    }
+  </file>
+  <file path="packages/agent-core/src/adapters/gemini-adapter.ts">
+    function truncateTask(task: string, maxLength: number = MAX_TASK_LENGTH): string {
+      if (task.length <= maxLength) return task;
+      return task.slice(0, maxLength - 3) + "...";
+    }
+    function detectRateLimiting(output: string): boolean {
+      return RATE_LIMIT_PATTERNS.some((pattern) => pattern.test(output));
+    }
+  </file>
+  <file path="packages/agent-core/src/adapters/claude-adapter.ts">
+    function detectRateLimitInError(message: string): boolean {
+      return RATE_LIMIT_PATTERNS.some((pattern) => pattern.test(message));
+    }
+    function deriveHasChanges(result: SessionResult): boolean {
+      if (result.prUrl !== null) return true;
+      // If the session succeeded and produced a branch, there were likely changes
+      // even if the PR wasn't created (createPr: false path).
+      if (result.status === "succeeded" && result.branchName.length > 0) return true;
+      return false;
     }
   </file>
   </section>

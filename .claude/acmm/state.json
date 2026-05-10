@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-05-10T17:24:13.853Z",
+  "lastRun": "2026-05-10T21:49:19.416Z",
   "currentLevel": 3,
   "checks": {
     "acmm:prereq-test-suite": {
@@ -7,8 +7,8 @@
       "evidence": "detected at one of: vitest.config.ts, vitest.config.js, jest.config.js, jest.config.ts, go.mod, pytest.ini, pyproject.toml"
     },
     "acmm:prereq-e2e": {
-      "passed": true,
-      "evidence": "detected at one of: playwright.config.ts, playwright.config.js, cypress.config.ts, cypress.config.js, e2e/, tests/e2e/"
+      "passed": false,
+      "evidence": "none of: playwright.config.ts, playwright.config.js, cypress.config.ts, cypress.config.js, e2e/, tests/e2e/"
     },
     "acmm:prereq-cicd": {
       "passed": true,
@@ -80,7 +80,7 @@
     },
     "acmm:quality-dashboard": {
       "passed": true,
-      "evidence": "detected at one of: web/public/analytics.js, web/src/components/analytics/"
+      "evidence": "detected at one of: apps/marketing/src/App.tsx (contains: /metrics)"
     },
     "acmm:ci-matrix": {
       "passed": true,
@@ -186,6 +186,18 @@
       "passed": true,
       "evidence": "detected at one of: .github/workflows/"
     },
+    "acmm:instruction-sync-gate": {
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/ci.yml"
+    },
+    "acmm:component-registry-integrity": {
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/ci.yml"
+    },
+    "acmm:instruction-rot-detection": {
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/ci.yml"
+    },
     "acmm:feedback-loops": {
       "passed": true,
       "evidence": "detected at one of: CLAUDE.md"
@@ -227,8 +239,8 @@
       "evidence": "detected at one of: .github/workflows/auto-qa.yml, .github/auto-qa-tuning.json"
     },
     "acmm:public-metrics": {
-      "passed": true,
-      "evidence": "detected at one of: web/netlify/functions/analytics-accm.mts, web/public/analytics.js"
+      "passed": false,
+      "evidence": "none of: .github/workflows/pr-metrics.yml (contains: pages)"
     },
     "acmm:policy-as-code": {
       "passed": true,
@@ -372,7 +384,7 @@
     },
     "fullsend:rollback-drill": {
       "passed": true,
-      "evidence": "detected at one of: docs/rollback.md, .github/workflows/rollback.yml, scripts/rollback.sh"
+      "evidence": "detected at one of: docs/rollback.md (contains: Last drill:)"
     },
     "aef:task-traceability": {
       "passed": true,
@@ -469,8 +481,8 @@
     {
       "date": "2026-05-10",
       "level": 3,
-      "detected": 105,
-      "total": 105
+      "detected": 106,
+      "total": 108
     }
   ],
   "issuesCreated": {},
@@ -478,7 +490,6 @@
   "role": "Strategist",
   "detectedIds": [
     "acmm:prereq-test-suite",
-    "acmm:prereq-e2e",
     "acmm:prereq-cicd",
     "acmm:prereq-pr-template",
     "acmm:prereq-issue-template",
@@ -523,6 +534,9 @@
     "acmm:cross-session-knowledge",
     "acmm:cross-repo-skills",
     "acmm:github-coordination",
+    "acmm:instruction-sync-gate",
+    "acmm:component-registry-integrity",
+    "acmm:instruction-rot-detection",
     "acmm:feedback-loops",
     "acmm:claude-md-auto-sync",
     "acmm:preference-index",
@@ -533,7 +547,6 @@
     "acmm:repo-bench",
     "acmm:github-actions-ai",
     "acmm:auto-qa-self-tuning",
-    "acmm:public-metrics",
     "acmm:policy-as-code",
     "acmm:reflection-log",
     "acmm:periodic-reflection",
@@ -591,15 +604,15 @@
     "characteristic": "The system acts on what it finds — generates issues, merges PRs, rolls back failures. Humans set policy and audit after the fact.",
     "detectedByLevel": {
       "2": 3,
-      "3": 5,
-      "4": 14,
-      "5": 16,
+      "3": 6,
+      "4": 16,
+      "5": 15,
       "6": 8
     },
     "requiredByLevel": {
       "2": 3,
-      "3": 5,
-      "4": 14,
+      "3": 6,
+      "4": 16,
       "5": 16,
       "6": 8
     },
@@ -607,7 +620,7 @@
     "nextTransitionTrigger": null,
     "antiPattern": "Mistaking autonomy for abandonment: an autonomous codebase still needs a strategist to set direction, or it drifts toward local optima.",
     "prerequisites": {
-      "met": 8,
+      "met": 7,
       "total": 8
     },
     "crossCutting": {
@@ -674,7 +687,7 @@
       "rate_30d": 0,
       "sample_size": 100,
       "flaky_shas": [],
-      "measured_at": "2026-05-10T17:24:13.852Z"
+      "measured_at": "2026-05-10T21:49:19.415Z"
     },
     "agent_pr": {
       "sample_size": 26,
@@ -686,7 +699,7 @@
       "median_time_to_merge_hours": 0.059166666666666666,
       "human_touch_ratio": 1,
       "insufficient_data": false,
-      "measured_at": "2026-05-10T17:24:13.852Z"
+      "measured_at": "2026-05-10T21:49:19.415Z"
     },
     "evals": {
       "n": 21,
@@ -704,11 +717,11 @@
         }
       },
       "status": "green",
-      "measured_at": "2026-05-10T17:24:13.852Z"
+      "measured_at": "2026-05-10T21:49:19.415Z"
     },
     "auto_qa_tuning": {
       "history_count": 2,
-      "measured_at": "2026-05-10T17:24:13.852Z"
+      "measured_at": "2026-05-10T21:49:19.415Z"
     }
   },
   "levelCap": 3,
