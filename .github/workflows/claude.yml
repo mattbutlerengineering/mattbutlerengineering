@@ -84,7 +84,7 @@ jobs:
       - name: Run agent
         id: agent
         run: |
-          if pnpm exec mbe agent run "$(cat /tmp/agent-task.txt)" --max-budget 1.50; then
+          if pnpm exec mbe agent run "$(cat /tmp/agent-task.txt)" --max-budget 1.50 --adapter auto; then
             echo "outcome=success" >> "$GITHUB_OUTPUT"
           else
             echo "outcome=failure" >> "$GITHUB_OUTPUT"

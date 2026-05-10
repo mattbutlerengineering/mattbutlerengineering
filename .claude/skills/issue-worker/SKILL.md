@@ -114,7 +114,7 @@ Use the issue labels and description to set the right budget:
 Run the implementation in an isolated worktree:
 
 ```bash
-mbe agent run "<task description synthesized from issue>" --max-budget <budget from step 3b>
+mbe agent run "<task description synthesized from issue>" --max-budget <budget from step 3b> --adapter auto
 ```
 
 The `mbe agent run` command will:
