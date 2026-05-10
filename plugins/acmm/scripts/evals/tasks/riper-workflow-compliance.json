@@ -1,0 +1,16 @@
+{
+  "id": "riper-workflow-compliance",
+  "prompt": "Investigate the current state of the ACMM report in .claude/acmm/report.md and then propose a one-line improvement to the 'Prerequisites' section of AGENTS.md. Follow the RIPER workflow strictly, signaling your phases.",
+  "model": "claude-sonnet-4-6",
+  "maxBudgetUsd": 0.50,
+  "maxTurns": 30,
+  "rubric": {
+    "mustPass": ["lint"],
+    "diffSizeMax": 5,
+    "mustTouch": ["AGENTS.md"],
+    "mustCall": ["update_topic", "read_file", "grep_search"],
+    "weights": {
+      "toolCalls": 1.5
+    }
+  }
+}

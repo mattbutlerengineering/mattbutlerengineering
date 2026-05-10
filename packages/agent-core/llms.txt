@@ -151,8 +151,8 @@
   <file path="src/quality-gates.ts">
     <item priority="low">
       interface QualityGatesResult {
-        evaluation?: import("/Users/mbutler/github/mattbutlerengineering/.clau...;
-        securityReview?: import("/Users/mbutler/github/mattbutlerengineering/.clau...;
+        evaluation?: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
+        securityReview?: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
         staticAnalysisClean: boolean;
         errors: string[];
       }
@@ -185,7 +185,7 @@
       interface QaTuningConfig {
         version: number;
         lastTunedAt: string;
-        thresholds: import("/Users/mbutler/github/mattbutlerengineering/.clau...;
+        thresholds: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
       }
     </item>
   </file>
@@ -255,7 +255,7 @@
   </file>
   <file path="src/observability.ts">
     <item priority="high">
-      export const observabilityTracer: import("/Users/mbutler/github/mattbutlerengineering/.clau...;
+      export const observabilityTracer: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
     </item>
     <item priority="medium">
       function containsInOrder(str: string, a: string, b: string): boolean { /* ... */ }

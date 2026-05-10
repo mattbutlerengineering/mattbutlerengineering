@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useReducer } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
@@ -91,7 +91,6 @@ export function ReservationsPage() {
   const statusFilter = searchParams.get("status") ?? "all";
   const [searchQuery, setSearchQuery] = useState("");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [lastUpdatedDisplay, setLastUpdatedDisplay] = useState("");
 
   const api = useMemo(
     () =>
@@ -102,23 +101,16 @@ export function ReservationsPage() {
     [accessToken]
   );
 
-  /* Keep the "Updated Xs ago" display current */
-  const lastUpdatedRef = useRef(lastUpdated);
-  
-  useEffect(() => {
-    lastUpdatedRef.current = lastUpdated;
-  }, [lastUpdated]);
+  /* Keep the "Updated Xs ago" display current by forcing re-render every 5s */
+  const [, forceDisplayTick] = useReducer((c: number) => c + 1, 0);
 
   useEffect(() => {
     if (!lastUpdated) return;
-    setLastUpdatedDisplay(formatRelativeTime(lastUpdated));
-    const id = setInterval(() => {
-      if (lastUpdatedRef.current) {
-        setLastUpdatedDisplay(formatRelativeTime(lastUpdatedRef.current));
-      }
-    }, 5_000);
+    const id = setInterval(forceDisplayTick, 5_000);
     return () => clearInterval(id);
   }, [lastUpdated]);
+
+  const lastUpdatedDisplay = lastUpdated ? formatRelativeTime(lastUpdated) : "";
 
   // Filter shared reservations to the selected date
   const reservations = useMemo(
@@ -192,12 +184,12 @@ export function ReservationsPage() {
 
       <div className={styles.statusBar}>
         <div className={styles.liveIndicator}>
-          <span
+          <Text
             className={`${styles.liveDot} ${isConnected ? styles.liveDotConnected : styles.liveDotOffline}`}
           />
-          <span className={isConnected ? styles.liveTextConnected : styles.liveTextOffline}>
+          <Text className={isConnected ? styles.liveTextConnected : styles.liveTextOffline}>
             {isConnected ? "Live" : "Offline"}
-          </span>
+          </Text>
         </div>
         {lastUpdatedDisplay && (
           <Text variant="caption" color="secondary">
@@ -250,9 +242,9 @@ export function ReservationsPage() {
         </Alert>
       )}
 
-      <span className={styles.srOnly} aria-live="polite" role="status">
+      <Text className={styles.srOnly} aria-live="polite" role="status">
         {`${filteredReservations.length} reservation${filteredReservations.length !== 1 ? "s" : ""} shown`}
-      </span>
+      </Text>
 
       {!isLoading && !error && filteredReservations.length === 0 && (
         <div aria-live="polite" role="status">
@@ -272,6 +264,7 @@ export function ReservationsPage() {
       {!isLoading && !error && filteredReservations.length > 0 && (
         <Card>
           <div className={styles.tableWrapper}>
+            {/* eslint-disable mbe-local/prefer-rialto-components -- HTML table elements are correct here; Rialto Table has a different API */}
             <table className={styles.table}>
               <thead className={styles.thead}>
                 <tr>
@@ -326,6 +319,7 @@ export function ReservationsPage() {
                 ))}
               </tbody>
             </table>
+            {/* eslint-enable mbe-local/prefer-rialto-components */}
           </div>
         </Card>
       )}

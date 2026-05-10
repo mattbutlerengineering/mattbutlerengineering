@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useCallback, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useCallback, useRef, useReducer } from "react";
 import type { Reservation, Table, ReservationHold } from "@mbe/types";
 
 export type ReservationEventType =
@@ -62,8 +62,27 @@ export function useReservationEvents(
     enabled = true,
   } = options;
 
-  const [isConnected, setIsConnected] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
+  type ConnectionState = { isConnected: boolean; error: Error | null };
+  type ConnectionAction =
+    | { type: "connected" }
+    | { type: "disconnected" }
+    | { type: "error"; error: Error };
+
+  const [connectionState, dispatch] = useReducer(
+    (state: ConnectionState, action: ConnectionAction): ConnectionState => {
+      switch (action.type) {
+        case "connected":
+          return { isConnected: true, error: null };
+        case "disconnected":
+          return { isConnected: false, error: state.error };
+        case "error":
+          return { isConnected: false, error: action.error };
+      }
+    },
+    { isConnected: false, error: null }
+  );
+
+  const { isConnected, error } = connectionState;
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttempts = useRef(0);
@@ -114,8 +133,7 @@ export function useReservationEvents(
     eventSourceRef.current = eventSource;
 
     eventSource.onopen = () => {
-      setIsConnected(true);
-      setError(null);
+      dispatch({ type: "connected" });
       reconnectAttempts.current = 0;
     };
 
@@ -126,9 +144,8 @@ export function useReservationEvents(
       eventSource.close();
       eventSourceRef.current = null;
 
-      setIsConnected(false);
       const err = new Error("SSE connection error");
-      setError(err);
+      dispatch({ type: "error", error: err });
       callbacksRef.current.onError?.(err);
 
       // After many consecutive failures, apply a longer cooldown.
@@ -147,7 +164,7 @@ export function useReservationEvents(
 
     // Handle specific event types
     eventSource.addEventListener("connected", () => {
-      setIsConnected(true);
+      dispatch({ type: "connected" });
     });
 
     eventSource.addEventListener("reservation:created", (event) => {
@@ -204,7 +221,7 @@ export function useReservationEvents(
 
   const disconnect = useCallback(() => {
     closeConnection();
-    setIsConnected(false);
+    dispatch({ type: "disconnected" });
   }, [closeConnection]);
 
   const reconnect = useCallback(() => {

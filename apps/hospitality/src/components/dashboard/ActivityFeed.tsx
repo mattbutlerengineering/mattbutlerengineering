@@ -39,7 +39,7 @@ export function ActivityFeed({ events, isConnected }: ActivityFeedProps) {
     return (
       <Card title="Live Activity">
         <div className={styles.connectingMessage}>
-          <span className={styles.connectingDot} />
+          <Text className={styles.connectingDot} />
           <Text variant="body" color="secondary">
             Connecting to live updates...
           </Text>
@@ -61,9 +61,9 @@ export function ActivityFeed({ events, isConnected }: ActivityFeedProps) {
   return (
     <Card title="Live Activity">
       <ul className={styles.activityFeed} aria-live="polite" role="status">
-        {events.map((event, index) => (
-          <li key={`${event.timestamp}-${index}`} className={styles.activityItem}>
-            <span className={styles.activityDot} />
+        {events.map((event) => (
+          <li key={`${event.type}-${event.venueId}-${event.timestamp}`} className={styles.activityItem}>
+            <Text className={styles.activityDot} />
             <div className={styles.activityContent}>
               <div className={styles.activityMessage}>{describeEvent(event)}</div>
               <div className={styles.activityTimestamp}>
