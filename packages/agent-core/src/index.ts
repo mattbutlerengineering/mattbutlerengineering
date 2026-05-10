@@ -274,6 +274,9 @@ export type {
   AgentAdapter,
 } from "./cli-adapter.js";
 
+// CLI adapters (multi-backend dispatch)
+export { GeminiCliAdapter } from "./adapters/gemini-adapter.js";
+
 // Rate-limit detection and cooldown management
 export { RateLimitDetector, scanForRateLimitPatterns } from "./rate-limit-detector.js";
 // Bundle size tracking
