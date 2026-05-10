@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useReducer } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { Button, Card, Text, Stack, useToast } from "@mattbutlerengineering/rialto";
@@ -76,7 +76,11 @@ export function VenueOnboardingPage() {
   const [highestStepReached, setHighestStepReached] = useState(1);
 
   // Slug uniqueness check (debounced)
-  const [slugStatus, setSlugStatus] = useState<"idle" | "checking" | "available" | "taken">("idle");
+  type SlugStatus = "idle" | "checking" | "available" | "taken";
+  const [slugStatus, dispatchSlugStatus] = useReducer(
+    (_: SlugStatus, action: SlugStatus) => action,
+    "idle" as SlugStatus
+  );
   const slugCheckTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
@@ -84,13 +88,13 @@ export function VenueOnboardingPage() {
 
     // Reset if empty or invalid format
     if (!slug || !isValidSlug(slug)) {
-      setSlugStatus("idle");
+      dispatchSlugStatus("idle");
       return;
     }
 
     // Debounce: wait 500ms after last change
     clearTimeout(slugCheckTimerRef.current);
-    setSlugStatus("checking");
+    dispatchSlugStatus("checking");
 
     slugCheckTimerRef.current = setTimeout(async () => {
       if (!accessToken) return;
@@ -102,11 +106,11 @@ export function VenueOnboardingPage() {
         const venuesClient = new VenuesClient(apiClient);
         await venuesClient.getBySlug(slug);
         // If it returns successfully, the slug is taken
-        setSlugStatus("taken");
+        dispatchSlugStatus("taken");
         setBasicInfoErrors((prev) => ({ ...prev, slug: "A venue with this slug already exists" }));
       } catch {
         // 404 means slug is available
-        setSlugStatus("available");
+        dispatchSlugStatus("available");
         setBasicInfoErrors((prev) => {
           const { slug: _removed, ...rest } = prev;
           return rest;
