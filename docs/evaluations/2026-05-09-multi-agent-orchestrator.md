@@ -187,3 +187,81 @@ Bernstein is solo-maintained (305 stars). Mitigate by:
 - Pinning to a specific version
 - Keeping our pipeline fully functional without Bernstein (fallback to manual dispatch)
 - Contributing fixes upstream if we hit issues
+
+---
+
+## Round 2 — Independent Verification (2026-05-09)
+
+### Methodology
+
+Fresh research across the entire multi-agent CLI orchestrator landscape. 42+ tools evaluated beyond the original 7. Each candidate verified against actual GitHub repo content (README, source code, commit history, contributor count).
+
+### Landscape Overview
+
+The ecosystem splits into distinct categories with very different value propositions:
+
+#### Full Pipeline Replacements (own issue tracking)
+- **Gastown** (15,050 stars, Steve Yegge, MIT) — replaces your entire dev workflow with its own issue tracker, dispatch, and CI loop
+- **Composio AO** (6,912 stars, YC-backed, MIT) — GitHub/Linear tracker integration, feature decomposition, agent assignment
+- **Superset** (10,538 stars, ELv2) — enterprise orchestration platform with its own task management
+
+#### Pipeline Wrappers
+- **Bernstein** (305 stars, solo dev, Apache 2.0) — wraps existing pipelines, adds multi-tool dispatch on top
+- **CAO / AWS Labs** (558 stars, 23 contributors, Apache 2.0) — lightweight wrapper for AWS-centric workflows
+
+#### Session Managers
+- **Claude Squad** (7,393 stars, AGPL-3.0) — TUI for watching parallel Claude/Gemini/Codex sessions
+- **AGTX** (1,032 stars, Apache 2.0) — session management with web dashboard
+
+#### Rate-Limit Focused
+- **Hydra** (14 stars, MIT, prototype) — rate-limit detection and routing (proof of concept stage)
+- **FrankenTerm** (79 stars, MIT + anti-Anthropic rider) — terminal multiplexer with rate-limit awareness
+
+#### Multi-Model
+- **Kodo** (93 stars, MIT) — multi-model routing for coding tasks
+
+### Updated Scoring Matrix
+
+Criteria weighted by importance to our pipeline. Scale 1-5, weights in parentheses.
+
+| Criterion (weight) | Gastown | Composio AO | Bernstein | CAO | AGTX | Claude Squad |
+|---|---|---|---|---|---|---|
+| Multi-tool support (5) | 3 | 4 | 5 | 5 | 4 | 4 |
+| Rate-limit failover (5) | 1 | 1 | 3 | 1 | 1 | 1 |
+| GitHub integration (5) | 2 | 5 | 4 | 2 | 2 | 1 |
+| Worktree isolation (4) | 5 | 5 | 5 | 3 | 5 | 5 |
+| Subscription auth (4) | 5 | 5 | 5 | 5 | 5 | 5 |
+| Pipeline compatibility (5) | 2 | 2 | 5 | 3 | 3 | 3 |
+| Maturity (4) | 5 | 4 | 1 | 4 | 3 | 4 |
+| **Weighted Total (/160)** | **98** | **109** | **118** | **98** | **96** | **93** |
+
+### Key Findings
+
+1. **No tool has rate-limit failover as a core feature.** Every tool scored 1 on this criterion except Bernstein (3, via implicit bandit learning). HTTP 429 detection and automatic tool-switching remains an unsolved problem across the ecosystem.
+
+2. **Bernstein scores highest on features but lowest on maturity.** Solo maintainer, 7 weeks old, 2,201 AI-generated commits. The feature set is impressive on paper but the bus factor is 1 and the codebase age raises durability questions.
+
+3. **Tools split into "replace your pipeline" vs "wrap your pipeline."** Gastown, Composio AO, and Superset all want to own your issue tracker, dispatch, and CI loop. Only Bernstein wraps an existing pipeline without replacing it.
+
+4. **Our pipeline is already at ACMM L6.** The gap is narrow — we need multi-CLI dispatch (route work to Claude/Gemini/OpenCode) and rate-limit detection (detect 429s and failover). That is approximately 500 lines of code in agent-core, not an entire orchestration platform.
+
+### Round 2 Decision
+
+**Build in-house.**
+
+Rationale:
+
+1. **The gap is narrow (~500 LOC):** Add Gemini CLI and OpenCode CLI adapters to agent-core, plus rate-limit detection logic. Our existing dispatch (`mbe agent run`), quality gates, label state machine, and CI monitoring all stay intact.
+
+2. **Bernstein (only wrapper) is too immature:** Solo maintainer, 7 weeks old, 305 stars, 2,201 AI-generated commits. Depending on it for production orchestration is high risk for low reward.
+
+3. **Every other tool replaces our pipeline rather than extending it:** Gastown, Composio AO, and Superset all require migrating away from our label state machine, RemoteTriggers, eval harness, and auto-QA tuning. The migration cost exceeds the build cost.
+
+4. **Full control, no dependency risk, exact fit:** We know our pipeline intimately. Building the missing pieces gives us exactly the behavior we need without adapting to another tool's opinions.
+
+Implementation tracked in issues [#1168](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/1168)-[#1174](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/1174), with tracking issue [#1176](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/1176).
+
+### Curated Tool Lists for Future Reference
+
+- [awesome-cli-coding-agents](https://github.com/bradAGI/awesome-cli-coding-agents) — comprehensive list of CLI coding agents
+- [awesome-agent-orchestrators](https://github.com/andyrewlee/awesome-agent-orchestrators) — curated list of agent orchestration tools
