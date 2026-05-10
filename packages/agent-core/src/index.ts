@@ -281,6 +281,10 @@ export { OpenCodeAdapter } from "./adapters/opencode-adapter.js";
 
 // Rate-limit detection and cooldown management
 export { RateLimitDetector, scanForRateLimitPatterns } from "./rate-limit-detector.js";
+
+// Failover router (priority-cascade multi-CLI dispatch)
+export { FailoverRouter, AllAdaptersUnavailableError } from "./failover-router.js";
+export type { RoutedAdapterResult } from "./failover-router.js";
 // Bundle size tracking
 export {
   measureAppBundleSize,
