@@ -118,9 +118,72 @@ We run three AI coding CLIs (Claude Code, Gemini CLI, OpenCode) on subscription 
 5. Test with a single `ready` issue before enabling batch mode
 6. Layer MCO for multi-agent PR review on output PRs
 
-## Open Questions
+## Open Questions (Resolved)
 
-- Does Composio AO's GitHub integration support custom label schemes or only its defaults?
-- Can we add rate-limit detection as a plugin/hook?
-- How does it handle agent failure + retry (our `agent-failed` label)?
-- Can Bernstein's bandit router be used standalone for model selection?
+- **Does Composio AO support custom label schemes?** Partially. Its Tracker plugin (GitHub/Linear) has its own state machine. Config uses `reactions` for CI failures, change requests, and approvals — but these are AO's concepts, not our `ready`/`in-progress`/`has-pr` labels. Mapping would require customization.
+- **Can Bernstein wrap `mbe agent run`?** Yes. The generic `--prompt` adapter wraps any CLI that accepts a prompt flag. `mbe agent run` would work as a custom agent. See `docs/adapters.html` for the "bring your own agent" guide.
+- **How does Composio AO handle agent failure?** `reactions` config defines retry counts and escalation timing for CI failures and change requests. But it uses its own lifecycle, not our `agent-failed` label.
+- **Can Bernstein's bandit router work standalone?** Not documented — it's integrated into the scheduler. The bandit learns from task outcomes, not exposed as a standalone service.
+
+## ACMM Pipeline Fit Analysis
+
+### Our Existing Pipeline
+```
+/acmm-audit --apply → GitHub issues (ready label)
+→ /issue-worker picks up → in-progress → mbe agent run (worktree)
+→ PR created (has-pr) → merge-queue auto-merges
+→ /ci-monitor auto-fixes → /auto-qa-tune adjusts thresholds
+```
+
+### Integration Approach Comparison
+
+| Concern | Composio AO | Bernstein |
+|---|---|---|
+| **Architecture** | Replaces our pipeline — owns tracker, dispatch, PR lifecycle | Wraps our pipeline — adds multi-tool dispatch on top |
+| **Label scheme** | Own state machine — requires migration from ready/in-progress/has-pr | Can consume our labels via `from-ticket` with label inference |
+| **Issue creation** | Reads existing issues | Reads existing issues via `from-ticket` |
+| **mbe agent run** | Would replace with its own dispatch | Can wrap as custom adapter via generic `--prompt` |
+| **RemoteTriggers** | Not compatible — uses its own scheduler | Compatible — Bernstein wraps what we already run |
+| **Auto-QA tuning** | No equivalent | Bandit router is analogous — learns optimal model per task type |
+| **Quality gates** | CI-based (relies on our CI) | Built-in lint/types/tests/PII scan before commit |
+| **Audit trail** | Dashboard logs | HMAC-SHA256 chained audit log |
+| **Eval harness** | No integration | Could orchestrate eval tasks as a Bernstein plan |
+| **Migration effort** | High — replace label lifecycle, dispatch, CI monitoring | Low — add as a dispatch layer, keep everything else |
+
+### ACMM Criteria Impact
+
+| ACMM Criterion | Composio AO | Bernstein |
+|---|---|---|
+| L3: Quality dashboard | Web dashboard ✓ | No dashboard |
+| L4: Task traceability | Own state machine | HMAC audit trail ✓ |
+| L4: Auto-QA tuning | No | Bandit router (analogous) |
+| L4: Structured workflows | Reactions config | YAML plan files ✓ |
+| L5: Auto-QA self-tuning | No | Bandit learning ✓ |
+| L5: GitHub Actions AI | Would replace our GH Actions | Works alongside our GH Actions ✓ |
+| L6: Multi-agent orchestration | ✓ Full orchestration | ✓ Full orchestration |
+
+## Updated Recommendation
+
+### For ACMM pipeline integration: **Bernstein**
+
+**Why Bernstein over Composio AO for our specific case:**
+
+1. **Wraps rather than replaces** — our label state machine, RemoteTriggers, eval harness, and auto-QA tuning all stay intact. Bernstein adds multi-tool dispatch as a layer, not a rewrite.
+2. **Custom adapter for `mbe agent run`** — the generic `--prompt` wrapper lets us keep our existing agent dispatch while adding Gemini/OpenCode routing.
+3. **ACMM criteria alignment** — HMAC audit trail (L4), bandit learning (L5), deterministic scheduling (L5), and quality gates (L3) all genuinely satisfy criteria we currently pass on file existence alone.
+4. **Lower migration risk** — no label scheme conflict, no tracker replacement, no dashboard migration.
+
+**Why not Composio AO:**
+- Would require replacing our label lifecycle, which is deeply integrated into /issue-worker, /ci-monitor, merge-queue.yml, and /ship-loop.
+- Higher migration effort with more ACMM criteria disruption during the transition.
+- Better suited for greenfield projects that haven't built their own pipeline yet.
+
+### Complementary tools:
+- **Claude Squad** — use alongside Bernstein for visual session management (TUI to watch parallel agents)
+- **MCO** — layer on top for multi-agent PR review consensus
+
+### Maturity mitigation:
+Bernstein is solo-maintained (305 stars). Mitigate by:
+- Pinning to a specific version
+- Keeping our pipeline fully functional without Bernstein (fallback to manual dispatch)
+- Contributing fixes upstream if we hit issues
