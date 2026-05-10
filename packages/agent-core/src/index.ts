@@ -301,3 +301,24 @@ export type {
   BundleSizeComparison,
   BundleSizeReport,
 } from "./bundle-size-tracker.js";
+
+// Synthetic bug seeding (chaos-agent testing)
+export {
+  seedSyntheticBug,
+  cleanupSyntheticBugBranch,
+  createLintViolationBug,
+  createDeadLinkBug,
+  createA11yBug,
+} from "./synthetic-bug-seeder.js";
+export type { BugType, SyntheticBugConfig, BugSeedResult } from "./synthetic-bug-seeder.js";
+
+// Revert detection (revert-rca-loop)
+export {
+  detectRecentReverts,
+  detectAiAuthorReverts,
+  isPrAiAuthor,
+  extractPrNumberFromMessage,
+  getCommitDetails,
+  formatRevertForIssue,
+} from "./revert-detector.js";
+export type { RevertCommit, RevertedPR } from "./revert-detector.js";
