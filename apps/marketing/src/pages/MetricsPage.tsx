@@ -85,7 +85,7 @@ export function MetricsPage() {
   if (error) {
     return (
       <div className={styles.container}>
-        <Heading level={1}>ACMM Metrics</Heading>
+        <Heading level={1}>Quality Metrics</Heading>
         <Text className={styles.error}>Error loading metrics: {error}</Text>
       </div>
     );
@@ -94,7 +94,7 @@ export function MetricsPage() {
   if (!metrics) {
     return (
       <div className={styles.container}>
-        <Heading level={1}>ACMM Metrics</Heading>
+        <Heading level={1}>Quality Metrics</Heading>
         <div className={styles.loading}>
           <Spinner size="md" />
         </div>
@@ -105,7 +105,7 @@ export function MetricsPage() {
   return (
     <div className={styles.container}>
       <header className={styles.header}>
-        <Heading level={1}>ACMM Metrics</Heading>
+        <Heading level={1}>Quality Metrics</Heading>
         <Text className={styles.subtitle}>
           AI Codebase Maturity Model — public metrics for mattbutlerengineering
         </Text>

@@ -37,6 +37,7 @@ Automated system that audits the live site, finds and fixes issues, builds featu
 ```bash
 # Agent — local (runs directly via @mbe/agent-core)
 mbe agent run "Fix the login bug"                 # Run agent → get PR
+  --adapter <type>                                # auto, claude, gemini, opencode (default: claude)
   --model <model>                                 # default: claude-sonnet-4-6
   --max-budget <usd>                              # default: 1.00
   --max-turns <n>                                 # default: 50
