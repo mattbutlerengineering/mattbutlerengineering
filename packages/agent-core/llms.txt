@@ -79,6 +79,20 @@
       export const DEFAULT_ORCHESTRATOR_CONFIG: Omit<import("/Users/mbutler/github/mattbutlerengineering/...;
     </item>
   </file>
+  <file path="src/synthetic-bug-seeder.ts">
+    <item priority="low">
+      type BugType = "lint-violation" | "dead-link" | "a11y-issue";
+    </item>
+    <item priority="low">
+      interface SyntheticBugConfig {
+        type: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        repoPath: string;
+        filePath: string;
+        fileContent: string;
+        commitMessage: string;
+      }
+    </item>
+  </file>
   <file path="src/success-evaluator.ts">
     <item priority="low">
       interface EvaluationResult {
@@ -119,6 +133,26 @@
       export function sanitizeStreamChunk(chunk: string): string { /* ... */ }
     </item>
   </file>
+  <file path="src/revert-detector.ts">
+    <item priority="low">
+      interface RevertCommit {
+        sha: string;
+        oneline: string;
+        message: string;
+        revertedSha?: string | undefined;
+        revertedPrNumber?: number | undefined;
+      }
+    </item>
+    <item priority="low">
+      interface RevertedPR {
+        number: number;
+        title: string;
+        url: string;
+        isAiAuthor: boolean;
+        revertedAt: string;
+      }
+    </item>
+  </file>
   <file path="src/retry.ts">
     <item priority="low">
       interface RetryConfig {
@@ -151,8 +185,8 @@
   <file path="src/quality-gates.ts">
     <item priority="low">
       interface QualityGatesResult {
-        evaluation?: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
-        securityReview?: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
+        evaluation?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        securityReview?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
         staticAnalysisClean: boolean;
         errors: string[];
       }
@@ -185,7 +219,7 @@
       interface QaTuningConfig {
         version: number;
         lastTunedAt: string;
-        thresholds: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
+        thresholds: import("/Users/mbutler/github/mattbutlerengineering/packa...;
       }
     </item>
   </file>
@@ -255,7 +289,7 @@
   </file>
   <file path="src/observability.ts">
     <item priority="high">
-      export const observabilityTracer: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
+      export const observabilityTracer: import("/Users/mbutler/github/mattbutlerengineering/node_...;
     </item>
     <item priority="medium">
       function containsInOrder(str: string, a: string, b: string): boolean { /* ... */ }

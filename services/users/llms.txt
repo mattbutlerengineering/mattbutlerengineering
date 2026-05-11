@@ -35,7 +35,7 @@
       }
     </item>
     <item priority="high">
-      export const MOCK_USER: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
+      export const MOCK_USER: import("/Users/mbutler/github/mattbutlerengineering/servi...;
     </item>
   </file>
   </section>
@@ -97,12 +97,12 @@
       function isAdmin(user: AuthUser | undefined): boolean { /* ... */ }
     </item>
     <item priority="high">
-      export const userRoutes: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
+      export const userRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
     </item>
   </file>
   <file path="src/routes/ready.ts">
     <item priority="high">
-      export const readinessRoutes: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
+      export const readinessRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
     </item>
   </file>
   <file path="src/routes/health.ts">
@@ -112,7 +112,7 @@
         IncomingMessage...;
     </item>
     <item priority="high">
-      export const healthRoutes: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
+      export const healthRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
     </item>
   </file>
   </section>
