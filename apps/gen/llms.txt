@@ -1,20 +1,69 @@
 <codebase path="apps/gen">
-  <section priority="medium" role="src">
-  <file path="src/vite-env.d.ts">
+  <section priority="medium" role="e2e">
+  <file path="e2e/auth-helpers.ts">
     <item priority="high">
-      interface ImportMetaEnv {
-        VITE_AUTH_AUTHORITY: string;
-        VITE_AUTH_CLIENT_ID: string;
-        VITE_AUTH_REDIRECT_URI: string;
-        VITE_AUTH_AUDIENCE: string;
+      interface Auth0Config {
+        domain: string;
+        clientId: string;
+        audience: string;
+        email: string;
+        password: string;
       }
     </item>
+    <item priority="medium">
+      function getAuth0Config(): Auth0Config { /* ... */ }
+    </item>
+  </file>
+  <file path="e2e/fixtures.ts">
     <item priority="high">
-      interface ImportMeta {
-        env: ImportMetaEnv;
+      export const test: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="hooks">
+  <file path="src/hooks/useGenStream.ts">
+    <item priority="high">
+      type FlatElement = Parameters<typeof flatToTree>[0][number];
+    </item>
+    <item priority="low">
+      interface UseGenStreamOptions {
+        api: string;
+        onComplete?: ((spec: import("/Users/mbutler/github/mattbutlerengineeri...;
+        onError?: ((error: Error) => void) | undefined;
       }
     </item>
   </file>
+  <file path="src/hooks/usePanelLayout.ts">
+    <item priority="high">
+      type Breakpoint = "mobile" | "tablet" | "desktop";
+    </item>
+    <item priority="high">
+      interface PanelState {
+        historyVisible: boolean;
+        inspectorVisible: boolean;
+      }
+    </item>
+  </file>
+  <file path="src/hooks/useSpecsApi.ts">
+    <item priority="low">
+      interface SaveSpecData {
+        prompt: string;
+        spec: unknown;
+        rawLines: string[];
+      }
+    </item>
+    <item priority="low">
+      interface UseSpecsApiReturn {
+        specs: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+        isLoading: boolean;
+        fetchSpecs: () => Promise<void>;
+        saveSpec: (data: import("/Users/mbutler/github/mattbutlerengineerin...;
+        toggleFavorite: (id: string) => Promise<void>;
+      }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="src">
   <file path="src/types.ts">
     <item priority="low">
       interface HistoryEntry {
@@ -35,25 +84,19 @@
       }
     </item>
   </file>
-  </section>
-  <section priority="medium" role="e2e">
-  <file path="e2e/fixtures.ts">
+  <file path="src/vite-env.d.ts">
     <item priority="high">
-      export const test: import("/Users/mbutler/github/mattbutlerengineering/node_...;
-    </item>
-  </file>
-  <file path="e2e/auth-helpers.ts">
-    <item priority="high">
-      interface Auth0Config {
-        domain: string;
-        clientId: string;
-        audience: string;
-        email: string;
-        password: string;
+      interface ImportMetaEnv {
+        VITE_AUTH_AUTHORITY: string;
+        VITE_AUTH_CLIENT_ID: string;
+        VITE_AUTH_REDIRECT_URI: string;
+        VITE_AUTH_AUDIENCE: string;
       }
     </item>
-    <item priority="medium">
-      function getAuth0Config(): Auth0Config { /* ... */ }
+    <item priority="high">
+      interface ImportMeta {
+        env: ImportMetaEnv;
+      }
     </item>
   </file>
   </section>
@@ -61,49 +104,6 @@
   <file path="src/utils/relative-time.ts">
     <item priority="high">
       export function relativeTime(date: Date): string { /* ... */ }
-    </item>
-  </file>
-  </section>
-  <section priority="medium" role="hooks">
-  <file path="src/hooks/useSpecsApi.ts">
-    <item priority="low">
-      interface SaveSpecData {
-        prompt: string;
-        spec: unknown;
-        rawLines: string[];
-      }
-    </item>
-    <item priority="low">
-      interface UseSpecsApiReturn {
-        specs: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
-        isLoading: boolean;
-        fetchSpecs: () => Promise<void>;
-        saveSpec: (data: import("/Users/mbutler/github/mattbutlerengineerin...;
-        toggleFavorite: (id: string) => Promise<void>;
-      }
-    </item>
-  </file>
-  <file path="src/hooks/usePanelLayout.ts">
-    <item priority="high">
-      type Breakpoint = "mobile" | "tablet" | "desktop";
-    </item>
-    <item priority="high">
-      interface PanelState {
-        historyVisible: boolean;
-        inspectorVisible: boolean;
-      }
-    </item>
-  </file>
-  <file path="src/hooks/useGenStream.ts">
-    <item priority="high">
-      type FlatElement = Parameters<typeof flatToTree>[0][number];
-    </item>
-    <item priority="low">
-      interface UseGenStreamOptions {
-        api: string;
-        onComplete?: ((spec: import("/Users/mbutler/github/mattbutlerengineeri...;
-        onError?: ((error: Error) => void) | undefined;
-      }
     </item>
   </file>
   </section>

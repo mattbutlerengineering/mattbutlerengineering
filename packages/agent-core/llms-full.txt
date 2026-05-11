@@ -1,271 +1,630 @@
 <codebase path="packages/agent-core">
+  <section priority="medium" role="adapters">
+  <file path="src/adapters/claude-adapter.ts">
+    function detectRateLimitInError(message: string): boolean {
+      return RATE_LIMIT_PATTERNS.some((pattern) => pattern.test(message));
+    }
+    function deriveHasChanges(result: SessionResult): boolean {
+      if (result.prUrl !== null) return true;
+      // If the session succeeded and produced a branch, there were likely changes
+      // even if the PR wasn't created (createPr: false path).
+      if (result.status === "succeeded" && result.branchName.length > 0) return true;
+      return false;
+    }
+  </file>
+  <file path="src/adapters/gemini-adapter.ts">
+    function truncateTask(task: string, maxLength: number = MAX_TASK_LENGTH): string {
+      if (task.length <= maxLength) return task;
+      return task.slice(0, maxLength - 3) + "...";
+    }
+    function detectRateLimiting(output: string): boolean {
+      return RATE_LIMIT_PATTERNS.some((pattern) => pattern.test(output));
+    }
+  </file>
+  <file path="src/adapters/opencode-adapter.ts">
+    function truncateTask(task: string, maxLength: number = MAX_TASK_LENGTH): string {
+      if (task.length <= maxLength) return task;
+      return task.slice(0, maxLength - 3) + "...";
+    }
+    function detectRateLimiting(output: string): boolean {
+      return RATE_LIMIT_PATTERNS.some((pattern) => pattern.test(output));
+    }
+  </file>
+  </section>
   <section priority="medium" role="src">
-  <file path="src/worktree-manager.ts">
-    export function validateGitRef(ref: string, label: string): void {
-      if (!ref || !SAFE_GIT_REF.test(ref)) {
-        throw new Error(
-          `Invalid ${label}: "${ref}" — must match ${String(SAFE_GIT_REF)} (no leading dash, no shell metacharacters)`
-        );
-      }
+  <file path="src/audit-inventory.ts">
+    export type Zone =
+      | "marketing"
+      | "hospitality"
+      | "rialto"
+      | "gen"
+      | "api:users"
+      | "api:reservations"
+      | "api:agent";
+    export const ZONES: readonly Zone[] = [
+      "marketing",
+      "hospitality",
+      "rialto",
+      "gen",
+      "api:users",
+      "api:reservations",
+      "api:agent",
+    ];
+  </file>
+  <file path="src/bundle-size-tracker.ts">
+    export interface FileSize {
+      readonly path: string;
+      readonly bytes: number;
     }
-    export function validatePath(path: string, label: string): void {
-      if (!path || UNSAFE_PATH_CHARS.test(path)) {
-        throw new Error(
-          `Invalid ${label}: "${path}" — must not contain shell metacharacters (${String(UNSAFE_PATH_CHARS)})`
-        );
-      }
+    export interface BundleSizeEntry {
+      readonly app: string;
+      readonly totalBytes: number;
+      readonly files: readonly FileSize[];
+      readonly timestamp: string;
     }
   </file>
-  <file path="src/verification-orchestrator.ts">
-    export interface VerificationResult {
-      passed: boolean;
-      logPath?: string;
-      error?: string;
+  <file path="src/change-type-classifier.ts">
+    export type ChangeType =
+      | "dependency"
+      | "docs"
+      | "config"
+      | "test"
+      | "infrastructure"
+      | "frontend"
+      | "backend"
+      | "mixed";
+    export type SkippablePhase = "smoke-audit" | "deploy-verify" | "lighthouse" | "e2e";
+  </file>
+  <file path="src/circuit-breaker.ts">
+    export enum CircuitState {
+      Closed = "CLOSED",
+      Open = "OPEN",
+      HalfOpen = "HALF_OPEN",
     }
-    export async function orchestrateVerification(
-      worktreePath: string,
-      onEvent?: SessionEventCallback
-    ): Promise<VerificationResult> {
-      const verifySpan = tracer.startSpan("agent_core.verify_changes");
-      try {
-        const verification = await runVerification(worktreePath);
-        verifySpan.setAttribute("verify.passed", verification.passed);
-        verifySpan.setAttribute("verify.lint", verification.lintOk);
-        verifySpan.setAttribute("verify.typecheck", verification.typecheckOk);
-        verifySpan.setAttribute("verify.tests", verification.testsOk);
-    
-        // Store full verification output (not truncated)
-        const logSections: { label: string; output: string }[] = [];
-        if (verification.lintOutput) logSections.push({ label: "Lint", output: verification.lintOutput });
-        if (verification.typecheckOutput) logSections.push({ label: "Typecheck", output: verification.typecheckOutput });
-        if (verification.testOutput) logSections.push({ label: "Tests", output: verification.testOutput });
-    
-        let verificationLogPath: string | undefined;
-        if (logSections.length > 0) {
-          verificationLogPath = await storeVerificationLog(worktreePath, logSections);
-        }
-    
-        emitEvent(onEvent, "session:verification", {
-          message: verification.passed
-            ? "Verification passed (lint + typecheck + tests)"
-            : `Verification failed — lint: ${verification.lintOk ? "OK" : "FAIL"}, typecheck: ${verification.typecheckOk ? "OK" : "FAIL"}, tests: ${verification.testsOk ? "OK" : "FAIL"}${verificationLogPath ? ` (full log: ${verificationLogPath})` : ""}`,
-        });
-    
-        if (!verification.passed) {
-          const parts: string[] = [];
-          if (!verification.lintOk) parts.push(`lint: ${verification.lintOutput}`);
-          if (!verification.typecheckOk) parts.push(`typecheck: ${verification.typecheckOutput}`);
-          if (!verification.testsOk) parts.push(`tests: ${verification.testOutput}`);
-          return {
-            passed: false,
-            logPath: verificationLogPath,
-            error: `Verification failed: ${parts.join("; ")}`,
-          };
-        }
-    
-        return { passed: true, logPath: verificationLogPath };
-      } finally {
-        verifySpan.end();
-      }
+    export interface CircuitBreakerOptions {
+      failureThreshold: number;
+      resetTimeoutMs: number;
+      onStateChange?: (state: CircuitState, error?: Error) => void;
     }
   </file>
-  <file path="src/utils.ts">
-    export function emitEvent(
-      onEvent: SessionEventCallback | undefined,
-      type: SessionEvent["type"],
-      data: SessionEvent["data"]
-    ): void {
-      if (!onEvent) return;
-      onEvent({
-        type,
-        timestamp: new Date().toISOString(),
-        data,
-      });
-    }
-    export function sanitizeForCommitMessage(text: string): string {
-      return text.replace(/[\n\r]/g, " ").slice(0, 72);
-    }
-  </file>
-  <file path="src/types.ts">
-    export type FailureCategory =
-      | "api_error"
-      | "rate_limited"
-      | "stuck_loop"
-      | "budget_exceeded"
-      | "tool_error"
-      | "logic_error";
-    export interface TurnMetrics {
-      /** 1-based turn index within the session */
-      readonly turnIndex: number;
-      /** ISO timestamp when this turn started */
-      readonly startedAt: string;
-      /** Input tokens consumed in this turn */
-      readonly inputTokens: number;
-      /** Output tokens produced in this turn */
-      readonly outputTokens: number;
-      /** Extended-thinking tokens (if applicable) */
-      readonly thinkingTokens: number;
-      /** Incremental cost in USD for this turn */
-      readonly costUsd: number;
-      /** Model ID that handled this turn */
-      readonly modelId: string;
-    }
-  </file>
-  <file path="src/tool-permissions.ts">
-    export function normalizeBashCommand(command: string): readonly string[] {
-      const variants: string[] = [command];
-    
-      // Collapse escaped newlines (line continuations)
-      const collapsed = command.replace(/\\\n/g, "");
-      if (collapsed !== command) {
-        variants.push(collapsed);
-      }
-    
-      // Split on unescaped newlines and semicolons to catch injection
-      const lines = command.split(/(?<!\\)[;\n]+/).map((l) => l.trim()).filter(Boolean);
-      if (lines.length > 1) {
-        for (const line of lines) {
-          variants.push(line);
-        }
-      }
-    
-      // Collapse excess whitespace in each variant
-      const withNormalizedSpace = variants.map((v) => v.replace(/\s+/g, " ").trim());
-      const allVariants = [...new Set([...variants, ...withNormalizedSpace])];
-    
-      return allVariants;
-    }
-    function isBashCommandBlocked(command: string): string | null {
-      const variants = normalizeBashCommand(command);
-    
-      for (const variant of variants) {
-        // Check structural encoding bypass patterns first
-        for (const pattern of ENCODING_BYPASS_PATTERNS) {
-          if (pattern.test(variant)) {
-            return `Blocked: command uses shell encoding bypass (${pattern.source})`;
-          }
-        }
-    
-        // Check standard blocked patterns
-        for (const pattern of BLOCKED_BASH_PATTERNS) {
-          if (pattern.test(variant)) {
-            return `Blocked: command matches dangerous pattern ${pattern.source}`;
-          }
-        }
-      }
-    
-      return null;
-    }
-  </file>
-  <file path="src/task-intelligence.ts">
-    function detectTaskContexts(taskDescription: string): string[] {
-      const contexts: string[] = [];
-      for (const [taskType, keywords] of Object.entries(TASK_KEYWORDS)) {
-        for (const keyword of keywords) {
-          if (keyword.test(taskDescription)) {
-            const contextFiles = TASK_CONTEXT_PATTERNS[taskType] ?? [];
-            for (const file of contextFiles) {
-              if (existsSync(file)) {
-                contexts.push(file);
-              }
-            }
-            break;
-          }
-        }
-      }
-      return contexts;
-    }
-    export function resolveSourceFiles(taskDescription: string): readonly string[] {
-      const files = new Set<string>();
-    
-      // Extract explicit file paths
-      for (const match of taskDescription.matchAll(FILE_PATH_PATTERN)) {
-        files.add(match[1]);
-      }
-    
-      // Extract directory references and add key files
-      for (const match of taskDescription.matchAll(DIRECTORY_PATTERN)) {
-        const dir = match[1];
-        // If a service or app directory is mentioned, add its CLAUDE.md
-        if (dir.startsWith("services/") || dir.startsWith("apps/")) {
-          files.add(`${dir}CLAUDE.md`);
-        }
-      }
-    
-      // For each source file, also include its test file
-      const withTests = new Set(files);
-      for (const file of files) {
-        if (!file.includes(".test.") && !file.includes(".spec.")) {
-          const testFile = file.replace(/\.(\w+)$/, ".test.$1");
-          withTests.add(testFile);
-        }
-      }
-    
-      // Add task-specific context bundles
-      const contexts = detectTaskContexts(taskDescription);
-      for (const ctx of contexts) {
-        withTests.add(ctx);
-      }
-    
-      return [...withTests];
-    }
-  </file>
-  <file path="src/task-decomposer.ts">
-    export interface OrchestratorConfig {
+  <file path="src/cli-adapter.ts">
+    export interface AdapterConfig {
+      /** Human-readable description of the task for the agent to perform. */
       readonly taskDescription: string;
-      readonly apiBaseUrl: string;
-      readonly model: string;
-      readonly sessionModel: string;
-      readonly maxBudgetPerSession: number;
-      readonly maxTurnsPerSession: number;
+      /** Absolute path to the isolated worktree where the agent operates. */
+      readonly worktreePath: string;
+      /** Absolute path to the original repository root. */
+      readonly repoPath: string;
+      /** Git branch to base work on (e.g. "main"). */
       readonly baseBranch: string;
-      readonly maxConcurrentSessions: number;
-      readonly parentSessionId?: string;
+      /** Model identifier override (adapter-specific, e.g. "claude-sonnet-4-6", "gemini-2.5-pro"). */
+      readonly model?: string;
+      /** Maximum number of conversation turns before the adapter should stop. */
+      readonly maxTurns?: number;
+      /** Hard wall-clock timeout in milliseconds for the entire run. */
+      readonly timeoutMs?: number;
     }
-    export const DEFAULT_ORCHESTRATOR_CONFIG: Omit<OrchestratorConfig, "taskDescription"> = {
-      apiBaseUrl: "http://localhost:3003",
-      model: "claude-sonnet-4-6",
-      sessionModel: "claude-sonnet-4-6",
-      maxBudgetPerSession: 1.0,
-      maxTurnsPerSession: 50,
-      baseBranch: "main",
-      maxConcurrentSessions: 3,
-    };
-  </file>
-  <file path="src/synthetic-bug-seeder.ts">
-    export type BugType = "lint-violation" | "dead-link" | "a11y-issue";
-    export interface SyntheticBugConfig {
-      type: BugType;
-      repoPath: string;
-      filePath: string;
-      fileContent: string;
-      commitMessage: string;
-      branchName: string;
+    export interface AdapterResult {
+      /** Whether the agent session completed successfully. */
+      readonly success: boolean;
+      /** Whether the agent made any git-visible changes in the worktree. */
+      readonly hasChanges: boolean;
+      /** Whether the run was terminated due to rate limiting (maps to FailureCategory "rate_limited"). */
+      readonly rateLimited: boolean;
+      /** Human-readable error message when success is false. */
+      readonly error?: string;
+      /** Wall-clock duration of the run in milliseconds. */
+      readonly durationMs: number;
     }
   </file>
-  <file path="src/success-evaluator.ts">
-    export interface EvaluationResult {
+  <file path="src/cost-tracker.ts">
+    export function extractTokenUsage(result: SDKResultMessage): TokenUsage {
+      return {
+        inputTokens: result.usage.input_tokens ?? 0,
+        outputTokens: result.usage.output_tokens ?? 0,
+      };
+    }
+    export function extractCost(result: SDKResultMessage): number {
+      return result.total_cost_usd;
+    }
+  </file>
+  <file path="src/dep-bump-merger.ts">
+    export interface TrivialDepBumpResult {
+      readonly isTrivial: boolean;
+      /** Reason the bump was deemed non-trivial (undefined when isTrivial=true). */
+      readonly reason?: string;
+    }
+    function extractChangedFiles(diff: string): readonly string[] {
+      const files: string[] = [];
+      for (const line of diff.split("\n")) {
+        if (!line.startsWith("diff --git ")) continue;
+        // e.g. "diff --git a/some/path/package.json b/some/path/package.json"
+        const match = line.match(/^diff --git a\/\S+ b\/(\S+)$/);
+        if (match) {
+          files.push(match[1]);
+        }
+      }
+      return files;
+    }
+  </file>
+  <file path="src/deploy-verifier.ts">
+    export interface HealthCheck {
+      readonly name: string;
+      readonly url: string;
+      readonly type: "http_status" | "json_health";
+    }
+    export interface HealthCheckResult {
+      readonly name: string;
+      readonly url: string;
       readonly passed: boolean;
-      readonly confidence: number;
-      readonly reasoning: string;
+      readonly status: string;
+      readonly attempts: number;
+    }
+  </file>
+  <file path="src/diff-reviewer.ts">
+    export interface ReviewResult {
+      readonly approved: boolean;
       readonly issues: readonly string[];
     }
-    export interface EvaluationConfig {
+    export interface ReviewConfig {
       readonly model: string;
       readonly maxBudgetUsd: number;
     }
   </file>
-  <file path="src/stuck-detector.ts">
-    export type StuckPatternType =
-      | "repeated_action_observation"
-      | "repeated_error"
-      | "self_message_loop"
-      | "alternating_pairs"
-      | "context_window_loop"
-      | "context_window_warning"
-      | "zero_progress"
-      | "silent_failure_loop";
-    export type StuckSeverity = "warning" | "error";
+  <file path="src/diff-static-analyzer.ts">
+    export interface Violation {
+      readonly rule: string;
+      readonly file: string;
+      readonly line: number;
+      readonly message: string;
+      readonly severity: "warning" | "error";
+    }
+    export interface StaticAnalysisResult {
+      readonly clean: boolean;
+      readonly violations: readonly Violation[];
+      readonly durationMs: number;
+    }
+  </file>
+  <file path="src/event-mapper.ts">
+    export interface ToolUseEvent {
+      readonly type: "session:tool_use";
+      readonly toolName: string;
+      readonly toolInput: Record<string, unknown>;
+      readonly toolUseId: string;
+    }
+    export interface ToolResultEvent {
+      readonly type: "session:tool_result";
+      readonly toolUseId: string;
+      readonly isError: boolean;
+    }
+  </file>
+  <file path="src/failover-router.ts">
+    export class AllAdaptersUnavailableError extends Error {
+      /** Per-adapter cooldown timestamps (ms epoch). Only includes adapters that have an active cooldown. */
+      readonly cooldowns: ReadonlyMap<string, number>;
+    
+      constructor(cooldowns: ReadonlyMap<string, number>) {
+        super("All agent adapters are rate-limited or unavailable");
+        this.name = "AllAdaptersUnavailableError";
+        this.cooldowns = cooldowns;
+      }
+    }
+    export type RoutedAdapterResult = AdapterResult & {
+      /** Name of the adapter that produced this result. */
+      readonly adapter: string;
+    };
+  </file>
+  <file path="src/failure-memory.ts">
+    export interface FailureRecord {
+      readonly taskDescription: string;
+      readonly timestamp: string;
+      readonly stuckPattern?: string;
+      readonly errors: readonly string[];
+      readonly approach: string;
+    }
+    export interface FailureMemory {
+      readonly records: readonly FailureRecord[];
+    }
+  </file>
+  <file path="src/feedback-loop.ts">
+    export interface FeedbackLoopParams {
+      readonly prNumber: number;
+      readonly branchName: string;
+      readonly repoPath: string;
+      readonly model: string;
+      readonly maxRetries: number;
+      readonly pollIntervalMs: number;
+      readonly pollTimeoutMs: number;
+      readonly maxBudgetUsd: number;
+      readonly allowedTools: readonly string[];
+    }
+    export interface FeedbackLoopResult {
+      readonly retriesUsed: number;
+      readonly resolved: boolean;
+      readonly lastFingerprint: string | null;
+    }
+  </file>
+  <file path="src/feedback-prompt-builder.ts">
+    export const CI_LOG_MAX_CHARS = 500;
+    export interface BuildReviewFixPromptOptions {
+      /** Override the maximum CI log characters (default: CI_LOG_MAX_CHARS). */
+      readonly ciLogMaxChars?: number;
+    }
+  </file>
+  <file path="src/intent-extractor.ts">
+    interface ContentBlock {
+      readonly type: string;
+      readonly input?: unknown;
+    }
+    interface AnthropicMessagesResponse {
+      readonly content: readonly ContentBlock[];
+    }
+  </file>
+  <file path="src/model-router.ts">
+    export type ModelTier = "haiku" | "sonnet" | "opus";
+    export interface IssueInput {
+      readonly title: string;
+      readonly labels: string[];
+      readonly body: string;
+    }
+  </file>
+  <file path="src/observability.ts">
+    export const observabilityTracer: Tracer = trace.getTracer("@mbe/agent-core");
+    function containsInOrder(str: string, a: string, b: string): boolean {
+      const lower = str.toLowerCase();
+      const idx = lower.indexOf(a);
+      return idx !== -1 && lower.indexOf(b, idx + a.length) !== -1;
+    }
+  </file>
+  <file path="src/orchestrator.ts">
+    interface SessionApiResponse<T> {
+      readonly data: T;
+    }
+    interface SessionSummary {
+      readonly id: string;
+      readonly status: string;
+      readonly taskDescription: string;
+      readonly branchName: string | null;
+      readonly prUrl: string | null;
+      readonly costUsd: number | null;
+      readonly errors: readonly string[];
+    }
+  </file>
+  <file path="src/pr-creator.ts">
+    export async function createPullRequest(options: PrOptions): Promise<PrResult> {
+      const { title, body, baseBranch, branchName, repoPath, draft } = options;
+    
+      const args = [
+        "pr",
+        "create",
+        "--title",
+        title,
+        "--body",
+        body,
+        "--base",
+        baseBranch,
+        "--head",
+        branchName,
+        "--json",
+        "url,number",
+      ];
+    
+      if (draft) {
+        args.push("--draft");
+      }
+    
+      const { stdout } = await execFileAsync("gh", args, { cwd: repoPath });
+    
+      const parsed = GhPrResultSchema.parse(JSON.parse(stdout.trim()));
+      return { url: parsed.url, number: parsed.number };
+    }
+    export function buildPrTitle(taskDescription: string): string {
+      const prefix = "feat";
+      const description = taskDescription.length > 60
+        ? taskDescription.slice(0, 57) + "..."
+        : taskDescription;
+      return `${prefix}: ${description}`;
+    }
+  </file>
+  <file path="src/pr-feedback-poller.ts">
+    export interface ReviewComment {
+      readonly threadId: string;
+      readonly author: string;
+      readonly body: string;
+      readonly path: string | null;
+      readonly line: number | null;
+    }
+    export interface CIFailure {
+      readonly checkName: string;
+      readonly conclusion: string;
+      readonly logSnippet: string;
+    }
+  </file>
+  <file path="src/pr-risk-classifier.ts">
+    export function isLowRiskPR(files: readonly string[]): boolean {
+      if (files.length === 0) {
+        return false;
+      }
+    
+      return files.every((file) => LOW_RISK_PATTERNS.some((matches) => matches(file)));
+    }
+  </file>
+  <file path="src/prompt-builder.ts">
+    export interface SourceFileEntry {
+      readonly path: string;
+      readonly content: string;
+    }
+    export interface PromptBuilderConfig {
+      sourceFileEntries?: readonly SourceFileEntry[];
+      relevantLlmsFiles?: readonly string[];
+      relevantIssueContext?: string;
+      failureContext?: string;
+      model?: string;
+      verificationSteps?: readonly string[];
+      prExamplesSection?: string;
+    }
+  </file>
+  <file path="src/qa-tuning-loader.ts">
+    export interface QaTuningThresholds {
+      readonly acceptanceRateFloor: number;
+      readonly maxBudgetUSD: number;
+      readonly maxRetries: number;
+      readonly stuckTurnsThreshold: number;
+      readonly meanCloseHoursTarget: number;
+      readonly agentMergeShareTarget: number;
+    }
+    export interface QaTuningConfig {
+      readonly version: number;
+      readonly lastTunedAt: string;
+      readonly thresholds: QaTuningThresholds;
+    }
+  </file>
+  <file path="src/quality-gates.ts">
+    export interface QualityGatesResult {
+      evaluation?: EvaluationResult;
+      securityReview?: ReviewResult;
+      staticAnalysisClean: boolean;
+      errors: string[];
+    }
+    export async function runQualityGates(
+      taskDescription: string,
+      diff: string,
+      commitMsg: string,
+      options: {
+        evaluateSuccess?: boolean;
+        runSecurityReview?: boolean;
+        runStaticAnalysis?: boolean;
+      },
+      onEvent?: SessionEventCallback
+    ): Promise<QualityGatesResult> {
+      const result: QualityGatesResult = {
+        staticAnalysisClean: true,
+        errors: [],
+      };
+    
+      // 1. Static analysis (fast, local)
+      if (options.runStaticAnalysis !== false) {
+        const staticResult = analyzeDiff(diff);
+        result.staticAnalysisClean = staticResult.clean;
+    
+        const errorViolations = staticResult.violations.filter((v) => v.severity === "error");
+        if (errorViolations.length > 0) {
+          const formatted = errorViolations.map(
+            (v) => `${v.file}:${v.line} [${v.rule}] ${v.message}`
+          ).join("; ");
+          result.errors.push(`Static analysis errors: ${formatted}`);
+          emitEvent(onEvent, "session:verification", {
+            message: `Static analysis: ${errorViolations.length} error(s) — ${formatted}`,
+          });
+        } else if (!staticResult.clean) {
+          emitEvent(onEvent, "session:verification", {
+            message: `Static analysis: ${staticResult.violations.length} warning(s) (non-blocking)`,
+          });
+        }
+      }
+    
+      // 2. LLM Success Evaluation
+      if (options.evaluateSuccess !== false) {
+        if (!shouldEvaluate(diff, { commitTitle: commitMsg })) {
+          emitEvent(onEvent, "session:evaluation", {
+            message: "Evaluation skipped — trivial diff",
+          });
+        } else {
+          const evalSpan = tracer.startSpan("agent_core.evaluate_success");
+          try {
+            result.evaluation = await evaluateSuccess(taskDescription, diff);
+            evalSpan.setAttribute("evaluation.passed", result.evaluation.passed);
+            evalSpan.setAttribute("evaluation.confidence", result.evaluation.confidence);
+          } finally {
+            evalSpan.end();
+          }
+    
+          emitEvent(onEvent, "session:evaluation", {
+            message: `Evaluation: ${result.evaluation.passed ? "PASS" : "FAIL"} (confidence: ${result.evaluation.confidence.toFixed(2)})`,
+          });
+    
+          if (!result.evaluation.passed) {
+            result.errors.push(`Evaluation failed: ${result.evaluation.reasoning}`);
+          }
+        }
+      }
+    
+      // 3. AI Security Review
+      if (options.runSecurityReview !== false && result.staticAnalysisClean) {
+        const reviewSpan = tracer.startSpan("agent_core.security_review");
+        try {
+          result.securityReview = await reviewDiff(diff);
+          reviewSpan.setAttribute("review.approved", result.securityReview.approved);
+          reviewSpan.setAttribute("review.issues_count", result.securityReview.issues.length);
+    
+          emitEvent(onEvent, "session:review", {
+            message: result.securityReview.approved
+              ? "Security review: APPROVED"
+              : `Security review: BLOCKED — ${result.securityReview.issues.join("; ")}`,
+          });
+    
+          if (!result.securityReview.approved) {
+            result.errors.push(`Security review failed: ${result.securityReview.issues.join("; ")}`);
+          }
+        } finally {
+          reviewSpan.end();
+        }
+      }
+    
+      return result;
+    }
+  </file>
+  <file path="src/rate-limit-detector.ts">
+    export function scanForRateLimitPatterns(output: string): boolean {
+      return RATE_LIMIT_PATTERNS.some((pattern) => pattern.test(output));
+    }
+    export class RateLimitDetector {
+      private readonly states: Map<string, AdapterState> = new Map();
+      private readonly cooldownMs: number;
+    
+      constructor(adapterNames: readonly string[], cooldownMs = DEFAULT_COOLDOWN_MS) {
+        this.cooldownMs = cooldownMs;
+        for (const name of adapterNames) {
+          this.states.set(name, {
+            name,
+            available: true,
+            cooldownUntil: null,
+            consecutiveFailures: 0,
+          });
+        }
+      }
+    
+      markRateLimited(adapterName: string): void {
+        const state = this.states.get(adapterName);
+        if (!state) return;
+        // Create new state object (immutability pattern)
+        this.states.set(adapterName, {
+          ...state,
+          available: false,
+          cooldownUntil: Date.now() + this.cooldownMs,
+          consecutiveFailures: state.consecutiveFailures + 1,
+        });
+      }
+    
+      markSuccess(adapterName: string): void {
+        const state = this.states.get(adapterName);
+        if (!state) return;
+        this.states.set(adapterName, {
+          ...state,
+          available: true,
+          cooldownUntil: null,
+          consecutiveFailures: 0,
+        });
+      }
+    
+      isAvailable(adapterName: string): boolean {
+        const state = this.states.get(adapterName);
+        if (!state) return false;
+        if (state.available) return true;
+        // Check if cooldown has expired
+        if (state.cooldownUntil !== null && Date.now() >= state.cooldownUntil) {
+          this.states.set(adapterName, {
+            ...state,
+            available: true,
+            cooldownUntil: null,
+          });
+          return true;
+        }
+        return false;
+      }
+    
+      getAvailableAdapters(): readonly string[] {
+        return [...this.states.keys()].filter((name) => this.isAvailable(name));
+      }
+    
+      getState(adapterName: string): AdapterState | undefined {
+        return this.states.get(adapterName);
+      }
+    }
+  </file>
+  <file path="src/retry.ts">
+    export interface RetryConfig {
+      /** Maximum number of retry attempts (default: 3) */
+      readonly maxRetries: number;
+      /** Base delay in milliseconds before first retry (default: 1000) */
+      readonly baseDelayMs: number;
+      /** Maximum delay in milliseconds (default: 30000) */
+      readonly maxDelayMs: number;
+      /** Predicate to determine if an error is retryable (default: isTransientError) */
+      readonly isRetryable: (error: unknown) => boolean;
+    }
+    export interface RetryResult<T> {
+      readonly value: T;
+      readonly attempts: number;
+    }
+  </file>
+  <file path="src/revert-detector.ts">
+    export interface RevertCommit {
+      sha: string;
+      oneline: string;
+      message: string;
+      revertedSha?: string;
+      revertedPrNumber?: number;
+      timestamp: string;
+    }
+    export interface RevertedPR {
+      number: number;
+      title: string;
+      url: string;
+      isAiAuthor: boolean;
+      revertedAt: string;
+    }
+  </file>
+  <file path="src/sanitize-output.ts">
+    export function escapeHtml(text: string): string {
+      if (text.length === 0) return text;
+    
+      return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#x27;");
+    }
+    export function sanitizeStreamChunk(chunk: string): string {
+      if (chunk.length === 0) return chunk;
+    
+      const trimmed = chunk.trim();
+    
+      // Non-JSON content: escape the whole thing
+      if (trimmed.length === 0 || trimmed[0] !== "{") {
+        return escapeHtml(chunk);
+      }
+    
+      // Attempt NDJSON parse
+      let parsed: Record<string, unknown>;
+      try {
+        parsed = JSON.parse(trimmed) as Record<string, unknown>;
+      } catch {
+        // Malformed JSON — fall back to full escaping
+        return escapeHtml(chunk);
+      }
+    
+      // Build a new object with sanitized text fields (immutable pattern)
+      let changed = false;
+      const sanitized: Record<string, unknown> = {};
+    
+      for (const key of Object.keys(parsed)) {
+        const value = parsed[key];
+        if (typeof value === "string" && TEXT_FIELDS.includes(key as (typeof TEXT_FIELDS)[number])) {
+          const escaped = escapeHtml(value);
+          sanitized[key] = escaped;
+          if (escaped !== value) changed = true;
+        } else {
+          sanitized[key] = value;
+        }
+      }
+    
+      // If nothing changed, return original to avoid unnecessary serialization churn
+      if (!changed) return chunk;
+    
+      return JSON.stringify(sanitized);
+    }
   </file>
   <file path="src/session-runner.ts">
     export async function runSession(
@@ -1091,630 +1450,271 @@
       });
     }
   </file>
-  <file path="src/sanitize-output.ts">
-    export function escapeHtml(text: string): string {
-      if (text.length === 0) return text;
-    
-      return text
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#x27;");
-    }
-    export function sanitizeStreamChunk(chunk: string): string {
-      if (chunk.length === 0) return chunk;
-    
-      const trimmed = chunk.trim();
-    
-      // Non-JSON content: escape the whole thing
-      if (trimmed.length === 0 || trimmed[0] !== "{") {
-        return escapeHtml(chunk);
-      }
-    
-      // Attempt NDJSON parse
-      let parsed: Record<string, unknown>;
-      try {
-        parsed = JSON.parse(trimmed) as Record<string, unknown>;
-      } catch {
-        // Malformed JSON — fall back to full escaping
-        return escapeHtml(chunk);
-      }
-    
-      // Build a new object with sanitized text fields (immutable pattern)
-      let changed = false;
-      const sanitized: Record<string, unknown> = {};
-    
-      for (const key of Object.keys(parsed)) {
-        const value = parsed[key];
-        if (typeof value === "string" && TEXT_FIELDS.includes(key as (typeof TEXT_FIELDS)[number])) {
-          const escaped = escapeHtml(value);
-          sanitized[key] = escaped;
-          if (escaped !== value) changed = true;
-        } else {
-          sanitized[key] = value;
-        }
-      }
-    
-      // If nothing changed, return original to avoid unnecessary serialization churn
-      if (!changed) return chunk;
-    
-      return JSON.stringify(sanitized);
-    }
+  <file path="src/stuck-detector.ts">
+    export type StuckPatternType =
+      | "repeated_action_observation"
+      | "repeated_error"
+      | "self_message_loop"
+      | "alternating_pairs"
+      | "context_window_loop"
+      | "context_window_warning"
+      | "zero_progress"
+      | "silent_failure_loop";
+    export type StuckSeverity = "warning" | "error";
   </file>
-  <file path="src/revert-detector.ts">
-    export interface RevertCommit {
-      sha: string;
-      oneline: string;
-      message: string;
-      revertedSha?: string;
-      revertedPrNumber?: number;
-      timestamp: string;
-    }
-    export interface RevertedPR {
-      number: number;
-      title: string;
-      url: string;
-      isAiAuthor: boolean;
-      revertedAt: string;
-    }
-  </file>
-  <file path="src/retry.ts">
-    export interface RetryConfig {
-      /** Maximum number of retry attempts (default: 3) */
-      readonly maxRetries: number;
-      /** Base delay in milliseconds before first retry (default: 1000) */
-      readonly baseDelayMs: number;
-      /** Maximum delay in milliseconds (default: 30000) */
-      readonly maxDelayMs: number;
-      /** Predicate to determine if an error is retryable (default: isTransientError) */
-      readonly isRetryable: (error: unknown) => boolean;
-    }
-    export interface RetryResult<T> {
-      readonly value: T;
-      readonly attempts: number;
-    }
-  </file>
-  <file path="src/rate-limit-detector.ts">
-    export function scanForRateLimitPatterns(output: string): boolean {
-      return RATE_LIMIT_PATTERNS.some((pattern) => pattern.test(output));
-    }
-    export class RateLimitDetector {
-      private readonly states: Map<string, AdapterState> = new Map();
-      private readonly cooldownMs: number;
-    
-      constructor(adapterNames: readonly string[], cooldownMs = DEFAULT_COOLDOWN_MS) {
-        this.cooldownMs = cooldownMs;
-        for (const name of adapterNames) {
-          this.states.set(name, {
-            name,
-            available: true,
-            cooldownUntil: null,
-            consecutiveFailures: 0,
-          });
-        }
-      }
-    
-      markRateLimited(adapterName: string): void {
-        const state = this.states.get(adapterName);
-        if (!state) return;
-        // Create new state object (immutability pattern)
-        this.states.set(adapterName, {
-          ...state,
-          available: false,
-          cooldownUntil: Date.now() + this.cooldownMs,
-          consecutiveFailures: state.consecutiveFailures + 1,
-        });
-      }
-    
-      markSuccess(adapterName: string): void {
-        const state = this.states.get(adapterName);
-        if (!state) return;
-        this.states.set(adapterName, {
-          ...state,
-          available: true,
-          cooldownUntil: null,
-          consecutiveFailures: 0,
-        });
-      }
-    
-      isAvailable(adapterName: string): boolean {
-        const state = this.states.get(adapterName);
-        if (!state) return false;
-        if (state.available) return true;
-        // Check if cooldown has expired
-        if (state.cooldownUntil !== null && Date.now() >= state.cooldownUntil) {
-          this.states.set(adapterName, {
-            ...state,
-            available: true,
-            cooldownUntil: null,
-          });
-          return true;
-        }
-        return false;
-      }
-    
-      getAvailableAdapters(): readonly string[] {
-        return [...this.states.keys()].filter((name) => this.isAvailable(name));
-      }
-    
-      getState(adapterName: string): AdapterState | undefined {
-        return this.states.get(adapterName);
-      }
-    }
-  </file>
-  <file path="src/quality-gates.ts">
-    export interface QualityGatesResult {
-      evaluation?: EvaluationResult;
-      securityReview?: ReviewResult;
-      staticAnalysisClean: boolean;
-      errors: string[];
-    }
-    export async function runQualityGates(
-      taskDescription: string,
-      diff: string,
-      commitMsg: string,
-      options: {
-        evaluateSuccess?: boolean;
-        runSecurityReview?: boolean;
-        runStaticAnalysis?: boolean;
-      },
-      onEvent?: SessionEventCallback
-    ): Promise<QualityGatesResult> {
-      const result: QualityGatesResult = {
-        staticAnalysisClean: true,
-        errors: [],
-      };
-    
-      // 1. Static analysis (fast, local)
-      if (options.runStaticAnalysis !== false) {
-        const staticResult = analyzeDiff(diff);
-        result.staticAnalysisClean = staticResult.clean;
-    
-        const errorViolations = staticResult.violations.filter((v) => v.severity === "error");
-        if (errorViolations.length > 0) {
-          const formatted = errorViolations.map(
-            (v) => `${v.file}:${v.line} [${v.rule}] ${v.message}`
-          ).join("; ");
-          result.errors.push(`Static analysis errors: ${formatted}`);
-          emitEvent(onEvent, "session:verification", {
-            message: `Static analysis: ${errorViolations.length} error(s) — ${formatted}`,
-          });
-        } else if (!staticResult.clean) {
-          emitEvent(onEvent, "session:verification", {
-            message: `Static analysis: ${staticResult.violations.length} warning(s) (non-blocking)`,
-          });
-        }
-      }
-    
-      // 2. LLM Success Evaluation
-      if (options.evaluateSuccess !== false) {
-        if (!shouldEvaluate(diff, { commitTitle: commitMsg })) {
-          emitEvent(onEvent, "session:evaluation", {
-            message: "Evaluation skipped — trivial diff",
-          });
-        } else {
-          const evalSpan = tracer.startSpan("agent_core.evaluate_success");
-          try {
-            result.evaluation = await evaluateSuccess(taskDescription, diff);
-            evalSpan.setAttribute("evaluation.passed", result.evaluation.passed);
-            evalSpan.setAttribute("evaluation.confidence", result.evaluation.confidence);
-          } finally {
-            evalSpan.end();
-          }
-    
-          emitEvent(onEvent, "session:evaluation", {
-            message: `Evaluation: ${result.evaluation.passed ? "PASS" : "FAIL"} (confidence: ${result.evaluation.confidence.toFixed(2)})`,
-          });
-    
-          if (!result.evaluation.passed) {
-            result.errors.push(`Evaluation failed: ${result.evaluation.reasoning}`);
-          }
-        }
-      }
-    
-      // 3. AI Security Review
-      if (options.runSecurityReview !== false && result.staticAnalysisClean) {
-        const reviewSpan = tracer.startSpan("agent_core.security_review");
-        try {
-          result.securityReview = await reviewDiff(diff);
-          reviewSpan.setAttribute("review.approved", result.securityReview.approved);
-          reviewSpan.setAttribute("review.issues_count", result.securityReview.issues.length);
-    
-          emitEvent(onEvent, "session:review", {
-            message: result.securityReview.approved
-              ? "Security review: APPROVED"
-              : `Security review: BLOCKED — ${result.securityReview.issues.join("; ")}`,
-          });
-    
-          if (!result.securityReview.approved) {
-            result.errors.push(`Security review failed: ${result.securityReview.issues.join("; ")}`);
-          }
-        } finally {
-          reviewSpan.end();
-        }
-      }
-    
-      return result;
-    }
-  </file>
-  <file path="src/qa-tuning-loader.ts">
-    export interface QaTuningThresholds {
-      readonly acceptanceRateFloor: number;
-      readonly maxBudgetUSD: number;
-      readonly maxRetries: number;
-      readonly stuckTurnsThreshold: number;
-      readonly meanCloseHoursTarget: number;
-      readonly agentMergeShareTarget: number;
-    }
-    export interface QaTuningConfig {
-      readonly version: number;
-      readonly lastTunedAt: string;
-      readonly thresholds: QaTuningThresholds;
-    }
-  </file>
-  <file path="src/prompt-builder.ts">
-    export interface SourceFileEntry {
-      readonly path: string;
-      readonly content: string;
-    }
-    export interface PromptBuilderConfig {
-      sourceFileEntries?: readonly SourceFileEntry[];
-      relevantLlmsFiles?: readonly string[];
-      relevantIssueContext?: string;
-      failureContext?: string;
-      model?: string;
-      verificationSteps?: readonly string[];
-      prExamplesSection?: string;
-    }
-  </file>
-  <file path="src/pr-risk-classifier.ts">
-    export function isLowRiskPR(files: readonly string[]): boolean {
-      if (files.length === 0) {
-        return false;
-      }
-    
-      return files.every((file) => LOW_RISK_PATTERNS.some((matches) => matches(file)));
-    }
-  </file>
-  <file path="src/pr-feedback-poller.ts">
-    export interface ReviewComment {
-      readonly threadId: string;
-      readonly author: string;
-      readonly body: string;
-      readonly path: string | null;
-      readonly line: number | null;
-    }
-    export interface CIFailure {
-      readonly checkName: string;
-      readonly conclusion: string;
-      readonly logSnippet: string;
-    }
-  </file>
-  <file path="src/pr-creator.ts">
-    export async function createPullRequest(options: PrOptions): Promise<PrResult> {
-      const { title, body, baseBranch, branchName, repoPath, draft } = options;
-    
-      const args = [
-        "pr",
-        "create",
-        "--title",
-        title,
-        "--body",
-        body,
-        "--base",
-        baseBranch,
-        "--head",
-        branchName,
-        "--json",
-        "url,number",
-      ];
-    
-      if (draft) {
-        args.push("--draft");
-      }
-    
-      const { stdout } = await execFileAsync("gh", args, { cwd: repoPath });
-    
-      const parsed = GhPrResultSchema.parse(JSON.parse(stdout.trim()));
-      return { url: parsed.url, number: parsed.number };
-    }
-    export function buildPrTitle(taskDescription: string): string {
-      const prefix = "feat";
-      const description = taskDescription.length > 60
-        ? taskDescription.slice(0, 57) + "..."
-        : taskDescription;
-      return `${prefix}: ${description}`;
-    }
-  </file>
-  <file path="src/orchestrator.ts">
-    interface SessionApiResponse<T> {
-      readonly data: T;
-    }
-    interface SessionSummary {
-      readonly id: string;
-      readonly status: string;
-      readonly taskDescription: string;
-      readonly branchName: string | null;
-      readonly prUrl: string | null;
-      readonly costUsd: number | null;
-      readonly errors: readonly string[];
-    }
-  </file>
-  <file path="src/observability.ts">
-    export const observabilityTracer: Tracer = trace.getTracer("@mbe/agent-core");
-    function containsInOrder(str: string, a: string, b: string): boolean {
-      const lower = str.toLowerCase();
-      const idx = lower.indexOf(a);
-      return idx !== -1 && lower.indexOf(b, idx + a.length) !== -1;
-    }
-  </file>
-  <file path="src/model-router.ts">
-    export type ModelTier = "haiku" | "sonnet" | "opus";
-    export interface IssueInput {
-      readonly title: string;
-      readonly labels: string[];
-      readonly body: string;
-    }
-  </file>
-  <file path="src/intent-extractor.ts">
-    interface ContentBlock {
-      readonly type: string;
-      readonly input?: unknown;
-    }
-    interface AnthropicMessagesResponse {
-      readonly content: readonly ContentBlock[];
-    }
-  </file>
-  <file path="src/feedback-prompt-builder.ts">
-    export const CI_LOG_MAX_CHARS = 500;
-    export interface BuildReviewFixPromptOptions {
-      /** Override the maximum CI log characters (default: CI_LOG_MAX_CHARS). */
-      readonly ciLogMaxChars?: number;
-    }
-  </file>
-  <file path="src/feedback-loop.ts">
-    export interface FeedbackLoopParams {
-      readonly prNumber: number;
-      readonly branchName: string;
-      readonly repoPath: string;
-      readonly model: string;
-      readonly maxRetries: number;
-      readonly pollIntervalMs: number;
-      readonly pollTimeoutMs: number;
-      readonly maxBudgetUsd: number;
-      readonly allowedTools: readonly string[];
-    }
-    export interface FeedbackLoopResult {
-      readonly retriesUsed: number;
-      readonly resolved: boolean;
-      readonly lastFingerprint: string | null;
-    }
-  </file>
-  <file path="src/failure-memory.ts">
-    export interface FailureRecord {
-      readonly taskDescription: string;
-      readonly timestamp: string;
-      readonly stuckPattern?: string;
-      readonly errors: readonly string[];
-      readonly approach: string;
-    }
-    export interface FailureMemory {
-      readonly records: readonly FailureRecord[];
-    }
-  </file>
-  <file path="src/failover-router.ts">
-    export class AllAdaptersUnavailableError extends Error {
-      /** Per-adapter cooldown timestamps (ms epoch). Only includes adapters that have an active cooldown. */
-      readonly cooldowns: ReadonlyMap<string, number>;
-    
-      constructor(cooldowns: ReadonlyMap<string, number>) {
-        super("All agent adapters are rate-limited or unavailable");
-        this.name = "AllAdaptersUnavailableError";
-        this.cooldowns = cooldowns;
-      }
-    }
-    export type RoutedAdapterResult = AdapterResult & {
-      /** Name of the adapter that produced this result. */
-      readonly adapter: string;
-    };
-  </file>
-  <file path="src/event-mapper.ts">
-    export interface ToolUseEvent {
-      readonly type: "session:tool_use";
-      readonly toolName: string;
-      readonly toolInput: Record<string, unknown>;
-      readonly toolUseId: string;
-    }
-    export interface ToolResultEvent {
-      readonly type: "session:tool_result";
-      readonly toolUseId: string;
-      readonly isError: boolean;
-    }
-  </file>
-  <file path="src/diff-static-analyzer.ts">
-    export interface Violation {
-      readonly rule: string;
-      readonly file: string;
-      readonly line: number;
-      readonly message: string;
-      readonly severity: "warning" | "error";
-    }
-    export interface StaticAnalysisResult {
-      readonly clean: boolean;
-      readonly violations: readonly Violation[];
-      readonly durationMs: number;
-    }
-  </file>
-  <file path="src/diff-reviewer.ts">
-    export interface ReviewResult {
-      readonly approved: boolean;
+  <file path="src/success-evaluator.ts">
+    export interface EvaluationResult {
+      readonly passed: boolean;
+      readonly confidence: number;
+      readonly reasoning: string;
       readonly issues: readonly string[];
     }
-    export interface ReviewConfig {
+    export interface EvaluationConfig {
       readonly model: string;
       readonly maxBudgetUsd: number;
     }
   </file>
-  <file path="src/deploy-verifier.ts">
-    export interface HealthCheck {
-      readonly name: string;
-      readonly url: string;
-      readonly type: "http_status" | "json_health";
-    }
-    export interface HealthCheckResult {
-      readonly name: string;
-      readonly url: string;
-      readonly passed: boolean;
-      readonly status: string;
-      readonly attempts: number;
+  <file path="src/synthetic-bug-seeder.ts">
+    export type BugType = "lint-violation" | "dead-link" | "a11y-issue";
+    export interface SyntheticBugConfig {
+      type: BugType;
+      repoPath: string;
+      filePath: string;
+      fileContent: string;
+      commitMessage: string;
+      branchName: string;
     }
   </file>
-  <file path="src/dep-bump-merger.ts">
-    export interface TrivialDepBumpResult {
-      readonly isTrivial: boolean;
-      /** Reason the bump was deemed non-trivial (undefined when isTrivial=true). */
-      readonly reason?: string;
+  <file path="src/task-decomposer.ts">
+    export interface OrchestratorConfig {
+      readonly taskDescription: string;
+      readonly apiBaseUrl: string;
+      readonly model: string;
+      readonly sessionModel: string;
+      readonly maxBudgetPerSession: number;
+      readonly maxTurnsPerSession: number;
+      readonly baseBranch: string;
+      readonly maxConcurrentSessions: number;
+      readonly parentSessionId?: string;
     }
-    function extractChangedFiles(diff: string): readonly string[] {
-      const files: string[] = [];
-      for (const line of diff.split("\n")) {
-        if (!line.startsWith("diff --git ")) continue;
-        // e.g. "diff --git a/some/path/package.json b/some/path/package.json"
-        const match = line.match(/^diff --git a\/\S+ b\/(\S+)$/);
-        if (match) {
-          files.push(match[1]);
+    export const DEFAULT_ORCHESTRATOR_CONFIG: Omit<OrchestratorConfig, "taskDescription"> = {
+      apiBaseUrl: "http://localhost:3003",
+      model: "claude-sonnet-4-6",
+      sessionModel: "claude-sonnet-4-6",
+      maxBudgetPerSession: 1.0,
+      maxTurnsPerSession: 50,
+      baseBranch: "main",
+      maxConcurrentSessions: 3,
+    };
+  </file>
+  <file path="src/task-intelligence.ts">
+    function detectTaskContexts(taskDescription: string): string[] {
+      const contexts: string[] = [];
+      for (const [taskType, keywords] of Object.entries(TASK_KEYWORDS)) {
+        for (const keyword of keywords) {
+          if (keyword.test(taskDescription)) {
+            const contextFiles = TASK_CONTEXT_PATTERNS[taskType] ?? [];
+            for (const file of contextFiles) {
+              if (existsSync(file)) {
+                contexts.push(file);
+              }
+            }
+            break;
+          }
         }
       }
-      return files;
+      return contexts;
+    }
+    export function resolveSourceFiles(taskDescription: string): readonly string[] {
+      const files = new Set<string>();
+    
+      // Extract explicit file paths
+      for (const match of taskDescription.matchAll(FILE_PATH_PATTERN)) {
+        files.add(match[1]);
+      }
+    
+      // Extract directory references and add key files
+      for (const match of taskDescription.matchAll(DIRECTORY_PATTERN)) {
+        const dir = match[1];
+        // If a service or app directory is mentioned, add its CLAUDE.md
+        if (dir.startsWith("services/") || dir.startsWith("apps/")) {
+          files.add(`${dir}CLAUDE.md`);
+        }
+      }
+    
+      // For each source file, also include its test file
+      const withTests = new Set(files);
+      for (const file of files) {
+        if (!file.includes(".test.") && !file.includes(".spec.")) {
+          const testFile = file.replace(/\.(\w+)$/, ".test.$1");
+          withTests.add(testFile);
+        }
+      }
+    
+      // Add task-specific context bundles
+      const contexts = detectTaskContexts(taskDescription);
+      for (const ctx of contexts) {
+        withTests.add(ctx);
+      }
+    
+      return [...withTests];
     }
   </file>
-  <file path="src/cost-tracker.ts">
-    export function extractTokenUsage(result: SDKResultMessage): TokenUsage {
-      return {
-        inputTokens: result.usage.input_tokens ?? 0,
-        outputTokens: result.usage.output_tokens ?? 0,
-      };
+  <file path="src/tool-permissions.ts">
+    export function normalizeBashCommand(command: string): readonly string[] {
+      const variants: string[] = [command];
+    
+      // Collapse escaped newlines (line continuations)
+      const collapsed = command.replace(/\\\n/g, "");
+      if (collapsed !== command) {
+        variants.push(collapsed);
+      }
+    
+      // Split on unescaped newlines and semicolons to catch injection
+      const lines = command.split(/(?<!\\)[;\n]+/).map((l) => l.trim()).filter(Boolean);
+      if (lines.length > 1) {
+        for (const line of lines) {
+          variants.push(line);
+        }
+      }
+    
+      // Collapse excess whitespace in each variant
+      const withNormalizedSpace = variants.map((v) => v.replace(/\s+/g, " ").trim());
+      const allVariants = [...new Set([...variants, ...withNormalizedSpace])];
+    
+      return allVariants;
     }
-    export function extractCost(result: SDKResultMessage): number {
-      return result.total_cost_usd;
-    }
-  </file>
-  <file path="src/cli-adapter.ts">
-    export interface AdapterConfig {
-      /** Human-readable description of the task for the agent to perform. */
-      readonly taskDescription: string;
-      /** Absolute path to the isolated worktree where the agent operates. */
-      readonly worktreePath: string;
-      /** Absolute path to the original repository root. */
-      readonly repoPath: string;
-      /** Git branch to base work on (e.g. "main"). */
-      readonly baseBranch: string;
-      /** Model identifier override (adapter-specific, e.g. "claude-sonnet-4-6", "gemini-2.5-pro"). */
-      readonly model?: string;
-      /** Maximum number of conversation turns before the adapter should stop. */
-      readonly maxTurns?: number;
-      /** Hard wall-clock timeout in milliseconds for the entire run. */
-      readonly timeoutMs?: number;
-    }
-    export interface AdapterResult {
-      /** Whether the agent session completed successfully. */
-      readonly success: boolean;
-      /** Whether the agent made any git-visible changes in the worktree. */
-      readonly hasChanges: boolean;
-      /** Whether the run was terminated due to rate limiting (maps to FailureCategory "rate_limited"). */
-      readonly rateLimited: boolean;
-      /** Human-readable error message when success is false. */
-      readonly error?: string;
-      /** Wall-clock duration of the run in milliseconds. */
-      readonly durationMs: number;
-    }
-  </file>
-  <file path="src/circuit-breaker.ts">
-    export enum CircuitState {
-      Closed = "CLOSED",
-      Open = "OPEN",
-      HalfOpen = "HALF_OPEN",
-    }
-    export interface CircuitBreakerOptions {
-      failureThreshold: number;
-      resetTimeoutMs: number;
-      onStateChange?: (state: CircuitState, error?: Error) => void;
+    function isBashCommandBlocked(command: string): string | null {
+      const variants = normalizeBashCommand(command);
+    
+      for (const variant of variants) {
+        // Check structural encoding bypass patterns first
+        for (const pattern of ENCODING_BYPASS_PATTERNS) {
+          if (pattern.test(variant)) {
+            return `Blocked: command uses shell encoding bypass (${pattern.source})`;
+          }
+        }
+    
+        // Check standard blocked patterns
+        for (const pattern of BLOCKED_BASH_PATTERNS) {
+          if (pattern.test(variant)) {
+            return `Blocked: command matches dangerous pattern ${pattern.source}`;
+          }
+        }
+      }
+    
+      return null;
     }
   </file>
-  <file path="src/change-type-classifier.ts">
-    export type ChangeType =
-      | "dependency"
-      | "docs"
-      | "config"
-      | "test"
-      | "infrastructure"
-      | "frontend"
-      | "backend"
-      | "mixed";
-    export type SkippablePhase = "smoke-audit" | "deploy-verify" | "lighthouse" | "e2e";
-  </file>
-  <file path="src/bundle-size-tracker.ts">
-    export interface FileSize {
-      readonly path: string;
-      readonly bytes: number;
-    }
-    export interface BundleSizeEntry {
-      readonly app: string;
-      readonly totalBytes: number;
-      readonly files: readonly FileSize[];
-      readonly timestamp: string;
-    }
-  </file>
-  <file path="src/audit-inventory.ts">
-    export type Zone =
-      | "marketing"
-      | "hospitality"
-      | "rialto"
-      | "gen"
-      | "api:users"
-      | "api:reservations"
-      | "api:agent";
-    export const ZONES: readonly Zone[] = [
-      "marketing",
-      "hospitality",
-      "rialto",
-      "gen",
-      "api:users",
-      "api:reservations",
-      "api:agent",
-    ];
-  </file>
-  </section>
-  <section priority="medium" role="adapters">
-  <file path="src/adapters/opencode-adapter.ts">
-    function truncateTask(task: string, maxLength: number = MAX_TASK_LENGTH): string {
-      if (task.length <= maxLength) return task;
-      return task.slice(0, maxLength - 3) + "...";
-    }
-    function detectRateLimiting(output: string): boolean {
-      return RATE_LIMIT_PATTERNS.some((pattern) => pattern.test(output));
+  <file path="src/types.ts">
+    export type FailureCategory =
+      | "api_error"
+      | "rate_limited"
+      | "stuck_loop"
+      | "budget_exceeded"
+      | "tool_error"
+      | "logic_error";
+    export interface TurnMetrics {
+      /** 1-based turn index within the session */
+      readonly turnIndex: number;
+      /** ISO timestamp when this turn started */
+      readonly startedAt: string;
+      /** Input tokens consumed in this turn */
+      readonly inputTokens: number;
+      /** Output tokens produced in this turn */
+      readonly outputTokens: number;
+      /** Extended-thinking tokens (if applicable) */
+      readonly thinkingTokens: number;
+      /** Incremental cost in USD for this turn */
+      readonly costUsd: number;
+      /** Model ID that handled this turn */
+      readonly modelId: string;
     }
   </file>
-  <file path="src/adapters/gemini-adapter.ts">
-    function truncateTask(task: string, maxLength: number = MAX_TASK_LENGTH): string {
-      if (task.length <= maxLength) return task;
-      return task.slice(0, maxLength - 3) + "...";
+  <file path="src/utils.ts">
+    export function emitEvent(
+      onEvent: SessionEventCallback | undefined,
+      type: SessionEvent["type"],
+      data: SessionEvent["data"]
+    ): void {
+      if (!onEvent) return;
+      onEvent({
+        type,
+        timestamp: new Date().toISOString(),
+        data,
+      });
     }
-    function detectRateLimiting(output: string): boolean {
-      return RATE_LIMIT_PATTERNS.some((pattern) => pattern.test(output));
+    export function sanitizeForCommitMessage(text: string): string {
+      return text.replace(/[\n\r]/g, " ").slice(0, 72);
     }
   </file>
-  <file path="src/adapters/claude-adapter.ts">
-    function detectRateLimitInError(message: string): boolean {
-      return RATE_LIMIT_PATTERNS.some((pattern) => pattern.test(message));
+  <file path="src/verification-orchestrator.ts">
+    export interface VerificationResult {
+      passed: boolean;
+      logPath?: string;
+      error?: string;
     }
-    function deriveHasChanges(result: SessionResult): boolean {
-      if (result.prUrl !== null) return true;
-      // If the session succeeded and produced a branch, there were likely changes
-      // even if the PR wasn't created (createPr: false path).
-      if (result.status === "succeeded" && result.branchName.length > 0) return true;
-      return false;
+    export async function orchestrateVerification(
+      worktreePath: string,
+      onEvent?: SessionEventCallback
+    ): Promise<VerificationResult> {
+      const verifySpan = tracer.startSpan("agent_core.verify_changes");
+      try {
+        const verification = await runVerification(worktreePath);
+        verifySpan.setAttribute("verify.passed", verification.passed);
+        verifySpan.setAttribute("verify.lint", verification.lintOk);
+        verifySpan.setAttribute("verify.typecheck", verification.typecheckOk);
+        verifySpan.setAttribute("verify.tests", verification.testsOk);
+    
+        // Store full verification output (not truncated)
+        const logSections: { label: string; output: string }[] = [];
+        if (verification.lintOutput) logSections.push({ label: "Lint", output: verification.lintOutput });
+        if (verification.typecheckOutput) logSections.push({ label: "Typecheck", output: verification.typecheckOutput });
+        if (verification.testOutput) logSections.push({ label: "Tests", output: verification.testOutput });
+    
+        let verificationLogPath: string | undefined;
+        if (logSections.length > 0) {
+          verificationLogPath = await storeVerificationLog(worktreePath, logSections);
+        }
+    
+        emitEvent(onEvent, "session:verification", {
+          message: verification.passed
+            ? "Verification passed (lint + typecheck + tests)"
+            : `Verification failed — lint: ${verification.lintOk ? "OK" : "FAIL"}, typecheck: ${verification.typecheckOk ? "OK" : "FAIL"}, tests: ${verification.testsOk ? "OK" : "FAIL"}${verificationLogPath ? ` (full log: ${verificationLogPath})` : ""}`,
+        });
+    
+        if (!verification.passed) {
+          const parts: string[] = [];
+          if (!verification.lintOk) parts.push(`lint: ${verification.lintOutput}`);
+          if (!verification.typecheckOk) parts.push(`typecheck: ${verification.typecheckOutput}`);
+          if (!verification.testsOk) parts.push(`tests: ${verification.testOutput}`);
+          return {
+            passed: false,
+            logPath: verificationLogPath,
+            error: `Verification failed: ${parts.join("; ")}`,
+          };
+        }
+    
+        return { passed: true, logPath: verificationLogPath };
+      } finally {
+        verifySpan.end();
+      }
+    }
+  </file>
+  <file path="src/worktree-manager.ts">
+    export function validateGitRef(ref: string, label: string): void {
+      if (!ref || !SAFE_GIT_REF.test(ref)) {
+        throw new Error(
+          `Invalid ${label}: "${ref}" — must match ${String(SAFE_GIT_REF)} (no leading dash, no shell metacharacters)`
+        );
+      }
+    }
+    export function validatePath(path: string, label: string): void {
+      if (!path || UNSAFE_PATH_CHARS.test(path)) {
+        throw new Error(
+          `Invalid ${label}: "${path}" — must not contain shell metacharacters (${String(UNSAFE_PATH_CHARS)})`
+        );
+      }
     }
   </file>
   </section>
