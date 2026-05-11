@@ -33,7 +33,7 @@
     <item priority="low">
       interface ReadinessSnapshot {
         ready: boolean;
-        checks: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        checks: readonly import("packages/observability/src/readiness").R...;
         timestamp: string;
       }
     </item>
