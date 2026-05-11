@@ -2966,7 +2966,7 @@
           try {
             const venue = await venueService.create(request.body);
             return reply.code(201).send({ data: venue });
-          } catch (error) => {
+          } catch (error) {
             if (
               error instanceof Error &&
               error.message.includes("Unique constraint")
