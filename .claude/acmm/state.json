@@ -1,14 +1,14 @@
 {
-  "lastRun": "2026-05-10T21:49:19.416Z",
-  "currentLevel": 3,
+  "lastRun": "2026-05-11T03:43:43.922Z",
+  "currentLevel": 2,
   "checks": {
     "acmm:prereq-test-suite": {
       "passed": true,
       "evidence": "detected at one of: vitest.config.ts, vitest.config.js, jest.config.js, jest.config.ts, go.mod, pytest.ini, pyproject.toml"
     },
     "acmm:prereq-e2e": {
-      "passed": false,
-      "evidence": "none of: playwright.config.ts, playwright.config.js, cypress.config.ts, cypress.config.js, e2e/, tests/e2e/"
+      "passed": true,
+      "evidence": "detected at one of: playwright.config.ts, playwright.config.js, cypress.config.ts, cypress.config.js, e2e/, tests/e2e/"
     },
     "acmm:prereq-cicd": {
       "passed": true,
@@ -187,16 +187,16 @@
       "evidence": "detected at one of: .github/workflows/"
     },
     "acmm:instruction-sync-gate": {
-      "passed": true,
-      "evidence": "detected at one of: .github/workflows/ci.yml"
+      "passed": false,
+      "evidence": "file present but no recent successful run: .github/workflows/ci.yml"
     },
     "acmm:component-registry-integrity": {
-      "passed": true,
-      "evidence": "detected at one of: .github/workflows/ci.yml"
+      "passed": false,
+      "evidence": "file present but no recent successful run: .github/workflows/ci.yml"
     },
     "acmm:instruction-rot-detection": {
-      "passed": true,
-      "evidence": "detected at one of: .github/workflows/ci.yml"
+      "passed": false,
+      "evidence": "file present but no recent successful run: .github/workflows/ci.yml"
     },
     "acmm:feedback-loops": {
       "passed": true,
@@ -483,13 +483,20 @@
       "level": 3,
       "detected": 106,
       "total": 108
+    },
+    {
+      "date": "2026-05-11",
+      "level": 2,
+      "detected": 92,
+      "total": 108
     }
   ],
   "issuesCreated": {},
-  "levelName": "Semi-Automated",
-  "role": "Operator",
+  "levelName": "Instructed",
+  "role": "Rule-writer",
   "detectedIds": [
     "acmm:prereq-test-suite",
+    "acmm:prereq-e2e",
     "acmm:prereq-cicd",
     "acmm:prereq-pr-template",
     "acmm:prereq-issue-template",
@@ -531,9 +538,6 @@
     "acmm:cross-session-knowledge",
     "acmm:cross-repo-skills",
     "acmm:github-coordination",
-    "acmm:instruction-sync-gate",
-    "acmm:component-registry-integrity",
-    "acmm:instruction-rot-detection",
     "acmm:feedback-loops",
     "acmm:preference-index",
     "acmm:mcp-server-config",
@@ -585,17 +589,17 @@
     "claude-reflect:session-summary"
   ],
   "computation": {
-    "level": 3,
+    "level": 2,
     "strict": true,
-    "levelName": "Semi-Automated",
-    "role": "Operator",
-    "characteristic": "The system detects problems and proposes fixes without human initiation. Humans still approve; the system proposes.",
+    "levelName": "Instructed",
+    "role": "Rule-writer",
+    "characteristic": "AI receives project context through committed files. Every session starts with the same conventions and expectations.",
     "detectedByLevel": {
       "2": 3,
-      "3": 6,
-      "4": 16,
+      "3": 4,
+      "4": 11,
       "5": 15,
-      "6": 8
+      "6": 5
     },
     "requiredByLevel": {
       "2": 3,
@@ -606,64 +610,44 @@
     },
     "missingForNextLevel": [
       {
-        "id": "acmm:auto-issue-gen",
+        "id": "acmm:instruction-sync-gate",
         "source": "acmm",
-        "level": 6,
-        "category": "autonomy",
-        "name": "Automated issue generation",
-        "description": "Workflow or cron that generates work items for the AI to pick up — the system identifies its own problems and creates tasks.",
-        "rationale": "L6 self-direction: the codebase proposes its own next task.",
-        "details": "Automated issue generation is a cron-triggered workflow that scans the codebase for TODOs, stale dependencies, failing tests, or coverage gaps and files GitHub issues for each finding. The codebase identifies its own work rather than waiting for humans to notice problems. An AI mission will add a workflow that scans for common improvement opportunities and creates prioritized issues automatically.",
+        "level": 3,
+        "category": "feedback-loop",
+        "name": "Instruction sync gate (llms.txt)",
+        "description": "CI check that verifies AI context skeletons (llms.txt) are in sync with the current code.",
+        "rationale": "Prevents instruction rot by ensuring the AI's view of the codebase is always accurate.",
+        "details": "A CI step runs `mbe pack --check` to verify that the committed `llms.txt` files match what would be generated from the current source. This turns \"keep docs updated\" from a manual chore into a mechanical requirement.",
         "detection": {
           "type": "active",
           "pattern": [
-            ".github/workflows/auto-issue.yml",
-            ".github/workflows/issue-gen.yml",
-            ".github/workflows/auto-generate-issues.yml"
+            ".github/workflows/ci.yml"
           ],
           "maxAgeDays": 7
         }
       },
       {
-        "id": "acmm:auto-rollback",
+        "id": "acmm:onboarding-benchmark",
         "source": "acmm",
-        "level": 6,
-        "category": "autonomy",
-        "name": "Automated rollback",
-        "description": "Automated detection and revert of regressions caused by AI-authored changes.",
-        "rationale": "L6 signal: the system not only acts but also undoes mistakes without human initiation.",
-        "details": "Auto-rollback completes the autonomous loop: the system detects regressions from its own PRs (via post-deploy checks) and creates revert PRs automatically. Without this, L6 autonomy is one-directional — the system can break things but not fix them.",
-        "detection": {
-          "type": "active",
-          "pattern": [
-            ".github/workflows/auto-rollback.yml",
-            "docs/acmm/auto-rollback.md"
-          ],
-          "maxAgeDays": 365
-        }
-      },
-      {
-        "id": "acmm:multi-repo-orchestration",
-        "source": "acmm",
-        "level": 6,
-        "category": "autonomy",
-        "name": "Multi-repo orchestration",
-        "description": "Strategy for coordinating AI changes across multiple dependent repositories.",
-        "rationale": "L6 signal: fully autonomous systems need to coordinate changes beyond a single repo boundary.",
-        "details": "Multi-repo orchestration covers how AI agents coordinate changes across dependent repos — updating shared libraries, publishing new versions, and opening downstream PRs. Without this, L6 autonomy is limited to a single repo.",
+        "level": 3,
+        "category": "feedback-loop",
+        "name": "Onboarding benchmark",
+        "description": "A benchmark script measuring how effectively the codebase teaches new AI sessions.",
+        "rationale": "Quantifies the \"codebase as model\" concept -- whether instruction files and patterns effectively onboard new agents.",
+        "details": "An onboarding benchmark defines known tasks of increasing difficulty and expected completion times. Running these tasks in fresh AI sessions measures how well project documentation enables the AI to work independently. Improvements to CLAUDE.md and package docs should reduce benchmark times.",
         "detection": {
           "type": "grep",
           "pattern": {
-            "file": "docs/acmm/multi-repo-orchestration.md",
-            "contains": "Executed: \\d{4}-\\d{2}-\\d{2}"
+            "file": ".claude/acmm/onboarding-benchmark.json",
+            "contains": "\"results\""
           }
         }
       }
     ],
-    "nextTransitionTrigger": "None — L6 is the terminal state. The human role becomes direction-setting, not code writing.",
-    "antiPattern": "Alert fatigue: generating proposals no one reviews. An unread suggestion is noise, not maturity.",
+    "nextTransitionTrigger": "\"I want the system to tune itself from the metrics.\"",
+    "antiPattern": "Instruction rot: letting CLAUDE.md drift out of sync with the code so the rules stop matching reality.",
     "prerequisites": {
-      "met": 7,
+      "met": 8,
       "total": 8
     },
     "crossCutting": {
@@ -693,7 +677,7 @@
         "name": "agent-pr-acceptance",
         "description": "Agent PR acceptance rate must exceed 50%",
         "passed": true,
-        "value": 0.9615384615384616,
+        "value": 0.9642857142857143,
         "threshold": 0.5,
         "direction": "above",
         "strict": true,
@@ -722,49 +706,48 @@
         "dataAvailable": true
       }
     ],
-    "capped": true,
-    "computedLevel": 5
+    "capped": false
   },
   "behavioral": {
     "flake": {
       "rate_30d": 0,
       "sample_size": 100,
       "flaky_shas": [],
-      "measured_at": "2026-05-10T21:49:19.415Z"
+      "measured_at": "2026-05-11T03:43:43.920Z"
     },
     "agent_pr": {
-      "sample_size": 26,
-      "merged_count": 25,
+      "sample_size": 28,
+      "merged_count": 27,
       "closed_unmerged_count": 1,
       "open_count": 0,
-      "acceptance_rate_30d": 0.9615384615384616,
+      "acceptance_rate_30d": 0.9642857142857143,
       "revert_rate_30d": 0,
-      "median_time_to_merge_hours": 0.059166666666666666,
+      "median_time_to_merge_hours": 0.06111111111111111,
       "human_touch_ratio": 1,
       "insufficient_data": false,
-      "measured_at": "2026-05-10T21:49:19.415Z"
+      "measured_at": "2026-05-11T03:43:43.920Z"
     },
     "evals": {
-      "n": 21,
-      "passRate": 0.8095,
-      "medianScore": 0.8333,
+      "n": 37,
+      "passRate": 0.8649,
+      "medianScore": 1,
       "medianCostUsd": 0,
       "medianTurns": 0,
       "windowDays": 30,
-      "lastRun": "2026-05-10T00:06:38.493Z",
+      "lastRun": "2026-05-10T21:42:57.095Z",
       "perModel": {
         "claude-sonnet-4-6": {
-          "n": 21,
-          "passRate": 0.8095,
-          "medianScore": 0.8333
+          "n": 37,
+          "passRate": 0.8649,
+          "medianScore": 1
         }
       },
       "status": "green",
-      "measured_at": "2026-05-10T21:49:19.415Z"
+      "measured_at": "2026-05-11T03:43:43.920Z"
     },
     "auto_qa_tuning": {
       "history_count": 2,
-      "measured_at": "2026-05-10T21:49:19.415Z"
+      "measured_at": "2026-05-11T03:43:43.920Z"
     }
   },
   "levelCap": 3,
