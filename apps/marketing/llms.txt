@@ -1,17 +1,16 @@
 <codebase path="apps/marketing">
   <section priority="medium" role="data">
-  <file path="src/data/weekly-intake.ts">
+  <file path="src/data/projects.ts">
     <item priority="low">
-      interface WeeklyResource {
-        id: string;
+      interface Project {
         title: string;
-        url: string;
-        source: "js-weekly" | "react-weekly" | "ai-weekly" | "other";
         description: string;
+        tags: string[];
+        href?: string | undefined;
       }
     </item>
     <item priority="high">
-      export const weeklyResources: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+      export const PROJECTS: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
     </item>
   </file>
   <file path="src/data/tech-stack.ts">
@@ -25,17 +24,18 @@
       export const TECH_STACK: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
     </item>
   </file>
-  <file path="src/data/projects.ts">
+  <file path="src/data/weekly-intake.ts">
     <item priority="low">
-      interface Project {
+      interface WeeklyResource {
+        id: string;
         title: string;
+        url: string;
+        source: "js-weekly" | "react-weekly" | "ai-weekly" | "other";
         description: string;
-        tags: string[];
-        href?: string | undefined;
       }
     </item>
     <item priority="high">
-      export const PROJECTS: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+      export const weeklyResources: readonly import("/Users/mbutler/github/mattbutlerengineer...;
     </item>
   </file>
   </section>

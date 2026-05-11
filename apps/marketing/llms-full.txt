@@ -1,5 +1,55 @@
 <codebase path="apps/marketing">
   <section priority="medium" role="data">
+  <file path="src/data/projects.ts">
+    export interface Project {
+      title: string;
+      description: string;
+      tags: string[];
+      href?: string; // undefined = no live link
+    }
+    export const PROJECTS: Project[] = [
+      {
+        title: "Rialto Design System",
+        description:
+          "A precision component library with 65+ components built on a warm neutral token system. " +
+          "Every surface, radius, shadow, and motion value is tokenized — components compose, not collide.",
+        tags: ["React", "TypeScript", "Vite", "Framer Motion"],
+        href: "/rialto/",
+      },
+      {
+        title: "Hospitality Platform",
+        description:
+          "A full-stack restaurant management app with Auth0 authentication, dark mode, " +
+          "offline-capable PWA support, and route-level code splitting. Built on the Rialto design system.",
+        tags: ["React", "Auth0", "PWA", "Fastify", "Prisma"],
+        href: "/hospitality/",
+      },
+    ];
+  </file>
+  <file path="src/data/tech-stack.ts">
+    export interface TechCategory {
+      title: string;
+      items: string[];
+    }
+    export const TECH_STACK: TechCategory[] = [
+      {
+        title: "Frontend",
+        items: ["React", "TypeScript", "Vite", "Framer Motion"],
+      },
+      {
+        title: "Backend",
+        items: ["Fastify", "Prisma", "PostgreSQL", "Node.js"],
+      },
+      {
+        title: "Infrastructure",
+        items: ["Cloudflare Workers", "DigitalOcean", "Pulumi", "Turborepo"],
+      },
+      {
+        title: "Auth & DevOps",
+        items: ["Auth0", "GitHub Actions", "Docker", "pnpm"],
+      },
+    ];
+  </file>
   <file path="src/data/weekly-intake.ts">
     export interface WeeklyResource {
       readonly id: string;
@@ -60,56 +110,6 @@
           "A weekly newsletter covering the latest Node.js news, packages, and best practices.",
         publishedAt: "2026-04-29",
         tags: ["nodejs", "backend", "newsletter"],
-      },
-    ];
-  </file>
-  <file path="src/data/tech-stack.ts">
-    export interface TechCategory {
-      title: string;
-      items: string[];
-    }
-    export const TECH_STACK: TechCategory[] = [
-      {
-        title: "Frontend",
-        items: ["React", "TypeScript", "Vite", "Framer Motion"],
-      },
-      {
-        title: "Backend",
-        items: ["Fastify", "Prisma", "PostgreSQL", "Node.js"],
-      },
-      {
-        title: "Infrastructure",
-        items: ["Cloudflare Workers", "DigitalOcean", "Pulumi", "Turborepo"],
-      },
-      {
-        title: "Auth & DevOps",
-        items: ["Auth0", "GitHub Actions", "Docker", "pnpm"],
-      },
-    ];
-  </file>
-  <file path="src/data/projects.ts">
-    export interface Project {
-      title: string;
-      description: string;
-      tags: string[];
-      href?: string; // undefined = no live link
-    }
-    export const PROJECTS: Project[] = [
-      {
-        title: "Rialto Design System",
-        description:
-          "A precision component library with 65+ components built on a warm neutral token system. " +
-          "Every surface, radius, shadow, and motion value is tokenized — components compose, not collide.",
-        tags: ["React", "TypeScript", "Vite", "Framer Motion"],
-        href: "/rialto/",
-      },
-      {
-        title: "Hospitality Platform",
-        description:
-          "A full-stack restaurant management app with Auth0 authentication, dark mode, " +
-          "offline-capable PWA support, and route-level code splitting. Built on the Rialto design system.",
-        tags: ["React", "Auth0", "PWA", "Fastify", "Prisma"],
-        href: "/hospitality/",
       },
     ];
   </file>
