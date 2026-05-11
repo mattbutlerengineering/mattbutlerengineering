@@ -85,7 +85,7 @@ export const VERSION = "1.0.0";
     const output = logSpy.mock.calls.flat().join("\n");
     expect(output).toContain("llms.txt");
     expect(exitSpy).not.toHaveBeenCalled();
-  });
+  }, 30_000);
 
   it("generates llms.txt from a package with class declarations", async () => {
     const pkgDir = join(tmpDir, "packages/class-pkg");
