@@ -35,7 +35,7 @@
       }
     </item>
     <item priority="high">
-      export const MOCK_USER: import("/Users/mbutler/github/mattbutlerengineering/servi...;
+      export const MOCK_USER: import("services/users/src/test/fixtures").UserFixture;
     </item>
   </file>
   </section>
@@ -97,12 +97,12 @@
       function isAdmin(user: AuthUser | undefined): boolean { /* ... */ }
     </item>
     <item priority="high">
-      export const userRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+      export const userRoutes: import("node_modules/.pnpm/fastify@5.8.5/node_modules/fas...;
     </item>
   </file>
   <file path="src/routes/ready.ts">
     <item priority="high">
-      export const readinessRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+      export const readinessRoutes: import("node_modules/.pnpm/fastify@5.8.5/node_modules/fas...;
     </item>
   </file>
   <file path="src/routes/health.ts">
@@ -112,7 +112,7 @@
         IncomingMessage...;
     </item>
     <item priority="high">
-      export const healthRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+      export const healthRoutes: import("node_modules/.pnpm/fastify@5.8.5/node_modules/fas...;
     </item>
   </file>
   </section>

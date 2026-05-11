@@ -84,7 +84,7 @@
       }
     </item>
     <item priority="high">
-      export const characterLimits: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+      export const characterLimits: import("packages/rialto/scripts/character-limits").Charac...;
     </item>
   </file>
   </section>
@@ -106,7 +106,7 @@
   <section priority="medium" role="tokens">
   <file path="src/tokens/motion.ts">
     <item priority="high">
-      export const ms: (s: React.CSSProperties) => import("/Users/mbutler/github...;
+      export const ms: (s: React.CSSProperties) => import("node_modules/.pnpm/fr...;
     </item>
     <item priority="high">
       export const precision: { duration: number; ease: readonly [0.2, 0, 0, 1]; };
@@ -133,13 +133,13 @@
   <file path="src/providers/useUIEnvironment.ts">
     <item priority="low">
       interface UIEnvironment {
-        device: import("/Users/mbutler/github/mattbutlerengineering/packa...;
-        vibe: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        device: import("packages/rialto/src/providers/useDeviceContext")....;
+        vibe: import("packages/rialto/src/providers/vibes").VibeName;
         theme: "light" | "dark";
       }
     </item>
     <item priority="high">
-      export const UIEnvironmentContext: React.Context<import("/Users/mbutler/github/mattbutlereng...;
+      export const UIEnvironmentContext: React.Context<import("packages/rialto/src/providers/useUI...;
     </item>
   </file>
   <file path="src/providers/useDeviceContext.ts">
@@ -155,7 +155,7 @@
     <item priority="high">
       interface MediaEntry {
         query: string;
-        key: keyof import("/Users/mbutler/github/mattbutlerengineering...;
+        key: keyof import("packages/rialto/src/providers/useDeviceCont...;
         matchValue: boolean | "light" | "dark" | "fine" | "coarse" | "mobile"...;
         noMatchValue: boolean | "light" | "dark" | "fine" | "coarse" | "mobile"...;
       }
@@ -219,7 +219,7 @@
         id: string;
         title: string;
         description?: string | undefined;
-        variant?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        variant?: import("packages/rialto/src/components/Toast/ToastContext...;
         duration?: number | undefined;
       }
     </item>
@@ -269,7 +269,7 @@
           "reservationA...;
     </item>
     <item priority="high">
-      export const DEFAULT_STRINGS: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+      export const DEFAULT_STRINGS: import("packages/rialto/src/components/TapeChart/defaultS...;
     </item>
   </file>
   <file path="src/components/TapeChart/dateMath.ts">
@@ -301,7 +301,7 @@
         api: string;
         domainContext: DomainContext;
         getAccessToken: () => string | Promise<string | null> | null;
-        onComplete?: ((spec: import("/Users/mbutler/github/mattbutlerengineeri...;
+        onComplete?: ((spec: import("node_modules/.pnpm/@json-render+core@0.18...;
         onError?: ((error: Error) => void) | undefined;
       }
     </item>
@@ -332,7 +332,7 @@
         frames?: readonly (readonly (readonly boolean[])[])[] | undefined;
         rows: number;
         cols: number;
-        mode?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        mode?: import("packages/rialto/src/components/FlipDot/use-flip-d...;
       }
     </item>
   </file>

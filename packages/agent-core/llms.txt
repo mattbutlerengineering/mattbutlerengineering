@@ -76,7 +76,7 @@
       }
     </item>
     <item priority="high">
-      export const DEFAULT_ORCHESTRATOR_CONFIG: Omit<import("/Users/mbutler/github/mattbutlerengineering/...;
+      export const DEFAULT_ORCHESTRATOR_CONFIG: Omit<import("packages/agent-core/src/task-decomposer").Or...;
     </item>
   </file>
   <file path="src/synthetic-bug-seeder.ts">
@@ -85,7 +85,7 @@
     </item>
     <item priority="low">
       interface SyntheticBugConfig {
-        type: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        type: import("packages/agent-core/src/synthetic-bug-seeder").Bu...;
         repoPath: string;
         filePath: string;
         fileContent: string;
@@ -175,7 +175,7 @@
     </item>
     <item priority="high">
       class RateLimitDetector {
-        states: Map<string, import("/Users/mbutler/github/mattbutlerengin...;
+        states: Map<string, import("packages/agent-core/src/cli-adapter")...;
         cooldownMs: number;
         async markRateLimited(): Promise<unknown>;
         async markSuccess(): Promise<unknown>;
@@ -185,8 +185,8 @@
   <file path="src/quality-gates.ts">
     <item priority="low">
       interface QualityGatesResult {
-        evaluation?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
-        securityReview?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        evaluation?: import("packages/agent-core/src/success-evaluator").Evalu...;
+        securityReview?: import("packages/agent-core/src/diff-reviewer").ReviewRes...;
         staticAnalysisClean: boolean;
         errors: string[];
       }
@@ -219,7 +219,7 @@
       interface QaTuningConfig {
         version: number;
         lastTunedAt: string;
-        thresholds: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        thresholds: import("packages/agent-core/src/qa-tuning-loader").QaTuni...;
       }
     </item>
   </file>
@@ -232,7 +232,7 @@
     </item>
     <item priority="low">
       interface PromptBuilderConfig {
-        sourceFileEntries?: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        sourceFileEntries?: readonly import("packages/agent-core/src/prompt-builder")...;
         relevantLlmsFiles?: readonly string[] | undefined;
         relevantIssueContext?: string | undefined;
         failureContext?: string | undefined;
@@ -289,7 +289,7 @@
   </file>
   <file path="src/observability.ts">
     <item priority="high">
-      export const observabilityTracer: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+      export const observabilityTracer: import("node_modules/.pnpm/@opentelemetry+api@1.9.1/node_...;
     </item>
     <item priority="medium">
       function containsInOrder(str: string, a: string, b: string): boolean { /* ... */ }
@@ -360,7 +360,7 @@
     </item>
     <item priority="low">
       interface FailureMemory {
-        records: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        records: readonly import("packages/agent-core/src/failure-memory")...;
       }
     </item>
   </file>
@@ -405,7 +405,7 @@
     <item priority="low">
       interface StaticAnalysisResult {
         clean: boolean;
-        violations: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        violations: readonly import("packages/agent-core/src/diff-static-anal...;
         durationMs: number;
       }
     </item>
@@ -489,7 +489,7 @@
       interface CircuitBreakerOptions {
         failureThreshold: number;
         resetTimeoutMs: number;
-        onStateChange?: ((state: import("/Users/mbutler/github/mattbutlerengineer...;
+        onStateChange?: ((state: import("packages/agent-core/src/circuit-breaker")...;
       }
     </item>
   </file>
@@ -512,7 +512,7 @@
       interface BundleSizeEntry {
         app: string;
         totalBytes: number;
-        files: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        files: readonly import("packages/agent-core/src/bundle-size-trac...;
         timestamp: string;
       }
     </item>
@@ -522,7 +522,7 @@
       type Zone = "marketing" | "hospitality" | "rialto" | "gen" | "api:users" | "api:reservations" | "api:agent";
     </item>
     <item priority="high">
-      export const ZONES: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+      export const ZONES: readonly import("packages/agent-core/src/audit-inventory")...;
     </item>
   </file>
   </section>
