@@ -13,19 +13,19 @@ vi.mock("framer-motion", () => ({
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Banner: ({ action }: any) => <div data-testid="banner">{action}</div>,
-  Button: ({ children, onClick }: any) => <Button onClick={onClick}>{children}</Button>,
+  Button: ({ children, onClick }: any) => <button onClick={onClick}>{children}</button>,
   Dialog: ({ open, onClose, title, footer, children }: any) => open ? (
     <div data-testid="dialog">
-      <Heading>{title}</Heading>
-      <Button onClick={onClose}>Close</Button>
+      <h2>{title}</h2>
+      <button onClick={onClose}>Close</button>
       {children}
       <div>{footer}</div>
     </div>
   ) : null,
-  Text: ({ children }: any) => <Text>{children}</Text>,
+  Text: ({ children }: any) => <span>{children}</span>,
   Stack: ({ children }: any) => <div>{children}</div>,
   Divider: () => <hr />,
-  Toggle: ({ checked, onCheckedChange }: any) => <Input type="checkbox" checked={checked} onChange={() => onCheckedChange(!checked)} data-testid="toggle" />,
+  Toggle: ({ checked, onCheckedChange }: any) => <input type="checkbox" checked={checked} onChange={() => onCheckedChange(!checked)} data-testid="toggle" />,
 }));
 
 vi.mock("@mattbutlerengineering/rialto/motion", () => ({
