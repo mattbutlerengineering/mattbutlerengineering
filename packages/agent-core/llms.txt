@@ -76,7 +76,7 @@
       }
     </item>
     <item priority="high">
-      export const DEFAULT_ORCHESTRATOR_CONFIG: Omit<import("/Users/mbutler/github/mattbutlerengineering/...;
+      export const DEFAULT_ORCHESTRATOR_CONFIG: Omit<import("/home/user/mattbutlerengineering/.claude/wor...;
     </item>
   </file>
   <file path="src/success-evaluator.ts">
@@ -138,8 +138,8 @@
   <file path="src/quality-gates.ts">
     <item priority="low">
       interface QualityGatesResult {
-        evaluation?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
-        securityReview?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        evaluation?: import("/home/user/mattbutlerengineering/.claude/worktree...;
+        securityReview?: import("/home/user/mattbutlerengineering/.claude/worktree...;
         staticAnalysisClean: boolean;
         errors: string[];
       }
@@ -172,7 +172,7 @@
       interface QaTuningConfig {
         version: number;
         lastTunedAt: string;
-        thresholds: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        thresholds: import("/home/user/mattbutlerengineering/.claude/worktree...;
       }
     </item>
   </file>
@@ -185,7 +185,7 @@
     </item>
     <item priority="low">
       interface PromptBuilderConfig {
-        sourceFileEntries?: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        sourceFileEntries?: readonly import("/home/user/mattbutlerengineering/.claude...;
         relevantLlmsFiles?: readonly string[] | undefined;
         relevantIssueContext?: string | undefined;
         failureContext?: string | undefined;
@@ -242,7 +242,7 @@
   </file>
   <file path="src/observability.ts">
     <item priority="high">
-      export const observabilityTracer: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+      export const observabilityTracer: import("/home/user/mattbutlerengineering/.claude/worktree...;
     </item>
     <item priority="medium">
       function containsInOrder(str: string, a: string, b: string): boolean { /* ... */ }
@@ -313,7 +313,7 @@
     </item>
     <item priority="low">
       interface FailureMemory {
-        records: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        records: readonly import("/home/user/mattbutlerengineering/.claude...;
       }
     </item>
   </file>
@@ -347,7 +347,7 @@
     <item priority="low">
       interface StaticAnalysisResult {
         clean: boolean;
-        violations: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        violations: readonly import("/home/user/mattbutlerengineering/.claude...;
         durationMs: number;
       }
     </item>
@@ -411,7 +411,7 @@
       interface CircuitBreakerOptions {
         failureThreshold: number;
         resetTimeoutMs: number;
-        onStateChange?: ((state: import("/Users/mbutler/github/mattbutlerengineer...;
+        onStateChange?: ((state: import("/home/user/mattbutlerengineering/.claude...;
       }
     </item>
   </file>
@@ -434,7 +434,7 @@
       interface BundleSizeEntry {
         app: string;
         totalBytes: number;
-        files: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        files: readonly import("/home/user/mattbutlerengineering/.claude...;
         timestamp: string;
       }
     </item>
@@ -444,7 +444,7 @@
       type Zone = "marketing" | "hospitality" | "rialto" | "gen" | "api:users" | "api:reservations" | "api:agent";
     </item>
     <item priority="high">
-      export const ZONES: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+      export const ZONES: readonly import("/home/user/mattbutlerengineering/.claude...;
     </item>
   </file>
   </section>

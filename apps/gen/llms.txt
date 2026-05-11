@@ -20,7 +20,7 @@
       interface HistoryEntry {
         id: string;
         prompt: string;
-        spec: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+        spec: import("/home/user/mattbutlerengineering/.claude/worktree...;
         rawLines: string[];
         timestamp: Date;
       }
@@ -33,6 +33,27 @@
         spec: unknown;
         rawLines: string[];
       }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="e2e">
+  <file path="e2e/fixtures.ts">
+    <item priority="high">
+      export const test: import("/home/user/mattbutlerengineering/.claude/worktree...;
+    </item>
+  </file>
+  <file path="e2e/auth-helpers.ts">
+    <item priority="high">
+      interface Auth0Config {
+        domain: string;
+        clientId: string;
+        audience: string;
+        email: string;
+        password: string;
+      }
+    </item>
+    <item priority="medium">
+      function getAuth0Config(): Auth0Config { /* ... */ }
     </item>
   </file>
   </section>
@@ -54,10 +75,10 @@
     </item>
     <item priority="low">
       interface UseSpecsApiReturn {
-        specs: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+        specs: import("/home/user/mattbutlerengineering/.claude/worktree...;
         isLoading: boolean;
         fetchSpecs: () => Promise<void>;
-        saveSpec: (data: import("/Users/mbutler/github/mattbutlerengineerin...;
+        saveSpec: (data: import("/home/user/mattbutlerengineering/.claude/w...;
         toggleFavorite: (id: string) => Promise<void>;
       }
     </item>
@@ -80,7 +101,7 @@
     <item priority="low">
       interface UseGenStreamOptions {
         api: string;
-        onComplete?: ((spec: import("/Users/mbutler/github/mattbutlerengineeri...;
+        onComplete?: ((spec: import("/home/user/mattbutlerengineering/.claude/...;
         onError?: ((error: Error) => void) | undefined;
       }
     </item>

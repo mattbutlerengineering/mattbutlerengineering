@@ -20,7 +20,7 @@
     <item priority="low">
       interface NavSection {
         label: string;
-        items: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+        items: import("/home/user/mattbutlerengineering/.claude/worktree...;
       }
     </item>
   </file>
@@ -38,10 +38,10 @@
     </item>
     <item priority="high">
       interface DriverContextValue {
-        drivers: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
-        getDriver: (id: string) => import("/Users/mbutler/github/mattbutlere...;
-        addDriver: (driver: Omit<import("/Users/mbutler/github/mattbutlereng...;
-        updateDriver: (id: string, updates: Partial<Omit<import("/Users/mbutler...;
+        drivers: import("/home/user/mattbutlerengineering/.claude/worktree...;
+        getDriver: (id: string) => import("/home/user/mattbutlerengineering/...;
+        addDriver: (driver: Omit<import("/home/user/mattbutlerengineering/.c...;
+        updateDriver: (id: string, updates: Partial<Omit<import("/home/user/mat...;
         deleteDriver: (id: string) => void;
       }
     </item>
@@ -60,7 +60,7 @@
     <item priority="high">
       interface ConsentState {
         consented: boolean;
-        preferences: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+        preferences: import("/home/user/mattbutlerengineering/.claude/worktree...;
       }
     </item>
   </file>

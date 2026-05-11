@@ -84,7 +84,7 @@
       }
     </item>
     <item priority="high">
-      export const characterLimits: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
+      export const characterLimits: import("/home/user/mattbutlerengineering/.claude/worktree...;
     </item>
   </file>
   </section>
@@ -94,11 +94,19 @@
       export function unregisterStaleServiceWorkers(exemptedScopes: string[] = ["/hospitality/"]): void { /* ... */ }
     </item>
   </file>
+  <file path="src/utils/feedback.ts">
+    <item priority="high">
+      export function triggerHapticFeedback(): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function playClickSound(): void { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="tokens">
   <file path="src/tokens/motion.ts">
     <item priority="high">
-      export const ms: (s: React.CSSProperties) => import("/Users/mbutler/github...;
+      export const ms: (s: React.CSSProperties) => import("/home/user/mattbutler...;
     </item>
     <item priority="high">
       export const precision: { duration: number; ease: readonly [0.2, 0, 0, 1]; };
@@ -125,13 +133,13 @@
   <file path="src/providers/useUIEnvironment.ts">
     <item priority="low">
       interface UIEnvironment {
-        device: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
-        vibe: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
+        device: import("/home/user/mattbutlerengineering/.claude/worktree...;
+        vibe: import("/home/user/mattbutlerengineering/.claude/worktree...;
         theme: "light" | "dark";
       }
     </item>
     <item priority="high">
-      export const UIEnvironmentContext: React.Context<import("/Users/mbutler/github/mattbutlereng...;
+      export const UIEnvironmentContext: React.Context<import("/home/user/mattbutlerengineering/.c...;
     </item>
   </file>
   <file path="src/providers/useDeviceContext.ts">
@@ -147,7 +155,7 @@
     <item priority="high">
       interface MediaEntry {
         query: string;
-        key: keyof import("/Users/mbutler/github/mattbutlerengineering...;
+        key: keyof import("/home/user/mattbutlerengineering/.claude/wo...;
         matchValue: boolean | "light" | "dark" | "fine" | "coarse" | "mobile"...;
         noMatchValue: boolean | "light" | "dark" | "fine" | "coarse" | "mobile"...;
       }
@@ -211,7 +219,7 @@
         id: string;
         title: string;
         description?: string | undefined;
-        variant?: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
+        variant?: import("/home/user/mattbutlerengineering/.claude/worktree...;
         duration?: number | undefined;
       }
     </item>
@@ -261,7 +269,7 @@
           "reservationA...;
     </item>
     <item priority="high">
-      export const DEFAULT_STRINGS: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
+      export const DEFAULT_STRINGS: import("/home/user/mattbutlerengineering/.claude/worktree...;
     </item>
   </file>
   <file path="src/components/TapeChart/dateMath.ts">
@@ -293,7 +301,7 @@
         api: string;
         domainContext: DomainContext;
         getAccessToken: () => string | Promise<string | null> | null;
-        onComplete?: ((spec: import("/Users/mbutler/github/mattbutlerengineeri...;
+        onComplete?: ((spec: import("/home/user/mattbutlerengineering/.claude/...;
         onError?: ((error: Error) => void) | undefined;
       }
     </item>
@@ -324,7 +332,7 @@
         frames?: readonly (readonly (readonly boolean[])[])[] | undefined;
         rows: number;
         cols: number;
-        mode?: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
+        mode?: import("/home/user/mattbutlerengineering/.claude/worktree...;
       }
     </item>
   </file>

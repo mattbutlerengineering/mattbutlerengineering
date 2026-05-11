@@ -2,12 +2,12 @@
   <section priority="medium" role="src">
   <file path="src/generated-schemas.ts">
     <item priority="high">
-      export const generatedSchemas: { readonly Accordion: import("/Users/mbutler/github/mattb...;
+      export const generatedSchemas: { readonly Accordion: import("/home/user/mattbutlerengine...;
     </item>
   </file>
   <file path="src/catalog.ts">
     <item priority="high">
-      export const catalog: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
+      export const catalog: import("/home/user/mattbutlerengineering/.claude/worktree...;
     </item>
   </file>
   <file path="src/catalog-config.ts">
@@ -19,7 +19,7 @@
       }
     </item>
     <item priority="high">
-      export const catalogConfig: Record<string, import("/Users/mbutler/github/mattbutleren...;
+      export const catalogConfig: Record<string, import("/home/user/mattbutlerengineering/....;
     </item>
   </file>
   </section>
