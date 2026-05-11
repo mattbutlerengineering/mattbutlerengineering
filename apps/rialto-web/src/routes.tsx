@@ -1,7 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Navigate } from "react-router-dom";
 import type { RouteObject } from "react-router-dom";
-import { Spinner } from "@mattbutlerengineering/rialto";
+import { Spinner, Text } from "@mattbutlerengineering/rialto";
 import { ShowcaseLayout } from "./layouts/ShowcaseLayout";
 import { OverviewPage } from "./pages/OverviewPage";
 import { PrivacyPage } from "./pages/PrivacyPage";
@@ -35,6 +35,9 @@ const VisualTest = lazy(() =>
 );
 const LayoutDemo = lazy(() =>
   import("./pages/layouts/LayoutDemo").then((m) => ({ default: m.LayoutDemo }))
+);
+const AcmmDashboard = lazy(() =>
+  import("./pages/dashboard/AcmmDashboard").then((m) => ({ default: m.AcmmDashboard }))
 );
 const DemoLayout = lazy(() =>
   import("./layouts/DemoLayout").then((m) => ({ default: m.DemoLayout }))
@@ -281,7 +284,7 @@ function suspended(Component: React.LazyExoticComponent<React.ComponentType>) {
 function tokenPlaceholder(name: string) {
   return (
     <div style={{ padding: "var(--rialto-space-xl)" }}>
-      <p style={{ color: "var(--rialto-text-secondary)" }}>{name} — coming soon</p>
+      <Text color="tertiary">{name} — coming soon</Text>
     </div>
   );
 }
@@ -387,6 +390,7 @@ export const routeTree: RouteObject[] = [
     element: <ShowcaseLayout />,
     children: [
       { index: true, element: <OverviewPage /> },
+      { path: "dashboard", element: suspended(AcmmDashboard) },
       ...componentRoutes,
     ],
   },
