@@ -65,7 +65,7 @@
         page?: number | undefined;
         limit?: number | undefined;
         date?: string | undefined;
-        status?: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
+        status?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
         tableId?: string | undefined;
       }
     </item>
