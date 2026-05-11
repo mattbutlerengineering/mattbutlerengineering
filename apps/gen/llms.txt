@@ -20,7 +20,7 @@
       interface HistoryEntry {
         id: string;
         prompt: string;
-        spec: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
+        spec: import("/Users/mbutler/github/mattbutlerengineering/node_...;
         rawLines: string[];
         timestamp: Date;
       }
@@ -39,7 +39,7 @@
   <section priority="medium" role="e2e">
   <file path="e2e/fixtures.ts">
     <item priority="high">
-      export const test: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
+      export const test: import("/Users/mbutler/github/mattbutlerengineering/node_...;
     </item>
   </file>
   <file path="e2e/auth-helpers.ts">
@@ -75,7 +75,7 @@
     </item>
     <item priority="low">
       interface UseSpecsApiReturn {
-        specs: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
+        specs: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
         isLoading: boolean;
         fetchSpecs: () => Promise<void>;
         saveSpec: (data: import("/Users/mbutler/github/mattbutlerengineerin...;

@@ -84,7 +84,7 @@
       }
     </item>
     <item priority="high">
-      export const characterLimits: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
+      export const characterLimits: import("/Users/mbutler/github/mattbutlerengineering/packa...;
     </item>
   </file>
   </section>
@@ -133,8 +133,8 @@
   <file path="src/providers/useUIEnvironment.ts">
     <item priority="low">
       interface UIEnvironment {
-        device: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
-        vibe: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
+        device: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        vibe: import("/Users/mbutler/github/mattbutlerengineering/packa...;
         theme: "light" | "dark";
       }
     </item>
@@ -219,7 +219,7 @@
         id: string;
         title: string;
         description?: string | undefined;
-        variant?: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
+        variant?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
         duration?: number | undefined;
       }
     </item>
@@ -269,7 +269,7 @@
           "reservationA...;
     </item>
     <item priority="high">
-      export const DEFAULT_STRINGS: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
+      export const DEFAULT_STRINGS: import("/Users/mbutler/github/mattbutlerengineering/packa...;
     </item>
   </file>
   <file path="src/components/TapeChart/dateMath.ts">
@@ -332,7 +332,7 @@
         frames?: readonly (readonly (readonly boolean[])[])[] | undefined;
         rows: number;
         cols: number;
-        mode?: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
+        mode?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
       }
     </item>
   </file>

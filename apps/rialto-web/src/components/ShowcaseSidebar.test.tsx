@@ -167,4 +167,71 @@ describe("ShowcaseSidebar", () => {
     renderSidebar();
     expect(screen.getByLabelText("Component navigation")).toBeInTheDocument();
   });
+
+  it("renders backdrop when mobile open", () => {
+    renderSidebar({ isMobileOpen: true });
+    // The backdrop div is rendered (aria-hidden)
+    const backdrop = document.querySelector('[aria-hidden="true"]');
+    expect(backdrop).toBeInTheDocument();
+  });
+
+  it("calls onMobileClose when backdrop is clicked", () => {
+    const onMobileClose = vi.fn();
+    renderSidebar({ isMobileOpen: true, onMobileClose });
+    const backdrop = document.querySelector('[aria-hidden="true"]') as HTMLElement;
+    fireEvent.click(backdrop);
+    expect(onMobileClose).toHaveBeenCalled();
+  });
+
+  it("calls onMobileClose when Escape key is pressed while mobile open", () => {
+    const onMobileClose = vi.fn();
+    renderSidebar({ isMobileOpen: true, onMobileClose });
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onMobileClose).toHaveBeenCalled();
+  });
+
+  it("does not call onMobileClose on Escape when mobile closed", () => {
+    const onMobileClose = vi.fn();
+    renderSidebar({ isMobileOpen: false, onMobileClose });
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onMobileClose).not.toHaveBeenCalled();
+  });
+
+  it("calls onMobileClose when a nav link is clicked", () => {
+    const onMobileClose = vi.fn();
+    renderSidebar({ isMobileOpen: true, onMobileClose, activePath: "/components/card" });
+    // Click a non-coming-soon nav link (Button)
+    const buttonLink = screen.getByText("Button");
+    fireEvent.click(buttonLink);
+    expect(onMobileClose).toHaveBeenCalled();
+  });
+
+  it("does not crash when no onMobileClose provided and nav link clicked", () => {
+    // onMobileClose is optional — this should not throw
+    renderSidebar({ isMobileOpen: false });
+    const buttonLink = screen.getByText("Button");
+    expect(() => fireEvent.click(buttonLink)).not.toThrow();
+  });
+
+  it("prevents body scroll when mobile open", () => {
+    renderSidebar({ isMobileOpen: true });
+    expect(document.body.style.overflow).toBe("hidden");
+  });
+
+  it("restores body scroll when mobile closes", () => {
+    const { rerender } = renderSidebar({ isMobileOpen: true });
+    expect(document.body.style.overflow).toBe("hidden");
+    rerender(
+      <MemoryRouter>
+        <ShowcaseSidebar
+          sections={MOCK_SECTIONS}
+          demoPages={MOCK_DEMO_PAGES}
+          activePath="/components/button"
+          onNavigate={vi.fn()}
+          isMobileOpen={false}
+        />
+      </MemoryRouter>
+    );
+    expect(document.body.style.overflow).toBe("");
+  });
 });

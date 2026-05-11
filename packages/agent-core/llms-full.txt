@@ -232,6 +232,17 @@
       maxConcurrentSessions: 3,
     };
   </file>
+  <file path="src/synthetic-bug-seeder.ts">
+    export type BugType = "lint-violation" | "dead-link" | "a11y-issue";
+    export interface SyntheticBugConfig {
+      type: BugType;
+      repoPath: string;
+      filePath: string;
+      fileContent: string;
+      commitMessage: string;
+      branchName: string;
+    }
+  </file>
   <file path="src/success-evaluator.ts">
     export interface EvaluationResult {
       readonly passed: boolean;
@@ -1129,6 +1140,23 @@
       if (!changed) return chunk;
     
       return JSON.stringify(sanitized);
+    }
+  </file>
+  <file path="src/revert-detector.ts">
+    export interface RevertCommit {
+      sha: string;
+      oneline: string;
+      message: string;
+      revertedSha?: string;
+      revertedPrNumber?: number;
+      timestamp: string;
+    }
+    export interface RevertedPR {
+      number: number;
+      title: string;
+      url: string;
+      isAiAuthor: boolean;
+      revertedAt: string;
     }
   </file>
   <file path="src/retry.ts">

@@ -9,6 +9,8 @@ import { useVenue } from "../contexts/VenueContext.js";
 import { useReservationData } from "../contexts/ReservationDataContext.js";
 import React from "react";
 
+const today = new Date().toLocaleDateString("en-CA");
+
 vi.mock("@mbe/auth/react", () => ({ useAuth: vi.fn() }));
 vi.mock("@mbe/api-client", () => ({ createApiClient: vi.fn() }));
 vi.mock("../contexts/VenueContext.js", () => ({ useVenue: vi.fn() }));
@@ -58,9 +60,9 @@ describe("ReservationsPage", () => {
     } as any);
     vi.mocked(useReservationData).mockReturnValue({
       reservations: [
-        { id: "r1", guestName: "Alice", date: "2026-05-10", startTime: "18:00", endTime: "20:00", partySize: 2, status: "CONFIRMED" },
-        { id: "r2", guestName: "Bob", date: "2026-05-10", startTime: "19:00", endTime: "21:00", partySize: 4, status: "PENDING" },
-        { id: "r3", guestName: "Carol", date: "2026-05-10", startTime: "20:00", endTime: "22:00", partySize: 6, status: "CANCELLED" },
+        { id: "r1", guestName: "Alice", date: today, startTime: "18:00", endTime: "20:00", partySize: 2, status: "CONFIRMED" },
+        { id: "r2", guestName: "Bob", date: today, startTime: "19:00", endTime: "21:00", partySize: 4, status: "PENDING" },
+        { id: "r3", guestName: "Carol", date: today, startTime: "20:00", endTime: "22:00", partySize: 6, status: "CANCELLED" },
       ],
       tables: [],
       isConnected: true,
@@ -75,7 +77,7 @@ describe("ReservationsPage", () => {
 
     mockApi.reservations.list.mockResolvedValue({
       data: [
-        { id: "r1", guestName: "Alice", date: "2026-05-10", startTime: "18:00", endTime: "20:00", partySize: 2, status: "CONFIRMED" },
+        { id: "r1", guestName: "Alice", date: today, startTime: "18:00", endTime: "20:00", partySize: 2, status: "CONFIRMED" },
       ],
     });
   });

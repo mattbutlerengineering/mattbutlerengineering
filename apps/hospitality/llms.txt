@@ -28,7 +28,7 @@
     <item priority="low">
       interface NavSection {
         label?: string | undefined;
-        items: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
+        items: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
       }
     </item>
   </file>
@@ -36,7 +36,7 @@
   <section priority="medium" role="e2e">
   <file path="e2e/fixtures.ts">
     <item priority="high">
-      export const test: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
+      export const test: import("/Users/mbutler/github/mattbutlerengineering/node_...;
     </item>
   </file>
   <file path="e2e/auth-helpers.ts">
@@ -63,7 +63,7 @@
       interface VenueReadiness {
         status: "no-venue" | "setup" | "operational";
         completedSteps: readonly import("/Users/mbutler/github/mattbutlerengineer...;
-        nextStep: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
+        nextStep: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
         progress: number;
       }
     </item>
@@ -74,10 +74,10 @@
     </item>
     <item priority="low">
       interface ReservationEvent {
-        type: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
+        type: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
         venueId: string;
         timestamp: string;
-        data: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
+        data: import("/Users/mbutler/github/mattbutlerengineering/packa...;
       }
     </item>
   </file>
@@ -94,7 +94,7 @@
     <item priority="low">
       interface UseDashboardStatsResult {
         reservations: readonly import("/Users/mbutler/github/mattbutlerengineer...;
-        stats: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
+        stats: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
         isLoading: boolean;
         error: string | null;
         refetch: () => Promise<void>;
@@ -128,7 +128,7 @@
   <file path="src/hooks/use-theme.ts">
     <item priority="low">
       interface ThemeContextValue {
-        theme: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
+        theme: import("/Users/mbutler/github/mattbutlerengineering/packa...;
         setTheme: (theme: import("/Users/mbutler/github/mattbutlerengineeri...;
       }
     </item>
@@ -149,7 +149,7 @@
       interface UseCommandPaletteResult {
         open: boolean;
         setOpen: (open: boolean) => void;
-        items: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
+        items: import("/Users/mbutler/github/mattbutlerengineering/packa...;
         groups: string[];
       }
     </item>
@@ -158,7 +158,7 @@
   <section priority="medium" role="constants">
   <file path="src/constants/copilotContext.ts">
     <item priority="high">
-      export const HOSPITALITY_DOMAIN_CONTEXT: import("/Users/mbutler/github/mattbutlerengineering/.agen...;
+      export const HOSPITALITY_DOMAIN_CONTEXT: import("/Users/mbutler/github/mattbutlerengineering/packa...;
     </item>
   </file>
   <file path="src/constants/auth.ts">
