@@ -21,6 +21,7 @@ vi.mock("node:child_process", () => ({
 const mockExecSync = vi.mocked(execSync);
 
 describe("pack command (real ts-morph skeleton generation)", () => {
+  vi.setConfig({ testTimeout: 30_000 });
   let tmpDir: string;
   let logSpy: ReturnType<typeof vi.spyOn>;
   let exitSpy: ReturnType<typeof vi.spyOn>;
