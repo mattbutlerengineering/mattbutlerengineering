@@ -341,9 +341,9 @@ jobs:
 
       - name: Check component registry integrity
         run: |
-          pnpm --filter @mbe/rialto build:registry
+          pnpm --filter @mattbutlerengineering/rialto build:registry
           git diff --exit-code packages/rialto/registry.json || \
-            (echo "ERROR: registry.json is stale. Run 'pnpm --filter @mbe/rialto build:registry' locally and commit the result." && exit 1)
+            (echo "ERROR: registry.json is stale. Run 'pnpm --filter @mattbutlerengineering/rialto build:registry' locally and commit the result." && exit 1)
 
   build:
     name: Build

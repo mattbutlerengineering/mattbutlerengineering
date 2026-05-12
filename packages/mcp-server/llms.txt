@@ -7,29 +7,9 @@
   </file>
   </section>
   <section priority="medium" role="tools">
-  <file path="src/tools/pulumi.ts">
+  <file path="src/tools/ci.ts">
     <item priority="high">
-      export async function pulumiStackOutputs(): Promise<string> { /* ... */ }
-    </item>
-  </file>
-  <file path="src/tools/logs.ts">
-    <item priority="high">
-      export async function checkLogs(service?: string) { /* ... */ }
-    </item>
-  </file>
-  <file path="src/tools/health.ts">
-    <item priority="high">
-      export async function serviceHealthCheck(): Promise<string> { /* ... */ }
-    </item>
-  </file>
-  <file path="src/tools/git.ts">
-    <item priority="high">
-      export async function gitWorkflowStatus(): Promise<string> { /* ... */ }
-    </item>
-  </file>
-  <file path="src/tools/deploy_status.ts">
-    <item priority="high">
-      export async function deployStatus(): Promise<string> { /* ... */ }
+      export async function ciRunStatus(): Promise<string> { /* ... */ }
     </item>
   </file>
   <file path="src/tools/database.ts">
@@ -40,9 +20,29 @@
       export async function dbMigrationStatus(): Promise<string> { /* ... */ }
     </item>
   </file>
-  <file path="src/tools/ci.ts">
+  <file path="src/tools/deploy_status.ts">
     <item priority="high">
-      export async function ciRunStatus(): Promise<string> { /* ... */ }
+      export async function deployStatus(): Promise<string> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/tools/git.ts">
+    <item priority="high">
+      export async function gitWorkflowStatus(): Promise<string> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/tools/health.ts">
+    <item priority="high">
+      export async function serviceHealthCheck(): Promise<string> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/tools/logs.ts">
+    <item priority="high">
+      export async function checkLogs(service?: string) { /* ... */ }
+    </item>
+  </file>
+  <file path="src/tools/pulumi.ts">
+    <item priority="high">
+      export async function pulumiStackOutputs(): Promise<string> { /* ... */ }
     </item>
   </file>
   </section>

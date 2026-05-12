@@ -1,10 +1,89 @@
 <codebase path="services/users">
-  <section priority="medium" role="src">
-  <file path="src/index.ts">
+  <section priority="medium" role="prisma">
+  <file path="prisma/seed.ts">
     <item priority="low">
       async function main() { /* ... */ }
     </item>
   </file>
+  </section>
+  <section priority="medium" role="routes">
+  <file path="src/routes/health.ts">
+    <item priority="high">
+      type HealthRouteHandler = RouteHandlerMethod<
+        RawServerDefault,
+        IncomingMessage...;
+    </item>
+    <item priority="high">
+      export const healthRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="src/routes/ready.ts">
+    <item priority="high">
+      export const readinessRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  <file path="src/routes/users.ts">
+    <item priority="medium">
+      function isAdmin(user: AuthUser | undefined): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export const userRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="schemas">
+  <file path="src/schemas/index.ts">
+    <item priority="high">
+      export const UserPreferencesSchema: { $id: string; };
+    </item>
+    <item priority="high">
+      export const UserSchema: { $id: string; };
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="services">
+  <file path="src/services/database.ts">
+    <item priority="high">
+      interface SlowQueryStats {
+        count5min: number;
+        slowestMs: number;
+        queries: { model: string; operation: string; duration: number; tim...;
+      }
+    </item>
+    <item priority="high">
+      export function getSlowQueryStats(): { count5min: number; slowestMs: number } { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/health-checks.ts">
+    <item priority="high">
+      export function recordDbLatency(ms: number): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function checkLatencyAnomaly(currentMs: number): {
+        isAnomaly: boolean;
+        rollingAvg: number;
+      } { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/user.ts">
+    <item priority="medium">
+      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function mapPrismaUser(user: {
+        id: string;
+        email: string;
+        name: string | null;
+        picture: string | null;
+        emailVerified: boolean;
+        preferences: unknown;
+        createdAt: Date;
+        updatedAt: Date;
+      }): User { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="src">
   <file path="src/app.ts">
     <item priority="medium">
       function validateCorsOrigins(origins: string[]): string[] { /* ... */ }
@@ -15,9 +94,7 @@
       }
     </item>
   </file>
-  </section>
-  <section priority="medium" role="prisma">
-  <file path="prisma/seed.ts">
+  <file path="src/index.ts">
     <item priority="low">
       async function main() { /* ... */ }
     </item>
@@ -36,83 +113,6 @@
     </item>
     <item priority="high">
       export const MOCK_USER: import("/Users/mbutler/github/mattbutlerengineering/servi...;
-    </item>
-  </file>
-  </section>
-  <section priority="medium" role="services">
-  <file path="src/services/user.ts">
-    <item priority="medium">
-      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
-    </item>
-    <item priority="medium">
-      function mapPrismaUser(user: {
-        id: string;
-        email: string;
-        name: string | null;
-        picture: string | null;
-        emailVerified: boolean;
-        preferences: unknown;
-        createdAt: Date;
-        updatedAt: Date;
-      }): User { /* ... */ }
-    </item>
-  </file>
-  <file path="src/services/health-checks.ts">
-    <item priority="high">
-      export function recordDbLatency(ms: number): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function checkLatencyAnomaly(currentMs: number): {
-        isAnomaly: boolean;
-        rollingAvg: number;
-      } { /* ... */ }
-    </item>
-  </file>
-  <file path="src/services/database.ts">
-    <item priority="high">
-      interface SlowQueryStats {
-        count5min: number;
-        slowestMs: number;
-        queries: { model: string; operation: string; duration: number; tim...;
-      }
-    </item>
-    <item priority="high">
-      export function getSlowQueryStats(): { count5min: number; slowestMs: number } { /* ... */ }
-    </item>
-  </file>
-  </section>
-  <section priority="medium" role="schemas">
-  <file path="src/schemas/index.ts">
-    <item priority="high">
-      export const UserPreferencesSchema: { $id: string; };
-    </item>
-    <item priority="high">
-      export const UserSchema: { $id: string; };
-    </item>
-  </file>
-  </section>
-  <section priority="medium" role="routes">
-  <file path="src/routes/users.ts">
-    <item priority="medium">
-      function isAdmin(user: AuthUser | undefined): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export const userRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
-    </item>
-  </file>
-  <file path="src/routes/ready.ts">
-    <item priority="high">
-      export const readinessRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
-    </item>
-  </file>
-  <file path="src/routes/health.ts">
-    <item priority="high">
-      type HealthRouteHandler = RouteHandlerMethod<
-        RawServerDefault,
-        IncomingMessage...;
-    </item>
-    <item priority="high">
-      export const healthRoutes: import("/Users/mbutler/github/mattbutlerengineering/node_...;
     </item>
   </file>
   </section>

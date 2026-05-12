@@ -1,5 +1,32 @@
 <codebase path="apps/rialto-web">
+  <section priority="medium" role="CookieConsent">
+  <file path="src/components/CookieConsent/useCookieConsent.ts">
+    export interface CookiePreferences {
+      readonly essential: true;
+      readonly analytics: boolean;
+      readonly functional: boolean;
+      readonly marketing: boolean;
+    }
+    interface ConsentState {
+      readonly consented: boolean;
+      readonly preferences: CookiePreferences;
+    }
+  </file>
+  </section>
   <section priority="medium" role="data">
+  <file path="src/data/nav-sections.ts">
+    export interface NavItem {
+      id: string;
+      label: string;
+      path: string;
+      /** When true, item is rendered in a muted style with a "coming soon" indicator. */
+      comingSoon?: boolean;
+    }
+    export interface NavSection {
+      label: string;
+      items: NavItem[];
+    }
+  </file>
   <file path="src/data/tapechart-fixtures.ts">
     function mulberry32(seed: number) {
       let a = seed;
@@ -15,19 +42,6 @@
       const [y, m, d] = iso.split("-").map(Number);
       const ms = Date.UTC(y ?? 1970, (m ?? 1) - 1, (d ?? 1) + n);
       return new Date(ms).toISOString().slice(0, 10);
-    }
-  </file>
-  <file path="src/data/nav-sections.ts">
-    export interface NavItem {
-      id: string;
-      label: string;
-      path: string;
-      /** When true, item is rendered in a muted style with a "coming soon" indicator. */
-      comingSoon?: boolean;
-    }
-    export interface NavSection {
-      label: string;
-      items: NavItem[];
     }
   </file>
   </section>
@@ -51,20 +65,6 @@
       updateDriver: (id: string, updates: Partial<Omit<Driver, "id">>) => void;
       deleteDriver: (id: string) => void;
       restoreDriver: (driver: Driver) => void;
-    }
-  </file>
-  </section>
-  <section priority="medium" role="CookieConsent">
-  <file path="src/components/CookieConsent/useCookieConsent.ts">
-    export interface CookiePreferences {
-      readonly essential: true;
-      readonly analytics: boolean;
-      readonly functional: boolean;
-      readonly marketing: boolean;
-    }
-    interface ConsentState {
-      readonly consented: boolean;
-      readonly preferences: CookiePreferences;
     }
   </file>
   </section>
