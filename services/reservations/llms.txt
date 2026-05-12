@@ -1,21 +1,4 @@
-<codebase path="services/reservations">
-  <section priority="medium" role="src">
-  <file path="src/index.ts">
-    <item priority="low">
-      async function main() { /* ... */ }
-    </item>
-  </file>
-  <file path="src/app.ts">
-    <item priority="medium">
-      function validateCorsOrigins(origins: string[]): string[] { /* ... */ }
-    </item>
-    <item priority="low">
-      interface AppOptions {
-        logger?: boolean | object | undefined;
-      }
-    </item>
-  </file>
-  </section>
+<codebase path="/tmp/acmm-multi-repo-orch/services/reservations">
   <section priority="medium" role="prisma">
   <file path="prisma/seed.ts">
     <item priority="medium">
@@ -26,41 +9,207 @@
     </item>
   </file>
   </section>
-  <section priority="medium" role="test">
-  <file path="src/test/mocks.ts">
-    <item priority="low">
-      interface MockTable {
-        id: string;
-        name: string;
-        tableNumber: string | null;
-        capacity: number;
-        minCovers: number;
+  <section priority="medium" role="routes">
+  <file path="src/routes/availability.ts">
+    <item priority="high">
+      export const availabilityRoutes: import("node_modules/.pnpm/fastify@5.8.5/node_modules/fas...;
+    </item>
+  </file>
+  <file path="src/routes/events.ts">
+    <item priority="medium">
+      class EventBuffer {
+        maxSize: number;
+        buffer: readonly import("/tmp/acmm-multi-repo-orch/services/reser...;
+        _droppedCount: number;
+        async push(): Promise<unknown>;
       }
     </item>
-    <item priority="low">
-      interface MockReservation {
-        id: string;
-        date: string;
-        startTime: string;
-        endTime: string;
-        partySize: number;
-      }
+    <item priority="high">
+      export function getConnectionManager(): SseConnectionManager { /* ... */ }
+    </item>
+  </file>
+  <file path="src/routes/floor-plans.ts">
+    <item priority="high">
+      export const floorPlanRoutes: import("node_modules/.pnpm/fastify@5.8.5/node_modules/fas...;
+    </item>
+  </file>
+  <file path="src/routes/guests.ts">
+    <item priority="high">
+      export const guestRoutes: import("node_modules/.pnpm/fastify@5.8.5/node_modules/fas...;
+    </item>
+  </file>
+  <file path="src/routes/health.ts">
+    <item priority="high">
+      type HealthRouteHandler = RouteHandlerMethod<
+        RawServerDefault,
+        IncomingMessage...;
+    </item>
+    <item priority="high">
+      export const healthRoutes: import("node_modules/.pnpm/fastify@5.8.5/node_modules/fas...;
+    </item>
+  </file>
+  <file path="src/routes/holds.ts">
+    <item priority="medium">
+      function getSessionId(request: FastifyRequest): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export const holdRoutes: import("node_modules/.pnpm/fastify@5.8.5/node_modules/fas...;
+    </item>
+  </file>
+  <file path="src/routes/ready.ts">
+    <item priority="high">
+      export const readinessRoutes: import("node_modules/.pnpm/fastify@5.8.5/node_modules/fas...;
+    </item>
+  </file>
+  <file path="src/routes/reservations.ts">
+    <item priority="medium">
+      function isAdmin(user: AuthUser | undefined): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export const reservationRoutes: import("node_modules/.pnpm/fastify@5.8.5/node_modules/fas...;
+    </item>
+  </file>
+  <file path="src/routes/tables.ts">
+    <item priority="high">
+      export const tableRoutes: import("node_modules/.pnpm/fastify@5.8.5/node_modules/fas...;
+    </item>
+  </file>
+  <file path="src/routes/venues.ts">
+    <item priority="high">
+      export const venueRoutes: import("node_modules/.pnpm/fastify@5.8.5/node_modules/fas...;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="schemas">
+  <file path="src/schemas/index.ts">
+    <item priority="high">
+      export const TableShapeMetadataSchema: { $id: string; };
+    </item>
+    <item priority="high">
+      export const TableSchema: { $id: string; };
     </item>
   </file>
   </section>
   <section priority="medium" role="services">
-  <file path="src/services/venue.ts">
+  <file path="src/services/availability.ts">
+    <item priority="high">
+      interface VenueWithSettings {
+        id: string;
+        name: string;
+        slug: string;
+        ianaTimezone: string;
+        settings: import("packages/types/src/venue").VenueSettings | null;
+      }
+    </item>
+    <item priority="high">
+      export function estimateDuration(
+        partySize: number,
+        venueSettings?: VenueSettings | null
+      ): number { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/database.ts">
+    <item priority="high">
+      interface SlowQueryStats {
+        count5min: number;
+        slowestMs: number;
+        queries: { model: string; operation: string; duration: number; tim...;
+      }
+    </item>
+    <item priority="high">
+      export function getSlowQueryStats(): { count5min: number; slowestMs: number } { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/events.ts">
+    <item priority="low">
+      type ReservationEventType = "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:created" | "hold:released" | "hold:confirmed" | "table:updated" | "floor-plan:created";
+    </item>
+    <item priority="low">
+      interface ReservationEvent {
+        type: import("/tmp/acmm-multi-repo-orch/services/reservations/s...;
+        venueId: string;
+        timestamp: string;
+        data: import("packages/types/src/reservation").Reservation | im...;
+      }
+    </item>
+  </file>
+  <file path="src/services/floor-plan.ts">
+    <item priority="medium">
+      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      type PrismaFloorPlan = {
+        id: string;
+        venueId: string;
+        name: string;
+        isAc...;
+    </item>
+  </file>
+  <file path="src/services/guest.ts">
     <item priority="medium">
       function isPrismaNotFound(err: unknown): boolean { /* ... */ }
     </item>
     <item priority="medium">
-      function mapPrismaVenueGroup(group: {
+      function mapPrismaGuest(guest: {
         id: string;
+        venueId: string;
+        email: string | null;
+        phone: string | null;
         name: string;
-        slug: string;
-        settings: unknown;
+        notes: string | null;
+        visitCount: number;
+        lifetimeSpend: Prisma.Decimal | null;
+        lastVisit: Date | null;
+        tags: unknown;
         createdAt: Date;
-      }): VenueGroup { /* ... */ }
+        updatedAt: Date;
+      }): Guest { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/health-checks.ts">
+    <item priority="high">
+      export function recordDbLatency(ms: number): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function checkLatencyAnomaly(currentMs: number): {
+        isAnomaly: boolean;
+        rollingAvg: number;
+      } { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/hold.ts">
+    <item priority="medium">
+      function mapPrismaHold(hold: PrismaHold): ReservationHold { /* ... */ }
+    </item>
+    <item priority="low">
+      interface CreateHoldResult {
+        success: boolean;
+        hold?: import("packages/types/src/availability").ReservationHold...;
+        error?: string | undefined;
+      }
+    </item>
+  </file>
+  <file path="src/services/reservation.ts">
+    <item priority="medium">
+      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      type PrismaReservationWithTable = PrismaReservation & {
+        table?: PrismaTable;
+      };
+    </item>
+  </file>
+  <file path="src/services/sse-connection-manager.ts">
+    <item priority="low">
+      interface SseConnectionConfig {
+        maxConnectionsPerIp: number;
+        connectionTimeoutMs: number;
+        maxEventBufferSize: number;
+        heartbeatIntervalMs: number;
+      }
+    </item>
+    <item priority="high">
+      export const DEFAULT_SSE_CONFIG: import("/tmp/acmm-multi-repo-orch/services/reservations/s...;
     </item>
   </file>
   <file path="src/services/table.ts">
@@ -87,206 +236,57 @@
       }): Table { /* ... */ }
     </item>
   </file>
-  <file path="src/services/sse-connection-manager.ts">
-    <item priority="low">
-      interface SseConnectionConfig {
-        maxConnectionsPerIp: number;
-        connectionTimeoutMs: number;
-        maxEventBufferSize: number;
-        heartbeatIntervalMs: number;
-      }
-    </item>
-    <item priority="high">
-      export const DEFAULT_SSE_CONFIG: import("services/reservations/src/services/sse-connection...;
-    </item>
-  </file>
-  <file path="src/services/reservation.ts">
-    <item priority="medium">
-      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      type PrismaReservationWithTable = PrismaReservation & {
-        table?: PrismaTable;
-      };
-    </item>
-  </file>
-  <file path="src/services/hold.ts">
-    <item priority="medium">
-      function mapPrismaHold(hold: PrismaHold): ReservationHold { /* ... */ }
-    </item>
-    <item priority="low">
-      interface CreateHoldResult {
-        success: boolean;
-        hold?: import("packages/types/src/availability").ReservationHold...;
-        error?: string | undefined;
-      }
-    </item>
-  </file>
-  <file path="src/services/health-checks.ts">
-    <item priority="high">
-      export function recordDbLatency(ms: number): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function checkLatencyAnomaly(currentMs: number): {
-        isAnomaly: boolean;
-        rollingAvg: number;
-      } { /* ... */ }
-    </item>
-  </file>
-  <file path="src/services/guest.ts">
+  <file path="src/services/venue.ts">
     <item priority="medium">
       function isPrismaNotFound(err: unknown): boolean { /* ... */ }
     </item>
     <item priority="medium">
-      function mapPrismaGuest(guest: {
-        id: string;
-        venueId: string;
-        email: string | null;
-        phone: string | null;
-        name: string;
-        notes: string | null;
-        visitCount: number;
-        lifetimeSpend: Prisma.Decimal | null;
-        lastVisit: Date | null;
-        tags: unknown;
-        createdAt: Date;
-        updatedAt: Date;
-      }): Guest { /* ... */ }
-    </item>
-  </file>
-  <file path="src/services/floor-plan.ts">
-    <item priority="medium">
-      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      type PrismaFloorPlan = {
-        id: string;
-        venueId: string;
-        name: string;
-        isAc...;
-    </item>
-  </file>
-  <file path="src/services/events.ts">
-    <item priority="low">
-      type ReservationEventType = "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:created" | "hold:released" | "hold:confirmed" | "table:updated" | "floor-plan:created";
-    </item>
-    <item priority="low">
-      interface ReservationEvent {
-        type: import("services/reservations/src/services/events").Reser...;
-        venueId: string;
-        timestamp: string;
-        data: import("packages/types/src/availability").ReservationHold...;
-      }
-    </item>
-  </file>
-  <file path="src/services/database.ts">
-    <item priority="high">
-      interface SlowQueryStats {
-        count5min: number;
-        slowestMs: number;
-        queries: { model: string; operation: string; duration: number; tim...;
-      }
-    </item>
-    <item priority="high">
-      export function getSlowQueryStats(): { count5min: number; slowestMs: number } { /* ... */ }
-    </item>
-  </file>
-  <file path="src/services/availability.ts">
-    <item priority="high">
-      interface VenueWithSettings {
+      function mapPrismaVenueGroup(group: {
         id: string;
         name: string;
         slug: string;
-        ianaTimezone: string;
-        settings: import("packages/types/src/venue").VenueSettings | null;
-      }
-    </item>
-    <item priority="high">
-      export function estimateDuration(
-        partySize: number,
-        venueSettings?: VenueSettings | null
-      ): number { /* ... */ }
+        settings: unknown;
+        createdAt: Date;
+      }): VenueGroup { /* ... */ }
     </item>
   </file>
   </section>
-  <section priority="medium" role="schemas">
-  <file path="src/schemas/index.ts">
-    <item priority="high">
-      export const TableShapeMetadataSchema: { $id: string; };
+  <section priority="medium" role="src">
+  <file path="src/app.ts">
+    <item priority="medium">
+      function validateCorsOrigins(origins: string[]): string[] { /* ... */ }
     </item>
-    <item priority="high">
-      export const TableSchema: { $id: string; };
+    <item priority="low">
+      interface AppOptions {
+        logger?: boolean | object | undefined;
+      }
+    </item>
+  </file>
+  <file path="src/index.ts">
+    <item priority="low">
+      async function main() { /* ... */ }
     </item>
   </file>
   </section>
-  <section priority="medium" role="routes">
-  <file path="src/routes/venues.ts">
-    <item priority="high">
-      export const venueRoutes: import("node_modules/.pnpm/fastify@5.8.5/node_modules/fas...;
-    </item>
-  </file>
-  <file path="src/routes/tables.ts">
-    <item priority="high">
-      export const tableRoutes: import("node_modules/.pnpm/fastify@5.8.5/node_modules/fas...;
-    </item>
-  </file>
-  <file path="src/routes/reservations.ts">
-    <item priority="medium">
-      function isAdmin(user: AuthUser | undefined): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export const reservationRoutes: import("node_modules/.pnpm/fastify@5.8.5/node_modules/fas...;
-    </item>
-  </file>
-  <file path="src/routes/ready.ts">
-    <item priority="high">
-      export const readinessRoutes: import("node_modules/.pnpm/fastify@5.8.5/node_modules/fas...;
-    </item>
-  </file>
-  <file path="src/routes/holds.ts">
-    <item priority="medium">
-      function getSessionId(request: FastifyRequest): string { /* ... */ }
-    </item>
-    <item priority="high">
-      export const holdRoutes: import("node_modules/.pnpm/fastify@5.8.5/node_modules/fas...;
-    </item>
-  </file>
-  <file path="src/routes/health.ts">
-    <item priority="high">
-      type HealthRouteHandler = RouteHandlerMethod<
-        RawServerDefault,
-        IncomingMessage...;
-    </item>
-    <item priority="high">
-      export const healthRoutes: import("node_modules/.pnpm/fastify@5.8.5/node_modules/fas...;
-    </item>
-  </file>
-  <file path="src/routes/guests.ts">
-    <item priority="high">
-      export const guestRoutes: import("node_modules/.pnpm/fastify@5.8.5/node_modules/fas...;
-    </item>
-  </file>
-  <file path="src/routes/floor-plans.ts">
-    <item priority="high">
-      export const floorPlanRoutes: import("node_modules/.pnpm/fastify@5.8.5/node_modules/fas...;
-    </item>
-  </file>
-  <file path="src/routes/events.ts">
-    <item priority="medium">
-      class EventBuffer {
-        maxSize: number;
-        buffer: readonly import("services/reservations/src/services/event...;
-        _droppedCount: number;
-        async push(): Promise<unknown>;
+  <section priority="medium" role="test">
+  <file path="src/test/mocks.ts">
+    <item priority="low">
+      interface MockTable {
+        id: string;
+        name: string;
+        tableNumber: string | null;
+        capacity: number;
+        minCovers: number;
       }
     </item>
-    <item priority="high">
-      export function getConnectionManager(): SseConnectionManager { /* ... */ }
-    </item>
-  </file>
-  <file path="src/routes/availability.ts">
-    <item priority="high">
-      export const availabilityRoutes: import("node_modules/.pnpm/fastify@5.8.5/node_modules/fas...;
+    <item priority="low">
+      interface MockReservation {
+        id: string;
+        date: string;
+        startTime: string;
+        endTime: string;
+        partySize: number;
+      }
     </item>
   </file>
   </section>

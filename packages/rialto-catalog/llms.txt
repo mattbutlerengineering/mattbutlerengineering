@@ -1,28 +1,4 @@
-<codebase path="packages/rialto-catalog">
-  <section priority="medium" role="src">
-  <file path="src/generated-schemas.ts">
-    <item priority="high">
-      export const generatedSchemas: { readonly Accordion: import("node_modules/.pnpm/zod@4.4....;
-    </item>
-  </file>
-  <file path="src/catalog.ts">
-    <item priority="high">
-      export const catalog: import("node_modules/.pnpm/@json-render+core@0.18.0_zod@4...;
-    </item>
-  </file>
-  <file path="src/catalog-config.ts">
-    <item priority="low">
-      interface ComponentConfig {
-        include: boolean;
-        description: string;
-        slots?: string[] | undefined;
-      }
-    </item>
-    <item priority="high">
-      export const catalogConfig: Record<string, import("packages/rialto-catalog/src/catalo...;
-    </item>
-  </file>
-  </section>
+<codebase path="/tmp/acmm-multi-repo-orch/packages/rialto-catalog">
   <section priority="medium" role="scripts">
   <file path="scripts/generate-catalog.ts">
     <item priority="high">
@@ -34,6 +10,30 @@
     </item>
     <item priority="medium">
       function stripUndefined(typeStr: string): { inner: string; wasOptional: boolean } { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="src">
+  <file path="src/catalog-config.ts">
+    <item priority="low">
+      interface ComponentConfig {
+        include: boolean;
+        description: string;
+        slots?: string[] | undefined;
+      }
+    </item>
+    <item priority="high">
+      export const catalogConfig: Record<string, import("/tmp/acmm-multi-repo-orch/packages...;
+    </item>
+  </file>
+  <file path="src/catalog.ts">
+    <item priority="high">
+      export const catalog: import("node_modules/.pnpm/@json-render+core@0.18.0_zod@4...;
+    </item>
+  </file>
+  <file path="src/generated-schemas.ts">
+    <item priority="high">
+      export const generatedSchemas: { readonly Accordion: import("node_modules/.pnpm/zod@4.4....;
     </item>
   </file>
   </section>

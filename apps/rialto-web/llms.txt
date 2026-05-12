@@ -1,13 +1,23 @@
-<codebase path="apps/rialto-web">
-  <section priority="medium" role="data">
-  <file path="src/data/tapechart-fixtures.ts">
-    <item priority="medium">
-      function mulberry32(seed: number) { /* ... */ }
+<codebase path="/tmp/acmm-multi-repo-orch/apps/rialto-web">
+  <section priority="medium" role="CookieConsent">
+  <file path="src/components/CookieConsent/useCookieConsent.ts">
+    <item priority="low">
+      interface CookiePreferences {
+        essential: true;
+        analytics: boolean;
+        functional: boolean;
+        marketing: boolean;
+      }
     </item>
-    <item priority="medium">
-      function addDaysISO(iso: string, n: number): string { /* ... */ }
+    <item priority="high">
+      interface ConsentState {
+        consented: boolean;
+        preferences: import("/tmp/acmm-multi-repo-orch/apps/rialto-web/src/com...;
+      }
     </item>
   </file>
+  </section>
+  <section priority="medium" role="data">
   <file path="src/data/nav-sections.ts">
     <item priority="low">
       interface NavItem {
@@ -20,8 +30,16 @@
     <item priority="low">
       interface NavSection {
         label: string;
-        items: import("apps/rialto-web/src/data/nav-sections").NavItem[];
+        items: import("/tmp/acmm-multi-repo-orch/apps/rialto-web/src/dat...;
       }
+    </item>
+  </file>
+  <file path="src/data/tapechart-fixtures.ts">
+    <item priority="medium">
+      function mulberry32(seed: number) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function addDaysISO(iso: string, n: number): string { /* ... */ }
     </item>
   </file>
   </section>
@@ -38,29 +56,11 @@
     </item>
     <item priority="high">
       interface DriverContextValue {
-        drivers: import("apps/rialto-web/src/pages/drivers/DriverContext")...;
-        getDriver: (id: string) => import("apps/rialto-web/src/pages/drivers...;
-        addDriver: (driver: Omit<import("apps/rialto-web/src/pages/drivers/D...;
-        updateDriver: (id: string, updates: Partial<Omit<import("apps/rialto-we...;
+        drivers: import("/tmp/acmm-multi-repo-orch/apps/rialto-web/src/pag...;
+        getDriver: (id: string) => import("/tmp/acmm-multi-repo-orch/apps/ri...;
+        addDriver: (driver: Omit<import("/tmp/acmm-multi-repo-orch/apps/rial...;
+        updateDriver: (id: string, updates: Partial<Omit<import("/tmp/acmm-mult...;
         deleteDriver: (id: string) => void;
-      }
-    </item>
-  </file>
-  </section>
-  <section priority="medium" role="CookieConsent">
-  <file path="src/components/CookieConsent/useCookieConsent.ts">
-    <item priority="low">
-      interface CookiePreferences {
-        essential: true;
-        analytics: boolean;
-        functional: boolean;
-        marketing: boolean;
-      }
-    </item>
-    <item priority="high">
-      interface ConsentState {
-        consented: boolean;
-        preferences: import("apps/rialto-web/src/components/CookieConsent/useC...;
       }
     </item>
   </file>

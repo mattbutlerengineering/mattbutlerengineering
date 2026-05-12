@@ -151,10 +151,10 @@ function detectPriority(statement: Node): "high" | "medium" | "low" {
     console.log(`${checkOnly ? "Checking" : "Packing"} context for: ${targetPath}...`);
 
     const project = new Project();
-    const files = await glob("**/*.ts", {
+    const files = (await glob("**/*.ts", {
       cwd: fullPath,
       ignore: ["**/node_modules/**", "**/dist/**", "**/*.test.ts", "**/*.spec.ts", "**/generated/**", "**/vitest.config.ts"],
-    });
+    })).sort();
 
     let skeletonOutput = `<codebase path="${targetPath}">\n`;
     let fullOutput = `<codebase path="${targetPath}">\n`;
@@ -207,7 +207,7 @@ function detectPriority(statement: Node): "high" | "medium" | "low" {
       }
     }
 
-    for (const [section, content] of sections) {
+    for (const [section, content] of [...sections.entries()].sort(([a], [b]) => a.localeCompare(b))) {
       skeletonOutput += `  <section priority="medium" role="${section}">\n${content.skeleton}  </section>\n`;
       fullOutput += `  <section priority="medium" role="${section}">\n${content.full}  </section>\n`;
     }

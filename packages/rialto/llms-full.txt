@@ -1,82 +1,263 @@
-<codebase path="packages/rialto">
-  <section priority="medium" role="scripts">
-  <file path="scripts/lib-entrypoints.ts">
-    export interface LibEntry {
-      /** Subpath segment after the package name, e.g. "Button" or "." for root. */
-      subpath: string;
-      /** Absolute path to the source entry. */
-      source: string;
-      /** Vite/Rollup chunk name (without extension). */
-      chunkName: string;
-    }
-    function listComponentEntries(): LibEntry[] {
-      const dirents = fs.readdirSync(componentsDir, { withFileTypes: true });
-      const entries: LibEntry[] = [];
-      for (const dirent of dirents) {
-        if (!dirent.isDirectory()) continue;
-        if (dirent.name.startsWith("_") || dirent.name.startsWith(".")) continue;
-        const indexPath = path.join(componentsDir, dirent.name, "index.ts");
-        if (!fs.existsSync(indexPath)) continue;
-        entries.push({
-          subpath: dirent.name,
-          source: indexPath,
-          // chunkName drives the emitted JS path. Putting it inside the
-          // component's own folder (alongside the d.ts files emitted by
-          // vite-plugin-dts) prevents TypeScript bundler resolution from
-          // ever finding a sibling `.js` with no adjacent `.d.ts`.
-          chunkName: `components/${dirent.name}/index`,
-        });
+<codebase path="/tmp/acmm-multi-repo-orch/packages/rialto">
+  <section priority="medium" role="FlipDot">
+  <file path="src/components/FlipDot/pixel-font.ts">
+    function decodeBitmaskRow(mask: number): boolean[] {
+      const row: boolean[] = [];
+      for (let bit = CHAR_WIDTH - 1; bit >= 0; bit--) {
+        row.push(((mask >> bit) & 1) === 1);
       }
-      entries.sort((a, b) => a.subpath.localeCompare(b.subpath));
-      return entries;
+      return row;
+    }
+    export function charToMatrix(char: string): readonly (readonly boolean[])[] {
+      const upper = char.toUpperCase();
+      const bitmasks = FONT[upper] ?? FONT[" "]!;
+      return bitmasks.map(decodeBitmaskRow);
     }
   </file>
-  <file path="scripts/generate-registry.ts">
-    interface PropInfo {
-      name: string;
-      type: string;
-      required: boolean;
-      default?: string;
-      description?: string;
-    }
-    interface CharacterLimitInfo {
-      prop: string;
-      max: number;
-      reason: string;
-    }
-  </file>
-  <file path="scripts/generate-manifest.ts">
-    interface PropInfo {
-      name: string;
-      type: string;
-      required: boolean;
-      default?: string;
-      description?: string;
-    }
-    interface CharacterLimitInfo {
-      prop: string;
-      max: number;
-      reason: string;
+  <file path="src/components/FlipDot/use-flip-dot-animation.ts">
+    export type FlipDotAnimationMode =
+      | "typewriter"
+      | "scroll-left"
+      | "scroll-right"
+      | "blink"
+      | "frames";
+    export interface UseFlipDotAnimationOptions {
+      /** Text to render (used by typewriter, scroll, blink modes). */
+      text?: string;
+      /** Pre-built frame sequence (used by "frames" mode). */
+      frames?: readonly (readonly (readonly boolean[])[])[];
+      /** Display row count. */
+      rows: number;
+      /** Display column count. */
+      cols: number;
+      /** Animation mode. @default "scroll-left" */
+      mode?: FlipDotAnimationMode;
+      /** Milliseconds per animation step. @default 150 */
+      speed?: number;
+      /** Loop when the animation completes. @default false */
+      loop?: boolean;
+      /** Start automatically on mount. @default true */
+      autoStart?: boolean;
     }
   </file>
-  <file path="scripts/generate-figma-tokens.ts">
-    interface DtcgToken {
-      readonly $value: string | number;
-      readonly $type: string;
-      readonly $description?: string;
+  <file path="src/components/FlipDot/use-flip-dot-sound.ts">
+    interface UseFlipDotSoundOptions {
+      enabled: boolean;
+      volume?: number;
     }
-    interface TokenGroup {
-      readonly [key: string]: DtcgToken | TokenGroup;
+    interface UseFlipDotSoundReturn {
+      /** Play a single dot-flip click. */
+      playClick: () => void;
+      /** Play a composite click for multiple simultaneous flips. */
+      playBatchClick: (count: number) => void;
     }
   </file>
-  <file path="scripts/generate-exports.ts">
-    interface ExportEntry {
-      types?: string;
-      import?: string;
-      default?: string;
+  </section>
+  <section priority="medium" role="GenCopilot">
+  <file path="src/components/GenCopilot/useGenCopilotStream.ts">
+    type FlatElement = Parameters<typeof flatToTree>[0][number];
+    export interface UseGenCopilotStreamOptions {
+      api: string;
+      domainContext: DomainContext;
+      getAccessToken: () => string | null | Promise<string | null>;
+      onComplete?: (spec: Spec) => void;
+      onError?: (error: Error) => void;
     }
-    type ExportsMap = Record<string, string | ExportEntry>;
   </file>
+  </section>
+  <section priority="medium" role="hooks">
+  <file path="src/hooks/useDirection.ts">
+    type Direction = "ltr" | "rtl";
+    export function useDirection(ref: RefObject<HTMLElement | null>): Direction {
+      const [dir, setDir] = useState<Direction>("ltr");
+    
+      useEffect(() => {
+        const el = ref.current;
+        if (!el) return;
+    
+        const target = el.closest("[dir]") ?? document.documentElement;
+    
+        const read = () => {
+          const value = getComputedStyle(target).direction;
+          setDir(value === "rtl" ? "rtl" : "ltr");
+        };
+    
+        read();
+    
+        const observer = new MutationObserver(read);
+        observer.observe(target, { attributes: true, attributeFilter: ["dir"] });
+    
+        return () => observer.disconnect();
+      }, [ref]);
+    
+      return dir;
+    }
+  </file>
+  <file path="src/hooks/useScrollReveal.ts">
+    interface UseScrollRevealOptions {
+      /** IntersectionObserver rootMargin. Default "-80px". */
+      margin?: string;
+      /** Trigger only once. Default true. */
+      once?: boolean;
+      /** Timeout in ms before content is forced visible. Default 3000. */
+      fallbackTimeout?: number;
+    }
+    export function useScrollReveal({
+      margin = "-80px",
+      once = true,
+      fallbackTimeout = FALLBACK_TIMEOUT_MS,
+    }: UseScrollRevealOptions = {}) {
+      const controls = useAnimation();
+      const shouldReduceMotion = useReducedMotion();
+      const ref = useRef<HTMLDivElement>(null);
+      const inView = useInView(ref, { margin: margin as `${number}px`, once });
+      const hasRevealedRef = useRef(false);
+    
+      useEffect(() => {
+        if (shouldReduceMotion) {
+          hasRevealedRef.current = true;
+          controls.set("visible");
+          return;
+        }
+        if (inView) {
+          hasRevealedRef.current = true;
+          controls.start("visible");
+        }
+      }, [inView, controls, shouldReduceMotion]);
+    
+      // Timeout fallback: ensure content becomes visible for crawlers and
+      // environments where IntersectionObserver may not trigger.
+      useEffect(() => {
+        const timer = setTimeout(() => {
+          if (!hasRevealedRef.current) {
+            hasRevealedRef.current = true;
+            controls.start("visible");
+          }
+        }, fallbackTimeout);
+    
+        return () => clearTimeout(timer);
+      }, [controls, fallbackTimeout]);
+    
+      return { ref, controls };
+    }
+  </file>
+  <file path="src/hooks/useThemeState.ts">
+    export type ThemePreference = "light" | "dark" | "system";
+    function getStoredTheme(): ThemePreference {
+      if (typeof window === "undefined") return "system";
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored === "light" || stored === "dark" || stored === "system") {
+          return stored;
+        }
+      } catch {
+        // localStorage unavailable
+      }
+      return "system";
+    }
+  </file>
+  <file path="src/hooks/useTilt.ts">
+    export function useTilt(
+      enabled: boolean,
+      maxTilt = 2
+    ): {
+      ref: (el: HTMLDivElement | null) => void;
+      style: MotionStyle;
+      onMouseMove: (e: React.MouseEvent) => void;
+      onMouseLeave: () => void;
+    } {
+      const elRef = useRef<HTMLDivElement | null>(null);
+      const shouldReduceMotion = useReducedMotion();
+    
+      const rotateX = useMotionValue(0);
+      const rotateY = useMotionValue(0);
+    
+      const springX = useSpring(rotateX, springTilt);
+      const springY = useSpring(rotateY, springTilt);
+    
+      const ref = useCallback((el: HTMLDivElement | null) => {
+        elRef.current = el;
+      }, []);
+    
+      const onMouseMove = useCallback(
+        (e: React.MouseEvent) => {
+          const el = elRef.current;
+          if (!el) return;
+    
+          const rect = el.getBoundingClientRect();
+          const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+          const ny = ((e.clientY - rect.top) / rect.height) * 2 - 1;
+    
+          rotateX.set(-ny * maxTilt);
+          rotateY.set(nx * maxTilt);
+    
+          const glowX = ((e.clientX - rect.left) / rect.width) * 100;
+          const glowY = ((e.clientY - rect.top) / rect.height) * 100;
+          el.style.setProperty("--tilt-glow-x", `${glowX}%`);
+          el.style.setProperty("--tilt-glow-y", `${glowY}%`);
+        },
+        [rotateX, rotateY, maxTilt]
+      );
+    
+      const onMouseLeave = useCallback(() => {
+        rotateX.set(0);
+        rotateY.set(0);
+        const el = elRef.current;
+        if (el) {
+          el.style.removeProperty("--tilt-glow-x");
+          el.style.removeProperty("--tilt-glow-y");
+        }
+      }, [rotateX, rotateY]);
+    
+      if (!enabled || shouldReduceMotion) {
+        return {
+          ref: noop,
+          style: NOOP_STYLE,
+          onMouseMove: noop,
+          onMouseLeave: noop,
+        };
+      }
+    
+      const style: MotionStyle = {
+        rotateX: springX,
+        rotateY: springY,
+        transformPerspective: 800,
+      };
+    
+      return { ref, style, onMouseMove, onMouseLeave };
+    }
+  </file>
+  </section>
+  <section priority="medium" role="providers">
+  <file path="src/providers/useDeviceContext.ts">
+    export interface DeviceContext {
+      pointer: "fine" | "coarse";
+      viewport: "mobile" | "tablet" | "desktop";
+      reducedMotion: boolean;
+      colorScheme: "light" | "dark";
+      saveData: boolean;
+    }
+    interface MediaEntry {
+      query: string;
+      key: keyof DeviceContext;
+      matchValue: DeviceContext[keyof DeviceContext];
+      noMatchValue: DeviceContext[keyof DeviceContext];
+    }
+  </file>
+  <file path="src/providers/useUIEnvironment.ts">
+    export interface UIEnvironment {
+      device: DeviceContext;
+      vibe: VibeName;
+      theme: "light" | "dark";
+    }
+    export const UIEnvironmentContext = createContext<UIEnvironment | null>(null);
+  </file>
+  <file path="src/providers/vibes.ts">
+    export type VibeName = "default" | "transacting" | "presenting";
+    export type VibeOverrides = Record<string, string>;
+  </file>
+  </section>
+  <section priority="medium" role="scripts">
   <file path="scripts/character-limits.ts">
     export interface CharacterLimit {
       component: string;
@@ -386,377 +567,156 @@
       },
     ];
   </file>
-  </section>
-  <section priority="medium" role="utils">
-  <file path="src/utils/service-worker.ts">
-    export function unregisterStaleServiceWorkers(exemptedScopes: string[] = ["/hospitality/"]): void {
-      if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) {
-        return;
-      }
-    
-      void navigator.serviceWorker.getRegistrations().then((registrations) => {
-        for (const registration of registrations) {
-          const isExempted = exemptedScopes.some((scope) => registration.scope.includes(scope));
-          if (!isExempted) {
-            console.info(`[rialto] Unregistering stale service worker at scope: ${registration.scope}`);
-            void registration.unregister();
-          }
-        }
-      });
+  <file path="scripts/generate-exports.ts">
+    interface ExportEntry {
+      types?: string;
+      import?: string;
+      default?: string;
+    }
+    type ExportsMap = Record<string, string | ExportEntry>;
+  </file>
+  <file path="scripts/generate-figma-tokens.ts">
+    interface DtcgToken {
+      readonly $value: string | number;
+      readonly $type: string;
+      readonly $description?: string;
+    }
+    interface TokenGroup {
+      readonly [key: string]: DtcgToken | TokenGroup;
     }
   </file>
-  <file path="src/utils/feedback.ts">
-    export function triggerHapticFeedback(): void {
-      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-        try {
-          navigator.vibrate([15, 30, 15]);
-        } catch {
-          // Ignore vibration errors (e.g. user hasn't interacted with the page)
-        }
-      }
-    }
-    export function playClickSound(): void {
-      if (typeof window === "undefined") return;
-    
-      try {
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-        if (!AudioContextClass) return;
-    
-        const audioCtx = new AudioContextClass();
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-    
-        osc.type = "sine";
-        // Mechanical click frequency around 80Hz
-        osc.frequency.setValueAtTime(80, audioCtx.currentTime);
-        
-        // Fast decay envelope
-        gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-    
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-    
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.1);
-    
-        // Close context after playback to free resources
-        setTimeout(() => {
-          void audioCtx.close();
-        }, 200);
-      } catch {
-        // Ignore audio errors (e.g. autoplay policy restrictions)
-      }
-    }
-  </file>
-  </section>
-  <section priority="medium" role="tokens">
-  <file path="src/tokens/motion.ts">
-    export const ms = (s: React.CSSProperties): MotionStyle => s as MotionStyle;
-    export const precision = {
-      duration: 0.15,
-      ease: [0.2, 0, 0, 1] as const,
-    };
-  </file>
-  <file path="src/tokens/icons.ts">
-    export const iconCategories = [
-      "navigation",
-      "actions",
-      "communication",
-      "status",
-      "content",
-      "user",
-      "data",
-      "media",
-      "commerce",
-    ] as const;
-    export type IconCategory = (typeof iconCategories)[number];
-  </file>
-  </section>
-  <section priority="medium" role="providers">
-  <file path="src/providers/vibes.ts">
-    export type VibeName = "default" | "transacting" | "presenting";
-    export type VibeOverrides = Record<string, string>;
-  </file>
-  <file path="src/providers/useUIEnvironment.ts">
-    export interface UIEnvironment {
-      device: DeviceContext;
-      vibe: VibeName;
-      theme: "light" | "dark";
-    }
-    export const UIEnvironmentContext = createContext<UIEnvironment | null>(null);
-  </file>
-  <file path="src/providers/useDeviceContext.ts">
-    export interface DeviceContext {
-      pointer: "fine" | "coarse";
-      viewport: "mobile" | "tablet" | "desktop";
-      reducedMotion: boolean;
-      colorScheme: "light" | "dark";
-      saveData: boolean;
-    }
-    interface MediaEntry {
-      query: string;
-      key: keyof DeviceContext;
-      matchValue: DeviceContext[keyof DeviceContext];
-      noMatchValue: DeviceContext[keyof DeviceContext];
-    }
-  </file>
-  </section>
-  <section priority="medium" role="hooks">
-  <file path="src/hooks/useTilt.ts">
-    export function useTilt(
-      enabled: boolean,
-      maxTilt = 2
-    ): {
-      ref: (el: HTMLDivElement | null) => void;
-      style: MotionStyle;
-      onMouseMove: (e: React.MouseEvent) => void;
-      onMouseLeave: () => void;
-    } {
-      const elRef = useRef<HTMLDivElement | null>(null);
-      const shouldReduceMotion = useReducedMotion();
-    
-      const rotateX = useMotionValue(0);
-      const rotateY = useMotionValue(0);
-    
-      const springX = useSpring(rotateX, springTilt);
-      const springY = useSpring(rotateY, springTilt);
-    
-      const ref = useCallback((el: HTMLDivElement | null) => {
-        elRef.current = el;
-      }, []);
-    
-      const onMouseMove = useCallback(
-        (e: React.MouseEvent) => {
-          const el = elRef.current;
-          if (!el) return;
-    
-          const rect = el.getBoundingClientRect();
-          const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-          const ny = ((e.clientY - rect.top) / rect.height) * 2 - 1;
-    
-          rotateX.set(-ny * maxTilt);
-          rotateY.set(nx * maxTilt);
-    
-          const glowX = ((e.clientX - rect.left) / rect.width) * 100;
-          const glowY = ((e.clientY - rect.top) / rect.height) * 100;
-          el.style.setProperty("--tilt-glow-x", `${glowX}%`);
-          el.style.setProperty("--tilt-glow-y", `${glowY}%`);
-        },
-        [rotateX, rotateY, maxTilt]
-      );
-    
-      const onMouseLeave = useCallback(() => {
-        rotateX.set(0);
-        rotateY.set(0);
-        const el = elRef.current;
-        if (el) {
-          el.style.removeProperty("--tilt-glow-x");
-          el.style.removeProperty("--tilt-glow-y");
-        }
-      }, [rotateX, rotateY]);
-    
-      if (!enabled || shouldReduceMotion) {
-        return {
-          ref: noop,
-          style: NOOP_STYLE,
-          onMouseMove: noop,
-          onMouseLeave: noop,
-        };
-      }
-    
-      const style: MotionStyle = {
-        rotateX: springX,
-        rotateY: springY,
-        transformPerspective: 800,
-      };
-    
-      return { ref, style, onMouseMove, onMouseLeave };
-    }
-  </file>
-  <file path="src/hooks/useThemeState.ts">
-    export type ThemePreference = "light" | "dark" | "system";
-    function getStoredTheme(): ThemePreference {
-      if (typeof window === "undefined") return "system";
-      try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored === "light" || stored === "dark" || stored === "system") {
-          return stored;
-        }
-      } catch {
-        // localStorage unavailable
-      }
-      return "system";
-    }
-  </file>
-  <file path="src/hooks/useScrollReveal.ts">
-    interface UseScrollRevealOptions {
-      /** IntersectionObserver rootMargin. Default "-80px". */
-      margin?: string;
-      /** Trigger only once. Default true. */
-      once?: boolean;
-      /** Timeout in ms before content is forced visible. Default 3000. */
-      fallbackTimeout?: number;
-    }
-    export function useScrollReveal({
-      margin = "-80px",
-      once = true,
-      fallbackTimeout = FALLBACK_TIMEOUT_MS,
-    }: UseScrollRevealOptions = {}) {
-      const controls = useAnimation();
-      const shouldReduceMotion = useReducedMotion();
-      const ref = useRef<HTMLDivElement>(null);
-      const inView = useInView(ref, { margin: margin as `${number}px`, once });
-      const hasRevealedRef = useRef(false);
-    
-      useEffect(() => {
-        if (shouldReduceMotion) {
-          hasRevealedRef.current = true;
-          controls.set("visible");
-          return;
-        }
-        if (inView) {
-          hasRevealedRef.current = true;
-          controls.start("visible");
-        }
-      }, [inView, controls, shouldReduceMotion]);
-    
-      // Timeout fallback: ensure content becomes visible for crawlers and
-      // environments where IntersectionObserver may not trigger.
-      useEffect(() => {
-        const timer = setTimeout(() => {
-          if (!hasRevealedRef.current) {
-            hasRevealedRef.current = true;
-            controls.start("visible");
-          }
-        }, fallbackTimeout);
-    
-        return () => clearTimeout(timer);
-      }, [controls, fallbackTimeout]);
-    
-      return { ref, controls };
-    }
-  </file>
-  <file path="src/hooks/useDirection.ts">
-    type Direction = "ltr" | "rtl";
-    export function useDirection(ref: RefObject<HTMLElement | null>): Direction {
-      const [dir, setDir] = useState<Direction>("ltr");
-    
-      useEffect(() => {
-        const el = ref.current;
-        if (!el) return;
-    
-        const target = el.closest("[dir]") ?? document.documentElement;
-    
-        const read = () => {
-          const value = getComputedStyle(target).direction;
-          setDir(value === "rtl" ? "rtl" : "ltr");
-        };
-    
-        read();
-    
-        const observer = new MutationObserver(read);
-        observer.observe(target, { attributes: true, attributeFilter: ["dir"] });
-    
-        return () => observer.disconnect();
-      }, [ref]);
-    
-      return dir;
-    }
-  </file>
-  </section>
-  <section priority="medium" role="Toast">
-  <file path="src/components/Toast/ToastContext.ts">
-    export type ToastVariant = "default" | "success" | "error" | "accent";
-    export interface ToastData {
-      id: string;
-      title: string;
+  <file path="scripts/generate-manifest.ts">
+    interface PropInfo {
+      name: string;
+      type: string;
+      required: boolean;
+      default?: string;
       description?: string;
-      variant?: ToastVariant;
-      /** Auto-dismiss in ms. 0 = manual dismiss only. */
-      duration?: number;
     }
+    interface CharacterLimitInfo {
+      prop: string;
+      max: number;
+      reason: string;
+    }
+  </file>
+  <file path="scripts/generate-registry.ts">
+    interface PropInfo {
+      name: string;
+      type: string;
+      required: boolean;
+      default?: string;
+      description?: string;
+    }
+    interface CharacterLimitInfo {
+      prop: string;
+      max: number;
+      reason: string;
+    }
+  </file>
+  <file path="scripts/lib-entrypoints.ts">
+    export interface LibEntry {
+      /** Subpath segment after the package name, e.g. "Button" or "." for root. */
+      subpath: string;
+      /** Absolute path to the source entry. */
+      source: string;
+      /** Vite/Rollup chunk name (without extension). */
+      chunkName: string;
+    }
+    function listComponentEntries(): LibEntry[] {
+      const dirents = fs.readdirSync(componentsDir, { withFileTypes: true });
+      const entries: LibEntry[] = [];
+      for (const dirent of dirents) {
+        if (!dirent.isDirectory()) continue;
+        if (dirent.name.startsWith("_") || dirent.name.startsWith(".")) continue;
+        const indexPath = path.join(componentsDir, dirent.name, "index.ts");
+        if (!fs.existsSync(indexPath)) continue;
+        entries.push({
+          subpath: dirent.name,
+          source: indexPath,
+          // chunkName drives the emitted JS path. Putting it inside the
+          // component's own folder (alongside the d.ts files emitted by
+          // vite-plugin-dts) prevents TypeScript bundler resolution from
+          // ever finding a sibling `.js` with no adjacent `.d.ts`.
+          chunkName: `components/${dirent.name}/index`,
+        });
+      }
+      entries.sort((a, b) => a.subpath.localeCompare(b.subpath));
+      return entries;
+    }
+  </file>
+  </section>
+  <section priority="medium" role="SplitFlap">
+  <file path="src/components/SplitFlap/charset.ts">
+    export const CHARSETS = {
+      alpha: ALPHA,
+      numeric: NUMERIC,
+      alphanumeric: ALPHANUMERIC,
+      full: FULL,
+    } as const;
+    export type CharsetName = keyof typeof CHARSETS;
   </file>
   </section>
   <section priority="medium" role="TapeChart">
-  <file path="src/components/TapeChart/useTapeChartLayout.ts">
-    function assignLanes(bars: TapeChartPositionedBar[]): number {
-      const laneEnds: number[] = [];
-      bars.sort((a, b) => a.startOffset - b.startOffset || a.span - b.span);
-      for (const bar of bars) {
-        let placed = false;
-        for (let i = 0; i < laneEnds.length; i++) {
-          if (laneEnds[i]! <= bar.startOffset) {
-            bar.lane = i;
-            laneEnds[i] = bar.startOffset + bar.span;
-            placed = true;
-            break;
-          }
-        }
-        if (!placed) {
-          bar.lane = laneEnds.length;
-          laneEnds.push(bar.startOffset + bar.span);
-        }
-      }
-      return laneEnds.length;
+  <file path="src/components/TapeChart/dateMath.ts">
+    export function parseISOMs(iso: string): number {
+      const parts = iso.split("-");
+      const y = Number(parts[0] ?? "1970");
+      const m = Number(parts[1] ?? "1");
+      const d = Number(parts[2] ?? "1");
+      return Date.UTC(y, m - 1, d);
     }
-    export function useTapeChartLayout(
-      reservations: TapeChartReservation[],
-      rooms: TapeChartRoom[],
-      startDate: string,
-      endDate: string,
-    ): TapeChartLayout {
-      return useMemo(() => {
-        const dayCount = Math.max(0, daysBetween(startDate, endDate));
-        const barsByRoom = new Map<string, TapeChartPositionedBar[]>();
-        for (const room of rooms) barsByRoom.set(room.id, []);
-    
-        const dailyCounts = Array.from({ length: dayCount }, (_, i) => ({
-          date: addDays(startDate, i),
-          arrivals: 0,
-          departures: 0,
-          inHouse: 0,
-        }));
-    
-        for (const reservation of reservations) {
-          if (reservation.status === "cancelled" || reservation.status === "noShow") continue;
-          const rawStart = daysBetween(startDate, reservation.start);
-          const rawEnd = daysBetween(startDate, reservation.end);
-          // end-exclusive: a reservation Oct 28→Oct 31 spans Oct 28, 29, 30 (3 nights).
-          if (rawEnd <= 0 || rawStart >= dayCount) continue;
-    
-          const startOffset = Math.max(0, rawStart);
-          const endOffset = Math.min(dayCount, rawEnd);
-          const span = Math.max(1, endOffset - startOffset);
-    
-          const list = barsByRoom.get(reservation.roomId);
-          if (!list) continue;
-          list.push({
-            reservation,
-            startOffset,
-            span,
-            lane: 0,
-            clippedStart: rawStart < 0,
-            clippedEnd: rawEnd > dayCount,
-          });
-    
-          // Daily counts — only count when the arrival/departure lands within view.
-          if (rawStart >= 0 && rawStart < dayCount) dailyCounts[rawStart]!.arrivals += 1;
-          if (rawEnd > 0 && rawEnd <= dayCount) dailyCounts[rawEnd - 1]!.departures += 1;
-          for (let i = startOffset; i < endOffset; i++) {
-            dailyCounts[i]!.inHouse += 1;
-          }
-        }
-    
-        let maxLanes = 1;
-        for (const bars of barsByRoom.values()) {
-          const lanes = assignLanes(bars);
-          if (lanes > maxLanes) maxLanes = lanes;
-        }
-    
-        return { barsByRoom, dayCount, maxLanes, dailyCounts };
-      }, [reservations, rooms, startDate, endDate]);
+    export function daysBetween(a: string, b: string): number {
+      return Math.round((parseISOMs(b) - parseISOMs(a)) / MS_PER_DAY);
     }
+  </file>
+  <file path="src/components/TapeChart/defaultStrings.ts">
+    export type ResolvedStrings = Required<
+      Omit<
+        TapeChartStrings,
+        "reservationAriaTemplate" | "nightsLabel" | "partySizeLabel" | "statusLabels" | "roomStatusLabels"
+      >
+    > & {
+      reservationAriaTemplate: (r: TapeChartReservation, fmt: TapeChartFormattedParts) => string;
+      nightsLabel: (count: number) => string;
+      partySizeLabel: (count: number) => string;
+      statusLabels: Record<TapeChartStatus, string>;
+      roomStatusLabels: Record<TapeChartRoomStatus, string>;
+    };
+    export const DEFAULT_STRINGS: ResolvedStrings = {
+      regionLabel: "Reservations tape chart",
+      roomsColumnLabel: "Rooms",
+      arrivalsLabel: "Arrivals",
+      departuresLabel: "Departures",
+      inHouseLabel: "In-house",
+      viewModeToggleLabel: "View mode",
+      viewModeGridLabel: "Grid",
+      viewModeListLabel: "List",
+      todayLabel: "Today",
+      emptyTitle: "No rooms configured",
+      emptyBody: "Add a room to start managing reservations.",
+      errorTitle: "Couldn't load reservations",
+      errorRetryLabel: "Try again",
+      loadingLabel: "Loading reservations",
+      moveDialogTitle: "Move reservation",
+      moveConfirmLabel: "Move",
+      moveCancelLabel: "Cancel",
+      conflictWarning: "This move conflicts with another reservation.",
+      statusLabels: STATUS_LABELS_EN,
+      roomStatusLabels: ROOM_STATUS_LABELS_EN,
+      reservationAriaTemplate: defaultReservationAriaTemplate,
+      nightsLabel: defaultNightsLabel,
+      partySizeLabel: defaultPartySizeLabel,
+    };
+  </file>
+  <file path="src/components/TapeChart/types.ts">
+    export type TapeChartStatus =
+      | "tentative"
+      | "confirmed"
+      | "checkedIn"
+      | "checkedOut"
+      | "cancelled"
+      | "noShow";
+    export type TapeChartRoomStatus = "ready" | "dirty" | "outOfOrder" | "occupied";
   </file>
   <file path="src/components/TapeChart/useTapeChartI18n.ts">
     export interface TapeChartFormatters {
@@ -856,142 +816,182 @@
       }, [effectiveLocale, timeZone, defaultCurrency]);
     }
   </file>
-  <file path="src/components/TapeChart/types.ts">
-    export type TapeChartStatus =
-      | "tentative"
-      | "confirmed"
-      | "checkedIn"
-      | "checkedOut"
-      | "cancelled"
-      | "noShow";
-    export type TapeChartRoomStatus = "ready" | "dirty" | "outOfOrder" | "occupied";
-  </file>
-  <file path="src/components/TapeChart/defaultStrings.ts">
-    export type ResolvedStrings = Required<
-      Omit<
-        TapeChartStrings,
-        "reservationAriaTemplate" | "nightsLabel" | "partySizeLabel" | "statusLabels" | "roomStatusLabels"
-      >
-    > & {
-      reservationAriaTemplate: (r: TapeChartReservation, fmt: TapeChartFormattedParts) => string;
-      nightsLabel: (count: number) => string;
-      partySizeLabel: (count: number) => string;
-      statusLabels: Record<TapeChartStatus, string>;
-      roomStatusLabels: Record<TapeChartRoomStatus, string>;
-    };
-    export const DEFAULT_STRINGS: ResolvedStrings = {
-      regionLabel: "Reservations tape chart",
-      roomsColumnLabel: "Rooms",
-      arrivalsLabel: "Arrivals",
-      departuresLabel: "Departures",
-      inHouseLabel: "In-house",
-      viewModeToggleLabel: "View mode",
-      viewModeGridLabel: "Grid",
-      viewModeListLabel: "List",
-      todayLabel: "Today",
-      emptyTitle: "No rooms configured",
-      emptyBody: "Add a room to start managing reservations.",
-      errorTitle: "Couldn't load reservations",
-      errorRetryLabel: "Try again",
-      loadingLabel: "Loading reservations",
-      moveDialogTitle: "Move reservation",
-      moveConfirmLabel: "Move",
-      moveCancelLabel: "Cancel",
-      conflictWarning: "This move conflicts with another reservation.",
-      statusLabels: STATUS_LABELS_EN,
-      roomStatusLabels: ROOM_STATUS_LABELS_EN,
-      reservationAriaTemplate: defaultReservationAriaTemplate,
-      nightsLabel: defaultNightsLabel,
-      partySizeLabel: defaultPartySizeLabel,
-    };
-  </file>
-  <file path="src/components/TapeChart/dateMath.ts">
-    export function parseISOMs(iso: string): number {
-      const parts = iso.split("-");
-      const y = Number(parts[0] ?? "1970");
-      const m = Number(parts[1] ?? "1");
-      const d = Number(parts[2] ?? "1");
-      return Date.UTC(y, m - 1, d);
-    }
-    export function daysBetween(a: string, b: string): number {
-      return Math.round((parseISOMs(b) - parseISOMs(a)) / MS_PER_DAY);
-    }
-  </file>
-  </section>
-  <section priority="medium" role="SplitFlap">
-  <file path="src/components/SplitFlap/charset.ts">
-    export const CHARSETS = {
-      alpha: ALPHA,
-      numeric: NUMERIC,
-      alphanumeric: ALPHANUMERIC,
-      full: FULL,
-    } as const;
-    export type CharsetName = keyof typeof CHARSETS;
-  </file>
-  </section>
-  <section priority="medium" role="GenCopilot">
-  <file path="src/components/GenCopilot/useGenCopilotStream.ts">
-    type FlatElement = Parameters<typeof flatToTree>[0][number];
-    export interface UseGenCopilotStreamOptions {
-      api: string;
-      domainContext: DomainContext;
-      getAccessToken: () => string | null | Promise<string | null>;
-      onComplete?: (spec: Spec) => void;
-      onError?: (error: Error) => void;
-    }
-  </file>
-  </section>
-  <section priority="medium" role="FlipDot">
-  <file path="src/components/FlipDot/use-flip-dot-sound.ts">
-    interface UseFlipDotSoundOptions {
-      enabled: boolean;
-      volume?: number;
-    }
-    interface UseFlipDotSoundReturn {
-      /** Play a single dot-flip click. */
-      playClick: () => void;
-      /** Play a composite click for multiple simultaneous flips. */
-      playBatchClick: (count: number) => void;
-    }
-  </file>
-  <file path="src/components/FlipDot/use-flip-dot-animation.ts">
-    export type FlipDotAnimationMode =
-      | "typewriter"
-      | "scroll-left"
-      | "scroll-right"
-      | "blink"
-      | "frames";
-    export interface UseFlipDotAnimationOptions {
-      /** Text to render (used by typewriter, scroll, blink modes). */
-      text?: string;
-      /** Pre-built frame sequence (used by "frames" mode). */
-      frames?: readonly (readonly (readonly boolean[])[])[];
-      /** Display row count. */
-      rows: number;
-      /** Display column count. */
-      cols: number;
-      /** Animation mode. @default "scroll-left" */
-      mode?: FlipDotAnimationMode;
-      /** Milliseconds per animation step. @default 150 */
-      speed?: number;
-      /** Loop when the animation completes. @default false */
-      loop?: boolean;
-      /** Start automatically on mount. @default true */
-      autoStart?: boolean;
-    }
-  </file>
-  <file path="src/components/FlipDot/pixel-font.ts">
-    function decodeBitmaskRow(mask: number): boolean[] {
-      const row: boolean[] = [];
-      for (let bit = CHAR_WIDTH - 1; bit >= 0; bit--) {
-        row.push(((mask >> bit) & 1) === 1);
+  <file path="src/components/TapeChart/useTapeChartLayout.ts">
+    function assignLanes(bars: TapeChartPositionedBar[]): number {
+      const laneEnds: number[] = [];
+      bars.sort((a, b) => a.startOffset - b.startOffset || a.span - b.span);
+      for (const bar of bars) {
+        let placed = false;
+        for (let i = 0; i < laneEnds.length; i++) {
+          if (laneEnds[i]! <= bar.startOffset) {
+            bar.lane = i;
+            laneEnds[i] = bar.startOffset + bar.span;
+            placed = true;
+            break;
+          }
+        }
+        if (!placed) {
+          bar.lane = laneEnds.length;
+          laneEnds.push(bar.startOffset + bar.span);
+        }
       }
-      return row;
+      return laneEnds.length;
     }
-    export function charToMatrix(char: string): readonly (readonly boolean[])[] {
-      const upper = char.toUpperCase();
-      const bitmasks = FONT[upper] ?? FONT[" "]!;
-      return bitmasks.map(decodeBitmaskRow);
+    export function useTapeChartLayout(
+      reservations: TapeChartReservation[],
+      rooms: TapeChartRoom[],
+      startDate: string,
+      endDate: string,
+    ): TapeChartLayout {
+      return useMemo(() => {
+        const dayCount = Math.max(0, daysBetween(startDate, endDate));
+        const barsByRoom = new Map<string, TapeChartPositionedBar[]>();
+        for (const room of rooms) barsByRoom.set(room.id, []);
+    
+        const dailyCounts = Array.from({ length: dayCount }, (_, i) => ({
+          date: addDays(startDate, i),
+          arrivals: 0,
+          departures: 0,
+          inHouse: 0,
+        }));
+    
+        for (const reservation of reservations) {
+          if (reservation.status === "cancelled" || reservation.status === "noShow") continue;
+          const rawStart = daysBetween(startDate, reservation.start);
+          const rawEnd = daysBetween(startDate, reservation.end);
+          // end-exclusive: a reservation Oct 28→Oct 31 spans Oct 28, 29, 30 (3 nights).
+          if (rawEnd <= 0 || rawStart >= dayCount) continue;
+    
+          const startOffset = Math.max(0, rawStart);
+          const endOffset = Math.min(dayCount, rawEnd);
+          const span = Math.max(1, endOffset - startOffset);
+    
+          const list = barsByRoom.get(reservation.roomId);
+          if (!list) continue;
+          list.push({
+            reservation,
+            startOffset,
+            span,
+            lane: 0,
+            clippedStart: rawStart < 0,
+            clippedEnd: rawEnd > dayCount,
+          });
+    
+          // Daily counts — only count when the arrival/departure lands within view.
+          if (rawStart >= 0 && rawStart < dayCount) dailyCounts[rawStart]!.arrivals += 1;
+          if (rawEnd > 0 && rawEnd <= dayCount) dailyCounts[rawEnd - 1]!.departures += 1;
+          for (let i = startOffset; i < endOffset; i++) {
+            dailyCounts[i]!.inHouse += 1;
+          }
+        }
+    
+        let maxLanes = 1;
+        for (const bars of barsByRoom.values()) {
+          const lanes = assignLanes(bars);
+          if (lanes > maxLanes) maxLanes = lanes;
+        }
+    
+        return { barsByRoom, dayCount, maxLanes, dailyCounts };
+      }, [reservations, rooms, startDate, endDate]);
+    }
+  </file>
+  </section>
+  <section priority="medium" role="Toast">
+  <file path="src/components/Toast/ToastContext.ts">
+    export type ToastVariant = "default" | "success" | "error" | "accent";
+    export interface ToastData {
+      id: string;
+      title: string;
+      description?: string;
+      variant?: ToastVariant;
+      /** Auto-dismiss in ms. 0 = manual dismiss only. */
+      duration?: number;
+    }
+  </file>
+  </section>
+  <section priority="medium" role="tokens">
+  <file path="src/tokens/icons.ts">
+    export const iconCategories = [
+      "navigation",
+      "actions",
+      "communication",
+      "status",
+      "content",
+      "user",
+      "data",
+      "media",
+      "commerce",
+    ] as const;
+    export type IconCategory = (typeof iconCategories)[number];
+  </file>
+  <file path="src/tokens/motion.ts">
+    export const ms = (s: React.CSSProperties): MotionStyle => s as MotionStyle;
+    export const precision = {
+      duration: 0.15,
+      ease: [0.2, 0, 0, 1] as const,
+    };
+  </file>
+  </section>
+  <section priority="medium" role="utils">
+  <file path="src/utils/feedback.ts">
+    export function triggerHapticFeedback(): void {
+      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+        try {
+          navigator.vibrate([15, 30, 15]);
+        } catch {
+          // Ignore vibration errors (e.g. user hasn't interacted with the page)
+        }
+      }
+    }
+    export function playClickSound(): void {
+      if (typeof window === "undefined") return;
+    
+      try {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioContextClass) return;
+    
+        const audioCtx = new AudioContextClass();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+    
+        osc.type = "sine";
+        // Mechanical click frequency around 80Hz
+        osc.frequency.setValueAtTime(80, audioCtx.currentTime);
+        
+        // Fast decay envelope
+        gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+    
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+    
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.1);
+    
+        // Close context after playback to free resources
+        setTimeout(() => {
+          void audioCtx.close();
+        }, 200);
+      } catch {
+        // Ignore audio errors (e.g. autoplay policy restrictions)
+      }
+    }
+  </file>
+  <file path="src/utils/service-worker.ts">
+    export function unregisterStaleServiceWorkers(exemptedScopes: string[] = ["/hospitality/"]): void {
+      if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) {
+        return;
+      }
+    
+      void navigator.serviceWorker.getRegistrations().then((registrations) => {
+        for (const registration of registrations) {
+          const isExempted = exemptedScopes.some((scope) => registration.scope.includes(scope));
+          if (!isExempted) {
+            console.info(`[rialto] Unregistering stale service worker at scope: ${registration.scope}`);
+            void registration.unregister();
+          }
+        }
+      });
     }
   </file>
   </section>

@@ -1,334 +1,143 @@
-<codebase path="packages/api-client">
+<codebase path="/tmp/acmm-multi-repo-orch/packages/api-client">
   <section priority="medium" role="src">
-  <file path="src/venues.ts">
-    export class VenuesClient {
-      constructor(private client: ApiClient) {}
-    
-      /**
-       * List venues with optional filters
-       */
-      async list(params: { page?: number; limit?: number; venueGroupId?: string } = {}): Promise<PaginatedResponse<Venue>> {
-        const searchParams = new URLSearchParams();
-        if (params.page) searchParams.set("page", String(params.page));
-        if (params.limit) searchParams.set("limit", String(params.limit));
-        if (params.venueGroupId) searchParams.set("venueGroupId", params.venueGroupId);
-    
-        const query = searchParams.toString();
-        return this.client.get<PaginatedResponse<Venue>>(
-          `/api/v1/venues${query ? `?${query}` : ""}`
-        );
-      }
-    
-      /**
-       * Get a venue by ID
-       */
-      async get(id: string): Promise<Venue> {
-        const response = await this.client.get<ApiResponse<Venue>>(`/api/v1/venues/${id}`);
-        return response.data;
-      }
-    
-      /**
-       * Get a venue by slug
-       */
-      async getBySlug(slug: string): Promise<Venue> {
-        const response = await this.client.get<ApiResponse<Venue>>(`/api/v1/venues/by-slug/${slug}`);
-        return response.data;
-      }
-    
-      /**
-       * Create a new venue
-       */
-      async create(data: CreateVenueRequest): Promise<Venue> {
-        const response = await this.client.post<ApiResponse<Venue>>("/api/v1/venues", data);
-        return response.data;
-      }
-    
-      /**
-       * Update a venue
-       */
-      async update(id: string, data: UpdateVenueRequest): Promise<Venue> {
-        const response = await this.client.patch<ApiResponse<Venue>>(`/api/v1/venues/${id}`, data);
-        return response.data;
-      }
-    
-      /**
-       * Delete a venue
-       */
-      async delete(id: string): Promise<void> {
-        await this.client.delete(`/api/v1/venues/${id}`);
-      }
+  <file path="src/availability.ts">
+    export interface GetTimeSlotsParams {
+      venueId: string;
+      date: string;
+      partySize: number;
+      duration?: number;
     }
-    export class VenueGroupsClient {
-      constructor(private client: ApiClient) {}
-    
-      /**
-       * List venue groups
-       */
-      async list(page = 1, limit = 10): Promise<PaginatedResponse<VenueGroup>> {
-        return this.client.get<PaginatedResponse<VenueGroup>>(
-          `/api/v1/venues/groups?page=${page}&limit=${limit}`
-        );
-      }
-    
-      /**
-       * Get a venue group by ID
-       */
-      async get(id: string): Promise<VenueGroup> {
-        const response = await this.client.get<ApiResponse<VenueGroup>>(`/api/v1/venues/groups/${id}`);
-        return response.data;
-      }
-    
-      /**
-       * Get a venue group by slug
-       */
-      async getBySlug(slug: string): Promise<VenueGroup> {
-        const response = await this.client.get<ApiResponse<VenueGroup>>(`/api/v1/venues/groups/by-slug/${slug}`);
-        return response.data;
-      }
-    
-      /**
-       * Create a new venue group
-       */
-      async create(data: CreateVenueGroupRequest): Promise<VenueGroup> {
-        const response = await this.client.post<ApiResponse<VenueGroup>>("/api/v1/venues/groups", data);
-        return response.data;
-      }
-    
-      /**
-       * Update a venue group
-       */
-      async update(id: string, data: UpdateVenueGroupRequest): Promise<VenueGroup> {
-        const response = await this.client.patch<ApiResponse<VenueGroup>>(`/api/v1/venues/groups/${id}`, data);
-        return response.data;
-      }
-    
-      /**
-       * Delete a venue group
-       */
-      async delete(id: string): Promise<void> {
-        await this.client.delete(`/api/v1/venues/groups/${id}`);
-      }
+    export interface GetDatesParams {
+      venueId: string;
+      startDate: string;
+      endDate: string;
+      partySize: number;
     }
   </file>
-  <file path="src/users.ts">
-    export class UsersClient {
-      constructor(private client: ApiClient) {}
-    
-      /**
-       * List all users with pagination
-       */
-      async list(page = 1, limit = 10): Promise<PaginatedResponse<User>> {
-        return this.client.get<PaginatedResponse<User>>(
-          `/api/v1/users?page=${page}&limit=${limit}`
-        );
-      }
-    
-      /**
-       * Get a user by ID
-       */
-      async get(id: string): Promise<User> {
-        const response = await this.client.get<ApiResponse<User>>(`/api/v1/users/${id}`);
-        return response.data;
-      }
-    
-      /**
-       * Get the currently authenticated user
-       */
-      async me(): Promise<User> {
-        const response = await this.client.get<ApiResponse<User>>("/api/v1/users/me");
-        return response.data;
-      }
-    
-      /**
-       * Create a new user
-       */
-      async create(data: CreateUserRequest): Promise<User> {
-        const response = await this.client.post<ApiResponse<User>>("/api/v1/users", data);
-        return response.data;
-      }
-    
-      /**
-       * Update a user
-       */
-      async update(id: string, data: UpdateUserRequest): Promise<User> {
-        const response = await this.client.patch<ApiResponse<User>>(
-          `/api/v1/users/${id}`,
-          data
-        );
-        return response.data;
-      }
-    
-      /**
-       * Delete a user
-       */
-      async delete(id: string): Promise<void> {
-        await this.client.delete(`/api/v1/users/${id}`);
-      }
-    
-      /**
-       * Update current user's preferences
-       */
-      async updatePreferences(preferences: UpdatePreferencesRequest): Promise<User> {
-        const response = await this.client.patch<ApiResponse<User>>(
-          "/api/v1/users/me/preferences",
-          preferences
-        );
-        return response.data;
-      }
+  <file path="src/client.ts">
+    export interface ClientConfig {
+      baseUrl: string;
+      getAccessToken?: () => string | null | Promise<string | null>;
+      timeout?: number;
+      maxRetries?: number;
+      onError?: (error: ApiClientError) => void;
     }
-  </file>
-  <file path="src/tables.ts">
-    export interface ListTablesParams {
-      page?: number;
-      limit?: number;
-      venueId?: string;
-      activeOnly?: boolean;
-    }
-    export class TablesClient {
-      constructor(private client: ApiClient) {}
-    
-      /**
-       * List tables with optional filters
-       */
-      async list(params: ListTablesParams = {}): Promise<PaginatedResponse<Table>> {
-        const searchParams = new URLSearchParams();
-        if (params.page) searchParams.set("page", String(params.page));
-        if (params.limit) searchParams.set("limit", String(params.limit));
-        if (params.venueId) searchParams.set("venueId", params.venueId);
-        if (params.activeOnly !== undefined) searchParams.set("activeOnly", String(params.activeOnly));
-    
-        const query = searchParams.toString();
-        return this.client.get<PaginatedResponse<Table>>(
-          `/api/v1/tables${query ? `?${query}` : ""}`
-        );
-      }
-    
-      /**
-       * Get a table by ID
-       */
-      async get(id: string): Promise<Table> {
-        const response = await this.client.get<ApiResponse<Table>>(`/api/v1/tables/${id}`);
-        return response.data;
-      }
-    
-      /**
-       * Create a new table
-       */
-      async create(data: CreateTableRequest): Promise<Table> {
-        const response = await this.client.post<ApiResponse<Table>>("/api/v1/tables", data);
-        return response.data;
-      }
-    
-      /**
-       * Update a table
-       */
-      async update(id: string, data: UpdateTableRequest): Promise<Table> {
-        const response = await this.client.patch<ApiResponse<Table>>(`/api/v1/tables/${id}`, data);
-        return response.data;
-      }
-    
-      /**
-       * Delete a table
-       */
-      async delete(id: string): Promise<void> {
-        await this.client.delete(`/api/v1/tables/${id}`);
-      }
-    
-      /**
-       * Update the status of a table
-       */
-      async updateStatus(id: string, status: string): Promise<Table> {
-        const response = await this.client.patch<ApiResponse<Table>>(
-          `/api/v1/tables/${id}/status`,
-          { status }
-        );
-        return response.data;
-      }
-    }
-  </file>
-  <file path="src/streaming.ts">
-    export interface StreamConfig {
-      /** URL to POST to */
-      url: string;
-      /** Request body (will be JSON-stringified) */
-      body: unknown;
-      /** Extra headers merged with Content-Type and Authorization */
-      headers?: Record<string, string>;
-      /** AbortSignal for cancellation */
+    export interface RequestOptions extends RequestInit {
       signal?: AbortSignal;
     }
-    export async function* streamNDJSON<T>(config: StreamConfig): AsyncGenerator<T> {
-      const response = await fetch(config.url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...config.headers,
-        },
-        body: JSON.stringify(config.body),
-        signal: config.signal,
+  </file>
+  <file path="src/floor-plans.ts">
+    export class FloorPlansClient {
+      constructor(private client: ApiClient) {}
+    
+      async list(params: {
+        venueId?: string;
+        page?: number;
+        limit?: number;
+      } = {}): Promise<PaginatedResponse<FloorPlan>> {
+        const searchParams = new URLSearchParams();
+        if (params.venueId) searchParams.set("venueId", params.venueId);
+        if (params.page) searchParams.set("page", String(params.page));
+        if (params.limit) searchParams.set("limit", String(params.limit));
+    
+        const query = searchParams.toString();
+        return this.client.get<PaginatedResponse<FloorPlan>>(
+          `/api/v1/floor-plans${query ? `?${query}` : ""}`
+        );
+      }
+    
+      async getById(id: string): Promise<FloorPlan> {
+        const response = await this.client.get<{ data: FloorPlan }>(`/api/v1/floor-plans/${id}`);
+        return response.data;
+      }
+    
+      /** Alias for getById */
+      async get(id: string): Promise<FloorPlan> {
+        return this.getById(id);
+      }
+    
+      async create(data: CreateFloorPlanRequest): Promise<FloorPlan> {
+        const response = await this.client.post<{ data: FloorPlan }>("/api/v1/floor-plans", data);
+        return response.data;
+      }
+    
+      async update(id: string, data: UpdateFloorPlanRequest): Promise<FloorPlan> {
+        const response = await this.client.patch<{ data: FloorPlan }>(`/api/v1/floor-plans/${id}`, data);
+        return response.data;
+      }
+    
+      async delete(id: string): Promise<void> {
+        return this.client.delete(`/api/v1/floor-plans/${id}`);
+      }
+    
+      async setActive(id: string): Promise<FloorPlan> {
+        const response = await this.client.post<{ data: FloorPlan }>(`/api/v1/floor-plans/${id}/active`, undefined);
+        return response.data;
+      }
+    
+      /** Alias for setActive */
+      async activate(id: string): Promise<FloorPlan> {
+        return this.setActive(id);
+      }
+    
+      async bulkUpdatePositions(
+        floorPlanId: string,
+        positions: UpdateTablePositionRequest[]
+      ): Promise<Table[]> {
+        const response = await this.client.post<{ data: Table[] }>(
+          `/api/v1/floor-plans/${floorPlanId}/bulk-update-positions`,
+          positions
+        );
+        return response.data;
+      }
+    
+      async clone(id: string): Promise<FloorPlan> {
+        const response = await this.client.post<{ data: FloorPlan }>(`/api/v1/floor-plans/${id}/clone`, undefined);
+        return response.data;
+      }
+    }
+  </file>
+  <file path="src/guests.ts">
+    export interface FindOrCreateGuestRequest {
+      venueId: string;
+      email?: string;
+      phone?: string;
+      name: string;
+    }
+    export interface ListGuestsParams {
+      page?: number;
+      limit?: number;
+      venueId: string;
+    }
+  </file>
+  <file path="src/index.ts">
+    export function createApiClient(config: {
+      baseUrl?: string;
+      getAccessToken?: () => string | null | Promise<string | null>;
+      timeout?: number;
+      maxRetries?: number;
+      onError?: (error: ApiClientError) => void;
+    }) {
+      const client = new ApiClient({
+        baseUrl: config.baseUrl ?? "",
+        getAccessToken: config.getAccessToken,
+        timeout: config.timeout,
+        maxRetries: config.maxRetries,
+        onError: config.onError,
       });
     
-      if (!response.ok) {
-        let detail = response.statusText || `HTTP ${response.status}`;
-        try {
-          const body = await response.json();
-          detail = (body as Record<string, unknown>).detail as string
-            ?? (body as Record<string, unknown>).message as string
-            ?? detail;
-        } catch {
-          // Response body is not JSON — use status text
-        }
-        throw new Error(`Request failed: ${detail}`);
-      }
-    
-      if (!response.body) {
-        throw new Error("Response body is not readable");
-      }
-    
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-    
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-    
-          if (done) {
-            break;
-          }
-    
-          buffer += decoder.decode(value, { stream: true });
-    
-          // Process complete lines from the buffer
-          const lines = buffer.split("\n");
-          // Keep the last (possibly incomplete) chunk in the buffer
-          buffer = lines.pop() ?? "";
-    
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed) continue;
-    
-            try {
-              const parsed = JSON.parse(trimmed) as T;
-              yield parsed;
-            } catch {
-              // Skip malformed JSON lines
-            }
-          }
-        }
-    
-        // Process any remaining buffered content
-        if (buffer.trim()) {
-          try {
-            const parsed = JSON.parse(buffer.trim()) as T;
-            yield parsed;
-          } catch {
-            // Skip malformed JSON lines
-          }
-        }
-      } finally {
-        reader.releaseLock();
-      }
+      return {
+        client,
+        users: new UsersClient(client),
+        reservations: new ReservationsClient(client),
+        venues: new VenuesClient(client),
+        venueGroups: new VenueGroupsClient(client),
+        tables: new TablesClient(client),
+        guests: new GuestsClient(client),
+        floorPlans: new FloorPlansClient(client),
+        availability: new AvailabilityClient(client),
+        holds: new HoldsClient(client),
+      };
     }
   </file>
   <file path="src/reservations.ts">
@@ -443,144 +252,335 @@
       }
     }
   </file>
-  <file path="src/index.ts">
-    export function createApiClient(config: {
-      baseUrl?: string;
-      getAccessToken?: () => string | null | Promise<string | null>;
-      timeout?: number;
-      maxRetries?: number;
-      onError?: (error: ApiClientError) => void;
-    }) {
-      const client = new ApiClient({
-        baseUrl: config.baseUrl ?? "",
-        getAccessToken: config.getAccessToken,
-        timeout: config.timeout,
-        maxRetries: config.maxRetries,
-        onError: config.onError,
-      });
-    
-      return {
-        client,
-        users: new UsersClient(client),
-        reservations: new ReservationsClient(client),
-        venues: new VenuesClient(client),
-        venueGroups: new VenueGroupsClient(client),
-        tables: new TablesClient(client),
-        guests: new GuestsClient(client),
-        floorPlans: new FloorPlansClient(client),
-        availability: new AvailabilityClient(client),
-        holds: new HoldsClient(client),
-      };
-    }
-  </file>
-  <file path="src/guests.ts">
-    export interface FindOrCreateGuestRequest {
-      venueId: string;
-      email?: string;
-      phone?: string;
-      name: string;
-    }
-    export interface ListGuestsParams {
-      page?: number;
-      limit?: number;
-      venueId: string;
-    }
-  </file>
-  <file path="src/floor-plans.ts">
-    export class FloorPlansClient {
-      constructor(private client: ApiClient) {}
-    
-      async list(params: {
-        venueId?: string;
-        page?: number;
-        limit?: number;
-      } = {}): Promise<PaginatedResponse<FloorPlan>> {
-        const searchParams = new URLSearchParams();
-        if (params.venueId) searchParams.set("venueId", params.venueId);
-        if (params.page) searchParams.set("page", String(params.page));
-        if (params.limit) searchParams.set("limit", String(params.limit));
-    
-        const query = searchParams.toString();
-        return this.client.get<PaginatedResponse<FloorPlan>>(
-          `/api/v1/floor-plans${query ? `?${query}` : ""}`
-        );
-      }
-    
-      async getById(id: string): Promise<FloorPlan> {
-        const response = await this.client.get<{ data: FloorPlan }>(`/api/v1/floor-plans/${id}`);
-        return response.data;
-      }
-    
-      /** Alias for getById */
-      async get(id: string): Promise<FloorPlan> {
-        return this.getById(id);
-      }
-    
-      async create(data: CreateFloorPlanRequest): Promise<FloorPlan> {
-        const response = await this.client.post<{ data: FloorPlan }>("/api/v1/floor-plans", data);
-        return response.data;
-      }
-    
-      async update(id: string, data: UpdateFloorPlanRequest): Promise<FloorPlan> {
-        const response = await this.client.patch<{ data: FloorPlan }>(`/api/v1/floor-plans/${id}`, data);
-        return response.data;
-      }
-    
-      async delete(id: string): Promise<void> {
-        return this.client.delete(`/api/v1/floor-plans/${id}`);
-      }
-    
-      async setActive(id: string): Promise<FloorPlan> {
-        const response = await this.client.post<{ data: FloorPlan }>(`/api/v1/floor-plans/${id}/active`, undefined);
-        return response.data;
-      }
-    
-      /** Alias for setActive */
-      async activate(id: string): Promise<FloorPlan> {
-        return this.setActive(id);
-      }
-    
-      async bulkUpdatePositions(
-        floorPlanId: string,
-        positions: UpdateTablePositionRequest[]
-      ): Promise<Table[]> {
-        const response = await this.client.post<{ data: Table[] }>(
-          `/api/v1/floor-plans/${floorPlanId}/bulk-update-positions`,
-          positions
-        );
-        return response.data;
-      }
-    
-      async clone(id: string): Promise<FloorPlan> {
-        const response = await this.client.post<{ data: FloorPlan }>(`/api/v1/floor-plans/${id}/clone`, undefined);
-        return response.data;
-      }
-    }
-  </file>
-  <file path="src/client.ts">
-    export interface ClientConfig {
-      baseUrl: string;
-      getAccessToken?: () => string | null | Promise<string | null>;
-      timeout?: number;
-      maxRetries?: number;
-      onError?: (error: ApiClientError) => void;
-    }
-    export interface RequestOptions extends RequestInit {
+  <file path="src/streaming.ts">
+    export interface StreamConfig {
+      /** URL to POST to */
+      url: string;
+      /** Request body (will be JSON-stringified) */
+      body: unknown;
+      /** Extra headers merged with Content-Type and Authorization */
+      headers?: Record<string, string>;
+      /** AbortSignal for cancellation */
       signal?: AbortSignal;
     }
-  </file>
-  <file path="src/availability.ts">
-    export interface GetTimeSlotsParams {
-      venueId: string;
-      date: string;
-      partySize: number;
-      duration?: number;
+    export async function* streamNDJSON<T>(config: StreamConfig): AsyncGenerator<T> {
+      const response = await fetch(config.url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...config.headers,
+        },
+        body: JSON.stringify(config.body),
+        signal: config.signal,
+      });
+    
+      if (!response.ok) {
+        let detail = response.statusText || `HTTP ${response.status}`;
+        try {
+          const body = await response.json();
+          detail = (body as Record<string, unknown>).detail as string
+            ?? (body as Record<string, unknown>).message as string
+            ?? detail;
+        } catch {
+          // Response body is not JSON — use status text
+        }
+        throw new Error(`Request failed: ${detail}`);
+      }
+    
+      if (!response.body) {
+        throw new Error("Response body is not readable");
+      }
+    
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+    
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+    
+          if (done) {
+            break;
+          }
+    
+          buffer += decoder.decode(value, { stream: true });
+    
+          // Process complete lines from the buffer
+          const lines = buffer.split("\n");
+          // Keep the last (possibly incomplete) chunk in the buffer
+          buffer = lines.pop() ?? "";
+    
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+    
+            try {
+              const parsed = JSON.parse(trimmed) as T;
+              yield parsed;
+            } catch {
+              // Skip malformed JSON lines
+            }
+          }
+        }
+    
+        // Process any remaining buffered content
+        if (buffer.trim()) {
+          try {
+            const parsed = JSON.parse(buffer.trim()) as T;
+            yield parsed;
+          } catch {
+            // Skip malformed JSON lines
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
     }
-    export interface GetDatesParams {
-      venueId: string;
-      startDate: string;
-      endDate: string;
-      partySize: number;
+  </file>
+  <file path="src/tables.ts">
+    export interface ListTablesParams {
+      page?: number;
+      limit?: number;
+      venueId?: string;
+      activeOnly?: boolean;
+    }
+    export class TablesClient {
+      constructor(private client: ApiClient) {}
+    
+      /**
+       * List tables with optional filters
+       */
+      async list(params: ListTablesParams = {}): Promise<PaginatedResponse<Table>> {
+        const searchParams = new URLSearchParams();
+        if (params.page) searchParams.set("page", String(params.page));
+        if (params.limit) searchParams.set("limit", String(params.limit));
+        if (params.venueId) searchParams.set("venueId", params.venueId);
+        if (params.activeOnly !== undefined) searchParams.set("activeOnly", String(params.activeOnly));
+    
+        const query = searchParams.toString();
+        return this.client.get<PaginatedResponse<Table>>(
+          `/api/v1/tables${query ? `?${query}` : ""}`
+        );
+      }
+    
+      /**
+       * Get a table by ID
+       */
+      async get(id: string): Promise<Table> {
+        const response = await this.client.get<ApiResponse<Table>>(`/api/v1/tables/${id}`);
+        return response.data;
+      }
+    
+      /**
+       * Create a new table
+       */
+      async create(data: CreateTableRequest): Promise<Table> {
+        const response = await this.client.post<ApiResponse<Table>>("/api/v1/tables", data);
+        return response.data;
+      }
+    
+      /**
+       * Update a table
+       */
+      async update(id: string, data: UpdateTableRequest): Promise<Table> {
+        const response = await this.client.patch<ApiResponse<Table>>(`/api/v1/tables/${id}`, data);
+        return response.data;
+      }
+    
+      /**
+       * Delete a table
+       */
+      async delete(id: string): Promise<void> {
+        await this.client.delete(`/api/v1/tables/${id}`);
+      }
+    
+      /**
+       * Update the status of a table
+       */
+      async updateStatus(id: string, status: string): Promise<Table> {
+        const response = await this.client.patch<ApiResponse<Table>>(
+          `/api/v1/tables/${id}/status`,
+          { status }
+        );
+        return response.data;
+      }
+    }
+  </file>
+  <file path="src/users.ts">
+    export class UsersClient {
+      constructor(private client: ApiClient) {}
+    
+      /**
+       * List all users with pagination
+       */
+      async list(page = 1, limit = 10): Promise<PaginatedResponse<User>> {
+        return this.client.get<PaginatedResponse<User>>(
+          `/api/v1/users?page=${page}&limit=${limit}`
+        );
+      }
+    
+      /**
+       * Get a user by ID
+       */
+      async get(id: string): Promise<User> {
+        const response = await this.client.get<ApiResponse<User>>(`/api/v1/users/${id}`);
+        return response.data;
+      }
+    
+      /**
+       * Get the currently authenticated user
+       */
+      async me(): Promise<User> {
+        const response = await this.client.get<ApiResponse<User>>("/api/v1/users/me");
+        return response.data;
+      }
+    
+      /**
+       * Create a new user
+       */
+      async create(data: CreateUserRequest): Promise<User> {
+        const response = await this.client.post<ApiResponse<User>>("/api/v1/users", data);
+        return response.data;
+      }
+    
+      /**
+       * Update a user
+       */
+      async update(id: string, data: UpdateUserRequest): Promise<User> {
+        const response = await this.client.patch<ApiResponse<User>>(
+          `/api/v1/users/${id}`,
+          data
+        );
+        return response.data;
+      }
+    
+      /**
+       * Delete a user
+       */
+      async delete(id: string): Promise<void> {
+        await this.client.delete(`/api/v1/users/${id}`);
+      }
+    
+      /**
+       * Update current user's preferences
+       */
+      async updatePreferences(preferences: UpdatePreferencesRequest): Promise<User> {
+        const response = await this.client.patch<ApiResponse<User>>(
+          "/api/v1/users/me/preferences",
+          preferences
+        );
+        return response.data;
+      }
+    }
+  </file>
+  <file path="src/venues.ts">
+    export class VenuesClient {
+      constructor(private client: ApiClient) {}
+    
+      /**
+       * List venues with optional filters
+       */
+      async list(params: { page?: number; limit?: number; venueGroupId?: string } = {}): Promise<PaginatedResponse<Venue>> {
+        const searchParams = new URLSearchParams();
+        if (params.page) searchParams.set("page", String(params.page));
+        if (params.limit) searchParams.set("limit", String(params.limit));
+        if (params.venueGroupId) searchParams.set("venueGroupId", params.venueGroupId);
+    
+        const query = searchParams.toString();
+        return this.client.get<PaginatedResponse<Venue>>(
+          `/api/v1/venues${query ? `?${query}` : ""}`
+        );
+      }
+    
+      /**
+       * Get a venue by ID
+       */
+      async get(id: string): Promise<Venue> {
+        const response = await this.client.get<ApiResponse<Venue>>(`/api/v1/venues/${id}`);
+        return response.data;
+      }
+    
+      /**
+       * Get a venue by slug
+       */
+      async getBySlug(slug: string): Promise<Venue> {
+        const response = await this.client.get<ApiResponse<Venue>>(`/api/v1/venues/by-slug/${slug}`);
+        return response.data;
+      }
+    
+      /**
+       * Create a new venue
+       */
+      async create(data: CreateVenueRequest): Promise<Venue> {
+        const response = await this.client.post<ApiResponse<Venue>>("/api/v1/venues", data);
+        return response.data;
+      }
+    
+      /**
+       * Update a venue
+       */
+      async update(id: string, data: UpdateVenueRequest): Promise<Venue> {
+        const response = await this.client.patch<ApiResponse<Venue>>(`/api/v1/venues/${id}`, data);
+        return response.data;
+      }
+    
+      /**
+       * Delete a venue
+       */
+      async delete(id: string): Promise<void> {
+        await this.client.delete(`/api/v1/venues/${id}`);
+      }
+    }
+    export class VenueGroupsClient {
+      constructor(private client: ApiClient) {}
+    
+      /**
+       * List venue groups
+       */
+      async list(page = 1, limit = 10): Promise<PaginatedResponse<VenueGroup>> {
+        return this.client.get<PaginatedResponse<VenueGroup>>(
+          `/api/v1/venues/groups?page=${page}&limit=${limit}`
+        );
+      }
+    
+      /**
+       * Get a venue group by ID
+       */
+      async get(id: string): Promise<VenueGroup> {
+        const response = await this.client.get<ApiResponse<VenueGroup>>(`/api/v1/venues/groups/${id}`);
+        return response.data;
+      }
+    
+      /**
+       * Get a venue group by slug
+       */
+      async getBySlug(slug: string): Promise<VenueGroup> {
+        const response = await this.client.get<ApiResponse<VenueGroup>>(`/api/v1/venues/groups/by-slug/${slug}`);
+        return response.data;
+      }
+    
+      /**
+       * Create a new venue group
+       */
+      async create(data: CreateVenueGroupRequest): Promise<VenueGroup> {
+        const response = await this.client.post<ApiResponse<VenueGroup>>("/api/v1/venues/groups", data);
+        return response.data;
+      }
+    
+      /**
+       * Update a venue group
+       */
+      async update(id: string, data: UpdateVenueGroupRequest): Promise<VenueGroup> {
+        const response = await this.client.patch<ApiResponse<VenueGroup>>(`/api/v1/venues/groups/${id}`, data);
+        return response.data;
+      }
+    
+      /**
+       * Delete a venue group
+       */
+      async delete(id: string): Promise<void> {
+        await this.client.delete(`/api/v1/venues/groups/${id}`);
+      }
     }
   </file>
   </section>
