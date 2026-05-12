@@ -1,6 +1,6 @@
 {
-  "lastRun": "2026-05-11T03:43:43.922Z",
-  "currentLevel": 2,
+  "lastRun": "2026-05-12T05:20:32.523Z",
+  "currentLevel": 3,
   "checks": {
     "acmm:prereq-test-suite": {
       "passed": true,
@@ -203,8 +203,8 @@
       "evidence": "detected at one of: CLAUDE.md"
     },
     "acmm:claude-md-auto-sync": {
-      "passed": false,
-      "evidence": "file present but no recent successful run: .github/workflows/claude-md-sync.yml"
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/claude-md-sync.yml"
     },
     "acmm:preference-index": {
       "passed": true,
@@ -223,8 +223,8 @@
       "evidence": "detected at one of: .vscode/settings.json, tags, TAGS, .ctags, .tree-sitter/, llms.txt, llms-full.txt, tsconfig.json, .clangd, pyrightconfig.json, .claude/plugins/"
     },
     "acmm:onboarding-benchmark": {
-      "passed": false,
-      "evidence": "none of: .claude/acmm/onboarding-benchmark.json (contains: \"results\")"
+      "passed": true,
+      "evidence": "detected at one of: .claude/acmm/onboarding-benchmark.json (contains: \"results\")"
     },
     "acmm:repo-bench": {
       "passed": false,
@@ -489,11 +489,23 @@
       "level": 2,
       "detected": 92,
       "total": 108
+    },
+    {
+      "date": "2026-05-12",
+      "level": 3,
+      "detected": 94,
+      "total": 108
     }
   ],
-  "issuesCreated": {},
-  "levelName": "Instructed",
-  "role": "Rule-writer",
+  "issuesCreated": {
+    "acmm:nightly-compliance": 1262,
+    "acmm:copilot-review-apply": 1263,
+    "acmm:component-registry-integrity": 1264,
+    "acmm:instruction-rot-detection": 1265,
+    "acmm:repo-bench": 1266
+  },
+  "levelName": "Measured / Enforced",
+  "role": "Analyst",
   "detectedIds": [
     "acmm:prereq-test-suite",
     "acmm:prereq-e2e",
@@ -539,9 +551,11 @@
     "acmm:cross-repo-skills",
     "acmm:github-coordination",
     "acmm:feedback-loops",
+    "acmm:claude-md-auto-sync",
     "acmm:preference-index",
     "acmm:mcp-server-config",
     "acmm:code-graph",
+    "acmm:onboarding-benchmark",
     "acmm:github-actions-ai",
     "acmm:auto-qa-self-tuning",
     "acmm:policy-as-code",
@@ -589,14 +603,14 @@
     "claude-reflect:session-summary"
   ],
   "computation": {
-    "level": 2,
+    "level": 3,
     "strict": true,
-    "levelName": "Instructed",
-    "role": "Rule-writer",
-    "characteristic": "AI receives project context through committed files. Every session starts with the same conventions and expectations.",
+    "levelName": "Measured / Enforced",
+    "role": "Analyst",
+    "characteristic": "Rules mechanically enforced via hooks, CI, and permission gates. The team instruments the AI loop with acceptance rate, coverage, and review density.",
     "detectedByLevel": {
       "2": 3,
-      "3": 4,
+      "3": 5,
       "4": 11,
       "5": 15,
       "6": 5
@@ -610,14 +624,52 @@
     },
     "missingForNextLevel": [
       {
-        "id": "acmm:instruction-sync-gate",
+        "id": "acmm:nightly-compliance",
         "source": "acmm",
-        "level": 3,
+        "level": 4,
         "category": "feedback-loop",
-        "name": "Instruction sync gate (llms.txt)",
-        "description": "CI check that verifies AI context skeletons (llms.txt) are in sync with the current code.",
-        "rationale": "Prevents instruction rot by ensuring the AI's view of the codebase is always accurate.",
-        "details": "A CI step runs `mbe pack --check` to verify that the committed `llms.txt` files match what would be generated from the current source. This turns \"keep docs updated\" from a manual chore into a mechanical requirement.",
+        "name": "Nightly compliance scan",
+        "description": "Scheduled workflow that re-validates the codebase against its rules every night.",
+        "rationale": "L4 drift detection: noticing when the loop itself has broken.",
+        "details": "A nightly compliance scan is a scheduled CI workflow that runs your full test suite, linters, and security checks on a cron schedule (typically every night). It catches regressions that slip through PR-level checks — like a dependency update that passes its own tests but breaks an unrelated feature. An AI mission will add a nightly GitHub Actions workflow that runs your complete validation pipeline and opens issues on failure.",
+        "detection": {
+          "type": "active",
+          "pattern": [
+            ".github/workflows/nightly-compliance.yml",
+            ".github/workflows/nightly.yml",
+            ".github/workflows/nightly-test.yml",
+            ".github/workflows/nightly-test-suite.yml"
+          ],
+          "maxAgeDays": 7
+        }
+      },
+      {
+        "id": "acmm:copilot-review-apply",
+        "source": "acmm",
+        "level": 4,
+        "category": "feedback-loop",
+        "name": "Automated review application",
+        "description": "Workflow that applies AI-review suggestions automatically to PRs.",
+        "rationale": "L4 action-taking: the loop closes when suggestions become commits without human intervention.",
+        "details": "Automated review application is a workflow that takes AI-generated review comments and applies the suggested fixes directly as commits on the PR branch. Instead of a human reading \"change X to Y\" and making the edit, the system does it automatically. This is L4 because the feedback loop acts on its own output. An AI mission will add a workflow that parses review bot suggestions and commits the fixes.",
+        "detection": {
+          "type": "active",
+          "pattern": [
+            ".github/workflows/copilot-review-apply.yml",
+            ".github/workflows/ai-fix.yml"
+          ],
+          "maxAgeDays": 30
+        }
+      },
+      {
+        "id": "acmm:component-registry-integrity",
+        "source": "acmm",
+        "level": 4,
+        "category": "governance",
+        "name": "Component registry integrity",
+        "description": "Mechanized check ensuring the component registry (registry.json) is in sync with source exports.",
+        "rationale": "AI tools rely on accurate metadata to discover and use components correctly.",
+        "details": "A CI check verifies that `registry.json` is up to date by regenerating it and checking for diffs. This ensures that the component catalog used by AI researchers and executors never drifts from reality.",
         "detection": {
           "type": "active",
           "pattern": [
@@ -627,25 +679,42 @@
         }
       },
       {
-        "id": "acmm:onboarding-benchmark",
+        "id": "acmm:instruction-rot-detection",
         "source": "acmm",
-        "level": 3,
+        "level": 4,
         "category": "feedback-loop",
-        "name": "Onboarding benchmark",
-        "description": "A benchmark script measuring how effectively the codebase teaches new AI sessions.",
-        "rationale": "Quantifies the \"codebase as model\" concept -- whether instruction files and patterns effectively onboard new agents.",
-        "details": "An onboarding benchmark defines known tasks of increasing difficulty and expected completion times. Running these tasks in fresh AI sessions measures how well project documentation enables the AI to work independently. Improvements to CLAUDE.md and package docs should reduce benchmark times.",
+        "name": "Instruction rot detection",
+        "description": "Automated detection of dead links and stale package references in instruction files.",
+        "rationale": "Instructions with dead links or deleted package references confuse AI agents and waste context.",
+        "details": "A script scans `CLAUDE.md`, `AGENTS.md`, and `llms.txt` for internal links to non-existent files or references to deleted packages, failing the build on detection.",
+        "detection": {
+          "type": "active",
+          "pattern": [
+            ".github/workflows/ci.yml"
+          ],
+          "maxAgeDays": 7
+        }
+      },
+      {
+        "id": "acmm:repo-bench",
+        "source": "acmm",
+        "level": 4,
+        "category": "readiness",
+        "name": "Repo benchmark",
+        "description": "Seeded-bug benchmark that measures AI capability on this specific codebase.",
+        "rationale": "L4 signal: acceptance rate is binary; benchmarks show capability progression and model comparison.",
+        "details": "A repo benchmark injects known bugs (missing imports, wrong status codes, type errors) and measures how many turns and how long the AI takes to fix them. This enables model comparison and tracks capability improvement over time.",
         "detection": {
           "type": "grep",
           "pattern": {
-            "file": ".claude/acmm/onboarding-benchmark.json",
+            "file": ".claude/acmm/repo-bench-results.json",
             "contains": "\"results\""
           }
         }
       }
     ],
-    "nextTransitionTrigger": "\"I want the system to tune itself from the metrics.\"",
-    "antiPattern": "Instruction rot: letting CLAUDE.md drift out of sync with the code so the rules stop matching reality.",
+    "nextTransitionTrigger": "\"I want the system to decide what work to do next.\"",
+    "antiPattern": "Dashboard graveyard: building measurement no one acts on. A metric that does not change a workflow is overhead, not maturity.",
     "prerequisites": {
       "met": 8,
       "total": 8
@@ -677,7 +746,7 @@
         "name": "agent-pr-acceptance",
         "description": "Agent PR acceptance rate must exceed 50%",
         "passed": true,
-        "value": 0.9642857142857143,
+        "value": 0.9655172413793104,
         "threshold": 0.5,
         "direction": "above",
         "strict": true,
@@ -713,19 +782,19 @@
       "rate_30d": 0,
       "sample_size": 100,
       "flaky_shas": [],
-      "measured_at": "2026-05-11T03:43:43.920Z"
+      "measured_at": "2026-05-12T05:20:32.522Z"
     },
     "agent_pr": {
-      "sample_size": 28,
-      "merged_count": 27,
+      "sample_size": 29,
+      "merged_count": 28,
       "closed_unmerged_count": 1,
       "open_count": 0,
-      "acceptance_rate_30d": 0.9642857142857143,
+      "acceptance_rate_30d": 0.9655172413793104,
       "revert_rate_30d": 0,
-      "median_time_to_merge_hours": 0.06111111111111111,
+      "median_time_to_merge_hours": 0.07972222222222222,
       "human_touch_ratio": 1,
       "insufficient_data": false,
-      "measured_at": "2026-05-11T03:43:43.920Z"
+      "measured_at": "2026-05-12T05:20:32.522Z"
     },
     "evals": {
       "n": 37,
@@ -743,11 +812,11 @@
         }
       },
       "status": "green",
-      "measured_at": "2026-05-11T03:43:43.920Z"
+      "measured_at": "2026-05-12T05:20:32.522Z"
     },
     "auto_qa_tuning": {
       "history_count": 2,
-      "measured_at": "2026-05-11T03:43:43.920Z"
+      "measured_at": "2026-05-12T05:20:32.522Z"
     }
   },
   "levelCap": 3,
