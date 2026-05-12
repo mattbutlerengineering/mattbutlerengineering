@@ -4,7 +4,9 @@
     <item priority="low">
       interface AuthConfigResult {
         valid: true;
-        config: { readonly authority: string; readonly clientId: string; ...;
+        config: {
+          readonly authority: string;
+          readonly clientId: ...;
       }
     </item>
     <item priority="low">
@@ -16,7 +18,7 @@
   </file>
   <file path="src/constants/copilotContext.ts">
     <item priority="high">
-      export const HOSPITALITY_DOMAIN_CONTEXT: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+      export const HOSPITALITY_DOMAIN_CONTEXT: DomainContext;
     </item>
   </file>
   </section>
@@ -37,7 +39,7 @@
   </file>
   <file path="e2e/fixtures.ts">
     <item priority="high">
-      export const test: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+      export const test: unknown;
     </item>
   </file>
   </section>
@@ -45,7 +47,7 @@
   <file path="src/hooks/use-command-palette.ts">
     <item priority="high">
       interface UseCommandPaletteOptions {
-        sections: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        sections: readonly NavSection[];
         navigate: (path: string) => void;
         toggleTheme: () => void;
         signOut: () => void;
@@ -55,7 +57,7 @@
       interface UseCommandPaletteResult {
         open: boolean;
         setOpen: (open: boolean) => void;
-        items: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        items: CommandItem[];
         groups: string[];
       }
     </item>
@@ -63,18 +65,18 @@
   <file path="src/hooks/use-theme.ts">
     <item priority="low">
       interface ThemeContextValue {
-        theme: import("/Users/mbutler/github/mattbutlerengineering/packa...;
-        setTheme: (theme: import("/Users/mbutler/github/mattbutlerengineeri...;
+        theme: ThemePreference;
+        setTheme: (theme: ThemePreference) => void;
       }
     </item>
     <item priority="high">
-      export const ThemeContext: React.Context<import("/Users/mbutler/github/mattbutlereng...;
+      export const ThemeContext: unknown;
     </item>
   </file>
   <file path="src/hooks/useApiCall.ts">
     <item priority="low">
       interface UseApiCallOptions {
-        timeout?: number | undefined;
+        timeout?: number;
       }
     </item>
     <item priority="low">
@@ -107,8 +109,8 @@
     </item>
     <item priority="low">
       interface UseDashboardStatsResult {
-        reservations: readonly import("/Users/mbutler/github/mattbutlerengineer...;
-        stats: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+        reservations: readonly Reservation[];
+        stats: DashboardStats;
         isLoading: boolean;
         error: string | null;
         refetch: () => Promise<void>;
@@ -121,10 +123,10 @@
     </item>
     <item priority="low">
       interface ReservationEvent {
-        type: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+        type: ReservationEventType;
         venueId: string;
         timestamp: string;
-        data: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        data: Reservation | Table | ReservationHold;
       }
     </item>
   </file>
@@ -135,8 +137,8 @@
     <item priority="low">
       interface VenueReadiness {
         status: "no-venue" | "setup" | "operational";
-        completedSteps: readonly import("/Users/mbutler/github/mattbutlerengineer...;
-        nextStep: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+        completedSteps: readonly SetupStep[];
+        nextStep: SetupStep | null;
         progress: number;
       }
     </item>
@@ -149,14 +151,14 @@
         id: string;
         label: string;
         path: string;
-        stepStatus?: "completed" | "current" | "locked" | undefined;
-        disabled?: boolean | undefined;
+        stepStatus?: "completed" | "current" | "locked";
+        disabled?: boolean;
       }
     </item>
     <item priority="low">
       interface NavSection {
-        label?: string | undefined;
-        items: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+        label?: string;
+        items: NavItem[];
       }
     </item>
   </file>
