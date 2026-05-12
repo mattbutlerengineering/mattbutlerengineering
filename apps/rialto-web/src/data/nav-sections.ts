@@ -161,6 +161,16 @@ const TOKENS: NavSection = {
 };
 
 // ---------------------------------------------------------------------------
+// Dashboard
+// ---------------------------------------------------------------------------
+const DASHBOARD: NavSection = {
+  label: "Dashboard",
+  items: [
+    { id: "acmm-dashboard", label: "ACMM Dashboard", path: "/dashboard" },
+  ],
+};
+
+// ---------------------------------------------------------------------------
 // Examples
 // ---------------------------------------------------------------------------
 const EXAMPLES: NavSection = {
@@ -177,6 +187,7 @@ const EXAMPLES: NavSection = {
 // ---------------------------------------------------------------------------
 
 export const NAV_SECTIONS: NavSection[] = [
+  DASHBOARD,
   FORMS,
   DATA_DISPLAY,
   NAVIGATION,
@@ -202,3 +213,5 @@ export const DEMO_PAGES = [
   { id: "teams", label: "Team Create", path: "/demos/teams/new" },
   { id: "layouts", label: "Layout Demo", path: "/demos/layouts" },
 ] as const;
+
+
