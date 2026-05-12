@@ -3,6 +3,7 @@ import {
   useRef,
   useCallback,
   useEffect,
+  useLayoutEffect,
   forwardRef,
   cloneElement,
   type ForwardedRef,
@@ -136,8 +137,9 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open, close]);
 
-  // Focus active item
-  useEffect(() => {
+  // Focus active item — useLayoutEffect so it fires before framer-motion
+  // mounts AnimatePresence children and populates refs
+  useLayoutEffect(() => {
     if (open && activeIndex >= 0) {
       itemRefs.current.get(activeIndex)?.focus();
     }

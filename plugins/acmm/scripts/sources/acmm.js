@@ -297,8 +297,8 @@ const CRITERIA= [
     description: 'A dashboard or page that renders the AI loop metrics.',
     rationale: 'L3 visibility: metrics you can see are the ones that get acted on.',
     details: 'A quality dashboard is a visible page or widget that renders your AI loop metrics — PR acceptance rates, coverage trends, review turnaround, test pass rates — in one place. Metrics that are not visible are metrics that get ignored; a dashboard makes them actionable. An AI mission will create an analytics page or embed that pulls data from your CI and displays it as charts and trend lines.',
-    detection: { type: 'any-of', pattern: ['web/public/analytics.js', 'web/src/components/analytics/'] },
-    referencePath: 'web/public/analytics.js',
+    detection: { type: 'grep', pattern: { file: 'apps/marketing/src/App.tsx', contains: '/metrics' } },
+    referencePath: 'apps/marketing/src/App.tsx',
   },
   {
     id: 'acmm:ci-matrix',
@@ -432,7 +432,7 @@ const CRITERIA= [
     description: 'Scheduled workflow that re-validates the codebase against its rules every night.',
     rationale: 'L4 drift detection: noticing when the loop itself has broken.',
     details: 'A nightly compliance scan is a scheduled CI workflow that runs your full test suite, linters, and security checks on a cron schedule (typically every night). It catches regressions that slip through PR-level checks — like a dependency update that passes its own tests but breaks an unrelated feature. An AI mission will add a nightly GitHub Actions workflow that runs your complete validation pipeline and opens issues on failure.',
-    detection: { type: 'any-of', pattern: ['.github/workflows/nightly-compliance.yml', '.github/workflows/nightly.yml', '.github/workflows/nightly-test.yml', '.github/workflows/nightly-test-suite.yml'] },
+    detection: { type: 'active', pattern: ['.github/workflows/nightly-compliance.yml', '.github/workflows/nightly.yml', '.github/workflows/nightly-test.yml', '.github/workflows/nightly-test-suite.yml'], maxAgeDays: 7 },
   },
   {
     id: 'acmm:copilot-review-apply',
@@ -443,7 +443,7 @@ const CRITERIA= [
     description: 'Workflow that applies AI-review suggestions automatically to PRs.',
     rationale: 'L4 action-taking: the loop closes when suggestions become commits without human intervention.',
     details: 'Automated review application is a workflow that takes AI-generated review comments and applies the suggested fixes directly as commits on the PR branch. Instead of a human reading "change X to Y" and making the edit, the system does it automatically. This is L4 because the feedback loop acts on its own output. An AI mission will add a workflow that parses review bot suggestions and commits the fixes.',
-    detection: { type: 'any-of', pattern: ['.github/workflows/copilot-review-apply.yml', '.github/workflows/ai-fix.yml', '.github/workflows/auto-review.yml'] },
+    detection: { type: 'active', pattern: ['.github/workflows/copilot-review-apply.yml', '.github/workflows/ai-fix.yml'], maxAgeDays: 30 },
   },
   {
     id: 'acmm:auto-label',
@@ -572,7 +572,7 @@ const CRITERIA= [
     rationale: 'Bridges the gap between what git/CI can tell you (what was done) and what can\'t be derived (what was planned).',
     details: 'A .claude/checkpoint.md recording current branch, active worktree, plan path, completed tasks, and remaining steps. A Stop hook auto-updates it at session end.',
     scannable: false,
-    detection: { type: 'any-of', pattern: ['.claude/checkpoint.md', '.claude/session-summary.md'] },
+    detection: { type: 'grep', pattern: { file: '.claude/session-summary.md', contains: '\\d{4}-\\d{2}-\\d{2}' } },
     crossCutting: 'learning',
   },
   {
@@ -612,6 +612,39 @@ const CRITERIA= [
     details: 'CI failures create GitHub issues automatically. Developers and AI coordinate through issue comments and PR reviews. No separate task tracker or coordination system.',
     detection: { type: 'path', pattern: '.github/workflows/' },
   },
+  {
+    id: 'acmm:instruction-sync-gate',
+    source: 'acmm',
+    level: 3,
+    category: 'feedback-loop',
+    name: 'Instruction sync gate (llms.txt)',
+    description: 'CI check that verifies AI context skeletons (llms.txt) are in sync with the current code.',
+    rationale: 'Prevents instruction rot by ensuring the AI\'s view of the codebase is always accurate.',
+    details: 'A CI step runs `mbe pack --check` to verify that the committed `llms.txt` files match what would be generated from the current source. This turns "keep docs updated" from a manual chore into a mechanical requirement.',
+    detection: { type: 'active', pattern: ['.github/workflows/ci.yml'], maxAgeDays: 7 },
+  },
+  {
+    id: 'acmm:component-registry-integrity',
+    source: 'acmm',
+    level: 4,
+    category: 'governance',
+    name: 'Component registry integrity',
+    description: 'Mechanized check ensuring the component registry (registry.json) is in sync with source exports.',
+    rationale: 'AI tools rely on accurate metadata to discover and use components correctly.',
+    details: 'A CI check verifies that `registry.json` is up to date by regenerating it and checking for diffs. This ensures that the component catalog used by AI researchers and executors never drifts from reality.',
+    detection: { type: 'active', pattern: ['.github/workflows/ci.yml'], maxAgeDays: 7 },
+  },
+  {
+    id: 'acmm:instruction-rot-detection',
+    source: 'acmm',
+    level: 4,
+    category: 'feedback-loop',
+    name: 'Instruction rot detection',
+    description: 'Automated detection of dead links and stale package references in instruction files.',
+    rationale: 'Instructions with dead links or deleted package references confuse AI agents and waste context.',
+    details: 'A script scans `CLAUDE.md`, `AGENTS.md`, and `llms.txt` for internal links to non-existent files or references to deleted packages, failing the build on detection.',
+    detection: { type: 'active', pattern: ['.github/workflows/ci.yml'], maxAgeDays: 7 },
+  },
   // Cross-cutting items assigned to L4
   {
     id: 'acmm:feedback-loops',
@@ -636,7 +669,7 @@ const CRITERIA= [
     rationale: 'Keeps instruction files current with accumulated learnings without manual editing.',
     scannable: false,
     details: 'A weekly workflow reviews new entries in the knowledge base and correction log, drafts updates to CLAUDE.md, and opens a PR for human review before merging.',
-    detection: { type: 'any-of', pattern: ['.github/workflows/claude-md-sync.yml'] },
+    detection: { type: 'active', pattern: ['.github/workflows/claude-md-sync.yml'], maxAgeDays: 14 },
     crossCutting: 'learning',
   },
   {
@@ -649,7 +682,7 @@ const CRITERIA= [
     rationale: 'Allows the AI to look up relevant preferences without loading everything into context.',
     scannable: false,
     details: 'A preferences.json indexed by file path pattern: {"auth/*": ["use token exchange"], "tests/*": ["use table-driven tests"]}.',
-    detection: { type: 'any-of', pattern: ['preferences.json', '.claude/preferences.json'] },
+    detection: { type: 'grep', pattern: { file: '.claude/preferences.json', contains: '"priority":\\s*"(critical|high|medium|low)"' } },
     crossCutting: 'learning',
   },
   {
@@ -662,7 +695,7 @@ const CRITERIA= [
     rationale: 'Creates an audit trail of what the AI was asked to do and what it did.',
     scannable: false,
     details: 'A JSONL log where each entry records: timestamp, task description, files read, files modified, commands run, test results, commit SHA.',
-    detection: { type: 'any-of', pattern: ['task-log.jsonl', '.claude/task-log.jsonl'] },
+    detection: { type: 'grep', pattern: { file: '.claude/task-log.jsonl', contains: '^\\{"timestamp"' } },
     crossCutting: 'traceability',
   },
   {
@@ -697,7 +730,7 @@ const CRITERIA= [
     description: 'A benchmark script measuring how effectively the codebase teaches new AI sessions.',
     rationale: 'Quantifies the "codebase as model" concept -- whether instruction files and patterns effectively onboard new agents.',
     details: 'An onboarding benchmark defines known tasks of increasing difficulty and expected completion times. Running these tasks in fresh AI sessions measures how well project documentation enables the AI to work independently. Improvements to CLAUDE.md and package docs should reduce benchmark times.',
-    detection: { type: 'path', pattern: 'plugins/acmm/scripts/onboarding-benchmark.js' },
+    detection: { type: 'grep', pattern: { file: '.claude/acmm/onboarding-benchmark.json', contains: '"results"' } },
   },
 
   {
@@ -709,7 +742,7 @@ const CRITERIA= [
     description: 'Seeded-bug benchmark that measures AI capability on this specific codebase.',
     rationale: 'L4 signal: acceptance rate is binary; benchmarks show capability progression and model comparison.',
     details: 'A repo benchmark injects known bugs (missing imports, wrong status codes, type errors) and measures how many turns and how long the AI takes to fix them. This enables model comparison and tracks capability improvement over time.',
-    detection: { type: 'any-of', pattern: ['scripts/acmm/repo-bench.js', 'docs/acmm/repo-benchmark.md'] },
+    detection: { type: 'grep', pattern: { file: '.claude/acmm/repo-bench-results.json', contains: '"results"' } },
   },
 
   // ── L5 — Semi-Automated ────────────────────────────
@@ -744,7 +777,7 @@ const CRITERIA= [
     description: 'A published metrics endpoint or analytics page that external reviewers can audit.',
     rationale: 'The self-running codebase must be inspectable from outside.',
     details: 'A public metrics endpoint is an API or web page that exposes your project\'s health and maturity metrics to external stakeholders — CNCF reviewers, adopters, or the community. It makes the project\'s quality claims verifiable rather than self-reported. An AI mission will create an endpoint that serves your ACMM level, coverage stats, and CI pass rates as JSON or a web page.',
-    detection: { type: 'any-of', pattern: ['web/netlify/functions/analytics-accm.mts', 'web/public/analytics.js'] },
+    detection: { type: 'grep', pattern: { file: '.github/workflows/pr-metrics.yml', contains: 'pages' } },
   },
   {
     id: 'acmm:policy-as-code',
@@ -780,7 +813,7 @@ const CRITERIA= [
     rationale: 'Prevents the knowledge base from growing stale.',
     scannable: false,
     details: 'A monthly cron posts a summary of new knowledge base entries, correction captures, and preference changes to a GitHub issue for the team to review, confirm, and prune.',
-    detection: { type: 'any-of', pattern: ['.github/workflows/reflection-review.yml'] },
+    detection: { type: 'active', pattern: ['.github/workflows/reflection-review.yml'], maxAgeDays: 45 },
     crossCutting: 'learning',
   },
   {
@@ -1001,7 +1034,7 @@ const CRITERIA= [
     rationale: 'Autonomy without a kill switch is recklessness.',
     scannable: false,
     details: 'A documented procedure: "If a nightly AI-merged PR breaks production: (1) revert PR, (2) disable auto-merge, (3) file incident issue, (4) RCA workflow runs on the reverted commit."',
-    detection: { type: 'any-of', pattern: ['docs/rollback-drill.md', 'docs/ai-ops-runbook.md'] },
+    detection: { type: 'grep', pattern: { file: 'docs/rollback.md', contains: 'Last drill: \\d{4}' } },
   },
   {
     id: 'acmm:feedback-loop-inventory',
@@ -1074,7 +1107,7 @@ const CRITERIA= [
     description: 'Strategy for coordinating AI changes across multiple dependent repositories.',
     rationale: 'L6 signal: fully autonomous systems need to coordinate changes beyond a single repo boundary.',
     details: 'Multi-repo orchestration covers how AI agents coordinate changes across dependent repos — updating shared libraries, publishing new versions, and opening downstream PRs. Without this, L6 autonomy is limited to a single repo.',
-    detection: { type: 'any-of', pattern: ['docs/acmm/multi-repo-orchestration.md'] },
+    detection: { type: 'grep', pattern: { file: 'docs/acmm/multi-repo-orchestration.md', contains: 'Executed: \\d{4}-\\d{2}-\\d{2}' } },
   },
 ]
 

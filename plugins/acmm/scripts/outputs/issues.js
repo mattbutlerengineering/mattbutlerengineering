@@ -53,7 +53,7 @@ function createIssue(title, body, labels) {
  *
  * @param {Array<import("../sources/types.js").Criterion>} failing
  * @param {Record<string, number>} existingIssues
- * @param {{ dryRun?: boolean }} [opts]
+ * @param {{ dryRun?: boolean, extraLabels?: string[] }} [opts]
  * @returns {{ issuesCreated: Record<string, number>, createdCount: number, skippedOpen: number }}
  */
 export function applyIssuesForFailures(failing, existingIssues, opts = {}) {
@@ -101,7 +101,8 @@ export function applyIssuesForFailures(failing, existingIssues, opts = {}) {
       continue;
     }
 
-    const num = createIssue(title, body, ["acmm", "audit", "ready"]);
+    const labels = ["acmm", "audit", ...(opts.extraLabels || [])];
+    const num = createIssue(title, body, labels);
     updated[c.id] = num;
     createdCount += 1;
   }
@@ -110,12 +111,15 @@ export function applyIssuesForFailures(failing, existingIssues, opts = {}) {
 }
 
 /**
- * Ensure the `acmm` label exists on the current repo. Idempotent.
+ * Ensure the `acmm` and `ready` labels exist on the current repo. Idempotent.
  * Caller handles the one-shot nature — running repeatedly is cheap but noisy.
  */
 export function ensureAcmmLabel() {
   try {
     execFileSync("gh", ["label", "create", "acmm", "--color", "d4a030", "--description", "AI Codebase Maturity Model finding", "--force"], {
+      encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"],
+    });
+    execFileSync("gh", ["label", "create", "ready", "--color", "0e8a16", "--description", "Task is ready for an autonomous agent to pick up", "--force"], {
       encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"],
     });
   } catch {

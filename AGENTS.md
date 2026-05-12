@@ -50,11 +50,19 @@ node plugins/acmm/scripts/audit.js --apply       # Also files GitHub issues for 
 node plugins/acmm/scripts/audit.js --badge        # Also rewrites README badge
 node plugins/acmm/scripts/audit.js --apply --badge # Full run
 node plugins/acmm/scripts/audit.js --trend        # Print level history from state.json
+node plugins/acmm/scripts/evals/index.js --report # Print instruction regression results
 ```
 
 Output: `.claude/acmm/state.json` (machine-readable) and `.claude/acmm/report.md` (human-readable scorecard). Tests: `node --test plugins/acmm/scripts/__tests__/`.
 
-`mbe` CLI subcommands (real binary): `agent`, `stats`, `up`, `pack`, `prime`, `new`, `generate`, `check-adr`, `check-deps`, `check-model`, `cleanup-worktrees`, `health`, `compound`, `loop`, `wave`, `visual`, `users`, `login`/`logout`/`whoami`, `sync-rules`. Run `mbe --help` for current list.
+### Synthetic Bug Audit (#1191)
+
+The system includes a **Chaos Agent** and **Revert RCA Loop** to ensure high signal quality and continuous learning:
+- **Chaos Agent:** Scheduled script (`scripts/chaos-agent.mjs`) that seeds detectable non-breaking bugs (console errors, Lighthouse regressions, a11y violations) to verify that audit loops catch them.
+- **Revert RCA Loop:** Automatic trigger (`scripts/revert-rca.mjs`) that fires when an AI PR is reverted. It creates a critical RCA issue tasked for an agent to perform a Root Cause Analysis and update `.claude/rules/gotchas.md`.
+
+`mbe` CLI subcommands (real binary):
+ `agent`, `stats`, `up`, `pack`, `prime`, `new`, `generate`, `check-adr`, `check-deps`, `check-model`, `cleanup-worktrees`, `health`, `compound`, `loop`, `wave`, `visual`, `users`, `login`/`logout`/`whoami`, `sync-rules`. Run `mbe --help` for current list.
 
 ---
 
@@ -80,7 +88,7 @@ To minimize human intervention and maintain a low human-touch ratio, agents must
 
 ### Routing & URLs
 - Served via Cloudflare Worker `edge-router` at `mattbutlerengineering.com`.
-- Apps use path-prefix routing (e.g., `apps/foo` -> `/foo`).
+- Apps use path-prefix routing (e.g., `apps/hospitality` -> `/hospitality`).
 - API services at `api.mattbutlerengineering.com` (DO App Platform).
 
 ### Auth0 Configuration

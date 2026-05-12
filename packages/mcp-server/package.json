@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.6.0",
+    "glob": "^13.0.6",
     "pg": "^8.20.0",
     "zod": "catalog:"
   },

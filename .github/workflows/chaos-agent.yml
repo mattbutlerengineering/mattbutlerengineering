@@ -1,0 +1,48 @@
+name: Chaos Agent
+
+on:
+  schedule:
+    - cron: '0 10 * * 1' # Every Monday at 10:00 AM UTC
+  workflow_dispatch:
+    inputs:
+      type:
+        description: 'Type of bug to inject'
+        required: false
+        default: 'random'
+        type: choice
+        options:
+          - random
+          - console-error
+          - lighthouse-perf
+          - accessibility
+          - scout-todo
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  seed-bug:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Seed Bug
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TYPE="${{ github.event.inputs.type || 'random' }}"
+          if [ "$TYPE" = "random" ]; then
+            node scripts/chaos-agent.mjs --random --push
+          else
+            node scripts/chaos-agent.mjs --type "$TYPE" --push
+          fi

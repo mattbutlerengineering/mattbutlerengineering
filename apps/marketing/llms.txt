@@ -1,5 +1,29 @@
 <codebase path="apps/marketing">
   <section priority="medium" role="data">
+  <file path="src/data/projects.ts">
+    <item priority="low">
+      interface Project {
+        title: string;
+        description: string;
+        tags: string[];
+        href?: string | undefined;
+      }
+    </item>
+    <item priority="high">
+      export const PROJECTS: import("/Users/mbutler/github/mattbutlerengineering/.clau...;
+    </item>
+  </file>
+  <file path="src/data/tech-stack.ts">
+    <item priority="low">
+      interface TechCategory {
+        title: string;
+        items: string[];
+      }
+    </item>
+    <item priority="high">
+      export const TECH_STACK: import("/Users/mbutler/github/mattbutlerengineering/.clau...;
+    </item>
+  </file>
   <file path="src/data/weekly-intake.ts">
     <item priority="low">
       interface WeeklyResource {
@@ -11,31 +35,7 @@
       }
     </item>
     <item priority="high">
-      export const weeklyResources: readonly import("/home/user/mattbutlerengineering/.claude...;
-    </item>
-  </file>
-  <file path="src/data/tech-stack.ts">
-    <item priority="low">
-      interface TechCategory {
-        title: string;
-        items: string[];
-      }
-    </item>
-    <item priority="high">
-      export const TECH_STACK: import("/home/user/mattbutlerengineering/.claude/worktree...;
-    </item>
-  </file>
-  <file path="src/data/projects.ts">
-    <item priority="low">
-      interface Project {
-        title: string;
-        description: string;
-        tags: string[];
-        href?: string | undefined;
-      }
-    </item>
-    <item priority="high">
-      export const PROJECTS: import("/home/user/mattbutlerengineering/.claude/worktree...;
+      export const weeklyResources: readonly import("/Users/mbutler/github/mattbutlerengineer...;
     </item>
   </file>
   </section>

@@ -22,3 +22,6 @@
 {"timestamp":"2026-04-26T18:32:33.050Z","sessionId":"fix-ci-2026-04-26","modelId":"unknown","researchTurns":20,"executionTurns":15,"totalTurns":35,"firstPassSuccess":false,"humanInterventions":0,"costUsd":0.1}
 {"timestamp":"2026-04-26T18:48:59.487Z","sessionId":"fix-ci-final-2026-04-26","modelId":"unknown","researchTurns":5,"executionTurns":5,"totalTurns":10,"firstPassSuccess":false,"humanInterventions":0,"costUsd":0.05}
 {"timestamp":"2026-04-26T19:16:36.851Z","sessionId":"fix-ci-main","modelId":"gemini-2.0-flash-exp","researchTurns":18,"executionTurns":40,"totalTurns":58,"firstPassSuccess":true,"humanInterventions":0,"costUsd":0}
+{"timestamp":"2026-05-10T17:47:50.762Z","sessionId":"agent-first-demonstration","modelId":"unknown","researchTurns":10,"executionTurns":20,"totalTurns":30,"firstPassSuccess":true,"humanInterventions":0,"costUsd":0.05}
+{"timestamp":"2026-05-10T19:17:22.289Z","sessionId":"agent-fix-issue-1179","modelId":"gemini","researchTurns":3,"executionTurns":12,"totalTurns":15,"firstPassSuccess":true,"humanInterventions":0,"costUsd":0}
+{"timestamp":"2026-05-10T21:49:40.682Z","sessionId":"1182","modelId":"unknown","researchTurns":5,"executionTurns":15,"totalTurns":20,"firstPassSuccess":false,"humanInterventions":0,"costUsd":0}

@@ -15,6 +15,9 @@ const NotFoundPage = lazy(() =>
 const WeeklyIntakePage = lazy(() =>
   import("./pages/WeeklyIntakePage").then((m) => ({ default: m.WeeklyIntakePage }))
 );
+const MetricsPage = lazy(() =>
+  import("./pages/MetricsPage").then((m) => ({ default: m.MetricsPage }))
+);
 
 interface AppProps {
   theme: "light" | "dark";
@@ -51,6 +54,7 @@ export function App({ theme, onThemeToggle }: AppProps) {
             <Route path="/" element={<HomePage />} />
             <Route path="/status" element={<StatusPage />} />
             <Route path="/weekly" element={<WeeklyIntakePage />} />
+            <Route path="/metrics" element={<MetricsPage />} />
             {/* Fallback for edge router failure or local dev */}
             <Route path="/rialto/*" element={<Navigate to="/rialto/" replace />} />
             <Route path="/hospitality/*" element={<Navigate to="/hospitality/" replace />} />

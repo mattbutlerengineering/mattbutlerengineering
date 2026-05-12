@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance } from "fastify";
-import { buildMinimalSuccessFixture, buildBugFixFixture } from "@mbe/agent-test-utils";
+import { buildMinimalSuccessFixture } from "@mbe/agent-test-utils";
 
 /**
  * Integration tests for the session events SSE endpoint.
@@ -94,7 +94,7 @@ describe("Session Events SSE Integration", () => {
       createdAt: new Date(),
       updatedAt: new Date(),
       sdkSessionId: null,
-    } as never);
+    } as unknown as never);
 
     // Mock events
     const events = buildMinimalSuccessFixture({ sessionId: "session-1" }).map((e, i) => ({
@@ -105,7 +105,7 @@ describe("Session Events SSE Integration", () => {
       createdAt: new Date(),
     }));
 
-    vi.mocked(prisma.sessionEvent.findMany).mockResolvedValue(events as never);
+    vi.mocked(prisma.sessionEvent.findMany).mockResolvedValue(events as unknown as never);
 
     const response = await app.inject({
       method: "GET",
@@ -129,58 +129,82 @@ describe("Session Events SSE Integration", () => {
     expect(response.statusCode).toBe(404);
   });
 
-  it("event data is valid JSON in SSE format", async () => {
-    vi.mocked(prisma.session.findUnique).mockResolvedValue({
-      id: "session-2",
-      status: "SUCCEEDED",
+  it("polls for new events until session completes", async () => {
+    vi.useFakeTimers();
+
+    const session = {
+      id: "session-3",
+      status: "RUNNING", // Not terminal
       taskDescription: "test",
-      branchName: "agent/test",
-      baseBranch: "main",
-      model: "claude-sonnet-4-6",
-      maxTurns: 50,
-      maxBudgetUsd: 1,
-      prUrl: null,
-      prNumber: null,
-      resultText: "done",
-      costUsd: 0.5,
-      inputTokens: 1000,
-      outputTokens: 500,
-      numTurns: 5,
-      durationMs: 30000,
-      parentId: null,
-      errors: [],
-      startedAt: new Date(),
-      completedAt: new Date(),
       createdAt: new Date(),
       updatedAt: new Date(),
-      sdkSessionId: null,
-    } as never);
+    };
 
-    const events = buildBugFixFixture({ sessionId: "session-2" }).map((e, i) => ({
-      id: `evt-${i}`,
-      sessionId: "session-2",
-      type: e.type,
-      data: e.data,
-      createdAt: new Date(),
-    }));
+    vi.mocked(prisma.session.findUnique)
+      .mockResolvedValueOnce(session as unknown as never) // Initial getById
+      .mockResolvedValueOnce(session as unknown as never) // First poll getById
+      .mockResolvedValueOnce({ ...session, status: "SUCCEEDED" } as unknown as never); // Second poll getById (terminal)
 
-    vi.mocked(prisma.sessionEvent.findMany).mockResolvedValue(events as never);
+    const initialEvent = { id: "e1", type: "t1", data: {}, createdAt: new Date() };
+    const newEvent = { id: "e2", type: "t2", data: {}, createdAt: new Date() };
 
-    const response = await app.inject({
+    vi.mocked(prisma.sessionEvent.findMany)
+      .mockResolvedValueOnce([initialEvent] as unknown as never) // Initial listEvents
+      .mockResolvedValueOnce([newEvent] as unknown as never) // First poll listEvents
+      .mockResolvedValueOnce([] as unknown as never); // Second poll listEvents
+
+    const injectPromise = app.inject({
       method: "GET",
-      url: "/v1/sessions/session-2/events",
+      url: "/v1/sessions/session-3/events",
       headers: { "x-auth-bypass": "true" },
     });
 
-    const body = response.body;
-    // Extract all data lines and verify they're valid JSON
-    const dataLines = body
-      .split("\n")
-      .filter((line: string) => line.startsWith("data: "))
-      .map((line: string) => line.slice(6));
+    // Advance timers to trigger polling
+    await vi.advanceTimersByTimeAsync(1500); // Trigger first poll
+    await vi.advanceTimersByTimeAsync(1500); // Trigger second poll
 
-    for (const dataLine of dataLines) {
-      expect(() => JSON.parse(dataLine)).not.toThrow();
-    }
+    const response = await injectPromise;
+    const body = response.body;
+
+    expect(body).toContain("event: t1");
+    expect(body).toContain("event: t2");
+    expect(body).toContain("event: stream:end");
+    expect(body).toContain("session_complete");
+
+    vi.useRealTimers();
+  });
+
+  it("handles polling errors", async () => {
+    vi.useFakeTimers();
+
+    const session = {
+      id: "session-5",
+      status: "RUNNING",
+      taskDescription: "test",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    vi.mocked(prisma.session.findUnique)
+      .mockResolvedValueOnce(session as unknown as never) // Initial getById
+      .mockRejectedValueOnce(new Error("Database failure")); // First poll getById throws
+
+    vi.mocked(prisma.sessionEvent.findMany).mockResolvedValue([] as unknown as never);
+
+    const injectPromise = app.inject({
+      method: "GET",
+      url: "/v1/sessions/session-5/events",
+      headers: { "x-auth-bypass": "true" },
+    });
+
+    await vi.advanceTimersByTimeAsync(1500);
+
+    const response = await injectPromise;
+
+    // Stream should contain error event
+    expect(response.body).toContain("event: stream:error");
+    expect(response.body).toContain("Internal polling error");
+
+    vi.useRealTimers();
   });
 });

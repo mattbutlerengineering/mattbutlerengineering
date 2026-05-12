@@ -3,7 +3,7 @@ import * as auth0 from "@pulumi/auth0";
 
 const config = new pulumi.Config();
 const domain = config.require("domain");
-const environment = config.get("environment") || "production";
+const _environment = config.get("environment") || "production";
 
 // Determine callback URLs based on environment
 const localCallbacks = [

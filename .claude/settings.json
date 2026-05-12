@@ -1,4 +1,20 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(pnpm test:*)",
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm typecheck:*)",
+      "Bash(pnpm build:*)",
+      "Bash(pnpm --dir *)",
+      "Bash(gh pr *)",
+      "Bash(gh run *)",
+      "Bash(gh issue *)",
+      "Bash(git log *)",
+      "Bash(git diff *)",
+      "Bash(git status *)",
+      "Bash(git branch *)"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {
@@ -6,7 +22,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "case \"$CLAUDE_FILE_PATH\" in *.env|*.env.*) echo 'BLOCK: Do not edit .env files — use environment variables via vercel env or service .env.example files instead' >&2; exit 2;; esac"
+            "command": "case \"$CLAUDE_FILE_PATH\" in *.env|*.env.*) echo 'BLOCK: Do not edit .env files — use environment variables via vercel env or service .env.example files instead' >&2; exit 2;; *pnpm-lock.yaml) echo 'BLOCK: Never edit pnpm-lock.yaml directly — run pnpm install instead' >&2; exit 2;; esac"
           }
         ]
       },
@@ -56,6 +72,16 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/check-changeset.sh \"$CLAUDE_FILE_PATH\""
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/run-related-tests.sh \"$CLAUDE_FILE_PATH\"",
+            "timeout": 30000
           }
         ]
       },

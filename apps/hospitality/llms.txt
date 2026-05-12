@@ -1,44 +1,26 @@
 <codebase path="apps/hospitality">
-  <section priority="medium" role="src">
-  <file path="src/vite-env.d.ts">
-    <item priority="high">
-      interface ImportMetaEnv {
-        VITE_AUTH_AUTHORITY: string;
-        VITE_AUTH_CLIENT_ID: string;
-        VITE_AUTH_REDIRECT_URI: string;
-        VITE_AUTH_AUDIENCE: string;
+  <section priority="medium" role="constants">
+  <file path="src/constants/auth.ts">
+    <item priority="low">
+      interface AuthConfigResult {
+        valid: true;
+        config: { readonly authority: string; readonly clientId: string; ...;
       }
     </item>
-    <item priority="high">
-      interface ImportMeta {
-        env: ImportMetaEnv;
+    <item priority="low">
+      interface AuthConfigFailure {
+        valid: false;
+        missing: readonly string[];
       }
     </item>
   </file>
-  <file path="src/nav-sections.ts">
-    <item priority="low">
-      interface NavItem {
-        id: string;
-        label: string;
-        path: string;
-        stepStatus?: "completed" | "current" | "locked" | undefined;
-        disabled?: boolean | undefined;
-      }
-    </item>
-    <item priority="low">
-      interface NavSection {
-        label?: string | undefined;
-        items: import("/home/user/mattbutlerengineering/.claude/worktree...;
-      }
+  <file path="src/constants/copilotContext.ts">
+    <item priority="high">
+      export const HOSPITALITY_DOMAIN_CONTEXT: DomainContext;
     </item>
   </file>
   </section>
   <section priority="medium" role="e2e">
-  <file path="e2e/fixtures.ts">
-    <item priority="high">
-      export const test: import("/home/user/mattbutlerengineering/.claude/worktree...;
-    </item>
-  </file>
   <file path="e2e/auth-helpers.ts">
     <item priority="high">
       interface Auth0Config {
@@ -53,60 +35,40 @@
       function getAuth0Config(): Auth0Config { /* ... */ }
     </item>
   </file>
+  <file path="e2e/fixtures.ts">
+    <item priority="high">
+      export const test: import("/Users/mbutler/github/mattbutlerengineering/.clau...;
+    </item>
+  </file>
   </section>
   <section priority="medium" role="hooks">
-  <file path="src/hooks/useVenueReadiness.ts">
-    <item priority="low">
-      type SetupStep = "onboarding" | "operating-hours" | "floor-plan";
-    </item>
-    <item priority="low">
-      interface VenueReadiness {
-        status: "no-venue" | "setup" | "operational";
-        completedSteps: readonly import("/home/user/mattbutlerengineering/.claude...;
-        nextStep: import("/home/user/mattbutlerengineering/.claude/worktree...;
-        progress: number;
+  <file path="src/hooks/use-command-palette.ts">
+    <item priority="high">
+      interface UseCommandPaletteOptions {
+        sections: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        navigate: (path: string) => void;
+        toggleTheme: () => void;
+        signOut: () => void;
       }
-    </item>
-  </file>
-  <file path="src/hooks/useReservationEvents.ts">
-    <item priority="low">
-      type ReservationEventType = "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:created" | "hold:released" | "hold:confirmed" | "table:updated";
-    </item>
-    <item priority="low">
-      interface ReservationEvent {
-        type: import("/home/user/mattbutlerengineering/.claude/worktree...;
-        venueId: string;
-        timestamp: string;
-        data: import("/home/user/mattbutlerengineering/.claude/worktree...;
-      }
-    </item>
-  </file>
-  <file path="src/hooks/useDashboardStats.ts">
-    <item priority="low">
-      interface DashboardStats {
-        totalReservations: number;
-        expectedCovers: number;
-        upcomingCount: number;
-        cancellationRate: number;
-        cancellationTrend: "up" | "down" | "neutral";
-      }
-    </item>
-    <item priority="low">
-      interface UseDashboardStatsResult {
-        reservations: readonly import("/home/user/mattbutlerengineering/.claude...;
-        stats: import("/home/user/mattbutlerengineering/.claude/worktree...;
-        isLoading: boolean;
-        error: string | null;
-        refetch: () => Promise<void>;
-      }
-    </item>
-  </file>
-  <file path="src/hooks/useApiClient.ts">
-    <item priority="medium">
-      function reportToSentry(error: ApiClientError) { /* ... */ }
     </item>
     <item priority="high">
-      export function useApiClient() { /* ... */ }
+      interface UseCommandPaletteResult {
+        open: boolean;
+        setOpen: (open: boolean) => void;
+        items: CommandItem[];
+        groups: string[];
+      }
+    </item>
+  </file>
+  <file path="src/hooks/use-theme.ts">
+    <item priority="low">
+      interface ThemeContextValue {
+        theme: ThemePreference;
+        setTheme: (theme: ThemePreference) => void;
+      }
+    </item>
+    <item priority="high">
+      export const ThemeContext: React.Context<import("/Users/mbutler/github/mattbutlereng...;
     </item>
   </file>
   <file path="src/hooks/useApiCall.ts">
@@ -125,53 +87,91 @@
       }
     </item>
   </file>
-  <file path="src/hooks/use-theme.ts">
-    <item priority="low">
-      interface ThemeContextValue {
-        theme: ThemePreference;
-        setTheme: (theme: ThemePreference) => void;
-      }
+  <file path="src/hooks/useApiClient.ts">
+    <item priority="medium">
+      function reportToSentry(error: ApiClientError) { /* ... */ }
     </item>
     <item priority="high">
-      export const ThemeContext: React.Context<import("/home/user/mattbutlerengineering/.c...;
+      export function useApiClient() { /* ... */ }
     </item>
   </file>
-  <file path="src/hooks/use-command-palette.ts">
-    <item priority="high">
-      interface UseCommandPaletteOptions {
-        sections: readonly import("/home/user/mattbutlerengineering/.claude...;
-        navigate: (path: string) => void;
-        toggleTheme: () => void;
-        signOut: () => void;
+  <file path="src/hooks/useDashboardStats.ts">
+    <item priority="low">
+      interface DashboardStats {
+        totalReservations: number;
+        expectedCovers: number;
+        upcomingCount: number;
+        cancellationRate: number;
+        cancellationTrend: "up" | "down" | "neutral";
       }
     </item>
-    <item priority="high">
-      interface UseCommandPaletteResult {
-        open: boolean;
-        setOpen: (open: boolean) => void;
-        items: CommandItem[];
-        groups: string[];
+    <item priority="low">
+      interface UseDashboardStatsResult {
+        reservations: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        stats: import("/Users/mbutler/github/mattbutlerengineering/.clau...;
+        isLoading: boolean;
+        error: string | null;
+        refetch: () => Promise<void>;
+      }
+    </item>
+  </file>
+  <file path="src/hooks/useReservationEvents.ts">
+    <item priority="low">
+      type ReservationEventType = "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:created" | "hold:released" | "hold:confirmed" | "table:updated";
+    </item>
+    <item priority="low">
+      interface ReservationEvent {
+        type: import("/Users/mbutler/github/mattbutlerengineering/.clau...;
+        venueId: string;
+        timestamp: string;
+        data: import("/Users/mbutler/github/mattbutlerengineering/.clau...;
+      }
+    </item>
+  </file>
+  <file path="src/hooks/useVenueReadiness.ts">
+    <item priority="low">
+      type SetupStep = "onboarding" | "operating-hours" | "floor-plan";
+    </item>
+    <item priority="low">
+      interface VenueReadiness {
+        status: "no-venue" | "setup" | "operational";
+        completedSteps: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        nextStep: import("/Users/mbutler/github/mattbutlerengineering/.clau...;
+        progress: number;
       }
     </item>
   </file>
   </section>
-  <section priority="medium" role="constants">
-  <file path="src/constants/copilotContext.ts">
-    <item priority="high">
-      export const HOSPITALITY_DOMAIN_CONTEXT: DomainContext;
-    </item>
-  </file>
-  <file path="src/constants/auth.ts">
+  <section priority="medium" role="src">
+  <file path="src/nav-sections.ts">
     <item priority="low">
-      interface AuthConfigResult {
-        valid: true;
-        config: { readonly authority: string; readonly clientId: string; ...;
+      interface NavItem {
+        id: string;
+        label: string;
+        path: string;
+        stepStatus?: "completed" | "current" | "locked" | undefined;
+        disabled?: boolean | undefined;
       }
     </item>
     <item priority="low">
-      interface AuthConfigFailure {
-        valid: false;
-        missing: readonly string[];
+      interface NavSection {
+        label?: string | undefined;
+        items: import("/Users/mbutler/github/mattbutlerengineering/.clau...;
+      }
+    </item>
+  </file>
+  <file path="src/vite-env.d.ts">
+    <item priority="high">
+      interface ImportMetaEnv {
+        VITE_AUTH_AUTHORITY: string;
+        VITE_AUTH_CLIENT_ID: string;
+        VITE_AUTH_REDIRECT_URI: string;
+        VITE_AUTH_AUDIENCE: string;
+      }
+    </item>
+    <item priority="high">
+      interface ImportMeta {
+        env: ImportMetaEnv;
       }
     </item>
   </file>

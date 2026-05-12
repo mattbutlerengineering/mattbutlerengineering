@@ -16,6 +16,7 @@ Project-specific traps that have bitten me before. Read these before diving into
 - **Baseline checks fail on `main`:** `Typecheck`, `Coverage Check`, and `Accessibility AI Attribution` currently fail on every PR because `main` itself fails them. Don't file `ci-fix` issues for these — they're not regressions from the PR. Admin-merge unrelated PRs through, and tackle the baseline failures in a dedicated fix-up PR
 - **`Accessibility AI Attribution` fails with "Results file not found: a11y-results.json"** — the processing step expects an artifact from an upstream a11y scan step that doesn't produce it. This is a workflow config issue, not a code issue
 - **Coverage Check failures may be baseline, not PR-caused.** Before adding tests to fix a coverage CI failure, check if the failing package's coverage is also below threshold on `main`. If the PR branch was based on an older commit, rebasing onto current `main` may resolve it. Close the issue and document rather than writing unnecessary tests
+- **Architecture Audit only needs CLI deps built.** The job uses `pnpm build --filter @mbe/cli...` (turbo `...` = transitive deps). Never use bare `pnpm build` here — unrelated packages with TS errors (e.g. agent-service test files) would fail the entire job even though they have nothing to do with ADR/dep checks
 
 ## Dependencies
 - **pnpm.overrides for CVEs: use the scoped pattern** `"pkg@<patched": "^patched"`, not `"pkg": ">=patched"` — the open range resolves to the latest satisfying version and can pull major bumps (e.g. `protobufjs@>=7.5.5` → 8.0.1)

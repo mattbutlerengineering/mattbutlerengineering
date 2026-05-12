@@ -5,11 +5,13 @@
  * Results are appended JSONL lines at `metrics/acmm-evals.jsonl`.
  *
  * @typedef {Object} Rubric
- * @property {string[]} mustPass            Verification gates that must all pass: "build" | "tests" | "lint"
+ * @property {string[]} mustPass            Verification gates that must all pass: "build" | "tests" | "lint" | "typecheck"
  * @property {number}   diffSizeMax         Max acceptable changed-line count (additions+deletions)
  * @property {string[]} mustTouch           Glob-light patterns (substring match) the diff must include
  * @property {string[]} [mustNotTouch]      Patterns the diff must NOT include
- * @property {Record<string, number>} [weights]  Optional per-criterion weights (defaults below). Keys: completed, verification, diffSize, filePaths
+ * @property {string[]} [mustCall]          Tool names the agent MUST use during the session
+ * @property {string[]} [mustNotCall]       Tool names the agent MUST NOT use during the session
+ * @property {Record<string, number>} [weights]  Optional per-criterion weights (defaults below). Keys: completed, verification, diffSize, filePaths, toolCalls
  *
  * @typedef {Object} TaskFixture
  * @property {string}  id
@@ -27,6 +29,8 @@
  * @property {boolean} diffSizeOk        diffSize <= rubric.diffSizeMax
  * @property {boolean} touchedRequired   All rubric.mustTouch matched
  * @property {boolean} avoidedForbidden  None of rubric.mustNotTouch matched
+ * @property {boolean} calledRequired   All rubric.mustCall matched
+ * @property {boolean} avoidedForbiddenCalls None of rubric.mustNotCall matched
  *
  * @typedef {Object} EvalResult
  * @property {string}  timestamp        ISO8601
@@ -46,6 +50,7 @@ export const DEFAULT_WEIGHTS = Object.freeze({
   verification: 1.0,
   diffSize: 0.5,
   filePaths: 0.5,
+  toolCalls: 0.5,
 });
 
 /** A run is a "pass" if its weighted score meets this threshold. */
@@ -98,8 +103,8 @@ function parseRubric(raw) {
   if (!Array.isArray(r.mustPass)) throw new Error("task.rubric.mustPass: must be array");
   for (const g of r.mustPass) {
     if (typeof g !== "string") throw new Error("task.rubric.mustPass: items must be strings");
-    if (!["build", "tests", "lint"].includes(g)) {
-      throw new Error(`task.rubric.mustPass: unknown gate "${g}" (allowed: build, tests, lint)`);
+    if (!["build", "tests", "lint", "typecheck"].includes(g)) {
+      throw new Error(`task.rubric.mustPass: unknown gate "${g}" (allowed: build, tests, lint, typecheck)`);
     }
   }
   if (typeof r.diffSizeMax !== "number" || r.diffSizeMax < 0) {
@@ -123,6 +128,8 @@ function parseRubric(raw) {
     diffSizeMax: r.diffSizeMax,
     mustTouch: /** @type {string[]} */ (r.mustTouch),
     mustNotTouch: Array.isArray(r.mustNotTouch) ? /** @type {string[]} */ (r.mustNotTouch) : [],
+    mustCall: Array.isArray(r.mustCall) ? /** @type {string[]} */ (r.mustCall) : [],
+    mustNotCall: Array.isArray(r.mustNotCall) ? /** @type {string[]} */ (r.mustNotCall) : [],
     weights: r.weights && typeof r.weights === "object" ? /** @type {Record<string, number>} */ (r.weights) : undefined,
   };
 }

@@ -1,15 +1,113 @@
 <codebase path="packages/observability">
-  <section priority="medium" role="src">
-  <file path="src/sdk.ts">
-    export interface OtelConfig {
-      readonly serviceName: string;
-      readonly serviceVersion?: string;
+  <section priority="medium" role="sentry">
+  <file path="src/sentry/config.ts">
+    export interface SentryConfig {
+      readonly dsn: string;
+      readonly environment: string;
+      readonly release: string | undefined;
+      readonly enabled: boolean;
     }
-    export function shouldIgnoreRequest(req: IncomingMessage): boolean {
-      const url = req.url ?? "";
-      return IGNORED_PATH_PREFIXES.some(
-        (prefix) => url === prefix || url.startsWith(`${prefix}/`),
+    export function resolveConfig(dsn: string | undefined): SentryConfig {
+      const resolvedDsn = dsn ?? "";
+      return {
+        dsn: resolvedDsn,
+        environment:
+          (typeof process !== "undefined" ? process.env.SENTRY_ENVIRONMENT : undefined) ??
+          (typeof process !== "undefined" ? process.env.NODE_ENV : undefined) ??
+          "development",
+        release:
+          (typeof process !== "undefined" ? process.env.SENTRY_RELEASE : undefined) ??
+          (typeof process !== "undefined" ? process.env.npm_package_version : undefined),
+        enabled: resolvedDsn.length > 0,
+      };
+    }
+  </file>
+  <file path="src/sentry/node.ts">
+    interface SentryUser {
+      readonly id: string;
+      readonly email?: string;
+    }
+    function isSentryUser(value: unknown): value is SentryUser {
+      return (
+        value != null &&
+        typeof value === "object" &&
+        "id" in value &&
+        typeof (value as SentryUser).id === "string"
       );
+    }
+  </file>
+  <file path="src/sentry/react.ts">
+    export interface InitOptions {
+      readonly appName: string;
+      readonly dsn: string;
+    }
+    export function initSentry(options: InitOptions): void {
+      const config = resolveConfig(options.dsn);
+      if (!config.enabled) {
+        return;
+      }
+    
+      Sentry.init({
+        dsn: config.dsn,
+        environment: config.environment,
+        release: config.release,
+        replaysSessionSampleRate: 0,
+        replaysOnErrorSampleRate: 0,
+        integrations: [],
+      });
+    
+      Sentry.setTag("app", options.appName);
+    }
+  </file>
+  </section>
+  <section priority="medium" role="src">
+  <file path="src/baggage.ts">
+    export const BAGGAGE_KEYS = {
+      SESSION_ID: "agent.session_id",
+      PR_NUMBER: "agent.pr_number",
+      ISSUE_NUMBER: "agent.issue_number",
+      DEPLOY_SHA: "deploy.sha",
+    } as const;
+    export interface AgentBaggage {
+      readonly sessionId?: string;
+      readonly prNumber?: string;
+      readonly issueNumber?: string;
+      readonly deploySha?: string;
+    }
+  </file>
+  <file path="src/error-rates.ts">
+    interface RequestRecord {
+      readonly timestamp: number;
+      readonly isError: boolean;
+    }
+    export interface EndpointErrorRate {
+      readonly endpoint: string;
+      readonly total: number;
+      readonly errors: number;
+      readonly rate: number;
+    }
+  </file>
+  <file path="src/rate-limit-monitor.ts">
+    export interface RateLimitHit {
+      readonly ip: string;
+      readonly endpoint: string;
+      readonly timestamp: number;
+    }
+    export interface RateLimitHealthStats {
+      readonly hits_last_hour: number;
+      readonly blocked_ips: number;
+    }
+  </file>
+  <file path="src/readiness.ts">
+    export interface ReadinessCheckResult {
+      readonly name: string;
+      readonly status: "ok" | "error";
+      readonly message?: string;
+    }
+    export interface ReadinessSnapshot {
+      readonly ready: boolean;
+      readonly checks: readonly ReadinessCheckResult[];
+      readonly timestamp: string;
     }
   </file>
   <file path="src/request-id.ts">
@@ -35,114 +133,16 @@
       );
     }
   </file>
-  <file path="src/readiness.ts">
-    export interface ReadinessCheckResult {
-      readonly name: string;
-      readonly status: "ok" | "error";
-      readonly message?: string;
+  <file path="src/sdk.ts">
+    export interface OtelConfig {
+      readonly serviceName: string;
+      readonly serviceVersion?: string;
     }
-    export interface ReadinessSnapshot {
-      readonly ready: boolean;
-      readonly checks: readonly ReadinessCheckResult[];
-      readonly timestamp: string;
-    }
-  </file>
-  <file path="src/rate-limit-monitor.ts">
-    export interface RateLimitHit {
-      readonly ip: string;
-      readonly endpoint: string;
-      readonly timestamp: number;
-    }
-    export interface RateLimitHealthStats {
-      readonly hits_last_hour: number;
-      readonly blocked_ips: number;
-    }
-  </file>
-  <file path="src/error-rates.ts">
-    interface RequestRecord {
-      readonly timestamp: number;
-      readonly isError: boolean;
-    }
-    export interface EndpointErrorRate {
-      readonly endpoint: string;
-      readonly total: number;
-      readonly errors: number;
-      readonly rate: number;
-    }
-  </file>
-  <file path="src/baggage.ts">
-    export const BAGGAGE_KEYS = {
-      SESSION_ID: "agent.session_id",
-      PR_NUMBER: "agent.pr_number",
-      ISSUE_NUMBER: "agent.issue_number",
-      DEPLOY_SHA: "deploy.sha",
-    } as const;
-    export interface AgentBaggage {
-      readonly sessionId?: string;
-      readonly prNumber?: string;
-      readonly issueNumber?: string;
-      readonly deploySha?: string;
-    }
-  </file>
-  </section>
-  <section priority="medium" role="sentry">
-  <file path="src/sentry/react.ts">
-    export interface InitOptions {
-      readonly appName: string;
-      readonly dsn: string;
-    }
-    export function initSentry(options: InitOptions): void {
-      const config = resolveConfig(options.dsn);
-      if (!config.enabled) {
-        return;
-      }
-    
-      Sentry.init({
-        dsn: config.dsn,
-        environment: config.environment,
-        release: config.release,
-        replaysSessionSampleRate: 0,
-        replaysOnErrorSampleRate: 0,
-        integrations: [],
-      });
-    
-      Sentry.setTag("app", options.appName);
-    }
-  </file>
-  <file path="src/sentry/node.ts">
-    interface SentryUser {
-      readonly id: string;
-      readonly email?: string;
-    }
-    function isSentryUser(value: unknown): value is SentryUser {
-      return (
-        value != null &&
-        typeof value === "object" &&
-        "id" in value &&
-        typeof (value as SentryUser).id === "string"
+    export function shouldIgnoreRequest(req: IncomingMessage): boolean {
+      const url = req.url ?? "";
+      return IGNORED_PATH_PREFIXES.some(
+        (prefix) => url === prefix || url.startsWith(`${prefix}/`),
       );
-    }
-  </file>
-  <file path="src/sentry/config.ts">
-    export interface SentryConfig {
-      readonly dsn: string;
-      readonly environment: string;
-      readonly release: string | undefined;
-      readonly enabled: boolean;
-    }
-    export function resolveConfig(dsn: string | undefined): SentryConfig {
-      const resolvedDsn = dsn ?? "";
-      return {
-        dsn: resolvedDsn,
-        environment:
-          (typeof process !== "undefined" ? process.env.SENTRY_ENVIRONMENT : undefined) ??
-          (typeof process !== "undefined" ? process.env.NODE_ENV : undefined) ??
-          "development",
-        release:
-          (typeof process !== "undefined" ? process.env.SENTRY_RELEASE : undefined) ??
-          (typeof process !== "undefined" ? process.env.npm_package_version : undefined),
-        enabled: resolvedDsn.length > 0,
-      };
     }
   </file>
   </section>

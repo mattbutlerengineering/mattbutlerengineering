@@ -1,41 +1,24 @@
 <codebase path="packages/auth">
-  <section priority="medium" role="types">
-  <file path="src/types/index.ts">
-    export interface OIDCConfig {
-      /** OIDC authority URL (e.g., https://your-tenant.auth0.com) */
+  <section priority="medium" role="fastify">
+  <file path="src/fastify/plugin.ts">
+    export interface AuthPluginOptions {
+      /** OIDC authority URL (issuer) */
       authority: string;
-      /** OAuth client ID */
-      clientId: string;
-      /** Redirect URI after login */
-      redirectUri: string;
-      /** Post-logout redirect URI */
-      postLogoutRedirectUri?: string;
-      /** OAuth scopes to request */
-      scope?: string;
-      /** Expected audience for token validation */
-      audience?: string;
+      /** Expected audience */
+      audience: string;
+      /** Routes to exclude from token verification (e.g., ["/health"]) */
+      excludePaths?: string[];
     }
-    export interface JWTPayload {
-      /** Subject (user ID) */
-      sub: string;
-      /** Issuer */
-      iss: string;
-      /** Audience */
-      aud: string | string[];
-      /** Expiration time (Unix timestamp) */
-      exp: number;
-      /** Issued at (Unix timestamp) */
-      iat: number;
-      /** Email (if requested in scope) */
-      email?: string;
-      /** Email verified flag */
-      email_verified?: boolean;
-      /** User's name */
-      name?: string;
-      /** User's picture URL */
-      picture?: string;
-      /** Custom claims */
-      [key: string]: unknown;
+    function createProblemDetails(status: number, title: string, detail: string) {
+      return {
+        type: `https://httpstatuses.com/${status}`,
+        title,
+        status,
+        detail,
+        error: title,
+        message: detail,
+        statusCode: status,
+      };
     }
   </file>
   </section>
@@ -95,26 +78,43 @@
     }
   </file>
   </section>
-  <section priority="medium" role="fastify">
-  <file path="src/fastify/plugin.ts">
-    export interface AuthPluginOptions {
-      /** OIDC authority URL (issuer) */
+  <section priority="medium" role="types">
+  <file path="src/types/index.ts">
+    export interface OIDCConfig {
+      /** OIDC authority URL (e.g., https://your-tenant.auth0.com) */
       authority: string;
-      /** Expected audience */
-      audience: string;
-      /** Routes to exclude from token verification (e.g., ["/health"]) */
-      excludePaths?: string[];
+      /** OAuth client ID */
+      clientId: string;
+      /** Redirect URI after login */
+      redirectUri: string;
+      /** Post-logout redirect URI */
+      postLogoutRedirectUri?: string;
+      /** OAuth scopes to request */
+      scope?: string;
+      /** Expected audience for token validation */
+      audience?: string;
     }
-    function createProblemDetails(status: number, title: string, detail: string) {
-      return {
-        type: `https://httpstatuses.com/${status}`,
-        title,
-        status,
-        detail,
-        error: title,
-        message: detail,
-        statusCode: status,
-      };
+    export interface JWTPayload {
+      /** Subject (user ID) */
+      sub: string;
+      /** Issuer */
+      iss: string;
+      /** Audience */
+      aud: string | string[];
+      /** Expiration time (Unix timestamp) */
+      exp: number;
+      /** Issued at (Unix timestamp) */
+      iat: number;
+      /** Email (if requested in scope) */
+      email?: string;
+      /** Email verified flag */
+      email_verified?: boolean;
+      /** User's name */
+      name?: string;
+      /** User's picture URL */
+      picture?: string;
+      /** Custom claims */
+      [key: string]: unknown;
     }
   </file>
   </section>

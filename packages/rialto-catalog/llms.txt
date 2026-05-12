@@ -1,28 +1,4 @@
 <codebase path="packages/rialto-catalog">
-  <section priority="medium" role="src">
-  <file path="src/generated-schemas.ts">
-    <item priority="high">
-      export const generatedSchemas: { readonly Accordion: import("/home/user/mattbutlerengine...;
-    </item>
-  </file>
-  <file path="src/catalog.ts">
-    <item priority="high">
-      export const catalog: import("/home/user/mattbutlerengineering/.claude/worktree...;
-    </item>
-  </file>
-  <file path="src/catalog-config.ts">
-    <item priority="low">
-      interface ComponentConfig {
-        include: boolean;
-        description: string;
-        slots?: string[] | undefined;
-      }
-    </item>
-    <item priority="high">
-      export const catalogConfig: Record<string, import("/home/user/mattbutlerengineering/....;
-    </item>
-  </file>
-  </section>
   <section priority="medium" role="scripts">
   <file path="scripts/generate-catalog.ts">
     <item priority="high">
@@ -34,6 +10,30 @@
     </item>
     <item priority="medium">
       function stripUndefined(typeStr: string): { inner: string; wasOptional: boolean } { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="src">
+  <file path="src/catalog-config.ts">
+    <item priority="low">
+      interface ComponentConfig {
+        include: boolean;
+        description: string;
+        slots?: string[] | undefined;
+      }
+    </item>
+    <item priority="high">
+      export const catalogConfig: Record<string, import("/Users/mbutler/github/mattbutleren...;
+    </item>
+  </file>
+  <file path="src/catalog.ts">
+    <item priority="high">
+      export const catalog: import("/Users/mbutler/github/mattbutlerengineering/.clau...;
+    </item>
+  </file>
+  <file path="src/generated-schemas.ts">
+    <item priority="high">
+      export const generatedSchemas: { readonly Accordion: import("/Users/mbutler/github/mattb...;
     </item>
   </file>
   </section>

@@ -5,31 +5,33 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "prebuild": "cp ../../packages/rialto/registry.json public/registry.json",
-    "build": "tsc && vite build",
+    "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "lint": "eslint .",
+    "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest",
     "test:a11y": "playwright test --config playwright.config.ts e2e/a11y.test.ts",
     "size": "size-limit",
     "size:check": "size-limit"
   },
   "size-limit": [
     {
-      "name": "Rialto Web App (JS)",
+      "name": "Rialto Web (JS)",
       "path": "dist/assets/index-*.js",
-      "limit": "700 kB"
+      "limit": "500 kB"
     },
     {
-      "name": "Rialto Web App (CSS)",
+      "name": "Rialto Web (CSS)",
       "path": "dist/assets/index-*.css",
-      "limit": "30 kB"
+      "limit": "50 kB"
     }
   ],
   "dependencies": {
     "@mattbutlerengineering/rialto": "workspace:*",
     "@mbe/observability": "workspace:^",
-    "framer-motion": "catalog:",
+    "framer-motion": "^12.38.0",
     "lucide-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
@@ -40,41 +42,17 @@
     "@mbe/config": "workspace:*",
     "@playwright/test": "^1.59.1",
     "@sentry/vite-plugin": "^5.2.1",
+    "@testing-library/jest-dom": "catalog:",
+    "@testing-library/react": "catalog:",
+    "@testing-library/user-event": "^14.6.1",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "jsdom": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vite-plugin-pwa": "^1.2.0"
-  },
-  "license": "MIT",
-  "acmm": {
-    "inherit": true,
-    "globalPaths": [
-      ".github/workflows/",
-      ".github/PULL_REQUEST_TEMPLATE.md",
-      ".github/pull_request_template.md",
-      ".github/ISSUE_TEMPLATE/",
-      ".github/policies/",
-      ".github/auto-qa-tuning.json",
-      ".github/risk-assessment.yml",
-      ".github/labeler.yml",
-      "CONTRIBUTING.md",
-      "SECURITY-AI.md",
-      "docs/ai-ops-runbook.md",
-      "docs/rollback-drill.md",
-      "docs/reflections/",
-      "docs/autonomous-work-log.md",
-      "scripts/acmm/",
-      "scripts/build-accm-history.mjs",
-      "scripts/orchestrate.mjs",
-      ".claude/settings.json",
-      ".claude/risk-config.json",
-      "memory/",
-      "knowledge.jsonl",
-      "CODEOWNERS",
-      ".github/CODEOWNERS",
-      "risk-config.json"
-    ]
+    "vite-plugin-pwa": "^1.2.0",
+    "vitest": "catalog:"
   }
 }

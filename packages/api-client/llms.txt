@@ -1,31 +1,107 @@
 <codebase path="packages/api-client">
   <section priority="medium" role="src">
-  <file path="src/venues.ts">
-    <item priority="high">
-      class VenuesClient {
-        async list(): Promise<unknown>;
-        async get(): Promise<unknown>;
-        async getBySlug(): Promise<unknown>;
-        async create(): Promise<unknown>;
+  <file path="src/availability.ts">
+    <item priority="low">
+      interface GetTimeSlotsParams {
+        venueId: string;
+        date: string;
+        partySize: number;
+        duration?: number | undefined;
       }
     </item>
+    <item priority="low">
+      interface GetDatesParams {
+        venueId: string;
+        startDate: string;
+        endDate: string;
+        partySize: number;
+      }
+    </item>
+  </file>
+  <file path="src/client.ts">
+    <item priority="low">
+      interface ClientConfig {
+        baseUrl: string;
+        getAccessToken?: (() => string | Promise<string | null> | null) | undefined;
+        timeout?: number | undefined;
+        maxRetries?: number | undefined;
+        onError?: ((error: import("/Users/mbutler/github/mattbutlerengineer...;
+      }
+    </item>
+    <item priority="low">
+      interface RequestOptions {
+        signal?: AbortSignal | undefined;
+      }
+    </item>
+  </file>
+  <file path="src/floor-plans.ts">
     <item priority="high">
-      class VenueGroupsClient {
+      class FloorPlansClient {
         async list(): Promise<unknown>;
+        async getById(): Promise<unknown>;
         async get(): Promise<unknown>;
-        async getBySlug(): Promise<unknown>;
         async create(): Promise<unknown>;
       }
     </item>
   </file>
-  <file path="src/users.ts">
+  <file path="src/guests.ts">
+    <item priority="low">
+      interface FindOrCreateGuestRequest {
+        venueId: string;
+        email?: string | undefined;
+        phone?: string | undefined;
+        name: string;
+      }
+    </item>
+    <item priority="low">
+      interface ListGuestsParams {
+        page?: number | undefined;
+        limit?: number | undefined;
+        venueId: string;
+      }
+    </item>
+  </file>
+  <file path="src/index.ts">
     <item priority="high">
-      class UsersClient {
+      export function createApiClient(config: {
+        baseUrl?: string;
+        getAccessToken?: () => string | null | Promise<string | null>;
+        timeout?: number;
+        maxRetries?: number;
+        onError?: (error: ApiClientError) => void;
+      }) { /* ... */ }
+    </item>
+  </file>
+  <file path="src/reservations.ts">
+    <item priority="low">
+      interface ListReservationsParams {
+        page?: number | undefined;
+        limit?: number | undefined;
+        date?: string | undefined;
+        status?: import("/Users/mbutler/github/mattbutlerengineering/.clau...;
+        tableId?: string | undefined;
+      }
+    </item>
+    <item priority="high">
+      class ReservationsClient {
         async list(): Promise<unknown>;
-        async get(): Promise<unknown>;
         async me(): Promise<unknown>;
+        async get(): Promise<unknown>;
         async create(): Promise<unknown>;
       }
+    </item>
+  </file>
+  <file path="src/streaming.ts">
+    <item priority="low">
+      interface StreamConfig {
+        url: string;
+        body: unknown;
+        headers?: Record<string, string> | undefined;
+        signal?: AbortSignal | undefined;
+      }
+    </item>
+    <item priority="high">
+      export async function* streamNDJSON<T>(config: StreamConfig): AsyncGenerator<T> { /* ... */ }
     </item>
   </file>
   <file path="src/tables.ts">
@@ -46,107 +122,31 @@
       }
     </item>
   </file>
-  <file path="src/streaming.ts">
-    <item priority="low">
-      interface StreamConfig {
-        url: string;
-        body: unknown;
-        headers?: Record<string, string> | undefined;
-        signal?: AbortSignal | undefined;
-      }
-    </item>
+  <file path="src/users.ts">
     <item priority="high">
-      export async function* streamNDJSON<T>(config: StreamConfig): AsyncGenerator<T> { /* ... */ }
-    </item>
-  </file>
-  <file path="src/reservations.ts">
-    <item priority="low">
-      interface ListReservationsParams {
-        page?: number | undefined;
-        limit?: number | undefined;
-        date?: string | undefined;
-        status?: import("/home/user/mattbutlerengineering/.claude/worktree...;
-        tableId?: string | undefined;
-      }
-    </item>
-    <item priority="high">
-      class ReservationsClient {
+      class UsersClient {
         async list(): Promise<unknown>;
+        async get(): Promise<unknown>;
         async me(): Promise<unknown>;
-        async get(): Promise<unknown>;
         async create(): Promise<unknown>;
       }
     </item>
   </file>
-  <file path="src/index.ts">
+  <file path="src/venues.ts">
     <item priority="high">
-      export function createApiClient(config: {
-        baseUrl?: string;
-        getAccessToken?: () => string | null | Promise<string | null>;
-        timeout?: number;
-        maxRetries?: number;
-        onError?: (error: ApiClientError) => void;
-      }) { /* ... */ }
-    </item>
-  </file>
-  <file path="src/guests.ts">
-    <item priority="low">
-      interface FindOrCreateGuestRequest {
-        venueId: string;
-        email?: string | undefined;
-        phone?: string | undefined;
-        name: string;
-      }
-    </item>
-    <item priority="low">
-      interface ListGuestsParams {
-        page?: number | undefined;
-        limit?: number | undefined;
-        venueId: string;
-      }
-    </item>
-  </file>
-  <file path="src/floor-plans.ts">
-    <item priority="high">
-      class FloorPlansClient {
+      class VenuesClient {
         async list(): Promise<unknown>;
-        async getById(): Promise<unknown>;
         async get(): Promise<unknown>;
+        async getBySlug(): Promise<unknown>;
         async create(): Promise<unknown>;
       }
     </item>
-  </file>
-  <file path="src/client.ts">
-    <item priority="low">
-      interface ClientConfig {
-        baseUrl: string;
-        getAccessToken?: (() => string | Promise<string | null> | null) | undefined;
-        timeout?: number | undefined;
-        maxRetries?: number | undefined;
-        onError?: ((error: import("/home/user/mattbutlerengineering/.claude...;
-      }
-    </item>
-    <item priority="low">
-      interface RequestOptions {
-        signal?: AbortSignal | undefined;
-      }
-    </item>
-  </file>
-  <file path="src/availability.ts">
-    <item priority="low">
-      interface GetTimeSlotsParams {
-        venueId: string;
-        date: string;
-        partySize: number;
-        duration?: number | undefined;
-      }
-    </item>
-    <item priority="low">
-      interface GetDatesParams {
-        venueId: string;
-        startDate: string;
-        endDate: string;
-        partySize: number;
+    <item priority="high">
+      class VenueGroupsClient {
+        async list(): Promise<unknown>;
+        async get(): Promise<unknown>;
+        async getBySlug(): Promise<unknown>;
+        async create(): Promise<unknown>;
       }
     </item>
   </file>

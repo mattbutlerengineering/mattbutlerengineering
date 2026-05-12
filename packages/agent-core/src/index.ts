@@ -266,6 +266,25 @@ export type {
 // Output sanitization (XSS prevention for AI-generated content)
 export { escapeHtml, sanitizeStreamChunk, createSanitizedStream } from "./sanitize-output.js";
 
+// CLI adapter interface (multi-backend dispatch)
+export type {
+  AdapterConfig,
+  AdapterResult,
+  AdapterState,
+  AgentAdapter,
+} from "./cli-adapter.js";
+
+// CLI adapters (multi-backend dispatch)
+export { ClaudeAdapter } from "./adapters/claude-adapter.js";
+export { GeminiCliAdapter } from "./adapters/gemini-adapter.js";
+export { OpenCodeAdapter } from "./adapters/opencode-adapter.js";
+
+// Rate-limit detection and cooldown management
+export { RateLimitDetector, scanForRateLimitPatterns } from "./rate-limit-detector.js";
+
+// Failover router (priority-cascade multi-CLI dispatch)
+export { FailoverRouter, AllAdaptersUnavailableError } from "./failover-router.js";
+export type { RoutedAdapterResult } from "./failover-router.js";
 // Bundle size tracking
 export {
   measureAppBundleSize,
@@ -282,3 +301,24 @@ export type {
   BundleSizeComparison,
   BundleSizeReport,
 } from "./bundle-size-tracker.js";
+
+// Synthetic bug seeding (chaos-agent testing)
+export {
+  seedSyntheticBug,
+  cleanupSyntheticBugBranch,
+  createLintViolationBug,
+  createDeadLinkBug,
+  createA11yBug,
+} from "./synthetic-bug-seeder.js";
+export type { BugType, SyntheticBugConfig, BugSeedResult } from "./synthetic-bug-seeder.js";
+
+// Revert detection (revert-rca-loop)
+export {
+  detectRecentReverts,
+  detectAiAuthorReverts,
+  isPrAiAuthor,
+  extractPrNumberFromMessage,
+  getCommitDetails,
+  formatRevertForIssue,
+} from "./revert-detector.js";
+export type { RevertCommit, RevertedPR } from "./revert-detector.js";

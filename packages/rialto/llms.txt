@@ -1,32 +1,183 @@
 <codebase path="packages/rialto">
-  <section priority="medium" role="scripts">
-  <file path="scripts/lib-entrypoints.ts">
-    <item priority="low">
-      interface LibEntry {
-        subpath: string;
-        source: string;
-        chunkName: string;
-      }
-    </item>
+  <section priority="medium" role="FlipDot">
+  <file path="src/components/FlipDot/pixel-font.ts">
     <item priority="medium">
-      function listComponentEntries(): LibEntry[] { /* ... */ }
+      function decodeBitmaskRow(mask: number): boolean[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function charToMatrix(char: string): readonly (readonly boolean[])[] { /* ... */ }
     </item>
   </file>
-  <file path="scripts/generate-registry.ts">
+  <file path="src/components/FlipDot/use-flip-dot-animation.ts">
+    <item priority="low">
+      type FlipDotAnimationMode = "typewriter" | "scroll-left" | "scroll-right" | "blink" | "frames";
+    </item>
+    <item priority="low">
+      interface UseFlipDotAnimationOptions {
+        text?: string | undefined;
+        frames?: readonly (readonly (readonly boolean[])[])[] | undefined;
+        rows: number;
+        cols: number;
+        mode?: import("/Users/mbutler/github/mattbutlerengineering/.clau...;
+      }
+    </item>
+  </file>
+  <file path="src/components/FlipDot/use-flip-dot-sound.ts">
     <item priority="high">
-      interface PropInfo {
-        name: string;
-        type: string;
-        required: boolean;
-        default?: string | undefined;
-        description?: string | undefined;
+      interface UseFlipDotSoundOptions {
+        enabled: boolean;
+        volume?: number | undefined;
       }
     </item>
     <item priority="high">
-      interface CharacterLimitInfo {
+      interface UseFlipDotSoundReturn {
+        playClick: () => void;
+        playBatchClick: (count: number) => void;
+      }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="GenCopilot">
+  <file path="src/components/GenCopilot/useGenCopilotStream.ts">
+    <item priority="high">
+      type FlatElement = Parameters<typeof flatToTree>[0][number];
+    </item>
+    <item priority="low">
+      interface UseGenCopilotStreamOptions {
+        api: string;
+        domainContext: DomainContext;
+        getAccessToken: () => string | Promise<string | null> | null;
+        onComplete?: ((spec: import("/Users/mbutler/github/mattbutlerengineeri...;
+        onError?: ((error: Error) => void) | undefined;
+      }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="hooks">
+  <file path="src/hooks/useDirection.ts">
+    <item priority="high">
+      type Direction = "ltr" | "rtl";
+    </item>
+    <item priority="high">
+      export function useDirection(ref: RefObject<HTMLElement | null>): Direction { /* ... */ }
+    </item>
+  </file>
+  <file path="src/hooks/useScrollReveal.ts">
+    <item priority="high">
+      interface UseScrollRevealOptions {
+        margin?: string | undefined;
+        once?: boolean | undefined;
+        fallbackTimeout?: number | undefined;
+      }
+    </item>
+    <item priority="high">
+      export function useScrollReveal({
+        margin = "-80px",
+        once = true,
+        fallbackTimeout = FALLBACK_TIMEOUT_MS,
+      }: UseScrollRevealOptions = {}) { /* ... */ }
+    </item>
+  </file>
+  <file path="src/hooks/useThemeState.ts">
+    <item priority="low">
+      type ThemePreference = "light" | "dark" | "system";
+    </item>
+    <item priority="medium">
+      function getStoredTheme(): ThemePreference { /* ... */ }
+    </item>
+  </file>
+  <file path="src/hooks/useTilt.ts">
+    <item priority="high">
+      export function useTilt(
+        enabled: boolean,
+        maxTilt = 2
+      ): {
+        ref: (el: HTMLDivElement | null) => void;
+        style: MotionStyle;
+        onMouseMove: (e: React.MouseEvent) => void;
+        onMouseLeave: () => void;
+      } { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="providers">
+  <file path="src/providers/useDeviceContext.ts">
+    <item priority="low">
+      interface DeviceContext {
+        pointer: "fine" | "coarse";
+        viewport: "mobile" | "tablet" | "desktop";
+        reducedMotion: boolean;
+        colorScheme: "light" | "dark";
+        saveData: boolean;
+      }
+    </item>
+    <item priority="high">
+      interface MediaEntry {
+        query: string;
+        key: keyof import("/Users/mbutler/github/mattbutlerengineering...;
+        matchValue: boolean | "fine" | "coarse" | "mobile" | "tablet" | "desk...;
+        noMatchValue: boolean | "fine" | "coarse" | "mobile" | "tablet" | "desk...;
+      }
+    </item>
+  </file>
+  <file path="src/providers/useUIEnvironment.ts">
+    <item priority="low">
+      interface UIEnvironment {
+        device: import("/Users/mbutler/github/mattbutlerengineering/.clau...;
+        vibe: import("/Users/mbutler/github/mattbutlerengineering/.clau...;
+        theme: "light" | "dark";
+      }
+    </item>
+    <item priority="high">
+      export const UIEnvironmentContext: React.Context<import("/Users/mbutler/github/mattbutlereng...;
+    </item>
+  </file>
+  <file path="src/providers/vibes.ts">
+    <item priority="low">
+      type VibeName = "default" | "transacting" | "presenting";
+    </item>
+    <item priority="low">
+      type VibeOverrides = Record<string, string>;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="scripts">
+  <file path="scripts/character-limits.ts">
+    <item priority="low">
+      interface CharacterLimit {
+        component: string;
         prop: string;
         max: number;
         reason: string;
+      }
+    </item>
+    <item priority="high">
+      export const characterLimits: import("/Users/mbutler/github/mattbutlerengineering/.clau...;
+    </item>
+  </file>
+  <file path="scripts/generate-exports.ts">
+    <item priority="high">
+      interface ExportEntry {
+        types?: string | undefined;
+        import?: string | undefined;
+        default?: string | undefined;
+      }
+    </item>
+    <item priority="high">
+      type ExportsMap = Record<string, string | ExportEntry>;
+    </item>
+  </file>
+  <file path="scripts/generate-figma-tokens.ts">
+    <item priority="high">
+      interface DtcgToken {
+        $value: string | number;
+        $type: string;
+        $description?: string | undefined;
+      }
+    </item>
+    <item priority="high">
+      interface TokenGroup {
+        
       }
     </item>
   </file>
@@ -48,195 +199,73 @@
       }
     </item>
   </file>
-  <file path="scripts/generate-figma-tokens.ts">
+  <file path="scripts/generate-registry.ts">
     <item priority="high">
-      interface DtcgToken {
-        $value: string | number;
-        $type: string;
-        $description?: string | undefined;
-      }
-    </item>
-    <item priority="high">
-      interface TokenGroup {
-        
-      }
-    </item>
-  </file>
-  <file path="scripts/generate-exports.ts">
-    <item priority="high">
-      interface ExportEntry {
-        types?: string | undefined;
-        import?: string | undefined;
+      interface PropInfo {
+        name: string;
+        type: string;
+        required: boolean;
         default?: string | undefined;
+        description?: string | undefined;
       }
     </item>
     <item priority="high">
-      type ExportsMap = Record<string, string | ExportEntry>;
-    </item>
-  </file>
-  <file path="scripts/character-limits.ts">
-    <item priority="low">
-      interface CharacterLimit {
-        component: string;
+      interface CharacterLimitInfo {
         prop: string;
         max: number;
         reason: string;
       }
     </item>
-    <item priority="high">
-      export const characterLimits: import("/home/user/mattbutlerengineering/.claude/worktree...;
-    </item>
   </file>
-  </section>
-  <section priority="medium" role="utils">
-  <file path="src/utils/service-worker.ts">
-    <item priority="high">
-      export function unregisterStaleServiceWorkers(exemptedScopes: string[] = ["/hospitality/"]): void { /* ... */ }
-    </item>
-  </file>
-  <file path="src/utils/feedback.ts">
-    <item priority="high">
-      export function triggerHapticFeedback(): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function playClickSound(): void { /* ... */ }
-    </item>
-  </file>
-  </section>
-  <section priority="medium" role="tokens">
-  <file path="src/tokens/motion.ts">
-    <item priority="high">
-      export const ms: (s: React.CSSProperties) => import("/home/user/mattbutler...;
-    </item>
-    <item priority="high">
-      export const precision: { duration: number; ease: readonly [0.2, 0, 0, 1]; };
-    </item>
-  </file>
-  <file path="src/tokens/icons.ts">
-    <item priority="high">
-      export const iconCategories: readonly ["navigation", "actions", "communication", "stat...;
-    </item>
+  <file path="scripts/lib-entrypoints.ts">
     <item priority="low">
-      type IconCategory = (typeof iconCategories)[number];
-    </item>
-  </file>
-  </section>
-  <section priority="medium" role="providers">
-  <file path="src/providers/vibes.ts">
-    <item priority="low">
-      type VibeName = "default" | "transacting" | "presenting";
-    </item>
-    <item priority="low">
-      type VibeOverrides = Record<string, string>;
-    </item>
-  </file>
-  <file path="src/providers/useUIEnvironment.ts">
-    <item priority="low">
-      interface UIEnvironment {
-        device: import("/home/user/mattbutlerengineering/.claude/worktree...;
-        vibe: import("/home/user/mattbutlerengineering/.claude/worktree...;
-        theme: "light" | "dark";
+      interface LibEntry {
+        subpath: string;
+        source: string;
+        chunkName: string;
       }
-    </item>
-    <item priority="high">
-      export const UIEnvironmentContext: React.Context<import("/home/user/mattbutlerengineering/.c...;
-    </item>
-  </file>
-  <file path="src/providers/useDeviceContext.ts">
-    <item priority="low">
-      interface DeviceContext {
-        pointer: "fine" | "coarse";
-        viewport: "mobile" | "tablet" | "desktop";
-        reducedMotion: boolean;
-        colorScheme: "light" | "dark";
-        saveData: boolean;
-      }
-    </item>
-    <item priority="high">
-      interface MediaEntry {
-        query: string;
-        key: keyof import("/home/user/mattbutlerengineering/.claude/wo...;
-        matchValue: boolean | "light" | "dark" | "fine" | "coarse" | "mobile"...;
-        noMatchValue: boolean | "light" | "dark" | "fine" | "coarse" | "mobile"...;
-      }
-    </item>
-  </file>
-  </section>
-  <section priority="medium" role="hooks">
-  <file path="src/hooks/useTilt.ts">
-    <item priority="high">
-      export function useTilt(
-        enabled: boolean,
-        maxTilt = 2
-      ): {
-        ref: (el: HTMLDivElement | null) => void;
-        style: MotionStyle;
-        onMouseMove: (e: React.MouseEvent) => void;
-        onMouseLeave: () => void;
-      } { /* ... */ }
-    </item>
-  </file>
-  <file path="src/hooks/useThemeState.ts">
-    <item priority="low">
-      type ThemePreference = "light" | "dark" | "system";
     </item>
     <item priority="medium">
-      function getStoredTheme(): ThemePreference { /* ... */ }
-    </item>
-  </file>
-  <file path="src/hooks/useScrollReveal.ts">
-    <item priority="high">
-      interface UseScrollRevealOptions {
-        margin?: string | undefined;
-        once?: boolean | undefined;
-        fallbackTimeout?: number | undefined;
-      }
-    </item>
-    <item priority="high">
-      export function useScrollReveal({
-        margin = "-80px",
-        once = true,
-        fallbackTimeout = FALLBACK_TIMEOUT_MS,
-      }: UseScrollRevealOptions = {}) { /* ... */ }
-    </item>
-  </file>
-  <file path="src/hooks/useDirection.ts">
-    <item priority="high">
-      type Direction = "ltr" | "rtl";
-    </item>
-    <item priority="high">
-      export function useDirection(ref: RefObject<HTMLElement | null>): Direction { /* ... */ }
+      function listComponentEntries(): LibEntry[] { /* ... */ }
     </item>
   </file>
   </section>
-  <section priority="medium" role="Toast">
-  <file path="src/components/Toast/ToastContext.ts">
-    <item priority="low">
-      type ToastVariant = "default" | "success" | "error" | "accent";
+  <section priority="medium" role="SplitFlap">
+  <file path="src/components/SplitFlap/charset.ts">
+    <item priority="high">
+      export const CHARSETS: { readonly alpha: " ABCDEFGHIJKLMNOPQRSTUVWXYZ"; readonly...;
     </item>
     <item priority="low">
-      interface ToastData {
-        id: string;
-        title: string;
-        description?: string | undefined;
-        variant?: import("/home/user/mattbutlerengineering/.claude/worktree...;
-        duration?: number | undefined;
-      }
+      type CharsetName = keyof typeof CHARSETS;
     </item>
   </file>
   </section>
   <section priority="medium" role="TapeChart">
-  <file path="src/components/TapeChart/useTapeChartLayout.ts">
-    <item priority="medium">
-      function assignLanes(bars: TapeChartPositionedBar[]): number { /* ... */ }
+  <file path="src/components/TapeChart/dateMath.ts">
+    <item priority="high">
+      export function parseISOMs(iso: string): number { /* ... */ }
     </item>
     <item priority="high">
-      export function useTapeChartLayout(
-        reservations: TapeChartReservation[],
-        rooms: TapeChartRoom[],
-        startDate: string,
-        endDate: string,
-      ): TapeChartLayout { /* ... */ }
+      export function daysBetween(a: string, b: string): number { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/TapeChart/defaultStrings.ts">
+    <item priority="low">
+      type ResolvedStrings = Required<
+        Omit<
+          TapeChartStrings,
+          "reservationA...;
+    </item>
+    <item priority="high">
+      export const DEFAULT_STRINGS: import("/Users/mbutler/github/mattbutlerengineering/.clau...;
+    </item>
+  </file>
+  <file path="src/components/TapeChart/types.ts">
+    <item priority="low">
+      type TapeChartStatus = "tentative" | "confirmed" | "checkedIn" | "checkedOut" | "cancelled" | "noShow";
+    </item>
+    <item priority="low">
+      type TapeChartRoomStatus = "ready" | "dirty" | "outOfOrder" | "occupied";
     </item>
   </file>
   <file path="src/components/TapeChart/useTapeChartI18n.ts">
@@ -253,95 +282,66 @@
       export function useTapeChartI18n(locale?: string, timeZone?: string, defaultCurrency?: string): TapeChartFormatters { /* ... */ }
     </item>
   </file>
-  <file path="src/components/TapeChart/types.ts">
-    <item priority="low">
-      type TapeChartStatus = "tentative" | "confirmed" | "checkedIn" | "checkedOut" | "cancelled" | "noShow";
-    </item>
-    <item priority="low">
-      type TapeChartRoomStatus = "ready" | "dirty" | "outOfOrder" | "occupied";
-    </item>
-  </file>
-  <file path="src/components/TapeChart/defaultStrings.ts">
-    <item priority="low">
-      type ResolvedStrings = Required<
-        Omit<
-          TapeChartStrings,
-          "reservationA...;
-    </item>
-    <item priority="high">
-      export const DEFAULT_STRINGS: import("/home/user/mattbutlerengineering/.claude/worktree...;
-    </item>
-  </file>
-  <file path="src/components/TapeChart/dateMath.ts">
-    <item priority="high">
-      export function parseISOMs(iso: string): number { /* ... */ }
-    </item>
-    <item priority="high">
-      export function daysBetween(a: string, b: string): number { /* ... */ }
-    </item>
-  </file>
-  </section>
-  <section priority="medium" role="SplitFlap">
-  <file path="src/components/SplitFlap/charset.ts">
-    <item priority="high">
-      export const CHARSETS: { readonly alpha: " ABCDEFGHIJKLMNOPQRSTUVWXYZ"; readonly...;
-    </item>
-    <item priority="low">
-      type CharsetName = keyof typeof CHARSETS;
-    </item>
-  </file>
-  </section>
-  <section priority="medium" role="GenCopilot">
-  <file path="src/components/GenCopilot/useGenCopilotStream.ts">
-    <item priority="high">
-      type FlatElement = Parameters<typeof flatToTree>[0][number];
-    </item>
-    <item priority="low">
-      interface UseGenCopilotStreamOptions {
-        api: string;
-        domainContext: DomainContext;
-        getAccessToken: () => string | Promise<string | null> | null;
-        onComplete?: ((spec: import("/home/user/mattbutlerengineering/.claude/...;
-        onError?: ((error: Error) => void) | undefined;
-      }
-    </item>
-  </file>
-  </section>
-  <section priority="medium" role="FlipDot">
-  <file path="src/components/FlipDot/use-flip-dot-sound.ts">
-    <item priority="high">
-      interface UseFlipDotSoundOptions {
-        enabled: boolean;
-        volume?: number | undefined;
-      }
-    </item>
-    <item priority="high">
-      interface UseFlipDotSoundReturn {
-        playClick: () => void;
-        playBatchClick: (count: number) => void;
-      }
-    </item>
-  </file>
-  <file path="src/components/FlipDot/use-flip-dot-animation.ts">
-    <item priority="low">
-      type FlipDotAnimationMode = "typewriter" | "scroll-left" | "scroll-right" | "blink" | "frames";
-    </item>
-    <item priority="low">
-      interface UseFlipDotAnimationOptions {
-        text?: string | undefined;
-        frames?: readonly (readonly (readonly boolean[])[])[] | undefined;
-        rows: number;
-        cols: number;
-        mode?: import("/home/user/mattbutlerengineering/.claude/worktree...;
-      }
-    </item>
-  </file>
-  <file path="src/components/FlipDot/pixel-font.ts">
+  <file path="src/components/TapeChart/useTapeChartLayout.ts">
     <item priority="medium">
-      function decodeBitmaskRow(mask: number): boolean[] { /* ... */ }
+      function assignLanes(bars: TapeChartPositionedBar[]): number { /* ... */ }
     </item>
     <item priority="high">
-      export function charToMatrix(char: string): readonly (readonly boolean[])[] { /* ... */ }
+      export function useTapeChartLayout(
+        reservations: TapeChartReservation[],
+        rooms: TapeChartRoom[],
+        startDate: string,
+        endDate: string,
+      ): TapeChartLayout { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Toast">
+  <file path="src/components/Toast/ToastContext.ts">
+    <item priority="low">
+      type ToastVariant = "default" | "success" | "error" | "accent";
+    </item>
+    <item priority="low">
+      interface ToastData {
+        id: string;
+        title: string;
+        description?: string | undefined;
+        variant?: import("/Users/mbutler/github/mattbutlerengineering/.clau...;
+        duration?: number | undefined;
+      }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="tokens">
+  <file path="src/tokens/icons.ts">
+    <item priority="high">
+      export const iconCategories: readonly ["navigation", "actions", "communication", "stat...;
+    </item>
+    <item priority="low">
+      type IconCategory = (typeof iconCategories)[number];
+    </item>
+  </file>
+  <file path="src/tokens/motion.ts">
+    <item priority="high">
+      export const ms: (s: React.CSSProperties) => import("/Users/mbutler/github...;
+    </item>
+    <item priority="high">
+      export const precision: { duration: number; ease: readonly [0.2, 0, 0, 1]; };
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="utils">
+  <file path="src/utils/feedback.ts">
+    <item priority="high">
+      export function triggerHapticFeedback(): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function playClickSound(): void { /* ... */ }
+    </item>
+  </file>
+  <file path="src/utils/service-worker.ts">
+    <item priority="high">
+      export function unregisterStaleServiceWorkers(exemptedScopes: string[] = ["/hospitality/"]): void { /* ... */ }
     </item>
   </file>
   </section>
