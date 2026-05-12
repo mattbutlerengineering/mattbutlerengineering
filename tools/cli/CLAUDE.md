@@ -86,6 +86,14 @@ mbe log-session            # Log a session for tracking
 mbe audit-perf             # Audit agent performance trends
 ```
 
+## Deterministic `mbe pack` output
+
+The `pack` command must produce identical `llms.txt` on macOS and Linux (CI). Three rules ensure this:
+
+1. **Sort glob results**: `(await glob(...)).sort()` — filesystem order differs between platforms
+2. **Sort sections**: `[...sections.entries()].sort(([a], [b]) => a.localeCompare(b))`
+3. **Use source types not resolved types**: `getTypeNode()?.getText() ?? "unknown"` — resolved types contain absolute fs paths (`/Users/...` vs `/home/runner/...`)
+
 ## Adding a New Command
 
 1. Create `src/commands/<name>.ts` — export a `Command` instance
