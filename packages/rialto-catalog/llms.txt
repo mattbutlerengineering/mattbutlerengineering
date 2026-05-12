@@ -1,4 +1,4 @@
-<codebase path="/tmp/acmm-multi-repo-orch/packages/rialto-catalog">
+<codebase path="packages/rialto-catalog">
   <section priority="medium" role="scripts">
   <file path="scripts/generate-catalog.ts">
     <item priority="high">
@@ -19,21 +19,21 @@
       interface ComponentConfig {
         include: boolean;
         description: string;
-        slots?: string[] | undefined;
+        slots?: string[];
       }
     </item>
     <item priority="high">
-      export const catalogConfig: Record<string, import("/tmp/acmm-multi-repo-orch/packages...;
+      export const catalogConfig: Record<string, ComponentConfig>;
     </item>
   </file>
   <file path="src/catalog.ts">
     <item priority="high">
-      export const catalog: import("node_modules/.pnpm/@json-render+core@0.18.0_zod@4...;
+      export const catalog: unknown;
     </item>
   </file>
   <file path="src/generated-schemas.ts">
     <item priority="high">
-      export const generatedSchemas: { readonly Accordion: import("node_modules/.pnpm/zod@4.4....;
+      export const generatedSchemas: unknown;
     </item>
   </file>
   </section>

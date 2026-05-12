@@ -149,25 +149,4 @@ The Langfuse MCP server (`.mcp.json`) gives Claude Code access to:
 
 ## Security Scanning (Semgrep)
 
-Semgrep MCP server is configured in `.mcp.json` for AI-powered static analysis.
-
-### What's enabled
-- **30+ languages** supported (JavaScript, TypeScript, Python, Go, etc.)
-- **Security rulesets**: Code, Secrets, Supply Chain
-- **Pre-commit hook**: Runs `semgrep --config semgrep.yml --error` on staged files
-- **MCP integration**: Agents can invoke Semgrep scans via `@semgrep/mcp`
-
-### Configuration
-- Rules file: `semgrep.yml` (root) — covers CWE-top, OWASP, secrets, injection
-- Pre-commit: `.husky/pre-commit` runs security scan before commit
-- Custom rules cover: eval/Function injection, SQL injection, XSS, hardcoded secrets, missing auth
-
-### Running manually
-```bash
-semgrep --config semgrep.yml --error .
-semgrep --config "p/security-audit" --error .  # Use Semgrep registry rules
-```
-
-### Skipping (emergencies only)
-```bash
-SKIP=semgrep git commit -m "emergency fix"
+See [AGENTS.md](./AGENTS.md#security-scanning-semgrep) for Semgrep configuration, rules, and usage. Claude Code additionally has the Semgrep MCP server (`.mcp.json`) for invoking scans via `@semgrep/mcp`.
