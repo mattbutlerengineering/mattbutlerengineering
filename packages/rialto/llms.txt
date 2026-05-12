@@ -1,4 +1,4 @@
-<codebase path="packages/rialto">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a61aa827a23409c2c/packages/rialto">
   <section priority="medium" role="FlipDot">
   <file path="src/components/FlipDot/pixel-font.ts">
     <item priority="medium">
@@ -18,7 +18,7 @@
         frames?: readonly (readonly (readonly boolean[])[])[] | undefined;
         rows: number;
         cols: number;
-        mode?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        mode?: import("packages/rialto/src/components/FlipDot/use-flip-d...;
       }
     </item>
   </file>
@@ -47,7 +47,7 @@
         api: string;
         domainContext: DomainContext;
         getAccessToken: () => string | Promise<string | null> | null;
-        onComplete?: ((spec: import("/Users/mbutler/github/mattbutlerengineeri...;
+        onComplete?: ((spec: import("node_modules/.pnpm/@json-render+core@0.18...;
         onError?: ((error: Error) => void) | undefined;
       }
     </item>
@@ -114,7 +114,7 @@
     <item priority="high">
       interface MediaEntry {
         query: string;
-        key: keyof import("/Users/mbutler/github/mattbutlerengineering...;
+        key: keyof import("packages/rialto/src/providers/useDeviceCont...;
         matchValue: boolean | "fine" | "coarse" | "mobile" | "tablet" | "desk...;
         noMatchValue: boolean | "fine" | "coarse" | "mobile" | "tablet" | "desk...;
       }
@@ -123,8 +123,8 @@
   <file path="src/providers/useUIEnvironment.ts">
     <item priority="low">
       interface UIEnvironment {
-        device: import("/Users/mbutler/github/mattbutlerengineering/packa...;
-        vibe: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        device: import("packages/rialto/src/providers/useDeviceContext")....;
+        vibe: import("packages/rialto/src/providers/vibes").VibeName;
         theme: "light" | "dark";
       }
     </item>
@@ -306,7 +306,7 @@
         id: string;
         title: string;
         description?: string | undefined;
-        variant?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        variant?: import("packages/rialto/src/components/Toast/ToastContext...;
         duration?: number | undefined;
       }
     </item>

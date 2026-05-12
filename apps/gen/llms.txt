@@ -1,4 +1,4 @@
-<codebase path="apps/gen">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a61aa827a23409c2c/apps/gen">
   <section priority="medium" role="e2e">
   <file path="e2e/auth-helpers.ts">
     <item priority="high">
@@ -28,7 +28,7 @@
     <item priority="low">
       interface UseGenStreamOptions {
         api: string;
-        onComplete?: ((spec: import("/Users/mbutler/github/mattbutlerengineeri...;
+        onComplete?: ((spec: import("node_modules/.pnpm/@json-render+core@0.18...;
         onError?: ((error: Error) => void) | undefined;
       }
     </item>
@@ -54,10 +54,10 @@
     </item>
     <item priority="low">
       interface UseSpecsApiReturn {
-        specs: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+        specs: import("apps/gen/src/types").StoredSpec[];
         isLoading: boolean;
         fetchSpecs: () => Promise<void>;
-        saveSpec: (data: import("/Users/mbutler/github/mattbutlerengineerin...;
+        saveSpec: (data: import("apps/gen/src/hooks/useSpecsApi").SaveSpecD...;
         toggleFavorite: (id: string) => Promise<void>;
       }
     </item>
@@ -69,7 +69,7 @@
       interface HistoryEntry {
         id: string;
         prompt: string;
-        spec: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+        spec: import("node_modules/.pnpm/@json-render+core@0.18.0_zod@4...;
         rawLines: string[];
         timestamp: Date;
       }

@@ -1,4 +1,4 @@
-<codebase path="packages/observability">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a61aa827a23409c2c/packages/observability">
   <section priority="medium" role="sentry">
   <file path="src/sentry/config.ts">
     <item priority="low">
@@ -92,7 +92,7 @@
     <item priority="low">
       interface ReadinessSnapshot {
         ready: boolean;
-        checks: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        checks: readonly import("packages/observability/src/readiness").R...;
         timestamp: string;
       }
     </item>

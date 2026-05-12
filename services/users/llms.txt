@@ -1,4 +1,4 @@
-<codebase path="services/users">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a61aa827a23409c2c/services/users">
   <section priority="medium" role="prisma">
   <file path="prisma/seed.ts">
     <item priority="low">

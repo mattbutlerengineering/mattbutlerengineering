@@ -1,4 +1,4 @@
-<codebase path="apps/rialto-web">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a61aa827a23409c2c/apps/rialto-web">
   <section priority="medium" role="CookieConsent">
   <file path="src/components/CookieConsent/useCookieConsent.ts">
     export interface CookiePreferences {

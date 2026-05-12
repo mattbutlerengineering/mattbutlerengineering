@@ -1,4 +1,4 @@
-<codebase path="services/agent">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a61aa827a23409c2c/services/agent">
   <section priority="medium" role="prisma">
   <file path="prisma/seed.ts">
     async function main() {

@@ -1,4 +1,4 @@
-<codebase path="apps/hospitality">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a61aa827a23409c2c/apps/hospitality">
   <section priority="medium" role="constants">
   <file path="src/constants/auth.ts">
     <item priority="low">
@@ -45,7 +45,7 @@
   <file path="src/hooks/use-command-palette.ts">
     <item priority="high">
       interface UseCommandPaletteOptions {
-        sections: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        sections: readonly import("apps/hospitality/src/nav-sections").NavS...;
         navigate: (path: string) => void;
         toggleTheme: () => void;
         signOut: () => void;
@@ -55,7 +55,7 @@
       interface UseCommandPaletteResult {
         open: boolean;
         setOpen: (open: boolean) => void;
-        items: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        items: CommandItem[];
         groups: string[];
       }
     </item>
@@ -63,8 +63,8 @@
   <file path="src/hooks/use-theme.ts">
     <item priority="low">
       interface ThemeContextValue {
-        theme: import("/Users/mbutler/github/mattbutlerengineering/packa...;
-        setTheme: (theme: import("/Users/mbutler/github/mattbutlerengineeri...;
+        theme: ThemePreference;
+        setTheme: (theme: ThemePreference) => void;
       }
     </item>
     <item priority="high">
@@ -107,8 +107,8 @@
     </item>
     <item priority="low">
       interface UseDashboardStatsResult {
-        reservations: readonly import("/Users/mbutler/github/mattbutlerengineer...;
-        stats: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+        reservations: readonly import("packages/types/src/reservation").Reserva...;
+        stats: import("apps/hospitality/src/hooks/useDashboardStats").Da...;
         isLoading: boolean;
         error: string | null;
         refetch: () => Promise<void>;
@@ -121,10 +121,10 @@
     </item>
     <item priority="low">
       interface ReservationEvent {
-        type: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+        type: import("apps/hospitality/src/hooks/useReservationEvents")...;
         venueId: string;
         timestamp: string;
-        data: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        data: import("packages/types/src/reservation").Reservation | im...;
       }
     </item>
   </file>
@@ -135,8 +135,8 @@
     <item priority="low">
       interface VenueReadiness {
         status: "no-venue" | "setup" | "operational";
-        completedSteps: readonly import("/Users/mbutler/github/mattbutlerengineer...;
-        nextStep: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+        completedSteps: readonly import("apps/hospitality/src/hooks/useVenueReadi...;
+        nextStep: import("apps/hospitality/src/hooks/useVenueReadiness").Se...;
         progress: number;
       }
     </item>
@@ -156,7 +156,7 @@
     <item priority="low">
       interface NavSection {
         label?: string | undefined;
-        items: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+        items: import("apps/hospitality/src/nav-sections").NavItem[];
       }
     </item>
   </file>

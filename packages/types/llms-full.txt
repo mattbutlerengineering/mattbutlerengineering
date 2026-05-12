@@ -1,4 +1,4 @@
-<codebase path="packages/types">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a61aa827a23409c2c/packages/types">
   <section priority="medium" role="schemas">
   <file path="src/schemas/agent.ts">
     export const AgentSessionStatusSchema = z.enum([

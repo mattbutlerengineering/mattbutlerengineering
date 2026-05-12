@@ -1,4 +1,4 @@
-<codebase path="services/reservations">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a61aa827a23409c2c/services/reservations">
   <section priority="medium" role="prisma">
   <file path="prisma/seed.ts">
     <item priority="medium">
@@ -19,7 +19,7 @@
     <item priority="medium">
       class EventBuffer {
         maxSize: number;
-        buffer: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        buffer: readonly import("services/reservations/src/services/event...;
         _droppedCount: number;
         async push(): Promise<unknown>;
       }
@@ -98,7 +98,7 @@
         name: string;
         slug: string;
         ianaTimezone: string;
-        settings: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        settings: import("packages/types/src/venue").VenueSettings | null;
       }
     </item>
     <item priority="high">
@@ -126,10 +126,10 @@
     </item>
     <item priority="low">
       interface ReservationEvent {
-        type: import("/Users/mbutler/github/mattbutlerengineering/servi...;
+        type: import("services/reservations/src/services/events").Reser...;
         venueId: string;
         timestamp: string;
-        data: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        data: import("packages/types/src/reservation").Reservation | im...;
       }
     </item>
   </file>
@@ -184,7 +184,7 @@
     <item priority="low">
       interface CreateHoldResult {
         success: boolean;
-        hold?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        hold?: import("packages/types/src/availability").ReservationHold...;
         error?: string | undefined;
       }
     </item>

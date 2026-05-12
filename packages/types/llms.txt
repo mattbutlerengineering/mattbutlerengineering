@@ -1,4 +1,4 @@
-<codebase path="packages/types">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a61aa827a23409c2c/packages/types">
   <section priority="medium" role="schemas">
   <file path="src/schemas/agent.ts">
     <item priority="high">
@@ -78,7 +78,7 @@
     <item priority="low">
       interface AgentSession {
         id: string;
-        status: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        status: import("packages/types/src/agent").AgentSessionStatus;
         taskDescription: string;
         branchName: string | null;
         baseBranch: string;
@@ -89,7 +89,7 @@
     <item priority="low">
       interface ApiResponse {
         data: T;
-        meta?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        meta?: import("packages/types/src/api").ApiMeta | undefined;
       }
     </item>
     <item priority="low">
@@ -104,7 +104,7 @@
       interface TimeSlot {
         time: string;
         available: boolean;
-        tables?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        tables?: import("packages/types/src/availability").AvailableTable[...;
       }
     </item>
     <item priority="low">
@@ -129,7 +129,7 @@
         venueId: string;
         name: string;
         isActive: boolean;
-        layoutJson: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        layoutJson: import("packages/types/src/floor-plan").FloorPlanLayout;
       }
     </item>
     <item priority="low">
@@ -147,7 +147,7 @@
       interface Guest {
         id: string;
         venueId: string;
-        venue?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        venue?: import("packages/types/src/venue").Venue | undefined;
         email: string | null;
         phone: string | null;
       }
@@ -221,7 +221,7 @@
       interface Venue {
         id: string;
         venueGroupId: string | null;
-        venueGroup?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        venueGroup?: import("packages/types/src/venue").VenueGroup | undefined;
         name: string;
         slug: string;
       }

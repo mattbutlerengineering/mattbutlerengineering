@@ -1,4 +1,4 @@
-<codebase path="packages/agent-core">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a61aa827a23409c2c/packages/agent-core">
   <section priority="medium" role="adapters">
   <file path="src/adapters/claude-adapter.ts">
     <item priority="medium">
@@ -45,7 +45,7 @@
       interface BundleSizeEntry {
         app: string;
         totalBytes: number;
-        files: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        files: readonly import("packages/agent-core/src/bundle-size-trac...;
         timestamp: string;
       }
     </item>
@@ -66,7 +66,7 @@
       interface CircuitBreakerOptions {
         failureThreshold: number;
         resetTimeoutMs: number;
-        onStateChange?: ((state: import("/Users/mbutler/github/mattbutlerengineer...;
+        onStateChange?: ((state: import("packages/agent-core/src/circuit-breaker"...;
       }
     </item>
   </file>
@@ -154,7 +154,7 @@
     <item priority="low">
       interface StaticAnalysisResult {
         clean: boolean;
-        violations: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        violations: readonly import("packages/agent-core/src/diff-static-anal...;
         durationMs: number;
       }
     </item>
@@ -199,7 +199,7 @@
     </item>
     <item priority="low">
       interface FailureMemory {
-        records: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        records: readonly import("packages/agent-core/src/failure-memory")...;
       }
     </item>
   </file>
@@ -320,7 +320,7 @@
     </item>
     <item priority="low">
       interface PromptBuilderConfig {
-        sourceFileEntries?: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        sourceFileEntries?: readonly import("packages/agent-core/src/prompt-builder")...;
         relevantLlmsFiles?: readonly string[] | undefined;
         relevantIssueContext?: string | undefined;
         failureContext?: string | undefined;
@@ -342,15 +342,15 @@
       interface QaTuningConfig {
         version: number;
         lastTunedAt: string;
-        thresholds: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        thresholds: import("packages/agent-core/src/qa-tuning-loader").QaTuni...;
       }
     </item>
   </file>
   <file path="src/quality-gates.ts">
     <item priority="low">
       interface QualityGatesResult {
-        evaluation?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
-        securityReview?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        evaluation?: import("packages/agent-core/src/success-evaluator").Evalu...;
+        securityReview?: import("packages/agent-core/src/diff-reviewer").ReviewRes...;
         staticAnalysisClean: boolean;
         errors: string[];
       }
@@ -375,7 +375,7 @@
     </item>
     <item priority="high">
       class RateLimitDetector {
-        states: Map<string, import("/Users/mbutler/github/mattbutlerengin...;
+        states: Map<string, import("packages/agent-core/src/cli-adapter")...;
         cooldownMs: number;
         async markRateLimited(): Promise<unknown>;
         async markSuccess(): Promise<unknown>;
@@ -464,7 +464,7 @@
     </item>
     <item priority="low">
       interface SyntheticBugConfig {
-        type: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        type: import("packages/agent-core/src/synthetic-bug-seeder").Bu...;
         repoPath: string;
         filePath: string;
         fileContent: string;
