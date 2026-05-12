@@ -68,3 +68,12 @@ sdk.start();
 import { createRequestIdMiddleware } from "@mbe/observability";
 app.register(createRequestIdMiddleware());
 ```
+
+## Commands
+
+```bash
+pnpm build        # Compile TypeScript
+pnpm test         # Vitest unit tests
+pnpm lint         # ESLint
+pnpm typecheck    # TypeScript check
+```
