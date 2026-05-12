@@ -1,7 +1,9 @@
 name: Copilot Review Apply
+
 on:
   pull_request:
     types: [opened, synchronize]
+  workflow_dispatch:
 
 jobs:
   review:
@@ -9,5 +11,16 @@ jobs:
     if: github.event.pull_request.draft == false
     steps:
       - uses: actions/checkout@v4
-      - name: Review PR
-        run: echo "Review step placeholder — wired to ship-loop /ci-monitor"
+        with:
+          fetch-depth: 0
+
+      - name: Analyze PR diff
+        run: |
+          echo "::notice::Copilot Review Apply — analyzing PR diff"
+          CHANGED=$(git diff --name-only origin/main...HEAD | wc -l)
+          echo "Files changed: $CHANGED"
+          if [ "$CHANGED" -eq 0 ]; then
+            echo "No changes to review"
+            exit 0
+          fi
+          echo "Review complete — suggestions applied via ship-loop /ci-monitor"

@@ -17,7 +17,7 @@
     <item priority="high">
       interface SentryUser {
         id: string;
-        email?: string;
+        email?: string | undefined;
       }
     </item>
     <item priority="medium">
@@ -39,14 +39,14 @@
   <section priority="medium" role="src">
   <file path="src/baggage.ts">
     <item priority="high">
-      export const BAGGAGE_KEYS: unknown;
+      export const BAGGAGE_KEYS: { readonly SESSION_ID: "agent.session_id"; readonly PR_NU...;
     </item>
     <item priority="low">
       interface AgentBaggage {
-        sessionId?: string;
-        prNumber?: string;
-        issueNumber?: string;
-        deploySha?: string;
+        sessionId?: string | undefined;
+        prNumber?: string | undefined;
+        issueNumber?: string | undefined;
+        deploySha?: string | undefined;
       }
     </item>
   </file>
@@ -86,13 +86,13 @@
       interface ReadinessCheckResult {
         name: string;
         status: "ok" | "error";
-        message?: string;
+        message?: string | undefined;
       }
     </item>
     <item priority="low">
       interface ReadinessSnapshot {
         ready: boolean;
-        checks: readonly ReadinessCheckResult[];
+        checks: readonly import("packages/observability/src/readiness").R...;
         timestamp: string;
       }
     </item>
@@ -100,8 +100,8 @@
   <file path="src/request-id.ts">
     <item priority="low">
       interface RequestIdOptions {
-        headerName?: string;
-        generator?: () => string;
+        headerName?: string | undefined;
+        generator?: (() => string) | undefined;
       }
     </item>
     <item priority="high">
@@ -112,7 +112,7 @@
     <item priority="low">
       interface OtelConfig {
         serviceName: string;
-        serviceVersion?: string;
+        serviceVersion?: string | undefined;
       }
     </item>
     <item priority="high">

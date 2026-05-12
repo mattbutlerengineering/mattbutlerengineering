@@ -1,4 +1,4 @@
-<codebase path="/tmp/acmm-multi-repo-orch/apps/gen">
+<codebase path="apps/gen">
   <section priority="medium" role="e2e">
   <file path="e2e/auth-helpers.ts">
     interface Auth0Config {

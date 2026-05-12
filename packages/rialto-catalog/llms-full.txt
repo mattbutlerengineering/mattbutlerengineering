@@ -1,4 +1,4 @@
-<codebase path="/tmp/acmm-multi-repo-orch/packages/rialto-catalog">
+<codebase path="packages/rialto-catalog">
   <section priority="medium" role="scripts">
   <file path="scripts/generate-catalog.ts">
     interface CharacterLimit {

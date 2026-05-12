@@ -1,4 +1,4 @@
-<codebase path="/tmp/acmm-multi-repo-orch/services/reservations">
+<codebase path="services/reservations">
   <section priority="medium" role="prisma">
   <file path="prisma/seed.ts">
     function todayAt(hours: number, minutes: number): Date {

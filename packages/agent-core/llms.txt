@@ -31,7 +31,7 @@
       type Zone = "marketing" | "hospitality" | "rialto" | "gen" | "api:users" | "api:reservations" | "api:agent";
     </item>
     <item priority="high">
-      export const ZONES: readonly Zone[];
+      export const ZONES: readonly import("packages/agent-core/src/audit-inventory"...;
     </item>
   </file>
   <file path="src/bundle-size-tracker.ts">
@@ -45,7 +45,7 @@
       interface BundleSizeEntry {
         app: string;
         totalBytes: number;
-        files: readonly FileSize[];
+        files: readonly import("packages/agent-core/src/bundle-size-trac...;
         timestamp: string;
       }
     </item>
@@ -66,7 +66,7 @@
       interface CircuitBreakerOptions {
         failureThreshold: number;
         resetTimeoutMs: number;
-        onStateChange?: (state: CircuitState, error?: Error) => void;
+        onStateChange?: ((state: import("packages/agent-core/src/circuit-breaker"...;
       }
     </item>
   </file>
@@ -77,7 +77,7 @@
         worktreePath: string;
         repoPath: string;
         baseBranch: string;
-        model?: string;
+        model?: string | undefined;
       }
     </item>
     <item priority="low">
@@ -85,7 +85,7 @@
         success: boolean;
         hasChanges: boolean;
         rateLimited: boolean;
-        error?: string;
+        error?: string | undefined;
         durationMs: number;
       }
     </item>
@@ -102,7 +102,7 @@
     <item priority="low">
       interface TrivialDepBumpResult {
         isTrivial: boolean;
-        reason?: string;
+        reason?: string | undefined;
       }
     </item>
     <item priority="medium">
@@ -154,7 +154,7 @@
     <item priority="low">
       interface StaticAnalysisResult {
         clean: boolean;
-        violations: readonly Violation[];
+        violations: readonly import("packages/agent-core/src/diff-static-anal...;
         durationMs: number;
       }
     </item>
@@ -192,14 +192,14 @@
       interface FailureRecord {
         taskDescription: string;
         timestamp: string;
-        stuckPattern?: string;
+        stuckPattern?: string | undefined;
         errors: readonly string[];
         approach: string;
       }
     </item>
     <item priority="low">
       interface FailureMemory {
-        records: readonly FailureRecord[];
+        records: readonly import("packages/agent-core/src/failure-memory")...;
       }
     </item>
   </file>
@@ -223,11 +223,11 @@
   </file>
   <file path="src/feedback-prompt-builder.ts">
     <item priority="high">
-      export const CI_LOG_MAX_CHARS: unknown;
+      export const CI_LOG_MAX_CHARS: 500;
     </item>
     <item priority="low">
       interface BuildReviewFixPromptOptions {
-        ciLogMaxChars?: number;
+        ciLogMaxChars?: number | undefined;
       }
     </item>
   </file>
@@ -258,7 +258,7 @@
   </file>
   <file path="src/observability.ts">
     <item priority="high">
-      export const observabilityTracer: Tracer;
+      export const observabilityTracer: import("node_modules/.pnpm/@opentelemetry+api@1.9.1/node_...;
     </item>
     <item priority="medium">
       function containsInOrder(str: string, a: string, b: string): boolean { /* ... */ }
@@ -320,11 +320,11 @@
     </item>
     <item priority="low">
       interface PromptBuilderConfig {
-        sourceFileEntries?: readonly SourceFileEntry[];
-        relevantLlmsFiles?: readonly string[];
-        relevantIssueContext?: string;
-        failureContext?: string;
-        model?: string;
+        sourceFileEntries?: readonly import("packages/agent-core/src/prompt-builder")...;
+        relevantLlmsFiles?: readonly string[] | undefined;
+        relevantIssueContext?: string | undefined;
+        failureContext?: string | undefined;
+        model?: string | undefined;
       }
     </item>
   </file>
@@ -342,15 +342,15 @@
       interface QaTuningConfig {
         version: number;
         lastTunedAt: string;
-        thresholds: QaTuningThresholds;
+        thresholds: import("packages/agent-core/src/qa-tuning-loader").QaTuni...;
       }
     </item>
   </file>
   <file path="src/quality-gates.ts">
     <item priority="low">
       interface QualityGatesResult {
-        evaluation?: EvaluationResult;
-        securityReview?: ReviewResult;
+        evaluation?: import("packages/agent-core/src/success-evaluator").Evalu...;
+        securityReview?: import("packages/agent-core/src/diff-reviewer").ReviewRes...;
         staticAnalysisClean: boolean;
         errors: string[];
       }
@@ -375,7 +375,7 @@
     </item>
     <item priority="high">
       class RateLimitDetector {
-        states: Map<string, AdapterState>;
+        states: Map<string, import("packages/agent-core/src/cli-adapter")...;
         cooldownMs: number;
         async markRateLimited(): Promise<unknown>;
         async markSuccess(): Promise<unknown>;
@@ -404,8 +404,8 @@
         sha: string;
         oneline: string;
         message: string;
-        revertedSha?: string;
-        revertedPrNumber?: number;
+        revertedSha?: string | undefined;
+        revertedPrNumber?: number | undefined;
       }
     </item>
     <item priority="low">
@@ -464,7 +464,7 @@
     </item>
     <item priority="low">
       interface SyntheticBugConfig {
-        type: BugType;
+        type: import("packages/agent-core/src/synthetic-bug-seeder").Bu...;
         repoPath: string;
         filePath: string;
         fileContent: string;
@@ -483,7 +483,7 @@
       }
     </item>
     <item priority="high">
-      export const DEFAULT_ORCHESTRATOR_CONFIG: Omit<OrchestratorConfig, "taskDescription">;
+      export const DEFAULT_ORCHESTRATOR_CONFIG: Omit<import("packages/agent-core/src/task-decomposer").Or...;
     </item>
   </file>
   <file path="src/task-intelligence.ts">
@@ -532,8 +532,8 @@
     <item priority="low">
       interface VerificationResult {
         passed: boolean;
-        logPath?: string;
-        error?: string;
+        logPath?: string | undefined;
+        error?: string | undefined;
       }
     </item>
     <item priority="high">

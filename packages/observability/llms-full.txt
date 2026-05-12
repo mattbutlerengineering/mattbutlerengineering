@@ -1,4 +1,4 @@
-<codebase path="/tmp/acmm-multi-repo-orch/packages/observability">
+<codebase path="packages/observability">
   <section priority="medium" role="sentry">
   <file path="src/sentry/config.ts">
     export interface SentryConfig {

@@ -6,7 +6,7 @@
         venueId: string;
         date: string;
         partySize: number;
-        duration?: number;
+        duration?: number | undefined;
       }
     </item>
     <item priority="low">
@@ -22,15 +22,15 @@
     <item priority="low">
       interface ClientConfig {
         baseUrl: string;
-        getAccessToken?: () => string | null | Promise<string | null>;
-        timeout?: number;
-        maxRetries?: number;
-        onError?: (error: ApiClientError) => void;
+        getAccessToken?: (() => string | Promise<string | null> | null) | undefined;
+        timeout?: number | undefined;
+        maxRetries?: number | undefined;
+        onError?: ((error: import("packages/api-client/src/client").ApiClie...;
       }
     </item>
     <item priority="low">
       interface RequestOptions {
-        signal?: AbortSignal;
+        signal?: AbortSignal | undefined;
       }
     </item>
   </file>
@@ -48,15 +48,15 @@
     <item priority="low">
       interface FindOrCreateGuestRequest {
         venueId: string;
-        email?: string;
-        phone?: string;
+        email?: string | undefined;
+        phone?: string | undefined;
         name: string;
       }
     </item>
     <item priority="low">
       interface ListGuestsParams {
-        page?: number;
-        limit?: number;
+        page?: number | undefined;
+        limit?: number | undefined;
         venueId: string;
       }
     </item>
@@ -75,11 +75,11 @@
   <file path="src/reservations.ts">
     <item priority="low">
       interface ListReservationsParams {
-        page?: number;
-        limit?: number;
-        date?: string;
-        status?: ReservationStatus;
-        tableId?: string;
+        page?: number | undefined;
+        limit?: number | undefined;
+        date?: string | undefined;
+        status?: import("packages/types/src/reservation").ReservationStatu...;
+        tableId?: string | undefined;
       }
     </item>
     <item priority="high">
@@ -96,8 +96,8 @@
       interface StreamConfig {
         url: string;
         body: unknown;
-        headers?: Record<string, string>;
-        signal?: AbortSignal;
+        headers?: Record<string, string> | undefined;
+        signal?: AbortSignal | undefined;
       }
     </item>
     <item priority="high">
@@ -107,10 +107,10 @@
   <file path="src/tables.ts">
     <item priority="low">
       interface ListTablesParams {
-        page?: number;
-        limit?: number;
-        venueId?: string;
-        activeOnly?: boolean;
+        page?: number | undefined;
+        limit?: number | undefined;
+        venueId?: string | undefined;
+        activeOnly?: boolean | undefined;
       }
     </item>
     <item priority="high">

@@ -1,4 +1,4 @@
-<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a61aa827a23409c2c/packages/rialto-catalog">
+<codebase path="packages/rialto-catalog">
   <section priority="medium" role="scripts">
   <file path="scripts/generate-catalog.ts">
     <item priority="high">
@@ -19,21 +19,21 @@
       interface ComponentConfig {
         include: boolean;
         description: string;
-        slots?: string[];
+        slots?: string[] | undefined;
       }
     </item>
     <item priority="high">
-      export const catalogConfig: Record<string, ComponentConfig>;
+      export const catalogConfig: Record<string, import("packages/rialto-catalog/src/catalo...;
     </item>
   </file>
   <file path="src/catalog.ts">
     <item priority="high">
-      export const catalog: unknown;
+      export const catalog: import("node_modules/.pnpm/@json-render+core@0.19.0_zod@4...;
     </item>
   </file>
   <file path="src/generated-schemas.ts">
     <item priority="high">
-      export const generatedSchemas: unknown;
+      export const generatedSchemas: { readonly Accordion: import("node_modules/.pnpm/zod@4.4....;
     </item>
   </file>
   </section>

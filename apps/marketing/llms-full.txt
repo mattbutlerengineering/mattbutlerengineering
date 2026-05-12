@@ -1,4 +1,4 @@
-<codebase path="/tmp/acmm-multi-repo-orch/apps/marketing">
+<codebase path="apps/marketing">
   <section priority="medium" role="data">
   <file path="src/data/projects.ts">
     export interface Project {
