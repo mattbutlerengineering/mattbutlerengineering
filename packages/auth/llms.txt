@@ -5,7 +5,7 @@
       interface AuthPluginOptions {
         authority: string;
         audience: string;
-        excludePaths?: string[] | undefined;
+        excludePaths?: string[];
       }
     </item>
     <item priority="medium">
@@ -30,8 +30,8 @@
         authority: string;
         clientId: string;
         redirectUri: string;
-        postLogoutRedirectUri?: string | undefined;
-        scope?: string | undefined;
+        postLogoutRedirectUri?: string;
+        scope?: string;
       }
     </item>
     <item priority="low">
