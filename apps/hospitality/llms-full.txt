@@ -1,4 +1,4 @@
-<codebase path="apps/hospitality">
+<codebase path="/tmp/acmm-multi-repo-orch/apps/hospitality">
   <section priority="medium" role="constants">
   <file path="src/constants/auth.ts">
     export interface AuthConfigResult {

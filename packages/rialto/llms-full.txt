@@ -1,4 +1,4 @@
-<codebase path="packages/rialto">
+<codebase path="/tmp/acmm-multi-repo-orch/packages/rialto">
   <section priority="medium" role="FlipDot">
   <file path="src/components/FlipDot/pixel-font.ts">
     function decodeBitmaskRow(mask: number): boolean[] {

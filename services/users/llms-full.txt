@@ -1,4 +1,4 @@
-<codebase path="services/users">
+<codebase path="/tmp/acmm-multi-repo-orch/services/users">
   <section priority="medium" role="prisma">
   <file path="prisma/seed.ts">
     async function main() {

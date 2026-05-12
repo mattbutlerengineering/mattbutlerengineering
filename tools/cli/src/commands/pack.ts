@@ -29,10 +29,23 @@ function truncateType(type: string, maxLength = 60): string {
     return type.substring(0, maxLength - 3) + "...";
   }
 
+function normalizeAbsolutePaths(typeText: string, repoRoot: string): string {
+    // Replace machine-specific absolute path prefixes in import() type references
+    // so the generated output is reproducible across environments (Mac, Linux, CI).
+    return typeText.replace(/import\("(\/[^"]*?)"\)/g, (_match, absPath) => {
+      if (absPath.startsWith(repoRoot)) {
+        const relPath = absPath.slice(repoRoot.length + 1);
+        return `import("${relPath}")`;
+      }
+      return `import("${absPath}")`;
+    });
+  }
+
   /**
    * Strips implementation details from a node but keeps signatures.
    */
-  function getSkeleton(node: Node): string {
+  function getSkeleton(node: Node, repoRoot = ""): string {
+    const norm = (t: string) => normalizeAbsolutePaths(t, repoRoot);
     if (Node.isFunctionDeclaration(node) || Node.isMethodDeclaration(node) || Node.isConstructorDeclaration(node)) {
       const body = node.getBody();
       if (body) {
@@ -58,7 +71,7 @@ function truncateType(type: string, maxLength = 60): string {
           return `async ${m.getName() ?? "method"}(): Promise<unknown>;`;
         }
         if (Node.isPropertyDeclaration(m)) {
-          return `${m.getName() ?? "prop"}: ${truncateType(m.getTypeNode()?.getText() ?? "unknown")};`;
+          return `${m.getName() ?? "prop"}: ${truncateType(norm(m.getType().getText()))};`;
         }
         return "";
       }).filter(Boolean).join("\n  ");
@@ -68,7 +81,7 @@ function truncateType(type: string, maxLength = 60): string {
     if (Node.isInterfaceDeclaration(node)) {
       const name = node.getName() || "Anonymous";
       const props = node.getProperties().slice(0, 5).map(p => {
-        return `${p.getName()}${p.hasQuestionToken() ? "?" : ""}: ${truncateType(p.getTypeNode()?.getText() ?? "unknown")};`;
+        return `${p.getName()}${p.hasQuestionToken() ? "?" : ""}: ${truncateType(norm(p.getType().getText()))};`;
       }).join("\n  ");
       return `interface ${name} {\n  ${props}\n}`;
     }
@@ -94,7 +107,7 @@ function truncateType(type: string, maxLength = 60): string {
         const declarations = node.getDeclarations();
         const declsText = declarations.map(d => {
           const name = d.getName();
-          const type = truncateType(d.getTypeNode()?.getText() ?? "unknown");
+          const type = truncateType(norm(d.getType().getText()));
           const initializer = d.getInitializer();
           if (initializer && (Node.isObjectLiteralExpression(initializer) || Node.isArrayLiteralExpression(initializer))) {
             return `export const ${name}: ${type};`;
@@ -170,7 +183,7 @@ function detectPriority(statement: Node): "high" | "medium" | "low" {
             Node.isFunctionDeclaration(statement) ||
             (Node.isVariableStatement(statement) && statement.isExported())
         ) {
-          const skeleton = getSkeleton(statement);
+          const skeleton = getSkeleton(statement, root);
           const full = statement.getText();
           const priority = detectPriority(statement);
           

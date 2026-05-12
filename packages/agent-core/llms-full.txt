@@ -1,4 +1,4 @@
-<codebase path="packages/agent-core">
+<codebase path="/tmp/acmm-multi-repo-orch/packages/agent-core">
   <section priority="medium" role="adapters">
   <file path="src/adapters/claude-adapter.ts">
     function detectRateLimitInError(message: string): boolean {
