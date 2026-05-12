@@ -1,0 +1,13 @@
+name: Copilot Review Apply
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Review PR
+        run: echo "Review step placeholder — wired to ship-loop /ci-monitor"
