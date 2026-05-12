@@ -1,6 +1,7 @@
 name: Auto-Rollback on Agent Regression
 
 on:
+  workflow_dispatch:
   workflow_run:
     workflows: ["Post-Deploy Check"]
     types:
