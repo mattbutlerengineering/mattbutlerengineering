@@ -88,11 +88,11 @@ mbe audit-perf             # Audit agent performance trends
 
 ## Deterministic `mbe pack` output
 
-The `pack` command generates `llms.txt` skeletons using ts-morph AST analysis. To ensure cross-platform deterministic output (critical for CI integrity checks on Linux):
+The `pack` command must produce identical `llms.txt` on macOS and Linux (CI). Three rules ensure this:
 
-1. **Sort glob results**: `(await glob(...)).sort()` — filesystem order differs between macOS and Linux
-2. **Sort sections**: `[...sections.entries()].sort(([a], [b]) => a.localeCompare(b))` — Map insertion order depends on iteration order
-3. **Use source types not resolved types**: `getTypeNode()?.getText() ?? "unknown"` instead of `getType().getText()` — resolved types contain absolute filesystem paths (`/Users/...` vs `/home/runner/...`)
+1. **Sort glob results**: `(await glob(...)).sort()` — filesystem order differs between platforms
+2. **Sort sections**: `[...sections.entries()].sort(([a], [b]) => a.localeCompare(b))`
+3. **Use source types not resolved types**: `getTypeNode()?.getText() ?? "unknown"` — resolved types contain absolute fs paths (`/Users/...` vs `/home/runner/...`)
 
 ## Adding a New Command
 

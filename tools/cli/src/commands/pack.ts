@@ -95,10 +95,6 @@ function truncateType(type: string, maxLength = 60): string {
         const declsText = declarations.map(d => {
           const name = d.getName();
           const type = truncateType(d.getTypeNode()?.getText() ?? "unknown");
-          const initializer = d.getInitializer();
-          if (initializer && (Node.isObjectLiteralExpression(initializer) || Node.isArrayLiteralExpression(initializer))) {
-            return `export const ${name}: ${type};`;
-          }
           return `export const ${name}: ${type};`;
         }).join("\n");
         return declsText;
