@@ -58,7 +58,7 @@ function truncateType(type: string, maxLength = 60): string {
           return `async ${m.getName() ?? "method"}(): Promise<unknown>;`;
         }
         if (Node.isPropertyDeclaration(m)) {
-          return `${m.getName() ?? "prop"}: ${truncateType(m.getType().getText())};`;
+          return `${m.getName() ?? "prop"}: ${truncateType(m.getTypeNode()?.getText() ?? "unknown")};`;
         }
         return "";
       }).filter(Boolean).join("\n  ");
@@ -68,7 +68,7 @@ function truncateType(type: string, maxLength = 60): string {
     if (Node.isInterfaceDeclaration(node)) {
       const name = node.getName() || "Anonymous";
       const props = node.getProperties().slice(0, 5).map(p => {
-        return `${p.getName()}${p.hasQuestionToken() ? "?" : ""}: ${truncateType(p.getType().getText())};`;
+        return `${p.getName()}${p.hasQuestionToken() ? "?" : ""}: ${truncateType(p.getTypeNode()?.getText() ?? "unknown")};`;
       }).join("\n  ");
       return `interface ${name} {\n  ${props}\n}`;
     }
@@ -94,11 +94,7 @@ function truncateType(type: string, maxLength = 60): string {
         const declarations = node.getDeclarations();
         const declsText = declarations.map(d => {
           const name = d.getName();
-          const type = truncateType(d.getType().getText());
-          const initializer = d.getInitializer();
-          if (initializer && (Node.isObjectLiteralExpression(initializer) || Node.isArrayLiteralExpression(initializer))) {
-            return `export const ${name}: ${type};`;
-          }
+          const type = truncateType(d.getTypeNode()?.getText() ?? "unknown");
           return `export const ${name}: ${type};`;
         }).join("\n");
         return declsText;
