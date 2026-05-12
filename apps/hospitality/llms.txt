@@ -16,7 +16,7 @@
   </file>
   <file path="src/constants/copilotContext.ts">
     <item priority="high">
-      export const HOSPITALITY_DOMAIN_CONTEXT: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+      export const HOSPITALITY_DOMAIN_CONTEXT: DomainContext;
     </item>
   </file>
   </section>
@@ -37,7 +37,7 @@
   </file>
   <file path="e2e/fixtures.ts">
     <item priority="high">
-      export const test: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+      export const test: unknown;
     </item>
   </file>
   </section>
@@ -68,7 +68,7 @@
       }
     </item>
     <item priority="high">
-      export const ThemeContext: React.Context<import("/Users/mbutler/github/mattbutlereng...;
+      export const ThemeContext: unknown;
     </item>
   </file>
   <file path="src/hooks/useApiCall.ts">

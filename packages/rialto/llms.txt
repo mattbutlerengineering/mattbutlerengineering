@@ -129,7 +129,7 @@
       }
     </item>
     <item priority="high">
-      export const UIEnvironmentContext: React.Context<import("/Users/mbutler/github/mattbutlereng...;
+      export const UIEnvironmentContext: unknown;
     </item>
   </file>
   <file path="src/providers/vibes.ts">
@@ -152,7 +152,7 @@
       }
     </item>
     <item priority="high">
-      export const characterLimits: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+      export const characterLimits: CharacterLimit[];
     </item>
   </file>
   <file path="scripts/generate-exports.ts">
@@ -233,7 +233,7 @@
   <section priority="medium" role="SplitFlap">
   <file path="src/components/SplitFlap/charset.ts">
     <item priority="high">
-      export const CHARSETS: { readonly alpha: " ABCDEFGHIJKLMNOPQRSTUVWXYZ"; readonly...;
+      export const CHARSETS: unknown;
     </item>
     <item priority="low">
       type CharsetName = keyof typeof CHARSETS;
@@ -257,7 +257,7 @@
           "reservationA...;
     </item>
     <item priority="high">
-      export const DEFAULT_STRINGS: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+      export const DEFAULT_STRINGS: ResolvedStrings;
     </item>
   </file>
   <file path="src/components/TapeChart/types.ts">
@@ -315,7 +315,7 @@
   <section priority="medium" role="tokens">
   <file path="src/tokens/icons.ts">
     <item priority="high">
-      export const iconCategories: readonly ["navigation", "actions", "communication", "stat...;
+      export const iconCategories: unknown;
     </item>
     <item priority="low">
       type IconCategory = (typeof iconCategories)[number];
@@ -323,10 +323,10 @@
   </file>
   <file path="src/tokens/motion.ts">
     <item priority="high">
-      export const ms: (s: React.CSSProperties) => import("/Users/mbutler/github...;
+      export const ms: unknown;
     </item>
     <item priority="high">
-      export const precision: { duration: number; ease: readonly [0.2, 0, 0, 1]; };
+      export const precision: unknown;
     </item>
   </file>
   </section>

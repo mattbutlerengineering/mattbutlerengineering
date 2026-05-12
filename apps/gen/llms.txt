@@ -16,7 +16,7 @@
   </file>
   <file path="e2e/fixtures.ts">
     <item priority="high">
-      export const test: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+      export const test: unknown;
     </item>
   </file>
   </section>

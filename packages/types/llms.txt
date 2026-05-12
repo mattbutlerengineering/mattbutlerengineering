@@ -2,39 +2,39 @@
   <section priority="medium" role="schemas">
   <file path="src/schemas/agent.ts">
     <item priority="high">
-      export const AgentSessionStatusSchema: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+      export const AgentSessionStatusSchema: unknown;
     </item>
     <item priority="high">
-      export const AgentSessionSchema: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+      export const AgentSessionSchema: unknown;
     </item>
   </file>
   <file path="src/schemas/api.ts">
     <item priority="high">
-      export const ProblemDetailsSchema: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+      export const ProblemDetailsSchema: unknown;
     </item>
   </file>
   <file path="src/schemas/common.ts">
     <item priority="high">
-      export const PaginationSchema: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+      export const PaginationSchema: unknown;
     </item>
     <item priority="high">
-      export const ErrorResponseSchema: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+      export const ErrorResponseSchema: unknown;
     </item>
   </file>
   <file path="src/schemas/floor-plan.ts">
     <item priority="high">
-      export const TableShapeMetadataSchema: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+      export const TableShapeMetadataSchema: unknown;
     </item>
     <item priority="high">
-      export const FloorPlanLayoutSchema: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+      export const FloorPlanLayoutSchema: unknown;
     </item>
   </file>
   <file path="src/schemas/guest.ts">
     <item priority="high">
-      export const GuestSchema: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+      export const GuestSchema: unknown;
     </item>
     <item priority="high">
-      export const GuestSegmentSchema: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+      export const GuestSegmentSchema: unknown;
     </item>
   </file>
   <file path="src/schemas/json-schema.ts">
@@ -47,26 +47,26 @@
   </file>
   <file path="src/schemas/reservation.ts">
     <item priority="high">
-      export const ReservationStatusSchema: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+      export const ReservationStatusSchema: unknown;
     </item>
     <item priority="high">
-      export const ReservationSchema: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+      export const ReservationSchema: unknown;
     </item>
   </file>
   <file path="src/schemas/user.ts">
     <item priority="high">
-      export const UserPreferencesSchema: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+      export const UserPreferencesSchema: unknown;
     </item>
     <item priority="high">
-      export const UserSchema: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+      export const UserSchema: unknown;
     </item>
   </file>
   <file path="src/schemas/venue.ts">
     <item priority="high">
-      export const DayScheduleSchema: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+      export const DayScheduleSchema: unknown;
     </item>
     <item priority="high">
-      export const VenueGroupSchema: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+      export const VenueGroupSchema: unknown;
     </item>
   </file>
   </section>

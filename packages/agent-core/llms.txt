@@ -31,7 +31,7 @@
       type Zone = "marketing" | "hospitality" | "rialto" | "gen" | "api:users" | "api:reservations" | "api:agent";
     </item>
     <item priority="high">
-      export const ZONES: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+      export const ZONES: readonly Zone[];
     </item>
   </file>
   <file path="src/bundle-size-tracker.ts">
@@ -223,7 +223,7 @@
   </file>
   <file path="src/feedback-prompt-builder.ts">
     <item priority="high">
-      export const CI_LOG_MAX_CHARS: 500;
+      export const CI_LOG_MAX_CHARS: unknown;
     </item>
     <item priority="low">
       interface BuildReviewFixPromptOptions {
@@ -258,7 +258,7 @@
   </file>
   <file path="src/observability.ts">
     <item priority="high">
-      export const observabilityTracer: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+      export const observabilityTracer: Tracer;
     </item>
     <item priority="medium">
       function containsInOrder(str: string, a: string, b: string): boolean { /* ... */ }
@@ -483,7 +483,7 @@
       }
     </item>
     <item priority="high">
-      export const DEFAULT_ORCHESTRATOR_CONFIG: Omit<import("/Users/mbutler/github/mattbutlerengineering/...;
+      export const DEFAULT_ORCHESTRATOR_CONFIG: Omit<OrchestratorConfig, "taskDescription">;
     </item>
   </file>
   <file path="src/task-intelligence.ts">
