@@ -44,10 +44,10 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "@changesets/changelog-github": "^0.6.0",
+    "@changesets/changelog-github": "^0.7.0",
     "@changesets/cli": "^2.31.0",
     "@lhci/cli": "^0.15.1",
-    "@playwright/test": "^1.59.1",
+    "@playwright/test": "^1.60.0",
     "@size-limit/file": "^12.1.0",
     "@stryker-mutator/core": "^9.6.1",
     "@stryker-mutator/vitest-runner": "^9.6.1",
@@ -55,7 +55,7 @@
     "husky": "^9.1.7",
     "lint-staged": "^17.0.4",
     "size-limit": "^12.1.0",
-    "turbo": "^2.9.9",
+    "turbo": "^2.9.12",
     "vitest": "catalog:"
   },
   "lint-staged": {
