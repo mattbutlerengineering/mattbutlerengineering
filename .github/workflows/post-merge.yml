@@ -1,0 +1,65 @@
+name: Post-Merge Reconciliation
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: post-merge-reconciliation
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate:
+    name: Regenerate Generated Files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: true
+
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build CLI
+        run: pnpm build --filter @mbe/cli...
+
+      - name: Regenerate llms.txt files
+        run: |
+          for pkg in packages/* apps/* services/*; do
+            if [ -f "$pkg/llms.txt" ]; then
+              echo "Regenerating $pkg..."
+              node tools/cli/dist/index.js pack "$pkg"
+            fi
+          done
+
+      - name: Regenerate dep-graph
+        run: node scripts/generate-dep-graph.mjs
+
+      - name: Regenerate component registry
+        run: pnpm --filter @mattbutlerengineering/rialto build:registry
+
+      - name: Regenerate rialto catalog
+        run: pnpm --filter @mbe/rialto-catalog generate
+
+      - name: Regenerate architecture graph
+        run: pnpm graph
+
+      - name: Commit and push if changed
+        run: |
+          git diff --quiet && exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: regenerate generated files [skip ci]"
+          git push
