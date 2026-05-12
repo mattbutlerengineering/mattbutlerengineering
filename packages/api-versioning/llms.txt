@@ -4,8 +4,8 @@
     <item priority="low">
       interface ApiVersioningOptions {
         currentVersion: string;
-        successorVersion?: string;
-        sunsetMonthsFromNow?: number;
+        successorVersion?: string | undefined;
+        sunsetMonthsFromNow?: number | undefined;
       }
     </item>
   </file>
