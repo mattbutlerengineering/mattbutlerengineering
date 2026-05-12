@@ -19,7 +19,7 @@
       interface ComponentConfig {
         include: boolean;
         description: string;
-        slots?: string[] | undefined;
+        slots?: string[];
       }
     </item>
     <item priority="high">

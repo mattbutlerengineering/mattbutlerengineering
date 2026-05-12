@@ -107,7 +107,11 @@ function normalizeAbsolutePaths(typeText: string, repoRoot: string): string {
         const declarations = node.getDeclarations();
         const declsText = declarations.map(d => {
           const name = d.getName();
-          const type = truncateType(d.getTypeNode()?.getText() ?? "unknown");
+          const type = truncateType(norm(d.getType().getText()));
+          const initializer = d.getInitializer();
+          if (initializer && (Node.isObjectLiteralExpression(initializer) || Node.isArrayLiteralExpression(initializer))) {
+            return `export const ${name}: ${type};`;
+          }
           return `export const ${name}: ${type};`;
         }).join("\n");
         return declsText;

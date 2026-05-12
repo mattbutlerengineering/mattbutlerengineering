@@ -28,6 +28,12 @@ pnpm typecheck      # Run tsc across workspace
 pnpm clean          # Wipe artifacts and node_modules
 ```
 
+### Multi-Repo Orchestration
+```bash
+node scripts/orchestrate-multi.mjs --repo <url> --task "<task>" [--branch <name>] [--script <path>] [--dry-run]
+```
+Clones a downstream repo, creates a feature branch, applies changes, commits, pushes, and opens a PR. Used for coordinating cross-repo changes (ACMM L6). See `node scripts/orchestrate-multi.mjs --help` and `docs/acmm/multi-repo-orchestration.md`.
+
 ## Development Flow with Metrics & Continuous Improvement
 
 The continuous-improvement loop (audit → fix → ship → verify) runs as **slash-skills** for Claude Code, or `mbe` CLI subcommands for other tools. See [CLAUDE.md](./CLAUDE.md#continuous-improvement-loop-ship-loop) for the full skill catalog and scheduling.

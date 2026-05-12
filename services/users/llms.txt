@@ -90,7 +90,7 @@
     </item>
     <item priority="low">
       interface AppOptions {
-        logger?: boolean | object | undefined;
+        logger?: boolean | object;
       }
     </item>
   </file>

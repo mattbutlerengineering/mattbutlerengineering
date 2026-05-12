@@ -1,4 +1,4 @@
-<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a61aa827a23409c2c/packages/rialto">
+<codebase path="packages/rialto">
   <section priority="medium" role="FlipDot">
   <file path="src/components/FlipDot/pixel-font.ts">
     <item priority="medium">
@@ -14,11 +14,11 @@
     </item>
     <item priority="low">
       interface UseFlipDotAnimationOptions {
-        text?: string | undefined;
-        frames?: readonly (readonly (readonly boolean[])[])[] | undefined;
+        text?: string;
+        frames?: readonly (readonly (readonly boolean[])[])[];
         rows: number;
         cols: number;
-        mode?: import("packages/rialto/src/components/FlipDot/use-flip-d...;
+        mode?: FlipDotAnimationMode;
       }
     </item>
   </file>
@@ -26,7 +26,7 @@
     <item priority="high">
       interface UseFlipDotSoundOptions {
         enabled: boolean;
-        volume?: number | undefined;
+        volume?: number;
       }
     </item>
     <item priority="high">
@@ -46,9 +46,9 @@
       interface UseGenCopilotStreamOptions {
         api: string;
         domainContext: DomainContext;
-        getAccessToken: () => string | Promise<string | null> | null;
-        onComplete?: ((spec: import("node_modules/.pnpm/@json-render+core@0.18...;
-        onError?: ((error: Error) => void) | undefined;
+        getAccessToken: () => string | null | Promise<string | null>;
+        onComplete?: (spec: Spec) => void;
+        onError?: (error: Error) => void;
       }
     </item>
   </file>
@@ -65,9 +65,9 @@
   <file path="src/hooks/useScrollReveal.ts">
     <item priority="high">
       interface UseScrollRevealOptions {
-        margin?: string | undefined;
-        once?: boolean | undefined;
-        fallbackTimeout?: number | undefined;
+        margin?: string;
+        once?: boolean;
+        fallbackTimeout?: number;
       }
     </item>
     <item priority="high">
@@ -114,17 +114,17 @@
     <item priority="high">
       interface MediaEntry {
         query: string;
-        key: keyof import("packages/rialto/src/providers/useDeviceCont...;
-        matchValue: boolean | "fine" | "coarse" | "mobile" | "tablet" | "desk...;
-        noMatchValue: boolean | "fine" | "coarse" | "mobile" | "tablet" | "desk...;
+        key: keyof DeviceContext;
+        matchValue: DeviceContext[keyof DeviceContext];
+        noMatchValue: DeviceContext[keyof DeviceContext];
       }
     </item>
   </file>
   <file path="src/providers/useUIEnvironment.ts">
     <item priority="low">
       interface UIEnvironment {
-        device: import("packages/rialto/src/providers/useDeviceContext")....;
-        vibe: import("packages/rialto/src/providers/vibes").VibeName;
+        device: DeviceContext;
+        vibe: VibeName;
         theme: "light" | "dark";
       }
     </item>
@@ -158,9 +158,9 @@
   <file path="scripts/generate-exports.ts">
     <item priority="high">
       interface ExportEntry {
-        types?: string | undefined;
-        import?: string | undefined;
-        default?: string | undefined;
+        types?: string;
+        import?: string;
+        default?: string;
       }
     </item>
     <item priority="high">
@@ -172,7 +172,7 @@
       interface DtcgToken {
         $value: string | number;
         $type: string;
-        $description?: string | undefined;
+        $description?: string;
       }
     </item>
     <item priority="high">
@@ -187,8 +187,8 @@
         name: string;
         type: string;
         required: boolean;
-        default?: string | undefined;
-        description?: string | undefined;
+        default?: string;
+        description?: string;
       }
     </item>
     <item priority="high">
@@ -205,8 +205,8 @@
         name: string;
         type: string;
         required: boolean;
-        default?: string | undefined;
-        description?: string | undefined;
+        default?: string;
+        description?: string;
       }
     </item>
     <item priority="high">
@@ -275,7 +275,7 @@
         dayNumeric: (iso: string) => string;
         dayLong: (iso: string) => string;
         monthYearLong: (iso: string) => string;
-        currency: (minorUnits: number, currencyCode?: string | undefined) =...;
+        currency: (minorUnits: number, currencyCode?: string) => string;
       }
     </item>
     <item priority="high">
@@ -305,9 +305,9 @@
       interface ToastData {
         id: string;
         title: string;
-        description?: string | undefined;
-        variant?: import("packages/rialto/src/components/Toast/ToastContext...;
-        duration?: number | undefined;
+        description?: string;
+        variant?: ToastVariant;
+        duration?: number;
       }
     </item>
   </file>

@@ -31,16 +31,16 @@
     <item priority="high">
       interface OrchestrateBody {
         taskDescription: string;
-        model?: string | undefined;
-        sessionModel?: string | undefined;
-        maxBudgetPerSession?: number | undefined;
-        maxTurnsPerSession?: number | undefined;
+        model?: string;
+        sessionModel?: string;
+        maxBudgetPerSession?: number;
+        maxTurnsPerSession?: number;
       }
     </item>
     <item priority="high">
       interface OrchestrateResponse {
         parentSessionId: string;
-        status: "succeeded" | "failed" | "partially_succeeded";
+        status: OrchestratorResult["status"];
         childSessionIds: readonly string[];
         summary: string;
         totalCostUsd: number;
@@ -84,10 +84,16 @@
     <item priority="high">
       interface GitHubIssueEvent {
         action: string;
-        label?: { name: string; } | undefined;
-        issue: { number: number; title: string; body: string | null; htm...;
-        repository: { full_name: string; default_branch: string; };
-        sender: { login: string; type: string; };
+        label?: { name: string };
+        issue: {
+          number: number;
+          title: string;
+          body: string...;
+        repository: {
+          full_name: string;
+          default_branch: string;
+        };
+        sender: { login: string; type: string };
       }
     </item>
   </file>
@@ -146,7 +152,7 @@
     <item priority="low">
       interface CircuitCheckResult {
         allowed: boolean;
-        reason?: string | undefined;
+        reason?: string;
       }
     </item>
   </file>
@@ -188,7 +194,7 @@
     </item>
     <item priority="low">
       interface AppOptions {
-        logger?: boolean | object | undefined;
+        logger?: boolean | object;
       }
     </item>
   </file>

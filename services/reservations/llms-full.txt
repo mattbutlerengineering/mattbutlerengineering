@@ -1,4 +1,4 @@
-<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a61aa827a23409c2c/services/reservations">
+<codebase path="/tmp/acmm-multi-repo-orch/services/reservations">
   <section priority="medium" role="prisma">
   <file path="prisma/seed.ts">
     function todayAt(hours: number, minutes: number): Date {

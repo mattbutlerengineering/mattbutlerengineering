@@ -1,4 +1,4 @@
-<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a61aa827a23409c2c/apps/gen">
+<codebase path="apps/gen">
   <section priority="medium" role="e2e">
   <file path="e2e/auth-helpers.ts">
     <item priority="high">
@@ -28,8 +28,8 @@
     <item priority="low">
       interface UseGenStreamOptions {
         api: string;
-        onComplete?: ((spec: import("node_modules/.pnpm/@json-render+core@0.18...;
-        onError?: ((error: Error) => void) | undefined;
+        onComplete?: (spec: Spec, rawLines: string[]) => void;
+        onError?: (error: Error) => void;
       }
     </item>
   </file>
@@ -54,10 +54,10 @@
     </item>
     <item priority="low">
       interface UseSpecsApiReturn {
-        specs: import("apps/gen/src/types").StoredSpec[];
+        specs: StoredSpec[];
         isLoading: boolean;
         fetchSpecs: () => Promise<void>;
-        saveSpec: (data: import("apps/gen/src/hooks/useSpecsApi").SaveSpecD...;
+        saveSpec: (data: SaveSpecData) => Promise<StoredSpec>;
         toggleFavorite: (id: string) => Promise<void>;
       }
     </item>
@@ -69,7 +69,7 @@
       interface HistoryEntry {
         id: string;
         prompt: string;
-        spec: import("node_modules/.pnpm/@json-render+core@0.18.0_zod@4...;
+        spec: Spec;
         rawLines: string[];
         timestamp: Date;
       }

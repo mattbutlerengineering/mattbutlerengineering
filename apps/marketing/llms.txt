@@ -6,7 +6,7 @@
         title: string;
         description: string;
         tags: string[];
-        href?: string | undefined;
+        href?: string;
       }
     </item>
     <item priority="high">
