@@ -92,7 +92,7 @@
     <item priority="low">
       interface ReadinessSnapshot {
         ready: boolean;
-        checks: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        checks: readonly import("/home/user/mattbutlerengineering/package...;
         timestamp: string;
       }
     </item>

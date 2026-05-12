@@ -25,7 +25,7 @@
         getAccessToken?: (() => string | Promise<string | null> | null) | undefined;
         timeout?: number | undefined;
         maxRetries?: number | undefined;
-        onError?: ((error: import("/Users/mbutler/github/mattbutlerengineer...;
+        onError?: ((error: import("/home/user/mattbutlerengineering/package...;
       }
     </item>
     <item priority="low">
@@ -78,7 +78,7 @@
         page?: number | undefined;
         limit?: number | undefined;
         date?: string | undefined;
-        status?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        status?: import("/home/user/mattbutlerengineering/packages/types/s...;
         tableId?: string | undefined;
       }
     </item>

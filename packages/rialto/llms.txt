@@ -18,7 +18,7 @@
         frames?: readonly (readonly (readonly boolean[])[])[] | undefined;
         rows: number;
         cols: number;
-        mode?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        mode?: import("/home/user/mattbutlerengineering/packages/rialto/...;
       }
     </item>
   </file>
@@ -47,7 +47,7 @@
         api: string;
         domainContext: DomainContext;
         getAccessToken: () => string | Promise<string | null> | null;
-        onComplete?: ((spec: import("/Users/mbutler/github/mattbutlerengineeri...;
+        onComplete?: ((spec: import("/home/user/mattbutlerengineering/node_mod...;
         onError?: ((error: Error) => void) | undefined;
       }
     </item>
@@ -114,7 +114,7 @@
     <item priority="high">
       interface MediaEntry {
         query: string;
-        key: keyof import("/Users/mbutler/github/mattbutlerengineering...;
+        key: keyof import("/home/user/mattbutlerengineering/packages/r...;
         matchValue: boolean | "fine" | "coarse" | "mobile" | "tablet" | "desk...;
         noMatchValue: boolean | "fine" | "coarse" | "mobile" | "tablet" | "desk...;
       }
@@ -123,13 +123,13 @@
   <file path="src/providers/useUIEnvironment.ts">
     <item priority="low">
       interface UIEnvironment {
-        device: import("/Users/mbutler/github/mattbutlerengineering/packa...;
-        vibe: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        device: import("/home/user/mattbutlerengineering/packages/rialto/...;
+        vibe: import("/home/user/mattbutlerengineering/packages/rialto/...;
         theme: "light" | "dark";
       }
     </item>
     <item priority="high">
-      export const UIEnvironmentContext: React.Context<import("/Users/mbutler/github/mattbutlereng...;
+      export const UIEnvironmentContext: React.Context<import("/home/user/mattbutlerengineering/pa...;
     </item>
   </file>
   <file path="src/providers/vibes.ts">
@@ -152,7 +152,7 @@
       }
     </item>
     <item priority="high">
-      export const characterLimits: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+      export const characterLimits: import("/home/user/mattbutlerengineering/packages/rialto/...;
     </item>
   </file>
   <file path="scripts/generate-exports.ts">
@@ -257,7 +257,7 @@
           "reservationA...;
     </item>
     <item priority="high">
-      export const DEFAULT_STRINGS: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+      export const DEFAULT_STRINGS: import("/home/user/mattbutlerengineering/packages/rialto/...;
     </item>
   </file>
   <file path="src/components/TapeChart/types.ts">
@@ -306,7 +306,7 @@
         id: string;
         title: string;
         description?: string | undefined;
-        variant?: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        variant?: import("/home/user/mattbutlerengineering/packages/rialto/...;
         duration?: number | undefined;
       }
     </item>
@@ -323,7 +323,7 @@
   </file>
   <file path="src/tokens/motion.ts">
     <item priority="high">
-      export const ms: (s: React.CSSProperties) => import("/Users/mbutler/github...;
+      export const ms: (s: React.CSSProperties) => import("/home/user/mattbutler...;
     </item>
     <item priority="high">
       export const precision: { duration: number; ease: readonly [0.2, 0, 0, 1]; };

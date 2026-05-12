@@ -16,7 +16,7 @@
   </file>
   <file path="src/constants/copilotContext.ts">
     <item priority="high">
-      export const HOSPITALITY_DOMAIN_CONTEXT: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+      export const HOSPITALITY_DOMAIN_CONTEXT: DomainContext;
     </item>
   </file>
   </section>
@@ -37,7 +37,7 @@
   </file>
   <file path="e2e/fixtures.ts">
     <item priority="high">
-      export const test: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+      export const test: import("/home/user/mattbutlerengineering/node_modules/.pn...;
     </item>
   </file>
   </section>
@@ -45,7 +45,7 @@
   <file path="src/hooks/use-command-palette.ts">
     <item priority="high">
       interface UseCommandPaletteOptions {
-        sections: readonly import("/Users/mbutler/github/mattbutlerengineer...;
+        sections: readonly import("/home/user/mattbutlerengineering/apps/ho...;
         navigate: (path: string) => void;
         toggleTheme: () => void;
         signOut: () => void;
@@ -55,7 +55,7 @@
       interface UseCommandPaletteResult {
         open: boolean;
         setOpen: (open: boolean) => void;
-        items: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        items: CommandItem[];
         groups: string[];
       }
     </item>
@@ -63,12 +63,12 @@
   <file path="src/hooks/use-theme.ts">
     <item priority="low">
       interface ThemeContextValue {
-        theme: import("/Users/mbutler/github/mattbutlerengineering/packa...;
-        setTheme: (theme: import("/Users/mbutler/github/mattbutlerengineeri...;
+        theme: ThemePreference;
+        setTheme: (theme: ThemePreference) => void;
       }
     </item>
     <item priority="high">
-      export const ThemeContext: React.Context<import("/Users/mbutler/github/mattbutlereng...;
+      export const ThemeContext: React.Context<import("/home/user/mattbutlerengineering/ap...;
     </item>
   </file>
   <file path="src/hooks/useApiCall.ts">
@@ -107,8 +107,8 @@
     </item>
     <item priority="low">
       interface UseDashboardStatsResult {
-        reservations: readonly import("/Users/mbutler/github/mattbutlerengineer...;
-        stats: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+        reservations: readonly import("/home/user/mattbutlerengineering/package...;
+        stats: import("/home/user/mattbutlerengineering/apps/hospitality...;
         isLoading: boolean;
         error: string | null;
         refetch: () => Promise<void>;
@@ -121,10 +121,10 @@
     </item>
     <item priority="low">
       interface ReservationEvent {
-        type: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+        type: import("/home/user/mattbutlerengineering/apps/hospitality...;
         venueId: string;
         timestamp: string;
-        data: import("/Users/mbutler/github/mattbutlerengineering/packa...;
+        data: import("/home/user/mattbutlerengineering/packages/types/s...;
       }
     </item>
   </file>
@@ -135,8 +135,8 @@
     <item priority="low">
       interface VenueReadiness {
         status: "no-venue" | "setup" | "operational";
-        completedSteps: readonly import("/Users/mbutler/github/mattbutlerengineer...;
-        nextStep: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+        completedSteps: readonly import("/home/user/mattbutlerengineering/apps/ho...;
+        nextStep: import("/home/user/mattbutlerengineering/apps/hospitality...;
         progress: number;
       }
     </item>
@@ -156,7 +156,7 @@
     <item priority="low">
       interface NavSection {
         label?: string | undefined;
-        items: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+        items: import("/home/user/mattbutlerengineering/apps/hospitality...;
       }
     </item>
   </file>

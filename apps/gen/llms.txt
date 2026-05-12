@@ -16,7 +16,7 @@
   </file>
   <file path="e2e/fixtures.ts">
     <item priority="high">
-      export const test: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+      export const test: import("/home/user/mattbutlerengineering/node_modules/.pn...;
     </item>
   </file>
   </section>
@@ -28,7 +28,7 @@
     <item priority="low">
       interface UseGenStreamOptions {
         api: string;
-        onComplete?: ((spec: import("/Users/mbutler/github/mattbutlerengineeri...;
+        onComplete?: ((spec: import("/home/user/mattbutlerengineering/node_mod...;
         onError?: ((error: Error) => void) | undefined;
       }
     </item>
@@ -54,10 +54,10 @@
     </item>
     <item priority="low">
       interface UseSpecsApiReturn {
-        specs: import("/Users/mbutler/github/mattbutlerengineering/apps/...;
+        specs: import("/home/user/mattbutlerengineering/apps/gen/src/typ...;
         isLoading: boolean;
         fetchSpecs: () => Promise<void>;
-        saveSpec: (data: import("/Users/mbutler/github/mattbutlerengineerin...;
+        saveSpec: (data: import("/home/user/mattbutlerengineering/apps/gen/...;
         toggleFavorite: (id: string) => Promise<void>;
       }
     </item>
@@ -69,7 +69,7 @@
       interface HistoryEntry {
         id: string;
         prompt: string;
-        spec: import("/Users/mbutler/github/mattbutlerengineering/node_...;
+        spec: import("/home/user/mattbutlerengineering/node_modules/.pn...;
         rawLines: string[];
         timestamp: Date;
       }
