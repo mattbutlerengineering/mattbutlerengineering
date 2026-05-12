@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-05-12T05:20:32.523Z",
+  "lastRun": "2026-05-12T17:04:37.928Z",
   "currentLevel": 3,
   "checks": {
     "acmm:prereq-test-suite": {
@@ -7,8 +7,8 @@
       "evidence": "detected at one of: vitest.config.ts, vitest.config.js, jest.config.js, jest.config.ts, go.mod, pytest.ini, pyproject.toml"
     },
     "acmm:prereq-e2e": {
-      "passed": true,
-      "evidence": "detected at one of: playwright.config.ts, playwright.config.js, cypress.config.ts, cypress.config.js, e2e/, tests/e2e/"
+      "passed": false,
+      "evidence": "none of: playwright.config.ts, playwright.config.js, cypress.config.ts, cypress.config.js, e2e/, tests/e2e/"
     },
     "acmm:prereq-cicd": {
       "passed": true,
@@ -123,12 +123,12 @@
       "evidence": "detected at one of: .github/auto-qa-tuning.json, .github/qa-tuning.yml"
     },
     "acmm:nightly-compliance": {
-      "passed": false,
-      "evidence": "file present but no recent successful run: .github/workflows/nightly-compliance.yml"
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/nightly-compliance.yml, .github/workflows/nightly.yml, .github/workflows/nightly-test.yml, .github/workflows/nightly-test-suite.yml"
     },
     "acmm:copilot-review-apply": {
-      "passed": false,
-      "evidence": "file not found: .github/workflows/copilot-review-apply.yml"
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/copilot-review-apply.yml, .github/workflows/ai-fix.yml"
     },
     "acmm:auto-label": {
       "passed": true,
@@ -171,8 +171,8 @@
       "evidence": "detected at one of: CLAUDE.md"
     },
     "acmm:session-continuity": {
-      "passed": false,
-      "evidence": "none of: .claude/session-summary.md (contains: \\d{4}-\\d{2}-\\d{2})"
+      "passed": true,
+      "evidence": "detected at one of: .claude/session-summary.md (contains: \\d{4}-\\d{2}-\\d{2})"
     },
     "acmm:cross-session-knowledge": {
       "passed": true,
@@ -187,16 +187,16 @@
       "evidence": "detected at one of: .github/workflows/"
     },
     "acmm:instruction-sync-gate": {
-      "passed": false,
-      "evidence": "file present but no recent successful run: .github/workflows/ci.yml"
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/ci.yml"
     },
     "acmm:component-registry-integrity": {
-      "passed": false,
-      "evidence": "file present but no recent successful run: .github/workflows/ci.yml"
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/ci.yml"
     },
     "acmm:instruction-rot-detection": {
-      "passed": false,
-      "evidence": "file present but no recent successful run: .github/workflows/ci.yml"
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/ci.yml"
     },
     "acmm:feedback-loops": {
       "passed": true,
@@ -211,8 +211,8 @@
       "evidence": "detected at one of: .claude/preferences.json (contains: \"priority\":\\s*\"(critical|high|medium|low)\")"
     },
     "acmm:task-ledger": {
-      "passed": false,
-      "evidence": "none of: .claude/task-log.jsonl (contains: ^\\{\"timestamp\")"
+      "passed": true,
+      "evidence": "detected at one of: .claude/task-log.jsonl (contains: ^\\{\"timestamp\")"
     },
     "acmm:mcp-server-config": {
       "passed": true,
@@ -227,8 +227,8 @@
       "evidence": "detected at one of: .claude/acmm/onboarding-benchmark.json (contains: \"results\")"
     },
     "acmm:repo-bench": {
-      "passed": false,
-      "evidence": "none of: .claude/acmm/repo-bench-results.json (contains: \"results\")"
+      "passed": true,
+      "evidence": "detected at one of: .claude/acmm/repo-bench-results.json (contains: \"results\")"
     },
     "acmm:github-actions-ai": {
       "passed": true,
@@ -239,8 +239,8 @@
       "evidence": "detected at one of: .github/workflows/auto-qa.yml, .github/auto-qa-tuning.json"
     },
     "acmm:public-metrics": {
-      "passed": false,
-      "evidence": "none of: .github/workflows/pr-metrics.yml (contains: pages)"
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/pr-metrics.yml (contains: pages)"
     },
     "acmm:policy-as-code": {
       "passed": true,
@@ -251,8 +251,8 @@
       "evidence": "detected at one of: docs/reflections/, memory/, .memory/, REFLECTIONS.md"
     },
     "acmm:periodic-reflection": {
-      "passed": false,
-      "evidence": "file present but no recent successful run: .github/workflows/reflection-review.yml"
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/reflection-review.yml"
     },
     "acmm:audit-trail": {
       "passed": true,
@@ -299,8 +299,8 @@
       "evidence": "detected at one of: docs/acmm/review-burden.md"
     },
     "acmm:auto-issue-gen": {
-      "passed": false,
-      "evidence": "file present but no recent successful run: .github/workflows/auto-issue.yml"
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/auto-issue.yml, .github/workflows/issue-gen.yml, .github/workflows/auto-generate-issues.yml"
     },
     "acmm:multi-agent-orchestration": {
       "passed": true,
@@ -319,8 +319,8 @@
       "evidence": "detected at one of: risk-config.json, .claude/risk-config.json, .github/risk-assessment.yml"
     },
     "acmm:production-feedback": {
-      "passed": false,
-      "evidence": "file present but no recent successful run: .github/workflows/production-feedback.yml"
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/production-feedback.yml"
     },
     "acmm:observability-runbook": {
       "passed": true,
@@ -347,12 +347,12 @@
       "evidence": "detected at one of: .github/workflows/ci.yml (contains: pnpm --dir packages/rialto vitest .* accessibility)"
     },
     "acmm:auto-rollback": {
-      "passed": false,
-      "evidence": "file present but no recent successful run: .github/workflows/auto-rollback.yml"
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/auto-rollback.yml, docs/acmm/auto-rollback.md"
     },
     "acmm:multi-repo-orchestration": {
-      "passed": false,
-      "evidence": "none of: docs/acmm/multi-repo-orchestration.md (contains: Executed: \\d{4}-\\d{2}-\\d{2})"
+      "passed": true,
+      "evidence": "detected at one of: docs/acmm/multi-repo-orchestration.md (contains: Executed: \\d{4}-\\d{2}-\\d{2})"
     },
     "fullsend:test-coverage": {
       "passed": true,
@@ -493,7 +493,7 @@
     {
       "date": "2026-05-12",
       "level": 3,
-      "detected": 94,
+      "detected": 107,
       "total": 108
     }
   ],
@@ -504,11 +504,10 @@
     "acmm:instruction-rot-detection": 1265,
     "acmm:repo-bench": 1266
   },
-  "levelName": "Measured / Enforced",
-  "role": "Analyst",
+  "levelName": "Fully Autonomous",
+  "role": "Strategist",
   "detectedIds": [
     "acmm:prereq-test-suite",
-    "acmm:prereq-e2e",
     "acmm:prereq-cicd",
     "acmm:prereq-pr-template",
     "acmm:prereq-issue-template",
@@ -537,6 +536,8 @@
     "acmm:session-summary",
     "acmm:structural-gates",
     "acmm:auto-qa-tuning",
+    "acmm:nightly-compliance",
+    "acmm:copilot-review-apply",
     "acmm:auto-label",
     "acmm:ai-fix-workflow",
     "acmm:tier-classifier",
@@ -547,19 +548,27 @@
     "acmm:structured-rca",
     "acmm:multi-perspective-review",
     "acmm:idempotent-workflows",
+    "acmm:session-continuity",
     "acmm:cross-session-knowledge",
     "acmm:cross-repo-skills",
     "acmm:github-coordination",
+    "acmm:instruction-sync-gate",
+    "acmm:component-registry-integrity",
+    "acmm:instruction-rot-detection",
     "acmm:feedback-loops",
     "acmm:claude-md-auto-sync",
     "acmm:preference-index",
+    "acmm:task-ledger",
     "acmm:mcp-server-config",
     "acmm:code-graph",
     "acmm:onboarding-benchmark",
+    "acmm:repo-bench",
     "acmm:github-actions-ai",
     "acmm:auto-qa-self-tuning",
+    "acmm:public-metrics",
     "acmm:policy-as-code",
     "acmm:reflection-log",
+    "acmm:periodic-reflection",
     "acmm:audit-trail",
     "acmm:explanation-standards",
     "acmm:self-correction-metric",
@@ -571,16 +580,20 @@
     "acmm:override-analytics",
     "acmm:ai-compliance-doc",
     "acmm:review-burden",
+    "acmm:auto-issue-gen",
     "acmm:multi-agent-orchestration",
     "acmm:merge-queue",
     "acmm:strategic-dashboard",
     "acmm:risk-assessment-config",
+    "acmm:production-feedback",
     "acmm:observability-runbook",
     "acmm:rollback-drill",
     "acmm:feedback-loop-inventory",
     "acmm:budget-policy",
     "acmm:token-tracking",
     "acmm:accessibility-ai-check",
+    "acmm:auto-rollback",
+    "acmm:multi-repo-orchestration",
     "fullsend:test-coverage",
     "fullsend:ci-cd-maturity",
     "fullsend:auto-merge-policy",
@@ -605,15 +618,15 @@
   "computation": {
     "level": 3,
     "strict": true,
-    "levelName": "Measured / Enforced",
-    "role": "Analyst",
-    "characteristic": "Rules mechanically enforced via hooks, CI, and permission gates. The team instruments the AI loop with acceptance rate, coverage, and review density.",
+    "levelName": "Fully Autonomous",
+    "role": "Strategist",
+    "characteristic": "The system acts on what it finds — generates issues, merges PRs, rolls back failures. Humans set policy and audit after the fact.",
     "detectedByLevel": {
       "2": 3,
-      "3": 5,
-      "4": 11,
-      "5": 15,
-      "6": 5
+      "3": 6,
+      "4": 16,
+      "5": 16,
+      "6": 8
     },
     "requiredByLevel": {
       "2": 3,
@@ -622,101 +635,11 @@
       "5": 16,
       "6": 8
     },
-    "missingForNextLevel": [
-      {
-        "id": "acmm:nightly-compliance",
-        "source": "acmm",
-        "level": 4,
-        "category": "feedback-loop",
-        "name": "Nightly compliance scan",
-        "description": "Scheduled workflow that re-validates the codebase against its rules every night.",
-        "rationale": "L4 drift detection: noticing when the loop itself has broken.",
-        "details": "A nightly compliance scan is a scheduled CI workflow that runs your full test suite, linters, and security checks on a cron schedule (typically every night). It catches regressions that slip through PR-level checks — like a dependency update that passes its own tests but breaks an unrelated feature. An AI mission will add a nightly GitHub Actions workflow that runs your complete validation pipeline and opens issues on failure.",
-        "detection": {
-          "type": "active",
-          "pattern": [
-            ".github/workflows/nightly-compliance.yml",
-            ".github/workflows/nightly.yml",
-            ".github/workflows/nightly-test.yml",
-            ".github/workflows/nightly-test-suite.yml"
-          ],
-          "maxAgeDays": 7
-        }
-      },
-      {
-        "id": "acmm:copilot-review-apply",
-        "source": "acmm",
-        "level": 4,
-        "category": "feedback-loop",
-        "name": "Automated review application",
-        "description": "Workflow that applies AI-review suggestions automatically to PRs.",
-        "rationale": "L4 action-taking: the loop closes when suggestions become commits without human intervention.",
-        "details": "Automated review application is a workflow that takes AI-generated review comments and applies the suggested fixes directly as commits on the PR branch. Instead of a human reading \"change X to Y\" and making the edit, the system does it automatically. This is L4 because the feedback loop acts on its own output. An AI mission will add a workflow that parses review bot suggestions and commits the fixes.",
-        "detection": {
-          "type": "active",
-          "pattern": [
-            ".github/workflows/copilot-review-apply.yml",
-            ".github/workflows/ai-fix.yml"
-          ],
-          "maxAgeDays": 30
-        }
-      },
-      {
-        "id": "acmm:component-registry-integrity",
-        "source": "acmm",
-        "level": 4,
-        "category": "governance",
-        "name": "Component registry integrity",
-        "description": "Mechanized check ensuring the component registry (registry.json) is in sync with source exports.",
-        "rationale": "AI tools rely on accurate metadata to discover and use components correctly.",
-        "details": "A CI check verifies that `registry.json` is up to date by regenerating it and checking for diffs. This ensures that the component catalog used by AI researchers and executors never drifts from reality.",
-        "detection": {
-          "type": "active",
-          "pattern": [
-            ".github/workflows/ci.yml"
-          ],
-          "maxAgeDays": 7
-        }
-      },
-      {
-        "id": "acmm:instruction-rot-detection",
-        "source": "acmm",
-        "level": 4,
-        "category": "feedback-loop",
-        "name": "Instruction rot detection",
-        "description": "Automated detection of dead links and stale package references in instruction files.",
-        "rationale": "Instructions with dead links or deleted package references confuse AI agents and waste context.",
-        "details": "A script scans `CLAUDE.md`, `AGENTS.md`, and `llms.txt` for internal links to non-existent files or references to deleted packages, failing the build on detection.",
-        "detection": {
-          "type": "active",
-          "pattern": [
-            ".github/workflows/ci.yml"
-          ],
-          "maxAgeDays": 7
-        }
-      },
-      {
-        "id": "acmm:repo-bench",
-        "source": "acmm",
-        "level": 4,
-        "category": "readiness",
-        "name": "Repo benchmark",
-        "description": "Seeded-bug benchmark that measures AI capability on this specific codebase.",
-        "rationale": "L4 signal: acceptance rate is binary; benchmarks show capability progression and model comparison.",
-        "details": "A repo benchmark injects known bugs (missing imports, wrong status codes, type errors) and measures how many turns and how long the AI takes to fix them. This enables model comparison and tracks capability improvement over time.",
-        "detection": {
-          "type": "grep",
-          "pattern": {
-            "file": ".claude/acmm/repo-bench-results.json",
-            "contains": "\"results\""
-          }
-        }
-      }
-    ],
-    "nextTransitionTrigger": "\"I want the system to decide what work to do next.\"",
-    "antiPattern": "Dashboard graveyard: building measurement no one acts on. A metric that does not change a workflow is overhead, not maturity.",
+    "missingForNextLevel": [],
+    "nextTransitionTrigger": null,
+    "antiPattern": "Mistaking autonomy for abandonment: an autonomous codebase still needs a strategist to set direction, or it drifts toward local optima.",
     "prerequisites": {
-      "met": 8,
+      "met": 7,
       "total": 8
     },
     "crossCutting": {
@@ -775,7 +698,8 @@
         "dataAvailable": true
       }
     ],
-    "capped": false
+    "capped": true,
+    "computedLevel": 6
   },
   "behavioral": {
     "flake": {
@@ -812,11 +736,11 @@
         }
       },
       "status": "green",
-      "measured_at": "2026-05-12T05:20:32.522Z"
+      "measured_at": "2026-05-12T17:04:37.927Z"
     },
     "auto_qa_tuning": {
       "history_count": 2,
-      "measured_at": "2026-05-12T05:20:32.522Z"
+      "measured_at": "2026-05-12T17:04:37.927Z"
     }
   },
   "levelCap": 3,
