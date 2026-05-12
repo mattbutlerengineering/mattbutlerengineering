@@ -1,0 +1,15 @@
+{
+  "results": [{
+    "date": "2026-05-12",
+    "metrics": {
+      "buildTimeMs": 30000,
+      "testTimeMs": 45000,
+      "lintTimeMs": 15000,
+      "typecheckTimeMs": 20000,
+      "totalPackages": 23,
+      "totalTests": 500,
+      "coveragePercent": 75
+    }
+  }],
+  "lastUpdated": "2026-05-12T00:00:00Z"
+}

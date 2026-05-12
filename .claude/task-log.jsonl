@@ -13,3 +13,5 @@
 #
 # Example:
 # {"timestamp":"2026-05-01T10:00:00Z","taskId":"a1b2c3d4","intent":"Fix login redirect bug","inputs":{"branch":"fix/login-redirect","files":["src/auth.ts"],"issueNumber":42,"model":"claude-sonnet-4-6","budget":1.0},"outputs":{"filesChanged":2,"testsRun":8,"testsPassed":8,"prNumber":43,"commitSha":"abc1234"},"status":"success","duration":120,"error":null}
+{"timestamp":"2026-05-12T04:28:00Z","task":"fix-ci-lockfile-sync","status":"completed","model":"claude-opus-4-6","costUsd":0.15}
+{"timestamp":"2026-05-12T04:35:00Z","task":"merge-conflict-resolution","status":"completed","model":"claude-sonnet-4-6","costUsd":0.08}
