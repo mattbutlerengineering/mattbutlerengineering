@@ -1,4 +1,4 @@
-<codebase path="apps/hospitality">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a61aa827a23409c2c/apps/hospitality">
   <section priority="medium" role="constants">
   <file path="src/constants/auth.ts">
     export interface AuthConfigResult {

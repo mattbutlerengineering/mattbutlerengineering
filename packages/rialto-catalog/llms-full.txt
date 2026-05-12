@@ -1,4 +1,4 @@
-<codebase path="packages/rialto-catalog">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a61aa827a23409c2c/packages/rialto-catalog">
   <section priority="medium" role="scripts">
   <file path="scripts/generate-catalog.ts">
     interface CharacterLimit {

@@ -1,4 +1,4 @@
-<codebase path="packages/types">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a61aa827a23409c2c/packages/types">
   <section priority="medium" role="schemas">
   <file path="src/schemas/agent.ts">
     <item priority="high">
@@ -78,7 +78,7 @@
     <item priority="low">
       interface AgentSession {
         id: string;
-        status: AgentSessionStatus;
+        status: import("packages/types/src/agent").AgentSessionStatus;
         taskDescription: string;
         branchName: string | null;
         baseBranch: string;
@@ -89,13 +89,13 @@
     <item priority="low">
       interface ApiResponse {
         data: T;
-        meta?: ApiMeta;
+        meta?: import("packages/types/src/api").ApiMeta | undefined;
       }
     </item>
     <item priority="low">
       interface ApiMeta {
         timestamp: string;
-        requestId?: string;
+        requestId?: string | undefined;
       }
     </item>
   </file>
@@ -104,7 +104,7 @@
       interface TimeSlot {
         time: string;
         available: boolean;
-        tables?: AvailableTable[];
+        tables?: import("packages/types/src/availability").AvailableTable[...;
       }
     </item>
     <item priority="low">
@@ -129,16 +129,16 @@
         venueId: string;
         name: string;
         isActive: boolean;
-        layoutJson: FloorPlanLayout;
+        layoutJson: import("packages/types/src/floor-plan").FloorPlanLayout;
       }
     </item>
     <item priority="low">
       interface FloorPlanLayout {
         width: number;
         height: number;
-        backgroundImage?: string;
-        gridSize?: number;
-        showGrid?: boolean;
+        backgroundImage?: string | undefined;
+        gridSize?: number | undefined;
+        showGrid?: boolean | undefined;
       }
     </item>
   </file>
@@ -147,7 +147,7 @@
       interface Guest {
         id: string;
         venueId: string;
-        venue?: Venue;
+        venue?: import("packages/types/src/venue").Venue | undefined;
         email: string | null;
         phone: string | null;
       }
@@ -155,10 +155,10 @@
     <item priority="low">
       interface CreateGuestRequest {
         venueId: string;
-        email?: string;
-        phone?: string;
+        email?: string | undefined;
+        phone?: string | undefined;
         name: string;
-        notes?: string;
+        notes?: string | undefined;
       }
     </item>
   </file>
@@ -173,28 +173,28 @@
   <file path="src/schema-compat.ts">
     <item priority="high">
       interface JsonSchemaProperty {
-        type?: string;
-        enum?: readonly unknown[];
-        nullable?: boolean;
-        description?: string;
+        type?: string | undefined;
+        enum?: readonly unknown[] | undefined;
+        nullable?: boolean | undefined;
+        description?: string | undefined;
         example?: unknown;
       }
     </item>
     <item priority="high">
       interface JsonSchema {
-        $id?: string;
-        type?: string;
-        properties?: Record<string, JsonSchemaProperty>;
-        required?: readonly string[];
+        $id?: string | undefined;
+        type?: string | undefined;
+        properties?: Record<string, JsonSchemaProperty> | undefined;
+        required?: readonly string[] | undefined;
       }
     </item>
   </file>
   <file path="src/user.ts">
     <item priority="low">
       interface UserPreferences {
-        theme?: "light" | "dark" | "system";
-        emailNotifications?: boolean;
-        marketingEmails?: boolean;
+        theme?: "light" | "dark" | "system" | undefined;
+        emailNotifications?: boolean | undefined;
+        marketingEmails?: boolean | undefined;
       }
     </item>
     <item priority="low">
@@ -221,7 +221,7 @@
       interface Venue {
         id: string;
         venueGroupId: string | null;
-        venueGroup?: VenueGroup;
+        venueGroup?: import("packages/types/src/venue").VenueGroup | undefined;
         name: string;
         slug: string;
       }

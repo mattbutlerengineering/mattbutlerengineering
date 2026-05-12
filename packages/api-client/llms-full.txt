@@ -1,4 +1,4 @@
-<codebase path="packages/api-client">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a61aa827a23409c2c/packages/api-client">
   <section priority="medium" role="src">
   <file path="src/availability.ts">
     export interface GetTimeSlotsParams {

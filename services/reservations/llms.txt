@@ -1,4 +1,4 @@
-<codebase path="services/reservations">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a61aa827a23409c2c/services/reservations">
   <section priority="medium" role="prisma">
   <file path="prisma/seed.ts">
     <item priority="medium">
@@ -19,8 +19,8 @@
     <item priority="medium">
       class EventBuffer {
         maxSize: number;
-        buffer: readonly ReservationEvent[];
-        _droppedCount: unknown;
+        buffer: readonly import("services/reservations/src/services/event...;
+        _droppedCount: number;
         async push(): Promise<unknown>;
       }
     </item>
@@ -98,7 +98,7 @@
         name: string;
         slug: string;
         ianaTimezone: string;
-        settings: VenueSettings | null;
+        settings: import("packages/types/src/venue").VenueSettings | null;
       }
     </item>
     <item priority="high">
@@ -126,10 +126,10 @@
     </item>
     <item priority="low">
       interface ReservationEvent {
-        type: ReservationEventType;
+        type: import("services/reservations/src/services/events").Reser...;
         venueId: string;
         timestamp: string;
-        data: Reservation | Table | ReservationHold | FloorPlan;
+        data: import("packages/types/src/reservation").Reservation | im...;
       }
     </item>
   </file>
@@ -184,8 +184,8 @@
     <item priority="low">
       interface CreateHoldResult {
         success: boolean;
-        hold?: ReservationHold;
-        error?: string;
+        hold?: import("packages/types/src/availability").ReservationHold...;
+        error?: string | undefined;
       }
     </item>
   </file>
@@ -258,7 +258,7 @@
     </item>
     <item priority="low">
       interface AppOptions {
-        logger?: boolean | object;
+        logger?: boolean | object | undefined;
       }
     </item>
   </file>

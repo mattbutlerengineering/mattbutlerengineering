@@ -1,4 +1,4 @@
-<codebase path="apps/rialto-web">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a61aa827a23409c2c/apps/rialto-web">
   <section priority="medium" role="CookieConsent">
   <file path="src/components/CookieConsent/useCookieConsent.ts">
     <item priority="low">
@@ -12,7 +12,7 @@
     <item priority="high">
       interface ConsentState {
         consented: boolean;
-        preferences: CookiePreferences;
+        preferences: import("apps/rialto-web/src/components/CookieConsent/useC...;
       }
     </item>
   </file>
@@ -24,13 +24,13 @@
         id: string;
         label: string;
         path: string;
-        comingSoon?: boolean;
+        comingSoon?: boolean | undefined;
       }
     </item>
     <item priority="low">
       interface NavSection {
         label: string;
-        items: NavItem[];
+        items: import("apps/rialto-web/src/data/nav-sections").NavItem[];
       }
     </item>
   </file>
@@ -56,10 +56,10 @@
     </item>
     <item priority="high">
       interface DriverContextValue {
-        drivers: Driver[];
-        getDriver: (id: string) => Driver | undefined;
-        addDriver: (driver: Omit<Driver, "id">) => Driver;
-        updateDriver: (id: string, updates: Partial<Omit<Driver, "id">>) => void;
+        drivers: import("apps/rialto-web/src/pages/drivers/DriverContext")...;
+        getDriver: (id: string) => import("apps/rialto-web/src/pages/drivers...;
+        addDriver: (driver: Omit<import("apps/rialto-web/src/pages/drivers/D...;
+        updateDriver: (id: string, updates: Partial<Omit<import("apps/rialto-we...;
         deleteDriver: (id: string) => void;
       }
     </item>

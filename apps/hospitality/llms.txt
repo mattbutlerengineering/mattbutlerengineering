@@ -1,12 +1,10 @@
-<codebase path="apps/hospitality">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a61aa827a23409c2c/apps/hospitality">
   <section priority="medium" role="constants">
   <file path="src/constants/auth.ts">
     <item priority="low">
       interface AuthConfigResult {
         valid: true;
-        config: {
-          readonly authority: string;
-          readonly clientId: ...;
+        config: { readonly authority: string; readonly clientId: string; ...;
       }
     </item>
     <item priority="low">
@@ -47,7 +45,7 @@
   <file path="src/hooks/use-command-palette.ts">
     <item priority="high">
       interface UseCommandPaletteOptions {
-        sections: readonly NavSection[];
+        sections: readonly import("apps/hospitality/src/nav-sections").NavS...;
         navigate: (path: string) => void;
         toggleTheme: () => void;
         signOut: () => void;
@@ -76,7 +74,7 @@
   <file path="src/hooks/useApiCall.ts">
     <item priority="low">
       interface UseApiCallOptions {
-        timeout?: number;
+        timeout?: number | undefined;
       }
     </item>
     <item priority="low">
@@ -109,8 +107,8 @@
     </item>
     <item priority="low">
       interface UseDashboardStatsResult {
-        reservations: readonly Reservation[];
-        stats: DashboardStats;
+        reservations: readonly import("packages/types/src/reservation").Reserva...;
+        stats: import("apps/hospitality/src/hooks/useDashboardStats").Da...;
         isLoading: boolean;
         error: string | null;
         refetch: () => Promise<void>;
@@ -123,10 +121,10 @@
     </item>
     <item priority="low">
       interface ReservationEvent {
-        type: ReservationEventType;
+        type: import("apps/hospitality/src/hooks/useReservationEvents")...;
         venueId: string;
         timestamp: string;
-        data: Reservation | Table | ReservationHold;
+        data: import("packages/types/src/reservation").Reservation | im...;
       }
     </item>
   </file>
@@ -137,8 +135,8 @@
     <item priority="low">
       interface VenueReadiness {
         status: "no-venue" | "setup" | "operational";
-        completedSteps: readonly SetupStep[];
-        nextStep: SetupStep | null;
+        completedSteps: readonly import("apps/hospitality/src/hooks/useVenueReadi...;
+        nextStep: import("apps/hospitality/src/hooks/useVenueReadiness").Se...;
         progress: number;
       }
     </item>
@@ -151,14 +149,14 @@
         id: string;
         label: string;
         path: string;
-        stepStatus?: "completed" | "current" | "locked";
-        disabled?: boolean;
+        stepStatus?: "completed" | "current" | "locked" | undefined;
+        disabled?: boolean | undefined;
       }
     </item>
     <item priority="low">
       interface NavSection {
-        label?: string;
-        items: NavItem[];
+        label?: string | undefined;
+        items: import("apps/hospitality/src/nav-sections").NavItem[];
       }
     </item>
   </file>
