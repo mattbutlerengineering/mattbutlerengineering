@@ -120,6 +120,9 @@ importers:
       '@stryker-mutator/vitest-runner':
         specifier: ^9.6.1
         version: 9.6.1(@stryker-mutator/core@9.6.1(@types/node@25.7.0))(vitest@4.1.6)
+      esbuild:
+        specifier: ^0.27.7
+        version: 0.27.7
       glob:
         specifier: ^13.0.6
         version: 13.0.6
