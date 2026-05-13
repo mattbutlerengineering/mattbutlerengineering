@@ -329,20 +329,12 @@ jobs:
 
       - name: Check instruction sync (llms.txt)
         run: |
-          failed=0
           for pkg in packages/* apps/* services/*; do
             if [ -f "$pkg/llms.txt" ]; then
               echo "Checking $pkg..."
-              if ! node tools/cli/dist/index.js pack "$pkg" --check; then
-                failed=1
-                echo "--- diff for $pkg ---"
-                node tools/cli/dist/index.js pack "$pkg" 2>/dev/null
-                git --no-pager diff --color=always "$pkg/llms.txt" || true
-                echo "--- end diff ---"
-              fi
+              node tools/cli/dist/index.js pack "$pkg" --check
             fi
           done
-          [ "$failed" -eq 0 ] || exit 1
 
       - name: Check for instruction rot
         run: node scripts/detect-instruction-rot.mjs

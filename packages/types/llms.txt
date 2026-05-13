@@ -2,39 +2,39 @@
   <section priority="medium" role="schemas">
   <file path="src/schemas/agent.ts">
     <item priority="high">
-      export const AgentSessionStatusSchema: import("node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/...;
+      export const AgentSessionStatusSchema: unknown;
     </item>
     <item priority="high">
-      export const AgentSessionSchema: import("node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/...;
+      export const AgentSessionSchema: unknown;
     </item>
   </file>
   <file path="src/schemas/api.ts">
     <item priority="high">
-      export const ProblemDetailsSchema: import("node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/...;
+      export const ProblemDetailsSchema: unknown;
     </item>
   </file>
   <file path="src/schemas/common.ts">
     <item priority="high">
-      export const PaginationSchema: import("node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/...;
+      export const PaginationSchema: unknown;
     </item>
     <item priority="high">
-      export const ErrorResponseSchema: import("node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/...;
+      export const ErrorResponseSchema: unknown;
     </item>
   </file>
   <file path="src/schemas/floor-plan.ts">
     <item priority="high">
-      export const TableShapeMetadataSchema: import("node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/...;
+      export const TableShapeMetadataSchema: unknown;
     </item>
     <item priority="high">
-      export const FloorPlanLayoutSchema: import("node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/...;
+      export const FloorPlanLayoutSchema: unknown;
     </item>
   </file>
   <file path="src/schemas/guest.ts">
     <item priority="high">
-      export const GuestSchema: import("node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/...;
+      export const GuestSchema: unknown;
     </item>
     <item priority="high">
-      export const GuestSegmentSchema: import("node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/...;
+      export const GuestSegmentSchema: unknown;
     </item>
   </file>
   <file path="src/schemas/json-schema.ts">
@@ -47,26 +47,26 @@
   </file>
   <file path="src/schemas/reservation.ts">
     <item priority="high">
-      export const ReservationStatusSchema: import("node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/...;
+      export const ReservationStatusSchema: unknown;
     </item>
     <item priority="high">
-      export const ReservationSchema: import("node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/...;
+      export const ReservationSchema: unknown;
     </item>
   </file>
   <file path="src/schemas/user.ts">
     <item priority="high">
-      export const UserPreferencesSchema: import("node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/...;
+      export const UserPreferencesSchema: unknown;
     </item>
     <item priority="high">
-      export const UserSchema: import("node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/...;
+      export const UserSchema: unknown;
     </item>
   </file>
   <file path="src/schemas/venue.ts">
     <item priority="high">
-      export const DayScheduleSchema: import("node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/...;
+      export const DayScheduleSchema: unknown;
     </item>
     <item priority="high">
-      export const VenueGroupSchema: import("node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/...;
+      export const VenueGroupSchema: unknown;
     </item>
   </file>
   </section>
@@ -78,7 +78,7 @@
     <item priority="low">
       interface AgentSession {
         id: string;
-        status: import("packages/types/src/agent").AgentSessionStatus;
+        status: AgentSessionStatus;
         taskDescription: string;
         branchName: string | null;
         baseBranch: string;
@@ -89,13 +89,13 @@
     <item priority="low">
       interface ApiResponse {
         data: T;
-        meta?: import("packages/types/src/api").ApiMeta | undefined;
+        meta?: ApiMeta;
       }
     </item>
     <item priority="low">
       interface ApiMeta {
         timestamp: string;
-        requestId?: string | undefined;
+        requestId?: string;
       }
     </item>
   </file>
@@ -104,7 +104,7 @@
       interface TimeSlot {
         time: string;
         available: boolean;
-        tables?: import("packages/types/src/availability").AvailableTable[...;
+        tables?: AvailableTable[];
       }
     </item>
     <item priority="low">
@@ -129,16 +129,16 @@
         venueId: string;
         name: string;
         isActive: boolean;
-        layoutJson: import("packages/types/src/floor-plan").FloorPlanLayout;
+        layoutJson: FloorPlanLayout;
       }
     </item>
     <item priority="low">
       interface FloorPlanLayout {
         width: number;
         height: number;
-        backgroundImage?: string | undefined;
-        gridSize?: number | undefined;
-        showGrid?: boolean | undefined;
+        backgroundImage?: string;
+        gridSize?: number;
+        showGrid?: boolean;
       }
     </item>
   </file>
@@ -147,7 +147,7 @@
       interface Guest {
         id: string;
         venueId: string;
-        venue?: import("packages/types/src/venue").Venue | undefined;
+        venue?: Venue;
         email: string | null;
         phone: string | null;
       }
@@ -155,10 +155,10 @@
     <item priority="low">
       interface CreateGuestRequest {
         venueId: string;
-        email?: string | undefined;
-        phone?: string | undefined;
+        email?: string;
+        phone?: string;
         name: string;
-        notes?: string | undefined;
+        notes?: string;
       }
     </item>
   </file>
@@ -173,28 +173,28 @@
   <file path="src/schema-compat.ts">
     <item priority="high">
       interface JsonSchemaProperty {
-        type?: string | undefined;
-        enum?: readonly unknown[] | undefined;
-        nullable?: boolean | undefined;
-        description?: string | undefined;
+        type?: string;
+        enum?: readonly unknown[];
+        nullable?: boolean;
+        description?: string;
         example?: unknown;
       }
     </item>
     <item priority="high">
       interface JsonSchema {
-        $id?: string | undefined;
-        type?: string | undefined;
-        properties?: Record<string, JsonSchemaProperty> | undefined;
-        required?: readonly string[] | undefined;
+        $id?: string;
+        type?: string;
+        properties?: Record<string, JsonSchemaProperty>;
+        required?: readonly string[];
       }
     </item>
   </file>
   <file path="src/user.ts">
     <item priority="low">
       interface UserPreferences {
-        theme?: "light" | "dark" | "system" | undefined;
-        emailNotifications?: boolean | undefined;
-        marketingEmails?: boolean | undefined;
+        theme?: "light" | "dark" | "system";
+        emailNotifications?: boolean;
+        marketingEmails?: boolean;
       }
     </item>
     <item priority="low">
@@ -221,7 +221,7 @@
       interface Venue {
         id: string;
         venueGroupId: string | null;
-        venueGroup?: import("packages/types/src/venue").VenueGroup | undefined;
+        venueGroup?: VenueGroup;
         name: string;
         slug: string;
       }
