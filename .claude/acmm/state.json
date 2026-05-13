@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-05-12T17:04:37.928Z",
+  "lastRun": "2026-05-13T02:39:31.236Z",
   "currentLevel": 3,
   "checks": {
     "acmm:prereq-test-suite": {
@@ -7,8 +7,8 @@
       "evidence": "detected at one of: vitest.config.ts, vitest.config.js, jest.config.js, jest.config.ts, go.mod, pytest.ini, pyproject.toml"
     },
     "acmm:prereq-e2e": {
-      "passed": false,
-      "evidence": "none of: playwright.config.ts, playwright.config.js, cypress.config.ts, cypress.config.js, e2e/, tests/e2e/"
+      "passed": true,
+      "evidence": "detected at one of: playwright.config.ts, playwright.config.js, cypress.config.ts, cypress.config.js, e2e/, tests/e2e/"
     },
     "acmm:prereq-cicd": {
       "passed": true,
@@ -187,16 +187,16 @@
       "evidence": "detected at one of: .github/workflows/"
     },
     "acmm:instruction-sync-gate": {
-      "passed": true,
-      "evidence": "detected at one of: .github/workflows/ci.yml"
+      "passed": false,
+      "evidence": "file present but no recent successful run: .github/workflows/ci.yml"
     },
     "acmm:component-registry-integrity": {
-      "passed": true,
-      "evidence": "detected at one of: .github/workflows/ci.yml"
+      "passed": false,
+      "evidence": "file present but no recent successful run: .github/workflows/ci.yml"
     },
     "acmm:instruction-rot-detection": {
-      "passed": true,
-      "evidence": "detected at one of: .github/workflows/ci.yml"
+      "passed": false,
+      "evidence": "file present but no recent successful run: .github/workflows/ci.yml"
     },
     "acmm:feedback-loops": {
       "passed": true,
@@ -299,8 +299,8 @@
       "evidence": "detected at one of: docs/acmm/review-burden.md"
     },
     "acmm:auto-issue-gen": {
-      "passed": true,
-      "evidence": "detected at one of: .github/workflows/auto-issue.yml, .github/workflows/issue-gen.yml, .github/workflows/auto-generate-issues.yml"
+      "passed": false,
+      "evidence": "file present but no recent successful run: .github/workflows/auto-issue.yml"
     },
     "acmm:multi-agent-orchestration": {
       "passed": true,
@@ -347,8 +347,8 @@
       "evidence": "detected at one of: .github/workflows/ci.yml (contains: pnpm --dir packages/rialto vitest .* accessibility)"
     },
     "acmm:auto-rollback": {
-      "passed": true,
-      "evidence": "detected at one of: .github/workflows/auto-rollback.yml, docs/acmm/auto-rollback.md"
+      "passed": false,
+      "evidence": "file present but no recent successful run: .github/workflows/auto-rollback.yml"
     },
     "acmm:multi-repo-orchestration": {
       "passed": true,
@@ -493,7 +493,13 @@
     {
       "date": "2026-05-12",
       "level": 3,
-      "detected": 107,
+      "detected": 103,
+      "total": 108
+    },
+    {
+      "date": "2026-05-13",
+      "level": 3,
+      "detected": 103,
       "total": 108
     }
   ],
@@ -508,6 +514,7 @@
   "role": "Strategist",
   "detectedIds": [
     "acmm:prereq-test-suite",
+    "acmm:prereq-e2e",
     "acmm:prereq-cicd",
     "acmm:prereq-pr-template",
     "acmm:prereq-issue-template",
@@ -552,9 +559,6 @@
     "acmm:cross-session-knowledge",
     "acmm:cross-repo-skills",
     "acmm:github-coordination",
-    "acmm:instruction-sync-gate",
-    "acmm:component-registry-integrity",
-    "acmm:instruction-rot-detection",
     "acmm:feedback-loops",
     "acmm:claude-md-auto-sync",
     "acmm:preference-index",
@@ -580,7 +584,6 @@
     "acmm:override-analytics",
     "acmm:ai-compliance-doc",
     "acmm:review-burden",
-    "acmm:auto-issue-gen",
     "acmm:multi-agent-orchestration",
     "acmm:merge-queue",
     "acmm:strategic-dashboard",
@@ -592,7 +595,6 @@
     "acmm:budget-policy",
     "acmm:token-tracking",
     "acmm:accessibility-ai-check",
-    "acmm:auto-rollback",
     "acmm:multi-repo-orchestration",
     "fullsend:test-coverage",
     "fullsend:ci-cd-maturity",
@@ -623,10 +625,10 @@
     "characteristic": "The system acts on what it finds — generates issues, merges PRs, rolls back failures. Humans set policy and audit after the fact.",
     "detectedByLevel": {
       "2": 3,
-      "3": 6,
-      "4": 16,
+      "3": 5,
+      "4": 14,
       "5": 16,
-      "6": 8
+      "6": 6
     },
     "requiredByLevel": {
       "2": 3,
@@ -639,7 +641,7 @@
     "nextTransitionTrigger": null,
     "antiPattern": "Mistaking autonomy for abandonment: an autonomous codebase still needs a strategist to set direction, or it drifts toward local optima.",
     "prerequisites": {
-      "met": 7,
+      "met": 8,
       "total": 8
     },
     "crossCutting": {
@@ -706,7 +708,7 @@
       "rate_30d": 0,
       "sample_size": 100,
       "flaky_shas": [],
-      "measured_at": "2026-05-12T05:20:32.522Z"
+      "measured_at": "2026-05-13T02:39:31.234Z"
     },
     "agent_pr": {
       "sample_size": 29,
@@ -718,7 +720,7 @@
       "median_time_to_merge_hours": 0.07972222222222222,
       "human_touch_ratio": 1,
       "insufficient_data": false,
-      "measured_at": "2026-05-12T05:20:32.522Z"
+      "measured_at": "2026-05-13T02:39:31.234Z"
     },
     "evals": {
       "n": 37,
@@ -736,13 +738,13 @@
         }
       },
       "status": "green",
-      "measured_at": "2026-05-12T17:04:37.927Z"
+      "measured_at": "2026-05-13T02:39:31.234Z"
     },
     "auto_qa_tuning": {
       "history_count": 2,
-      "measured_at": "2026-05-12T17:04:37.927Z"
+      "measured_at": "2026-05-13T02:39:31.234Z"
     }
   },
-  "levelCap": 3,
-  "honestAuditNote": "Manual audit 2026-05-09: L4+ criteria pass detection via file existence but features are incomplete/broken. True level is L3. See issue #1162. levelCap enforces this until detection criteria are tightened."
+  "honestAuditNote": "Critical Audit 2026-05-13: Re-capped to L3. While scannable criteria (files) are present for L4-L6, deep verification reveals gaps: (1) Strategic Dashboard is a static metrics viewer, not an activity audit tool. (2) Auto-rollback loop is implemented but has no record of successful recovery. (3) L3 integrity (llms.txt) was fragile/platform-dependent until today. L6 requires these loops to be battle-tested and documentation to be truly deterministic.",
+  "levelCap": 3
 }

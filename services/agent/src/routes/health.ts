@@ -150,19 +150,25 @@ export const healthRoutes: FastifyPluginAsync = async (fastify: FastifyInstance)
   };
 
   // /health — used by DO App Platform internal health checks (direct container access)
-  // lgtm[js/missing-rate-limiting] — rate limiting is applied globally via @fastify/rate-limit in app.ts
+  // github[js/missing-rate-limiting] — restrictive limit for DB-intensive health check
   fastify.get<{ Reply: HealthResponse }>(
     "/health",
-    { schema: { ...healthSchema, operationId: "getAgentHealth" } },
+    {
+      schema: { ...healthSchema, operationId: "getAgentHealth" },
+      config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+    },
     healthHandler
   );
 
   // /api/gen/health — public path via DO ingress (preservePathPrefix: true, prefix "/api/gen")
   // Required for synthetic monitoring hitting api.mattbutlerengineering.com/api/gen/health
-  // lgtm[js/missing-rate-limiting] — rate limiting is applied globally via @fastify/rate-limit in app.ts
+  // github[js/missing-rate-limiting] — restrictive limit for public health check
   fastify.get<{ Reply: HealthResponse }>(
     "/api/gen/health",
-    { schema: { ...healthSchema, operationId: "getAgentHealthApiGen" } },
+    {
+      schema: { ...healthSchema, operationId: "getAgentHealthApiGen" },
+      config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+    },
     healthHandler
   );
 };

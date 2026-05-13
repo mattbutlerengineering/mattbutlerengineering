@@ -177,17 +177,38 @@ const healthHandler: HealthRouteHandler = async (request) => {
 };
 
 export const healthRoutes: FastifyPluginAsync = async (fastify) => {
-  // /health — used by DO App Platform internal health checks (direct container access)
-  // lgtm[js/missing-rate-limiting] — rate limiting is applied globally via @fastify/rate-limit in app.ts
-  fastify.get("/health", { schema: { ...healthSchema, operationId: "getHealth" } }, healthHandler);
+  // /api/health — used by DO App Platform internal health checks (direct container access)
+  // github[js/missing-rate-limiting] — restrictive limit for DB-intensive health check
+  fastify.get(
+    "/health",
+    {
+      schema: { ...healthSchema, operationId: "getHealth" },
+      config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+    },
+    healthHandler,
+  );
 
   // /api/health — public path via DO ingress (preservePathPrefix: true, prefix "/api")
   // Required for post-deploy verification workflow hitting api.mattbutlerengineering.com/api/health
-  // lgtm[js/missing-rate-limiting] — rate limiting is applied globally via @fastify/rate-limit in app.ts
-  fastify.get("/api/health", { schema: { ...healthSchema, operationId: "getHealthApi" } }, healthHandler);
+  // github[js/missing-rate-limiting] — restrictive limit for public health check
+  fastify.get(
+    "/api/health",
+    {
+      schema: { ...healthSchema, operationId: "getHealthApi" },
+      config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+    },
+    healthHandler,
+  );
 
   // /api/v1/reservations/health — public path via DO ingress (preservePathPrefix: true, prefix "/api/v1/reservations")
   // Must be registered here (not in reservationRoutes) to avoid falling through to /:id param route
-  // lgtm[js/missing-rate-limiting] — rate limiting is applied globally via @fastify/rate-limit in app.ts
-  fastify.get("/api/v1/reservations/health", { schema: { ...healthSchema, operationId: "getHealthApiReservations" } }, healthHandler);
+  // github[js/missing-rate-limiting] — restrictive limit for public health check
+  fastify.get(
+    "/api/v1/reservations/health",
+    {
+      schema: { ...healthSchema, operationId: "getHealthApiReservations" },
+      config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+    },
+    healthHandler,
+  );
 };

@@ -162,7 +162,7 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // POST /v1/webhooks/github — Handle GitHub webhook events
-  // lgtm[js/missing-rate-limiting] — rate limiting is applied globally via @fastify/rate-limit in app.ts
+  // github[js/missing-rate-limiting] — restrictive limit for high-impact webhook
   fastify.post<{
     Body: unknown;
     Reply: { received: true } | ApiError;
@@ -184,6 +184,7 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
           401: { $ref: "AgentError#" },
         },
       },
+      config: { rateLimit: { max: 20, timeWindow: "1 minute" } },
     },
     async (request, reply) => {
       const secret = process.env.GITHUB_WEBHOOK_SECRET;

@@ -75,24 +75,25 @@ This repository is measured against the [AI Codebase Maturity Model (ACMM)](docs
 
 | Project | Level | Role | Next Gap |
 |---|---|---|---|
-| **Repository Root** | **L3** | **Analyst** | Quality dashboard, benchmarks |
-| [apps/gen](apps/gen/) | L1 | Executor | Agent instructions (any) |
+| **Repository Root** | **L3** | **Analyst** | Activity Audit, Rollback drills |
+| [apps/gen](apps/gen/) | L2 | Rule-writer | PR acceptance tracking |
 | [apps/hospitality](apps/hospitality/) | L2 | Rule-writer | PR acceptance tracking |
 | [apps/marketing](apps/marketing/) | L2 | Rule-writer | PR acceptance tracking |
-| [apps/rialto-web](apps/rialto-web/) | L1 | Executor | Agent instructions (any) |
+| [apps/rialto-web](apps/rialto-web/) | L2 | Rule-writer | PR acceptance tracking |
 | [packages/agent-core](packages/agent-core/) | L2 | Rule-writer | PR acceptance tracking |
 | [packages/api-client](packages/api-client/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/api-versioning](packages/api-versioning/) | L1 | Executor | Agent instructions (any) |
+| [packages/api-versioning](packages/api-versioning/) | L2 | Rule-writer | PR acceptance tracking |
 | [packages/auth](packages/auth/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/config](packages/config/) | L1 | Executor | Agent instructions (any) |
+| [packages/config](packages/config/) | L2 | Rule-writer | PR acceptance tracking |
 | [packages/observability](packages/observability/) | L2 | Rule-writer | PR acceptance tracking |
 | [packages/rialto](packages/rialto/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/rialto-catalog](packages/rialto-catalog/) | L1 | Executor | Agent instructions (any) |
-| [packages/rialto-plugin](packages/rialto-plugin/) | L1 | Executor | Agent instructions (any) |
-| [packages/sentry](packages/sentry/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/types](packages/types/) | L1 | Executor | Agent instructions (any) |
-
-Full details for every requirement can be found in [ACMM_PROJECT_AUDITS.md](ACMM_PROJECT_AUDITS.md).
+| [packages/rialto-catalog](packages/rialto-catalog/) | L2 | Rule-writer | PR acceptance tracking |
+| [packages/rialto-plugin](packages/rialto-plugin/) | L2 | Rule-writer | PR acceptance tracking |
+| [packages/types](packages/types/) | L2 | Rule-writer | PR acceptance tracking |
+| [packages/feature-flags](packages/feature-flags/) | L2 | Rule-writer | PR acceptance tracking |
+| [packages/agent-test-utils](packages/agent-test-utils/) | L2 | Rule-writer | PR acceptance tracking |
+| [packages/mcp-server](packages/mcp-server/) | L2 | Rule-writer | PR acceptance tracking |
+| [infrastructure](infrastructure/) | L2 | Rule-writer | PR acceptance tracking |
 
 ## Commands
 
