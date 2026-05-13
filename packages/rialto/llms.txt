@@ -14,11 +14,11 @@
     </item>
     <item priority="low">
       interface UseFlipDotAnimationOptions {
-        text?: string | undefined;
-        frames?: readonly (readonly (readonly boolean[])[])[] | undefined;
+        text?: string;
+        frames?: readonly (readonly (readonly boolean[])[])[];
         rows: number;
         cols: number;
-        mode?: import("packages/rialto/src/components/FlipDot/use-flip-d...;
+        mode?: FlipDotAnimationMode;
       }
     </item>
   </file>
@@ -26,7 +26,7 @@
     <item priority="high">
       interface UseFlipDotSoundOptions {
         enabled: boolean;
-        volume?: number | undefined;
+        volume?: number;
       }
     </item>
     <item priority="high">
@@ -46,9 +46,9 @@
       interface UseGenCopilotStreamOptions {
         api: string;
         domainContext: DomainContext;
-        getAccessToken: () => string | Promise<string | null> | null;
-        onComplete?: ((spec: import("node_modules/.pnpm/@json-render+core@0.19...;
-        onError?: ((error: Error) => void) | undefined;
+        getAccessToken: () => string | null | Promise<string | null>;
+        onComplete?: (spec: Spec) => void;
+        onError?: (error: Error) => void;
       }
     </item>
   </file>
@@ -65,9 +65,9 @@
   <file path="src/hooks/useScrollReveal.ts">
     <item priority="high">
       interface UseScrollRevealOptions {
-        margin?: string | undefined;
-        once?: boolean | undefined;
-        fallbackTimeout?: number | undefined;
+        margin?: string;
+        once?: boolean;
+        fallbackTimeout?: number;
       }
     </item>
     <item priority="high">
@@ -114,22 +114,22 @@
     <item priority="high">
       interface MediaEntry {
         query: string;
-        key: keyof import("packages/rialto/src/providers/useDeviceCont...;
-        matchValue: boolean | "fine" | "coarse" | "mobile" | "tablet" | "desk...;
-        noMatchValue: boolean | "fine" | "coarse" | "mobile" | "tablet" | "desk...;
+        key: keyof DeviceContext;
+        matchValue: DeviceContext[keyof DeviceContext];
+        noMatchValue: DeviceContext[keyof DeviceContext];
       }
     </item>
   </file>
   <file path="src/providers/useUIEnvironment.ts">
     <item priority="low">
       interface UIEnvironment {
-        device: import("packages/rialto/src/providers/useDeviceContext")....;
-        vibe: import("packages/rialto/src/providers/vibes").VibeName;
+        device: DeviceContext;
+        vibe: VibeName;
         theme: "light" | "dark";
       }
     </item>
     <item priority="high">
-      export const UIEnvironmentContext: React.Context<import("packages/rialto/src/providers/useUI...;
+      export const UIEnvironmentContext: unknown;
     </item>
   </file>
   <file path="src/providers/vibes.ts">
@@ -152,15 +152,15 @@
       }
     </item>
     <item priority="high">
-      export const characterLimits: import("packages/rialto/scripts/character-limits").Charac...;
+      export const characterLimits: CharacterLimit[];
     </item>
   </file>
   <file path="scripts/generate-exports.ts">
     <item priority="high">
       interface ExportEntry {
-        types?: string | undefined;
-        import?: string | undefined;
-        default?: string | undefined;
+        types?: string;
+        import?: string;
+        default?: string;
       }
     </item>
     <item priority="high">
@@ -172,7 +172,7 @@
       interface DtcgToken {
         $value: string | number;
         $type: string;
-        $description?: string | undefined;
+        $description?: string;
       }
     </item>
     <item priority="high">
@@ -187,8 +187,8 @@
         name: string;
         type: string;
         required: boolean;
-        default?: string | undefined;
-        description?: string | undefined;
+        default?: string;
+        description?: string;
       }
     </item>
     <item priority="high">
@@ -205,8 +205,8 @@
         name: string;
         type: string;
         required: boolean;
-        default?: string | undefined;
-        description?: string | undefined;
+        default?: string;
+        description?: string;
       }
     </item>
     <item priority="high">
@@ -233,7 +233,7 @@
   <section priority="medium" role="SplitFlap">
   <file path="src/components/SplitFlap/charset.ts">
     <item priority="high">
-      export const CHARSETS: { readonly alpha: " ABCDEFGHIJKLMNOPQRSTUVWXYZ"; readonly...;
+      export const CHARSETS: unknown;
     </item>
     <item priority="low">
       type CharsetName = keyof typeof CHARSETS;
@@ -257,7 +257,7 @@
           "reservationA...;
     </item>
     <item priority="high">
-      export const DEFAULT_STRINGS: import("packages/rialto/src/components/TapeChart/defaultS...;
+      export const DEFAULT_STRINGS: ResolvedStrings;
     </item>
   </file>
   <file path="src/components/TapeChart/types.ts">
@@ -275,7 +275,7 @@
         dayNumeric: (iso: string) => string;
         dayLong: (iso: string) => string;
         monthYearLong: (iso: string) => string;
-        currency: (minorUnits: number, currencyCode?: string | undefined) =...;
+        currency: (minorUnits: number, currencyCode?: string) => string;
       }
     </item>
     <item priority="high">
@@ -305,9 +305,9 @@
       interface ToastData {
         id: string;
         title: string;
-        description?: string | undefined;
-        variant?: import("packages/rialto/src/components/Toast/ToastContext...;
-        duration?: number | undefined;
+        description?: string;
+        variant?: ToastVariant;
+        duration?: number;
       }
     </item>
   </file>
@@ -315,7 +315,7 @@
   <section priority="medium" role="tokens">
   <file path="src/tokens/icons.ts">
     <item priority="high">
-      export const iconCategories: readonly ["navigation", "actions", "communication", "stat...;
+      export const iconCategories: unknown;
     </item>
     <item priority="low">
       type IconCategory = (typeof iconCategories)[number];
@@ -323,10 +323,10 @@
   </file>
   <file path="src/tokens/motion.ts">
     <item priority="high">
-      export const ms: (s: React.CSSProperties) => import("node_modules/.pnpm/fr...;
+      export const ms: unknown;
     </item>
     <item priority="high">
-      export const precision: { duration: number; ease: readonly [0.2, 0, 0, 1]; };
+      export const precision: unknown;
     </item>
   </file>
   </section>

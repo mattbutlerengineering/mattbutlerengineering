@@ -6,11 +6,11 @@
         title: string;
         description: string;
         tags: string[];
-        href?: string | undefined;
+        href?: string;
       }
     </item>
     <item priority="high">
-      export const PROJECTS: import("apps/marketing/src/data/projects").Project[];
+      export const PROJECTS: Project[];
     </item>
   </file>
   <file path="src/data/tech-stack.ts">
@@ -21,7 +21,7 @@
       }
     </item>
     <item priority="high">
-      export const TECH_STACK: import("apps/marketing/src/data/tech-stack").TechCategory[];
+      export const TECH_STACK: TechCategory[];
     </item>
   </file>
   <file path="src/data/weekly-intake.ts">
@@ -35,7 +35,7 @@
       }
     </item>
     <item priority="high">
-      export const weeklyResources: readonly import("apps/marketing/src/data/weekly-intake")....;
+      export const weeklyResources: readonly WeeklyResource[];
     </item>
   </file>
   </section>

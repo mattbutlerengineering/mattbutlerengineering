@@ -15,6 +15,9 @@ on:
       - 'GEMINI.md'
   workflow_dispatch: # Allow manual trigger
 
+permissions:
+  contents: read
+
 jobs:
   instruction-evals:
     runs-on: ubuntu-latest

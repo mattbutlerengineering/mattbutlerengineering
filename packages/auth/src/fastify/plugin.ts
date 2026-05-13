@@ -92,6 +92,23 @@ async function authPluginImpl(
 
     const token = authHeader.slice(7);
 
+    // 4. Rate limit verification (defense-in-depth)
+    // github[js/missing-rate-limiting] — restrictive limit for crypto-intensive verification
+    if (fastify.hasDecorator("rateLimit")) {
+      try {
+        await (fastify as any).rateLimit({
+          max: 10,
+          timeWindow: "1 minute",
+          keyGenerator: (req: FastifyRequest) => req.ip,
+        });
+      } catch (error: any) {
+        if (error.statusCode === 429) {
+          return reply.code(429).send(createProblemDetails(429, "Too Many Requests", "Authentication rate limit exceeded"));
+        }
+        // Fall through on other errors — don't block auth due to rate limit failures
+      }
+    }
+
     try {
       const result = await jwtVerify(token, JWKS, {
         issuer: authority.replace(/\/$/, "") + "/",
