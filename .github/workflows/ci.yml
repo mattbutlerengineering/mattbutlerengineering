@@ -325,16 +325,24 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build CLI
-        run: pnpm build --filter @mbe/cli
+        run: pnpm build --filter @mbe/cli --force
 
       - name: Check instruction sync (llms.txt)
         run: |
+          failed=0
           for pkg in packages/* apps/* services/*; do
             if [ -f "$pkg/llms.txt" ]; then
               echo "Checking $pkg..."
-              node tools/cli/dist/index.js pack "$pkg" --check
+              if ! node tools/cli/dist/index.js pack "$pkg" --check; then
+                failed=1
+                echo "--- diff for $pkg ---"
+                node tools/cli/dist/index.js pack "$pkg" 2>/dev/null
+                git --no-pager diff --color=always "$pkg/llms.txt" || true
+                echo "--- end diff ---"
+              fi
             fi
           done
+          [ "$failed" -eq 0 ] || exit 1
 
       - name: Check for instruction rot
         run: node scripts/detect-instruction-rot.mjs
