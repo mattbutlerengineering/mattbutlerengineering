@@ -325,7 +325,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build CLI
-        run: pnpm build --filter @mbe/cli
+        run: pnpm build --filter @mbe/cli --force
 
       - name: Check instruction sync (llms.txt)
         run: |

@@ -74,7 +74,10 @@ const readinessSchema = {
 export const readinessRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Reply: ReadinessResponse }>(
     "/ready",
-    { schema: { ...readinessSchema, operationId: "getAgentReady" } },
+    {
+      schema: { ...readinessSchema, operationId: "getReady" },
+      config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+    },
     async (_request, reply) => {
       const snapshot = await readiness.evaluate();
       const response: ReadinessResponse = {
