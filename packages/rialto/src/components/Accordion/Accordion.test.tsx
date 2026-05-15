@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Accordion } from "./Accordion";
 import type { AccordionItem } from "./Accordion";
@@ -101,6 +101,83 @@ describe("Accordion", () => {
         "aria-expanded",
         "true"
       );
+    });
+  });
+
+  describe("keyboard navigation", () => {
+    const navItems: AccordionItem[] = [
+      { id: "a", title: "Section A", content: <p>A</p> },
+      { id: "b", title: "Section B", content: <p>B</p> },
+      { id: "c", title: "Section C", content: <p>C</p> },
+    ];
+
+    it("ArrowDown moves focus to next trigger", () => {
+      render(<Accordion items={navItems} />);
+      const buttons = screen.getAllByRole("button");
+      buttons[0]!.focus();
+      fireEvent.keyDown(buttons[0]!, { key: "ArrowDown" });
+      expect(document.activeElement).toBe(buttons[1]);
+    });
+
+    it("ArrowUp moves focus to previous trigger", () => {
+      render(<Accordion items={navItems} />);
+      const buttons = screen.getAllByRole("button");
+      buttons[1]!.focus();
+      fireEvent.keyDown(buttons[1]!, { key: "ArrowUp" });
+      expect(document.activeElement).toBe(buttons[0]);
+    });
+
+    it("Home moves focus to first trigger", () => {
+      render(<Accordion items={navItems} />);
+      const buttons = screen.getAllByRole("button");
+      buttons[2]!.focus();
+      fireEvent.keyDown(buttons[2]!, { key: "Home" });
+      expect(document.activeElement).toBe(buttons[0]);
+    });
+
+    it("End moves focus to last trigger", () => {
+      render(<Accordion items={navItems} />);
+      const buttons = screen.getAllByRole("button");
+      buttons[0]!.focus();
+      fireEvent.keyDown(buttons[0]!, { key: "End" });
+      expect(document.activeElement).toBe(buttons[2]);
+    });
+
+    it("ArrowDown wraps from last to first", () => {
+      render(<Accordion items={navItems} />);
+      const buttons = screen.getAllByRole("button");
+      buttons[2]!.focus();
+      fireEvent.keyDown(buttons[2]!, { key: "ArrowDown" });
+      expect(document.activeElement).toBe(buttons[0]);
+    });
+
+    it("ArrowUp wraps from first to last", () => {
+      render(<Accordion items={navItems} />);
+      const buttons = screen.getAllByRole("button");
+      buttons[0]!.focus();
+      fireEvent.keyDown(buttons[0]!, { key: "ArrowUp" });
+      expect(document.activeElement).toBe(buttons[2]);
+    });
+
+    it("ignores unrecognized keys", () => {
+      render(<Accordion items={navItems} />);
+      const buttons = screen.getAllByRole("button");
+      buttons[0]!.focus();
+      fireEvent.keyDown(buttons[0]!, { key: "Tab" });
+      expect(document.activeElement).toBe(buttons[0]);
+    });
+  });
+
+  describe("disabled items", () => {
+    it("renders disabled item with aria-disabled or disabled attribute", () => {
+      const { container } = render(<Accordion items={items} />);
+      const buttons = container.querySelectorAll("button");
+      const lastButton = buttons[buttons.length - 1]!;
+      const isDisabled =
+        lastButton.disabled ||
+        lastButton.getAttribute("aria-disabled") === "true" ||
+        lastButton.closest("[aria-disabled='true']") !== null;
+      expect(isDisabled).toBe(true);
     });
   });
 });

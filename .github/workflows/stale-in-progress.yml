@@ -41,6 +41,7 @@ jobs:
           const { execSync } = require('node:child_process');
 
           const DRY_RUN = process.env.DRY_RUN === 'true';
+          const REPO = process.env.GITHUB_REPOSITORY;
           const STALE_HOURS = parseFloat(process.env.STALE_HOURS || '2');
           const STALE_MS = STALE_HOURS * 60 * 60 * 1000;
           const now = Date.now();
@@ -50,7 +51,7 @@ jobs:
           // Fetch all open issues currently labeled in-progress.
           const issues = JSON.parse(
             execSync(
-              'gh issue list --label in-progress --state open --limit 100 --json number,title,updatedAt',
+              `gh issue list --repo ${REPO} --label in-progress --state open --limit 100 --json number,title,updatedAt`,
               { encoding: 'utf8' }
             )
           );
@@ -76,7 +77,7 @@ jobs:
             try {
               const prs = JSON.parse(
                 execSync(
-                  `gh pr list --state open --search "#${number}" --limit 10 --json number,title,updatedAt`,
+                  `gh pr list --repo ${REPO} --state open --search "#${number}" --limit 10 --json number,title,updatedAt`,
                   { encoding: 'utf8' }
                 )
               );
@@ -102,7 +103,7 @@ jobs:
 
             // Transition labels: in-progress → agent-failed + ready
             execSync(
-              `gh issue edit ${number} --add-label agent-failed --add-label ready --remove-label in-progress`,
+              `gh issue edit ${number} --repo ${REPO} --add-label agent-failed --add-label ready --remove-label in-progress`,
               { stdio: 'inherit' }
             );
 
@@ -118,7 +119,7 @@ jobs:
             ].join('\n');
 
             execSync(
-              `gh issue comment ${number} --body ${JSON.stringify(commentBody)}`,
+              `gh issue comment ${number} --repo ${REPO} --body ${JSON.stringify(commentBody)}`,
               { stdio: 'inherit' }
             );
 

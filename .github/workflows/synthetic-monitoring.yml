@@ -227,12 +227,13 @@ jobs:
           TIMELINE: ${{ steps.timeline.outputs.timeline }}
         run: |
           # Build a concise summary of what's wrong
+          # Health endpoint may return flat {status,timestamp} or full {subsystems:{...}} response
           FAILED_SERVICES=$(echo "$HEALTH_RESPONSE" | jq -r '
-            [.subsystems.services.checks | to_entries[] | select(.value.status != "ok") | .key] | join(", ")')
+            [(.subsystems // {}).services // {} | (.checks // {}) | to_entries[] | select(.value.status != "ok") | .key] | join(", ")' 2>/dev/null || echo "")
           FAILED_SITES=$(echo "$HEALTH_RESPONSE" | jq -r '
-            [.subsystems.static_sites.checks | to_entries[] | select(.value.status != "ok") | .key] | join(", ")')
-          CI_STATUS=$(echo "$HEALTH_RESPONSE" | jq -r '.subsystems.ci.status')
-          DEPLOY_STATUS=$(echo "$HEALTH_RESPONSE" | jq -r '.subsystems.deploys.status')
+            [(.subsystems // {}).static_sites // {} | (.checks // {}) | to_entries[] | select(.value.status != "ok") | .key] | join(", ")' 2>/dev/null || echo "")
+          CI_STATUS=$(echo "$HEALTH_RESPONSE" | jq -r '(.subsystems // {}).ci.status // "unknown"' 2>/dev/null || echo "unknown")
+          DEPLOY_STATUS=$(echo "$HEALTH_RESPONSE" | jq -r '(.subsystems // {}).deploys.status // "unknown"' 2>/dev/null || echo "unknown")
 
           SUMMARY=""
           [ -n "$FAILED_SERVICES" ] && SUMMARY="${SUMMARY}Services down: ${FAILED_SERVICES}. "
