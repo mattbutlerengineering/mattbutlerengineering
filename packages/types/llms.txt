@@ -1,5 +1,212 @@
 <codebase path="packages/types">
+  <section priority="medium" role="schemas">
+  <file path="src/schemas/agent.ts">
+    <item priority="high">
+      export const AgentSessionStatusSchema: unknown;
+    </item>
+    <item priority="high">
+      export const AgentSessionSchema: unknown;
+    </item>
+  </file>
+  <file path="src/schemas/api.ts">
+    <item priority="high">
+      export const ProblemDetailsSchema: unknown;
+    </item>
+  </file>
+  <file path="src/schemas/common.ts">
+    <item priority="high">
+      export const PaginationSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ErrorResponseSchema: unknown;
+    </item>
+  </file>
+  <file path="src/schemas/floor-plan.ts">
+    <item priority="high">
+      export const TableShapeMetadataSchema: unknown;
+    </item>
+    <item priority="high">
+      export const FloorPlanLayoutSchema: unknown;
+    </item>
+  </file>
+  <file path="src/schemas/guest.ts">
+    <item priority="high">
+      export const GuestSchema: unknown;
+    </item>
+    <item priority="high">
+      export const GuestSegmentSchema: unknown;
+    </item>
+  </file>
+  <file path="src/schemas/json-schema.ts">
+    <item priority="medium">
+      function stripAdditionalProperties(obj: Record<string, unknown>): Record<string, unknown> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toFastifyJsonSchema(id: string, zodSchema: ZodType) { /* ... */ }
+    </item>
+  </file>
+  <file path="src/schemas/reservation.ts">
+    <item priority="high">
+      export const ReservationStatusSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ReservationSchema: unknown;
+    </item>
+  </file>
+  <file path="src/schemas/user.ts">
+    <item priority="high">
+      export const UserPreferencesSchema: unknown;
+    </item>
+    <item priority="high">
+      export const UserSchema: unknown;
+    </item>
+  </file>
+  <file path="src/schemas/venue.ts">
+    <item priority="high">
+      export const DayScheduleSchema: unknown;
+    </item>
+    <item priority="high">
+      export const VenueGroupSchema: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="src">
+  <file path="src/agent.ts">
+    <item priority="low">
+      type AgentSessionStatus = "pending" | "running" | "succeeded" | "failed" | "cancelled";
+    </item>
+    <item priority="low">
+      interface AgentSession {
+        id: string;
+        status: AgentSessionStatus;
+        taskDescription: string;
+        branchName: string | null;
+        baseBranch: string;
+      }
+    </item>
+  </file>
+  <file path="src/api.ts">
+    <item priority="low">
+      interface ApiResponse {
+        data: T;
+        meta?: ApiMeta;
+      }
+    </item>
+    <item priority="low">
+      interface ApiMeta {
+        timestamp: string;
+        requestId?: string;
+      }
+    </item>
+  </file>
+  <file path="src/availability.ts">
+    <item priority="low">
+      interface TimeSlot {
+        time: string;
+        available: boolean;
+        tables?: AvailableTable[];
+      }
+    </item>
+    <item priority="low">
+      interface AvailableTable {
+        id: string;
+        name: string;
+        capacity: number;
+        minCovers: number;
+        maxCovers: number | null;
+      }
+    </item>
+  </file>
+  <file path="src/date.ts">
+    <item priority="high">
+      export function toDateString(date: Date): string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/floor-plan.ts">
+    <item priority="low">
+      interface FloorPlan {
+        id: string;
+        venueId: string;
+        name: string;
+        isActive: boolean;
+        layoutJson: FloorPlanLayout;
+      }
+    </item>
+    <item priority="low">
+      interface FloorPlanLayout {
+        width: number;
+        height: number;
+        backgroundImage?: string;
+        gridSize?: number;
+        showGrid?: boolean;
+      }
+    </item>
+  </file>
+  <file path="src/guest.ts">
+    <item priority="low">
+      interface Guest {
+        id: string;
+        venueId: string;
+        venue?: Venue;
+        email: string | null;
+        phone: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface CreateGuestRequest {
+        venueId: string;
+        email?: string;
+        phone?: string;
+        name: string;
+        notes?: string;
+      }
+    </item>
+  </file>
+  <file path="src/reservation.ts">
+    <item priority="low">
+      type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
+    </item>
+    <item priority="low">
+      type TableStatus = "AVAILABLE" | "OCCUPIED" | "DIRTY" | "READY";
+    </item>
+  </file>
+  <file path="src/schema-compat.ts">
+    <item priority="high">
+      interface JsonSchemaProperty {
+        type?: string;
+        enum?: readonly unknown[];
+        nullable?: boolean;
+        description?: string;
+        example?: unknown;
+      }
+    </item>
+    <item priority="high">
+      interface JsonSchema {
+        $id?: string;
+        type?: string;
+        properties?: Record<string, JsonSchemaProperty>;
+        required?: readonly string[];
+      }
+    </item>
+  </file>
+  <file path="src/user.ts">
+    <item priority="low">
+      interface UserPreferences {
+        theme?: "light" | "dark" | "system";
+        emailNotifications?: boolean;
+        marketingEmails?: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface User {
+        id: string;
+        email: string;
+        name: string | null;
+        picture: string | null;
+        emailVerified: boolean;
+      }
+    </item>
+  </file>
   <file path="src/venue.ts">
     <item priority="low">
       interface VenueGroup {
@@ -14,217 +221,10 @@
       interface Venue {
         id: string;
         venueGroupId: string | null;
-        venueGroup?: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
+        venueGroup?: VenueGroup;
         name: string;
         slug: string;
       }
-    </item>
-  </file>
-  <file path="src/user.ts">
-    <item priority="low">
-      interface UserPreferences {
-        theme?: "light" | "dark" | "system" | undefined;
-        emailNotifications?: boolean | undefined;
-        marketingEmails?: boolean | undefined;
-      }
-    </item>
-    <item priority="low">
-      interface User {
-        id: string;
-        email: string;
-        name: string | null;
-        picture: string | null;
-        emailVerified: boolean;
-      }
-    </item>
-  </file>
-  <file path="src/schema-compat.ts">
-    <item priority="high">
-      interface JsonSchemaProperty {
-        type?: string | undefined;
-        enum?: readonly unknown[] | undefined;
-        nullable?: boolean | undefined;
-        description?: string | undefined;
-        example?: unknown;
-      }
-    </item>
-    <item priority="high">
-      interface JsonSchema {
-        $id?: string | undefined;
-        type?: string | undefined;
-        properties?: Record<string, JsonSchemaProperty> | undefined;
-        required?: readonly string[] | undefined;
-      }
-    </item>
-  </file>
-  <file path="src/reservation.ts">
-    <item priority="low">
-      type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
-    </item>
-    <item priority="low">
-      type TableStatus = "AVAILABLE" | "OCCUPIED" | "DIRTY" | "READY";
-    </item>
-  </file>
-  <file path="src/guest.ts">
-    <item priority="low">
-      interface Guest {
-        id: string;
-        venueId: string;
-        venue?: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
-        email: string | null;
-        phone: string | null;
-      }
-    </item>
-    <item priority="low">
-      interface CreateGuestRequest {
-        venueId: string;
-        email?: string | undefined;
-        phone?: string | undefined;
-        name: string;
-        notes?: string | undefined;
-      }
-    </item>
-  </file>
-  <file path="src/floor-plan.ts">
-    <item priority="low">
-      interface FloorPlan {
-        id: string;
-        venueId: string;
-        name: string;
-        isActive: boolean;
-        layoutJson: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
-      }
-    </item>
-    <item priority="low">
-      interface FloorPlanLayout {
-        width: number;
-        height: number;
-        backgroundImage?: string | undefined;
-        gridSize?: number | undefined;
-        showGrid?: boolean | undefined;
-      }
-    </item>
-  </file>
-  <file path="src/date.ts">
-    <item priority="high">
-      export function toDateString(date: Date): string { /* ... */ }
-    </item>
-  </file>
-  <file path="src/availability.ts">
-    <item priority="low">
-      interface TimeSlot {
-        time: string;
-        available: boolean;
-        tables?: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
-      }
-    </item>
-    <item priority="low">
-      interface AvailableTable {
-        id: string;
-        name: string;
-        capacity: number;
-        minCovers: number;
-        maxCovers: number | null;
-      }
-    </item>
-  </file>
-  <file path="src/api.ts">
-    <item priority="low">
-      interface ApiResponse {
-        data: T;
-        meta?: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
-      }
-    </item>
-    <item priority="low">
-      interface ApiMeta {
-        timestamp: string;
-        requestId?: string | undefined;
-      }
-    </item>
-  </file>
-  <file path="src/agent.ts">
-    <item priority="low">
-      type AgentSessionStatus = "pending" | "running" | "succeeded" | "failed" | "cancelled";
-    </item>
-    <item priority="low">
-      interface AgentSession {
-        id: string;
-        status: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
-        taskDescription: string;
-        branchName: string | null;
-        baseBranch: string;
-      }
-    </item>
-  </file>
-  </section>
-  <section priority="medium" role="schemas">
-  <file path="src/schemas/venue.ts">
-    <item priority="high">
-      export const DayScheduleSchema: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
-    </item>
-    <item priority="high">
-      export const VenueGroupSchema: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
-    </item>
-  </file>
-  <file path="src/schemas/user.ts">
-    <item priority="high">
-      export const UserPreferencesSchema: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
-    </item>
-    <item priority="high">
-      export const UserSchema: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
-    </item>
-  </file>
-  <file path="src/schemas/reservation.ts">
-    <item priority="high">
-      export const ReservationStatusSchema: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
-    </item>
-    <item priority="high">
-      export const ReservationSchema: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
-    </item>
-  </file>
-  <file path="src/schemas/json-schema.ts">
-    <item priority="medium">
-      function stripAdditionalProperties(obj: Record<string, unknown>): Record<string, unknown> { /* ... */ }
-    </item>
-    <item priority="medium">
-      function toFastifyJsonSchema(id: string, zodSchema: ZodType) { /* ... */ }
-    </item>
-  </file>
-  <file path="src/schemas/guest.ts">
-    <item priority="high">
-      export const GuestSchema: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
-    </item>
-    <item priority="high">
-      export const GuestSegmentSchema: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
-    </item>
-  </file>
-  <file path="src/schemas/floor-plan.ts">
-    <item priority="high">
-      export const TableShapeMetadataSchema: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
-    </item>
-    <item priority="high">
-      export const FloorPlanLayoutSchema: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
-    </item>
-  </file>
-  <file path="src/schemas/common.ts">
-    <item priority="high">
-      export const PaginationSchema: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
-    </item>
-    <item priority="high">
-      export const ErrorResponseSchema: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
-    </item>
-  </file>
-  <file path="src/schemas/api.ts">
-    <item priority="high">
-      export const ProblemDetailsSchema: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
-    </item>
-  </file>
-  <file path="src/schemas/agent.ts">
-    <item priority="high">
-      export const AgentSessionStatusSchema: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
-    </item>
-    <item priority="high">
-      export const AgentSessionSchema: import("/Users/mbutler/github/mattbutlerengineering/fix-c...;
     </item>
   </file>
   </section>

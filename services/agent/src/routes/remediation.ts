@@ -55,7 +55,7 @@ export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
     return Readable.from(rawBody);
   });
 
-  // lgtm[js/missing-rate-limiting] — rate limiting is applied globally via @fastify/rate-limit in app.ts
+  // github[js/missing-rate-limiting] — strict limit to prevent alert storms
   fastify.post<{
     Body: unknown;
     Reply: { sessionId: string } | ApiError;
@@ -79,6 +79,7 @@ export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
           503: { $ref: "AgentError#" },
         },
       },
+      config: { rateLimit: { max: 5, timeWindow: "1 minute" } },
     },
     async (request, reply) => {
       // 1. Verify webhook secret

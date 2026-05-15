@@ -245,7 +245,7 @@ const apiApp = new digitalocean.App("mattbutlerengineering-api-app", {
 });
 
 // API subdomain DNS — proxied: false so DO can verify domain and provision TLS
-const apiDns = new cloudflare.DnsRecord("mattbutlerengineering-api-dns", {
+const _apiDns = new cloudflare.DnsRecord("mattbutlerengineering-api-dns", {
   zoneId: cloudflareZoneId,
   name: "api",
   type: "CNAME",
@@ -299,7 +299,7 @@ const workerScript = new cloudflare.WorkersScript("mattbutlerengineering-edge-ro
 // Pulumi-managed CF Worker for the gen playground app. Replaces the
 // wrangler deploy in CI. Assets uploaded from apps/gen/dist/ at
 // pulumi up time — requires `pnpm build --filter=@mbe/gen` first.
-const genWorker = new cloudflare.WorkersScript("mattbutlerengineering-gen", {
+const _genWorker = new cloudflare.WorkersScript("mattbutlerengineering-gen", {
   accountId: cloudflareAccountId,
   scriptName: "mattbutlerengineering-gen",
   compatibilityDate: "2026-03-25",
@@ -314,13 +314,13 @@ const genWorker = new cloudflare.WorkersScript("mattbutlerengineering-gen", {
 // ── Worker Routes ───────────────────────────────────────────────────
 // Worker intercepts all traffic to mattbutlerengineering.com and www.
 // Rollback: delete these routes in CF dashboard (instant).
-const workerRoute = new cloudflare.WorkersRoute("edge-router-route", {
+const _workerRoute = new cloudflare.WorkersRoute("edge-router-route", {
   zoneId: cloudflareZoneId,
   pattern: `${domain}/*`,
   script: workerScript.scriptName,
 });
 
-const wwwWorkerRoute = new cloudflare.WorkersRoute("edge-router-www-route", {
+const _wwwWorkerRoute = new cloudflare.WorkersRoute("edge-router-www-route", {
   zoneId: cloudflareZoneId,
   pattern: `www.${domain}/*`,
   script: workerScript.scriptName,
@@ -329,7 +329,7 @@ const wwwWorkerRoute = new cloudflare.WorkersRoute("edge-router-www-route", {
 // ── DNS Records ─────────────────────────────────────────────────────
 // Root domain uses AAAA 100:: (Cloudflare proxy placeholder) so the
 // Worker edge-router handles all traffic.
-const dnsRecord = new cloudflare.DnsRecord("mattbutlerengineering-dns", {
+const _dnsRecord = new cloudflare.DnsRecord("mattbutlerengineering-dns", {
   zoneId: cloudflareZoneId,
   name: "@",
   type: "AAAA",
@@ -339,7 +339,7 @@ const dnsRecord = new cloudflare.DnsRecord("mattbutlerengineering-dns", {
 });
 
 // WWW subdomain: proxied CNAME → root domain (Worker handles redirect)
-const wwwRecord = new cloudflare.DnsRecord("mattbutlerengineering-www-dns", {
+const _wwwRecord = new cloudflare.DnsRecord("mattbutlerengineering-www-dns", {
   zoneId: cloudflareZoneId,
   name: "www",
   type: "CNAME",

@@ -149,12 +149,12 @@
     },
     {
       "from": "@mbe/hospitality",
-      "to": "@mbe/rialto-catalog",
+      "to": "@mbe/observability",
       "type": "dependency"
     },
     {
       "from": "@mbe/hospitality",
-      "to": "@mbe/observability",
+      "to": "@mbe/rialto-catalog",
       "type": "dependency"
     },
     {
@@ -389,6 +389,11 @@
     },
     {
       "from": "@mbe/cli",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/infrastructure",
       "to": "@mbe/config",
       "type": "devDependency"
     }

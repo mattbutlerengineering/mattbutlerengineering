@@ -1,0 +1,750 @@
+{
+  "lastRun": "2026-05-13T02:39:31.236Z",
+  "currentLevel": 3,
+  "checks": {
+    "acmm:prereq-test-suite": {
+      "passed": true,
+      "evidence": "detected at one of: vitest.config.ts, vitest.config.js, jest.config.js, jest.config.ts, go.mod, pytest.ini, pyproject.toml"
+    },
+    "acmm:prereq-e2e": {
+      "passed": true,
+      "evidence": "detected at one of: playwright.config.ts, playwright.config.js, cypress.config.ts, cypress.config.js, e2e/, tests/e2e/"
+    },
+    "acmm:prereq-cicd": {
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/, .gitlab-ci.yml, Jenkinsfile, .circleci/"
+    },
+    "acmm:prereq-pr-template": {
+      "passed": true,
+      "evidence": "detected at one of: .github/pull_request_template.md, .github/PULL_REQUEST_TEMPLATE.md"
+    },
+    "acmm:prereq-issue-template": {
+      "passed": true,
+      "evidence": "detected at one of: .github/ISSUE_TEMPLATE/, .github/issue_template.md"
+    },
+    "acmm:prereq-contrib-guide": {
+      "passed": true,
+      "evidence": "detected at one of: CONTRIBUTING.md, .github/CONTRIBUTING.md"
+    },
+    "acmm:prereq-code-style": {
+      "passed": true,
+      "evidence": "detected at one of: .eslintrc, .eslintrc.json, .eslintrc.js, eslint.config.js, .prettierrc, ruff.toml, .golangci.yml"
+    },
+    "acmm:prereq-coverage-gate": {
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/coverage-gate.yml, .github/workflows/coverage.yml, .coverage-thresholds.json"
+    },
+    "acmm:claude-md": {
+      "passed": true,
+      "evidence": "detected at one of: CLAUDE.md"
+    },
+    "acmm:copilot-instructions": {
+      "passed": true,
+      "evidence": "detected at one of: .github/copilot-instructions.md"
+    },
+    "acmm:agents-md": {
+      "passed": true,
+      "evidence": "detected at one of: AGENTS.md"
+    },
+    "acmm:cursor-rules": {
+      "passed": true,
+      "evidence": "detected at one of: .cursor/rules, .cursorrules"
+    },
+    "acmm:prompts-catalog": {
+      "passed": true,
+      "evidence": "detected at one of: prompts/, .prompts/, docs/prompts/, .github/prompts/, .github/agents/"
+    },
+    "acmm:editor-config": {
+      "passed": true,
+      "evidence": "detected at one of: .editorconfig"
+    },
+    "acmm:simple-skills": {
+      "passed": true,
+      "evidence": "detected at one of: .claude/skills/, .claude/commands/, skills/"
+    },
+    "acmm:correction-capture": {
+      "passed": true,
+      "evidence": "detected at one of: .claude/memory/, .memory/, corrections.jsonl"
+    },
+    "acmm:positive-reinforcement": {
+      "passed": true,
+      "evidence": "detected at one of: .claude/memory/"
+    },
+    "acmm:pr-acceptance-metric": {
+      "passed": true,
+      "evidence": "detected at one of: scripts/build-accm-history.mjs, .github/workflows/accm-history-update.yml, scripts/pr-metrics.mjs"
+    },
+    "acmm:pr-review-rubric": {
+      "passed": true,
+      "evidence": "detected at one of: .github/review-rubric.md, docs/review-criteria.md, .github/prompts/review.md, docs/qa/"
+    },
+    "acmm:quality-dashboard": {
+      "passed": true,
+      "evidence": "detected at one of: apps/marketing/src/App.tsx (contains: /metrics)"
+    },
+    "acmm:ci-matrix": {
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/build.yml, .github/workflows/build-deploy.yml, .github/workflows/ci.yml, .github/workflows/test.yml"
+    },
+    "acmm:layered-safety": {
+      "passed": true,
+      "evidence": "detected at one of: .claude/settings.json, .claude/settings.local.json"
+    },
+    "acmm:mechanical-enforcement": {
+      "passed": true,
+      "evidence": "detected at one of: .claude/settings.json"
+    },
+    "acmm:context-budget": {
+      "passed": true,
+      "evidence": "detected at one of: CLAUDE.md"
+    },
+    "acmm:model-tiering": {
+      "passed": true,
+      "evidence": "detected at one of: CLAUDE.md"
+    },
+    "acmm:verify-before-reporting": {
+      "passed": true,
+      "evidence": "detected at one of: CLAUDE.md"
+    },
+    "acmm:evidence-antipatterns": {
+      "passed": true,
+      "evidence": "detected at one of: CLAUDE.md"
+    },
+    "acmm:session-summary": {
+      "passed": true,
+      "evidence": "detected at one of: .claude/session-summary.md, .claude/checkpoint.md"
+    },
+    "acmm:structural-gates": {
+      "passed": true,
+      "evidence": "detected at one of: .claude/settings.json"
+    },
+    "acmm:auto-qa-tuning": {
+      "passed": true,
+      "evidence": "detected at one of: .github/auto-qa-tuning.json, .github/qa-tuning.yml"
+    },
+    "acmm:nightly-compliance": {
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/nightly-compliance.yml, .github/workflows/nightly.yml, .github/workflows/nightly-test.yml, .github/workflows/nightly-test-suite.yml"
+    },
+    "acmm:copilot-review-apply": {
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/copilot-review-apply.yml, .github/workflows/ai-fix.yml"
+    },
+    "acmm:auto-label": {
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/auto-label.yml, .github/labeler.yml, .github/workflows/triage.yml"
+    },
+    "acmm:ai-fix-workflow": {
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/ai-fix.yml, .github/workflows/fix-requested.yml, .github/workflows/claude.yml"
+    },
+    "acmm:tier-classifier": {
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/tier-classifier.yml, .github/workflows/pr-size.yml"
+    },
+    "acmm:security-ai-md": {
+      "passed": true,
+      "evidence": "detected at one of: SECURITY-AI.md, docs/security/SECURITY-AI.md, docs/SECURITY-AI.md"
+    },
+    "acmm:structured-workflows": {
+      "passed": true,
+      "evidence": "detected at one of: .claude/skills/, .claude/commands/"
+    },
+    "acmm:router-skills": {
+      "passed": true,
+      "evidence": "detected at one of: .claude/skills/, .claude/commands/"
+    },
+    "acmm:tdd-workflows": {
+      "passed": true,
+      "evidence": "detected at one of: .claude/skills/, .claude/commands/"
+    },
+    "acmm:structured-rca": {
+      "passed": true,
+      "evidence": "detected at one of: .claude/skills/, .claude/commands/"
+    },
+    "acmm:multi-perspective-review": {
+      "passed": true,
+      "evidence": "detected at one of: .claude/skills/, .claude/commands/"
+    },
+    "acmm:idempotent-workflows": {
+      "passed": true,
+      "evidence": "detected at one of: CLAUDE.md"
+    },
+    "acmm:session-continuity": {
+      "passed": true,
+      "evidence": "detected at one of: .claude/session-summary.md (contains: \\d{4}-\\d{2}-\\d{2})"
+    },
+    "acmm:cross-session-knowledge": {
+      "passed": true,
+      "evidence": "detected at one of: knowledge.jsonl, .knowledge/, docs/reflections/"
+    },
+    "acmm:cross-repo-skills": {
+      "passed": true,
+      "evidence": "detected at one of: .claude/settings.json"
+    },
+    "acmm:github-coordination": {
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/"
+    },
+    "acmm:instruction-sync-gate": {
+      "passed": false,
+      "evidence": "file present but no recent successful run: .github/workflows/ci.yml"
+    },
+    "acmm:component-registry-integrity": {
+      "passed": false,
+      "evidence": "file present but no recent successful run: .github/workflows/ci.yml"
+    },
+    "acmm:instruction-rot-detection": {
+      "passed": false,
+      "evidence": "file present but no recent successful run: .github/workflows/ci.yml"
+    },
+    "acmm:feedback-loops": {
+      "passed": true,
+      "evidence": "detected at one of: CLAUDE.md"
+    },
+    "acmm:claude-md-auto-sync": {
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/claude-md-sync.yml"
+    },
+    "acmm:preference-index": {
+      "passed": true,
+      "evidence": "detected at one of: .claude/preferences.json (contains: \"priority\":\\s*\"(critical|high|medium|low)\")"
+    },
+    "acmm:task-ledger": {
+      "passed": true,
+      "evidence": "detected at one of: .claude/task-log.jsonl (contains: ^\\{\"timestamp\")"
+    },
+    "acmm:mcp-server-config": {
+      "passed": true,
+      "evidence": "detected at one of: .mcp.json, .claude/mcp.json, .cursor/mcp.json, mcp.json"
+    },
+    "acmm:code-graph": {
+      "passed": true,
+      "evidence": "detected at one of: .vscode/settings.json, tags, TAGS, .ctags, .tree-sitter/, llms.txt, llms-full.txt, tsconfig.json, .clangd, pyrightconfig.json, .claude/plugins/"
+    },
+    "acmm:onboarding-benchmark": {
+      "passed": true,
+      "evidence": "detected at one of: .claude/acmm/onboarding-benchmark.json (contains: \"results\")"
+    },
+    "acmm:repo-bench": {
+      "passed": true,
+      "evidence": "detected at one of: .claude/acmm/repo-bench-results.json (contains: \"results\")"
+    },
+    "acmm:github-actions-ai": {
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/claude.yml, .github/workflows/claude-code-review.yml"
+    },
+    "acmm:auto-qa-self-tuning": {
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/auto-qa.yml, .github/auto-qa-tuning.json"
+    },
+    "acmm:public-metrics": {
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/pr-metrics.yml (contains: pages)"
+    },
+    "acmm:policy-as-code": {
+      "passed": true,
+      "evidence": "detected at one of: .github/policies/, policy/, conftest.yaml, opa/"
+    },
+    "acmm:reflection-log": {
+      "passed": true,
+      "evidence": "detected at one of: docs/reflections/, memory/, .memory/, REFLECTIONS.md"
+    },
+    "acmm:periodic-reflection": {
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/reflection-review.yml"
+    },
+    "acmm:audit-trail": {
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/audit-trail.yml, .github/workflows/ai-attribution.yml"
+    },
+    "acmm:explanation-standards": {
+      "passed": true,
+      "evidence": "detected at one of: docs/acmm/explanation-standards.md, docs/review-criteria.md, .github/prompts/review.md"
+    },
+    "acmm:self-correction-metric": {
+      "passed": true,
+      "evidence": "detected at one of: docs/acmm/explanation-standards.md, plugins/acmm/scripts/pr-outcomes.js"
+    },
+    "acmm:state-backup": {
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/acmm-state-backup.yml, .claude/acmm/backups/"
+    },
+    "acmm:ai-health-dashboard": {
+      "passed": true,
+      "evidence": "detected at one of: docs/acmm/ai-health-monitoring.md, scripts/acmm/ai-health-check.sh"
+    },
+    "acmm:prompt-injection-sandbox": {
+      "passed": true,
+      "evidence": "detected at one of: docs/security/ai-prompt-injection.md, docs/security/ai-threat-model.md"
+    },
+    "acmm:agent-attestation": {
+      "passed": true,
+      "evidence": "detected at one of: docs/acmm/agent-attestation.md, docs/security/agent-identity.md"
+    },
+    "acmm:ai-service-fallback": {
+      "passed": true,
+      "evidence": "detected at one of: infrastructure/worker/circuit-breaker.js (contains: CIRCUIT_BREAKER_KEY)"
+    },
+    "acmm:override-analytics": {
+      "passed": true,
+      "evidence": "detected at one of: docs/acmm/override-analytics.md"
+    },
+    "acmm:ai-compliance-doc": {
+      "passed": true,
+      "evidence": "detected at one of: docs/acmm/ai-compliance-doc.md, docs/compliance/ai-workflows.md"
+    },
+    "acmm:review-burden": {
+      "passed": true,
+      "evidence": "detected at one of: docs/acmm/review-burden.md"
+    },
+    "acmm:auto-issue-gen": {
+      "passed": false,
+      "evidence": "file present but no recent successful run: .github/workflows/auto-issue.yml"
+    },
+    "acmm:multi-agent-orchestration": {
+      "passed": true,
+      "evidence": "detected at one of: scripts/orchestrate.mjs, .github/workflows/orchestrate.yml, orchestrator/"
+    },
+    "acmm:merge-queue": {
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/merge-queue.yml, .prow.yaml, tide.yaml"
+    },
+    "acmm:strategic-dashboard": {
+      "passed": true,
+      "evidence": "detected at one of: web/src/components/acmm/, web/public/analytics.js, docs/autonomous-work-log.md"
+    },
+    "acmm:risk-assessment-config": {
+      "passed": true,
+      "evidence": "detected at one of: risk-config.json, .claude/risk-config.json, .github/risk-assessment.yml"
+    },
+    "acmm:production-feedback": {
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/production-feedback.yml"
+    },
+    "acmm:observability-runbook": {
+      "passed": true,
+      "evidence": "detected at one of: docs/ai-ops-runbook.md, docs/runbook/, RUNBOOK.md"
+    },
+    "acmm:rollback-drill": {
+      "passed": true,
+      "evidence": "detected at one of: docs/rollback.md (contains: Last drill: \\d{4})"
+    },
+    "acmm:feedback-loop-inventory": {
+      "passed": true,
+      "evidence": "detected at one of: docs/acmm/feedback-loop-inventory.md"
+    },
+    "acmm:budget-policy": {
+      "passed": true,
+      "evidence": "detected at one of: .claude/budget-policy.json, docs/acmm/cost-governance.md"
+    },
+    "acmm:token-tracking": {
+      "passed": true,
+      "evidence": "detected at one of: .claude/budget-policy.json, .claude/acmm/cost-metrics.json, docs/acmm/cost-governance.md"
+    },
+    "acmm:accessibility-ai-check": {
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/ci.yml (contains: pnpm --dir packages/rialto vitest .* accessibility)"
+    },
+    "acmm:auto-rollback": {
+      "passed": false,
+      "evidence": "file present but no recent successful run: .github/workflows/auto-rollback.yml"
+    },
+    "acmm:multi-repo-orchestration": {
+      "passed": true,
+      "evidence": "detected at one of: docs/acmm/multi-repo-orchestration.md (contains: Executed: \\d{4}-\\d{2}-\\d{2})"
+    },
+    "fullsend:test-coverage": {
+      "passed": true,
+      "evidence": "detected at one of: codecov.yml, .codecov.yml, coverage.yml, .github/workflows/coverage-gate.yml"
+    },
+    "fullsend:ci-cd-maturity": {
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/"
+    },
+    "fullsend:auto-merge-policy": {
+      "passed": true,
+      "evidence": "detected at one of: .github/auto-merge.yml, .prow.yaml, tide.yaml, .github/workflows/auto-merge.yml"
+    },
+    "fullsend:branch-protection-doc": {
+      "passed": true,
+      "evidence": "detected at one of: docs/branch-protection.md, docs/governance.md, .github/branch-protection.yml"
+    },
+    "fullsend:production-feedback": {
+      "passed": true,
+      "evidence": "detected at one of: monitoring/, grafana/, .github/workflows/post-deploy-check.yml, scripts/production-feedback.mjs"
+    },
+    "fullsend:observability-runbook": {
+      "passed": true,
+      "evidence": "detected at one of: docs/runbook.md, docs/runbooks/, RUNBOOK.md, docs/operations/"
+    },
+    "fullsend:risk-assessment": {
+      "passed": true,
+      "evidence": "detected at one of: .github/risk-assessment.yml, docs/risk-tiers.md, .github/workflows/tier-classifier.yml"
+    },
+    "fullsend:rollback-drill": {
+      "passed": true,
+      "evidence": "detected at one of: docs/rollback.md (contains: Last drill:)"
+    },
+    "aef:task-traceability": {
+      "passed": true,
+      "evidence": "detected at one of: .agent/tasks/, docs/agent-tasks/, .github/agent-log/, agent-tasks.md"
+    },
+    "aef:structural-gates": {
+      "passed": true,
+      "evidence": "detected at one of: CODEOWNERS, .github/CODEOWNERS, .agent/boundaries.yml, docs/agent-boundaries.md"
+    },
+    "aef:session-continuity": {
+      "passed": true,
+      "evidence": "detected at one of: CLAUDE.md, AGENTS.md, .cursorrules, .github/copilot-instructions.md, docs/agent-context.md"
+    },
+    "aef:audit-trail": {
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/ai-audit.yml, .github/workflows/agent-audit.yml, scripts/ai-audit-report.mjs"
+    },
+    "aef:cross-tool-config": {
+      "passed": true,
+      "evidence": "detected at one of: AGENTS.md, docs/ai-contributors.md, .github/ai-config.yml"
+    },
+    "aef:change-classification": {
+      "passed": true,
+      "evidence": "detected at one of: docs/change-classification.md, .github/change-tiers.yml, docs/risk-tiers.md"
+    },
+    "claude-reflect:correction-capture": {
+      "passed": true,
+      "evidence": "detected at one of: .claude/reflections/, memory/feedback_, .github/ai-corrections.yml, scripts/capture-corrections.mjs"
+    },
+    "claude-reflect:positive-reinforcement": {
+      "passed": true,
+      "evidence": "detected at one of: .claude/reflections/, memory/feedback_, docs/ai-reinforcement.md"
+    },
+    "claude-reflect:claude-md-sync": {
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/claude-md-sync.yml, scripts/sync-claude-md.mjs, scripts/update-claude-md.mjs"
+    },
+    "claude-reflect:preference-index": {
+      "passed": true,
+      "evidence": "detected at one of: .claude/preferences.json, memory/MEMORY.md, .github/agent-preferences.yml"
+    },
+    "claude-reflect:reflection-review": {
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/reflection-review.yml, scripts/review-reflections.mjs, docs/reflection-review.md"
+    },
+    "claude-reflect:session-summary": {
+      "passed": true,
+      "evidence": "detected at one of: .claude/sessions/, docs/session-summaries/, memory/session_"
+    }
+  },
+  "history": [
+    {
+      "date": "2026-04-30",
+      "level": 6,
+      "detected": 54,
+      "total": 85
+    },
+    {
+      "date": "2026-05-01",
+      "level": 6,
+      "detected": 85,
+      "total": 85
+    },
+    {
+      "date": "2026-05-02",
+      "level": 6,
+      "detected": 104,
+      "total": 104
+    },
+    {
+      "date": "2026-05-03",
+      "level": 6,
+      "detected": 105,
+      "total": 105
+    },
+    {
+      "date": "2026-05-05",
+      "level": 6,
+      "detected": 105,
+      "total": 105
+    },
+    {
+      "date": "2026-05-08",
+      "level": 6,
+      "detected": 104,
+      "total": 105
+    },
+    {
+      "date": "2026-05-09",
+      "level": 6,
+      "detected": 104,
+      "total": 105
+    },
+    {
+      "date": "2026-05-10",
+      "level": 3,
+      "detected": 106,
+      "total": 108
+    },
+    {
+      "date": "2026-05-11",
+      "level": 2,
+      "detected": 92,
+      "total": 108
+    },
+    {
+      "date": "2026-05-12",
+      "level": 3,
+      "detected": 103,
+      "total": 108
+    },
+    {
+      "date": "2026-05-13",
+      "level": 3,
+      "detected": 103,
+      "total": 108
+    }
+  ],
+  "issuesCreated": {
+    "acmm:nightly-compliance": 1262,
+    "acmm:copilot-review-apply": 1263,
+    "acmm:component-registry-integrity": 1264,
+    "acmm:instruction-rot-detection": 1265,
+    "acmm:repo-bench": 1266
+  },
+  "levelName": "Fully Autonomous",
+  "role": "Strategist",
+  "detectedIds": [
+    "acmm:prereq-test-suite",
+    "acmm:prereq-e2e",
+    "acmm:prereq-cicd",
+    "acmm:prereq-pr-template",
+    "acmm:prereq-issue-template",
+    "acmm:prereq-contrib-guide",
+    "acmm:prereq-code-style",
+    "acmm:prereq-coverage-gate",
+    "acmm:claude-md",
+    "acmm:copilot-instructions",
+    "acmm:agents-md",
+    "acmm:cursor-rules",
+    "acmm:prompts-catalog",
+    "acmm:editor-config",
+    "acmm:simple-skills",
+    "acmm:correction-capture",
+    "acmm:positive-reinforcement",
+    "acmm:pr-acceptance-metric",
+    "acmm:pr-review-rubric",
+    "acmm:quality-dashboard",
+    "acmm:ci-matrix",
+    "acmm:layered-safety",
+    "acmm:mechanical-enforcement",
+    "acmm:context-budget",
+    "acmm:model-tiering",
+    "acmm:verify-before-reporting",
+    "acmm:evidence-antipatterns",
+    "acmm:session-summary",
+    "acmm:structural-gates",
+    "acmm:auto-qa-tuning",
+    "acmm:nightly-compliance",
+    "acmm:copilot-review-apply",
+    "acmm:auto-label",
+    "acmm:ai-fix-workflow",
+    "acmm:tier-classifier",
+    "acmm:security-ai-md",
+    "acmm:structured-workflows",
+    "acmm:router-skills",
+    "acmm:tdd-workflows",
+    "acmm:structured-rca",
+    "acmm:multi-perspective-review",
+    "acmm:idempotent-workflows",
+    "acmm:session-continuity",
+    "acmm:cross-session-knowledge",
+    "acmm:cross-repo-skills",
+    "acmm:github-coordination",
+    "acmm:feedback-loops",
+    "acmm:claude-md-auto-sync",
+    "acmm:preference-index",
+    "acmm:task-ledger",
+    "acmm:mcp-server-config",
+    "acmm:code-graph",
+    "acmm:onboarding-benchmark",
+    "acmm:repo-bench",
+    "acmm:github-actions-ai",
+    "acmm:auto-qa-self-tuning",
+    "acmm:public-metrics",
+    "acmm:policy-as-code",
+    "acmm:reflection-log",
+    "acmm:periodic-reflection",
+    "acmm:audit-trail",
+    "acmm:explanation-standards",
+    "acmm:self-correction-metric",
+    "acmm:state-backup",
+    "acmm:ai-health-dashboard",
+    "acmm:prompt-injection-sandbox",
+    "acmm:agent-attestation",
+    "acmm:ai-service-fallback",
+    "acmm:override-analytics",
+    "acmm:ai-compliance-doc",
+    "acmm:review-burden",
+    "acmm:multi-agent-orchestration",
+    "acmm:merge-queue",
+    "acmm:strategic-dashboard",
+    "acmm:risk-assessment-config",
+    "acmm:production-feedback",
+    "acmm:observability-runbook",
+    "acmm:rollback-drill",
+    "acmm:feedback-loop-inventory",
+    "acmm:budget-policy",
+    "acmm:token-tracking",
+    "acmm:accessibility-ai-check",
+    "acmm:multi-repo-orchestration",
+    "fullsend:test-coverage",
+    "fullsend:ci-cd-maturity",
+    "fullsend:auto-merge-policy",
+    "fullsend:branch-protection-doc",
+    "fullsend:production-feedback",
+    "fullsend:observability-runbook",
+    "fullsend:risk-assessment",
+    "fullsend:rollback-drill",
+    "aef:task-traceability",
+    "aef:structural-gates",
+    "aef:session-continuity",
+    "aef:audit-trail",
+    "aef:cross-tool-config",
+    "aef:change-classification",
+    "claude-reflect:correction-capture",
+    "claude-reflect:positive-reinforcement",
+    "claude-reflect:claude-md-sync",
+    "claude-reflect:preference-index",
+    "claude-reflect:reflection-review",
+    "claude-reflect:session-summary"
+  ],
+  "computation": {
+    "level": 3,
+    "strict": true,
+    "levelName": "Fully Autonomous",
+    "role": "Strategist",
+    "characteristic": "The system acts on what it finds — generates issues, merges PRs, rolls back failures. Humans set policy and audit after the fact.",
+    "detectedByLevel": {
+      "2": 3,
+      "3": 5,
+      "4": 14,
+      "5": 16,
+      "6": 6
+    },
+    "requiredByLevel": {
+      "2": 3,
+      "3": 6,
+      "4": 16,
+      "5": 16,
+      "6": 8
+    },
+    "missingForNextLevel": [],
+    "nextTransitionTrigger": null,
+    "antiPattern": "Mistaking autonomy for abandonment: an autonomous codebase still needs a strategist to set direction, or it drifts toward local optima.",
+    "prerequisites": {
+      "met": 8,
+      "total": 8
+    },
+    "crossCutting": {
+      "learning": {
+        "met": 1,
+        "total": 1
+      },
+      "traceability": {
+        "met": 1,
+        "total": 1
+      }
+    },
+    "behavioralGates": [
+      {
+        "level": 3,
+        "name": "ci-flake-rate",
+        "description": "CI flake rate must be below 20%",
+        "passed": true,
+        "value": 0,
+        "threshold": 0.2,
+        "direction": "below",
+        "strict": true,
+        "dataAvailable": true
+      },
+      {
+        "level": 4,
+        "name": "agent-pr-acceptance",
+        "description": "Agent PR acceptance rate must exceed 50%",
+        "passed": true,
+        "value": 0.9655172413793104,
+        "threshold": 0.5,
+        "direction": "above",
+        "strict": true,
+        "dataAvailable": true
+      },
+      {
+        "level": 5,
+        "name": "auto-qa-tuning-history",
+        "description": "Auto-QA tuning history must have more than 1 entry",
+        "passed": true,
+        "value": 2,
+        "threshold": 1,
+        "direction": "above",
+        "strict": true,
+        "dataAvailable": true
+      },
+      {
+        "level": 6,
+        "name": "agent-pr-revert-rate",
+        "description": "Agent PR revert rate must be below 10%",
+        "passed": true,
+        "value": 0,
+        "threshold": 0.1,
+        "direction": "below",
+        "strict": true,
+        "dataAvailable": true
+      }
+    ],
+    "capped": true,
+    "computedLevel": 6
+  },
+  "behavioral": {
+    "flake": {
+      "rate_30d": 0,
+      "sample_size": 100,
+      "flaky_shas": [],
+      "measured_at": "2026-05-13T02:39:31.234Z"
+    },
+    "agent_pr": {
+      "sample_size": 29,
+      "merged_count": 28,
+      "closed_unmerged_count": 1,
+      "open_count": 0,
+      "acceptance_rate_30d": 0.9655172413793104,
+      "revert_rate_30d": 0,
+      "median_time_to_merge_hours": 0.07972222222222222,
+      "human_touch_ratio": 1,
+      "insufficient_data": false,
+      "measured_at": "2026-05-13T02:39:31.234Z"
+    },
+    "evals": {
+      "n": 37,
+      "passRate": 0.8649,
+      "medianScore": 1,
+      "medianCostUsd": 0,
+      "medianTurns": 0,
+      "windowDays": 30,
+      "lastRun": "2026-05-10T21:42:57.095Z",
+      "perModel": {
+        "claude-sonnet-4-6": {
+          "n": 37,
+          "passRate": 0.8649,
+          "medianScore": 1
+        }
+      },
+      "status": "green",
+      "measured_at": "2026-05-13T02:39:31.234Z"
+    },
+    "auto_qa_tuning": {
+      "history_count": 2,
+      "measured_at": "2026-05-13T02:39:31.234Z"
+    }
+  },
+  "honestAuditNote": "Critical Audit 2026-05-13: Re-capped to L3. While scannable criteria (files) are present for L4-L6, deep verification reveals gaps: (1) Strategic Dashboard is a static metrics viewer, not an activity audit tool. (2) Auto-rollback loop is implemented but has no record of successful recovery. (3) L3 integrity (llms.txt) was fragile/platform-dependent until today. L6 requires these loops to be battle-tested and documentation to be truly deterministic.",
+  "levelCap": 3
+}

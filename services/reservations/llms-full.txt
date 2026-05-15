@@ -1,44 +1,4 @@
 <codebase path="services/reservations">
-  <section priority="medium" role="src">
-  <file path="src/index.ts">
-    async function main() {
-      const fastify = await buildApp();
-    
-      try {
-        await fastify.listen({ port: PORT, host: HOST });
-        fastify.log.info(`Server running at http://${HOST}:${PORT}`);
-        fastify.log.info(`API docs at http://${HOST}:${PORT}/docs`);
-      } catch (err) {
-        fastify.log.error(err);
-        process.exit(1);
-      }
-    }
-  </file>
-  <file path="src/app.ts">
-    function validateCorsOrigins(origins: string[]): string[] {
-      const validPatterns = [
-        /^https:\/\/([a-z-]+\.)?mattbutlerengineering\.com$/,
-        ...(process.env.NODE_ENV === "development"
-          ? [/^http:\/\/localhost:\d+$/]
-          : []),
-      ];
-    
-      const validated: string[] = [];
-      for (const origin of origins) {
-        const trimmed = origin.trim();
-        if (validPatterns.some((p) => p.test(trimmed))) {
-          validated.push(trimmed);
-        } else {
-          console.warn(`[CORS] Rejected invalid origin from CORS_ORIGINS: ${trimmed}`);
-        }
-      }
-      return validated;
-    }
-    export interface AppOptions {
-      logger?: boolean | object;
-    }
-  </file>
-  </section>
   <section priority="medium" role="prisma">
   <file path="prisma/seed.ts">
     function todayAt(hours: number, minutes: number): Date {
@@ -53,718 +13,573 @@
     }
   </file>
   </section>
-  <section priority="medium" role="test">
-  <file path="src/test/mocks.ts">
-    export interface MockTable {
-      readonly id: string;
-      readonly name: string;
-      readonly tableNumber: string | null;
-      readonly capacity: number;
-      readonly minCovers: number;
-      readonly maxCovers: number | null;
-      readonly location: string | null;
-      readonly isActive: boolean;
-      readonly priority: number;
-      readonly status: TableStatus;
-      readonly venueId: string | null;
-      readonly floorPlanId: string | null;
-      readonly shapeMetadata: TableShapeMetadata | null;
-      readonly createdAt: string;
-      readonly updatedAt: string;
-    }
-    export interface MockReservation {
-      readonly id: string;
-      readonly date: string;
-      readonly startTime: string;
-      readonly endTime: string;
-      readonly partySize: number;
-      readonly status: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED" | "NO_SHOW";
-      readonly notes: string | null;
-      readonly cancellationReason: string | null;
-      readonly cancellationNote: string | null;
-      readonly guestName: string;
-      readonly guestEmail: string | null;
-      readonly guestPhone: string | null;
-      readonly guestId: string | null;
-      readonly userId: string | null;
-      readonly tableId: string;
-      readonly table: MockTable;
-      readonly venueId: string | null;
-      readonly createdAt: string;
-      readonly updatedAt: string;
-    }
-  </file>
-  </section>
-  <section priority="medium" role="schemas">
-  <file path="src/schemas/index.ts">
-    export const TableShapeMetadataSchema = tableShapeMetadataJsonSchema;
-    export const TableSchema = tableJsonSchema;
-  </file>
-  </section>
   <section priority="medium" role="routes">
-  <file path="src/routes/venues.ts">
-    export const venueRoutes: FastifyPluginAsync = async (fastify) => {
-      // ============ VENUE GROUP ROUTES ============
+  <file path="src/routes/availability.ts">
+    export const availabilityRoutes: FastifyPluginAsync = async (fastify) => {
+      // Register schemas
+      fastify.addSchema(TimeSlotSchema);
+      fastify.addSchema(DateAvailabilitySchema);
     
-      // List venue groups
+      // GET /:venueId - Get available time slots for a date
       fastify.get<{
-        Querystring: { page?: string; limit?: string };
-        Reply: PaginatedResponse<VenueGroup>;
+        Params: { venueId: string };
+        Querystring: { date: string; partySize: string; duration?: string };
+        Reply: ApiResponse<TimeSlot[]> | ApiError;
       }>(
-        "/groups",
+        "/:venueId",
         {
           schema: {
-            summary: "List all venue groups",
-            operationId: "listVenueGroups",
-            description: "Retrieve a paginated list of all venue groups.",
-            tags: ["Venue Groups"],
+            summary: "Get available time slots",
+            operationId: "getAvailability",
+            description:
+              "Get all available time slots for a venue on a specific date for a given party size.",
+            tags: ["Availability"],
+            params: {
+              type: "object",
+              required: ["venueId"],
+              properties: {
+                venueId: {
+                  type: "string",
+                  description: "The venue ID",
+                },
+              },
+            },
             querystring: {
               type: "object",
+              required: ["date", "partySize"],
               properties: {
-                page: {
+                date: {
                   type: "string",
-                  default: "1",
-                  description: "Page number (1-indexed)",
+                  format: "date",
+                  description: "Date in YYYY-MM-DD format",
                 },
-                limit: {
+                partySize: {
                   type: "string",
-                  default: "10",
-                  description: "Number of groups per page (max 100)",
+                  description: "Number of guests",
+                },
+                duration: {
+                  type: "string",
+                  description: "Optional duration override in minutes",
                 },
               },
             },
             response: {
               200: {
-                description: "Successful response with paginated venue group list",
                 type: "object",
                 properties: {
                   data: {
                     type: "array",
-                    items: { $ref: "VenueGroup#" },
+                    items: { $ref: "TimeSlot#" },
                   },
-                  pagination: { $ref: "Pagination#" },
                 },
               },
-              500: {
-                description: "Internal server error",
-                $ref: "Error#",
+              404: { $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const { venueId } = request.params;
+          const { date, partySize, duration } = request.query;
+    
+          // Validate venue exists
+          const venue = await venueService.getById(venueId);
+          if (!venue) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
+          }
+    
+          // Validate date format
+          const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+          if (!dateRegex.test(date)) {
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", "Invalid date format. Use YYYY-MM-DD."));
+          }
+    
+          const partySizeNum = parseInt(partySize, 10);
+          if (isNaN(partySizeNum) || partySizeNum < 1) {
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", "Invalid party size. Must be a positive integer."));
+          }
+    
+          const durationNum = duration ? parseInt(duration, 10) : undefined;
+          if (duration && (isNaN(durationNum!) || durationNum! < 15)) {
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", "Invalid duration. Must be at least 15 minutes."));
+          }
+    
+          const slots = await availabilityService.generateTimeSlots(
+            venueId,
+            date,
+            partySizeNum,
+            durationNum
+          );
+    
+          return { data: slots };
+        }
+      );
+    
+      // GET /:venueId/dates - Get dates with availability in a range
+      fastify.get<{
+        Params: { venueId: string };
+        Querystring: { startDate: string; endDate: string; partySize: string };
+        Reply: ApiResponse<DateAvailability[]> | ApiError;
+      }>(
+        "/:venueId/dates",
+        {
+          schema: {
+            summary: "Get dates with availability",
+            operationId: "getAvailableDates",
+            description:
+              "Get a list of dates with availability in a date range. Useful for calendar displays.",
+            tags: ["Availability"],
+            params: {
+              type: "object",
+              required: ["venueId"],
+              properties: {
+                venueId: {
+                  type: "string",
+                  description: "The venue ID",
+                },
+              },
+            },
+            querystring: {
+              type: "object",
+              required: ["startDate", "endDate", "partySize"],
+              properties: {
+                startDate: {
+                  type: "string",
+                  format: "date",
+                  description: "Start date in YYYY-MM-DD format",
+                },
+                endDate: {
+                  type: "string",
+                  format: "date",
+                  description: "End date in YYYY-MM-DD format",
+                },
+                partySize: {
+                  type: "string",
+                  description: "Number of guests",
+                },
+              },
+            },
+            response: {
+              200: {
+                type: "object",
+                properties: {
+                  data: {
+                    type: "array",
+                    items: { $ref: "DateAvailability#" },
+                  },
+                },
+              },
+              404: { $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const { venueId } = request.params;
+          const { startDate, endDate, partySize } = request.query;
+    
+          // Validate venue exists
+          const venue = await venueService.getById(venueId);
+          if (!venue) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
+          }
+    
+          // Validate date formats
+          const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+          if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", "Invalid date format. Use YYYY-MM-DD."));
+          }
+    
+          // Validate date range
+          const start = new Date(startDate);
+          const end = new Date(endDate);
+          if (start > end) {
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", "startDate must be before or equal to endDate."));
+          }
+    
+          const partySizeNum = parseInt(partySize, 10);
+          if (isNaN(partySizeNum) || partySizeNum < 1) {
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", "Invalid party size. Must be a positive integer."));
+          }
+    
+          const dates = await availabilityService.getAvailableDates(
+            venueId,
+            startDate,
+            endDate,
+            partySizeNum
+          );
+    
+          return { data: dates };
+        }
+      );
+    };
+  </file>
+  <file path="src/routes/events.ts">
+    class EventBuffer {
+      private readonly maxSize: number;
+      private buffer: readonly ReservationEvent[] = [];
+      private _droppedCount = 0;
+    
+      constructor(maxSize: number) {
+        this.maxSize = maxSize;
+      }
+    
+      /** Push an event, dropping the oldest if the buffer is full. Returns true if an event was dropped. */
+      push(event: ReservationEvent): boolean {
+        if (this.buffer.length >= this.maxSize) {
+          // Drop oldest, append new — immutable replacement
+          this.buffer = [...this.buffer.slice(1), event];
+          this._droppedCount += 1;
+          return true;
+        }
+        this.buffer = [...this.buffer, event];
+        return false;
+      }
+    
+      /** Drain all buffered events, resetting the buffer. */
+      drain(): readonly ReservationEvent[] {
+        const events = this.buffer;
+        this.buffer = [];
+        return events;
+      }
+    
+      get length(): number {
+        return this.buffer.length;
+      }
+    
+      get droppedCount(): number {
+        return this._droppedCount;
+      }
+    }
+    export function getConnectionManager(): SseConnectionManager {
+      return connectionManager;
+    }
+  </file>
+  <file path="src/routes/floor-plans.ts">
+    export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.get<{
+        Querystring: { venueId?: string; page?: string; limit?: string };
+        Reply: PaginatedResponse<FloorPlan> | ApiError;
+      }>(
+        "/",
+        {
+          schema: {
+            summary: "List floor plans",
+            description: "Returns a paginated list of floor plans for a venue.",
+            querystring: {
+              type: "object",
+              properties: {
+                venueId: { type: "string" },
+                page: { type: "string", default: "1" },
+                limit: { type: "string", default: "10" },
               },
             },
           },
         },
         async (request) => {
-          const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
-          const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "10", 10) || 10));
-          return venueGroupService.list(page, limit);
+          const page = parseInt(request.query.page || "1", 10);
+          const limit = parseInt(request.query.limit || "10", 10);
+          return floorPlanService.list(page, limit, request.query.venueId);
         }
       );
     
-      // Get venue group by ID
-      fastify.get<{
-        Params: { id: string };
-        Reply: ApiResponse<VenueGroup> | ApiError;
-      }>(
-        "/groups/:id",
+      fastify.get<{ Params: { venueId: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
+        "/venue/:venueId/active",
         {
           schema: {
-            summary: "Get venue group by ID",
-            operationId: "getVenueGroupById",
-            description: "Retrieve a single venue group by its unique identifier.",
-            tags: ["Venue Groups"],
+            summary: "Get active floor plan for venue",
             params: {
               type: "object",
               properties: {
-                id: {
-                  type: "string",
-                  description: "Unique venue group identifier",
-                },
-              },
-              required: ["id"],
-            },
-            response: {
-              200: {
-                description: "Venue group found",
-                type: "object",
-                properties: {
-                  data: { $ref: "VenueGroup#" },
-                },
-              },
-              404: {
-                description: "Venue group not found",
-                $ref: "Error#",
+                venueId: { type: "string" },
               },
             },
           },
         },
         async (request, reply) => {
-          const group = await venueGroupService.getById(request.params.id);
-          if (!group) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue group not found"));
+          const floorPlan = await floorPlanService.getActiveByVenueId(request.params.venueId);
+          if (!floorPlan) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "No active floor plan found for venue"));
           }
-          return { data: group };
+          return { data: floorPlan };
         }
       );
     
-      // Create venue group (requires auth)
-      fastify.post<{
-        Body: CreateVenueGroupRequest;
-        Reply: ApiResponse<VenueGroup> | ApiError;
-      }>(
-        "/groups",
+      fastify.get<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
+        "/:id",
         {
-          preHandler: requireAuth,
           schema: {
-            summary: "Create a new venue group",
-            operationId: "createVenueGroup",
-            description: "Create a new venue group. Requires authentication.",
-            tags: ["Venue Groups"],
-            security: [{ bearerAuth: [] }],
-            body: {
-              type: "object",
-              description: "Venue group creation payload",
-              properties: {
-                name: {
-                  type: "string",
-                  description: "Venue group name",
-                },
-                slug: {
-                  type: "string",
-                  description: "URL-friendly identifier (must be unique)",
-                },
-                settings: {
-                  type: "object",
-                  description: "Shared settings for all venues in the group",
-                },
-              },
-              required: ["name", "slug"],
-            },
-            response: {
-              201: {
-                description: "Venue group created successfully",
-                type: "object",
-                properties: {
-                  data: { $ref: "VenueGroup#" },
-                },
-              },
-              400: {
-                description: "Invalid request body or slug already exists",
-                $ref: "Error#",
-              },
-              401: {
-                description: "Authentication required",
-                $ref: "Error#",
-              },
-            },
-          },
-        },
-        async (request, reply) => {
-          try {
-            const group = await venueGroupService.create(request.body);
-            return reply.code(201).send({ data: group });
-          } catch (error) {
-            if (
-              error instanceof Error &&
-              error.message.includes("Unique constraint")
-            ) {
-              return reply.code(400).send(createProblemDetails(400, "Bad Request", "A venue group with this slug already exists"));
-            }
-            throw error;
-          }
-        }
-      );
-    
-      // Update venue group (requires auth)
-      fastify.patch<{
-        Params: { id: string };
-        Body: UpdateVenueGroupRequest;
-        Reply: ApiResponse<VenueGroup> | ApiError;
-      }>(
-        "/groups/:id",
-        {
-          preHandler: requireAuth,
-          schema: {
-            summary: "Update a venue group",
-            operationId: "updateVenueGroup",
-            description:
-              "Update an existing venue group. Only provided fields will be updated. Requires authentication.",
-            tags: ["Venue Groups"],
-            security: [{ bearerAuth: [] }],
+            summary: "Get floor plan by ID",
             params: {
               type: "object",
               properties: {
-                id: {
-                  type: "string",
-                  description: "Unique venue group identifier",
-                },
-              },
-              required: ["id"],
-            },
-            body: {
-              type: "object",
-              description: "Fields to update",
-              properties: {
-                name: { type: "string" },
-                slug: { type: "string" },
-                settings: { type: "object" },
-              },
-            },
-            response: {
-              200: {
-                description: "Venue group updated successfully",
-                type: "object",
-                properties: {
-                  data: { $ref: "VenueGroup#" },
-                },
-              },
-              401: {
-                description: "Authentication required",
-                $ref: "Error#",
-              },
-              404: {
-                description: "Venue group not found",
-                $ref: "Error#",
+                id: { type: "string" },
               },
             },
           },
         },
         async (request, reply) => {
-          const group = await venueGroupService.update(request.params.id, request.body);
-          if (!group) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue group not found"));
+          const floorPlan = await floorPlanService.getById(request.params.id);
+          if (!floorPlan) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
           }
-          return { data: group };
+          return { data: floorPlan };
         }
       );
     
-      // Delete venue group (requires auth)
-      fastify.delete<{
-        Params: { id: string };
-      }>(
-        "/groups/:id",
-        {
-          preHandler: requireAuth,
-          schema: {
-            summary: "Delete a venue group",
-            operationId: "deleteVenueGroup",
-            description:
-              "Delete a venue group. This will fail if the group has venues. Requires authentication.",
-            tags: ["Venue Groups"],
-            security: [{ bearerAuth: [] }],
-            params: {
-              type: "object",
-              properties: {
-                id: {
-                  type: "string",
-                  description: "Unique venue group identifier",
-                },
-              },
-              required: ["id"],
-            },
-            response: {
-              204: {
-                description: "Venue group deleted successfully",
-                type: "null",
-              },
-              401: {
-                description: "Authentication required",
-                $ref: "Error#",
-              },
-              404: {
-                description: "Venue group not found",
-                $ref: "Error#",
-              },
-              409: {
-                description: "Venue group has venues and cannot be deleted",
-                $ref: "Error#",
-              },
-            },
-          },
-        },
-        async (request, reply) => {
-          const deleted = await venueGroupService.delete(request.params.id);
-          if (!deleted) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue group not found"));
-          }
-          return reply.code(204).send();
-        }
-      );
-    
-      // ============ VENUE ROUTES ============
-    
-      // List venues
-      fastify.get<{
-        Querystring: { page?: string; limit?: string; venueGroupId?: string };
-        Reply: PaginatedResponse<Venue>;
-      }>(
+      fastify.post<{ Body: CreateFloorPlanRequest; Reply: ApiResponse<FloorPlan> | ApiError }>(
         "/",
         {
+          preHandler: requireAuth,
           schema: {
-            summary: "List all venues",
-            operationId: "listVenues",
-            description:
-              "Retrieve a paginated list of all venues. Optionally filter by venue group.",
-            tags: ["Venues"],
-            querystring: {
+            summary: "Create floor plan",
+            body: {
               type: "object",
+              required: ["venueId", "name", "layoutJson"],
               properties: {
-                page: {
-                  type: "string",
-                  default: "1",
-                  description: "Page number (1-indexed)",
-                },
-                limit: {
-                  type: "string",
-                  default: "10",
-                  description: "Number of venues per page (max 100)",
-                },
-                venueGroupId: {
-                  type: "string",
-                  description: "Filter venues by venue group ID",
-                },
+                venueId: { type: "string" },
+                name: { type: "string" },
+                isActive: { type: "boolean" },
+                layoutJson: { type: "object" },
               },
             },
-            response: {
-              200: {
-                description: "Successful response with paginated venue list",
-                type: "object",
-                properties: {
-                  data: {
-                    type: "array",
-                    items: { $ref: "Venue#" },
-                  },
-                  pagination: { $ref: "Pagination#" },
-                },
+          },
+        },
+        async (request, reply) => {
+          const floorPlan = await floorPlanService.create(request.body);
+          return reply.code(201).send({ data: floorPlan });
+        }
+      );
+    
+      fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
+        "/:id/clone",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Clone floor plan",
+            description: "Creates a copy of the floor plan and all its tables.",
+            params: {
+              type: "object",
+              properties: {
+                id: { type: "string" },
               },
-              500: {
-                description: "Internal server error",
-                $ref: "Error#",
+            },
+          },
+        },
+        async (request, reply) => {
+          const cloned = await floorPlanService.clone(request.params.id);
+          if (!cloned) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
+          }
+          return reply.code(201).send({ data: cloned });
+        }
+      );
+    
+      fastify.patch<{ Params: { id: string }; Body: UpdateFloorPlanRequest; Reply: ApiResponse<FloorPlan> | ApiError }>(
+        "/:id",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Update floor plan",
+            params: {
+              type: "object",
+              properties: {
+                id: { type: "string" },
+              },
+            },
+            body: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                isActive: { type: "boolean" },
+                layoutJson: { type: "object" },
+              },
+            },
+          },
+        },
+        async (request, reply) => {
+          const floorPlan = await floorPlanService.update(request.params.id, request.body);
+          if (!floorPlan) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
+          }
+          return { data: floorPlan };
+        }
+      );
+    
+      fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
+        "/:id/activate",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Set floor plan as active",
+            description: "Activates this floor plan and deactivates all others for the same venue.",
+            params: {
+              type: "object",
+              properties: {
+                id: { type: "string" },
+              },
+            },
+          },
+        },
+        async (request, reply) => {
+          const floorPlan = await floorPlanService.getById(request.params.id);
+          if (!floorPlan) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
+          }
+    
+          const updated = await floorPlanService.setActive(floorPlan.id, floorPlan.venueId);
+          return { data: updated! };
+        }
+      );
+    
+      fastify.post<{
+        Body: { floorPlanId: string; positions: UpdateTablePositionRequest[] };
+        Reply: { data: Table[] } | ApiError;
+      }>(
+        "/tables/positions",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Bulk update table positions",
+            description: "Updates the position and metadata for multiple tables in a floor plan.",
+            body: {
+              type: "object",
+              required: ["floorPlanId", "positions"],
+              properties: {
+                floorPlanId: { type: "string" },
+                positions: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    required: ["tableId", "shapeMetadata"],
+                    properties: {
+                      tableId: { type: "string" },
+                      shapeMetadata: { type: "object" },
+                    },
+                  },
+                },
               },
             },
           },
         },
         async (request) => {
-          const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
-          const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "10", 10) || 10));
-          return venueService.list(page, limit, request.query.venueGroupId);
+          const tables = await floorPlanService.bulkUpdateTablePositions(
+            request.body.floorPlanId,
+            request.body.positions
+          );
+          return { data: tables };
         }
       );
     
-      // Get venue by ID
-      fastify.get<{
-        Params: { id: string };
-        Reply: ApiResponse<Venue> | ApiError;
-      }>(
-        "/:id",
-        {
-          schema: {
-            summary: "Get venue by ID",
-            operationId: "getVenueById",
-            description: "Retrieve a single venue by its unique identifier.",
-            tags: ["Venues"],
-            params: {
-              type: "object",
-              properties: {
-                id: {
-                  type: "string",
-                  description: "Unique venue identifier",
-                },
-              },
-              required: ["id"],
-            },
-            response: {
-              200: {
-                description: "Venue found",
-                type: "object",
-                properties: {
-                  data: { $ref: "Venue#" },
-                },
-              },
-              404: {
-                description: "Venue not found",
-                $ref: "Error#",
-              },
-            },
-          },
-        },
-        async (request, reply) => {
-          const venue = await venueService.getById(request.params.id);
-          if (!venue) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
-          }
-          return { data: venue };
-        }
-      );
-    
-      // Get venue by slug (for public booking)
-      fastify.get<{
-        Params: { slug: string };
-        Reply: ApiResponse<Venue> | ApiError;
-      }>(
-        "/by-slug/:slug",
-        {
-          schema: {
-            summary: "Get venue by slug",
-            operationId: "getVenueBySlug",
-            description: "Retrieve a single venue by its URL-friendly slug. Used for public booking URLs.",
-            tags: ["Venues"],
-            params: {
-              type: "object",
-              properties: {
-                slug: {
-                  type: "string",
-                  description: "Venue slug",
-                },
-              },
-              required: ["slug"],
-            },
-            response: {
-              200: {
-                description: "Venue found",
-                type: "object",
-                properties: {
-                  data: { $ref: "Venue#" },
-                },
-              },
-              404: {
-                description: "Venue not found",
-                $ref: "Error#",
-              },
-            },
-          },
-        },
-        async (request, reply) => {
-          const venue = await venueService.getBySlug(request.params.slug);
-          if (!venue) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
-          }
-          return { data: venue };
-        }
-      );
-    
-      // Create venue (requires auth)
       fastify.post<{
-        Body: CreateVenueRequest;
-        Reply: ApiResponse<Venue> | ApiError;
+        Params: { tableId: string };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        Body: { floorPlanId: string; shapeMetadata?: any };
+        Reply: { data: Table } | ApiError;
       }>(
-        "/",
+        "/tables/:tableId/assign",
         {
           preHandler: requireAuth,
           schema: {
-            summary: "Create a new venue",
-            operationId: "createVenue",
-            description: "Create a new venue. Requires authentication.",
-            tags: ["Venues"],
-            security: [{ bearerAuth: [] }],
+            summary: "Assign table to floor plan",
+            params: {
+              type: "object",
+              properties: {
+                tableId: { type: "string" },
+              },
+            },
             body: {
               type: "object",
-              description: "Venue creation payload",
+              required: ["floorPlanId"],
               properties: {
-                venueGroupId: {
-                  type: "string",
-                  description: "ID of the venue group this venue belongs to",
-                },
-                name: {
-                  type: "string",
-                  description: "Venue name",
-                },
-                slug: {
-                  type: "string",
-                  description: "URL-friendly identifier for public booking URLs (must be unique)",
-                },
-                ianaTimezone: {
-                  type: "string",
-                  description: "IANA timezone identifier (e.g., 'America/Los_Angeles')",
-                },
-                currencyCode: {
-                  type: "string",
-                  default: "USD",
-                  description: "ISO 4217 currency code",
-                },
-                operatingHours: {
-                  type: "object",
-                  description: "Weekly operating schedule",
-                },
-                settings: {
-                  type: "object",
-                  description: "Venue-specific settings",
-                },
-              },
-              required: ["name", "slug", "ianaTimezone"],
-            },
-            response: {
-              201: {
-                description: "Venue created successfully",
-                type: "object",
-                properties: {
-                  data: { $ref: "Venue#" },
-                },
-              },
-              400: {
-                description: "Invalid request body or slug already exists",
-                $ref: "Error#",
-              },
-              401: {
-                description: "Authentication required",
-                $ref: "Error#",
+                floorPlanId: { type: "string" },
+                shapeMetadata: { type: "object" },
               },
             },
           },
         },
         async (request, reply) => {
-          try {
-            const venue = await venueService.create(request.body);
-            return reply.code(201).send({ data: venue });
-          } catch (error) {
-            if (
-              error instanceof Error &&
-              error.message.includes("Unique constraint")
-            ) {
-              return reply.code(400).send(createProblemDetails(400, "Bad Request", "A venue with this slug already exists"));
-            }
-            throw error;
+          const table = await floorPlanService.assignTableToFloorPlan(
+            request.params.tableId,
+            request.body.floorPlanId,
+            request.body.shapeMetadata
+          );
+          if (!table) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
           }
+          return { data: table };
         }
       );
     
-      // Update venue (requires auth)
-      fastify.patch<{
-        Params: { id: string };
-        Body: UpdateVenueRequest;
-        Reply: ApiResponse<Venue> | ApiError;
-      }>(
+      fastify.post<{ Params: { tableId: string }; Reply: { data: Table } | ApiError }>(
+        "/tables/:tableId/remove",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Remove table from floor plan",
+            params: {
+              type: "object",
+              properties: {
+                tableId: { type: "string" },
+              },
+            },
+          },
+        },
+        async (request, reply) => {
+          const table = await floorPlanService.removeTableFromFloorPlan(request.params.tableId);
+          if (!table) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
+          }
+          return { data: table };
+        }
+      );
+    
+      fastify.delete<{ Params: { id: string }; Reply: void | ApiError }>(
         "/:id",
         {
           preHandler: requireAuth,
           schema: {
-            summary: "Update a venue",
-            operationId: "updateVenue",
-            description:
-              "Update an existing venue. Only provided fields will be updated. Requires authentication.",
-            tags: ["Venues"],
-            security: [{ bearerAuth: [] }],
+            summary: "Delete floor plan",
             params: {
               type: "object",
               properties: {
-                id: {
-                  type: "string",
-                  description: "Unique venue identifier",
-                },
-              },
-              required: ["id"],
-            },
-            body: {
-              type: "object",
-              description: "Fields to update",
-              properties: {
-                venueGroupId: { type: "string", nullable: true },
-                name: { type: "string" },
-                slug: { type: "string" },
-                ianaTimezone: { type: "string" },
-                currencyCode: { type: "string" },
-                operatingHours: { type: "object", nullable: true },
-                settings: { type: "object", nullable: true },
-              },
-            },
-            response: {
-              200: {
-                description: "Venue updated successfully",
-                type: "object",
-                properties: {
-                  data: { $ref: "Venue#" },
-                },
-              },
-              401: {
-                description: "Authentication required",
-                $ref: "Error#",
-              },
-              404: {
-                description: "Venue not found",
-                $ref: "Error#",
+                id: { type: "string" },
               },
             },
           },
         },
         async (request, reply) => {
-          const venue = await venueService.update(request.params.id, request.body);
-          if (!venue) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
-          }
-          return { data: venue };
-        }
-      );
-    
-      // Delete venue (requires auth)
-      fastify.delete<{
-        Params: { id: string };
-      }>(
-        "/:id",
-        {
-          preHandler: requireAuth,
-          schema: {
-            summary: "Delete a venue",
-            operationId: "deleteVenue",
-            description:
-              "Delete a venue. This will fail if the venue has tables or reservations. Requires authentication.",
-            tags: ["Venues"],
-            security: [{ bearerAuth: [] }],
-            params: {
-              type: "object",
-              properties: {
-                id: {
-                  type: "string",
-                  description: "Unique venue identifier",
-                },
-              },
-              required: ["id"],
-            },
-            response: {
-              204: {
-                description: "Venue deleted successfully",
-                type: "null",
-              },
-              401: {
-                description: "Authentication required",
-                $ref: "Error#",
-              },
-              404: {
-                description: "Venue not found",
-                $ref: "Error#",
-              },
-              409: {
-                description: "Venue has tables or reservations and cannot be deleted",
-                $ref: "Error#",
-              },
-            },
-          },
-        },
-        async (request, reply) => {
-          const deleted = await venueService.delete(request.params.id);
-          if (!deleted) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
+          const success = await floorPlanService.delete(request.params.id);
+          if (!success) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
           }
           return reply.code(204).send();
         }
       );
     };
   </file>
-  <file path="src/routes/tables.ts">
-    export const tableRoutes: FastifyPluginAsync = async (fastify) => {
-      // List tables
+  <file path="src/routes/guests.ts">
+    export const guestRoutes: FastifyPluginAsync = async (fastify) => {
+      // List guests for a venue
       fastify.get<{
-        Querystring: { page?: string; limit?: string; activeOnly?: string };
-        Reply: PaginatedResponse<Table>;
+        Querystring: { venueId: string; page?: string; limit?: string };
+        Reply: PaginatedResponse<Guest> | ApiError;
       }>(
         "/",
         {
+          preHandler: requireAuth,
           schema: {
-            summary: "List all tables",
-            operationId: "listTables",
-            description:
-              "Retrieve a paginated list of all tables. Optionally filter to only active tables.",
-            tags: ["Tables"],
+            summary: "List guests for a venue",
+            operationId: "listGuests",
+            description: "Retrieve a paginated list of guests for a specific venue. Requires authentication.",
+            tags: ["Guests"],
+            security: [{ bearerAuth: [] }],
             querystring: {
               type: "object",
+              required: ["venueId"],
               properties: {
+                venueId: {
+                  type: "string",
+                  description: "Venue ID to list guests for",
+                },
                 page: {
                   type: "string",
                   default: "1",
@@ -772,150 +587,275 @@
                 },
                 limit: {
                   type: "string",
-                  default: "10",
-                  description: "Number of tables per page (max 100)",
-                },
-                activeOnly: {
-                  type: "string",
-                  enum: ["true", "false"],
-                  default: "false",
-                  description: "Filter to only active tables",
+                  default: "20",
+                  description: "Number of guests per page (max 100)",
                 },
               },
             },
             response: {
               200: {
-                description: "Successful response with paginated table list",
+                description: "Successful response with paginated guest list",
                 type: "object",
                 properties: {
                   data: {
                     type: "array",
-                    items: { $ref: "Table#" },
+                    items: { $ref: "Guest#" },
                   },
                   pagination: { $ref: "Pagination#" },
                 },
               },
-              500: {
-                description: "Internal server error",
-                $ref: "Error#",
-              },
-            },
-          },
-        },
-        async (request) => {
-          const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
-          const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "10", 10) || 10));
-          const activeOnly = request.query.activeOnly === "true";
-          return tableService.list(page, limit, activeOnly);
-        }
-      );
-    
-      // Get table by ID
-      fastify.get<{
-        Params: { id: string };
-        Reply: ApiResponse<Table> | ApiError;
-      }>(
-        "/:id",
-        {
-          schema: {
-            summary: "Get table by ID",
-            operationId: "getTableById",
-            description: "Retrieve a single table by its unique identifier.",
-            tags: ["Tables"],
-            params: {
-              type: "object",
-              properties: {
-                id: {
-                  type: "string",
-                  description: "Unique table identifier",
-                },
-              },
-              required: ["id"],
-            },
-            response: {
-              200: {
-                description: "Table found",
-                type: "object",
-                properties: {
-                  data: { $ref: "Table#" },
-                },
-              },
-              404: {
-                description: "Table not found",
-                $ref: "Error#",
-              },
-              500: {
-                description: "Internal server error",
+              401: {
+                description: "Authentication required",
                 $ref: "Error#",
               },
             },
           },
         },
         async (request, reply) => {
-          const table = await tableService.getById(request.params.id);
-          if (!table) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
+          const { venueId } = request.query;
+          if (!venueId) {
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", "venueId is required"));
           }
-          return { data: table };
+          const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
+          const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "20", 10) || 20));
+          return guestService.list(venueId, page, limit);
         }
       );
     
-      // Create table (requires auth)
-      fastify.post<{
-        Body: CreateTableRequest;
-        Reply: ApiResponse<Table> | ApiError;
+      // Search guests
+      fastify.get<{
+        Querystring: {
+          venueId: string;
+          query?: string;
+          tags?: string;
+          hasNotVisitedInDays?: string;
+        };
+        Reply: PaginatedResponse<Guest> | ApiError;
       }>(
-        "/",
+        "/search",
         {
           preHandler: requireAuth,
           schema: {
-            summary: "Create a new table",
-            operationId: "createTable",
-            description: "Create a new table. Requires authentication.",
-            tags: ["Tables"],
+            summary: "Search guests",
+            operationId: "searchGuests",
+            description: "Search guests by name, email, phone, or filter by tags and visit history.",
+            tags: ["Guests"],
             security: [{ bearerAuth: [] }],
-            body: {
+            querystring: {
               type: "object",
-              description: "Table creation payload",
+              required: ["venueId"],
               properties: {
-                name: {
-                  type: "string",
-                  description: "Unique table name (e.g., 'Table 1', 'Patio A')",
-                },
-                capacity: {
-                  type: "integer",
-                  minimum: 1,
-                  description: "Maximum number of guests the table can seat",
-                },
-                location: {
-                  type: "string",
-                  description: "Location description (e.g., 'Main Floor', 'Patio')",
-                },
                 venueId: {
                   type: "string",
-                  description: "ID of the venue this table belongs to",
+                  description: "Venue ID to search within",
+                },
+                query: {
+                  type: "string",
+                  description: "Search term (matches name, email, or phone)",
+                },
+                tags: {
+                  type: "string",
+                  description: "Comma-separated tags to filter by",
+                },
+                hasNotVisitedInDays: {
+                  type: "string",
+                  description: "Filter guests who haven't visited in X days",
                 },
               },
-              required: ["name", "capacity"],
             },
             response: {
-              201: {
-                description: "Table created successfully",
+              200: {
+                description: "Search results",
                 type: "object",
                 properties: {
-                  data: { $ref: "Table#" },
+                  data: {
+                    type: "array",
+                    items: { $ref: "Guest#" },
+                  },
+                  pagination: { $ref: "Pagination#" },
                 },
-              },
-              400: {
-                description: "Invalid request body or table name already exists",
-                $ref: "Error#",
               },
               401: {
                 description: "Authentication required",
                 $ref: "Error#",
               },
-              500: {
-                description: "Internal server error",
+            },
+          },
+        },
+        async (request, reply) => {
+          const { venueId, query, tags, hasNotVisitedInDays } = request.query;
+          if (!venueId) {
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", "venueId is required"));
+          }
+          return guestService.search({
+            venueId,
+            query,
+            tags: tags ? tags.split(",") : undefined,
+            hasNotVisitedInDays: hasNotVisitedInDays ? parseInt(hasNotVisitedInDays, 10) : undefined,
+          });
+        }
+      );
+    
+      // Get guest segments
+      fastify.get<{
+        Querystring: { venueId: string };
+        Reply: ApiResponse<GuestSegment[]> | ApiError;
+      }>(
+        "/segments",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Get guest segments",
+            operationId: "getGuestSegments",
+            description: "Get guest segments (VIP, At Risk, Lapsed, etc.) for a venue.",
+            tags: ["Guests"],
+            security: [{ bearerAuth: [] }],
+            querystring: {
+              type: "object",
+              required: ["venueId"],
+              properties: {
+                venueId: {
+                  type: "string",
+                  description: "Venue ID to get segments for",
+                },
+              },
+            },
+            response: {
+              200: {
+                description: "Guest segments",
+                type: "object",
+                properties: {
+                  data: {
+                    type: "array",
+                    items: { $ref: "GuestSegment#" },
+                  },
+                },
+              },
+              401: {
+                description: "Authentication required",
+                $ref: "Error#",
+              },
+            },
+          },
+        },
+        async (request, reply) => {
+          const { venueId } = request.query;
+          if (!venueId) {
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", "venueId is required"));
+          }
+          const segments = await guestService.getSegments(venueId);
+          return { data: segments };
+        }
+      );
+    
+      // Get guest by ID
+      fastify.get<{
+        Params: { id: string };
+        Reply: ApiResponse<Guest> | ApiError;
+      }>(
+        "/:id",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Get guest by ID",
+            operationId: "getGuestById",
+            description: "Retrieve a single guest by ID.",
+            tags: ["Guests"],
+            security: [{ bearerAuth: [] }],
+            params: {
+              type: "object",
+              properties: {
+                id: {
+                  type: "string",
+                  description: "Guest ID",
+                },
+              },
+              required: ["id"],
+            },
+            response: {
+              200: {
+                description: "Guest found",
+                type: "object",
+                properties: {
+                  data: { $ref: "Guest#" },
+                },
+              },
+              404: {
+                description: "Guest not found",
+                $ref: "Error#",
+              },
+            },
+          },
+        },
+        async (request, reply) => {
+          const guest = await guestService.getById(request.params.id);
+          if (!guest) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
+          }
+          return { data: guest };
+        }
+      );
+    
+      // Create guest
+      fastify.post<{
+        Body: CreateGuestRequest;
+        Reply: ApiResponse<Guest> | ApiError;
+      }>(
+        "/",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Create a new guest",
+            operationId: "createGuest",
+            description: "Create a new guest. Requires authentication.",
+            tags: ["Guests"],
+            security: [{ bearerAuth: [] }],
+            body: {
+              type: "object",
+              required: ["venueId", "name"],
+              properties: {
+                venueId: {
+                  type: "string",
+                  description: "Venue ID",
+                },
+                email: {
+                  type: "string",
+                  format: "email",
+                  description: "Guest email",
+                },
+                phone: {
+                  type: "string",
+                  description: "Guest phone",
+                },
+                name: {
+                  type: "string",
+                  description: "Guest name",
+                },
+                notes: {
+                  type: "string",
+                  description: "Internal notes",
+                },
+                tags: {
+                  type: "array",
+                  items: { type: "string" },
+                  description: "Tags for categorization",
+                },
+              },
+            },
+            response: {
+              201: {
+                description: "Guest created",
+                type: "object",
+                properties: {
+                  data: { $ref: "Guest#" },
+                },
+              },
+              400: {
+                description: "Invalid request or duplicate email/phone",
+                $ref: "Error#",
+              },
+              401: {
+                description: "Authentication required",
                 $ref: "Error#",
               },
             },
@@ -923,177 +863,150 @@
         },
         async (request, reply) => {
           try {
-            const table = await tableService.create(request.body);
-            return reply.code(201).send({ data: table });
+            const guest = await guestService.create(request.body);
+            return reply.code(201).send({ data: guest });
           } catch (error) {
             if (
               error instanceof Error &&
               error.message.includes("Unique constraint")
             ) {
-              return reply.code(400).send(createProblemDetails(400, "Bad Request", "A table with this name already exists"));
+              return reply.code(400).send(createProblemDetails(400, "Bad Request", "A guest with this email or phone already exists at this venue"));
             }
             throw error;
           }
         }
       );
     
-      // Update table (requires auth)
+      // Find or create guest (identity resolution)
+      fastify.post<{
+        Body: { venueId: string; email?: string; phone?: string; name: string };
+        Reply: ApiResponse<Guest> | ApiError;
+      }>(
+        "/find-or-create",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Find or create guest",
+            operationId: "findOrCreateGuest",
+            description: "Find existing guest by email/phone or create new one. Used for identity resolution when booking.",
+            tags: ["Guests"],
+            security: [{ bearerAuth: [] }],
+            body: {
+              type: "object",
+              required: ["venueId", "name"],
+              properties: {
+                venueId: {
+                  type: "string",
+                  description: "Venue ID",
+                },
+                email: {
+                  type: "string",
+                  format: "email",
+                  description: "Guest email (used for matching)",
+                },
+                phone: {
+                  type: "string",
+                  description: "Guest phone (used for matching if email not found)",
+                },
+                name: {
+                  type: "string",
+                  description: "Guest name",
+                },
+              },
+            },
+            response: {
+              200: {
+                description: "Guest found or created",
+                type: "object",
+                properties: {
+                  data: { $ref: "Guest#" },
+                },
+              },
+              400: {
+                description: "Invalid request",
+                $ref: "Error#",
+              },
+              401: {
+                description: "Authentication required",
+                $ref: "Error#",
+              },
+            },
+          },
+        },
+        async (request, reply) => {
+          const { venueId, email, phone, name } = request.body;
+          if (!email && !phone) {
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", "Either email or phone is required"));
+          }
+          const guest = await guestService.findOrCreate(venueId, { email, phone, name });
+          return { data: guest };
+        }
+      );
+    
+      // Update guest
       fastify.patch<{
         Params: { id: string };
-        Body: UpdateTableRequest;
-        Reply: ApiResponse<Table> | ApiError;
+        Body: UpdateGuestRequest;
+        Reply: ApiResponse<Guest> | ApiError;
       }>(
         "/:id",
         {
           preHandler: requireAuth,
           schema: {
-            summary: "Update a table",
-            operationId: "updateTable",
-            description:
-              "Update an existing table. Only provided fields will be updated. Requires authentication.",
-            tags: ["Tables"],
+            summary: "Update a guest",
+            operationId: "updateGuest",
+            description: "Update guest information. Requires authentication.",
+            tags: ["Guests"],
             security: [{ bearerAuth: [] }],
             params: {
               type: "object",
               properties: {
                 id: {
                   type: "string",
-                  description: "Unique table identifier",
+                  description: "Guest ID",
                 },
               },
               required: ["id"],
             },
             body: {
               type: "object",
-              description: "Fields to update",
               properties: {
-                name: {
-                  type: "string",
-                  description: "New table name",
-                },
-                capacity: {
-                  type: "integer",
-                  minimum: 1,
-                  description: "New capacity",
-                },
-                location: {
-                  type: "string",
-                  description: "New location description",
-                },
-                isActive: {
-                  type: "boolean",
-                  description: "Whether the table is active and available for reservations",
+                email: { type: "string", format: "email", nullable: true },
+                phone: { type: "string", nullable: true },
+                name: { type: "string" },
+                notes: { type: "string", nullable: true },
+                tags: {
+                  type: "array",
+                  items: { type: "string" },
+                  nullable: true,
                 },
               },
             },
             response: {
               200: {
-                description: "Table updated successfully",
+                description: "Guest updated",
                 type: "object",
                 properties: {
-                  data: { $ref: "Table#" },
+                  data: { $ref: "Guest#" },
                 },
               },
-              401: {
-                description: "Authentication required",
-                $ref: "Error#",
-              },
               404: {
-                description: "Table not found",
-                $ref: "Error#",
-              },
-              500: {
-                description: "Internal server error",
+                description: "Guest not found",
                 $ref: "Error#",
               },
             },
           },
         },
         async (request, reply) => {
-          const table = await tableService.update(request.params.id, request.body);
-          if (!table) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
+          const guest = await guestService.update(request.params.id, request.body);
+          if (!guest) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
           }
-          return { data: table };
+          return { data: guest };
         }
       );
     
-      // Update table status (requires auth)
-      fastify.patch<{
-        Params: { id: string };
-        Body: UpdateTableStatusRequest;
-        Reply: ApiResponse<Table> | ApiError;
-      }>(
-        "/:id/status",
-        {
-          preHandler: requireAuth,
-          schema: {
-            summary: "Update table status",
-            operationId: "updateTableStatus",
-            description:
-              "Update the operational status of a table (AVAILABLE, OCCUPIED, DIRTY, READY). Requires authentication.",
-            tags: ["Tables"],
-            security: [{ bearerAuth: [] }],
-            params: {
-              type: "object",
-              properties: {
-                id: {
-                  type: "string",
-                  description: "Unique table identifier",
-                },
-              },
-              required: ["id"],
-            },
-            body: {
-              type: "object",
-              description: "Table status update payload",
-              properties: {
-                status: {
-                  type: "string",
-                  enum: ["AVAILABLE", "OCCUPIED", "DIRTY", "READY"],
-                  description: "New table status",
-                },
-              },
-              required: ["status"],
-            },
-            response: {
-              200: {
-                description: "Table status updated successfully",
-                type: "object",
-                properties: {
-                  data: { $ref: "Table#" },
-                },
-              },
-              400: {
-                description: "Invalid status value",
-                $ref: "Error#",
-              },
-              401: {
-                description: "Authentication required",
-                $ref: "Error#",
-              },
-              404: {
-                description: "Table not found",
-                $ref: "Error#",
-              },
-              500: {
-                description: "Internal server error",
-                $ref: "Error#",
-              },
-            },
-          },
-        },
-        async (request, reply) => {
-          const table = await tableService.updateStatus(request.params.id, request.body.status);
-          if (!table) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
-          }
-          emitTableUpdated(table);
-          return { data: table };
-        }
-      );
-    
-      // Delete table (requires auth)
+      // Delete guest
       fastify.delete<{
         Params: { id: string };
       }>(
@@ -1101,53 +1014,420 @@
         {
           preHandler: requireAuth,
           schema: {
-            summary: "Delete a table",
-            operationId: "deleteTable",
-            description:
-              "Delete a table. This will fail if the table has reservations. Requires authentication.",
-            tags: ["Tables"],
+            summary: "Delete a guest",
+            operationId: "deleteGuest",
+            description: "Delete a guest. Will fail if guest has reservations.",
+            tags: ["Guests"],
             security: [{ bearerAuth: [] }],
             params: {
               type: "object",
               properties: {
                 id: {
                   type: "string",
-                  description: "Unique table identifier",
+                  description: "Guest ID",
                 },
               },
               required: ["id"],
             },
             response: {
               204: {
-                description: "Table deleted successfully",
+                description: "Guest deleted",
                 type: "null",
               },
-              401: {
-                description: "Authentication required",
-                $ref: "Error#",
-              },
               404: {
-                description: "Table not found",
+                description: "Guest not found",
                 $ref: "Error#",
               },
               409: {
-                description: "Table has reservations and cannot be deleted",
-                $ref: "Error#",
-              },
-              500: {
-                description: "Internal server error",
+                description: "Guest has reservations",
                 $ref: "Error#",
               },
             },
           },
         },
         async (request, reply) => {
-          const deleted = await tableService.delete(request.params.id);
+          const deleted = await guestService.delete(request.params.id);
           if (!deleted) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
           }
           return reply.code(204).send();
         }
+      );
+    };
+  </file>
+  <file path="src/routes/health.ts">
+    type HealthRouteHandler = RouteHandlerMethod<
+      RawServerDefault,
+      IncomingMessage,
+      ServerResponse,
+      { Reply: HealthResponse }
+    >;
+    export const healthRoutes: FastifyPluginAsync = async (fastify) => {
+      // /api/health — used by DO App Platform internal health checks (direct container access)
+      // github[js/missing-rate-limiting] — restrictive limit for DB-intensive health check
+      fastify.get(
+        "/health",
+        {
+          schema: { ...healthSchema, operationId: "getHealth" },
+          config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+        },
+        healthHandler,
+      );
+    
+      // /api/health — public path via DO ingress (preservePathPrefix: true, prefix "/api")
+      // Required for post-deploy verification workflow hitting api.mattbutlerengineering.com/api/health
+      // github[js/missing-rate-limiting] — restrictive limit for public health check
+      fastify.get(
+        "/api/health",
+        {
+          schema: { ...healthSchema, operationId: "getHealthApi" },
+          config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+        },
+        healthHandler,
+      );
+    
+      // /api/v1/reservations/health — public path via DO ingress (preservePathPrefix: true, prefix "/api/v1/reservations")
+      // Must be registered here (not in reservationRoutes) to avoid falling through to /:id param route
+      // github[js/missing-rate-limiting] — restrictive limit for public health check
+      fastify.get(
+        "/api/v1/reservations/health",
+        {
+          schema: { ...healthSchema, operationId: "getHealthApiReservations" },
+          config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+        },
+        healthHandler,
+      );
+    };
+  </file>
+  <file path="src/routes/holds.ts">
+    function getSessionId(request: FastifyRequest): string {
+      const header = request.headers[SESSION_ID_HEADER];
+      if (typeof header === "string" && header.length > 0) {
+        return header;
+      }
+      // Generate a new session ID if not provided
+      return randomUUID();
+    }
+    export const holdRoutes: FastifyPluginAsync = async (fastify) => {
+      // Register schemas
+      fastify.addSchema(HoldSchema);
+    
+      // Opportunistic cleanup hook
+      fastify.addHook("onRequest", async () => {
+        // 1% chance to cleanup expired holds
+        await holdService.maybeCleanup();
+      });
+    
+      // POST / - Create a hold
+      fastify.post<{
+        Body: CreateHoldRequest;
+        Reply: ApiResponse<ReservationHold> | ApiError;
+      }>(
+        "/",
+        {
+          config: {
+            rateLimit: {
+              max: 20,
+              timeWindow: "1 minute",
+            },
+          },
+          schema: {
+            summary: "Create a reservation hold",
+            operationId: "createHold",
+            description:
+              "Create a temporary hold on a time slot. The hold expires after 10 minutes (configurable per venue). " +
+              "Pass a session ID via the x-session-id header to track your holds.",
+            tags: ["Holds"],
+            headers: {
+              type: "object",
+              properties: {
+                [SESSION_ID_HEADER]: {
+                  type: "string",
+                  description:
+                    "Session identifier. If not provided, one will be generated.",
+                },
+              },
+            },
+            body: {
+              type: "object",
+              required: ["venueId", "date", "time", "partySize"],
+              properties: {
+                venueId: { type: "string", description: "Venue ID" },
+                date: {
+                  type: "string",
+                  format: "date",
+                  description: "Reservation date (YYYY-MM-DD)",
+                },
+                time: {
+                  type: "string",
+                  format: "date-time",
+                  description: "Start time in ISO 8601 format",
+                },
+                partySize: { type: "integer", minimum: 1, maximum: 20, description: "Number of guests" },
+                tableId: {
+                  type: "string",
+                  description: "Optional specific table to hold. If not provided, best available table is assigned.",
+                },
+                holdDurationMinutes: {
+                  type: "integer",
+                  minimum: 1,
+                  maximum: 60,
+                  description: "Override hold duration in minutes. Defaults to venue setting or 10 minutes.",
+                },
+              },
+            },
+            response: {
+              201: {
+                type: "object",
+                properties: {
+                  data: { $ref: "ReservationHold#" },
+                },
+              },
+              400: { $ref: "Error#" },
+              409: { $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const sessionId = getSessionId(request);
+          const result = await holdService.create(request.body, sessionId);
+    
+          if (!result.success) {
+            const statusCode = result.error?.includes("not found") ? 404 : 409;
+            const title = statusCode === 404 ? "Not Found" : "Conflict";
+            return reply.code(statusCode).send(createProblemDetails(statusCode, title, result.error ?? "Failed to create hold"));
+          }
+    
+          // Set the session ID header in response
+          reply.header(SESSION_ID_HEADER, sessionId);
+          return reply.code(201).send({ data: result.hold! });
+        }
+      );
+    
+      // GET /:id - Get hold status
+      fastify.get<{
+        Params: { id: string };
+        Reply: ApiResponse<ReservationHold> | ApiError;
+      }>(
+        "/:id",
+        {
+          schema: {
+            summary: "Get hold status",
+            operationId: "getHold",
+            description: "Get the status of a reservation hold. Returns 404 if the hold has expired.",
+            tags: ["Holds"],
+            params: {
+              type: "object",
+              required: ["id"],
+              properties: {
+                id: { type: "string", description: "Hold ID" },
+              },
+            },
+            response: {
+              200: {
+                type: "object",
+                properties: {
+                  data: { $ref: "ReservationHold#" },
+                },
+              },
+              404: { $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const hold = await holdService.getById(request.params.id);
+    
+          if (!hold) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Hold not found or expired"));
+          }
+    
+          return { data: hold };
+        }
+      );
+    
+      // DELETE /:id - Release a hold
+      fastify.delete<{
+        Params: { id: string };
+        Reply: { success: boolean } | ApiError;
+      }>(
+        "/:id",
+        {
+          schema: {
+            summary: "Release a hold",
+            operationId: "releaseHold",
+            description:
+              "Release a reservation hold. Requires the same session ID that created the hold.",
+            tags: ["Holds"],
+            headers: {
+              type: "object",
+              required: [SESSION_ID_HEADER],
+              properties: {
+                [SESSION_ID_HEADER]: {
+                  type: "string",
+                  description: "Session identifier used when creating the hold",
+                },
+              },
+            },
+            params: {
+              type: "object",
+              required: ["id"],
+              properties: {
+                id: { type: "string", description: "Hold ID" },
+              },
+            },
+            response: {
+              200: {
+                type: "object",
+                properties: {
+                  success: { type: "boolean" },
+                },
+              },
+              401: { $ref: "Error#" },
+              404: { $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const sessionId = request.headers[SESSION_ID_HEADER];
+    
+          if (typeof sessionId !== "string" || sessionId.length === 0) {
+            return reply.code(401).send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
+          }
+    
+          const released = await holdService.release(request.params.id, sessionId);
+    
+          if (!released) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Hold not found or not owned by this session"));
+          }
+    
+          return { success: true };
+        }
+      );
+    
+      // POST /:id/confirm - Convert hold to reservation
+      fastify.post<{
+        Params: { id: string };
+        Body: ConfirmHoldRequest;
+        Reply: ApiResponse<Reservation> | ApiError;
+      }>(
+        "/:id/confirm",
+        {
+          schema: {
+            summary: "Confirm a hold and create reservation",
+            operationId: "confirmHold",
+            description:
+              "Convert a hold into a confirmed reservation. Requires the same session ID that created the hold. " +
+              "At least one of guestName, guestEmail, or guestPhone should be provided.",
+            tags: ["Holds"],
+            headers: {
+              type: "object",
+              required: [SESSION_ID_HEADER],
+              properties: {
+                [SESSION_ID_HEADER]: {
+                  type: "string",
+                  description: "Session identifier used when creating the hold",
+                },
+              },
+            },
+            params: {
+              type: "object",
+              required: ["id"],
+              properties: {
+                id: { type: "string", description: "Hold ID" },
+              },
+            },
+            body: {
+              type: "object",
+              properties: {
+                guestName: { type: "string", description: "Guest name" },
+                guestEmail: {
+                  type: "string",
+                  format: "email",
+                  description: "Guest email",
+                },
+                guestPhone: { type: "string", description: "Guest phone number" },
+                guestId: {
+                  type: "string",
+                  description: "ID of existing guest record",
+                },
+                notes: {
+                  type: "string",
+                  description: "Special requests or notes",
+                },
+              },
+            },
+            response: {
+              201: {
+                type: "object",
+                properties: {
+                  data: { $ref: "Reservation#" },
+                },
+              },
+              400: { $ref: "Error#" },
+              401: { $ref: "Error#" },
+              404: { $ref: "Error#" },
+              409: { $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const sessionId = request.headers[SESSION_ID_HEADER];
+    
+          if (typeof sessionId !== "string" || sessionId.length === 0) {
+            return reply.code(401).send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
+          }
+    
+          const result = await holdService.convertToReservation(
+            request.params.id,
+            sessionId,
+            request.body
+          );
+    
+          if (!result.success) {
+            const error = result.error ?? "Failed to confirm hold";
+            let statusCode: number;
+            let title: string;
+    
+            if (error.includes("not found") || error.includes("expired")) {
+              statusCode = 404;
+              title = "Not Found";
+            } else if (error.includes("Session ID")) {
+              statusCode = 403;
+              title = "Forbidden";
+            } else {
+              statusCode = 409;
+              title = "Conflict";
+            }
+    
+            return reply.code(statusCode).send(createProblemDetails(statusCode, title, error));
+          }
+    
+          return reply.code(201).send({ data: result.reservation! });
+        }
+      );
+    };
+  </file>
+  <file path="src/routes/ready.ts">
+    export const readinessRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.get<{ Reply: ReadinessResponse }>(
+        "/ready",
+        {
+          schema: { ...readinessSchema, operationId: "getReady" },
+          config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+        },
+        async (_request, reply) => {
+          const snapshot = await readiness.evaluate();
+          const response: ReadinessResponse = {
+            ready: snapshot.ready,
+            timestamp: snapshot.timestamp,
+            checks: snapshot.checks.map((c) => ({
+              name: c.name,
+              status: c.status,
+              ...(c.message ? { message: c.message } : {}),
+            })),
+          };
+          return reply.status(snapshot.ready ? 200 : 503).send(response);
+        },
       );
     };
   </file>
@@ -1794,382 +2074,24 @@
       );
     };
   </file>
-  <file path="src/routes/ready.ts">
-    export const readinessRoutes: FastifyPluginAsync = async (fastify) => {
-      fastify.get<{ Reply: ReadinessResponse }>(
-        "/ready",
-        { schema: { ...readinessSchema, operationId: "getReady" } },
-        async (_request, reply) => {
-          const snapshot = await readiness.evaluate();
-          const response: ReadinessResponse = {
-            ready: snapshot.ready,
-            timestamp: snapshot.timestamp,
-            checks: snapshot.checks.map((c) => ({
-              name: c.name,
-              status: c.status,
-              ...(c.message ? { message: c.message } : {}),
-            })),
-          };
-          return reply.status(snapshot.ready ? 200 : 503).send(response);
-        },
-      );
-    };
-  </file>
-  <file path="src/routes/holds.ts">
-    function getSessionId(request: FastifyRequest): string {
-      const header = request.headers[SESSION_ID_HEADER];
-      if (typeof header === "string" && header.length > 0) {
-        return header;
-      }
-      // Generate a new session ID if not provided
-      return randomUUID();
-    }
-    export const holdRoutes: FastifyPluginAsync = async (fastify) => {
-      // Register schemas
-      fastify.addSchema(HoldSchema);
-    
-      // Opportunistic cleanup hook
-      fastify.addHook("onRequest", async () => {
-        // 1% chance to cleanup expired holds
-        await holdService.maybeCleanup();
-      });
-    
-      // POST / - Create a hold
-      fastify.post<{
-        Body: CreateHoldRequest;
-        Reply: ApiResponse<ReservationHold> | ApiError;
+  <file path="src/routes/tables.ts">
+    export const tableRoutes: FastifyPluginAsync = async (fastify) => {
+      // List tables
+      fastify.get<{
+        Querystring: { page?: string; limit?: string; activeOnly?: string };
+        Reply: PaginatedResponse<Table>;
       }>(
         "/",
         {
-          config: {
-            rateLimit: {
-              max: 20,
-              timeWindow: "1 minute",
-            },
-          },
           schema: {
-            summary: "Create a reservation hold",
-            operationId: "createHold",
+            summary: "List all tables",
+            operationId: "listTables",
             description:
-              "Create a temporary hold on a time slot. The hold expires after 10 minutes (configurable per venue). " +
-              "Pass a session ID via the x-session-id header to track your holds.",
-            tags: ["Holds"],
-            headers: {
-              type: "object",
-              properties: {
-                [SESSION_ID_HEADER]: {
-                  type: "string",
-                  description:
-                    "Session identifier. If not provided, one will be generated.",
-                },
-              },
-            },
-            body: {
-              type: "object",
-              required: ["venueId", "date", "time", "partySize"],
-              properties: {
-                venueId: { type: "string", description: "Venue ID" },
-                date: {
-                  type: "string",
-                  format: "date",
-                  description: "Reservation date (YYYY-MM-DD)",
-                },
-                time: {
-                  type: "string",
-                  format: "date-time",
-                  description: "Start time in ISO 8601 format",
-                },
-                partySize: { type: "integer", minimum: 1, maximum: 20, description: "Number of guests" },
-                tableId: {
-                  type: "string",
-                  description: "Optional specific table to hold. If not provided, best available table is assigned.",
-                },
-                holdDurationMinutes: {
-                  type: "integer",
-                  minimum: 1,
-                  maximum: 60,
-                  description: "Override hold duration in minutes. Defaults to venue setting or 10 minutes.",
-                },
-              },
-            },
-            response: {
-              201: {
-                type: "object",
-                properties: {
-                  data: { $ref: "ReservationHold#" },
-                },
-              },
-              400: { $ref: "Error#" },
-              409: { $ref: "Error#" },
-            },
-          },
-        },
-        async (request, reply) => {
-          const sessionId = getSessionId(request);
-          const result = await holdService.create(request.body, sessionId);
-    
-          if (!result.success) {
-            const statusCode = result.error?.includes("not found") ? 404 : 409;
-            const title = statusCode === 404 ? "Not Found" : "Conflict";
-            return reply.code(statusCode).send(createProblemDetails(statusCode, title, result.error ?? "Failed to create hold"));
-          }
-    
-          // Set the session ID header in response
-          reply.header(SESSION_ID_HEADER, sessionId);
-          return reply.code(201).send({ data: result.hold! });
-        }
-      );
-    
-      // GET /:id - Get hold status
-      fastify.get<{
-        Params: { id: string };
-        Reply: ApiResponse<ReservationHold> | ApiError;
-      }>(
-        "/:id",
-        {
-          schema: {
-            summary: "Get hold status",
-            operationId: "getHold",
-            description: "Get the status of a reservation hold. Returns 404 if the hold has expired.",
-            tags: ["Holds"],
-            params: {
-              type: "object",
-              required: ["id"],
-              properties: {
-                id: { type: "string", description: "Hold ID" },
-              },
-            },
-            response: {
-              200: {
-                type: "object",
-                properties: {
-                  data: { $ref: "ReservationHold#" },
-                },
-              },
-              404: { $ref: "Error#" },
-            },
-          },
-        },
-        async (request, reply) => {
-          const hold = await holdService.getById(request.params.id);
-    
-          if (!hold) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Hold not found or expired"));
-          }
-    
-          return { data: hold };
-        }
-      );
-    
-      // DELETE /:id - Release a hold
-      fastify.delete<{
-        Params: { id: string };
-        Reply: { success: boolean } | ApiError;
-      }>(
-        "/:id",
-        {
-          schema: {
-            summary: "Release a hold",
-            operationId: "releaseHold",
-            description:
-              "Release a reservation hold. Requires the same session ID that created the hold.",
-            tags: ["Holds"],
-            headers: {
-              type: "object",
-              required: [SESSION_ID_HEADER],
-              properties: {
-                [SESSION_ID_HEADER]: {
-                  type: "string",
-                  description: "Session identifier used when creating the hold",
-                },
-              },
-            },
-            params: {
-              type: "object",
-              required: ["id"],
-              properties: {
-                id: { type: "string", description: "Hold ID" },
-              },
-            },
-            response: {
-              200: {
-                type: "object",
-                properties: {
-                  success: { type: "boolean" },
-                },
-              },
-              401: { $ref: "Error#" },
-              404: { $ref: "Error#" },
-            },
-          },
-        },
-        async (request, reply) => {
-          const sessionId = request.headers[SESSION_ID_HEADER];
-    
-          if (typeof sessionId !== "string" || sessionId.length === 0) {
-            return reply.code(401).send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
-          }
-    
-          const released = await holdService.release(request.params.id, sessionId);
-    
-          if (!released) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Hold not found or not owned by this session"));
-          }
-    
-          return { success: true };
-        }
-      );
-    
-      // POST /:id/confirm - Convert hold to reservation
-      fastify.post<{
-        Params: { id: string };
-        Body: ConfirmHoldRequest;
-        Reply: ApiResponse<Reservation> | ApiError;
-      }>(
-        "/:id/confirm",
-        {
-          schema: {
-            summary: "Confirm a hold and create reservation",
-            operationId: "confirmHold",
-            description:
-              "Convert a hold into a confirmed reservation. Requires the same session ID that created the hold. " +
-              "At least one of guestName, guestEmail, or guestPhone should be provided.",
-            tags: ["Holds"],
-            headers: {
-              type: "object",
-              required: [SESSION_ID_HEADER],
-              properties: {
-                [SESSION_ID_HEADER]: {
-                  type: "string",
-                  description: "Session identifier used when creating the hold",
-                },
-              },
-            },
-            params: {
-              type: "object",
-              required: ["id"],
-              properties: {
-                id: { type: "string", description: "Hold ID" },
-              },
-            },
-            body: {
-              type: "object",
-              properties: {
-                guestName: { type: "string", description: "Guest name" },
-                guestEmail: {
-                  type: "string",
-                  format: "email",
-                  description: "Guest email",
-                },
-                guestPhone: { type: "string", description: "Guest phone number" },
-                guestId: {
-                  type: "string",
-                  description: "ID of existing guest record",
-                },
-                notes: {
-                  type: "string",
-                  description: "Special requests or notes",
-                },
-              },
-            },
-            response: {
-              201: {
-                type: "object",
-                properties: {
-                  data: { $ref: "Reservation#" },
-                },
-              },
-              400: { $ref: "Error#" },
-              401: { $ref: "Error#" },
-              404: { $ref: "Error#" },
-              409: { $ref: "Error#" },
-            },
-          },
-        },
-        async (request, reply) => {
-          const sessionId = request.headers[SESSION_ID_HEADER];
-    
-          if (typeof sessionId !== "string" || sessionId.length === 0) {
-            return reply.code(401).send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
-          }
-    
-          const result = await holdService.convertToReservation(
-            request.params.id,
-            sessionId,
-            request.body
-          );
-    
-          if (!result.success) {
-            const error = result.error ?? "Failed to confirm hold";
-            let statusCode: number;
-            let title: string;
-    
-            if (error.includes("not found") || error.includes("expired")) {
-              statusCode = 404;
-              title = "Not Found";
-            } else if (error.includes("Session ID")) {
-              statusCode = 403;
-              title = "Forbidden";
-            } else {
-              statusCode = 409;
-              title = "Conflict";
-            }
-    
-            return reply.code(statusCode).send(createProblemDetails(statusCode, title, error));
-          }
-    
-          return reply.code(201).send({ data: result.reservation! });
-        }
-      );
-    };
-  </file>
-  <file path="src/routes/health.ts">
-    type HealthRouteHandler = RouteHandlerMethod<
-      RawServerDefault,
-      IncomingMessage,
-      ServerResponse,
-      { Reply: HealthResponse }
-    >;
-    export const healthRoutes: FastifyPluginAsync = async (fastify) => {
-      // /health — used by DO App Platform internal health checks (direct container access)
-      // lgtm[js/missing-rate-limiting] — rate limiting is applied globally via @fastify/rate-limit in app.ts
-      fastify.get("/health", { schema: { ...healthSchema, operationId: "getHealth" } }, healthHandler);
-    
-      // /api/health — public path via DO ingress (preservePathPrefix: true, prefix "/api")
-      // Required for post-deploy verification workflow hitting api.mattbutlerengineering.com/api/health
-      // lgtm[js/missing-rate-limiting] — rate limiting is applied globally via @fastify/rate-limit in app.ts
-      fastify.get("/api/health", { schema: { ...healthSchema, operationId: "getHealthApi" } }, healthHandler);
-    
-      // /api/v1/reservations/health — public path via DO ingress (preservePathPrefix: true, prefix "/api/v1/reservations")
-      // Must be registered here (not in reservationRoutes) to avoid falling through to /:id param route
-      // lgtm[js/missing-rate-limiting] — rate limiting is applied globally via @fastify/rate-limit in app.ts
-      fastify.get("/api/v1/reservations/health", { schema: { ...healthSchema, operationId: "getHealthApiReservations" } }, healthHandler);
-    };
-  </file>
-  <file path="src/routes/guests.ts">
-    export const guestRoutes: FastifyPluginAsync = async (fastify) => {
-      // List guests for a venue
-      fastify.get<{
-        Querystring: { venueId: string; page?: string; limit?: string };
-        Reply: PaginatedResponse<Guest> | ApiError;
-      }>(
-        "/",
-        {
-          preHandler: requireAuth,
-          schema: {
-            summary: "List guests for a venue",
-            operationId: "listGuests",
-            description: "Retrieve a paginated list of guests for a specific venue. Requires authentication.",
-            tags: ["Guests"],
-            security: [{ bearerAuth: [] }],
+              "Retrieve a paginated list of all tables. Optionally filter to only active tables.",
+            tags: ["Tables"],
             querystring: {
               type: "object",
-              required: ["venueId"],
               properties: {
-                venueId: {
-                  type: "string",
-                  description: "Venue ID to list guests for",
-                },
                 page: {
                   type: "string",
                   default: "1",
@@ -2177,271 +2099,531 @@
                 },
                 limit: {
                   type: "string",
-                  default: "20",
-                  description: "Number of guests per page (max 100)",
+                  default: "10",
+                  description: "Number of tables per page (max 100)",
+                },
+                activeOnly: {
+                  type: "string",
+                  enum: ["true", "false"],
+                  default: "false",
+                  description: "Filter to only active tables",
                 },
               },
             },
             response: {
               200: {
-                description: "Successful response with paginated guest list",
+                description: "Successful response with paginated table list",
                 type: "object",
                 properties: {
                   data: {
                     type: "array",
-                    items: { $ref: "Guest#" },
+                    items: { $ref: "Table#" },
                   },
                   pagination: { $ref: "Pagination#" },
                 },
               },
-              401: {
-                description: "Authentication required",
+              500: {
+                description: "Internal server error",
                 $ref: "Error#",
               },
             },
           },
         },
-        async (request, reply) => {
-          const { venueId } = request.query;
-          if (!venueId) {
-            return reply.code(400).send(createProblemDetails(400, "Bad Request", "venueId is required"));
-          }
+        async (request) => {
           const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
-          const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "20", 10) || 20));
-          return guestService.list(venueId, page, limit);
+          const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "10", 10) || 10));
+          const activeOnly = request.query.activeOnly === "true";
+          return tableService.list(page, limit, activeOnly);
         }
       );
     
-      // Search guests
-      fastify.get<{
-        Querystring: {
-          venueId: string;
-          query?: string;
-          tags?: string;
-          hasNotVisitedInDays?: string;
-        };
-        Reply: PaginatedResponse<Guest> | ApiError;
-      }>(
-        "/search",
-        {
-          preHandler: requireAuth,
-          schema: {
-            summary: "Search guests",
-            operationId: "searchGuests",
-            description: "Search guests by name, email, phone, or filter by tags and visit history.",
-            tags: ["Guests"],
-            security: [{ bearerAuth: [] }],
-            querystring: {
-              type: "object",
-              required: ["venueId"],
-              properties: {
-                venueId: {
-                  type: "string",
-                  description: "Venue ID to search within",
-                },
-                query: {
-                  type: "string",
-                  description: "Search term (matches name, email, or phone)",
-                },
-                tags: {
-                  type: "string",
-                  description: "Comma-separated tags to filter by",
-                },
-                hasNotVisitedInDays: {
-                  type: "string",
-                  description: "Filter guests who haven't visited in X days",
-                },
-              },
-            },
-            response: {
-              200: {
-                description: "Search results",
-                type: "object",
-                properties: {
-                  data: {
-                    type: "array",
-                    items: { $ref: "Guest#" },
-                  },
-                  pagination: { $ref: "Pagination#" },
-                },
-              },
-              401: {
-                description: "Authentication required",
-                $ref: "Error#",
-              },
-            },
-          },
-        },
-        async (request, reply) => {
-          const { venueId, query, tags, hasNotVisitedInDays } = request.query;
-          if (!venueId) {
-            return reply.code(400).send(createProblemDetails(400, "Bad Request", "venueId is required"));
-          }
-          return guestService.search({
-            venueId,
-            query,
-            tags: tags ? tags.split(",") : undefined,
-            hasNotVisitedInDays: hasNotVisitedInDays ? parseInt(hasNotVisitedInDays, 10) : undefined,
-          });
-        }
-      );
-    
-      // Get guest segments
-      fastify.get<{
-        Querystring: { venueId: string };
-        Reply: ApiResponse<GuestSegment[]> | ApiError;
-      }>(
-        "/segments",
-        {
-          preHandler: requireAuth,
-          schema: {
-            summary: "Get guest segments",
-            operationId: "getGuestSegments",
-            description: "Get guest segments (VIP, At Risk, Lapsed, etc.) for a venue.",
-            tags: ["Guests"],
-            security: [{ bearerAuth: [] }],
-            querystring: {
-              type: "object",
-              required: ["venueId"],
-              properties: {
-                venueId: {
-                  type: "string",
-                  description: "Venue ID to get segments for",
-                },
-              },
-            },
-            response: {
-              200: {
-                description: "Guest segments",
-                type: "object",
-                properties: {
-                  data: {
-                    type: "array",
-                    items: { $ref: "GuestSegment#" },
-                  },
-                },
-              },
-              401: {
-                description: "Authentication required",
-                $ref: "Error#",
-              },
-            },
-          },
-        },
-        async (request, reply) => {
-          const { venueId } = request.query;
-          if (!venueId) {
-            return reply.code(400).send(createProblemDetails(400, "Bad Request", "venueId is required"));
-          }
-          const segments = await guestService.getSegments(venueId);
-          return { data: segments };
-        }
-      );
-    
-      // Get guest by ID
+      // Get table by ID
       fastify.get<{
         Params: { id: string };
-        Reply: ApiResponse<Guest> | ApiError;
+        Reply: ApiResponse<Table> | ApiError;
       }>(
         "/:id",
         {
-          preHandler: requireAuth,
           schema: {
-            summary: "Get guest by ID",
-            operationId: "getGuestById",
-            description: "Retrieve a single guest by ID.",
-            tags: ["Guests"],
-            security: [{ bearerAuth: [] }],
+            summary: "Get table by ID",
+            operationId: "getTableById",
+            description: "Retrieve a single table by its unique identifier.",
+            tags: ["Tables"],
             params: {
               type: "object",
               properties: {
                 id: {
                   type: "string",
-                  description: "Guest ID",
+                  description: "Unique table identifier",
                 },
               },
               required: ["id"],
             },
             response: {
               200: {
-                description: "Guest found",
+                description: "Table found",
                 type: "object",
                 properties: {
-                  data: { $ref: "Guest#" },
+                  data: { $ref: "Table#" },
                 },
               },
               404: {
-                description: "Guest not found",
+                description: "Table not found",
+                $ref: "Error#",
+              },
+              500: {
+                description: "Internal server error",
                 $ref: "Error#",
               },
             },
           },
         },
         async (request, reply) => {
-          const guest = await guestService.getById(request.params.id);
-          if (!guest) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
+          const table = await tableService.getById(request.params.id);
+          if (!table) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
           }
-          return { data: guest };
+          return { data: table };
         }
       );
     
-      // Create guest
+      // Create table (requires auth)
       fastify.post<{
-        Body: CreateGuestRequest;
-        Reply: ApiResponse<Guest> | ApiError;
+        Body: CreateTableRequest;
+        Reply: ApiResponse<Table> | ApiError;
       }>(
         "/",
         {
           preHandler: requireAuth,
           schema: {
-            summary: "Create a new guest",
-            operationId: "createGuest",
-            description: "Create a new guest. Requires authentication.",
-            tags: ["Guests"],
+            summary: "Create a new table",
+            operationId: "createTable",
+            description: "Create a new table. Requires authentication.",
+            tags: ["Tables"],
             security: [{ bearerAuth: [] }],
             body: {
               type: "object",
-              required: ["venueId", "name"],
+              description: "Table creation payload",
               properties: {
-                venueId: {
-                  type: "string",
-                  description: "Venue ID",
-                },
-                email: {
-                  type: "string",
-                  format: "email",
-                  description: "Guest email",
-                },
-                phone: {
-                  type: "string",
-                  description: "Guest phone",
-                },
                 name: {
                   type: "string",
-                  description: "Guest name",
+                  description: "Unique table name (e.g., 'Table 1', 'Patio A')",
                 },
-                notes: {
+                capacity: {
+                  type: "integer",
+                  minimum: 1,
+                  description: "Maximum number of guests the table can seat",
+                },
+                location: {
                   type: "string",
-                  description: "Internal notes",
+                  description: "Location description (e.g., 'Main Floor', 'Patio')",
                 },
-                tags: {
-                  type: "array",
-                  items: { type: "string" },
-                  description: "Tags for categorization",
+                venueId: {
+                  type: "string",
+                  description: "ID of the venue this table belongs to",
+                },
+              },
+              required: ["name", "capacity"],
+            },
+            response: {
+              201: {
+                description: "Table created successfully",
+                type: "object",
+                properties: {
+                  data: { $ref: "Table#" },
+                },
+              },
+              400: {
+                description: "Invalid request body or table name already exists",
+                $ref: "Error#",
+              },
+              401: {
+                description: "Authentication required",
+                $ref: "Error#",
+              },
+              500: {
+                description: "Internal server error",
+                $ref: "Error#",
+              },
+            },
+          },
+        },
+        async (request, reply) => {
+          try {
+            const table = await tableService.create(request.body);
+            return reply.code(201).send({ data: table });
+          } catch (error) {
+            if (
+              error instanceof Error &&
+              error.message.includes("Unique constraint")
+            ) {
+              return reply.code(400).send(createProblemDetails(400, "Bad Request", "A table with this name already exists"));
+            }
+            throw error;
+          }
+        }
+      );
+    
+      // Update table (requires auth)
+      fastify.patch<{
+        Params: { id: string };
+        Body: UpdateTableRequest;
+        Reply: ApiResponse<Table> | ApiError;
+      }>(
+        "/:id",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Update a table",
+            operationId: "updateTable",
+            description:
+              "Update an existing table. Only provided fields will be updated. Requires authentication.",
+            tags: ["Tables"],
+            security: [{ bearerAuth: [] }],
+            params: {
+              type: "object",
+              properties: {
+                id: {
+                  type: "string",
+                  description: "Unique table identifier",
+                },
+              },
+              required: ["id"],
+            },
+            body: {
+              type: "object",
+              description: "Fields to update",
+              properties: {
+                name: {
+                  type: "string",
+                  description: "New table name",
+                },
+                capacity: {
+                  type: "integer",
+                  minimum: 1,
+                  description: "New capacity",
+                },
+                location: {
+                  type: "string",
+                  description: "New location description",
+                },
+                isActive: {
+                  type: "boolean",
+                  description: "Whether the table is active and available for reservations",
                 },
               },
             },
             response: {
-              201: {
-                description: "Guest created",
+              200: {
+                description: "Table updated successfully",
                 type: "object",
                 properties: {
-                  data: { $ref: "Guest#" },
+                  data: { $ref: "Table#" },
+                },
+              },
+              401: {
+                description: "Authentication required",
+                $ref: "Error#",
+              },
+              404: {
+                description: "Table not found",
+                $ref: "Error#",
+              },
+              500: {
+                description: "Internal server error",
+                $ref: "Error#",
+              },
+            },
+          },
+        },
+        async (request, reply) => {
+          const table = await tableService.update(request.params.id, request.body);
+          if (!table) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
+          }
+          return { data: table };
+        }
+      );
+    
+      // Update table status (requires auth)
+      fastify.patch<{
+        Params: { id: string };
+        Body: UpdateTableStatusRequest;
+        Reply: ApiResponse<Table> | ApiError;
+      }>(
+        "/:id/status",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Update table status",
+            operationId: "updateTableStatus",
+            description:
+              "Update the operational status of a table (AVAILABLE, OCCUPIED, DIRTY, READY). Requires authentication.",
+            tags: ["Tables"],
+            security: [{ bearerAuth: [] }],
+            params: {
+              type: "object",
+              properties: {
+                id: {
+                  type: "string",
+                  description: "Unique table identifier",
+                },
+              },
+              required: ["id"],
+            },
+            body: {
+              type: "object",
+              description: "Table status update payload",
+              properties: {
+                status: {
+                  type: "string",
+                  enum: ["AVAILABLE", "OCCUPIED", "DIRTY", "READY"],
+                  description: "New table status",
+                },
+              },
+              required: ["status"],
+            },
+            response: {
+              200: {
+                description: "Table status updated successfully",
+                type: "object",
+                properties: {
+                  data: { $ref: "Table#" },
                 },
               },
               400: {
-                description: "Invalid request or duplicate email/phone",
+                description: "Invalid status value",
+                $ref: "Error#",
+              },
+              401: {
+                description: "Authentication required",
+                $ref: "Error#",
+              },
+              404: {
+                description: "Table not found",
+                $ref: "Error#",
+              },
+              500: {
+                description: "Internal server error",
+                $ref: "Error#",
+              },
+            },
+          },
+        },
+        async (request, reply) => {
+          const table = await tableService.updateStatus(request.params.id, request.body.status);
+          if (!table) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
+          }
+          emitTableUpdated(table);
+          return { data: table };
+        }
+      );
+    
+      // Delete table (requires auth)
+      fastify.delete<{
+        Params: { id: string };
+      }>(
+        "/:id",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Delete a table",
+            operationId: "deleteTable",
+            description:
+              "Delete a table. This will fail if the table has reservations. Requires authentication.",
+            tags: ["Tables"],
+            security: [{ bearerAuth: [] }],
+            params: {
+              type: "object",
+              properties: {
+                id: {
+                  type: "string",
+                  description: "Unique table identifier",
+                },
+              },
+              required: ["id"],
+            },
+            response: {
+              204: {
+                description: "Table deleted successfully",
+                type: "null",
+              },
+              401: {
+                description: "Authentication required",
+                $ref: "Error#",
+              },
+              404: {
+                description: "Table not found",
+                $ref: "Error#",
+              },
+              409: {
+                description: "Table has reservations and cannot be deleted",
+                $ref: "Error#",
+              },
+              500: {
+                description: "Internal server error",
+                $ref: "Error#",
+              },
+            },
+          },
+        },
+        async (request, reply) => {
+          const deleted = await tableService.delete(request.params.id);
+          if (!deleted) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
+          }
+          return reply.code(204).send();
+        }
+      );
+    };
+  </file>
+  <file path="src/routes/venues.ts">
+    export const venueRoutes: FastifyPluginAsync = async (fastify) => {
+      // ============ VENUE GROUP ROUTES ============
+    
+      // List venue groups
+      fastify.get<{
+        Querystring: { page?: string; limit?: string };
+        Reply: PaginatedResponse<VenueGroup>;
+      }>(
+        "/groups",
+        {
+          schema: {
+            summary: "List all venue groups",
+            operationId: "listVenueGroups",
+            description: "Retrieve a paginated list of all venue groups.",
+            tags: ["Venue Groups"],
+            querystring: {
+              type: "object",
+              properties: {
+                page: {
+                  type: "string",
+                  default: "1",
+                  description: "Page number (1-indexed)",
+                },
+                limit: {
+                  type: "string",
+                  default: "10",
+                  description: "Number of groups per page (max 100)",
+                },
+              },
+            },
+            response: {
+              200: {
+                description: "Successful response with paginated venue group list",
+                type: "object",
+                properties: {
+                  data: {
+                    type: "array",
+                    items: { $ref: "VenueGroup#" },
+                  },
+                  pagination: { $ref: "Pagination#" },
+                },
+              },
+              500: {
+                description: "Internal server error",
+                $ref: "Error#",
+              },
+            },
+          },
+        },
+        async (request) => {
+          const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
+          const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "10", 10) || 10));
+          return venueGroupService.list(page, limit);
+        }
+      );
+    
+      // Get venue group by ID
+      fastify.get<{
+        Params: { id: string };
+        Reply: ApiResponse<VenueGroup> | ApiError;
+      }>(
+        "/groups/:id",
+        {
+          schema: {
+            summary: "Get venue group by ID",
+            operationId: "getVenueGroupById",
+            description: "Retrieve a single venue group by its unique identifier.",
+            tags: ["Venue Groups"],
+            params: {
+              type: "object",
+              properties: {
+                id: {
+                  type: "string",
+                  description: "Unique venue group identifier",
+                },
+              },
+              required: ["id"],
+            },
+            response: {
+              200: {
+                description: "Venue group found",
+                type: "object",
+                properties: {
+                  data: { $ref: "VenueGroup#" },
+                },
+              },
+              404: {
+                description: "Venue group not found",
+                $ref: "Error#",
+              },
+            },
+          },
+        },
+        async (request, reply) => {
+          const group = await venueGroupService.getById(request.params.id);
+          if (!group) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue group not found"));
+          }
+          return { data: group };
+        }
+      );
+    
+      // Create venue group (requires auth)
+      fastify.post<{
+        Body: CreateVenueGroupRequest;
+        Reply: ApiResponse<VenueGroup> | ApiError;
+      }>(
+        "/groups",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Create a new venue group",
+            operationId: "createVenueGroup",
+            description: "Create a new venue group. Requires authentication.",
+            tags: ["Venue Groups"],
+            security: [{ bearerAuth: [] }],
+            body: {
+              type: "object",
+              description: "Venue group creation payload",
+              properties: {
+                name: {
+                  type: "string",
+                  description: "Venue group name",
+                },
+                slug: {
+                  type: "string",
+                  description: "URL-friendly identifier (must be unique)",
+                },
+                settings: {
+                  type: "object",
+                  description: "Shared settings for all venues in the group",
+                },
+              },
+              required: ["name", "slug"],
+            },
+            response: {
+              201: {
+                description: "Venue group created successfully",
+                type: "object",
+                properties: {
+                  data: { $ref: "VenueGroup#" },
+                },
+              },
+              400: {
+                description: "Invalid request body or slug already exists",
                 $ref: "Error#",
               },
               401: {
@@ -2453,67 +2635,348 @@
         },
         async (request, reply) => {
           try {
-            const guest = await guestService.create(request.body);
-            return reply.code(201).send({ data: guest });
+            const group = await venueGroupService.create(request.body);
+            return reply.code(201).send({ data: group });
           } catch (error) {
             if (
               error instanceof Error &&
               error.message.includes("Unique constraint")
             ) {
-              return reply.code(400).send(createProblemDetails(400, "Bad Request", "A guest with this email or phone already exists at this venue"));
+              return reply.code(400).send(createProblemDetails(400, "Bad Request", "A venue group with this slug already exists"));
             }
             throw error;
           }
         }
       );
     
-      // Find or create guest (identity resolution)
-      fastify.post<{
-        Body: { venueId: string; email?: string; phone?: string; name: string };
-        Reply: ApiResponse<Guest> | ApiError;
+      // Update venue group (requires auth)
+      fastify.patch<{
+        Params: { id: string };
+        Body: UpdateVenueGroupRequest;
+        Reply: ApiResponse<VenueGroup> | ApiError;
       }>(
-        "/find-or-create",
+        "/groups/:id",
         {
           preHandler: requireAuth,
           schema: {
-            summary: "Find or create guest",
-            operationId: "findOrCreateGuest",
-            description: "Find existing guest by email/phone or create new one. Used for identity resolution when booking.",
-            tags: ["Guests"],
+            summary: "Update a venue group",
+            operationId: "updateVenueGroup",
+            description:
+              "Update an existing venue group. Only provided fields will be updated. Requires authentication.",
+            tags: ["Venue Groups"],
             security: [{ bearerAuth: [] }],
+            params: {
+              type: "object",
+              properties: {
+                id: {
+                  type: "string",
+                  description: "Unique venue group identifier",
+                },
+              },
+              required: ["id"],
+            },
             body: {
               type: "object",
-              required: ["venueId", "name"],
+              description: "Fields to update",
               properties: {
-                venueId: {
-                  type: "string",
-                  description: "Venue ID",
+                name: { type: "string" },
+                slug: { type: "string" },
+                settings: { type: "object" },
+              },
+            },
+            response: {
+              200: {
+                description: "Venue group updated successfully",
+                type: "object",
+                properties: {
+                  data: { $ref: "VenueGroup#" },
                 },
-                email: {
+              },
+              401: {
+                description: "Authentication required",
+                $ref: "Error#",
+              },
+              404: {
+                description: "Venue group not found",
+                $ref: "Error#",
+              },
+            },
+          },
+        },
+        async (request, reply) => {
+          const group = await venueGroupService.update(request.params.id, request.body);
+          if (!group) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue group not found"));
+          }
+          return { data: group };
+        }
+      );
+    
+      // Delete venue group (requires auth)
+      fastify.delete<{
+        Params: { id: string };
+      }>(
+        "/groups/:id",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Delete a venue group",
+            operationId: "deleteVenueGroup",
+            description:
+              "Delete a venue group. This will fail if the group has venues. Requires authentication.",
+            tags: ["Venue Groups"],
+            security: [{ bearerAuth: [] }],
+            params: {
+              type: "object",
+              properties: {
+                id: {
                   type: "string",
-                  format: "email",
-                  description: "Guest email (used for matching)",
+                  description: "Unique venue group identifier",
                 },
-                phone: {
+              },
+              required: ["id"],
+            },
+            response: {
+              204: {
+                description: "Venue group deleted successfully",
+                type: "null",
+              },
+              401: {
+                description: "Authentication required",
+                $ref: "Error#",
+              },
+              404: {
+                description: "Venue group not found",
+                $ref: "Error#",
+              },
+              409: {
+                description: "Venue group has venues and cannot be deleted",
+                $ref: "Error#",
+              },
+            },
+          },
+        },
+        async (request, reply) => {
+          const deleted = await venueGroupService.delete(request.params.id);
+          if (!deleted) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue group not found"));
+          }
+          return reply.code(204).send();
+        }
+      );
+    
+      // ============ VENUE ROUTES ============
+    
+      // List venues
+      fastify.get<{
+        Querystring: { page?: string; limit?: string; venueGroupId?: string };
+        Reply: PaginatedResponse<Venue>;
+      }>(
+        "/",
+        {
+          schema: {
+            summary: "List all venues",
+            operationId: "listVenues",
+            description:
+              "Retrieve a paginated list of all venues. Optionally filter by venue group.",
+            tags: ["Venues"],
+            querystring: {
+              type: "object",
+              properties: {
+                page: {
                   type: "string",
-                  description: "Guest phone (used for matching if email not found)",
+                  default: "1",
+                  description: "Page number (1-indexed)",
                 },
-                name: {
+                limit: {
                   type: "string",
-                  description: "Guest name",
+                  default: "10",
+                  description: "Number of venues per page (max 100)",
+                },
+                venueGroupId: {
+                  type: "string",
+                  description: "Filter venues by venue group ID",
                 },
               },
             },
             response: {
               200: {
-                description: "Guest found or created",
+                description: "Successful response with paginated venue list",
                 type: "object",
                 properties: {
-                  data: { $ref: "Guest#" },
+                  data: {
+                    type: "array",
+                    items: { $ref: "Venue#" },
+                  },
+                  pagination: { $ref: "Pagination#" },
+                },
+              },
+              500: {
+                description: "Internal server error",
+                $ref: "Error#",
+              },
+            },
+          },
+        },
+        async (request) => {
+          const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
+          const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "10", 10) || 10));
+          return venueService.list(page, limit, request.query.venueGroupId);
+        }
+      );
+    
+      // Get venue by ID
+      fastify.get<{
+        Params: { id: string };
+        Reply: ApiResponse<Venue> | ApiError;
+      }>(
+        "/:id",
+        {
+          schema: {
+            summary: "Get venue by ID",
+            operationId: "getVenueById",
+            description: "Retrieve a single venue by its unique identifier.",
+            tags: ["Venues"],
+            params: {
+              type: "object",
+              properties: {
+                id: {
+                  type: "string",
+                  description: "Unique venue identifier",
+                },
+              },
+              required: ["id"],
+            },
+            response: {
+              200: {
+                description: "Venue found",
+                type: "object",
+                properties: {
+                  data: { $ref: "Venue#" },
+                },
+              },
+              404: {
+                description: "Venue not found",
+                $ref: "Error#",
+              },
+            },
+          },
+        },
+        async (request, reply) => {
+          const venue = await venueService.getById(request.params.id);
+          if (!venue) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
+          }
+          return { data: venue };
+        }
+      );
+    
+      // Get venue by slug (for public booking)
+      fastify.get<{
+        Params: { slug: string };
+        Reply: ApiResponse<Venue> | ApiError;
+      }>(
+        "/by-slug/:slug",
+        {
+          schema: {
+            summary: "Get venue by slug",
+            operationId: "getVenueBySlug",
+            description: "Retrieve a single venue by its URL-friendly slug. Used for public booking URLs.",
+            tags: ["Venues"],
+            params: {
+              type: "object",
+              properties: {
+                slug: {
+                  type: "string",
+                  description: "Venue slug",
+                },
+              },
+              required: ["slug"],
+            },
+            response: {
+              200: {
+                description: "Venue found",
+                type: "object",
+                properties: {
+                  data: { $ref: "Venue#" },
+                },
+              },
+              404: {
+                description: "Venue not found",
+                $ref: "Error#",
+              },
+            },
+          },
+        },
+        async (request, reply) => {
+          const venue = await venueService.getBySlug(request.params.slug);
+          if (!venue) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
+          }
+          return { data: venue };
+        }
+      );
+    
+      // Create venue (requires auth)
+      fastify.post<{
+        Body: CreateVenueRequest;
+        Reply: ApiResponse<Venue> | ApiError;
+      }>(
+        "/",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Create a new venue",
+            operationId: "createVenue",
+            description: "Create a new venue. Requires authentication.",
+            tags: ["Venues"],
+            security: [{ bearerAuth: [] }],
+            body: {
+              type: "object",
+              description: "Venue creation payload",
+              properties: {
+                venueGroupId: {
+                  type: "string",
+                  description: "ID of the venue group this venue belongs to",
+                },
+                name: {
+                  type: "string",
+                  description: "Venue name",
+                },
+                slug: {
+                  type: "string",
+                  description: "URL-friendly identifier for public booking URLs (must be unique)",
+                },
+                ianaTimezone: {
+                  type: "string",
+                  description: "IANA timezone identifier (e.g., 'America/Los_Angeles')",
+                },
+                currencyCode: {
+                  type: "string",
+                  default: "USD",
+                  description: "ISO 4217 currency code",
+                },
+                operatingHours: {
+                  type: "object",
+                  description: "Weekly operating schedule",
+                },
+                settings: {
+                  type: "object",
+                  description: "Venue-specific settings",
+                },
+              },
+              required: ["name", "slug", "ianaTimezone"],
+            },
+            response: {
+              201: {
+                description: "Venue created successfully",
+                type: "object",
+                properties: {
+                  data: { $ref: "Venue#" },
                 },
               },
               400: {
-                description: "Invalid request",
+                description: "Invalid request body or slug already exists",
                 $ref: "Error#",
               },
               401: {
@@ -2524,79 +2987,89 @@
           },
         },
         async (request, reply) => {
-          const { venueId, email, phone, name } = request.body;
-          if (!email && !phone) {
-            return reply.code(400).send(createProblemDetails(400, "Bad Request", "Either email or phone is required"));
+          try {
+            const venue = await venueService.create(request.body);
+            return reply.code(201).send({ data: venue });
+          } catch (error) {
+            if (
+              error instanceof Error &&
+              error.message.includes("Unique constraint")
+            ) {
+              return reply.code(400).send(createProblemDetails(400, "Bad Request", "A venue with this slug already exists"));
+            }
+            throw error;
           }
-          const guest = await guestService.findOrCreate(venueId, { email, phone, name });
-          return { data: guest };
         }
       );
     
-      // Update guest
+      // Update venue (requires auth)
       fastify.patch<{
         Params: { id: string };
-        Body: UpdateGuestRequest;
-        Reply: ApiResponse<Guest> | ApiError;
+        Body: UpdateVenueRequest;
+        Reply: ApiResponse<Venue> | ApiError;
       }>(
         "/:id",
         {
           preHandler: requireAuth,
           schema: {
-            summary: "Update a guest",
-            operationId: "updateGuest",
-            description: "Update guest information. Requires authentication.",
-            tags: ["Guests"],
+            summary: "Update a venue",
+            operationId: "updateVenue",
+            description:
+              "Update an existing venue. Only provided fields will be updated. Requires authentication.",
+            tags: ["Venues"],
             security: [{ bearerAuth: [] }],
             params: {
               type: "object",
               properties: {
                 id: {
                   type: "string",
-                  description: "Guest ID",
+                  description: "Unique venue identifier",
                 },
               },
               required: ["id"],
             },
             body: {
               type: "object",
+              description: "Fields to update",
               properties: {
-                email: { type: "string", format: "email", nullable: true },
-                phone: { type: "string", nullable: true },
+                venueGroupId: { type: "string", nullable: true },
                 name: { type: "string" },
-                notes: { type: "string", nullable: true },
-                tags: {
-                  type: "array",
-                  items: { type: "string" },
-                  nullable: true,
-                },
+                slug: { type: "string" },
+                ianaTimezone: { type: "string" },
+                currencyCode: { type: "string" },
+                operatingHours: { type: "object", nullable: true },
+                settings: { type: "object", nullable: true },
               },
             },
             response: {
               200: {
-                description: "Guest updated",
+                description: "Venue updated successfully",
                 type: "object",
                 properties: {
-                  data: { $ref: "Guest#" },
+                  data: { $ref: "Venue#" },
                 },
               },
+              401: {
+                description: "Authentication required",
+                $ref: "Error#",
+              },
               404: {
-                description: "Guest not found",
+                description: "Venue not found",
                 $ref: "Error#",
               },
             },
           },
         },
         async (request, reply) => {
-          const guest = await guestService.update(request.params.id, request.body);
-          if (!guest) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
+          const venue = await venueService.update(request.params.id, request.body);
+          if (!venue) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
           }
-          return { data: guest };
+          return { data: venue };
         }
       );
     
-      // Delete guest
+      // Delete venue (requires auth)
       fastify.delete<{
         Params: { id: string };
       }>(
@@ -2604,592 +3077,137 @@
         {
           preHandler: requireAuth,
           schema: {
-            summary: "Delete a guest",
-            operationId: "deleteGuest",
-            description: "Delete a guest. Will fail if guest has reservations.",
-            tags: ["Guests"],
+            summary: "Delete a venue",
+            operationId: "deleteVenue",
+            description:
+              "Delete a venue. This will fail if the venue has tables or reservations. Requires authentication.",
+            tags: ["Venues"],
             security: [{ bearerAuth: [] }],
             params: {
               type: "object",
               properties: {
                 id: {
                   type: "string",
-                  description: "Guest ID",
+                  description: "Unique venue identifier",
                 },
               },
               required: ["id"],
             },
             response: {
               204: {
-                description: "Guest deleted",
+                description: "Venue deleted successfully",
                 type: "null",
               },
+              401: {
+                description: "Authentication required",
+                $ref: "Error#",
+              },
               404: {
-                description: "Guest not found",
+                description: "Venue not found",
                 $ref: "Error#",
               },
               409: {
-                description: "Guest has reservations",
+                description: "Venue has tables or reservations and cannot be deleted",
                 $ref: "Error#",
               },
             },
           },
         },
         async (request, reply) => {
-          const deleted = await guestService.delete(request.params.id);
+          const deleted = await venueService.delete(request.params.id);
           if (!deleted) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
-          }
-          return reply.code(204).send();
-        }
-      );
-    };
-  </file>
-  <file path="src/routes/floor-plans.ts">
-    export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
-      fastify.get<{
-        Querystring: { venueId?: string; page?: string; limit?: string };
-        Reply: PaginatedResponse<FloorPlan> | ApiError;
-      }>(
-        "/",
-        {
-          schema: {
-            summary: "List floor plans",
-            description: "Returns a paginated list of floor plans for a venue.",
-            querystring: {
-              type: "object",
-              properties: {
-                venueId: { type: "string" },
-                page: { type: "string", default: "1" },
-                limit: { type: "string", default: "10" },
-              },
-            },
-          },
-        },
-        async (request) => {
-          const page = parseInt(request.query.page || "1", 10);
-          const limit = parseInt(request.query.limit || "10", 10);
-          return floorPlanService.list(page, limit, request.query.venueId);
-        }
-      );
-    
-      fastify.get<{ Params: { venueId: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
-        "/venue/:venueId/active",
-        {
-          schema: {
-            summary: "Get active floor plan for venue",
-            params: {
-              type: "object",
-              properties: {
-                venueId: { type: "string" },
-              },
-            },
-          },
-        },
-        async (request, reply) => {
-          const floorPlan = await floorPlanService.getActiveByVenueId(request.params.venueId);
-          if (!floorPlan) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "No active floor plan found for venue"));
-          }
-          return { data: floorPlan };
-        }
-      );
-    
-      fastify.get<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
-        "/:id",
-        {
-          schema: {
-            summary: "Get floor plan by ID",
-            params: {
-              type: "object",
-              properties: {
-                id: { type: "string" },
-              },
-            },
-          },
-        },
-        async (request, reply) => {
-          const floorPlan = await floorPlanService.getById(request.params.id);
-          if (!floorPlan) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
-          }
-          return { data: floorPlan };
-        }
-      );
-    
-      fastify.post<{ Body: CreateFloorPlanRequest; Reply: ApiResponse<FloorPlan> | ApiError }>(
-        "/",
-        {
-          preHandler: requireAuth,
-          schema: {
-            summary: "Create floor plan",
-            body: {
-              type: "object",
-              required: ["venueId", "name", "layoutJson"],
-              properties: {
-                venueId: { type: "string" },
-                name: { type: "string" },
-                isActive: { type: "boolean" },
-                layoutJson: { type: "object" },
-              },
-            },
-          },
-        },
-        async (request, reply) => {
-          const floorPlan = await floorPlanService.create(request.body);
-          return reply.code(201).send({ data: floorPlan });
-        }
-      );
-    
-      fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
-        "/:id/clone",
-        {
-          preHandler: requireAuth,
-          schema: {
-            summary: "Clone floor plan",
-            description: "Creates a copy of the floor plan and all its tables.",
-            params: {
-              type: "object",
-              properties: {
-                id: { type: "string" },
-              },
-            },
-          },
-        },
-        async (request, reply) => {
-          const cloned = await floorPlanService.clone(request.params.id);
-          if (!cloned) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
-          }
-          return reply.code(201).send({ data: cloned });
-        }
-      );
-    
-      fastify.patch<{ Params: { id: string }; Body: UpdateFloorPlanRequest; Reply: ApiResponse<FloorPlan> | ApiError }>(
-        "/:id",
-        {
-          preHandler: requireAuth,
-          schema: {
-            summary: "Update floor plan",
-            params: {
-              type: "object",
-              properties: {
-                id: { type: "string" },
-              },
-            },
-            body: {
-              type: "object",
-              properties: {
-                name: { type: "string" },
-                isActive: { type: "boolean" },
-                layoutJson: { type: "object" },
-              },
-            },
-          },
-        },
-        async (request, reply) => {
-          const floorPlan = await floorPlanService.update(request.params.id, request.body);
-          if (!floorPlan) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
-          }
-          return { data: floorPlan };
-        }
-      );
-    
-      fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
-        "/:id/activate",
-        {
-          preHandler: requireAuth,
-          schema: {
-            summary: "Set floor plan as active",
-            description: "Activates this floor plan and deactivates all others for the same venue.",
-            params: {
-              type: "object",
-              properties: {
-                id: { type: "string" },
-              },
-            },
-          },
-        },
-        async (request, reply) => {
-          const floorPlan = await floorPlanService.getById(request.params.id);
-          if (!floorPlan) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
-          }
-    
-          const updated = await floorPlanService.setActive(floorPlan.id, floorPlan.venueId);
-          return { data: updated! };
-        }
-      );
-    
-      fastify.post<{
-        Body: { floorPlanId: string; positions: UpdateTablePositionRequest[] };
-        Reply: { data: Table[] } | ApiError;
-      }>(
-        "/tables/positions",
-        {
-          preHandler: requireAuth,
-          schema: {
-            summary: "Bulk update table positions",
-            description: "Updates the position and metadata for multiple tables in a floor plan.",
-            body: {
-              type: "object",
-              required: ["floorPlanId", "positions"],
-              properties: {
-                floorPlanId: { type: "string" },
-                positions: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    required: ["tableId", "shapeMetadata"],
-                    properties: {
-                      tableId: { type: "string" },
-                      shapeMetadata: { type: "object" },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-        async (request) => {
-          const tables = await floorPlanService.bulkUpdateTablePositions(
-            request.body.floorPlanId,
-            request.body.positions
-          );
-          return { data: tables };
-        }
-      );
-    
-      fastify.post<{
-        Params: { tableId: string };
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        Body: { floorPlanId: string; shapeMetadata?: any };
-        Reply: { data: Table } | ApiError;
-      }>(
-        "/tables/:tableId/assign",
-        {
-          preHandler: requireAuth,
-          schema: {
-            summary: "Assign table to floor plan",
-            params: {
-              type: "object",
-              properties: {
-                tableId: { type: "string" },
-              },
-            },
-            body: {
-              type: "object",
-              required: ["floorPlanId"],
-              properties: {
-                floorPlanId: { type: "string" },
-                shapeMetadata: { type: "object" },
-              },
-            },
-          },
-        },
-        async (request, reply) => {
-          const table = await floorPlanService.assignTableToFloorPlan(
-            request.params.tableId,
-            request.body.floorPlanId,
-            request.body.shapeMetadata
-          );
-          if (!table) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
-          }
-          return { data: table };
-        }
-      );
-    
-      fastify.post<{ Params: { tableId: string }; Reply: { data: Table } | ApiError }>(
-        "/tables/:tableId/remove",
-        {
-          preHandler: requireAuth,
-          schema: {
-            summary: "Remove table from floor plan",
-            params: {
-              type: "object",
-              properties: {
-                tableId: { type: "string" },
-              },
-            },
-          },
-        },
-        async (request, reply) => {
-          const table = await floorPlanService.removeTableFromFloorPlan(request.params.tableId);
-          if (!table) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
-          }
-          return { data: table };
-        }
-      );
-    
-      fastify.delete<{ Params: { id: string }; Reply: void | ApiError }>(
-        "/:id",
-        {
-          preHandler: requireAuth,
-          schema: {
-            summary: "Delete floor plan",
-            params: {
-              type: "object",
-              properties: {
-                id: { type: "string" },
-              },
-            },
-          },
-        },
-        async (request, reply) => {
-          const success = await floorPlanService.delete(request.params.id);
-          if (!success) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
-          }
-          return reply.code(204).send();
-        }
-      );
-    };
-  </file>
-  <file path="src/routes/events.ts">
-    class EventBuffer {
-      private readonly maxSize: number;
-      private buffer: readonly ReservationEvent[] = [];
-      private _droppedCount = 0;
-    
-      constructor(maxSize: number) {
-        this.maxSize = maxSize;
-      }
-    
-      /** Push an event, dropping the oldest if the buffer is full. Returns true if an event was dropped. */
-      push(event: ReservationEvent): boolean {
-        if (this.buffer.length >= this.maxSize) {
-          // Drop oldest, append new — immutable replacement
-          this.buffer = [...this.buffer.slice(1), event];
-          this._droppedCount += 1;
-          return true;
-        }
-        this.buffer = [...this.buffer, event];
-        return false;
-      }
-    
-      /** Drain all buffered events, resetting the buffer. */
-      drain(): readonly ReservationEvent[] {
-        const events = this.buffer;
-        this.buffer = [];
-        return events;
-      }
-    
-      get length(): number {
-        return this.buffer.length;
-      }
-    
-      get droppedCount(): number {
-        return this._droppedCount;
-      }
-    }
-    export function getConnectionManager(): SseConnectionManager {
-      return connectionManager;
-    }
-  </file>
-  <file path="src/routes/availability.ts">
-    export const availabilityRoutes: FastifyPluginAsync = async (fastify) => {
-      // Register schemas
-      fastify.addSchema(TimeSlotSchema);
-      fastify.addSchema(DateAvailabilitySchema);
-    
-      // GET /:venueId - Get available time slots for a date
-      fastify.get<{
-        Params: { venueId: string };
-        Querystring: { date: string; partySize: string; duration?: string };
-        Reply: ApiResponse<TimeSlot[]> | ApiError;
-      }>(
-        "/:venueId",
-        {
-          schema: {
-            summary: "Get available time slots",
-            operationId: "getAvailability",
-            description:
-              "Get all available time slots for a venue on a specific date for a given party size.",
-            tags: ["Availability"],
-            params: {
-              type: "object",
-              required: ["venueId"],
-              properties: {
-                venueId: {
-                  type: "string",
-                  description: "The venue ID",
-                },
-              },
-            },
-            querystring: {
-              type: "object",
-              required: ["date", "partySize"],
-              properties: {
-                date: {
-                  type: "string",
-                  format: "date",
-                  description: "Date in YYYY-MM-DD format",
-                },
-                partySize: {
-                  type: "string",
-                  description: "Number of guests",
-                },
-                duration: {
-                  type: "string",
-                  description: "Optional duration override in minutes",
-                },
-              },
-            },
-            response: {
-              200: {
-                type: "object",
-                properties: {
-                  data: {
-                    type: "array",
-                    items: { $ref: "TimeSlot#" },
-                  },
-                },
-              },
-              404: { $ref: "Error#" },
-            },
-          },
-        },
-        async (request, reply) => {
-          const { venueId } = request.params;
-          const { date, partySize, duration } = request.query;
-    
-          // Validate venue exists
-          const venue = await venueService.getById(venueId);
-          if (!venue) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
           }
-    
-          // Validate date format
-          const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-          if (!dateRegex.test(date)) {
-            return reply.code(400).send(createProblemDetails(400, "Bad Request", "Invalid date format. Use YYYY-MM-DD."));
-          }
-    
-          const partySizeNum = parseInt(partySize, 10);
-          if (isNaN(partySizeNum) || partySizeNum < 1) {
-            return reply.code(400).send(createProblemDetails(400, "Bad Request", "Invalid party size. Must be a positive integer."));
-          }
-    
-          const durationNum = duration ? parseInt(duration, 10) : undefined;
-          if (duration && (isNaN(durationNum!) || durationNum! < 15)) {
-            return reply.code(400).send(createProblemDetails(400, "Bad Request", "Invalid duration. Must be at least 15 minutes."));
-          }
-    
-          const slots = await availabilityService.generateTimeSlots(
-            venueId,
-            date,
-            partySizeNum,
-            durationNum
-          );
-    
-          return { data: slots };
-        }
-      );
-    
-      // GET /:venueId/dates - Get dates with availability in a range
-      fastify.get<{
-        Params: { venueId: string };
-        Querystring: { startDate: string; endDate: string; partySize: string };
-        Reply: ApiResponse<DateAvailability[]> | ApiError;
-      }>(
-        "/:venueId/dates",
-        {
-          schema: {
-            summary: "Get dates with availability",
-            operationId: "getAvailableDates",
-            description:
-              "Get a list of dates with availability in a date range. Useful for calendar displays.",
-            tags: ["Availability"],
-            params: {
-              type: "object",
-              required: ["venueId"],
-              properties: {
-                venueId: {
-                  type: "string",
-                  description: "The venue ID",
-                },
-              },
-            },
-            querystring: {
-              type: "object",
-              required: ["startDate", "endDate", "partySize"],
-              properties: {
-                startDate: {
-                  type: "string",
-                  format: "date",
-                  description: "Start date in YYYY-MM-DD format",
-                },
-                endDate: {
-                  type: "string",
-                  format: "date",
-                  description: "End date in YYYY-MM-DD format",
-                },
-                partySize: {
-                  type: "string",
-                  description: "Number of guests",
-                },
-              },
-            },
-            response: {
-              200: {
-                type: "object",
-                properties: {
-                  data: {
-                    type: "array",
-                    items: { $ref: "DateAvailability#" },
-                  },
-                },
-              },
-              404: { $ref: "Error#" },
-            },
-          },
-        },
-        async (request, reply) => {
-          const { venueId } = request.params;
-          const { startDate, endDate, partySize } = request.query;
-    
-          // Validate venue exists
-          const venue = await venueService.getById(venueId);
-          if (!venue) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
-          }
-    
-          // Validate date formats
-          const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-          if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
-            return reply.code(400).send(createProblemDetails(400, "Bad Request", "Invalid date format. Use YYYY-MM-DD."));
-          }
-    
-          // Validate date range
-          const start = new Date(startDate);
-          const end = new Date(endDate);
-          if (start > end) {
-            return reply.code(400).send(createProblemDetails(400, "Bad Request", "startDate must be before or equal to endDate."));
-          }
-    
-          const partySizeNum = parseInt(partySize, 10);
-          if (isNaN(partySizeNum) || partySizeNum < 1) {
-            return reply.code(400).send(createProblemDetails(400, "Bad Request", "Invalid party size. Must be a positive integer."));
-          }
-    
-          const dates = await availabilityService.getAvailableDates(
-            venueId,
-            startDate,
-            endDate,
-            partySizeNum
-          );
-    
-          return { data: dates };
+          return reply.code(204).send();
         }
       );
     };
   </file>
   </section>
+  <section priority="medium" role="schemas">
+  <file path="src/schemas/index.ts">
+    export const TableShapeMetadataSchema = tableShapeMetadataJsonSchema;
+    export const TableSchema = tableJsonSchema;
+  </file>
+  </section>
   <section priority="medium" role="services">
-  <file path="src/services/venue.ts">
+  <file path="src/services/availability.ts">
+    interface VenueWithSettings {
+      id: string;
+      name: string;
+      slug: string;
+      ianaTimezone: string;
+      settings: VenueSettings | null;
+      operatingHours: OperatingHours | null;
+    }
+    export function estimateDuration(
+      partySize: number,
+      venueSettings?: VenueSettings | null
+    ): number {
+      // Use venue-specific rules if available
+      const rules = venueSettings?.durationRules ?? DEFAULT_DURATION_RULES;
+    
+      // Find the matching rule
+      const rule = rules.find(
+        (r) => partySize >= r.minPartySize && partySize <= r.maxPartySize
+      );
+    
+      if (rule) {
+        return rule.durationMinutes;
+      }
+    
+      // Fallback: use default duration or extrapolate for large parties
+      if (venueSettings?.defaultReservationDuration) {
+        return venueSettings.defaultReservationDuration;
+      }
+    
+      // For parties larger than rules cover, use the largest rule + 15min per additional 2 guests
+      const largestRule = rules.reduce((max, r) =>
+        r.maxPartySize > max.maxPartySize ? r : max
+      );
+      const extraGuests = partySize - largestRule.maxPartySize;
+      const extraTime = Math.ceil(extraGuests / 2) * 15;
+      return largestRule.durationMinutes + extraTime;
+    }
+  </file>
+  <file path="src/services/database.ts">
+    interface SlowQueryStats {
+      count5min: number;
+      slowestMs: number;
+      queries: { model: string; operation: string; duration: number; timestamp: number }[];
+    }
+    export function getSlowQueryStats(): { count5min: number; slowestMs: number } {
+      const now = Date.now();
+      const windowStart = now - SLOW_QUERY_WINDOW_MS;
+      
+      slowQueryStats.queries = slowQueryStats.queries.filter((q) => q.timestamp > windowStart);
+      slowQueryStats.count5min = slowQueryStats.queries.length;
+      slowQueryStats.slowestMs = slowQueryStats.queries.reduce((max, q) => Math.max(max, q.duration), 0);
+      
+      return {
+        count5min: slowQueryStats.count5min,
+        slowestMs: slowQueryStats.slowestMs,
+      };
+    }
+  </file>
+  <file path="src/services/events.ts">
+    export type ReservationEventType =
+      | "reservation:created"
+      | "reservation:updated"
+      | "reservation:cancelled"
+      | "hold:created"
+      | "hold:released"
+      | "hold:confirmed"
+      | "table:updated"
+      | "floor-plan:created";
+    export interface ReservationEvent {
+      type: ReservationEventType;
+      venueId: string;
+      timestamp: string;
+      data: Reservation | Table | ReservationHold | FloorPlan;
+    }
+  </file>
+  <file path="src/services/floor-plan.ts">
     function isPrismaNotFound(err: unknown): boolean {
       return (
         err !== null &&
@@ -3198,21 +3216,129 @@
         (err as { code: string }).code === "P2025"
       );
     }
-    function mapPrismaVenueGroup(group: {
+    type PrismaFloorPlan = {
       id: string;
+      venueId: string;
       name: string;
-      slug: string;
-      settings: unknown;
+      isActive: boolean;
+      layoutJson: unknown;
       createdAt: Date;
-    }): VenueGroup {
+      updatedAt: Date;
+      tables?: PrismaTable[];
+    };
+  </file>
+  <file path="src/services/guest.ts">
+    function isPrismaNotFound(err: unknown): boolean {
+      return (
+        err !== null &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code: string }).code === "P2025"
+      );
+    }
+    function mapPrismaGuest(guest: {
+      id: string;
+      venueId: string;
+      email: string | null;
+      phone: string | null;
+      name: string;
+      notes: string | null;
+      visitCount: number;
+      lifetimeSpend: Prisma.Decimal | null;
+      lastVisit: Date | null;
+      tags: unknown;
+      createdAt: Date;
+      updatedAt: Date;
+    }): Guest {
       return {
-        id: group.id,
-        name: group.name,
-        slug: group.slug,
-        settings: group.settings as Record<string, unknown> | null,
-        createdAt: group.createdAt.toISOString(),
+        id: guest.id,
+        venueId: guest.venueId,
+        email: guest.email,
+        phone: guest.phone,
+        name: guest.name,
+        notes: guest.notes,
+        visitCount: guest.visitCount,
+        lifetimeSpend: guest.lifetimeSpend?.toString() ?? null,
+        lastVisit: guest.lastVisit?.toISOString() ?? null,
+        tags: guest.tags as string[] | null,
+        createdAt: guest.createdAt.toISOString(),
+        updatedAt: guest.updatedAt.toISOString(),
       };
     }
+  </file>
+  <file path="src/services/health-checks.ts">
+    export function recordDbLatency(ms: number): void {
+      dbLatencyHistory.push(ms);
+      if (dbLatencyHistory.length > LATENCY_WINDOW) {
+        dbLatencyHistory.shift();
+      }
+    }
+    export function checkLatencyAnomaly(currentMs: number): {
+      isAnomaly: boolean;
+      rollingAvg: number;
+    } {
+      if (dbLatencyHistory.length < 5) {
+        return { isAnomaly: false, rollingAvg: 0 };
+      }
+      const sum = dbLatencyHistory.reduce((a, b) => a + b, 0);
+      const rollingAvg = sum / dbLatencyHistory.length;
+      return {
+        isAnomaly: rollingAvg > 0 && currentMs > LATENCY_ANOMALY_THRESHOLD * rollingAvg,
+        rollingAvg: Math.round(rollingAvg),
+      };
+    }
+  </file>
+  <file path="src/services/hold.ts">
+    function mapPrismaHold(hold: PrismaHold): ReservationHold {
+      return {
+        id: hold.id,
+        venueId: hold.venueId,
+        tableId: hold.tableId,
+        date: toDateString(hold.date),
+        startTime: hold.startTime.toISOString(),
+        endTime: hold.endTime.toISOString(),
+        partySize: hold.partySize,
+        sessionId: hold.sessionId,
+        expiresAt: hold.expiresAt.toISOString(),
+        createdAt: hold.createdAt.toISOString(),
+      };
+    }
+    export interface CreateHoldResult {
+      success: boolean;
+      hold?: ReservationHold;
+      error?: string;
+    }
+  </file>
+  <file path="src/services/reservation.ts">
+    function isPrismaNotFound(err: unknown): boolean {
+      return (
+        err !== null &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code: string }).code === "P2025"
+      );
+    }
+    type PrismaReservationWithTable = PrismaReservation & {
+      table?: PrismaTable;
+    };
+  </file>
+  <file path="src/services/sse-connection-manager.ts">
+    export interface SseConnectionConfig {
+      /** Maximum concurrent SSE connections per IP address. */
+      readonly maxConnectionsPerIp: number;
+      /** Maximum connection lifetime in milliseconds. */
+      readonly connectionTimeoutMs: number;
+      /** Maximum queued events per connection before dropping oldest. */
+      readonly maxEventBufferSize: number;
+      /** Heartbeat interval in milliseconds. */
+      readonly heartbeatIntervalMs: number;
+    }
+    export const DEFAULT_SSE_CONFIG: SseConnectionConfig = Object.freeze({
+      maxConnectionsPerIp: 10,
+      connectionTimeoutMs: 30 * 60 * 1000, // 30 minutes
+      maxEventBufferSize: 100,
+      heartbeatIntervalMs: 30_000, // 30 seconds
+    });
   </file>
   <file path="src/services/table.ts">
     function isPrismaNotFound(err: unknown): boolean {
@@ -3259,25 +3385,7 @@
       };
     }
   </file>
-  <file path="src/services/sse-connection-manager.ts">
-    export interface SseConnectionConfig {
-      /** Maximum concurrent SSE connections per IP address. */
-      readonly maxConnectionsPerIp: number;
-      /** Maximum connection lifetime in milliseconds. */
-      readonly connectionTimeoutMs: number;
-      /** Maximum queued events per connection before dropping oldest. */
-      readonly maxEventBufferSize: number;
-      /** Heartbeat interval in milliseconds. */
-      readonly heartbeatIntervalMs: number;
-    }
-    export const DEFAULT_SSE_CONFIG: SseConnectionConfig = Object.freeze({
-      maxConnectionsPerIp: 10,
-      connectionTimeoutMs: 30 * 60 * 1000, // 30 minutes
-      maxEventBufferSize: 100,
-      heartbeatIntervalMs: 30_000, // 30 seconds
-    });
-  </file>
-  <file path="src/services/reservation.ts">
+  <file path="src/services/venue.ts">
     function isPrismaNotFound(err: unknown): boolean {
       return (
         err !== null &&
@@ -3286,186 +3394,102 @@
         (err as { code: string }).code === "P2025"
       );
     }
-    type PrismaReservationWithTable = PrismaReservation & {
-      table?: PrismaTable;
-    };
-  </file>
-  <file path="src/services/hold.ts">
-    function mapPrismaHold(hold: PrismaHold): ReservationHold {
-      return {
-        id: hold.id,
-        venueId: hold.venueId,
-        tableId: hold.tableId,
-        date: toDateString(hold.date),
-        startTime: hold.startTime.toISOString(),
-        endTime: hold.endTime.toISOString(),
-        partySize: hold.partySize,
-        sessionId: hold.sessionId,
-        expiresAt: hold.expiresAt.toISOString(),
-        createdAt: hold.createdAt.toISOString(),
-      };
-    }
-    export interface CreateHoldResult {
-      success: boolean;
-      hold?: ReservationHold;
-      error?: string;
-    }
-  </file>
-  <file path="src/services/health-checks.ts">
-    export function recordDbLatency(ms: number): void {
-      dbLatencyHistory.push(ms);
-      if (dbLatencyHistory.length > LATENCY_WINDOW) {
-        dbLatencyHistory.shift();
-      }
-    }
-    export function checkLatencyAnomaly(currentMs: number): {
-      isAnomaly: boolean;
-      rollingAvg: number;
-    } {
-      if (dbLatencyHistory.length < 5) {
-        return { isAnomaly: false, rollingAvg: 0 };
-      }
-      const sum = dbLatencyHistory.reduce((a, b) => a + b, 0);
-      const rollingAvg = sum / dbLatencyHistory.length;
-      return {
-        isAnomaly: rollingAvg > 0 && currentMs > LATENCY_ANOMALY_THRESHOLD * rollingAvg,
-        rollingAvg: Math.round(rollingAvg),
-      };
-    }
-  </file>
-  <file path="src/services/guest.ts">
-    function isPrismaNotFound(err: unknown): boolean {
-      return (
-        err !== null &&
-        typeof err === "object" &&
-        "code" in err &&
-        (err as { code: string }).code === "P2025"
-      );
-    }
-    function mapPrismaGuest(guest: {
-      id: string;
-      venueId: string;
-      email: string | null;
-      phone: string | null;
-      name: string;
-      notes: string | null;
-      visitCount: number;
-      lifetimeSpend: Prisma.Decimal | null;
-      lastVisit: Date | null;
-      tags: unknown;
-      createdAt: Date;
-      updatedAt: Date;
-    }): Guest {
-      return {
-        id: guest.id,
-        venueId: guest.venueId,
-        email: guest.email,
-        phone: guest.phone,
-        name: guest.name,
-        notes: guest.notes,
-        visitCount: guest.visitCount,
-        lifetimeSpend: guest.lifetimeSpend?.toString() ?? null,
-        lastVisit: guest.lastVisit?.toISOString() ?? null,
-        tags: guest.tags as string[] | null,
-        createdAt: guest.createdAt.toISOString(),
-        updatedAt: guest.updatedAt.toISOString(),
-      };
-    }
-  </file>
-  <file path="src/services/floor-plan.ts">
-    function isPrismaNotFound(err: unknown): boolean {
-      return (
-        err !== null &&
-        typeof err === "object" &&
-        "code" in err &&
-        (err as { code: string }).code === "P2025"
-      );
-    }
-    type PrismaFloorPlan = {
-      id: string;
-      venueId: string;
-      name: string;
-      isActive: boolean;
-      layoutJson: unknown;
-      createdAt: Date;
-      updatedAt: Date;
-      tables?: PrismaTable[];
-    };
-  </file>
-  <file path="src/services/events.ts">
-    export type ReservationEventType =
-      | "reservation:created"
-      | "reservation:updated"
-      | "reservation:cancelled"
-      | "hold:created"
-      | "hold:released"
-      | "hold:confirmed"
-      | "table:updated"
-      | "floor-plan:created";
-    export interface ReservationEvent {
-      type: ReservationEventType;
-      venueId: string;
-      timestamp: string;
-      data: Reservation | Table | ReservationHold | FloorPlan;
-    }
-  </file>
-  <file path="src/services/database.ts">
-    interface SlowQueryStats {
-      count5min: number;
-      slowestMs: number;
-      queries: { model: string; operation: string; duration: number; timestamp: number }[];
-    }
-    export function getSlowQueryStats(): { count5min: number; slowestMs: number } {
-      const now = Date.now();
-      const windowStart = now - SLOW_QUERY_WINDOW_MS;
-      
-      slowQueryStats.queries = slowQueryStats.queries.filter((q) => q.timestamp > windowStart);
-      slowQueryStats.count5min = slowQueryStats.queries.length;
-      slowQueryStats.slowestMs = slowQueryStats.queries.reduce((max, q) => Math.max(max, q.duration), 0);
-      
-      return {
-        count5min: slowQueryStats.count5min,
-        slowestMs: slowQueryStats.slowestMs,
-      };
-    }
-  </file>
-  <file path="src/services/availability.ts">
-    interface VenueWithSettings {
+    function mapPrismaVenueGroup(group: {
       id: string;
       name: string;
       slug: string;
-      ianaTimezone: string;
-      settings: VenueSettings | null;
-      operatingHours: OperatingHours | null;
+      settings: unknown;
+      createdAt: Date;
+    }): VenueGroup {
+      return {
+        id: group.id,
+        name: group.name,
+        slug: group.slug,
+        settings: group.settings as Record<string, unknown> | null,
+        createdAt: group.createdAt.toISOString(),
+      };
     }
-    export function estimateDuration(
-      partySize: number,
-      venueSettings?: VenueSettings | null
-    ): number {
-      // Use venue-specific rules if available
-      const rules = venueSettings?.durationRules ?? DEFAULT_DURATION_RULES;
+  </file>
+  </section>
+  <section priority="medium" role="src">
+  <file path="src/app.ts">
+    function validateCorsOrigins(origins: string[]): string[] {
+      const validPatterns = [
+        /^https:\/\/([a-z-]+\.)?mattbutlerengineering\.com$/,
+        ...(process.env.NODE_ENV === "development"
+          ? [/^http:\/\/localhost:\d+$/]
+          : []),
+      ];
     
-      // Find the matching rule
-      const rule = rules.find(
-        (r) => partySize >= r.minPartySize && partySize <= r.maxPartySize
-      );
-    
-      if (rule) {
-        return rule.durationMinutes;
+      const validated: string[] = [];
+      for (const origin of origins) {
+        const trimmed = origin.trim();
+        if (validPatterns.some((p) => p.test(trimmed))) {
+          validated.push(trimmed);
+        } else {
+          console.warn(`[CORS] Rejected invalid origin from CORS_ORIGINS: ${trimmed}`);
+        }
       }
+      return validated;
+    }
+    export interface AppOptions {
+      logger?: boolean | object;
+    }
+  </file>
+  <file path="src/index.ts">
+    async function main() {
+      const fastify = await buildApp();
     
-      // Fallback: use default duration or extrapolate for large parties
-      if (venueSettings?.defaultReservationDuration) {
-        return venueSettings.defaultReservationDuration;
+      try {
+        await fastify.listen({ port: PORT, host: HOST });
+        fastify.log.info(`Server running at http://${HOST}:${PORT}`);
+        fastify.log.info(`API docs at http://${HOST}:${PORT}/docs`);
+      } catch (err) {
+        fastify.log.error(err);
+        process.exit(1);
       }
-    
-      // For parties larger than rules cover, use the largest rule + 15min per additional 2 guests
-      const largestRule = rules.reduce((max, r) =>
-        r.maxPartySize > max.maxPartySize ? r : max
-      );
-      const extraGuests = partySize - largestRule.maxPartySize;
-      const extraTime = Math.ceil(extraGuests / 2) * 15;
-      return largestRule.durationMinutes + extraTime;
+    }
+  </file>
+  </section>
+  <section priority="medium" role="test">
+  <file path="src/test/mocks.ts">
+    export interface MockTable {
+      readonly id: string;
+      readonly name: string;
+      readonly tableNumber: string | null;
+      readonly capacity: number;
+      readonly minCovers: number;
+      readonly maxCovers: number | null;
+      readonly location: string | null;
+      readonly isActive: boolean;
+      readonly priority: number;
+      readonly status: TableStatus;
+      readonly venueId: string | null;
+      readonly floorPlanId: string | null;
+      readonly shapeMetadata: TableShapeMetadata | null;
+      readonly createdAt: string;
+      readonly updatedAt: string;
+    }
+    export interface MockReservation {
+      readonly id: string;
+      readonly date: string;
+      readonly startTime: string;
+      readonly endTime: string;
+      readonly partySize: number;
+      readonly status: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED" | "NO_SHOW";
+      readonly notes: string | null;
+      readonly cancellationReason: string | null;
+      readonly cancellationNote: string | null;
+      readonly guestName: string;
+      readonly guestEmail: string | null;
+      readonly guestPhone: string | null;
+      readonly guestId: string | null;
+      readonly userId: string | null;
+      readonly tableId: string;
+      readonly table: MockTable;
+      readonly venueId: string | null;
+      readonly createdAt: string;
+      readonly updatedAt: string;
     }
   </file>
   </section>

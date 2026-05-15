@@ -1,0 +1,82 @@
+name: Revert Watchdog
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  on-failure:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+        with:
+          fetch-depth: 0
+
+      - name: Identify culprit commit
+        id: culprit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHA=${{ github.event.workflow_run.head_sha }}
+          echo "culprit_sha=$SHA" >> "$GITHUB_OUTPUT"
+
+          AUTHOR=$(git log -1 --format='%ae' $SHA)
+          echo "author=$AUTHOR" >> "$GITHUB_OUTPUT"
+
+          PR_NUMBER=$(gh pr list --search "$SHA" --state merged --json number -q '.[0].number')
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Open Broken Main Issue
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ steps.culprit.outputs.culprit_sha }}
+          PR: ${{ steps.culprit.outputs.pr_number }}
+        run: |
+          TITLE="🚨 CRITICAL: Broken Main at commit $SHA"
+          BODY="The main branch CI is currently FAILING.
+
+          **Culprit:** commit $SHA
+          **PR:** #$PR
+          **Action Required:** Investigating or revert immediately."
+
+          gh issue create --title "$TITLE" --body "$BODY" --label "priority:critical"
+
+      - name: Propose Revert PR
+        if: ${{ steps.culprit.outputs.pr_number != '' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ steps.culprit.outputs.culprit_sha }}
+          PR: ${{ steps.culprit.outputs.pr_number }}
+        run: |
+          BRANCH="revert-broken-main-$SHA"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "$BRANCH"
+          git revert --no-edit HEAD
+          git push origin "$BRANCH"
+
+          gh pr create \
+            --title "revert: #$PR (fixes broken main)" \
+            --body "Automatically proposed revert of #$PR due to CI failure on main." \
+            --label "priority:critical" \
+            --base main \
+            --head "$BRANCH"
+
+      - name: Trigger RCA
+        if: ${{ steps.culprit.outputs.pr_number != '' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ steps.culprit.outputs.pr_number }}
+          SHA: ${{ steps.culprit.outputs.culprit_sha }}
+        run: |
+          node scripts/revert-rca.mjs --pr "$PR" --revert-sha "$SHA"

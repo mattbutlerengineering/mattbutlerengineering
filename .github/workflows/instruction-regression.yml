@@ -1,0 +1,48 @@
+name: Instruction Regression Testing
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'CLAUDE.md'
+      - 'AGENTS.md'
+      - 'GEMINI.md'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'CLAUDE.md'
+      - 'AGENTS.md'
+      - 'GEMINI.md'
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: read
+
+jobs:
+  instruction-evals:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Instruction Evals (Dry Run)
+        run: |
+          node plugins/acmm/scripts/evals/index.js --dry-run
+          node plugins/acmm/scripts/evals/index.js --report
+
+      - name: Verify Instruction File Integrity
+        run: |
+          # Basic check to ensure AGENTS.md remains the source of truth
+          grep -q "Primary Source of Truth" CLAUDE.md
+          grep -q "Primary Source of Truth" GEMINI.md
+          # Ensure no residual markers
+          ! grep -rE "<<<<<<|======|>>>>>>" CLAUDE.md AGENTS.md GEMINI.md

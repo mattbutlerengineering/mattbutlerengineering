@@ -1,41 +1,45 @@
 <codebase path="apps/hospitality">
-  <section priority="medium" role="src">
-  <file path="src/vite-env.d.ts">
-    interface ImportMetaEnv {
-      readonly VITE_AUTH_AUTHORITY: string;
-      readonly VITE_AUTH_CLIENT_ID: string;
-      readonly VITE_AUTH_REDIRECT_URI: string;
-      readonly VITE_AUTH_AUDIENCE: string;
+  <section priority="medium" role="constants">
+  <file path="src/constants/auth.ts">
+    export interface AuthConfigResult {
+      readonly valid: true;
+      readonly config: {
+        readonly authority: string;
+        readonly clientId: string;
+        readonly redirectUri: string;
+        readonly audience: string | undefined;
+      };
     }
-    interface ImportMeta {
-      readonly env: ImportMetaEnv;
+    export interface AuthConfigFailure {
+      readonly valid: false;
+      readonly missing: readonly string[];
     }
   </file>
-  <file path="src/nav-sections.ts">
-    export interface NavItem {
-      id: string;
-      label: string;
-      path: string;
-      /** Setup step status — drives icon before the label */
-      stepStatus?: "completed" | "current" | "locked";
-      /** Prevents click and applies muted style */
-      disabled?: boolean;
-    }
-    export interface NavSection {
-      label?: string;
-      items: NavItem[];
-    }
+  <file path="src/constants/copilotContext.ts">
+    export const HOSPITALITY_DOMAIN_CONTEXT: DomainContext = {
+      schemas: [
+        {
+          name: "Reservation",
+          description: "A dining reservation linked to a table and guest.",
+          fields:
+            "id, guestName, tableId, partySize, date, time, status (pending|confirmed|cancelled|seated|completed), notes",
+        },
+        {
+          name: "FloorPlan",
+          description: "A restaurant floor layout with named zones and table positions.",
+          fields:
+            "id, name, tables (id, label, x, y, width, height, capacity, shape, zoneId), zones (id, name, color)",
+        },
+        {
+          name: "Guest",
+          description: "A guest profile with visit history and preferences.",
+          fields: "id, name, email, phone, visitCount, lastVisit, preferences, notes",
+        },
+      ],
+    };
   </file>
   </section>
   <section priority="medium" role="e2e">
-  <file path="e2e/fixtures.ts">
-    export const test = base.extend<{ authPage: Page }>({
-      authPage: async ({ page }, use) => {
-        await injectAuth0Session(page);
-        await use(page);
-      },
-    });
-  </file>
   <file path="e2e/auth-helpers.ts">
     interface Auth0Config {
       domain: string;
@@ -66,48 +70,39 @@
       return { domain, clientId, audience, email, password };
     }
   </file>
+  <file path="e2e/fixtures.ts">
+    export const test = base.extend<{ authPage: Page }>({
+      authPage: async ({ page }, use) => {
+        await injectAuth0Session(page);
+        await use(page);
+      },
+    });
+  </file>
   </section>
   <section priority="medium" role="hooks">
-  <file path="src/hooks/useVenueReadiness.ts">
-    export type SetupStep = "onboarding" | "operating-hours" | "floor-plan";
-    export interface VenueReadiness {
-      status: "no-venue" | "setup" | "operational";
-      completedSteps: readonly SetupStep[];
-      nextStep: SetupStep | null;
-      progress: number; // 0–100
+  <file path="src/hooks/use-command-palette.ts">
+    interface UseCommandPaletteOptions {
+      sections: readonly NavSection[];
+      navigate: (path: string) => void;
+      toggleTheme: () => void;
+      signOut: () => void;
+    }
+    interface UseCommandPaletteResult {
+      readonly open: boolean;
+      readonly setOpen: (open: boolean) => void;
+      readonly items: CommandItem[];
+      readonly groups: string[];
     }
   </file>
-  <file path="src/hooks/useReservationEvents.ts">
-    export type ReservationEventType =
-      | "reservation:created"
-      | "reservation:updated"
-      | "reservation:cancelled"
-      | "hold:created"
-      | "hold:released"
-      | "hold:confirmed"
-      | "table:updated";
-    export interface ReservationEvent {
-      type: ReservationEventType;
-      venueId: string;
-      timestamp: string;
-      data: Reservation | Table | ReservationHold;
+  <file path="src/hooks/use-theme.ts">
+    export interface ThemeContextValue {
+      readonly theme: ThemePreference;
+      readonly setTheme: (theme: ThemePreference) => void;
     }
-  </file>
-  <file path="src/hooks/useDashboardStats.ts">
-    export interface DashboardStats {
-      totalReservations: number;
-      expectedCovers: number;
-      upcomingCount: number;
-      cancellationRate: number;
-      cancellationTrend: "up" | "down" | "neutral";
-    }
-    export interface UseDashboardStatsResult {
-      reservations: readonly Reservation[];
-      stats: DashboardStats;
-      isLoading: boolean;
-      error: string | null;
-      refetch: () => Promise<void>;
-    }
+    export const ThemeContext = createContext<ThemeContextValue>({
+      theme: "system",
+      setTheme: () => {},
+    });
   </file>
   <file path="src/hooks/useApiCall.ts">
     export interface UseApiCallOptions {
@@ -128,68 +123,104 @@
       clearError: () => void;
     }
   </file>
-  <file path="src/hooks/use-theme.ts">
-    export interface ThemeContextValue {
-      readonly theme: ThemePreference;
-      readonly setTheme: (theme: ThemePreference) => void;
+  <file path="src/hooks/useApiClient.ts">
+    function reportToSentry(error: ApiClientError) {
+      const code = error.statusCode;
+    
+      addBreadcrumb({
+        category: "api",
+        message: `${error.method} ${error.path} → ${code}`,
+        level: code >= 500 ? "error" : "warning",
+        data: { statusCode: code, method: error.method, path: error.path },
+      });
+    
+      if (code >= 500) {
+        captureException(error);
+      } else if (code === 401 || code === 403) {
+        captureMessage(error.message, "warning");
+      }
     }
-    export const ThemeContext = createContext<ThemeContextValue>({
-      theme: "system",
-      setTheme: () => {},
-    });
+    export function useApiClient() {
+      const { accessToken } = useAuth();
+    
+      return useMemo(
+        () =>
+          createApiClient({
+            baseUrl: import.meta.env.VITE_API_URL ?? "",
+            getAccessToken: () => accessToken,
+            onError: reportToSentry,
+          }),
+        [accessToken],
+      );
+    }
   </file>
-  <file path="src/hooks/use-command-palette.ts">
-    interface UseCommandPaletteOptions {
-      sections: readonly NavSection[];
-      navigate: (path: string) => void;
-      toggleTheme: () => void;
-      signOut: () => void;
+  <file path="src/hooks/useDashboardStats.ts">
+    export interface DashboardStats {
+      totalReservations: number;
+      expectedCovers: number;
+      upcomingCount: number;
+      cancellationRate: number;
+      cancellationTrend: "up" | "down" | "neutral";
     }
-    interface UseCommandPaletteResult {
-      readonly open: boolean;
-      readonly setOpen: (open: boolean) => void;
-      readonly items: CommandItem[];
-      readonly groups: string[];
+    export interface UseDashboardStatsResult {
+      reservations: readonly Reservation[];
+      stats: DashboardStats;
+      isLoading: boolean;
+      error: string | null;
+      refetch: () => Promise<void>;
+    }
+  </file>
+  <file path="src/hooks/useReservationEvents.ts">
+    export type ReservationEventType =
+      | "reservation:created"
+      | "reservation:updated"
+      | "reservation:cancelled"
+      | "hold:created"
+      | "hold:released"
+      | "hold:confirmed"
+      | "table:updated";
+    export interface ReservationEvent {
+      type: ReservationEventType;
+      venueId: string;
+      timestamp: string;
+      data: Reservation | Table | ReservationHold;
+    }
+  </file>
+  <file path="src/hooks/useVenueReadiness.ts">
+    export type SetupStep = "onboarding" | "operating-hours" | "floor-plan";
+    export interface VenueReadiness {
+      status: "no-venue" | "setup" | "operational";
+      completedSteps: readonly SetupStep[];
+      nextStep: SetupStep | null;
+      progress: number; // 0–100
     }
   </file>
   </section>
-  <section priority="medium" role="constants">
-  <file path="src/constants/copilotContext.ts">
-    export const HOSPITALITY_DOMAIN_CONTEXT: DomainContext = {
-      schemas: [
-        {
-          name: "Reservation",
-          description: "A dining reservation linked to a table and guest.",
-          fields:
-            "id, guestName, tableId, partySize, date, time, status (pending|confirmed|cancelled|seated|completed), notes",
-        },
-        {
-          name: "FloorPlan",
-          description: "A restaurant floor layout with named zones and table positions.",
-          fields:
-            "id, name, tables (id, label, x, y, width, height, capacity, shape, zoneId), zones (id, name, color)",
-        },
-        {
-          name: "Guest",
-          description: "A guest profile with visit history and preferences.",
-          fields: "id, name, email, phone, visitCount, lastVisit, preferences, notes",
-        },
-      ],
-    };
-  </file>
-  <file path="src/constants/auth.ts">
-    export interface AuthConfigResult {
-      readonly valid: true;
-      readonly config: {
-        readonly authority: string;
-        readonly clientId: string;
-        readonly redirectUri: string;
-        readonly audience: string | undefined;
-      };
+  <section priority="medium" role="src">
+  <file path="src/nav-sections.ts">
+    export interface NavItem {
+      id: string;
+      label: string;
+      path: string;
+      /** Setup step status — drives icon before the label */
+      stepStatus?: "completed" | "current" | "locked";
+      /** Prevents click and applies muted style */
+      disabled?: boolean;
     }
-    export interface AuthConfigFailure {
-      readonly valid: false;
-      readonly missing: readonly string[];
+    export interface NavSection {
+      label?: string;
+      items: NavItem[];
+    }
+  </file>
+  <file path="src/vite-env.d.ts">
+    interface ImportMetaEnv {
+      readonly VITE_AUTH_AUTHORITY: string;
+      readonly VITE_AUTH_CLIENT_ID: string;
+      readonly VITE_AUTH_REDIRECT_URI: string;
+      readonly VITE_AUTH_AUDIENCE: string;
+    }
+    interface ImportMeta {
+      readonly env: ImportMetaEnv;
     }
   </file>
   </section>

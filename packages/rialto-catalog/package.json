@@ -21,12 +21,13 @@
     "generate": "tsx scripts/generate-catalog.ts",
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:drift": "vitest run src/__tests__/drift-check.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@json-render/core": "^0.18.0",
-    "@json-render/react": "^0.18.0",
+    "@json-render/core": "^0.19.0",
+    "@json-render/react": "^0.19.0",
     "@mattbutlerengineering/rialto": "workspace:*",
     "zod": "catalog:"
   },

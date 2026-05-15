@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/specs/auto-qa-tuning",
   "$comment": "Self-tuning thresholds for the agent QA loop. These thresholds are consumed by agent dispatch (mbe agent run) and reviewer agents. Run `node plugins/acmm/scripts/auto-qa-tune.js` to read PR-acceptance metrics from docs/metrics/pr-acceptance.json and write back adjusted thresholds. See docs/review-criteria.md for the rubric the QA loop applies.",
   "version": 1,
-  "lastTunedAt": "2026-04-25",
+  "lastTunedAt": "2026-05-10",
   "thresholds": {
     "acceptanceRateFloor": 0.85,
     "acceptanceRateFloor.$comment": "Minimum acceptance rate before the loop tightens budgets. Below this, max-budget halves and review specialists are added by default.",
@@ -10,7 +10,7 @@
     "maxBudgetUSD.$comment": "Hard cap per agent dispatch. Auto-tuner can lower (never raise) this based on observed cost overruns.",
     "maxRetries": 2,
     "maxRetries.$comment": "Per-issue retry count after agent-failed. Higher values risk loops; lower values risk premature giveup.",
-    "stuckTurnsThreshold": 8,
+    "stuckTurnsThreshold": 9,
     "stuckTurnsThreshold.$comment": "If the same tool is invoked >N consecutive turns without progress, the session is flagged as stuck and the circuit breaker fires.",
     "meanCloseHoursTarget": 24,
     "meanCloseHoursTarget.$comment": "Target mean PR time-to-close (hours). When observed metric drifts above this, scheduler density may be increased.",
@@ -32,6 +32,15 @@
       "date": "2026-04-25",
       "trigger": "seed",
       "note": "Initial values; not yet tuned from data. The first auto-qa run on >=14 days of docs/metrics/pr-acceptance.json will adjust based on observed acceptance and close-time."
+    },
+    {
+      "date": "2026-05-10",
+      "trigger": "auto-qa-tune",
+      "snapshotDate": "2026-05-02",
+      "adjustments": [
+        "Acceptance rate 100% is excellent (>=95%). Stuck-turns threshold relaxed from 8 to 9 — agents are producing quality work and may benefit from more turns."
+      ],
+      "note": "Tuned thresholds based on PR acceptance data from 2026-05-02. 1 finding(s)."
     }
   ]
 }

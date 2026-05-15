@@ -51,14 +51,11 @@ jobs:
       - name: Run audit with --apply
         # Files deduplicated issues for next-level gaps. Exits 0 even
         # when gaps exist — this workflow is diagnostic, not gating.
-        run: node plugins/acmm/scripts/audit.js --apply
+        run: node plugins/acmm/scripts/audit.js --apply --label ready
 
       - name: Echo summary
         if: always()
         env:
-          # Bind user-controlled inputs to env vars so the run: shell
-          # never sees them as raw template expansions (workflow-injection
-          # safe pattern from the security_reminder_hook guidance).
           TRIGGER_EVENT: ${{ github.event_name }}
           MANUAL_REASON: ${{ github.event.inputs.reason }}
         run: |
@@ -68,13 +65,8 @@ jobs:
             if [ "$TRIGGER_EVENT" = "schedule" ]; then
               echo "Trigger: scheduled (daily 04:00 UTC)"
             else
-              # Quote MANUAL_REASON via printf %q semantics: write to a
-              # heredoc that the shell never re-parses.
               echo "Trigger: manual"
-              cat <<'REASON_END'
-              Reason follows on the next line:
-REASON_END
-              printf '%s\n' "$MANUAL_REASON"
+              printf 'Reason: %s\n' "$MANUAL_REASON"
             fi
             echo ""
             echo "See docs/acmm.md for the loop's design and"

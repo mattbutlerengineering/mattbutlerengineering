@@ -108,10 +108,9 @@ jobs:
           if [ "$FILTER" != "true" ]; then exit 0; fi
           WORKER_NAME="mbe-preview-${PR_NUM}-${APP}"
           npx wrangler deploy \
+            --config "apps/${APP}/wrangler.toml" \
             --name "$WORKER_NAME" \
-            --assets "apps/${APP}/dist" \
-            --compatibility-date "2026-03-25" \
-            --no-bundle 2>&1 || echo "::warning::Preview deploy failed for $APP"
+            --no-bundle
 
   comment-preview:
     needs: [detect-changes, deploy-preview]
@@ -120,7 +119,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
-    - name: Checkout
+    steps:
+      - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           persist-credentials: false

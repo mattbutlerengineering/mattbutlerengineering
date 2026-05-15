@@ -64,8 +64,59 @@ Before building this automation:
 - Establish a machine-readable migration format (codemods or AST transforms) for breaking changes.
 - Set up cross-repo GitHub App permissions so the agent can open PRs in downstream repos.
 
+## Multi-Repo Orchestrator Script
+
+A proof-of-concept orchestrator is available at `scripts/orchestrate-multi.mjs`. It uses the `gh` CLI to clone a target repository, create a feature branch, apply changes, commit, push, and open a pull request.
+
+### CLI Usage
+
+```bash
+node scripts/orchestrate-multi.mjs --repo <url> --task "<description>" [options]
+```
+
+Required:
+- `--repo <url>` — GitHub repository URL (e.g. `https://github.com/org/repo`)
+- `--task "<desc>"` — PR title and commit message describing the change
+
+Options:
+- `--branch <name>` — Feature branch name (default: `orchestrate-<timestamp>`)
+- `--script <path>` — Path to a script to run inside the cloned repo to apply changes
+- `--dry-run` — Print what would be done without making changes
+
+### Examples
+
+```bash
+# Bump a dependency in a downstream repo
+node scripts/orchestrate-multi.mjs \
+  --repo https://github.com/example/downstream \
+  --task "Bump @mbe/rialto to v2.0.0" \
+  --branch chore/rialto-v2
+
+# Apply changes via a custom script
+node scripts/orchestrate-multi.mjs \
+  --repo https://github.com/example/downstream \
+  --task "Update config for new API" \
+  --script ./scripts/migrate-downstream.sh
+
+# Preview what would happen
+node scripts/orchestrate-multi.mjs \
+  --dry-run \
+  --repo https://github.com/example/downstream \
+  --task "Bump dependency"
+```
+
+### Prerequisites
+
+1. **GitHub CLI (`gh`)** must be installed and authenticated (`gh auth login`).
+2. The script uses `gh` to clone, push, and create PRs — no separate GitHub token needed.
+3. Your `gh` session must have permission to push branches and open PRs in the target repository.
+
 ## Current Status
 
-- **Manual coordination.** Cross-repo changes are coordinated by the developer who publishes the new version.
+- **Manual coordination.** Cross-repo changes are coordinated by the developer who publishes the new version. The `scripts/orchestrate-multi.mjs` script automates the PR creation step.
 - **Monorepo structure minimizes the need.** The vast majority of dependent code lives within this repo.
-- **Automation deferred.** There are currently few external consumers, so the cost of building automated cross-repo orchestration exceeds the benefit. This document will be revisited when the number of external consumers grows.
+- **Automation deferred.** There are currently few external consumers, so the cost of building fully automated cross-repo orchestration exceeds the benefit. The PoC script provides a foundation for when the need grows.
+
+## Execution Log
+
+Executed: 2026-05-12 — Dry run of multi-repo orchestration script against mattbutlerengineering monorepo.

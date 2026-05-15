@@ -29,11 +29,21 @@ import { measureEvals } from "./evals.js";
 import path from "node:path";
 import fs from "node:fs";
 
-const args = new Set(process.argv.slice(2));
-const APPLY = args.has("--apply");
-const BADGE = args.has("--badge");
-const TREND = args.has("--trend");
-const STRICT = args.has("--strict");
+const args = process.argv.slice(2);
+const argSet = new Set(args);
+const APPLY = argSet.has("--apply");
+const BADGE = argSet.has("--badge");
+const TREND = argSet.has("--trend");
+const STRICT = !argSet.has("--no-strict");
+
+// Parse --label <label> support
+const EXTRA_LABELS = [];
+for (let i = 0; i < args.length; i++) {
+  if (args[i] === "--label" && args[i + 1]) {
+    EXTRA_LABELS.push(args[i + 1]);
+    i++;
+  }
+}
 
 // --project <path> support
 let projectPath = process.cwd();
@@ -175,7 +185,11 @@ const computeBehavioral = {
   auto_qa_history_count: autoQaTuning ? autoQaTuning.history_count : 0,
 };
 
-const computation = computeLevel(detectedIds, computeBehavioral, { strict: STRICT });
+const rawComputation = computeLevel(detectedIds, computeBehavioral, { strict: STRICT });
+const levelCap = prior.levelCap ?? null;
+const computation = levelCap !== null && rawComputation.level > levelCap
+  ? { ...rawComputation, level: levelCap, capped: true, computedLevel: rawComputation.level }
+  : { ...rawComputation, capped: false };
 
 /* ── Diff vs prior saved state ──────────────────────────── */
 const priorIds = new Set(prior.detectedIds ?? []);
@@ -198,12 +212,14 @@ for (const c of ALL_CRITERIA) {
   const { type, pattern } = c.detection;
   const patterns = Array.isArray(pattern) ? pattern : [pattern];
 
+  const formatPattern = (p) =>
+    typeof p === "string" ? p : p.file ? `${p.file} (contains: ${p.contains})` : JSON.stringify(p);
+
   let evidence;
   if (passed) {
-    evidence = `detected at one of: ${patterns.join(", ")}`;
+    evidence = `detected at one of: ${patterns.map(formatPattern).join(", ")}`;
   } else if (type === 'active') {
-    // Distinguish "file present but no recent run" from "file not found"
-    const filePath = patterns[0];
+    const filePath = typeof patterns[0] === "string" ? patterns[0] : patterns[0].file;
     const fileExists = fs.existsSync(path.join(cwd, filePath));
     if (fileExists) {
       evidence = `file present but no recent successful run: ${filePath}`;
@@ -211,7 +227,7 @@ for (const c of ALL_CRITERIA) {
       evidence = `file not found: ${filePath}`;
     }
   } else {
-    evidence = `none of: ${patterns.join(", ")}`;
+    evidence = `none of: ${patterns.map(formatPattern).join(", ")}`;
   }
 
   results[c.id] = { passed, evidence };
@@ -228,6 +244,7 @@ const nextState = recordHistory(
     detectedIds: [...detectedIds],
     computation,
     behavioral,
+    ...(levelCap !== null ? { levelCap } : {}),
   },
   computation.level,
   detectedCount,
@@ -250,7 +267,7 @@ if (APPLY) {
     // File issues only for criteria gating the NEXT level — avoids issue spam
     // for L5/L6 items when we're still climbing L3.
     const failingForNext = computation.missingForNextLevel;
-    applyResult = applyIssuesForFailures(failingForNext, prior.issuesCreated || {});
+    applyResult = applyIssuesForFailures(failingForNext, prior.issuesCreated || {}, { extraLabels: EXTRA_LABELS });
     saveState(cwd, { ...nextState, issuesCreated: applyResult.issuesCreated });
   } catch (err) {
     console.error(`--apply failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -262,6 +279,9 @@ if (APPLY) {
 console.log("");
 const levelDisplay = `${computation.level} (${computation.levelName})`;
 console.log(`ACMM Level ${levelDisplay}  ·  ${detectedCount}/${totalCount} criteria detected`);
+if (computation.capped) {
+  console.log(`  ⚠ Capped from computed L${computation.computedLevel} → L${computation.level} (levelCap in state.json)`);
+}
 console.log(`Role: ${computation.role}`);
 
 if (diff) {

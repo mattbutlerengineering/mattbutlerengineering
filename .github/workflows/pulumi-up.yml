@@ -60,7 +60,7 @@ jobs:
       - name: Bundle edge router worker
         run: |
           mkdir -p infrastructure/worker/dist
-          npx esbuild infrastructure/worker/edge-router.js \
+          pnpm exec esbuild infrastructure/worker/edge-router.js \
             --bundle \
             --format=esm \
             --outfile=infrastructure/worker/dist/edge-router.js

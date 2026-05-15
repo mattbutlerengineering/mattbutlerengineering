@@ -1,0 +1,131 @@
+name: Stale In-Progress Issue Detector
+
+# Detects issues that remain labeled `in-progress` with no agent activity
+# (commits or open PR updates) for longer than STALE_HOURS, then moves them
+# back to `agent-failed` + `ready` so the issue-worker loop can retry them.
+
+on:
+  schedule:
+    # Every 2 hours, aligned with mbe-issue-worker cadence.
+    - cron: "0 */2 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Report stale issues without changing labels"
+        required: false
+        default: "false"
+        type: boolean
+      stale_hours:
+        description: "Hours of inactivity before an issue is considered stale"
+        required: false
+        default: "2"
+        type: string
+
+permissions:
+  issues: write
+
+jobs:
+  detect-stale:
+    name: Detect Stale In-Progress Issues
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+      STALE_HOURS: ${{ github.event.inputs.stale_hours || '2' }}
+
+    steps:
+      - name: Find and remediate stale in-progress issues
+        run: |
+          node - <<'NODE'
+          const { execSync } = require('node:child_process');
+
+          const DRY_RUN = process.env.DRY_RUN === 'true';
+          const REPO = process.env.GITHUB_REPOSITORY;
+          const STALE_HOURS = parseFloat(process.env.STALE_HOURS || '2');
+          const STALE_MS = STALE_HOURS * 60 * 60 * 1000;
+          const now = Date.now();
+
+          if (DRY_RUN) console.log('[DRY RUN] Labels will not be changed.\n');
+
+          // Fetch all open issues currently labeled in-progress.
+          const issues = JSON.parse(
+            execSync(
+              `gh issue list --repo ${REPO} --label in-progress --state open --limit 100 --json number,title,updatedAt`,
+              { encoding: 'utf8' }
+            )
+          );
+
+          console.log(`Scanning ${issues.length} in-progress issue(s) (stale threshold: ${STALE_HOURS}h)\n`);
+
+          let staleCount = 0;
+
+          for (const issue of issues) {
+            const { number, title, updatedAt } = issue;
+            const ageMs = now - new Date(updatedAt).getTime();
+            const ageH = (ageMs / 3_600_000).toFixed(1);
+
+            // Not stale yet — move on.
+            if (ageMs < STALE_MS) {
+              console.log(`  #${number} "${title}" — active (${ageH}h old)`);
+              continue;
+            }
+
+            // Check whether any open PR referencing this issue has recent activity.
+            // gh pr list --search uses GitHub's issue/PR search syntax.
+            let recentPR = null;
+            try {
+              const prs = JSON.parse(
+                execSync(
+                  `gh pr list --repo ${REPO} --state open --search "#${number}" --limit 10 --json number,title,updatedAt`,
+                  { encoding: 'utf8' }
+                )
+              );
+              recentPR = prs.find(
+                pr => now - new Date(pr.updatedAt).getTime() < STALE_MS
+              );
+            } catch {
+              // Transient search failure — treat as no PR found.
+            }
+
+            if (recentPR) {
+              console.log(
+                `  #${number} "${title}" — active PR #${recentPR.number} updated recently (skipping)`
+              );
+              continue;
+            }
+
+            // Stale: no issue update and no open PR activity within the threshold.
+            console.log(`  #${number} "${title}" — STALE (${ageH}h old, no recent PR activity)`);
+            staleCount++;
+
+            if (DRY_RUN) continue;
+
+            // Transition labels: in-progress → agent-failed + ready
+            execSync(
+              `gh issue edit ${number} --repo ${REPO} --add-label agent-failed --add-label ready --remove-label in-progress`,
+              { stdio: 'inherit' }
+            );
+
+            const timestamp = new Date().toISOString();
+            const commentBody = [
+              '**Stale in-progress detected** — This issue was labeled `in-progress` but no agent',
+              `activity (commits or PR updates) was detected for ${STALE_HOURS}+ hours.`,
+              '',
+              'Automatically moved to `agent-failed` + `ready` for retry by the issue-worker loop.',
+              '',
+              '---',
+              `*Detected by [stale-in-progress](/.github/workflows/stale-in-progress.yml) at ${timestamp}*`,
+            ].join('\n');
+
+            execSync(
+              `gh issue comment ${number} --repo ${REPO} --body ${JSON.stringify(commentBody)}`,
+              { stdio: 'inherit' }
+            );
+
+            console.log(`    → Moved #${number} to agent-failed + ready`);
+          }
+
+          const action = DRY_RUN ? 'would be moved' : 'moved';
+          console.log(`\nDone. ${staleCount} issue(s) ${action} to agent-failed + ready.`);
+          NODE

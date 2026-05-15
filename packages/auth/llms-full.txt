@@ -1,4 +1,27 @@
 <codebase path="packages/auth">
+  <section priority="medium" role="fastify">
+  <file path="src/fastify/plugin.ts">
+    export interface AuthPluginOptions {
+      /** OIDC authority URL (issuer) */
+      authority: string;
+      /** Expected audience */
+      audience: string;
+      /** Routes to exclude from token verification (e.g., ["/health"]) */
+      excludePaths?: string[];
+    }
+    function createProblemDetails(status: number, title: string, detail: string) {
+      return {
+        type: `https://httpstatuses.com/${status}`,
+        title,
+        status,
+        detail,
+        error: title,
+        message: detail,
+        statusCode: status,
+      };
+    }
+  </file>
+  </section>
   <section priority="medium" role="react">
   <file path="src/react/hooks.ts">
     export function useAuth() {
@@ -92,29 +115,6 @@
       picture?: string;
       /** Custom claims */
       [key: string]: unknown;
-    }
-  </file>
-  </section>
-  <section priority="medium" role="fastify">
-  <file path="src/fastify/plugin.ts">
-    export interface AuthPluginOptions {
-      /** OIDC authority URL (issuer) */
-      authority: string;
-      /** Expected audience */
-      audience: string;
-      /** Routes to exclude from token verification (e.g., ["/health"]) */
-      excludePaths?: string[];
-    }
-    function createProblemDetails(status: number, title: string, detail: string) {
-      return {
-        type: `https://httpstatuses.com/${status}`,
-        title,
-        status,
-        detail,
-        error: title,
-        message: detail,
-        statusCode: status,
-      };
     }
   </file>
   </section>

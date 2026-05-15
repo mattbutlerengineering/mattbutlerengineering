@@ -28,6 +28,24 @@ import {
 import { checkRateLimit, rateLimitResponse } from "./rate-limiter.js";
 import depGraph from "./dep-graph.json";
 
+// ── Audit Token Verification ─────────────────────────────────────────
+// Automated audits (Lighthouse, Playwright, curl) from the CI/cloud
+// environment are blocked by Cloudflare Bot Fight Mode. Requests that
+// carry a valid X-Audit-Token header bypass rate limiting at this Worker
+// layer. To also bypass Bot Fight Mode, a Cloudflare WAF custom rule
+// must be configured separately (see infrastructure/AUDIT_BYPASS.md).
+
+/**
+ * Check whether the request carries a valid audit token.
+ * Returns true only when AUDIT_TOKEN is configured and the request
+ * includes a matching `X-Audit-Token` header.
+ */
+function isAuditRequest(request, env) {
+  if (!env.AUDIT_TOKEN) return false;
+  const token = request.headers.get("X-Audit-Token");
+  return token !== null && token === env.AUDIT_TOKEN;
+}
+
 // ── CORS Origin Allowlist ──────────────────────────────────────────────
 // Only these production origins may receive Access-Control-Allow-Origin.
 // If a request's Origin header does not match, the header is omitted entirely.
@@ -957,11 +975,16 @@ export default {
     // Generate a per-request nonce for CSP script-src
     const nonce = generateNonce();
 
-    // ── Rate limiting ────────────────────────────────────────────────
-    const clientIp = request.headers.get("CF-Connecting-IP") ?? "unknown";
-    const rateCheck = await checkRateLimit(env.HEALTH_STATE, url.pathname, clientIp, Date.now());
-    if (!rateCheck.allowed) {
-      return rateLimitResponse();
+    // ── Audit token verification ──────────────────────────────────────
+    const auditVerified = isAuditRequest(request, env);
+
+    // ── Rate limiting (bypassed for verified audit requests) ─────────
+    if (!auditVerified) {
+      const clientIp = request.headers.get("CF-Connecting-IP") ?? "unknown";
+      const rateCheck = await checkRateLimit(env.HEALTH_STATE, url.pathname, clientIp, Date.now());
+      if (!rateCheck.allowed) {
+        return rateLimitResponse();
+      }
     }
 
     // ── Health aggregation endpoint ───────────────────────────────────

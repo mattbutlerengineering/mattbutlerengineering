@@ -1,11 +1,11 @@
 # Matt Butler Engineering
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](./LICENSE)
-<!-- acmm:begin -->
-![ACMM Level 6](https://img.shields.io/badge/ACMM-Level%206-d4a030?style=flat-square)
-<!-- acmm:end -->
+[![codecov](https://codecov.io/gh/mattbutlerengineering/mattbutlerengineering/graph/badge.svg)](https://codecov.io/gh/mattbutlerengineering/mattbutlerengineering)
 
-> **Build status:** GitHub Actions billing is intentionally unconfigured on this repo. Workflows in `.github/workflows/` exist as encoded policy and run via [claude.ai RemoteTriggers](https://claude.ai/code/scheduled), not on PR open. Verify changes locally with `pnpm lint`/`typecheck`/`test`. See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full story.
+<!-- acmm:begin -->![ACMM Level 3](https://img.shields.io/badge/ACMM-Level%203-7a5a36?style=flat-square)<!-- acmm:end -->
+
+> **Build status:** GitHub Actions runs CI checks on every PR. Verify changes locally with `pnpm lint`/`typecheck`/`test`. See [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
 
 Monorepo for [mattbutlerengineering.com](https://mattbutlerengineering.com) -- a hospitality management platform with a design system, multiple frontend apps, and backend API services.
 
@@ -76,24 +76,25 @@ This repository is measured against the [AI Codebase Maturity Model (ACMM)](docs
 
 | Project | Level | Role | Next Gap |
 |---|---|---|---|
-| **Repository Root** | **L6** | **Strategist** | ✓ |
-| [apps/gen](apps/gen/) | L1 | Executor | Agent instructions (any) |
+| **Repository Root** | **L3** | **Analyst** | Activity Audit, Rollback drills |
+| [apps/gen](apps/gen/) | L2 | Rule-writer | PR acceptance tracking |
 | [apps/hospitality](apps/hospitality/) | L2 | Rule-writer | PR acceptance tracking |
-| [apps/marketing](apps/marketing/) | L6 | Strategist | ✓ |
-| [apps/rialto-web](apps/rialto-web/) | L1 | Executor | Agent instructions (any) |
+| [apps/marketing](apps/marketing/) | L2 | Rule-writer | PR acceptance tracking |
+| [apps/rialto-web](apps/rialto-web/) | L2 | Rule-writer | PR acceptance tracking |
 | [packages/agent-core](packages/agent-core/) | L2 | Rule-writer | PR acceptance tracking |
 | [packages/api-client](packages/api-client/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/api-versioning](packages/api-versioning/) | L1 | Executor | Agent instructions (any) |
+| [packages/api-versioning](packages/api-versioning/) | L2 | Rule-writer | PR acceptance tracking |
 | [packages/auth](packages/auth/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/config](packages/config/) | L1 | Executor | Agent instructions (any) |
+| [packages/config](packages/config/) | L2 | Rule-writer | PR acceptance tracking |
 | [packages/observability](packages/observability/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/rialto](packages/rialto/) | L6 | Strategist | ✓ |
-| [packages/rialto-catalog](packages/rialto-catalog/) | L1 | Executor | Agent instructions (any) |
-| [packages/rialto-plugin](packages/rialto-plugin/) | L1 | Executor | Agent instructions (any) |
-| [packages/sentry](packages/sentry/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/types](packages/types/) | L1 | Executor | Agent instructions (any) |
-
-Full details for every requirement can be found in [ACMM_PROJECT_AUDITS.md](ACMM_PROJECT_AUDITS.md).
+| [packages/rialto](packages/rialto/) | L2 | Rule-writer | PR acceptance tracking |
+| [packages/rialto-catalog](packages/rialto-catalog/) | L2 | Rule-writer | PR acceptance tracking |
+| [packages/rialto-plugin](packages/rialto-plugin/) | L2 | Rule-writer | PR acceptance tracking |
+| [packages/types](packages/types/) | L2 | Rule-writer | PR acceptance tracking |
+| [packages/feature-flags](packages/feature-flags/) | L2 | Rule-writer | PR acceptance tracking |
+| [packages/agent-test-utils](packages/agent-test-utils/) | L2 | Rule-writer | PR acceptance tracking |
+| [packages/mcp-server](packages/mcp-server/) | L2 | Rule-writer | PR acceptance tracking |
+| [infrastructure](infrastructure/) | L2 | Rule-writer | PR acceptance tracking |
 
 ## Commands
 

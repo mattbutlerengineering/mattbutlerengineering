@@ -1,15 +1,5 @@
-# Task Log (JSONL format)
-# Each line after this header is a JSON object representing one task execution.
-#
-# Schema:
-#   timestamp  (string)  ISO 8601 datetime when the task started
-#   taskId     (string)  Unique identifier for the task (UUID v4 or session-scoped counter)
-#   intent     (string)  Natural language description of what was requested
-#   inputs     (object)  Key parameters: { branch, files, issueNumber, model, budget }
-#   outputs    (object)  Results: { filesChanged, testsRun, testsPassed, prNumber, commitSha }
-#   status     (string)  One of: "success", "partial", "failed", "cancelled"
-#   duration   (number)  Wall-clock seconds from start to finish
-#   error      (string)  Error message if status is "failed" (null otherwise)
-#
-# Example:
-# {"timestamp":"2026-05-01T10:00:00Z","taskId":"a1b2c3d4","intent":"Fix login redirect bug","inputs":{"branch":"fix/login-redirect","files":["src/auth.ts"],"issueNumber":42,"model":"claude-sonnet-4-6","budget":1.0},"outputs":{"filesChanged":2,"testsRun":8,"testsPassed":8,"prNumber":43,"commitSha":"abc1234"},"status":"success","duration":120,"error":null}
+{"timestamp":"2026-05-12T04:28:00Z","task":"fix-ci-lockfile-sync","status":"completed","model":"claude-opus-4-6","costUsd":0.15}
+{"timestamp":"2026-05-12T04:35:00Z","task":"merge-conflict-resolution","status":"completed","model":"claude-sonnet-4-6","costUsd":0.08}
+{"timestamp":"2026-05-12T04:28:00Z","task":"fix-ci-lockfile-sync","status":"completed","model":"claude-opus-4-6","costUsd":0.15}
+{"timestamp":"2026-05-12T04:35:00Z","task":"merge-conflict-resolution-6-prs","status":"completed","model":"claude-sonnet-4-6","costUsd":0.48}
+{"timestamp":"2026-05-12T05:00:00Z","task":"acmm-gap-closure","status":"completed","model":"claude-opus-4-6","costUsd":0.30}

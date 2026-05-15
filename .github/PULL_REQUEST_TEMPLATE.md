@@ -9,7 +9,9 @@
 -
 
 ## RIPER Phase
+
 <!-- Which RIPER phase does this PR represent? -->
+
 - [ ] Research
 - [ ] Innovate
 - [ ] Plan
@@ -24,6 +26,13 @@
 - [ ] Playwright E2E/Visual tests
 - [ ] Manual verification
 
+## Breaking Changes
+
+- [ ] No breaking changes
+- [ ] Yes — describe below:
+
+<!-- If yes: what breaks, who is affected, migration steps -->
+
 ## Checklist
 
 - [ ] `pnpm lint` passes
@@ -34,5 +43,8 @@
 - [ ] llms.txt updated (if applicable)
 - [ ] Documentation updated (if applicable)
 
+Review rubric: [`docs/review-criteria.md`](./docs/review-criteria.md) | AI policy: [`docs/SECURITY-AI.md`](./docs/SECURITY-AI.md)
+
 ## Linked Issue
+
 Closes #

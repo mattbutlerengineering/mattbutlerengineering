@@ -1,4 +1,18 @@
 <codebase path="packages/auth">
+  <section priority="medium" role="fastify">
+  <file path="src/fastify/plugin.ts">
+    <item priority="low">
+      interface AuthPluginOptions {
+        authority: string;
+        audience: string;
+        excludePaths?: string[];
+      }
+    </item>
+    <item priority="medium">
+      function createProblemDetails(status: number, title: string, detail: string) { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="react">
   <file path="src/react/hooks.ts">
     <item priority="high">
@@ -16,8 +30,8 @@
         authority: string;
         clientId: string;
         redirectUri: string;
-        postLogoutRedirectUri?: string | undefined;
-        scope?: string | undefined;
+        postLogoutRedirectUri?: string;
+        scope?: string;
       }
     </item>
     <item priority="low">
@@ -28,20 +42,6 @@
         exp: number;
         iat: number;
       }
-    </item>
-  </file>
-  </section>
-  <section priority="medium" role="fastify">
-  <file path="src/fastify/plugin.ts">
-    <item priority="low">
-      interface AuthPluginOptions {
-        authority: string;
-        audience: string;
-        excludePaths?: string[] | undefined;
-      }
-    </item>
-    <item priority="medium">
-      function createProblemDetails(status: number, title: string, detail: string) { /* ... */ }
     </item>
   </file>
   </section>

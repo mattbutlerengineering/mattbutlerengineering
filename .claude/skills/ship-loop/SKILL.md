@@ -58,11 +58,13 @@ gh run list --branch main --limit 5 --json status,conclusion,name,databaseId \
 **2. Production Health Check:**
 ```bash
 # Verify live endpoints are healthy before starting new work
+AUDIT_CURL_OPTS=(-sf)
+[ -n "${AUDIT_TOKEN:-}" ] && AUDIT_CURL_OPTS+=(-H "X-Audit-Token: $AUDIT_TOKEN")
 for endpoint in \
   "https://mattbutlerengineering.com/api/v1/users/health" \
   "https://mattbutlerengineering.com/api/v1/reservations/health" \
   "https://mattbutlerengineering.com/api/gen/health"; do
-  curl -sf "$endpoint" | jq -e '.status == "ok"' > /dev/null || { echo "::error::System unhealthy: $endpoint"; exit 1; }
+  curl "${AUDIT_CURL_OPTS[@]}" "$endpoint" | jq -e '.status == "ok"' > /dev/null || { echo "::error::System unhealthy: $endpoint"; exit 1; }
 done
 ```
 
@@ -207,7 +209,8 @@ for issue in $BATCH; do
   mbe agent run "<issue title> (closes #<issue_number>)" \
     --model claude-sonnet-4-6 \
     --max-budget 1.00 \
-    --max-turns 50 &
+    --max-turns 50 \
+    --adapter auto &
 done
 
 # Wait for all to complete
@@ -271,15 +274,17 @@ gh issue edit <number> --add-label "stealable"
 
 ```bash
 # All health checks in parallel
-curl -sf https://mattbutlerengineering.com/ > /dev/null &
-curl -sf https://mattbutlerengineering.com/hospitality > /dev/null &
-curl -sf https://mattbutlerengineering.com/rialto > /dev/null &
+AUDIT_CURL_OPTS=(-sf)
+[ -n "${AUDIT_TOKEN:-}" ] && AUDIT_CURL_OPTS+=(-H "X-Audit-Token: $AUDIT_TOKEN")
+curl "${AUDIT_CURL_OPTS[@]}" https://mattbutlerengineering.com/ > /dev/null &
+curl "${AUDIT_CURL_OPTS[@]}" https://mattbutlerengineering.com/hospitality > /dev/null &
+curl "${AUDIT_CURL_OPTS[@]}" https://mattbutlerengineering.com/rialto > /dev/null &
 
 for endpoint in \
   "https://mattbutlerengineering.com/api/v1/users/health" \
   "https://mattbutlerengineering.com/api/v1/reservations/health" \
   "https://mattbutlerengineering.com/api/gen/health"; do
-  curl -sf "$endpoint" | jq -e '.status == "ok"' > /dev/null &
+  curl "${AUDIT_CURL_OPTS[@]}" "$endpoint" | jq -e '.status == "ok"' > /dev/null &
 done
 
 wait
@@ -370,3 +375,14 @@ If two issues would conflict, pick the higher-priority one. The other waits for 
 | Time per iteration | 10-20 min | 8-12 min |
 | Issues per hour | 3-6 | 15-30 |
 | CI wait overhead | Blocking | Pipelined (zero) |
+
+## Access Restrictions
+
+The ship-loop environment (cloud/RemoteTrigger) may receive `403` from Cloudflare Bot Management on health check curl calls. All health check curl commands above use `AUDIT_CURL_OPTS` which automatically includes `X-Audit-Token: $AUDIT_TOKEN` when the env var is set.
+
+**To enable full production access** (requires a one-time manual Cloudflare step):
+1. Cloudflare Dashboard → Security → WAF → Custom Rules: add a rule to skip Bot Fight Mode when request header `X-Audit-Token` equals `<your-secret>`
+2. `wrangler secret put AUDIT_TOKEN` on the edge router Worker (same secret value)
+3. Export `AUDIT_TOKEN=<your-secret>` in the ship-loop environment
+
+The edge router already recognizes `X-Audit-Token` and bypasses rate limiting for verified tokens. See the site-audit skill for the same pattern.

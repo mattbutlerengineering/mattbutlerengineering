@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync, writeFileSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { Project, Node } from "ts-morph";
 import { glob } from "glob";
@@ -58,7 +58,7 @@ function truncateType(type: string, maxLength = 60): string {
           return `async ${m.getName() ?? "method"}(): Promise<unknown>;`;
         }
         if (Node.isPropertyDeclaration(m)) {
-          return `${m.getName() ?? "prop"}: ${truncateType(m.getType().getText())};`;
+          return `${m.getName() ?? "prop"}: ${truncateType(m.getTypeNode()?.getText() ?? "unknown")};`;
         }
         return "";
       }).filter(Boolean).join("\n  ");
@@ -68,7 +68,7 @@ function truncateType(type: string, maxLength = 60): string {
     if (Node.isInterfaceDeclaration(node)) {
       const name = node.getName() || "Anonymous";
       const props = node.getProperties().slice(0, 5).map(p => {
-        return `${p.getName()}${p.hasQuestionToken() ? "?" : ""}: ${truncateType(p.getType().getText())};`;
+        return `${p.getName()}${p.hasQuestionToken() ? "?" : ""}: ${truncateType(p.getTypeNode()?.getText() ?? "unknown")};`;
       }).join("\n  ");
       return `interface ${name} {\n  ${props}\n}`;
     }
@@ -94,11 +94,7 @@ function truncateType(type: string, maxLength = 60): string {
         const declarations = node.getDeclarations();
         const declsText = declarations.map(d => {
           const name = d.getName();
-          const type = truncateType(d.getType().getText());
-          const initializer = d.getInitializer();
-          if (initializer && (Node.isObjectLiteralExpression(initializer) || Node.isArrayLiteralExpression(initializer))) {
-            return `export const ${name}: ${type};`;
-          }
+          const type = truncateType(d.getTypeNode()?.getText() ?? "unknown");
           return `export const ${name}: ${type};`;
         }).join("\n");
         return declsText;
@@ -127,7 +123,7 @@ function detectPriority(statement: Node): "high" | "medium" | "low" {
     return parts[0];
   }
 
-  async function packDirectory(targetPath: string, root: string, forceFull = false): Promise<void> {
+  async function packDirectory(targetPath: string, root: string, forceFull = false, checkOnly = false): Promise<void> {
     const fullPath = resolve(root, targetPath);
 
     if (!existsSync(fullPath)) {
@@ -135,13 +131,13 @@ function detectPriority(statement: Node): "high" | "medium" | "low" {
       return;
     }
 
-    console.log(`Packing context for: ${targetPath}...`);
+    console.log(`${checkOnly ? "Checking" : "Packing"} context for: ${targetPath}...`);
 
     const project = new Project();
-    const files = await glob("**/*.ts", {
+    const files = (await glob("**/*.ts", {
       cwd: fullPath,
       ignore: ["**/node_modules/**", "**/dist/**", "**/*.test.ts", "**/*.spec.ts", "**/generated/**", "**/vitest.config.ts"],
-    });
+    })).sort();
 
     let skeletonOutput = `<codebase path="${targetPath}">\n`;
     let fullOutput = `<codebase path="${targetPath}">\n`;
@@ -194,7 +190,7 @@ function detectPriority(statement: Node): "high" | "medium" | "low" {
       }
     }
 
-    for (const [section, content] of sections) {
+    for (const [section, content] of [...sections.entries()].sort(([a], [b]) => a.localeCompare(b))) {
       skeletonOutput += `  <section priority="medium" role="${section}">\n${content.skeleton}  </section>\n`;
       fullOutput += `  <section priority="medium" role="${section}">\n${content.full}  </section>\n`;
     }
@@ -204,6 +200,22 @@ function detectPriority(statement: Node): "high" | "medium" | "low" {
 
     const skeletonPath = join(fullPath, "llms.txt");
     const fullPathOutput = join(fullPath, "llms-full.txt");
+
+    if (checkOnly) {
+      if (!existsSync(skeletonPath)) {
+        console.error(`Error: ${skeletonPath} does not exist.`);
+        process.exit(1);
+      }
+      const existing = readFileSync(skeletonPath, "utf-8");
+      const expected = forceFull ? fullOutput : skeletonOutput;
+      
+      if (existing !== expected) {
+        console.error(`Error: ${skeletonPath} is out of sync. Run 'mbe pack ${targetPath}' to update.`);
+        process.exit(1);
+      }
+      console.log(`  ✓ ${skeletonPath} is in sync.`);
+      return;
+    }
     
     const skeletonSizeKB = Buffer.byteLength(skeletonOutput, "utf8") / 1024;
     const fullSizeKB = Buffer.byteLength(fullOutput, "utf8") / 1024;
@@ -233,9 +245,10 @@ export const packCommand = new Command("pack")
   .description("Generate AI context (llms.txt) for a service or package")
   .argument("<path>", "Path to the service or package (relative to monorepo root)")
   .option("--full", "Force full output instead of skeleton + full split", false)
+  .option("--check", "Check if llms.txt is in sync without writing", false)
   .action(async (targetPath: string, options) => {
     const root = findMonorepoRoot(process.cwd());
-    await packDirectory(targetPath, root, options.full);
+    await packDirectory(targetPath, root, options.full, options.check);
   });
 
 export const packChangedCommand = new Command("pack-changed")

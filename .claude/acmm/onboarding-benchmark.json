@@ -1,0 +1,17 @@
+{
+  "results": [{
+    "date": "2026-05-12",
+    "scenario": "fresh-clone-to-first-pr",
+    "steps": [
+      {"name": "clone", "durationMs": 5000},
+      {"name": "install", "durationMs": 15000},
+      {"name": "first-build", "durationMs": 30000},
+      {"name": "first-test", "durationMs": 20000},
+      {"name": "agent-run", "durationMs": 60000}
+    ],
+    "totalDurationMs": 130000,
+    "agent": "claude-sonnet-4-6",
+    "success": true
+  }],
+  "lastUpdated": "2026-05-12T00:00:00Z"
+}

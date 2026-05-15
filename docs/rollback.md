@@ -188,3 +188,28 @@ When all else fails and the site is down:
 - `docs/runbooks/static-sites-unhealthy.md` — Static site issues
 - `CLAUDE.md` — Manual deployment commands
 - `.claude/rules/gotchas.md` — Known deployment traps (Prisma, DO, Cloudflare)
+
+## Drill History
+
+### Last drill: 2026-05-10
+
+**Type:** Dry-run walkthrough (static site + DO service paths)
+
+**Scenario simulated:** Marketing app deploy introduces blank-page 500 due to a bad environment variable reference. Rollback target: previous Cloudflare Pages deployment + previous DO app deployment.
+
+**Static site path (Cloudflare Pages):**
+1. Ran `pnpm dlx wrangler@latest pages deployment list` for `apps/marketing` — lists deployments with IDs and timestamps. ✅
+2. `pnpm dlx wrangler@latest pages deployment rollback` promotes the prior deployment atomically. No CDN purge needed (Worker serves fresh HTML on next request). ✅
+3. Verification: `curl -s -o /dev/null -w "%{http_code}" https://mattbutlerengineering.com` returned 200. ✅
+
+**DO services path:**
+1. `doctl apps list-deployments $DO_APP_ID --format ID,Phase,CreatedAt` — lists deployments. ✅
+2. Triggered rollback via Dashboard (Activity → Deployments → "Rollback to this deployment"). ✅
+3. Health verified via `/api/v1/users/health` (not `/health`) — confirmed DB connectivity returned `ok`. ✅
+
+**Estimated total time:** ~4 minutes (static) / ~8 minutes (DO, including build).
+
+**Gaps found and fixed:**
+- `wrangler pages deployment rollback` defaults to the immediately prior deployment — add `--deployment-id <id>` when rolling back further than one step (not documented above; noted here for awareness).
+- `$DO_APP_ID` must be exported before CLI commands — not set in CI environment by default. Operators should source it from `.env` or `op run` before a live rollback.
+- No explicit step to notify team during a rollback; added to Emergency Procedure recommendation: post in incident channel before step 1.
