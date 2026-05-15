@@ -33,9 +33,13 @@ describe("orchestrateVerification", () => {
 
     expect(result.passed).toBe(true);
     expect(result.logPath).toBe("/path/to/log");
-    expect(emitEvent).toHaveBeenCalledWith(undefined, "session:verification", expect.objectContaining({
-      message: expect.stringContaining("Verification passed"),
-    }));
+    expect(emitEvent).toHaveBeenCalledWith(
+      undefined,
+      "session:verification",
+      expect.objectContaining({
+        message: expect.stringContaining("Verification passed"),
+      })
+    );
   });
 
   it("returns passed=false when checks fail", async () => {
@@ -55,9 +59,13 @@ describe("orchestrateVerification", () => {
     expect(result.error).toContain("lint:");
     expect(result.error).toContain("typecheck:");
     expect(result.error).toContain("tests:");
-    expect(emitEvent).toHaveBeenCalledWith(undefined, "session:verification", expect.objectContaining({
-      message: expect.stringContaining("Verification failed"),
-    }));
+    expect(emitEvent).toHaveBeenCalledWith(
+      undefined,
+      "session:verification",
+      expect.objectContaining({
+        message: expect.stringContaining("Verification failed"),
+      })
+    );
   });
 
   it("handles partial failures", async () => {

@@ -127,4 +127,5 @@ describe("Slider", () => {
       render(<Slider ref={ref} aria-label="Slider" />);
       expect(ref.current).toBeInstanceOf(HTMLDivElement);
     });
-  });});
+  });
+});

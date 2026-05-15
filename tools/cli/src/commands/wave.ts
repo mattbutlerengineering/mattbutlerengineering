@@ -22,11 +22,11 @@ function findMonorepoRoot(startDir: string): string {
 }
 
 interface WaveResult {
-    task: string;
-    branchName: string;
-    worktreePath: string;
-    success: boolean;
-    error?: string;
+  task: string;
+  branchName: string;
+  worktreePath: string;
+  success: boolean;
+  error?: string;
 }
 
 // ── Command ───────────────────────────────────────────────────────────────
@@ -52,100 +52,106 @@ export const waveCommand = new Command("wave")
     const active = new Set<Promise<void>>();
 
     const runTask = async (task: string) => {
-        let worktree;
-        try {
-            console.log(`\n🌊 Spawning worktree for task: "${task}"`);
-            worktree = await createWorktree(root, options.baseBranch, task);
-            
-            console.log(`   Branch: ${worktree.branchName}`);
-            console.log(`   Path:   ${worktree.path}`);
+      let worktree;
+      try {
+        console.log(`\n🌊 Spawning worktree for task: "${task}"`);
+        worktree = await createWorktree(root, options.baseBranch, task);
 
-            // Run agent in the worktree
-            const agentArgs = [
-                "agent", "run", task, "--no-pr",
-                "--adapter", options.adapter,
-                "--model", options.model,
-                "--max-budget", String(maxBudget),
-                "--max-turns", String(maxTurns),
-            ];
-            const agentProcess = spawn("mbe", agentArgs, {
-                cwd: worktree.path,
-                stdio: "inherit",
-            });
+        console.log(`   Branch: ${worktree.branchName}`);
+        console.log(`   Path:   ${worktree.path}`);
 
-            const success = await new Promise<boolean>((resolve) => {
-                agentProcess.on("close", (code) => resolve(code === 0));
-            });
+        // Run agent in the worktree
+        const agentArgs = [
+          "agent",
+          "run",
+          task,
+          "--no-pr",
+          "--adapter",
+          options.adapter,
+          "--model",
+          options.model,
+          "--max-budget",
+          String(maxBudget),
+          "--max-turns",
+          String(maxTurns),
+        ];
+        const agentProcess = spawn("mbe", agentArgs, {
+          cwd: worktree.path,
+          stdio: "inherit",
+        });
 
-            results.push({
-                task,
-                branchName: worktree.branchName,
-                worktreePath: worktree.path,
-                success,
-            });
+        const success = await new Promise<boolean>((resolve) => {
+          agentProcess.on("close", (code) => resolve(code === 0));
+        });
 
-            if (success) {
-                console.log(`✅ Task succeeded: "${task}"`);
-            } else {
-                console.log(`❌ Task failed:    "${task}"`);
-            }
+        results.push({
+          task,
+          branchName: worktree.branchName,
+          worktreePath: worktree.path,
+          success,
+        });
 
-        } catch (error) {
-            const msg = error instanceof Error ? error.message : String(error);
-            console.error(`💥 Error running task "${task}":`, msg);
-            results.push({
-                task,
-                branchName: worktree?.branchName || "unknown",
-                worktreePath: worktree?.path || "unknown",
-                success: false,
-                error: msg,
-            });
+        if (success) {
+          console.log(`✅ Task succeeded: "${task}"`);
+        } else {
+          console.log(`❌ Task failed:    "${task}"`);
         }
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        console.error(`💥 Error running task "${task}":`, msg);
+        results.push({
+          task,
+          branchName: worktree?.branchName || "unknown",
+          worktreePath: worktree?.path || "unknown",
+          success: false,
+          error: msg,
+        });
+      }
     };
 
     while (queue.length > 0 || active.size > 0) {
-        while (queue.length > 0 && active.size < maxParallel) {
-            const task = queue.shift()!;
-            const promise = runTask(task).then(() => {
-                active.delete(promise);
-            });
-            active.add(promise);
-        }
-        if (active.size > 0) {
-            await Promise.race(active);
-        }
+      while (queue.length > 0 && active.size < maxParallel) {
+        const task = queue.shift()!;
+        const promise = runTask(task).then(() => {
+          active.delete(promise);
+        });
+        active.add(promise);
+      }
+      if (active.size > 0) {
+        await Promise.race(active);
+      }
     }
 
     console.log("\n🏁 Wave execution complete. Processing results...");
 
     // Final sequential merge
-    const successful = results.filter(r => r.success);
+    const successful = results.filter((r) => r.success);
     if (successful.length > 0) {
-        console.log(`\nMerging ${successful.length} successful branches into current branch...`);
-        for (const res of successful) {
-            try {
-                console.log(`   Merging ${res.branchName}...`);
-                execSync(`git merge ${res.branchName}`, { cwd: root, stdio: "inherit" });
-            } catch {
-                console.error(`   ❌ Failed to merge ${res.branchName}. There might be conflicts.`);
-            }
+      console.log(`\nMerging ${successful.length} successful branches into current branch...`);
+      for (const res of successful) {
+        try {
+          console.log(`   Merging ${res.branchName}...`);
+          execSync(`git merge ${res.branchName}`, { cwd: root, stdio: "inherit" });
+        } catch {
+          console.error(`   ❌ Failed to merge ${res.branchName}. There might be conflicts.`);
         }
+      }
     }
 
     // Cleanup worktrees
     console.log("\n🧹 Cleaning up worktrees...");
     for (const res of results) {
-        if (res.worktreePath !== "unknown") {
-            await removeWorktree(root, res.worktreePath).catch(() => {});
-        }
+      if (res.worktreePath !== "unknown") {
+        await removeWorktree(root, res.worktreePath).catch(() => {});
+      }
     }
 
     console.log("\n✨ Done.");
-    
-    const failed = results.filter(r => !r.success);
+
+    const failed = results.filter((r) => !r.success);
     if (failed.length > 0) {
-        console.log(`\n⚠️  ${failed.length} tasks failed:`);
-        failed.forEach(f => console.log(`   - "${f.task}" (${f.error || "Agent failed"})`));
-        process.exit(1);
+      console.log(`\n⚠️  ${failed.length} tasks failed:`);
+      failed.forEach((f) => console.log(`   - "${f.task}" (${f.error || "Agent failed"})`));
+      process.exit(1);
     }
   });

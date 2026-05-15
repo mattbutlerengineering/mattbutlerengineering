@@ -12,7 +12,10 @@ import {
   type TableShapeMetadata,
   type VenueSettings,
 } from "@mbe/types";
-import type { Reservation as PrismaReservation, Table as PrismaTable } from "../generated/prisma/index.js";
+import type {
+  Reservation as PrismaReservation,
+  Table as PrismaTable,
+} from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { availabilityService } from "./availability.js";
 
@@ -181,10 +184,7 @@ export const reservationService = {
     return reservation ? mapPrismaReservation(reservation) : null;
   },
 
-  async create(
-    data: CreateReservationRequest,
-    userId?: string
-  ): Promise<Reservation> {
+  async create(data: CreateReservationRequest, userId?: string): Promise<Reservation> {
     const reservation = await prisma.reservation.create({
       data: {
         date: new Date(data.date),
@@ -262,10 +262,7 @@ export const reservationService = {
     return { success: true, reservation };
   },
 
-  async update(
-    id: string,
-    data: UpdateReservationRequest
-  ): Promise<Reservation | null> {
+  async update(id: string, data: UpdateReservationRequest): Promise<Reservation | null> {
     try {
       const reservation = await prisma.reservation.update({
         where: { id },
@@ -316,9 +313,7 @@ export const reservationService = {
     if (timeOrTableChanged) {
       // Build the final values for conflict check
       const date = data.date ?? toDateString(existing.date);
-      const startTime = data.startTime
-        ? new Date(data.startTime)
-        : existing.startTime;
+      const startTime = data.startTime ? new Date(data.startTime) : existing.startTime;
       const endTime = data.endTime ? new Date(data.endTime) : existing.endTime;
       const tableId = data.tableId ?? existing.tableId;
 
@@ -349,28 +344,18 @@ export const reservationService = {
     return { success: true, reservation };
   },
 
-  async createWalkIn(
-    data: WalkInRequest,
-    userId?: string
-  ): Promise<CreateReservationResult> {
+  async createWalkIn(data: WalkInRequest, userId?: string): Promise<CreateReservationResult> {
     const now = new Date();
     const durationMinutes = data.durationMinutes ?? 90;
     const endTime = new Date(now.getTime() + durationMinutes * 60 * 1000);
 
     // Date only (no time component), normalized to midnight UTC
-    const dateOnly = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
-    );
+    const dateOnly = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
     const dateStr = toDateString(dateOnly);
 
     // Conflict check + creation inside a transaction to prevent TOCTOU races
-    const conflict = await availabilityService.checkConflict(
-      data.tableId,
-      dateStr,
-      now,
-      endTime
-    );
+    const conflict = await availabilityService.checkConflict(data.tableId, dateStr, now, endTime);
 
     if (conflict.hasConflict) {
       return {
@@ -426,11 +411,7 @@ export const reservationService = {
     return { success: true, reservation: mapPrismaReservation(reservation) };
   },
 
-  async cancel(
-    id: string,
-    reason?: string,
-    note?: string
-  ): Promise<Reservation | null> {
+  async cancel(id: string, reason?: string, note?: string): Promise<Reservation | null> {
     try {
       const reservation = await prisma.reservation.update({
         where: { id },

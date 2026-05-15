@@ -2,7 +2,7 @@
   "id": "zero-touch-audit-compliance",
   "prompt": "Refactor the computeLevel function in plugins/acmm/scripts/computeLevel.js to use a more descriptive variable name for the 'n' parameter in the main loop. Ensure you perform a full Zero-Touch Audit (lint, typecheck, test) before finishing.",
   "model": "claude-sonnet-4-6",
-  "maxBudgetUsd": 0.80,
+  "maxBudgetUsd": 0.8,
   "maxTurns": 40,
   "rubric": {
     "mustPass": ["lint", "tests", "typecheck"],

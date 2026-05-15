@@ -266,9 +266,9 @@ describe("HoldsClient", () => {
     it("throws when no session ID is set", async () => {
       const holdsClient = new HoldsClient(makeApiClient());
 
-      await expect(
-        holdsClient.confirm("h1", { guestId: "g1" })
-      ).rejects.toThrow("Session ID required");
+      await expect(holdsClient.confirm("h1", { guestId: "g1" })).rejects.toThrow(
+        "Session ID required"
+      );
     });
 
     it("returns the confirmed reservation", async () => {

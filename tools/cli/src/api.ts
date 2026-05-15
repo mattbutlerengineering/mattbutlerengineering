@@ -14,10 +14,7 @@ interface ErrorResponse {
   message?: string;
 }
 
-export async function apiRequest<T>(
-  path: string,
-  options: RequestInit = {}
-): Promise<T> {
+export async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const baseUrl = getApiUrl();
   const token = getAccessToken();
 
@@ -36,7 +33,9 @@ export async function apiRequest<T>(
   });
 
   if (!response.ok) {
-    const error = (await response.json().catch(() => ({ message: response.statusText }))) as ErrorResponse;
+    const error = (await response
+      .json()
+      .catch(() => ({ message: response.statusText }))) as ErrorResponse;
     throw new ApiError(response.status, error.message ?? "Request failed");
   }
 

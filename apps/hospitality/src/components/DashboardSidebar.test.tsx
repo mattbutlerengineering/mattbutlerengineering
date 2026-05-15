@@ -33,11 +33,11 @@ describe("DashboardSidebar", () => {
   const renderSidebar = (props = {}) => {
     return render(
       <BrowserRouter>
-        <DashboardSidebar 
-          sections={mockSections} 
-          isMobileOpen={false} 
-          onMobileClose={vi.fn()} 
-          {...props} 
+        <DashboardSidebar
+          sections={mockSections}
+          isMobileOpen={false}
+          onMobileClose={vi.fn()}
+          {...props}
         />
       </BrowserRouter>
     );
@@ -59,10 +59,10 @@ describe("DashboardSidebar", () => {
     renderSidebar();
     const mainButton = screen.getByText("Main").closest("button");
     expect(mainButton).toBeDefined();
-    
+
     // Toggle collapse
     if (mainButton) fireEvent.click(mainButton);
-    
+
     expect(mainButton?.getAttribute("aria-expanded")).toBe("false");
   });
 

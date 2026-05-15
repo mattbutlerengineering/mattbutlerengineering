@@ -42,7 +42,7 @@ describe("loadQaTuning", () => {
           meanCloseHoursTarget: 24,
           agentMergeShareTarget: 0.3,
         },
-      }),
+      })
     );
 
     const result = loadQaTuning("/fake/repo");
@@ -72,7 +72,7 @@ describe("loadQaTuning", () => {
           meanCloseHoursTarget: {},
           agentMergeShareTarget: "wrong",
         },
-      }),
+      })
     );
 
     const result = loadQaTuning("/fake/repo");
@@ -82,10 +82,8 @@ describe("loadQaTuning", () => {
       "[qa-tuning] Config validation failed",
       expect.objectContaining({
         path: expect.stringContaining("auto-qa-tuning.json"),
-        issues: expect.arrayContaining([
-          expect.objectContaining({ message: expect.any(String) }),
-        ]),
-      }),
+        issues: expect.arrayContaining([expect.objectContaining({ message: expect.any(String) })]),
+      })
     );
   });
 
@@ -103,7 +101,7 @@ describe("loadQaTuning", () => {
       expect.objectContaining({
         path: expect.stringContaining("auto-qa-tuning.json"),
         error: expect.any(String),
-      }),
+      })
     );
   });
 
@@ -118,7 +116,7 @@ describe("loadQaTuning", () => {
           maxBudgetUSD: 1.5,
           // missing: maxRetries, stuckTurnsThreshold, meanCloseHoursTarget, agentMergeShareTarget
         },
-      }),
+      })
     );
 
     const result = loadQaTuning("/fake/repo");
@@ -132,7 +130,7 @@ describe("loadQaTuning", () => {
             path: expect.stringContaining("thresholds"),
           }),
         ]),
-      }),
+      })
     );
   });
 
@@ -155,7 +153,7 @@ describe("loadQaTuning", () => {
         },
         rules: { "tier:trivial": { maxBudgetUSDOverride: 0.5 } },
         history: [{ date: "2026-04-25", trigger: "seed" }],
-      }),
+      })
     );
 
     const result = loadQaTuning("/fake/repo");

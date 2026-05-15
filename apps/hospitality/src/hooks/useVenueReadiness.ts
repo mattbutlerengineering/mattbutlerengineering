@@ -14,11 +14,7 @@ export interface VenueReadiness {
   progress: number; // 0–100
 }
 
-export const STEP_ORDER: readonly SetupStep[] = [
-  "onboarding",
-  "operating-hours",
-  "floor-plan",
-];
+export const STEP_ORDER: readonly SetupStep[] = ["onboarding", "operating-hours", "floor-plan"];
 
 const NO_VENUE: VenueReadiness = {
   status: "no-venue",
@@ -56,9 +52,7 @@ export function computeReadiness(
   }
 
   // Gate 3: Floor plan with at least one table
-  const hasFloorPlanWithTables = floorPlans.some(
-    (fp) => fp.tables && fp.tables.length > 0
-  );
+  const hasFloorPlanWithTables = floorPlans.some((fp) => fp.tables && fp.tables.length > 0);
   if (hasFloorPlanWithTables) {
     completed.push("floor-plan");
   }

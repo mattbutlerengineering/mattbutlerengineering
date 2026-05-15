@@ -14,58 +14,50 @@ const generatedFile = path.join(packageRoot, "src/generated-schemas.ts");
  * Run the generator script via tsx (not a shell command — uses execFileSync).
  */
 function runGenerator(): void {
-  execFileSync(
-    "npx",
-    ["tsx", "./scripts/generate-catalog.ts"],
-    {
-      cwd: packageRoot,
-      env: { ...process.env },
-      stdio: "pipe",
-    }
-  );
+  execFileSync("npx", ["tsx", "./scripts/generate-catalog.ts"], {
+    cwd: packageRoot,
+    env: { ...process.env },
+    stdio: "pipe",
+  });
 }
 
 describe("drift-check: catalog generation is deterministic", () => {
-  it("running catalog generation twice produces identical output (diff is empty)", { timeout: 30_000 }, () => {
-    const beforeContent = fs.readFileSync(generatedFile, "utf-8");
-    const tmpFile = `${generatedFile}.test-tmp`;
+  it(
+    "running catalog generation twice produces identical output (diff is empty)",
+    { timeout: 30_000 },
+    () => {
+      const beforeContent = fs.readFileSync(generatedFile, "utf-8");
+      const tmpFile = `${generatedFile}.test-tmp`;
 
-    try {
-      // Run once into a temporary file
-      execFileSync(
-        "npx",
-        ["tsx", "./scripts/generate-catalog.ts"],
-        {
+      try {
+        // Run once into a temporary file
+        execFileSync("npx", ["tsx", "./scripts/generate-catalog.ts"], {
           cwd: packageRoot,
           env: { ...process.env, OUTPUT_FILE: tmpFile },
           stdio: "pipe",
-        }
-      );
+        });
 
-      const afterFirstRun = fs.readFileSync(tmpFile, "utf-8");
+        const afterFirstRun = fs.readFileSync(tmpFile, "utf-8");
 
-      // Run again into the same temporary file
-      execFileSync(
-        "npx",
-        ["tsx", "./scripts/generate-catalog.ts"],
-        {
+        // Run again into the same temporary file
+        execFileSync("npx", ["tsx", "./scripts/generate-catalog.ts"], {
           cwd: packageRoot,
           env: { ...process.env, OUTPUT_FILE: tmpFile },
           stdio: "pipe",
+        });
+
+        const afterSecondRun = fs.readFileSync(tmpFile, "utf-8");
+
+        // All three should be identical
+        expect(afterFirstRun.trim()).toBe(beforeContent.trim());
+        expect(afterSecondRun.trim()).toBe(beforeContent.trim());
+      } finally {
+        if (fs.existsSync(tmpFile)) {
+          fs.unlinkSync(tmpFile);
         }
-      );
-
-      const afterSecondRun = fs.readFileSync(tmpFile, "utf-8");
-
-      // All three should be identical
-      expect(afterFirstRun.trim()).toBe(beforeContent.trim());
-      expect(afterSecondRun.trim()).toBe(beforeContent.trim());
-    } finally {
-      if (fs.existsSync(tmpFile)) {
-        fs.unlinkSync(tmpFile);
       }
     }
-  });
+  );
 
   it("detects drift when generated-schemas.ts is manually modified", { timeout: 30_000 }, () => {
     const originalContent = fs.readFileSync(generatedFile, "utf-8");

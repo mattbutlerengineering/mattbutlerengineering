@@ -24,10 +24,7 @@ export interface ToggleProps extends Omit<InputHTMLAttributes<HTMLInputElement>,
 }
 
 export const Toggle = forwardRef<HTMLInputElement, ToggleProps>(
-  (
-    { label, checked, onCheckedChange, disabled, disabledReason, className, ...props },
-    ref
-  ) => {
+  ({ label, checked, onCheckedChange, disabled, disabledReason, className, ...props }, ref) => {
     const isControlled = checked !== undefined;
     const autoId = useId();
     const id = props.id ?? autoId;
@@ -35,9 +32,7 @@ export const Toggle = forwardRef<HTMLInputElement, ToggleProps>(
     const wrapperRef = useRef<HTMLDivElement>(null);
     const dir = useDirection(wrapperRef);
 
-    const inputProps = isControlled
-      ? { checked, "aria-checked": checked }
-      : {};
+    const inputProps = isControlled ? { checked, "aria-checked": checked } : {};
 
     return (
       <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>

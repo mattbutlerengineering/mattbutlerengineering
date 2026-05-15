@@ -15,9 +15,7 @@ describe("Alert", () => {
     });
 
     it("renders actions when provided", () => {
-      render(
-        <Alert actions={<button>Retry</button>}>Try again.</Alert>
-      );
+      render(<Alert actions={<button>Retry</button>}>Try again.</Alert>);
       expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
     });
   });
@@ -80,7 +78,11 @@ describe("Alert", () => {
     it("hides the alert after clicking dismiss", async () => {
       const user = userEvent.setup();
       const onDismiss = vi.fn();
-      render(<Alert dismissible onDismiss={onDismiss}>Visible content here</Alert>);
+      render(
+        <Alert dismissible onDismiss={onDismiss}>
+          Visible content here
+        </Alert>
+      );
       // Before dismiss — button is present
       expect(screen.getByRole("button", { name: /dismiss/i })).toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: /dismiss/i }));
@@ -92,7 +94,11 @@ describe("Alert", () => {
     it("calls onDismiss callback when dismissed", async () => {
       const user = userEvent.setup();
       const onDismiss = vi.fn();
-      render(<Alert dismissible onDismiss={onDismiss}>Alert</Alert>);
+      render(
+        <Alert dismissible onDismiss={onDismiss}>
+          Alert
+        </Alert>
+      );
       await user.click(screen.getByRole("button", { name: /dismiss/i }));
       expect(onDismiss).toHaveBeenCalledTimes(1);
     });
@@ -102,9 +108,7 @@ describe("Alert", () => {
     it("renders an icon element for each variant", () => {
       const variants = ["info", "success", "warning", "error"] as const;
       for (const variant of variants) {
-        const { container, unmount } = render(
-          <Alert variant={variant}>Test</Alert>
-        );
+        const { container, unmount } = render(<Alert variant={variant}>Test</Alert>);
         const icon = container.querySelector('[class*="icon"]');
         expect(icon).toBeInTheDocument();
         unmount();

@@ -82,10 +82,7 @@ describe("DropdownMenu", () => {
     fireEvent.keyDown(presentationDiv, { key: "Enter" });
     expect(screen.getByRole("menu")).toBeInTheDocument();
     // First item should be active (data-active=true)
-    expect(screen.getByRole("menuitem", { name: /edit/i })).toHaveAttribute(
-      "data-active",
-      "true"
-    );
+    expect(screen.getByRole("menuitem", { name: /edit/i })).toHaveAttribute("data-active", "true");
   });
 
   it("keyboard: ArrowDown/ArrowUp navigates items (data-active)", () => {
@@ -95,21 +92,12 @@ describe("DropdownMenu", () => {
     act(() => btn.focus());
     // Open the menu first
     fireEvent.keyDown(presentationDiv, { key: "Enter" });
-    expect(screen.getByRole("menuitem", { name: /edit/i })).toHaveAttribute(
-      "data-active",
-      "true"
-    );
+    expect(screen.getByRole("menuitem", { name: /edit/i })).toHaveAttribute("data-active", "true");
     const menu = screen.getByRole("menu");
     fireEvent.keyDown(menu, { key: "ArrowDown" });
-    expect(screen.getByRole("menuitem", { name: /copy/i })).toHaveAttribute(
-      "data-active",
-      "true"
-    );
+    expect(screen.getByRole("menuitem", { name: /copy/i })).toHaveAttribute("data-active", "true");
     fireEvent.keyDown(menu, { key: "ArrowUp" });
-    expect(screen.getByRole("menuitem", { name: /edit/i })).toHaveAttribute(
-      "data-active",
-      "true"
-    );
+    expect(screen.getByRole("menuitem", { name: /edit/i })).toHaveAttribute("data-active", "true");
   });
 
   it("keyboard: Home/End jumps to first/last item (data-active)", () => {
@@ -125,10 +113,7 @@ describe("DropdownMenu", () => {
       "true"
     );
     fireEvent.keyDown(menu, { key: "Home" });
-    expect(screen.getByRole("menuitem", { name: /edit/i })).toHaveAttribute(
-      "data-active",
-      "true"
-    );
+    expect(screen.getByRole("menuitem", { name: /edit/i })).toHaveAttribute("data-active", "true");
   });
 
   it("keyboard: Enter selects active item and closes", async () => {
@@ -189,17 +174,11 @@ describe("DropdownMenu", () => {
     act(() => btn.focus());
     fireEvent.keyDown(presentationDiv, { key: "Enter" });
     // Edit is active (index 0)
-    expect(screen.getByRole("menuitem", { name: /edit/i })).toHaveAttribute(
-      "data-active",
-      "true"
-    );
+    expect(screen.getByRole("menuitem", { name: /edit/i })).toHaveAttribute("data-active", "true");
     const menu = screen.getByRole("menu");
     fireEvent.keyDown(menu, { key: "ArrowDown" });
     // Should skip disabled (index 1) and go to Copy (index 2)
-    expect(screen.getByRole("menuitem", { name: /copy/i })).toHaveAttribute(
-      "data-active",
-      "true"
-    );
+    expect(screen.getByRole("menuitem", { name: /copy/i })).toHaveAttribute("data-active", "true");
   });
 
   it("does not call onSelect for disabled items", async () => {
@@ -246,21 +225,12 @@ describe("DropdownMenu", () => {
     act(() => btn.focus());
     fireEvent.keyDown(presentationDiv, { key: "Enter" });
     // Alpha is active (index 0)
-    expect(screen.getByRole("menuitem", { name: /alpha/i })).toHaveAttribute(
-      "data-active",
-      "true"
-    );
+    expect(screen.getByRole("menuitem", { name: /alpha/i })).toHaveAttribute("data-active", "true");
     const menu = screen.getByRole("menu");
     fireEvent.keyDown(menu, { key: "ArrowDown" });
-    expect(screen.getByRole("menuitem", { name: /beta/i })).toHaveAttribute(
-      "data-active",
-      "true"
-    );
+    expect(screen.getByRole("menuitem", { name: /beta/i })).toHaveAttribute("data-active", "true");
     // At last item, ArrowDown wraps to first
     fireEvent.keyDown(menu, { key: "ArrowDown" });
-    expect(screen.getByRole("menuitem", { name: /alpha/i })).toHaveAttribute(
-      "data-active",
-      "true"
-    );
+    expect(screen.getByRole("menuitem", { name: /alpha/i })).toHaveAttribute("data-active", "true");
   });
 });

@@ -25,8 +25,12 @@ vi.mock("pg", () => {
 
 vi.mock("../generated/prisma/index.js", () => ({
   PrismaClient: class MockPrismaClient {
-    $extends() { return this; }
-    $disconnect() { return Promise.resolve(); }
+    $extends() {
+      return this;
+    }
+    $disconnect() {
+      return Promise.resolve();
+    }
   },
 }));
 

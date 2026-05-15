@@ -79,7 +79,13 @@ describe("runQualityGates", () => {
       vi.mocked(analyzeDiff).mockReturnValue({
         clean: false,
         violations: [
-          { rule: "no-console-log", file: "src/main.ts", line: 5, message: "Remove console.log()", severity: "error" },
+          {
+            rule: "no-console-log",
+            file: "src/main.ts",
+            line: 5,
+            message: "Remove console.log()",
+            severity: "error",
+          },
         ],
         durationMs: 5,
       });
@@ -96,7 +102,13 @@ describe("runQualityGates", () => {
       vi.mocked(analyzeDiff).mockReturnValue({
         clean: false,
         violations: [
-          { rule: "no-console-log", file: "src/main.ts", line: 5, message: "Remove console.log()", severity: "error" },
+          {
+            rule: "no-console-log",
+            file: "src/main.ts",
+            line: 5,
+            message: "Remove console.log()",
+            severity: "error",
+          },
         ],
         durationMs: 5,
       });
@@ -115,7 +127,13 @@ describe("runQualityGates", () => {
       vi.mocked(analyzeDiff).mockReturnValue({
         clean: false,
         violations: [
-          { rule: "no-hardcoded-hex", file: "src/Component.tsx", line: 3, message: "Use design tokens", severity: "warning" },
+          {
+            rule: "no-hardcoded-hex",
+            file: "src/Component.tsx",
+            line: 3,
+            message: "Use design tokens",
+            severity: "warning",
+          },
         ],
         durationMs: 5,
       });
@@ -129,7 +147,13 @@ describe("runQualityGates", () => {
       vi.mocked(analyzeDiff).mockReturnValue({
         clean: false,
         violations: [
-          { rule: "no-hardcoded-hex", file: "src/Component.tsx", line: 3, message: "Use design tokens", severity: "warning" },
+          {
+            rule: "no-hardcoded-hex",
+            file: "src/Component.tsx",
+            line: 3,
+            message: "Use design tokens",
+            severity: "warning",
+          },
         ],
         durationMs: 5,
       });
@@ -286,7 +310,13 @@ describe("runQualityGates", () => {
       vi.mocked(analyzeDiff).mockReturnValue({
         clean: false,
         violations: [
-          { rule: "no-console-log", file: "src/main.ts", line: 1, message: "Remove console.log()", severity: "error" },
+          {
+            rule: "no-console-log",
+            file: "src/main.ts",
+            line: 1,
+            message: "Remove console.log()",
+            severity: "error",
+          },
         ],
         durationMs: 5,
       });

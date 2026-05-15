@@ -69,19 +69,12 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
     ),
 
     Card: ({ props, children }: any) => (
-      <Card
-        variant={props.variant}
-        tilt={props.tilt}
-        title={props.title}
-        subtitle={props.subtitle}
-      >
+      <Card variant={props.variant} tilt={props.tilt} title={props.title} subtitle={props.subtitle}>
         {children}
       </Card>
     ),
 
-    Divider: ({ props }: any) => (
-      <Divider orientation={props.orientation} label={props.label} />
-    ),
+    Divider: ({ props }: any) => <Divider orientation={props.orientation} label={props.label} />,
 
     AspectRatio: ({ props, children }: any) => (
       <AspectRatio ratio={props.ratio}>{children}</AspectRatio>
@@ -89,12 +82,7 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
 
     // ── Typography ────────────────────────────────────────────────
     Text: ({ props, children }: any) => (
-      <Text
-        variant={props.variant}
-        color={props.color}
-        align={props.align}
-        as={props.as}
-      >
+      <Text variant={props.variant} color={props.color} align={props.align} as={props.as}>
         {children}
       </Text>
     ),
@@ -182,9 +170,7 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
       <Breadcrumb items={props.items ?? []} maxItems={props.maxItems} />
     ),
 
-    NavigationMenu: ({ props }: any) => (
-      <NavigationMenu items={props.items ?? []} />
-    ),
+    NavigationMenu: ({ props }: any) => <NavigationMenu items={props.items ?? []} />,
 
     // ── Feedback ──────────────────────────────────────────────────
     Alert: ({ props, children, emit }: any) => (
@@ -233,19 +219,12 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
     ),
 
     DataList: ({ props }: any) => (
-      <DataList
-        items={props.items ?? []}
-        orientation={props.orientation}
-        striped={props.striped}
-      />
+      <DataList items={props.items ?? []} orientation={props.orientation} striped={props.striped} />
     ),
 
     // EmptyState uses `heading` prop; catalog description mentions `title` as alias.
     EmptyState: ({ props, children }: any) => (
-      <EmptyState
-        heading={props.heading ?? props.title}
-        description={props.description}
-      >
+      <EmptyState heading={props.heading ?? props.title} description={props.description}>
         {children}
       </EmptyState>
     ),
@@ -255,23 +234,14 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
     ),
 
     // ── App Shell ─────────────────────────────────────────────────
-    Sidebar: ({ props }: any) => (
-      <Sidebar items={props.items ?? []} collapsed={props.collapsed} />
-    ),
+    Sidebar: ({ props }: any) => <Sidebar items={props.items ?? []} collapsed={props.collapsed} />,
 
     // AppBar uses named slots `logo` and `actions` instead of children.
     AppBar: ({ props }: any) => (
-      <AppBar
-        glass={props.glass}
-        height={props.height}
-        logo={props.logo}
-        actions={props.actions}
-      />
+      <AppBar glass={props.glass} height={props.height} logo={props.logo} actions={props.actions} />
     ),
 
-    Footer: ({ props, children }: any) => (
-      <Footer variant={props.variant}>{children}</Footer>
-    ),
+    Footer: ({ props, children }: any) => <Footer variant={props.variant}>{children}</Footer>,
   },
 
   actions: {

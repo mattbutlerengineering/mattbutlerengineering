@@ -78,7 +78,7 @@ export function createReadinessTracker(): ReadinessTracker {
             message: error instanceof Error ? error.message : String(error),
           };
         }
-      }),
+      })
     );
 
     const ready = results.length > 0 && results.every((r) => r.status === "ok");

@@ -18,15 +18,15 @@ src/
 
 ## Available Tools
 
-| Tool | Description |
-|------|-------------|
-| `pulumi_stack_outputs` | List all outputs from the Pulumi production stack |
-| `service_health_check` | Check health of users, reservations, agent services |
-| `ci_run_status` | Get latest GitHub Actions run status for all workflows |
-| `deploy_status` | Get current DigitalOcean App Platform deployment status |
-| `git_workflow_status` | Current branch, uncommitted changes, CI status |
-| `db_list_tables` | List all tables in the database |
-| `db_migration_status` | Show applied Prisma migrations |
+| Tool                   | Description                                             |
+| ---------------------- | ------------------------------------------------------- |
+| `pulumi_stack_outputs` | List all outputs from the Pulumi production stack       |
+| `service_health_check` | Check health of users, reservations, agent services     |
+| `ci_run_status`        | Get latest GitHub Actions run status for all workflows  |
+| `deploy_status`        | Get current DigitalOcean App Platform deployment status |
+| `git_workflow_status`  | Current branch, uncommitted changes, CI status          |
+| `db_list_tables`       | List all tables in the database                         |
+| `db_migration_status`  | Show applied Prisma migrations                          |
 
 ## Transport
 

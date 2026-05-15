@@ -198,7 +198,7 @@ describe("availabilityService.generateTimeSlots", () => {
         id: "res-1",
         tableId: "table-1",
         startTime: new Date("2026-05-05T22:00:00Z"), // 18:00 ET (UTC-4 in May)
-        endTime: new Date("2026-05-05T23:15:00Z"),   // 19:15 ET
+        endTime: new Date("2026-05-05T23:15:00Z"), // 19:15 ET
         partySize: 2,
       },
     ] as never);
@@ -243,12 +243,7 @@ describe("availabilityService.generateTimeSlots", () => {
     vi.mocked(prisma.reservationHold.findMany).mockResolvedValueOnce([] as never);
 
     // With 30 min duration, fewer conflicts
-    const slotsShort = await availabilityService.generateTimeSlots(
-      VENUE_ID,
-      "2026-05-05",
-      2,
-      30
-    );
+    const slotsShort = await availabilityService.generateTimeSlots(VENUE_ID, "2026-05-05", 2, 30);
 
     vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce(makePrismaVenue() as never);
     vi.mocked(prisma.table.findMany).mockResolvedValueOnce([makePrismaTable()] as never);
@@ -264,12 +259,7 @@ describe("availabilityService.generateTimeSlots", () => {
     vi.mocked(prisma.reservationHold.findMany).mockResolvedValueOnce([] as never);
 
     // With 120 min duration, more conflicts
-    const slotsLong = await availabilityService.generateTimeSlots(
-      VENUE_ID,
-      "2026-05-05",
-      2,
-      120
-    );
+    const slotsLong = await availabilityService.generateTimeSlots(VENUE_ID, "2026-05-05", 2, 120);
 
     const shortUnavailable = slotsShort.filter((s) => !s.available).length;
     const longUnavailable = slotsLong.filter((s) => !s.available).length;
@@ -530,7 +520,9 @@ describe("availabilityService.checkConflict", () => {
 
   it("detects conflicting hold", async () => {
     vi.mocked(prisma.reservation.findFirst).mockResolvedValueOnce(null as never);
-    vi.mocked(prisma.reservationHold.findFirst).mockResolvedValueOnce({ id: "hold-conflict" } as never);
+    vi.mocked(prisma.reservationHold.findFirst).mockResolvedValueOnce({
+      id: "hold-conflict",
+    } as never);
 
     const start = new Date("2026-05-05T18:00:00Z");
     const end = new Date("2026-05-05T19:15:00Z");
@@ -548,13 +540,7 @@ describe("availabilityService.checkConflict", () => {
     const start = new Date("2026-05-05T18:00:00Z");
     const end = new Date("2026-05-05T19:15:00Z");
 
-    await availabilityService.checkConflict(
-      "table-1",
-      "2026-05-05",
-      start,
-      end,
-      "res-self"
-    );
+    await availabilityService.checkConflict("table-1", "2026-05-05", start, end, "res-self");
 
     expect(prisma.reservation.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -691,20 +677,13 @@ describe("availabilityService.checkPacing", () => {
       pacingRules: [{ maxCoversPerSlot: 10, timeWindowMinutes: 30 }],
     };
 
-    await availabilityService.checkPacing(
-      VENUE_ID,
-      new Date("2026-05-05T18:00:00Z"),
-      2,
-      settings
-    );
+    await availabilityService.checkPacing(VENUE_ID, new Date("2026-05-05T18:00:00Z"), 2, settings);
 
     // Verify the window end is 30 minutes from start
     const reservationCall = vi.mocked(prisma.reservation.aggregate).mock.calls[0][0] as {
       where: { startTime: { lt: Date } };
     };
     const windowEnd = reservationCall.where.startTime.lt;
-    expect(windowEnd.getTime() - new Date("2026-05-05T18:00:00Z").getTime()).toBe(
-      30 * 60 * 1000
-    );
+    expect(windowEnd.getTime() - new Date("2026-05-05T18:00:00Z").getTime()).toBe(30 * 60 * 1000);
   });
 });

@@ -85,16 +85,13 @@ export class HoldsClient {
       this.sessionId = crypto.randomUUID();
     }
 
-    const response = await this.client.request<ApiResponse<ReservationHold>>(
-      "/api/v1/holds",
-      {
-        method: "POST",
-        body: JSON.stringify(data),
-        headers: {
-          "x-session-id": this.sessionId,
-        },
-      }
-    );
+    const response = await this.client.request<ApiResponse<ReservationHold>>("/api/v1/holds", {
+      method: "POST",
+      body: JSON.stringify(data),
+      headers: {
+        "x-session-id": this.sessionId,
+      },
+    });
 
     return { hold: response.data, sessionId: this.sessionId };
   }

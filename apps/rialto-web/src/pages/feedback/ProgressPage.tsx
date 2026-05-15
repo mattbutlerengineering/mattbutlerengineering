@@ -1,4 +1,12 @@
-import { Checkbox, DataList, Progress, Select, Spinner, Stack, Text } from "@mattbutlerengineering/rialto";
+import {
+  Checkbox,
+  DataList,
+  Progress,
+  Select,
+  Spinner,
+  Stack,
+  Text,
+} from "@mattbutlerengineering/rialto";
 import { useState } from "react";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
@@ -35,7 +43,11 @@ function ProgressPlayground() {
           ]}
         />
         <Checkbox label="Show value" checked={showValue} onCheckedChange={setShowValue} />
-        <Checkbox label="Indeterminate" checked={indeterminate} onCheckedChange={setIndeterminate} />
+        <Checkbox
+          label="Indeterminate"
+          checked={indeterminate}
+          onCheckedChange={setIndeterminate}
+        />
       </div>
       {!indeterminate && (
         <input
@@ -114,7 +126,11 @@ export function ProgressPage() {
               border: "1px solid var(--rialto-border)",
             }}
           >
-            <Text variant="label" color="primary" style={{ marginBottom: "var(--rialto-space-md)" }}>
+            <Text
+              variant="label"
+              color="primary"
+              style={{ marginBottom: "var(--rialto-space-md)" }}
+            >
               Session Upload
             </Text>
             <Stack gap="sm">

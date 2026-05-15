@@ -93,4 +93,5 @@ describe("Timeline", () => {
       render(<Timeline ref={ref} events={events} />);
       expect(ref.current).toBeInstanceOf(HTMLDivElement);
     });
-  });});
+  });
+});

@@ -16,7 +16,7 @@ src/
 ```typescript
 interface FeatureFlag {
   enabled: boolean;
-  percentage: number;  // 0-100 rollout percentage
+  percentage: number; // 0-100 rollout percentage
 }
 
 type FeatureFlagMap = Record<string, FeatureFlag>;
@@ -24,11 +24,11 @@ type FeatureFlagMap = Record<string, FeatureFlag>;
 
 ### Functions
 
-| Function | Signature | Purpose |
-|----------|-----------|---------|
-| `isEnabled` | `(flags, flagName) => boolean` | Check if flag is enabled (100% rollout only) |
-| `isEnabledForSeed` | `(flags, flagName, seed) => boolean` | Check with percentage rollout using consistent hashing |
-| `parseFeatureFlags` | `(header) => FeatureFlagMap` | Parse `X-Feature-Flags` JSON header (safe, returns `{}` on failure) |
+| Function            | Signature                            | Purpose                                                             |
+| ------------------- | ------------------------------------ | ------------------------------------------------------------------- |
+| `isEnabled`         | `(flags, flagName) => boolean`       | Check if flag is enabled (100% rollout only)                        |
+| `isEnabledForSeed`  | `(flags, flagName, seed) => boolean` | Check with percentage rollout using consistent hashing              |
+| `parseFeatureFlags` | `(header) => FeatureFlagMap`         | Parse `X-Feature-Flags` JSON header (safe, returns `{}` on failure) |
 
 ### Percentage Rollout
 

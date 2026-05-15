@@ -9,9 +9,9 @@ on:
   workflow_dispatch:
     inputs:
       force:
-        description: 'Force deploy (reset circuit breaker)'
+        description: "Force deploy (reset circuit breaker)"
         required: false
-        default: 'false'
+        default: "false"
         type: boolean
 
 permissions: {}

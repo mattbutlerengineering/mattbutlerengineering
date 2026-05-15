@@ -67,44 +67,44 @@ describe("DashboardLayout", () => {
   };
 
   it("redirects to onboarding when no venue exists", () => {
-    vi.mocked(useVenueReadiness).mockReturnValue({ 
-      status: "no-venue", 
-      isLoading: false, 
-      completedSteps: [], 
-      nextStep: "hours" 
+    vi.mocked(useVenueReadiness).mockReturnValue({
+      status: "no-venue",
+      isLoading: false,
+      completedSteps: [],
+      nextStep: "hours",
     } as any);
     renderLayout("/timeline");
     expect(screen.getByText("Onboarding Content")).toBeDefined();
   });
 
   it("redirects operational pages to setup when status is setup", () => {
-    vi.mocked(useVenueReadiness).mockReturnValue({ 
-      status: "setup", 
-      isLoading: false, 
-      completedSteps: [], 
-      nextStep: "hours" 
+    vi.mocked(useVenueReadiness).mockReturnValue({
+      status: "setup",
+      isLoading: false,
+      completedSteps: [],
+      nextStep: "hours",
     } as any);
     renderLayout("/timeline");
     expect(screen.getByText("Setup Content")).toBeDefined();
   });
 
   it("allows operational pages when status is operational", () => {
-    vi.mocked(useVenueReadiness).mockReturnValue({ 
-      status: "operational", 
-      isLoading: false, 
-      completedSteps: ["hours", "tables", "publish"], 
-      nextStep: null 
+    vi.mocked(useVenueReadiness).mockReturnValue({
+      status: "operational",
+      isLoading: false,
+      completedSteps: ["hours", "tables", "publish"],
+      nextStep: null,
     } as any);
     renderLayout("/timeline");
     expect(screen.getByText("Timeline Content")).toBeDefined();
   });
 
   it("renders breadcrumbs and sidebar", () => {
-    vi.mocked(useVenueReadiness).mockReturnValue({ 
-      status: "operational", 
-      isLoading: false, 
-      completedSteps: ["hours", "tables", "publish"], 
-      nextStep: null 
+    vi.mocked(useVenueReadiness).mockReturnValue({
+      status: "operational",
+      isLoading: false,
+      completedSteps: ["hours", "tables", "publish"],
+      nextStep: null,
     } as any);
     renderLayout("/timeline");
     expect(screen.getByTestId("breadcrumb")).toBeDefined();

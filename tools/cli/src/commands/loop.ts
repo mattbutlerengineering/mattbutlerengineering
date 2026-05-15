@@ -1,10 +1,5 @@
 import { Command } from "commander";
-import {
-  runSession,
-  DEFAULT_SESSION_CONFIG,
-  resolveBudget,
-  resolveModel,
-} from "@mbe/agent-core";
+import { runSession, DEFAULT_SESSION_CONFIG, resolveBudget, resolveModel } from "@mbe/agent-core";
 import type { SessionEvent } from "@mbe/agent-core";
 
 // ── Command ───────────────────────────────────────────────────────────────
@@ -31,7 +26,7 @@ export const loopCommand = new Command("loop")
 
     while (currentLoop <= options.maxLoops && !taskComplete) {
       console.log(`--- Iteration ${currentLoop}/${options.maxLoops} ---`);
-      
+
       const config = {
         ...DEFAULT_SESSION_CONFIG,
         taskDescription: directive,
@@ -46,28 +41,37 @@ export const loopCommand = new Command("loop")
           if (options.verbose) {
             const timestamp = new Date(event.timestamp).toLocaleTimeString();
             if (event.type === "session:start" || event.type === "session:result") {
-                const data = event.data as { message: string };
-                console.log(`[${timestamp}] ${data.message}`);
+              const data = event.data as { message: string };
+              console.log(`[${timestamp}] ${data.message}`);
             }
           }
         });
 
         totalCost += result.costUsd;
-        console.log(`Iteration ${currentLoop} cost: $${result.costUsd.toFixed(4)} (Total: $${totalCost.toFixed(4)})`);
+        console.log(
+          `Iteration ${currentLoop} cost: $${result.costUsd.toFixed(4)} (Total: $${totalCost.toFixed(4)})`
+        );
 
         if (result.status === "succeeded") {
-          if (result.resultText?.includes("<promise>COMPLETE</promise>") || result.resultText?.includes("DONE")) {
+          if (
+            result.resultText?.includes("<promise>COMPLETE</promise>") ||
+            result.resultText?.includes("DONE")
+          ) {
             console.log("\n✅ Task marked as complete by agent.");
             taskComplete = true;
           } else {
             console.log("Iteration finished but no completion token found. Continuing...");
           }
         } else {
-          console.log(`Iteration failed with status: ${result.status}. Restarting with fresh context...`);
+          console.log(
+            `Iteration failed with status: ${result.status}. Restarting with fresh context...`
+          );
         }
-
       } catch (error) {
-        console.error(`Error in iteration ${currentLoop}:`, error instanceof Error ? error.message : error);
+        console.error(
+          `Error in iteration ${currentLoop}:`,
+          error instanceof Error ? error.message : error
+        );
       }
 
       if (totalCost >= maxBudgetUsd) {
@@ -84,5 +88,7 @@ export const loopCommand = new Command("loop")
       console.log(`\n❌ Reached maximum iterations (${options.maxLoops}) without completion.`);
     }
 
-    console.log(`Final stats: Total iterations: ${currentLoop - 1}, Total cost: $${totalCost.toFixed(4)}`);
+    console.log(
+      `Final stats: Total iterations: ${currentLoop - 1}, Total cost: $${totalCost.toFixed(4)}`
+    );
   });

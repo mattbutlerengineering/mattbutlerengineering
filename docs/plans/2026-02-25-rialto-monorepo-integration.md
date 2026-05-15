@@ -15,6 +15,7 @@
 ### Task 1: Clone Rialto and Copy Files Into Monorepo
 
 **Files:**
+
 - Create: `packages/rialto/` (all contents from rialto's `packages/rialto/`)
 - Create: `apps/rialto-web/` (all contents from rialto's `apps/showcase/`)
 - Create: `packages/rialto/scripts/` (from rialto's `scripts/`)
@@ -109,6 +110,7 @@ git commit -m "chore: copy rialto files into monorepo (raw, pre-adaptation)"
 ### Task 2: Rename Showcase to rialto-web and Update Package Names
 
 **Files:**
+
 - Modify: `apps/rialto-web/package.json`
 - Modify: `.changeset/config.json`
 - Modify: `lighthouserc.json`
@@ -125,16 +127,19 @@ Change the repo reference from `"mattbutlerengineering/rialto"` to `"mattbutlere
 **Step 3: Update lighthouserc.json**
 
 Change `@mbe/showcase` references to `@mbe/rialto-web`:
+
 - `startServerCommand`: `pnpm --filter @mbe/rialto-web exec vite preview --port 9222`
 
 **Step 4: Update apps/rialto-web/playwright.config.ts**
 
 Change `@mbe/showcase` references to `@mbe/rialto-web`:
+
 - `webServer.command`: `pnpm --filter @mbe/rialto-web dev -- --port 5173 --strictPort`
 
 **Step 5: Update script references in packages/rialto/package.json**
 
 The manifest script references `../../scripts/generate-manifest.ts`. Since we moved scripts into `packages/rialto/scripts/`, update to `./scripts/generate-manifest.ts`:
+
 - Change: `"manifest": "npx tsx ../../scripts/generate-manifest.ts"` → `"manifest": "npx tsx scripts/generate-manifest.ts"`
 
 **Step 6: Commit**
@@ -149,6 +154,7 @@ git commit -m "chore: rename showcase to rialto-web, update references"
 ### Task 3: Upgrade @mbe/config — ESLint 10, jsx-a11y, TypeScript 5.9
 
 **Files:**
+
 - Modify: `packages/config/package.json`
 - Modify: `packages/config/eslint/base.js`
 - Modify: `packages/config/eslint/react.js`
@@ -157,6 +163,7 @@ git commit -m "chore: rename showcase to rialto-web, update references"
 **Step 1: Update packages/config/package.json**
 
 Upgrade these devDependencies:
+
 ```json
 {
   "@eslint/js": "^10.0.1",
@@ -203,10 +210,7 @@ export default [
       ...jsxA11y.flatConfigs.recommended.rules,
       "react/react-in-jsx-scope": "off",
       "react/prop-types": "off",
-      "react-refresh/only-export-components": [
-        "warn",
-        { allowConstantExport: true },
-      ],
+      "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
     },
   },
 ];
@@ -244,6 +248,7 @@ git commit -m "feat(config): upgrade to ESLint 10, add jsx-a11y and react-refres
 ### Task 4: Upgrade All Apps — React 19, Vite 7, TypeScript 5.9
 
 **Files:**
+
 - Modify: `apps/hospitality/package.json`
 - Modify: `apps/marketing/package.json`
 - Modify: `apps/hospitality/vite.config.ts` (if Vite 7 API changes)
@@ -295,6 +300,7 @@ pnpm typecheck
 ```
 
 Expected: Pass. React 19 types are mostly backward-compatible, but watch for:
+
 - `React.FC` no longer includes `children` prop implicitly
 - `useRef` returns `RefObject` instead of `MutableRefObject`
 - Removed deprecated APIs
@@ -302,6 +308,7 @@ Expected: Pass. React 19 types are mostly backward-compatible, but watch for:
 **Step 6: Fix any type errors from React 19 migration**
 
 Common fixes:
+
 - Add explicit `children: React.ReactNode` to component props where needed
 - Update `useRef` calls if needed
 
@@ -333,6 +340,7 @@ git commit -m "feat: upgrade to React 19, Vite 7, TypeScript 5.9"
 ### Task 5: Adapt Rialto Package Config — tsconfig, ESLint, Vitest
 
 **Files:**
+
 - Modify: `packages/rialto/tsconfig.json`
 - Modify: `packages/rialto/tsconfig.lib.json`
 - Modify: `packages/rialto/package.json` (adjust scripts, add lint script if missing)
@@ -446,6 +454,7 @@ git commit -m "chore(rialto): adapt tsconfig and vitest config for monorepo"
 ### Task 6: Adapt rialto-web App Config — tsconfig, Vite
 
 **Files:**
+
 - Modify: `apps/rialto-web/tsconfig.json`
 - Modify: `apps/rialto-web/vite.config.ts`
 - Modify: `apps/rialto-web/package.json`
@@ -474,6 +483,7 @@ The showcase vite.config.ts should work as-is. It uses `base: '/rialto/'` which 
 **Step 3: Update apps/rialto-web/package.json name and dependency reference**
 
 Verify that `@mattbutlerengineering/rialto` dependency points to `workspace:*`:
+
 ```json
 {
   "name": "@mbe/rialto-web",
@@ -509,6 +519,7 @@ git commit -m "chore(rialto-web): adapt config for monorepo"
 ### Task 7: Update Root package.json, turbo.json, .gitignore
 
 **Files:**
+
 - Modify: `package.json` (root)
 - Modify: `turbo.json`
 - Modify: `.gitignore`
@@ -613,6 +624,7 @@ git commit -m "chore: add rialto root tooling (changesets, size-limit, playwrigh
 ### Task 8: Run Prettier on All Rialto Files
 
 **Files:**
+
 - Modify: All files in `packages/rialto/` and `apps/rialto-web/` (formatting only)
 
 **Step 1: Run prettier on rialto package**
@@ -697,6 +709,7 @@ pnpm --filter @mbe/marketing dev &
 ```
 
 Verify each starts without errors:
+
 - rialto-web: `http://localhost:5173/rialto/`
 - hospitality: `http://localhost:3002/hospitality`
 - web: `http://localhost:3000`
@@ -704,6 +717,7 @@ Verify each starts without errors:
 **Step 7: Fix any remaining issues**
 
 Address any errors found during the smoke test. Common issues:
+
 - Missing peer dependencies
 - Import path issues from the move
 - CSS module resolution differences
@@ -721,6 +735,7 @@ git commit -m "fix: resolve integration issues from rialto migration"
 ### Task 10: Update AGENTS.md and Clean Up
 
 **Files:**
+
 - Modify: `AGENTS.md`
 - Delete: Any rialto-specific files that shouldn't be in the monorepo
 
@@ -748,8 +763,9 @@ Add rialto-web to apps:
 
 **Step 2: Add rialto-specific build commands to AGENTS.md**
 
-```markdown
+````markdown
 ### Rialto Design System
+
 ```bash
 cd packages/rialto
 
@@ -762,6 +778,7 @@ pnpm size         # Check bundle size
 pnpm size:check   # Enforce bundle size limits
 pnpm test:visual  # Run Playwright visual regression tests
 ```
+````
 
 **Step 3: Remove any leftover rialto-specific root files**
 
@@ -797,6 +814,7 @@ Verify the commit history tells a clear story of the migration.
 **Step 3: Done**
 
 The rialto design system is now integrated into the monorepo. Follow-up work (tracked separately):
+
 - Wire dashboard/web to consume `@mattbutlerengineering/rialto`
 - Migrate components from `@mbe/ui` to `@mattbutlerengineering/rialto`
 - Update CI/CD pipelines

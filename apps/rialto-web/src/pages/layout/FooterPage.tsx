@@ -99,11 +99,7 @@ function FooterPlayground() {
         />
         {variant === "rich" && (
           <>
-            <Checkbox
-              label="Show Columns"
-              checked={showColumns}
-              onCheckedChange={setShowColumns}
-            />
+            <Checkbox label="Show Columns" checked={showColumns} onCheckedChange={setShowColumns} />
             <Checkbox
               label="Show Copyright"
               checked={showCopyright}
@@ -194,8 +190,8 @@ export function FooterPage() {
             />
           </div>
           <Text variant="caption" color="secondary">
-            Centered column layout with a logo (defaults to &quot;Rialto&quot; wordmark), link groups, and
-            copyright.
+            Centered column layout with a logo (defaults to &quot;Rialto&quot; wordmark), link
+            groups, and copyright.
           </Text>
         </Stack>
       </Section>
@@ -258,7 +254,8 @@ export function FooterPage() {
               name: "variant",
               type: '"minimal" | "rich"',
               default: '"minimal"',
-              description: "Layout variant. Minimal is a horizontal row; rich is a centered column.",
+              description:
+                "Layout variant. Minimal is a horizontal row; rich is a centered column.",
             },
             {
               name: "columns",
@@ -292,8 +289,7 @@ export function FooterPage() {
             { label: "Element", value: "<footer> landmark element" },
             {
               label: "Nav",
-              value:
-                'Rich variant wraps link columns in <nav aria-label="Footer links">',
+              value: 'Rich variant wraps link columns in <nav aria-label="Footer links">',
             },
             {
               label: "Links",

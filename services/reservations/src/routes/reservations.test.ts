@@ -479,7 +479,11 @@ describe("Reservation Routes", () => {
       it("cancels reservation with reason via PATCH status=CANCELLED", async () => {
         vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
         vi.mocked(reservationService.cancel).mockResolvedValueOnce(
-          createMockReservation({ id: "res-123", status: "CANCELLED", cancellationReason: "Changed mind" })
+          createMockReservation({
+            id: "res-123",
+            status: "CANCELLED",
+            cancellationReason: "Changed mind",
+          })
         );
 
         const response = await app.inject({
@@ -522,11 +526,7 @@ describe("Reservation Routes", () => {
         });
 
         expect(response.statusCode).toBe(200);
-        expect(reservationService.cancel).toHaveBeenCalledWith(
-          "res-123",
-          undefined,
-          undefined
-        );
+        expect(reservationService.cancel).toHaveBeenCalledWith("res-123", undefined, undefined);
       });
 
       it("returns 404 when cancelling nonexistent reservation via PATCH", async () => {

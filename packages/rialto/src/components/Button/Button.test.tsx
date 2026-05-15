@@ -63,7 +63,11 @@ describe("Button", () => {
     it("does not call onClick when disabled", async () => {
       const user = userEvent.setup();
       const onClick = vi.fn();
-      render(<Button disabled onClick={onClick}>Disabled</Button>);
+      render(
+        <Button disabled onClick={onClick}>
+          Disabled
+        </Button>
+      );
       await user.click(screen.getByRole("button"));
       expect(onClick).not.toHaveBeenCalled();
     });
@@ -95,7 +99,11 @@ describe("Button", () => {
     });
 
     it("shows loadingText when provided", () => {
-      render(<Button isLoading loadingText="Saving...">Save</Button>);
+      render(
+        <Button isLoading loadingText="Saving...">
+          Save
+        </Button>
+      );
       expect(screen.getByText("Saving...")).toBeInTheDocument();
     });
 
@@ -107,7 +115,11 @@ describe("Button", () => {
     it("does not fire onClick while loading", async () => {
       const user = userEvent.setup();
       const onClick = vi.fn();
-      render(<Button isLoading onClick={onClick}>Save</Button>);
+      render(
+        <Button isLoading onClick={onClick}>
+          Save
+        </Button>
+      );
       await user.click(screen.getByRole("button"));
       expect(onClick).not.toHaveBeenCalled();
     });

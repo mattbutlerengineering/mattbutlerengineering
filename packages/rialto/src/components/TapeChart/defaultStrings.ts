@@ -1,4 +1,10 @@
-import type { TapeChartFormattedParts, TapeChartReservation, TapeChartStatus, TapeChartRoomStatus, TapeChartStrings } from "./types";
+import type {
+  TapeChartFormattedParts,
+  TapeChartReservation,
+  TapeChartStatus,
+  TapeChartRoomStatus,
+  TapeChartStrings,
+} from "./types";
 
 const STATUS_LABELS_EN: Record<TapeChartStatus, string> = {
   tentative: "Tentative",
@@ -16,15 +22,14 @@ const ROOM_STATUS_LABELS_EN: Record<TapeChartRoomStatus, string> = {
   occupied: "Occupied",
 };
 
-const defaultNightsLabel = (count: number) =>
-  count === 1 ? `${count} night` : `${count} nights`;
+const defaultNightsLabel = (count: number) => (count === 1 ? `${count} night` : `${count} nights`);
 
 const defaultPartySizeLabel = (count: number) =>
   count === 1 ? `${count} guest` : `${count} guests`;
 
 const defaultReservationAriaTemplate = (
   r: TapeChartReservation,
-  fmt: TapeChartFormattedParts,
+  fmt: TapeChartFormattedParts
 ): string => {
   const pieces = [
     r.guestName ?? "Reservation",
@@ -43,7 +48,11 @@ const defaultReservationAriaTemplate = (
 export type ResolvedStrings = Required<
   Omit<
     TapeChartStrings,
-    "reservationAriaTemplate" | "nightsLabel" | "partySizeLabel" | "statusLabels" | "roomStatusLabels"
+    | "reservationAriaTemplate"
+    | "nightsLabel"
+    | "partySizeLabel"
+    | "statusLabels"
+    | "roomStatusLabels"
   >
 > & {
   reservationAriaTemplate: (r: TapeChartReservation, fmt: TapeChartFormattedParts) => string;
@@ -86,7 +95,8 @@ export function mergeStrings(overrides?: TapeChartStrings): ResolvedStrings {
     ...overrides,
     statusLabels: { ...DEFAULT_STRINGS.statusLabels, ...overrides.statusLabels },
     roomStatusLabels: { ...DEFAULT_STRINGS.roomStatusLabels, ...overrides.roomStatusLabels },
-    reservationAriaTemplate: overrides.reservationAriaTemplate ?? DEFAULT_STRINGS.reservationAriaTemplate,
+    reservationAriaTemplate:
+      overrides.reservationAriaTemplate ?? DEFAULT_STRINGS.reservationAriaTemplate,
     nightsLabel: overrides.nightsLabel ?? DEFAULT_STRINGS.nightsLabel,
     partySizeLabel: overrides.partySizeLabel ?? DEFAULT_STRINGS.partySizeLabel,
   };

@@ -170,8 +170,7 @@ export function DataListPage() {
               name: "orientation",
               type: '"vertical" | "horizontal"',
               default: '"vertical"',
-              description:
-                'Layout direction. Horizontal places label and value side by side.',
+              description: "Layout direction. Horizontal places label and value side by side.",
             },
             {
               name: "striped",

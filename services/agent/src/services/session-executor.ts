@@ -24,7 +24,9 @@ function extractText(content: unknown): string {
   if (typeof content === "string") return content;
   if (!Array.isArray(content)) return "";
   return content
-    .filter((block: Record<string, unknown>) => block.type === "text" && typeof block.text === "string")
+    .filter(
+      (block: Record<string, unknown>) => block.type === "text" && typeof block.text === "string"
+    )
     .map((block: Record<string, unknown>) => block.text as string)
     .join("\n");
 }

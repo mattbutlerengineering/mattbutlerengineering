@@ -102,7 +102,9 @@ describe("venueGroupService", () => {
 
   describe("getById", () => {
     it("returns mapped group when found", async () => {
-      vi.mocked(prisma.venueGroup.findUnique).mockResolvedValueOnce(makePrismaVenueGroup() as never);
+      vi.mocked(prisma.venueGroup.findUnique).mockResolvedValueOnce(
+        makePrismaVenueGroup() as never
+      );
 
       const result = await venueGroupService.getById("group-1");
 
@@ -121,7 +123,9 @@ describe("venueGroupService", () => {
 
   describe("getBySlug", () => {
     it("returns group by slug", async () => {
-      vi.mocked(prisma.venueGroup.findUnique).mockResolvedValueOnce(makePrismaVenueGroup() as never);
+      vi.mocked(prisma.venueGroup.findUnique).mockResolvedValueOnce(
+        makePrismaVenueGroup() as never
+      );
 
       const result = await venueGroupService.getBySlug("test-group");
 
@@ -223,9 +227,7 @@ describe("venueService", () => {
 
       await venueService.list(1, 10);
 
-      expect(prisma.venue.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: {} })
-      );
+      expect(prisma.venue.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));
     });
   });
 
@@ -236,9 +238,7 @@ describe("venueService", () => {
       const result = await venueService.getById("venue-1");
 
       expect(result).not.toBeNull();
-      expect(result!.settings).toEqual(
-        expect.objectContaining({ slotIntervalMinutes: 15 })
-      );
+      expect(result!.settings).toEqual(expect.objectContaining({ slotIntervalMinutes: 15 }));
     });
 
     it("returns null when not found", async () => {

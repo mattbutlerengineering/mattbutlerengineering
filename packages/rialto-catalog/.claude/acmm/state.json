@@ -354,9 +354,7 @@
   "issuesCreated": {},
   "levelName": "Assisted / Ad Hoc",
   "role": "Executor",
-  "detectedIds": [
-    "acmm:prereq-test-suite"
-  ],
+  "detectedIds": ["acmm:prereq-test-suite"],
   "computation": {
     "level": 1,
     "levelName": "Assisted / Ad Hoc",
@@ -387,12 +385,7 @@
         "rationale": "Any vendor-neutral or vendor-specific instruction file satisfies the L2 Instructed signal.",
         "detection": {
           "type": "any-of",
-          "pattern": [
-            "CLAUDE.md",
-            "AGENTS.md",
-            ".github/copilot-instructions.md",
-            ".cursorrules"
-          ]
+          "pattern": ["CLAUDE.md", "AGENTS.md", ".github/copilot-instructions.md", ".cursorrules"]
         }
       },
       {

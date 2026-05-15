@@ -61,9 +61,7 @@ export function useApiCall<T>(options?: UseApiCallOptions): UseApiCallResult<T> 
         if (controller.signal.aborted) {
           setError("Request timed out. Please try again.");
         } else {
-          setError(
-            err instanceof Error ? err.message : "An unexpected error occurred."
-          );
+          setError(err instanceof Error ? err.message : "An unexpected error occurred.");
         }
         return null;
       } finally {
@@ -84,8 +82,7 @@ export function useApiCall<T>(options?: UseApiCallOptions): UseApiCallResult<T> 
     setError(null);
   }, []);
 
-  const staleness =
-    lastFetchedAt !== null ? Date.now() - lastFetchedAt : null;
+  const staleness = lastFetchedAt !== null ? Date.now() - lastFetchedAt : null;
 
   return { data, isLoading, error, retry, execute, staleness, clearError };
 }

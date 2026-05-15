@@ -26,11 +26,9 @@ describe("generate command", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.resetAllMocks();
-    exitSpy = vi
-      .spyOn(process, "exit")
-      .mockImplementation(((code?: number) => {
-        throw new ExitError(code ?? 0);
-      }) as never);
+    exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
+      throw new ExitError(code ?? 0);
+    }) as never);
     logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
@@ -125,7 +123,7 @@ describe("generate command", () => {
       );
       expect(testCall).toBeDefined();
       const content = String(testCall![1]);
-      expect(content).toContain("describe(\"Badge\"");
+      expect(content).toContain('describe("Badge"');
       expect(content).toContain("render(<Badge>");
     });
 
@@ -161,9 +159,9 @@ describe("generate command", () => {
         return false; // routes dir not found
       });
 
-      await expect(
-        runGenerate(["route", "bookings", "--service", "reservations"])
-      ).rejects.toThrow(ExitError);
+      await expect(runGenerate(["route", "bookings", "--service", "reservations"])).rejects.toThrow(
+        ExitError
+      );
 
       expect(exitSpy).toHaveBeenCalledWith(1);
       const errOutput = errorSpy.mock.calls.flat().join("\n");
@@ -199,9 +197,9 @@ describe("generate command", () => {
         return false;
       });
 
-      await expect(
-        runGenerate(["route", "Bookings", "--service", "reservations"])
-      ).rejects.toThrow(ExitError);
+      await expect(runGenerate(["route", "Bookings", "--service", "reservations"])).rejects.toThrow(
+        ExitError
+      );
 
       expect(exitSpy).toHaveBeenCalledWith(1);
       const errOutput = errorSpy.mock.calls.flat().join("\n");

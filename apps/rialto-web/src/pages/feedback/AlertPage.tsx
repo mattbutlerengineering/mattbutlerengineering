@@ -48,7 +48,9 @@ export function AlertPage() {
           >
             Adaptive suspension calibration may need adjustment for current track conditions.
           </Alert>
-          <Alert variant="info" title="No body text">{""}</Alert>
+          <Alert variant="info" title="No body text">
+            {""}
+          </Alert>
         </div>
       </Section>
 
@@ -113,7 +115,10 @@ export function AlertPage() {
         <DataList
           items={[
             { label: "Role", value: "role=alert for error/warning, role=status for info/success" },
-            { label: "Live region", value: "aria-live=polite on status, aria-live=assertive on alert" },
+            {
+              label: "Live region",
+              value: "aria-live=polite on status, aria-live=assertive on alert",
+            },
             { label: "Dismiss", value: "Dismiss button has aria-label='Dismiss'" },
             { label: "Icon", value: "Status icon is aria-hidden (decorative)" },
           ]}

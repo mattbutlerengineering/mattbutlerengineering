@@ -55,7 +55,7 @@ describe("escapeHtml", () => {
 
   it("escapes javascript: protocol in markup", () => {
     expect(escapeHtml('<a href="javascript:alert(1)">click</a>')).toBe(
-      '&lt;a href=&quot;javascript:alert(1)&quot;&gt;click&lt;/a&gt;'
+      "&lt;a href=&quot;javascript:alert(1)&quot;&gt;click&lt;/a&gt;"
     );
   });
 });
@@ -80,7 +80,7 @@ describe("sanitizeStreamChunk", () => {
   it("sanitizes nested content field in NDJSON", () => {
     const ndjson = JSON.stringify({ type: "message", content: '<img onerror="alert(1)">' });
     const result = JSON.parse(sanitizeStreamChunk(ndjson));
-    expect(result.content).toBe('&lt;img onerror=&quot;alert(1)&quot;&gt;');
+    expect(result.content).toBe("&lt;img onerror=&quot;alert(1)&quot;&gt;");
   });
 
   it("handles empty string", () => {
@@ -93,9 +93,7 @@ describe("sanitizeStreamChunk", () => {
 
   it("falls back to escapeHtml for malformed JSON", () => {
     const malformed = '{"broken: <script>';
-    expect(sanitizeStreamChunk(malformed)).toBe(
-      '{&quot;broken: &lt;script&gt;'
-    );
+    expect(sanitizeStreamChunk(malformed)).toBe("{&quot;broken: &lt;script&gt;");
   });
 
   it("sanitizes message field in NDJSON", () => {
@@ -128,11 +126,7 @@ describe("createSanitizedStream", () => {
     });
 
     const chunks = await collectStream(createSanitizedStream(source));
-    expect(chunks).toEqual([
-      "&lt;script&gt;",
-      "alert(&#x27;xss&#x27;)",
-      "&lt;/script&gt;",
-    ]);
+    expect(chunks).toEqual(["&lt;script&gt;", "alert(&#x27;xss&#x27;)", "&lt;/script&gt;"]);
   });
 
   it("escapes HTML entities in each chunk from an AsyncIterable", async () => {

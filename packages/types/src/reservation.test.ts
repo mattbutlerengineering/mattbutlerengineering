@@ -5,11 +5,7 @@ import {
   TableSchema,
   TableStatusSchema,
 } from "./schemas/reservation.js";
-import {
-  VenueSchema,
-  VenueGroupSchema,
-  DayScheduleSchema,
-} from "./schemas/venue.js";
+import { VenueSchema, VenueGroupSchema, DayScheduleSchema } from "./schemas/venue.js";
 import {
   TableShapeMetadataSchema,
   FloorPlanLayoutSchema,
@@ -131,15 +127,15 @@ describe("ReservationSchema", () => {
   });
 
   it("rejects invalid status", () => {
-    expect(
-      ReservationSchema.safeParse({ ...validReservation, status: "ACTIVE" }).success
-    ).toBe(false);
+    expect(ReservationSchema.safeParse({ ...validReservation, status: "ACTIVE" }).success).toBe(
+      false
+    );
   });
 
   it("rejects non-number partySize", () => {
-    expect(
-      ReservationSchema.safeParse({ ...validReservation, partySize: "4" }).success
-    ).toBe(false);
+    expect(ReservationSchema.safeParse({ ...validReservation, partySize: "4" }).success).toBe(
+      false
+    );
   });
 
   it("rejects completely empty object", () => {
@@ -238,7 +234,15 @@ describe("TableShapeMetadataSchema", () => {
   });
 
   it("accepts valid square metadata with optional rotation and color", () => {
-    const metadata = { x: 10, y: 20, width: 50, height: 50, rotation: 90, shape: "square", color: "#333" };
+    const metadata = {
+      x: 10,
+      y: 20,
+      width: 50,
+      height: 50,
+      rotation: 90,
+      shape: "square",
+      color: "#333",
+    };
     expect(TableShapeMetadataSchema.safeParse(metadata).success).toBe(true);
   });
 
@@ -248,7 +252,9 @@ describe("TableShapeMetadataSchema", () => {
   });
 
   it("rejects missing required coordinates", () => {
-    expect(TableShapeMetadataSchema.safeParse({ width: 100, height: 80, shape: "rectangle" }).success).toBe(false);
+    expect(
+      TableShapeMetadataSchema.safeParse({ width: 100, height: 80, shape: "rectangle" }).success
+    ).toBe(false);
   });
 });
 
@@ -329,7 +335,9 @@ describe("FloorPlanSchema", () => {
   });
 
   it("rejects invalid layoutJson", () => {
-    expect(FloorPlanSchema.safeParse({ ...validFloorPlan, layoutJson: "invalid" }).success).toBe(false);
+    expect(FloorPlanSchema.safeParse({ ...validFloorPlan, layoutJson: "invalid" }).success).toBe(
+      false
+    );
   });
 });
 
@@ -372,7 +380,9 @@ describe("DayScheduleSchema", () => {
   });
 
   it("accepts a closed day", () => {
-    expect(DayScheduleSchema.safeParse({ open: "00:00", close: "00:00", closed: true }).success).toBe(true);
+    expect(
+      DayScheduleSchema.safeParse({ open: "00:00", close: "00:00", closed: true }).success
+    ).toBe(true);
   });
 
   it("rejects missing open/close", () => {

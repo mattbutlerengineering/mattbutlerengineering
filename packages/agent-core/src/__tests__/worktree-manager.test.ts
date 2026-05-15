@@ -28,19 +28,17 @@ import {
 // Helper to set up promisified execFile mock
 function setupExecFileMock(stdoutResponses: string[] = [""]) {
   let callIndex = 0;
-  vi.mocked(execFile).mockImplementation(
-    ((...args: unknown[]) => {
-      const callback = args[args.length - 1];
-      const stdout = stdoutResponses[callIndex] ?? "";
-      callIndex++;
-      if (typeof callback === "function") {
-        (callback as (err: null, result: { stdout: string }) => void)(null, {
-          stdout,
-        });
-      }
-      return {} as ReturnType<typeof execFile>;
-    }) as typeof execFile
-  );
+  vi.mocked(execFile).mockImplementation(((...args: unknown[]) => {
+    const callback = args[args.length - 1];
+    const stdout = stdoutResponses[callIndex] ?? "";
+    callIndex++;
+    if (typeof callback === "function") {
+      (callback as (err: null, result: { stdout: string }) => void)(null, {
+        stdout,
+      });
+    }
+    return {} as ReturnType<typeof execFile>;
+  }) as typeof execFile);
 }
 
 // ── Input validation ─────────────────────────────────────────────────────────
@@ -105,21 +103,21 @@ describe("createWorktree input validation", () => {
   });
 
   it("rejects baseBranch starting with --", async () => {
-    await expect(
-      createWorktree("/repo", "--upload-pack=evil", "task")
-    ).rejects.toThrow("Invalid baseBranch");
+    await expect(createWorktree("/repo", "--upload-pack=evil", "task")).rejects.toThrow(
+      "Invalid baseBranch"
+    );
   });
 
   it("rejects baseBranch with shell metacharacters", async () => {
-    await expect(
-      createWorktree("/repo", "main;rm -rf /", "task")
-    ).rejects.toThrow("Invalid baseBranch");
+    await expect(createWorktree("/repo", "main;rm -rf /", "task")).rejects.toThrow(
+      "Invalid baseBranch"
+    );
   });
 
   it("rejects repoPath with shell metacharacters", async () => {
-    await expect(
-      createWorktree("/repo$(whoami)", "main", "task")
-    ).rejects.toThrow("Invalid repoPath");
+    await expect(createWorktree("/repo$(whoami)", "main", "task")).rejects.toThrow(
+      "Invalid repoPath"
+    );
   });
 });
 

@@ -160,9 +160,7 @@ describe("runOrchestrator", () => {
       ])() as ReturnType<typeof query>
     );
 
-    await runOrchestrator(
-      createConfig({ model: "claude-haiku-4-5" })
-    );
+    await runOrchestrator(createConfig({ model: "claude-haiku-4-5" }));
 
     const callArgs = vi.mocked(query).mock.calls[0]?.[0] as {
       options: {
@@ -402,10 +400,7 @@ describe("runOrchestrator", () => {
       createMockAsyncGenerator([
         {
           type: "assistant",
-          content: JSON.stringify([
-            { sessionId: "arr-child-1" },
-            { sessionId: "arr-child-2" },
-          ]),
+          content: JSON.stringify([{ sessionId: "arr-child-1" }, { sessionId: "arr-child-2" }]),
         },
         {
           type: "result",
@@ -602,7 +597,12 @@ describe("orchestrator MCP tool handlers", () => {
 
     const handlers: Record<string, (args: Record<string, unknown>) => Promise<unknown>> = {};
     for (const call of vi.mocked(tool).mock.calls) {
-      const [name, , , handler] = call as [string, string, unknown, (args: Record<string, unknown>) => Promise<unknown>];
+      const [name, , , handler] = call as [
+        string,
+        string,
+        unknown,
+        (args: Record<string, unknown>) => Promise<unknown>,
+      ];
       handlers[name] = handler;
     }
     return handlers;
@@ -658,9 +658,7 @@ describe("orchestrator MCP tool handlers", () => {
 
     const result = await handlers["check_session"]({ sessionId: "sess-123" });
 
-    const parsed = JSON.parse(
-      ((result as { content: Array<{ text: string }> }).content[0]).text
-    );
+    const parsed = JSON.parse((result as { content: Array<{ text: string }> }).content[0].text);
     expect(parsed.id).toBe("sess-123");
     expect(parsed.status).toBe("succeeded");
     expect(parsed.prUrl).toBe("https://github.com/repo/pull/5");
@@ -691,9 +689,7 @@ describe("orchestrator MCP tool handlers", () => {
 
     const result = await handlers["list_sessions"]({});
 
-    const parsed = JSON.parse(
-      ((result as { content: Array<{ text: string }> }).content[0]).text
-    );
+    const parsed = JSON.parse((result as { content: Array<{ text: string }> }).content[0].text);
     expect(parsed.sessions).toHaveLength(1);
     expect(parsed.sessions[0].id).toBe("s1");
     expect(parsed.total).toBe(1);
@@ -733,9 +729,7 @@ describe("orchestrator MCP tool handlers", () => {
 
     const result = await handlers["cancel_session"]({ sessionId: "cancel-me" });
 
-    const parsed = JSON.parse(
-      ((result as { content: Array<{ text: string }> }).content[0]).text
-    );
+    const parsed = JSON.parse((result as { content: Array<{ text: string }> }).content[0].text);
     expect(parsed.id).toBe("cancel-me");
     expect(parsed.status).toBe("cancelled");
     expect(parsed.message).toBe("Session cancelled successfully");
@@ -780,7 +774,9 @@ describe("orchestrator MCP tool handlers", () => {
       ok: false,
       status: 503,
       statusText: "Service Unavailable",
-      json: async () => { throw new Error("no body"); },
+      json: async () => {
+        throw new Error("no body");
+      },
     });
 
     const result = await handlers["cancel_session"]({ sessionId: "no-body" });

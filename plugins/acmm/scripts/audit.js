@@ -55,8 +55,8 @@ const cwd = projectPath;
 const repoRoot = process.cwd();
 
 // Load project acmm config if it exists
-let acmmConfig = { 
-  inherit: false, 
+let acmmConfig = {
+  inherit: false,
   globalPaths: [
     ".github/",
     "CONTRIBUTING.md",
@@ -65,16 +65,10 @@ let acmmConfig = {
     ".claude/settings.json",
     "package.json",
     "pnpm-workspace.yaml",
-    "turbo.json"
+    "turbo.json",
   ],
   // These MUST be local to be detected for a project, even if inherit is true
-  localOnly: [
-    "CLAUDE.md",
-    "AGENTS.md",
-    "llms.txt",
-    "llms-full.txt",
-    ".cursorrules"
-  ]
+  localOnly: ["CLAUDE.md", "AGENTS.md", "llms.txt", "llms-full.txt", ".cursorrules"],
 };
 try {
   const pkgPath = path.join(cwd, "package.json");
@@ -82,7 +76,7 @@ try {
     const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
     if (pkg.acmm) {
       if (pkg.acmm.globalPaths) {
-         acmmConfig.globalPaths = [...new Set([...acmmConfig.globalPaths, ...pkg.acmm.globalPaths])];
+        acmmConfig.globalPaths = [...new Set([...acmmConfig.globalPaths, ...pkg.acmm.globalPaths])];
       }
       if (pkg.acmm.inherit !== undefined) acmmConfig.inherit = pkg.acmm.inherit;
     }
@@ -98,7 +92,9 @@ function measureAutoQaTuning(root) {
     if (!fs.existsSync(p)) return null;
     const data = JSON.parse(fs.readFileSync(p, "utf-8"));
     return { history_count: Array.isArray(data.history) ? data.history.length : 0 };
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 /* ── --trend mode: just print history and exit ─────────── */
@@ -125,26 +121,28 @@ const detectedIds = new Set();
 for (const c of ALL_CRITERIA) {
   // Try local first
   let passed = detect(cwd, c);
-  
+
   // If failed and inheritance enabled, try root for allowed global paths
   if (!passed && acmmConfig.inherit) {
-    const patterns = Array.isArray(c.detection.pattern) ? c.detection.pattern : [c.detection.pattern];
-    
+    const patterns = Array.isArray(c.detection.pattern)
+      ? c.detection.pattern
+      : [c.detection.pattern];
+
     // Check if any pattern is local-only
-    const isLocalOnly = patterns.some(p => 
-      acmmConfig.localOnly.some(lo => p.startsWith(lo) || p === lo)
+    const isLocalOnly = patterns.some((p) =>
+      acmmConfig.localOnly.some((lo) => p.startsWith(lo) || p === lo)
     );
 
     if (!isLocalOnly) {
-      const isGlobal = patterns.some(p => 
-        acmmConfig.globalPaths.some(gp => p.startsWith(gp) || p === gp)
+      const isGlobal = patterns.some((p) =>
+        acmmConfig.globalPaths.some((gp) => p.startsWith(gp) || p === gp)
       );
       if (isGlobal) {
         passed = detect(repoRoot, c);
       }
     }
   }
-  
+
   if (passed) detectedIds.add(c.id);
 }
 
@@ -169,9 +167,10 @@ const behavioral = {
   agent_pr: prOutcomes
     ? { ...prOutcomes, measured_at: new Date().toISOString() }
     : (prior.behavioral?.agent_pr ?? null),
-  evals: evalsSummary.n > 0
-    ? { ...evalsSummary, measured_at: new Date().toISOString() }
-    : (prior.behavioral?.evals ?? null),
+  evals:
+    evalsSummary.n > 0
+      ? { ...evalsSummary, measured_at: new Date().toISOString() }
+      : (prior.behavioral?.evals ?? null),
   auto_qa_tuning: autoQaTuning
     ? { ...autoQaTuning, measured_at: new Date().toISOString() }
     : (prior.behavioral?.auto_qa_tuning ?? null),
@@ -187,9 +186,10 @@ const computeBehavioral = {
 
 const rawComputation = computeLevel(detectedIds, computeBehavioral, { strict: STRICT });
 const levelCap = prior.levelCap ?? null;
-const computation = levelCap !== null && rawComputation.level > levelCap
-  ? { ...rawComputation, level: levelCap, capped: true, computedLevel: rawComputation.level }
-  : { ...rawComputation, capped: false };
+const computation =
+  levelCap !== null && rawComputation.level > levelCap
+    ? { ...rawComputation, level: levelCap, capped: true, computedLevel: rawComputation.level }
+    : { ...rawComputation, capped: false };
 
 /* ── Diff vs prior saved state ──────────────────────────── */
 const priorIds = new Set(prior.detectedIds ?? []);
@@ -218,7 +218,7 @@ for (const c of ALL_CRITERIA) {
   let evidence;
   if (passed) {
     evidence = `detected at one of: ${patterns.map(formatPattern).join(", ")}`;
-  } else if (type === 'active') {
+  } else if (type === "active") {
     const filePath = typeof patterns[0] === "string" ? patterns[0] : patterns[0].file;
     const fileExists = fs.existsSync(path.join(cwd, filePath));
     if (fileExists) {
@@ -248,12 +248,18 @@ const nextState = recordHistory(
   },
   computation.level,
   detectedCount,
-  totalCount,
+  totalCount
 );
 
 /* ── Write state + report ────────────────────────────────── */
 saveState(cwd, nextState);
-const reportPath = writeReport(cwd, { state: nextState, criteria: ALL_CRITERIA, sources: SOURCES, computation, diff });
+const reportPath = writeReport(cwd, {
+  state: nextState,
+  criteria: ALL_CRITERIA,
+  sources: SOURCES,
+  computation,
+  diff,
+});
 
 /* ── Optionally: --badge ─────────────────────────────────── */
 let badgeOutcome = "skipped";
@@ -267,11 +273,18 @@ if (APPLY) {
     // File issues only for criteria gating the NEXT level — avoids issue spam
     // for L5/L6 items when we're still climbing L3.
     const failingForNext = computation.missingForNextLevel;
-    applyResult = applyIssuesForFailures(failingForNext, prior.issuesCreated || {}, { extraLabels: EXTRA_LABELS });
+    applyResult = applyIssuesForFailures(failingForNext, prior.issuesCreated || {}, {
+      extraLabels: EXTRA_LABELS,
+    });
     saveState(cwd, { ...nextState, issuesCreated: applyResult.issuesCreated });
   } catch (err) {
     console.error(`--apply failed: ${err instanceof Error ? err.message : String(err)}`);
-    applyResult = { createdCount: 0, skippedOpen: 0, issuesCreated: prior.issuesCreated || {}, error: true };
+    applyResult = {
+      createdCount: 0,
+      skippedOpen: 0,
+      issuesCreated: prior.issuesCreated || {},
+      error: true,
+    };
   }
 }
 
@@ -280,21 +293,32 @@ console.log("");
 const levelDisplay = `${computation.level} (${computation.levelName})`;
 console.log(`ACMM Level ${levelDisplay}  ·  ${detectedCount}/${totalCount} criteria detected`);
 if (computation.capped) {
-  console.log(`  ⚠ Capped from computed L${computation.computedLevel} → L${computation.level} (levelCap in state.json)`);
+  console.log(
+    `  ⚠ Capped from computed L${computation.computedLevel} → L${computation.level} (levelCap in state.json)`
+  );
 }
 console.log(`Role: ${computation.role}`);
 
 if (diff) {
   const arrow = diff.levelDelta > 0 ? "↑" : diff.levelDelta < 0 ? "↓" : null;
-  const countArrow = diff.countDelta > 0 ? `+${diff.countDelta}` : diff.countDelta < 0 ? `${diff.countDelta}` : "±0";
-  const levelStr = arrow ? `L${diff.priorLevel} ${arrow} L${computation.level}` : `L${computation.level} (unchanged)`;
+  const countArrow =
+    diff.countDelta > 0 ? `+${diff.countDelta}` : diff.countDelta < 0 ? `${diff.countDelta}` : "±0";
+  const levelStr = arrow
+    ? `L${diff.priorLevel} ${arrow} L${computation.level}`
+    : `L${computation.level} (unchanged)`;
   console.log("");
-  console.log(`Since last run: ${levelStr}  ·  ${diff.priorCount} → ${detectedCount} detected (${countArrow})`);
+  console.log(
+    `Since last run: ${levelStr}  ·  ${diff.priorCount} → ${detectedCount} detected (${countArrow})`
+  );
   if (diff.added.length > 0) {
-    console.log(`  + ${diff.added.length} newly detected: ${diff.added.slice(0, 4).join(", ")}${diff.added.length > 4 ? `, … (+${diff.added.length - 4} more)` : ""}`);
+    console.log(
+      `  + ${diff.added.length} newly detected: ${diff.added.slice(0, 4).join(", ")}${diff.added.length > 4 ? `, … (+${diff.added.length - 4} more)` : ""}`
+    );
   }
   if (diff.removed.length > 0) {
-    console.log(`  - ${diff.removed.length} regressed: ${diff.removed.slice(0, 4).join(", ")}${diff.removed.length > 4 ? `, … (+${diff.removed.length - 4} more)` : ""}`);
+    console.log(
+      `  - ${diff.removed.length} regressed: ${diff.removed.slice(0, 4).join(", ")}${diff.removed.length > 4 ? `, … (+${diff.removed.length - 4} more)` : ""}`
+    );
   }
   if (diff.added.length === 0 && diff.removed.length === 0) {
     console.log(`  · no criteria changed`);
@@ -311,9 +335,15 @@ for (const n of [2, 3, 4, 5, 6]) {
   console.log(`  ${mark} L${n}: ${det}/${req} (${pct}%)`);
 }
 console.log("");
-console.log(`Prerequisites (soft): ${computation.prerequisites.met}/${computation.prerequisites.total}`);
-console.log(`Cross-cutting learning: ${computation.crossCutting.learning.met}/${computation.crossCutting.learning.total}`);
-console.log(`Cross-cutting traceability: ${computation.crossCutting.traceability.met}/${computation.crossCutting.traceability.total}`);
+console.log(
+  `Prerequisites (soft): ${computation.prerequisites.met}/${computation.prerequisites.total}`
+);
+console.log(
+  `Cross-cutting learning: ${computation.crossCutting.learning.met}/${computation.crossCutting.learning.total}`
+);
+console.log(
+  `Cross-cutting traceability: ${computation.crossCutting.traceability.met}/${computation.crossCutting.traceability.total}`
+);
 
 if (computation.behavioralGates.length > 0) {
   console.log("");
@@ -327,7 +357,9 @@ if (computation.behavioralGates.length > 0) {
           ? `${(g.value * 100).toFixed(1)}% > ${(g.threshold * 100).toFixed(0)}%`
           : `${g.value} > ${g.threshold}`
       : "no data";
-    console.log(`  ${icon} L${g.level} ${g.name}: ${val}${!g.passed && !STRICT ? " (warning)" : ""}`);
+    console.log(
+      `  ${icon} L${g.level} ${g.name}: ${val}${!g.passed && !STRICT ? " (warning)" : ""}`
+    );
   }
 }
 
@@ -347,7 +379,9 @@ if (behavioral.agent_pr) {
     const acc = (o.acceptance_rate_30d * 100).toFixed(0);
     const rev = (o.revert_rate_30d * 100).toFixed(0);
     const ttm = o.median_time_to_merge_hours.toFixed(1);
-    console.log(`Agent PR outcomes: ${acc}% accepted · ${rev}% reverted · ${ttm}h median time-to-merge (n=${o.sample_size})`);
+    console.log(
+      `Agent PR outcomes: ${acc}% accepted · ${rev}% reverted · ${ttm}h median time-to-merge (n=${o.sample_size})`
+    );
   }
 } else {
   console.log("Agent PR outcomes: unavailable (gh CLI missing or no PRs)");
@@ -356,13 +390,17 @@ if (behavioral.agent_pr) {
 if (behavioral.evals) {
   const e = behavioral.evals;
   const pct = (e.passRate * 100).toFixed(0);
-  console.log(`Agent evals: ${pct}% pass · score ${e.medianScore.toFixed(2)} (n=${e.n}, status: ${e.status})`);
+  console.log(
+    `Agent evals: ${pct}% pass · score ${e.medianScore.toFixed(2)} (n=${e.n}, status: ${e.status})`
+  );
 } else {
   console.log("Agent evals: no runs (seed via `node scripts/acmm/evals/index.js`)");
 }
 
 console.log("");
-console.log(`Behavioral gates${STRICT ? " (strict — failures cap level)" : " (soft — failures are warnings)"}:`);
+console.log(
+  `Behavioral gates${STRICT ? " (strict — failures cap level)" : " (soft — failures are warnings)"}:`
+);
 for (const gate of computation.behavioralGates) {
   let icon, note;
   if (!gate.dataAvailable) {
@@ -394,11 +432,15 @@ console.log("");
 console.log(`report: ${reportPath}`);
 if (BADGE) console.log(`badge:  ${badgeOutcome}`);
 if (APPLY && applyResult) {
-  console.log(`issues: created ${applyResult.createdCount}, skipped-open ${applyResult.skippedOpen}`);
+  console.log(
+    `issues: created ${applyResult.createdCount}, skipped-open ${applyResult.skippedOpen}`
+  );
 }
 if (!APPLY && computation.missingForNextLevel.length > 0) {
   console.log("");
-  console.log("Run with --apply to file GitHub issues for the next-level gaps (ship-loop will pick them up).");
+  console.log(
+    "Run with --apply to file GitHub issues for the next-level gaps (ship-loop will pick them up)."
+  );
 }
 
 const durationMs = Date.now() - startedAt;

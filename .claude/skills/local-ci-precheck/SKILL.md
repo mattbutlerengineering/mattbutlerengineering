@@ -22,12 +22,12 @@ This skill closes that gap: run it before push, get the same red/green CI gives 
 
 In parallel, from the repo root:
 
-| Step | Command | Mirrors CI job |
-|------|---------|---------------|
-| 1 | `pnpm install --frozen-lockfile` | `prepare` |
-| 2 | `pnpm lint` | `lint` |
-| 3 | `pnpm typecheck` | `typecheck` |
-| 4 | `pnpm --filter @mbe/cli build && pnpm --filter @mbe/cli start check-adr && pnpm --filter @mbe/cli start check-deps` | `architecture-audit` |
+| Step | Command                                                                                                             | Mirrors CI job       |
+| ---- | ------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| 1    | `pnpm install --frozen-lockfile`                                                                                    | `prepare`            |
+| 2    | `pnpm lint`                                                                                                         | `lint`               |
+| 3    | `pnpm typecheck`                                                                                                    | `typecheck`          |
+| 4    | `pnpm --filter @mbe/cli build && pnpm --filter @mbe/cli start check-adr && pnpm --filter @mbe/cli start check-deps` | `architecture-audit` |
 
 Steps 2–4 run in parallel after step 1 completes. Total time on a warm cache: ~30s (vs ~5 min for a CI round-trip).
 

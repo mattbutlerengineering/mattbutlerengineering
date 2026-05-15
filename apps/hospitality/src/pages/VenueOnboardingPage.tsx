@@ -9,7 +9,10 @@ import { PageHeader } from "../components/PageHeader";
 import { StepIndicator } from "../components/venue-onboarding/StepIndicator";
 import { BasicInfoStep } from "../components/venue-onboarding/BasicInfoStep";
 import { LocationTimeStep, detectTimezone } from "../components/venue-onboarding/LocationTimeStep";
-import { OperatingHoursStep, validateOperatingHours } from "../components/venue-onboarding/OperatingHoursStep";
+import {
+  OperatingHoursStep,
+  validateOperatingHours,
+} from "../components/venue-onboarding/OperatingHoursStep";
 import type { OperatingHoursValidationErrors } from "../components/venue-onboarding/OperatingHoursStep";
 import { SettingsStep } from "../components/venue-onboarding/SettingsStep";
 import { ConfirmationStep } from "../components/venue-onboarding/ConfirmationStep";
@@ -67,10 +70,11 @@ export function VenueOnboardingPage() {
   const [locationTimeErrors, setLocationTimeErrors] = useState<
     Partial<Record<keyof LocationTimeData, string>>
   >({});
-  const [settingsErrors, setSettingsErrors] = useState<
-    Partial<Record<keyof SettingsData, string>>
-  >({});
-  const [operatingHoursErrors, setOperatingHoursErrors] = useState<OperatingHoursValidationErrors | null>(null);
+  const [settingsErrors, setSettingsErrors] = useState<Partial<Record<keyof SettingsData, string>>>(
+    {}
+  );
+  const [operatingHoursErrors, setOperatingHoursErrors] =
+    useState<OperatingHoursValidationErrors | null>(null);
 
   // Track which steps have been completed (for step navigation)
   const [highestStepReached, setHighestStepReached] = useState(1);
@@ -205,7 +209,13 @@ export function VenueOnboardingPage() {
       default:
         return true;
     }
-  }, [currentStep, validateBasicInfo, validateLocationTime, validateOperatingHoursStep, validateSettings]);
+  }, [
+    currentStep,
+    validateBasicInfo,
+    validateLocationTime,
+    validateOperatingHoursStep,
+    validateSettings,
+  ]);
 
   const handleNext = () => {
     if (validateCurrentStep()) {
@@ -309,9 +319,7 @@ export function VenueOnboardingPage() {
           <Stack gap="lg">
             {currentStep === 1 && (
               <>
-                <Text variant="label">
-                  Basic Information
-                </Text>
+                <Text variant="label">Basic Information</Text>
                 <BasicInfoStep
                   data={basicInfo}
                   errors={basicInfoErrors}
@@ -324,9 +332,7 @@ export function VenueOnboardingPage() {
 
             {currentStep === 2 && (
               <>
-                <Text variant="label">
-                  Location & Time
-                </Text>
+                <Text variant="label">Location & Time</Text>
                 <LocationTimeStep
                   data={locationTime}
                   errors={locationTimeErrors}
@@ -338,9 +344,7 @@ export function VenueOnboardingPage() {
 
             {currentStep === 3 && (
               <>
-                <Text variant="label">
-                  Operating Hours
-                </Text>
+                <Text variant="label">Operating Hours</Text>
                 <OperatingHoursStep
                   data={operatingHours}
                   errors={operatingHoursErrors ?? undefined}
@@ -355,9 +359,7 @@ export function VenueOnboardingPage() {
 
             {currentStep === 4 && (
               <>
-                <Text variant="label">
-                  Venue Settings
-                </Text>
+                <Text variant="label">Venue Settings</Text>
                 <SettingsStep
                   data={settings}
                   errors={settingsErrors}
@@ -369,9 +371,7 @@ export function VenueOnboardingPage() {
 
             {currentStep === 5 && (
               <>
-                <Text variant="label">
-                  Review & Confirm
-                </Text>
+                <Text variant="label">Review & Confirm</Text>
                 <ConfirmationStep
                   basicInfo={basicInfo}
                   locationTime={locationTime}
@@ -390,11 +390,7 @@ export function VenueOnboardingPage() {
             )}
 
             <Stack direction="row" gap="md" justify="between">
-              <Button
-                variant="secondary"
-                onClick={handleBack}
-                disabled={currentStep === 1}
-              >
+              <Button variant="secondary" onClick={handleBack} disabled={currentStep === 1}>
                 Back
               </Button>
 
@@ -403,11 +399,7 @@ export function VenueOnboardingPage() {
                   Next
                 </Button>
               ) : (
-                <Button
-                  variant="primary"
-                  onClick={handleSubmit}
-                  disabled={isSubmitting}
-                >
+                <Button variant="primary" onClick={handleSubmit} disabled={isSubmitting}>
                   {isSubmitting ? "Creating..." : "Create Venue"}
                 </Button>
               )}

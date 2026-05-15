@@ -47,9 +47,7 @@ describe("TablesClient", () => {
     });
 
     it("appends filter params when provided", async () => {
-      mockFetch.mockResolvedValueOnce(
-        jsonResponse({ data: [], total: 0, page: 1, limit: 10 })
-      );
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: [], total: 0, page: 1, limit: 10 }));
 
       await makeClient().list({ venueId: "v1", activeOnly: true, page: 1, limit: 20 });
 

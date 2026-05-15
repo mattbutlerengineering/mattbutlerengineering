@@ -45,10 +45,7 @@ describe("serviceHealthCheck", () => {
   });
 
   it("returns unreachable status when fetch throws", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockRejectedValue(new Error("ECONNREFUSED"))
-    );
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("ECONNREFUSED")));
 
     const result = await serviceHealthCheck();
     const parsed = JSON.parse(result) as Array<{
@@ -97,10 +94,7 @@ describe("serviceHealthCheck", () => {
   });
 
   it("result is a valid MCP text content string", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockRejectedValue(new Error("offline"))
-    );
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
 
     const result = await serviceHealthCheck();
     const mcpContent = [{ type: "text" as const, text: result }];

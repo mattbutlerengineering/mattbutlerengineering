@@ -15,14 +15,14 @@ A correction is captured whenever the agent:
 
 Each correction file is a Markdown document named `YYYY-MM-DD-<slug>.md` containing:
 
-| Field | Description |
-|-------|-------------|
-| `date` | ISO 8601 date |
-| `session` | Session identifier |
-| `trigger` | What the agent did wrong |
+| Field        | Description                            |
+| ------------ | -------------------------------------- |
+| `date`       | ISO 8601 date                          |
+| `session`    | Session identifier                     |
+| `trigger`    | What the agent did wrong               |
 | `correction` | What the user (or hook) said to fix it |
-| `root_cause` | Why the mistake happened |
-| `prevention` | Rule or check to avoid recurrence |
+| `root_cause` | Why the mistake happened               |
+| `prevention` | Rule or check to avoid recurrence      |
 
 ### Positive reinforcements (`reinforcements/`)
 
@@ -34,12 +34,12 @@ A reinforcement is captured whenever the agent:
 
 Each reinforcement file uses the same naming convention and contains:
 
-| Field | Description |
-|-------|-------------|
-| `date` | ISO 8601 date |
-| `session` | Session identifier |
-| `action` | What the agent did well |
-| `context` | Why it was effective |
+| Field     | Description                |
+| --------- | -------------------------- |
+| `date`    | ISO 8601 date              |
+| `session` | Session identifier         |
+| `action`  | What the agent did well    |
+| `context` | Why it was effective       |
 | `pattern` | Reusable pattern to repeat |
 
 ## How memories are used

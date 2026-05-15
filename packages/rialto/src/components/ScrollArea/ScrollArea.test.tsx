@@ -82,4 +82,5 @@ describe("ScrollArea", () => {
       );
       expect(ref.current).toBeInstanceOf(HTMLDivElement);
     });
-  });});
+  });
+});

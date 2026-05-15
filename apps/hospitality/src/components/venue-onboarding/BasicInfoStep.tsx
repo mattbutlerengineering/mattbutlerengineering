@@ -16,7 +16,13 @@ interface BasicInfoStepProps {
   slugStatus?: "idle" | "checking" | "available" | "taken";
 }
 
-export function BasicInfoStep({ data, errors, onChange, onValidate, slugStatus }: BasicInfoStepProps) {
+export function BasicInfoStep({
+  data,
+  errors,
+  onChange,
+  onValidate,
+  slugStatus,
+}: BasicInfoStepProps) {
   const handleNameChange = (value: string) => {
     const currentSlugIsAuto = data.slug === generateSlug(data.name);
     const newSlug = currentSlugIsAuto || data.slug === "" ? generateSlug(value) : data.slug;

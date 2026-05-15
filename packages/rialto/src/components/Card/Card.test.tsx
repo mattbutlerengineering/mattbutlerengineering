@@ -60,7 +60,11 @@ describe("Card", () => {
     });
 
     it("does not set data-tilt for glass variant even with tilt=true", () => {
-      const { container } = render(<Card tilt variant="glass">No tilt glass</Card>);
+      const { container } = render(
+        <Card tilt variant="glass">
+          No tilt glass
+        </Card>
+      );
       expect(container.firstElementChild).not.toHaveAttribute("data-tilt");
     });
   });

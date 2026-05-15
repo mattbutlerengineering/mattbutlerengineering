@@ -116,4 +116,5 @@ describe("Navbar", () => {
       render(<Navbar ref={ref} links={links} />);
       expect(ref.current).toBeInstanceOf(HTMLElement);
     });
-  });});
+  });
+});

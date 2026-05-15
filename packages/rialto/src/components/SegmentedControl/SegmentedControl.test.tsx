@@ -132,4 +132,5 @@ describe("SegmentedControl", () => {
       render(<SegmentedControl ref={ref} segments={segments} value="day" onChange={vi.fn()} />);
       expect(ref.current).toBeInstanceOf(HTMLDivElement);
     });
-  });});
+  });
+});

@@ -48,7 +48,7 @@ describe("cleanup-worktrees command", () => {
     mockReaddirSync.mockReturnValue(["agent-1"] as any);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockStatSync.mockReturnValue({ mtimeMs: Date.now() - 2 * 24 * 60 * 60 * 1000 } as any);
-    
+
     await runCleanup(["--days", "1"]);
 
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("Found 1 orphaned worktrees"));
@@ -63,7 +63,13 @@ describe("cleanup-worktrees command", () => {
 
     await runCleanup(["--force"]);
 
-    expect(mockExecSync).toHaveBeenCalledWith(expect.stringContaining("git worktree remove"), expect.anything());
-    expect(mockExecSync).toHaveBeenCalledWith(expect.stringContaining('git branch -D "worktree-agent-2"'), expect.anything());
+    expect(mockExecSync).toHaveBeenCalledWith(
+      expect.stringContaining("git worktree remove"),
+      expect.anything()
+    );
+    expect(mockExecSync).toHaveBeenCalledWith(
+      expect.stringContaining('git branch -D "worktree-agent-2"'),
+      expect.anything()
+    );
   });
 });

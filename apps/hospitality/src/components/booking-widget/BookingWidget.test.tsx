@@ -18,7 +18,9 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   ),
   Text: ({ children }: any) => <div>{children}</div>,
   Button: ({ children, onClick, disabled }: any) => (
-    <button onClick={onClick} disabled={disabled}>{children}</button>
+    <button onClick={onClick} disabled={disabled}>
+      {children}
+    </button>
   ),
   Card: ({ children }: any) => <div>{children}</div>,
   Heading: ({ children }: any) => <h2>{children}</h2>,
@@ -29,7 +31,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Alert: ({ children }: any) => <div data-testid="alert">{children}</div>,
   EmptyState: ({ heading }: any) => <div>{heading}</div>,
   Input: (props: any) => {
-    const id = props.id || props.label?.replace(/\s+/g, '-').toLowerCase() || 'input';
+    const id = props.id || props.label?.replace(/\s+/g, "-").toLowerCase() || "input";
     return (
       <div>
         <label htmlFor={id}>{props.label}</label>
@@ -43,7 +45,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   },
   Label: ({ children }: any) => <label>{children}</label>,
   TextArea: (props: any) => {
-    const id = props.id || props.label?.replace(/\s+/g, '-').toLowerCase() || 'textarea';
+    const id = props.id || props.label?.replace(/\s+/g, "-").toLowerCase() || "textarea";
     return (
       <div>
         <label htmlFor={id}>{props.label}</label>
@@ -76,11 +78,11 @@ describe("BookingWidget", () => {
     // Step 1: Date & Party
     renderWidget();
     expect(screen.getByText("Date & Party")).toBeDefined();
-    
+
     // Simulate date selection
     const dateInput = screen.getByLabelText("Date");
     fireEvent.change(dateInput, { target: { value: "2026-05-20" } });
-    
+
     mockApi.availability.getTimeSlots.mockResolvedValue([
       { time: "2026-05-20T18:00:00", available: true },
       { time: "2026-05-20T19:00:00", available: true },
@@ -105,10 +107,10 @@ describe("BookingWidget", () => {
 
     // Step 3: Details
     await waitFor(() => expect(screen.getByText("Details")).toBeDefined());
-    
+
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "John Doe" } });
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "john@example.com" } });
-    
+
     mockApi.holds.confirm.mockResolvedValue({
       id: "res-123",
       status: "CONFIRMED",
@@ -128,7 +130,7 @@ describe("BookingWidget", () => {
     renderWidget();
     const dateInput = screen.getByLabelText("Date");
     fireEvent.change(dateInput, { target: { value: "2026-05-20" } });
-    
+
     mockApi.availability.getTimeSlots.mockRejectedValue(new Error("API Down"));
 
     fireEvent.click(screen.getByText("Find Available Times"));

@@ -48,9 +48,7 @@ describe("GuestsClient", () => {
     });
 
     it("appends optional page and limit", async () => {
-      mockFetch.mockResolvedValueOnce(
-        jsonResponse({ data: [], total: 0, page: 2, limit: 5 })
-      );
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: [], total: 0, page: 2, limit: 5 }));
 
       await makeClient().list({ venueId: "v1", page: 2, limit: 5 });
 
@@ -71,9 +69,7 @@ describe("GuestsClient", () => {
 
   describe("search", () => {
     it("requests /api/v1/guests/search with venueId", async () => {
-      mockFetch.mockResolvedValueOnce(
-        jsonResponse({ data: [], total: 0, page: 1, limit: 10 })
-      );
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: [], total: 0, page: 1, limit: 10 }));
 
       await makeClient().search({ venueId: "v1", query: "Bob" });
 
@@ -85,9 +81,7 @@ describe("GuestsClient", () => {
     });
 
     it("includes hasNotVisitedInDays when provided", async () => {
-      mockFetch.mockResolvedValueOnce(
-        jsonResponse({ data: [], total: 0, page: 1, limit: 10 })
-      );
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: [], total: 0, page: 1, limit: 10 }));
 
       await makeClient().search({ venueId: "v1", hasNotVisitedInDays: 30 });
 

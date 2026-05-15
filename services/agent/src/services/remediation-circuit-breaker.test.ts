@@ -1,8 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import {
-  checkCircuitBreaker,
-  recordRemediationOutcome,
-} from "./remediation-circuit-breaker.js";
+import { checkCircuitBreaker, recordRemediationOutcome } from "./remediation-circuit-breaker.js";
 
 function resetCircuitState(): void {
   recordRemediationOutcome(true);

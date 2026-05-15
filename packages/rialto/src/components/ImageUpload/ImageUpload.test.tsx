@@ -74,13 +74,7 @@ describe("ImageUpload", () => {
       const user = userEvent.setup();
       const onChange = vi.fn();
       const onError = vi.fn();
-      render(
-        <ImageUpload
-          onChange={onChange}
-          onValidationError={onError}
-          maxSize={1024}
-        />
-      );
+      render(<ImageUpload onChange={onChange} onValidationError={onError} maxSize={1024} />);
       const input = document.querySelector("input[type='file']") as HTMLInputElement;
       const bigFile = createFile("huge.png", 2048, "image/png");
 

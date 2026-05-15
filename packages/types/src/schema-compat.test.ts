@@ -50,7 +50,7 @@ describe("compareSchema", () => {
       const result = compareSchema("Test", baseline, current);
       expect(result.breaking).toHaveLength(0);
       expect(result.nonBreaking).toHaveLength(1);
-      expect(result.nonBreaking[0]).toContain("optional property \"name\" was added");
+      expect(result.nonBreaking[0]).toContain('optional property "name" was added');
     });
 
     it("detects required property addition as breaking", () => {
@@ -66,7 +66,7 @@ describe("compareSchema", () => {
       };
       const result = compareSchema("Test", baseline, current);
       expect(result.breaking).toHaveLength(1);
-      expect(result.breaking[0]).toContain("required property \"email\" was added");
+      expect(result.breaking[0]).toContain('required property "email" was added');
     });
 
     it("handles multiple new optional properties", () => {
@@ -101,7 +101,7 @@ describe("compareSchema", () => {
       };
       const result = compareSchema("Test", baseline, current);
       expect(result.breaking).toHaveLength(1);
-      expect(result.breaking[0]).toContain("property \"old\" was removed");
+      expect(result.breaking[0]).toContain('property "old" was removed');
     });
 
     it("detects multiple field removals", () => {
@@ -130,7 +130,7 @@ describe("compareSchema", () => {
       };
       const result = compareSchema("Test", baseline, current);
       expect(result.breaking).toHaveLength(1);
-      expect(result.breaking[0]).toContain("type changed from \"string\" to \"number\"");
+      expect(result.breaking[0]).toContain('type changed from "string" to "number"');
     });
 
     it("does not report type change when types match", () => {
@@ -174,7 +174,7 @@ describe("compareSchema", () => {
       };
       const result = compareSchema("Test", baseline, current);
       expect(result.breaking).toHaveLength(1);
-      expect(result.breaking[0]).toContain("property \"name\" became required");
+      expect(result.breaking[0]).toContain('property "name" became required');
     });
 
     it("detects required-to-optional transition as non-breaking", () => {
@@ -189,7 +189,7 @@ describe("compareSchema", () => {
       };
       const result = compareSchema("Test", baseline, current);
       expect(result.nonBreaking).toHaveLength(1);
-      expect(result.nonBreaking[0]).toContain("property \"name\" became optional");
+      expect(result.nonBreaking[0]).toContain('property "name" became optional');
     });
 
     it("does not report required change for newly added fields", () => {

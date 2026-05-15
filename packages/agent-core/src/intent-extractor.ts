@@ -39,10 +39,7 @@ interface AnthropicSDKModule {
  * for forced tool use with Claude Haiku.
  */
 export const IssueIntentSchema = z.object({
-  summary: z
-    .string()
-    .max(200)
-    .describe("One-sentence task description for the agent"),
+  summary: z.string().max(200).describe("One-sentence task description for the agent"),
   acceptanceCriteria: z
     .array(z.string())
     .max(10)
@@ -72,7 +69,11 @@ const INTENT_TOOL_SCHEMA = {
   type: "object" as const,
   required: ["summary", "acceptanceCriteria", "estimatedScope", "taskDescription"],
   properties: {
-    summary: { type: "string", maxLength: 200, description: "One-sentence task description for the agent" },
+    summary: {
+      type: "string",
+      maxLength: 200,
+      description: "One-sentence task description for the agent",
+    },
     acceptanceCriteria: {
       type: "array",
       items: { type: "string" },
@@ -87,7 +88,8 @@ const INTENT_TOOL_SCHEMA = {
     estimatedScope: {
       type: "string",
       enum: ["trivial", "small", "medium", "large"],
-      description: "trivial: typo/config; small: 1-2 files; medium: 3-10 files; large: 10+ or arch change",
+      description:
+        "trivial: typo/config; small: 1-2 files; medium: 3-10 files; large: 10+ or arch change",
     },
     taskDescription: { type: "string", maxLength: 2000, description: "Complete agent task prompt" },
   },
@@ -143,9 +145,7 @@ export async function extractIssueIntent(
       tool_choice: { type: "tool" as const, name: "extract_intent" },
     });
 
-    const toolUse = response.content.find(
-      (b: ContentBlock) => b.type === "tool_use"
-    );
+    const toolUse = response.content.find((b: ContentBlock) => b.type === "tool_use");
     if (!toolUse || toolUse.type !== "tool_use") {
       span.setAttribute("extraction.success", false);
       return null;
