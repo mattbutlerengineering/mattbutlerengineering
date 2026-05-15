@@ -21,6 +21,7 @@
     "generate": "tsx scripts/generate-catalog.ts",
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:drift": "vitest run src/__tests__/drift-check.test.ts",
     "typecheck": "tsc --noEmit"
   },
