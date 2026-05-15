@@ -546,4 +546,98 @@ describe("Edge Router", () => {
       expect(bindings).toHaveLength(expected.length);
     });
   });
+
+  describe("Audit token bypass", () => {
+    it("bypasses rate limiting for requests with valid X-Audit-Token", async () => {
+      const auditEnv = {
+        ...env,
+        AUDIT_TOKEN: "test-audit-secret",
+        HEALTH_STATE: {
+          ...createMockKv(),
+          get: vi.fn(async (key) => {
+            if (key.startsWith("ratelimit:")) return "999";
+            return null;
+          }),
+          put: vi.fn(),
+        },
+      };
+
+      // Without audit token, /health/system is rate-limited (limit=10)
+      const blockedResponse = await edgeRouter.fetch(
+        makeRequest("/health/system"),
+        auditEnv
+      );
+      expect(blockedResponse.status).toBe(429);
+
+      // With valid audit token, rate limiting is bypassed
+      const auditResponse = await edgeRouter.fetch(
+        makeRequest("/health/system", {
+          headers: { "X-Audit-Token": "test-audit-secret" },
+        }),
+        auditEnv
+      );
+      expect(auditResponse.status).toBe(200);
+    });
+
+    it("does not bypass rate limiting for invalid X-Audit-Token", async () => {
+      const auditEnv = {
+        ...env,
+        AUDIT_TOKEN: "test-audit-secret",
+        HEALTH_STATE: {
+          ...createMockKv(),
+          get: vi.fn(async (key) => {
+            if (key.startsWith("ratelimit:")) return "999";
+            return null;
+          }),
+          put: vi.fn(),
+        },
+      };
+
+      const response = await edgeRouter.fetch(
+        makeRequest("/health/system", {
+          headers: { "X-Audit-Token": "wrong-token" },
+        }),
+        auditEnv
+      );
+      expect(response.status).toBe(429);
+    });
+
+    it("does not bypass rate limiting when AUDIT_TOKEN is not configured", async () => {
+      const noTokenEnv = {
+        ...env,
+        HEALTH_STATE: {
+          ...createMockKv(),
+          get: vi.fn(async (key) => {
+            if (key.startsWith("ratelimit:")) return "999";
+            return null;
+          }),
+          put: vi.fn(),
+        },
+      };
+
+      const response = await edgeRouter.fetch(
+        makeRequest("/health/system", {
+          headers: { "X-Audit-Token": "some-token" },
+        }),
+        noTokenEnv
+      );
+      expect(response.status).toBe(429);
+    });
+
+    it("serves static site content normally for audit-verified requests", async () => {
+      const auditEnv = {
+        ...env,
+        AUDIT_TOKEN: "test-audit-secret",
+      };
+
+      const response = await edgeRouter.fetch(
+        makeRequest("/", {
+          headers: { "X-Audit-Token": "test-audit-secret" },
+        }),
+        auditEnv
+      );
+      expect(response.status).toBe(200);
+      expect(env.MARKETING.fetch).toHaveBeenCalled();
+    });
+  });
 });
