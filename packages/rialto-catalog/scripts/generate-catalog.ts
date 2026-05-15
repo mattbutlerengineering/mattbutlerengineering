@@ -179,7 +179,7 @@ function mapTypeToZod(
       (p) => (p.startsWith('"') && p.endsWith('"')) || (p.startsWith("'") && p.endsWith("'"))
     )
   ) {
-    const values = unionParts.map((p) => `"${p.replace(/^['"]/,  "").replace(/['"]$/, "")}"`);
+    const values = unionParts.map((p) => `"${p.replace(/^['"]/, "").replace(/['"]$/, "")}"`);
     const schema = `z.enum([${values.join(", ")}])`;
     return optional ? `${schema}.optional()` : schema;
   }
@@ -364,6 +364,7 @@ const HARDCODED_SCHEMA_LINES: Record<string, string[]> = {
 
 function formatGeneratedSchemas(componentSchemas: Map<string, PropSchema[]>): string {
   const lines: string[] = [
+    "/* eslint-disable */",
     "// AUTO-GENERATED -- do not edit. Run: pnpm --filter @mbe/rialto-catalog generate",
     'import { z } from "zod";',
     "",

@@ -1,3 +1,4 @@
+/* eslint-disable */
 // AUTO-GENERATED -- do not edit. Run: pnpm --filter @mbe/rialto-catalog generate
 import { z } from "zod";
 
@@ -130,18 +131,7 @@ export const generatedSchemas = {
   }),
   Text: z.object({
     variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-    color: z
-      .enum([
-        "success",
-        "warning",
-        "error",
-        "accent",
-        "primary",
-        "secondary",
-        "tertiary",
-        "on-accent",
-      ])
-      .optional(),
+    color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
     align: z.enum(["center", "left", "right"]).optional(),
     mono: z.boolean().optional(),
     truncate: z.boolean().optional(),
