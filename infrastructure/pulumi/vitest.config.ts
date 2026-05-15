@@ -8,8 +8,13 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
+      include: ["**/*.ts"],
+      exclude: ["**/*.test.ts", "**/node_modules/**"],
       thresholds: {
-        lines: 50, // Start low as Pulumi is hard to cover 100%
+        lines: 95,
+        branches: 85,
+        functions: 95,
+        statements: 95,
       },
     },
   },

@@ -33,7 +33,10 @@ export default defineConfig({
         "src/pages/**", // Exclude static documentation pages
       ],
       thresholds: {
-        lines: 30, // Appropriate threshold for layout/context wrappers
+        lines: 80,
+        branches: 65,
+        functions: 80,
+        statements: 80,
       },
     },
     css: {
