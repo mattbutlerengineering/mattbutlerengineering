@@ -126,8 +126,68 @@ describe("Spinner", () => {
     expect(screen.getByRole("status")).toBeInTheDocument();
   });
 
+  it("supports size=md explicitly", () => {
+    render(<Spinner size="md" />);
+    expect(screen.getByRole("status")).toBeInTheDocument();
+  });
+
   it("has aria-live=polite", () => {
     render(<Spinner />);
     expect(screen.getByRole("status")).toHaveAttribute("aria-live", "polite");
+  });
+
+  it("forwards custom className", () => {
+    render(<Spinner className="my-spinner" />);
+    expect(screen.getByRole("status")).toHaveClass("my-spinner");
+  });
+
+  it("forwards ref to the wrapper div", () => {
+    const ref = { current: null as HTMLDivElement | null };
+    render(<Spinner ref={ref} />);
+    expect(ref.current).toBeInstanceOf(HTMLDivElement);
+  });
+
+  it("renders an SVG inside the spinner", () => {
+    const { container } = render(<Spinner />);
+    expect(container.querySelector("svg")).toBeInTheDocument();
+  });
+});
+
+describe("Progress — additional coverage", () => {
+  it("forwards custom className", () => {
+    const { container } = render(<Progress value={50} className="my-progress" />);
+    expect(container.firstElementChild?.className).toMatch(/my-progress/);
+  });
+
+  it("forwards ref to the wrapper div", () => {
+    const ref = { current: null as HTMLDivElement | null };
+    render(<Progress value={50} ref={ref} />);
+    expect(ref.current).toBeInstanceOf(HTMLDivElement);
+  });
+
+  it("does not show percentage when showValue=true but value is undefined (indeterminate)", () => {
+    const { container } = render(<Progress label="Loading" showValue />);
+    // showValue without a value — label row renders but no percentage span
+    expect(container.querySelector("[class*='value']")).not.toBeInTheDocument();
+  });
+
+  it("applies trackSm class when size=sm", () => {
+    const { container } = render(<Progress value={50} size="sm" />);
+    expect(container.querySelector("[class*='trackSm']")).toBeInTheDocument();
+  });
+
+  it("applies trackLg class when size=lg", () => {
+    const { container } = render(<Progress value={50} size="lg" />);
+    expect(container.querySelector("[class*='trackLg']")).toBeInTheDocument();
+  });
+
+  it("renders indeterminate div when value is undefined", () => {
+    const { container } = render(<Progress />);
+    expect(container.querySelector("[class*='indeterminate']")).toBeInTheDocument();
+  });
+
+  it("renders fill div when value is defined (determinate)", () => {
+    const { container } = render(<Progress value={60} />);
+    expect(container.querySelector("[class*='fill']")).toBeInTheDocument();
   });
 });

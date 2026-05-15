@@ -133,6 +133,25 @@ describe("SkeletonGroup", () => {
       expect(el).toHaveAttribute("aria-busy", "true");
       expect(el).toHaveAttribute("aria-label", "Loading content");
     });
+
+    it("forwards custom className", () => {
+      const { container } = render(
+        <SkeletonGroup className="my-group">
+          <Skeleton />
+        </SkeletonGroup>
+      );
+      expect(container.firstElementChild?.className).toMatch(/my-group/);
+    });
+
+    it("renders multiple skeleton children", () => {
+      const { container } = render(
+        <SkeletonGroup>
+          <Skeleton variant="circle" width={40} />
+          <Skeleton variant="text" lines={2} />
+        </SkeletonGroup>
+      );
+      expect(container.querySelectorAll("[aria-hidden='true']").length).toBeGreaterThanOrEqual(2);
+    });
   });
 
   describe("ref forwarding", () => {
@@ -144,6 +163,65 @@ describe("SkeletonGroup", () => {
         </SkeletonGroup>
       );
       expect(ref.current).toBeInstanceOf(HTMLDivElement);
+    });
+  });
+});
+
+describe("Skeleton — additional coverage", () => {
+  describe("string height", () => {
+    it("applies string height directly", () => {
+      const { container } = render(<Skeleton height="5rem" />);
+      const el = container.querySelector("[aria-hidden='true']") as HTMLElement;
+      expect(el.style.height).toBe("5rem");
+    });
+  });
+
+  describe("circle auto-height with string width", () => {
+    it("sets height equal to string width for circle when no height given", () => {
+      const { container } = render(<Skeleton variant="circle" width="3rem" />);
+      const el = container.firstElementChild as HTMLElement;
+      expect(el.style.height).toBe("3rem");
+    });
+
+    it("does not override explicit height on circle", () => {
+      const { container } = render(<Skeleton variant="circle" width={48} height={60} />);
+      const el = container.firstElementChild as HTMLElement;
+      // explicit height wins — auto-height condition requires !height
+      expect(el.style.height).toBe("60px");
+    });
+  });
+
+  describe("gap as string", () => {
+    it("renders multi-line skeleton with string gap", () => {
+      const { container } = render(<Skeleton variant="text" lines={2} gap="1rem" />);
+      const wrapper = container.firstElementChild as HTMLElement;
+      expect(wrapper.style.gap).toBe("1rem");
+    });
+  });
+
+  describe("lines=1 with text variant renders single div", () => {
+    it("renders a single div (not multi-line wrapper) for lines=1", () => {
+      const { container } = render(<Skeleton variant="text" lines={1} />);
+      // Single element — no wrapper with children
+      expect(container.firstElementChild?.tagName).toBe("DIV");
+      expect(container.firstElementChild?.querySelectorAll("div")).toHaveLength(0);
+    });
+  });
+
+  describe("rect variant with explicit dimensions", () => {
+    it("applies both width and height", () => {
+      const { container } = render(<Skeleton variant="rect" width={100} height={50} />);
+      const el = container.firstElementChild as HTMLElement;
+      expect(el.style.width).toBe("100px");
+      expect(el.style.height).toBe("50px");
+    });
+  });
+
+  describe("card variant", () => {
+    it("renders single card div with card class and aria-hidden", () => {
+      const { container } = render(<Skeleton variant="card" width={300} height={180} />);
+      expect(container.querySelector("[aria-hidden='true']")).toBeInTheDocument();
+      expect(container.firstElementChild?.className).toMatch(/card/);
     });
   });
 });

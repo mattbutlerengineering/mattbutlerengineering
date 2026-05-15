@@ -93,4 +93,39 @@ describe("Timeline", () => {
       render(<Timeline ref={ref} events={events} />);
       expect(ref.current).toBeInstanceOf(HTMLDivElement);
     });
-  });});
+  });
+
+  describe("compact class", () => {
+    it("applies compact class when compact prop is true", () => {
+      const { container } = render(<Timeline events={events} compact />);
+      expect(container.firstElementChild?.className).toMatch(/compact/);
+    });
+
+    it("does not apply compact class by default", () => {
+      const { container } = render(<Timeline events={events} />);
+      expect(container.firstElementChild?.className).not.toMatch(/compact/);
+    });
+  });
+
+  describe("className passthrough", () => {
+    it("applies custom className to the container", () => {
+      const { container } = render(<Timeline events={events} className="my-timeline" />);
+      expect(container.firstElementChild?.className).toMatch(/my-timeline/);
+    });
+  });
+
+  describe("empty events list", () => {
+    it("renders container with no items when events is empty", () => {
+      render(<Timeline events={[]} />);
+      expect(screen.queryAllByRole("listitem")).toHaveLength(0);
+      expect(screen.getByRole("list")).toBeInTheDocument();
+    });
+  });
+
+  describe("missing timestamp", () => {
+    it("renders without crashing when timestamp is omitted", () => {
+      render(<Timeline events={[{ title: "No Time", status: "upcoming" }]} />);
+      expect(screen.getByText("No Time")).toBeInTheDocument();
+    });
+  });
+});
