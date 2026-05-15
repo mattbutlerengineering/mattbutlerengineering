@@ -2,7 +2,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "vitest-axe";
 import { ContextMenu } from "./ContextMenu";
-import type { ContextMenuEntry } from "./ContextMenu";
+import type { ContextMenuEntry, ContextMenuItemDef } from "./ContextMenu";
 
 const items: ContextMenuEntry[] = [
   { id: "copy", label: "Copy", onSelect: vi.fn() },
@@ -79,7 +79,7 @@ describe("ContextMenu", () => {
       renderContextMenu();
       rightClick(screen.getByTestId("trigger"));
       fireEvent.click(screen.getByRole("menuitem", { name: "Copy" }));
-      expect(items[0]!.onSelect as ReturnType<typeof vi.fn>).toHaveBeenCalledOnce();
+      expect((items[0]! as ContextMenuItemDef).onSelect as ReturnType<typeof vi.fn>).toHaveBeenCalledOnce();
     });
 
     it("closes menu after item click", async () => {
