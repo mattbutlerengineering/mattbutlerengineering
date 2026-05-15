@@ -63,7 +63,11 @@ describe("Button", () => {
     it("does not call onClick when disabled", async () => {
       const user = userEvent.setup();
       const onClick = vi.fn();
-      render(<Button disabled onClick={onClick}>Disabled</Button>);
+      render(
+        <Button disabled onClick={onClick}>
+          Disabled
+        </Button>
+      );
       await user.click(screen.getByRole("button"));
       expect(onClick).not.toHaveBeenCalled();
     });
@@ -95,7 +99,11 @@ describe("Button", () => {
     });
 
     it("shows loadingText when provided", () => {
-      render(<Button isLoading loadingText="Saving...">Save</Button>);
+      render(
+        <Button isLoading loadingText="Saving...">
+          Save
+        </Button>
+      );
       expect(screen.getByText("Saving...")).toBeInTheDocument();
     });
 
@@ -107,7 +115,11 @@ describe("Button", () => {
     it("does not fire onClick while loading", async () => {
       const user = userEvent.setup();
       const onClick = vi.fn();
-      render(<Button isLoading onClick={onClick}>Save</Button>);
+      render(
+        <Button isLoading onClick={onClick}>
+          Save
+        </Button>
+      );
       await user.click(screen.getByRole("button"));
       expect(onClick).not.toHaveBeenCalled();
     });
@@ -129,6 +141,34 @@ describe("Button", () => {
     it("accepts type='submit'", () => {
       render(<Button type="submit">Submit</Button>);
       expect(screen.getByRole("button")).toHaveAttribute("type", "submit");
+    });
+  });
+
+  describe("md size (default)", () => {
+    it("does not apply sm or lg class for default md size", () => {
+      const { container } = render(<Button size="md">Medium</Button>);
+      const btn = container.querySelector("button");
+      expect(btn?.className).not.toMatch(/\bsm\b/);
+      expect(btn?.className).not.toMatch(/\blg\b/);
+    });
+  });
+
+  describe("loading with sm size", () => {
+    it("renders spinner at sm size when loading", () => {
+      const { container } = render(
+        <Button size="sm" isLoading>
+          Save
+        </Button>
+      );
+      // Loader2 renders as an svg inside the button
+      expect(container.querySelector("svg")).toBeInTheDocument();
+    });
+  });
+
+  describe("no children", () => {
+    it("renders without children", () => {
+      render(<Button aria-label="icon button" />);
+      expect(screen.getByRole("button", { name: "icon button" })).toBeInTheDocument();
     });
   });
 });

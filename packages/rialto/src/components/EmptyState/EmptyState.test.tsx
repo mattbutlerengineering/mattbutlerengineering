@@ -78,4 +78,52 @@ describe("EmptyState", () => {
       expect(ref.current).toBeInstanceOf(HTMLDivElement);
     });
   });
+
+  describe("additional coverage", () => {
+    it("forwards HTML attributes like data-testid", () => {
+      render(<EmptyState data-testid="empty-state" heading="Test" />);
+      expect(screen.getByTestId("empty-state")).toBeInTheDocument();
+    });
+
+    it("renders all slots together", () => {
+      render(
+        <EmptyState
+          heading="No results"
+          description="Try adjusting your filters."
+          action={<button type="button">Reset</button>}
+          icon={<span data-testid="icon" />}
+        />
+      );
+      expect(screen.getByText("No results")).toBeInTheDocument();
+      expect(screen.getByText("Try adjusting your filters.")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Reset" })).toBeInTheDocument();
+      expect(screen.getByTestId("icon")).toBeInTheDocument();
+    });
+
+    it("applies emptyState base CSS class", () => {
+      const { container } = render(<EmptyState />);
+      expect(container.firstElementChild?.className).toMatch(/emptyState/);
+    });
+
+    it("does not render heading paragraph when heading is absent", () => {
+      const { container } = render(<EmptyState description="desc" />);
+      // Only one p element — the description
+      expect(container.querySelectorAll("p")).toHaveLength(1);
+    });
+
+    it("does not render description paragraph when description is absent", () => {
+      const { container } = render(<EmptyState heading="Title" />);
+      expect(container.querySelectorAll("p")).toHaveLength(1);
+    });
+
+    it("does not render action wrapper when action is absent", () => {
+      const { container } = render(<EmptyState heading="Empty" />);
+      expect(container.querySelector("[class*='action']")).not.toBeInTheDocument();
+    });
+
+    it("does not render icon wrapper when icon=null", () => {
+      const { container } = render(<EmptyState icon={null} />);
+      expect(container.querySelector("[class*='icon']")).not.toBeInTheDocument();
+    });
+  });
 });

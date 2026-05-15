@@ -106,4 +106,45 @@ describe("Stat", () => {
       expect(ref.current).toBeInstanceOf(HTMLDivElement);
     });
   });
+
+  describe("additional coverage", () => {
+    it("applies stat base CSS class", () => {
+      const { container } = render(<Stat label="L" value="V" />);
+      expect(container.firstElementChild?.className).toMatch(/stat/);
+    });
+
+    it("forwards HTML attributes like data-testid", () => {
+      render(<Stat label="L" value="V" data-testid="my-stat" />);
+      expect(screen.getByTestId("my-stat")).toBeInTheDocument();
+    });
+
+    it("does not render delta span when delta is absent", () => {
+      const { container } = render(<Stat label="L" value="V" />);
+      expect(container.querySelector("[class*='delta']")).not.toBeInTheDocument();
+    });
+
+    it("renders delta without trend arrow when trend=neutral and delta provided", () => {
+      const { container } = render(<Stat label="L" value="V" delta="0" />);
+      // delta renders but no svg arrow
+      expect(screen.getByText("0")).toBeInTheDocument();
+      expect(container.querySelector("svg")).not.toBeInTheDocument();
+    });
+
+    it("value span is in the document", () => {
+      render(<Stat label="Speed" value="320 km/h" />);
+      expect(screen.getByText("320 km/h")).toBeInTheDocument();
+    });
+
+    it("trend=up renders upward path in svg", () => {
+      const { container } = render(<Stat label="L" value="V" delta="+5" trend="up" />);
+      const path = container.querySelector("path");
+      expect(path?.getAttribute("d")).toMatch(/M6 10V2/);
+    });
+
+    it("trend=down renders downward path in svg", () => {
+      const { container } = render(<Stat label="L" value="V" delta="-5" trend="down" />);
+      const path = container.querySelector("path");
+      expect(path?.getAttribute("d")).toMatch(/M6 2v8/);
+    });
+  });
 });

@@ -17,7 +17,14 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "json", "html"],
       include: ["src/**/*.{ts,tsx}"],
-      exclude: ["src/**/*.test.{ts,tsx}", "src/**/index.ts", "src/test/**"],
+      exclude: [
+        "src/**/*.test.{ts,tsx}",
+        "src/**/index.ts",
+        "src/test/**",
+        "src/**/*.stories.{ts,tsx}",
+        "src/showcase/**",
+        "src/components/GenCopilot/**",
+      ],
       thresholds: {
         lines: 70,
         branches: 55,

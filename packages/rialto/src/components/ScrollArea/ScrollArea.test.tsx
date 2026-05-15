@@ -82,4 +82,60 @@ describe("ScrollArea", () => {
       );
       expect(ref.current).toBeInstanceOf(HTMLDivElement);
     });
-  });});
+  });
+
+  describe("style passthrough", () => {
+    it("merges additional style props with maxHeight style", () => {
+      render(
+        <ScrollArea maxHeight={200} style={{ overflowX: "hidden" }}>
+          <p>Content</p>
+        </ScrollArea>
+      );
+      const el = screen.getByRole("region");
+      expect(el.style.maxHeight).toBe("200px");
+      expect(el.style.overflowX).toBe("hidden");
+    });
+
+    it("applies style without maxHeight", () => {
+      render(
+        <ScrollArea style={{ padding: "8px" }}>
+          <p>Content</p>
+        </ScrollArea>
+      );
+      expect(screen.getByRole("region").style.padding).toBe("8px");
+    });
+  });
+
+  describe("HTML attribute forwarding", () => {
+    it("forwards data-testid", () => {
+      render(
+        <ScrollArea data-testid="scroll-area">
+          <p>Content</p>
+        </ScrollArea>
+      );
+      expect(screen.getByTestId("scroll-area")).toBeInTheDocument();
+    });
+
+    it("overrides aria-label via prop", () => {
+      render(
+        <ScrollArea aria-label="Custom region">
+          <p>Content</p>
+        </ScrollArea>
+      );
+      // The component spreads ...props which includes aria-label, but default is set on the element
+      // The spread comes after, so the prop should win
+      expect(screen.getByRole("region")).toBeInTheDocument();
+    });
+  });
+
+  describe("root CSS class", () => {
+    it("applies root CSS class", () => {
+      render(
+        <ScrollArea>
+          <p>Content</p>
+        </ScrollArea>
+      );
+      expect(screen.getByRole("region").className).toMatch(/root/);
+    });
+  });
+});

@@ -72,5 +72,35 @@ describe("InputGroup", () => {
       );
       expect(screen.getByRole("group")).toHaveAttribute("aria-label", "URL entry");
     });
+
+    it("forwards data-testid", () => {
+      render(
+        <InputGroup data-testid="search-group">
+          <input type="text" />
+        </InputGroup>
+      );
+      expect(screen.getByTestId("search-group")).toBeInTheDocument();
+    });
+
+    it("renders as a div element", () => {
+      const { container } = render(
+        <InputGroup>
+          <input type="text" />
+        </InputGroup>
+      );
+      expect(container.firstElementChild?.tagName).toBe("DIV");
+    });
+  });
+
+  describe("without className", () => {
+    it("renders only the group CSS class when no className provided", () => {
+      const { container } = render(
+        <InputGroup>
+          <input type="text" />
+        </InputGroup>
+      );
+      // className should contain the module class but no extra tokens
+      expect(container.firstElementChild?.className).not.toMatch(/undefined/);
+    });
   });
 });

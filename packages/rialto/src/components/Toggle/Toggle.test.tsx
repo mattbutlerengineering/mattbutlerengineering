@@ -75,4 +75,45 @@ describe("Toggle", () => {
       expect(screen.getByRole("switch")).toBeDisabled();
     });
   });
+
+  describe("ref forwarding", () => {
+    it("forwards ref to the input element", () => {
+      const ref = { current: null as HTMLInputElement | null };
+      render(<Toggle label="Ref test" ref={ref} />);
+      expect(ref.current).toBeInstanceOf(HTMLInputElement);
+    });
+  });
+
+  describe("className passthrough", () => {
+    it("applies custom className to the wrapper div", () => {
+      const { container } = render(<Toggle label="Test" className="my-toggle" />);
+      expect(container.querySelector(".my-toggle")).toBeInTheDocument();
+    });
+  });
+
+  describe("disabledReason", () => {
+    it("renders a lock icon when disabled and disabledReason is provided", () => {
+      const { container } = render(
+        <Toggle label="Test" disabled disabledReason="Not available in your plan" />
+      );
+      // Lock icon from lucide-react renders as svg
+      expect(container.querySelector("svg")).toBeInTheDocument();
+    });
+
+    it("does not render a lock icon when not disabled", () => {
+      const { container } = render(
+        <Toggle label="Test" disabledReason="Not available in your plan" />
+      );
+      // No lock shown when disabled is not set
+      expect(container.querySelector('[class*="lockIcon"]')).not.toBeInTheDocument();
+    });
+  });
+
+  describe("no label", () => {
+    it("renders without a label element when label is omitted", () => {
+      render(<Toggle checked={false} onCheckedChange={() => {}} />);
+      // Should still have the switch input
+      expect(screen.getByRole("switch")).toBeInTheDocument();
+    });
+  });
 });

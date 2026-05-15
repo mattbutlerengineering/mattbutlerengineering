@@ -145,4 +145,51 @@ describe("Input", () => {
       expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
     });
   });
+
+  describe("icon input classes", () => {
+    it("applies inputWithStartIcon class when startIcon provided", () => {
+      const { container } = render(<Input startIcon={<span data-testid="si" />} />);
+      const input = container.querySelector("input");
+      expect(input?.className).toMatch(/inputWithStartIcon/);
+    });
+
+    it("applies inputWithEndIcon class when endIcon provided", () => {
+      const { container } = render(<Input endIcon={<span data-testid="ei" />} />);
+      const input = container.querySelector("input");
+      expect(input?.className).toMatch(/inputWithEndIcon/);
+    });
+
+    it("does not apply icon classes when no icons provided", () => {
+      const { container } = render(<Input />);
+      const input = container.querySelector("input");
+      expect(input?.className).not.toMatch(/inputWithStartIcon/);
+      expect(input?.className).not.toMatch(/inputWithEndIcon/);
+    });
+  });
+
+  describe("disabledReason", () => {
+    it("renders lock icon when disabled and disabledReason is provided", () => {
+      const { container } = render(<Input disabled disabledReason="Admin only" />);
+      expect(container.querySelector('[class*="lockIcon"]')).toBeInTheDocument();
+    });
+
+    it("does not render lock icon when not disabled", () => {
+      const { container } = render(<Input disabledReason="Admin only" />);
+      expect(container.querySelector('[class*="lockIcon"]')).not.toBeInTheDocument();
+    });
+  });
+
+  describe("no label", () => {
+    it("renders without label element when label is omitted", () => {
+      render(<Input placeholder="No label" />);
+      expect(screen.queryByRole("label")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("custom id forwarding", () => {
+    it("uses provided id on the input element", () => {
+      render(<Input id="my-input" label="Field" />);
+      expect(screen.getByRole("textbox")).toHaveAttribute("id", "my-input");
+    });
+  });
 });

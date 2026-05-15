@@ -60,7 +60,11 @@ describe("Card", () => {
     });
 
     it("does not set data-tilt for glass variant even with tilt=true", () => {
-      const { container } = render(<Card tilt variant="glass">No tilt glass</Card>);
+      const { container } = render(
+        <Card tilt variant="glass">
+          No tilt glass
+        </Card>
+      );
       expect(container.firstElementChild).not.toHaveAttribute("data-tilt");
     });
   });
@@ -88,6 +92,33 @@ describe("Card", () => {
       );
       expect(screen.getByText("First")).toBeInTheDocument();
       expect(screen.getByText("Second")).toBeInTheDocument();
+    });
+  });
+
+  describe("tilt with flat variant", () => {
+    it("sets data-tilt when tilt is true and variant is flat", () => {
+      const { container } = render(
+        <Card tilt variant="flat">
+          Tilt flat
+        </Card>
+      );
+      expect(container.firstElementChild).toHaveAttribute("data-tilt");
+    });
+  });
+
+  describe("title only (no subtitle)", () => {
+    it("renders header with only a title and no subtitle element", () => {
+      const { container } = render(<Card title="Only title" />);
+      expect(container.querySelector('[class*="title"]')).toBeInTheDocument();
+      expect(container.querySelector('[class*="subtitle"]')).not.toBeInTheDocument();
+    });
+  });
+
+  describe("subtitle only (no title)", () => {
+    it("renders header when only subtitle is provided", () => {
+      const { container } = render(<Card subtitle="Only subtitle" />);
+      expect(container.querySelector('[class*="header"]')).toBeInTheDocument();
+      expect(container.querySelector('[class*="subtitle"]')).toBeInTheDocument();
     });
   });
 });
