@@ -1,9 +1,9 @@
 import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "vitest-axe";
-import { ContextMenu, type ContextMenuEntry } from "./ContextMenu";
+import { ContextMenu, type ContextMenuEntry, type ContextMenuItemDef } from "./ContextMenu";
 
-const basicItems: ContextMenuEntry[] = [
+const basicItems: ContextMenuItemDef[] = [
   { id: "copy", label: "Copy", onSelect: vi.fn() },
   { id: "paste", label: "Paste", onSelect: vi.fn() },
   { id: "delete", label: "Delete", destructive: true, onSelect: vi.fn() },

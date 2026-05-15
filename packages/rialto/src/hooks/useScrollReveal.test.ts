@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const mockStart = vi.fn();
 const mockSet = vi.fn();
-const mockUseInView = vi.fn(() => false);
+const mockUseInView = vi.fn((_ref?: unknown, _options?: unknown) => false);
 
 vi.mock("framer-motion", async () => {
   const actual = await vi.importActual("framer-motion");
@@ -14,7 +14,7 @@ vi.mock("framer-motion", async () => {
       start: mockStart,
       set: mockSet,
     }),
-    useInView: (...args: any[]) => mockUseInView(...args),
+    useInView: (ref: unknown, options?: unknown) => mockUseInView(ref, options),
   };
 });
 

@@ -128,9 +128,7 @@ function mapTypeToZod(
   }
 
   // Check for character limit
-  const limit = CHARACTER_LIMITS.find(
-    (l) => l.component === componentName && l.prop === propName
-  );
+  const limit = CHARACTER_LIMITS.find((l) => l.component === componentName && l.prop === propName);
 
   // Map ReactNode / JSX types to string (for catalog purpose)
   if (
@@ -178,9 +176,7 @@ function mapTypeToZod(
   if (
     unionParts.length >= 2 &&
     unionParts.every(
-      (p) =>
-        (p.startsWith('"') && p.endsWith('"')) ||
-        (p.startsWith("'") && p.endsWith("'"))
+      (p) => (p.startsWith('"') && p.endsWith('"')) || (p.startsWith("'") && p.endsWith("'"))
     )
   ) {
     const values = unionParts.map((p) => `"${p.replace(/^['"]|['"]$/g, "")}"`);
@@ -228,10 +224,7 @@ function isDeclaredInRialto(prop: ts.Symbol, rialtoComponentsDir: string): boole
  * e.g. StackGap -> '"2xs" | "xs" | "sm" | "md" | "lg" | "xl" | "2xl" | "3xl"'
  * e.g. AlertVariant | undefined -> '"info" | "success" | "warning" | "error" | undefined'
  */
-function resolveTypeAlias(
-  prop: ts.Symbol,
-  checker: ts.TypeChecker
-): string {
+function resolveTypeAlias(prop: ts.Symbol, checker: ts.TypeChecker): string {
   const propType = checker.getTypeOfSymbol(prop);
 
   // For union types, try to expand the individual members
@@ -243,7 +236,9 @@ function resolveTypeAlias(
       if (t.flags & ts.TypeFlags.Union) {
         // Nested union (type alias expanding to union)
         const nested = t as ts.UnionType;
-        return nested.types.map((nt) => checker.typeToString(nt, undefined, ts.TypeFormatFlags.NoTruncation)).join(" | ");
+        return nested.types
+          .map((nt) => checker.typeToString(nt, undefined, ts.TypeFormatFlags.NoTruncation))
+          .join(" | ");
       }
       return checker.typeToString(t, undefined, ts.TypeFormatFlags.NoTruncation);
     });
@@ -251,11 +246,7 @@ function resolveTypeAlias(
   }
 
   // For non-union types, use standard expansion
-  return checker.typeToString(
-    propType,
-    undefined,
-    ts.TypeFormatFlags.NoTruncation
-  );
+  return checker.typeToString(propType, undefined, ts.TypeFormatFlags.NoTruncation);
 }
 
 function extractPropsForInterface(
@@ -265,9 +256,7 @@ function extractPropsForInterface(
   componentName: string
 ): PropSchema[] {
   const propsResolved =
-    propsSymbol.flags & ts.SymbolFlags.Alias
-      ? checker.getAliasedSymbol(propsSymbol)
-      : propsSymbol;
+    propsSymbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(propsSymbol) : propsSymbol;
 
   const propsType = checker.getDeclaredTypeOfSymbol(propsResolved);
   const propsProperties = propsType.getProperties();
@@ -336,25 +325,16 @@ function extractComponentSchemas(
 
     // Find Props interface by convention: ComponentNameProps
     // Use alias if available (e.g. Toast -> ToastInput)
-    const propsTypeName = COMPONENT_ALIAS[name]
-      ? COMPONENT_ALIAS[name]
-      : `${name}Props`;
+    const propsTypeName = COMPONENT_ALIAS[name] ? COMPONENT_ALIAS[name] : `${name}Props`;
 
     const propsSymbol = exports.find((e) => e.getName() === propsTypeName);
 
     if (!propsSymbol) {
-      console.warn(
-        `[generate-catalog] No ${propsTypeName} interface found for ${name}`
-      );
+      console.warn(`[generate-catalog] No ${propsTypeName} interface found for ${name}`);
       continue;
     }
 
-    const propSchemas = extractPropsForInterface(
-      propsSymbol,
-      checker,
-      rialtoComponentsDir,
-      name
-    );
+    const propSchemas = extractPropsForInterface(propsSymbol, checker, rialtoComponentsDir, name);
 
     result.set(name, propSchemas);
   }
@@ -371,12 +351,12 @@ function extractComponentSchemas(
  */
 const HARDCODED_SCHEMA_LINES: Record<string, string[]> = {
   Toast: [
-    '  Toast: z.object({',
-    '    title: z.string().max(50),',
-    '    description: z.string().max(120).optional(),',
+    "  Toast: z.object({",
+    "    title: z.string().max(50),",
+    "    description: z.string().max(120).optional(),",
     '    variant: z.enum(["default", "success", "error", "accent"]).optional(),',
-    '    duration: z.number().optional(),',
-    '  }),',
+    "    duration: z.number().optional(),",
+    "  }),",
   ],
 };
 
@@ -433,7 +413,7 @@ function main() {
   const rialtoComponentsDir = path.join(rialtoRoot, "src/components");
   const entryFile = path.join(rialtoRoot, "src/components/index.ts");
   const tsconfigPath = path.join(rialtoRoot, "tsconfig.json");
-  const outPath = process.env.OUTPUT_FILE 
+  const outPath = process.env.OUTPUT_FILE
     ? path.resolve(process.cwd(), process.env.OUTPUT_FILE)
     : path.join(packageRoot, "src/generated-schemas.ts");
 
@@ -454,11 +434,7 @@ function main() {
     process.exit(1);
   }
 
-  const parsedConfig = ts.parseJsonConfigFileContent(
-    configFile.config,
-    ts.sys,
-    rialtoRoot
-  );
+  const parsedConfig = ts.parseJsonConfigFileContent(configFile.config, ts.sys, rialtoRoot);
 
   const program = ts.createProgram([entryFile], parsedConfig.options);
 

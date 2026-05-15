@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
   issues: write
 
 jobs:
@@ -95,47 +95,51 @@ jobs:
                   --jq "length" 2>/dev/null || echo "0")
 
                 if [ "$EXISTING" -eq 0 ]; then
-                  # Create RCA issue
                   TITLE="RCA: PR #$PR_NUM was reverted"
-                  BODY="## Revert Details
+                  DETECTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+                  PR_SUMMARY=$(echo "$PR_BODY" | head -200)
 
-| Field | Value |
-|-------|-------|
-| Reverted PR | #$PR_NUM |
-| Detected At | $(date -u +%Y-%m-%dT%H:%M:%SZ) |
-| Original Author | @mbe/agent-core |
+                  cat > /tmp/rca-body.md <<RCAEOF
+          ## Revert Details
 
-## Original PR Summary
+          | Field | Value |
+          |-------|-------|
+          | Reverted PR | #$PR_NUM |
+          | Detected At | $DETECTED |
+          | Original Author | @mbe/agent-core |
 
-\`\`\`
-$(echo "$PR_BODY" | head -200)
-\`\`\`
+          ## Original PR Summary
 
-## RCA Checklist
+          \`\`\`
+          $PR_SUMMARY
+          \`\`\`
 
-- [ ] Review the revert commit and reason
-- [ ] Identify root cause category (logic error, incomplete testing, edge case, unsafe pattern)
-- [ ] Check if this is a recurring pattern
-- [ ] File follow-up task if needed
-- [ ] Update templates or documentation if systemic issue
+          ## RCA Checklist
 
-## Root Cause Categories
+          - [ ] Review the revert commit and reason
+          - [ ] Identify root cause category (logic error, incomplete testing, edge case, unsafe pattern)
+          - [ ] Check if this is a recurring pattern
+          - [ ] File follow-up task if needed
+          - [ ] Update templates or documentation if systemic issue
 
-- **Logic Error** — Agent misunderstood requirements or made incorrect implementation choice
-- **Incomplete Testing** — Test coverage missed an edge case or integration scenario
-- **Missing Validation** — Input validation or constraint enforcement was insufficient
-- **Unsafe Pattern** — Code violates security or reliability guidelines
-- **Environment-Specific** — Issue only manifests in production
-- **Transient** — Issue was environmental and revert was unnecessary
+          ## Root Cause Categories
 
----
+          - **Logic Error** — Agent misunderstood requirements or made incorrect implementation choice
+          - **Incomplete Testing** — Test coverage missed an edge case or integration scenario
+          - **Missing Validation** — Input validation or constraint enforcement was insufficient
+          - **Unsafe Pattern** — Code violates security or reliability guidelines
+          - **Environment-Specific** — Issue only manifests in production
+          - **Transient** — Issue was environmental and revert was unnecessary
 
-*Auto-created by revert-rca-detection workflow*"
+          ---
+
+          *Auto-created by revert-rca-detection workflow*
+          RCAEOF
 
                   gh issue create \
                     --title "$TITLE" \
-                    --label "revert-rca,acmm" \
-                    --body "$BODY" || echo "Failed to create RCA issue for #$PR_NUM"
+                    --label "acmm" \
+                    --body-file /tmp/rca-body.md || echo "Failed to create RCA issue for #$PR_NUM"
                 fi
               fi
             done
@@ -165,29 +169,35 @@ $(echo "$PR_BODY" | head -200)
           REVERT_COUNT=$(git log --since="7 days ago" --grep="^Revert" --oneline | wc -l | tr -d ' ')
 
           if [ "$REVERT_COUNT" -gt 3 ]; then
-            # Create escalation issue
+            cat > /tmp/escalation-body.md <<'ESCEOF'
+          ## Alert
+
+          Detected high revert rate in the last 7 days (threshold: 3).
+
+          This suggests the autonomous system may be unstable. Investigate patterns from recent RCA issues and consider:
+
+          - Improving test coverage and edge case detection
+          - Tightening validation rules and pre-flight checks
+          - Reducing agent complexity or ambition level
+          - Adding circuit breaker if revert rate continues climbing
+
+          ## Recent Reverts
+
+          See recent RCA issues with label `revert-rca` for details.
+
+          ---
+
+          *Auto-created by revert-rca-detection workflow*
+          ESCEOF
+
+            sed -i "s/^          //" /tmp/escalation-body.md
+            sed -i "1s/^/Revert count: ${REVERT_COUNT}\/week\n\n/" /tmp/escalation-body.md
+
             gh issue create \
               --title "[Meta] Elevated revert rate: $REVERT_COUNT/week" \
-              --label "meta-improvement,acmm" \
-              --body "## Alert
-
-Detected high revert rate: **${REVERT_COUNT} reverts in the last 7 days** (threshold: 3).
-
-This suggests the autonomous system may be unstable. Investigate patterns from recent RCA issues and consider:
-
-- Improving test coverage and edge case detection
-- Tightening validation rules and pre-flight checks
-- Reducing agent complexity or ambition level
-- Adding circuit breaker if revert rate continues climbing
-
-## Recent Reverts
-
-See recent RCA issues with label \`revert-rca\` for details.
-
----
-
-*Auto-created by revert-rca-detection workflow*" \
-              --state open || echo "Could not create escalation issue (may already exist)"
+              --label "meta-improvement" \
+              --label "acmm" \
+              --body-file /tmp/escalation-body.md || echo "Could not create escalation issue (may already exist)"
           fi
 
       - name: Commit state updates
