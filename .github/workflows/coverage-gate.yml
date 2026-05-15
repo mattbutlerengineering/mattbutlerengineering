@@ -26,7 +26,7 @@ jobs:
     timeout-minutes: 20
 
     env:
-      COVERAGE_THRESHOLD: 40
+      COVERAGE_THRESHOLD: 60
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
@@ -76,11 +76,12 @@ jobs:
       - name: Collect coverage summary
         id: coverage
         run: |
-          # Aggregate coverage from all packages that produced reports
           TOTAL_LINES=0
           COVERED_LINES=0
+          PKG_TABLE=""
 
-          for REPORT in $(find . -path '*/coverage/coverage-final.json' -not -path '*/node_modules/*'); do
+          for REPORT in $(find . -path '*/coverage/coverage-final.json' -not -path '*/node_modules/*' | sort); do
+            PKG_DIR=$(echo "$REPORT" | sed 's|/coverage/coverage-final.json||' | sed 's|^\./||')
             PKG_TOTAL=$(node -e "
               const c = require('./$REPORT');
               let t=0, cov=0;
@@ -89,8 +90,16 @@ jobs:
               }
               console.log(t + ',' + cov);
             ")
-            TOTAL_LINES=$((TOTAL_LINES + $(echo "$PKG_TOTAL" | cut -d',' -f1)))
-            COVERED_LINES=$((COVERED_LINES + $(echo "$PKG_TOTAL" | cut -d',' -f2)))
+            PKG_T=$(echo "$PKG_TOTAL" | cut -d',' -f1)
+            PKG_C=$(echo "$PKG_TOTAL" | cut -d',' -f2)
+            if [ "$PKG_T" -gt 0 ]; then
+              PKG_PCT=$((PKG_C * 100 / PKG_T))
+            else
+              PKG_PCT=0
+            fi
+            PKG_TABLE="${PKG_TABLE}| \`${PKG_DIR}\` | ${PKG_C}/${PKG_T} | ${PKG_PCT}% |\n"
+            TOTAL_LINES=$((TOTAL_LINES + PKG_T))
+            COVERED_LINES=$((COVERED_LINES + PKG_C))
           done
 
           if [ "$TOTAL_LINES" -gt 0 ]; then
@@ -102,6 +111,8 @@ jobs:
           echo "percent=$PERCENT" >> "$GITHUB_OUTPUT"
           echo "total=$TOTAL_LINES" >> "$GITHUB_OUTPUT"
           echo "covered=$COVERED_LINES" >> "$GITHUB_OUTPUT"
+          # Write per-package table to a file (too large for GITHUB_OUTPUT)
+          printf "%b" "$PKG_TABLE" > /tmp/pkg-coverage-table.txt
           echo "Coverage: $PERCENT% ($COVERED_LINES / $TOTAL_LINES statements)"
 
       - name: Post coverage comment
@@ -118,6 +129,8 @@ jobs:
             BADGE="FAIL"
           fi
 
+          PKG_ROWS=$(cat /tmp/pkg-coverage-table.txt 2>/dev/null || echo "| (no per-package data) | — | — |")
+
           BODY=$(cat <<EOF
           ## Coverage Report
 
@@ -127,6 +140,14 @@ jobs:
           | Coverage | **$COVERAGE_PERCENT%** |
           | Threshold | $COVERAGE_THRESHOLD% |
           | Result | **$BADGE** |
+
+          <details><summary>Per-package breakdown</summary>
+
+          | Package | Covered / Total | % |
+          |---------|-----------------|---|
+          $PKG_ROWS
+
+          </details>
           EOF
           )
 

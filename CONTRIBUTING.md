@@ -70,11 +70,20 @@ Per-package commands also exist; see each package's `README.md` or `CLAUDE.md`.
 
 ## Tests
 
-We don't enforce a coverage floor as a hard gate (the `coverage-gate.yml` workflow is configured but not active until GH Actions billing is restored). But:
+The [`coverage-gate.yml`](./.github/workflows/coverage-gate.yml) workflow enforces a **60% aggregate statement coverage** floor on every PR. PRs that drop coverage below this threshold are blocked from merging. The PR comment includes a per-package breakdown so you can see exactly which package is below the line.
 
 - Bug fixes need a regression test that fails before your fix and passes after. If a regression test isn't possible, say why in the PR.
 - New features in `services/*` need at least integration tests for the new routes.
 - New Rialto components need unit tests (`*.test.tsx`), accessibility tests (`*.a11y.test.tsx` if interactive), and a showcase entry (`apps/rialto-web/src/showcase/`).
+
+### Troubleshooting pre-commit hooks
+
+| Symptom                                   | Fix                                                                                                           |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `commitlint` rejects your message         | Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) format: `type(scope): description` |
+| `eslint --fix` changes files after commit | Stage the auto-fixed files and commit again                                                                   |
+| `pack-changed` adds `llms.txt` diffs      | Expected — stage them with your commit                                                                        |
+| `check-adr` fails                         | Your change touches a path governed by an active ADR — read the ADR and comply or propose an amendment        |
 
 ## Architecture decisions
 
@@ -88,7 +97,7 @@ This repo is run partly by AI coding agents — the `ship-loop`, `issue-worker`,
 
 **Your contribution is reviewed against the same rubric whether you're a human or an agent.** See [`docs/review-criteria.md`](./docs/review-criteria.md) — the "agent-authored PRs get the same scrutiny" rule is deliberate. Don't expect a lower bar because you used Cursor or Claude Code; don't expect a higher bar because you didn't.
 
-If you're contributing *with* AI tooling, the policy floor agents must obey is at [`docs/SECURITY-AI.md`](./docs/SECURITY-AI.md). Reading it is recommended before letting any AI tool make changes here — those rules apply to your AI tools too, even though we have no way of enforcing them on your machine.
+If you're contributing _with_ AI tooling, the policy floor agents must obey is at [`docs/SECURITY-AI.md`](./docs/SECURITY-AI.md). Reading it is recommended before letting any AI tool make changes here — those rules apply to your AI tools too, even though we have no way of enforcing them on your machine.
 
 The maturity model the repo tracks itself against (canonical 6-level ACMM, currently at L6) is at [`plugins/acmm/scripts/audit.js`](./plugins/acmm/scripts/audit.js); see [`.claude/skills/acmm-audit/SKILL.md`](./.claude/skills/acmm-audit/SKILL.md) for context.
 
