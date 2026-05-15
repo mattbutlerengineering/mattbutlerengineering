@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, react/jsx-no-undef */
+/* eslint-disable @typescript-eslint/no-explicit-any, react/jsx-no-undef, @eslint-react/no-array-index-key */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import { ReservationDataProvider, useReservationData } from "./ReservationDataContext.js";
@@ -22,8 +22,9 @@ vi.mock("./VenueContext.js", () => ({
   })),
 }));
 
+const mockToastFn = vi.fn();
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  useToast: () => ({ toast: vi.fn() }),
+  useToast: () => ({ toast: mockToastFn }),
 }));
 
 function TestConsumer() {
@@ -33,10 +34,16 @@ function TestConsumer() {
       <span data-testid="connected">{String(ctx.isConnected)}</span>
       <span data-testid="count">{ctx.reservations.length}</span>
       <span data-testid="tables">{ctx.tables.length}</span>
-      <button data-testid="add" onClick={() => ctx.addReservation({ id: "r1", status: "CONFIRMED" } as any)}>
+      <button
+        data-testid="add"
+        onClick={() => ctx.addReservation({ id: "r1", status: "CONFIRMED" } as any)}
+      >
         Add
       </button>
-      <button data-testid="update" onClick={() => ctx.updateReservation({ id: "r1", status: "COMPLETED" } as any)}>
+      <button
+        data-testid="update"
+        onClick={() => ctx.updateReservation({ id: "r1", status: "COMPLETED" } as any)}
+      >
         Update
       </button>
       <button data-testid="remove" onClick={() => ctx.removeReservation("r1")}>
@@ -236,5 +243,231 @@ describe("ReservationDataContext", () => {
         enabled: false,
       })
     );
+  });
+});
+
+/* ── SSE event handler + toast rate limiting tests ───────────, @eslint-react/no-array-index-key */
+
+describe("ReservationDataContext SSE handlers", () => {
+  let capturedHandlers: Record<string, (...args: any[]) => void>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    capturedHandlers = {};
+
+    vi.mocked(useVenue).mockReturnValue({
+      selectedVenueId: "venue-1",
+      venues: [],
+      selectVenue: vi.fn(),
+    } as any);
+
+    // Capture the SSE handlers passed to useReservationEvents
+    vi.mocked(useReservationEvents).mockImplementation((opts: any) => {
+      capturedHandlers.onReservationCreated = opts.onReservationCreated;
+      capturedHandlers.onReservationUpdated = opts.onReservationUpdated;
+      capturedHandlers.onReservationCancelled = opts.onReservationCancelled;
+      capturedHandlers.onHoldCreated = opts.onHoldCreated;
+      capturedHandlers.onHoldReleased = opts.onHoldReleased;
+      capturedHandlers.onHoldConfirmed = opts.onHoldConfirmed;
+      capturedHandlers.onTableUpdated = opts.onTableUpdated;
+      return { isConnected: true, error: null, reconnect: vi.fn() };
+    });
+  });
+
+  function renderWithConsumer() {
+    return render(
+      <ReservationDataProvider>
+        <TestConsumer />
+      </ReservationDataProvider>
+    );
+  }
+
+  it("handleCancelled triggers toast with error variant", () => {
+    renderWithConsumer();
+
+    const reservation = {
+      id: "r-cancel",
+      guestName: "Jane Doe",
+      startTime: "2026-05-14T19:00:00Z",
+      status: "CANCELLED",
+    } as any;
+
+    act(() => {
+      capturedHandlers.onReservationCancelled(reservation);
+    });
+
+    expect(mockToastFn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Reservation cancelled",
+        variant: "error",
+      })
+    );
+  });
+
+  it("handleTableUpdated updates table state correctly", () => {
+    renderWithConsumer();
+
+    // First set initial tables
+    act(() => {
+      screen.getByTestId("setTables").click();
+    });
+    expect(screen.getByTestId("tables").textContent).toBe("1");
+
+    // Now update the table via SSE handler
+    const updatedTable = { id: "t1", name: "Updated Table", status: "OCCUPIED" } as any;
+    act(() => {
+      capturedHandlers.onTableUpdated(updatedTable);
+    });
+
+    // Count should remain 1 (updated, not added)
+    expect(screen.getByTestId("tables").textContent).toBe("1");
+  });
+
+  it("handleHoldConfirmed adds reservation via addReservation", () => {
+    renderWithConsumer();
+
+    const reservation = {
+      id: "r-confirmed",
+      guestName: "Hold Guest",
+      startTime: "2026-05-14T20:00:00Z",
+      status: "CONFIRMED",
+    } as any;
+
+    act(() => {
+      capturedHandlers.onHoldConfirmed(reservation);
+    });
+
+    expect(screen.getByTestId("count").textContent).toBe("1");
+  });
+
+  it("notifySubscribers broadcasts to multiple registered subscribers", () => {
+    const handler1 = vi.fn();
+    const handler2 = vi.fn();
+
+    function MultiSubscriber() {
+      const ctx = useReservationData();
+      React.useEffect(() => {
+        const unsub1 = ctx.subscribeToEvents(handler1);
+        const unsub2 = ctx.subscribeToEvents(handler2);
+        return () => {
+          unsub1();
+          unsub2();
+        };
+      }, [ctx]);
+      return <div data-testid="multi">ok</div>;
+    }
+
+    render(
+      <ReservationDataProvider>
+        <MultiSubscriber />
+      </ReservationDataProvider>
+    );
+
+    // Trigger an event that calls notifySubscribers
+    const reservation = {
+      id: "r-notify",
+      guestName: "Notify Guest",
+      startTime: "2026-05-14T18:00:00Z",
+      status: "CONFIRMED",
+    } as any;
+
+    act(() => {
+      capturedHandlers.onReservationUpdated(reservation);
+    });
+
+    expect(handler1).toHaveBeenCalledTimes(1);
+    expect(handler2).toHaveBeenCalledTimes(1);
+    expect(handler1).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "reservation:updated",
+        venueId: "venue-1",
+      })
+    );
+  });
+
+  it("hold events notify subscribers with correct type", () => {
+    const handler = vi.fn();
+
+    function HoldSubscriber() {
+      const ctx = useReservationData();
+      React.useEffect(() => {
+        return ctx.subscribeToEvents(handler);
+      }, [ctx]);
+      return <div>hold-sub</div>;
+    }
+
+    render(
+      <ReservationDataProvider>
+        <HoldSubscriber />
+      </ReservationDataProvider>
+    );
+
+    const hold = { id: "hold-1", tableId: "t1", venueId: "venue-1" } as any;
+
+    act(() => {
+      capturedHandlers.onHoldCreated(hold);
+    });
+
+    expect(handler).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "hold:created", data: hold })
+    );
+
+    handler.mockClear();
+
+    act(() => {
+      capturedHandlers.onHoldReleased(hold);
+    });
+
+    expect(handler).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "hold:released", data: hold })
+    );
+  });
+});
+
+describe("ReservationDataContext toast rate limiting", () => {
+  let capturedHandlers: Record<string, (...args: any[]) => void>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    capturedHandlers = {};
+
+    vi.mocked(useVenue).mockReturnValue({
+      selectedVenueId: "venue-1",
+      venues: [],
+      selectVenue: vi.fn(),
+    } as any);
+
+    vi.mocked(useReservationEvents).mockImplementation((opts: any) => {
+      capturedHandlers.onReservationCreated = opts.onReservationCreated;
+      return { isConnected: true, error: null, reconnect: vi.fn() };
+    });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("limits toasts to 3 within the rate limit window", () => {
+    render(
+      <ReservationDataProvider>
+        <TestConsumer />
+      </ReservationDataProvider>
+    );
+
+    // Fire 5 rapid reservation:created events
+    for (let i = 0; i < 5; i++) {
+      act(() => {
+        capturedHandlers.onReservationCreated({
+          id: `r-${i}`,
+          guestName: `Guest ${i}`,
+          startTime: "2026-05-14T18:00:00Z",
+          status: "CONFIRMED",
+        } as any);
+      });
+    }
+
+    // Toast should be called at most 3 times (TOAST_MAX)
+    expect(mockToastFn.mock.calls.length).toBeLessThanOrEqual(3);
   });
 });

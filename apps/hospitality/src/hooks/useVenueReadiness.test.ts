@@ -1,8 +1,25 @@
-import { describe, it, expect } from "vitest";
-import { computeReadiness } from "./useVenueReadiness.js";
+/* eslint-disable @typescript-eslint/no-explicit-any, react/jsx-no-undef, @eslint-react/no-array-index-key */
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { renderHook, waitFor } from "@testing-library/react";
+import { computeReadiness, useVenueReadiness } from "./useVenueReadiness.js";
+import { useVenue } from "../contexts/VenueContext.js";
+import { useAuth } from "@mbe/auth/react";
+import { createApiClient } from "@mbe/api-client";
 import type { Venue } from "@mbe/types";
 import type { FloorPlan } from "@mbe/types";
 import type { Table } from "@mbe/types";
+
+vi.mock("../contexts/VenueContext.js", () => ({
+  useVenue: vi.fn(),
+}));
+
+vi.mock("@mbe/auth/react", () => ({
+  useAuth: vi.fn(),
+}));
+
+vi.mock("@mbe/api-client", () => ({
+  createApiClient: vi.fn(),
+}));
 
 /* ── Fixtures ───────────────────────────────────────────────── */
 
@@ -158,5 +175,123 @@ describe("computeReadiness", () => {
 
     const twoOfThree = computeReadiness(VENUE_WITH_HOURS, []);
     expect(twoOfThree.progress).toBeCloseTo((2 / 3) * 100);
+  });
+});
+
+/* ── useVenueReadiness hook tests ──────────────────────────── */
+
+describe("useVenueReadiness", () => {
+  const mockList = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(createApiClient).mockReturnValue({
+      floorPlans: { list: mockList },
+    } as any);
+  });
+
+  it("returns no-venue state when loading", () => {
+    vi.mocked(useVenue).mockReturnValue({
+      selectedVenue: null,
+      selectedVenueId: null,
+      isLoading: true,
+      venues: [],
+      selectVenue: vi.fn(),
+    } as any);
+    vi.mocked(useAuth).mockReturnValue({ accessToken: "tok" } as any);
+
+    const { result } = renderHook(() => useVenueReadiness());
+
+    expect(result.current.status).toBe("no-venue");
+    expect(result.current.progress).toBe(0);
+    expect(result.current.nextStep).toBeNull();
+  });
+
+  it("fetches floor plans on mount when venue and token are available", async () => {
+    mockList.mockResolvedValue({ data: [FLOOR_PLAN_WITH_TABLES] });
+
+    vi.mocked(useVenue).mockReturnValue({
+      selectedVenue: VENUE_WITH_HOURS,
+      selectedVenueId: "venue-1",
+      isLoading: false,
+      venues: [VENUE_WITH_HOURS],
+      selectVenue: vi.fn(),
+    } as any);
+    vi.mocked(useAuth).mockReturnValue({ accessToken: "tok-123" } as any);
+
+    const { result } = renderHook(() => useVenueReadiness());
+
+    await waitFor(() => {
+      expect(result.current.status).toBe("operational");
+    });
+
+    expect(mockList).toHaveBeenCalledWith(
+      expect.objectContaining({ venueId: "venue-1", limit: 10 })
+    );
+  });
+
+  it("handles fetch error gracefully by treating floor plans as empty", async () => {
+    mockList.mockRejectedValue(new Error("Network error"));
+
+    vi.mocked(useVenue).mockReturnValue({
+      selectedVenue: VENUE_WITH_HOURS,
+      selectedVenueId: "venue-1",
+      isLoading: false,
+      venues: [VENUE_WITH_HOURS],
+      selectVenue: vi.fn(),
+    } as any);
+    vi.mocked(useAuth).mockReturnValue({ accessToken: "tok-456" } as any);
+
+    const { result } = renderHook(() => useVenueReadiness());
+
+    await waitFor(() => {
+      // Floor plan gate not met due to error, but onboarding + hours pass
+      expect(result.current.status).toBe("setup");
+    });
+
+    expect(result.current.completedSteps).toContain("onboarding");
+    expect(result.current.completedSteps).toContain("operating-hours");
+    expect(result.current.completedSteps).not.toContain("floor-plan");
+    expect(result.current.nextStep).toBe("floor-plan");
+  });
+
+  it("skips duplicate fetches for same venueId", async () => {
+    mockList.mockResolvedValue({ data: [] });
+
+    vi.mocked(useVenue).mockReturnValue({
+      selectedVenue: BASE_VENUE,
+      selectedVenueId: "venue-1",
+      isLoading: false,
+      venues: [BASE_VENUE],
+      selectVenue: vi.fn(),
+    } as any);
+    vi.mocked(useAuth).mockReturnValue({ accessToken: "tok-789" } as any);
+
+    const { result, rerender } = renderHook(() => useVenueReadiness());
+
+    await waitFor(() => {
+      expect(result.current.status).toBe("setup");
+    });
+
+    // Re-render with same venue — should not trigger another fetch
+    rerender();
+    rerender();
+
+    expect(mockList).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not fetch when accessToken is missing", () => {
+    vi.mocked(useVenue).mockReturnValue({
+      selectedVenue: BASE_VENUE,
+      selectedVenueId: "venue-1",
+      isLoading: false,
+      venues: [BASE_VENUE],
+      selectVenue: vi.fn(),
+    } as any);
+    vi.mocked(useAuth).mockReturnValue({ accessToken: null } as any);
+
+    renderHook(() => useVenueReadiness());
+
+    expect(mockList).not.toHaveBeenCalled();
   });
 });

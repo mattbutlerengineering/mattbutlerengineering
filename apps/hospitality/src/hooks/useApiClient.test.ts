@@ -79,3 +79,127 @@ describe("useApiClient", () => {
     expect(callArgs.onError).toBeTypeOf("function");
   });
 });
+
+/* ── reportToSentry (onError callback) tests ───────────────── */
+
+describe("reportToSentry via onError", () => {
+  function getOnError(): (error: any) => void {
+    vi.mocked(useAuth).mockReturnValue({ accessToken: "tok" } as any);
+    renderHook(() => useApiClient());
+    const callArgs = vi.mocked(createApiClient).mock.calls.at(-1)![0];
+    return callArgs.onError!;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("calls captureException for server errors (5xx)", async () => {
+    const { captureException, addBreadcrumb } = await import("@mbe/observability/sentry/react");
+
+    const onError = getOnError();
+    const error = {
+      statusCode: 500,
+      method: "POST",
+      path: "/api/v1/reservations",
+      message: "Internal Server Error",
+    };
+
+    onError(error);
+
+    expect(captureException).toHaveBeenCalledWith(error);
+    expect(addBreadcrumb).toHaveBeenCalledWith(
+      expect.objectContaining({
+        category: "api",
+        level: "error",
+        data: expect.objectContaining({ statusCode: 500 }),
+      })
+    );
+  });
+
+  it("calls captureMessage for 401 auth errors", async () => {
+    const { captureMessage, captureException, addBreadcrumb } =
+      await import("@mbe/observability/sentry/react");
+
+    const onError = getOnError();
+    const error = {
+      statusCode: 401,
+      method: "GET",
+      path: "/api/v1/users/me",
+      message: "Unauthorized",
+    };
+
+    onError(error);
+
+    expect(captureMessage).toHaveBeenCalledWith("Unauthorized", "warning");
+    expect(captureException).not.toHaveBeenCalled();
+    expect(addBreadcrumb).toHaveBeenCalledWith(
+      expect.objectContaining({
+        category: "api",
+        level: "warning",
+      })
+    );
+  });
+
+  it("calls captureMessage for 403 forbidden errors", async () => {
+    const { captureMessage, addBreadcrumb } = await import("@mbe/observability/sentry/react");
+
+    const onError = getOnError();
+    const error = {
+      statusCode: 403,
+      method: "DELETE",
+      path: "/api/v1/venues/v1",
+      message: "Forbidden",
+    };
+
+    onError(error);
+
+    expect(captureMessage).toHaveBeenCalledWith("Forbidden", "warning");
+    expect(addBreadcrumb).toHaveBeenCalledWith(
+      expect.objectContaining({
+        category: "api",
+        level: "warning",
+        data: expect.objectContaining({ statusCode: 403 }),
+      })
+    );
+  });
+
+  it("calls addBreadcrumb but not captureException or captureMessage for 4xx client errors", async () => {
+    const { captureException, captureMessage, addBreadcrumb } =
+      await import("@mbe/observability/sentry/react");
+
+    const onError = getOnError();
+    const error = {
+      statusCode: 404,
+      method: "GET",
+      path: "/api/v1/venues/missing",
+      message: "Not Found",
+    };
+
+    onError(error);
+
+    expect(addBreadcrumb).toHaveBeenCalledWith(
+      expect.objectContaining({
+        category: "api",
+        level: "warning",
+        message: "GET /api/v1/venues/missing → 404",
+      })
+    );
+    expect(captureException).not.toHaveBeenCalled();
+    expect(captureMessage).not.toHaveBeenCalled();
+  });
+
+  it("uses error level in breadcrumb for 5xx and warning for others", async () => {
+    const { addBreadcrumb } = await import("@mbe/observability/sentry/react");
+
+    const onError = getOnError();
+
+    onError({ statusCode: 502, method: "GET", path: "/a", message: "Bad Gateway" });
+    expect(addBreadcrumb).toHaveBeenCalledWith(expect.objectContaining({ level: "error" }));
+
+    vi.mocked(addBreadcrumb).mockClear();
+
+    onError({ statusCode: 422, method: "POST", path: "/b", message: "Unprocessable" });
+    expect(addBreadcrumb).toHaveBeenCalledWith(expect.objectContaining({ level: "warning" }));
+  });
+});
