@@ -331,10 +331,12 @@ jobs:
         run: |
           for pkg in packages/* apps/* services/*; do
             if [ -f "$pkg/llms.txt" ]; then
-              echo "Checking $pkg..."
-              node tools/cli/dist/index.js pack "$pkg" --check
+              echo "Regenerating $pkg..."
+              node tools/cli/dist/index.js pack "$pkg"
             fi
           done
+          git diff --exit-code -- '*/llms.txt' '*/llms-full.txt' || \
+            (echo "ERROR: llms.txt files are out of sync. Run 'pnpm pack-changed' locally and commit." && exit 1)
 
       - name: Check for instruction rot
         run: node scripts/detect-instruction-rot.mjs
