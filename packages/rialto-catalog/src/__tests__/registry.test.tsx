@@ -43,18 +43,12 @@ describe("registry structure", () => {
 
 describe("client safety", () => {
   it("registry.tsx does not import from @json-render/core", () => {
-    const registrySource = readFileSync(
-      join(__dirname, "../registry.tsx"),
-      "utf-8"
-    );
+    const registrySource = readFileSync(join(__dirname, "../registry.tsx"), "utf-8");
     expect(registrySource).not.toContain('from "@json-render/core"');
   });
 
   it("registry.tsx does not import zod", () => {
-    const registrySource = readFileSync(
-      join(__dirname, "../registry.tsx"),
-      "utf-8"
-    );
+    const registrySource = readFileSync(join(__dirname, "../registry.tsx"), "utf-8");
     expect(registrySource).not.toContain('from "zod"');
   });
 });
