@@ -1,4 +1,5 @@
-import { forwardRef, memo, useCallback, useEffect, useRef, type HTMLAttributes } from "react";
+import type { HTMLAttributes } from "react";
+import { forwardRef, memo, useCallback, useEffect, useRef } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { spring, reduced } from "../../tokens/motion";
 import { useFlipDotSound } from "./use-flip-dot-sound";

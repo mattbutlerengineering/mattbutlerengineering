@@ -1,4 +1,5 @@
-import { forwardRef, type ElementType, type HTMLAttributes, type ReactNode } from "react";
+import type { ElementType, HTMLAttributes, ReactNode } from "react";
+import { forwardRef } from "react";
 import styles from "./Heading.module.css";
 
 /* ── Types ───────────────────────────────────── */

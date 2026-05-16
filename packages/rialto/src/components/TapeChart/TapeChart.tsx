@@ -1,4 +1,5 @@
-import { forwardRef, useCallback, useMemo, useRef, useState, type ForwardedRef } from "react";
+import type { ForwardedRef } from "react";
+import { forwardRef, useCallback, useMemo, useRef, useState } from "react";
 import styles from "./TapeChart.module.css";
 import { useDeviceContext } from "../../providers/useDeviceContext";
 import { SegmentedControl } from "../SegmentedControl/SegmentedControl";
