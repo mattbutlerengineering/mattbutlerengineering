@@ -146,9 +146,13 @@ describe("Tag", () => {
 });
 
 describe("AnimatedTag", () => {
-  it("renders with id prop", () => {
-    render(<AnimatedTag id="tag-1">Alpha</AnimatedTag>);
-    expect(screen.getByText("Alpha")).toBeInTheDocument();
+  it("renders label text", () => {
+    render(
+      <TagGroup>
+        <AnimatedTag id="t1">Label</AnimatedTag>
+      </TagGroup>
+    );
+    expect(screen.getByText("Label")).toBeInTheDocument();
   });
 
   it("passes dismissible and onDismiss to inner Tag", async () => {

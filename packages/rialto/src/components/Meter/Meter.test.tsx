@@ -76,6 +76,7 @@ describe("Meter", () => {
     });
 
     it("handles custom min/max range", () => {
+      // value=5, min=0, max=10 → 50%
       render(<Meter value={5} min={0} max={10} showValue />);
       expect(screen.getByText("50%")).toBeInTheDocument();
     });

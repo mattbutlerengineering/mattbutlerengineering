@@ -16,6 +16,7 @@ describe("Hero", () => {
 
     it("does not render eyebrow when not provided", () => {
       const { container } = render(<Hero title="Hello" />);
+      // No eyebrow paragraph should be present
       expect(container.querySelector("p")).not.toBeInTheDocument();
     });
 
