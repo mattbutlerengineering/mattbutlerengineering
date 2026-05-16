@@ -1,9 +1,4 @@
-export type ReservationStatus =
-  | "PENDING"
-  | "CONFIRMED"
-  | "CANCELLED"
-  | "COMPLETED"
-  | "NO_SHOW";
+export type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
 
 export type TableStatus = "AVAILABLE" | "OCCUPIED" | "DIRTY" | "READY";
 

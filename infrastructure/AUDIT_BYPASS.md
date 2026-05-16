@@ -27,7 +27,7 @@ export AUDIT_TOKEN="<same value>"
 
 ## Layer 2: Cloudflare WAF Custom Rule (manual -- dashboard required)
 
-Bot Fight Mode runs *before* the Worker and cannot be controlled from code.
+Bot Fight Mode runs _before_ the Worker and cannot be controlled from code.
 A WAF custom rule is needed to skip Bot Fight Mode for requests carrying the
 audit token.
 

@@ -34,7 +34,9 @@
   border: 1px solid var(--rialto-border);
   border-radius: var(--rialto-radius-default);
   outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .searchInput::placeholder {
@@ -77,7 +79,9 @@
   background: transparent;
   color: var(--rialto-text-tertiary);
   cursor: pointer;
-  transition: color 0.15s ease, background-color 0.15s ease;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease;
 }
 
 .clearButton:hover {

@@ -74,9 +74,7 @@ describe("Table", () => {
           render: (_row: Driver) => <span>Active</span>,
         },
       ];
-      render(
-        <Table columns={columnsWithRender} data={data} rowKey={(r) => r.name} />
-      );
+      render(<Table columns={columnsWithRender} data={data} rowKey={(r) => r.name} />);
       // Three rows × one badge each
       expect(screen.getAllByText("Active")).toHaveLength(3);
     });
@@ -145,9 +143,7 @@ describe("Table", () => {
 
     it("non-sortable column does not have aria-sort", () => {
       render(<Table columns={columns} data={data} rowKey={(r) => r.name} />);
-      expect(screen.getByRole("columnheader", { name: "Team" })).not.toHaveAttribute(
-        "aria-sort"
-      );
+      expect(screen.getByRole("columnheader", { name: "Team" })).not.toHaveAttribute("aria-sort");
     });
 
     it("activates sort via keyboard Enter on sortable header", async () => {
@@ -185,9 +181,7 @@ describe("Table", () => {
     });
 
     it("does not apply striped class by default", () => {
-      const { container } = render(
-        <Table columns={columns} data={data} rowKey={(r) => r.name} />
-      );
+      const { container } = render(<Table columns={columns} data={data} rowKey={(r) => r.name} />);
       expect(container.querySelector("tbody")?.className ?? "").not.toMatch(/striped/);
     });
   });

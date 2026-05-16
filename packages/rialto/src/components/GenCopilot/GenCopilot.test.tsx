@@ -27,9 +27,7 @@ import type { ComponentRegistry } from "@json-render/react";
 const mockRegistry = {} as ComponentRegistry;
 const mockGetAccessToken = () => null;
 const mockDomainContext = {
-  schemas: [
-    { name: "Reservation", description: "A table booking", fields: "id, guestName" },
-  ],
+  schemas: [{ name: "Reservation", description: "A table booking", fields: "id, guestName" }],
 };
 
 describe("GenCopilot", () => {
@@ -58,9 +56,7 @@ describe("GenCopilot", () => {
           registry={mockRegistry}
         />
       );
-      expect(
-        screen.getByRole("textbox", { name: /copilot prompt input/i })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("textbox", { name: /copilot prompt input/i })).toBeInTheDocument();
     });
 
     it("renders the Generate button when not streaming", () => {

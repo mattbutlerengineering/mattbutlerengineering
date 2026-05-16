@@ -29,10 +29,7 @@ export default [
       "react-hooks/component-hook-factories": "warn",
       "@typescript-eslint/no-explicit-any": "warn",
       "react/prop-types": "off",
-      "react-refresh/only-export-components": [
-        "warn",
-        { allowConstantExport: true },
-      ],
+      "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       // Warn on console.log in production source files
       "no-console": ["warn", { allow: ["warn", "error", "info"] }],
       // Module boundary enforcement — block backend-only packages and entrypoints in frontend apps

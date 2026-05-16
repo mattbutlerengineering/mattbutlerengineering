@@ -54,16 +54,7 @@ describe("Slider", () => {
     });
 
     it("sets min/max/step on input", () => {
-      render(
-        <Slider
-          label="Volume"
-          min={0}
-          max={200}
-          step={10}
-          value={100}
-          onChange={() => {}}
-        />
-      );
+      render(<Slider label="Volume" min={0} max={200} step={10} value={100} onChange={() => {}} />);
       const slider = screen.getByRole("slider");
       expect(slider).toHaveAttribute("min", "0");
       expect(slider).toHaveAttribute("max", "200");

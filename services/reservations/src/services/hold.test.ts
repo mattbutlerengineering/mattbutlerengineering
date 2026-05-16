@@ -550,9 +550,7 @@ describe("holdService", () => {
 
   describe("getById", () => {
     it("returns hold when found and not expired", async () => {
-      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(
-        makePrismaHold() as never
-      );
+      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(makePrismaHold() as never);
 
       const result = await holdService.getById("hold-1");
 
@@ -585,9 +583,7 @@ describe("holdService", () => {
 
   describe("getBySessionId", () => {
     it("returns active hold for session and venue", async () => {
-      vi.mocked(prisma.reservationHold.findFirst).mockResolvedValueOnce(
-        makePrismaHold() as never
-      );
+      vi.mocked(prisma.reservationHold.findFirst).mockResolvedValueOnce(makePrismaHold() as never);
 
       const result = await holdService.getBySessionId("session-abc", "venue-1");
 
@@ -698,11 +694,7 @@ describe("holdService", () => {
     it("returns error when hold not found", async () => {
       vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(null as never);
 
-      const result = await holdService.convertToReservation(
-        "missing",
-        "session-abc",
-        {}
-      );
+      const result = await holdService.convertToReservation("missing", "session-abc", {});
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Hold not found");
@@ -714,35 +706,23 @@ describe("holdService", () => {
       );
       vi.mocked(prisma.reservationHold.delete).mockResolvedValueOnce(undefined as never);
 
-      const result = await holdService.convertToReservation(
-        "hold-1",
-        "session-abc",
-        {}
-      );
+      const result = await holdService.convertToReservation("hold-1", "session-abc", {});
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Hold has expired");
     });
 
     it("returns error when session ID does not match", async () => {
-      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(
-        makePrismaHold() as never
-      );
+      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(makePrismaHold() as never);
 
-      const result = await holdService.convertToReservation(
-        "hold-1",
-        "wrong-session",
-        {}
-      );
+      const result = await holdService.convertToReservation("hold-1", "wrong-session", {});
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Session ID does not match the hold");
     });
 
     it("returns error when conflicting reservation found in transaction", async () => {
-      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(
-        makePrismaHold() as never
-      );
+      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(makePrismaHold() as never);
 
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
@@ -760,20 +740,14 @@ describe("holdService", () => {
         }
       );
 
-      const result = await holdService.convertToReservation(
-        "hold-1",
-        "session-abc",
-        {}
-      );
+      const result = await holdService.convertToReservation("hold-1", "session-abc", {});
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Time slot is no longer available");
     });
 
     it("returns error when conflicting hold found in transaction", async () => {
-      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(
-        makePrismaHold() as never
-      );
+      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(makePrismaHold() as never);
 
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
@@ -791,11 +765,7 @@ describe("holdService", () => {
         }
       );
 
-      const result = await holdService.convertToReservation(
-        "hold-1",
-        "session-abc",
-        {}
-      );
+      const result = await holdService.convertToReservation("hold-1", "session-abc", {});
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Time slot is no longer available");

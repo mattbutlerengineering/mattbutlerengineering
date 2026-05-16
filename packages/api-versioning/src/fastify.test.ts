@@ -1,10 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import Fastify from "fastify";
-import {
-  apiVersioningPlugin,
-  getSunsetDate,
-  DEFAULT_SUCCESSOR_VERSION,
-} from "./fastify.js";
+import { apiVersioningPlugin, getSunsetDate, DEFAULT_SUCCESSOR_VERSION } from "./fastify.js";
 
 // ---------------------------------------------------------------------------
 // DEFAULT_SUCCESSOR_VERSION

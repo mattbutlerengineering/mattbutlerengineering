@@ -101,7 +101,10 @@
   cursor: pointer;
   text-align: start;
   font-family: var(--rialto-font-sans);
-  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
   animation: cardFadeIn 0.35s ease both;
 }
 
@@ -161,7 +164,8 @@
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.15;
     transform: scaleX(0.7);
     transform-origin: start;

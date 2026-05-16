@@ -1,5 +1,12 @@
 import type { ReactNode } from "react";
-import { AppBar, ThemeToggle, Avatar, Button, Shortcut, CommandPalette } from "@mattbutlerengineering/rialto";
+import {
+  AppBar,
+  ThemeToggle,
+  Avatar,
+  Button,
+  Shortcut,
+  CommandPalette,
+} from "@mattbutlerengineering/rialto";
 import type { CommandItem } from "@mattbutlerengineering/rialto";
 import { useAuth } from "@mbe/auth/react";
 import { useTheme } from "../contexts/ThemeContext.js";
@@ -97,11 +104,7 @@ export function AppShell({
             )}
             <ThemeToggle theme={theme} onToggle={toggleTheme} />
             {user && (
-              <Avatar
-                src={user.picture}
-                name={user.name ?? user.email ?? "User"}
-                size="sm"
-              />
+              <Avatar src={user.picture} name={user.name ?? user.email ?? "User"} size="sm" />
             )}
             <Button variant="ghost" size="sm" onClick={handleSignOut}>
               Sign out

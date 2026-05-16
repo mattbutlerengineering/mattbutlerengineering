@@ -59,7 +59,7 @@ export function getConnectionManager(): SseConnectionManager {
  * Create a connection manager with custom config (for testing).
  */
 export function createConnectionManager(
-  config?: Partial<SseConnectionConfig>,
+  config?: Partial<SseConnectionConfig>
 ): SseConnectionManager {
   return new SseConnectionManager(config);
 }
@@ -111,9 +111,9 @@ export async function eventRoutes(fastify: FastifyInstance): Promise<void> {
           { ip: clientIp, reason: result.reason },
           "SSE connection rejected: per-IP limit reached"
         );
-        return reply.code(429).send(
-          createProblemDetails(429, "Too Many Connections", result.reason)
-        );
+        return reply
+          .code(429)
+          .send(createProblemDetails(429, "Too Many Connections", result.reason));
       }
 
       const connectionId = result.connection.id;
@@ -130,7 +130,9 @@ export async function eventRoutes(fastify: FastifyInstance): Promise<void> {
       });
 
       // Send initial connection event
-      reply.raw.write(`event: connected\ndata: ${JSON.stringify({ message: "Connected to event stream" })}\n\n`);
+      reply.raw.write(
+        `event: connected\ndata: ${JSON.stringify({ message: "Connected to event stream" })}\n\n`
+      );
 
       // --- Heartbeat: keep-alive ping ---
       const pingInterval = setInterval(() => {
@@ -146,7 +148,9 @@ export async function eventRoutes(fastify: FastifyInstance): Promise<void> {
             { connectionId, ip: clientIp, lifetimeMs: config.connectionTimeoutMs },
             "SSE connection closed: max lifetime reached"
           );
-          reply.raw.write(`event: timeout\ndata: ${JSON.stringify({ message: "Connection timeout — please reconnect" })}\n\n`);
+          reply.raw.write(
+            `event: timeout\ndata: ${JSON.stringify({ message: "Connection timeout — please reconnect" })}\n\n`
+          );
           reply.raw.end();
         }
       }, config.connectionTimeoutMs);
@@ -175,7 +179,9 @@ export async function eventRoutes(fastify: FastifyInstance): Promise<void> {
         // Drain and send all buffered events
         const events = eventBuffer.drain();
         for (const bufferedEvent of events) {
-          reply.raw.write(`event: ${bufferedEvent.type}\ndata: ${JSON.stringify(bufferedEvent)}\n\n`);
+          reply.raw.write(
+            `event: ${bufferedEvent.type}\ndata: ${JSON.stringify(bufferedEvent)}\n\n`
+          );
         }
       };
 

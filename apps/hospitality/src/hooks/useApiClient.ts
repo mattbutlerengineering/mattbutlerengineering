@@ -30,6 +30,6 @@ export function useApiClient() {
         getAccessToken: () => accessToken,
         onError: reportToSentry,
       }),
-    [accessToken],
+    [accessToken]
   );
 }

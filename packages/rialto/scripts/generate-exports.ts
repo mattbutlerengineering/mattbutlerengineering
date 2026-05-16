@@ -72,10 +72,7 @@ function buildExportsMap(): ExportsMap {
 function writeStylesTypeStub(): void {
   const stubPath = path.join(repoRoot, "dist", "lib", "styles.d.ts");
   if (!fs.existsSync(path.dirname(stubPath))) return;
-  fs.writeFileSync(
-    stubPath,
-    "// Side-effect-only CSS bundle — no exported symbols.\nexport {};\n"
-  );
+  fs.writeFileSync(stubPath, "// Side-effect-only CSS bundle — no exported symbols.\nexport {};\n");
 }
 
 function loadPkg(): Record<string, unknown> {

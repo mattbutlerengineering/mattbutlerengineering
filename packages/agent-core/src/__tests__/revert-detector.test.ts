@@ -37,7 +37,7 @@ Manual fix for a bug`;
 
   describe("extractPrNumberFromMessage", () => {
     it("extracts PR number from message", () => {
-      const message = "Revert \"feat: Add feature (#1234)\"";
+      const message = 'Revert "feat: Add feature (#1234)"';
       const prNumber = extractPrNumberFromMessage(message);
       expect(prNumber).toBe(1234);
     });
@@ -65,7 +65,7 @@ Manual fix for a bug`;
     it("formats revert commit for issue table", () => {
       const revert = {
         sha: "abc123def456789",
-        oneline: "Revert \"feat: Add feature (#1234)\"",
+        oneline: 'Revert "feat: Add feature (#1234)"',
         message: "Revert commit\n\nThis reverts commit abc123def",
         revertedPrNumber: 1234,
         timestamp: "2026-05-10T14:30:00Z",
@@ -74,7 +74,7 @@ Manual fix for a bug`;
       const formatted = formatRevertForIssue(revert, true);
 
       expect(formatted).toContain("abc123d");
-      expect(formatted).toContain("Revert \"feat");
+      expect(formatted).toContain('Revert "feat');
       expect(formatted).toContain("#1234");
       expect(formatted).toContain("🤖 AI-authored");
       expect(formatted).toContain("2026-05-10");
@@ -83,7 +83,7 @@ Manual fix for a bug`;
     it("shows manual author when not AI-authored", () => {
       const revert = {
         sha: "def456abc123",
-        oneline: "Revert \"test: Remove test\"",
+        oneline: 'Revert "test: Remove test"',
         message: "Manual revert",
         timestamp: "2026-05-10T14:30:00Z",
       };

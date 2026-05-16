@@ -2,18 +2,11 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  UserSchema,
-  UserPreferencesSchema,
-  PaginationSchema,
-  ErrorSchema,
-} from "./index.js";
+import { UserSchema, UserPreferencesSchema, PaginationSchema, ErrorSchema } from "./index.js";
 import { compareSchema } from "@mbe/types/schema-compat";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const baseline = JSON.parse(
-  readFileSync(join(__dirname, "schema-baseline.json"), "utf-8")
-);
+const baseline = JSON.parse(readFileSync(join(__dirname, "schema-baseline.json"), "utf-8"));
 
 const allSchemas = { UserSchema, UserPreferencesSchema, PaginationSchema, ErrorSchema };
 

@@ -165,9 +165,7 @@ const TOKENS: NavSection = {
 // ---------------------------------------------------------------------------
 const DASHBOARD: NavSection = {
   label: "Dashboard",
-  items: [
-    { id: "acmm-dashboard", label: "ACMM Dashboard", path: "/dashboard" },
-  ],
+  items: [{ id: "acmm-dashboard", label: "ACMM Dashboard", path: "/dashboard" }],
 };
 
 // ---------------------------------------------------------------------------
@@ -213,5 +211,3 @@ export const DEMO_PAGES = [
   { id: "teams", label: "Team Create", path: "/demos/teams/new" },
   { id: "layouts", label: "Layout Demo", path: "/demos/layouts" },
 ] as const;
-
-

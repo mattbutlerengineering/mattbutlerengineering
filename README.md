@@ -34,13 +34,13 @@ This starts PostgreSQL in Docker, syncs all database schemas, and launches all d
 
 ### Access Points
 
-| App | URL |
-|-----|-----|
-| Marketing site | http://localhost:3000 |
-| Hospitality app | http://localhost:3002/hospitality |
-| Users API (+ docs) | http://localhost:3001/docs |
-| Agent API (+ docs) | http://localhost:3003/docs |
-| Reservations API (+ docs) | http://localhost:3004/docs |
+| App                       | URL                               |
+| ------------------------- | --------------------------------- |
+| Marketing site            | http://localhost:3000             |
+| Hospitality app           | http://localhost:3002/hospitality |
+| Users API (+ docs)        | http://localhost:3001/docs        |
+| Agent API (+ docs)        | http://localhost:3003/docs        |
+| Reservations API (+ docs) | http://localhost:3004/docs        |
 
 ## Project Structure
 
@@ -74,27 +74,27 @@ mattbutlerengineering/
 
 This repository is measured against the [AI Codebase Maturity Model (ACMM)](docs/acmm.md) to track how well each project is set up for autonomous agent workflows.
 
-| Project | Level | Role | Next Gap |
-|---|---|---|---|
-| **Repository Root** | **L3** | **Analyst** | Activity Audit, Rollback drills |
-| [apps/gen](apps/gen/) | L2 | Rule-writer | PR acceptance tracking |
-| [apps/hospitality](apps/hospitality/) | L2 | Rule-writer | PR acceptance tracking |
-| [apps/marketing](apps/marketing/) | L2 | Rule-writer | PR acceptance tracking |
-| [apps/rialto-web](apps/rialto-web/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/agent-core](packages/agent-core/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/api-client](packages/api-client/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/api-versioning](packages/api-versioning/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/auth](packages/auth/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/config](packages/config/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/observability](packages/observability/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/rialto](packages/rialto/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/rialto-catalog](packages/rialto-catalog/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/rialto-plugin](packages/rialto-plugin/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/types](packages/types/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/feature-flags](packages/feature-flags/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/agent-test-utils](packages/agent-test-utils/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/mcp-server](packages/mcp-server/) | L2 | Rule-writer | PR acceptance tracking |
-| [infrastructure](infrastructure/) | L2 | Rule-writer | PR acceptance tracking |
+| Project                                                 | Level  | Role        | Next Gap                        |
+| ------------------------------------------------------- | ------ | ----------- | ------------------------------- |
+| **Repository Root**                                     | **L3** | **Analyst** | Activity Audit, Rollback drills |
+| [apps/gen](apps/gen/)                                   | L2     | Rule-writer | PR acceptance tracking          |
+| [apps/hospitality](apps/hospitality/)                   | L2     | Rule-writer | PR acceptance tracking          |
+| [apps/marketing](apps/marketing/)                       | L2     | Rule-writer | PR acceptance tracking          |
+| [apps/rialto-web](apps/rialto-web/)                     | L2     | Rule-writer | PR acceptance tracking          |
+| [packages/agent-core](packages/agent-core/)             | L2     | Rule-writer | PR acceptance tracking          |
+| [packages/api-client](packages/api-client/)             | L2     | Rule-writer | PR acceptance tracking          |
+| [packages/api-versioning](packages/api-versioning/)     | L2     | Rule-writer | PR acceptance tracking          |
+| [packages/auth](packages/auth/)                         | L2     | Rule-writer | PR acceptance tracking          |
+| [packages/config](packages/config/)                     | L2     | Rule-writer | PR acceptance tracking          |
+| [packages/observability](packages/observability/)       | L2     | Rule-writer | PR acceptance tracking          |
+| [packages/rialto](packages/rialto/)                     | L2     | Rule-writer | PR acceptance tracking          |
+| [packages/rialto-catalog](packages/rialto-catalog/)     | L2     | Rule-writer | PR acceptance tracking          |
+| [packages/rialto-plugin](packages/rialto-plugin/)       | L2     | Rule-writer | PR acceptance tracking          |
+| [packages/types](packages/types/)                       | L2     | Rule-writer | PR acceptance tracking          |
+| [packages/feature-flags](packages/feature-flags/)       | L2     | Rule-writer | PR acceptance tracking          |
+| [packages/agent-test-utils](packages/agent-test-utils/) | L2     | Rule-writer | PR acceptance tracking          |
+| [packages/mcp-server](packages/mcp-server/)             | L2     | Rule-writer | PR acceptance tracking          |
+| [infrastructure](infrastructure/)                       | L2     | Rule-writer | PR acceptance tracking          |
 
 ## Commands
 

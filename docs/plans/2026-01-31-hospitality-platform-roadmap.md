@@ -9,6 +9,7 @@
 Phased roadmap to evolve the reservations service into a full hospitality management platform.
 
 ### Design Principles
+
 - Start lean (Postgres-only), add infrastructure when scale demands
 - Pay-as-you-grow: no Redis/advanced infra until needed
 - PWA shell early, offline sync gradually
@@ -16,17 +17,18 @@ Phased roadmap to evolve the reservations service into a full hospitality manage
 
 ### Infrastructure Tiers
 
-| Scale | Infrastructure | Monthly Cost |
-|-------|---------------|--------------|
-| **Tier 1** (1-10 venues) | Single Postgres, no Redis | ~$12-24 |
-| **Tier 2** (10-50 venues) | Postgres + Redis cache | ~$30-50 |
-| **Tier 3** (50+ venues) | Add RLS, partitioning, Redis inventory | ~$75+ |
+| Scale                     | Infrastructure                         | Monthly Cost |
+| ------------------------- | -------------------------------------- | ------------ |
+| **Tier 1** (1-10 venues)  | Single Postgres, no Redis              | ~$12-24      |
+| **Tier 2** (10-50 venues) | Postgres + Redis cache                 | ~$30-50      |
+| **Tier 3** (50+ venues)   | Add RLS, partitioning, Redis inventory | ~$75+        |
 
 ---
 
 ## Progress Tracker
 
 ### Phase 0: Foundation
+
 - [x] Add venueId to Table model
 - [x] Add venueId to Reservation model
 - [x] Create database migration
@@ -34,6 +36,7 @@ Phased roadmap to evolve the reservations service into a full hospitality manage
 - [x] Update API routes
 
 ### Phase 1: Full Venue Model (1-2 weeks)
+
 - [x] Create VenueGroup model
 - [x] Create Venue model with timezone, currency, settings
 - [x] Create venues service
@@ -45,6 +48,7 @@ Phased roadmap to evolve the reservations service into a full hospitality manage
 - [ ] Create venue onboarding flow
 
 ### Phase 2: Guest CRM (1-2 weeks)
+
 - [x] Create Guest model
 - [x] Identity resolution (match by email/phone)
 - [x] Guest service with visit tracking
@@ -55,6 +59,7 @@ Phased roadmap to evolve the reservations service into a full hospitality manage
 - [x] Write tests
 
 ### Phase 3: Floor Plans & Canvas Editor (3-4 weeks)
+
 - [x] Create FloorPlan model
 - [x] Enhance Table model (min/max covers, coordinates, shapeMetadata)
 - [x] Create FloorPlan service (CRUD, activate, bulk position updates)
@@ -68,22 +73,27 @@ Phased roadmap to evolve the reservations service into a full hospitality manage
 - [x] Server-Sent Events for real-time sync
 
 ### PWA Track (Parallel)
+
 **Phase A - Basic PWA (with Phase 1-2)**
+
 - [x] PWA manifest
 - [x] Service Worker for static assets (vite-plugin-pwa)
 - [ ] Basic offline shell
 
 **Phase B - Read Cache (with Phase 3)**
+
 - [ ] IndexedDB setup
 - [ ] Cache today's reservations
 - [ ] Cache floor plan
 
 **Phase C - Offline Writes (Phase 4+)**
+
 - [ ] Delta-sync protocol
 - [ ] Offline mutation queue
 - [ ] Conflict resolution (LWW)
 
 ### Phase 4: Availability & Booking Engine (2-3 weeks)
+
 - [x] Time slot generation
 - [x] Pacing limits
 - [x] Table-party matching algorithm (best-fit: priority DESC, capacity ASC)
@@ -97,6 +107,7 @@ Phased roadmap to evolve the reservations service into a full hospitality manage
 - [ ] Stripe integration for no-show fees
 
 ### Phase 5+: Future (As Needed)
+
 - [ ] Event sourcing (reservation_events)
 - [ ] RevPASH analytics
 - [ ] POS integration (Toast, Square)
@@ -216,11 +227,12 @@ model ReservationHold {
 ```
 
 **VenueSettings additions:**
+
 ```typescript
 interface VenueSettings {
-  slotIntervalMinutes?: number;      // default 15
-  lastSeatingBuffer?: number;        // minutes before close, default 90
-  holdDurationMinutes?: number;      // default 10
+  slotIntervalMinutes?: number; // default 15
+  lastSeatingBuffer?: number; // minutes before close, default 90
+  holdDurationMinutes?: number; // default 10
   pacingRules?: PacingRule[];
   durationRules?: DurationRule[];
 }
@@ -231,6 +243,7 @@ interface VenueSettings {
 ## When to Add Redis
 
 Add Redis when you observe:
+
 - Booking timeouts during peak times
 - 50+ concurrent booking attempts for same slot
 - "Kitchen crashing" complaints
@@ -241,13 +254,13 @@ Refactoring cost: ~1-2 days
 
 ## Timeline
 
-| Phase | Feature | Effort | Target |
-|-------|---------|--------|--------|
-| 0 | venueId prep | - | ✅ Done |
-| 1 | Venues | 1-2 weeks | ✅ Done |
-| 2 | Guest CRM | 1-2 weeks | ✅ Done |
-| 3 | Floor Plans | 3-4 weeks | ✅ Backend Done |
-| PWA | Parallel | Incremental | TBD |
-| 4 | Availability | 2-3 weeks | ✅ Backend Done |
+| Phase | Feature      | Effort      | Target          |
+| ----- | ------------ | ----------- | --------------- |
+| 0     | venueId prep | -           | ✅ Done         |
+| 1     | Venues       | 1-2 weeks   | ✅ Done         |
+| 2     | Guest CRM    | 1-2 weeks   | ✅ Done         |
+| 3     | Floor Plans  | 3-4 weeks   | ✅ Backend Done |
+| PWA   | Parallel     | Incremental | TBD             |
+| 4     | Availability | 2-3 weeks   | ✅ Backend Done |
 
 **Total MVP:** ~8-11 weeks

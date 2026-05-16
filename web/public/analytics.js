@@ -56,9 +56,7 @@
   }
 
   function parseAcmmBadge(logMd) {
-    var match = logMd.match(
-      /ACMM Level (\d+)\s*[·\-]\s*(\d+)\/(\d+)\s*passing/,
-    );
+    var match = logMd.match(/ACMM Level (\d+)\s*[·\-]\s*(\d+)\/(\d+)\s*passing/);
     if (!match) return null;
     var levelNames = [
       "Prerequisites",
@@ -178,8 +176,8 @@
         el(
           "p",
           "qd-empty",
-          "No PR acceptance data available. Place metrics in metrics/acmm-pr-history.jsonl.",
-        ),
+          "No PR acceptance data available. Place metrics in metrics/acmm-pr-history.jsonl."
+        )
       );
       return section;
     }
@@ -192,14 +190,12 @@
     var rateBadge = el(
       "span",
       "qd-badge " + badgeClass(latest.acceptanceRate),
-      formatPct(latest.acceptanceRate),
+      formatPct(latest.acceptanceRate)
     );
     rateCard.querySelector(".qd-card__value").textContent = "";
     rateCard.querySelector(".qd-card__value").appendChild(rateBadge);
     cards.appendChild(rateCard);
-    cards.appendChild(
-      buildCard("PRs (" + latest.windowDays + "d)", latest.total),
-    );
+    cards.appendChild(buildCard("PRs (" + latest.windowDays + "d)", latest.total));
     cards.appendChild(buildCard("Merged", latest.merged));
     cards.appendChild(buildCard("Mean Close (hrs)", latest.meanCloseHours));
     section.appendChild(cards);
@@ -217,9 +213,7 @@
         track.appendChild(fill);
         row.appendChild(track);
 
-        row.appendChild(
-          el("span", "qd-bar-pct", formatPct(e.acceptanceRate)),
-        );
+        row.appendChild(el("span", "qd-bar-pct", formatPct(e.acceptanceRate)));
         section.appendChild(row);
       });
     }
@@ -236,8 +230,8 @@
         el(
           "p",
           "qd-empty",
-          "No service health data available. Place metrics in metrics/service-health.jsonl.",
-        ),
+          "No service health data available. Place metrics in metrics/service-health.jsonl."
+        )
       );
       return section;
     }
@@ -248,15 +242,11 @@
     latest.services.forEach(function (svc) {
       var card = el("div", "qd-svc");
       // Validate status to prevent class injection
-      var safeStatus = ["ok", "degraded", "down"].indexOf(svc.status) >= 0
-        ? svc.status
-        : "down";
+      var safeStatus = ["ok", "degraded", "down"].indexOf(svc.status) >= 0 ? svc.status : "down";
       card.appendChild(el("span", "qd-svc__dot qd-svc__dot--" + safeStatus));
       card.appendChild(el("span", "qd-svc__name", escapeHtml(svc.service)));
       if (svc.latency_ms !== null) {
-        card.appendChild(
-          el("span", "qd-svc__latency", svc.latency_ms + "ms"),
-        );
+        card.appendChild(el("span", "qd-svc__latency", svc.latency_ms + "ms"));
       }
       grid.appendChild(card);
     });
@@ -292,7 +282,7 @@
     var footer = el(
       "div",
       "qd-footer",
-      "Fetched at " + data.fetchedAt + " · AI Codebase Maturity Model",
+      "Fetched at " + data.fetchedAt + " · AI Codebase Maturity Model"
     );
     root.appendChild(footer);
 
@@ -313,23 +303,20 @@
     var healthPath = basePath + "/metrics/service-health.jsonl";
     var logPath = basePath + "/metrics/log.md";
 
-    return Promise.allSettled([
-      fetchText(prPath),
-      fetchText(healthPath),
-      fetchText(logPath),
-    ]).then(function (results) {
-      var prRaw = results[0].status === "fulfilled" ? results[0].value : "";
-      var healthRaw =
-        results[1].status === "fulfilled" ? results[1].value : "";
-      var logRaw = results[2].status === "fulfilled" ? results[2].value : "";
+    return Promise.allSettled([fetchText(prPath), fetchText(healthPath), fetchText(logPath)]).then(
+      function (results) {
+        var prRaw = results[0].status === "fulfilled" ? results[0].value : "";
+        var healthRaw = results[1].status === "fulfilled" ? results[1].value : "";
+        var logRaw = results[2].status === "fulfilled" ? results[2].value : "";
 
-      return {
-        prAcceptance: parseJsonl(prRaw),
-        serviceHealth: parseJsonl(healthRaw),
-        acmm: parseAcmmBadge(logRaw),
-        fetchedAt: new Date().toISOString(),
-      };
-    });
+        return {
+          prAcceptance: parseJsonl(prRaw),
+          serviceHealth: parseJsonl(healthRaw),
+          acmm: parseAcmmBadge(logRaw),
+          fetchedAt: new Date().toISOString(),
+        };
+      }
+    );
   }
 
   // ── Public API ───────────────────────────────────────────────────
@@ -347,9 +334,7 @@
     var opts = options || {};
     var container = document.getElementById(containerId);
     if (!container) {
-      console.error(
-        "[analytics] Container not found: #" + containerId,
-      );
+      console.error("[analytics] Container not found: #" + containerId);
       return;
     }
 
@@ -385,7 +370,7 @@
             serviceHealth: [],
             acmm: null,
             fetchedAt: new Date().toISOString(),
-          }),
+          })
         );
       });
   }

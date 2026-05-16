@@ -12,18 +12,19 @@ This skill provides best practices for managing database schema changes with Pri
 Prisma Migrate is a declarative database migration tool that keeps your database schema in sync with your Prisma schema. It creates a migration history (SQL files) that can be version-controlled and deployed consistently across environments.
 
 **Key Concepts:**
+
 - **Migration files**: SQL files stored in `prisma/migrations/` that represent schema changes
 - **Migration history**: The `_prisma_migrations` table tracks which migrations have been applied
 - **Shadow database**: A temporary database used during `migrate dev` to detect drift
 
 ## When to Use Prisma Migrate
 
-| Scenario | Tool | Reason |
-|----------|------|--------|
-| Adding/modifying tables in development | `prisma migrate dev` | Creates versioned migration files |
-| Deploying to staging/production | `prisma migrate deploy` | Applies pending migrations safely |
-| Quick prototyping (no migration history needed) | `prisma db push` | Syncs schema without creating migrations |
-| Checking migration status | `prisma migrate status` | Shows pending/applied migrations |
+| Scenario                                        | Tool                    | Reason                                   |
+| ----------------------------------------------- | ----------------------- | ---------------------------------------- |
+| Adding/modifying tables in development          | `prisma migrate dev`    | Creates versioned migration files        |
+| Deploying to staging/production                 | `prisma migrate deploy` | Applies pending migrations safely        |
+| Quick prototyping (no migration history needed) | `prisma db push`        | Syncs schema without creating migrations |
+| Checking migration status                       | `prisma migrate status` | Shows pending/applied migrations         |
 
 ## Development Workflow
 
@@ -36,11 +37,13 @@ npx prisma migrate dev --name descriptive_name
 ```
 
 This command:
+
 1. Creates a new migration file in `prisma/migrations/`
 2. Applies the migration to your development database
 3. Regenerates Prisma Client
 
 **Best practices for migration names:**
+
 - Use snake_case: `add_user_preferences`
 - Be descriptive: `add_email_verified_column` not `update_users`
 - Include the action: `create_`, `add_`, `remove_`, `rename_`
@@ -86,6 +89,7 @@ npx prisma migrate deploy
 ```
 
 This command:
+
 - Only applies pending migrations that exist in `prisma/migrations/`
 - Never creates new migrations
 - Fails safely if migrations cannot be applied
@@ -102,17 +106,17 @@ Before deploying database changes:
 
 ## Command Reference
 
-| Command | Environment | Purpose |
-|---------|-------------|---------|
-| `prisma migrate dev` | Development | Create and apply migrations |
-| `prisma migrate dev --name <name>` | Development | Create named migration |
-| `prisma migrate dev --create-only` | Development | Generate SQL without applying |
-| `prisma migrate deploy` | Production/CI | Apply pending migrations |
-| `prisma migrate status` | Any | Check migration status |
-| `prisma migrate reset` | Development | Drop DB and reapply all migrations |
-| `prisma migrate resolve --applied <name>` | Production | Mark migration as applied |
-| `prisma migrate resolve --rolled-back <name>` | Production | Mark migration as rolled back |
-| `prisma db push` | Development | Sync schema without migrations |
+| Command                                       | Environment   | Purpose                            |
+| --------------------------------------------- | ------------- | ---------------------------------- |
+| `prisma migrate dev`                          | Development   | Create and apply migrations        |
+| `prisma migrate dev --name <name>`            | Development   | Create named migration             |
+| `prisma migrate dev --create-only`            | Development   | Generate SQL without applying      |
+| `prisma migrate deploy`                       | Production/CI | Apply pending migrations           |
+| `prisma migrate status`                       | Any           | Check migration status             |
+| `prisma migrate reset`                        | Development   | Drop DB and reapply all migrations |
+| `prisma migrate resolve --applied <name>`     | Production    | Mark migration as applied          |
+| `prisma migrate resolve --rolled-back <name>` | Production    | Mark migration as rolled back      |
+| `prisma db push`                              | Development   | Sync schema without migrations     |
 
 ## Common Mistakes to Avoid
 
@@ -155,6 +159,7 @@ DATABASE_URL=local npx prisma migrate deploy
 If your code references new columns/tables that don't exist yet, it will fail.
 
 **Correct order:**
+
 1. Deploy migrations (database changes)
 2. Deploy application code
 3. Clean up old code/columns later
@@ -180,6 +185,7 @@ jobs:
 If you have an existing production database created with `db push` or raw SQL, you need to "baseline" it before using Prisma Migrate. See [Baselining Guide](references/baselining-guide.md) for the full process.
 
 **Quick overview:**
+
 1. Create initial migration with `--create-only`
 2. Mark it as already applied with `migrate resolve --applied`
 3. Future migrations work normally

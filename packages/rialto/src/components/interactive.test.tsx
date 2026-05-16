@@ -276,7 +276,9 @@ describe("DropdownMenu", () => {
     render(
       <DropdownMenu
         trigger={<button>Actions</button>}
-        items={[{ id: "disabled", label: "Disabled item", disabled: true, onSelect: disabledHandler }]}
+        items={[
+          { id: "disabled", label: "Disabled item", disabled: true, onSelect: disabledHandler },
+        ]}
       />
     );
     await user.click(screen.getByText("Actions"));
@@ -557,14 +559,7 @@ describe("Breadcrumb", () => {
 
   it("calls onClick for item with onClick handler", async () => {
     const onClick = vi.fn();
-    render(
-      <Breadcrumb
-        items={[
-          { label: "Home", onClick },
-          { label: "Current" },
-        ]}
-      />
-    );
+    render(<Breadcrumb items={[{ label: "Home", onClick }, { label: "Current" }]} />);
     await user.click(screen.getByRole("button", { name: /home/i }));
     expect(onClick).toHaveBeenCalledOnce();
   });
@@ -681,9 +676,7 @@ describe("Sidebar", () => {
 
   it("calls onClick for button-style items", async () => {
     const onClick = vi.fn();
-    render(
-      <Sidebar items={[{ id: "action", label: "Action item", onClick }]} />
-    );
+    render(<Sidebar items={[{ id: "action", label: "Action item", onClick }]} />);
     await user.click(screen.getByRole("button", { name: /action item/i }));
     expect(onClick).toHaveBeenCalledOnce();
   });

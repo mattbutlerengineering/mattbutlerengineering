@@ -33,6 +33,7 @@ Flags from $ARGUMENTS:
 Execute the profile-user workflow end-to-end.
 
 The workflow handles all logic including:
+
 1. Initialization and existing profile detection
 2. Consent gate before session analysis
 3. Session scanning and data sufficiency checks
@@ -43,4 +44,4 @@ The workflow handles all logic including:
 8. Artifact selection (dev-preferences, CLAUDE.md sections)
 9. Sequential artifact generation
 10. Summary with refresh diff (if applicable)
-</process>
+    </process>

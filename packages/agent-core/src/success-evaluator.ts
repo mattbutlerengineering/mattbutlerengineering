@@ -161,10 +161,7 @@ const EVALUATION_SCHEMA = {
  * Looks for "## Acceptance Criteria" section with checkbox items.
  */
 export function extractAcceptanceCriteria(taskDescription: string): readonly string[] {
-  const sectionBody = extractMarkdownSection(
-    taskDescription,
-    /^##\s*Acceptance\s*Criteria\s*$/i,
-  );
+  const sectionBody = extractMarkdownSection(taskDescription, /^##\s*Acceptance\s*Criteria\s*$/i);
   if (!sectionBody) return [];
 
   return sectionBody
@@ -181,7 +178,7 @@ export function extractAcceptanceCriteria(taskDescription: string): readonly str
 export function extractExpectedFiles(taskDescription: string): readonly string[] {
   const sectionBody = extractMarkdownSection(
     taskDescription,
-    /^##\s*Files\s*to\s*(?:Modify|Create)/i,
+    /^##\s*Files\s*to\s*(?:Modify|Create)/i
   );
   if (!sectionBody) return [];
 
@@ -194,10 +191,7 @@ export function extractExpectedFiles(taskDescription: string): readonly string[]
     .filter(Boolean);
 }
 
-function buildEvaluationPrompt(
-  taskDescription: string,
-  gitDiff: string
-): string {
+function buildEvaluationPrompt(taskDescription: string, gitDiff: string): string {
   const truncatedDiff =
     gitDiff.length > MAX_DIFF_LENGTH
       ? gitDiff.slice(0, MAX_DIFF_LENGTH) + "\n\n... (diff truncated)"
@@ -206,27 +200,29 @@ function buildEvaluationPrompt(
   const criteria = extractAcceptanceCriteria(taskDescription);
   const expectedFiles = extractExpectedFiles(taskDescription);
 
-  const criteriaSection = criteria.length > 0
-    ? [
-        "",
-        "## Acceptance Criteria (from the issue)",
-        "Check each of these specifically against the diff:",
-        ...criteria.map((c, i) => `${i + 1}. ${c}`),
-        "",
-        "If any acceptance criterion is NOT met by the diff, set passed=false and list the unmet criteria in issues.",
-      ].join("\n")
-    : "";
+  const criteriaSection =
+    criteria.length > 0
+      ? [
+          "",
+          "## Acceptance Criteria (from the issue)",
+          "Check each of these specifically against the diff:",
+          ...criteria.map((c, i) => `${i + 1}. ${c}`),
+          "",
+          "If any acceptance criterion is NOT met by the diff, set passed=false and list the unmet criteria in issues.",
+        ].join("\n")
+      : "";
 
-  const filesSection = expectedFiles.length > 0
-    ? [
-        "",
-        "## Expected Files",
-        "The task specified these files should be modified/created:",
-        ...expectedFiles.map((f) => `- \`${f}\``),
-        "",
-        "Verify that the diff touches these files. If key files are missing from the diff, note it.",
-      ].join("\n")
-    : "";
+  const filesSection =
+    expectedFiles.length > 0
+      ? [
+          "",
+          "## Expected Files",
+          "The task specified these files should be modified/created:",
+          ...expectedFiles.map((f) => `- \`${f}\``),
+          "",
+          "Verify that the diff touches these files. If key files are missing from the diff, note it.",
+        ].join("\n")
+      : "";
 
   return [
     "You are evaluating whether a code change addresses a given task.",
@@ -254,11 +250,10 @@ function buildEvaluationPrompt(
 
 export async function getGitDiff(worktreePath: string): Promise<string> {
   try {
-    const { stdout } = await execFileAsync(
-      "git",
-      ["diff", "HEAD~1..HEAD"],
-      { cwd: worktreePath, maxBuffer: 10 * 1024 * 1024 }
-    );
+    const { stdout } = await execFileAsync("git", ["diff", "HEAD~1..HEAD"], {
+      cwd: worktreePath,
+      maxBuffer: 10 * 1024 * 1024,
+    });
     return stdout;
   } catch {
     return "";
@@ -291,8 +286,7 @@ export async function evaluateSuccess(
         maxTurns: 1,
         maxBudgetUsd: config.maxBudgetUsd,
         permissionMode: "plan",
-        systemPrompt:
-          "You are a code review evaluator. Respond only with the requested JSON.",
+        systemPrompt: "You are a code review evaluator. Respond only with the requested JSON.",
         outputFormat: {
           type: "json_schema",
           schema: EVALUATION_SCHEMA,
@@ -311,12 +305,14 @@ export async function evaluateSuccess(
       return INCONCLUSIVE_RESULT;
     }
 
-    const parsed = result.structured_output as {
-      passed: boolean;
-      confidence: number;
-      reasoning: string;
-      issues: string[];
-    } | undefined;
+    const parsed = result.structured_output as
+      | {
+          passed: boolean;
+          confidence: number;
+          reasoning: string;
+          issues: string[];
+        }
+      | undefined;
 
     if (!parsed || typeof parsed.passed !== "boolean") {
       return INCONCLUSIVE_RESULT;

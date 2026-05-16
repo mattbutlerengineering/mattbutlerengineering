@@ -12,6 +12,7 @@ Read all files referenced by the invoking prompt's execution_context before star
 Detect whether GSD is installed locally or globally by checking both locations and validating install integrity.
 
 First, derive `PREFERRED_RUNTIME` from the invoking prompt's `execution_context` path:
+
 - Path contains `/.codex/` -> `codex`
 - Path contains `/.gemini/` -> `gemini`
 - Path contains `/.config/opencode/` or `/.opencode/` -> `opencode`
@@ -121,6 +122,7 @@ echo "$TARGET_RUNTIME"
 ```
 
 Parse output:
+
 - Line 1 = installed version (`0.0.0` means unknown version)
 - Line 2 = install scope (`LOCAL`, `GLOBAL`, or `UNKNOWN`)
 - Line 3 = target runtime (`claude`, `opencode`, `gemini`, or `codex`)
@@ -129,6 +131,7 @@ Parse output:
 If multiple runtime installs are detected and the invoking runtime cannot be determined from execution_context, ask the user which runtime to update before running install.
 
 **If VERSION file missing:**
+
 ```
 ## GSD Update
 
@@ -150,6 +153,7 @@ npm view get-shit-done-cc version 2>/dev/null
 ```
 
 **If npm check fails:**
+
 ```
 Couldn't check for updates (offline or npm unavailable).
 
@@ -163,6 +167,7 @@ Exit.
 Compare installed vs latest:
 
 **If installed == latest:**
+
 ```
 ## GSD Update
 
@@ -175,6 +180,7 @@ You're already on the latest version.
 Exit.
 
 **If installed > latest:**
+
 ```
 ## GSD Update
 
@@ -234,6 +240,7 @@ If you've modified any GSD files directly, they'll be automatically backed up to
 ```
 
 Use AskUserQuestion:
+
 - Question: "Proceed with update?"
 - Options:
   - "Yes, update now"
@@ -246,21 +253,25 @@ Use AskUserQuestion:
 Run the update using the install type detected in step 1:
 
 Build runtime flag from step 1:
+
 ```bash
 RUNTIME_FLAG="--$TARGET_RUNTIME"
 ```
 
 **If LOCAL install:**
+
 ```bash
 npx -y get-shit-done-cc@latest "$RUNTIME_FLAG" --local
 ```
 
 **If GLOBAL install:**
+
 ```bash
 npx -y get-shit-done-cc@latest "$RUNTIME_FLAG" --global
 ```
 
 **If UNKNOWN install:**
+
 ```bash
 npx -y get-shit-done-cc@latest --claude --global
 ```
@@ -292,8 +303,8 @@ Format completion message (changelog was already shown in confirmation step):
 
 [View full changelog](https://github.com/gsd-build/get-shit-done/blob/main/CHANGELOG.md)
 ```
-</step>
 
+</step>
 
 <step name="check_local_patches">
 After update completes, check if the installer detected and backed up any locally modified files:
@@ -312,6 +323,7 @@ Run /gsd:reapply-patches to merge your modifications into the new version.
 </process>
 
 <success_criteria>
+
 - [ ] Installed version read correctly
 - [ ] Latest version checked via npm
 - [ ] Update skipped if already current
@@ -320,4 +332,4 @@ Run /gsd:reapply-patches to merge your modifications into the new version.
 - [ ] User confirmation obtained
 - [ ] Update executed successfully
 - [ ] Restart reminder shown
-</success_criteria>
+      </success_criteria>

@@ -36,9 +36,7 @@ const ACCOUNT: NavSection = {
 
 const ADMIN: NavSection = {
   label: "Admin",
-  items: [
-    { id: "admin", label: "Users", path: "/admin" },
-  ],
+  items: [{ id: "admin", label: "Users", path: "/admin" }],
 };
 
 /* ── Setup nav sections ─────────────────────── */
@@ -47,13 +45,13 @@ function buildSetupSections(readiness: VenueReadiness): readonly NavSection[] {
   const STEP_ORDER: SetupStep[] = ["onboarding", "operating-hours", "floor-plan"];
 
   const STEP_LABELS: Record<SetupStep, string> = {
-    "onboarding": "Venue Basics",
+    onboarding: "Venue Basics",
     "operating-hours": "Set Operating Hours",
     "floor-plan": "Create Floor Plan",
   };
 
   const STEP_PATHS: Record<SetupStep, string> = {
-    "onboarding": "/onboarding",
+    onboarding: "/onboarding",
     "operating-hours": "/setup/hours",
     "floor-plan": "/floor-plans",
   };

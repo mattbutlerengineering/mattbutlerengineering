@@ -58,9 +58,9 @@ describe("guestService", () => {
     });
 
     it("handles null lifetimeSpend and lastVisit", async () => {
-      vi.mocked(prisma.guest.findMany).mockResolvedValueOnce(
-        [makePrismaGuest({ lifetimeSpend: null, lastVisit: null })] as never
-      );
+      vi.mocked(prisma.guest.findMany).mockResolvedValueOnce([
+        makePrismaGuest({ lifetimeSpend: null, lastVisit: null }),
+      ] as never);
       vi.mocked(prisma.guest.count).mockResolvedValueOnce(1 as never);
 
       const result = await guestService.list("venue-1", 1, 10);
@@ -312,7 +312,10 @@ describe("guestService", () => {
 
       await guestService.recordVisit("guest-1", visitDate);
 
-      const callData = vi.mocked(prisma.guest.update).mock.calls[0][0].data as Record<string, unknown>;
+      const callData = vi.mocked(prisma.guest.update).mock.calls[0][0].data as Record<
+        string,
+        unknown
+      >;
       expect(callData).not.toHaveProperty("lifetimeSpend");
     });
 
@@ -398,9 +401,7 @@ describe("guestService", () => {
 
       await guestService.search({ venueId: "venue-1" });
 
-      expect(prisma.guest.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ take: 50 })
-      );
+      expect(prisma.guest.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 50 }));
     });
   });
 
@@ -408,10 +409,10 @@ describe("guestService", () => {
     it("returns all six segment categories", async () => {
       vi.mocked(prisma.guest.count)
         .mockResolvedValueOnce(100 as never) // total
-        .mockResolvedValueOnce(10 as never)  // VIP
-        .mockResolvedValueOnce(30 as never)  // recent
-        .mockResolvedValueOnce(20 as never)  // at risk
-        .mockResolvedValueOnce(15 as never)  // lapsed
+        .mockResolvedValueOnce(10 as never) // VIP
+        .mockResolvedValueOnce(30 as never) // recent
+        .mockResolvedValueOnce(20 as never) // at risk
+        .mockResolvedValueOnce(15 as never) // lapsed
         .mockResolvedValueOnce(25 as never); // new
 
       const segments = await guestService.getSegments("venue-1");

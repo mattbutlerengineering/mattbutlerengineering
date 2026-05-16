@@ -1,7 +1,15 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
-import { Button, Checkbox, Divider, Input, useToast, AuthMascot, Text } from "@mattbutlerengineering/rialto";
+import {
+  Button,
+  Checkbox,
+  Divider,
+  Input,
+  useToast,
+  AuthMascot,
+  Text,
+} from "@mattbutlerengineering/rialto";
 import type { MascotState } from "@mattbutlerengineering/rialto";
 import { AuthLayout } from "./AuthLayout";
 import styles from "./AuthLayout.module.css";
@@ -37,10 +45,7 @@ export function SignUp() {
         </Link>
       }
     >
-      <AuthMascot
-        state={mascotState}
-        progress={Math.min(emailValue.length / 20, 1)}
-      />
+      <AuthMascot state={mascotState} progress={Math.min(emailValue.length / 20, 1)} />
 
       <form onSubmit={handleSubmit} className={styles.form}>
         <Input
@@ -95,7 +100,8 @@ export function SignUp() {
           <Checkbox
             label={
               <Text className={styles.termsText}>
-                I agree to the <Link to="#">Terms of Service</Link> and <Link to="#">Privacy Policy</Link>
+                I agree to the <Link to="#">Terms of Service</Link> and{" "}
+                <Link to="#">Privacy Policy</Link>
               </Text>
             }
             disabled={isLoading}

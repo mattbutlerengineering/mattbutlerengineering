@@ -5,10 +5,7 @@ import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 
 // ── Test helpers ────────────────────────────────────────────────────
 
-function makeAssistantToolUse(
-  toolName: string,
-  input: Record<string, unknown>
-): SDKMessage {
+function makeAssistantToolUse(toolName: string, input: Record<string, unknown>): SDKMessage {
   return {
     type: "assistant",
     message: {
@@ -32,10 +29,7 @@ function makeAssistantText(text: string): SDKMessage {
   } as unknown as SDKMessage;
 }
 
-function makeUserToolResult(
-  result: unknown,
-  isError = false
-): SDKMessage {
+function makeUserToolResult(result: unknown, isError = false): SDKMessage {
   const content = isError
     ? [{ type: "tool_result", tool_use_id: "tu_1", is_error: true, content: String(result) }]
     : [{ type: "tool_result", tool_use_id: "tu_1", content: String(result) }];
@@ -130,7 +124,13 @@ describe("StuckDetector", () => {
       d.ingest(makeUserToolResult("build failed: missing dep"));
 
       // Agent fixes the issue (different observation fingerprint injected)
-      d.ingest(makeAssistantToolUse("Edit", { file_path: "/package.json", old_string: "a", new_string: "b" }));
+      d.ingest(
+        makeAssistantToolUse("Edit", {
+          file_path: "/package.json",
+          old_string: "a",
+          new_string: "b",
+        })
+      );
       d.ingest(makeUserToolResult("edit applied"));
 
       // Attempt 2 — same command but context changed
@@ -138,7 +138,13 @@ describe("StuckDetector", () => {
       d.ingest(makeUserToolResult("build failed: missing dep"));
 
       // Agent fixes again
-      d.ingest(makeAssistantToolUse("Edit", { file_path: "/tsconfig.json", old_string: "x", new_string: "y" }));
+      d.ingest(
+        makeAssistantToolUse("Edit", {
+          file_path: "/tsconfig.json",
+          old_string: "x",
+          new_string: "y",
+        })
+      );
       d.ingest(makeUserToolResult("edit applied"));
 
       // Attempt 3
@@ -155,12 +161,8 @@ describe("StuckDetector", () => {
     it("detects same action producing errors 3 times", () => {
       let result = null;
       for (let i = 0; i < 3; i++) {
-        detector.ingest(
-          makeAssistantToolUse("Bash", { command: "npm run build" })
-        );
-        result = detector.ingest(
-          makeUserToolResult("Error: Build failed", true)
-        );
+        detector.ingest(makeAssistantToolUse("Bash", { command: "npm run build" }));
+        result = detector.ingest(makeUserToolResult("Error: Build failed", true));
       }
 
       expect(result).not.toBeNull();
@@ -172,24 +174,18 @@ describe("StuckDetector", () => {
     it("resets error count on non-error observation", () => {
       // Two errors
       for (let i = 0; i < 2; i++) {
-        detector.ingest(
-          makeAssistantToolUse("Bash", { command: "npm run build" })
-        );
+        detector.ingest(makeAssistantToolUse("Bash", { command: "npm run build" }));
         detector.ingest(makeUserToolResult("Error: Build failed", true));
       }
 
       // One success breaks the streak
-      detector.ingest(
-        makeAssistantToolUse("Read", { file_path: "/package.json" })
-      );
-      detector.ingest(makeUserToolResult("{ \"name\": \"test\" }"));
+      detector.ingest(makeAssistantToolUse("Read", { file_path: "/package.json" }));
+      detector.ingest(makeUserToolResult('{ "name": "test" }'));
 
       // Two more errors — should not trigger (streak reset)
       let result = null;
       for (let i = 0; i < 2; i++) {
-        detector.ingest(
-          makeAssistantToolUse("Bash", { command: "npm run build" })
-        );
+        detector.ingest(makeAssistantToolUse("Bash", { command: "npm run build" }));
         result = detector.ingest(makeUserToolResult("Error: Build failed", true));
       }
 
@@ -201,9 +197,7 @@ describe("StuckDetector", () => {
     it("detects agent sending same text message 3 times", () => {
       let result = null;
       for (let i = 0; i < 3; i++) {
-        result = detector.ingest(
-          makeAssistantText("I'll help you fix that bug.")
-        );
+        result = detector.ingest(makeAssistantText("I'll help you fix that bug."));
       }
 
       expect(result).not.toBeNull();
@@ -291,9 +285,7 @@ describe("StuckDetector", () => {
     it("detects no tool use over 5 consecutive text turns (lowered threshold)", () => {
       let result = null;
       for (let i = 0; i < 5; i++) {
-        result = detector.ingest(
-          makeAssistantText(`Thinking about step ${i}...`)
-        );
+        result = detector.ingest(makeAssistantText(`Thinking about step ${i}...`));
       }
 
       expect(result).not.toBeNull();
@@ -325,9 +317,7 @@ describe("StuckDetector", () => {
       const longText = "A".repeat(600); // > 500 chars threshold
       let result = null;
       for (let i = 0; i < 6; i++) {
-        result = detector.ingest(
-          makeAssistantText(`${longText} step ${i}`)
-        );
+        result = detector.ingest(makeAssistantText(`${longText} step ${i}`));
       }
 
       // Should not trigger because output exceeds zeroProgressMinOutputChars
@@ -337,9 +327,7 @@ describe("StuckDetector", () => {
     it("triggers when output is short even after threshold", () => {
       let result = null;
       for (let i = 0; i < 5; i++) {
-        result = detector.ingest(
-          makeAssistantText(`Thinking step ${i}...`)
-        );
+        result = detector.ingest(makeAssistantText(`Thinking step ${i}...`));
       }
 
       expect(result).not.toBeNull();
@@ -350,7 +338,9 @@ describe("StuckDetector", () => {
   describe("silent_failure_loop", () => {
     it("detects tool success with no file modifications over window", () => {
       // First, establish that agent has used file-modifying tools
-      detector.ingest(makeAssistantToolUse("Edit", { file_path: "/a.ts", old_string: "x", new_string: "y" }));
+      detector.ingest(
+        makeAssistantToolUse("Edit", { file_path: "/a.ts", old_string: "x", new_string: "y" })
+      );
       detector.ingest(makeUserToolResult("edit applied"));
 
       // Now: 3 consecutive Read calls that succeed but don't modify files
@@ -366,13 +356,17 @@ describe("StuckDetector", () => {
     });
 
     it("does not trigger when file-modifying tools are used", () => {
-      detector.ingest(makeAssistantToolUse("Edit", { file_path: "/a.ts", old_string: "x", new_string: "y" }));
+      detector.ingest(
+        makeAssistantToolUse("Edit", { file_path: "/a.ts", old_string: "x", new_string: "y" })
+      );
       detector.ingest(makeUserToolResult("edit applied"));
 
       // Mix of Read and Edit — Edit resets the counter
       detector.ingest(makeAssistantToolUse("Read", { file_path: "/b.ts" }));
       detector.ingest(makeUserToolResult("content"));
-      detector.ingest(makeAssistantToolUse("Edit", { file_path: "/b.ts", old_string: "a", new_string: "b" }));
+      detector.ingest(
+        makeAssistantToolUse("Edit", { file_path: "/b.ts", old_string: "a", new_string: "b" })
+      );
       detector.ingest(makeUserToolResult("edit applied"));
       detector.ingest(makeAssistantToolUse("Read", { file_path: "/c.ts" }));
       const result = detector.ingest(makeUserToolResult("content"));
@@ -451,9 +445,7 @@ describe("StuckDetector", () => {
 
       let result = null;
       for (let i = 0; i < 3; i++) {
-        result = customDetector.ingest(
-          makeAssistantText(`Step ${i}`)
-        );
+        result = customDetector.ingest(makeAssistantText(`Step ${i}`));
       }
 
       expect(result).not.toBeNull();
@@ -522,7 +514,9 @@ describe("StuckDetector", () => {
 
     it("returns warning severity for silent_failure_loop", () => {
       const d = createStuckDetector({ silentFailureTurnWindow: 2 });
-      d.ingest(makeAssistantToolUse("Edit", { file_path: "/a.ts", old_string: "x", new_string: "y" }));
+      d.ingest(
+        makeAssistantToolUse("Edit", { file_path: "/a.ts", old_string: "x", new_string: "y" })
+      );
       d.ingest(makeUserToolResult("applied"));
       d.ingest(makeAssistantToolUse("Read", { file_path: "/b.ts" }));
       d.ingest(makeUserToolResult("content"));

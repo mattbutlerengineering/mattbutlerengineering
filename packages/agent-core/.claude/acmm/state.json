@@ -435,10 +435,7 @@
         "details": "A quality dashboard is a visible page or widget that renders your AI loop metrics — PR acceptance rates, coverage trends, review turnaround, test pass rates — in one place. Metrics that are not visible are metrics that get ignored; a dashboard makes them actionable. An AI mission will create an analytics page or embed that pulls data from your CI and displays it as charts and trend lines.",
         "detection": {
           "type": "any-of",
-          "pattern": [
-            "web/public/analytics.js",
-            "web/src/components/analytics/"
-          ]
+          "pattern": ["web/public/analytics.js", "web/src/components/analytics/"]
         },
         "referencePath": "web/public/analytics.js"
       },

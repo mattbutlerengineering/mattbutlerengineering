@@ -144,7 +144,7 @@ describe("handleErrorBoundary", () => {
 
     expect(fakeScope.setExtra).toHaveBeenCalledWith(
       "componentStack",
-      "\n    at App\n    at ErrorBoundary",
+      "\n    at App\n    at ErrorBoundary"
     );
     expect(mockCaptureException).toHaveBeenCalledWith(error);
   });

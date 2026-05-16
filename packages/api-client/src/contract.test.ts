@@ -36,11 +36,7 @@ function jsonSchemaKeys(schema: Record<string, unknown>): Set<string> {
  * Assert that two sets of property names match.
  * Reports which properties are missing from each side.
  */
-function assertKeysMatch(
-  schemaName: string,
-  zodSchema: Set<string>,
-  jsonSchema: Set<string>
-) {
+function assertKeysMatch(schemaName: string, zodSchema: Set<string>, jsonSchema: Set<string>) {
   const missingFromJson = [...zodSchema].filter((k) => !jsonSchema.has(k));
   const missingFromZod = [...jsonSchema].filter((k) => !zodSchema.has(k));
 
@@ -66,11 +62,7 @@ function assertKeysMatch(
 describe("API Client ↔ Service Schema Contracts", () => {
   describe("Users service", () => {
     it("User schema properties match between @mbe/types and users service", () => {
-      assertKeysMatch(
-        "User",
-        zodKeys(UserSchema),
-        jsonSchemaKeys(ServiceUserSchema)
-      );
+      assertKeysMatch("User", zodKeys(UserSchema), jsonSchemaKeys(ServiceUserSchema));
     });
 
     it("UserPreferences schema properties match", () => {
@@ -92,11 +84,7 @@ describe("API Client ↔ Service Schema Contracts", () => {
     });
 
     it("Table schema properties match between @mbe/types and reservations service", () => {
-      assertKeysMatch(
-        "Table",
-        zodKeys(ZodTableSchema),
-        jsonSchemaKeys(ServiceTableSchema)
-      );
+      assertKeysMatch("Table", zodKeys(ZodTableSchema), jsonSchemaKeys(ServiceTableSchema));
     });
   });
 });

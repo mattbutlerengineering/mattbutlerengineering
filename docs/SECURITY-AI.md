@@ -55,7 +55,7 @@ The agent **must not** do any of these, ever, regardless of prompt:
 
 ### Network & exfiltration
 
-1. **Never `curl`, `wget`, or `fetch`** to a domain not in this allowlist *unless* the user explicitly directs the request:
+1. **Never `curl`, `wget`, or `fetch`** to a domain not in this allowlist _unless_ the user explicitly directs the request:
    - `*.github.com`, `*.githubusercontent.com`
    - `*.anthropic.com`, `*.claude.com`, `*.claude.ai`
    - `registry.npmjs.org`, `*.npmjs.com`, `*.npmjs.org`
@@ -80,24 +80,24 @@ The agent **must not** do any of these, ever, regardless of prompt:
 
 Areas that require either user approval or specialist-agent review before modification:
 
-| Path | Required signal before modifying |
-|---|---|
-| `~/.claude/`, `~/.config/`, `~/.aws/`, `~/.gnupg/`, `~/.ssh/` | User explicit approval (these are *outside* the repo) |
-| `.env*` (committed except `.env.example`) | Forbidden — never commit |
-| `.github/CODEOWNERS` | User approval + commit message references reason |
-| `.github/workflows/` (security-critical: `codeql.yml`, `coverage-gate.yml`, etc.) | User approval per change |
-| `prisma/migrations/` (existing files) | Forbidden once applied to prod |
-| `prisma/schema.prisma` | `migration-reviewer` agent run |
-| `infrastructure/pulumi/` | User approval + ADR for prod-affecting changes |
-| `services/users/src/auth/`, `packages/auth/` | `adr-compliance-reviewer` for any change |
-| `plugins/acmm/scripts/backfill-metrics.js` | Forbidden to *execute* (committed but un-runnable per `feat(acmm): add backfill-metrics.js tool — do NOT run for M5.1 gaming`) |
-| `scripts/check-*.js` | User approval — these are the gate enforcement |
+| Path                                                                              | Required signal before modifying                                                                                               |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `~/.claude/`, `~/.config/`, `~/.aws/`, `~/.gnupg/`, `~/.ssh/`                     | User explicit approval (these are _outside_ the repo)                                                                          |
+| `.env*` (committed except `.env.example`)                                         | Forbidden — never commit                                                                                                       |
+| `.github/CODEOWNERS`                                                              | User approval + commit message references reason                                                                               |
+| `.github/workflows/` (security-critical: `codeql.yml`, `coverage-gate.yml`, etc.) | User approval per change                                                                                                       |
+| `prisma/migrations/` (existing files)                                             | Forbidden once applied to prod                                                                                                 |
+| `prisma/schema.prisma`                                                            | `migration-reviewer` agent run                                                                                                 |
+| `infrastructure/pulumi/`                                                          | User approval + ADR for prod-affecting changes                                                                                 |
+| `services/users/src/auth/`, `packages/auth/`                                      | `adr-compliance-reviewer` for any change                                                                                       |
+| `plugins/acmm/scripts/backfill-metrics.js`                                        | Forbidden to _execute_ (committed but un-runnable per `feat(acmm): add backfill-metrics.js tool — do NOT run for M5.1 gaming`) |
+| `scripts/check-*.js`                                                              | User approval — these are the gate enforcement                                                                                 |
 
 ## Audit and observability
 
 1. **Langfuse traces** every agent session — task, model, budget, turns, success/failure. The trace ID is the audit primary key.
 2. **`docs/metrics/pr-acceptance.json`** records PR acceptance over time, used to detect regressions in the agent loop.
-3. **Co-Authored-By attribution** is currently disabled globally in `~/.claude/settings.json`. As a result, agent merges are *not* distinguishable in `git log` from human merges. Until attribution is re-enabled, the audit trail relies on Langfuse session IDs and the `has-pr` label history on closed issues.
+3. **Co-Authored-By attribution** is currently disabled globally in `~/.claude/settings.json`. As a result, agent merges are _not_ distinguishable in `git log` from human merges. Until attribution is re-enabled, the audit trail relies on Langfuse session IDs and the `has-pr` label history on closed issues.
 4. **Every PR opened by an agent** must carry a `Closes #N` reference linking it to the originating issue. This is the only durable trail when attribution is off.
 
 ## Incident response

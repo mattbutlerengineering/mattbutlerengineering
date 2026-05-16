@@ -1,8 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  SseConnectionManager,
-  DEFAULT_SSE_CONFIG,
-} from "./sse-connection-manager.js";
+import { SseConnectionManager, DEFAULT_SSE_CONFIG } from "./sse-connection-manager.js";
 
 describe("SseConnectionManager", () => {
   describe("register", () => {

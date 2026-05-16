@@ -70,9 +70,7 @@ describe("evaluateSuccess", () => {
       issues: [],
     });
 
-    vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([evalResult]) as ReturnType<typeof query>
-    );
+    vi.mocked(query).mockReturnValue(mockQueryGenerator([evalResult]) as ReturnType<typeof query>);
 
     const result = await evaluateSuccess(
       "Add a health check endpoint",
@@ -92,9 +90,7 @@ describe("evaluateSuccess", () => {
       issues: ["Changes are not related to the task", "Missing tests"],
     });
 
-    vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([evalResult]) as ReturnType<typeof query>
-    );
+    vi.mocked(query).mockReturnValue(mockQueryGenerator([evalResult]) as ReturnType<typeof query>);
 
     const result = await evaluateSuccess(
       "Fix the login bug",
@@ -150,9 +146,7 @@ describe("evaluateSuccess", () => {
       permission_denials: [],
     };
 
-    vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([badResult]) as ReturnType<typeof query>
-    );
+    vi.mocked(query).mockReturnValue(mockQueryGenerator([badResult]) as ReturnType<typeof query>);
 
     const result = await evaluateSuccess("Fix bug", "diff --git a/file.ts");
 
@@ -168,9 +162,7 @@ describe("evaluateSuccess", () => {
       issues: [],
     });
 
-    vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([evalResult]) as ReturnType<typeof query>
-    );
+    vi.mocked(query).mockReturnValue(mockQueryGenerator([evalResult]) as ReturnType<typeof query>);
 
     const result = await evaluateSuccess("Task", "diff --git a/file.ts");
 
@@ -185,9 +177,7 @@ describe("evaluateSuccess", () => {
       issues: [],
     });
 
-    vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([evalResult]) as ReturnType<typeof query>
-    );
+    vi.mocked(query).mockReturnValue(mockQueryGenerator([evalResult]) as ReturnType<typeof query>);
 
     await evaluateSuccess("Task", "diff --git a/file.ts");
 
@@ -208,9 +198,7 @@ describe("evaluateSuccess", () => {
       issues: [],
     });
 
-    vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([evalResult]) as ReturnType<typeof query>
-    );
+    vi.mocked(query).mockReturnValue(mockQueryGenerator([evalResult]) as ReturnType<typeof query>);
 
     await evaluateSuccess("Task", "diff --git a/file.ts", {
       model: "claude-sonnet-4-6",
@@ -232,8 +220,9 @@ describe("getGitDiff", () => {
   });
 
   it("returns git diff output", async () => {
-    vi.mocked(execFile as unknown as (...args: unknown[]) => Promise<{ stdout: string }>)
-      .mockResolvedValue({ stdout: "diff --git a/file.ts\n+new line" });
+    vi.mocked(
+      execFile as unknown as (...args: unknown[]) => Promise<{ stdout: string }>
+    ).mockResolvedValue({ stdout: "diff --git a/file.ts\n+new line" });
 
     const diff = await getGitDiff("/repo");
 
@@ -241,8 +230,9 @@ describe("getGitDiff", () => {
   });
 
   it("returns empty string on git error", async () => {
-    vi.mocked(execFile as unknown as (...args: unknown[]) => Promise<{ stdout: string }>)
-      .mockRejectedValue(new Error("not a git repo"));
+    vi.mocked(
+      execFile as unknown as (...args: unknown[]) => Promise<{ stdout: string }>
+    ).mockRejectedValue(new Error("not a git repo"));
 
     const diff = await getGitDiff("/not-a-repo");
 
@@ -374,7 +364,8 @@ describe("extractAcceptanceCriteria", () => {
 
 describe("extractExpectedFiles", () => {
   it("extracts backtick-wrapped file paths from files section", () => {
-    const body = "## Files to Modify\n\n- `src/routes/users.ts` — add endpoint\n- `src/routes/users.test.ts` — add test";
+    const body =
+      "## Files to Modify\n\n- `src/routes/users.ts` — add endpoint\n- `src/routes/users.test.ts` — add test";
     const files = extractExpectedFiles(body);
     expect(files).toEqual(["src/routes/users.ts", "src/routes/users.test.ts"]);
   });

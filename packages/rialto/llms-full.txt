@@ -66,6 +66,32 @@
   </file>
   </section>
   <section priority="medium" role="hooks">
+  <file path="src/hooks/useBoop.ts">
+    export function useBoop(): {
+      style: MotionStyle;
+      onMouseEnter: () => void;
+      onMouseLeave: () => void;
+    } {
+      const shouldReduceMotion = useReducedMotion();
+      const scale = useMotionValue(1);
+      const { stiffness, damping, mass } = boop.transition;
+      const springScale = useSpring(scale, { stiffness, damping, mass });
+    
+      const onMouseEnter = useCallback(() => {
+        scale.set(boop.scale);
+      }, [scale]);
+    
+      const onMouseLeave = useCallback(() => {
+        scale.set(1);
+      }, [scale]);
+    
+      if (shouldReduceMotion) {
+        return { style: NOOP_STYLE, onMouseEnter: noop, onMouseLeave: noop };
+      }
+    
+      return { style: { scale: springScale }, onMouseEnter, onMouseLeave };
+    }
+  </file>
   <file path="src/hooks/useDirection.ts">
     type Direction = "ltr" | "rtl";
     export function useDirection(ref: RefObject<HTMLElement | null>): Direction {
@@ -673,7 +699,11 @@
     export type ResolvedStrings = Required<
       Omit<
         TapeChartStrings,
-        "reservationAriaTemplate" | "nightsLabel" | "partySizeLabel" | "statusLabels" | "roomStatusLabels"
+        | "reservationAriaTemplate"
+        | "nightsLabel"
+        | "partySizeLabel"
+        | "statusLabels"
+        | "roomStatusLabels"
       >
     > & {
       reservationAriaTemplate: (r: TapeChartReservation, fmt: TapeChartFormattedParts) => string;
@@ -741,8 +771,13 @@
       locale: string;
       timeZone?: string;
     }
-    export function useTapeChartI18n(locale?: string, timeZone?: string, defaultCurrency?: string): TapeChartFormatters {
-      const effectiveLocale = locale ?? (typeof navigator !== "undefined" ? navigator.language : "en-US");
+    export function useTapeChartI18n(
+      locale?: string,
+      timeZone?: string,
+      defaultCurrency?: string
+    ): TapeChartFormatters {
+      const effectiveLocale =
+        locale ?? (typeof navigator !== "undefined" ? navigator.language : "en-US");
     
       return useMemo(() => {
         const weekdayShort = new Intl.DateTimeFormat(effectiveLocale, {
@@ -841,7 +876,7 @@
       reservations: TapeChartReservation[],
       rooms: TapeChartRoom[],
       startDate: string,
-      endDate: string,
+      endDate: string
     ): TapeChartLayout {
       return useMemo(() => {
         const dayCount = Math.max(0, daysBetween(startDate, endDate));
@@ -957,7 +992,7 @@
         osc.type = "sine";
         // Mechanical click frequency around 80Hz
         osc.frequency.setValueAtTime(80, audioCtx.currentTime);
-        
+    
         // Fast decay envelope
         gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);

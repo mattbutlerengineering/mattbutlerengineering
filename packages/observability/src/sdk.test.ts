@@ -4,9 +4,7 @@ import { shouldIgnoreRequest } from "./sdk.js";
 
 // Mock the Langfuse span processor module
 vi.mock("@langfuse/otel", () => ({
-  LangfuseSpanProcessor: vi.fn().mockImplementation(function (
-    this: Record<string, unknown>,
-  ) {
+  LangfuseSpanProcessor: vi.fn().mockImplementation(function (this: Record<string, unknown>) {
     this.onStart = vi.fn();
     this.onEnd = vi.fn();
     this.shutdown = vi.fn().mockResolvedValue(undefined);
@@ -16,9 +14,7 @@ vi.mock("@langfuse/otel", () => ({
 
 // Mock OTel SDK to capture config
 vi.mock("@opentelemetry/sdk-node", () => ({
-  NodeSDK: vi.fn().mockImplementation(function (
-    this: Record<string, unknown>,
-  ) {
+  NodeSDK: vi.fn().mockImplementation(function (this: Record<string, unknown>) {
     this.start = vi.fn();
     this.shutdown = vi.fn().mockResolvedValue(undefined);
   }),
@@ -80,9 +76,7 @@ describe("shouldIgnoreRequest", () => {
 
   it("ignores /docs sub-paths (Swagger assets)", () => {
     expect(shouldIgnoreRequest(fakeRequest("/docs/json"))).toBe(true);
-    expect(shouldIgnoreRequest(fakeRequest("/docs/static/index.html"))).toBe(
-      true,
-    );
+    expect(shouldIgnoreRequest(fakeRequest("/docs/static/index.html"))).toBe(true);
   });
 
   it("ignores /reference", () => {
@@ -94,9 +88,7 @@ describe("shouldIgnoreRequest", () => {
   });
 
   it("does not ignore application routes", () => {
-    expect(shouldIgnoreRequest(fakeRequest("/api/v1/reservations"))).toBe(
-      false,
-    );
+    expect(shouldIgnoreRequest(fakeRequest("/api/v1/reservations"))).toBe(false);
     expect(shouldIgnoreRequest(fakeRequest("/api/v1/tables"))).toBe(false);
     expect(shouldIgnoreRequest(fakeRequest("/"))).toBe(false);
   });
@@ -108,9 +100,7 @@ describe("shouldIgnoreRequest", () => {
   });
 
   it("handles missing url gracefully", () => {
-    expect(shouldIgnoreRequest({ url: undefined } as IncomingMessage)).toBe(
-      false,
-    );
+    expect(shouldIgnoreRequest({ url: undefined } as IncomingMessage)).toBe(false);
   });
 });
 

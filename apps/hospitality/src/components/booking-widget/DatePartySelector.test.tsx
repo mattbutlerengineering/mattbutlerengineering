@@ -21,8 +21,18 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       </div>
     );
   },
-  Button: ({ children, onClick, disabled }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean }) => (
-    <button onClick={onClick} disabled={disabled}>{children}</button>
+  Button: ({
+    children,
+    onClick,
+    disabled,
+  }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+    disabled?: boolean;
+  }) => (
+    <button onClick={onClick} disabled={disabled}>
+      {children}
+    </button>
   ),
 }));
 
@@ -131,11 +141,7 @@ describe("DatePartySelector", () => {
 
   it("does not render end date input when enableDateRange is true but onEndDateChange is not provided", () => {
     render(
-      <DatePartySelector
-        {...defaultProps}
-        enableDateRange={true}
-        selectedDate="2026-05-20"
-      />
+      <DatePartySelector {...defaultProps} enableDateRange={true} selectedDate="2026-05-20" />
     );
     expect(screen.getByLabelText("Start Date")).toBeDefined();
     expect(screen.queryByLabelText("End Date")).toBeNull();

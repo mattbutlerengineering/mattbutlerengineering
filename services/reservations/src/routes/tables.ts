@@ -191,11 +191,12 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
         const table = await tableService.create(request.body);
         return reply.code(201).send({ data: table });
       } catch (error) {
-        if (
-          error instanceof Error &&
-          error.message.includes("Unique constraint")
-        ) {
-          return reply.code(400).send(createProblemDetails(400, "Bad Request", "A table with this name already exists"));
+        if (error instanceof Error && error.message.includes("Unique constraint")) {
+          return reply
+            .code(400)
+            .send(
+              createProblemDetails(400, "Bad Request", "A table with this name already exists")
+            );
         }
         throw error;
       }

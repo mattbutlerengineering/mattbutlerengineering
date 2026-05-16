@@ -7,25 +7,13 @@ describe("ConfirmDialog", () => {
   describe("rendering", () => {
     it("renders nothing when open=false", () => {
       render(
-        <ConfirmDialog
-          open={false}
-          onConfirm={() => {}}
-          onCancel={() => {}}
-          title="Delete?"
-        />
+        <ConfirmDialog open={false} onConfirm={() => {}} onCancel={() => {}} title="Delete?" />
       );
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
 
     it("renders dialog when open=true", () => {
-      render(
-        <ConfirmDialog
-          open
-          onConfirm={() => {}}
-          onCancel={() => {}}
-          title="Delete item?"
-        />
-      );
+      render(<ConfirmDialog open onConfirm={() => {}} onCancel={() => {}} title="Delete item?" />);
       expect(screen.getByRole("dialog")).toBeInTheDocument();
     });
 
@@ -48,14 +36,7 @@ describe("ConfirmDialog", () => {
     });
 
     it("renders confirm and cancel buttons with default labels", () => {
-      render(
-        <ConfirmDialog
-          open
-          onConfirm={() => {}}
-          onCancel={() => {}}
-          title="Delete?"
-        />
-      );
+      render(<ConfirmDialog open onConfirm={() => {}} onCancel={() => {}} title="Delete?" />);
       expect(screen.getByRole("button", { name: /confirm/i })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /cancel/i })).toBeInTheDocument();
     });
@@ -80,14 +61,7 @@ describe("ConfirmDialog", () => {
     it("calls onConfirm when confirm button is clicked", async () => {
       const user = userEvent.setup();
       const onConfirm = vi.fn();
-      render(
-        <ConfirmDialog
-          open
-          onConfirm={onConfirm}
-          onCancel={() => {}}
-          title="Delete?"
-        />
-      );
+      render(<ConfirmDialog open onConfirm={onConfirm} onCancel={() => {}} title="Delete?" />);
       await user.click(screen.getByRole("button", { name: /confirm/i }));
       expect(onConfirm).toHaveBeenCalledTimes(1);
     });
@@ -95,14 +69,7 @@ describe("ConfirmDialog", () => {
     it("calls onCancel when cancel button is clicked", async () => {
       const user = userEvent.setup();
       const onCancel = vi.fn();
-      render(
-        <ConfirmDialog
-          open
-          onConfirm={() => {}}
-          onCancel={onCancel}
-          title="Delete?"
-        />
-      );
+      render(<ConfirmDialog open onConfirm={() => {}} onCancel={onCancel} title="Delete?" />);
       await user.click(screen.getByRole("button", { name: /cancel/i }));
       expect(onCancel).toHaveBeenCalledTimes(1);
     });
@@ -110,14 +77,7 @@ describe("ConfirmDialog", () => {
     it("calls onCancel when Escape is pressed", async () => {
       const user = userEvent.setup();
       const onCancel = vi.fn();
-      render(
-        <ConfirmDialog
-          open
-          onConfirm={() => {}}
-          onCancel={onCancel}
-          title="Delete?"
-        />
-      );
+      render(<ConfirmDialog open onConfirm={() => {}} onCancel={onCancel} title="Delete?" />);
       await user.keyboard("{Escape}");
       expect(onCancel).toHaveBeenCalledTimes(1);
     });

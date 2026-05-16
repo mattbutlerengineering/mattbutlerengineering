@@ -33,6 +33,7 @@ All actions emit SSE events for real-time sync.
 New `status` field on the Table model: AVAILABLE, OCCUPIED, DIRTY, READY.
 
 **Transitions (all manual via staff action in timeline):**
+
 - AVAILABLE → OCCUPIED (staff clicks "Seat" on a reservation)
 - OCCUPIED → DIRTY (staff marks table after guests leave)
 - DIRTY → READY (staff marks table as reset — optional two-step cleaning)
@@ -81,23 +82,23 @@ model Reservation {
 
 ## New Components
 
-| Component | Purpose |
-|-----------|---------|
-| AddTableDialog | Create table from floor plan editor |
-| CancelReservationDialog | Cancel with reason/note |
-| EditReservationDrawer | Edit reservation details |
-| WalkInDialog | Quick-seat walk-in guests |
-| TableStatusBadge | Color-coded table status indicator |
+| Component               | Purpose                             |
+| ----------------------- | ----------------------------------- |
+| AddTableDialog          | Create table from floor plan editor |
+| CancelReservationDialog | Cancel with reason/note             |
+| EditReservationDrawer   | Edit reservation details            |
+| WalkInDialog            | Quick-seat walk-in guests           |
+| TableStatusBadge        | Color-coded table status indicator  |
 
 ## API Changes
 
-| Endpoint | Change |
-|----------|--------|
-| `PATCH /api/v1/tables/:id/status` | New — status transitions |
-| `PATCH /api/v1/reservations/:id` | Accept cancellationReason/Note |
-| `PATCH /api/v1/reservations/:id` | Also used for cancellation with reason (no DELETE with body) |
-| `POST /api/v1/reservations/walk-in` | New — instant seated reservation |
-| SSE `table:status-changed` | New event type |
+| Endpoint                            | Change                                                       |
+| ----------------------------------- | ------------------------------------------------------------ |
+| `PATCH /api/v1/tables/:id/status`   | New — status transitions                                     |
+| `PATCH /api/v1/reservations/:id`    | Accept cancellationReason/Note                               |
+| `PATCH /api/v1/reservations/:id`    | Also used for cancellation with reason (no DELETE with body) |
+| `POST /api/v1/reservations/walk-in` | New — instant seated reservation                             |
+| SSE `table:status-changed`          | New event type                                               |
 
 ## Success Criteria
 

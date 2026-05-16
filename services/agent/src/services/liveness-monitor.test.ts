@@ -21,10 +21,7 @@ vi.mock("./session-executor.js", () => ({
 
 import { sessionService } from "./session.js";
 import { cancelSession } from "./session-executor.js";
-import {
-  startLivenessMonitor,
-  stopLivenessMonitor,
-} from "./liveness-monitor.js";
+import { startLivenessMonitor, stopLivenessMonitor } from "./liveness-monitor.js";
 
 const makeRunningSession = (id: string, updatedAt: string) => ({
   id,
@@ -99,14 +96,9 @@ describe("liveness-monitor", () => {
   describe("stale session detection", () => {
     it("cancels session that has been inactive beyond threshold", async () => {
       const now = Date.now();
-      const staleSession = makeRunningSession(
-        "stale-1",
-        new Date(now - 700_000).toISOString()
-      );
+      const staleSession = makeRunningSession("stale-1", new Date(now - 700_000).toISOString());
 
-      vi.mocked(sessionService.findByStatus).mockResolvedValueOnce([
-        staleSession,
-      ]);
+      vi.mocked(sessionService.findByStatus).mockResolvedValueOnce([staleSession]);
       vi.mocked(sessionService.getLastEvent).mockResolvedValueOnce(null);
       vi.mocked(cancelSession).mockResolvedValueOnce(true);
 
@@ -125,14 +117,9 @@ describe("liveness-monitor", () => {
 
     it("does not cancel session that has recent activity", async () => {
       const now = Date.now();
-      const activeSession = makeRunningSession(
-        "active-1",
-        new Date(now - 60_000).toISOString()
-      );
+      const activeSession = makeRunningSession("active-1", new Date(now - 60_000).toISOString());
 
-      vi.mocked(sessionService.findByStatus).mockResolvedValueOnce([
-        activeSession,
-      ]);
+      vi.mocked(sessionService.findByStatus).mockResolvedValueOnce([activeSession]);
       vi.mocked(sessionService.getLastEvent).mockResolvedValueOnce({
         id: "evt-1",
         sessionId: "active-1",
@@ -149,14 +136,9 @@ describe("liveness-monitor", () => {
 
     it("uses updatedAt as fallback when no events exist", async () => {
       const now = Date.now();
-      const recentSession = makeRunningSession(
-        "recent-1",
-        new Date(now - 60_000).toISOString()
-      );
+      const recentSession = makeRunningSession("recent-1", new Date(now - 60_000).toISOString());
 
-      vi.mocked(sessionService.findByStatus).mockResolvedValueOnce([
-        recentSession,
-      ]);
+      vi.mocked(sessionService.findByStatus).mockResolvedValueOnce([recentSession]);
       vi.mocked(sessionService.getLastEvent).mockResolvedValueOnce(null);
 
       startLivenessMonitor();
@@ -167,14 +149,9 @@ describe("liveness-monitor", () => {
 
     it("does not add error event when cancellation returns false", async () => {
       const now = Date.now();
-      const staleSession = makeRunningSession(
-        "stale-2",
-        new Date(now - 700_000).toISOString()
-      );
+      const staleSession = makeRunningSession("stale-2", new Date(now - 700_000).toISOString());
 
-      vi.mocked(sessionService.findByStatus).mockResolvedValueOnce([
-        staleSession,
-      ]);
+      vi.mocked(sessionService.findByStatus).mockResolvedValueOnce([staleSession]);
       vi.mocked(sessionService.getLastEvent).mockResolvedValueOnce(null);
       vi.mocked(cancelSession).mockResolvedValueOnce(false);
 
@@ -209,9 +186,7 @@ describe("liveness-monitor", () => {
         makeRunningSession("stale-b", new Date(now - 700_000).toISOString()),
       ];
 
-      vi.mocked(sessionService.findByStatus).mockResolvedValueOnce(
-        staleSessions
-      );
+      vi.mocked(sessionService.findByStatus).mockResolvedValueOnce(staleSessions);
       vi.mocked(sessionService.getLastEvent).mockResolvedValue(null);
       vi.mocked(cancelSession).mockResolvedValue(true);
 

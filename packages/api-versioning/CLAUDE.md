@@ -14,9 +14,9 @@ src/
 
 ```typescript
 interface ApiVersioningOptions {
-  currentVersion: string;         // e.g. "v1"
-  successorVersion?: string;      // Optional: next version path
-  sunsetMonthsFromNow?: number;   // Default: 6
+  currentVersion: string; // e.g. "v1"
+  successorVersion?: string; // Optional: next version path
+  sunsetMonthsFromNow?: number; // Default: 6
 }
 ```
 
@@ -27,7 +27,7 @@ import { apiVersioningPlugin } from "@mbe/api-versioning";
 
 await fastify.register(apiVersioningPlugin, {
   currentVersion: "v1",
-  successorVersion: "v2"
+  successorVersion: "v2",
 });
 ```
 

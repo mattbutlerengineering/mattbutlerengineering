@@ -191,8 +191,7 @@ export function DashboardSidebar({
   );
 
   const isItemActive = useCallback(
-    (item: NavItem): boolean =>
-      activePath === item.path || activePath.startsWith(item.path + "/"),
+    (item: NavItem): boolean => activePath === item.path || activePath.startsWith(item.path + "/"),
     [activePath]
   );
 
@@ -202,18 +201,10 @@ export function DashboardSidebar({
     <>
       {/* ── Mobile backdrop ────────────────── */}
       {isMobileOpen && (
-        <div
-          className={styles.backdrop}
-          onClick={onMobileClose}
-          aria-hidden="true"
-        />
+        <div className={styles.backdrop} onClick={onMobileClose} aria-hidden="true" />
       )}
 
-      <nav
-        ref={sidebarRef}
-        className={rootClassName}
-        aria-label="Dashboard navigation"
-      >
+      <nav ref={sidebarRef} className={rootClassName} aria-label="Dashboard navigation">
         {headerSlot}
         <div className={styles.sections}>
           {sections.map((section, sectionIndex) => {
@@ -267,9 +258,7 @@ export function DashboardSidebar({
                   aria-expanded={isExpanded}
                   type="button"
                 >
-                  <span
-                    className={`${styles.chevron} ${isExpanded ? styles.chevronExpanded : ""}`}
-                  >
+                  <span className={`${styles.chevron} ${isExpanded ? styles.chevronExpanded : ""}`}>
                     <ChevronIcon />
                   </span>
                   <span className={styles.sectionLabel}>{section.label}</span>

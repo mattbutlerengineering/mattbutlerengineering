@@ -96,13 +96,15 @@ describe("ClaudeAdapter", () => {
     it("maps AdapterConfig to SessionConfig correctly", async () => {
       mockRunSession.mockResolvedValueOnce(makeSessionResult());
 
-      await adapter.run(makeConfig({
-        taskDescription: "Add rate limiting to API",
-        repoPath: "/home/user/project",
-        baseBranch: "develop",
-        model: "claude-opus-4-6",
-        maxTurns: 25,
-      }));
+      await adapter.run(
+        makeConfig({
+          taskDescription: "Add rate limiting to API",
+          repoPath: "/home/user/project",
+          baseBranch: "develop",
+          model: "claude-opus-4-6",
+          maxTurns: 25,
+        })
+      );
 
       expect(mockRunSession).toHaveBeenCalledOnce();
       const sessionConfig = mockRunSession.mock.calls[0][0];
@@ -139,10 +141,12 @@ describe("ClaudeAdapter", () => {
 
   describe("run — success result", () => {
     it("returns success when session succeeds", async () => {
-      mockRunSession.mockResolvedValueOnce(makeSessionResult({
-        status: "succeeded",
-        branchName: "worktree-agent-fix",
-      }));
+      mockRunSession.mockResolvedValueOnce(
+        makeSessionResult({
+          status: "succeeded",
+          branchName: "worktree-agent-fix",
+        })
+      );
 
       const result = await adapter.run(makeConfig());
 
@@ -161,11 +165,13 @@ describe("ClaudeAdapter", () => {
     });
 
     it("detects hasChanges when session produces a branch", async () => {
-      mockRunSession.mockResolvedValueOnce(makeSessionResult({
-        status: "succeeded",
-        branchName: "worktree-agent-fix",
-        prUrl: null,
-      }));
+      mockRunSession.mockResolvedValueOnce(
+        makeSessionResult({
+          status: "succeeded",
+          branchName: "worktree-agent-fix",
+          prUrl: null,
+        })
+      );
 
       const result = await adapter.run(makeConfig());
 
@@ -173,10 +179,12 @@ describe("ClaudeAdapter", () => {
     });
 
     it("detects hasChanges when session produces a PR URL", async () => {
-      mockRunSession.mockResolvedValueOnce(makeSessionResult({
-        status: "succeeded",
-        prUrl: "https://github.com/org/repo/pull/42",
-      }));
+      mockRunSession.mockResolvedValueOnce(
+        makeSessionResult({
+          status: "succeeded",
+          prUrl: "https://github.com/org/repo/pull/42",
+        })
+      );
 
       const result = await adapter.run(makeConfig());
 
@@ -184,11 +192,13 @@ describe("ClaudeAdapter", () => {
     });
 
     it("reports no changes when session fails with no branch", async () => {
-      mockRunSession.mockResolvedValueOnce(makeSessionResult({
-        status: "failed",
-        branchName: "",
-        prUrl: null,
-      }));
+      mockRunSession.mockResolvedValueOnce(
+        makeSessionResult({
+          status: "failed",
+          branchName: "",
+          prUrl: null,
+        })
+      );
 
       const result = await adapter.run(makeConfig());
 
@@ -200,11 +210,13 @@ describe("ClaudeAdapter", () => {
 
   describe("run — rate-limited failure", () => {
     it("detects rate limiting from failureCategory", async () => {
-      mockRunSession.mockResolvedValueOnce(makeSessionResult({
-        status: "failed",
-        failureCategory: "rate_limited",
-        errors: ["API rate limit exceeded"],
-      }));
+      mockRunSession.mockResolvedValueOnce(
+        makeSessionResult({
+          status: "failed",
+          failureCategory: "rate_limited",
+          errors: ["API rate limit exceeded"],
+        })
+      );
 
       const result = await adapter.run(makeConfig());
 
@@ -213,11 +225,13 @@ describe("ClaudeAdapter", () => {
     });
 
     it("does not flag rateLimited for other failure categories", async () => {
-      mockRunSession.mockResolvedValueOnce(makeSessionResult({
-        status: "failed",
-        failureCategory: "api_error",
-        errors: ["Internal server error"],
-      }));
+      mockRunSession.mockResolvedValueOnce(
+        makeSessionResult({
+          status: "failed",
+          failureCategory: "api_error",
+          errors: ["Internal server error"],
+        })
+      );
 
       const result = await adapter.run(makeConfig());
 
@@ -226,10 +240,12 @@ describe("ClaudeAdapter", () => {
     });
 
     it("includes error message from session errors", async () => {
-      mockRunSession.mockResolvedValueOnce(makeSessionResult({
-        status: "failed",
-        errors: ["Stuck: repeated action", "No result message"],
-      }));
+      mockRunSession.mockResolvedValueOnce(
+        makeSessionResult({
+          status: "failed",
+          errors: ["Stuck: repeated action", "No result message"],
+        })
+      );
 
       const result = await adapter.run(makeConfig());
 
@@ -253,7 +269,7 @@ describe("ClaudeAdapter", () => {
 
     it("detects rate limiting from thrown error message (429)", async () => {
       mockRunSession.mockRejectedValueOnce(
-        new Error("Request failed with status 429: Too Many Requests"),
+        new Error("Request failed with status 429: Too Many Requests")
       );
 
       const result = await adapter.run(makeConfig());
@@ -263,9 +279,7 @@ describe("ClaudeAdapter", () => {
     });
 
     it("detects rate limiting from thrown error message (rate limit)", async () => {
-      mockRunSession.mockRejectedValueOnce(
-        new Error("Anthropic API rate limit exceeded"),
-      );
+      mockRunSession.mockRejectedValueOnce(new Error("Anthropic API rate limit exceeded"));
 
       const result = await adapter.run(makeConfig());
 
@@ -274,9 +288,7 @@ describe("ClaudeAdapter", () => {
     });
 
     it("detects rate limiting from thrown error message (throttled)", async () => {
-      mockRunSession.mockRejectedValueOnce(
-        new Error("Request was throttled by the API"),
-      );
+      mockRunSession.mockRejectedValueOnce(new Error("Request was throttled by the API"));
 
       const result = await adapter.run(makeConfig());
 
@@ -285,9 +297,7 @@ describe("ClaudeAdapter", () => {
     });
 
     it("does not flag rateLimited for non-rate-limit errors", async () => {
-      mockRunSession.mockRejectedValueOnce(
-        new Error("Network timeout connecting to API"),
-      );
+      mockRunSession.mockRejectedValueOnce(new Error("Network timeout connecting to API"));
 
       const result = await adapter.run(makeConfig());
 

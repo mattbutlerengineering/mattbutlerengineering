@@ -63,9 +63,7 @@ describe("useAuth", () => {
 
   it("returns authenticated state with user when user is set", () => {
     const oidcUser = makeOIDCUser();
-    mockUseAuth.mockReturnValue(
-      makeOIDCAuth({ isAuthenticated: true, user: oidcUser })
-    );
+    mockUseAuth.mockReturnValue(makeOIDCAuth({ isAuthenticated: true, user: oidcUser }));
 
     const { result } = renderHook(() => useAuth());
 
@@ -143,9 +141,7 @@ describe("useAuth", () => {
         // email, name, picture, email_verified all absent
       },
     });
-    mockUseAuth.mockReturnValue(
-      makeOIDCAuth({ isAuthenticated: true, user: oidcUser })
-    );
+    mockUseAuth.mockReturnValue(makeOIDCAuth({ isAuthenticated: true, user: oidcUser }));
 
     const { result } = renderHook(() => useAuth());
 
@@ -172,9 +168,7 @@ describe("useAccessToken", () => {
 
   it("returns access token when user is authenticated", () => {
     const oidcUser = makeOIDCUser();
-    mockUseAuth.mockReturnValue(
-      makeOIDCAuth({ isAuthenticated: true, user: oidcUser })
-    );
+    mockUseAuth.mockReturnValue(makeOIDCAuth({ isAuthenticated: true, user: oidcUser }));
 
     const { result } = renderHook(() => useAccessToken());
 
@@ -185,9 +179,7 @@ describe("useAccessToken", () => {
     const oidcUser = makeOIDCUser({
       expires_at: Math.floor(Date.now() / 1000) + 3600, // 1 hour away
     });
-    mockUseAuth.mockReturnValue(
-      makeOIDCAuth({ isAuthenticated: true, user: oidcUser })
-    );
+    mockUseAuth.mockReturnValue(makeOIDCAuth({ isAuthenticated: true, user: oidcUser }));
 
     renderHook(() => useAccessToken());
 
@@ -199,9 +191,7 @@ describe("useAccessToken", () => {
     const oidcUser = makeOIDCUser({
       expires_at: Math.floor(Date.now() / 1000) + 240, // 4 minutes away
     });
-    mockUseAuth.mockReturnValue(
-      makeOIDCAuth({ isAuthenticated: true, user: oidcUser })
-    );
+    mockUseAuth.mockReturnValue(makeOIDCAuth({ isAuthenticated: true, user: oidcUser }));
 
     renderHook(() => useAccessToken());
 
@@ -213,9 +203,7 @@ describe("useAccessToken", () => {
     const oidcUser = makeOIDCUser({
       expires_at: Math.floor(Date.now() / 1000) + 240,
     });
-    mockUseAuth.mockReturnValue(
-      makeOIDCAuth({ isAuthenticated: true, user: oidcUser })
-    );
+    mockUseAuth.mockReturnValue(makeOIDCAuth({ isAuthenticated: true, user: oidcUser }));
 
     // Should not throw
     expect(() => renderHook(() => useAccessToken())).not.toThrow();
@@ -223,9 +211,7 @@ describe("useAccessToken", () => {
 
   it("does not call signinSilent when expiresAt is undefined", () => {
     const oidcUser = makeOIDCUser({ expires_at: undefined });
-    mockUseAuth.mockReturnValue(
-      makeOIDCAuth({ isAuthenticated: true, user: oidcUser })
-    );
+    mockUseAuth.mockReturnValue(makeOIDCAuth({ isAuthenticated: true, user: oidcUser }));
 
     renderHook(() => useAccessToken());
 
@@ -239,9 +225,7 @@ describe("useRequireAuth", () => {
   });
 
   it("calls signIn when not loading and not authenticated", () => {
-    mockUseAuth.mockReturnValue(
-      makeOIDCAuth({ isLoading: false, isAuthenticated: false })
-    );
+    mockUseAuth.mockReturnValue(makeOIDCAuth({ isLoading: false, isAuthenticated: false }));
 
     renderHook(() => useRequireAuth());
 
@@ -249,9 +233,7 @@ describe("useRequireAuth", () => {
   });
 
   it("does not call signIn when loading", () => {
-    mockUseAuth.mockReturnValue(
-      makeOIDCAuth({ isLoading: true, isAuthenticated: false })
-    );
+    mockUseAuth.mockReturnValue(makeOIDCAuth({ isLoading: true, isAuthenticated: false }));
 
     renderHook(() => useRequireAuth());
 
@@ -271,9 +253,7 @@ describe("useRequireAuth", () => {
 
   it("returns auth state including user info", () => {
     const oidcUser = makeOIDCUser();
-    mockUseAuth.mockReturnValue(
-      makeOIDCAuth({ isAuthenticated: true, user: oidcUser })
-    );
+    mockUseAuth.mockReturnValue(makeOIDCAuth({ isAuthenticated: true, user: oidcUser }));
 
     const { result } = renderHook(() => useRequireAuth());
 
@@ -283,16 +263,12 @@ describe("useRequireAuth", () => {
   });
 
   it("triggers sign-in redirect when state transitions from loading to unauthenticated", () => {
-    mockUseAuth.mockReturnValue(
-      makeOIDCAuth({ isLoading: true, isAuthenticated: false })
-    );
+    mockUseAuth.mockReturnValue(makeOIDCAuth({ isLoading: true, isAuthenticated: false }));
 
     const { rerender } = renderHook(() => useRequireAuth());
     expect(mockSigninRedirect).not.toHaveBeenCalled();
 
-    mockUseAuth.mockReturnValue(
-      makeOIDCAuth({ isLoading: false, isAuthenticated: false })
-    );
+    mockUseAuth.mockReturnValue(makeOIDCAuth({ isLoading: false, isAuthenticated: false }));
 
     act(() => {
       rerender();

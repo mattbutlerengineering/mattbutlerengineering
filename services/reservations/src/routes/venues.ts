@@ -110,7 +110,9 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const group = await venueGroupService.getById(request.params.id);
       if (!group) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue group not found"));
+        return reply
+          .code(404)
+          .send(createProblemDetails(404, "Not Found", "Venue group not found"));
       }
       return { data: group };
     }
@@ -173,11 +175,16 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
         const group = await venueGroupService.create(request.body);
         return reply.code(201).send({ data: group });
       } catch (error) {
-        if (
-          error instanceof Error &&
-          error.message.includes("Unique constraint")
-        ) {
-          return reply.code(400).send(createProblemDetails(400, "Bad Request", "A venue group with this slug already exists"));
+        if (error instanceof Error && error.message.includes("Unique constraint")) {
+          return reply
+            .code(400)
+            .send(
+              createProblemDetails(
+                400,
+                "Bad Request",
+                "A venue group with this slug already exists"
+              )
+            );
         }
         throw error;
       }
@@ -241,7 +248,9 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const group = await venueGroupService.update(request.params.id, request.body);
       if (!group) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue group not found"));
+        return reply
+          .code(404)
+          .send(createProblemDetails(404, "Not Found", "Venue group not found"));
       }
       return { data: group };
     }
@@ -294,7 +303,9 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const deleted = await venueGroupService.delete(request.params.id);
       if (!deleted) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue group not found"));
+        return reply
+          .code(404)
+          .send(createProblemDetails(404, "Not Found", "Venue group not found"));
       }
       return reply.code(204).send();
     }
@@ -312,8 +323,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         summary: "List all venues",
         operationId: "listVenues",
-        description:
-          "Retrieve a paginated list of all venues. Optionally filter by venue group.",
+        description: "Retrieve a paginated list of all venues. Optionally filter by venue group.",
         tags: ["Venues"],
         querystring: {
           type: "object",
@@ -416,7 +426,8 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         summary: "Get venue by slug",
         operationId: "getVenueBySlug",
-        description: "Retrieve a single venue by its URL-friendly slug. Used for public booking URLs.",
+        description:
+          "Retrieve a single venue by its URL-friendly slug. Used for public booking URLs.",
         tags: ["Venues"],
         params: {
           type: "object",
@@ -526,11 +537,12 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
         const venue = await venueService.create(request.body);
         return reply.code(201).send({ data: venue });
       } catch (error) {
-        if (
-          error instanceof Error &&
-          error.message.includes("Unique constraint")
-        ) {
-          return reply.code(400).send(createProblemDetails(400, "Bad Request", "A venue with this slug already exists"));
+        if (error instanceof Error && error.message.includes("Unique constraint")) {
+          return reply
+            .code(400)
+            .send(
+              createProblemDetails(400, "Bad Request", "A venue with this slug already exists")
+            );
         }
         throw error;
       }

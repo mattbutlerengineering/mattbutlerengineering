@@ -134,7 +134,6 @@ describe("dbMigrationStatus", () => {
   it("handles non-Error thrown values", async () => {
     vi.stubEnv("DATABASE_URL", "postgresql://localhost/test");
     vi.mocked(execSync).mockImplementation(() => {
-       
       throw 42;
     });
 

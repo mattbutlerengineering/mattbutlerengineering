@@ -194,17 +194,17 @@ describe("stored-spec", () => {
     it("throws when spec does not exist", async () => {
       vi.mocked(prisma.storedSpec.findUnique).mockResolvedValueOnce(null);
 
-      await expect(
-        storedSpecService.toggleFavorite("nonexistent", "user-1")
-      ).rejects.toThrow("Not found");
+      await expect(storedSpecService.toggleFavorite("nonexistent", "user-1")).rejects.toThrow(
+        "Not found"
+      );
     });
 
     it("throws when spec belongs to different user", async () => {
       vi.mocked(prisma.storedSpec.findUnique).mockResolvedValueOnce(mockSpec);
 
-      await expect(
-        storedSpecService.toggleFavorite("spec-1", "other-user")
-      ).rejects.toThrow("Not found");
+      await expect(storedSpecService.toggleFavorite("spec-1", "other-user")).rejects.toThrow(
+        "Not found"
+      );
     });
   });
 
@@ -223,17 +223,13 @@ describe("stored-spec", () => {
     it("throws when spec does not exist", async () => {
       vi.mocked(prisma.storedSpec.findUnique).mockResolvedValueOnce(null);
 
-      await expect(
-        storedSpecService.delete("nonexistent", "user-1")
-      ).rejects.toThrow("Not found");
+      await expect(storedSpecService.delete("nonexistent", "user-1")).rejects.toThrow("Not found");
     });
 
     it("throws when spec belongs to different user", async () => {
       vi.mocked(prisma.storedSpec.findUnique).mockResolvedValueOnce(mockSpec);
 
-      await expect(
-        storedSpecService.delete("spec-1", "other-user")
-      ).rejects.toThrow("Not found");
+      await expect(storedSpecService.delete("spec-1", "other-user")).rejects.toThrow("Not found");
     });
   });
 

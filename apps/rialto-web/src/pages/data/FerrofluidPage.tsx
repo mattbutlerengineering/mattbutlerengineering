@@ -31,7 +31,9 @@ function FerrofluidPlayground() {
       </Card>
       <Stack gap="md">
         <Stack gap="xs">
-          <Text variant="caption" color="secondary">Speed</Text>
+          <Text variant="caption" color="secondary">
+            Speed
+          </Text>
           <SegmentedControl
             value={speed}
             onChange={(v) => setSpeed(v as "slow" | "medium" | "fast")}
@@ -43,7 +45,9 @@ function FerrofluidPlayground() {
           />
         </Stack>
         <Stack gap="xs">
-          <Text variant="caption" color="secondary">Blob count: {blobCount}</Text>
+          <Text variant="caption" color="secondary">
+            Blob count: {blobCount}
+          </Text>
           <input
             type="range"
             min={2}
@@ -53,7 +57,9 @@ function FerrofluidPlayground() {
           />
         </Stack>
         <Stack gap="xs">
-          <Text variant="caption" color="secondary">Blur amount: {blurAmount}</Text>
+          <Text variant="caption" color="secondary">
+            Blur amount: {blurAmount}
+          </Text>
           <input
             type="range"
             min={4}
@@ -138,10 +144,30 @@ export function FerrofluidPage() {
       <Section title="Props">
         <PropsTable
           props={[
-            { name: "color", type: "string", default: "var(--rialto-accent)", description: "CSS color for the blobs." },
-            { name: "blobCount", type: "number", default: "5", description: "How many fluid blobs to render." },
-            { name: "speed", type: '"slow" | "medium" | "fast"', default: '"slow"', description: "Drift speed preset." },
-            { name: "blurAmount", type: "number", default: "12", description: "Blur intensity — higher blurs merge blobs more readily." },
+            {
+              name: "color",
+              type: "string",
+              default: "var(--rialto-accent)",
+              description: "CSS color for the blobs.",
+            },
+            {
+              name: "blobCount",
+              type: "number",
+              default: "5",
+              description: "How many fluid blobs to render.",
+            },
+            {
+              name: "speed",
+              type: '"slow" | "medium" | "fast"',
+              default: '"slow"',
+              description: "Drift speed preset.",
+            },
+            {
+              name: "blurAmount",
+              type: "number",
+              default: "12",
+              description: "Blur intensity — higher blurs merge blobs more readily.",
+            },
           ]}
         />
       </Section>
@@ -150,10 +176,23 @@ export function FerrofluidPage() {
       <Section title="Accessibility">
         <DataList
           items={[
-            { label: "Decorative by contract", value: "aria-hidden is always true — no role, no accessible name" },
-            { label: "Non-interactive", value: "pointer-events: none — never steals clicks or focus" },
-            { label: "Reduced motion", value: "prefers-reduced-motion → blobs freeze in a pleasing static composition" },
-            { label: "If it carries meaning", value: "Wrap the component and add your own semantics in the parent — never repurpose the visual as an indicator" },
+            {
+              label: "Decorative by contract",
+              value: "aria-hidden is always true — no role, no accessible name",
+            },
+            {
+              label: "Non-interactive",
+              value: "pointer-events: none — never steals clicks or focus",
+            },
+            {
+              label: "Reduced motion",
+              value: "prefers-reduced-motion → blobs freeze in a pleasing static composition",
+            },
+            {
+              label: "If it carries meaning",
+              value:
+                "Wrap the component and add your own semantics in the parent — never repurpose the visual as an indicator",
+            },
           ]}
         />
       </Section>

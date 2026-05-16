@@ -70,10 +70,7 @@ describe("Tabs", () => {
       const user = userEvent.setup();
       render(<Tabs tabs={tabs} />);
       await user.click(screen.getByRole("tab", { name: "Details" }));
-      expect(screen.getByRole("tab", { name: "Details" })).toHaveAttribute(
-        "aria-selected",
-        "true"
-      );
+      expect(screen.getByRole("tab", { name: "Details" })).toHaveAttribute("aria-selected", "true");
     });
 
     it("marks previous tab as aria-selected=false after switching", async () => {

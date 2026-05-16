@@ -73,7 +73,9 @@ function discoverPackageJsons() {
 const packages = discoverPackageJsons();
 const mismatches = [];
 
-console.log(`Checking ${SYNCED_DEPS.length} shared dependencies across ${packages.length} packages...\n`);
+console.log(
+  `Checking ${SYNCED_DEPS.length} shared dependencies across ${packages.length} packages...\n`
+);
 
 for (const dep of SYNCED_DEPS) {
   const versions = new Map();

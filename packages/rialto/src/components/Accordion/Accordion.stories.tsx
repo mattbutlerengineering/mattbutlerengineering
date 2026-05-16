@@ -17,7 +17,8 @@ const sampleItems = [
   {
     id: "item-1",
     title: "What is Rialto?",
-    content: "Rialto is a premium design system built with material honesty and precision surfaces.",
+    content:
+      "Rialto is a premium design system built with material honesty and precision surfaces.",
   },
   {
     id: "item-2",
