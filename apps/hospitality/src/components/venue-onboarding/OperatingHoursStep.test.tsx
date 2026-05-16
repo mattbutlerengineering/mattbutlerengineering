@@ -5,10 +5,10 @@ import React from "react";
 import { OperatingHoursStep, validateOperatingHours } from "./OperatingHoursStep.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Text: ({ children }: any) => <Text>{children}</Text>,
+  Text: ({ children }: any) => <span>{children}</span>,
   Checkbox: ({ label, checked, onCheckedChange }: any) => (
     <label>
-      <Input
+      <input
         type="checkbox"
         checked={checked}
         onChange={() => onCheckedChange?.()}
@@ -20,9 +20,9 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   ConfirmDialog: ({ open, title, onConfirm, onCancel, confirmLabel }: any) =>
     open ? (
       <div data-testid="confirm-dialog">
-        <Text>{title}</Text>
-        <Button onClick={onConfirm}>{confirmLabel}</Button>
-        <Button onClick={onCancel}>Cancel</Button>
+        <span>{title}</span>
+        <button onClick={onConfirm}>{confirmLabel}</button>
+        <button onClick={onCancel}>Cancel</button>
       </div>
     ) : null,
 }));

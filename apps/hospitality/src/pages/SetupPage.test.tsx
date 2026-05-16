@@ -21,8 +21,8 @@ vi.mock("../contexts/VenueContext.js", () => ({
 vi.mock("../components/PageHeader.js", () => ({
   PageHeader: ({ title, description }: any) => (
     <div data-testid="page-header">
-      <Heading>{title}</Heading>
-      <Text>{description}</Text>
+      <h1>{title}</h1>
+      <span>{description}</span>
     </div>
   ),
 }));

@@ -8,11 +8,11 @@ import React from "react";
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Card: ({ children, title }: { children: React.ReactNode; title?: string }) => (
     <div data-testid="card">
-      {title && <Heading>{title}</Heading>}
+      {title && <h1>{title}</h1>}
       {children}
     </div>
   ),
-  Text: ({ children }: { children: React.ReactNode }) => <Text>{children}</Text>,
+  Text: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
 }));
 
 function makeEvent(overrides: Partial<ReservationEvent> = {}): ReservationEvent {

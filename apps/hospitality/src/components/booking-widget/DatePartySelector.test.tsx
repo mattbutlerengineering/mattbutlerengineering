@@ -10,7 +10,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     return (
       <div>
         <label htmlFor={id}>{props.label}</label>
-        <Input
+        <input
           id={id}
           type={props.type}
           value={props.value}
@@ -30,9 +30,9 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     onClick?: () => void;
     disabled?: boolean;
   }) => (
-    <Button onClick={onClick} disabled={disabled}>
+    <button onClick={onClick} disabled={disabled}>
       {children}
-    </Button>
+    </button>
   ),
 }));
 

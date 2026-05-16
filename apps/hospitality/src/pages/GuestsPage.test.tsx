@@ -15,8 +15,8 @@ vi.mock("../contexts/VenueContext.js", () => ({ useVenue: vi.fn() }));
 vi.mock("../components/PageHeader", () => ({
   PageHeader: ({ title, description }: any) => (
     <div data-testid="page-header">
-      <Heading>{title}</Heading>
-      <Text>{description}</Text>
+      <h1>{title}</h1>
+      <span>{description}</span>
     </div>
   ),
 }));
@@ -27,11 +27,11 @@ vi.mock("../components/ErrorRetryBanner", () => ({
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Alert: ({ children }: any) => <div data-testid="alert">{children}</div>,
-  Badge: ({ children }: any) => <Text data-testid="badge">{children}</Text>,
+  Badge: ({ children }: any) => <span data-testid="badge">{children}</span>,
   Button: ({ children, onClick, disabled }: any) => (
-    <Button onClick={onClick} disabled={disabled}>
+    <button onClick={onClick} disabled={disabled}>
       {children}
-    </Button>
+    </button>
   ),
   Card: ({ children, title }: any) => (
     <div data-testid="card">
@@ -53,7 +53,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Dialog: ({ children, open, title, footer }: any) =>
     open ? (
       <div data-testid="dialog">
-        <Heading>{title}</Heading>
+        <h1>{title}</h1>
         {children}
         {footer}
       </div>
@@ -68,8 +68,8 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     ) : null,
   EmptyState: ({ heading, description }: any) => (
     <div data-testid="empty-state">
-      <Text>{heading}</Text>
-      <Text>{description}</Text>
+      <span>{heading}</span>
+      <span>{description}</span>
     </div>
   ),
   Input: (props: any) => {
@@ -77,7 +77,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     return (
       <div>
         <label htmlFor={id}>{props.label}</label>
-        <Input
+        <input
           id={id}
           value={props.value ?? ""}
           onChange={props.onChange}
@@ -104,14 +104,14 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Stack: ({ children }: any) => <div>{children}</div>,
   Stat: ({ label, value }: any) => (
     <div data-testid="stat">
-      <Text>{label}</Text>
-      <Text>{value}</Text>
+      <span>{label}</span>
+      <span>{value}</span>
     </div>
   ),
-  Tag: ({ children }: any) => <Text data-testid="tag">{children}</Text>,
-  Text: ({ children }: any) => <Text>{children}</Text>,
+  Tag: ({ children }: any) => <span data-testid="tag">{children}</span>,
+  Text: ({ children }: any) => <span>{children}</span>,
   TextArea: (props: any) => (
-    <TextArea data-testid="textarea" value={props.value} onChange={(e) => props.onChange?.(e)} />
+    <textarea data-testid="textarea" value={props.value} onChange={(e) => props.onChange?.(e)} />
   ),
 }));
 

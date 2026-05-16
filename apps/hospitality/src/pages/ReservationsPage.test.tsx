@@ -22,16 +22,16 @@ vi.mock("../components/PageHeader", () => ({
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Alert: ({ children }: any) => <div data-testid="alert">{children}</div>,
-  Badge: ({ children }: any) => <Text data-testid="badge">{children}</Text>,
+  Badge: ({ children }: any) => <span data-testid="badge">{children}</span>,
   Card: ({ children }: any) => <div data-testid="card">{children}</div>,
   EmptyState: ({ heading, description }: any) => (
     <div data-testid="empty-state">
-      <Text>{heading}</Text>
-      <Text>{description}</Text>
+      <span>{heading}</span>
+      <span>{description}</span>
     </div>
   ),
   Input: (props: any) => (
-    <Input
+    <input
       data-testid={props.type === "date" ? "date-input" : "search-input"}
       type={props.type}
       placeholder={props.placeholder}
@@ -42,9 +42,9 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   SegmentedControl: ({ segments, value: _value, onChange }: any) => (
     <div data-testid="segmented-control">
       {segments?.map((s: any) => (
-        <Button key={s.id} data-testid={`segment-${s.id}`} onClick={() => onChange?.(s.id)}>
+        <button key={s.id} data-testid={`segment-${s.id}`} onClick={() => onChange?.(s.id)}>
           {s.label}
-        </Button>
+        </button>
       ))}
     </div>
   ),
@@ -52,11 +52,11 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   SkeletonGroup: ({ children }: any) => <div data-testid="skeleton-group">{children}</div>,
   Stat: ({ label, value }: any) => (
     <div data-testid="stat">
-      <Text>{label}</Text>
-      <Text>{value}</Text>
+      <span>{label}</span>
+      <span>{value}</span>
     </div>
   ),
-  Text: ({ children }: any) => <Text>{children}</Text>,
+  Text: ({ children }: any) => <span>{children}</span>,
 }));
 
 describe("ReservationsPage", () => {

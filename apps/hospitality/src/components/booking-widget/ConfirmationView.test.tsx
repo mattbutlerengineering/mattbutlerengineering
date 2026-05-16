@@ -15,11 +15,11 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     onClick?: () => void;
     variant?: string;
   }) => (
-    <Button onClick={onClick} data-variant={variant}>
+    <button onClick={onClick} data-variant={variant}>
       {children}
-    </Button>
+    </button>
   ),
-  Text: ({ children }: { children: React.ReactNode }) => <Text>{children}</Text>,
+  Text: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
 }));
 
 function makeReservation(overrides: Partial<Reservation> = {}): Reservation {

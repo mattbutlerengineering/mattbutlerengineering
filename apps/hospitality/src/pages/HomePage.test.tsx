@@ -23,17 +23,17 @@ vi.mock("../hooks/useDashboardStats.js", () => ({
 vi.mock("../components/PageHeader", () => ({
   PageHeader: ({ title, description }: { title: string; description: string }) => (
     <div data-testid="page-header">
-      <Heading>{title}</Heading>
-      <Text>{description}</Text>
+      <h1>{title}</h1>
+      <span>{description}</span>
     </div>
   ),
 }));
 
 vi.mock("../components/ErrorRetryBanner", () => ({
   ErrorRetryBanner: ({ error, onRetry }: { error: string; onRetry: () => void }) => (
-    <Button data-testid="error-banner" onClick={onRetry}>
+    <button data-testid="error-banner" onClick={onRetry}>
       {error}
-    </Button>
+    </button>
   ),
 }));
 
@@ -53,12 +53,12 @@ vi.mock("../components/dashboard", () => ({
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Stat: ({ label, value }: { label: string; value: string | number }) => (
     <div data-testid="stat">
-      <Text>{label}</Text>
-      <Text>{value}</Text>
+      <span>{label}</span>
+      <span>{value}</span>
     </div>
   ),
   Button: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => (
-    <Button onClick={onClick}>{children}</Button>
+    <button onClick={onClick}>{children}</button>
   ),
   Skeleton: ({ className }: any) => <div data-testid="skeleton" className={className} />,
 }));

@@ -53,31 +53,31 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     <div data-testid="alert" data-variant={variant}>
       {children}
       {dismissible && (
-        <Button onClick={onDismiss} data-testid="alert-dismiss">
+        <button onClick={onDismiss} data-testid="alert-dismiss">
           Dismiss
-        </Button>
+        </button>
       )}
     </div>
   ),
-  Badge: ({ children }: any) => <Text data-testid="badge">{children}</Text>,
+  Badge: ({ children }: any) => <span data-testid="badge">{children}</span>,
   Button: ({ children, onClick, variant, size }: any) => (
-    <Button onClick={onClick} data-variant={variant} data-size={size}>
+    <button onClick={onClick} data-variant={variant} data-size={size}>
       {children}
-    </Button>
+    </button>
   ),
   Card: ({ children }: any) => <div data-testid="card">{children}</div>,
   Divider: () => <hr data-testid="divider" />,
   SegmentedControl: ({ segments, value, onChange }: any) => (
     <div data-testid="segmented-control">
       {segments?.map((s: any) => (
-        <Button
+        <button
           key={s.id}
           data-testid={`segment-${s.id}`}
           data-active={s.id === value}
           onClick={() => onChange?.(s.id)}
         >
           {s.label}
-        </Button>
+        </button>
       ))}
     </div>
   ),
@@ -97,7 +97,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Skeleton: () => <div data-testid="skeleton" />,
   SkeletonGroup: ({ children }: any) => <div data-testid="skeleton-group">{children}</div>,
   Stack: ({ children }: any) => <div>{children}</div>,
-  Text: ({ children }: any) => <Text>{children}</Text>,
+  Text: ({ children }: any) => <span>{children}</span>,
 }));
 
 /* ── Clipboard mock ────────────────────────────, @eslint-react/no-array-index-key */

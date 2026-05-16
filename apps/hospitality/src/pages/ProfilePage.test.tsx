@@ -21,8 +21,8 @@ vi.mock("@mbe/api-client", () => ({
 vi.mock("../components/PageHeader", () => ({
   PageHeader: ({ title, description }: any) => (
     <div data-testid="page-header">
-      <Heading>{title}</Heading>
-      <Text>{description}</Text>
+      <h1>{title}</h1>
+      <span>{description}</span>
     </div>
   ),
 }));
@@ -51,15 +51,15 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     <div data-testid={`alert-${variant}`} role="alert">
       <strong>{title}</strong>
       {children}
-      {dismissible && <Button onClick={onDismiss}>Dismiss</Button>}
+      {dismissible && <button onClick={onDismiss}>Dismiss</button>}
     </div>
   ),
   Avatar: ({ name, src: _src }: any) => <div data-testid="avatar">{name}</div>,
-  Badge: ({ children, variant }: any) => <Text data-testid={`badge-${variant}`}>{children}</Text>,
+  Badge: ({ children, variant }: any) => <span data-testid={`badge-${variant}`}>{children}</span>,
   Button: ({ children, onClick, disabled, variant }: any) => (
-    <Button onClick={onClick} disabled={disabled} data-variant={variant}>
+    <button onClick={onClick} disabled={disabled} data-variant={variant}>
       {children}
-    </Button>
+    </button>
   ),
   Card: ({ children }: any) => <div data-testid="card">{children}</div>,
   DataList: ({ items }: any) => (
@@ -89,7 +89,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
         {label}
         {showOptional && " (optional)"}
       </label>
-      <Input
+      <input
         value={value}
         onChange={onChange}
         placeholder={placeholder}
@@ -97,13 +97,13 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
         type={type || "text"}
         required={required}
       />
-      {hint && <Text data-testid="hint">{hint}</Text>}
+      {hint && <span data-testid="hint">{hint}</span>}
     </div>
   ),
   Skeleton: ({ variant }: any) => <div data-testid={`skeleton-${variant}`} />,
   SkeletonGroup: ({ children }: any) => <div data-testid="skeleton-group">{children}</div>,
   Stack: ({ children }: any) => <div>{children}</div>,
-  Text: ({ children }: any) => <Text>{children}</Text>,
+  Text: ({ children }: any) => <span>{children}</span>,
 }));
 
 import { useAuth } from "@mbe/auth/react";

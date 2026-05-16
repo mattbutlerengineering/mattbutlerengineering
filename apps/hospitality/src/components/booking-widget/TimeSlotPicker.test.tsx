@@ -7,9 +7,9 @@ import React from "react";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Button: ({ children, onClick, size, variant }: any) => (
-    <Button onClick={onClick} data-size={size} data-variant={variant}>
+    <button onClick={onClick} data-size={size} data-variant={variant}>
       {children}
-    </Button>
+    </button>
   ),
   Alert: ({ children, variant, actions }: any) => (
     <div data-testid="alert" data-variant={variant}>
@@ -23,8 +23,8 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   SkeletonGroup: ({ children }: any) => <div data-testid="skeleton-group">{children}</div>,
   EmptyState: ({ heading, description }: any) => (
     <div data-testid="empty-state">
-      <Text>{heading}</Text>
-      <Text>{description}</Text>
+      <span>{heading}</span>
+      <span>{description}</span>
     </div>
   ),
 }));

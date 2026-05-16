@@ -25,8 +25,8 @@ vi.mock("@mbe/api-client", () => ({
 vi.mock("../components/PageHeader", () => ({
   PageHeader: ({ title, description }: any) => (
     <div data-testid="page-header">
-      <Heading>{title}</Heading>
-      <Text>{description}</Text>
+      <h1>{title}</h1>
+      <span>{description}</span>
     </div>
   ),
 }));
@@ -36,20 +36,20 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     <div data-testid="alert" data-variant={variant}>
       {children}
       {onDismiss && (
-        <Button data-testid="alert-dismiss" onClick={onDismiss}>
+        <button data-testid="alert-dismiss" onClick={onDismiss}>
           Dismiss
-        </Button>
+        </button>
       )}
     </div>
   ),
   Button: ({ children, onClick, disabled }: any) => (
-    <Button onClick={onClick} disabled={disabled}>
+    <button onClick={onClick} disabled={disabled}>
       {children}
-    </Button>
+    </button>
   ),
   Card: ({ children, title }: any) => (
     <div data-testid="card">
-      <Heading>{title}</Heading>
+      <h1>{title}</h1>
       {children}
     </div>
   ),
@@ -73,11 +73,11 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Skeleton: () => <div data-testid="skeleton" />,
   SkeletonGroup: ({ children }: any) => <div data-testid="skeleton-group">{children}</div>,
   Stack: ({ children }: any) => <div>{children}</div>,
-  Text: ({ children }: any) => <Text>{children}</Text>,
+  Text: ({ children }: any) => <span>{children}</span>,
   Toggle: ({ label, checked, onCheckedChange }: any) => (
     <div>
       <label>{label}</label>
-      <Input
+      <input
         type="checkbox"
         data-testid={`toggle-${label}`}
         checked={checked}

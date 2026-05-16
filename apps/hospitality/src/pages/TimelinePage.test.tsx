@@ -21,21 +21,21 @@ vi.mock("../components/PageHeader", () => ({
 vi.mock("../components/timeline", () => ({
   TimelineGrid: ({ tables, reservations, onReservationClick, onTableStatusChange }: any) => (
     <div data-testid="timeline-grid">
-      <Text data-testid="table-count">{tables?.length ?? 0}</Text>
-      <Text data-testid="res-count">{reservations?.length ?? 0}</Text>
+      <span data-testid="table-count">{tables?.length ?? 0}</span>
+      <span data-testid="res-count">{reservations?.length ?? 0}</span>
       {reservations?.map((r: any) => (
-        <Button key={r.id} data-testid={`res-${r.id}`} onClick={() => onReservationClick?.(r)}>
+        <button key={r.id} data-testid={`res-${r.id}`} onClick={() => onReservationClick?.(r)}>
           {r.guestName}
-        </Button>
+        </button>
       ))}
       {tables?.map((t: any) => (
-        <Button
+        <button
           key={t.id}
           data-testid={`table-status-${t.id}`}
           onClick={() => onTableStatusChange?.(t.id, "OCCUPIED")}
         >
           Change {t.name}
-        </Button>
+        </button>
       ))}
     </div>
   ),
@@ -44,12 +44,12 @@ vi.mock("../components/timeline", () => ({
 vi.mock("../components/timeline/CancelReservationDialog", () => ({
   CancelReservationDialog: ({ onConfirm, onClose }: any) => (
     <div data-testid="cancel-dialog">
-      <Button data-testid="cancel-confirm" onClick={() => onConfirm("no_show", "test note")}>
+      <button data-testid="cancel-confirm" onClick={() => onConfirm("no_show", "test note")}>
         Confirm Cancel
-      </Button>
-      <Button data-testid="cancel-close" onClick={onClose}>
+      </button>
+      <button data-testid="cancel-close" onClick={onClose}>
         Close Cancel
-      </Button>
+      </button>
     </div>
   ),
 }));
@@ -57,13 +57,13 @@ vi.mock("../components/timeline/CancelReservationDialog", () => ({
 vi.mock("../components/timeline/EditReservationDrawer", () => ({
   EditReservationDrawer: ({ reservation, onSave, onClose }: any) => (
     <div data-testid="edit-drawer">
-      <Text data-testid="edit-guest">{reservation.guestName}</Text>
-      <Button data-testid="edit-save" onClick={() => onSave(reservation.id, { partySize: 6 })}>
+      <span data-testid="edit-guest">{reservation.guestName}</span>
+      <button data-testid="edit-save" onClick={() => onSave(reservation.id, { partySize: 6 })}>
         Save
-      </Button>
-      <Button data-testid="edit-close" onClick={onClose}>
+      </button>
+      <button data-testid="edit-close" onClick={onClose}>
         Close Edit
-      </Button>
+      </button>
     </div>
   ),
 }));
@@ -71,7 +71,7 @@ vi.mock("../components/timeline/EditReservationDrawer", () => ({
 vi.mock("../components/timeline/WalkInDialog", () => ({
   WalkInDialog: ({ tables, venueId, onConfirm, onClose }: any) => (
     <div data-testid="walkin-dialog">
-      <Button
+      <button
         data-testid="walkin-confirm"
         onClick={() =>
           onConfirm({
@@ -83,10 +83,10 @@ vi.mock("../components/timeline/WalkInDialog", () => ({
         }
       >
         Confirm Walk-in
-      </Button>
-      <Button data-testid="walkin-close" onClick={onClose}>
+      </button>
+      <button data-testid="walkin-close" onClick={onClose}>
         Close Walk-in
-      </Button>
+      </button>
     </div>
   ),
 }));
@@ -94,12 +94,12 @@ vi.mock("../components/timeline/WalkInDialog", () => ({
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Drawer: ({ children, open }: any) => (open ? <div data-testid="drawer">{children}</div> : null),
   Button: ({ children, onClick, disabled, ...rest }: any) => (
-    <Button onClick={onClick} disabled={disabled} aria-label={rest["aria-label"]}>
+    <button onClick={onClick} disabled={disabled} aria-label={rest["aria-label"]}>
       {children}
-    </Button>
+    </button>
   ),
   Stack: ({ children }: any) => <div>{children}</div>,
-  Text: ({ children, className }: any) => <Text className={className}>{children}</Text>,
+  Text: ({ children, className }: any) => <span className={className}>{children}</span>,
   Card: ({ children, title, variant }: any) => (
     <div data-variant={variant}>
       {title}

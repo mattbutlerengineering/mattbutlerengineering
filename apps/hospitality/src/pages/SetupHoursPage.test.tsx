@@ -27,14 +27,14 @@ vi.mock("../contexts/VenueContext.js", () => ({
 vi.mock("../components/venue-onboarding/OperatingHoursStep.js", () => ({
   OperatingHoursStep: ({ data, errors, onChange }: any) => (
     <div data-testid="operating-hours-step">
-      <Text data-testid="hours-data">{JSON.stringify(data)}</Text>
-      {errors && <Text data-testid="hours-errors">{JSON.stringify(errors)}</Text>}
-      <Button
+      <span data-testid="hours-data">{JSON.stringify(data)}</span>
+      {errors && <span data-testid="hours-errors">{JSON.stringify(errors)}</span>}
+      <button
         data-testid="change-hours"
         onClick={() => onChange({ monday: { open: "09:00", close: "17:00" } })}
       >
         Change
-      </Button>
+      </button>
     </div>
   ),
   validateOperatingHours: (...args: any[]) => mockValidateOperatingHours(...args),
@@ -43,8 +43,8 @@ vi.mock("../components/venue-onboarding/OperatingHoursStep.js", () => ({
 vi.mock("../components/PageHeader.js", () => ({
   PageHeader: ({ title, description }: any) => (
     <div data-testid="page-header">
-      <Heading>{title}</Heading>
-      <Text>{description}</Text>
+      <h1>{title}</h1>
+      <span>{description}</span>
     </div>
   ),
 }));
@@ -53,12 +53,12 @@ vi.mock("./SetupHoursPage.module.css", () => ({ default: {} }));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Button: ({ children, onClick, disabled }: any) => (
-    <Button onClick={onClick} disabled={disabled}>
+    <button onClick={onClick} disabled={disabled}>
       {children}
-    </Button>
+    </button>
   ),
   Stack: ({ children }: any) => <div>{children}</div>,
-  Text: ({ children }: any) => <Text>{children}</Text>,
+  Text: ({ children }: any) => <span>{children}</span>,
 }));
 
 import { SetupHoursPage } from "./SetupHoursPage.js";

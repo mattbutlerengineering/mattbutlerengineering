@@ -36,22 +36,22 @@ vi.mock("../components/ErrorRetryBanner", () => ({
   ErrorRetryBanner: ({ error, onRetry, onDismiss }: any) => (
     <div data-testid="error-banner">
       {error}
-      <Button onClick={onRetry}>Retry</Button>
-      <Button onClick={onDismiss}>Dismiss</Button>
+      <button onClick={onRetry}>Retry</button>
+      <button onClick={onDismiss}>Dismiss</button>
     </div>
   ),
 }));
 vi.mock("../components/floor-plan", () => ({
   NewFloorPlanDialog: ({ onClose, onCreated, onCreate }: any) => (
     <div data-testid="new-dialog">
-      <Button onClick={onClose}>Close</Button>
-      <Button
+      <button onClick={onClose}>Close</button>
+      <button
         onClick={() => {
           onCreate({ name: "Test Plan", venueId: "v1" }).then((fp: any) => onCreated(fp));
         }}
       >
         Create
-      </Button>
+      </button>
     </div>
   ),
 }));
@@ -72,9 +72,9 @@ vi.mock("./FloorPlansPage.module.css", () => ({
 }));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Badge: ({ children }: any) => <Text data-testid="badge">{children}</Text>,
+  Badge: ({ children }: any) => <span data-testid="badge">{children}</span>,
   Button: ({ children, onClick, disabled, variant, size, ...rest }: any) => (
-    <Button
+    <button
       onClick={onClick}
       disabled={disabled}
       data-variant={variant}
@@ -82,17 +82,17 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       aria-label={rest["aria-label"]}
     >
       {children}
-    </Button>
+    </button>
   ),
   EmptyState: ({ heading, description }: any) => (
     <div data-testid="empty-state">
-      <Text>{heading}</Text>
-      <Text>{description}</Text>
+      <span>{heading}</span>
+      <span>{description}</span>
     </div>
   ),
   Skeleton: () => <div data-testid="skeleton" />,
   SkeletonGroup: ({ children }: any) => <div data-testid="skeleton-group">{children}</div>,
-  Text: ({ children }: any) => <Text>{children}</Text>,
+  Text: ({ children }: any) => <span>{children}</span>,
 }));
 
 /* ── Test data ─────────────────────────────────, @eslint-react/no-array-index-key */

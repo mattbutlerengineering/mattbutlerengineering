@@ -7,7 +7,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   RialtoProvider: ({ children }: any) => <div data-testid="rialto-provider">{children}</div>,
   GlobalNav: () => <nav data-testid="global-nav" />,
   Footer: () => <footer data-testid="footer" />,
-  Text: ({ children }: any) => <span>{children}</span>,
+  Text: ({ children }: any) => <Text>{children}</Text>,
 }));
 
 describe("App", () => {
@@ -21,4 +21,3 @@ describe("App", () => {
     expect(screen.getByTestId("footer")).toBeInTheDocument();
   });
 });
-/* eslint-disable @typescript-eslint/no-explicit-any */
