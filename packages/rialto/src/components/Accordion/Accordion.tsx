@@ -1,11 +1,4 @@
-import {
-  forwardRef,
-  useState,
-  useRef,
-  useCallback,
-  type ReactNode,
-  type KeyboardEvent,
-} from "react";
+import { forwardRef, useState, useRef, useCallback, type ReactNode, type KeyboardEvent } from "react";
 import { Collapsible } from "../Collapsible/Collapsible";
 import styles from "./Accordion.module.css";
 

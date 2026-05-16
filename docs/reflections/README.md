@@ -16,8 +16,8 @@ shape future work. Each reflection is one file named `YYYY-MM-DD-slug.md`.
 ---
 date: YYYY-MM-DD
 session: <brief context — e.g. "ACMM improvement loop iteration 2">
-tags: [tag1, tag2]
-feeds_back_into: [path/to/instruction-file.md, ...]
+tags: [ tag1, tag2 ]
+feeds_back_into: [ path/to/instruction-file.md, ... ]
 ---
 
 # <one-line lesson>

@@ -5,7 +5,6 @@
 ## Current Status
 
 ### Completed
-
 - [x] Monorepo setup (Turborepo + pnpm)
 - [x] Shared configs (TypeScript, ESLint, Prettier)
 - [x] packages/ui (Button, Card components)
@@ -36,17 +35,15 @@
 - [x] Automated env-sync discovery across all apps and services
 
 ### production URLs
-
-| Service      | URL                                           |
-| ------------ | --------------------------------------------- |
-| Website      | https://mattbutlerengineering.com             |
-| Hospitality  | https://mattbutlerengineering.com/hospitality |
-| API          | https://mattbutlerengineering.com/api         |
-| Health Check | https://mattbutlerengineering.com/api/health  |
-| API Docs     | https://mattbutlerengineering.com/api/docs    |
+| Service | URL |
+|---------|-----|
+| Website | https://mattbutlerengineering.com |
+| Hospitality | https://mattbutlerengineering.com/hospitality |
+| API | https://mattbutlerengineering.com/api |
+| Health Check | https://mattbutlerengineering.com/api/health |
+| API Docs | https://mattbutlerengineering.com/api/docs |
 
 ### Local Dev Commands
-
 ```bash
 # Full repository audit
 pnpm repo-audit
@@ -86,7 +83,6 @@ See `docs/ARCHITECTURE.md` for detailed diagrams.
 ## Remaining Tasks
 
 ### 1. Testing
-
 - [x] Add Vitest to packages
 - [x] Write tests for users service (15 tests)
 - [x] Write tests for auth utilities (13 tests)
@@ -94,13 +90,11 @@ See `docs/ARCHITECTURE.md` for detailed diagrams.
 - [x] Remove `continue-on-error: true` from test job
 
 ### 2. Feature Development
-
 - [x] User profile page in hospitality app
 - [x] User settings/preferences (theme, notifications)
 - [x] Admin panel for user management
 
 ### 3. Optional Enhancements
-
 - [ ] apps/docs - documentation site (Astro or Docusaurus)
 - [ ] Email service integration (Resend or SendGrid)
 - [ ] Error tracking (Sentry)
@@ -111,11 +105,11 @@ See `docs/ARCHITECTURE.md` for detailed diagrams.
 
 ## CI/CD Workflows
 
-| Workflow       | Trigger                                          | Action                               |
-| -------------- | ------------------------------------------------ | ------------------------------------ |
-| CI             | Push/PR to main                                  | Lint, typecheck, build, test         |
-| Pulumi Preview | PR touching `infrastructure/pulumi/**`           | Preview infra changes, comment on PR |
-| Pulumi Deploy  | Push to main touching `infrastructure/pulumi/**` | Deploy infrastructure                |
+| Workflow | Trigger | Action |
+|----------|---------|--------|
+| CI | Push/PR to main | Lint, typecheck, build, test |
+| Pulumi Preview | PR touching `infrastructure/pulumi/**` | Preview infra changes, comment on PR |
+| Pulumi Deploy | Push to main touching `infrastructure/pulumi/**` | Deploy infrastructure |
 
 DigitalOcean App Platform auto-deploys on push to main (configured in DO).
 
@@ -123,15 +117,15 @@ DigitalOcean App Platform auto-deploys on push to main (configured in DO).
 
 ## File Locations
 
-| What                | Where                                      |
-| ------------------- | ------------------------------------------ |
-| Architecture docs   | `docs/ARCHITECTURE.md`                     |
+| What | Where |
+|------|-------|
+| Architecture docs | `docs/ARCHITECTURE.md` |
 | Platform design doc | `docs/plans/2026-01-22-platform-design.md` |
-| Pulumi IaC          | `infrastructure/pulumi/`                   |
-| Users Dockerfile    | `services/users/Dockerfile`                |
-| CI workflow         | `.github/workflows/ci.yml`                 |
-| Pulumi preview      | `.github/workflows/pulumi-preview.yml`     |
-| Pulumi deploy       | `.github/workflows/pulumi-up.yml`          |
+| Pulumi IaC | `infrastructure/pulumi/` |
+| Users Dockerfile | `services/users/Dockerfile` |
+| CI workflow | `.github/workflows/ci.yml` |
+| Pulumi preview | `.github/workflows/pulumi-preview.yml` |
+| Pulumi deploy | `.github/workflows/pulumi-up.yml` |
 
 ---
 
@@ -167,7 +161,6 @@ pulumi stack output  # View outputs
 ## Secrets Management
 
 **GitHub Actions Secrets** (configured):
-
 - `DIGITALOCEAN_TOKEN`
 - `MBE_CLOUDFLARE_API_TOKEN`
 - `AUTH0_DOMAIN`
@@ -177,7 +170,6 @@ pulumi stack output  # View outputs
 - `PULUMI_CONFIG_PASSPHRASE`
 
 **Pulumi Secrets** (in `Pulumi.prod.yaml`):
-
 - `auth0:clientId`
 - `auth0:clientSecret`
 - `digitalocean:token`

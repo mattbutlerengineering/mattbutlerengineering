@@ -46,7 +46,10 @@ export const holdService = {
   /**
    * Creates a hold on a time slot for a session.
    */
-  async create(data: CreateHoldRequest, sessionId: string): Promise<CreateHoldResult> {
+  async create(
+    data: CreateHoldRequest,
+    sessionId: string
+  ): Promise<CreateHoldResult> {
     const { venueId, date, time, partySize, tableId, holdDurationMinutes } = data;
 
     // Get venue settings for hold duration
@@ -60,8 +63,7 @@ export const holdService = {
 
     const settings = venue.settings as VenueSettings | null;
     // Use request-provided duration, or fall back to venue setting, or default
-    const holdDuration =
-      holdDurationMinutes ?? settings?.holdDurationMinutes ?? DEFAULT_HOLD_DURATION;
+    const holdDuration = holdDurationMinutes ?? settings?.holdDurationMinutes ?? DEFAULT_HOLD_DURATION;
 
     // Calculate times
     const startTime = new Date(time);
@@ -123,7 +125,10 @@ export const holdService = {
           tableId: selectedTableId,
           date: new Date(date),
           status: { notIn: ["CANCELLED", "NO_SHOW"] },
-          AND: [{ startTime: { lt: endTime } }, { endTime: { gt: startTime } }],
+          AND: [
+            { startTime: { lt: endTime } },
+            { endTime: { gt: startTime } },
+          ],
         },
         select: { id: true },
       });
@@ -139,7 +144,10 @@ export const holdService = {
           date: new Date(date),
           expiresAt: { gt: new Date() },
           sessionId: { not: sessionId }, // Don't conflict with own session
-          AND: [{ startTime: { lt: endTime } }, { endTime: { gt: startTime } }],
+          AND: [
+            { startTime: { lt: endTime } },
+            { endTime: { gt: startTime } },
+          ],
         },
         select: { id: true },
       });
@@ -200,7 +208,10 @@ export const holdService = {
   /**
    * Gets a hold by session ID for a venue.
    */
-  async getBySessionId(sessionId: string, venueId: string): Promise<ReservationHold | null> {
+  async getBySessionId(
+    sessionId: string,
+    venueId: string
+  ): Promise<ReservationHold | null> {
     const hold = await prisma.reservationHold.findFirst({
       where: {
         sessionId,
@@ -264,7 +275,10 @@ export const holdService = {
           tableId: hold.tableId,
           date: hold.date,
           status: { notIn: ["CANCELLED", "NO_SHOW"] },
-          AND: [{ startTime: { lt: hold.endTime } }, { endTime: { gt: hold.startTime } }],
+          AND: [
+            { startTime: { lt: hold.endTime } },
+            { endTime: { gt: hold.startTime } },
+          ],
         },
         select: { id: true },
       });
@@ -281,7 +295,10 @@ export const holdService = {
           date: hold.date,
           expiresAt: { gt: new Date() },
           id: { not: holdId },
-          AND: [{ startTime: { lt: hold.endTime } }, { endTime: { gt: hold.startTime } }],
+          AND: [
+            { startTime: { lt: hold.endTime } },
+            { endTime: { gt: hold.startTime } },
+          ],
         },
         select: { id: true },
       });

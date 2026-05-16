@@ -60,7 +60,8 @@ export function SystemHealthBadge() {
 
   // Only show to admin users — permissions live in the raw JWT claims
   const rawPermissions = user?.raw?.permissions;
-  const isAdmin = Array.isArray(rawPermissions) && rawPermissions.includes("admin");
+  const isAdmin =
+    Array.isArray(rawPermissions) && rawPermissions.includes("admin");
 
   const fetchHealth = useCallback(async () => {
     try {
@@ -86,7 +87,11 @@ export function SystemHealthBadge() {
   if (!isAdmin || !health) return null;
 
   const trigger = (
-    <button type="button" className={styles.trigger} aria-label={`System health: ${health.status}`}>
+    <button
+      type="button"
+      className={styles.trigger}
+      aria-label={`System health: ${health.status}`}
+    >
       <StatusDot status={health.status} />
     </button>
   );
@@ -108,7 +113,9 @@ export function SystemHealthBadge() {
               <div key={name} className={styles.row}>
                 <StatusDot status={svc.status} />
                 <span className={styles.name}>{name}</span>
-                {svc.latency != null && <span className={styles.meta}>{svc.latency}ms</span>}
+                {svc.latency != null && (
+                  <span className={styles.meta}>{svc.latency}ms</span>
+                )}
               </div>
             ))}
           </div>

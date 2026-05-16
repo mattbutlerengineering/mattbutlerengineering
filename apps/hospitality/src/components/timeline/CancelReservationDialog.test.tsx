@@ -26,7 +26,7 @@ describe("CancelReservationDialog", () => {
 
   it("should render all cancellation reasons", async () => {
     render(<CancelReservationDialog {...defaultProps} />);
-
+    
     // Open the select
     const trigger = screen.getByRole("combobox", { name: /reason/i });
     fireEvent.click(trigger);
@@ -46,13 +46,13 @@ describe("CancelReservationDialog", () => {
 
   it("should allow selecting different reasons", async () => {
     render(<CancelReservationDialog {...defaultProps} />);
-
+    
     const trigger = screen.getByRole("combobox", { name: /reason/i });
     fireEvent.click(trigger);
-
+    
     const option = screen.getByRole("option", { name: "No Show" });
     fireEvent.click(option);
-
+    
     expect(trigger).toHaveTextContent("No Show");
   });
 
@@ -83,9 +83,9 @@ describe("CancelReservationDialog", () => {
 
     const textarea = screen.getByLabelText(/note/i);
     fireEvent.change(textarea, { target: { value: "Guest never arrived" } });
-
+    
     fireEvent.click(screen.getByRole("button", { name: "Cancel Reservation" }));
-
+    
     await waitFor(() => {
       expect(onConfirm).toHaveBeenCalledWith("no_show", "Guest never arrived");
     });
@@ -107,12 +107,9 @@ describe("CancelReservationDialog", () => {
 
   it("should disable buttons when isLoading in onConfirm", async () => {
     let resolveConfirm: (value: void | PromiseLike<void>) => void;
-    const onConfirm = vi.fn(
-      () =>
-        new Promise<void>((resolve) => {
-          resolveConfirm = resolve;
-        })
-    );
+    const onConfirm = vi.fn(() => new Promise<void>((resolve) => {
+      resolveConfirm = resolve;
+    }));
     render(<CancelReservationDialog {...defaultProps} onConfirm={onConfirm} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel Reservation" }));
@@ -120,9 +117,9 @@ describe("CancelReservationDialog", () => {
     await waitFor(() => {
       expect(screen.getByText("Cancelling…")).toBeDefined();
     });
-
+    
     expect(screen.getByRole("button", { name: "Keep Reservation" })).toBeDisabled();
-
+    
     await waitFor(() => {
       resolveConfirm!(undefined);
     });

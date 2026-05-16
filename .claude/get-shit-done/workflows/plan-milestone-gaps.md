@@ -16,13 +16,11 @@ Read all files referenced by the invoking prompt's execution_context before star
 ```
 
 Parse YAML frontmatter to extract structured gaps:
-
 - `gaps.requirements` — unsatisfied requirements
 - `gaps.integration` — missing cross-phase connections
 - `gaps.flows` — broken E2E flows
 
 If no audit file exists or has no gaps, error:
-
 ```
 No audit gaps found. Run `/gsd:audit-milestone` first.
 ```
@@ -31,11 +29,11 @@ No audit gaps found. Run `/gsd:audit-milestone` first.
 
 Group gaps by priority from REQUIREMENTS.md:
 
-| Priority | Action                         |
-| -------- | ------------------------------ |
-| `must`   | Create phase, blocks milestone |
-| `should` | Create phase, recommended      |
-| `nice`   | Ask user: include or defer?    |
+| Priority | Action |
+|----------|--------|
+| `must` | Create phase, blocks milestone |
+| `should` | Create phase, recommended |
+| `nice` | Ask user: include or defer? |
 
 For integration/flow gaps, infer priority from affected requirements.
 
@@ -44,14 +42,12 @@ For integration/flow gaps, infer priority from affected requirements.
 Cluster related gaps into logical phases:
 
 **Grouping rules:**
-
 - Same affected phase → combine into one fix phase
 - Same subsystem (auth, API, UI) → combine
 - Dependency order (fix stubs before wiring)
 - Keep phases focused: 2-4 tasks each
 
 **Example grouping:**
-
 ```
 Gap: DASH-01 unsatisfied (Dashboard doesn't fetch)
 Gap: Integration Phase 1→3 (Auth not passed to API calls)
@@ -67,14 +63,12 @@ Gap: Flow "View dashboard" broken at data fetch
 ## 4. Determine Phase Numbers
 
 Find highest existing phase:
-
 ```bash
 # Get sorted phase list, extract last one
 HIGHEST=$(node "${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/bin/gsd-tools.cjs" phases list --pick directories[-1])
 ```
 
 New phases continue from there:
-
 - If Phase 5 is highest, gaps become Phase 6, 7, 8...
 
 ## 5. Present Gap Closure Plan
@@ -89,24 +83,21 @@ New phases continue from there:
 
 **Phase {N}: {Name}**
 Closes:
-
 - {REQ-ID}: {description}
 - Integration: {from} → {to}
-  Tasks: {count}
+Tasks: {count}
 
 **Phase {N+1}: {Name}**
 Closes:
-
 - {REQ-ID}: {description}
 - Flow: {flow name}
-  Tasks: {count}
+Tasks: {count}
 
 {If nice-to-have gaps exist:}
 
 ### Deferred (nice-to-have)
 
 These gaps are optional. Include them?
-
 - {gap description}
 - {gap description}
 
@@ -123,25 +114,21 @@ Add new phases to current milestone:
 
 ```markdown
 ### Phase {N}: {Name}
-
 **Goal:** {derived from gaps being closed}
 **Requirements:** {REQ-IDs being satisfied}
 **Gap Closure:** Closes gaps from audit
 
 ### Phase {N+1}: {Name}
-
 ...
 ```
 
 ## 7. Update REQUIREMENTS.md Traceability Table (REQUIRED)
 
 For each REQ-ID assigned to a gap closure phase:
-
 - Update the Phase column to reflect the new gap closure phase
 - Reset Status to `Pending`
 
 Reset checked-off requirements the audit found unsatisfied:
-
 - Change `[x]` → `[ ]` for any requirement marked unsatisfied in the audit
 - Update coverage count at top of REQUIREMENTS.md
 
@@ -183,7 +170,6 @@ node "${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/bi
 ---
 
 **Also available:**
-
 - `/gsd:execute-phase {N}` — if plans already exist
 - `cat .planning/ROADMAP.md` — see updated roadmap
 
@@ -202,7 +188,6 @@ node "${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/bi
 ## How Gaps Become Tasks
 
 **Requirement gap → Tasks:**
-
 ```yaml
 gap:
   id: DASH-01
@@ -231,7 +216,6 @@ tasks:
 ```
 
 **Integration gap → Tasks:**
-
 ```yaml
 gap:
   from_phase: 1
@@ -256,7 +240,6 @@ tasks:
 ```
 
 **Flow gap → Tasks:**
-
 ```yaml
 gap:
   name: "User views dashboard after login"
@@ -276,7 +259,6 @@ becomes:
 </gap_to_phase_mapping>
 
 <success_criteria>
-
 - [ ] MILESTONE-AUDIT.md loaded and gaps parsed
 - [ ] Gaps prioritized (must/should/nice)
 - [ ] Gaps grouped into logical phases
@@ -288,4 +270,4 @@ becomes:
 - [ ] Phase directories created
 - [ ] Changes committed (includes REQUIREMENTS.md)
 - [ ] User knows to run `/gsd:plan-phase` next
-      </success_criteria>
+</success_criteria>

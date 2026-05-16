@@ -22,7 +22,10 @@ import {
 import { VenueGroupSchema, VenueSchema } from "./venue.js";
 import { GuestSchema, GuestSegmentSchema } from "./guest.js";
 import { ProblemDetailsSchema } from "./api.js";
-import { PaginationSchema, ErrorResponseSchema } from "./common.js";
+import {
+  PaginationSchema,
+  ErrorResponseSchema,
+} from "./common.js";
 
 /**
  * Recursively strip `additionalProperties` and `propertyNames` from a JSON Schema
@@ -43,7 +46,7 @@ function stripAdditionalProperties(obj: Record<string, unknown>): Record<string,
       result[key] = value.map((item) =>
         item !== null && typeof item === "object" && !Array.isArray(item)
           ? stripAdditionalProperties(item as Record<string, unknown>)
-          : item
+          : item,
       );
     } else {
       result[key] = value;
@@ -71,7 +74,7 @@ function toFastifyJsonSchema(id: string, zodSchema: ZodType) {
 // ── User schemas ──────────────────────────────────────────────
 export const userPreferencesJsonSchema = toFastifyJsonSchema(
   "UserPreferences",
-  UserPreferencesSchema
+  UserPreferencesSchema,
 );
 
 export const userJsonSchema = toFastifyJsonSchema("User", UserSchema);
@@ -79,44 +82,71 @@ export const userJsonSchema = toFastifyJsonSchema("User", UserSchema);
 // ── Reservation schemas ───────────────────────────────────────
 export const tableShapeMetadataJsonSchema = toFastifyJsonSchema(
   "TableShapeMetadata",
-  TableShapeMetadataSchema
+  TableShapeMetadataSchema,
 );
 
 export const tableJsonSchema = toFastifyJsonSchema("Table", TableSchema);
 
-export const reservationJsonSchema = toFastifyJsonSchema("Reservation", ReservationSchema);
+export const reservationJsonSchema = toFastifyJsonSchema(
+  "Reservation",
+  ReservationSchema,
+);
 
 // ── Venue schemas ─────────────────────────────────────────────
-export const venueGroupJsonSchema = toFastifyJsonSchema("VenueGroup", VenueGroupSchema);
+export const venueGroupJsonSchema = toFastifyJsonSchema(
+  "VenueGroup",
+  VenueGroupSchema,
+);
 
 export const venueJsonSchema = toFastifyJsonSchema("Venue", VenueSchema);
 
 // ── Guest schemas ─────────────────────────────────────────────
 export const guestJsonSchema = toFastifyJsonSchema("Guest", GuestSchema);
 
-export const guestSegmentJsonSchema = toFastifyJsonSchema("GuestSegment", GuestSegmentSchema);
+export const guestSegmentJsonSchema = toFastifyJsonSchema(
+  "GuestSegment",
+  GuestSegmentSchema,
+);
 
 // ── Floor plan schemas ────────────────────────────────────────
 export const floorPlanLayoutJsonSchema = toFastifyJsonSchema(
   "FloorPlanLayout",
-  FloorPlanLayoutSchema
+  FloorPlanLayoutSchema,
 );
 
-export const floorPlanJsonSchema = toFastifyJsonSchema("FloorPlan", FloorPlanSchema);
+export const floorPlanJsonSchema = toFastifyJsonSchema(
+  "FloorPlan",
+  FloorPlanSchema,
+);
 
 // ── Agent schemas ─────────────────────────────────────────────
-export const sessionJsonSchema = toFastifyJsonSchema("Session", AgentSessionSchema);
+export const sessionJsonSchema = toFastifyJsonSchema(
+  "Session",
+  AgentSessionSchema,
+);
 
-export const sessionEventJsonSchema = toFastifyJsonSchema("SessionEvent", AgentSessionEventSchema);
+export const sessionEventJsonSchema = toFastifyJsonSchema(
+  "SessionEvent",
+  AgentSessionEventSchema,
+);
 
 export const createSessionBodyJsonSchema = toFastifyJsonSchema(
   "CreateSessionBody",
-  CreateAgentSessionRequestSchema
+  CreateAgentSessionRequestSchema,
 );
 
 // ── Shared schemas ────────────────────────────────────────────
-export const paginationJsonSchema = toFastifyJsonSchema("Pagination", PaginationSchema);
+export const paginationJsonSchema = toFastifyJsonSchema(
+  "Pagination",
+  PaginationSchema,
+);
 
-export const errorJsonSchema = toFastifyJsonSchema("Error", ErrorResponseSchema);
+export const errorJsonSchema = toFastifyJsonSchema(
+  "Error",
+  ErrorResponseSchema,
+);
 
-export const problemDetailsJsonSchema = toFastifyJsonSchema("ProblemDetails", ProblemDetailsSchema);
+export const problemDetailsJsonSchema = toFastifyJsonSchema(
+  "ProblemDetails",
+  ProblemDetailsSchema,
+);

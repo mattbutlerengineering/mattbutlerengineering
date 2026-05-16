@@ -2,14 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { JSONUIProvider, Renderer } from "@json-render/react";
 import type { Spec } from "@json-render/react";
 import { registry } from "@mbe/rialto-catalog";
-import {
-  Alert,
-  Button,
-  Divider,
-  Text,
-  SegmentedControl,
-  useToast,
-} from "@mattbutlerengineering/rialto";
+import { Alert, Button, Divider, Text, SegmentedControl, useToast } from "@mattbutlerengineering/rialto";
 import styles from "./PreviewPane.module.css";
 
 const VIEWPORT_SEGMENTS = [
@@ -202,7 +195,11 @@ export function PreviewPane({
     <section className={styles.pane}>
       {showActionBar ? (
         <div className={styles.actionBar}>
-          <Button variant="ghost" size="sm" onClick={() => handleShare(activeSpecId)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleShare(activeSpecId)}
+          >
             {copiedId === activeSpecId ? "Copied!" : "Share"}
           </Button>
           {isRefinementMode ? (

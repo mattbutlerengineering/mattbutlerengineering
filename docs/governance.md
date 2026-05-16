@@ -10,13 +10,13 @@ The `main` branch enforces the following protections:
 
 All PRs must pass these checks before merge:
 
-| Check               | Source                | Purpose                           |
-| ------------------- | --------------------- | --------------------------------- |
-| **Lint**            | `ci.yml`              | ESLint across workspace           |
-| **Typecheck**       | `ci.yml`              | TypeScript compilation            |
-| **Test**            | `ci.yml`              | Vitest suite (unit + integration) |
-| **Security Scan**   | `ci.yml` / Semgrep    | SAST via Semgrep rules            |
-| **Tier Classifier** | `tier-classifier.yml` | Risk tier label assignment        |
+| Check | Source | Purpose |
+|-------|--------|---------|
+| **Lint** | `ci.yml` | ESLint across workspace |
+| **Typecheck** | `ci.yml` | TypeScript compilation |
+| **Test** | `ci.yml` | Vitest suite (unit + integration) |
+| **Security Scan** | `ci.yml` / Semgrep | SAST via Semgrep rules |
+| **Tier Classifier** | `tier-classifier.yml` | Risk tier label assignment |
 
 ### Merge Rules
 
@@ -35,14 +35,14 @@ A merge queue (`merge-queue.yml`) is enabled for verified PRs. PRs that pass all
 
 Critical paths have explicit ownership defined in `.github/CODEOWNERS`:
 
-| Path               | Owner                  | Rationale                     |
-| ------------------ | ---------------------- | ----------------------------- |
-| `*` (default)      | @mattbutlerengineering | Single-maintainer project     |
+| Path | Owner | Rationale |
+|------|-------|-----------|
+| `*` (default) | @mattbutlerengineering | Single-maintainer project |
 | `/infrastructure/` | @mattbutlerengineering | IaC changes affect production |
-| `/.github/`        | @mattbutlerengineering | CI/CD and governance          |
-| `/services/*/`     | @mattbutlerengineering | Backend API surface           |
-| `/packages/auth/`  | @mattbutlerengineering | Authentication/authorization  |
-| `/.claude/skills/` | @mattbutlerengineering | Agent behavior definitions    |
+| `/.github/` | @mattbutlerengineering | CI/CD and governance |
+| `/services/*/` | @mattbutlerengineering | Backend API surface |
+| `/packages/auth/` | @mattbutlerengineering | Authentication/authorization |
+| `/.claude/skills/` | @mattbutlerengineering | Agent behavior definitions |
 
 ## Agent PR Policy
 
@@ -62,14 +62,14 @@ When CI passes, these agent PRs may be auto-merged without human review:
 
 The following changes always require human review, regardless of agent or author:
 
-| Category                     | Examples                                      | Minimum Review                   |
-| ---------------------------- | --------------------------------------------- | -------------------------------- |
-| **Security**                 | Auth middleware, CODEOWNERS, secret templates | Owner + security scan            |
-| **Infrastructure**           | Pulumi stacks, Dockerfiles, wrangler.toml     | Owner approval                   |
-| **Database migrations**      | `prisma/migrations/*`, schema changes         | Owner + migration-reviewer agent |
-| **CI/CD workflows**          | `.github/workflows/*`                         | Owner approval                   |
-| **Production deploy config** | DO app spec, Cloudflare routes                | Owner approval                   |
-| **Dependency changes**       | `package.json` deps, `pnpm.overrides`         | Owner + dependency review        |
+| Category | Examples | Minimum Review |
+|----------|----------|----------------|
+| **Security** | Auth middleware, CODEOWNERS, secret templates | Owner + security scan |
+| **Infrastructure** | Pulumi stacks, Dockerfiles, wrangler.toml | Owner approval |
+| **Database migrations** | `prisma/migrations/*`, schema changes | Owner + migration-reviewer agent |
+| **CI/CD workflows** | `.github/workflows/*` | Owner approval |
+| **Production deploy config** | DO app spec, Cloudflare routes | Owner approval |
+| **Dependency changes** | `package.json` deps, `pnpm.overrides` | Owner + dependency review |
 
 ### Escalation Path
 

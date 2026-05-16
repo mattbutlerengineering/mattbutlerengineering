@@ -58,13 +58,11 @@ describe("Readiness Probe Route", () => {
     expect(response.statusCode).toBe(503);
     const body = JSON.parse(response.body);
     expect(body.ready).toBe(false);
-    expect(body.checks).toContainEqual(
-      expect.objectContaining({
-        name: "database",
-        status: "error",
-        message: "DB Down",
-      })
-    );
+    expect(body.checks).toContainEqual(expect.objectContaining({ 
+      name: "database", 
+      status: "error",
+      message: "DB Down" 
+    }));
   });
 
   it("returns 503 when JWKS check fails", async () => {
@@ -78,12 +76,10 @@ describe("Readiness Probe Route", () => {
 
     expect(response.statusCode).toBe(503);
     const body = JSON.parse(response.body);
-    expect(body.checks).toContainEqual(
-      expect.objectContaining({
-        name: "auth",
-        status: "error",
-        message: "JWKS returned 500",
-      })
-    );
+    expect(body.checks).toContainEqual(expect.objectContaining({ 
+      name: "auth", 
+      status: "error",
+      message: "JWKS returned 500"
+    }));
   });
 });

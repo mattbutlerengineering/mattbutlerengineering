@@ -106,4 +106,10 @@ function rateLimitResponse(retryAfterSeconds = 60) {
   );
 }
 
-export { RATE_LIMITS, findRateLimit, rateLimitKey, checkRateLimit, rateLimitResponse };
+export {
+  RATE_LIMITS,
+  findRateLimit,
+  rateLimitKey,
+  checkRateLimit,
+  rateLimitResponse,
+};

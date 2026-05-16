@@ -236,7 +236,7 @@ describe("new rules", () => {
   });
 
   it("does not flag catch with body", () => {
-    const diff = makeDiff("src/utils.ts", ["} catch (e) { logger.error(e); }"]);
+    const diff = makeDiff("src/utils.ts", ['} catch (e) { logger.error(e); }']);
     const result = analyzeDiff(diff);
     expect(result.violations.some((v) => v.rule === "no-empty-catch")).toBe(false);
   });

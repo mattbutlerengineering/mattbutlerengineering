@@ -10,9 +10,7 @@ describe("Chaos Agent", () => {
   const tempFile = path.resolve("./temp-chaos-target.tsx");
 
   beforeEach(() => {
-    fs.writeFileSync(
-      tempFile,
-      `
+    fs.writeFileSync(tempFile, `
 export default function MyComponent() {
   return (
     <div aria-label="test-label">
@@ -20,8 +18,7 @@ export default function MyComponent() {
     </div>
   );
 }
-    `
-    );
+    `);
   });
 
   afterEach(() => {
@@ -32,15 +29,11 @@ export default function MyComponent() {
     // We'll run the script logic directly or via exec
     // For simplicity, I'll just verify the injectBug function logic if I could export it,
     // but the script is a monolith. I'll use execFileSync.
-
-    execFileSync(
-      "node",
-      ["scripts/chaos-agent.mjs", "--type", "console-error", "--file", tempFile],
-      {
-        env: { ...process.env, TARGET_FILE: tempFile },
-      }
-    );
-
+    
+    execFileSync("node", ["scripts/chaos-agent.mjs", "--type", "console-error", "--file", tempFile], {
+        env: { ...process.env, TARGET_FILE: tempFile } 
+    });
+    
     // Note: I need to modify chaos-agent.mjs to accept --file for testing
     const content = fs.readFileSync(tempFile, "utf-8");
     expect(content).toContain("CHAOS-ERROR");
@@ -48,13 +41,7 @@ export default function MyComponent() {
   });
 
   test("injects accessibility bug", async () => {
-    execFileSync("node", [
-      "scripts/chaos-agent.mjs",
-      "--type",
-      "accessibility",
-      "--file",
-      tempFile,
-    ]);
+    execFileSync("node", ["scripts/chaos-agent.mjs", "--type", "accessibility", "--file", tempFile]);
     const content = fs.readFileSync(tempFile, "utf-8");
     expect(content).not.toContain('aria-label="test-label"');
   });

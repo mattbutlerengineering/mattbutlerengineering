@@ -25,36 +25,20 @@ export function FeedbackSection() {
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--rialto-space-xl)" }}>
       {/* Alerts */}
       <div>
-        <Text
-          variant="caption"
-          color="secondary"
-          style={{ marginBlockEnd: "var(--rialto-space-xs)" }}
-        >
+        <Text variant="caption" color="secondary" style={{ marginBlockEnd: "var(--rialto-space-xs)" }}>
           Alerts
         </Text>
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--rialto-space-sm)" }}>
-          <Alert variant="info" title="Info">
-            This is an informational alert.
-          </Alert>
-          <Alert variant="success" title="Success">
-            Your changes have been saved.
-          </Alert>
-          <Alert variant="warning" title="Warning">
-            This action cannot be undone.
-          </Alert>
-          <Alert variant="error" title="Error">
-            Failed to save changes. Please try again.
-          </Alert>
+          <Alert variant="info" title="Info">This is an informational alert.</Alert>
+          <Alert variant="success" title="Success">Your changes have been saved.</Alert>
+          <Alert variant="warning" title="Warning">This action cannot be undone.</Alert>
+          <Alert variant="error" title="Error">Failed to save changes. Please try again.</Alert>
         </div>
       </div>
 
       {/* Banner */}
       <div>
-        <Text
-          variant="caption"
-          color="secondary"
-          style={{ marginBlockEnd: "var(--rialto-space-xs)" }}
-        >
+        <Text variant="caption" color="secondary" style={{ marginBlockEnd: "var(--rialto-space-xs)" }}>
           Banner
         </Text>
         <Banner variant="info">System maintenance scheduled for tonight at 11 PM.</Banner>
@@ -63,11 +47,7 @@ export function FeedbackSection() {
       {/* Progress */}
       <div className={css.gridWide}>
         <div>
-          <Text
-            variant="caption"
-            color="secondary"
-            style={{ marginBlockEnd: "var(--rialto-space-xs)" }}
-          >
+          <Text variant="caption" color="secondary" style={{ marginBlockEnd: "var(--rialto-space-xs)" }}>
             Progress
           </Text>
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--rialto-space-sm)" }}>
@@ -77,11 +57,7 @@ export function FeedbackSection() {
           </div>
         </div>
         <div>
-          <Text
-            variant="caption"
-            color="secondary"
-            style={{ marginBlockEnd: "var(--rialto-space-xs)" }}
-          >
+          <Text variant="caption" color="secondary" style={{ marginBlockEnd: "var(--rialto-space-xs)" }}>
             Meter
           </Text>
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--rialto-space-sm)" }}>
@@ -94,34 +70,16 @@ export function FeedbackSection() {
 
       {/* Skeleton */}
       <div>
-        <Text
-          variant="caption"
-          color="secondary"
-          style={{ marginBlockEnd: "var(--rialto-space-xs)" }}
-        >
+        <Text variant="caption" color="secondary" style={{ marginBlockEnd: "var(--rialto-space-xs)" }}>
           Skeleton loading
         </Text>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "var(--rialto-space-sm)",
-            maxWidth: 400,
-          }}
-        >
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--rialto-space-sm)", maxWidth: 400 }}>
           <Skeleton width="60%" height={24} />
           <Skeleton width="100%" height={16} />
           <Skeleton width="80%" height={16} />
           <div style={{ display: "flex", gap: "var(--rialto-space-sm)" }}>
             <Skeleton width={40} height={40} variant="circular" />
-            <div
-              style={{
-                flex: 1,
-                display: "flex",
-                flexDirection: "column",
-                gap: "var(--rialto-space-xs)",
-              }}
-            >
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "var(--rialto-space-xs)" }}>
               <Skeleton width="50%" height={14} />
               <Skeleton width="30%" height={14} />
             </div>
@@ -131,29 +89,15 @@ export function FeedbackSection() {
 
       {/* Steps */}
       <div>
-        <Text
-          variant="caption"
-          color="secondary"
-          style={{ marginBlockEnd: "var(--rialto-space-xs)" }}
-        >
+        <Text variant="caption" color="secondary" style={{ marginBlockEnd: "var(--rialto-space-xs)" }}>
           Steps
         </Text>
         <Steps steps={STEP_ITEMS} activeStep={step} />
         <div className={css.row} style={{ marginBlockStart: "var(--rialto-space-sm)" }}>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => setStep(Math.max(0, step - 1))}
-            disabled={step === 0}
-          >
+          <Button size="sm" variant="secondary" onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0}>
             Previous
           </Button>
-          <Button
-            size="sm"
-            variant="primary"
-            onClick={() => setStep(Math.min(3, step + 1))}
-            disabled={step === 3}
-          >
+          <Button size="sm" variant="primary" onClick={() => setStep(Math.min(3, step + 1))} disabled={step === 3}>
             Next
           </Button>
         </div>
@@ -161,22 +105,14 @@ export function FeedbackSection() {
 
       {/* Empty State */}
       <div>
-        <Text
-          variant="caption"
-          color="secondary"
-          style={{ marginBlockEnd: "var(--rialto-space-xs)" }}
-        >
+        <Text variant="caption" color="secondary" style={{ marginBlockEnd: "var(--rialto-space-xs)" }}>
           Empty State
         </Text>
         <EmptyState
           icon={<Inbox size={48} />}
           title="No messages"
           description="You're all caught up. New messages will appear here."
-          action={
-            <Button variant="primary" size="sm">
-              Compose
-            </Button>
-          }
+          action={<Button variant="primary" size="sm">Compose</Button>}
         />
       </div>
     </div>

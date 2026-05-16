@@ -25,9 +25,7 @@ vi.mock("@mbe/auth/react", () => ({
 const mockCreate = vi.fn();
 const mockGetBySlug = vi.fn();
 vi.mock("@mbe/api-client", () => ({
-  ApiClient: vi.fn().mockImplementation(function () {
-    return {};
-  }),
+  ApiClient: vi.fn().mockImplementation(function () { return {}; }),
   VenuesClient: vi.fn().mockImplementation(function () {
     return {
       create: mockCreate,
@@ -131,7 +129,11 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     <div>
       {label && <label>{label}</label>}
       <input value={value} onChange={onChange} aria-label={label} />
-      {error && hint ? <span role="alert">{hint}</span> : hint ? <span>{hint}</span> : null}
+      {error && hint ? (
+        <span role="alert">{hint}</span>
+      ) : hint ? (
+        <span>{hint}</span>
+      ) : null}
     </div>
   ),
   Select: ({
@@ -149,12 +151,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   }) => (
     <div>
       {label && <label htmlFor={`select-${label}`}>{label}</label>}
-      <select
-        id={`select-${label}`}
-        value={value}
-        onChange={(e) => onChange?.(e.target.value)}
-        aria-label={label}
-      >
+      <select id={`select-${label}`} value={value} onChange={(e) => onChange?.(e.target.value)} aria-label={label}>
         {options?.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}

@@ -41,10 +41,13 @@ export function HistoryPanel({
   const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
-  const favoriteFiltered = filter === "favorites" ? entries.filter((e) => e.isFavorite) : entries;
+  const favoriteFiltered =
+    filter === "favorites" ? entries.filter((e) => e.isFavorite) : entries;
 
   const filteredEntries = searchTerm
-    ? favoriteFiltered.filter((e) => e.prompt.toLowerCase().includes(searchTerm.toLowerCase()))
+    ? favoriteFiltered.filter((e) =>
+        e.prompt.toLowerCase().includes(searchTerm.toLowerCase())
+      )
     : favoriteFiltered;
 
   const isFiltered = searchTerm || filter === "favorites";
@@ -168,9 +171,10 @@ export function HistoryPanel({
         </button>
         <button
           type="button"
-          className={[styles.filterTab, filter === "favorites" ? styles.filterTabActive : ""].join(
-            " "
-          )}
+          className={[
+            styles.filterTab,
+            filter === "favorites" ? styles.filterTabActive : "",
+          ].join(" ")}
           onClick={() => handleFilterChange("favorites")}
         >
           Favorites
@@ -197,7 +201,9 @@ export function HistoryPanel({
         )}
       </div>
 
-      {entries.length > 0 && <p className={styles.entryCount}>{countLabel}</p>}
+      {entries.length > 0 && (
+        <p className={styles.entryCount}>{countLabel}</p>
+      )}
 
       {isLoading && entries.length === 0 ? (
         <p className={styles.empty}>Loading...</p>
@@ -232,16 +238,20 @@ export function HistoryPanel({
               <li
                 key={entry.id}
                 id={`history-item-${entry.id}`}
-                className={[styles.listItem, isFocused ? styles.listItemFocused : ""].join(" ")}
+                className={[
+                  styles.listItem,
+                  isFocused ? styles.listItemFocused : "",
+                ].join(" ")}
                 role="option"
                 aria-selected={activeId === entry.id}
                 data-history-item
               >
                 <button
                   type="button"
-                  className={[styles.item, activeId === entry.id ? styles.itemActive : ""].join(
-                    " "
-                  )}
+                  className={[
+                    styles.item,
+                    activeId === entry.id ? styles.itemActive : "",
+                  ].join(" ")}
                   onClick={() => onSelect(entry.id)}
                   tabIndex={-1}
                 >
@@ -300,12 +310,10 @@ export function HistoryPanel({
                     </button>
                   </div>
                 ) : (
-                  <div
-                    className={[
-                      styles.itemActions,
-                      entry.isFavorite ? styles.itemActionsHasFavorite : "",
-                    ].join(" ")}
-                  >
+                  <div className={[
+                    styles.itemActions,
+                    entry.isFavorite ? styles.itemActionsHasFavorite : "",
+                  ].join(" ")}>
                     <button
                       type="button"
                       className={[

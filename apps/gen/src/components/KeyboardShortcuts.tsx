@@ -64,7 +64,9 @@ export function KeyboardShortcuts({ open, onClose }: KeyboardShortcutsProps) {
       },
       {
         title: "General",
-        items: [{ label: "Show this help", keys: ["?"] }],
+        items: [
+          { label: "Show this help", keys: ["?"] },
+        ],
       },
     ],
     [mod]
@@ -100,10 +102,20 @@ export function KeyboardShortcuts({ open, onClose }: KeyboardShortcutsProps) {
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- backdrop overlay; Escape key handled separately
     <div className={styles.overlay} onClick={handleOverlayClick}>
-      <div className={styles.panel} role="dialog" aria-modal="true" aria-label="Keyboard Shortcuts">
+      <div
+        className={styles.panel}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Keyboard Shortcuts"
+      >
         <div className={styles.header}>
           <h2 className={styles.title}>Keyboard Shortcuts</h2>
-          <button type="button" className={styles.closeButton} onClick={onClose} aria-label="Close">
+          <button
+            type="button"
+            className={styles.closeButton}
+            onClick={onClose}
+            aria-label="Close"
+          >
             &#x2715;
           </button>
         </div>

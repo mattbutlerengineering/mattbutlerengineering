@@ -19,11 +19,7 @@
     },
     "root-signals": {
       "command": "uvx",
-      "args": [
-        "--from",
-        "git+https://github.com/root-signals/root-signals-mcp",
-        "root-signals-mcp"
-      ],
+      "args": ["--from", "git+https://github.com/root-signals/root-signals-mcp", "root-signals-mcp"],
       "env": {
         "ROOT_SIGNALS_API_KEY": ""
       }

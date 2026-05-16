@@ -110,7 +110,9 @@ export function DrawerPage() {
                     borderRadius: "var(--rialto-radius-default)",
                     border: "none",
                     background: item.active ? "var(--rialto-accent-muted)" : "transparent",
-                    color: item.active ? "var(--rialto-accent)" : "var(--rialto-text-secondary)",
+                    color: item.active
+                      ? "var(--rialto-accent)"
+                      : "var(--rialto-text-secondary)",
                     fontSize: "var(--rialto-text-sm)",
                     fontFamily: "var(--rialto-font-sans)",
                     fontWeight: item.active

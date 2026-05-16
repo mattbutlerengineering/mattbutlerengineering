@@ -31,18 +31,9 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Card: ({ children }: any) => <div data-testid="card">{children}</div>,
   Divider: () => <hr />,
   Input: (props: any) => (
-    <input
-      data-testid="search-input"
-      placeholder={props.placeholder}
-      value={props.value}
-      onChange={props.onChange}
-    />
+    <input data-testid="search-input" placeholder={props.placeholder} value={props.value} onChange={props.onChange} />
   ),
-  Pagination: ({ total, page }: any) => (
-    <div data-testid="pagination">
-      {page}/{total}
-    </div>
-  ),
+  Pagination: ({ total, page }: any) => <div data-testid="pagination">{page}/{total}</div>,
   SegmentedControl: ({ segments, value: _value, onChange }: any) => (
     <div data-testid="segmented-control">
       {segments?.map((s: any) => (
@@ -54,12 +45,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   ),
   Skeleton: () => <div data-testid="skeleton" />,
   SkeletonGroup: ({ children }: any) => <div data-testid="skeleton-group">{children}</div>,
-  Stat: ({ label, value }: any) => (
-    <div data-testid="stat">
-      <span>{label}</span>
-      <span>{value}</span>
-    </div>
-  ),
+  Stat: ({ label, value }: any) => <div data-testid="stat"><span>{label}</span><span>{value}</span></div>,
   Text: ({ children }: any) => <span>{children}</span>,
 }));
 
@@ -74,24 +60,8 @@ describe("AdminPage", () => {
 
     mockUsersList.mockResolvedValue({
       data: [
-        {
-          id: "u1",
-          name: "Admin User",
-          email: "admin@example.com",
-          role: "admin",
-          emailVerified: true,
-          createdAt: "2026-01-01T00:00:00Z",
-          preferences: { theme: "dark" },
-        },
-        {
-          id: "u2",
-          name: "Regular User",
-          email: "user@example.com",
-          role: "user",
-          emailVerified: false,
-          createdAt: "2026-03-15T00:00:00Z",
-          preferences: {},
-        },
+        { id: "u1", name: "Admin User", email: "admin@example.com", role: "admin", emailVerified: true, createdAt: "2026-01-01T00:00:00Z", preferences: { theme: "dark" } },
+        { id: "u2", name: "Regular User", email: "user@example.com", role: "user", emailVerified: false, createdAt: "2026-03-15T00:00:00Z", preferences: {} },
       ],
       pagination: { total: 2, page: 1, limit: 10 },
     });

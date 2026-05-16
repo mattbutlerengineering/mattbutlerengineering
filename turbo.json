@@ -17,7 +17,10 @@
     "AUTH_AUDIENCE",
     "ANTHROPIC_API_KEY"
   ],
-  "globalEnv": ["TURBO_TOKEN", "TURBO_TEAM"],
+  "globalEnv": [
+    "TURBO_TOKEN",
+    "TURBO_TEAM"
+  ],
   "tasks": {
     "build-storybook": {
       "dependsOn": ["^build"],
@@ -46,13 +49,7 @@
     },
     "lint": {
       "dependsOn": ["^build"],
-      "inputs": [
-        "src/**",
-        "package.json",
-        "eslint.config.js",
-        "../../eslint.config.js",
-        "tsconfig*.json"
-      ],
+      "inputs": ["src/**", "package.json", "eslint.config.js", "../../eslint.config.js", "tsconfig*.json"],
       "outputs": []
     },
     "typecheck": {
@@ -66,12 +63,7 @@
     },
     "test:contract": {
       "dependsOn": ["build"],
-      "inputs": [
-        "src/**",
-        "package.json",
-        "vitest.config.ts",
-        "../../packages/types/src/schemas/**"
-      ]
+      "inputs": ["src/**", "package.json", "vitest.config.ts", "../../packages/types/src/schemas/**"]
     },
     "test:coverage": {
       "dependsOn": ["build"],

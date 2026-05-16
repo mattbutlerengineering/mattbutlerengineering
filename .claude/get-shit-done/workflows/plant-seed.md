@@ -4,12 +4,11 @@ Seeds auto-surface during /gsd:new-milestone when trigger conditions match the
 new milestone's scope.
 
 Seeds beat deferred items because they:
-
 - Preserve WHY the idea matters (not just WHAT)
 - Define WHEN to surface (trigger conditions, not manual scanning)
 - Track breadcrumbs (code references, related decisions)
 - Auto-present at the right time via new-milestone scan
-  </purpose>
+</purpose>
 
 <process>
 
@@ -17,7 +16,6 @@ Seeds beat deferred items because they:
 Parse `$ARGUMENTS` for the idea summary.
 
 If empty, ask:
-
 ```
 What's the idea? (one sentence)
 ```
@@ -78,7 +76,6 @@ grep -rl "$KEYWORD" --include="*.ts" --include="*.js" --include="*.md" . 2>/dev/
 ```
 
 Also check:
-
 - Current STATE.md for related decisions
 - ROADMAP.md for related phases
 - todos/ for related captured ideas
@@ -104,10 +101,10 @@ Write `.planning/seeds/SEED-{PADDED}-{slug}.md`:
 ---
 id: SEED-{PADDED}
 status: dormant
-planted: { ISO date }
-planted_during: { current milestone/phase from STATE.md }
-trigger_when: { $TRIGGER }
-scope: { $SCOPE }
+planted: {ISO date}
+planted_during: {current milestone/phase from STATE.md}
+trigger_when: {$TRIGGER}
+scope: {$SCOPE}
 ---
 
 # SEED-{PADDED}: {$IDEA}
@@ -122,7 +119,6 @@ scope: { $SCOPE }
 
 This seed should be presented during `/gsd:new-milestone` when the milestone
 scope matches any of these conditions:
-
 - {trigger condition 1}
 - {trigger condition 2}
 
@@ -140,7 +136,6 @@ Related code and decisions found in the current codebase:
 
 {any additional context from the current session}
 ```
-
 </step>
 
 <step name="commit_seed">
@@ -160,7 +155,6 @@ File: .planning/seeds/SEED-{PADDED}-{slug}.md
 
 This seed will surface automatically when you run /gsd:new-milestone
 and the milestone scope matches the trigger condition.
-
 ```
 </step>
 
@@ -173,4 +167,3 @@ and the milestone scope matches the trigger condition.
 - [ ] Committed to git
 - [ ] User shown confirmation with trigger info
 </success_criteria>
-```

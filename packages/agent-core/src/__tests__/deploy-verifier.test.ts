@@ -43,7 +43,8 @@ describe("verifyDeployment", () => {
   });
 
   it("fails when HTTP check returns non-200", async () => {
-    mockExecFile.mockResolvedValue({ stdout: "503" }); // All attempts return 503
+    mockExecFile
+      .mockResolvedValue({ stdout: "503" }); // All attempts return 503
 
     const singleCheck: readonly HealthCheck[] = [
       { name: "Site", url: "https://example.com/", type: "http_status" },

@@ -249,8 +249,7 @@ import { z } from "zod";
 export const rialtoCatalog = defineCatalog({
   components: {
     Card: {
-      description:
-        "Content container with optional title and subtitle. Use for grouping related information.",
+      description: "Content container with optional title and subtitle. Use for grouping related information.",
       props: z.object({
         variant: z.enum(["default", "outlined"]).describe("Visual style").optional(),
         padding: z.enum(["sm", "md", "lg"]).describe("Internal spacing").optional(),
@@ -342,13 +341,13 @@ export const rialtoCatalog = defineCatalog({
 
 ## 7. Phased Delivery
 
-| Phase | Name                     | Delivers                                                                                           | Depends On     |
-| ----- | ------------------------ | -------------------------------------------------------------------------------------------------- | -------------- |
-| 12    | Catalog Foundation       | `packages/rialto-catalog`, Zod schemas for ~25 components, CI catalog drift check, type extensions | Zod v4 upgrade |
-| 13    | AI Generation Endpoint   | `/api/gen/ui` and `/api/gen/chat` routes, auth, caching, rate limiting, SSE verification           | Phase 12       |
-| 14a   | Playground App           | `apps/gen` at `/gen`, streaming renderer, prompt history, spec inspector                           | Phase 13       |
-| 14b   | Hospitality Copilot      | `<GenCopilot>` component, hospitality integration, domain-aware context                            | Phase 13       |
-| 15    | Persistence & Refinement | Spec storage, history replay, favorites, permalinks, inline mode                                   | Phases 14a/14b |
+| Phase | Name | Delivers | Depends On |
+|-------|------|----------|------------|
+| 12 | Catalog Foundation | `packages/rialto-catalog`, Zod schemas for ~25 components, CI catalog drift check, type extensions | Zod v4 upgrade |
+| 13 | AI Generation Endpoint | `/api/gen/ui` and `/api/gen/chat` routes, auth, caching, rate limiting, SSE verification | Phase 12 |
+| 14a | Playground App | `apps/gen` at `/gen`, streaming renderer, prompt history, spec inspector | Phase 13 |
+| 14b | Hospitality Copilot | `<GenCopilot>` component, hospitality integration, domain-aware context | Phase 13 |
+| 15 | Persistence & Refinement | Spec storage, history replay, favorites, permalinks, inline mode | Phases 14a/14b |
 
 Phase numbering continues from v1.1 (ended at phase 11).
 
@@ -356,13 +355,13 @@ Phase numbering continues from v1.1 (ended at phase 11).
 
 ## 8. Cost Model
 
-| Scenario            | Model      | Tokens (in/out) | Cost/Gen | Monthly (100/day) |
-| ------------------- | ---------- | --------------- | -------- | ----------------- |
-| Simple layout       | Haiku 4.5  | 500/2000        | ~$0.001  | ~$3               |
-| Complex dashboard   | Sonnet 4.6 | 1000/4000       | ~$0.01   | ~$9               |
-| With prompt caching | Haiku 4.5  | 50\*/2000       | ~$0.0003 | ~$1               |
+| Scenario | Model | Tokens (in/out) | Cost/Gen | Monthly (100/day) |
+|----------|-------|-----------------|----------|-------------------|
+| Simple layout | Haiku 4.5 | 500/2000 | ~$0.001 | ~$3 |
+| Complex dashboard | Sonnet 4.6 | 1000/4000 | ~$0.01 | ~$9 |
+| With prompt caching | Haiku 4.5 | 50*/2000 | ~$0.0003 | ~$1 |
 
-_\*Cache hit reduces 5000-token catalog to ~50 tokens of cache-read cost_
+*\*Cache hit reduces 5000-token catalog to ~50 tokens of cache-read cost*
 
 **Monthly budget estimate:** $5-15 for moderate usage. Hard cap recommended at $50/month in Anthropic console.
 

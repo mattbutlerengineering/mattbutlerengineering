@@ -157,7 +157,9 @@ describe("Naming Conventions", () => {
     });
 
     it("KV namespaces use project prefix with descriptive suffix", () => {
-      const kvNamespaces = findResources("cloudflare:index/workersKvNamespace:WorkersKvNamespace");
+      const kvNamespaces = findResources(
+        "cloudflare:index/workersKvNamespace:WorkersKvNamespace"
+      );
       expect(kvNamespaces.length).toBeGreaterThanOrEqual(3);
 
       for (const kv of kvNamespaces) {
@@ -167,7 +169,9 @@ describe("Naming Conventions", () => {
     });
 
     it("KV namespace Pulumi names match their Cloudflare titles", () => {
-      const kvNamespaces = findResources("cloudflare:index/workersKvNamespace:WorkersKvNamespace");
+      const kvNamespaces = findResources(
+        "cloudflare:index/workersKvNamespace:WorkersKvNamespace"
+      );
       for (const kv of kvNamespaces) {
         expect(kv.name).toBe(kv.inputs.title);
       }
@@ -183,8 +187,9 @@ describe("Naming Conventions", () => {
     });
 
     it("edge router worker is named correctly", () => {
-      const edgeRouter = findResource("cloudflare:index/workersScript:WorkersScript", (name) =>
-        name.includes("edge-router")
+      const edgeRouter = findResource(
+        "cloudflare:index/workersScript:WorkersScript",
+        (name) => name.includes("edge-router")
       );
       expect(edgeRouter).toBeDefined();
       expect(edgeRouter!.inputs.scriptName).toBe(`${PREFIX}-edge-router`);
@@ -224,7 +229,9 @@ describe("Naming Conventions", () => {
 
     it("service names follow kebab-case convention", () => {
       const spec = getAppSpec();
-      const serviceNames = spec.services.map((s: { name: string }) => s.name);
+      const serviceNames = spec.services.map(
+        (s: { name: string }) => s.name
+      );
 
       for (const name of serviceNames) {
         expect(name).toMatch(/^[a-z][a-z0-9-]*$/);
@@ -243,7 +250,9 @@ describe("Naming Conventions", () => {
 
   describe("Auth0 Resources", () => {
     it("API resource server uses project prefix", () => {
-      const resourceServer = findResource("auth0:index/resourceServer:ResourceServer");
+      const resourceServer = findResource(
+        "auth0:index/resourceServer:ResourceServer"
+      );
       expect(resourceServer).toBeDefined();
       expect(resourceServer!.name).toContain(PREFIX);
       expect(resourceServer!.inputs.name).toBe(`${PREFIX}-api`);
@@ -259,7 +268,9 @@ describe("Naming Conventions", () => {
 
   describe("GitHub Resources", () => {
     it("branch protection has descriptive logical name", () => {
-      const bp = findResource("github:index/branchProtection:BranchProtection");
+      const bp = findResource(
+        "github:index/branchProtection:BranchProtection"
+      );
       expect(bp).toBeDefined();
       expect(bp!.name).toBe("main-branch-protection");
     });
@@ -275,7 +286,9 @@ describe("Configuration Validation", () => {
       const spec = getAppSpec();
 
       for (const service of spec.services) {
-        expect(service.github.repo).toBe("mattbutlerengineering/mattbutlerengineering");
+        expect(service.github.repo).toBe(
+          "mattbutlerengineering/mattbutlerengineering"
+        );
         expect(service.github.branch).toBe("main");
       }
     });
@@ -304,7 +317,9 @@ describe("Configuration Validation", () => {
       const spec = getAppSpec();
 
       for (const service of spec.services) {
-        const nodeEnv = service.envs.find((e: { key: string }) => e.key === "NODE_ENV");
+        const nodeEnv = service.envs.find(
+          (e: { key: string }) => e.key === "NODE_ENV"
+        );
         expect(nodeEnv).toBeDefined();
         expect(nodeEnv.value).toBe("production");
       }
@@ -314,7 +329,9 @@ describe("Configuration Validation", () => {
       const spec = getAppSpec();
 
       for (const service of spec.services) {
-        const dbUrl = service.envs.find((e: { key: string }) => e.key === "DATABASE_URL");
+        const dbUrl = service.envs.find(
+          (e: { key: string }) => e.key === "DATABASE_URL"
+        );
         expect(dbUrl).toBeDefined();
         expect(dbUrl.type).toBe("SECRET");
       }
@@ -332,7 +349,9 @@ describe("Configuration Validation", () => {
       for (const service of spec.services) {
         expect(service.httpPort).toBe(expectedPorts[service.name]);
         // PORT env var matches httpPort
-        const portEnv = service.envs.find((e: { key: string }) => e.key === "PORT");
+        const portEnv = service.envs.find(
+          (e: { key: string }) => e.key === "PORT"
+        );
         expect(portEnv).toBeDefined();
         expect(portEnv.value).toBe(String(expectedPorts[service.name]));
       }
@@ -363,7 +382,9 @@ describe("Configuration Validation", () => {
       const spec = getAppSpec();
 
       for (const service of spec.services) {
-        const corsOrigin = service.envs.find((e: { key: string }) => e.key === "CORS_ORIGIN");
+        const corsOrigin = service.envs.find(
+          (e: { key: string }) => e.key === "CORS_ORIGIN"
+        );
         expect(corsOrigin).toBeDefined();
         expect(corsOrigin.value).toBe(`https://${TEST_DOMAIN}`);
       }
@@ -373,8 +394,12 @@ describe("Configuration Validation", () => {
       const spec = getAppSpec();
 
       for (const service of spec.services) {
-        const authority = service.envs.find((e: { key: string }) => e.key === "AUTH_AUTHORITY");
-        const audience = service.envs.find((e: { key: string }) => e.key === "AUTH_AUDIENCE");
+        const authority = service.envs.find(
+          (e: { key: string }) => e.key === "AUTH_AUTHORITY"
+        );
+        const audience = service.envs.find(
+          (e: { key: string }) => e.key === "AUTH_AUDIENCE"
+        );
         expect(authority).toBeDefined();
         expect(authority.value).toMatch(/^https:\/\/.+\.auth0\.com$/);
         expect(audience).toBeDefined();
@@ -429,7 +454,9 @@ describe("Configuration Validation", () => {
 
     it("each service is referenced by at least one ingress rule", () => {
       const spec = getAppSpec();
-      const serviceNames = spec.services.map((s: { name: string }) => s.name);
+      const serviceNames = spec.services.map(
+        (s: { name: string }) => s.name
+      );
       const referencedComponents = spec.ingress.rules.map(
         (r: { component: { name: string } }) => r.component.name
       );
@@ -473,7 +500,9 @@ describe("Configuration Validation", () => {
       const spec = getAppSpec();
 
       for (const job of spec.jobs) {
-        const serviceNameEnv = job.envs.find((e: { key: string }) => e.key === "SERVICE_NAME");
+        const serviceNameEnv = job.envs.find(
+          (e: { key: string }) => e.key === "SERVICE_NAME"
+        );
         expect(serviceNameEnv).toBeDefined();
         const expectedService = job.name.replace("db-migrate-", "");
         expect(serviceNameEnv.value).toBe(expectedService);
@@ -484,7 +513,9 @@ describe("Configuration Validation", () => {
       const spec = getAppSpec();
 
       for (const job of spec.jobs) {
-        const dbUrl = job.envs.find((e: { key: string }) => e.key === "DATABASE_URL");
+        const dbUrl = job.envs.find(
+          (e: { key: string }) => e.key === "DATABASE_URL"
+        );
         expect(dbUrl).toBeDefined();
         expect(dbUrl.type).toBe("SECRET");
       }
@@ -499,8 +530,12 @@ describe("Configuration Validation", () => {
     });
 
     it("all Cloudflare resources use the correct account ID", () => {
-      const cfResources = createdResources.filter((r) => r.type.startsWith("cloudflare:"));
-      const resourcesWithAccount = cfResources.filter((r) => "accountId" in r.inputs);
+      const cfResources = createdResources.filter((r) =>
+        r.type.startsWith("cloudflare:")
+      );
+      const resourcesWithAccount = cfResources.filter(
+        (r) => "accountId" in r.inputs
+      );
 
       expect(resourcesWithAccount.length).toBeGreaterThan(0);
       for (const resource of resourcesWithAccount) {
@@ -509,16 +544,18 @@ describe("Configuration Validation", () => {
     });
 
     it("edge router worker has a valid compatibility date", () => {
-      const edgeRouter = findResource("cloudflare:index/workersScript:WorkersScript", (name) =>
-        name.includes("edge-router")
+      const edgeRouter = findResource(
+        "cloudflare:index/workersScript:WorkersScript",
+        (name) => name.includes("edge-router")
       );
       expect(edgeRouter).toBeDefined();
       expect(edgeRouter!.inputs.compatibilityDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     });
 
     it("edge router has required service bindings for all static sites", () => {
-      const edgeRouter = findResource("cloudflare:index/workersScript:WorkersScript", (name) =>
-        name.includes("edge-router")
+      const edgeRouter = findResource(
+        "cloudflare:index/workersScript:WorkersScript",
+        (name) => name.includes("edge-router")
       );
       expect(edgeRouter).toBeDefined();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -533,8 +570,9 @@ describe("Configuration Validation", () => {
     });
 
     it("edge router has canary service bindings for traffic splitting", () => {
-      const edgeRouter = findResource("cloudflare:index/workersScript:WorkersScript", (name) =>
-        name.includes("edge-router")
+      const edgeRouter = findResource(
+        "cloudflare:index/workersScript:WorkersScript",
+        (name) => name.includes("edge-router")
       );
       expect(edgeRouter).toBeDefined();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -549,8 +587,9 @@ describe("Configuration Validation", () => {
     });
 
     it("edge router has API_ORIGIN text binding pointing to api subdomain", () => {
-      const edgeRouter = findResource("cloudflare:index/workersScript:WorkersScript", (name) =>
-        name.includes("edge-router")
+      const edgeRouter = findResource(
+        "cloudflare:index/workersScript:WorkersScript",
+        (name) => name.includes("edge-router")
       );
       expect(edgeRouter).toBeDefined();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -563,8 +602,9 @@ describe("Configuration Validation", () => {
     });
 
     it("edge router has KV namespace binding for health state", () => {
-      const edgeRouter = findResource("cloudflare:index/workersScript:WorkersScript", (name) =>
-        name.includes("edge-router")
+      const edgeRouter = findResource(
+        "cloudflare:index/workersScript:WorkersScript",
+        (name) => name.includes("edge-router")
       );
       expect(edgeRouter).toBeDefined();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -762,9 +802,15 @@ describe("Exported Outputs", () => {
   });
 
   it("exports KV namespace IDs", async () => {
-    const sessionsId = await resolveOutput(infra.sessionsKvNamespaceId as pulumi.Output<string>);
-    const cacheId = await resolveOutput(infra.cacheKvNamespaceId as pulumi.Output<string>);
-    const healthId = await resolveOutput(infra.healthKvNamespaceId as pulumi.Output<string>);
+    const sessionsId = await resolveOutput(
+      infra.sessionsKvNamespaceId as pulumi.Output<string>
+    );
+    const cacheId = await resolveOutput(
+      infra.cacheKvNamespaceId as pulumi.Output<string>
+    );
+    const healthId = await resolveOutput(
+      infra.healthKvNamespaceId as pulumi.Output<string>
+    );
 
     expect(sessionsId).toBeDefined();
     expect(cacheId).toBeDefined();
@@ -772,7 +818,9 @@ describe("Exported Outputs", () => {
   });
 
   it("exports branchProtectionId", async () => {
-    const bpId = await resolveOutput(infra.branchProtectionId as pulumi.Output<string>);
+    const bpId = await resolveOutput(
+      infra.branchProtectionId as pulumi.Output<string>
+    );
     expect(bpId).toBeDefined();
     expect(bpId).toContain("main-branch-protection");
   });
@@ -783,7 +831,9 @@ describe("Exported Outputs", () => {
   });
 
   it("exports pulumiStateBucketId", async () => {
-    const id = await resolveOutput(infra.pulumiStateBucketId as pulumi.Output<string>);
+    const id = await resolveOutput(
+      infra.pulumiStateBucketId as pulumi.Output<string>
+    );
     expect(id).toContain("mattbutlerengineering-pulumi-state");
   });
 });
@@ -793,7 +843,9 @@ describe("Exported Outputs", () => {
 // ═══════════════════════════════════════════════════════════════════════════
 describe("Resource Inventory", () => {
   it("creates expected number of Cloudflare resources", () => {
-    const cfResources = createdResources.filter((r) => r.type.startsWith("cloudflare:"));
+    const cfResources = createdResources.filter((r) =>
+      r.type.startsWith("cloudflare:")
+    );
     // R2 bucket + 3 KV namespaces + 2 Workers + 2 routes + 3 DNS records = 11
     expect(cfResources.length).toBeGreaterThanOrEqual(10);
   });
@@ -804,7 +856,9 @@ describe("Resource Inventory", () => {
   });
 
   it("creates Auth0 resources (API + client + grant)", () => {
-    const auth0Resources = createdResources.filter((r) => r.type.startsWith("auth0:"));
+    const auth0Resources = createdResources.filter((r) =>
+      r.type.startsWith("auth0:")
+    );
     expect(auth0Resources.length).toBeGreaterThanOrEqual(3);
   });
 

@@ -41,7 +41,8 @@ export function validateAuthConfig(): AuthConfigResult | AuthConfigFailure {
       authority: import.meta.env.VITE_AUTH_AUTHORITY,
       clientId: import.meta.env.VITE_AUTH_CLIENT_ID,
       redirectUri:
-        import.meta.env.VITE_AUTH_REDIRECT_URI || window.location.origin + "/hospitality/callback",
+        import.meta.env.VITE_AUTH_REDIRECT_URI ||
+        window.location.origin + "/hospitality/callback",
       audience: import.meta.env.VITE_AUTH_AUDIENCE || undefined,
     },
   };

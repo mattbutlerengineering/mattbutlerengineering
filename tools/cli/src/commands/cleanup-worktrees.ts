@@ -25,10 +25,7 @@ function getRemoteBranches(): string[] {
   const gitRoot = getGitRoot();
   try {
     const output = execSync("git branch -r", { encoding: "utf8", cwd: gitRoot });
-    return output
-      .split("\n")
-      .map((b) => b.replace(/^[* ] /, "").trim())
-      .filter(Boolean);
+    return output.split("\n").map((b) => b.replace(/^[* ] /, "").trim()).filter(Boolean);
   } catch {
     return [];
   }
@@ -60,8 +57,8 @@ export const cleanupWorktreesCommand = new Command("cleanup-worktrees")
         const ageMs = now - stats.mtimeMs;
 
         if (ageMs > cutoffMs) {
-          const hasRemote = remoteBranches.some(
-            (rb) => rb === `origin/${branchName}` || rb.endsWith(`/${branchName}`)
+          const hasRemote = remoteBranches.some((rb) =>
+            rb === `origin/${branchName}` || rb.endsWith(`/${branchName}`)
           );
 
           if (!hasRemote) {

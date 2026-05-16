@@ -24,13 +24,8 @@ export interface TapeChartFormatters {
   timeZone?: string;
 }
 
-export function useTapeChartI18n(
-  locale?: string,
-  timeZone?: string,
-  defaultCurrency?: string
-): TapeChartFormatters {
-  const effectiveLocale =
-    locale ?? (typeof navigator !== "undefined" ? navigator.language : "en-US");
+export function useTapeChartI18n(locale?: string, timeZone?: string, defaultCurrency?: string): TapeChartFormatters {
+  const effectiveLocale = locale ?? (typeof navigator !== "undefined" ? navigator.language : "en-US");
 
   return useMemo(() => {
     const weekdayShort = new Intl.DateTimeFormat(effectiveLocale, {

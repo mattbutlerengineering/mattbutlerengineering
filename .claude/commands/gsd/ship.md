@@ -10,7 +10,6 @@ allowed-tools:
   - Write
   - AskUserQuestion
 ---
-
 <objective>
 Bridge local completion → merged PR. After /gsd:verify-work passes, ship the work: push branch, create PR with auto-generated body, optionally trigger review, and track the merge.
 

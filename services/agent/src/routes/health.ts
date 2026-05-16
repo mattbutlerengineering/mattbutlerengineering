@@ -1,12 +1,7 @@
 import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from "fastify";
 import type { HealthResponse } from "@mbe/types";
 import type { RateLimitMonitor } from "@mbe/observability";
-import {
-  prisma,
-  getSlowQueryStats,
-  getServiceStatus,
-  getPoolMetrics,
-} from "../services/database.js";
+import { prisma, getSlowQueryStats, getServiceStatus, getPoolMetrics } from "../services/database.js";
 import { checkAuth0, checkLatencyAnomaly, recordDbLatency } from "../services/health-checks.js";
 
 export const healthRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
@@ -103,8 +98,7 @@ export const healthRoutes: FastifyPluginAsync = async (fastify: FastifyInstance)
       ...(auth0Result.message && { message: auth0Result.message }),
     };
 
-    const rateLimitMonitor = (request.server as unknown as { rateLimitMonitor: RateLimitMonitor })
-      .rateLimitMonitor;
+    const rateLimitMonitor = (request.server as unknown as { rateLimitMonitor: RateLimitMonitor }).rateLimitMonitor;
     const rateLimitSnapshot = rateLimitMonitor.getSnapshot();
     checks.rate_limits = {
       status: rateLimitSnapshot.isDegraded ? "degraded" : "ok",

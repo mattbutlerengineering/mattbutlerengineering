@@ -38,42 +38,42 @@ import "rialto/tokens";
 
 > Full details: [decision-trees.md](references/decision-trees.md)
 
-| Need         | Start Here                                                                                    |
-| ------------ | --------------------------------------------------------------------------------------------- |
-| Form input   | Decision tree → Input, TextArea, NumberInput, Select, Toggle, etc.                            |
-| Overlay      | Dialog, ConfirmDialog, Drawer, Popover, Tooltip, HoverCard                                    |
-| Feedback     | Priority routing: P1 ConfirmDialog → P2 Dialog → P3 Banner → P4 Alert → P5 Toast → P6 Tooltip |
-| Navigation   | Tabs, Breadcrumb, Steps, Pagination, Sidebar, Navbar                                          |
-| Data display | Table, Card, Badge, Tag, Stat, DataList, Timeline, Tree                                       |
-| Layout       | Stack, Divider, Collapsible, Accordion, ScrollArea                                            |
+| Need | Start Here |
+|------|-----------|
+| Form input | Decision tree → Input, TextArea, NumberInput, Select, Toggle, etc. |
+| Overlay | Dialog, ConfirmDialog, Drawer, Popover, Tooltip, HoverCard |
+| Feedback | Priority routing: P1 ConfirmDialog → P2 Dialog → P3 Banner → P4 Alert → P5 Toast → P6 Tooltip |
+| Navigation | Tabs, Breadcrumb, Steps, Pagination, Sidebar, Navbar |
+| Data display | Table, Card, Badge, Tag, Stat, DataList, Timeline, Tree |
+| Layout | Stack, Divider, Collapsible, Accordion, ScrollArea |
 
 ## Composition
 
 > Full details: [composition-patterns.md](references/composition-patterns.md)
 
-| Pattern             | Components                                 |
-| ------------------- | ------------------------------------------ |
-| Data table page     | Table + Pagination + Stack                 |
-| Login form          | Card + Stack + Input + Button              |
-| Settings panel      | Drawer + Stack + Toggle + Select + Divider |
-| Confirmation flow   | ConfirmDialog (variant="danger")           |
-| Toast notifications | ToastProvider + useToast() hook            |
+| Pattern | Components |
+|---------|-----------|
+| Data table page | Table + Pagination + Stack |
+| Login form | Card + Stack + Input + Button |
+| Settings panel | Drawer + Stack + Toggle + Select + Divider |
+| Confirmation flow | ConfirmDialog (variant="danger") |
+| Toast notifications | ToastProvider + useToast() hook |
 
 ## Tokens
 
 > Full details: [token-enforcement.md](references/token-enforcement.md)
 
-| Category | Prefix                                 | Example                     |
-| -------- | -------------------------------------- | --------------------------- |
-| Surfaces | `--rialto-surface-*`                   | `--rialto-surface-elevated` |
-| Text     | `--rialto-text-*`                      | `--rialto-text-secondary`   |
-| Borders  | `--rialto-border*`                     | `--rialto-border-strong`    |
-| Accent   | `--rialto-accent*`                     | `--rialto-accent-muted`     |
-| Semantic | `--rialto-error*`, `--rialto-success*` | `--rialto-error-muted`      |
-| Shadows  | `--rialto-shadow-*`                    | `--rialto-shadow-elevated`  |
-| Radius   | `--rialto-radius-*`                    | `--rialto-radius-soft`      |
-| Spacing  | `--rialto-space-*`                     | `--rialto-space-lg`         |
-| Easing   | `--rialto-ease-*`                      | `--rialto-ease-precision`   |
+| Category | Prefix | Example |
+|----------|--------|---------|
+| Surfaces | `--rialto-surface-*` | `--rialto-surface-elevated` |
+| Text | `--rialto-text-*` | `--rialto-text-secondary` |
+| Borders | `--rialto-border*` | `--rialto-border-strong` |
+| Accent | `--rialto-accent*` | `--rialto-accent-muted` |
+| Semantic | `--rialto-error*`, `--rialto-success*` | `--rialto-error-muted` |
+| Shadows | `--rialto-shadow-*` | `--rialto-shadow-elevated` |
+| Radius | `--rialto-radius-*` | `--rialto-radius-soft` |
+| Spacing | `--rialto-space-*` | `--rialto-space-lg` |
+| Easing | `--rialto-ease-*` | `--rialto-ease-precision` |
 
 ## Icons
 

@@ -164,7 +164,8 @@ export function HoverCardPage() {
                     color: "var(--rialto-text-primary)",
                   }}
                 >
-                  1:25.410 <span style={{ color: "var(--rialto-success)" }}>−0.342</span>
+                  1:25.410{" "}
+                  <span style={{ color: "var(--rialto-success)" }}>−0.342</span>
                 </p>
               </div>
             }
@@ -191,13 +192,7 @@ export function HoverCardPage() {
           <HoverCard
             openDelay={200}
             content={
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: "var(--rialto-text-sm)",
-                  color: "var(--rialto-text-secondary)",
-                }}
-              >
+              <p style={{ margin: 0, fontSize: "var(--rialto-text-sm)", color: "var(--rialto-text-secondary)" }}>
                 Eager preview — 200ms open delay instead of the default 400ms.
               </p>
             }
@@ -209,13 +204,7 @@ export function HoverCardPage() {
           <HoverCard
             openDelay={800}
             content={
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: "var(--rialto-text-sm)",
-                  color: "var(--rialto-text-secondary)",
-                }}
-              >
+              <p style={{ margin: 0, fontSize: "var(--rialto-text-sm)", color: "var(--rialto-text-secondary)" }}>
                 Deliberate preview — 800ms delay. Good for items users frequently pass over.
               </p>
             }

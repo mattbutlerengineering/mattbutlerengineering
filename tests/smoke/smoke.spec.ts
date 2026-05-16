@@ -1,7 +1,9 @@
 import { test, expect } from "@playwright/test";
 
-const BASE_URL = process.env.SMOKE_BASE_URL ?? "https://mattbutlerengineering.com";
-const API_URL = process.env.SMOKE_API_URL ?? "https://api.mattbutlerengineering.com";
+const BASE_URL =
+  process.env.SMOKE_BASE_URL ?? "https://mattbutlerengineering.com";
+const API_URL =
+  process.env.SMOKE_API_URL ?? "https://api.mattbutlerengineering.com";
 
 test.describe("Post-deploy smoke tests", () => {
   test.describe("Marketing site", () => {
@@ -14,7 +16,7 @@ test.describe("Post-deploy smoke tests", () => {
     test("navigation links work", async ({ page }) => {
       await page.goto(`${BASE_URL}/`);
       // Check that global nav is present
-      await expect(page.locator('nav[aria-label="Global navigation"]')).toBeVisible();
+      await expect(page.locator("nav[aria-label=\"Global navigation\"]")).toBeVisible();
     });
 
     test("status page loads", async ({ page }) => {
@@ -26,14 +28,18 @@ test.describe("Post-deploy smoke tests", () => {
 
   test.describe("API health", () => {
     test("users service healthy", async ({ request }) => {
-      const response = await request.get(`${API_URL}/api/v1/users/health`);
+      const response = await request.get(
+        `${API_URL}/api/v1/users/health`
+      );
       expect(response.ok()).toBe(true);
       const body = await response.json();
       expect(body.status).toBe("ok");
     });
 
     test("reservations service healthy", async ({ request }) => {
-      const response = await request.get(`${API_URL}/api/v1/reservations/health`);
+      const response = await request.get(
+        `${API_URL}/api/v1/reservations/health`
+      );
       expect(response.ok()).toBe(true);
       const body = await response.json();
       expect(body.status).toBe("ok");

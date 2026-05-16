@@ -180,10 +180,7 @@ export function MeterPage() {
             { label: "Element", value: "Native <meter> element" },
             { label: "Value", value: "aria-valuenow, aria-valuemin, aria-valuemax" },
             { label: "Label", value: "aria-label from the label prop" },
-            {
-              label: "Semantics",
-              value: "Distinguishable from Progress (completion) — Meter is a reading",
-            },
+            { label: "Semantics", value: "Distinguishable from Progress (completion) — Meter is a reading" },
           ]}
         />
       </Section>

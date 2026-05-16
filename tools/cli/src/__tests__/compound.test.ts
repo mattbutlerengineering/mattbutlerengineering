@@ -25,7 +25,9 @@ describe("compound command", () => {
     vi.spyOn(process, "exit").mockImplementation((() => {}) as never);
     vi.spyOn(process, "cwd").mockReturnValue("/repo");
     // findMonorepoRoot: return true for pnpm-workspace.yaml check
-    mockExistsSync.mockImplementation((p: unknown) => String(p).endsWith("pnpm-workspace.yaml"));
+    mockExistsSync.mockImplementation((p: unknown) =>
+      String(p).endsWith("pnpm-workspace.yaml")
+    );
   });
 
   async function runCompound(): Promise<void> {
@@ -53,7 +55,9 @@ describe("compound command", () => {
   });
 
   it("detects new package change in diff", async () => {
-    mockExecSync.mockReturnValue('+  "name": "@mbe/new-pkg"\npackage.json\n' as never);
+    mockExecSync.mockReturnValue(
+      '+  "name": "@mbe/new-pkg"\npackage.json\n' as never
+    );
 
     await runCompound();
 

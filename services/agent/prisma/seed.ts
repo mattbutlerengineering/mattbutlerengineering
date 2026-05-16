@@ -39,27 +39,9 @@ async function main() {
   await prisma.sessionEvent.createMany({
     data: [
       { sessionId: session1.id, type: "turn:start", data: { turn: 1 }, createdAt: oneHourAgo },
-      {
-        sessionId: session1.id,
-        type: "file:modified",
-        data: { path: "apps/hospitality/src/components/LoginButton.tsx" },
-        createdAt: new Date(oneHourAgo.getTime() + 10_000),
-      },
-      {
-        sessionId: session1.id,
-        type: "turn:end",
-        data: { turn: 8, costUsd: 0.42 },
-        createdAt: thirtyMinAgo,
-      },
-      {
-        sessionId: session1.id,
-        type: "pr:created",
-        data: {
-          prUrl: "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/400",
-          prNumber: 400,
-        },
-        createdAt: thirtyMinAgo,
-      },
+      { sessionId: session1.id, type: "file:modified", data: { path: "apps/hospitality/src/components/LoginButton.tsx" }, createdAt: new Date(oneHourAgo.getTime() + 10_000) },
+      { sessionId: session1.id, type: "turn:end", data: { turn: 8, costUsd: 0.42 }, createdAt: thirtyMinAgo },
+      { sessionId: session1.id, type: "pr:created", data: { prUrl: "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/400", prNumber: 400 }, createdAt: thirtyMinAgo },
     ],
   });
 
@@ -91,33 +73,10 @@ async function main() {
   await prisma.sessionEvent.createMany({
     data: [
       { sessionId: session2.id, type: "turn:start", data: { turn: 1 }, createdAt: thirtyMinAgo },
-      {
-        sessionId: session2.id,
-        type: "file:created",
-        data: { path: "packages/rialto/src/components/Tooltip.tsx" },
-        createdAt: new Date(thirtyMinAgo.getTime() + 20_000),
-      },
-      {
-        sessionId: session2.id,
-        type: "file:created",
-        data: { path: "packages/rialto/src/components/Tooltip.test.tsx" },
-        createdAt: new Date(thirtyMinAgo.getTime() + 40_000),
-      },
-      {
-        sessionId: session2.id,
-        type: "turn:end",
-        data: { turn: 14, costUsd: 0.78 },
-        createdAt: fiveMinAgo,
-      },
-      {
-        sessionId: session2.id,
-        type: "pr:created",
-        data: {
-          prUrl: "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/405",
-          prNumber: 405,
-        },
-        createdAt: fiveMinAgo,
-      },
+      { sessionId: session2.id, type: "file:created", data: { path: "packages/rialto/src/components/Tooltip.tsx" }, createdAt: new Date(thirtyMinAgo.getTime() + 20_000) },
+      { sessionId: session2.id, type: "file:created", data: { path: "packages/rialto/src/components/Tooltip.test.tsx" }, createdAt: new Date(thirtyMinAgo.getTime() + 40_000) },
+      { sessionId: session2.id, type: "turn:end", data: { turn: 14, costUsd: 0.78 }, createdAt: fiveMinAgo },
+      { sessionId: session2.id, type: "pr:created", data: { prUrl: "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/405", prNumber: 405 }, createdAt: fiveMinAgo },
     ],
   });
 
@@ -147,18 +106,8 @@ async function main() {
   await prisma.sessionEvent.createMany({
     data: [
       { sessionId: session3.id, type: "turn:start", data: { turn: 1 }, createdAt: oneHourAgo },
-      {
-        sessionId: session3.id,
-        type: "file:modified",
-        data: { path: "services/users/prisma/schema.prisma" },
-        createdAt: new Date(oneHourAgo.getTime() + 15_000),
-      },
-      {
-        sessionId: session3.id,
-        type: "error",
-        data: { message: "Budget exceeded", turn: 50 },
-        createdAt: tenMinAgo,
-      },
+      { sessionId: session3.id, type: "file:modified", data: { path: "services/users/prisma/schema.prisma" }, createdAt: new Date(oneHourAgo.getTime() + 15_000) },
+      { sessionId: session3.id, type: "error", data: { message: "Budget exceeded", turn: 50 }, createdAt: tenMinAgo },
     ],
   });
 

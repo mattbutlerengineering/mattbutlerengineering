@@ -14,23 +14,23 @@ The catalog (100+ criteria across 4 cited frameworks) is ported verbatim from
 the reference implementation validated in [arXiv:2604.09388](https://arxiv.org/abs/2604.09388).
 Source IDs and detection paths are 1:1 with upstream — verified by diff.
 
-| Source                                                                                          | Criteria |
-| ----------------------------------------------------------------------------------------------- | -------- |
-| [AI Codebase Maturity Model](https://arxiv.org/abs/2604.09388)                                  | 66       |
-| [Fullsend](https://github.com/fullsend-ai/fullsend)                                             | 9        |
-| [Agentic Engineering Framework](https://github.com/DimitriGeelen/agentic-engineering-framework) | 7        |
-| [Claude Reflect](https://github.com/BayramAnnakov/claude-reflect)                               | 7        |
+| Source | Criteria |
+|---|---|
+| [AI Codebase Maturity Model](https://arxiv.org/abs/2604.09388) | 66 |
+| [Fullsend](https://github.com/fullsend-ai/fullsend) | 9 |
+| [Agentic Engineering Framework](https://github.com/DimitriGeelen/agentic-engineering-framework) | 7 |
+| [Claude Reflect](https://github.com/BayramAnnakov/claude-reflect) | 7 |
 
 ## The 6 levels
 
-| L   | Name                  | Role        | Characteristic                                        |
-| --- | --------------------- | ----------- | ----------------------------------------------------- |
-| 1   | Assisted / Ad Hoc     | Executor    | AI used opportunistically; no project-specific config |
-| 2   | Instructed            | Rule-writer | AI receives project context through committed files   |
-| 3   | Measured / Enforced   | Analyst     | Rules mechanically enforced; AI loop instrumented     |
-| 4   | Adaptive / Structured | Governor    | Workflows are structured and environment-aware        |
-| 5   | Semi-Automated        | Operator    | System detects + proposes; humans approve             |
-| 6   | Fully Autonomous      | Strategist  | System acts; humans audit after the fact              |
+| L | Name | Role | Characteristic |
+|---|---|---|---|
+| 1 | Assisted / Ad Hoc | Executor | AI used opportunistically; no project-specific config |
+| 2 | Instructed | Rule-writer | AI receives project context through committed files |
+| 3 | Measured / Enforced | Analyst | Rules mechanically enforced; AI loop instrumented |
+| 4 | Adaptive / Structured | Governor | Workflows are structured and environment-aware |
+| 5 | Semi-Automated | Operator | System detects + proposes; humans approve |
+| 6 | Fully Autonomous | Strategist | System acts; humans audit after the fact |
 
 L0 (Prerequisites) is a **soft indicator** — basic engineering hygiene (test
 suite, CI/CD, contributing guide) — not part of the level threshold walk.
@@ -88,7 +88,6 @@ Sub-projects can inherit global ACMM signals from the repo root (like CI/CD work
 ```
 
 When `inherit: true` is set:
-
 1. The audit first checks the project directory for the criterion.
 2. If not found locally, it checks if the criterion's detection patterns are part of the `globalPaths` allowlist.
 3. If allowed, it checks the repo root for the signal.
@@ -96,9 +95,7 @@ When `inherit: true` is set:
 **Local-only criteria:** Certain criteria (like `CLAUDE.md` instructions, `llms.txt`, or `AGENTS.md`) MUST be present locally in the project directory to be detected, even if inheritance is enabled. This ensures every project has its own local context for AI agents.
 
 ### Global Paths (Defaults)
-
 By default, the following paths are considered global and can be inherited:
-
 - `.github/` (Workflows, templates)
 - `docs/` (Runbooks, maturity model docs)
 - `plugins/acmm/scripts/` (Audit tools)
@@ -171,11 +168,11 @@ issue → agent → PR → next audit).
 
 Concrete examples from the L3→L5 climb:
 
-| Iteration                 | Tooling shipped                                                                                     | Gap closed                                                               |
-| ------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| Lead with Next-Steps      | Hoisted next-level gaps to top of `report.md` with concrete `touch <file>` / `mkdir -p <dir>` hints | (none — pure tooling)                                                    |
-| Reflections as convention | Established `docs/reflections/` format with frontmatter for `feeds_back_into:`                      | `acmm:reflection-log` (L4 → L5 promotion)                                |
-| --diff signal             | Auto-detected delta vs prior saved state in console + report                                        | `acmm:observability-runbook` (L6 0/6 → 1/6) via `docs/ai-ops-runbook.md` |
+| Iteration | Tooling shipped | Gap closed |
+|---|---|---|
+| Lead with Next-Steps | Hoisted next-level gaps to top of `report.md` with concrete `touch <file>` / `mkdir -p <dir>` hints | (none — pure tooling) |
+| Reflections as convention | Established `docs/reflections/` format with frontmatter for `feeds_back_into:` | `acmm:reflection-log` (L4 → L5 promotion) |
+| --diff signal | Auto-detected delta vs prior saved state in console + report | `acmm:observability-runbook` (L6 0/6 → 1/6) via `docs/ai-ops-runbook.md` |
 
 The principle: **never close a gap with empty-file theater.** A criterion
 exists because the file or directory has a real purpose. If you can't
@@ -203,7 +200,6 @@ node plugins/acmm/scripts/audit.js --apply --badge
 ```
 
 This:
-
 1. Re-runs detection on every commit landed since the last run.
 2. Files GitHub issues for any new next-level gaps (label `acmm`, label `ready`).
 3. Updates the README badge if the level changed.
@@ -226,18 +222,18 @@ SKILL.md, etc.) so future sessions start smarter than the last one.
 
 ## Related artifacts
 
-| Artifact                                                | Purpose                                             |
-| ------------------------------------------------------- | --------------------------------------------------- |
-| `.claude/skills/acmm-audit/SKILL.md`                    | Slash-command interface (`/acmm-audit`)             |
-| `plugins/acmm/scripts/audit.js`                         | The audit runner                                    |
-| `plugins/acmm/scripts/sources/*.js`                     | The 100+ criterion catalog (1:1 port of upstream)   |
-| `plugins/acmm/scripts/computeLevel.js`                  | Threshold walk + missing-for-next-level computation |
-| `plugins/acmm/scripts/outputs/{report,badge,issues}.js` | Output renderers                                    |
-| `.claude/acmm/state.json`                               | Last run state (gitignored, locally derived)        |
-| `.claude/acmm/report.md`                                | Scorecard (gitignored, locally derived)             |
-| `docs/metrics/pr-acceptance.json`                       | PR-history backfill for trend analysis              |
-| `docs/reflections/`                                     | Lessons-learned committed log                       |
-| `docs/ai-ops-runbook.md`                                | How to debug/override the autonomous systems        |
+| Artifact | Purpose |
+|---|---|
+| `.claude/skills/acmm-audit/SKILL.md` | Slash-command interface (`/acmm-audit`) |
+| `plugins/acmm/scripts/audit.js` | The audit runner |
+| `plugins/acmm/scripts/sources/*.js` | The 100+ criterion catalog (1:1 port of upstream) |
+| `plugins/acmm/scripts/computeLevel.js` | Threshold walk + missing-for-next-level computation |
+| `plugins/acmm/scripts/outputs/{report,badge,issues}.js` | Output renderers |
+| `.claude/acmm/state.json` | Last run state (gitignored, locally derived) |
+| `.claude/acmm/report.md` | Scorecard (gitignored, locally derived) |
+| `docs/metrics/pr-acceptance.json` | PR-history backfill for trend analysis |
+| `docs/reflections/` | Lessons-learned committed log |
+| `docs/ai-ops-runbook.md` | How to debug/override the autonomous systems |
 
 ## Adding a new criterion
 

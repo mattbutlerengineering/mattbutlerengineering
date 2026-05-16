@@ -9,7 +9,7 @@ function task(overrides = {}) {
     id: "t",
     prompt: "do a thing",
     model: "claude-sonnet-4-6",
-    maxBudgetUsd: 0.1,
+    maxBudgetUsd: 0.10,
     maxTurns: 5,
     rubric: { mustPass: ["lint"], diffSizeMax: 5, mustTouch: ["README.md"] },
     ...overrides,
@@ -51,10 +51,7 @@ test("runEval: dry-run mode produces deterministic synthetic outcome", async () 
 });
 
 test("dryRunRunner: respects rubric mustTouch when synthesizing", async () => {
-  const t = task({
-    id: "x",
-    rubric: { mustPass: ["lint"], diffSizeMax: 5, mustTouch: ["foo/bar.js"] },
-  });
+  const t = task({ id: "x", rubric: { mustPass: ["lint"], diffSizeMax: 5, mustTouch: ["foo/bar.js"] } });
   const r = await dryRunRunner(t);
   // Either synthetic-pass with the required path, or synthetic-fail with empty
   if (r.outcome.verification === "pass") {

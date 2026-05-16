@@ -86,11 +86,13 @@ describe("loop command", () => {
 
   it("logs error and continues when iteration fails", async () => {
     mockResolveBudget.mockReturnValue({ budgetUsd: 5.0 });
-    mockRunSession.mockRejectedValueOnce(new Error("iteration error")).mockResolvedValueOnce({
-      status: "succeeded",
-      costUsd: 0.1,
-      resultText: "<promise>COMPLETE</promise>",
-    });
+    mockRunSession
+      .mockRejectedValueOnce(new Error("iteration error"))
+      .mockResolvedValueOnce({
+        status: "succeeded",
+        costUsd: 0.1,
+        resultText: "<promise>COMPLETE</promise>",
+      });
 
     await runLoop(["Fix the bug", "--max-loops", "3"]);
 

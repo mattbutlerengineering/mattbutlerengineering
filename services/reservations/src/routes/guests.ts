@@ -24,8 +24,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         summary: "List guests for a venue",
         operationId: "listGuests",
-        description:
-          "Retrieve a paginated list of guests for a specific venue. Requires authentication.",
+        description: "Retrieve a paginated list of guests for a specific venue. Requires authentication.",
         tags: ["Guests"],
         security: [{ bearerAuth: [] }],
         querystring: {
@@ -70,9 +69,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const { venueId } = request.query;
       if (!venueId) {
-        return reply
-          .code(400)
-          .send(createProblemDetails(400, "Bad Request", "venueId is required"));
+        return reply.code(400).send(createProblemDetails(400, "Bad Request", "venueId is required"));
       }
       const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
       const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "20", 10) || 20));
@@ -143,9 +140,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const { venueId, query, tags, hasNotVisitedInDays } = request.query;
       if (!venueId) {
-        return reply
-          .code(400)
-          .send(createProblemDetails(400, "Bad Request", "venueId is required"));
+        return reply.code(400).send(createProblemDetails(400, "Bad Request", "venueId is required"));
       }
       return guestService.search({
         venueId,
@@ -201,9 +196,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const { venueId } = request.query;
       if (!venueId) {
-        return reply
-          .code(400)
-          .send(createProblemDetails(400, "Bad Request", "venueId is required"));
+        return reply.code(400).send(createProblemDetails(400, "Bad Request", "venueId is required"));
       }
       const segments = await guestService.getSegments(venueId);
       return { data: segments };
@@ -328,16 +321,11 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
         const guest = await guestService.create(request.body);
         return reply.code(201).send({ data: guest });
       } catch (error) {
-        if (error instanceof Error && error.message.includes("Unique constraint")) {
-          return reply
-            .code(400)
-            .send(
-              createProblemDetails(
-                400,
-                "Bad Request",
-                "A guest with this email or phone already exists at this venue"
-              )
-            );
+        if (
+          error instanceof Error &&
+          error.message.includes("Unique constraint")
+        ) {
+          return reply.code(400).send(createProblemDetails(400, "Bad Request", "A guest with this email or phone already exists at this venue"));
         }
         throw error;
       }
@@ -355,8 +343,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         summary: "Find or create guest",
         operationId: "findOrCreateGuest",
-        description:
-          "Find existing guest by email/phone or create new one. Used for identity resolution when booking.",
+        description: "Find existing guest by email/phone or create new one. Used for identity resolution when booking.",
         tags: ["Guests"],
         security: [{ bearerAuth: [] }],
         body: {
@@ -404,9 +391,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const { venueId, email, phone, name } = request.body;
       if (!email && !phone) {
-        return reply
-          .code(400)
-          .send(createProblemDetails(400, "Bad Request", "Either email or phone is required"));
+        return reply.code(400).send(createProblemDetails(400, "Bad Request", "Either email or phone is required"));
       }
       const guest = await guestService.findOrCreate(venueId, { email, phone, name });
       return { data: guest };

@@ -130,7 +130,8 @@ export function ConfirmationView({
       {/* Contact info note */}
       {(reservation.guestEmail || reservation.guestPhone) && (
         <Text variant="caption" color="secondary" align="center">
-          A confirmation has been sent to {reservation.guestEmail || reservation.guestPhone}.
+          A confirmation has been sent to{" "}
+          {reservation.guestEmail || reservation.guestPhone}.
         </Text>
       )}
 

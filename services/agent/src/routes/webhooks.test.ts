@@ -471,14 +471,7 @@ describe("Webhook Routes", () => {
       it("creates a retry session for failed CI on agent branch", async () => {
         vi.mocked(sessionService.list).mockResolvedValueOnce({
           data: [],
-          pagination: {
-            page: 1,
-            limit: 100,
-            total: 0,
-            totalPages: 0,
-            hasNext: false,
-            hasPrev: false,
-          },
+          pagination: { page: 1, limit: 100, total: 0, totalPages: 0, hasNext: false, hasPrev: false },
         });
 
         const payloadStr = JSON.stringify(checkRunPayload);
@@ -512,14 +505,7 @@ describe("Webhook Routes", () => {
 
         vi.mocked(sessionService.list).mockResolvedValueOnce({
           data: retries,
-          pagination: {
-            page: 1,
-            limit: 100,
-            total: 3,
-            totalPages: 1,
-            hasNext: false,
-            hasPrev: false,
-          },
+          pagination: { page: 1, limit: 100, total: 3, totalPages: 1, hasNext: false, hasPrev: false },
         });
 
         const payloadStr = JSON.stringify(checkRunPayload);

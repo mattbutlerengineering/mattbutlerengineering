@@ -17,7 +17,9 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
 const LOG_PATH = join(root, ".claude", "agent-spend.jsonl");
-const DAILY_THRESHOLD_USD = parseFloat(process.env.AGENT_DAILY_SPEND_LIMIT ?? "10");
+const DAILY_THRESHOLD_USD = parseFloat(
+  process.env.AGENT_DAILY_SPEND_LIMIT ?? "10"
+);
 
 function parseArgs(argv) {
   const args = {};
@@ -87,8 +89,6 @@ console.log(`Logged: $${args.cost.toFixed(4)} for issue #${args.issue ?? "unknow
 console.log(`Daily spend: $${dailySpend.toFixed(4)} / $${DAILY_THRESHOLD_USD.toFixed(2)} limit`);
 
 if (dailySpend >= DAILY_THRESHOLD_USD) {
-  console.log(
-    `\n⚠️  ALERT: Daily spend ($${dailySpend.toFixed(2)}) exceeds threshold ($${DAILY_THRESHOLD_USD.toFixed(2)})`
-  );
+  console.log(`\n⚠️  ALERT: Daily spend ($${dailySpend.toFixed(2)}) exceeds threshold ($${DAILY_THRESHOLD_USD.toFixed(2)})`);
   process.exit(2); // Exit code 2 = threshold exceeded (not a script error)
 }

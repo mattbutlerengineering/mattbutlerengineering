@@ -47,10 +47,7 @@ export function scoreRun(task, outcome) {
     { weight: weights.verification, pass: breakdown.verification === "pass" },
     { weight: weights.diffSize, pass: breakdown.diffSizeOk },
     { weight: weights.filePaths, pass: breakdown.touchedRequired && breakdown.avoidedForbidden },
-    {
-      weight: weights.toolCalls,
-      pass: breakdown.calledRequired && breakdown.avoidedForbiddenCalls,
-    },
+    { weight: weights.toolCalls, pass: breakdown.calledRequired && breakdown.avoidedForbiddenCalls },
   ];
 
   const totalWeight = checks.reduce((sum, c) => sum + c.weight, 0);

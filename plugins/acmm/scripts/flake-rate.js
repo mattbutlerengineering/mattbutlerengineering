@@ -97,7 +97,7 @@ export function fetchRuns(opts = {}) {
         "--json",
         "headSha,conclusion,createdAt,attempt,databaseId",
       ],
-      { encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] }
+      { encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] },
     );
     const parsed = JSON.parse(stdout);
     if (!Array.isArray(parsed)) return null;

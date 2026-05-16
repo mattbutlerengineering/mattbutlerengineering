@@ -88,7 +88,7 @@ if (violations.length === 0) {
   }
   console.log(
     "\nTo approve an intentional destructive migration, add this comment to the SQL file:" +
-      "\n  -- DESTRUCTIVE: <reason for the destructive change>" +
+      '\n  -- DESTRUCTIVE: <reason for the destructive change>' +
       "\n\nThis ensures destructive changes are explicitly acknowledged."
   );
   process.exit(1);

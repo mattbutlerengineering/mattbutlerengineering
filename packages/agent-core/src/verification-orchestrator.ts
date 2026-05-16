@@ -28,12 +28,9 @@ export async function orchestrateVerification(
 
     // Store full verification output (not truncated)
     const logSections: { label: string; output: string }[] = [];
-    if (verification.lintOutput)
-      logSections.push({ label: "Lint", output: verification.lintOutput });
-    if (verification.typecheckOutput)
-      logSections.push({ label: "Typecheck", output: verification.typecheckOutput });
-    if (verification.testOutput)
-      logSections.push({ label: "Tests", output: verification.testOutput });
+    if (verification.lintOutput) logSections.push({ label: "Lint", output: verification.lintOutput });
+    if (verification.typecheckOutput) logSections.push({ label: "Typecheck", output: verification.typecheckOutput });
+    if (verification.testOutput) logSections.push({ label: "Tests", output: verification.testOutput });
 
     let verificationLogPath: string | undefined;
     if (logSections.length > 0) {

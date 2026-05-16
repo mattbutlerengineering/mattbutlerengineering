@@ -205,10 +205,15 @@ describe("session-executor", () => {
 
       await executeSession(makeSession());
 
-      expect(sessionService.updateStatus).toHaveBeenCalledWith("test-session-1", "RUNNING");
-      expect(sessionService.addEvent).toHaveBeenCalledWith("test-session-1", "session:start", {
-        message: "Session execution started",
-      });
+      expect(sessionService.updateStatus).toHaveBeenCalledWith(
+        "test-session-1",
+        "RUNNING"
+      );
+      expect(sessionService.addEvent).toHaveBeenCalledWith(
+        "test-session-1",
+        "session:start",
+        { message: "Session execution started" }
+      );
       expect(runSession).toHaveBeenCalledWith(
         expect.objectContaining({
           taskDescription: "Fix the login bug",
@@ -264,16 +269,22 @@ describe("session-executor", () => {
     });
 
     it("handles runSession throwing an error", async () => {
-      vi.mocked(runSession).mockRejectedValueOnce(new Error("SDK connection failed"));
+      vi.mocked(runSession).mockRejectedValueOnce(
+        new Error("SDK connection failed")
+      );
 
       await executeSession(makeSession());
 
-      expect(sessionService.updateStatus).toHaveBeenCalledWith("test-session-1", "FAILED", {
-        errors: ["SDK connection failed"],
-      });
-      expect(sessionService.addEvent).toHaveBeenCalledWith("test-session-1", "session:error", {
-        message: "SDK connection failed",
-      });
+      expect(sessionService.updateStatus).toHaveBeenCalledWith(
+        "test-session-1",
+        "FAILED",
+        { errors: ["SDK connection failed"] }
+      );
+      expect(sessionService.addEvent).toHaveBeenCalledWith(
+        "test-session-1",
+        "session:error",
+        { message: "SDK connection failed" }
+      );
     });
 
     it("handles non-Error thrown values", async () => {
@@ -281,9 +292,11 @@ describe("session-executor", () => {
 
       await executeSession(makeSession());
 
-      expect(sessionService.updateStatus).toHaveBeenCalledWith("test-session-1", "FAILED", {
-        errors: ["string error"],
-      });
+      expect(sessionService.updateStatus).toHaveBeenCalledWith(
+        "test-session-1",
+        "FAILED",
+        { errors: ["string error"] }
+      );
     });
 
     it("rejects when max concurrent sessions reached", async () => {
@@ -296,7 +309,9 @@ describe("session-executor", () => {
         return makeSuccessResult();
       });
 
-      const sessions = Array.from({ length: 5 }, (_, i) => makeSession({ id: `concurrent-${i}` }));
+      const sessions = Array.from({ length: 5 }, (_, i) =>
+        makeSession({ id: `concurrent-${i}` })
+      );
       const promises = sessions.map((s) => executeSession(s));
 
       // Wait for all 5 to enter runSession (controllers registered)
@@ -309,9 +324,11 @@ describe("session-executor", () => {
       const sixthSession = makeSession({ id: "concurrent-5" });
       await executeSession(sixthSession);
 
-      expect(sessionService.updateStatus).toHaveBeenCalledWith("concurrent-5", "FAILED", {
-        errors: [expect.stringContaining("Max concurrent sessions")],
-      });
+      expect(sessionService.updateStatus).toHaveBeenCalledWith(
+        "concurrent-5",
+        "FAILED",
+        { errors: [expect.stringContaining("Max concurrent sessions")] }
+      );
 
       resolvers.forEach((r) => r());
       await Promise.all(promises);
@@ -335,34 +352,40 @@ describe("session-executor", () => {
     });
 
     it("invokes onEvent callback for session events", async () => {
-      vi.mocked(runSession).mockImplementationOnce(async (_config, onEvent) => {
-        const fn = onEvent as (event: unknown) => Promise<void>;
-        await fn({
-          type: "session:message",
-          data: { message: "Processing..." },
-        });
-        return makeSuccessResult();
-      });
+      vi.mocked(runSession).mockImplementationOnce(
+        async (_config, onEvent) => {
+          const fn = onEvent as (event: unknown) => Promise<void>;
+          await fn({
+            type: "session:message",
+            data: { message: "Processing..." },
+          });
+          return makeSuccessResult();
+        }
+      );
 
       await executeSession(makeSession());
 
-      expect(sessionService.addEvent).toHaveBeenCalledWith("test-session-1", "session:message", {
-        message: "Processing...",
-      });
+      expect(sessionService.addEvent).toHaveBeenCalledWith(
+        "test-session-1",
+        "session:message",
+        { message: "Processing..." }
+      );
     });
 
     it("handles tool_use events with summarized input", async () => {
-      vi.mocked(runSession).mockImplementationOnce(async (_config, onEvent) => {
-        const fn = onEvent as (event: unknown) => Promise<void>;
-        await fn({
-          type: "session:tool_use",
-          data: {
-            tool_name: "Read",
-            input: { file_path: "/src/auth.ts" },
-          },
-        });
-        return makeSuccessResult();
-      });
+      vi.mocked(runSession).mockImplementationOnce(
+        async (_config, onEvent) => {
+          const fn = onEvent as (event: unknown) => Promise<void>;
+          await fn({
+            type: "session:tool_use",
+            data: {
+              tool_name: "Read",
+              input: { file_path: "/src/auth.ts" },
+            },
+          });
+          return makeSuccessResult();
+        }
+      );
 
       await executeSession(makeSession());
 
@@ -377,17 +400,19 @@ describe("session-executor", () => {
     });
 
     it("handles assistant message events with text preview", async () => {
-      vi.mocked(runSession).mockImplementationOnce(async (_config, onEvent) => {
-        const fn = onEvent as (event: unknown) => Promise<void>;
-        await fn({
-          type: "session:sdk_message",
-          data: {
-            type: "assistant",
-            content: [{ type: "text", text: "I will fix the bug" }],
-          },
-        });
-        return makeSuccessResult();
-      });
+      vi.mocked(runSession).mockImplementationOnce(
+        async (_config, onEvent) => {
+          const fn = onEvent as (event: unknown) => Promise<void>;
+          await fn({
+            type: "session:sdk_message",
+            data: {
+              type: "assistant",
+              content: [{ type: "text", text: "I will fix the bug" }],
+            },
+          });
+          return makeSuccessResult();
+        }
+      );
 
       await executeSession(makeSession());
 
@@ -405,14 +430,16 @@ describe("session-executor", () => {
         .mockRejectedValueOnce(new Error("DB down"))
         .mockResolvedValue(null as never);
 
-      vi.mocked(runSession).mockImplementationOnce(async (_config, onEvent) => {
-        const fn = onEvent as (event: unknown) => Promise<void>;
-        await fn({
-          type: "session:message",
-          data: { message: "test" },
-        });
-        return makeSuccessResult();
-      });
+      vi.mocked(runSession).mockImplementationOnce(
+        async (_config, onEvent) => {
+          const fn = onEvent as (event: unknown) => Promise<void>;
+          await fn({
+            type: "session:message",
+            data: { message: "test" },
+          });
+          return makeSuccessResult();
+        }
+      );
 
       await expect(executeSession(makeSession())).resolves.toBeUndefined();
     });
@@ -446,12 +473,16 @@ describe("session-executor", () => {
       const cancelled = await cancelSession("cancel-target");
       expect(cancelled).toBe(true);
 
-      expect(sessionService.updateStatus).toHaveBeenCalledWith("cancel-target", "CANCELLED", {
-        errors: ["Cancelled by user"],
-      });
-      expect(sessionService.addEvent).toHaveBeenCalledWith("cancel-target", "session:cancelled", {
-        message: "Session cancelled by user",
-      });
+      expect(sessionService.updateStatus).toHaveBeenCalledWith(
+        "cancel-target",
+        "CANCELLED",
+        { errors: ["Cancelled by user"] }
+      );
+      expect(sessionService.addEvent).toHaveBeenCalledWith(
+        "cancel-target",
+        "session:cancelled",
+        { message: "Session cancelled by user" }
+      );
 
       resolveRun();
       await execPromise.catch(() => {});

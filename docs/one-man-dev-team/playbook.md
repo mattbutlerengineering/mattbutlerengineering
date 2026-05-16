@@ -261,14 +261,12 @@ You are a senior code reviewer. Your job is to review the current staged changes
 ## Review Criteria
 
 ### CRITICAL (must fix before merge)
-
 - Security vulnerabilities (hardcoded secrets, SQL injection, XSS)
 - Data loss risks (missing validation, unhandled errors that could corrupt data)
 - Breaking changes to public APIs without versioning
 - Missing error handling on external calls (DB, API, file I/O)
 
 ### HIGH (should fix before merge)
-
 - Missing input validation on user-facing endpoints
 - No tests for new functionality
 - Functions longer than 50 lines
@@ -277,7 +275,6 @@ You are a senior code reviewer. Your job is to review the current staged changes
 - Hardcoded values that should be constants or config
 
 ### MEDIUM (fix soon)
-
 - Code duplication (3+ similar blocks)
 - Poor naming (single-letter variables, misleading names)
 - Missing types or type annotations
@@ -285,7 +282,6 @@ You are a senior code reviewer. Your job is to review the current staged changes
 - TODO comments without tracking issues
 
 ### LOW (nice to have)
-
 - Style inconsistencies
 - Missing JSDoc/docstrings on exported functions
 - Import ordering
@@ -293,12 +289,11 @@ You are a senior code reviewer. Your job is to review the current staged changes
 ## Output Format
 
 For each issue found:
-```
 
+```
 **[SEVERITY]** filename:line_number
 Description of the issue.
 Suggested fix: [concrete code suggestion]
-
 ```
 
 End with a summary:
@@ -349,7 +344,6 @@ You are an expert debugger. Your job is to systematically diagnose and fix bugs.
 ## Output Format
 
 ### Bug Analysis
-
 - **Symptom:** [what the user sees]
 - **Root Cause:** [what actually went wrong]
 - **Location:** [file:line]
@@ -379,9 +373,7 @@ You are an experienced product manager for a solo developer's product. Your job 
 ## Capabilities
 
 ### 1. Feature Specification
-
 When asked to spec a feature:
-
 - Write a one-paragraph summary (what and why)
 - List acceptance criteria as checkboxes
 - Identify the riskiest assumption
@@ -389,9 +381,7 @@ When asked to spec a feature:
 - Estimate complexity: Small (hours), Medium (1-2 days), Large (3-5 days), XL (break it down further)
 
 ### 2. Prioritization
-
 When asked to prioritize:
-
 - Read TODO.md or the issue list
 - Score each item on: Impact (1-5) x Confidence (1-5) / Effort (1-5) = Priority Score
 - Sort by priority score descending
@@ -399,9 +389,7 @@ When asked to prioritize:
 - Recommend the top 3 items to work on this week
 
 ### 3. Assumption Validation
-
 When asked to validate:
-
 - Identify the core assumption behind a feature
 - Suggest the fastest way to test it (survey, landing page, fake door, manual process)
 - Define the success metric and threshold
@@ -410,16 +398,14 @@ When asked to validate:
 ## Output Format
 
 ### Feature Spec: [Feature Name]
-
 **Summary:** [one paragraph]
 **MVP Scope:** [smallest useful version]
 **Acceptance Criteria:**
-
 - [ ] [criterion 1]
 - [ ] [criterion 2]
-      **Riskiest Assumption:** [what could make this worthless]
-      **Complexity:** [Small/Medium/Large/XL]
-      **Priority Score:** [Impact x Confidence / Effort]
+**Riskiest Assumption:** [what could make this worthless]
+**Complexity:** [Small/Medium/Large/XL]
+**Priority Score:** [Impact x Confidence / Effort]
 ```
 
 #### QA Engineer Agent
@@ -471,7 +457,6 @@ You are a QA engineer. Your job is to ensure code quality through comprehensive 
 ## Output Format
 
 ### Test Plan: [Module/Feature Name]
-
 **Coverage Target:** [X]%
 **Test Cases:**
 | # | Category | Scenario | Expected Result |
@@ -504,28 +489,27 @@ Save this as `CLAUDE.md` in your project root. Fill in the bracketed sections.
 
 ## Tech Stack
 
-| Layer     | Technology             | Version          |
-| --------- | ---------------------- | ---------------- |
-| Language  | [e.g., TypeScript]     | [e.g., 5.x]      |
-| Runtime   | [e.g., Node.js]        | [e.g., 20.x LTS] |
-| Framework | [e.g., Next.js]        | [e.g., 14.x]     |
-| Database  | [e.g., PostgreSQL]     | [e.g., 16.x]     |
-| ORM       | [e.g., Prisma]         | [e.g., 5.x]      |
-| Hosting   | [e.g., Vercel]         | -                |
-| CI/CD     | [e.g., GitHub Actions] | -                |
-| Testing   | [e.g., Vitest]         | [e.g., 1.x]      |
+| Layer | Technology | Version |
+|-------|-----------|---------|
+| Language | [e.g., TypeScript] | [e.g., 5.x] |
+| Runtime | [e.g., Node.js] | [e.g., 20.x LTS] |
+| Framework | [e.g., Next.js] | [e.g., 14.x] |
+| Database | [e.g., PostgreSQL] | [e.g., 16.x] |
+| ORM | [e.g., Prisma] | [e.g., 5.x] |
+| Hosting | [e.g., Vercel] | - |
+| CI/CD | [e.g., GitHub Actions] | - |
+| Testing | [e.g., Vitest] | [e.g., 1.x] |
 
 ## Project Structure
+
 ```
-
 [PROJECT_ROOT]/
-src/
-[describe top-level source directories and what they contain]
-tests/
-[describe test organization]
-[other important directories]
-
-````
+  src/
+    [describe top-level source directories and what they contain]
+  tests/
+    [describe test organization]
+  [other important directories]
+```
 
 ## Conventions
 
@@ -580,12 +564,11 @@ tests/
 # Linting
 [e.g., npm run lint         # Run ESLint]
 [e.g., npm run typecheck    # Run TypeScript compiler check]
-````
+```
 
 ## API Patterns
 
 [e.g., All endpoints follow REST conventions:]
-
 - [e.g., GET /api/resources — list (paginated)]
 - [e.g., GET /api/resources/:id — get one]
 - [e.g., POST /api/resources — create]
@@ -593,7 +576,6 @@ tests/
 - [e.g., DELETE /api/resources/:id — soft delete]
 
 [e.g., Response envelope:]
-
 ```json
 {
   "success": true,
@@ -616,7 +598,6 @@ tests/
 ## Environment Variables
 
 Required environment variables (see `.env.example`):
-
 - `DATABASE_URL` — PostgreSQL connection string
 - `[OTHER_VAR]` — [description]
 
@@ -625,8 +606,7 @@ Required environment variables (see `.env.example`):
 - [e.g., The auth middleware must run before the rate limiter]
 - [e.g., Image uploads are limited to 5MB in the Vercel free tier]
 - [e.g., The search index rebuilds nightly at 3am UTC]
-
-````
+```
 
 ---
 
@@ -664,7 +644,7 @@ _Future work. Roughly prioritized. Review weekly._
 _Move completed items here. Clear at the start of each week._
 
 - [x] [completed item]
-````
+```
 
 ---
 
@@ -764,26 +744,26 @@ jobs:
 For **Python projects**, replace the test job steps:
 
 ```yaml
-test:
-  runs-on: ubuntu-latest
-  steps:
-    - uses: actions/checkout@v4
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-    - uses: actions/setup-python@v5
-      with:
-        python-version: "3.12"
-        cache: "pip"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
 
-    - run: pip install -r requirements.txt
+      - run: pip install -r requirements.txt
 
-    - run: ruff check .
-      name: Lint
+      - run: ruff check .
+        name: Lint
 
-    - run: mypy .
-      name: Type Check
+      - run: mypy .
+        name: Type Check
 
-    - run: pytest --cov --cov-report=term-missing
-      name: Test with Coverage
+      - run: pytest --cov --cov-report=term-missing
+        name: Test with Coverage
 ```
 
 ---
@@ -804,7 +784,6 @@ Execute the following steps in order for the feature: $ARGUMENTS
 ## Step 1: Specification (PM Agent)
 
 Act as a product manager. For the requested feature:
-
 1. Write a one-paragraph summary of the feature (what and why)
 2. Define the MVP scope — the smallest useful version
 3. List acceptance criteria as checkboxes
@@ -816,7 +795,6 @@ Present the spec and ask for confirmation before proceeding.
 ## Step 2: Architecture (Architect Agent)
 
 Act as a software architect. For the confirmed spec:
-
 1. Identify which files need to be created or modified
 2. Define the data model changes (if any)
 3. Define the API changes (if any)
@@ -828,7 +806,6 @@ Present the architecture plan and ask for confirmation before proceeding.
 ## Step 3: Implementation (TDD)
 
 Act as a senior developer following TDD:
-
 1. Write failing tests first based on the acceptance criteria
 2. Run the tests — confirm they fail
 3. Write the minimal implementation to pass each test
@@ -839,7 +816,6 @@ Act as a senior developer following TDD:
 ## Step 4: QA Review
 
 Act as a QA engineer:
-
 1. Review test coverage — flag any untested paths
 2. Check edge cases: empty input, max values, null, boundary conditions
 3. Check error handling: invalid input, network failure, timeout
@@ -849,7 +825,6 @@ Act as a QA engineer:
 ## Step 5: Code Review
 
 Act as a senior code reviewer:
-
 1. Run `git diff` to see all changes
 2. Check for: security issues, performance concerns, maintainability
 3. Verify immutable patterns are used
@@ -860,7 +835,6 @@ Act as a senior code reviewer:
 ## Step 6: Summary
 
 Provide a final summary:
-
 - What was built
 - Files created/modified
 - Tests added
@@ -952,26 +926,22 @@ Run this mentally (or via agent) before every commit.
 Run this every Friday (or the last day of your work week). Takes 30-60 minutes.
 
 **Metrics:**
-
 - [ ] Review time-to-ship: is it trending down? If not, identify bottlenecks.
 - [ ] Review code churn rate: are you rewriting recent code? If >30% churn, your specs or architecture need improvement.
 - [ ] Automation ratio: what percentage of your workflow is automated? Identify one manual step to automate this week.
 
 **Backlog:**
-
 - [ ] Clean up TODO.md — archive Done items, reprioritize Backlog
 - [ ] Review and merge (or close) any pending PRs
 - [ ] Are there items in Backlog that will never be done? Delete them.
 
 **Quality:**
-
 - [ ] Update CLAUDE.md with any new conventions, gotchas, or learnings from this week
 - [ ] Did I ship at least one user-facing feature this week?
 - [ ] Am I building what users actually want? (Check analytics, feedback, support requests)
 - [ ] Am I still fully understanding the code AI generates? If not, schedule a "manual coding" session.
 
 **Health:**
-
 - [ ] Did I take breaks during dev blocks?
 - [ ] Did I batch communications or was I interrupt-driven?
 - [ ] Energy level assessment: do I need to adjust my time blocks?
@@ -995,7 +965,6 @@ Run this every Friday (or the last day of your work week). Takes 30-60 minutes.
 **If you see:** You feel 2x faster, but your time-to-ship metric has not actually improved. You are generating more code but deploying the same number of features.
 
 **Do this:** Measure actual output, not perceived velocity. Track:
-
 - Features deployed per week (not PRs opened, not lines of code)
 - Code churn rate (lines rewritten within 2 weeks)
 - Time from "started" to "deployed in production"
@@ -1009,7 +978,6 @@ More code is not more progress. AI makes it easy to generate code that gets thro
 **If you see:** You are designing for "scale we might need someday." You are setting up microservices, event buses, or complex infrastructure for an app with 0 users.
 
 **Do this:** Ask: "Will this have 100 concurrent users in 6 months?" If no:
-
 - Monolith over microservices
 - SQLite over distributed databases
 - Server-rendered pages over SPAs
@@ -1025,7 +993,6 @@ You can always scale later. You cannot get back the weeks spent over-engineering
 **If you see:** You have not told anyone about your project this week. No tweets, no posts, no emails, no conversations.
 
 **Do this:** Marketing starts on day 1, not launch day. Every week:
-
 - Post a build update on Twitter/X, LinkedIn, or your platform of choice
 - Share in one relevant community (Reddit, Discord, Hacker News, Indie Hackers)
 - Email 5 potential users or customers
@@ -1040,7 +1007,6 @@ Building in public creates accountability, attracts early users, and surfaces fe
 **If you see:** AI-generated code "works but I do not fully understand it." You are merging code you could not debug without AI assistance.
 
 **Do this:** Stop. Read the code line by line. For every block you cannot explain:
-
 1. Add a comment explaining what it does (forces understanding)
 2. If you still cannot explain it, rewrite it manually
 3. If the AI used a pattern you do not recognize, look it up
@@ -1054,7 +1020,6 @@ Code you do not understand is a ticking time bomb. When it breaks at 2am, AI mig
 **If you see:** Every hour feels like high-cognitive-load decision-making. You are context-switching between coding, marketing, support, ops, and strategy multiple times per day. Decision fatigue by 2pm.
 
 **Do this:**
-
 - Batch by role, not by task: "I am a developer from 9-12. I am a marketer from 1-2. I am an ops person from 3-4."
 - Reduce decision volume: use defaults and templates for everything possible
 - Schedule low-energy tasks (deploy, dependency updates, admin) for low-energy times
@@ -1068,7 +1033,6 @@ Code you do not understand is a ticking time bomb. When it breaks at 2am, AI mig
 **If you see:** You have not written code without AI assistance in 2+ weeks. You instinctively reach for AI before thinking. You are not sure you could solve a medium-difficulty problem without it.
 
 **Do this:**
-
 - Spend one session per week (1-2 hours) coding without any AI tools
 - Work on something real: a bug fix, a small feature, a refactor
 - This maintains your ability to verify AI output, debug production issues, and make architectural decisions
@@ -1079,27 +1043,23 @@ Code you do not understand is a ticking time bomb. When it breaks at 2am, AI mig
 ## Further Reading
 
 ### AI-Assisted Development
-
 - [Boris Cherny's Claude Code Workflow (Jan 2026)](https://www.infoq.com/news/2026/01/claude-code-creator-workflow/) — How Claude Code's creator runs 5 local + 10 remote sessions
 - [Addy Osmani's LLM Coding Workflow](https://addyosmani.com/blog/ai-coding-workflow/) — "Specification before code" approach from Google
 - [Claude Code Subagents Docs](https://code.claude.com/docs/en/sub-agents) — Official docs on multi-agent orchestration
 - [Stripe Minions Architecture (Feb 2026)](https://stripe.dev/blog/minions-stripes-one-shot-end-to-end-coding-agents) — How Stripe merges 1,300+ AI PRs/week
 
 ### Solo Developer Playbooks
-
 - [Pieter Levels — How I Build MVPs](https://levels.io/how-i-build-my-minimum-viable-products/) — Ship at 70% completion, iterate from real users
 - [Marc Lou — Ship Fast, Sell Faster](https://indiepattern.com/stories/marc-lou/) — 17 failed projects before $120K/month
 - [Danny Postma — Solo AI Empire from Bali](https://supabird.io/articles/danny-postma-how-a-solo-hacker-built-an-ai-empire-from-bali) — Zero to $3.6M/year with HeadshotPro
 - [Solo Developer's Manifesto](https://github.com/fawazahmed0/the-solo-developers-manifesto) — Principles for sustainable solo development
 
 ### Research & Data
-
 - [METR Study — AI Impact on Developer Productivity](https://metr.org/blog/2025-07-10-early-2025-ai-experienced-os-dev-study/) — 19% slower with AI, perceived 24% faster
 - [AI-Generated Code Creates New Technical Debt](https://www.infoq.com/news/2025/11/ai-code-technical-debt/) — 60% decline in refactored code, 48% increase in copy-paste
 - [AI Coding Assistants Are Getting Worse (IEEE Spectrum)](https://spectrum.ieee.org/ai-coding-degrades) — Quality plateau and decline in 2025-2026
 - [Developer AI Adoption: 84%, Trust at All-Time Low](https://www.codercops.com/blog/developer-ai-adoption-84-percent-2026) — The trust gap in AI-generated code
 
 ### Practices & Productivity
-
 - [Conventional Commits](https://www.conventionalcommits.org/) — Standardized commit message format
 - [GitHub Actions CI/CD in Four Steps](https://github.blog/enterprise-software/ci-cd/build-ci-cd-pipeline-github-actions-four-steps/) — Minimum viable deployment pipeline

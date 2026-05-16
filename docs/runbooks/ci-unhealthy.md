@@ -14,31 +14,26 @@ gh run view <RUN_ID> --log-failed
 ## Common Causes
 
 ### 1. GitHub Actions billing/quota
-
 - Error: "job was not started because recent account payments have failed"
 - Fix: Update payment method at GitHub Settings > Billing & plans
 - All workflows fail simultaneously when this happens
 
 ### 2. Flaky tests
-
 - Look for `test` job failures that pass on retry
 - Common culprits: timing-dependent tests, port conflicts, mock cleanup
 - Retry: `gh run rerun <RUN_ID> --failed`
 
 ### 3. Dependency issue
-
 - `pnpm install --frozen-lockfile` fails if lockfile is stale
 - Fix: `pnpm install` locally, commit updated lockfile
 - Check for yanked packages in error output
 
 ### 4. Type errors from recent merge
-
 - `typecheck` job fails after merging incompatible changes
 - Check which packages fail: look for `@mbe/<package>#typecheck` in logs
 - May need to update types in `packages/types/`
 
 ### 5. Lint failures
-
 - Pre-existing lint issues get caught when CI cache is invalidated
 - Fix the lint errors or update `.eslintrc` if rules changed
 

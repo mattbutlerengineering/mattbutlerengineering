@@ -1,14 +1,5 @@
 import { useState } from "react";
-import {
-  Input,
-  Select,
-  Toggle,
-  Button,
-  Card,
-  Stack,
-  Text,
-  Divider,
-} from "@mattbutlerengineering/rialto";
+import { Input, Select, Toggle, Button, Card, Stack, Text, Divider } from "@mattbutlerengineering/rialto";
 import { ExamplePageLayout, CompositionNote } from "./ExamplePageLayout";
 import styles from "./SettingsExamplePage.module.css";
 
@@ -131,8 +122,8 @@ const compositionNotes = (
       (name, email, role).
     </CompositionNote>
     <CompositionNote>
-      Stack gap=&ldquo;xl&rdquo; between sections provides consistent vertical rhythm;
-      gap=&ldquo;md&rdquo; inside each Card keeps form fields tightly grouped within their section.
+      Stack gap=&ldquo;xl&rdquo; between sections provides consistent vertical rhythm; gap=&ldquo;md&rdquo; inside
+      each Card keeps form fields tightly grouped within their section.
     </CompositionNote>
   </Stack>
 );
@@ -167,7 +158,12 @@ export function SettingsExamplePage() {
               defaultValue="m.winters@grandlakehotel.com"
               placeholder="Email address"
             />
-            <Select label="Role" options={ROLE_OPTIONS} value={role} onChange={setRole} />
+            <Select
+              label="Role"
+              options={ROLE_OPTIONS}
+              value={role}
+              onChange={setRole}
+            />
             <Select
               label="Timezone"
               options={TIMEZONE_OPTIONS}

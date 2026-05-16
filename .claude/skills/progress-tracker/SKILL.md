@@ -45,15 +45,8 @@ cat .claude/agent-spend.jsonl 2>/dev/null | tail -100
 #### Cost Log Format
 
 The file `.claude/agent-spend.jsonl` contains one JSON object per line:
-
 ```json
-{
-  "date": "2026-04-06",
-  "timestamp": "2026-04-06T12:00:00Z",
-  "costUsd": 0.45,
-  "issueNumber": 199,
-  "model": "claude-sonnet-4-6"
-}
+{"date":"2026-04-06","timestamp":"2026-04-06T12:00:00Z","costUsd":0.45,"issueNumber":199,"model":"claude-sonnet-4-6"}
 ```
 
 Log entries are written by `pnpm log:cost -- --cost <usd> --issue <num>` after each agent session.
@@ -62,21 +55,21 @@ Log entries are written by `pnpm log:cost -- --cost <usd> --issue <num>` after e
 
 Calculate these key indicators:
 
-| Metric                  | Formula                                                                    |
-| ----------------------- | -------------------------------------------------------------------------- |
-| **Issues Created (7d)** | Count of audit + ci-fix issues created in last 7 days                      |
-| **Issues Closed (7d)**  | Count of audit + ci-fix issues closed in last 7 days                       |
-| **Closure Rate**        | Closed / Created (target: > 0.8)                                           |
-| **Avg Time-to-Close**   | Mean of (closedAt - createdAt) for closed issues                           |
-| **Agent Success Rate**  | Issues with `has-pr` / (Issues with `has-pr` + Issues with `agent-failed`) |
-| **CI Pass Rate**        | Successful runs / Total runs on main (target: > 0.95)                      |
-| **Queue Depth**         | Count of issues with `ready` label (target: < 5)                           |
-| **Stale Issues**        | Issues with `ready` label open > 7 days                                    |
-| **Blocked Issues**      | Issues with `agent-failed` label not re-queued                             |
-| **Skipped Issues**      | Issues with `agent-skip` label (exceeded max retries, need manual review)  |
-| **Daily Agent Spend**   | Sum of costUsd from .claude/agent-spend.jsonl for today (target: < $10)    |
-| **7d Agent Spend**      | Sum of costUsd from last 7 days of entries                                 |
-| **Avg Cost/Issue**      | 7d spend / issues closed in 7d                                             |
+| Metric | Formula |
+|--------|---------|
+| **Issues Created (7d)** | Count of audit + ci-fix issues created in last 7 days |
+| **Issues Closed (7d)** | Count of audit + ci-fix issues closed in last 7 days |
+| **Closure Rate** | Closed / Created (target: > 0.8) |
+| **Avg Time-to-Close** | Mean of (closedAt - createdAt) for closed issues |
+| **Agent Success Rate** | Issues with `has-pr` / (Issues with `has-pr` + Issues with `agent-failed`) |
+| **CI Pass Rate** | Successful runs / Total runs on main (target: > 0.95) |
+| **Queue Depth** | Count of issues with `ready` label (target: < 5) |
+| **Stale Issues** | Issues with `ready` label open > 7 days |
+| **Blocked Issues** | Issues with `agent-failed` label not re-queued |
+| **Skipped Issues** | Issues with `agent-skip` label (exceeded max retries, need manual review) |
+| **Daily Agent Spend** | Sum of costUsd from .claude/agent-spend.jsonl for today (target: < $10) |
+| **7d Agent Spend** | Sum of costUsd from last 7 days of entries |
+| **Avg Cost/Issue** | 7d spend / issues closed in 7d |
 
 ### Step 3: Analyze Patterns
 
@@ -105,32 +98,28 @@ Append a dated entry to `.claude/improvement-loop/log.md`:
 ## YYYY-MM-DD
 
 ### Metrics
-
-| Metric              | Value | Target | Status   |
-| ------------------- | ----- | ------ | -------- |
-| Issues Created (7d) | N     | -      | -        |
-| Issues Closed (7d)  | N     | -      | -        |
-| Closure Rate        | N%    | >80%   | ✅/⚠️/❌ |
-| Avg Time-to-Close   | Nh    | <24h   | ✅/⚠️/❌ |
-| Agent Success Rate  | N%    | >70%   | ✅/⚠️/❌ |
-| CI Pass Rate        | N%    | >95%   | ✅/⚠️/❌ |
-| Queue Depth         | N     | <5     | ✅/⚠️/❌ |
-| Stale Issues        | N     | 0      | ✅/⚠️/❌ |
-| Skipped Issues      | N     | 0      | ✅/⚠️/❌ |
-| Daily Agent Spend   | $N.NN | <$10   | ✅/⚠️/❌ |
-| 7d Agent Spend      | $N.NN | <$50   | ✅/⚠️/❌ |
-| Avg Cost/Issue      | $N.NN | <$2    | ✅/⚠️/❌ |
+| Metric | Value | Target | Status |
+|--------|-------|--------|--------|
+| Issues Created (7d) | N | - | - |
+| Issues Closed (7d) | N | - | - |
+| Closure Rate | N% | >80% | ✅/⚠️/❌ |
+| Avg Time-to-Close | Nh | <24h | ✅/⚠️/❌ |
+| Agent Success Rate | N% | >70% | ✅/⚠️/❌ |
+| CI Pass Rate | N% | >95% | ✅/⚠️/❌ |
+| Queue Depth | N | <5 | ✅/⚠️/❌ |
+| Stale Issues | N | 0 | ✅/⚠️/❌ |
+| Skipped Issues | N | 0 | ✅/⚠️/❌ |
+| Daily Agent Spend | $N.NN | <$10 | ✅/⚠️/❌ |
+| 7d Agent Spend | $N.NN | <$50 | ✅/⚠️/❌ |
+| Avg Cost/Issue | $N.NN | <$2 | ✅/⚠️/❌ |
 
 ### Patterns
-
 - [Notable patterns observed]
 
 ### Recommendations
-
 - [Actionable suggestions]
 
 ### Skipped Issues (agent-skip)
-
 [List any issues with the `agent-skip` label that need manual attention]
 ```
 
@@ -172,16 +161,16 @@ Only create improvement issues for patterns seen **consistently over 3+ days**. 
 
 ## Targets & Thresholds
 
-| Metric             | Green | Yellow   | Red    |
-| ------------------ | ----- | -------- | ------ |
-| Closure Rate       | > 80% | 50-80%   | < 50%  |
-| Agent Success Rate | > 70% | 40-70%   | < 40%  |
-| CI Pass Rate       | > 95% | 85-95%   | < 85%  |
-| Queue Depth        | < 5   | 5-10     | > 10   |
-| Avg Time-to-Close  | < 24h | 24-72h   | > 72h  |
-| Daily Agent Spend  | < $10 | $10-$20  | > $20  |
-| 7d Agent Spend     | < $50 | $50-$100 | > $100 |
-| Avg Cost/Issue     | < $2  | $2-$5    | > $5   |
+| Metric | Green | Yellow | Red |
+|--------|-------|--------|-----|
+| Closure Rate | > 80% | 50-80% | < 50% |
+| Agent Success Rate | > 70% | 40-70% | < 40% |
+| CI Pass Rate | > 95% | 85-95% | < 85% |
+| Queue Depth | < 5 | 5-10 | > 10 |
+| Avg Time-to-Close | < 24h | 24-72h | > 72h |
+| Daily Agent Spend | < $10 | $10-$20 | > $20 |
+| 7d Agent Spend | < $50 | $50-$100 | > $100 |
+| Avg Cost/Issue | < $2 | $2-$5 | > $5 |
 
 ## Self-Tuning Actions
 
@@ -225,11 +214,9 @@ done
 ### Queue Depth Adjustment
 
 If queue depth > 10 and agent success rate > 70%:
-
 - Suggest running `/loop 3m /ship-loop` instead of 5m (faster cadence)
 
 If queue depth is 0 for 3 consecutive days:
-
 - Suggest reducing audit frequency or expanding audit scope
 
 ### Feature Tracking

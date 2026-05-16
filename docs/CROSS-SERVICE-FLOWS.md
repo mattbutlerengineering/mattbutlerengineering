@@ -55,8 +55,8 @@ interface CreateReservationRequest {
 // SSE Event: reservation:created
 interface ReservationCreatedEvent {
   type: "reservation:created";
-  id: string; // event sequence number
-  timestamp: string; // ISO 8601
+  id: string;          // event sequence number
+  timestamp: string;    // ISO 8601
   data: {
     id: string;
     venueId: string;
@@ -71,11 +71,11 @@ interface ReservationCreatedEvent {
 
 ### Error Scenarios
 
-| Error             | Cause                | Recovery                        |
-| ----------------- | -------------------- | ------------------------------- |
-| 409 Conflict      | Table already booked | Retry with different time/table |
-| 422 Unprocessable | Invalid date/time    | User corrects input             |
-| 503 Unavailable   | Service down         | Retry with exponential backoff  |
+| Error | Cause | Recovery |
+|-------|-------|----------|
+| 409 Conflict | Table already booked | Retry with different time/table |
+| 422 Unprocessable | Invalid date/time | User corrects input |
+| 503 Unavailable | Service down | Retry with exponential backoff |
 
 ### Retry Behavior
 
@@ -148,11 +148,11 @@ async function createReservation(request: CreateReservationRequest) {
 ```typescript
 // POST /v1/sessions
 interface CreateAgentSessionRequest {
-  task: string; // Task description
-  model?: string; // claude-sonnet-4-6 (default)
-  maxBudget?: number; // USD, default 1.00
-  maxTurns?: number; // default 50
-  createPR?: boolean; // default true
+  task: string;              // Task description
+  model?: string;             // claude-sonnet-4-6 (default)
+  maxBudget?: number;         // USD, default 1.00
+  maxTurns?: number;          // default 50
+  createPR?: boolean;         // default true
 }
 
 // SSE Events
@@ -175,12 +175,12 @@ interface SessionCompletedEvent {
 
 ### Error Scenarios
 
-| Error              | Cause                    | Recovery                       |
-| ------------------ | ------------------------ | ------------------------------ |
-| 400 Bad Request    | Invalid task             | User corrects task description |
-| 401 Unauthorized   | Invalid/missing token    | Re-authenticate                |
-| 429 Rate Limited   | Too many sessions        | Wait and retry                 |
-| 500 Internal Error | Worktree creation failed | Check disk space, retry        |
+| Error | Cause | Recovery |
+|-------|-------|----------|
+| 400 Bad Request | Invalid task | User corrects task description |
+| 401 Unauthorized | Invalid/missing token | Re-authenticate |
+| 429 Rate Limited | Too many sessions | Wait and retry |
+| 500 Internal Error | Worktree creation failed | Check disk space, retry |
 
 ---
 
@@ -226,14 +226,16 @@ interface SessionCompletedEvent {
 // Service middleware (from @mbe/auth/fastify)
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
-const JWKS = createRemoteJWKSet(new URL(`${AUTH_AUTHORITY}/.well-known/jwks.json`));
+const JWKS = createRemoteJWKSet(
+  new URL(`${AUTH_AUTHORITY}/.well-known/jwks.json`)
+);
 
 async function verifyToken(token: string) {
   const { payload } = await jwtVerify(token, JWKS, {
     issuer: AUTH_AUTHORITY,
     audience: AUTH_AUDIENCE, // https://api.mattbutlerengineering.com
   });
-
+  
   return {
     sub: payload.sub as string,
     email: payload.email as string,
@@ -246,12 +248,12 @@ async function verifyToken(token: string) {
 
 ```typescript
 interface JWTPayload {
-  iss: string; // https://mattbutlerengineering.auth0.com/
-  sub: string; // User ID
-  aud: string[]; // [https://api.mattbutlerengineering.com]
-  exp: number; // Expiration timestamp
-  iat: number; // Issued at timestamp
-  scope: string; // Space-separated permissions
+  iss: string;           // https://mattbutlerengineering.auth0.com/
+  sub: string;          // User ID
+  aud: string[];        // [https://api.mattbutlerengineering.com]
+  exp: number;          // Expiration timestamp
+  iat: number;          // Issued at timestamp
+  scope: string;        // Space-separated permissions
   permissions: string[];
   email?: string;
   email_verified?: boolean;
@@ -260,11 +262,11 @@ interface JWTPayload {
 
 ### Error Scenarios
 
-| Error            | Cause                    | Recovery                  |
-| ---------------- | ------------------------ | ------------------------- |
-| 401 Unauthorized | Token expired            | Refresh token or re-login |
-| 403 Forbidden    | Insufficient permissions | Request additional scopes |
-| 401 Invalid      | Token malformed          | Clear tokens and re-login |
+| Error | Cause | Recovery |
+|-------|-------|----------|
+| 401 Unauthorized | Token expired | Refresh token or re-login |
+| 403 Forbidden | Insufficient permissions | Request additional scopes |
+| 401 Invalid | Token malformed | Clear tokens and re-login |
 
 ---
 
@@ -306,15 +308,18 @@ interface JWTPayload {
 
 ```typescript
 // Client-side (from useReservationEvents.ts)
-const eventSource = new EventSource(`/api/v1/events/stream?venueId=${venueId}`, {
-  headers: {
-    Authorization: `Bearer ${accessToken}`,
-  },
-});
+const eventSource = new EventSource(
+  `/api/v1/events/stream?venueId=${venueId}`,
+  {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  }
+);
 
 eventSource.onmessage = (event) => {
   const data = JSON.parse(event.data);
-
+  
   switch (data.type) {
     case "reservation:created":
       onReservationCreated(data.data);
@@ -332,7 +337,7 @@ eventSource.onmessage = (event) => {
 ### Event Types
 
 ```typescript
-type ReservationEvent =
+type ReservationEvent = 
   | { type: "reservation:created"; id: string; data: Reservation }
   | { type: "reservation:updated"; id: string; data: Reservation }
   | { type: "reservation:cancelled"; id: string; data: Reservation }
@@ -344,11 +349,11 @@ type ReservationEvent =
 
 ### Error Scenarios
 
-| Error                   | Cause         | Recovery                                     |
-| ----------------------- | ------------- | -------------------------------------------- |
-| Connection lost         | Network issue | Auto-reconnect with exponential backoff      |
-| 401 Unauthorized        | Token expired | Refresh connection with new token            |
-| 503 Service Unavailable | Backend down  | Retry with backoff, show "offline" indicator |
+| Error | Cause | Recovery |
+|-------|-------|----------|
+| Connection lost | Network issue | Auto-reconnect with exponential backoff |
+| 401 Unauthorized | Token expired | Refresh connection with new token |
+| 503 Service Unavailable | Backend down | Retry with backoff, show "offline" indicator |
 
 ### Reconnection Pattern
 
@@ -357,10 +362,10 @@ const MAX_BACKOFF = 30000; // 30 seconds
 
 function connect(attempt = 0) {
   const eventSource = new EventSource(url, { headers });
-
+  
   eventSource.onerror = () => {
     eventSource.close();
-
+    
     const delay = Math.min(1000 * Math.pow(2, attempt), MAX_BACKOFF);
     setTimeout(() => connect(attempt + 1), delay);
   };
@@ -426,12 +431,12 @@ function connect(attempt = 0) {
 // 1. Get availability
 interface AvailabilityQuery {
   venueId: string;
-  date: string; // YYYY-MM-DD
+  date: string;      // YYYY-MM-DD
   partySize: number;
 }
 
 interface TimeSlot {
-  time: string; // HH:mm
+  time: string;      // HH:mm
   tableId: string;
   available: boolean;
 }
@@ -450,7 +455,7 @@ interface CreateHoldRequest {
 
 interface ReservationHold {
   id: string;
-  expiresAt: string; // 5 minutes from creation
+  expiresAt: string;  // 5 minutes from creation
 }
 
 // 3. Confirm hold
@@ -474,12 +479,12 @@ interface Reservation {
 
 ### Error Scenarios
 
-| Error         | Cause                    | Recovery                         |
-| ------------- | ------------------------ | -------------------------------- |
-| Slot taken    | Another guest grabbed it | Show error, refresh availability |
-| Hold expired  | 5-minute timeout         | Create new hold                  |
-| Invalid email | Email validation failed  | Show validation error            |
-| Venue closed  | Outside operating hours  | Show "closed" message            |
+| Error | Cause | Recovery |
+|-------|-------|----------|
+| Slot taken | Another guest grabbed it | Show error, refresh availability |
+| Hold expired | 5-minute timeout | Create new hold |
+| Invalid email | Email validation failed | Show validation error |
+| Venue closed | Outside operating hours | Show "closed" message |
 
 ---
 
@@ -488,16 +493,20 @@ interface Reservation {
 ### Retry with Exponential Backoff
 
 ```typescript
-async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3, baseDelay = 1000): Promise<T> {
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries = 3,
+  baseDelay = 1000
+): Promise<T> {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       return await fn();
     } catch (error) {
       if (attempt === maxRetries - 1) throw error;
-
+      
       const isRetryable = error.status >= 500 || error.status === 429;
       if (!isRetryable) throw error;
-
+      
       await delay(baseDelay * Math.pow(2, attempt));
     }
   }
@@ -518,7 +527,7 @@ class CircuitBreaker {
   failures = 0;
   lastFailure = 0;
   state: "closed" | "open" | "half-open" = "closed";
-
+  
   async call<T>(fn: () => Promise<T>): Promise<T> {
     if (this.state === "open") {
       if (Date.now() - this.lastFailure > 30000) {
@@ -527,7 +536,7 @@ class CircuitBreaker {
         throw new Error("Circuit breaker open");
       }
     }
-
+    
     try {
       const result = await fn();
       this.onSuccess();

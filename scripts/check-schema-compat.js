@@ -26,7 +26,9 @@ let missing = 0;
 console.log("Checking schema baselines...\n");
 
 for (const service of SERVICES) {
-  const baselinePath = join(root, "services", service, "src", "schemas", "schema-baseline.json");
+  const baselinePath = join(
+    root, "services", service, "src", "schemas", "schema-baseline.json"
+  );
 
   if (existsSync(baselinePath)) {
     console.log(`  ✓ ${service}`);
@@ -37,7 +39,9 @@ for (const service of SERVICES) {
 }
 
 if (missing > 0) {
-  console.log(`\nFAIL: ${missing} service(s) missing baselines. Run: pnpm schema:baseline`);
+  console.log(
+    `\nFAIL: ${missing} service(s) missing baselines. Run: pnpm schema:baseline`
+  );
   process.exit(1);
 } else {
   console.log("\nPASS: All baselines present. Full compat checks run via: pnpm test");

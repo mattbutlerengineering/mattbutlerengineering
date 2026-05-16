@@ -20,12 +20,12 @@ interface SystemHealth {
 
 function colorize(text: string, status: string): string {
   const colors: Record<string, string> = {
-    healthy: "\x1b[32m", // green
+    healthy: "\x1b[32m",  // green
     ok: "\x1b[32m",
     degraded: "\x1b[33m", // yellow
     unhealthy: "\x1b[31m", // red
     error: "\x1b[31m",
-    unknown: "\x1b[90m", // gray
+    unknown: "\x1b[90m",  // gray
   };
   const reset = "\x1b[0m";
   const color = colors[status] ?? colors.unknown;
@@ -53,7 +53,9 @@ function padRight(str: string, len: number): string {
 
 function formatOutput(data: SystemHealth): void {
   console.log();
-  console.log(`  System: ${colorize(data.status.toUpperCase(), data.status)}`);
+  console.log(
+    `  System: ${colorize(data.status.toUpperCase(), data.status)}`,
+  );
   console.log(`  Checked: ${data.timestamp}`);
   console.log();
 
@@ -64,7 +66,7 @@ function formatOutput(data: SystemHealth): void {
       const latency = svc.latency != null ? `${svc.latency}ms` : "";
       const version = svc.version ? `v${svc.version}` : "";
       console.log(
-        `    ${statusIcon(svc.status)} ${padRight(name, 16)} ${padRight(latency, 8)} ${version}`
+        `    ${statusIcon(svc.status)} ${padRight(name, 16)} ${padRight(latency, 8)} ${version}`,
       );
     }
     console.log();

@@ -4,7 +4,7 @@ on:
   pull_request:
     types: [labeled, unlabeled, synchronize, opened, reopened]
   schedule:
-    - cron: "*/30 * * * *" # Every 30 minutes fallback
+    - cron: '*/30 * * * *' # Every 30 minutes fallback
   workflow_dispatch: {}
 
 permissions:

@@ -62,7 +62,9 @@ describe("ActivityFeed", () => {
   });
 
   it("formats timestamps as 'just now' for recent events", () => {
-    const events: ReservationEvent[] = [makeEvent({ timestamp: new Date().toISOString() })];
+    const events: ReservationEvent[] = [
+      makeEvent({ timestamp: new Date().toISOString() }),
+    ];
 
     render(<ActivityFeed events={events} isConnected={true} />);
     expect(screen.getByText("just now")).toBeDefined();

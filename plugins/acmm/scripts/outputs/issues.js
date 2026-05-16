@@ -17,15 +17,13 @@ function getIssueState(issueNumber) {
     const out = execFileSync(
       "gh",
       ["issue", "view", String(issueNumber), "--json", "state", "--jq", ".state"],
-      { encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] }
+      { encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] },
     );
     const s = out.trim().toLowerCase();
     if (s === "open") return "open";
     if (s === "closed") return "closed";
     return "missing";
-  } catch {
-    return "missing";
-  }
+  } catch { return "missing"; }
 }
 
 /**
@@ -74,9 +72,7 @@ export function applyIssuesForFailures(failing, existingIssues, opts = {}) {
       // Closed or missing — fall through to create a fresh one.
     }
 
-    const patterns = Array.isArray(c.detection.pattern)
-      ? c.detection.pattern
-      : [c.detection.pattern];
+    const patterns = Array.isArray(c.detection.pattern) ? c.detection.pattern : [c.detection.pattern];
     const title = `[ACMM ${c.id} · L${c.level} ${c.category}] ${c.name}`;
     const body = [
       `**Missing canonical-ACMM criterion.**`,
@@ -120,40 +116,12 @@ export function applyIssuesForFailures(failing, existingIssues, opts = {}) {
  */
 export function ensureAcmmLabel() {
   try {
-    execFileSync(
-      "gh",
-      [
-        "label",
-        "create",
-        "acmm",
-        "--color",
-        "d4a030",
-        "--description",
-        "AI Codebase Maturity Model finding",
-        "--force",
-      ],
-      {
-        encoding: "utf-8",
-        stdio: ["ignore", "pipe", "pipe"],
-      }
-    );
-    execFileSync(
-      "gh",
-      [
-        "label",
-        "create",
-        "ready",
-        "--color",
-        "0e8a16",
-        "--description",
-        "Task is ready for an autonomous agent to pick up",
-        "--force",
-      ],
-      {
-        encoding: "utf-8",
-        stdio: ["ignore", "pipe", "pipe"],
-      }
-    );
+    execFileSync("gh", ["label", "create", "acmm", "--color", "d4a030", "--description", "AI Codebase Maturity Model finding", "--force"], {
+      encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"],
+    });
+    execFileSync("gh", ["label", "create", "ready", "--color", "0e8a16", "--description", "Task is ready for an autonomous agent to pick up", "--force"], {
+      encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"],
+    });
   } catch {
     // --force succeeds when label exists; any other failure is non-fatal (user may lack perms)
   }

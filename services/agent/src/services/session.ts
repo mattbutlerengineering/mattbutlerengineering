@@ -55,7 +55,9 @@ interface ListOptions {
 }
 
 export const sessionService = {
-  async list(options: ListOptions): Promise<{ data: AgentSession[]; pagination: Pagination }> {
+  async list(
+    options: ListOptions
+  ): Promise<{ data: AgentSession[]; pagination: Pagination }> {
     const { page, limit, status } = options;
     const skip = (page - 1) * limit;
 
@@ -198,7 +200,10 @@ export const sessionService = {
     return mapPrismaEvent(event);
   },
 
-  async listEvents(sessionId: string, afterId?: string): Promise<AgentSessionEvent[]> {
+  async listEvents(
+    sessionId: string,
+    afterId?: string
+  ): Promise<AgentSessionEvent[]> {
     const where: Prisma.SessionEventWhereInput = { sessionId };
 
     if (afterId) {

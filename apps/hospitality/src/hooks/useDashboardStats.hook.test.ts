@@ -98,7 +98,9 @@ describe("useDashboardStats hook", () => {
       expect(mockList).toHaveBeenCalled();
     });
 
-    expect(mockList).toHaveBeenCalledWith(expect.objectContaining({ venueId: "venue-1" }));
+    expect(mockList).toHaveBeenCalledWith(
+      expect.objectContaining({ venueId: "venue-1" })
+    );
   });
 
   it("does not pass venueId filter when no venue is selected", async () => {

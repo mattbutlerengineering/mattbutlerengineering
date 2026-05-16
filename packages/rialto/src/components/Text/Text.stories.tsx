@@ -1,38 +1,29 @@
-import type { Meta, StoryObj } from "@storybook/react-vite";
-import { within, expect } from "@storybook/test";
-import { Text } from "./Text";
+import type { Meta, StoryObj } from '@storybook/react-vite';
+import { within, expect } from '@storybook/test';
+import { Text } from './Text';
 
 const meta: Meta<typeof Text> = {
-  title: "Foundation/Text",
+  title: 'Foundation/Text',
   component: Text,
-  tags: ["autodocs"],
+  tags: ['autodocs'],
   argTypes: {
     variant: {
-      control: { type: "select" },
-      options: ["body", "caption", "detail", "label", "display"],
+      control: { type: 'select' },
+      options: ['body', 'caption', 'detail', 'label', 'display'],
     },
     color: {
-      control: { type: "select" },
-      options: [
-        "primary",
-        "secondary",
-        "tertiary",
-        "accent",
-        "success",
-        "warning",
-        "error",
-        "on-accent",
-      ],
+      control: { type: 'select' },
+      options: ['primary', 'secondary', 'tertiary', 'accent', 'success', 'warning', 'error', 'on-accent'],
     },
     align: {
-      control: { type: "radio" },
-      options: ["left", "center", "right"],
+      control: { type: 'radio' },
+      options: ['left', 'center', 'right'],
     },
     mono: {
-      control: "boolean",
+      control: 'boolean',
     },
     truncate: {
-      control: "boolean",
+      control: 'boolean',
     },
   },
 };
@@ -42,8 +33,8 @@ type Story = StoryObj<typeof Text>;
 
 export const Default: Story = {
   args: {
-    children: "The quick brown fox jumps over the lazy dog.",
-    variant: "body",
+    children: 'The quick brown fox jumps over the lazy dog.',
+    variant: 'body',
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -53,7 +44,7 @@ export const Default: Story = {
 
 export const Variants: Story = {
   render: () => (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       <Text variant="display">Display Text</Text>
       <Text variant="body">Body Text (Default)</Text>
       <Text variant="label">Label Text</Text>
@@ -66,13 +57,13 @@ export const Variants: Story = {
 export const Monospace: Story = {
   args: {
     mono: true,
-    children: "const x = 42;",
+    children: 'const x = 42;',
   },
 };
 
 export const Colors: Story = {
   render: () => (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       <Text color="primary">Primary Text</Text>
       <Text color="secondary">Secondary Text</Text>
       <Text color="tertiary">Tertiary Text</Text>

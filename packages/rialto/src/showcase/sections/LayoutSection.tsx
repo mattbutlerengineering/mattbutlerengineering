@@ -14,29 +14,19 @@ export function LayoutSection() {
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--rialto-space-xl)" }}>
       {/* Card */}
       <div>
-        <Text
-          variant="caption"
-          color="secondary"
-          style={{ marginBlockEnd: "var(--rialto-space-xs)" }}
-        >
+        <Text variant="caption" color="secondary" style={{ marginBlockEnd: "var(--rialto-space-xs)" }}>
           Card
         </Text>
         <div className={css.gridLayout}>
           <Card>
             <Text variant="label">Basic Card</Text>
-            <Text variant="caption" color="secondary">
-              A simple elevated container.
-            </Text>
+            <Text variant="caption" color="secondary">A simple elevated container.</Text>
           </Card>
           <Card>
             <Text variant="label">With Actions</Text>
-            <Text variant="caption" color="secondary">
-              Cards can contain any content.
-            </Text>
+            <Text variant="caption" color="secondary">Cards can contain any content.</Text>
             <div style={{ marginBlockStart: "var(--rialto-space-sm)" }}>
-              <Button variant="primary" size="sm">
-                Action
-              </Button>
+              <Button variant="primary" size="sm">Action</Button>
             </div>
           </Card>
         </div>
@@ -44,48 +34,19 @@ export function LayoutSection() {
 
       {/* Stack */}
       <div>
-        <Text
-          variant="caption"
-          color="secondary"
-          style={{ marginBlockEnd: "var(--rialto-space-xs)" }}
-        >
+        <Text variant="caption" color="secondary" style={{ marginBlockEnd: "var(--rialto-space-xs)" }}>
           Stack (horizontal)
         </Text>
         <Stack direction="row" gap="md" align="center">
-          <div
-            style={{
-              width: 60,
-              height: 60,
-              background: "var(--rialto-accent-muted)",
-              borderRadius: "var(--rialto-radius-default)",
-            }}
-          />
-          <div
-            style={{
-              width: 60,
-              height: 40,
-              background: "var(--rialto-accent-muted)",
-              borderRadius: "var(--rialto-radius-default)",
-            }}
-          />
-          <div
-            style={{
-              width: 60,
-              height: 80,
-              background: "var(--rialto-accent-muted)",
-              borderRadius: "var(--rialto-radius-default)",
-            }}
-          />
+          <div style={{ width: 60, height: 60, background: "var(--rialto-accent-muted)", borderRadius: "var(--rialto-radius-default)" }} />
+          <div style={{ width: 60, height: 40, background: "var(--rialto-accent-muted)", borderRadius: "var(--rialto-radius-default)" }} />
+          <div style={{ width: 60, height: 80, background: "var(--rialto-accent-muted)", borderRadius: "var(--rialto-radius-default)" }} />
         </Stack>
       </div>
 
       {/* Divider */}
       <div>
-        <Text
-          variant="caption"
-          color="secondary"
-          style={{ marginBlockEnd: "var(--rialto-space-xs)" }}
-        >
+        <Text variant="caption" color="secondary" style={{ marginBlockEnd: "var(--rialto-space-xs)" }}>
           Divider
         </Text>
         <div style={{ maxWidth: 400 }}>
@@ -97,11 +58,7 @@ export function LayoutSection() {
 
       {/* AspectRatio */}
       <div>
-        <Text
-          variant="caption"
-          color="secondary"
-          style={{ marginBlockEnd: "var(--rialto-space-xs)" }}
-        >
+        <Text variant="caption" color="secondary" style={{ marginBlockEnd: "var(--rialto-space-xs)" }}>
           Aspect Ratio (16:9)
         </Text>
         <div style={{ maxWidth: 320 }}>
@@ -117,9 +74,7 @@ export function LayoutSection() {
                 justifyContent: "center",
               }}
             >
-              <Text variant="caption" color="tertiary">
-                16:9 container
-              </Text>
+              <Text variant="caption" color="tertiary">16:9 container</Text>
             </div>
           </AspectRatio>
         </div>
@@ -127,21 +82,10 @@ export function LayoutSection() {
 
       {/* ScrollArea */}
       <div>
-        <Text
-          variant="caption"
-          color="secondary"
-          style={{ marginBlockEnd: "var(--rialto-space-xs)" }}
-        >
+        <Text variant="caption" color="secondary" style={{ marginBlockEnd: "var(--rialto-space-xs)" }}>
           Scroll Area
         </Text>
-        <ScrollArea
-          style={{
-            height: 150,
-            maxWidth: 300,
-            border: "1px solid var(--rialto-border)",
-            borderRadius: "var(--rialto-radius-default)",
-          }}
-        >
+        <ScrollArea style={{ height: 150, maxWidth: 300, border: "1px solid var(--rialto-border)", borderRadius: "var(--rialto-radius-default)" }}>
           <div style={{ padding: "var(--rialto-space-sm)" }}>
             {Array.from({ length: 20 }, (_, i) => (
               <Text key={i} variant="body" style={{ marginBlockEnd: "var(--rialto-space-xs)" }}>
@@ -154,11 +98,7 @@ export function LayoutSection() {
 
       {/* Collapsible */}
       <div>
-        <Text
-          variant="caption"
-          color="secondary"
-          style={{ marginBlockEnd: "var(--rialto-space-xs)" }}
-        >
+        <Text variant="caption" color="secondary" style={{ marginBlockEnd: "var(--rialto-space-xs)" }}>
           Collapsible
         </Text>
         <div style={{ maxWidth: 400 }}>
@@ -170,11 +110,7 @@ export function LayoutSection() {
 
       {/* SegmentedControl */}
       <div>
-        <Text
-          variant="caption"
-          color="secondary"
-          style={{ marginBlockEnd: "var(--rialto-space-xs)" }}
-        >
+        <Text variant="caption" color="secondary" style={{ marginBlockEnd: "var(--rialto-space-xs)" }}>
           Segmented Control
         </Text>
         <SegmentedControl

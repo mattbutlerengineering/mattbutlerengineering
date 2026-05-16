@@ -77,27 +77,19 @@ export function SplitFlapPage() {
       <Section title="Charsets">
         <Stack gap="md">
           <Stack gap="xs">
-            <Text variant="caption" color="secondary">
-              alpha
-            </Text>
+            <Text variant="caption" color="secondary">alpha</Text>
             <SplitFlap value="ABC" charset="alpha" aria-label="Alpha charset" />
           </Stack>
           <Stack gap="xs">
-            <Text variant="caption" color="secondary">
-              numeric
-            </Text>
+            <Text variant="caption" color="secondary">numeric</Text>
             <SplitFlap value="42" charset="numeric" aria-label="Numeric charset" />
           </Stack>
           <Stack gap="xs">
-            <Text variant="caption" color="secondary">
-              alphanumeric (default)
-            </Text>
+            <Text variant="caption" color="secondary">alphanumeric (default)</Text>
             <SplitFlap value="GATE 12" charset="alphanumeric" aria-label="Alphanumeric charset" />
           </Stack>
           <Stack gap="xs">
-            <Text variant="caption" color="secondary">
-              full (with punctuation)
-            </Text>
+            <Text variant="caption" color="secondary">full (with punctuation)</Text>
             <SplitFlap value="HELLO!" charset="full" aria-label="Full charset" />
           </Stack>
         </Stack>
@@ -114,45 +106,13 @@ export function SplitFlapPage() {
       <Section title="Props">
         <PropsTable
           props={[
-            {
-              name: "value",
-              type: "string",
-              description: "Text to display. Characters not in the charset render as spaces.",
-            },
-            {
-              name: "aria-label",
-              type: "string",
-              description: "Required — the accessible name read by screen readers.",
-            },
-            {
-              name: "charset",
-              type: '"alpha" | "numeric" | "alphanumeric" | "full"',
-              default: '"alphanumeric"',
-              description: "Which characters cells can cycle through.",
-            },
-            {
-              name: "length",
-              type: "number",
-              description: "Fixed cell count. Pads with spaces or truncates.",
-            },
-            {
-              name: "size",
-              type: '"sm" | "md" | "lg"',
-              default: '"md"',
-              description: "Cell size preset.",
-            },
-            {
-              name: "flipInterval",
-              type: "number",
-              default: "80",
-              description: "Ms between each intermediate flip within a single cell.",
-            },
-            {
-              name: "cascadeDelay",
-              type: "number",
-              default: "40",
-              description: "Ms delay before each subsequent cell starts cycling.",
-            },
+            { name: "value", type: "string", description: "Text to display. Characters not in the charset render as spaces." },
+            { name: "aria-label", type: "string", description: "Required — the accessible name read by screen readers." },
+            { name: "charset", type: '"alpha" | "numeric" | "alphanumeric" | "full"', default: '"alphanumeric"', description: "Which characters cells can cycle through." },
+            { name: "length", type: "number", description: "Fixed cell count. Pads with spaces or truncates." },
+            { name: "size", type: '"sm" | "md" | "lg"', default: '"md"', description: "Cell size preset." },
+            { name: "flipInterval", type: "number", default: "80", description: "Ms between each intermediate flip within a single cell." },
+            { name: "cascadeDelay", type: "number", default: "40", description: "Ms delay before each subsequent cell starts cycling." },
           ]}
         />
       </Section>
@@ -163,22 +123,10 @@ export function SplitFlapPage() {
           items={[
             { label: "Role", value: 'role="img"' },
             { label: "Name", value: "Required aria-label — never inferred from value" },
-            {
-              label: "Cells hidden from AT",
-              value: "Every cell is aria-hidden; the animation is treated as decorative",
-            },
-            {
-              label: "Intermediate chars silenced",
-              value: "The cycling A→B→C→... transitions are never announced",
-            },
-            {
-              label: "Reduced motion",
-              value: "prefers-reduced-motion → cells jump instantly to target, no cycle",
-            },
-            {
-              label: "Contrast",
-              value: "Amber-on-black meets WCAG AAA for non-text graphic content",
-            },
+            { label: "Cells hidden from AT", value: "Every cell is aria-hidden; the animation is treated as decorative" },
+            { label: "Intermediate chars silenced", value: "The cycling A→B→C→... transitions are never announced" },
+            { label: "Reduced motion", value: "prefers-reduced-motion → cells jump instantly to target, no cycle" },
+            { label: "Contrast", value: "Amber-on-black meets WCAG AAA for non-text graphic content" },
           ]}
         />
       </Section>

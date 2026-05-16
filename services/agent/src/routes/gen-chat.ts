@@ -41,15 +41,13 @@ export const genChatRoutes: FastifyPluginAsync = async (fastify) => {
       // Validate request body
       const parseResult = GenChatBodySchema.safeParse(request.body);
       if (!parseResult.success) {
-        return reply
-          .code(400)
-          .send(
-            createProblemDetails(
-              400,
-              "Bad Request",
-              parseResult.error.issues.map((i) => i.message).join(", ")
-            )
-          );
+        return reply.code(400).send(
+          createProblemDetails(
+            400,
+            "Bad Request",
+            parseResult.error.issues.map((i) => i.message).join(", ")
+          )
+        );
       }
 
       const { messages } = parseResult.data;

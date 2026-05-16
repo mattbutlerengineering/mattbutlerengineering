@@ -132,7 +132,10 @@ export const userService = {
     }
   },
 
-  async updatePreferences(id: string, preferences: UpdatePreferencesRequest): Promise<User | null> {
+  async updatePreferences(
+    id: string,
+    preferences: UpdatePreferencesRequest
+  ): Promise<User | null> {
     try {
       const user = await prisma.user.findUnique({ where: { id } });
       if (!user) return null;

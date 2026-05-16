@@ -67,14 +67,12 @@ one paragraph each. Skip obviously-bad options.>
 ## When to use
 
 Create an ADR when:
-
 - Choosing between multiple credible architectural options (database, framework, protocol)
 - Establishing a new coding convention that affects multiple packages
 - Deprecating or superseding a prior decision
 - A decision would otherwise be buried in a commit message where nobody will find it
 
 Do NOT use for:
-
 - Routine implementation choices inside a single file
 - Tactical bug fixes
 - Feature additions that follow existing patterns

@@ -8,9 +8,6 @@ export async function ciRunStatus(): Promise<string> {
     const runs = JSON.parse(output);
     return JSON.stringify(runs, null, 2);
   } catch (error) {
-    return JSON.stringify({
-      error: "Failed to get CI status",
-      message: error instanceof Error ? error.message : String(error),
-    });
+    return JSON.stringify({ error: "Failed to get CI status", message: error instanceof Error ? error.message : String(error) });
   }
 }

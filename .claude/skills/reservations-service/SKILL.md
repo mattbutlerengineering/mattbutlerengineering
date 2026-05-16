@@ -17,15 +17,15 @@ This skill provides patterns and workflows for developing the Reservations Servi
 
 ### Key Files
 
-| File                          | Purpose                                           |
-| ----------------------------- | ------------------------------------------------- |
-| `src/app.ts`                  | Fastify app setup, plugin registration            |
-| `src/routes/tables.ts`        | Table CRUD endpoints (create/update require auth) |
-| `src/routes/reservations.ts`  | Reservation CRUD endpoints                        |
-| `src/services/table.ts`       | Table business logic (Prisma operations)          |
-| `src/services/reservation.ts` | Reservation business logic                        |
-| `src/schemas/index.ts`        | OpenAPI schema definitions                        |
-| `prisma/schema.prisma`        | Database schema                                   |
+| File | Purpose |
+|------|---------|
+| `src/app.ts` | Fastify app setup, plugin registration |
+| `src/routes/tables.ts` | Table CRUD endpoints (create/update require auth) |
+| `src/routes/reservations.ts` | Reservation CRUD endpoints |
+| `src/services/table.ts` | Table business logic (Prisma operations) |
+| `src/services/reservation.ts` | Reservation business logic |
+| `src/schemas/index.ts` | OpenAPI schema definitions |
+| `prisma/schema.prisma` | Database schema |
 
 ## Adding New Endpoints
 
@@ -35,32 +35,28 @@ Follow this pattern when adding new routes:
 
 ```typescript
 fastify.get<{
-  Params: { id: string }; // URL params
-  Querystring: { page?: string }; // Query params
-  Body: CreateReservationRequest; // Request body
-  Reply: ApiResponse<Reservation> | ApiError; // Response types
+  Params: { id: string };           // URL params
+  Querystring: { page?: string };   // Query params
+  Body: CreateReservationRequest;   // Request body
+  Reply: ApiResponse<Reservation> | ApiError;  // Response types
 }>(
   "/endpoint-path",
   {
-    preHandler: verifyAuth, // Add for protected routes
+    preHandler: verifyAuth,  // Add for protected routes
     schema: {
       summary: "Short action description",
       operationId: "uniqueOperationName",
       description: "Detailed description for API docs.",
-      tags: ["Reservations"], // or "Tables"
-      security: [{ bearerAuth: [] }], // Add for auth routes
-      params: {
-        /* JSON Schema */
-      },
-      body: {
-        /* JSON Schema */
-      },
+      tags: ["Reservations"],  // or "Tables"
+      security: [{ bearerAuth: [] }],  // Add for auth routes
+      params: { /* JSON Schema */ },
+      body: { /* JSON Schema */ },
       response: {
         200: {
           description: "Success case",
           type: "object",
           properties: {
-            data: { $ref: "Reservation#" }, // Reference shared schemas
+            data: { $ref: "Reservation#" },  // Reference shared schemas
           },
         },
         404: { $ref: "Error#" },
@@ -78,12 +74,11 @@ fastify.get<{
 This service uses two auth patterns:
 
 **Required Auth** (tables create/update/delete):
-
 ```typescript
 fastify.post<{ Body: CreateTableRequest; Reply: ApiResponse<Table> | ApiError }>(
   "/",
   {
-    preHandler: verifyAuth, // Requires valid JWT
+    preHandler: verifyAuth,  // Requires valid JWT
     schema: {
       security: [{ bearerAuth: [] }],
       // ...
@@ -96,18 +91,17 @@ fastify.post<{ Body: CreateTableRequest; Reply: ApiResponse<Table> | ApiError }>
 ```
 
 **Optional Auth** (reservations create):
-
 ```typescript
 fastify.post<{ Body: CreateReservationRequest; Reply: ApiResponse<Reservation> }>(
   "/",
   {
-    preHandler: optionalAuth, // JWT optional
+    preHandler: optionalAuth,  // JWT optional
     schema: {
       // No security field - auth is optional
     },
   },
   async (request, reply) => {
-    const userId = request.user?.id; // May be undefined for guests
+    const userId = request.user?.id;  // May be undefined for guests
     const reservation = await reservationService.create(request.body, userId);
   }
 );
@@ -312,30 +306,30 @@ For schema changes, use the `prisma-migrations` skill.
 
 ### Tables
 
-| Method | Path             | Auth | Description                                   |
-| ------ | ---------------- | ---- | --------------------------------------------- |
-| GET    | `/v1/tables`     | No   | List tables (paginated, filter by activeOnly) |
-| GET    | `/v1/tables/:id` | No   | Get table by ID                               |
-| POST   | `/v1/tables`     | Yes  | Create table                                  |
-| PATCH  | `/v1/tables/:id` | Yes  | Update table                                  |
-| DELETE | `/v1/tables/:id` | Yes  | Delete table                                  |
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/v1/tables` | No | List tables (paginated, filter by activeOnly) |
+| GET | `/v1/tables/:id` | No | Get table by ID |
+| POST | `/v1/tables` | Yes | Create table |
+| PATCH | `/v1/tables/:id` | Yes | Update table |
+| DELETE | `/v1/tables/:id` | Yes | Delete table |
 
 ### Reservations
 
-| Method | Path                   | Auth     | Description                                               |
-| ------ | ---------------------- | -------- | --------------------------------------------------------- |
-| GET    | `/v1/reservations`     | No       | List reservations (filter by date/status/tableId/venueId) |
-| GET    | `/v1/reservations/me`  | Yes      | Get current user's reservations                           |
-| GET    | `/v1/reservations/:id` | No       | Get reservation by ID                                     |
-| POST   | `/v1/reservations`     | Optional | Create reservation (guest or user)                        |
-| PATCH  | `/v1/reservations/:id` | No       | Update reservation                                        |
-| DELETE | `/v1/reservations/:id` | No       | Cancel reservation (sets status to CANCELLED)             |
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/v1/reservations` | No | List reservations (filter by date/status/tableId/venueId) |
+| GET | `/v1/reservations/me` | Yes | Get current user's reservations |
+| GET | `/v1/reservations/:id` | No | Get reservation by ID |
+| POST | `/v1/reservations` | Optional | Create reservation (guest or user) |
+| PATCH | `/v1/reservations/:id` | No | Update reservation |
+| DELETE | `/v1/reservations/:id` | No | Cancel reservation (sets status to CANCELLED) |
 
 ### Health
 
-| Method | Path      | Auth | Description  |
-| ------ | --------- | ---- | ------------ |
-| GET    | `/health` | No   | Health check |
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/health` | No | Health check |
 
 ## Common Development Tasks
 
@@ -370,7 +364,6 @@ pnpm db:migrate    # Create migration (see prisma-migrations skill)
 The service supports both authenticated and guest reservations:
 
 **Guest Reservation** (no auth):
-
 ```json
 {
   "date": "2026-02-15",
@@ -385,7 +378,6 @@ The service supports both authenticated and guest reservations:
 ```
 
 **User Reservation** (with auth):
-
 ```json
 {
   "date": "2026-02-15",

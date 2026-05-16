@@ -7,7 +7,6 @@ React + Vite SPA for restaurant management. Port **3002**, path prefix `/hospita
 Uses `@mbe/auth` (Auth0 OIDC). The root `<App>` component gates all routes behind authentication — unauthenticated users are redirected to Auth0 login. The OIDC callback route is `/hospitality/callback`.
 
 Build-time env vars (set in CI and `.env`):
-
 - `VITE_AUTH_AUTHORITY` — Auth0 domain
 - `VITE_AUTH_CLIENT_ID` — Auth0 client ID (separate from API client)
 - `VITE_AUTH_AUDIENCE` — `https://api.mattbutlerengineering.com`
@@ -16,19 +15,19 @@ Build-time env vars (set in CI and `.env`):
 
 ## Pages
 
-| Page                  | Route              | Description                                     |
-| --------------------- | ------------------ | ----------------------------------------------- |
-| HomePage              | `/`                | Dashboard landing                               |
-| TimelinePage          | `/timeline`        | Reservation timeline view (largest page, ~18KB) |
-| ReservationsPage      | `/reservations`    | Reservation list/management                     |
-| GuestsPage            | `/guests`          | Guest directory                                 |
-| FloorPlansPage        | `/floor-plans`     | Floor plan list                                 |
-| FloorPlanEditorPage   | `/floor-plans/:id` | Interactive floor plan editor                   |
-| BookingWidgetDemoPage | `/booking-widget`  | Embeddable booking widget preview               |
-| VenueOnboardingPage   | `/onboarding`      | Multi-step venue setup wizard                   |
-| ProfilePage           | `/profile`         | User profile                                    |
-| SettingsPage          | `/settings`        | App settings                                    |
-| AdminPage             | `/admin`           | Admin panel                                     |
+| Page | Route | Description |
+|------|-------|-------------|
+| HomePage | `/` | Dashboard landing |
+| TimelinePage | `/timeline` | Reservation timeline view (largest page, ~18KB) |
+| ReservationsPage | `/reservations` | Reservation list/management |
+| GuestsPage | `/guests` | Guest directory |
+| FloorPlansPage | `/floor-plans` | Floor plan list |
+| FloorPlanEditorPage | `/floor-plans/:id` | Interactive floor plan editor |
+| BookingWidgetDemoPage | `/booking-widget` | Embeddable booking widget preview |
+| VenueOnboardingPage | `/onboarding` | Multi-step venue setup wizard |
+| ProfilePage | `/profile` | User profile |
+| SettingsPage | `/settings` | App settings |
+| AdminPage | `/admin` | Admin panel |
 
 ## Key Components
 
@@ -55,8 +54,7 @@ Uses Playwright with programmatic Auth0 login (Resource Owner Password Grant). N
 pnpm test:e2e     # Requires E2E_AUTH* env vars (see .env.example)
 ```
 
-**E2E env vars** (separate from VITE\_\* build vars):
-
+**E2E env vars** (separate from VITE_* build vars):
 - `E2E_AUTH0_DOMAIN` — Auth0 tenant domain
 - `E2E_AUTH0_CLIENT_ID` — Auth0 client ID (must have Password grant enabled)
 - `E2E_AUTH0_AUDIENCE` — API audience identifier
@@ -78,21 +76,21 @@ test("page loads authenticated", async ({ authPage }) => {
 
 Extended documentation for AI agents working on this app:
 
-| Document                                                     | Purpose                                                                    |
-| ------------------------------------------------------------ | -------------------------------------------------------------------------- |
-| [`docs/USER-FLOWS.md`](docs/USER-FLOWS.md)                   | 10 critical user flows with acceptance criteria and "done" definitions     |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)               | Data flow, API surface, SSE patterns, component architecture               |
-| [`docs/IMPROVEMENT-BACKLOG.md`](docs/IMPROVEMENT-BACKLOG.md) | Prioritized feature gaps (P0-P3) with implementation hints                 |
-| [`docs/E2E-TEST-PLAN.md`](docs/E2E-TEST-PLAN.md)             | 12 Playwright test specs + smoke tests for CI                              |
-| [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md)                 | 10 code patterns extracted from codebase — copy-paste templates for agents |
+| Document | Purpose |
+|----------|---------|
+| [`docs/USER-FLOWS.md`](docs/USER-FLOWS.md) | 10 critical user flows with acceptance criteria and "done" definitions |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Data flow, API surface, SSE patterns, component architecture |
+| [`docs/IMPROVEMENT-BACKLOG.md`](docs/IMPROVEMENT-BACKLOG.md) | Prioritized feature gaps (P0-P3) with implementation hints |
+| [`docs/E2E-TEST-PLAN.md`](docs/E2E-TEST-PLAN.md) | 12 Playwright test specs + smoke tests for CI |
+| [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) | 10 code patterns extracted from codebase — copy-paste templates for agents |
 
 ### User Personas
 
-| Persona                | Primary Pages                               | Key Constraint                          |
-| ---------------------- | ------------------------------------------- | --------------------------------------- |
-| **Restaurant Manager** | Dashboard, Timeline, Reservations, Settings | Needs multi-venue support               |
-| **Host / Hostess**     | Timeline, Guests                            | Needs fast walk-in creation (<5 clicks) |
-| **Admin**              | Admin panel                                 | View-only currently (no user actions)   |
+| Persona | Primary Pages | Key Constraint |
+|---------|---------------|----------------|
+| **Restaurant Manager** | Dashboard, Timeline, Reservations, Settings | Needs multi-venue support |
+| **Host / Hostess** | Timeline, Guests | Needs fast walk-in creation (<5 clicks) |
+| **Admin** | Admin panel | View-only currently (no user actions) |
 
 ### Critical Constraints for Agents
 
@@ -107,13 +105,13 @@ Extended documentation for AI agents working on this app:
 
 When implementing features, evaluate against (from `docs/USER-FLOWS.md`):
 
-| Criterion        | Weight | What to Check                                   |
-| ---------------- | ------ | ----------------------------------------------- |
-| Functionality    | 30%    | Flow completes end-to-end without errors        |
-| Data Consistency | 25%    | State correct across pages, SSE, and API        |
-| Error Recovery   | 20%    | Failures handled gracefully with retry          |
-| Accessibility    | 15%    | Keyboard-only completion, screen reader support |
-| Mobile UX        | 10%    | Works on 375px width                            |
+| Criterion | Weight | What to Check |
+|-----------|--------|---------------|
+| Functionality | 30% | Flow completes end-to-end without errors |
+| Data Consistency | 25% | State correct across pages, SSE, and API |
+| Error Recovery | 20% | Failures handled gracefully with retry |
+| Accessibility | 15% | Keyboard-only completion, screen reader support |
+| Mobile UX | 10% | Works on 375px width |
 
 ### Known Gaps (see backlog for full list)
 

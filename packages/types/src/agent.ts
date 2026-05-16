@@ -1,6 +1,11 @@
 // ── Agent session types (shared across CLI and API service) ──────────
 
-export type AgentSessionStatus = "pending" | "running" | "succeeded" | "failed" | "cancelled";
+export type AgentSessionStatus =
+  | "pending"
+  | "running"
+  | "succeeded"
+  | "failed"
+  | "cancelled";
 
 export interface AgentSession {
   id: string;

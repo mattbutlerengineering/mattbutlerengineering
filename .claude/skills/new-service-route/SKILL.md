@@ -46,26 +46,20 @@ fastify.post<{
         properties: { name: { type: "string" } },
       },
       response: {
-        201: {
-          /* FloorPlan */
-        },
-        404: {
-          /* ApiError */
-        },
+        201: { /* FloorPlan */ },
+        404: { /* ApiError */ },
       },
     },
   },
   async (request, reply) => {
     const result = await floorPlanService.clone(request.params.id, request.body);
     if (!result) {
-      return reply.code(404).send(
-        createProblemDetails({
-          type: "floor-plan-not-found",
-          title: "Floor plan not found",
-          status: 404,
-          instance: request.url,
-        })
-      );
+      return reply.code(404).send(createProblemDetails({
+        type: "floor-plan-not-found",
+        title: "Floor plan not found",
+        status: 404,
+        instance: request.url,
+      }));
     }
     // Emit SSE if this service broadcasts (reservations only)
     fastify.sseBroadcaster?.emit("floor-plan:created", result);
@@ -100,7 +94,6 @@ fastify.post<{
 ## When to use
 
 Use for any new server-side endpoint. Examples from the backlog:
-
 - #586 `POST /api/v1/floor-plans/:id/clone`
 - New reservation state transitions
 - New guest CRM endpoints

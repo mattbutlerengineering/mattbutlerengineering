@@ -1,5 +1,12 @@
 import { useState, useEffect } from "react";
-import { Badge, Card, Heading, PageHeader, Spinner, Text } from "@mattbutlerengineering/rialto";
+import {
+  Badge,
+  Card,
+  Heading,
+  PageHeader,
+  Spinner,
+  Text,
+} from "@mattbutlerengineering/rialto";
 import styles from "./AcmmDashboard.module.css";
 
 interface BehavioralGate {
@@ -79,9 +86,7 @@ export function AcmmDashboard() {
       }
     }
     void load();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   if (error) {
@@ -156,8 +161,13 @@ export function AcmmDashboard() {
             {metrics.behavioralGates.map((gate) => (
               <Card key={gate.name} variant="flat" className={styles.gateCard}>
                 <div className={styles.gateHeader}>
-                  <Text className={styles.gateName}>{gate.name.replace(/-/g, " ")}</Text>
-                  <Badge variant={gate.passed ? "success" : "error"} size="sm">
+                  <Text className={styles.gateName}>
+                    {gate.name.replace(/-/g, " ")}
+                  </Text>
+                  <Badge
+                    variant={gate.passed ? "success" : "error"}
+                    size="sm"
+                  >
                     {gate.passed ? "Pass" : "Fail"}
                   </Badge>
                 </div>
@@ -166,7 +176,10 @@ export function AcmmDashboard() {
                   {typeof gate.value === "number" && gate.value <= 1
                     ? formatPercent(gate.value)
                     : gate.value}{" "}
-                  (threshold: {gate.threshold <= 1 ? formatPercent(gate.threshold) : gate.threshold}
+                  (threshold:{" "}
+                  {gate.threshold <= 1
+                    ? formatPercent(gate.threshold)
+                    : gate.threshold}
                   )
                 </Text>
               </Card>

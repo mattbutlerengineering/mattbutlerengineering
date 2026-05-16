@@ -86,10 +86,7 @@ export function ConfirmationStep({
             <span className={styles.reviewValue}>
               {settings.defaultReservationDuration || "90"} minutes
               {!settings.defaultReservationDuration && (
-                <Text variant="caption" color="secondary">
-                  {" "}
-                  (default)
-                </Text>
+                <Text variant="caption" color="secondary"> (default)</Text>
               )}
             </span>
           </div>
@@ -98,10 +95,7 @@ export function ConfirmationStep({
             <span className={styles.reviewValue}>
               {settings.maxPartySize || "12"} guests
               {!settings.maxPartySize && (
-                <Text variant="caption" color="secondary">
-                  {" "}
-                  (default)
-                </Text>
+                <Text variant="caption" color="secondary"> (default)</Text>
               )}
             </span>
           </div>
@@ -110,10 +104,7 @@ export function ConfirmationStep({
             <span className={styles.reviewValue}>
               {settings.advanceBookingDays || "30"} days
               {!settings.advanceBookingDays && (
-                <Text variant="caption" color="secondary">
-                  {" "}
-                  (default)
-                </Text>
+                <Text variant="caption" color="secondary"> (default)</Text>
               )}
             </span>
           </div>

@@ -17,7 +17,9 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
         {data.map((row: any) => (
           <tr key={rowKey(row)}>
             {columns.map((col: any) => (
-              <td key={col.key}>{col.render ? col.render(row) : (row[col.key] ?? "")}</td>
+              <td key={col.key}>
+                {col.render ? col.render(row) : (row[col.key] ?? "")}
+              </td>
             ))}
           </tr>
         ))}

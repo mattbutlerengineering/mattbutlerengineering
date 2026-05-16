@@ -364,6 +364,7 @@ const HARDCODED_SCHEMA_LINES: Record<string, string[]> = {
 
 function formatGeneratedSchemas(componentSchemas: Map<string, PropSchema[]>): string {
   const lines: string[] = [
+    "/* eslint-disable */",
     "// AUTO-GENERATED -- do not edit. Run: pnpm --filter @mbe/rialto-catalog generate",
     'import { z } from "zod";',
     "",

@@ -28,13 +28,9 @@ export async function detectRecentReverts(
   hoursBack: number = 24
 ): Promise<RevertCommit[]> {
   try {
-    const { stdout } = await execFileAsync(
-      "git",
-      ["log", `--since=${hoursBack} hours ago`, "--oneline", "--grep=^Revert", "main"],
-      {
-        cwd: repoPath,
-      }
-    );
+    const { stdout } = await execFileAsync("git", ["log", `--since=${hoursBack} hours ago`, "--oneline", "--grep=^Revert", "main"], {
+      cwd: repoPath,
+    });
 
     const commits = stdout
       .trim()
@@ -48,13 +44,9 @@ export async function detectRecentReverts(
 
     const detailed: RevertCommit[] = [];
     for (const commit of commits) {
-      const { stdout: message } = await execFileAsync(
-        "git",
-        ["show", "-s", "--format=%B", commit.sha],
-        {
-          cwd: repoPath,
-        }
-      );
+      const { stdout: message } = await execFileAsync("git", ["show", "-s", "--format=%B", commit.sha], {
+        cwd: repoPath,
+      });
 
       // Extract reverted PR number from message
       const prMatch = message.match(/#(\d+)/);
@@ -131,9 +123,7 @@ export async function getCommitDetails(
  * Formats a revert commit for human-readable output.
  */
 export function formatRevertForIssue(revert: RevertCommit, isAiAuthor: boolean): string {
-  const prInfo = revert.revertedPrNumber
-    ? `PR #${revert.revertedPrNumber}`
-    : revert.revertedSha || "unknown";
+  const prInfo = revert.revertedPrNumber ? `PR #${revert.revertedPrNumber}` : revert.revertedSha || "unknown";
   const authorMark = isAiAuthor ? "🤖 AI-authored" : "👤 Manual";
 
   return `| ${revert.sha.slice(0, 7)} | ${revert.oneline} | ${prInfo} | ${authorMark} | ${new Date(revert.timestamp).toISOString().split("T")[0]} |`;

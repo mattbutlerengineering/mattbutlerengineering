@@ -34,11 +34,15 @@ function DisabledTooltipPlayground() {
       </Card>
       <div className={styles.row}>
         <Checkbox label="Disabled" checked={disabled} onCheckedChange={setDisabled} />
-        <Checkbox label="Show Reason" checked={showReason} onCheckedChange={setShowReason} />
+        <Checkbox
+          label="Show Reason"
+          checked={showReason}
+          onCheckedChange={setShowReason}
+        />
       </div>
       <Text variant="caption" color="secondary">
-        When disabled is true and a reason is provided, hovering reveals the tooltip. When disabled
-        is false, the children render as-is with no wrapper.
+        When disabled is true and a reason is provided, hovering reveals the tooltip. When
+        disabled is false, the children render as-is with no wrapper.
       </Text>
     </Stack>
   );
@@ -68,12 +72,18 @@ export function DisabledTooltipPage() {
                 Delete
               </Button>
             </DisabledTooltip>
-            <DisabledTooltip disabled disabledReason="Session must be paused before exporting">
+            <DisabledTooltip
+              disabled
+              disabledReason="Session must be paused before exporting"
+            >
               <Button variant="secondary" disabled>
                 Export Data
               </Button>
             </DisabledTooltip>
-            <DisabledTooltip disabled disabledReason="Connect a device to enable live telemetry">
+            <DisabledTooltip
+              disabled
+              disabledReason="Connect a device to enable live telemetry"
+            >
               <Button variant="primary" disabled>
                 Start Live
               </Button>
@@ -148,7 +158,8 @@ export function DisabledTooltipPage() {
               name: "disabled",
               type: "boolean",
               default: "false",
-              description: "When true (and disabledReason is set), wraps children with a Tooltip.",
+              description:
+                "When true (and disabledReason is set), wraps children with a Tooltip.",
             },
             {
               name: "disabledReason",
@@ -171,7 +182,8 @@ export function DisabledTooltipPage() {
           items={[
             {
               label: "Pattern",
-              value: "Composes Tooltip — inherits all Tooltip accessibility including role=tooltip",
+              value:
+                "Composes Tooltip — inherits all Tooltip accessibility including role=tooltip",
             },
             {
               label: "Focus",

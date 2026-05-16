@@ -10,25 +10,21 @@ Run size-limit against current changes and report regressions.
 ## Workflow
 
 1. Identify which packages were modified:
-
 ```bash
 git diff --name-only HEAD | grep -E '^(apps|packages)/' | cut -d/ -f1-2 | sort -u
 ```
 
 2. Build affected packages:
-
 ```bash
 pnpm build --filter='...[HEAD]'
 ```
 
 3. Run size check:
-
 ```bash
 pnpm size:check
 ```
 
 4. If size-check fails, run detailed report:
-
 ```bash
 pnpm size
 ```

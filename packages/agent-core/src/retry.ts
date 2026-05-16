@@ -89,7 +89,11 @@ export function isContextWindowExhausted(error: unknown): boolean {
  * Calculate delay with exponential backoff and jitter.
  * Uses full jitter strategy: delay = random(0, min(maxDelay, base * 2^attempt))
  */
-export function calculateDelay(attempt: number, baseDelayMs: number, maxDelayMs: number): number {
+export function calculateDelay(
+  attempt: number,
+  baseDelayMs: number,
+  maxDelayMs: number
+): number {
   const exponentialDelay = baseDelayMs * Math.pow(2, attempt);
   const cappedDelay = Math.min(maxDelayMs, exponentialDelay);
   // Full jitter: random value between 50% and 100% of capped delay
@@ -150,8 +154,8 @@ export class ContextWindowExhaustedError extends Error {
   constructor(originalMessage: string) {
     super(
       `Context window exhausted: ${originalMessage}. ` +
-        "The session has consumed all available context. " +
-        "Consider breaking the task into smaller sub-tasks."
+      "The session has consumed all available context. " +
+      "Consider breaking the task into smaller sub-tasks."
     );
   }
 }

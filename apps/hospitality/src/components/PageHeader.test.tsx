@@ -5,16 +5,13 @@ import { PageHeader } from "./PageHeader.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Text: ({ children, ...props }: any) => (
-    <div
-      data-testid="text"
-      data-as={props.as}
-      data-variant={props.variant}
-      data-color={props.color}
-    >
+    <div data-testid="text" data-as={props.as} data-variant={props.variant} data-color={props.color}>
       {children}
     </div>
   ),
-  Stack: ({ children }: any) => <div data-testid="stack">{children}</div>,
+  Stack: ({ children }: any) => (
+    <div data-testid="stack">{children}</div>
+  ),
 }));
 
 describe("PageHeader", () => {

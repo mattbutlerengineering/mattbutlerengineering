@@ -1,5 +1,5 @@
-import fs from "node:fs";
-import path from "node:path";
+import fs from 'node:fs';
+import path from 'node:path';
 
 /**
  * Detects "instruction rot" in key AI instruction files.
@@ -10,12 +10,12 @@ import path from "node:path";
  */
 
 const FILES_TO_CHECK = [
-  "CLAUDE.md",
-  "AGENTS.md",
-  "GEMINI.md",
-  "llms.txt",
-  "llms-full.txt",
-  ".cursorrules",
+  'CLAUDE.md',
+  'AGENTS.md',
+  'GEMINI.md',
+  'llms.txt',
+  'llms-full.txt',
+  '.cursorrules'
 ];
 
 function checkFiles() {
@@ -24,20 +24,20 @@ function checkFiles() {
 
   for (const file of FILES_TO_CHECK) {
     if (!fs.existsSync(file)) continue;
-    const content = fs.readFileSync(file, "utf-8");
+    const content = fs.readFileSync(file, 'utf-8');
     const fileDir = path.dirname(path.resolve(root, file));
-
+    
     // 1. Detect internal links to non-existent files: [text](link)
     const fileLinks = content.match(/\[.*?\]\((.*?)\)/g) || [];
     for (const linkMatch of fileLinks) {
       const link = linkMatch.match(/\((.*?)\)/)[1];
-
+      
       // Skip external links, anchors, and mailto
-      if (link.startsWith("http") || link.startsWith("#") || link.startsWith("mailto:")) continue;
-
-      const cleanLink = link.split("#")[0];
+      if (link.startsWith('http') || link.startsWith('#') || link.startsWith('mailto:')) continue;
+      
+      const cleanLink = link.split('#')[0];
       if (!cleanLink) continue;
-
+      
       const targetPath = path.resolve(fileDir, cleanLink);
       if (!fs.existsSync(targetPath)) {
         console.error(`[ROT] ${file}: Dead link to ${cleanLink} (resolved to ${targetPath})`);

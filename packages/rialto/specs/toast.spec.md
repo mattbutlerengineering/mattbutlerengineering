@@ -31,27 +31,27 @@ Both `aria-live` regions are always mounted — screen readers only register liv
 
 ## States
 
-| State           | Description                                     | Prop/Trigger                        |
-| --------------- | ----------------------------------------------- | ----------------------------------- |
-| Appearing       | Slides in from inline-end (x: 80 → 0), fades in | `toast()` call                      |
-| Visible         | Resting with countdown bar animating            | After appear                        |
-| Auto-dismissing | Removed after duration (default 4000ms)         | Timer expiry                        |
-| Manual dismiss  | Removed immediately                             | Close button click or `dismiss(id)` |
-| Persistent      | No countdown bar, no auto-dismiss               | `duration: 0`                       |
+| State | Description | Prop/Trigger |
+|-------|-------------|--------------|
+| Appearing | Slides in from inline-end (x: 80 → 0), fades in | `toast()` call |
+| Visible | Resting with countdown bar animating | After appear |
+| Auto-dismissing | Removed after duration (default 4000ms) | Timer expiry |
+| Manual dismiss | Removed immediately | Close button click or `dismiss(id)` |
+| Persistent | No countdown bar, no auto-dismiss | `duration: 0` |
 
 ## Design Tokens Used
 
-| Token                       | Purpose                         |
-| --------------------------- | ------------------------------- |
-| `--rialto-surface-elevated` | Toast background                |
-| `--rialto-border`           | Toast border                    |
-| `--rialto-radius-default`   | Toast border radius             |
-| `--rialto-shadow-lg`        | Toast drop shadow               |
-| `--rialto-text-primary`     | Title text color                |
-| `--rialto-text-secondary`   | Description text color          |
-| `--rialto-success`          | Success variant icon and accent |
-| `--rialto-error`            | Error variant icon and accent   |
-| `--rialto-accent`           | Accent variant icon and bar     |
+| Token | Purpose |
+|-------|---------|
+| `--rialto-surface-elevated` | Toast background |
+| `--rialto-border` | Toast border |
+| `--rialto-radius-default` | Toast border radius |
+| `--rialto-shadow-lg` | Toast drop shadow |
+| `--rialto-text-primary` | Title text color |
+| `--rialto-text-secondary` | Description text color |
+| `--rialto-success` | Success variant icon and accent |
+| `--rialto-error` | Error variant icon and accent |
+| `--rialto-accent` | Accent variant icon and bar |
 
 ## Hook API
 
@@ -74,30 +74,30 @@ dismiss(id: string);
 
 > See `registry.json` for authoritative prop types. ToastProvider takes only `children`.
 
-| Prop       | Type        | Default | Required | Description                                                            |
-| ---------- | ----------- | ------- | -------- | ---------------------------------------------------------------------- |
-| `children` | `ReactNode` | —       | Yes      | App content — ToastProvider must wrap any component using `useToast()` |
+| Prop | Type | Default | Required | Description |
+|------|------|---------|----------|-------------|
+| `children` | `ReactNode` | — | Yes | App content — ToastProvider must wrap any component using `useToast()` |
 
 ### ToastInput shape (passed to `toast()`)
 
-| Field         | Type                                            | Default     | Required | Description                                   |
-| ------------- | ----------------------------------------------- | ----------- | -------- | --------------------------------------------- |
-| `title`       | `string`                                        | —           | Yes      | Notification heading                          |
-| `description` | `string`                                        | `undefined` | No       | Supporting detail text                        |
-| `variant`     | `"default" \| "success" \| "error" \| "accent"` | `"default"` | No       | Visual treatment and aria-live routing        |
-| `duration`    | `number`                                        | `4000`      | No       | Auto-dismiss in ms. `0` = manual dismiss only |
+| Field | Type | Default | Required | Description |
+|-------|------|---------|----------|-------------|
+| `title` | `string` | — | Yes | Notification heading |
+| `description` | `string` | `undefined` | No | Supporting detail text |
+| `variant` | `"default" \| "success" \| "error" \| "accent"` | `"default"` | No | Visual treatment and aria-live routing |
+| `duration` | `number` | `4000` | No | Auto-dismiss in ms. `0` = manual dismiss only |
 
 ## Accessibility
 
-| Attribute                    | Value            | Notes                                     |
-| ---------------------------- | ---------------- | ----------------------------------------- |
-| `role="region"`              | container        | Landmarks the notification area           |
-| `aria-label="Notifications"` | container        | Labels the region                         |
-| `aria-live="polite"`         | polite region    | Non-error toasts — announced at next idle |
-| `aria-live="assertive"`      | assertive region | Error toasts — interrupts immediately     |
-| `aria-atomic="false"`        | polite region    | Individual items announced as they arrive |
-| `aria-atomic="true"`         | assertive region | Full error toast read as a unit           |
-| `aria-label="Dismiss"`       | close button     | Identifies the dismiss action             |
+| Attribute | Value | Notes |
+|-----------|-------|-------|
+| `role="region"` | container | Landmarks the notification area |
+| `aria-label="Notifications"` | container | Labels the region |
+| `aria-live="polite"` | polite region | Non-error toasts — announced at next idle |
+| `aria-live="assertive"` | assertive region | Error toasts — interrupts immediately |
+| `aria-atomic="false"` | polite region | Individual items announced as they arrive |
+| `aria-atomic="true"` | assertive region | Full error toast read as a unit |
+| `aria-label="Dismiss"` | close button | Identifies the dismiss action |
 
 **Keyboard:** Close button is reachable via `Tab`. `Enter`/`Space` dismisses.
 **Screen reader:** Non-error toasts are announced politely (at next pause in speech). Error toasts use the assertive region and interrupt immediately. Both regions are mounted at page load — dynamically-added regions would miss the first announcement.
@@ -110,7 +110,7 @@ dismiss(id: string);
   <ToastProvider>
     <App />
   </ToastProvider>
-</RialtoProvider>;
+</RialtoProvider>
 
 // 2. Use the hook in any component
 function SaveButton() {
@@ -129,17 +129,9 @@ function SaveButton() {
     }
   };
 
-  return (
-    <Button variant="primary" onClick={handleSave}>
-      Save
-    </Button>
-  );
+  return <Button variant="primary" onClick={handleSave}>Save</Button>;
 }
 
 // Persistent toast (manual dismiss only)
-toast({
-  title: "Export in progress",
-  description: "We'll notify you when it's ready.",
-  duration: 0,
-});
+toast({ title: "Export in progress", description: "We'll notify you when it's ready.", duration: 0 });
 ```

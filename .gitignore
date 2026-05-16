@@ -41,7 +41,6 @@ coverage/
 .worktrees/
 .agent-worktrees/
 .claude/worktrees/
-.claire/worktrees/
 
 # GSD planning artifacts (internal project-management state, not for consumers)
 .planning/

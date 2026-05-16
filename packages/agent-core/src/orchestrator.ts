@@ -7,7 +7,11 @@
  * coordinates child sessions, but never edits code directly.
  */
 
-import { query, tool, createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
+import {
+  query,
+  tool,
+  createSdkMcpServer,
+} from "@anthropic-ai/claude-agent-sdk";
 import type { SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import type { OrchestratorConfig, OrchestratorResult } from "./task-decomposer.js";
@@ -70,18 +74,10 @@ function createSessionTools(config: OrchestratorConfig) {
     "create_session",
     "Create a new coding agent session for a sub-task. Returns the session ID and initial status.",
     {
-      taskDescription: z
-        .string()
-        .describe("Clear, self-contained description of what the agent should do"),
+      taskDescription: z.string().describe("Clear, self-contained description of what the agent should do"),
       model: z.string().optional().describe("Model to use (defaults to configured session model)"),
-      maxBudgetUsd: z
-        .number()
-        .optional()
-        .describe("Budget cap in USD (defaults to configured limit)"),
-      maxTurns: z
-        .number()
-        .optional()
-        .describe("Max conversation turns (defaults to configured limit)"),
+      maxBudgetUsd: z.number().optional().describe("Budget cap in USD (defaults to configured limit)"),
+      maxTurns: z.number().optional().describe("Max conversation turns (defaults to configured limit)"),
       baseBranch: z.string().optional().describe("Base branch (defaults to configured branch)"),
     },
     async (args) => {
@@ -385,10 +381,15 @@ export async function runOrchestrator(
     }
 
     const durationMs = Date.now() - startTime;
-    const status = allSucceeded ? "succeeded" : anySucceeded ? "partially_succeeded" : "failed";
+    const status = allSucceeded
+      ? "succeeded"
+      : anySucceeded
+        ? "partially_succeeded"
+        : "failed";
 
-    const summary =
-      resultMessage?.subtype === "success" ? resultMessage.result : "Orchestration completed";
+    const summary = resultMessage?.subtype === "success"
+      ? resultMessage.result
+      : "Orchestration completed";
 
     emit("orchestrator:complete", `Orchestration ${status} in ${Math.round(durationMs / 1000)}s`);
 

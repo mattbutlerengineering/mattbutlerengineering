@@ -74,9 +74,7 @@
   );
   border: 1px solid var(--rialto-border-strong);
   border-radius: calc(var(--mo-cover-radius) + var(--mo-cover-inset));
-  box-shadow:
-    var(--rialto-shadow-md),
-    inset 0 1px 0 var(--rialto-surface-elevated);
+  box-shadow: var(--rialto-shadow-md), inset 0 1px 0 var(--rialto-surface-elevated);
 
   perspective: 800px;
 }
@@ -93,11 +91,12 @@
   justify-content: center;
   gap: var(--rialto-space-xs);
 
-  background: repeating-linear-gradient(
-    45deg,
-    var(--mo-stripe) 0 10px,
-    color-mix(in srgb, var(--mo-stripe) 40%, var(--rialto-surface-recessed)) 10px 20px
-  );
+  background:
+    repeating-linear-gradient(
+      45deg,
+      var(--mo-stripe) 0 10px,
+      color-mix(in srgb, var(--mo-stripe) 40%, var(--rialto-surface-recessed)) 10px 20px
+    );
   border: 1px solid var(--rialto-border-strong);
   border-radius: var(--mo-cover-radius);
   box-shadow:
@@ -116,16 +115,12 @@
 }
 
 .cover:hover:not(:disabled) {
-  box-shadow:
-    var(--rialto-shadow-md),
-    inset 0 1px 0 rgb(255 255 255 / 0.12);
+  box-shadow: var(--rialto-shadow-md), inset 0 1px 0 rgb(255 255 255 / 0.12);
 }
 
 .cover:focus-visible {
   outline: none;
-  box-shadow:
-    var(--rialto-shadow-focus),
-    inset 0 1px 0 rgb(255 255 255 / 0.08);
+  box-shadow: var(--rialto-shadow-focus), inset 0 1px 0 rgb(255 255 255 / 0.08);
 }
 
 .cover:disabled {
@@ -138,13 +133,14 @@
   inset: 0;
   pointer-events: none;
   border-radius: inherit;
-  background: linear-gradient(
-    180deg,
-    rgb(0 0 0 / 0.08) 0%,
-    transparent 20%,
-    transparent 80%,
-    rgb(0 0 0 / 0.15) 100%
-  );
+  background:
+    linear-gradient(
+      180deg,
+      rgb(0 0 0 / 0.08) 0%,
+      transparent 20%,
+      transparent 80%,
+      rgb(0 0 0 / 0.15) 100%
+    );
 }
 
 .coverText {
@@ -179,11 +175,12 @@
      [label + track + label] column fits the sm bezel too. */
   padding: var(--rialto-space-sm) var(--rialto-space-md);
 
-  background: radial-gradient(
-    circle at 50% 0%,
-    var(--rialto-surface-elevated) 0%,
-    var(--rialto-surface-recessed) 80%
-  );
+  background:
+    radial-gradient(
+      circle at 50% 0%,
+      var(--rialto-surface-elevated) 0%,
+      var(--rialto-surface-recessed) 80%
+    );
   border: 1px solid var(--rialto-border);
   border-radius: var(--mo-cover-radius);
   box-shadow: inset 0 2px 6px rgb(0 0 0 / 0.3);
@@ -198,9 +195,7 @@
 
 .switchBody:focus-visible {
   outline: none;
-  box-shadow:
-    var(--rialto-shadow-focus),
-    inset 0 2px 6px rgb(0 0 0 / 0.3);
+  box-shadow: var(--rialto-shadow-focus), inset 0 2px 6px rgb(0 0 0 / 0.3);
 }
 
 /* When switch is engaged, add a gold glow inside the housing */
@@ -217,11 +212,12 @@
   width: 2.25rem;
   height: 4.5rem;
   border-radius: var(--rialto-radius-default);
-  background: linear-gradient(
-    180deg,
-    var(--rialto-surface-recessed) 0%,
-    color-mix(in srgb, var(--rialto-surface-recessed) 80%, #000) 100%
-  );
+  background:
+    linear-gradient(
+      180deg,
+      var(--rialto-surface-recessed) 0%,
+      color-mix(in srgb, var(--rialto-surface-recessed) 80%, #000) 100%
+    );
   border: 1px solid var(--rialto-border-strong);
   box-shadow: inset 0 2px 4px rgb(0 0 0 / 0.4);
 
@@ -235,12 +231,13 @@
   width: 1.5rem;
   height: 1.75rem;
   border-radius: var(--rialto-radius-default);
-  background: linear-gradient(
-    180deg,
-    var(--rialto-surface-elevated) 0%,
-    var(--rialto-surface) 50%,
-    var(--rialto-surface-recessed) 100%
-  );
+  background:
+    linear-gradient(
+      180deg,
+      var(--rialto-surface-elevated) 0%,
+      var(--rialto-surface) 50%,
+      var(--rialto-surface-recessed) 100%
+    );
   border: 1px solid var(--rialto-border-strong);
   box-shadow:
     0 2px 4px rgb(0 0 0 / 0.4),
@@ -248,7 +245,12 @@
 }
 
 .engaged .switchLever {
-  background: linear-gradient(180deg, var(--rialto-accent-hover) 0%, var(--rialto-accent) 100%);
+  background:
+    linear-gradient(
+      180deg,
+      var(--rialto-accent-hover) 0%,
+      var(--rialto-accent) 100%
+    );
   box-shadow:
     0 2px 4px rgb(0 0 0 / 0.4),
     inset 0 1px 0 rgb(255 255 255 / 0.2),
@@ -348,14 +350,11 @@
 
   /* The "Control Panel" bezel — heavier than individual bezels, 
      reads as a shared baseplate. */
-  background: linear-gradient(
-    180deg,
-    var(--rialto-surface-recessed) 0%,
-    var(--rialto-surface-matte) 100%
-  );
+  background: 
+    linear-gradient(180deg, var(--rialto-surface-recessed) 0%, var(--rialto-surface-matte) 100%);
   border: 1px solid var(--rialto-border-strong);
   border-radius: var(--rialto-radius-lg);
-  box-shadow:
+  box-shadow: 
     var(--rialto-shadow-md),
     inset 0 1px 0 rgb(255 255 255 / 0.08);
 }
@@ -378,13 +377,14 @@
 
   /* Power rail aesthetic — a horizontal "groove" that 
      switches appear to be mounted onto. */
-  background: linear-gradient(
-    180deg,
-    transparent 45%,
-    var(--rialto-border) 45%,
-    var(--rialto-border) 55%,
-    transparent 55%
-  );
+  background: 
+    linear-gradient(
+      180deg,
+      transparent 45%,
+      var(--rialto-border) 45%,
+      var(--rialto-border) 55%,
+      transparent 55%
+    );
   padding: var(--rialto-space-sm);
   border-radius: var(--rialto-radius-default);
   background-color: var(--rialto-surface-recessed);

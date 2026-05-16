@@ -1,16 +1,10 @@
 import type { ReactNode } from "react";
+import { Badge, Card, EmptyState, Skeleton, SkeletonGroup, Stack, Stat, Table, Text } from "@mattbutlerengineering/rialto";
 import {
-  Badge,
-  Card,
-  EmptyState,
-  Skeleton,
-  SkeletonGroup,
-  Stack,
-  Stat,
-  Table,
-  Text,
-} from "@mattbutlerengineering/rialto";
-import { CompositionNote, ExamplePageLayout, StatePanel } from "./ExamplePageLayout";
+  CompositionNote,
+  ExamplePageLayout,
+  StatePanel,
+} from "./ExamplePageLayout";
 import styles from "./DashboardExamplePage.module.css";
 
 // Keep in sync with component below
@@ -189,7 +183,9 @@ const COLUMNS = [
   {
     key: "status",
     header: "Status",
-    render: (row: Reservation) => <Badge variant={STATUS_VARIANT[row.status]}>{row.status}</Badge>,
+    render: (row: Reservation) => (
+      <Badge variant={STATUS_VARIANT[row.status]}>{row.status}</Badge>
+    ),
   },
 ];
 
@@ -198,17 +194,20 @@ const COLUMNS = [
 const COMPOSITION_NOTES: ReactNode = (
   <>
     <CompositionNote>
-      Stat cards in a CSS grid provide at-a-glance KPI visibility. The grid auto-fits to available
-      width so the layout adapts from 1- to 4-column without breakpoint overrides.
+      Stat cards in a CSS grid provide at-a-glance KPI visibility. The grid
+      auto-fits to available width so the layout adapts from 1- to 4-column
+      without breakpoint overrides.
     </CompositionNote>
     <CompositionNote>
-      Badge inside Table cells provides scannable status at a glance — the color variant
-      communicates meaning without requiring users to parse text. Map each status string to a
-      semantic variant (success, warning, error, neutral) at definition time, not at render time.
+      Badge inside Table cells provides scannable status at a glance — the
+      color variant communicates meaning without requiring users to parse text.
+      Map each status string to a semantic variant (success, warning, error,
+      neutral) at definition time, not at render time.
     </CompositionNote>
     <CompositionNote>
-      Card wraps each table state panel to create visual grouping. All three states (empty, loading,
-      populated) render simultaneously so reviewers can compare layouts without toggling state.
+      Card wraps each table state panel to create visual grouping. All three
+      states (empty, loading, populated) render simultaneously so reviewers can
+      compare layouts without toggling state.
     </CompositionNote>
   </>
 );

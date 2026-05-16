@@ -44,7 +44,7 @@ jobs:
           else
             STATE="closed"
           fi
-
+          
           echo "Circuit state: $STATE"
           if [ "$STATE" = "open" ]; then
             echo "blocked=true" >> "$GITHUB_OUTPUT"

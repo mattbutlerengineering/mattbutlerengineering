@@ -15,7 +15,9 @@ export class UsersClient {
    * List all users with pagination
    */
   async list(page = 1, limit = 10): Promise<PaginatedResponse<User>> {
-    return this.client.get<PaginatedResponse<User>>(`/api/v1/users?page=${page}&limit=${limit}`);
+    return this.client.get<PaginatedResponse<User>>(
+      `/api/v1/users?page=${page}&limit=${limit}`
+    );
   }
 
   /**
@@ -46,7 +48,10 @@ export class UsersClient {
    * Update a user
    */
   async update(id: string, data: UpdateUserRequest): Promise<User> {
-    const response = await this.client.patch<ApiResponse<User>>(`/api/v1/users/${id}`, data);
+    const response = await this.client.patch<ApiResponse<User>>(
+      `/api/v1/users/${id}`,
+      data
+    );
     return response.data;
   }
 

@@ -1,16 +1,16 @@
-import type { Meta, StoryObj } from "@storybook/react-vite";
-import { InputGroup } from "./InputGroup";
-import { Input } from "../Input/Input";
-import { Button } from "../Button/Button";
-import { Select } from "../Select/Select";
+import type { Meta, StoryObj } from '@storybook/react-vite';
+import { InputGroup } from './InputGroup';
+import { Input } from '../Input/Input';
+import { Button } from '../Button/Button';
+import { Select } from '../Select/Select';
 
 const meta: Meta<typeof InputGroup> = {
-  title: "Forms/InputGroup",
+  title: 'Forms/InputGroup',
   component: InputGroup,
   parameters: {
-    layout: "centered",
+    layout: 'centered',
   },
-  tags: ["autodocs"],
+  tags: ['autodocs'],
 };
 
 export default meta;
@@ -18,7 +18,7 @@ type Story = StoryObj<typeof InputGroup>;
 
 export const InputWithButton: Story = {
   render: () => (
-    <InputGroup style={{ width: "360px" }}>
+    <InputGroup style={{ width: '360px' }}>
       <Input placeholder="Search…" style={{ flex: 1 }} />
       <Button variant="primary">Search</Button>
     </InputGroup>
@@ -27,14 +27,14 @@ export const InputWithButton: Story = {
 
 export const SelectWithInput: Story = {
   render: () => (
-    <InputGroup style={{ width: "360px" }}>
+    <InputGroup style={{ width: '360px' }}>
       <Select
         options={[
-          { value: "https", label: "https://" },
-          { value: "http", label: "http://" },
+          { value: 'https', label: 'https://' },
+          { value: 'http', label: 'http://' },
         ]}
         value="https"
-        style={{ width: "120px" }}
+        style={{ width: '120px' }}
       />
       <Input placeholder="example.com" style={{ flex: 1 }} />
     </InputGroup>
@@ -43,7 +43,7 @@ export const SelectWithInput: Story = {
 
 export const InputRange: Story = {
   render: () => (
-    <InputGroup style={{ width: "320px" }}>
+    <InputGroup style={{ width: '320px' }}>
       <Input placeholder="Min" style={{ flex: 1 }} type="number" />
       <Input placeholder="Max" style={{ flex: 1 }} type="number" />
     </InputGroup>
@@ -52,7 +52,7 @@ export const InputRange: Story = {
 
 export const InputWithGhostButton: Story = {
   render: () => (
-    <InputGroup style={{ width: "360px" }}>
+    <InputGroup style={{ width: '360px' }}>
       <Input placeholder="Enter coupon code" style={{ flex: 1 }} />
       <Button variant="ghost">Apply</Button>
     </InputGroup>

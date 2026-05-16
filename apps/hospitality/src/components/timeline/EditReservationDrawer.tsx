@@ -72,7 +72,12 @@ export function EditReservationDrawer({
   };
 
   return (
-    <Drawer open={true} onClose={onClose} title="Edit Reservation" size="default">
+    <Drawer
+      open={true}
+      onClose={onClose}
+      title="Edit Reservation"
+      size="default"
+    >
       <Stack gap="lg" style={{ padding: "var(--rialto-space-md)" }}>
         {error && <div className={styles.errorBanner}>{error}</div>}
 
@@ -122,9 +127,9 @@ export function EditReservationDrawer({
             onChange={(e) => setNotes(e.target.value)}
             disabled={isLoading}
           />
-        </Stack>
+          </Stack>
 
-        <div className={styles.drawerActions}>
+          <div className={styles.drawerActions}>
           <Button
             variant="secondary"
             onClick={onClose}
@@ -142,8 +147,8 @@ export function EditReservationDrawer({
           >
             Save Changes
           </Button>
-        </div>
-      </Stack>
-    </Drawer>
-  );
+          </div>
+        </Stack>
+      </Drawer>
+    );
 }

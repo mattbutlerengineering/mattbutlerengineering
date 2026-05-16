@@ -33,14 +33,7 @@ describe("stats commands", () => {
   describe("stats", () => {
     it("displays aggregated statistics", async () => {
       const mockLines = [
-        JSON.stringify({
-          sessionId: "s1",
-          researchTurns: 2,
-          executionTurns: 3,
-          firstPassSuccess: true,
-          humanInterventions: 0,
-          costUsd: 0.1,
-        }),
+        JSON.stringify({ sessionId: "s1", researchTurns: 2, executionTurns: 3, firstPassSuccess: true, humanInterventions: 0, costUsd: 0.1 }),
       ].join("\n");
 
       mockExistsSync.mockReturnValue(true);

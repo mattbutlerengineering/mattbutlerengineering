@@ -108,7 +108,9 @@ describe("agent run --adapter", () => {
 
     expect(runCmd).toBeDefined();
 
-    const adapterOpt = runCmd!.options.find((opt) => opt.long === "--adapter");
+    const adapterOpt = runCmd!.options.find(
+      (opt) => opt.long === "--adapter"
+    );
     expect(adapterOpt).toBeDefined();
     expect(adapterOpt!.defaultValue).toBe("claude");
     expect(adapterOpt!.description).toContain("auto");
@@ -162,16 +164,9 @@ describe("agent run --adapter", () => {
     mockRemoveWorktree.mockResolvedValueOnce(undefined);
 
     const program = await buildProgram();
-    await program.parseAsync([
-      "node",
-      "mbe",
-      "agent",
-      "run",
-      "add feature",
-      "--adapter",
-      "auto",
-      "--no-pr",
-    ]);
+    await program.parseAsync(
+      ["node", "mbe", "agent", "run", "add feature", "--adapter", "auto", "--no-pr"],
+    );
 
     const { FailoverRouter, ClaudeAdapter, GeminiCliAdapter, OpenCodeAdapter } =
       await import("@mbe/agent-core");
@@ -202,16 +197,9 @@ describe("agent run --adapter", () => {
     mockRemoveWorktree.mockResolvedValueOnce(undefined);
 
     const program = await buildProgram();
-    await program.parseAsync([
-      "node",
-      "mbe",
-      "agent",
-      "run",
-      "refactor code",
-      "--adapter",
-      "gemini",
-      "--no-pr",
-    ]);
+    await program.parseAsync(
+      ["node", "mbe", "agent", "run", "refactor code", "--adapter", "gemini", "--no-pr"],
+    );
 
     expect(mockCreateWorktree).toHaveBeenCalledTimes(1);
     expect(mockGeminiRun).toHaveBeenCalledTimes(1);
@@ -236,16 +224,9 @@ describe("agent run --adapter", () => {
     mockRemoveWorktree.mockResolvedValueOnce(undefined);
 
     const program = await buildProgram();
-    await program.parseAsync([
-      "node",
-      "mbe",
-      "agent",
-      "run",
-      "update docs",
-      "--adapter",
-      "opencode",
-      "--no-pr",
-    ]);
+    await program.parseAsync(
+      ["node", "mbe", "agent", "run", "update docs", "--adapter", "opencode", "--no-pr"],
+    );
 
     expect(mockCreateWorktree).toHaveBeenCalledTimes(1);
     expect(mockOpenCodeRun).toHaveBeenCalledTimes(1);

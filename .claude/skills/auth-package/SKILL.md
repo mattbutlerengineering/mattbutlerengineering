@@ -15,12 +15,12 @@ This skill provides patterns for using the `@mbe/auth` package, a portable OIDC-
 
 ### Module Entry Points
 
-| Import              | Purpose                               |
-| ------------------- | ------------------------------------- |
-| `@mbe/auth`         | All exports (React + Fastify + types) |
-| `@mbe/auth/react`   | React hooks and AuthProvider only     |
-| `@mbe/auth/fastify` | Fastify plugin only                   |
-| `@mbe/auth/types`   | Type definitions only                 |
+| Import | Purpose |
+|--------|---------|
+| `@mbe/auth` | All exports (React + Fastify + types) |
+| `@mbe/auth/react` | React hooks and AuthProvider only |
+| `@mbe/auth/fastify` | Fastify plugin only |
+| `@mbe/auth/types` | Type definitions only |
 
 ## React Authentication
 
@@ -144,7 +144,7 @@ const authOptions = getAuthPluginOptionsFromEnv();
 
 await app.register(authPlugin, {
   ...authOptions,
-  excludePaths: ["/health", "/docs"], // Skip auth for these
+  excludePaths: ["/health", "/docs"],  // Skip auth for these
 });
 
 // All routes now have request.user populated (if valid JWT)
@@ -192,12 +192,12 @@ After auth validation, `request.user` contains:
 
 ```typescript
 interface AuthUser {
-  id: string; // User ID (from JWT sub claim)
+  id: string;           // User ID (from JWT sub claim)
   email?: string;
   name?: string;
   picture?: string;
   emailVerified?: boolean;
-  raw: JWTPayload; // Full decoded token
+  raw: JWTPayload;      // Full decoded token
 }
 
 // Usage in route handler
@@ -207,7 +207,7 @@ async (request, reply) => {
     return reply.code(401).send({ error: "Unauthorized" });
   }
   // Use user.id, user.email, etc.
-};
+}
 ```
 
 ## Type Definitions
@@ -216,12 +216,12 @@ async (request, reply) => {
 
 ```typescript
 interface OIDCConfig {
-  authority: string; // OIDC provider URL
-  clientId: string; // OAuth client ID
-  redirectUri: string; // Post-login redirect
+  authority: string;              // OIDC provider URL
+  clientId: string;               // OAuth client ID
+  redirectUri: string;            // Post-login redirect
   postLogoutRedirectUri?: string; // Post-logout redirect
-  scope?: string; // Default: "openid profile email"
-  audience?: string; // API audience
+  scope?: string;                 // Default: "openid profile email"
+  audience?: string;              // API audience
 }
 ```
 
@@ -229,16 +229,16 @@ interface OIDCConfig {
 
 ```typescript
 interface JWTPayload {
-  sub: string; // Subject (user ID)
-  iss: string; // Issuer
-  aud: string | string[]; // Audience
-  exp: number; // Expiration timestamp
-  iat: number; // Issued at timestamp
+  sub: string;              // Subject (user ID)
+  iss: string;              // Issuer
+  aud: string | string[];   // Audience
+  exp: number;              // Expiration timestamp
+  iat: number;              // Issued at timestamp
   email?: string;
   email_verified?: boolean;
   name?: string;
   picture?: string;
-  [key: string]: unknown; // Custom claims
+  [key: string]: unknown;   // Custom claims
 }
 ```
 
@@ -294,7 +294,9 @@ function useApiClient() {
   return {
     get: async (path: string) => {
       const res = await fetch(`/api${path}`, {
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+        headers: accessToken
+          ? { Authorization: `Bearer ${accessToken}` }
+          : {},
       });
       return res.json();
     },
@@ -452,7 +454,6 @@ pnpm test:e2e  # Requires E2E_AUTH* env vars
 ## Quick Checklist
 
 ### Adding Auth to React App
-
 1. [ ] Wrap app with `AuthProvider`
 2. [ ] Configure OIDC settings from env vars
 3. [ ] Use `useAuth()` for auth state
@@ -460,7 +461,6 @@ pnpm test:e2e  # Requires E2E_AUTH* env vars
 5. [ ] Use `useAccessToken()` for API calls
 
 ### Adding Auth to Fastify Route
-
 1. [ ] Register `authPlugin` or use inline JWT verification
 2. [ ] Add `preHandler: requireAuth` for protected routes
 3. [ ] Add `security: [{ bearerAuth: [] }]` to schema

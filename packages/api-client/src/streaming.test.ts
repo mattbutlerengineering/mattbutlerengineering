@@ -57,7 +57,10 @@ describe("streamNDJSON integration", () => {
   it("handles chunked data split across boundaries", async () => {
     // Simulate a JSON object split across two chunks
     mockFetch.mockResolvedValueOnce(
-      createMockResponse(['{"type":"star', 't","id":1}\n{"type":"end"}\n'])
+      createMockResponse([
+        '{"type":"star',
+        't","id":1}\n{"type":"end"}\n',
+      ])
     );
 
     const results: unknown[] = [];
@@ -71,7 +74,11 @@ describe("streamNDJSON integration", () => {
   });
 
   it("skips empty lines", async () => {
-    mockFetch.mockResolvedValueOnce(createMockResponse(['{"type":"a"}\n\n\n{"type":"b"}\n']));
+    mockFetch.mockResolvedValueOnce(
+      createMockResponse([
+        '{"type":"a"}\n\n\n{"type":"b"}\n',
+      ])
+    );
 
     const results: unknown[] = [];
     for await (const obj of streamNDJSON({ url: "/test", body: {} })) {
@@ -82,7 +89,9 @@ describe("streamNDJSON integration", () => {
   });
 
   it("throws on non-OK response", async () => {
-    mockFetch.mockResolvedValueOnce(createMockResponse([], 500));
+    mockFetch.mockResolvedValueOnce(
+      createMockResponse([], 500)
+    );
 
     const results: unknown[] = [];
     await expect(async () => {

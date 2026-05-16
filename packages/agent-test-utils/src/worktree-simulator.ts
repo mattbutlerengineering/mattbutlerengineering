@@ -214,7 +214,8 @@ export function createWorktreeMocks(
     hasChanges: (...args: unknown[]) => simulator.hasChanges(args[0] as string),
     commitChanges: (...args: unknown[]) =>
       simulator.commitChanges(args[0] as string, args[1] as string | undefined),
-    pushBranch: (...args: unknown[]) => simulator.pushBranch(args[0] as string, args[1] as string),
+    pushBranch: (...args: unknown[]) =>
+      simulator.pushBranch(args[0] as string, args[1] as string),
     runVerification: (...args: unknown[]) => simulator.runVerification(args[0] as string),
   };
 }
@@ -224,17 +225,15 @@ export function createWorktreeMocks(
 /**
  * Asserts that a specific worktree operation was called at least once.
  */
-export function assertOperationCalled(simulator: WorktreeSimulator, operation: string): void {
+export function assertOperationCalled(
+  simulator: WorktreeSimulator,
+  operation: string
+): void {
   const found = simulator.calls().some((c) => c.operation === operation);
   if (!found) {
     throw new Error(
       `Expected worktree operation "${operation}" to have been called, but it was not.\n` +
-        `Actual calls: ${
-          simulator
-            .calls()
-            .map((c) => c.operation)
-            .join(", ") || "(none)"
-        }`
+      `Actual calls: ${simulator.calls().map((c) => c.operation).join(", ") || "(none)"}`
     );
   }
 }
@@ -242,7 +241,10 @@ export function assertOperationCalled(simulator: WorktreeSimulator, operation: s
 /**
  * Asserts that a specific worktree operation was NOT called.
  */
-export function assertOperationNotCalled(simulator: WorktreeSimulator, operation: string): void {
+export function assertOperationNotCalled(
+  simulator: WorktreeSimulator,
+  operation: string
+): void {
   const found = simulator.calls().some((c) => c.operation === operation);
   if (found) {
     throw new Error(

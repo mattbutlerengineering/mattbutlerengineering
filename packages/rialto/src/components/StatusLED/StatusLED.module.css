@@ -3,7 +3,7 @@
   border-radius: var(--rialto-radius-round);
   background: var(--rialto-surface-matte);
   flex-shrink: 0;
-
+  
   /* Precision housing: 
      - 0 0 0 2px var(--rialto-surface) is the "ring" separating it from the background
      - inset 0 0 1px rgb(0 0 0 / 0.35) is the depth of the recessed hole
@@ -13,32 +13,17 @@
     0 0 0 2px var(--rialto-surface),
     inset 0 0 1px rgb(0 0 0 / 0.35),
     0 0 6px currentColor;
-
+  
   transition: all var(--rialto-duration-fast) var(--rialto-ease-precision);
   color: transparent; /* Default: no glow */
 }
 
 /* ── Sizes ───────────────────────────────────── */
-.xs {
-  width: 6px;
-  height: 6px;
-}
-.sm {
-  width: 8px;
-  height: 8px;
-}
-.md {
-  width: 10px;
-  height: 10px;
-}
-.lg {
-  width: 12px;
-  height: 12px;
-}
-.xl {
-  width: 14px;
-  height: 14px;
-}
+.xs { width: 6px; height: 6px; }
+.sm { width: 8px; height: 8px; }
+.md { width: 10px; height: 10px; }
+.lg { width: 12px; height: 12px; }
+.xl { width: 14px; height: 14px; }
 
 /* ── Variants ────────────────────────────────── */
 .success {
@@ -69,7 +54,7 @@
 .off {
   background: var(--rialto-surface-matte);
   color: transparent;
-  box-shadow:
+  box-shadow: 
     0 0 0 2px var(--rialto-surface),
     inset 0 0 2px rgb(0 0 0 / 0.4);
 }
@@ -82,17 +67,16 @@
 }
 
 @keyframes rialto-led-breathe {
-  0%,
-  100% {
+  0%, 100% { 
     box-shadow:
       0 0 0 2px var(--rialto-surface),
       inset 0 0 1px rgb(0 0 0 / 0.35),
-      0 0 6px currentColor;
+      0 0 6px currentColor; 
   }
-  50% {
+  50% { 
     box-shadow:
       0 0 0 2px var(--rialto-surface),
       inset 0 0 1px rgb(0 0 0 / 0.35),
-      0 0 10px currentColor;
+      0 0 10px currentColor; 
   }
 }

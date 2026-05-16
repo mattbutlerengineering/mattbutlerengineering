@@ -93,7 +93,9 @@ describe("tableService", () => {
 
       await tableService.list(1, 10, false);
 
-      expect(prisma.table.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));
+      expect(prisma.table.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: {} })
+      );
     });
   });
 
@@ -182,9 +184,7 @@ describe("tableService", () => {
     });
 
     it("re-throws non-P2025 errors", async () => {
-      vi.mocked(prisma.table.update).mockRejectedValueOnce(
-        new Error("DB connection lost") as never
-      );
+      vi.mocked(prisma.table.update).mockRejectedValueOnce(new Error("DB connection lost") as never);
 
       await expect(tableService.update("table-1", { name: "X" })).rejects.toThrow(
         "DB connection lost"
@@ -252,9 +252,7 @@ describe("tableService", () => {
       const statuses = ["AVAILABLE", "OCCUPIED", "DIRTY", "READY"] as const;
 
       for (const s of statuses) {
-        vi.mocked(prisma.table.update).mockResolvedValueOnce(
-          makePrismaTable({ status: s }) as never
-        );
+        vi.mocked(prisma.table.update).mockResolvedValueOnce(makePrismaTable({ status: s }) as never);
         const result = await tableService.updateStatus("table-1", s);
         expect(result).not.toBeNull();
       }

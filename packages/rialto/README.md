@@ -1,7 +1,6 @@
 # Rialto
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](../../LICENSE)
-
 <!-- acmm:begin -->![ACMM Level 6](https://img.shields.io/badge/ACMM-Level%206-d4a030?style=flat-square)<!-- acmm:end -->
 
 React component library and design system. Inspired by precision industrial design with warm material surfaces, surgical color, and tactile interactions.

@@ -23,7 +23,10 @@ import { mcpCommand } from "./commands/mcp.js";
 
 const program = new Command();
 
-program.name("mbe").description("Matt Butler Engineering CLI").version("0.0.0");
+program
+  .name("mbe")
+  .description("Matt Butler Engineering CLI")
+  .version("0.0.0");
 
 // Auth commands
 program.addCommand(loginCommand);

@@ -5,7 +5,6 @@ allowed-tools:
   - Bash
   - Read
 ---
-
 <objective>
 Scan `~/gsd-workspaces/` for workspace directories containing `WORKSPACE.md` manifests. Display a summary table with name, path, repo count, strategy, and GSD project status.
 </objective>

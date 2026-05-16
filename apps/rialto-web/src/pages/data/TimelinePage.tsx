@@ -174,10 +174,7 @@ export function TimelinePage() {
             { label: "Element", value: "<ol> list with <li> items" },
             { label: "Status", value: "aria-label on each node describes the status" },
             { label: "Timestamps", value: "Wrapped in <time> element" },
-            {
-              label: "Reading order",
-              value: "Linear top-to-bottom DOM order matches visual order",
-            },
+            { label: "Reading order", value: "Linear top-to-bottom DOM order matches visual order" },
             {
               label: "Screen reader",
               value:

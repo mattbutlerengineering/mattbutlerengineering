@@ -10,11 +10,11 @@ Agent-authored PRs are particularly susceptible because the model optimizes for 
 
 Rialto already has strong per-component a11y coverage:
 
-| Layer                        | What it checks                                                            | Location                                                                         |
-| ---------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| axe-core per-component tests | ARIA violations, role misuse, keyboard traps, heading order               | `packages/rialto/src/test/accessibility/*.accessibility.test.tsx` (7 test files) |
-| Token contrast tests         | WCAG AA contrast ratios for text-on-surface and UI-on-surface token pairs | `packages/rialto/src/test/token-contrast.test.ts`                                |
-| Component authoring rules    | Focus management, semantic headings, reduced motion                       | `packages/rialto/CLAUDE.md`                                                      |
+| Layer | What it checks | Location |
+|-------|---------------|----------|
+| axe-core per-component tests | ARIA violations, role misuse, keyboard traps, heading order | `packages/rialto/src/test/accessibility/*.accessibility.test.tsx` (7 test files) |
+| Token contrast tests | WCAG AA contrast ratios for text-on-surface and UI-on-surface token pairs | `packages/rialto/src/test/token-contrast.test.ts` |
+| Component authoring rules | Focus management, semantic headings, reduced motion | `packages/rialto/CLAUDE.md` |
 
 These tests run on every PR and catch most regressions regardless of author.
 
@@ -44,7 +44,6 @@ Add a CI step that detects agent-authored branches (prefix `agent-*` or `worktre
 ### Violation attribution
 
 When a11y tests fail on an agent branch, the CI output should include:
-
 - Which component(s) failed
 - The specific axe rule ID violated
 - The branch name and PR author for attribution tracking
@@ -52,7 +51,6 @@ When a11y tests fail on an agent branch, the CI output should include:
 ### Trending dashboard integration
 
 Feed a11y test results into the existing quality dashboard (`web/public/analytics.js`) with a new dimension:
-
 - Total a11y violations per PR, segmented by author type
 - Week-over-week trend of agent-introduced violations
 - Most common violation categories from agent PRs
@@ -66,13 +64,13 @@ Feed a11y test results into the existing quality dashboard (`web/public/analytic
 
 ## Metrics
 
-| Metric                    | Description                                       | Target     |
-| ------------------------- | ------------------------------------------------- | ---------- |
-| Agent a11y violation rate | % of agent PRs with a11y test failures            | < 5%       |
-| Human a11y violation rate | % of human PRs with a11y test failures (baseline) | Measured   |
-| Agent vs. human ratio     | Relative violation rate                           | < 1.5x     |
-| Top violation categories  | Most common axe rule IDs from agent PRs           | Tracked    |
-| Trend slope               | Week-over-week change in agent violation count    | Decreasing |
+| Metric | Description | Target |
+|--------|-------------|--------|
+| Agent a11y violation rate | % of agent PRs with a11y test failures | < 5% |
+| Human a11y violation rate | % of human PRs with a11y test failures (baseline) | Measured |
+| Agent vs. human ratio | Relative violation rate | < 1.5x |
+| Top violation categories | Most common axe rule IDs from agent PRs | Tracked |
+| Trend slope | Week-over-week change in agent violation count | Decreasing |
 
 ## Current Status
 

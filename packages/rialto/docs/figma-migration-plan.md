@@ -7,7 +7,6 @@
 Rialto is a 69-component React design system built from scratch with CSS Modules + Framer Motion. Design tokens are defined as CSS custom properties with JSON schemas already in [DTCG format](https://tr.designtokens.org/format/) (`$value`/`$type`/`$description`). The goal is a full Figma component library with automated token sync — tokens automated, components built systematically with visual references.
 
 The system has unique characteristics that make this non-trivial:
-
 - **Vibe system** (3 presets: default/transacting/presenting) that overrides spacing, radius, and weight tokens
 - **Surface materials** (aluminum, glass, recessed) that require manual Figma craft
 - **Spring physics animations** (Framer Motion) that can only be documented, not represented
@@ -31,15 +30,15 @@ Reads all token sources and outputs a unified `figma-tokens.json` in DTCG format
 
 **Input sources:**
 
-| Source file                  | Format                          | Status                                                       |
-| ---------------------------- | ------------------------------- | ------------------------------------------------------------ |
-| `src/tokens/colors.json`     | DTCG JSON                       | Already compatible                                           |
-| `src/tokens/typography.json` | DTCG JSON                       | Already compatible                                           |
-| `src/tokens/spacing.json`    | DTCG JSON                       | Already compatible                                           |
-| `src/tokens/radius.css`      | CSS custom properties           | Needs extraction → DTCG                                      |
-| `src/tokens/shadows.css`     | CSS custom properties           | Needs extraction → DTCG (includes easing, duration, z-index) |
-| `src/tokens/colors.css`      | CSS `[data-theme="dark"]` block | Needs dark theme extraction                                  |
-| `src/providers/vibes.ts`     | TypeScript object               | Needs vibe override extraction                               |
+| Source file | Format | Status |
+|---|---|---|
+| `src/tokens/colors.json` | DTCG JSON | Already compatible |
+| `src/tokens/typography.json` | DTCG JSON | Already compatible |
+| `src/tokens/spacing.json` | DTCG JSON | Already compatible |
+| `src/tokens/radius.css` | CSS custom properties | Needs extraction → DTCG |
+| `src/tokens/shadows.css` | CSS custom properties | Needs extraction → DTCG (includes easing, duration, z-index) |
+| `src/tokens/colors.css` | CSS `[data-theme="dark"]` block | Needs dark theme extraction |
+| `src/providers/vibes.ts` | TypeScript object | Needs vibe override extraction |
 
 **Output structure** (`figma-tokens.json`):
 
@@ -94,12 +93,10 @@ Top-level keys become **Tokens Studio sets** → **Figma Variable modes**.
 Add a check that `figma-tokens.json` is in sync with source token files — warns on PR if tokens changed but `figma-tokens.json` wasn't regenerated.
 
 **Files to create:**
-
 - `packages/rialto/scripts/generate-figma-tokens.ts`
 - `packages/rialto/figma-tokens.json` (generated output, committed)
 
 **Files to modify:**
-
 - `packages/rialto/package.json` (add `figma-tokens` script)
 
 ---
@@ -113,7 +110,6 @@ Build a lightweight Vite page that renders every component in every variant/size
 Use `packages/rialto/src/showcase/` (directory exists but is empty). Read `dist/manifest.json` to drive systematic variant rendering.
 
 **For each component, render:**
-
 - All `variant` values (primary/secondary/ghost, etc.)
 - All `size` values (sm/md/lg)
 - Key states: default, hover (documented), focus, disabled, loading
@@ -125,7 +121,6 @@ Use `packages/rialto/src/showcase/` (directory exists but is empty). Read `dist/
 Playwright script to capture each component section as a PNG for offline Figma reference.
 
 **Files to create:**
-
 - `packages/rialto/src/showcase/App.tsx`
 - `packages/rialto/src/showcase/index.html`
 - `packages/rialto/src/showcase/main.tsx`
@@ -137,12 +132,12 @@ Playwright script to capture each component section as a PNG for offline Figma r
 
 ### 3a. Variable collections
 
-| Collection | Modes                            | Source                                   |
-| ---------- | -------------------------------- | ---------------------------------------- |
-| Colors     | Light, Dark                      | `rialto/light`, `rialto/dark` token sets |
-| Spacing    | Default, Transacting, Presenting | `rialto/default` + vibe overrides        |
-| Radius     | Default, Transacting, Presenting | same                                     |
-| Typography | Default, Transacting, Presenting | same                                     |
+| Collection | Modes | Source |
+|---|---|---|
+| Colors | Light, Dark | `rialto/light`, `rialto/dark` token sets |
+| Spacing | Default, Transacting, Presenting | `rialto/default` + vibe overrides |
+| Radius | Default, Transacting, Presenting | same |
+| Typography | Default, Transacting, Presenting | same |
 
 A designer can switch any frame between Light/Dark and Default/Transacting/Presenting vibes, and all child components adapt — mirroring exactly how the CSS cascade works in code.
 
@@ -152,17 +147,17 @@ Composed from typography variables: each combination of size × weight that's ac
 
 ### 3c. Effect Styles (~14)
 
-| Style           | Light value                      | Dark value                    |
-| --------------- | -------------------------------- | ----------------------------- |
-| Shadow/xs       | `0 1px 2px rgb(26 25 24 / 0.05)` | `0 1px 2px rgb(0 0 0 / 0.15)` |
-| Shadow/sm       | `0 1px 2px ... 0 4px 12px ...`   | heavier opacity               |
-| Shadow/md       | `0 2px 4px ... 0 8px 24px ...`   | heavier opacity               |
-| Shadow/lg       | 3-layer shadow                   | heavier opacity               |
-| Shadow/pressed  | inset shadow                     | inset, darker                 |
-| Shadow/focus    | gold glow ring                   | gold glow (brighter)          |
-| Shadow/glass    | frosted + inner shine            | darker backdrop               |
-| Shadow/ambient  | warm gold halo                   | brighter gold                 |
-| Shadow/luminous | elevation + warm bloom           | warm bloom on dark            |
+| Style | Light value | Dark value |
+|---|---|---|
+| Shadow/xs | `0 1px 2px rgb(26 25 24 / 0.05)` | `0 1px 2px rgb(0 0 0 / 0.15)` |
+| Shadow/sm | `0 1px 2px ... 0 4px 12px ...` | heavier opacity |
+| Shadow/md | `0 2px 4px ... 0 8px 24px ...` | heavier opacity |
+| Shadow/lg | 3-layer shadow | heavier opacity |
+| Shadow/pressed | inset shadow | inset, darker |
+| Shadow/focus | gold glow ring | gold glow (brighter) |
+| Shadow/glass | frosted + inner shine | darker backdrop |
+| Shadow/ambient | warm gold halo | brighter gold |
+| Shadow/luminous | elevation + warm bloom | warm bloom on dark |
 
 **Note:** Shadows cannot be Figma Variables — they must be Effect Styles. Create light and dark variants of each.
 
@@ -170,17 +165,17 @@ Composed from typography variables: each combination of size × weight that's ac
 
 These are CSS material recipes (`src/styles/surfaces.module.css`) that need manual Figma translation:
 
-| Material            | CSS technique                         | Figma equivalent                                               |
-| ------------------- | ------------------------------------- | -------------------------------------------------------------- |
-| `.aluminum`         | Linear gradient                       | Linear fill (surface-elevated → surface)                       |
-| `.aluminumPolished` | Gradient + shadow                     | Linear fill + Effect Style                                     |
-| `.glass`            | `backdrop-filter: blur` + translucent | Background blur effect + translucent fill + inner shadow shine |
-| `.recessed`         | Inset shadow + darker bg              | Inner shadow Effect Style + recessed surface fill              |
-| `.focusRing`        | Gold glow                             | Gold outer glow Effect Style                                   |
-| `.darkSurface`      | Deep charcoal + token overrides       | Dark fill frame that overrides child color mode                |
-| `.atmosphere`       | Radial gold gradient orbs             | Radial gradient overlay layers                                 |
-| `.grain`            | SVG noise filter                      | Noise texture fill (Figma noise plugin)                        |
-| `.shimmer`          | CSS animation                         | Cannot animate; document as annotation                         |
+| Material | CSS technique | Figma equivalent |
+|---|---|---|
+| `.aluminum` | Linear gradient | Linear fill (surface-elevated → surface) |
+| `.aluminumPolished` | Gradient + shadow | Linear fill + Effect Style |
+| `.glass` | `backdrop-filter: blur` + translucent | Background blur effect + translucent fill + inner shadow shine |
+| `.recessed` | Inset shadow + darker bg | Inner shadow Effect Style + recessed surface fill |
+| `.focusRing` | Gold glow | Gold outer glow Effect Style |
+| `.darkSurface` | Deep charcoal + token overrides | Dark fill frame that overrides child color mode |
+| `.atmosphere` | Radial gold gradient orbs | Radial gradient overlay layers |
+| `.grain` | SVG noise filter | Noise texture fill (Figma noise plugin) |
+| `.shimmer` | CSS animation | Cannot animate; document as annotation |
 
 ---
 
@@ -214,12 +209,12 @@ ThemeToggle, FlipDot, GenCopilot, CopilotPreview, CopilotPromptBar, ImageUpload,
 
 ### Variant property mapping
 
-| React prop          | Figma property type      | Example                                      |
-| ------------------- | ------------------------ | -------------------------------------------- |
-| `variant`           | Variant property         | primary / secondary / ghost                  |
-| `size`              | Variant property         | sm / md / lg                                 |
-| `disabled`          | Boolean property         | true / false                                 |
-| `isLoading`         | Boolean property         | true / false                                 |
+| React prop | Figma property type | Example |
+|---|---|---|
+| `variant` | Variant property | primary / secondary / ghost |
+| `size` | Variant property | sm / md / lg |
+| `disabled` | Boolean property | true / false |
+| `isLoading` | Boolean property | true / false |
 | State (interaction) | Variant property "State" | default / hover / pressed / focus / disabled |
 
 ---
@@ -231,7 +226,6 @@ ThemeToggle, FlipDot, GenCopilot, CopilotPreview, CopilotPromptBar, ImageUpload,
 Configure Tokens Studio to read from `packages/rialto/figma-tokens.json` in the GitHub repo.
 
 **Workflow:**
-
 ```
 Developer changes token CSS/JSON
   → runs `pnpm figma-tokens`
@@ -253,10 +247,9 @@ src/components/Button/
 ```
 
 Example Code Connect file:
-
 ```tsx
-import figma from "@figma/code-connect";
-import { Button } from "./Button";
+import figma from "@figma/code-connect"
+import { Button } from "./Button"
 
 figma.connect(Button, "https://figma.com/...", {
   props: {
@@ -273,7 +266,7 @@ figma.connect(Button, "https://figma.com/...", {
       Label
     </Button>
   ),
-});
+})
 ```
 
 Publish with `npx figma connect publish`.
@@ -292,12 +285,12 @@ Script that reads `dist/manifest.json` and queries the Figma REST API to compare
 
 ## Sync Strategy Summary
 
-| Layer                 | Sync method                        | Direction       | Automation                               |
-| --------------------- | ---------------------------------- | --------------- | ---------------------------------------- |
-| **Tokens**            | Tokens Studio + GitHub             | Code → Figma    | Fully automated                          |
-| **Component API**     | Figma Code Connect                 | Code → Figma    | Semi-automated (write `.figma.tsx` once) |
-| **Component visuals** | Spec files + showcase page         | Shared contract | Manual, guided by specs                  |
-| **Drift detection**   | Manifest audit + visual regression | Code ↔ Figma    | Automated checks                         |
+| Layer | Sync method | Direction | Automation |
+|---|---|---|---|
+| **Tokens** | Tokens Studio + GitHub | Code → Figma | Fully automated |
+| **Component API** | Figma Code Connect | Code → Figma | Semi-automated (write `.figma.tsx` once) |
+| **Component visuals** | Spec files + showcase page | Shared contract | Manual, guided by specs |
+| **Drift detection** | Manifest audit + visual regression | Code ↔ Figma | Automated checks |
 
 ---
 
@@ -313,32 +306,31 @@ Script that reads `dist/manifest.json` and queries the Figma REST API to compare
 
 ## Key Files Reference
 
-| File                             | Role                                                              |
-| -------------------------------- | ----------------------------------------------------------------- |
-| `src/tokens/colors.json`         | DTCG color tokens (light theme)                                   |
-| `src/tokens/colors.css`          | Light + dark theme CSS custom properties                          |
-| `src/tokens/typography.json`     | DTCG font family, weight, size, line-height tokens                |
-| `src/tokens/spacing.json`        | DTCG spacing scale (4px base, 9 steps)                            |
-| `src/tokens/radius.css`          | Border radius tokens (5 values)                                   |
-| `src/tokens/shadows.css`         | Shadows, easing, duration, z-index (all light + dark)             |
-| `src/providers/vibes.ts`         | Vibe preset override definitions (default/transacting/presenting) |
-| `src/styles/surfaces.module.css` | Surface material recipes (aluminum, glass, recessed)              |
-| `dist/manifest.json`             | Component registry with full props/types for all 69 components    |
-| `specs/*.spec.md`                | 20 component specification files (anatomy, states, tokens, a11y)  |
+| File | Role |
+|---|---|
+| `src/tokens/colors.json` | DTCG color tokens (light theme) |
+| `src/tokens/colors.css` | Light + dark theme CSS custom properties |
+| `src/tokens/typography.json` | DTCG font family, weight, size, line-height tokens |
+| `src/tokens/spacing.json` | DTCG spacing scale (4px base, 9 steps) |
+| `src/tokens/radius.css` | Border radius tokens (5 values) |
+| `src/tokens/shadows.css` | Shadows, easing, duration, z-index (all light + dark) |
+| `src/providers/vibes.ts` | Vibe preset override definitions (default/transacting/presenting) |
+| `src/styles/surfaces.module.css` | Surface material recipes (aluminum, glass, recessed) |
+| `dist/manifest.json` | Component registry with full props/types for all 69 components |
+| `specs/*.spec.md` | 20 component specification files (anatomy, states, tokens, a11y) |
 
 ---
 
 ## Tooling Decisions
 
-| Tool                        | Purpose                     | Why                                                              |
-| --------------------------- | --------------------------- | ---------------------------------------------------------------- |
-| **Tokens Studio for Figma** | Token import + GitHub sync  | Native DTCG support, Variable mode mapping, free tier sufficient |
-| **Figma Code Connect**      | Component API bridging      | First-party Figma tool, surfaces React code in Dev Mode          |
-| **tsx** (script runner)     | Run token extraction script | Already in monorepo toolchain                                    |
-| **Playwright** (optional)   | Screenshot automation       | Already a project dependency                                     |
+| Tool | Purpose | Why |
+|---|---|---|
+| **Tokens Studio for Figma** | Token import + GitHub sync | Native DTCG support, Variable mode mapping, free tier sufficient |
+| **Figma Code Connect** | Component API bridging | First-party Figma tool, surfaces React code in Dev Mode |
+| **tsx** (script runner) | Run token extraction script | Already in monorepo toolchain |
+| **Playwright** (optional) | Screenshot automation | Already a project dependency |
 
 ### Why NOT these alternatives:
-
 - **Style Dictionary**: More complex setup for the same result; Tokens Studio plugin is simpler for a single design system
 - **Storybook**: Overkill for visual reference; a simple showcase page is faster and lighter
 - **Figma Plugin API for components**: Programmatically generating 69 components with correct auto-layout is extraordinarily brittle; manual Figma craft yields better quality

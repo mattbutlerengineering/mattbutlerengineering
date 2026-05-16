@@ -10,14 +10,8 @@ describe("Accessibility — Data Display Components", () => {
   it("Table", async () => {
     const { container } = render(
       <Table
-        columns={[
-          { header: "Name", key: "name" },
-          { header: "Age", key: "age" },
-        ]}
-        data={[
-          { name: "Alice", age: 30 },
-          { name: "Bob", age: 25 },
-        ]}
+        columns={[{ header: "Name", key: "name" }, { header: "Age", key: "age" }]}
+        data={[{ name: "Alice", age: 30 }, { name: "Bob", age: 25 }]}
         rowKey={(r) => r.name}
       />
     );

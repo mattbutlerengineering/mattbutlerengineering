@@ -25,8 +25,8 @@ describe("stats extended commands", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.spyOn(process, "exit").mockImplementation((() => {}) as never);
     vi.spyOn(process, "cwd").mockReturnValue("/repo");
-    mockExistsSync.mockImplementation(
-      (p: unknown) => String(p).endsWith("pnpm-workspace.yaml") || String(p).includes("docs/logs")
+    mockExistsSync.mockImplementation((p: unknown) =>
+      String(p).endsWith("pnpm-workspace.yaml") || String(p).includes("docs/logs")
     );
   });
 
@@ -40,17 +40,12 @@ describe("stats extended commands", () => {
 
     it("appends session record to log file", async () => {
       await runLogSession([
-        "--id",
-        "session-123",
-        "--research",
-        "3",
-        "--execution",
-        "5",
+        "--id", "session-123",
+        "--research", "3",
+        "--execution", "5",
         "--success",
-        "--cost",
-        "0.15",
-        "--model",
-        "claude-sonnet-4-6",
+        "--cost", "0.15",
+        "--model", "claude-sonnet-4-6",
       ]);
 
       expect(mockAppendFileSync).toHaveBeenCalledOnce();
@@ -77,23 +72,24 @@ describe("stats extended commands", () => {
         return false; // docs/logs does not exist
       });
 
-      await runLogSession(["--id", "s1", "--research", "1", "--execution", "2"]);
+      await runLogSession([
+        "--id", "s1",
+        "--research", "1",
+        "--execution", "2",
+      ]);
 
-      expect(mockMkdirSync).toHaveBeenCalledWith(expect.stringContaining("docs/logs"), {
-        recursive: true,
-      });
+      expect(mockMkdirSync).toHaveBeenCalledWith(
+        expect.stringContaining("docs/logs"),
+        { recursive: true }
+      );
     });
 
     it("records milestone when provided", async () => {
       await runLogSession([
-        "--id",
-        "s2",
-        "--research",
-        "1",
-        "--execution",
-        "1",
-        "--milestone",
-        "v1.5",
+        "--id", "s2",
+        "--research", "1",
+        "--execution", "1",
+        "--milestone", "v1.5",
       ]);
 
       const [, content] = mockAppendFileSync.mock.calls[0];
@@ -133,7 +129,9 @@ describe("stats extended commands", () => {
     }
 
     it("prints no-data message when log file does not exist", async () => {
-      mockExistsSync.mockImplementation((p: unknown) => String(p).endsWith("pnpm-workspace.yaml"));
+      mockExistsSync.mockImplementation((p: unknown) =>
+        String(p).endsWith("pnpm-workspace.yaml")
+      );
 
       await runAuditPerf();
 
@@ -186,41 +184,11 @@ describe("stats extended commands", () => {
     it("detects low first-pass success rate", async () => {
       mockExistsSync.mockReturnValue(true);
       const records = [
-        {
-          sessionId: "s1",
-          researchTurns: 2,
-          executionTurns: 3,
-          firstPassSuccess: false,
-          humanInterventions: 0,
-          costUsd: 0.1,
-          modelId: "m",
-          timestamp: "t",
-          totalTurns: 5,
-        },
-        {
-          sessionId: "s2",
-          researchTurns: 2,
-          executionTurns: 3,
-          firstPassSuccess: false,
-          humanInterventions: 0,
-          costUsd: 0.1,
-          modelId: "m",
-          timestamp: "t",
-          totalTurns: 5,
-        },
-        {
-          sessionId: "s3",
-          researchTurns: 2,
-          executionTurns: 3,
-          firstPassSuccess: false,
-          humanInterventions: 0,
-          costUsd: 0.1,
-          modelId: "m",
-          timestamp: "t",
-          totalTurns: 5,
-        },
+        { sessionId: "s1", researchTurns: 2, executionTurns: 3, firstPassSuccess: false, humanInterventions: 0, costUsd: 0.1, modelId: "m", timestamp: "t", totalTurns: 5 },
+        { sessionId: "s2", researchTurns: 2, executionTurns: 3, firstPassSuccess: false, humanInterventions: 0, costUsd: 0.1, modelId: "m", timestamp: "t", totalTurns: 5 },
+        { sessionId: "s3", researchTurns: 2, executionTurns: 3, firstPassSuccess: false, humanInterventions: 0, costUsd: 0.1, modelId: "m", timestamp: "t", totalTurns: 5 },
       ];
-      mockReadFileSync.mockReturnValue(records.map((r) => JSON.stringify(r)).join("\n") as never);
+      mockReadFileSync.mockReturnValue(records.map(r => JSON.stringify(r)).join("\n") as never);
 
       await runAuditPerf();
 

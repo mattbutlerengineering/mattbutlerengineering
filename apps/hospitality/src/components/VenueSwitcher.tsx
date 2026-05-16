@@ -66,11 +66,7 @@ export function VenueSwitcher({ onNavigate }: VenueSwitcherProps) {
         onClick={handleToggle}
         aria-haspopup={isMultiVenue ? "listbox" : undefined}
         aria-expanded={isMultiVenue ? isOpen : undefined}
-        aria-label={
-          isMultiVenue
-            ? `Current venue: ${selectedVenue.name}. Click to switch`
-            : selectedVenue.name
-        }
+        aria-label={isMultiVenue ? `Current venue: ${selectedVenue.name}. Click to switch` : selectedVenue.name}
       >
         <span className={styles.venueName}>{selectedVenue.name}</span>
         {isMultiVenue && (
@@ -122,7 +118,11 @@ export function VenueSwitcher({ onNavigate }: VenueSwitcherProps) {
             </button>
           ))}
           <div className={styles.divider} aria-hidden="true" />
-          <button type="button" className={styles.addVenue} onClick={handleAddVenue}>
+          <button
+            type="button"
+            className={styles.addVenue}
+            onClick={handleAddVenue}
+          >
             <svg
               width="12"
               height="12"

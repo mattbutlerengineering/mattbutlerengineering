@@ -2,16 +2,16 @@
  * Core — Shared utilities, constants, and internal helpers
  */
 
-const fs = require("fs");
-const path = require("path");
-const { execSync, execFileSync, spawnSync } = require("child_process");
-const { MODEL_PROFILES } = require("./model-profiles.cjs");
+const fs = require('fs');
+const path = require('path');
+const { execSync, execFileSync, spawnSync } = require('child_process');
+const { MODEL_PROFILES } = require('./model-profiles.cjs');
 
 // ─── Path helpers ────────────────────────────────────────────────────────────
 
 /** Normalize a relative path to always use forward slashes (cross-platform). */
 function toPosixPath(p) {
-  return p.split(path.sep).join("/");
+  return p.split(path.sep).join('/');
 }
 
 /**
@@ -25,8 +25,8 @@ function detectSubRepos(cwd) {
     const entries = fs.readdirSync(cwd, { withFileTypes: true });
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
-      if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
-      const gitPath = path.join(cwd, entry.name, ".git");
+      if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+      const gitPath = path.join(cwd, entry.name, '.git');
       try {
         if (fs.existsSync(gitPath)) {
           results.push(entry.name);
@@ -56,11 +56,11 @@ function detectSubRepos(cwd) {
 function findProjectRoot(startDir) {
   const resolved = path.resolve(startDir);
   const root = path.parse(resolved).root;
-  const homedir = require("os").homedir();
+  const homedir = require('os').homedir();
 
   // If startDir already contains .planning/, it IS the project root.
   // Do not walk up to a parent workspace that also has .planning/ (#1362).
-  const ownPlanning = path.join(resolved, ".planning");
+  const ownPlanning = path.join(resolved, '.planning');
   if (fs.existsSync(ownPlanning) && fs.statSync(ownPlanning).isDirectory()) {
     return startDir;
   }
@@ -72,7 +72,7 @@ function findProjectRoot(startDir) {
   function isInsideGitRepo(candidateParent) {
     let d = resolved;
     while (d !== root) {
-      if (fs.existsSync(path.join(d, ".git"))) return true;
+      if (fs.existsSync(path.join(d, '.git'))) return true;
       if (d === candidateParent) break;
       d = path.dirname(d);
     }
@@ -85,11 +85,11 @@ function findProjectRoot(startDir) {
     if (parent === dir) break; // filesystem root
     if (parent === homedir) break; // never go above home
 
-    const parentPlanning = path.join(parent, ".planning");
+    const parentPlanning = path.join(parent, '.planning');
     if (fs.existsSync(parentPlanning) && fs.statSync(parentPlanning).isDirectory()) {
-      const configPath = path.join(parentPlanning, "config.json");
+      const configPath = path.join(parentPlanning, 'config.json');
       try {
-        const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+        const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
         const subRepos = config.sub_repos || config.planning?.sub_repos || [];
 
         // Check explicit sub_repos list
@@ -129,9 +129,9 @@ function findProjectRoot(startDir) {
  * @param {number} opts.maxAgeMs - max age in ms before removal (default: 5 min)
  * @param {boolean} opts.dirsOnly - if true, only remove directories (default: false)
  */
-function reapStaleTempFiles(prefix = "gsd-", { maxAgeMs = 5 * 60 * 1000, dirsOnly = false } = {}) {
+function reapStaleTempFiles(prefix = 'gsd-', { maxAgeMs = 5 * 60 * 1000, dirsOnly = false } = {}) {
   try {
-    const tmpDir = require("os").tmpdir();
+    const tmpDir = require('os').tmpdir();
     const now = Date.now();
     const entries = fs.readdirSync(tmpDir);
     for (const entry of entries) {
@@ -165,9 +165,9 @@ function output(result, raw, rawValue) {
     // Write to tmpfile and output the path prefixed with @file: so callers can detect it.
     if (json.length > 50000) {
       reapStaleTempFiles();
-      const tmpPath = path.join(require("os").tmpdir(), `gsd-${Date.now()}.json`);
-      fs.writeFileSync(tmpPath, json, "utf-8");
-      data = "@file:" + tmpPath;
+      const tmpPath = path.join(require('os').tmpdir(), `gsd-${Date.now()}.json`);
+      fs.writeFileSync(tmpPath, json, 'utf-8');
+      data = '@file:' + tmpPath;
     } else {
       data = json;
     }
@@ -180,7 +180,7 @@ function output(result, raw, rawValue) {
 }
 
 function error(message) {
-  fs.writeSync(2, "Error: " + message + "\n");
+  fs.writeSync(2, 'Error: ' + message + '\n');
   process.exit(1);
 }
 
@@ -188,21 +188,21 @@ function error(message) {
 
 function safeReadFile(filePath) {
   try {
-    return fs.readFileSync(filePath, "utf-8");
+    return fs.readFileSync(filePath, 'utf-8');
   } catch {
     return null;
   }
 }
 
 function loadConfig(cwd) {
-  const configPath = path.join(cwd, ".planning", "config.json");
+  const configPath = path.join(cwd, '.planning', 'config.json');
   const defaults = {
-    model_profile: "balanced",
+    model_profile: 'balanced',
     commit_docs: true,
     search_gitignored: false,
-    branching_strategy: "none",
-    phase_branch_template: "gsd/phase-{phase}-{slug}",
-    milestone_branch_template: "gsd/{milestone}-{slug}",
+    branching_strategy: 'none',
+    phase_branch_template: 'gsd/phase-{phase}-{slug}',
+    milestone_branch_template: 'gsd/{milestone}-{slug}',
     quick_branch_template: null,
     research: true,
     plan_checker: true,
@@ -216,23 +216,19 @@ function loadConfig(cwd) {
     sub_repos: [],
     resolve_model_ids: false, // false: return alias as-is | true: map to full Claude model ID | "omit": return '' (runtime uses its default)
     context_window: 200000, // default 200k; set to 1000000 for Opus/Sonnet 4.6 1M models
-    phase_naming: "sequential", // 'sequential' (default, auto-increment) or 'custom' (arbitrary string IDs)
+    phase_naming: 'sequential', // 'sequential' (default, auto-increment) or 'custom' (arbitrary string IDs)
   };
 
   try {
-    const raw = fs.readFileSync(configPath, "utf-8");
+    const raw = fs.readFileSync(configPath, 'utf-8');
     const parsed = JSON.parse(raw);
 
     // Migrate deprecated "depth" key to "granularity" with value mapping
-    if ("depth" in parsed && !("granularity" in parsed)) {
-      const depthToGranularity = { quick: "coarse", standard: "standard", comprehensive: "fine" };
+    if ('depth' in parsed && !('granularity' in parsed)) {
+      const depthToGranularity = { quick: 'coarse', standard: 'standard', comprehensive: 'fine' };
       parsed.granularity = depthToGranularity[parsed.depth] || parsed.depth;
       delete parsed.depth;
-      try {
-        fs.writeFileSync(configPath, JSON.stringify(parsed, null, 2), "utf-8");
-      } catch {
-        /* intentionally empty */
-      }
+      try { fs.writeFileSync(configPath, JSON.stringify(parsed, null, 2), 'utf-8'); } catch { /* intentionally empty */ }
     }
 
     // Auto-detect and sync sub_repos: scan for child directories with .git
@@ -265,9 +261,7 @@ function loadConfig(cwd) {
 
     // Persist sub_repos changes (migration or sync)
     if (configDirty) {
-      try {
-        fs.writeFileSync(configPath, JSON.stringify(parsed, null, 2), "utf-8");
-      } catch {}
+      try { fs.writeFileSync(configPath, JSON.stringify(parsed, null, 2), 'utf-8'); } catch {}
     }
 
     const get = (key, nested) => {
@@ -279,56 +273,41 @@ function loadConfig(cwd) {
     };
 
     const parallelization = (() => {
-      const val = get("parallelization");
-      if (typeof val === "boolean") return val;
-      if (typeof val === "object" && val !== null && "enabled" in val) return val.enabled;
+      const val = get('parallelization');
+      if (typeof val === 'boolean') return val;
+      if (typeof val === 'object' && val !== null && 'enabled' in val) return val.enabled;
       return defaults.parallelization;
     })();
 
     return {
-      model_profile: get("model_profile") ?? defaults.model_profile,
+      model_profile: get('model_profile') ?? defaults.model_profile,
       commit_docs: (() => {
-        const explicit = get("commit_docs", { section: "planning", field: "commit_docs" });
+        const explicit = get('commit_docs', { section: 'planning', field: 'commit_docs' });
         // If explicitly set in config, respect the user's choice
         if (explicit !== undefined) return explicit;
         // Auto-detection: when no explicit value and .planning/ is gitignored,
         // default to false instead of true
-        if (isGitIgnored(cwd, ".planning/")) return false;
+        if (isGitIgnored(cwd, '.planning/')) return false;
         return defaults.commit_docs;
       })(),
-      search_gitignored:
-        get("search_gitignored", { section: "planning", field: "search_gitignored" }) ??
-        defaults.search_gitignored,
-      branching_strategy:
-        get("branching_strategy", { section: "git", field: "branching_strategy" }) ??
-        defaults.branching_strategy,
-      phase_branch_template:
-        get("phase_branch_template", { section: "git", field: "phase_branch_template" }) ??
-        defaults.phase_branch_template,
-      milestone_branch_template:
-        get("milestone_branch_template", { section: "git", field: "milestone_branch_template" }) ??
-        defaults.milestone_branch_template,
-      quick_branch_template:
-        get("quick_branch_template", { section: "git", field: "quick_branch_template" }) ??
-        defaults.quick_branch_template,
-      research: get("research", { section: "workflow", field: "research" }) ?? defaults.research,
-      plan_checker:
-        get("plan_checker", { section: "workflow", field: "plan_check" }) ?? defaults.plan_checker,
-      verifier: get("verifier", { section: "workflow", field: "verifier" }) ?? defaults.verifier,
-      nyquist_validation:
-        get("nyquist_validation", { section: "workflow", field: "nyquist_validation" }) ??
-        defaults.nyquist_validation,
+      search_gitignored: get('search_gitignored', { section: 'planning', field: 'search_gitignored' }) ?? defaults.search_gitignored,
+      branching_strategy: get('branching_strategy', { section: 'git', field: 'branching_strategy' }) ?? defaults.branching_strategy,
+      phase_branch_template: get('phase_branch_template', { section: 'git', field: 'phase_branch_template' }) ?? defaults.phase_branch_template,
+      milestone_branch_template: get('milestone_branch_template', { section: 'git', field: 'milestone_branch_template' }) ?? defaults.milestone_branch_template,
+      quick_branch_template: get('quick_branch_template', { section: 'git', field: 'quick_branch_template' }) ?? defaults.quick_branch_template,
+      research: get('research', { section: 'workflow', field: 'research' }) ?? defaults.research,
+      plan_checker: get('plan_checker', { section: 'workflow', field: 'plan_check' }) ?? defaults.plan_checker,
+      verifier: get('verifier', { section: 'workflow', field: 'verifier' }) ?? defaults.verifier,
+      nyquist_validation: get('nyquist_validation', { section: 'workflow', field: 'nyquist_validation' }) ?? defaults.nyquist_validation,
       parallelization,
-      brave_search: get("brave_search") ?? defaults.brave_search,
-      firecrawl: get("firecrawl") ?? defaults.firecrawl,
-      exa_search: get("exa_search") ?? defaults.exa_search,
-      text_mode:
-        get("text_mode", { section: "workflow", field: "text_mode" }) ?? defaults.text_mode,
-      sub_repos:
-        get("sub_repos", { section: "planning", field: "sub_repos" }) ?? defaults.sub_repos,
-      resolve_model_ids: get("resolve_model_ids") ?? defaults.resolve_model_ids,
-      context_window: get("context_window") ?? defaults.context_window,
-      phase_naming: get("phase_naming") ?? defaults.phase_naming,
+      brave_search: get('brave_search') ?? defaults.brave_search,
+      firecrawl: get('firecrawl') ?? defaults.firecrawl,
+      exa_search: get('exa_search') ?? defaults.exa_search,
+      text_mode: get('text_mode', { section: 'workflow', field: 'text_mode' }) ?? defaults.text_mode,
+      sub_repos: get('sub_repos', { section: 'planning', field: 'sub_repos' }) ?? defaults.sub_repos,
+      resolve_model_ids: get('resolve_model_ids') ?? defaults.resolve_model_ids,
+      context_window: get('context_window') ?? defaults.context_window,
+      phase_naming: get('phase_naming') ?? defaults.phase_naming,
       model_overrides: parsed.model_overrides || null,
       agent_skills: parsed.agent_skills || {},
     };
@@ -347,9 +326,9 @@ function isGitIgnored(cwd, targetPath) {
     // was committed before being added to .gitignore.
     // Use execFileSync (array args) to prevent shell interpretation of special characters
     // in file paths — avoids command injection via crafted path names.
-    execFileSync("git", ["check-ignore", "-q", "--no-index", "--", targetPath], {
+    execFileSync('git', ['check-ignore', '-q', '--no-index', '--', targetPath], {
       cwd,
-      stdio: "pipe",
+      stdio: 'pipe',
     });
     return true;
   } catch {
@@ -371,39 +350,35 @@ function isGitIgnored(cwd, targetPath) {
  *   MD047 — Files end with a single newline
  */
 function normalizeMd(content) {
-  if (!content || typeof content !== "string") return content;
+  if (!content || typeof content !== 'string') return content;
 
   // Normalize line endings to LF for consistent processing
-  let text = content.replace(/\r\n/g, "\n");
+  let text = content.replace(/\r\n/g, '\n');
 
-  const lines = text.split("\n");
+  const lines = text.split('\n');
   const result = [];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const prev = i > 0 ? lines[i - 1] : "";
+    const prev = i > 0 ? lines[i - 1] : '';
     const prevTrimmed = prev.trimEnd();
     const trimmed = line.trimEnd();
 
     // MD022: Blank line before headings (skip first line and frontmatter delimiters)
-    if (/^#{1,6}\s/.test(trimmed) && i > 0 && prevTrimmed !== "" && prevTrimmed !== "---") {
-      result.push("");
+    if (/^#{1,6}\s/.test(trimmed) && i > 0 && prevTrimmed !== '' && prevTrimmed !== '---') {
+      result.push('');
     }
 
     // MD031: Blank line before fenced code blocks
-    if (/^```/.test(trimmed) && i > 0 && prevTrimmed !== "" && !isInsideFencedBlock(lines, i)) {
-      result.push("");
+    if (/^```/.test(trimmed) && i > 0 && prevTrimmed !== '' && !isInsideFencedBlock(lines, i)) {
+      result.push('');
     }
 
     // MD032: Blank line before lists (- item, * item, N. item, - [ ] item)
-    if (
-      /^(\s*[-*+]\s|\s*\d+\.\s)/.test(line) &&
-      i > 0 &&
-      prevTrimmed !== "" &&
-      !/^(\s*[-*+]\s|\s*\d+\.\s)/.test(prev) &&
-      prevTrimmed !== "---"
-    ) {
-      result.push("");
+    if (/^(\s*[-*+]\s|\s*\d+\.\s)/.test(line) && i > 0 &&
+        prevTrimmed !== '' && !/^(\s*[-*+]\s|\s*\d+\.\s)/.test(prev) &&
+        prevTrimmed !== '---') {
+      result.push('');
     }
 
     result.push(line);
@@ -411,41 +386,38 @@ function normalizeMd(content) {
     // MD022: Blank line after headings
     if (/^#{1,6}\s/.test(trimmed) && i < lines.length - 1) {
       const next = lines[i + 1];
-      if (next !== undefined && next.trimEnd() !== "") {
-        result.push("");
+      if (next !== undefined && next.trimEnd() !== '') {
+        result.push('');
       }
     }
 
     // MD031: Blank line after closing fenced code blocks
     if (/^```\s*$/.test(trimmed) && isClosingFence(lines, i) && i < lines.length - 1) {
       const next = lines[i + 1];
-      if (next !== undefined && next.trimEnd() !== "") {
-        result.push("");
+      if (next !== undefined && next.trimEnd() !== '') {
+        result.push('');
       }
     }
 
     // MD032: Blank line after last list item in a block
     if (/^(\s*[-*+]\s|\s*\d+\.\s)/.test(line) && i < lines.length - 1) {
       const next = lines[i + 1];
-      if (
-        next !== undefined &&
-        next.trimEnd() !== "" &&
-        !/^(\s*[-*+]\s|\s*\d+\.\s)/.test(next) &&
-        !/^\s/.test(next)
-      ) {
+      if (next !== undefined && next.trimEnd() !== '' &&
+          !/^(\s*[-*+]\s|\s*\d+\.\s)/.test(next) &&
+          !/^\s/.test(next)) {
         // Only add blank line if next line is not a continuation/indented line
-        result.push("");
+        result.push('');
       }
     }
   }
 
-  text = result.join("\n");
+  text = result.join('\n');
 
   // MD012: Collapse 3+ consecutive blank lines to 2
-  text = text.replace(/\n{3,}/g, "\n\n");
+  text = text.replace(/\n{3,}/g, '\n\n');
 
   // MD047: Ensure file ends with exactly one newline
-  text = text.replace(/\n*$/, "\n");
+  text = text.replace(/\n*$/, '\n');
 
   return text;
 }
@@ -469,15 +441,15 @@ function isClosingFence(lines, i) {
 }
 
 function execGit(cwd, args) {
-  const result = spawnSync("git", args, {
+  const result = spawnSync('git', args, {
     cwd,
-    stdio: "pipe",
-    encoding: "utf-8",
+    stdio: 'pipe',
+    encoding: 'utf-8',
   });
   return {
     exitCode: result.status ?? 1,
-    stdout: (result.stdout ?? "").toString().trim(),
-    stderr: (result.stderr ?? "").toString().trim(),
+    stdout: (result.stdout ?? '').toString().trim(),
+    stderr: (result.stderr ?? '').toString().trim(),
   };
 }
 
@@ -491,13 +463,13 @@ function execGit(cwd, args) {
 function resolveWorktreeRoot(cwd) {
   // If the current directory already has its own .planning/, respect it.
   // This handles linked worktrees with independent planning state (e.g., Conductor workspaces).
-  if (fs.existsSync(path.join(cwd, ".planning"))) {
+  if (fs.existsSync(path.join(cwd, '.planning'))) {
     return cwd;
   }
 
   // Check if we're in a linked worktree
-  const gitDir = execGit(cwd, ["rev-parse", "--git-dir"]);
-  const commonDir = execGit(cwd, ["rev-parse", "--git-common-dir"]);
+  const gitDir = execGit(cwd, ['rev-parse', '--git-dir']);
+  const commonDir = execGit(cwd, ['rev-parse', '--git-common-dir']);
 
   if (gitDir.exitCode !== 0 || commonDir.exitCode !== 0) return cwd;
 
@@ -521,43 +493,31 @@ function resolveWorktreeRoot(cwd) {
  * Lock is auto-released after the callback completes.
  */
 function withPlanningLock(cwd, fn) {
-  const lockPath = path.join(planningDir(cwd), ".lock");
+  const lockPath = path.join(planningDir(cwd), '.lock');
   const lockTimeout = 10000; // 10 seconds
   const retryDelay = 100;
   const start = Date.now();
 
   // Ensure .planning/ exists
-  try {
-    fs.mkdirSync(planningDir(cwd), { recursive: true });
-  } catch {
-    /* ok */
-  }
+  try { fs.mkdirSync(planningDir(cwd), { recursive: true }); } catch { /* ok */ }
 
   while (Date.now() - start < lockTimeout) {
     try {
       // Atomic create — fails if file exists
-      fs.writeFileSync(
-        lockPath,
-        JSON.stringify({
-          pid: process.pid,
-          cwd,
-          acquired: new Date().toISOString(),
-        }),
-        { flag: "wx" }
-      );
+      fs.writeFileSync(lockPath, JSON.stringify({
+        pid: process.pid,
+        cwd,
+        acquired: new Date().toISOString(),
+      }), { flag: 'wx' });
 
       // Lock acquired — run the function
       try {
         return fn();
       } finally {
-        try {
-          fs.unlinkSync(lockPath);
-        } catch {
-          /* already released */
-        }
+        try { fs.unlinkSync(lockPath); } catch { /* already released */ }
       }
     } catch (err) {
-      if (err.code === "EEXIST") {
+      if (err.code === 'EEXIST') {
         // Lock exists — check if stale (>30s old)
         try {
           const stat = fs.statSync(lockPath);
@@ -565,23 +525,17 @@ function withPlanningLock(cwd, fn) {
             fs.unlinkSync(lockPath);
             continue; // retry
           }
-        } catch {
-          continue;
-        }
+        } catch { continue; }
 
         // Wait and retry
-        spawnSync("sleep", ["0.1"], { stdio: "ignore" });
+        spawnSync('sleep', ['0.1'], { stdio: 'ignore' });
         continue;
       }
       throw err;
     }
   }
   // Timeout — force acquire (stale lock recovery)
-  try {
-    fs.unlinkSync(lockPath);
-  } catch {
-    /* ok */
-  }
+  try { fs.unlinkSync(lockPath); } catch { /* ok */ }
   return fn();
 }
 
@@ -595,13 +549,13 @@ function withPlanningLock(cwd, fn) {
  */
 function planningDir(cwd, ws) {
   if (ws === undefined) ws = process.env.GSD_WORKSTREAM || null;
-  if (!ws) return path.join(cwd, ".planning");
-  return path.join(cwd, ".planning", "workstreams", ws);
+  if (!ws) return path.join(cwd, '.planning');
+  return path.join(cwd, '.planning', 'workstreams', ws);
 }
 
 /** Always returns the root .planning/ path, ignoring workstreams. For shared resources. */
 function planningRoot(cwd) {
-  return path.join(cwd, ".planning");
+  return path.join(cwd, '.planning');
 }
 
 /**
@@ -611,15 +565,15 @@ function planningRoot(cwd) {
  */
 function planningPaths(cwd, ws) {
   const base = planningDir(cwd, ws);
-  const root = path.join(cwd, ".planning");
+  const root = path.join(cwd, '.planning');
   return {
     planning: base,
-    state: path.join(base, "STATE.md"),
-    roadmap: path.join(base, "ROADMAP.md"),
-    project: path.join(root, "PROJECT.md"),
-    config: path.join(root, "config.json"),
-    phases: path.join(base, "phases"),
-    requirements: path.join(base, "REQUIREMENTS.md"),
+    state: path.join(base, 'STATE.md'),
+    roadmap: path.join(base, 'ROADMAP.md'),
+    project: path.join(root, 'PROJECT.md'),
+    config: path.join(root, 'config.json'),
+    phases: path.join(base, 'phases'),
+    requirements: path.join(base, 'REQUIREMENTS.md'),
   };
 }
 
@@ -630,11 +584,11 @@ function planningPaths(cwd, ws) {
  * Returns null if no active workstream or file doesn't exist.
  */
 function getActiveWorkstream(cwd) {
-  const filePath = path.join(planningRoot(cwd), "active-workstream");
+  const filePath = path.join(planningRoot(cwd), 'active-workstream');
   try {
-    const name = fs.readFileSync(filePath, "utf-8").trim();
+    const name = fs.readFileSync(filePath, 'utf-8').trim();
     if (!name || !/^[a-zA-Z0-9_-]+$/.test(name)) return null;
-    const wsDir = path.join(planningRoot(cwd), "workstreams", name);
+    const wsDir = path.join(planningRoot(cwd), 'workstreams', name);
     if (!fs.existsSync(wsDir)) return null;
     return name;
   } catch {
@@ -646,23 +600,21 @@ function getActiveWorkstream(cwd) {
  * Set the active workstream. Pass null to clear.
  */
 function setActiveWorkstream(cwd, name) {
-  const filePath = path.join(planningRoot(cwd), "active-workstream");
+  const filePath = path.join(planningRoot(cwd), 'active-workstream');
   if (!name) {
-    try {
-      fs.unlinkSync(filePath);
-    } catch {}
+    try { fs.unlinkSync(filePath); } catch {}
     return;
   }
   if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
-    throw new Error("Invalid workstream name: must be alphanumeric, hyphens, and underscores only");
+    throw new Error('Invalid workstream name: must be alphanumeric, hyphens, and underscores only');
   }
-  fs.writeFileSync(filePath, name + "\n", "utf-8");
+  fs.writeFileSync(filePath, name + '\n', 'utf-8');
 }
 
 // ─── Phase utilities ──────────────────────────────────────────────────────────
 
 function escapeRegex(value) {
-  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function normalizePhaseName(phase) {
@@ -670,9 +622,9 @@ function normalizePhaseName(phase) {
   // Standard numeric phases: 1, 01, 12A, 12.1
   const match = str.match(/^(\d+)([A-Z])?((?:\.\d+)*)/i);
   if (match) {
-    const padded = match[1].padStart(2, "0");
-    const letter = match[2] ? match[2].toUpperCase() : "";
-    const decimal = match[3] || "";
+    const padded = match[1].padStart(2, '0');
+    const letter = match[2] ? match[2].toUpperCase() : '';
+    const decimal = match[3] || '';
     return padded + letter + decimal;
   }
   // Custom phase IDs (e.g. PROJ-42, AUTH-101): return as-is
@@ -687,26 +639,16 @@ function comparePhaseNum(a, b) {
   const intDiff = parseInt(pa[1], 10) - parseInt(pb[1], 10);
   if (intDiff !== 0) return intDiff;
   // No letter sorts before letter: 12 < 12A < 12B
-  const la = (pa[2] || "").toUpperCase();
-  const lb = (pb[2] || "").toUpperCase();
+  const la = (pa[2] || '').toUpperCase();
+  const lb = (pb[2] || '').toUpperCase();
   if (la !== lb) {
     if (!la) return -1;
     if (!lb) return 1;
     return la < lb ? -1 : 1;
   }
   // Segment-by-segment decimal comparison: 12A < 12A.1 < 12A.1.2 < 12A.2
-  const aDecParts = pa[3]
-    ? pa[3]
-        .slice(1)
-        .split(".")
-        .map((p) => parseInt(p, 10))
-    : [];
-  const bDecParts = pb[3]
-    ? pb[3]
-        .slice(1)
-        .split(".")
-        .map((p) => parseInt(p, 10))
-    : [];
+  const aDecParts = pa[3] ? pa[3].slice(1).split('.').map(p => parseInt(p, 10)) : [];
+  const bDecParts = pb[3] ? pb[3].slice(1).split('.').map(p => parseInt(p, 10)) : [];
   const maxLen = Math.max(aDecParts.length, bDecParts.length);
   if (aDecParts.length === 0 && bDecParts.length > 0) return -1;
   if (bDecParts.length === 0 && aDecParts.length > 0) return 1;
@@ -722,7 +664,7 @@ function searchPhaseInDir(baseDir, relBase, normalized) {
   try {
     const dirs = readSubdirectories(baseDir, true);
     // Match: starts with normalized (numeric) OR contains normalized as prefix segment (custom ID)
-    const match = dirs.find((d) => {
+    const match = dirs.find(d => {
       if (d.startsWith(normalized)) return true;
       // For custom IDs like PROJ-42, match case-insensitively
       if (d.toUpperCase().startsWith(normalized.toUpperCase())) return true;
@@ -731,27 +673,21 @@ function searchPhaseInDir(baseDir, relBase, normalized) {
     if (!match) return null;
 
     // Extract phase number and name — supports both numeric (01-name) and custom (PROJ-42-name)
-    const dirMatch = match.match(/^(\d+[A-Z]?(?:\.\d+)*)-?(.*)/i) ||
-      match.match(/^([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*)-(.+)/i) || [null, match, null];
+    const dirMatch = match.match(/^(\d+[A-Z]?(?:\.\d+)*)-?(.*)/i)
+      || match.match(/^([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*)-(.+)/i)
+      || [null, match, null];
     const phaseNumber = dirMatch ? dirMatch[1] : normalized;
     const phaseName = dirMatch && dirMatch[2] ? dirMatch[2] : null;
     const phaseDir = path.join(baseDir, match);
-    const {
-      plans: unsortedPlans,
-      summaries: unsortedSummaries,
-      hasResearch,
-      hasContext,
-      hasVerification,
-      hasReviews,
-    } = getPhaseFileStats(phaseDir);
+    const { plans: unsortedPlans, summaries: unsortedSummaries, hasResearch, hasContext, hasVerification, hasReviews } = getPhaseFileStats(phaseDir);
     const plans = unsortedPlans.sort();
     const summaries = unsortedSummaries.sort();
 
     const completedPlanIds = new Set(
-      summaries.map((s) => s.replace("-SUMMARY.md", "").replace("SUMMARY.md", ""))
+      summaries.map(s => s.replace('-SUMMARY.md', '').replace('SUMMARY.md', ''))
     );
-    const incompletePlans = plans.filter((p) => {
-      const planId = p.replace("-PLAN.md", "").replace("PLAN.md", "");
+    const incompletePlans = plans.filter(p => {
+      const planId = p.replace('-PLAN.md', '').replace('PLAN.md', '');
       return !completedPlanIds.has(planId);
     });
 
@@ -760,12 +696,7 @@ function searchPhaseInDir(baseDir, relBase, normalized) {
       directory: toPosixPath(path.join(relBase, match)),
       phase_number: phaseNumber,
       phase_name: phaseName,
-      phase_slug: phaseName
-        ? phaseName
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, "-")
-            .replace(/^-+|-+$/g, "")
-        : null,
+      phase_slug: phaseName ? phaseName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') : null,
       plans,
       summaries,
       incomplete_plans: incompletePlans,
@@ -782,7 +713,7 @@ function searchPhaseInDir(baseDir, relBase, normalized) {
 function findPhaseInternal(cwd, phase) {
   if (!phase) return null;
 
-  const phasesDir = path.join(planningDir(cwd), "phases");
+  const phasesDir = path.join(planningDir(cwd), 'phases');
   const normalized = normalizePhaseName(phase);
 
   // Search current phases first
@@ -791,36 +722,34 @@ function findPhaseInternal(cwd, phase) {
   if (current) return current;
 
   // Search archived milestone phases (newest first)
-  const milestonesDir = path.join(cwd, ".planning", "milestones");
+  const milestonesDir = path.join(cwd, '.planning', 'milestones');
   if (!fs.existsSync(milestonesDir)) return null;
 
   try {
     const milestoneEntries = fs.readdirSync(milestonesDir, { withFileTypes: true });
     const archiveDirs = milestoneEntries
-      .filter((e) => e.isDirectory() && /^v[\d.]+-phases$/.test(e.name))
-      .map((e) => e.name)
+      .filter(e => e.isDirectory() && /^v[\d.]+-phases$/.test(e.name))
+      .map(e => e.name)
       .sort()
       .reverse();
 
     for (const archiveName of archiveDirs) {
       const version = archiveName.match(/^(v[\d.]+)-phases$/)[1];
       const archivePath = path.join(milestonesDir, archiveName);
-      const relBase = ".planning/milestones/" + archiveName;
+      const relBase = '.planning/milestones/' + archiveName;
       const result = searchPhaseInDir(archivePath, relBase, normalized);
       if (result) {
         result.archived = version;
         return result;
       }
     }
-  } catch {
-    /* intentionally empty */
-  }
+  } catch { /* intentionally empty */ }
 
   return null;
 }
 
 function getArchivedPhaseDirs(cwd) {
-  const milestonesDir = path.join(cwd, ".planning", "milestones");
+  const milestonesDir = path.join(cwd, '.planning', 'milestones');
   const results = [];
 
   if (!fs.existsSync(milestonesDir)) return results;
@@ -829,8 +758,8 @@ function getArchivedPhaseDirs(cwd) {
     const milestoneEntries = fs.readdirSync(milestonesDir, { withFileTypes: true });
     // Find v*-phases directories, sort newest first
     const phaseDirs = milestoneEntries
-      .filter((e) => e.isDirectory() && /^v[\d.]+-phases$/.test(e.name))
-      .map((e) => e.name)
+      .filter(e => e.isDirectory() && /^v[\d.]+-phases$/.test(e.name))
+      .map(e => e.name)
       .sort()
       .reverse();
 
@@ -843,14 +772,12 @@ function getArchivedPhaseDirs(cwd) {
         results.push({
           name: dir,
           milestone: version,
-          basePath: path.join(".planning", "milestones", archiveName),
+          basePath: path.join('.planning', 'milestones', archiveName),
           fullPath: path.join(archivePath, dir),
         });
       }
     }
-  } catch {
-    /* intentionally empty */
-  }
+  } catch { /* intentionally empty */ }
 
   return results;
 }
@@ -864,7 +791,7 @@ function getArchivedPhaseDirs(cwd) {
  * phases that share the same numbers as current milestone phases.
  */
 function stripShippedMilestones(content) {
-  return content.replace(/<details>[\s\S]*?<\/details>/gi, "");
+  return content.replace(/<details>[\s\S]*?<\/details>/gi, '');
 }
 
 /**
@@ -889,9 +816,9 @@ function extractCurrentMilestone(content, cwd) {
   // 1. Get current milestone version from STATE.md frontmatter
   let version = null;
   try {
-    const statePath = path.join(planningDir(cwd), "STATE.md");
+    const statePath = path.join(planningDir(cwd), 'STATE.md');
     if (fs.existsSync(statePath)) {
-      const stateRaw = fs.readFileSync(statePath, "utf-8");
+      const stateRaw = fs.readFileSync(statePath, 'utf-8');
       const milestoneMatch = stateRaw.match(/^milestone:\s*(.+)/m);
       if (milestoneMatch) {
         version = milestoneMatch[1].trim();
@@ -904,7 +831,7 @@ function extractCurrentMilestone(content, cwd) {
     // Check for 🚧 in-progress marker
     const inProgressMatch = content.match(/🚧\s*\*\*v(\d+\.\d+)\s/);
     if (inProgressMatch) {
-      version = "v" + inProgressMatch[1];
+      version = 'v' + inProgressMatch[1];
     }
   }
 
@@ -913,7 +840,10 @@ function extractCurrentMilestone(content, cwd) {
   // 3. Find the section matching this version
   // Match headings like: ## Roadmap v3.0: Name, ## v3.0 Name, etc.
   const escapedVersion = escapeRegex(version);
-  const sectionPattern = new RegExp(`(^#{1,3}\\s+.*${escapedVersion}[^\\n]*)`, "mi");
+  const sectionPattern = new RegExp(
+    `(^#{1,3}\\s+.*${escapedVersion}[^\\n]*)`,
+    'mi'
+  );
   const sectionMatch = content.match(sectionPattern);
 
   if (!sectionMatch) return stripShippedMilestones(content);
@@ -926,7 +856,7 @@ function extractCurrentMilestone(content, cwd) {
   const restContent = content.slice(sectionStart + sectionMatch[0].length);
   const nextMilestonePattern = new RegExp(
     `^#{1,${headingLevel}}\\s+(?:.*v\\d+\\.\\d+|✅|📋|🚧)`,
-    "mi"
+    'mi'
   );
   const nextMatch = restContent.match(nextMilestonePattern);
 
@@ -944,7 +874,7 @@ function extractCurrentMilestone(content, cwd) {
 
   // Also include any content before the first milestone heading (title, overview, etc.)
   // but strip any <details> blocks in it (these are definitely shipped)
-  const preamble = beforeMilestones.replace(/<details>[\s\S]*?<\/details>/gi, "");
+  const preamble = beforeMilestones.replace(/<details>[\s\S]*?<\/details>/gi, '');
 
   return preamble + currentSection;
 }
@@ -955,11 +885,11 @@ function extractCurrentMilestone(content, cwd) {
  * that must not accidentally modify archived milestone checkboxes/tables.
  */
 function replaceInCurrentMilestone(content, pattern, replacement) {
-  const lastDetailsClose = content.lastIndexOf("</details>");
+  const lastDetailsClose = content.lastIndexOf('</details>');
   if (lastDetailsClose === -1) {
     return content.replace(pattern, replacement);
   }
-  const offset = lastDetailsClose + "</details>".length;
+  const offset = lastDetailsClose + '</details>'.length;
   const before = content.slice(0, offset);
   const after = content.slice(offset);
   return before + after.replace(pattern, replacement);
@@ -969,14 +899,14 @@ function replaceInCurrentMilestone(content, pattern, replacement) {
 
 function getRoadmapPhaseInternal(cwd, phaseNum) {
   if (!phaseNum) return null;
-  const roadmapPath = path.join(planningDir(cwd), "ROADMAP.md");
+  const roadmapPath = path.join(planningDir(cwd), 'ROADMAP.md');
   if (!fs.existsSync(roadmapPath)) return null;
 
   try {
-    const content = extractCurrentMilestone(fs.readFileSync(roadmapPath, "utf-8"), cwd);
+    const content = extractCurrentMilestone(fs.readFileSync(roadmapPath, 'utf-8'), cwd);
     const escapedPhase = escapeRegex(phaseNum.toString());
     // Match both numeric (Phase 1:) and custom (Phase PROJ-42:) headers
-    const phasePattern = new RegExp(`#{2,4}\\s*Phase\\s+${escapedPhase}:\\s*([^\\n]+)`, "i");
+    const phasePattern = new RegExp(`#{2,4}\\s*Phase\\s+${escapedPhase}:\\s*([^\\n]+)`, 'i');
     const headerMatch = content.match(phasePattern);
     if (!headerMatch) return null;
 
@@ -1013,7 +943,7 @@ function getRoadmapPhaseInternal(cwd, phaseNum) {
  */
 function getAgentsDir() {
   // __dirname is get-shit-done/bin/lib/ → go up 3 levels to configDir
-  return path.join(__dirname, "..", "..", "..", "agents");
+  return path.join(__dirname, '..', '..', '..', 'agents');
 }
 
 /**
@@ -1062,9 +992,9 @@ function checkAgentsInstalled() {
  * Users can override with model_overrides in config.json for custom/latest models.
  */
 const MODEL_ALIAS_MAP = {
-  opus: "claude-opus-4-0",
-  sonnet: "claude-sonnet-4-5",
-  haiku: "claude-haiku-3-5",
+  'opus': 'claude-opus-4-0',
+  'sonnet': 'claude-sonnet-4-5',
+  'haiku': 'claude-haiku-3-5',
 };
 
 function resolveModelInternal(cwd, agentType) {
@@ -1080,16 +1010,16 @@ function resolveModelInternal(cwd, agentType) {
   // resolve_model_ids: "omit" — return empty string so the runtime uses its configured
   // default model. For non-Claude runtimes (OpenCode, Codex, etc.) that don't recognize
   // Claude aliases (opus/sonnet/haiku/inherit). Set automatically during install. See #1156.
-  if (config.resolve_model_ids === "omit") {
-    return "";
+  if (config.resolve_model_ids === 'omit') {
+    return '';
   }
 
   // Fall back to profile lookup
-  const profile = String(config.model_profile || "balanced").toLowerCase();
+  const profile = String(config.model_profile || 'balanced').toLowerCase();
   const agentModels = MODEL_PROFILES[agentType];
-  if (!agentModels) return "sonnet";
-  if (profile === "inherit") return "inherit";
-  const alias = agentModels[profile] || agentModels["balanced"] || "sonnet";
+  if (!agentModels) return 'sonnet';
+  if (profile === 'inherit') return 'inherit';
+  const alias = agentModels[profile] || agentModels['balanced'] || 'sonnet';
 
   // resolve_model_ids: true — map alias to full Claude model ID
   // Prevents 404s when the Task tool passes aliases directly to the API
@@ -1111,7 +1041,7 @@ function resolveModelInternal(cwd, agentType) {
 function extractOneLinerFromBody(content) {
   if (!content) return null;
   // Strip frontmatter first
-  const body = content.replace(/^---\n[\s\S]*?\n---\n*/, "");
+  const body = content.replace(/^---\n[\s\S]*?\n---\n*/, '');
   // Find the first **...** line after a # heading
   const match = body.match(/^#[^\n]*\n+\*\*([^*]+)\*\*/m);
   return match ? match[1].trim() : null;
@@ -1131,15 +1061,12 @@ function pathExistsInternal(cwd, targetPath) {
 
 function generateSlugInternal(text) {
   if (!text) return null;
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
 function getMilestoneInfo(cwd) {
   try {
-    const roadmap = fs.readFileSync(path.join(planningDir(cwd), "ROADMAP.md"), "utf-8");
+    const roadmap = fs.readFileSync(path.join(planningDir(cwd), 'ROADMAP.md'), 'utf-8');
 
     // First: check for list-format roadmaps using 🚧 (in-progress) marker
     // e.g. "- 🚧 **v2.1 Belgium** — Phases 24-28 (in progress)"
@@ -1147,7 +1074,7 @@ function getMilestoneInfo(cwd) {
     const inProgressMatch = roadmap.match(/🚧\s*\*\*v(\d+(?:\.\d+)+)\s+([^*]+)\*\*/);
     if (inProgressMatch) {
       return {
-        version: "v" + inProgressMatch[1],
+        version: 'v' + inProgressMatch[1],
         name: inProgressMatch[2].trim(),
       };
     }
@@ -1159,18 +1086,18 @@ function getMilestoneInfo(cwd) {
     const headingMatch = cleaned.match(/## .*v(\d+(?:\.\d+)+)[:\s]+([^\n(]+)/);
     if (headingMatch) {
       return {
-        version: "v" + headingMatch[1],
+        version: 'v' + headingMatch[1],
         name: headingMatch[2].trim(),
       };
     }
     // Fallback: try bare version match (greedy — capture longest version string)
     const versionMatch = cleaned.match(/v(\d+(?:\.\d+)+)/);
     return {
-      version: versionMatch ? versionMatch[0] : "v1.0",
-      name: "milestone",
+      version: versionMatch ? versionMatch[0] : 'v1.0',
+      name: 'milestone',
     };
   } catch {
-    return { version: "v1.0", name: "milestone" };
+    return { version: 'v1.0', name: 'milestone' };
   }
 }
 
@@ -1182,19 +1109,14 @@ function getMilestoneInfo(cwd) {
 function getMilestonePhaseFilter(cwd) {
   const milestonePhaseNums = new Set();
   try {
-    const roadmap = extractCurrentMilestone(
-      fs.readFileSync(path.join(planningDir(cwd), "ROADMAP.md"), "utf-8"),
-      cwd
-    );
+    const roadmap = extractCurrentMilestone(fs.readFileSync(path.join(planningDir(cwd), 'ROADMAP.md'), 'utf-8'), cwd);
     // Match both numeric phases (Phase 1:) and custom IDs (Phase PROJ-42:)
     const phasePattern = /#{2,4}\s*Phase\s+([\w][\w.-]*)\s*:/gi;
     let m;
     while ((m = phasePattern.exec(roadmap)) !== null) {
       milestonePhaseNums.add(m[1]);
     }
-  } catch {
-    /* intentionally empty */
-  }
+  } catch { /* intentionally empty */ }
 
   if (milestonePhaseNums.size === 0) {
     const passAll = () => true;
@@ -1203,7 +1125,7 @@ function getMilestonePhaseFilter(cwd) {
   }
 
   const normalized = new Set(
-    [...milestonePhaseNums].map((n) => (n.replace(/^0+/, "") || "0").toLowerCase())
+    [...milestonePhaseNums].map(n => (n.replace(/^0+/, '') || '0').toLowerCase())
   );
 
   function isDirInMilestone(dirName) {
@@ -1223,12 +1145,12 @@ function getMilestonePhaseFilter(cwd) {
 
 /** Filter a file list to just PLAN.md / *-PLAN.md entries. */
 function filterPlanFiles(files) {
-  return files.filter((f) => f.endsWith("-PLAN.md") || f === "PLAN.md");
+  return files.filter(f => f.endsWith('-PLAN.md') || f === 'PLAN.md');
 }
 
 /** Filter a file list to just SUMMARY.md / *-SUMMARY.md entries. */
 function filterSummaryFiles(files) {
-  return files.filter((f) => f.endsWith("-SUMMARY.md") || f === "SUMMARY.md");
+  return files.filter(f => f.endsWith('-SUMMARY.md') || f === 'SUMMARY.md');
 }
 
 /**
@@ -1241,10 +1163,10 @@ function getPhaseFileStats(phaseDir) {
   return {
     plans: filterPlanFiles(files),
     summaries: filterSummaryFiles(files),
-    hasResearch: files.some((f) => f.endsWith("-RESEARCH.md") || f === "RESEARCH.md"),
-    hasContext: files.some((f) => f.endsWith("-CONTEXT.md") || f === "CONTEXT.md"),
-    hasVerification: files.some((f) => f.endsWith("-VERIFICATION.md") || f === "VERIFICATION.md"),
-    hasReviews: files.some((f) => f.endsWith("-REVIEWS.md") || f === "REVIEWS.md"),
+    hasResearch: files.some(f => f.endsWith('-RESEARCH.md') || f === 'RESEARCH.md'),
+    hasContext: files.some(f => f.endsWith('-CONTEXT.md') || f === 'CONTEXT.md'),
+    hasVerification: files.some(f => f.endsWith('-VERIFICATION.md') || f === 'VERIFICATION.md'),
+    hasReviews: files.some(f => f.endsWith('-REVIEWS.md') || f === 'REVIEWS.md'),
   };
 }
 
@@ -1256,7 +1178,7 @@ function getPhaseFileStats(phaseDir) {
 function readSubdirectories(dirPath, sort = false) {
   try {
     const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-    const dirs = entries.filter((e) => e.isDirectory()).map((e) => e.name);
+    const dirs = entries.filter(e => e.isDirectory()).map(e => e.name);
     return sort ? dirs.sort((a, b) => comparePhaseNum(a, b)) : dirs;
   } catch {
     return [];

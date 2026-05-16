@@ -22,7 +22,9 @@ const otelHeaders = config.getSecret("otelHeaders");
 const remediationWebhookSecret = config.getSecret("remediationWebhookSecret");
 
 const otelEnvs: digitalocean.types.input.AppSpecServiceEnv[] = [
-  ...(otelEndpoint ? [{ key: "OTEL_EXPORTER_OTLP_ENDPOINT", value: otelEndpoint }] : []),
+  ...(otelEndpoint
+    ? [{ key: "OTEL_EXPORTER_OTLP_ENDPOINT", value: otelEndpoint }]
+    : []),
   ...(otelHeaders
     ? [{ key: "OTEL_EXPORTER_OTLP_HEADERS", value: otelHeaders, type: "SECRET" as const }]
     : []),
@@ -64,22 +66,24 @@ export const cacheKvNamespaceId = cacheKv.id;
 // migrations does not block unrelated services from deploying.
 const MIGRATED_SERVICES = ["users", "reservations", "agent"] as const;
 
-const migrationJobs: digitalocean.types.input.AppSpecJob[] = MIGRATED_SERVICES.map((service) => ({
-  name: `db-migrate-${service}`,
-  kind: "PRE_DEPLOY" as const,
-  github: {
-    repo: "mattbutlerengineering/mattbutlerengineering",
-    branch: "main",
-    deployOnPush: false, // CI triggers deploys via doctl
-  },
-  sourceDir: "/",
-  dockerfilePath: "infrastructure/migrate/Dockerfile",
-  envs: [
-    { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" as const },
-    { key: "SERVICE_NAME", value: service },
-  ],
-  runCommand: "/migrate.sh",
-}));
+const migrationJobs: digitalocean.types.input.AppSpecJob[] = MIGRATED_SERVICES.map(
+  (service) => ({
+    name: `db-migrate-${service}`,
+    kind: "PRE_DEPLOY" as const,
+    github: {
+      repo: "mattbutlerengineering/mattbutlerengineering",
+      branch: "main",
+      deployOnPush: false, // CI triggers deploys via doctl
+    },
+    sourceDir: "/",
+    dockerfilePath: "infrastructure/migrate/Dockerfile",
+    envs: [
+      { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" as const },
+      { key: "SERVICE_NAME", value: service },
+    ],
+    runCommand: "/migrate.sh",
+  })
+);
 
 // ── DO App Platform (API services only) ─────────────────────────────
 // Services + migration jobs. Static sites are on CF Pages.
@@ -223,13 +227,7 @@ const apiApp = new digitalocean.App("mattbutlerengineering-api-app", {
             : []),
           { key: "DEFAULT_MODEL", value: "anthropic/claude-haiku-4.5" },
           ...(remediationWebhookSecret
-            ? [
-                {
-                  key: "REMEDIATION_WEBHOOK_SECRET",
-                  value: remediationWebhookSecret,
-                  type: "SECRET" as const,
-                },
-              ]
+            ? [{ key: "REMEDIATION_WEBHOOK_SECRET", value: remediationWebhookSecret, type: "SECRET" as const }]
             : []),
           ...otelEnvs,
         ],
@@ -289,16 +287,8 @@ const workerScript = new cloudflare.WorkersScript("mattbutlerengineering-edge-ro
     { name: "HOSPITALITY", service: "mattbutlerengineering-hospitality", type: "service" },
     { name: "RIALTO", service: "mattbutlerengineering-rialto-web", type: "service" },
     { name: "GEN", service: "mattbutlerengineering-gen", type: "service" },
-    {
-      name: "MARKETING_CANARY",
-      service: "mattbutlerengineering-marketing-canary",
-      type: "service",
-    },
-    {
-      name: "HOSPITALITY_CANARY",
-      service: "mattbutlerengineering-hospitality-canary",
-      type: "service",
-    },
+    { name: "MARKETING_CANARY", service: "mattbutlerengineering-marketing-canary", type: "service" },
+    { name: "HOSPITALITY_CANARY", service: "mattbutlerengineering-hospitality-canary", type: "service" },
     { name: "RIALTO_CANARY", service: "mattbutlerengineering-rialto-web-canary", type: "service" },
     { name: "GEN_CANARY", service: "mattbutlerengineering-gen-canary", type: "service" },
     { name: "HEALTH_STATE", namespaceId: healthKv.id, type: "kv_namespace" },

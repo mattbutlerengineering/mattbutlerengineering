@@ -14,15 +14,15 @@
 
 ## File Structure
 
-| File                                                                              | Action | Responsibility                                                                  |
-| --------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------- |
-| `apps/rialto-web/src/pages/visual-test/VisualTest.tsx`                            | Modify | Add 5 new `<Section>` blocks with deterministic data                            |
-| `apps/rialto-web/e2e/visual.spec.ts`                                              | Modify | Add 4 testids to `lightSections`, 1 to `darkSections`                           |
-| `apps/rialto-web/e2e/screenshots/light-tape-chart-default.png`                    | Create | New baseline                                                                    |
-| `apps/rialto-web/e2e/screenshots/light-tape-chart-stress.png`                     | Create | New baseline                                                                    |
-| `apps/rialto-web/e2e/screenshots/dark-dark-tape-chart.png`                        | Create | New baseline (note `dark-dark-*` naming pattern matches existing dark sections) |
-| `apps/rialto-web/e2e/screenshots/light-master-override-variants.png`              | Create | New baseline                                                                    |
-| `apps/rialto-web/e2e/screenshots/light-master-override-requireHold-splitflap.png` | Create | New baseline                                                                    |
+| File | Action | Responsibility |
+|---|---|---|
+| `apps/rialto-web/src/pages/visual-test/VisualTest.tsx` | Modify | Add 5 new `<Section>` blocks with deterministic data |
+| `apps/rialto-web/e2e/visual.spec.ts` | Modify | Add 4 testids to `lightSections`, 1 to `darkSections` |
+| `apps/rialto-web/e2e/screenshots/light-tape-chart-default.png` | Create | New baseline |
+| `apps/rialto-web/e2e/screenshots/light-tape-chart-stress.png` | Create | New baseline |
+| `apps/rialto-web/e2e/screenshots/dark-dark-tape-chart.png` | Create | New baseline (note `dark-dark-*` naming pattern matches existing dark sections) |
+| `apps/rialto-web/e2e/screenshots/light-master-override-variants.png` | Create | New baseline |
+| `apps/rialto-web/e2e/screenshots/light-master-override-requireHold-splitflap.png` | Create | New baseline |
 
 No new files. All changes are additive.
 
@@ -47,7 +47,6 @@ The manual inspection step is critical. The baseline becomes the source of truth
 ## Task 1: TapeChart — `tape-chart-default` section
 
 **Files:**
-
 - Modify: `apps/rialto-web/e2e/visual.spec.ts` (add testid to `lightSections`)
 - Modify: `apps/rialto-web/src/pages/visual-test/VisualTest.tsx` (add new `<Section>` block)
 - Create: `apps/rialto-web/e2e/screenshots/light-tape-chart-default.png` (baseline)
@@ -66,7 +65,6 @@ In `apps/rialto-web/e2e/visual.spec.ts`, find the `const lightSections = [...]` 
 - [ ] **Step 2: Run the test — verify it fails**
 
 From the repo root:
-
 ```bash
 pnpm --dir apps/rialto-web exec playwright test -g "tape-chart-default" --reporter=list
 ```
@@ -78,23 +76,21 @@ Expected: FAIL. The selector `getByTestId("tape-chart-default")` finds no matchi
 In `apps/rialto-web/src/pages/visual-test/VisualTest.tsx`, find the line `{/* ── Dark Mode Section ──────────────── */}` (around line 489 — the boundary between light and dark sections). Immediately BEFORE that comment, add:
 
 ```tsx
-{
-  /* ── TapeChart — Default ─────────────── */
-}
-<Section id="tape-chart-default" title="TapeChart — Default">
-  <div className={styles.card}>
-    <TapeChart
-      startDate="2026-01-15"
-      endDate="2026-01-22"
-      rooms={tapeChartDefaultRooms}
-      reservations={tapeChartDefaultReservations}
-      currency="USD"
-      density="comfortable"
-      viewMode="grid"
-      onReservationClick={() => {}}
-    />
-  </div>
-</Section>;
+      {/* ── TapeChart — Default ─────────────── */}
+      <Section id="tape-chart-default" title="TapeChart — Default">
+        <div className={styles.card}>
+          <TapeChart
+            startDate="2026-01-15"
+            endDate="2026-01-22"
+            rooms={tapeChartDefaultRooms}
+            reservations={tapeChartDefaultReservations}
+            currency="USD"
+            density="comfortable"
+            viewMode="grid"
+            onReservationClick={() => {}}
+          />
+        </div>
+      </Section>
 ```
 
 Add `TapeChart` to the imports at the top of the file. Find the import block from `@mattbutlerengineering/rialto` (currently imports `Accordion, Alert, Avatar, …`). Add `TapeChart,` alphabetically — between `Steps,` and `Table,`:
@@ -129,101 +125,20 @@ const tapeChartDefaultRooms = [
 ];
 
 const tapeChartDefaultReservations = [
-  {
-    id: "rsv-1",
-    roomId: "r1",
-    start: "2026-01-15",
-    end: "2026-01-18",
-    status: "confirmed" as const,
-    guestName: "Alice Tanaka",
-    ratePerNight: 180,
-    currency: "USD",
-    source: "Direct",
-  },
-  {
-    id: "rsv-2",
-    roomId: "r2",
-    start: "2026-01-16",
-    end: "2026-01-21",
-    status: "checkedIn" as const,
-    guestName: "Bob García",
-    ratePerNight: 180,
-    currency: "USD",
-    source: "Direct",
-  },
-  {
-    id: "rsv-3",
-    roomId: "r3",
-    start: "2026-01-17",
-    end: "2026-01-19",
-    status: "tentative" as const,
-    guestName: "Clara Singh",
-    ratePerNight: 180,
-    currency: "USD",
-    source: "Booking.com",
-  },
-  {
-    id: "rsv-4",
-    roomId: "r4",
-    start: "2026-01-15",
-    end: "2026-01-22",
-    status: "checkedIn" as const,
-    guestName: "Daniil Patel",
-    ratePerNight: 220,
-    currency: "USD",
-    source: "Direct",
-  },
-  {
-    id: "rsv-5",
-    roomId: "r5",
-    start: "2026-01-18",
-    end: "2026-01-20",
-    status: "confirmed" as const,
-    guestName: "Erika Mohan",
-    ratePerNight: 220,
-    currency: "USD",
-    source: "Expedia",
-  },
-  {
-    id: "rsv-6",
-    roomId: "r7",
-    start: "2026-01-15",
-    end: "2026-01-17",
-    status: "checkedOut" as const,
-    guestName: "Fatima Hernández",
-    ratePerNight: 320,
-    currency: "USD",
-    source: "Direct",
-  },
-  {
-    id: "rsv-7",
-    roomId: "r7",
-    start: "2026-01-19",
-    end: "2026-01-22",
-    status: "confirmed" as const,
-    guestName: "Gabriel Rossi",
-    ratePerNight: 320,
-    currency: "USD",
-    source: "Direct",
-  },
-  {
-    id: "rsv-8",
-    roomId: "r8",
-    start: "2026-01-16",
-    end: "2026-01-19",
-    status: "checkedIn" as const,
-    guestName: "Hideo Bauer",
-    ratePerNight: 320,
-    currency: "USD",
-    source: "Booking.com",
-  },
+  { id: "rsv-1", roomId: "r1", start: "2026-01-15", end: "2026-01-18", status: "confirmed" as const, guestName: "Alice Tanaka", ratePerNight: 180, currency: "USD", source: "Direct" },
+  { id: "rsv-2", roomId: "r2", start: "2026-01-16", end: "2026-01-21", status: "checkedIn" as const, guestName: "Bob García", ratePerNight: 180, currency: "USD", source: "Direct" },
+  { id: "rsv-3", roomId: "r3", start: "2026-01-17", end: "2026-01-19", status: "tentative" as const, guestName: "Clara Singh", ratePerNight: 180, currency: "USD", source: "Booking.com" },
+  { id: "rsv-4", roomId: "r4", start: "2026-01-15", end: "2026-01-22", status: "checkedIn" as const, guestName: "Daniil Patel", ratePerNight: 220, currency: "USD", source: "Direct" },
+  { id: "rsv-5", roomId: "r5", start: "2026-01-18", end: "2026-01-20", status: "confirmed" as const, guestName: "Erika Mohan", ratePerNight: 220, currency: "USD", source: "Expedia" },
+  { id: "rsv-6", roomId: "r7", start: "2026-01-15", end: "2026-01-17", status: "checkedOut" as const, guestName: "Fatima Hernández", ratePerNight: 320, currency: "USD", source: "Direct" },
+  { id: "rsv-7", roomId: "r7", start: "2026-01-19", end: "2026-01-22", status: "confirmed" as const, guestName: "Gabriel Rossi", ratePerNight: 320, currency: "USD", source: "Direct" },
+  { id: "rsv-8", roomId: "r8", start: "2026-01-16", end: "2026-01-19", status: "checkedIn" as const, guestName: "Hideo Bauer", ratePerNight: 320, currency: "USD", source: "Booking.com" },
 ];
 ```
 
 - [ ] **Step 4: Generate the baseline**
 
 Run from the repo root:
-
 ```bash
 pnpm --dir apps/rialto-web exec playwright test -g "tape-chart-default" --update-snapshots
 ```
@@ -233,7 +148,6 @@ Expected: PASS. A new file appears at `apps/rialto-web/e2e/screenshots/light-tap
 - [ ] **Step 5: Manually inspect the baseline**
 
 Open `apps/rialto-web/e2e/screenshots/light-tape-chart-default.png` in any image viewer. Verify:
-
 - Rooms 101-108 stack vertically, one per row (NOT 2-per-row)
 - Day header has a single row of 7 cells (Thu Jan 15 through Wed Jan 21)
 - The "Rooms" leading cell in the day header is roughly the same width as the room labels below it
@@ -264,7 +178,6 @@ git commit -m "test(rialto-web): visual baseline for TapeChart default (8 rooms 
 ## Task 2: TapeChart — `tape-chart-stress` section (the load case)
 
 **Files:**
-
 - Modify: `apps/rialto-web/e2e/visual.spec.ts`
 - Modify: `apps/rialto-web/src/pages/visual-test/VisualTest.tsx`
 - Create: `apps/rialto-web/e2e/screenshots/light-tape-chart-stress.png`
@@ -294,23 +207,21 @@ Expected: FAIL with locator timeout.
 In `apps/rialto-web/src/pages/visual-test/VisualTest.tsx`, immediately AFTER the `tape-chart-default` Section block added in Task 1, add:
 
 ```tsx
-{
-  /* ── TapeChart — Stress (24 rooms × 14 days) ───────── */
-}
-<Section id="tape-chart-stress" title="TapeChart — Stress (24 × 14)">
-  <div className={styles.card}>
-    <TapeChart
-      startDate="2026-01-15"
-      endDate="2026-01-29"
-      rooms={tapeChartStressRooms}
-      reservations={tapeChartStressReservations}
-      currency="USD"
-      density="comfortable"
-      viewMode="grid"
-      onReservationClick={() => {}}
-    />
-  </div>
-</Section>;
+      {/* ── TapeChart — Stress (24 rooms × 14 days) ───────── */}
+      <Section id="tape-chart-stress" title="TapeChart — Stress (24 × 14)">
+        <div className={styles.card}>
+          <TapeChart
+            startDate="2026-01-15"
+            endDate="2026-01-29"
+            rooms={tapeChartStressRooms}
+            reservations={tapeChartStressReservations}
+            currency="USD"
+            density="comfortable"
+            viewMode="grid"
+            onReservationClick={() => {}}
+          />
+        </div>
+      </Section>
 ```
 
 Add the stress fixture data after `tapeChartDefaultReservations`:
@@ -334,337 +245,37 @@ const tapeChartStressRooms = Array.from({ length: 24 }, (_, i) => {
 
 const tapeChartStressReservations = [
   // 30 hand-placed reservations spanning the 14-day window
-  {
-    id: "s-1",
-    roomId: "room-1000",
-    start: "2026-01-15",
-    end: "2026-01-18",
-    status: "confirmed" as const,
-    guestName: "Alice Tanaka",
-    ratePerNight: 180,
-    currency: "USD",
-    source: "Direct",
-  },
-  {
-    id: "s-2",
-    roomId: "room-1001",
-    start: "2026-01-16",
-    end: "2026-01-22",
-    status: "checkedIn" as const,
-    guestName: "Bob García",
-    ratePerNight: 180,
-    currency: "USD",
-    source: "Direct",
-  },
-  {
-    id: "s-3",
-    roomId: "room-1002",
-    start: "2026-01-17",
-    end: "2026-01-19",
-    status: "tentative" as const,
-    guestName: "Clara Singh",
-    ratePerNight: 180,
-    currency: "USD",
-    source: "Booking.com",
-  },
-  {
-    id: "s-4",
-    roomId: "room-1003",
-    start: "2026-01-15",
-    end: "2026-01-29",
-    status: "checkedIn" as const,
-    guestName: "Daniil Patel",
-    ratePerNight: 180,
-    currency: "USD",
-    source: "Direct",
-  },
-  {
-    id: "s-5",
-    roomId: "room-1004",
-    start: "2026-01-18",
-    end: "2026-01-21",
-    status: "confirmed" as const,
-    guestName: "Erika Mohan",
-    ratePerNight: 180,
-    currency: "USD",
-    source: "Expedia",
-  },
-  {
-    id: "s-6",
-    roomId: "room-1005",
-    start: "2026-01-15",
-    end: "2026-01-17",
-    status: "checkedOut" as const,
-    guestName: "Fatima Hernández",
-    ratePerNight: 180,
-    currency: "USD",
-    source: "Direct",
-  },
-  {
-    id: "s-7",
-    roomId: "room-1006",
-    start: "2026-01-19",
-    end: "2026-01-25",
-    status: "confirmed" as const,
-    guestName: "Gabriel Rossi",
-    ratePerNight: 180,
-    currency: "USD",
-    source: "Direct",
-  },
-  {
-    id: "s-8",
-    roomId: "room-1007",
-    start: "2026-01-16",
-    end: "2026-01-19",
-    status: "checkedIn" as const,
-    guestName: "Hideo Bauer",
-    ratePerNight: 180,
-    currency: "USD",
-    source: "Booking.com",
-  },
-  {
-    id: "s-9",
-    roomId: "room-1008",
-    start: "2026-01-22",
-    end: "2026-01-26",
-    status: "confirmed" as const,
-    guestName: "Ingrid García",
-    ratePerNight: 180,
-    currency: "USD",
-    source: "Direct",
-  },
-  {
-    id: "s-10",
-    roomId: "room-1009",
-    start: "2026-01-15",
-    end: "2026-01-21",
-    status: "checkedIn" as const,
-    guestName: "Jiro Suzuki",
-    ratePerNight: 180,
-    currency: "USD",
-    source: "Direct",
-  },
-  {
-    id: "s-11",
-    roomId: "room-1010",
-    start: "2026-01-20",
-    end: "2026-01-24",
-    status: "confirmed" as const,
-    guestName: "Kenji Tanaka",
-    ratePerNight: 180,
-    currency: "USD",
-    source: "Expedia",
-  },
-  {
-    id: "s-12",
-    roomId: "room-1011",
-    start: "2026-01-17",
-    end: "2026-01-23",
-    status: "checkedIn" as const,
-    guestName: "Liam O'Neill",
-    ratePerNight: 180,
-    currency: "USD",
-    source: "Direct",
-  },
-  {
-    id: "s-13",
-    roomId: "room-1012",
-    start: "2026-01-15",
-    end: "2026-01-19",
-    status: "checkedOut" as const,
-    guestName: "Mateo Lannister",
-    ratePerNight: 220,
-    currency: "USD",
-    source: "Direct",
-  },
-  {
-    id: "s-14",
-    roomId: "room-1013",
-    start: "2026-01-21",
-    end: "2026-01-26",
-    status: "confirmed" as const,
-    guestName: "Noa Chen",
-    ratePerNight: 220,
-    currency: "USD",
-    source: "Direct",
-  },
-  {
-    id: "s-15",
-    roomId: "room-1014",
-    start: "2026-01-16",
-    end: "2026-01-20",
-    status: "checkedIn" as const,
-    guestName: "Oksana Patel",
-    ratePerNight: 220,
-    currency: "USD",
-    source: "Booking.com",
-  },
-  {
-    id: "s-16",
-    roomId: "room-1015",
-    start: "2026-01-18",
-    end: "2026-01-25",
-    status: "confirmed" as const,
-    guestName: "Priya Singh",
-    ratePerNight: 220,
-    currency: "USD",
-    source: "Direct",
-  },
-  {
-    id: "s-17",
-    roomId: "room-1016",
-    start: "2026-01-22",
-    end: "2026-01-29",
-    status: "tentative" as const,
-    guestName: "Quinn O'Neill",
-    ratePerNight: 220,
-    currency: "USD",
-    source: "Expedia",
-  },
-  {
-    id: "s-18",
-    roomId: "room-1017",
-    start: "2026-01-15",
-    end: "2026-01-22",
-    status: "checkedIn" as const,
-    guestName: "Rafael Hernández",
-    ratePerNight: 220,
-    currency: "USD",
-    source: "Direct",
-  },
-  {
-    id: "s-19",
-    roomId: "room-1018",
-    start: "2026-01-19",
-    end: "2026-01-23",
-    status: "confirmed" as const,
-    guestName: "Sofía Rossi",
-    ratePerNight: 220,
-    currency: "USD",
-    source: "Direct",
-  },
-  {
-    id: "s-20",
-    roomId: "room-1019",
-    start: "2026-01-17",
-    end: "2026-01-21",
-    status: "checkedIn" as const,
-    guestName: "Tyrion Bauer",
-    ratePerNight: 220,
-    currency: "USD",
-    source: "Booking.com",
-  },
-  {
-    id: "s-21",
-    roomId: "room-1020",
-    start: "2026-01-15",
-    end: "2026-01-29",
-    status: "checkedIn" as const,
-    guestName: "Ursula Mohan",
-    ratePerNight: 320,
-    currency: "USD",
-    source: "Direct",
-  },
-  {
-    id: "s-22",
-    roomId: "room-1021",
-    start: "2026-01-20",
-    end: "2026-01-25",
-    status: "confirmed" as const,
-    guestName: "Viktor Suzuki",
-    ratePerNight: 320,
-    currency: "USD",
-    source: "Direct",
-  },
-  {
-    id: "s-23",
-    roomId: "room-1022",
-    start: "2026-01-16",
-    end: "2026-01-22",
-    status: "checkedIn" as const,
-    guestName: "Wren Tanaka",
-    ratePerNight: 320,
-    currency: "USD",
-    source: "Direct",
-  },
-  {
-    id: "s-24",
-    roomId: "room-1023",
-    start: "2026-01-23",
-    end: "2026-01-28",
-    status: "confirmed" as const,
-    guestName: "Xander Patel",
-    ratePerNight: 320,
-    currency: "USD",
-    source: "Direct",
-  },
+  { id: "s-1",  roomId: "room-1000", start: "2026-01-15", end: "2026-01-18", status: "confirmed" as const, guestName: "Alice Tanaka", ratePerNight: 180, currency: "USD", source: "Direct" },
+  { id: "s-2",  roomId: "room-1001", start: "2026-01-16", end: "2026-01-22", status: "checkedIn" as const, guestName: "Bob García", ratePerNight: 180, currency: "USD", source: "Direct" },
+  { id: "s-3",  roomId: "room-1002", start: "2026-01-17", end: "2026-01-19", status: "tentative" as const, guestName: "Clara Singh", ratePerNight: 180, currency: "USD", source: "Booking.com" },
+  { id: "s-4",  roomId: "room-1003", start: "2026-01-15", end: "2026-01-29", status: "checkedIn" as const, guestName: "Daniil Patel", ratePerNight: 180, currency: "USD", source: "Direct" },
+  { id: "s-5",  roomId: "room-1004", start: "2026-01-18", end: "2026-01-21", status: "confirmed" as const, guestName: "Erika Mohan", ratePerNight: 180, currency: "USD", source: "Expedia" },
+  { id: "s-6",  roomId: "room-1005", start: "2026-01-15", end: "2026-01-17", status: "checkedOut" as const, guestName: "Fatima Hernández", ratePerNight: 180, currency: "USD", source: "Direct" },
+  { id: "s-7",  roomId: "room-1006", start: "2026-01-19", end: "2026-01-25", status: "confirmed" as const, guestName: "Gabriel Rossi", ratePerNight: 180, currency: "USD", source: "Direct" },
+  { id: "s-8",  roomId: "room-1007", start: "2026-01-16", end: "2026-01-19", status: "checkedIn" as const, guestName: "Hideo Bauer", ratePerNight: 180, currency: "USD", source: "Booking.com" },
+  { id: "s-9",  roomId: "room-1008", start: "2026-01-22", end: "2026-01-26", status: "confirmed" as const, guestName: "Ingrid García", ratePerNight: 180, currency: "USD", source: "Direct" },
+  { id: "s-10", roomId: "room-1009", start: "2026-01-15", end: "2026-01-21", status: "checkedIn" as const, guestName: "Jiro Suzuki", ratePerNight: 180, currency: "USD", source: "Direct" },
+  { id: "s-11", roomId: "room-1010", start: "2026-01-20", end: "2026-01-24", status: "confirmed" as const, guestName: "Kenji Tanaka", ratePerNight: 180, currency: "USD", source: "Expedia" },
+  { id: "s-12", roomId: "room-1011", start: "2026-01-17", end: "2026-01-23", status: "checkedIn" as const, guestName: "Liam O'Neill", ratePerNight: 180, currency: "USD", source: "Direct" },
+  { id: "s-13", roomId: "room-1012", start: "2026-01-15", end: "2026-01-19", status: "checkedOut" as const, guestName: "Mateo Lannister", ratePerNight: 220, currency: "USD", source: "Direct" },
+  { id: "s-14", roomId: "room-1013", start: "2026-01-21", end: "2026-01-26", status: "confirmed" as const, guestName: "Noa Chen", ratePerNight: 220, currency: "USD", source: "Direct" },
+  { id: "s-15", roomId: "room-1014", start: "2026-01-16", end: "2026-01-20", status: "checkedIn" as const, guestName: "Oksana Patel", ratePerNight: 220, currency: "USD", source: "Booking.com" },
+  { id: "s-16", roomId: "room-1015", start: "2026-01-18", end: "2026-01-25", status: "confirmed" as const, guestName: "Priya Singh", ratePerNight: 220, currency: "USD", source: "Direct" },
+  { id: "s-17", roomId: "room-1016", start: "2026-01-22", end: "2026-01-29", status: "tentative" as const, guestName: "Quinn O'Neill", ratePerNight: 220, currency: "USD", source: "Expedia" },
+  { id: "s-18", roomId: "room-1017", start: "2026-01-15", end: "2026-01-22", status: "checkedIn" as const, guestName: "Rafael Hernández", ratePerNight: 220, currency: "USD", source: "Direct" },
+  { id: "s-19", roomId: "room-1018", start: "2026-01-19", end: "2026-01-23", status: "confirmed" as const, guestName: "Sofía Rossi", ratePerNight: 220, currency: "USD", source: "Direct" },
+  { id: "s-20", roomId: "room-1019", start: "2026-01-17", end: "2026-01-21", status: "checkedIn" as const, guestName: "Tyrion Bauer", ratePerNight: 220, currency: "USD", source: "Booking.com" },
+  { id: "s-21", roomId: "room-1020", start: "2026-01-15", end: "2026-01-29", status: "checkedIn" as const, guestName: "Ursula Mohan", ratePerNight: 320, currency: "USD", source: "Direct" },
+  { id: "s-22", roomId: "room-1021", start: "2026-01-20", end: "2026-01-25", status: "confirmed" as const, guestName: "Viktor Suzuki", ratePerNight: 320, currency: "USD", source: "Direct" },
+  { id: "s-23", roomId: "room-1022", start: "2026-01-16", end: "2026-01-22", status: "checkedIn" as const, guestName: "Wren Tanaka", ratePerNight: 320, currency: "USD", source: "Direct" },
+  { id: "s-24", roomId: "room-1023", start: "2026-01-23", end: "2026-01-28", status: "confirmed" as const, guestName: "Xander Patel", ratePerNight: 320, currency: "USD", source: "Direct" },
   // A second pass — overlapping reservations to exercise lane assignment
-  {
-    id: "s-25",
-    roomId: "room-1003",
-    start: "2026-01-19",
-    end: "2026-01-21",
-    status: "tentative" as const,
-    guestName: "Yuki Singh",
-    ratePerNight: 180,
-    currency: "USD",
-    source: "Direct",
-  },
-  {
-    id: "s-26",
-    roomId: "room-1009",
-    start: "2026-01-23",
-    end: "2026-01-26",
-    status: "confirmed" as const,
-    guestName: "Zara Bauer",
-    ratePerNight: 180,
-    currency: "USD",
-    source: "Direct",
-  },
-  {
-    id: "s-27",
-    roomId: "room-1015",
-    start: "2026-01-26",
-    end: "2026-01-29",
-    status: "confirmed" as const,
-    guestName: "Anika García",
-    ratePerNight: 220,
-    currency: "USD",
-    source: "Expedia",
-  },
-  {
-    id: "s-28",
-    roomId: "room-1017",
-    start: "2026-01-25",
-    end: "2026-01-28",
-    status: "tentative" as const,
-    guestName: "Bri Hernández",
-    ratePerNight: 220,
-    currency: "USD",
-    source: "Direct",
-  },
-  {
-    id: "s-29",
-    roomId: "room-1023",
-    start: "2026-01-15",
-    end: "2026-01-19",
-    status: "checkedOut" as const,
-    guestName: "Cyrus O'Neill",
-    ratePerNight: 320,
-    currency: "USD",
-    source: "Direct",
-  },
-  {
-    id: "s-30",
-    roomId: "room-1023",
-    start: "2026-01-29",
-    end: "2026-01-29",
-    status: "confirmed" as const,
-    guestName: "Dahlia Lannister",
-    ratePerNight: 320,
-    currency: "USD",
-    source: "Direct",
-  },
+  { id: "s-25", roomId: "room-1003", start: "2026-01-19", end: "2026-01-21", status: "tentative" as const, guestName: "Yuki Singh", ratePerNight: 180, currency: "USD", source: "Direct" },
+  { id: "s-26", roomId: "room-1009", start: "2026-01-23", end: "2026-01-26", status: "confirmed" as const, guestName: "Zara Bauer", ratePerNight: 180, currency: "USD", source: "Direct" },
+  { id: "s-27", roomId: "room-1015", start: "2026-01-26", end: "2026-01-29", status: "confirmed" as const, guestName: "Anika García", ratePerNight: 220, currency: "USD", source: "Expedia" },
+  { id: "s-28", roomId: "room-1017", start: "2026-01-25", end: "2026-01-28", status: "tentative" as const, guestName: "Bri Hernández", ratePerNight: 220, currency: "USD", source: "Direct" },
+  { id: "s-29", roomId: "room-1023", start: "2026-01-15", end: "2026-01-19", status: "checkedOut" as const, guestName: "Cyrus O'Neill", ratePerNight: 320, currency: "USD", source: "Direct" },
+  { id: "s-30", roomId: "room-1023", start: "2026-01-29", end: "2026-01-29", status: "confirmed" as const, guestName: "Dahlia Lannister", ratePerNight: 320, currency: "USD", source: "Direct" },
 ];
 ```
 
@@ -681,7 +292,6 @@ Expected: PASS. New file at `apps/rialto-web/e2e/screenshots/light-tape-chart-st
 - [ ] **Step 5: Manually inspect**
 
 Open `light-tape-chart-stress.png`. **This is the goal-backward verification.** Confirm:
-
 - Rooms 1000-1023 stack vertically. Each room has its own row. **No 2-rooms-per-row layout.**
 - Day header has 14 cells in a single row (Thu Jan 15 through Wed Jan 28 — last visible day depends on viewport scroll position; the visible-viewport screenshot will only capture what fits).
 - The "Rooms" leading column matches the room-label width below.
@@ -711,7 +321,6 @@ git commit -m "test(rialto-web): visual baseline for TapeChart stress (24 rooms 
 ## Task 3: TapeChart — `dark-tape-chart` section
 
 **Files:**
-
 - Modify: `apps/rialto-web/e2e/visual.spec.ts` (add testid to `darkSections`)
 - Modify: `apps/rialto-web/src/pages/visual-test/VisualTest.tsx` (add new Section inside the dark-mode wrapper)
 - Create: `apps/rialto-web/e2e/screenshots/dark-dark-tape-chart.png`
@@ -740,20 +349,20 @@ Expected: FAIL with locator timeout.
 In `apps/rialto-web/src/pages/visual-test/VisualTest.tsx`, find the `dark-avatar` Section (around line 557-563 currently — inside the `<div data-theme="dark">` block). Immediately AFTER that Section's closing tag, add:
 
 ```tsx
-<Section id="dark-tape-chart" title="Dark — TapeChart">
-  <div className={styles.card}>
-    <TapeChart
-      startDate="2026-01-15"
-      endDate="2026-01-22"
-      rooms={tapeChartDefaultRooms}
-      reservations={tapeChartDefaultReservations}
-      currency="USD"
-      density="comfortable"
-      viewMode="grid"
-      onReservationClick={() => {}}
-    />
-  </div>
-</Section>
+          <Section id="dark-tape-chart" title="Dark — TapeChart">
+            <div className={styles.card}>
+              <TapeChart
+                startDate="2026-01-15"
+                endDate="2026-01-22"
+                rooms={tapeChartDefaultRooms}
+                reservations={tapeChartDefaultReservations}
+                currency="USD"
+                density="comfortable"
+                viewMode="grid"
+                onReservationClick={() => {}}
+              />
+            </div>
+          </Section>
 ```
 
 (Reuses `tapeChartDefaultRooms` / `tapeChartDefaultReservations` defined in Task 1 — same fixtures, dark theme inherited from the wrapping `data-theme="dark"`.)
@@ -769,7 +378,6 @@ Expected: PASS. New file at `apps/rialto-web/e2e/screenshots/dark-dark-tape-char
 - [ ] **Step 5: Manually inspect**
 
 Open `dark-dark-tape-chart.png`. Confirm:
-
 - Surface tokens use dark variants (the bezel-like rounded corner is on a dark background, room-status dots are visible against dark surface)
 - Text is readable (light foreground on dark background)
 - Reservation bars distinguish their statuses (confirmed/checkedIn/tentative/checkedOut) — colors should be different from light mode
@@ -797,7 +405,6 @@ git commit -m "test(rialto-web): visual baseline for TapeChart in dark mode"
 ## Task 4: MasterOverride — `master-override-variants` section (3×3 grid)
 
 **Files:**
-
 - Modify: `apps/rialto-web/e2e/visual.spec.ts`
 - Modify: `apps/rialto-web/src/pages/visual-test/VisualTest.tsx`
 - Create: `apps/rialto-web/e2e/screenshots/light-master-override-variants.png`
@@ -826,33 +433,31 @@ Expected: FAIL with locator timeout.
 In `apps/rialto-web/src/pages/visual-test/VisualTest.tsx`, immediately AFTER the `tape-chart-stress` Section block added in Task 2, add:
 
 ```tsx
-{
-  /* ── MasterOverride — Variants (3 sizes × 3 variants) ───────── */
-}
-<Section id="master-override-variants" title="MasterOverride — Variants">
-  <div
-    style={{
-      display: "grid",
-      gridTemplateColumns: "repeat(3, auto)",
-      gap: "var(--rialto-space-lg)",
-      justifyItems: "start",
-    }}
-  >
-    {(["sm", "md", "lg"] as const).map((size) =>
-      (["default", "warning", "danger"] as const).map((variant) => (
-        <MasterOverride
-          key={`${size}-${variant}`}
-          label={`${size.toUpperCase()} ${variant}`}
-          description={`${size} · ${variant}`}
-          on={false}
-          onChange={() => {}}
-          size={size}
-          variant={variant}
-        />
-      ))
-    )}
-  </div>
-</Section>;
+      {/* ── MasterOverride — Variants (3 sizes × 3 variants) ───────── */}
+      <Section id="master-override-variants" title="MasterOverride — Variants">
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, auto)",
+            gap: "var(--rialto-space-lg)",
+            justifyItems: "start",
+          }}
+        >
+          {(["sm", "md", "lg"] as const).map((size) =>
+            (["default", "warning", "danger"] as const).map((variant) => (
+              <MasterOverride
+                key={`${size}-${variant}`}
+                label={`${size.toUpperCase()} ${variant}`}
+                description={`${size} · ${variant}`}
+                on={false}
+                onChange={() => {}}
+                size={size}
+                variant={variant}
+              />
+            )),
+          )}
+        </div>
+      </Section>
 ```
 
 Add `MasterOverride` to the imports from `@mattbutlerengineering/rialto`. Find the alphabetical position — between `Input,` and `Meter,`:
@@ -874,7 +479,6 @@ Expected: PASS. New file at `light-master-override-variants.png`.
 - [ ] **Step 5: Manually inspect**
 
 Open the baseline. Confirm:
-
 - 9 components in a 3×3 grid (3 columns).
 - Top row: 3 `sm` components (default / warning / danger) — bezel ~7rem wide.
 - Middle row: 3 `md` components — bezel ~9rem wide.
@@ -905,7 +509,6 @@ git commit -m "test(rialto-web): visual baseline for MasterOverride 3x3 variant 
 ## Task 5: MasterOverride — `master-override-requireHold-splitflap` section
 
 **Files:**
-
 - Modify: `apps/rialto-web/e2e/visual.spec.ts`
 - Modify: `apps/rialto-web/src/pages/visual-test/VisualTest.tsx`
 - Create: `apps/rialto-web/e2e/screenshots/light-master-override-requireHold-splitflap.png`
@@ -935,28 +538,26 @@ Expected: FAIL with locator timeout.
 In `apps/rialto-web/src/pages/visual-test/VisualTest.tsx`, immediately AFTER the `master-override-variants` Section, add:
 
 ```tsx
-{
-  /* ── MasterOverride — requireHold + splitflap label ───────── */
-}
-<Section
-  id="master-override-requireHold-splitflap"
-  title="MasterOverride — requireHold + splitflap"
->
-  <div className={styles.card}>
-    <MasterOverride
-      label="System state"
-      description="Hold to engage. Label cascades through SplitFlap cells."
-      on={false}
-      onChange={() => {}}
-      size="md"
-      variant="danger"
-      idleLabel="OFFLINE"
-      activeLabel="ONLINE"
-      requireHold
-      labelTransition="splitflap"
-    />
-  </div>
-</Section>;
+      {/* ── MasterOverride — requireHold + splitflap label ───────── */}
+      <Section
+        id="master-override-requireHold-splitflap"
+        title="MasterOverride — requireHold + splitflap"
+      >
+        <div className={styles.card}>
+          <MasterOverride
+            label="System state"
+            description="Hold to engage. Label cascades through SplitFlap cells."
+            on={false}
+            onChange={() => {}}
+            size="md"
+            variant="danger"
+            idleLabel="OFFLINE"
+            activeLabel="ONLINE"
+            requireHold
+            labelTransition="splitflap"
+          />
+        </div>
+      </Section>
 ```
 
 (Imports already include `MasterOverride` from Task 4 — no new imports needed.)
@@ -972,7 +573,6 @@ Expected: PASS. New file at `light-master-override-requireHold-splitflap.png`.
 - [ ] **Step 5: Manually inspect**
 
 Open the baseline. Confirm:
-
 - One `md` `danger` MasterOverride.
 - Cover is CLOSED (warning stripe pattern visible).
 - Label "System state" above, description below.
@@ -1014,13 +614,10 @@ Expected: All tests PASS, including the 5 new ones (4 light + 1 dark) and all 41
 - [ ] **Step 2: If any pre-existing test fails**
 
 That would mean adding the new sections changed page layout in a way that affected another section's screenshot (unlikely — the harness page just appends sections, it doesn't reflow). Investigate the diff:
-
 ```bash
 ls apps/rialto-web/e2e/test-results/
 ```
-
 Test results contain `*-actual.png` and `*-diff.png`. If the diff is genuinely a layout regression caused by your changes, fix the harness. If it's a pre-existing flake (font rendering crossed the threshold by chance), re-run that one test:
-
 ```bash
 pnpm --dir apps/rialto-web exec playwright test -g "<failing-test-name>"
 ```
@@ -1030,7 +627,6 @@ Don't blanket re-snapshot pre-existing tests — that defeats the regression che
 - [ ] **Step 3: Verify total counts**
 
 Check that the test runner reports the expected counts:
-
 - Light tests: 33 (pre-existing) + 4 (new) = 37
 - Dark tests: 8 (pre-existing) + 1 (new) = 9
 - Total: 46 tests

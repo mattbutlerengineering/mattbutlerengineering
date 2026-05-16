@@ -65,9 +65,7 @@ describe("JSON Schema generation (toFastifyJsonSchema)", () => {
           return;
         }
         const record = obj as Record<string, unknown>;
-        expect(record, `Found additionalProperties at ${path}`).not.toHaveProperty(
-          "additionalProperties"
-        );
+        expect(record, `Found additionalProperties at ${path}`).not.toHaveProperty("additionalProperties");
         expect(record, `Found propertyNames at ${path}`).not.toHaveProperty("propertyNames");
         for (const [key, value] of Object.entries(record)) {
           checkNoAdditionalProperties(value, `${path}.${key}`);

@@ -184,11 +184,7 @@ export function DemoLayout() {
         <a href="#main-content" className="skip-link">
           Skip to main content
         </a>
-        <GlobalNav
-          currentApp="rialto"
-          theme={demoTheme}
-          onThemeToggle={() => handleDarkModeChange(!darkMode)}
-        />
+        <GlobalNav currentApp="rialto" theme={demoTheme} onThemeToggle={() => handleDarkModeChange(!darkMode)} />
         <div className={styles.floatingControls}>
           <FloatingControls
             darkMode={darkMode}

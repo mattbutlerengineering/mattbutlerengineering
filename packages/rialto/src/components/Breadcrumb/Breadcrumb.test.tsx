@@ -51,21 +51,42 @@ describe("Breadcrumb", () => {
 
   it("calls onClick handler when provided", async () => {
     const onClick = vi.fn();
-    render(<Breadcrumb items={[{ label: "Home", href: "/", onClick }, { label: "Current" }]} />);
+    render(
+      <Breadcrumb
+        items={[
+          { label: "Home", href: "/", onClick },
+          { label: "Current" },
+        ]}
+      />
+    );
     await user.click(screen.getByRole("link", { name: /home/i }));
     expect(onClick).toHaveBeenCalledOnce();
   });
 
   it("renders button when onClick but no href (not last item)", () => {
     const onClick = vi.fn();
-    render(<Breadcrumb items={[{ label: "Home", onClick }, { label: "Current" }]} />);
+    render(
+      <Breadcrumb
+        items={[
+          { label: "Home", onClick },
+          { label: "Current" },
+        ]}
+      />
+    );
     const homeBtn = screen.getByRole("button", { name: /home/i });
     expect(homeBtn).toBeInTheDocument();
   });
 
   it("calls onClick on button-style breadcrumb item", async () => {
     const onClick = vi.fn();
-    render(<Breadcrumb items={[{ label: "Home", onClick }, { label: "Current" }]} />);
+    render(
+      <Breadcrumb
+        items={[
+          { label: "Home", onClick },
+          { label: "Current" },
+        ]}
+      />
+    );
     await user.click(screen.getByRole("button", { name: /home/i }));
     expect(onClick).toHaveBeenCalledOnce();
   });

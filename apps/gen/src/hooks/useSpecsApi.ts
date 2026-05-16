@@ -85,7 +85,9 @@ export function useSpecsApi(): UseSpecsApiReturn {
   const toggleFavorite = useCallback(
     async (id: string): Promise<void> => {
       // Optimistic update — immediately flip isFavorite
-      setSpecs((prev) => prev.map((s) => (s.id === id ? { ...s, isFavorite: !s.isFavorite } : s)));
+      setSpecs((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, isFavorite: !s.isFavorite } : s))
+      );
       try {
         const response = await authFetch(`/api/gen/specs/${id}/favorite`, {
           method: "PATCH",

@@ -1,7 +1,7 @@
 name: Monthly Audit Scout
 on:
   schedule:
-    - cron: "41 17 1 * *" # 1st of month, 10:41am PT (17:41 UTC)
+    - cron: '41 17 1 * *' # 1st of month, 10:41am PT (17:41 UTC)
   workflow_dispatch: {} # Manual trigger
 
 permissions:

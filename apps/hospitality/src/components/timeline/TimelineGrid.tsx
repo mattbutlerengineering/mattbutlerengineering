@@ -25,9 +25,7 @@ export interface TimelineGridProps {
 
 function useIsMobile(): boolean {
   const [isMobile, setIsMobile] = useState(() =>
-    typeof window !== "undefined"
-      ? window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`).matches
-      : false
+    typeof window !== "undefined" ? window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`).matches : false
   );
 
   useEffect(() => {
@@ -60,11 +58,9 @@ export function TimelineGrid({
   const allReservations = useMemo(() => {
     const arr: { reservation: Reservation; tableIndex: number }[] = [];
     tables.forEach((table, tableIndex) => {
-      reservations
-        .filter((r) => r.tableId === table.id)
-        .forEach((reservation) => {
-          arr.push({ reservation, tableIndex });
-        });
+      reservations.filter((r) => r.tableId === table.id).forEach((reservation) => {
+        arr.push({ reservation, tableIndex });
+      });
     });
     return arr;
   }, [tables, reservations]);
@@ -121,9 +117,7 @@ export function TimelineGrid({
                 (r) => r.tableIndex === currentTableInfo.tableIndex - 1
               );
               if (prevTableReservations.length > 0) {
-                setFocusedReservationId(
-                  prevTableReservations[prevTableReservations.length - 1].reservation.id
-                );
+                setFocusedReservationId(prevTableReservations[prevTableReservations.length - 1].reservation.id);
               }
             }
           }
@@ -248,69 +242,69 @@ export function TimelineGrid({
         </div>
 
         {tables.map((table) => (
-          <div
-            key={table.id}
-            className={styles.tableRow}
-            role="row"
-            aria-label={`Table ${table.name}`}
-            style={{ height: ROW_HEIGHT }}
-          >
             <div
-              className={styles.tableNameCell}
-              role="rowheader"
-              style={{ width: tableColumnWidth, minWidth: tableColumnWidth }}
+              key={table.id}
+              className={styles.tableRow}
+              role="row"
+              aria-label={`Table ${table.name}`}
+              style={{ height: ROW_HEIGHT }}
             >
-              <div>
-                <div className={styles.tableName}>{table.tableNumber || table.name}</div>
-                {isMobile ? null : (
-                  <div className={styles.tableCapacity}>
-                    {table.minCovers}-{table.maxCovers ?? table.capacity} guests
-                  </div>
-                )}
-                <TableStatusBadge
-                  status={table.status}
-                  size="sm"
-                  onClick={
-                    onTableStatusChange
-                      ? () => {
-                          const nextStatus: Record<TableStatus, TableStatus> = {
-                            AVAILABLE: "OCCUPIED",
-                            OCCUPIED: "DIRTY",
-                            DIRTY: "AVAILABLE",
-                            READY: "AVAILABLE",
-                          };
-                          onTableStatusChange(table.id, nextStatus[table.status]);
-                        }
-                      : undefined
-                  }
-                />
-              </div>
-            </div>
-
-            <div className={styles.reservationArea} role="gridcell">
-              <div className={styles.hourGrid}>
-                {hours.map((hour) => (
-                  <div key={hour} className={styles.hourGridLine} style={{ width: hourWidth }} />
-                ))}
-              </div>
-
-              {getTableReservations(table.id).map((reservation) => {
-                const blockStyle = getReservationStyle(reservation);
-                const isFocused = focusedReservationId === reservation.id;
-                return (
-                  <ReservationBlock
-                    key={reservation.id}
-                    reservation={reservation}
-                    style={blockStyle}
-                    isSelected={reservation.id === selectedReservationId}
-                    isFocused={isFocused}
-                    onClick={() => onReservationClick?.(reservation)}
+              <div
+                className={styles.tableNameCell}
+                role="rowheader"
+                style={{ width: tableColumnWidth, minWidth: tableColumnWidth }}
+              >
+                <div>
+                  <div className={styles.tableName}>{table.tableNumber || table.name}</div>
+                  {isMobile ? null : (
+                    <div className={styles.tableCapacity}>
+                      {table.minCovers}-{table.maxCovers ?? table.capacity} guests
+                    </div>
+                  )}
+                  <TableStatusBadge
+                    status={table.status}
+                    size="sm"
+                    onClick={
+                      onTableStatusChange
+                        ? () => {
+                            const nextStatus: Record<TableStatus, TableStatus> = {
+                              AVAILABLE: "OCCUPIED",
+                              OCCUPIED: "DIRTY",
+                              DIRTY: "AVAILABLE",
+                              READY: "AVAILABLE",
+                            };
+                            onTableStatusChange(table.id, nextStatus[table.status]);
+                          }
+                        : undefined
+                    }
                   />
-                );
-              })}
+                </div>
+              </div>
+
+              <div className={styles.reservationArea} role="gridcell">
+                <div className={styles.hourGrid}>
+                  {hours.map((hour) => (
+                    <div key={hour} className={styles.hourGridLine} style={{ width: hourWidth }} />
+                  ))}
+                </div>
+
+                {getTableReservations(table.id).map((reservation) => {
+                  const blockStyle = getReservationStyle(reservation);
+                  const isFocused = focusedReservationId === reservation.id;
+                  return (
+                    <ReservationBlock
+                      key={reservation.id}
+                      reservation={reservation}
+                      style={blockStyle}
+                      isSelected={reservation.id === selectedReservationId}
+                      isFocused={isFocused}
+                      onClick={() => onReservationClick?.(reservation)}
+                    />
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
 
         {currentTimeOffset !== null && (
           <div

@@ -12,9 +12,9 @@ Renders UIs defined in JSON format. The core rendering engine uses `@json-render
 
 ## Pages
 
-| Page           | Route    | Description                                |
-| -------------- | -------- | ------------------------------------------ |
-| PlaygroundPage | `/`      | Interactive JSON editor and live preview   |
+| Page | Route | Description |
+|------|-------|-------------|
+| PlaygroundPage | `/` | Interactive JSON editor and live preview |
 | SharedSpecPage | `/s/:id` | View a shared JSON component specification |
 
 ## Key Components

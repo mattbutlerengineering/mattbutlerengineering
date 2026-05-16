@@ -10,7 +10,10 @@ const localCallbacks = [
   "http://localhost:3002/hospitality/callback",
   "http://localhost:3005/gen/callback",
 ];
-const prodCallbacks = [`https://${domain}/hospitality/callback`, `https://${domain}/gen/callback`];
+const prodCallbacks = [
+  `https://${domain}/hospitality/callback`,
+  `https://${domain}/gen/callback`,
+];
 const callbackUrls = [...localCallbacks, ...prodCallbacks];
 
 const localLogoutUrls = [
@@ -27,11 +30,7 @@ const prodLogoutUrls = [
 const logoutUrls = [...localLogoutUrls, ...prodLogoutUrls];
 
 const localWebOrigins = ["http://localhost:3002", "http://localhost:3005"];
-const prodWebOrigins = [
-  `https://${domain}`,
-  `https://${domain}/hospitality`,
-  `https://${domain}/gen`,
-];
+const prodWebOrigins = [`https://${domain}`, `https://${domain}/hospitality`, `https://${domain}/gen`];
 const webOrigins = [...localWebOrigins, ...prodWebOrigins];
 
 // Auth0 API (Resource Server)
@@ -71,14 +70,11 @@ export const hospitalityApp = new auth0.Client("mattbutlerengineering-hospitalit
 });
 
 // Grant the hospitality app access to the API
-export const hospitalityApiGrant = new auth0.ClientGrant(
-  "mattbutlerengineering-hospitality-api-grant",
-  {
-    clientId: hospitalityApp.clientId,
-    audience: api.identifier,
-    scopes: ["openid", "profile", "email"],
-  }
-);
+export const hospitalityApiGrant = new auth0.ClientGrant("mattbutlerengineering-hospitality-api-grant", {
+  clientId: hospitalityApp.clientId,
+  audience: api.identifier,
+  scopes: ["openid", "profile", "email"],
+});
 
 // Exports for use in other files and .env generation
 export const auth0Outputs = {

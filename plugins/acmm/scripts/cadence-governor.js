@@ -78,7 +78,7 @@ export function getReadyCount() {
         "--jq",
         "length",
       ],
-      { encoding: "utf-8", timeout: 15000, stdio: ["pipe", "pipe", "pipe"] }
+      { encoding: "utf-8", timeout: 15000, stdio: ["pipe", "pipe", "pipe"] },
     );
     return parseInt(result.trim(), 10) || 0;
   } catch {
@@ -173,17 +173,20 @@ function main() {
   if (args.has("--status")) {
     console.log(`Mode: ${newState.mode} (${readyCount} ready issues)`);
     console.log(`Should execute: ${newState.shouldExecute}`);
-    if (modeChanged) console.log(`Mode transition: ${priorMode} → ${newState.mode}`);
+    if (modeChanged)
+      console.log(`Mode transition: ${priorMode} → ${newState.mode}`);
     console.log(`Last execution: ${previousState.lastExecution || "never"}`);
     process.exit(0);
   }
 
   // Default: print decision for consumption by calling skill
   if (modeChanged) {
-    console.log(`Governor: mode transition ${priorMode} → ${newState.mode} (${readyCount} ready)`);
+    console.log(
+      `Governor: mode transition ${priorMode} → ${newState.mode} (${readyCount} ready)`,
+    );
   }
   console.log(
-    `Governor: ${newState.mode} mode, ${readyCount} ready → ${newState.shouldExecute ? "EXECUTE" : "SKIP"}`
+    `Governor: ${newState.mode} mode, ${readyCount} ready → ${newState.shouldExecute ? "EXECUTE" : "SKIP"}`,
   );
 
   // Exit code: 0 = execute, 1 = skip

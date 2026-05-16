@@ -33,7 +33,9 @@ describe("ApiClient", () => {
       expect(mockFetch).toHaveBeenCalledOnce();
       const [url, options] = mockFetch.mock.calls[0]!;
       expect(url).toBe("https://api.test.com/users");
-      expect((options?.headers as Record<string, string>)["Content-Type"]).toBe("application/json");
+      expect((options?.headers as Record<string, string>)["Content-Type"]).toBe(
+        "application/json"
+      );
     });
 
     it("should include authorization header when token is available", async () => {
@@ -96,10 +98,7 @@ describe("ApiClient", () => {
 
     it("should include method and path in error message", async () => {
       mockFetch.mockResolvedValue(
-        jsonResponse(
-          { error: "Server Error", message: "Internal Server Error", statusCode: 500 },
-          500
-        )
+        jsonResponse({ error: "Server Error", message: "Internal Server Error", statusCode: 500 }, 500)
       );
 
       const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
@@ -142,10 +141,7 @@ describe("ApiClient", () => {
     it("should retry on 503 and succeed on subsequent attempt", async () => {
       mockFetch
         .mockResolvedValueOnce(
-          jsonResponse(
-            { error: "Unavailable", message: "Service Unavailable", statusCode: 503 },
-            503
-          )
+          jsonResponse({ error: "Unavailable", message: "Service Unavailable", statusCode: 503 }, 503)
         )
         .mockResolvedValueOnce(jsonResponse({ data: "ok" }));
 
@@ -223,7 +219,10 @@ describe("ApiClient", () => {
 
     it("should throw after exhausting all retries", async () => {
       mockFetch.mockResolvedValue(
-        jsonResponse({ error: "Unavailable", message: "Service Unavailable", statusCode: 503 }, 503)
+        jsonResponse(
+          { error: "Unavailable", message: "Service Unavailable", statusCode: 503 },
+          503
+        )
       );
 
       const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 2 });
@@ -235,7 +234,10 @@ describe("ApiClient", () => {
 
     it("should disable retries when maxRetries is 0", async () => {
       mockFetch.mockResolvedValue(
-        jsonResponse({ error: "Unavailable", message: "Service Unavailable", statusCode: 503 }, 503)
+        jsonResponse(
+          { error: "Unavailable", message: "Service Unavailable", statusCode: 503 },
+          503
+        )
       );
 
       const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
@@ -302,17 +304,24 @@ describe("ApiClient", () => {
       expect(options?.signal).toBeDefined();
     });
 
-    it("should use default maxRetries of 3", async () => {
-      mockFetch.mockResolvedValue(
-        jsonResponse({ error: "Unavailable", message: "Service Unavailable", statusCode: 503 }, 503)
-      );
+    it(
+      "should use default maxRetries of 3",
+      async () => {
+        mockFetch.mockResolvedValue(
+          jsonResponse(
+            { error: "Unavailable", message: "Service Unavailable", statusCode: 503 },
+            503
+          )
+        );
 
-      const client = new ApiClient({ baseUrl: "https://api.test.com" });
+        const client = new ApiClient({ baseUrl: "https://api.test.com" });
 
-      await expect(client.get("/users")).rejects.toThrow(ApiClientError);
-      // 1 initial + 3 retries = 4 total
-      expect(mockFetch).toHaveBeenCalledTimes(4);
-    }, 15_000);
+        await expect(client.get("/users")).rejects.toThrow(ApiClientError);
+        // 1 initial + 3 retries = 4 total
+        expect(mockFetch).toHaveBeenCalledTimes(4);
+      },
+      15_000
+    );
 
     it("should allow custom timeout", async () => {
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: "ok" }));
@@ -328,7 +337,10 @@ describe("ApiClient", () => {
 
     it("should allow custom maxRetries", async () => {
       mockFetch.mockResolvedValue(
-        jsonResponse({ error: "Unavailable", message: "Service Unavailable", statusCode: 503 }, 503)
+        jsonResponse(
+          { error: "Unavailable", message: "Service Unavailable", statusCode: 503 },
+          503
+        )
       );
 
       const client = new ApiClient({

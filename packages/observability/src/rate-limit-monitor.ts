@@ -53,7 +53,9 @@ export interface RateLimitMonitor {
  * The monitor keeps an append-only log of rate-limit hits and derives stats
  * on read, pruning stale entries lazily.
  */
-export function createRateLimitMonitor(config: RateLimitMonitorConfig = {}): RateLimitMonitor {
+export function createRateLimitMonitor(
+  config: RateLimitMonitorConfig = {},
+): RateLimitMonitor {
   const hourWindowMs = config.hourWindowMs ?? DEFAULT_HOUR_WINDOW_MS;
   const degradedWindowMs = config.degradedWindowMs ?? DEFAULT_DEGRADED_WINDOW_MS;
   const degradedThreshold = config.degradedThreshold ?? DEFAULT_DEGRADED_THRESHOLD;

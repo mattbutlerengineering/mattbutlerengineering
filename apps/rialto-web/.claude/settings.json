@@ -11,6 +11,8 @@
       "Bash(pnpm dlx wrangler@latest deploy --config apps/rialto-web/wrangler.toml)",
       "Bash(node plugins/acmm/scripts/audit.js --project apps/rialto-web)"
     ],
-    "deny": ["Bash(**import** from ../../packages/rialto/src/**)"]
+    "deny": [
+      "Bash(**import** from ../../packages/rialto/src/**)"
+    ]
   }
 }

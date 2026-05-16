@@ -306,7 +306,9 @@ export function ReservationsPage() {
                       )}
                     </td>
                     <td className={styles.td}>{reservation.partySize}</td>
-                    <td className={styles.td}>{reservation.table?.name ?? reservation.tableId}</td>
+                    <td className={styles.td}>
+                      {reservation.table?.name ?? reservation.tableId}
+                    </td>
                     <td className={styles.td}>
                       <Badge variant={STATUS_BADGE_VARIANT[reservation.status]}>
                         {STATUS_LABEL[reservation.status]}

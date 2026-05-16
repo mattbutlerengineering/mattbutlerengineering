@@ -19,7 +19,6 @@ Break a feature request into a chain of ordered GitHub issues that `/ship-loop` 
 ### Step 1: Understand the Feature
 
 Read the user's feature description. If invoked with arguments, use those. Otherwise ask:
-
 - What should the feature do?
 - Which app/service does it affect?
 - Any constraints or preferences?
@@ -37,7 +36,6 @@ ls apps/ services/ packages/
 ```
 
 Key questions:
-
 - Which existing files/components need modification?
 - What new files need creation?
 - Are there existing patterns to follow (routes, components, schemas)?
@@ -54,11 +52,11 @@ Break the feature into **3-10 issues**, each representing a single agent-workabl
 
 #### Issue Sizing Guide
 
-| Size   | Files Changed | Lines Changed | Example                                           |
-| ------ | ------------- | ------------- | ------------------------------------------------- |
-| Small  | 1-2           | 10-50         | Add a config value, fix a type                    |
-| Medium | 2-4           | 50-200        | Add an API endpoint, create a component           |
-| Large  | 4-6           | 200-500       | Add a full feature slice (route + service + test) |
+| Size | Files Changed | Lines Changed | Example |
+|------|--------------|---------------|---------|
+| Small | 1-2 | 10-50 | Add a config value, fix a type |
+| Medium | 2-4 | 50-200 | Add an API endpoint, create a component |
+| Large | 4-6 | 200-500 | Add a full feature slice (route + service + test) |
 
 Target **medium** size. Split large items. Combine tiny items.
 
@@ -72,7 +70,7 @@ For parallel-safe issues (no dependencies between them), note it in the body so 
 
 For each issue in order:
 
-````bash
+```bash
 gh issue create \
   --title "[Feature] <feature-name> [N/M]: <specific task>" \
   --label "feature" --label "ready" \
@@ -109,7 +107,7 @@ pnpm turbo typecheck test --filter=...[HEAD~1]
 # <Add task-specific verification, e.g.:>
 # curl -s https://localhost:3001/api/v1/users | jq '.data | length'
 # npx vitest run src/routes/users.test.ts --grep "GET /api/v1/users"
-````
+```
 
 ## Dependencies
 
@@ -120,18 +118,15 @@ pnpm turbo typecheck test --filter=...[HEAD~1]
 ## Patterns to Follow
 
 <Reference a SPECIFIC existing file as a template, e.g.:>
-
 - Route handler: follow `services/users/src/routes/users.ts` (schema + handler + test pattern)
 - React component: follow `apps/hospitality/src/pages/ReservationsPage.tsx` (Rialto + API client pattern)
 - Test file: follow the adjacent `*.test.ts` in the same directory
 
 ---
-
-_Created by /decompose for feature: <feature name>_
+*Created by /decompose for feature: <feature name>*
 EOF
 )"
-
-````
+```
 
 ### Step 5: Create a Tracking Issue
 
@@ -160,14 +155,13 @@ gh issue create \
 
 ---
 *Decomposed by /decompose*"
-````
+```
 
 The tracking issue does NOT get the `ready` label — it's for visibility only.
 
 ### Step 6: Confirm
 
 Show the user:
-
 - Summary of all issues created with links
 - The dependency order
 - Which issues are parallel-safe

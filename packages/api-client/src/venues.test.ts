@@ -58,7 +58,9 @@ describe("VenuesClient", () => {
     });
 
     it("appends filter params when provided", async () => {
-      mockFetch.mockResolvedValueOnce(jsonResponse({ data: [], total: 0, page: 1, limit: 10 }));
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ data: [], total: 0, page: 1, limit: 10 })
+      );
 
       await makeVenuesClient().list({ page: 2, limit: 5, venueGroupId: "vg1" });
 
@@ -111,12 +113,7 @@ describe("VenuesClient", () => {
     it("sends POST /api/v1/venues with body", async () => {
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: fakeVenue }));
 
-      await makeVenuesClient().create({
-        name: "The Grand",
-        venueGroupId: "vg1",
-        slug: "the-grand",
-        ianaTimezone: "America/New_York",
-      });
+      await makeVenuesClient().create({ name: "The Grand", venueGroupId: "vg1", slug: "the-grand", ianaTimezone: "America/New_York" });
 
       const [url, options] = mockFetch.mock.calls[0]!;
       expect(url).toBe("https://api.test.com/api/v1/venues");
@@ -126,12 +123,7 @@ describe("VenuesClient", () => {
     it("returns the created venue", async () => {
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: fakeVenue }));
 
-      const result = await makeVenuesClient().create({
-        name: "The Grand",
-        venueGroupId: "vg1",
-        slug: "the-grand",
-        ianaTimezone: "America/New_York",
-      });
+      const result = await makeVenuesClient().create({ name: "The Grand", venueGroupId: "vg1", slug: "the-grand", ianaTimezone: "America/New_York" });
       expect(result).toEqual(fakeVenue);
     });
   });

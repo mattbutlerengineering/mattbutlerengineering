@@ -9,9 +9,9 @@ test.describe("Shared Spec", () => {
 
   test("shows Back to Gen Playground button in error state", async ({ page }) => {
     await page.goto("/s/invalid-id-that-does-not-exist");
-    await expect(page.getByRole("button", { name: "Back to Gen Playground" })).toBeVisible({
-      timeout: 10_000,
-    });
+    await expect(
+      page.getByRole("button", { name: "Back to Gen Playground" })
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test("route is public — no Sign In prompt shown", async ({ page }) => {
@@ -25,7 +25,9 @@ test.describe("Shared Spec", () => {
   test("error page has no critical a11y violations", async ({ page }) => {
     await page.goto("/s/invalid-id-for-a11y");
     await expect(page.getByText("Spec not found")).toBeVisible({ timeout: 10_000 });
-    const results = await new AxeBuilder({ page }).withTags(["wcag2aa"]).analyze();
+    const results = await new AxeBuilder({ page })
+      .withTags(["wcag2aa"])
+      .analyze();
     const violations = results.violations.filter(
       (v) => v.impact === "critical" || v.impact === "serious"
     );

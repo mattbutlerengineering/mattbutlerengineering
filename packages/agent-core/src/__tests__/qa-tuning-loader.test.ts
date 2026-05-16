@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { parseThresholds, applyTuningDefaults, QaTuningConfigSchema } from "../qa-tuning-loader.js";
+import {
+  parseThresholds,
+  applyTuningDefaults,
+  QaTuningConfigSchema,
+} from "../qa-tuning-loader.js";
 import type { QaTuningThresholds } from "../qa-tuning-loader.js";
 
 // ── parseThresholds ─────────────────────────────────────────────────
@@ -84,23 +88,39 @@ describe("applyTuningDefaults", () => {
   const HARD_CODED_DEFAULT = 1.0;
 
   it("applies tuning budget when session uses hard-coded default", () => {
-    const result = applyTuningDefaults({ maxBudgetUsd: 1.0 }, tuning, HARD_CODED_DEFAULT);
+    const result = applyTuningDefaults(
+      { maxBudgetUsd: 1.0 },
+      tuning,
+      HARD_CODED_DEFAULT,
+    );
     expect(result.maxBudgetUsd).toBe(1.0); // tuning also says 1.0
   });
 
   it("uses tuned budget when tuning differs from hard-coded default", () => {
     const lowerTuning = { ...tuning, maxBudgetUSD: 0.75 };
-    const result = applyTuningDefaults({ maxBudgetUsd: 1.0 }, lowerTuning, HARD_CODED_DEFAULT);
+    const result = applyTuningDefaults(
+      { maxBudgetUsd: 1.0 },
+      lowerTuning,
+      HARD_CODED_DEFAULT,
+    );
     expect(result.maxBudgetUsd).toBe(0.75);
   });
 
   it("preserves explicit CLI budget over tuning", () => {
-    const result = applyTuningDefaults({ maxBudgetUsd: 2.5 }, tuning, HARD_CODED_DEFAULT);
+    const result = applyTuningDefaults(
+      { maxBudgetUsd: 2.5 },
+      tuning,
+      HARD_CODED_DEFAULT,
+    );
     expect(result.maxBudgetUsd).toBe(2.5);
   });
 
   it("applies stuck threshold when no explicit config provided", () => {
-    const result = applyTuningDefaults({ maxBudgetUsd: 1.0 }, tuning, HARD_CODED_DEFAULT);
+    const result = applyTuningDefaults(
+      { maxBudgetUsd: 1.0 },
+      tuning,
+      HARD_CODED_DEFAULT,
+    );
     expect(result.stuckDetectorConfig).toEqual({
       zeroProgressThreshold: 6,
     });
@@ -113,7 +133,7 @@ describe("applyTuningDefaults", () => {
         stuckDetectorConfig: { zeroProgressThreshold: 10 },
       },
       tuning,
-      HARD_CODED_DEFAULT
+      HARD_CODED_DEFAULT,
     );
     expect(result.stuckDetectorConfig).toEqual({
       zeroProgressThreshold: 10,
@@ -203,3 +223,4 @@ describe("QaTuningConfigSchema", () => {
     expect(QaTuningConfigSchema.safeParse(42).success).toBe(false);
   });
 });
+

@@ -7,7 +7,6 @@ allowed-tools:
   - Read
   - AskUserQuestion
 ---
-
 <context>
 **Arguments:**
 - `<workspace-name>` (required) — Name of the workspace to remove

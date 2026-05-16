@@ -23,13 +23,19 @@ vi.mock("./KeyboardShortcuts.module.css", () => ({
 }));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Kbd: ({ children }: { children: React.ReactNode }) => <kbd data-testid="kbd">{children}</kbd>,
-  Shortcut: ({ keys }: { keys: string[] }) => <span data-testid="shortcut">{keys.join("+")}</span>,
+  Kbd: ({ children }: { children: React.ReactNode }) => (
+    <kbd data-testid="kbd">{children}</kbd>
+  ),
+  Shortcut: ({ keys }: { keys: string[] }) => (
+    <span data-testid="shortcut">{keys.join("+")}</span>
+  ),
 }));
 
 describe("KeyboardShortcuts", () => {
   it("should not render when open is false", () => {
-    const { container } = render(<KeyboardShortcuts open={false} onClose={() => {}} />);
+    const { container } = render(
+      <KeyboardShortcuts open={false} onClose={() => {}} />
+    );
     expect(container.firstChild).toBeNull();
   });
 

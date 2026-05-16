@@ -90,7 +90,7 @@
   --rialto-text-secondary: rgb(253 252 250 / 0.6);
   --rialto-text-tertiary: rgb(253 252 250 / 0.38);
   --rialto-border: rgb(255 255 255 / 0.35); /* 3.24:1 on #1a1918 — WCAG AA UI */
-  --rialto-border-strong: rgb(255 255 255 / 0.5); /* 5.24:1 on #1a1918 — WCAG AA UI */
+  --rialto-border-strong: rgb(255 255 255 / 0.50); /* 5.24:1 on #1a1918 — WCAG AA UI */
 }
 
 /* ── Atmosphere ────────────────────────────────

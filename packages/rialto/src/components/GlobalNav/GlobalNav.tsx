@@ -25,10 +25,8 @@ const NAV_ITEMS: readonly NavItem[] = [
  * @example
  * <GlobalNav currentApp="marketing" theme="dark" onThemeToggle={() => {}} />
  */
-export interface GlobalNavProps extends Pick<
-  HTMLAttributes<HTMLElement>,
-  "id" | "aria-label" | "className" | "style"
-> {
+export interface GlobalNavProps
+  extends Pick<HTMLAttributes<HTMLElement>, "id" | "aria-label" | "className" | "style"> {
   /** Which app is currently active — drives the active link indicator. */
   currentApp: "marketing" | "hospitality" | "rialto";
   /** Current resolved theme for the theme toggle icon. */
@@ -57,7 +55,12 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
     const classes = [styles.globalNav, className].filter(Boolean).join(" ");
 
     return (
-      <nav ref={ref} className={classes} aria-label="Global navigation" {...props}>
+      <nav
+        ref={ref}
+        className={classes}
+        aria-label="Global navigation"
+        {...props}
+      >
         <div className={styles.inner}>
           {/* ── Brand ──────────────────────────────── */}
           <a href="/" className={styles.brand}>
@@ -83,7 +86,9 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
 
           {/* ── Actions (theme toggle) ────────────── */}
           <div className={styles.actions}>
-            {theme && onThemeToggle && <ThemeToggle theme={theme} onToggle={onThemeToggle} />}
+            {theme && onThemeToggle && (
+              <ThemeToggle theme={theme} onToggle={onThemeToggle} />
+            )}
 
             {/* ── Mobile hamburger ──────────────────── */}
             <button
@@ -95,18 +100,17 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
               aria-controls="global-nav-mobile-menu"
               aria-label={menuOpen ? "Close menu" : "Open menu"}
             >
-              <span
-                className={[styles.hamburgerBar, menuOpen ? styles.open : ""]
-                  .filter(Boolean)
-                  .join(" ")}
-              />
+              <span className={[styles.hamburgerBar, menuOpen ? styles.open : ""].filter(Boolean).join(" ")} />
             </button>
           </div>
         </div>
 
         {/* ── Mobile menu ─────────────────────────── */}
         {menuOpen && (
-          <ul id="global-nav-mobile-menu" className={styles.mobileMenu}>
+          <ul
+            id="global-nav-mobile-menu"
+            className={styles.mobileMenu}
+          >
             {NAV_ITEMS.map((item) => (
               <li key={item.app}>
                 <a

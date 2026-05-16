@@ -2,7 +2,7 @@
   "id": "fix-typo-in-readme",
   "prompt": "In the root README.md, line 8 contains an outdated statement saying GitHub Actions billing is 'intentionally unconfigured'. This is stale — GitHub Actions IS configured and runs on every PR. Update only that line to say: 'GitHub Actions runs CI checks on every PR.' Keep the blockquote format. Do not modify any other files or lines.",
   "model": "claude-sonnet-4-6",
-  "maxBudgetUsd": 0.5,
+  "maxBudgetUsd": 0.50,
   "maxTurns": 20,
   "rubric": {
     "mustPass": ["lint"],

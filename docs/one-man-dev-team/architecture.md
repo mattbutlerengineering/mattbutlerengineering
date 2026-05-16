@@ -109,22 +109,22 @@ Data stores (Supabase for Postgres, Clerk or Supabase Auth for authentication, S
 
 #### Comparison Matrix
 
-| Tool           | Strengths                                                                               | Weaknesses                                      | Pricing               | Best For                                 |
-| -------------- | --------------------------------------------------------------------------------------- | ----------------------------------------------- | --------------------- | ---------------------------------------- |
-| Claude Code    | Terminal-native, best multi-agent orchestration, 1M context (beta), Opus 4.6 quality    | No GUI IDE, token-heavy with chained agents     | $100-200/mo (Pro/Max) | Complex multi-file changes, architecture |
-| Cursor         | IDE-integrated, fast Composer model (4x faster), up to 8 parallel agents, visual editor | Less capable for complex architecture decisions | $20/mo (Pro)          | Rapid iteration, refactoring             |
-| Windsurf       | Arena Mode (side-by-side model comparison), Plan Mode, parallel multi-agent             | Newer, smaller ecosystem                        | $15-40/mo             | Model comparison, exploratory work       |
-| GitHub Copilot | Ubiquitous, good autocomplete, free tier available                                      | Weakest for autonomous multi-file work          | $10-39/mo             | Line-by-line coding, boilerplate         |
+| Tool | Strengths | Weaknesses | Pricing | Best For |
+|------|-----------|------------|---------|----------|
+| Claude Code | Terminal-native, best multi-agent orchestration, 1M context (beta), Opus 4.6 quality | No GUI IDE, token-heavy with chained agents | $100-200/mo (Pro/Max) | Complex multi-file changes, architecture |
+| Cursor | IDE-integrated, fast Composer model (4x faster), up to 8 parallel agents, visual editor | Less capable for complex architecture decisions | $20/mo (Pro) | Rapid iteration, refactoring |
+| Windsurf | Arena Mode (side-by-side model comparison), Plan Mode, parallel multi-agent | Newer, smaller ecosystem | $15-40/mo | Model comparison, exploratory work |
+| GitHub Copilot | Ubiquitous, good autocomplete, free tier available | Weakest for autonomous multi-file work | $10-39/mo | Line-by-line coding, boilerplate |
 
 #### Risk Assessment
 
-| Factor           | Claude Code | Cursor | Windsurf | GitHub Copilot |
-| ---------------- | ----------- | ------ | -------- | -------------- |
-| Reliability      | Medium      | High   | Medium   | High           |
-| Vendor Lock-in   | Low         | Medium | Low      | Low            |
-| Cost Trajectory  | High        | Low    | Medium   | Low            |
-| Community Health | High        | High   | Medium   | High           |
-| Deprecation Risk | Low         | Medium | High     | Low            |
+| Factor | Claude Code | Cursor | Windsurf | GitHub Copilot |
+|--------|------------|--------|----------|----------------|
+| Reliability | Medium | High | Medium | High |
+| Vendor Lock-in | Low | Medium | Low | Low |
+| Cost Trajectory | High | Low | Medium | Low |
+| Community Health | High | High | Medium | High |
+| Deprecation Risk | Low | Medium | High | Low |
 
 #### Recommendation
 
@@ -136,22 +136,22 @@ Claude Code is the primary choice for development work. Its multi-agent orchestr
 
 #### Comparison Matrix
 
-| Tool                     | Strengths                                                                                | Weaknesses                                                | Pricing                                | Best For                         |
-| ------------------------ | ---------------------------------------------------------------------------------------- | --------------------------------------------------------- | -------------------------------------- | -------------------------------- |
-| Vercel                   | Zero-config Next.js, preview deployments, edge functions                                 | Vendor lock-in to Next.js, costs scale with traffic       | Free tier generous, Pro $20/mo         | Next.js / React applications     |
-| Cloudflare Workers/Pages | Workers (serverless), Pages (static), R2 (storage), D1 (SQLite), very generous free tier | Non-standard runtime (no Node.js APIs), smaller ecosystem | Generous free tier, Workers Paid $5/mo | Global edge compute              |
-| AWS (Amplify/Lambda)     | Full service catalog, Amplify (frontend), Lambda (serverless)                            | Complexity, billing surprises, steep learning curve       | Pay-as-you-go                          | Complex infrastructure needs     |
-| VPS (Hetzner/Linode)     | Full control, fixed cost, any stack                                                      | You manage everything (security, updates, scaling)        | $5-40/mo                               | Simple deployments, full control |
+| Tool | Strengths | Weaknesses | Pricing | Best For |
+|------|-----------|------------|---------|----------|
+| Vercel | Zero-config Next.js, preview deployments, edge functions | Vendor lock-in to Next.js, costs scale with traffic | Free tier generous, Pro $20/mo | Next.js / React applications |
+| Cloudflare Workers/Pages | Workers (serverless), Pages (static), R2 (storage), D1 (SQLite), very generous free tier | Non-standard runtime (no Node.js APIs), smaller ecosystem | Generous free tier, Workers Paid $5/mo | Global edge compute |
+| AWS (Amplify/Lambda) | Full service catalog, Amplify (frontend), Lambda (serverless) | Complexity, billing surprises, steep learning curve | Pay-as-you-go | Complex infrastructure needs |
+| VPS (Hetzner/Linode) | Full control, fixed cost, any stack | You manage everything (security, updates, scaling) | $5-40/mo | Simple deployments, full control |
 
 #### Risk Assessment
 
-| Factor           | Vercel | Cloudflare | AWS  | VPS    |
-| ---------------- | ------ | ---------- | ---- | ------ |
-| Reliability      | High   | High       | High | Medium |
-| Vendor Lock-in   | High   | Medium     | High | Low    |
-| Cost Trajectory  | High   | Low        | High | Low    |
-| Community Health | High   | High       | High | High   |
-| Deprecation Risk | Low    | Low        | Low  | Low    |
+| Factor | Vercel | Cloudflare | AWS | VPS |
+|--------|--------|------------|-----|-----|
+| Reliability | High | High | High | Medium |
+| Vendor Lock-in | High | Medium | High | Low |
+| Cost Trajectory | High | Low | High | Low |
+| Community Health | High | High | High | High |
+| Deprecation Risk | Low | Low | Low | Low |
 
 #### Recommendation
 
@@ -163,22 +163,22 @@ Vercel is the default for Next.js projects due to its zero-config deployment, pr
 
 #### Comparison Matrix
 
-| Tool              | Strengths                                                | Weaknesses                                        | Pricing                              | Best For                                     |
-| ----------------- | -------------------------------------------------------- | ------------------------------------------------- | ------------------------------------ | -------------------------------------------- |
-| Supabase          | Postgres + Auth + Realtime + Storage, Row Level Security | Postgres complexity for simple apps               | Free: 500MB / 2 projects, Pro $25/mo | Full-stack apps needing auth + database      |
-| PlanetScale       | MySQL-compatible, branching, serverless                  | No free tier (removed 2024), MySQL only           | Hobby $39/mo                         | Schema-heavy apps needing branching          |
-| Neon              | Serverless Postgres, branching, autoscale to zero        | Newer, smaller community                          | Free: 512MB, Pro $19/mo              | Serverless Postgres with cold starts         |
-| SQLite (Turso/D1) | Embedded, zero latency, edge-native                      | Limited concurrent writes, less ecosystem tooling | Turso free: 9GB                      | Read-heavy, single-region, simplest possible |
+| Tool | Strengths | Weaknesses | Pricing | Best For |
+|------|-----------|------------|---------|----------|
+| Supabase | Postgres + Auth + Realtime + Storage, Row Level Security | Postgres complexity for simple apps | Free: 500MB / 2 projects, Pro $25/mo | Full-stack apps needing auth + database |
+| PlanetScale | MySQL-compatible, branching, serverless | No free tier (removed 2024), MySQL only | Hobby $39/mo | Schema-heavy apps needing branching |
+| Neon | Serverless Postgres, branching, autoscale to zero | Newer, smaller community | Free: 512MB, Pro $19/mo | Serverless Postgres with cold starts |
+| SQLite (Turso/D1) | Embedded, zero latency, edge-native | Limited concurrent writes, less ecosystem tooling | Turso free: 9GB | Read-heavy, single-region, simplest possible |
 
 #### Risk Assessment
 
-| Factor           | Supabase | PlanetScale | Neon   | SQLite (Turso/D1) |
-| ---------------- | -------- | ----------- | ------ | ----------------- |
-| Reliability      | High     | High        | Medium | High              |
-| Vendor Lock-in   | Medium   | High        | Medium | Low               |
-| Cost Trajectory  | Medium   | High        | Medium | Low               |
-| Community Health | High     | Medium      | Medium | High              |
-| Deprecation Risk | Low      | Medium      | Medium | Low               |
+| Factor | Supabase | PlanetScale | Neon | SQLite (Turso/D1) |
+|--------|----------|-------------|------|-------------------|
+| Reliability | High | High | Medium | High |
+| Vendor Lock-in | Medium | High | Medium | Low |
+| Cost Trajectory | Medium | High | Medium | Low |
+| Community Health | High | Medium | Medium | High |
+| Deprecation Risk | Low | Medium | Medium | Low |
 
 #### Recommendation
 
@@ -190,21 +190,21 @@ Supabase is the default for most projects because it bundles Postgres, authentic
 
 #### Comparison Matrix
 
-| Tool           | Strengths                                             | Weaknesses                                     | Pricing            | Best For                                |
-| -------------- | ----------------------------------------------------- | ---------------------------------------------- | ------------------ | --------------------------------------- |
-| GitHub Actions | Native to GitHub, massive marketplace, YAML workflows | YAML complexity, debugging is painful          | Free: 2,000 min/mo | GitHub-based projects (most solo devs)  |
-| GitLab CI      | Built-in to GitLab, Auto DevOps, container registry   | Smaller marketplace, GitLab ecosystem required | Free: 400 min/mo   | GitLab users, container-heavy workflows |
-| CircleCI       | Fast builds, good caching, orbs (reusable configs)    | Another service to manage, costs scale faster  | Free: 6,000 min/mo | Complex build pipelines, monorepos      |
+| Tool | Strengths | Weaknesses | Pricing | Best For |
+|------|-----------|------------|---------|----------|
+| GitHub Actions | Native to GitHub, massive marketplace, YAML workflows | YAML complexity, debugging is painful | Free: 2,000 min/mo | GitHub-based projects (most solo devs) |
+| GitLab CI | Built-in to GitLab, Auto DevOps, container registry | Smaller marketplace, GitLab ecosystem required | Free: 400 min/mo | GitLab users, container-heavy workflows |
+| CircleCI | Fast builds, good caching, orbs (reusable configs) | Another service to manage, costs scale faster | Free: 6,000 min/mo | Complex build pipelines, monorepos |
 
 #### Risk Assessment
 
-| Factor           | GitHub Actions | GitLab CI | CircleCI |
-| ---------------- | -------------- | --------- | -------- |
-| Reliability      | High           | High      | High     |
-| Vendor Lock-in   | Medium         | High      | Low      |
-| Cost Trajectory  | Low            | Low       | Medium   |
-| Community Health | High           | High      | Medium   |
-| Deprecation Risk | Low            | Low       | Medium   |
+| Factor | GitHub Actions | GitLab CI | CircleCI |
+|--------|---------------|-----------|----------|
+| Reliability | High | High | High |
+| Vendor Lock-in | Medium | High | Low |
+| Cost Trajectory | Low | Low | Medium |
+| Community Health | High | High | Medium |
+| Deprecation Risk | Low | Low | Medium |
 
 #### Recommendation
 
@@ -216,21 +216,21 @@ GitHub Actions is the clear choice for solo developers already on GitHub. The na
 
 #### Comparison Matrix
 
-| Tool      | Strengths                                                   | Weaknesses                                   | Pricing                          | Best For                                |
-| --------- | ----------------------------------------------------------- | -------------------------------------------- | -------------------------------- | --------------------------------------- |
-| Sentry    | Error tracking + performance + session replay, excellent DX | Session replay is newer/limited vs LogRocket | Free: 5K errors/mo, Team $26/mo  | Error tracking with good DX             |
-| LogRocket | Session replay + error tracking + product analytics         | Expensive, heavy script weight               | Free: 1K sessions/mo, Pro $99/mo | Understanding user behavior + debugging |
-| Datadog   | Full observability (APM, logs, metrics, traces)             | Overkill for solo dev, expensive at scale    | Free: 5 hosts, Pro $15/host/mo   | Complex infrastructure monitoring       |
+| Tool | Strengths | Weaknesses | Pricing | Best For |
+|------|-----------|------------|---------|----------|
+| Sentry | Error tracking + performance + session replay, excellent DX | Session replay is newer/limited vs LogRocket | Free: 5K errors/mo, Team $26/mo | Error tracking with good DX |
+| LogRocket | Session replay + error tracking + product analytics | Expensive, heavy script weight | Free: 1K sessions/mo, Pro $99/mo | Understanding user behavior + debugging |
+| Datadog | Full observability (APM, logs, metrics, traces) | Overkill for solo dev, expensive at scale | Free: 5 hosts, Pro $15/host/mo | Complex infrastructure monitoring |
 
 #### Risk Assessment
 
-| Factor           | Sentry | LogRocket | Datadog |
-| ---------------- | ------ | --------- | ------- |
-| Reliability      | High   | High      | High    |
-| Vendor Lock-in   | Low    | Medium    | High    |
-| Cost Trajectory  | Low    | High      | High    |
-| Community Health | High   | Medium    | High    |
-| Deprecation Risk | Low    | Medium    | Low     |
+| Factor | Sentry | LogRocket | Datadog |
+|--------|--------|-----------|---------|
+| Reliability | High | High | High |
+| Vendor Lock-in | Low | Medium | High |
+| Cost Trajectory | Low | High | High |
+| Community Health | High | Medium | High |
+| Deprecation Risk | Low | Medium | Low |
 
 #### Recommendation
 
@@ -242,21 +242,21 @@ Sentry is the primary monitoring tool. It provides the best error tracking devel
 
 #### Comparison Matrix
 
-| Tool    | Strengths                                               | Weaknesses                                        | Pricing              | Best For                                       |
-| ------- | ------------------------------------------------------- | ------------------------------------------------- | -------------------- | ---------------------------------------------- |
-| TODO.md | Plain markdown in repo, version-controlled, AI-readable | No filtering, search, or history beyond git log   | Free                 | Solo devs starting out (fewer than 50 items)   |
-| Linear  | Fast, keyboard-driven, MCP server available             | Another tool to maintain, potential over-process  | Free for individuals | Structured workflows, backlog exceeds 50 items |
-| Trello  | Visual kanban, simple drag-and-drop                     | Slower, less developer-native, no MCP integration | Free tier generous   | Visual thinkers, simple task boards            |
+| Tool | Strengths | Weaknesses | Pricing | Best For |
+|------|-----------|------------|---------|----------|
+| TODO.md | Plain markdown in repo, version-controlled, AI-readable | No filtering, search, or history beyond git log | Free | Solo devs starting out (fewer than 50 items) |
+| Linear | Fast, keyboard-driven, MCP server available | Another tool to maintain, potential over-process | Free for individuals | Structured workflows, backlog exceeds 50 items |
+| Trello | Visual kanban, simple drag-and-drop | Slower, less developer-native, no MCP integration | Free tier generous | Visual thinkers, simple task boards |
 
 #### Risk Assessment
 
-| Factor           | TODO.md | Linear | Trello |
-| ---------------- | ------- | ------ | ------ |
-| Reliability      | High    | High   | High   |
-| Vendor Lock-in   | Low     | Medium | Medium |
-| Cost Trajectory  | Low     | Low    | Low    |
-| Community Health | High    | High   | High   |
-| Deprecation Risk | Low     | Low    | Low    |
+| Factor | TODO.md | Linear | Trello |
+|--------|---------|--------|--------|
+| Reliability | High | High | High |
+| Vendor Lock-in | Low | Medium | Medium |
+| Cost Trajectory | Low | Low | Low |
+| Community Health | High | High | High |
+| Deprecation Risk | Low | Low | Low |
 
 #### Recommendation
 
@@ -268,21 +268,21 @@ Start with TODO.md for zero-overhead task tracking that lives in the repository 
 
 #### Comparison Matrix
 
-| Tool               | Strengths                                                   | Weaknesses                                                    | Pricing                   | Best For                                 |
-| ------------------ | ----------------------------------------------------------- | ------------------------------------------------------------- | ------------------------- | ---------------------------------------- |
-| Clerk              | Hosted UI, social login, MFA, user management dashboard     | Vendor lock-in, costs scale with users                        | Free: 10K MAU, Pro $25/mo | Fastest implementation, best DX          |
-| Auth.js (NextAuth) | Open-source, self-hosted, flexible providers                | More setup work, you manage sessions/tokens, less polished UI | Free                      | Full control, no vendor lock-in          |
-| Supabase Auth      | Part of Supabase platform, Row Level Security, social login | Tied to Supabase ecosystem                                    | Free with Supabase        | Supabase users (auth + database unified) |
+| Tool | Strengths | Weaknesses | Pricing | Best For |
+|------|-----------|------------|---------|----------|
+| Clerk | Hosted UI, social login, MFA, user management dashboard | Vendor lock-in, costs scale with users | Free: 10K MAU, Pro $25/mo | Fastest implementation, best DX |
+| Auth.js (NextAuth) | Open-source, self-hosted, flexible providers | More setup work, you manage sessions/tokens, less polished UI | Free | Full control, no vendor lock-in |
+| Supabase Auth | Part of Supabase platform, Row Level Security, social login | Tied to Supabase ecosystem | Free with Supabase | Supabase users (auth + database unified) |
 
 #### Risk Assessment
 
-| Factor           | Clerk | Auth.js | Supabase Auth |
-| ---------------- | ----- | ------- | ------------- |
-| Reliability      | High  | High    | High          |
-| Vendor Lock-in   | High  | Low     | Medium        |
-| Cost Trajectory  | High  | Low     | Low           |
-| Community Health | High  | High    | High          |
-| Deprecation Risk | Low   | Low     | Low           |
+| Factor | Clerk | Auth.js | Supabase Auth |
+|--------|-------|---------|---------------|
+| Reliability | High | High | High |
+| Vendor Lock-in | High | Low | Medium |
+| Cost Trajectory | High | Low | Low |
+| Community Health | High | High | High |
+| Deprecation Risk | Low | Low | Low |
 
 #### Recommendation
 
@@ -294,21 +294,21 @@ Clerk is the default for the fastest launch. Its pre-built UI components, social
 
 #### Comparison Matrix
 
-| Tool          | Strengths                                                 | Weaknesses                                                          | Pricing                    | Best For                                                |
-| ------------- | --------------------------------------------------------- | ------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------- |
-| Stripe        | Industry standard, best docs, global reach, full API      | Complex for simple use cases, you handle tax compliance             | 2.9% + 30c per transaction | Any payment type (subscriptions, one-time, marketplace) |
-| Polar.sh      | Built for open-source / digital products, handles VAT/tax | Newer, smaller ecosystem, limited payment types                     | 5% fee                     | Digital products, open-source monetization              |
-| Lemon Squeezy | Merchant of record (handles tax/VAT), simple API          | Higher fee, less flexibility than Stripe, acquired by Stripe (2024) | 5% + 50c per transaction   | Global sales without tax headaches                      |
+| Tool | Strengths | Weaknesses | Pricing | Best For |
+|------|-----------|------------|---------|----------|
+| Stripe | Industry standard, best docs, global reach, full API | Complex for simple use cases, you handle tax compliance | 2.9% + 30c per transaction | Any payment type (subscriptions, one-time, marketplace) |
+| Polar.sh | Built for open-source / digital products, handles VAT/tax | Newer, smaller ecosystem, limited payment types | 5% fee | Digital products, open-source monetization |
+| Lemon Squeezy | Merchant of record (handles tax/VAT), simple API | Higher fee, less flexibility than Stripe, acquired by Stripe (2024) | 5% + 50c per transaction | Global sales without tax headaches |
 
 #### Risk Assessment
 
-| Factor           | Stripe | Polar.sh | Lemon Squeezy |
-| ---------------- | ------ | -------- | ------------- |
-| Reliability      | High   | Medium   | High          |
-| Vendor Lock-in   | Medium | Low      | Medium        |
-| Cost Trajectory  | Low    | Medium   | Medium        |
-| Community Health | High   | Medium   | Medium        |
-| Deprecation Risk | Low    | Medium   | Medium        |
+| Factor | Stripe | Polar.sh | Lemon Squeezy |
+|--------|--------|----------|----------------|
+| Reliability | High | Medium | High |
+| Vendor Lock-in | Medium | Low | Medium |
+| Cost Trajectory | Low | Medium | Medium |
+| Community Health | High | Medium | Medium |
+| Deprecation Risk | Low | Medium | Medium |
 
 #### Recommendation
 
@@ -319,7 +319,6 @@ Stripe is the default for payments. It is the industry standard with the best do
 ## Sources
 
 ### Architecture & Agent Orchestration
-
 - [Claude Code Subagents Docs](https://code.claude.com/docs/en/sub-agents) — Official multi-agent orchestration documentation
 - [Claude Code Agent Teams (Feb 2026)](https://pub.towardsai.net/claude-code-agent-teams-the-end-of-solo-ai-coding-45da2cab6153) — Agent Teams research preview
 - [Stripe Minions: End-to-End Coding Agents (Feb 2026)](https://stripe.dev/blog/minions-stripes-one-shot-end-to-end-coding-agents) — 1,300+ AI PRs/week architecture
@@ -327,18 +326,15 @@ Stripe is the default for payments. It is the industry standard with the best do
 - [Managing AI Synthetic Product Teams](https://productleadersdayindia.org/blogs/agentic-ai-product-management/managing-ai-synthetic-product-teams.html) — Goal Vectors framework
 
 ### Workflows & Developer Experience
-
 - [Boris Cherny's Claude Code Workflow (Jan 2026)](https://www.infoq.com/news/2026/01/claude-code-creator-workflow/) — Production setup from Claude Code's creator
 - [Addy Osmani's LLM Coding Workflow](https://addyosmani.com/blog/ai-coding-workflow/) — "Specification before code" methodology
 - [AI Dev Tool Power Rankings (Feb 2026)](https://blog.logrocket.com/ai-dev-tool-power-rankings/) — Current tool landscape and capabilities
 
 ### Stack & Infrastructure
-
 - [Solopreneur Tech Stack 2026](https://prometai.app/blog/solopreneur-tech-stack-2026) — $3K-$12K/year complete stack breakdown
 - [AI Tools Letting Solo Founders Build Empires in 2026](https://www.siliconindia.com/news/startups/how-ai-tools-are-letting-solo-founders-build-empires-in-2026-nid-238909-cid-19.html) — Industry analysis
 - [GitHub Actions CI/CD in Four Steps](https://github.blog/enterprise-software/ci-cd/build-ci-cd-pipeline-github-actions-four-steps/) — Minimum viable pipeline setup
 
 ### Code Quality & Risk
-
 - [AI-Generated Code Creates New Technical Debt](https://www.infoq.com/news/2025/11/ai-code-technical-debt/) — Maintenance cost data
 - [Hidden Costs of AI-Generated Software](https://www.codebridge.tech/articles/the-hidden-costs-of-ai-generated-software-why-it-works-isnt-enough) — 4x maintenance costs by year 2

@@ -33,14 +33,13 @@ export function SettingsStep({ data, errors, onChange, onValidate }: SettingsSte
           label="Default Reservation Duration (minutes)"
           type="number"
           value={data.defaultReservationDuration}
-          onChange={(e) => onChange({ ...data, defaultReservationDuration: e.target.value })}
+          onChange={(e) =>
+            onChange({ ...data, defaultReservationDuration: e.target.value })
+          }
           onBlur={onValidate}
           placeholder={`Default: ${DEFAULTS.defaultReservationDuration}`}
           error={errors.defaultReservationDuration !== undefined}
-          hint={
-            errors.defaultReservationDuration ??
-            `If left blank, defaults to ${DEFAULTS.defaultReservationDuration} minutes`
-          }
+          hint={errors.defaultReservationDuration ?? `If left blank, defaults to ${DEFAULTS.defaultReservationDuration} minutes`}
           showOptional
         />
 
@@ -60,14 +59,13 @@ export function SettingsStep({ data, errors, onChange, onValidate }: SettingsSte
           label="Advance Booking Window (days)"
           type="number"
           value={data.advanceBookingDays}
-          onChange={(e) => onChange({ ...data, advanceBookingDays: e.target.value })}
+          onChange={(e) =>
+            onChange({ ...data, advanceBookingDays: e.target.value })
+          }
           onBlur={onValidate}
           placeholder={`Default: ${DEFAULTS.advanceBookingDays}`}
           error={errors.advanceBookingDays !== undefined}
-          hint={
-            errors.advanceBookingDays ??
-            `If left blank, guests can book up to ${DEFAULTS.advanceBookingDays} days ahead`
-          }
+          hint={errors.advanceBookingDays ?? `If left blank, guests can book up to ${DEFAULTS.advanceBookingDays} days ahead`}
           showOptional
         />
       </Stack>

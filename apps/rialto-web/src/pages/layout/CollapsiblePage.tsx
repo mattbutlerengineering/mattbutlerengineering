@@ -65,8 +65,7 @@ export function CollapsiblePage() {
             },
             {
               trigger: "Brake Balance",
-              content:
-                "Front bias: 58%. Brake pressure: 85 bar. Duct opening: front 60%, rear 40%.",
+              content: "Front bias: 58%. Brake pressure: 85 bar. Duct opening: front 60%, rear 40%.",
             },
             {
               trigger: "ERS Configuration",

@@ -90,16 +90,7 @@ async function createLightweightWorktree(
   const clonePath = join(repoPath, WORKTREE_DIR, branchName.replace(/\//g, "-"));
   // Shallow clone from the local repo; --depth 1 keeps it fast and minimal.
   // `--` prevents baseBranch/repoPath from being parsed as flags.
-  await execFileAsync("git", [
-    "clone",
-    "--depth",
-    "1",
-    "--branch",
-    baseBranch,
-    "--",
-    repoPath,
-    clonePath,
-  ]);
+  await execFileAsync("git", ["clone", "--depth", "1", "--branch", baseBranch, "--", repoPath, clonePath]);
   // Create and switch to the task branch inside the clone.
   await git(["checkout", "-b", branchName, "--"], clonePath);
   return clonePath;
@@ -164,7 +155,10 @@ export async function cleanupWorktrees(repoPath: string): Promise<void> {
   await rm(worktreesDir, { recursive: true, force: true });
 }
 
-export async function commitChanges(worktreePath: string, message: string): Promise<string> {
+export async function commitChanges(
+  worktreePath: string,
+  message: string
+): Promise<string> {
   validatePath(worktreePath, "worktreePath");
 
   await git(["add", "-A"], worktreePath);
@@ -179,7 +173,10 @@ export async function commitChanges(worktreePath: string, message: string): Prom
   return sha;
 }
 
-export async function pushBranch(worktreePath: string, branchName: string): Promise<void> {
+export async function pushBranch(
+  worktreePath: string,
+  branchName: string
+): Promise<void> {
   validatePath(worktreePath, "worktreePath");
   validateGitRef(branchName, "branchName");
 

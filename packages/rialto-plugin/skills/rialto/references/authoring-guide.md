@@ -113,15 +113,9 @@ ComponentName.displayName = "ComponentName";
 }
 
 /* Sizes */
-.sm {
-  padding: var(--rialto-space-2xs) var(--rialto-space-xs);
-}
-.md {
-  padding: var(--rialto-space-xs) var(--rialto-space-sm);
-}
-.lg {
-  padding: var(--rialto-space-sm) var(--rialto-space-md);
-}
+.sm { padding: var(--rialto-space-2xs) var(--rialto-space-xs); }
+.md { padding: var(--rialto-space-xs) var(--rialto-space-sm); }
+.lg { padding: var(--rialto-space-sm) var(--rialto-space-md); }
 ```
 
 ### Key CSS Rules
@@ -156,12 +150,12 @@ ComponentName.displayName = "ComponentName";
 
 ### Motion Presets
 
-| Preset         | Type     | When to Use                                     |
-| -------------- | -------- | ----------------------------------------------- |
-| `precision`    | Duration | Standard UI transitions, hover, small movements |
-| `spring`       | Spring   | Toggles, sliders, detent-feel interactions      |
-| `springGentle` | Spring   | Dialogs, drawers, card expansions               |
-| `reduced`      | Duration | Fallback when `useReducedMotion()` returns true |
+| Preset | Type | When to Use |
+|--------|------|-------------|
+| `precision` | Duration | Standard UI transitions, hover, small movements |
+| `spring` | Spring | Toggles, sliders, detent-feel interactions |
+| `springGentle` | Spring | Dialogs, drawers, card expansions |
+| `reduced` | Duration | Fallback when `useReducedMotion()` returns true |
 
 Import from `"rialto/tokens/motion"` (or `src/tokens/motion.ts`).
 

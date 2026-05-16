@@ -53,7 +53,9 @@ const CONFIG_FILENAME = ".github/auto-qa-tuning.json";
  * Extract only the threshold values we care about from a parsed config.
  * Validates `raw` against the Zod schema and returns null on failure.
  */
-export function parseThresholds(raw: unknown): QaTuningThresholds | null {
+export function parseThresholds(
+  raw: unknown,
+): QaTuningThresholds | null {
   const result = QaTuningConfigSchema.safeParse(raw);
 
   if (!result.success) {
@@ -91,17 +93,20 @@ export function applyTuningDefaults(
     readonly stuckDetectorConfig?: { readonly zeroProgressThreshold?: number };
   },
   tuning: QaTuningThresholds,
-  hardCodedDefaultBudget: number
+  hardCodedDefaultBudget: number,
 ): {
   readonly maxBudgetUsd: number;
   readonly stuckDetectorConfig: { readonly zeroProgressThreshold: number } | undefined;
 } {
   // Only override budget if the session is still at the hard-coded default
   const budgetOverridden = sessionDefaults.maxBudgetUsd !== hardCodedDefaultBudget;
-  const effectiveBudget = budgetOverridden ? sessionDefaults.maxBudgetUsd : tuning.maxBudgetUSD;
+  const effectiveBudget = budgetOverridden
+    ? sessionDefaults.maxBudgetUsd
+    : tuning.maxBudgetUSD;
 
   // Only override stuck threshold if not explicitly set
-  const explicitThreshold = sessionDefaults.stuckDetectorConfig?.zeroProgressThreshold;
+  const explicitThreshold =
+    sessionDefaults.stuckDetectorConfig?.zeroProgressThreshold;
   const effectiveStuckConfig =
     explicitThreshold !== undefined
       ? { zeroProgressThreshold: explicitThreshold }

@@ -34,7 +34,6 @@ git log --oneline --since="24 hours ago" --grep="^Revert" | head -20
 ```
 
 Parse each revert commit:
-
 - Extract original commit SHA or PR number from message: `Revert "feat: #1234 description"`
 - Or: `Revert "title (#1234)"`
 - Extract: `1234` (PR number)
@@ -135,7 +134,6 @@ Capture the issue number: `ISSUE_NUM=$(echo $OUTPUT | jq -r '.number')`
 Create a GitHub issue that will trigger a Reflection session via RemoteTrigger.
 
 The reflection session should:
-
 1. Fetch the RCA issue and revert commit details
 2. Analyze the PR changes and the reason for revert
 3. Identify the root cause category
@@ -175,7 +173,7 @@ if [ "$REVERT_COUNT" -gt 3 ]; then
     --title "[Meta] Revert rate elevated (${REVERT_COUNT}/day)" \
     --label "meta-improvement,acmm" \
     --body "The 7-day revert rate is ${REVERT_COUNT}/day (threshold: 3). This suggests the autonomous system is unstable. Investigate pattern from revert-rca-loop output and consider:
-
+    
 - Improving test coverage
 - Tightening validation rules
 - Reducing agent complexity/ambition
@@ -194,7 +192,6 @@ Run hourly to catch reverts quickly:
 ## Success Criteria
 
 A successful revert-rca-loop run:
-
 1. ✅ Detects all reverts in the last 24h
 2. ✅ Correctly identifies AI-authored PRs
 3. ✅ Creates RCA issue without duplicates
@@ -203,17 +200,16 @@ A successful revert-rca-loop run:
 
 ## Output Files
 
-| File                                      | Purpose                                       |
-| ----------------------------------------- | --------------------------------------------- |
+| File | Purpose |
+|------|---------|
 | `.claude/state/revert-rca-triggers.jsonl` | Event log (timestamp, reverted PR, RCA issue) |
-| `.claude/improvement-loop/revert-log.md`  | Human-readable revert history                 |
-| `RCA Issue #N`                            | Investigation and findings                    |
-| `.claude/reflections/rca-*.md`            | Detailed RCA analysis and learnings           |
+| `.claude/improvement-loop/revert-log.md` | Human-readable revert history |
+| `RCA Issue #N` | Investigation and findings |
+| `.claude/reflections/rca-*.md` | Detailed RCA analysis and learnings |
 
 ## Integration with Progress Tracker
 
 The revert-rca-loop feeds data into `/progress-tracker`:
-
 - Tracks revert rate (target: < 1/day)
 - Identifies recurring root causes
 - Triggers escalation if rate climbs
@@ -222,26 +218,24 @@ The revert-rca-loop feeds data into `/progress-tracker`:
 ## Integration with Learning Loop
 
 Findings from RCA issues inform the learning loop:
-
 - Patterns identified in RCA flow back to agent-core improvements
 - Test coverage gaps found in RCA become new test requirements
 - Systemic issues trigger updates to CLAUDE.md or gotchas.md
 
 ## Troubleshooting
 
-| Issue                    | Cause                       | Fix                                             |
-| ------------------------ | --------------------------- | ----------------------------------------------- |
-| No reverts detected      | No revert commits on main   | Check git log manually                          |
-| AI PR not detected       | Body doesn't contain marker | Check PR body format in pr-creator.ts           |
-| Duplicate RCA issues     | Check logic failed          | Improve search query to match PR number exactly |
-| Reflection not triggered | Event log not created       | Verify `.claude/state/` is writable             |
+| Issue | Cause | Fix |
+|-------|-------|-----|
+| No reverts detected | No revert commits on main | Check git log manually |
+| AI PR not detected | Body doesn't contain marker | Check PR body format in pr-creator.ts |
+| Duplicate RCA issues | Check logic failed | Improve search query to match PR number exactly |
+| Reflection not triggered | Event log not created | Verify `.claude/state/` is writable |
 
 ## Examples
 
 ### Example 1: Logic Error in Feature PR
 
 Revert: `Revert "feat: add payment retry logic (#1234)"`
-
 - Root cause: Agent didn't account for webhook race condition
 - Fix: Add pessimistic locking to payment service
 - Learning: Update PR examples in prompt-builder to show concurrency patterns
@@ -249,7 +243,6 @@ Revert: `Revert "feat: add payment retry logic (#1234)"`
 ### Example 2: Missing Edge Case in Test PR
 
 Revert: `Revert "test: expand coverage for auth flow (#1250)"`
-
 - Root cause: New tests broke on parallel execution
 - Fix: Add test isolation/setup/teardown
 - Learning: Add vitest concurrency patterns to skill examples
@@ -257,7 +250,6 @@ Revert: `Revert "test: expand coverage for auth flow (#1250)"`
 ### Example 3: Unsafe SQL Pattern
 
 Revert: `Revert "feat: batch user deletion (#1267)"`
-
 - Root cause: SQL query vulnerable to injection (missing parameterization)
 - Fix: Use Prisma parameterized queries
 - Learning: Add security review to quality gates

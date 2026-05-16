@@ -56,7 +56,9 @@ describe("FloorPlansClient", () => {
     });
 
     it("appends venueId filter when provided", async () => {
-      mockFetch.mockResolvedValueOnce(jsonResponse({ data: [], total: 0, page: 1, limit: 10 }));
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ data: [], total: 0, page: 1, limit: 10 })
+      );
 
       await makeClient().list({ venueId: "v1", page: 1, limit: 5 });
 
@@ -94,11 +96,7 @@ describe("FloorPlansClient", () => {
     it("sends POST /api/v1/floor-plans with body", async () => {
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: fakeFloorPlan }));
 
-      await makeClient().create({
-        venueId: "v1",
-        name: "Main Floor",
-        layoutJson: { width: 800, height: 600 },
-      });
+      await makeClient().create({ venueId: "v1", name: "Main Floor", layoutJson: { width: 800, height: 600 } });
 
       const [url, options] = mockFetch.mock.calls[0]!;
       expect(url).toBe("https://api.test.com/api/v1/floor-plans");
@@ -157,12 +155,7 @@ describe("FloorPlansClient", () => {
     it("sends POST /api/v1/floor-plans/:id/bulk-update-positions with positions", async () => {
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: [fakeTable] }));
 
-      const positions = [
-        {
-          tableId: "t1",
-          shapeMetadata: { x: 10, y: 20, width: 60, height: 60, shape: "square" as const },
-        },
-      ];
+      const positions = [{ tableId: "t1", shapeMetadata: { x: 10, y: 20, width: 60, height: 60, shape: "square" as const } }];
       const result = await makeClient().bulkUpdatePositions("fp1", positions);
 
       const [url, options] = mockFetch.mock.calls[0]!;
@@ -190,7 +183,10 @@ describe("FloorPlansClient", () => {
   describe("error handling", () => {
     it("propagates 404 errors", async () => {
       mockFetch.mockResolvedValueOnce(
-        jsonResponse({ error: "Not Found", message: "Floor plan not found", statusCode: 404 }, 404)
+        jsonResponse(
+          { error: "Not Found", message: "Floor plan not found", statusCode: 404 },
+          404
+        )
       );
 
       await expect(makeClient().get("bad")).rejects.toThrow();

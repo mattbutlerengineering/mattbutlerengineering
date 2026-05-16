@@ -298,23 +298,22 @@ Assertions:
 
 ## Smoke Tests (run on every deploy)
 
-| Test               | Page            | What to check                        |
-| ------------------ | --------------- | ------------------------------------ |
-| Dashboard loads    | `/`             | PageHeader visible, no error alerts  |
-| Timeline loads     | `/timeline`     | TimelineGrid renders, Live indicator |
-| Reservations loads | `/reservations` | Table or empty state visible         |
-| Guests loads       | `/guests`       | Search input visible                 |
-| Floor Plans loads  | `/floor-plans`  | Grid or empty state visible          |
-| Settings loads     | `/settings`     | Theme selector visible               |
-| Profile loads      | `/profile`      | Avatar visible                       |
-| Admin loads        | `/admin`        | User list or error                   |
+| Test | Page | What to check |
+|------|------|---------------|
+| Dashboard loads | `/` | PageHeader visible, no error alerts |
+| Timeline loads | `/timeline` | TimelineGrid renders, Live indicator |
+| Reservations loads | `/reservations` | Table or empty state visible |
+| Guests loads | `/guests` | Search input visible |
+| Floor Plans loads | `/floor-plans` | Grid or empty state visible |
+| Settings loads | `/settings` | Theme selector visible |
+| Profile loads | `/profile` | Avatar visible |
+| Admin loads | `/admin` | User list or error |
 
 ---
 
 ## Test Data Requirements
 
 For full test coverage, the test environment needs:
-
 - 1+ venue with settings configured
 - 1+ active floor plan with 5+ tables
 - 10+ reservations across statuses (PENDING, CONFIRMED, CANCELLED, COMPLETED)

@@ -94,12 +94,7 @@ export function SliderPage() {
       <Section title="States">
         <div className={styles.stack}>
           <Slider label="Default" defaultValue={30} />
-          <Slider
-            label="With value display"
-            defaultValue={65}
-            showValue
-            formatValue={(v) => `${v}%`}
-          />
+          <Slider label="With value display" defaultValue={65} showValue formatValue={(v) => `${v}%`} />
           <Slider label="Disabled" defaultValue={40} disabled />
         </div>
       </Section>

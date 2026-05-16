@@ -12,13 +12,13 @@ Key outcomes: Fixed lockfile sync, merged 12 PRs, closed 4 superseded PRs.
 
 ## Session metadata
 
-| Field      | Value                     |
-| ---------- | ------------------------- |
-| Date       | _YYYY-MM-DD_              |
-| Session ID | _auto-populated_          |
-| Duration   | _approximate_             |
-| Model      | _e.g., claude-sonnet-4-6_ |
-| Branch     | _e.g., feat/new-feature_  |
+| Field | Value |
+|-------|-------|
+| Date | _YYYY-MM-DD_ |
+| Session ID | _auto-populated_ |
+| Duration | _approximate_ |
+| Model | _e.g., claude-sonnet-4-6_ |
+| Branch | _e.g., feat/new-feature_ |
 
 ## What changed
 

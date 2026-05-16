@@ -24,12 +24,8 @@ const SharedSpecPage = lazy(() =>
 
 function LoadingFallback() {
   return (
-    <div
-      style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}
-    >
-      <Text variant="body" color="secondary">
-        Loading...
-      </Text>
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
+      <Text variant="body" color="secondary">Loading...</Text>
     </div>
   );
 }

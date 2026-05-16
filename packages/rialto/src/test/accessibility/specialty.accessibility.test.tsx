@@ -3,11 +3,7 @@ import { render } from "@testing-library/react";
 import { axe } from "vitest-axe";
 
 /* ── Components ─────────────────────────────── */
-import {
-  Chalkboard,
-  ChalkboardSection,
-  ChalkboardItem,
-} from "../../components/Chalkboard/Chalkboard";
+import { Chalkboard, ChalkboardSection, ChalkboardItem } from "../../components/Chalkboard/Chalkboard";
 import { Ferrofluid } from "../../components/Ferrofluid/Ferrofluid";
 import { MasterOverride } from "../../components/MasterOverride/MasterOverride";
 import { SplitFlap } from "../../components/SplitFlap/SplitFlap";
@@ -32,7 +28,13 @@ describe("Accessibility — Specialty Components", () => {
   });
 
   it("MasterOverride", async () => {
-    const { container } = render(<MasterOverride label="Launch" on={false} onChange={() => {}} />);
+    const { container } = render(
+      <MasterOverride
+        label="Launch"
+        on={false}
+        onChange={() => {}}
+      />
+    );
     expect(await axe(container)).toHaveNoViolations();
   });
 
@@ -52,7 +54,12 @@ describe("Accessibility — Specialty Components", () => {
 
   it("TapeChart", async () => {
     const { container } = render(
-      <TapeChart rooms={[]} reservations={[]} startDate="2026-04-20" endDate="2026-04-27" />
+      <TapeChart
+        rooms={[]}
+        reservations={[]}
+        startDate="2026-04-20"
+        endDate="2026-04-27"
+      />
     );
     expect(await axe(container)).toHaveNoViolations();
   });

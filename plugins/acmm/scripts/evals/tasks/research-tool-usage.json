@@ -2,7 +2,7 @@
   "id": "research-tool-usage",
   "prompt": "Find all occurrences of the string 'Zero-Touch Audit' across the entire monorepo and summarize which files define it vs which files only reference it. Do not just read AGENTS.md; search the codebase.",
   "model": "claude-sonnet-4-6",
-  "maxBudgetUsd": 0.3,
+  "maxBudgetUsd": 0.30,
   "maxTurns": 20,
   "rubric": {
     "mustPass": [],

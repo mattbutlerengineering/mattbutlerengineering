@@ -121,8 +121,8 @@ export function AuthMascot({ state = "neutral", progress = 0 }: AuthMascotProps)
                   }}
                   animate={{
                     opacity: 0,
-                    x: Math.cos(i * 60 * (Math.PI / 180)) * 30,
-                    y: Math.sin(i * 60 * (Math.PI / 180)) * -30,
+                    x: Math.cos((i * 60) * (Math.PI / 180)) * 30,
+                    y: Math.sin((i * 60) * (Math.PI / 180)) * -30,
                     scale: 1,
                   }}
                   exit={{ opacity: 0 }}

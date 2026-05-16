@@ -11,22 +11,22 @@
  *   node scripts/health-metrics.mjs --dry-run
  */
 
-import { appendFileSync, mkdirSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { appendFileSync, mkdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 const cwd = process.cwd();
-const HISTORY_PATH = join(cwd, "metrics/service-health.jsonl");
+const HISTORY_PATH = join(cwd, 'metrics/service-health.jsonl');
 
-const BASE = "https://api.mattbutlerengineering.com";
+const BASE = 'https://api.mattbutlerengineering.com';
 
 const SERVICES = [
-  { name: "users", url: `${BASE}/api/v1/users/health` },
-  { name: "agent", url: `${BASE}/api/gen/health` },
-  { name: "reservations", url: `${BASE}/api/v1/reservations/health` },
+  { name: 'users', url: `${BASE}/api/v1/users/health` },
+  { name: 'agent', url: `${BASE}/api/gen/health` },
+  { name: 'reservations', url: `${BASE}/api/v1/reservations/health` },
 ];
 
 const args = process.argv.slice(2);
-const DRY_RUN = args.includes("--dry-run");
+const DRY_RUN = args.includes('--dry-run');
 
 async function fetchHealth(service) {
   try {
@@ -42,14 +42,14 @@ async function fetchHealth(service) {
   } catch (err) {
     return {
       service: service.name,
-      status: "error",
+      status: 'error',
       message: err.message,
     };
   }
 }
 
 async function run() {
-  console.log("Polling production service health...");
+  console.log('Polling production service health...');
   const results = await Promise.all(SERVICES.map(fetchHealth));
 
   const entry = {
@@ -58,17 +58,17 @@ async function run() {
   };
 
   if (DRY_RUN) {
-    console.log("Dry run - snapshot:");
+    console.log('Dry run - snapshot:');
     console.log(JSON.stringify(entry, null, 2));
     return;
   }
 
   mkdirSync(dirname(HISTORY_PATH), { recursive: true });
-  appendFileSync(HISTORY_PATH, JSON.stringify(entry) + "\n", "utf-8");
+  appendFileSync(HISTORY_PATH, JSON.stringify(entry) + '\n', 'utf-8');
   console.log(`Snapshot appended to ${HISTORY_PATH}`);
 }
 
-run().catch((err) => {
+run().catch(err => {
   console.error(err);
   process.exit(1);
 });

@@ -21,14 +21,11 @@ const slowQueryStats: SlowQueryStats = {
 export function getSlowQueryStats(): { count5min: number; slowestMs: number } {
   const now = Date.now();
   const windowStart = now - SLOW_QUERY_WINDOW_MS;
-
+  
   slowQueryStats.queries = slowQueryStats.queries.filter((q) => q.timestamp > windowStart);
   slowQueryStats.count5min = slowQueryStats.queries.length;
-  slowQueryStats.slowestMs = slowQueryStats.queries.reduce(
-    (max, q) => Math.max(max, q.duration),
-    0
-  );
-
+  slowQueryStats.slowestMs = slowQueryStats.queries.reduce((max, q) => Math.max(max, q.duration), 0);
+  
   return {
     count5min: slowQueryStats.count5min,
     slowestMs: slowQueryStats.slowestMs,
@@ -91,10 +88,10 @@ export function getPoolMetrics(): PoolMetrics {
 export function getServiceStatus(): "ok" | "degraded" {
   const stats = getSlowQueryStats();
   const poolStats = getPoolStats();
-
+  
   if (stats.count5min > MAX_SLOW_QUERIES) return "degraded";
   if (poolStats.utilization >= POOL_UTILIZATION_THRESHOLD) return "degraded";
-
+  
   return "ok";
 }
 

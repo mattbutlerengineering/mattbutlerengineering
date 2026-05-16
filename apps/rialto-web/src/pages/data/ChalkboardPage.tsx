@@ -18,7 +18,11 @@ export function ChalkboardPage() {
       <Section title="Daily Specials">
         <Chalkboard title="Today's Specials" subtitle="March 15" framed>
           <ChalkboardSection heading="Starters">
-            <ChalkboardItem name="Crab Cakes" price="$14" description="with remoulade and frisée" />
+            <ChalkboardItem
+              name="Crab Cakes"
+              price="$14"
+              description="with remoulade and frisée"
+            />
             <ChalkboardItem
               name="Caesar Salad"
               price="$10"
@@ -88,28 +92,10 @@ export function ChalkboardPage() {
         <PropsTable
           props={[
             { name: "title", type: "string", description: "Rendered as an h2 inside the header." },
-            {
-              name: "subtitle",
-              type: "string",
-              description: "Secondary context under the title — often a date.",
-            },
-            {
-              name: "variant",
-              type: '"slate" | "green"',
-              default: '"slate"',
-              description: "Visual palette.",
-            },
-            {
-              name: "framed",
-              type: "boolean",
-              default: "false",
-              description: "Wraps the board in a wooden frame border.",
-            },
-            {
-              name: "children",
-              type: "ReactNode",
-              description: "Typically ChalkboardSection components.",
-            },
+            { name: "subtitle", type: "string", description: "Secondary context under the title — often a date." },
+            { name: "variant", type: '"slate" | "green"', default: '"slate"', description: "Visual palette." },
+            { name: "framed", type: "boolean", default: "false", description: "Wraps the board in a wooden frame border." },
+            { name: "children", type: "ReactNode", description: "Typically ChalkboardSection components." },
           ]}
         />
       </Section>
@@ -129,18 +115,9 @@ export function ChalkboardPage() {
         <PropsTable
           props={[
             { name: "name", type: "string", description: "Item name, required." },
-            {
-              name: "price",
-              type: "string",
-              description: "Displayed on the right; use any currency format.",
-            },
+            { name: "price", type: "string", description: "Displayed on the right; use any currency format." },
             { name: "description", type: "string", description: "Secondary text below the name." },
-            {
-              name: "soldOut",
-              type: "boolean",
-              default: "false",
-              description: "Strikes through the item and adds a 'sold out' label readable by AT.",
-            },
+            { name: "soldOut", type: "boolean", default: "false", description: "Strikes through the item and adds a 'sold out' label readable by AT." },
           ]}
         />
       </Section>
@@ -149,27 +126,12 @@ export function ChalkboardPage() {
       <Section title="Accessibility">
         <DataList
           items={[
-            {
-              label: "Heading hierarchy",
-              value: "Title → h2, section heading → h3 — outlines cleanly under any page",
-            },
-            {
-              label: "List markup",
-              value: "Items are rendered as <ul>/<li> — announced as a list with count",
-            },
-            {
-              label: "Sold-out label",
-              value: "Rendered as actual text — strikethrough is cosmetic, not sole indicator",
-            },
+            { label: "Heading hierarchy", value: "Title → h2, section heading → h3 — outlines cleanly under any page" },
+            { label: "List markup", value: "Items are rendered as <ul>/<li> — announced as a list with count" },
+            { label: "Sold-out label", value: "Rendered as actual text — strikethrough is cosmetic, not sole indicator" },
             { label: "Decorative effects", value: "Chalk dust overlay is aria-hidden" },
-            {
-              label: "Font fallback",
-              value: "System handwriting stack — degrades gracefully if Caveant not loaded",
-            },
-            {
-              label: "Contrast",
-              value: "Chalk-on-slate and chalk-on-green both meet WCAG AA for normal text",
-            },
+            { label: "Font fallback", value: "System handwriting stack — degrades gracefully if Caveant not loaded" },
+            { label: "Contrast", value: "Chalk-on-slate and chalk-on-green both meet WCAG AA for normal text" },
           ]}
         />
       </Section>

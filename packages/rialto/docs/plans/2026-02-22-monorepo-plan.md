@@ -419,8 +419,8 @@ This is the largest single task. Every file in `apps/showcase/src/` that imports
 
 **Import mapping:**
 
-| Old pattern                               | New pattern                                                               |
-| ----------------------------------------- | ------------------------------------------------------------------------- |
+| Old pattern                               | New pattern                                             |
+| ----------------------------------------- | ------------------------------------------------------- |
 | `from '../components/X/X'`                | `from '@mattbutlerengineering/rialto'`                                    |
 | `from '../../components/X/X'`             | `from '@mattbutlerengineering/rialto'`                                    |
 | `from '../../components'`                 | `from '@mattbutlerengineering/rialto'`                                    |
@@ -429,10 +429,10 @@ This is the largest single task. Every file in `apps/showcase/src/` that imports
 | `from '../tokens/icons'`                  | `from '@mattbutlerengineering/rialto'` (export from barrel)               |
 | `from '../providers'`                     | `from '@mattbutlerengineering/rialto'` (already exported from barrel)     |
 | `from '../../providers'`                  | `from '@mattbutlerengineering/rialto'`                                    |
-| `from '../styles/surfaces.module.css'`    | Remove composes, use local styles or className                            |
+| `from '../styles/surfaces.module.css'`    | Remove composes, use local styles or className          |
 | `import './tokens/index.css'`             | `import '@mattbutlerengineering/rialto/styles'`                           |
 | `import './styles/reset.css'`             | `import '@mattbutlerengineering/rialto/styles'` (bundled into styles.css) |
-| `import './styles/global.css'`            | Keep — move global.css to showcase since it's app-level                   |
+| `import './styles/global.css'`            | Keep — move global.css to showcase since it's app-level |
 
 **Step 1: Ensure barrel exports include everything the showcase needs**
 

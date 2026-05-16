@@ -18,7 +18,10 @@ import styles from "../components/ComponentPageLayout.module.css";
 // Demo data
 // ---------------------------------------------------------------------------
 
-const BREADCRUMBS_SHORT: BreadcrumbItem[] = [{ label: "Home", href: "#" }, { label: "Settings" }];
+const BREADCRUMBS_SHORT: BreadcrumbItem[] = [
+  { label: "Home", href: "#" },
+  { label: "Settings" },
+];
 
 const BREADCRUMBS_LONG: BreadcrumbItem[] = [
   { label: "Home", href: "#" },
@@ -61,7 +64,11 @@ function PageHeaderPlayground() {
               </>
             ) : undefined
           }
-          meta={showMeta ? <Badge variant="success">Active</Badge> : undefined}
+          meta={
+            showMeta ? (
+              <Badge variant="success">Active</Badge>
+            ) : undefined
+          }
         >
           {showChildren ? (
             <Text variant="caption" color="secondary">
@@ -76,9 +83,21 @@ function PageHeaderPlayground() {
           checked={showBreadcrumbs}
           onCheckedChange={setShowBreadcrumbs}
         />
-        <Checkbox label="Actions" checked={showActions} onCheckedChange={setShowActions} />
-        <Checkbox label="Meta" checked={showMeta} onCheckedChange={setShowMeta} />
-        <Checkbox label="Children" checked={showChildren} onCheckedChange={setShowChildren} />
+        <Checkbox
+          label="Actions"
+          checked={showActions}
+          onCheckedChange={setShowActions}
+        />
+        <Checkbox
+          label="Meta"
+          checked={showMeta}
+          onCheckedChange={setShowMeta}
+        />
+        <Checkbox
+          label="Children"
+          checked={showChildren}
+          onCheckedChange={setShowChildren}
+        />
       </div>
     </Stack>
   );
@@ -103,7 +122,10 @@ export function PageHeaderPage() {
             overflow: "hidden",
           }}
         >
-          <PageHeader title="Account Settings" breadcrumbs={BREADCRUMBS_SHORT} />
+          <PageHeader
+            title="Account Settings"
+            breadcrumbs={BREADCRUMBS_SHORT}
+          />
         </div>
       </Section>
 
@@ -174,7 +196,10 @@ export function PageHeaderPage() {
             overflow: "hidden",
           }}
         >
-          <PageHeader title="Lap Analysis" breadcrumbs={BREADCRUMBS_LONG} />
+          <PageHeader
+            title="Lap Analysis"
+            breadcrumbs={BREADCRUMBS_LONG}
+          />
         </div>
       </Section>
 
@@ -190,11 +215,7 @@ export function PageHeaderPage() {
           <PageHeader
             title="Driver Overview"
             breadcrumbs={[{ label: "Sessions", href: "#" }, { label: "Driver Overview" }]}
-            actions={
-              <Button variant="secondary" size="sm">
-                Export CSV
-              </Button>
-            }
+            actions={<Button variant="secondary" size="sm">Export CSV</Button>}
           >
             <Text variant="caption" color="secondary">
               Showing data for the last 5 sessions across all circuits.

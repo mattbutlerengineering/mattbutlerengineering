@@ -111,34 +111,34 @@ flowchart TB
 
 ### Frontend Apps
 
-| App           | Technology   | Path           | Description                   |
-| ------------- | ------------ | -------------- | ----------------------------- |
-| `web`         | React + Vite | `/`            | Public marketing site         |
+| App | Technology | Path | Description |
+|-----|------------|------|-------------|
+| `web` | React + Vite | `/` | Public marketing site |
 | `hospitality` | React + Vite | `/hospitality` | Authenticated hospitality app |
 
 ### Backend Services
 
-| Service     | Technology       | Path    | Description                                           |
-| ----------- | ---------------- | ------- | ----------------------------------------------------- |
-| `users-api` | Fastify + Prisma | `/api`  | User management API                                   |
-| `agent`     | Fastify + Prisma | `:3003` | Agent session API (sessions, orchestration, webhooks) |
+| Service | Technology | Path | Description |
+|---------|------------|------|-------------|
+| `users-api` | Fastify + Prisma | `/api` | User management API |
+| `agent` | Fastify + Prisma | `:3003` | Agent session API (sessions, orchestration, webhooks) |
 
 ### Developer Tooling
 
-| Package           | Technology       | Description                                                |
-| ----------------- | ---------------- | ---------------------------------------------------------- |
+| Package | Technology | Description |
+|---------|------------|-------------|
 | `@mbe/agent-core` | Claude Agent SDK | Agentic workflow engine — worktrees, sessions, PR creation |
-| `@mbe/cli`        | Commander.js     | CLI (`mbe agent run`, `mbe users`, etc.)                   |
+| `@mbe/cli` | Commander.js | CLI (`mbe agent run`, `mbe users`, etc.) |
 
 ### Infrastructure
 
-| Component      | Provider            | Cost   | Purpose                                  |
-| -------------- | ------------------- | ------ | ---------------------------------------- |
-| App Platform   | DigitalOcean        | ~$5/mo | Hosting (static sites + Docker services) |
-| Database       | Neon                | Free   | Serverless PostgreSQL                    |
-| DNS + CDN      | Cloudflare          | Free   | Domain routing, SSL, caching             |
-| Authentication | Auth0               | Free   | OAuth 2.0 / OIDC identity provider       |
-| IaC            | Pulumi (TypeScript) | Free   | Infrastructure as Code                   |
+| Component | Provider | Cost | Purpose |
+|-----------|----------|------|---------|
+| App Platform | DigitalOcean | ~$5/mo | Hosting (static sites + Docker services) |
+| Database | Neon | Free | Serverless PostgreSQL |
+| DNS + CDN | Cloudflare | Free | Domain routing, SSL, caching |
+| Authentication | Auth0 | Free | OAuth 2.0 / OIDC identity provider |
+| IaC | Pulumi (TypeScript) | Free | Infrastructure as Code |
 
 ### Monorepo Structure
 
@@ -318,22 +318,22 @@ flowchart LR
 
 ### Implementation Status
 
-| Phase       | Description                                          | Status                 |
-| ----------- | ---------------------------------------------------- | ---------------------- |
-| **Phase 1** | `@mbe/agent-core` + CLI (`mbe agent run`)            | ✅ Complete (84 tests) |
-| **Phase 2** | Session API (Fastify + Prisma + SSE)                 | ✅ Complete (29 tests) |
-| **Phase 3** | Orchestrator (task decomposition, parallel sessions) | ✅ Complete            |
-| **Phase 4** | GitHub webhooks, GitHub Action, CI auto-retry        | ✅ Complete            |
+| Phase | Description | Status |
+|-------|-------------|--------|
+| **Phase 1** | `@mbe/agent-core` + CLI (`mbe agent run`) | ✅ Complete (84 tests) |
+| **Phase 2** | Session API (Fastify + Prisma + SSE) | ✅ Complete (29 tests) |
+| **Phase 3** | Orchestrator (task decomposition, parallel sessions) | ✅ Complete |
+| **Phase 4** | GitHub webhooks, GitHub Action, CI auto-retry | ✅ Complete |
 
 See [`docs/plans/2026-02-27-agentic-workflows.md`](plans/2026-02-27-agentic-workflows.md) for the full implementation plan.
 
 ## URLs
 
-| Environment  | URL                                                        |
-| ------------ | ---------------------------------------------------------- |
-| Production   | https://mattbutlerengineering.com                          |
-| Hospitality  | https://mattbutlerengineering.com/hospitality              |
-| API          | https://mattbutlerengineering.com/api                      |
-| DO Direct    | https://mattbutlerengineering-8ryim.ondigitalocean.app     |
-| Auth0        | https://dev-ytbgmz5ls3wh4xdx.us.auth0.com                  |
+| Environment | URL |
+|-------------|-----|
+| Production | https://mattbutlerengineering.com |
+| Hospitality | https://mattbutlerengineering.com/hospitality |
+| API | https://mattbutlerengineering.com/api |
+| DO Direct | https://mattbutlerengineering-8ryim.ondigitalocean.app |
+| Auth0 | https://dev-ytbgmz5ls3wh4xdx.us.auth0.com |
 | Neon Console | https://console.neon.tech (project: mattbutlerengineering) |

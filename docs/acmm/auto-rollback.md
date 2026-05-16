@@ -32,17 +32,17 @@ Deploy → Post-Deploy Smoke Tests → FAIL
 
 A commit is classified as agent-authored if ANY of:
 
-| Signal      | Pattern                                                 | Example                      |
-| ----------- | ------------------------------------------------------- | ---------------------------- |
-| Branch name | `agent-*` or `worktree-agent-*`                         | `agent-fix-login-bug-a4f2b1` |
-| Author name | Contains `bot`, `agent`, or `claude` (case-insensitive) | `mbe-agent[bot]`             |
+| Signal | Pattern | Example |
+|--------|---------|---------|
+| Branch name | `agent-*` or `worktree-agent-*` | `agent-fix-login-bug-a4f2b1` |
+| Author name | Contains `bot`, `agent`, or `claude` (case-insensitive) | `mbe-agent[bot]` |
 
 ## Labels
 
-| Label              | Meaning                                       | Auto-created      |
-| ------------------ | --------------------------------------------- | ----------------- |
-| `agent-regression` | PR or issue from an agent-caused regression   | Yes (by workflow) |
-| `urgent`           | Auto-revert failed, needs manual intervention | Yes (by workflow) |
+| Label | Meaning | Auto-created |
+|-------|---------|--------------|
+| `agent-regression` | PR or issue from an agent-caused regression | Yes (by workflow) |
+| `urgent` | Auto-revert failed, needs manual intervention | Yes (by workflow) |
 
 ## What Happens After a Revert PR is Created
 
@@ -61,12 +61,12 @@ A commit is classified as agent-authored if ANY of:
 
 ## Edge Cases
 
-| Scenario                              | Behavior                                           |
-| ------------------------------------- | -------------------------------------------------- |
-| Multiple agent commits in one deploy  | Only the HEAD commit is reverted                   |
-| Agent commit followed by human commit | HEAD is human → skipped (no auto-revert)           |
-| Post-deploy check is flaky            | Revert PR created, but reviewer can close if flake |
-| Revert itself fails CI                | Normal CI process — human investigates             |
+| Scenario | Behavior |
+|----------|----------|
+| Multiple agent commits in one deploy | Only the HEAD commit is reverted |
+| Agent commit followed by human commit | HEAD is human → skipped (no auto-revert) |
+| Post-deploy check is flaky | Revert PR created, but reviewer can close if flake |
+| Revert itself fails CI | Normal CI process — human investigates |
 
 ## Monitoring
 
@@ -88,7 +88,6 @@ To test the workflow without a real production failure:
 ## Workflow File
 
 Located at `.github/workflows/auto-rollback.yml`. Triggers on:
-
 ```yaml
 on:
   workflow_run:

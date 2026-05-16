@@ -26,7 +26,11 @@ export function TableStatusBadge({ status, size: _size = "md", onClick }: TableS
   const variant = STATUS_VARIANTS[status];
 
   return (
-    <Tag variant={variant} onClick={onClick} className={onClick ? "clickable" : undefined}>
+    <Tag
+      variant={variant}
+      onClick={onClick}
+      className={onClick ? "clickable" : undefined}
+    >
       {label}
     </Tag>
   );

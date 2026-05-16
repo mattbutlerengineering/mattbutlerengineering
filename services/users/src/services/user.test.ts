@@ -49,10 +49,7 @@ describe("userService", () => {
 
   describe("list", () => {
     it("returns paginated users ordered by createdAt desc", async () => {
-      const prismaUsers = [
-        makePrismaUser(),
-        makePrismaUser({ id: "user-2", email: "bob@example.com" }),
-      ];
+      const prismaUsers = [makePrismaUser(), makePrismaUser({ id: "user-2", email: "bob@example.com" })];
       vi.mocked(prisma.user.findMany).mockResolvedValueOnce(prismaUsers as never);
       vi.mocked(prisma.user.count).mockResolvedValueOnce(2 as never);
 
@@ -182,9 +179,7 @@ describe("userService", () => {
 
       const result = await userService.getByEmail("alice@example.com");
 
-      expect(prisma.user.findUnique).toHaveBeenCalledWith({
-        where: { email: "alice@example.com" },
-      });
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { email: "alice@example.com" } });
       expect(result?.email).toBe("alice@example.com");
     });
 
@@ -479,9 +474,9 @@ describe("userService", () => {
       vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(makePrismaUser() as never);
       vi.mocked(prisma.user.update).mockRejectedValueOnce(new Error("DB timeout"));
 
-      await expect(userService.updatePreferences("user-1", { theme: "dark" })).rejects.toThrow(
-        "DB timeout"
-      );
+      await expect(
+        userService.updatePreferences("user-1", { theme: "dark" })
+      ).rejects.toThrow("DB timeout");
     });
 
     it("preserves existing preferences that are not overridden", async () => {

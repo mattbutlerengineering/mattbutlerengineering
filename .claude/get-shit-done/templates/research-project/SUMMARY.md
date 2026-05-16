@@ -27,7 +27,6 @@ Template for `.planning/research/SUMMARY.md` — executive summary of project re
 [Summary from STACK.md — 1-2 paragraphs]
 
 **Core technologies:**
-
 - [Technology]: [purpose] — [why recommended]
 - [Technology]: [purpose] — [why recommended]
 - [Technology]: [purpose] — [why recommended]
@@ -37,17 +36,14 @@ Template for `.planning/research/SUMMARY.md` — executive summary of project re
 [Summary from FEATURES.md]
 
 **Must have (table stakes):**
-
 - [Feature] — users expect this
 - [Feature] — users expect this
 
 **Should have (competitive):**
-
 - [Feature] — differentiator
 - [Feature] — differentiator
 
 **Defer (v2+):**
-
 - [Feature] — not essential for launch
 
 ### Architecture Approach
@@ -55,7 +51,6 @@ Template for `.planning/research/SUMMARY.md` — executive summary of project re
 [Summary from ARCHITECTURE.md — 1 paragraph]
 
 **Major components:**
-
 1. [Component] — [responsibility]
 2. [Component] — [responsibility]
 3. [Component] — [responsibility]
@@ -73,21 +68,18 @@ Template for `.planning/research/SUMMARY.md` — executive summary of project re
 Based on research, suggested phase structure:
 
 ### Phase 1: [Name]
-
 **Rationale:** [why this comes first based on research]
 **Delivers:** [what this phase produces]
 **Addresses:** [features from FEATURES.md]
 **Avoids:** [pitfall from PITFALLS.md]
 
 ### Phase 2: [Name]
-
 **Rationale:** [why this order]
 **Delivers:** [what this phase produces]
 **Uses:** [stack elements from STACK.md]
 **Implements:** [architecture component]
 
 ### Phase 3: [Name]
-
 **Rationale:** [why this order]
 **Delivers:** [what this phase produces]
 
@@ -102,22 +94,20 @@ Based on research, suggested phase structure:
 ### Research Flags
 
 Phases likely needing deeper research during planning:
-
 - **Phase [X]:** [reason — e.g., "complex integration, needs API research"]
 - **Phase [Y]:** [reason — e.g., "niche domain, sparse documentation"]
 
 Phases with standard patterns (skip research-phase):
-
 - **Phase [X]:** [reason — e.g., "well-documented, established patterns"]
 
 ## Confidence Assessment
 
-| Area         | Confidence        | Notes    |
-| ------------ | ----------------- | -------- |
-| Stack        | [HIGH/MEDIUM/LOW] | [reason] |
-| Features     | [HIGH/MEDIUM/LOW] | [reason] |
+| Area | Confidence | Notes |
+|------|------------|-------|
+| Stack | [HIGH/MEDIUM/LOW] | [reason] |
+| Features | [HIGH/MEDIUM/LOW] | [reason] |
 | Architecture | [HIGH/MEDIUM/LOW] | [reason] |
-| Pitfalls     | [HIGH/MEDIUM/LOW] | [reason] |
+| Pitfalls | [HIGH/MEDIUM/LOW] | [reason] |
 
 **Overall confidence:** [HIGH/MEDIUM/LOW]
 
@@ -131,22 +121,18 @@ Phases with standard patterns (skip research-phase):
 ## Sources
 
 ### Primary (HIGH confidence)
-
 - [Context7 library ID] — [topics]
 - [Official docs URL] — [what was checked]
 
 ### Secondary (MEDIUM confidence)
-
 - [Source] — [finding]
 
 ### Tertiary (LOW confidence)
-
 - [Source] — [finding, needs validation]
 
 ---
-
-_Research completed: [date]_
-_Ready for roadmap: yes_
+*Research completed: [date]*
+*Ready for roadmap: yes*
 ```
 
 </template>
@@ -154,26 +140,22 @@ _Ready for roadmap: yes_
 <guidelines>
 
 **Executive Summary:**
-
 - Write for someone who will only read this section
 - Include the key recommendation and main risk
 - 2-3 paragraphs maximum
 
 **Key Findings:**
-
 - Summarize, don't duplicate full documents
 - Link to detailed docs (STACK.md, FEATURES.md, etc.)
 - Focus on what matters for roadmap decisions
 
 **Implications for Roadmap:**
-
 - This is the most important section
 - Directly informs roadmap creation
 - Be explicit about phase suggestions and rationale
 - Include research flags for each suggested phase
 
 **Confidence Assessment:**
-
 - Be honest about uncertainty
 - Note gaps that need resolution during planning
 - HIGH = verified with official sources
@@ -181,7 +163,6 @@ _Ready for roadmap: yes_
 - LOW = single source or inference
 
 **Integration with roadmap creation:**
-
 - This file is loaded as context during roadmap creation
 - Phase suggestions here become starting point for roadmap
 - Research flags inform phase planning

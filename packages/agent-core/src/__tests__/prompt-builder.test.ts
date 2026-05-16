@@ -45,10 +45,7 @@ describe("buildSystemPrompt", () => {
   it("appends source file context when entries are provided", async () => {
     const entries: readonly SourceFileEntry[] = [
       { path: "src/app.ts", content: "const x = 1;" },
-      {
-        path: "src/utils.ts",
-        content: "export function add(a: number, b: number) { return a + b; }",
-      },
+      { path: "src/utils.ts", content: "export function add(a: number, b: number) { return a + b; }" },
     ];
     const config: PromptBuilderConfig = { sourceFileEntries: entries };
     const prompt = await buildSystemPrompt("Fix bug", config);
@@ -143,7 +140,9 @@ describe("loadSourceFiles", () => {
     vi.mocked(readFile).mockRejectedValueOnce(new Error("permission denied"));
 
     const entries = await loadSourceFiles(["src/broken.ts"]);
-    expect(entries).toEqual([{ path: "src/broken.ts", content: "<!-- read error, skipped -->" }]);
+    expect(entries).toEqual([
+      { path: "src/broken.ts", content: "<!-- read error, skipped -->" },
+    ]);
   });
 
   it("returns empty array for empty input", async () => {

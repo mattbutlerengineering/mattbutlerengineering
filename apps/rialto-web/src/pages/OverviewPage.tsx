@@ -38,11 +38,23 @@ export function OverviewPage() {
 
       {/* ── Stats ───────────────────────────────── */}
       <section className={styles.stats}>
-        <Stat label="Components" value={String(COMPONENT_COUNT)} size="lg" />
+        <Stat
+          label="Components"
+          value={String(COMPONENT_COUNT)}
+          size="lg"
+        />
         <div className={styles.statDivider} />
-        <Stat label="Categories" value={String(CATEGORY_COUNT)} size="lg" />
+        <Stat
+          label="Categories"
+          value={String(CATEGORY_COUNT)}
+          size="lg"
+        />
         <div className={styles.statDivider} />
-        <Stat label="Design Tokens" value={`${TOKEN_COUNT}+`} size="lg" />
+        <Stat
+          label="Design Tokens"
+          value={`${TOKEN_COUNT}+`}
+          size="lg"
+        />
       </section>
 
       {/* ── Category previews ───────────────────── */}
@@ -79,9 +91,7 @@ export function OverviewPage() {
                     <Text variant="label" color="primary">
                       {section.label}
                     </Text>
-                    <span className={styles.categoryCount} aria-hidden="true">
-                      {section.items.length}
-                    </span>
+                    <span className={styles.categoryCount} aria-hidden="true">{section.items.length}</span>
                   </div>
                   <ul className={styles.componentList}>
                     {section.items.slice(0, 4).map((item) => (

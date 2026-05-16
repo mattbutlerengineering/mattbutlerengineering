@@ -4,7 +4,9 @@ import { AxeBuilder } from "@axe-core/playwright";
 test.describe("Playground", () => {
   test("loads with prompt textarea", async ({ authPage }) => {
     await authPage.goto("/");
-    await expect(authPage.getByPlaceholder("Describe the UI you want to build...")).toBeVisible();
+    await expect(
+      authPage.getByPlaceholder("Describe the UI you want to build...")
+    ).toBeVisible();
   });
 
   test("Generate button is visible", async ({ authPage }) => {
@@ -23,8 +25,12 @@ test.describe("Playground", () => {
   test("has no critical a11y violations", async ({ authPage }) => {
     await authPage.goto("/");
     // Wait for the playground to fully render
-    await expect(authPage.getByPlaceholder("Describe the UI you want to build...")).toBeVisible();
-    const results = await new AxeBuilder({ page: authPage }).withTags(["wcag2aa"]).analyze();
+    await expect(
+      authPage.getByPlaceholder("Describe the UI you want to build...")
+    ).toBeVisible();
+    const results = await new AxeBuilder({ page: authPage })
+      .withTags(["wcag2aa"])
+      .analyze();
     const violations = results.violations.filter(
       (v) => v.impact === "critical" || v.impact === "serious"
     );

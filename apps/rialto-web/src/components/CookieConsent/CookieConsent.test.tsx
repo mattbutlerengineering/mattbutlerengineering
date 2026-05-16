@@ -14,26 +14,18 @@ vi.mock("framer-motion", () => ({
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Banner: ({ action }: any) => <div data-testid="banner">{action}</div>,
   Button: ({ children, onClick }: any) => <button onClick={onClick}>{children}</button>,
-  Dialog: ({ open, onClose, title, footer, children }: any) =>
-    open ? (
-      <div data-testid="dialog">
-        <h2>{title}</h2>
-        <button onClick={onClose}>Close</button>
-        {children}
-        <div>{footer}</div>
-      </div>
-    ) : null,
+  Dialog: ({ open, onClose, title, footer, children }: any) => open ? (
+    <div data-testid="dialog">
+      <h2>{title}</h2>
+      <button onClick={onClose}>Close</button>
+      {children}
+      <div>{footer}</div>
+    </div>
+  ) : null,
   Text: ({ children }: any) => <span>{children}</span>,
   Stack: ({ children }: any) => <div>{children}</div>,
   Divider: () => <hr />,
-  Toggle: ({ checked, onCheckedChange }: any) => (
-    <input
-      type="checkbox"
-      checked={checked}
-      onChange={() => onCheckedChange(!checked)}
-      data-testid="toggle"
-    />
-  ),
+  Toggle: ({ checked, onCheckedChange }: any) => <input type="checkbox" checked={checked} onChange={() => onCheckedChange(!checked)} data-testid="toggle" />,
 }));
 
 vi.mock("@mattbutlerengineering/rialto/motion", () => ({
@@ -47,12 +39,7 @@ describe("CookieBanner", () => {
   it("renders nothing if cookies are accepted", () => {
     render(
       <MemoryRouter>
-        <CookieBanner
-          consented={true}
-          onAcceptAll={vi.fn()}
-          onRejectAll={vi.fn()}
-          onCustomize={vi.fn()}
-        />
+        <CookieBanner consented={true} onAcceptAll={vi.fn()} onRejectAll={vi.fn()} onCustomize={vi.fn()} />
       </MemoryRouter>
     );
     expect(screen.queryByTestId("banner")).toBeNull();
@@ -63,15 +50,10 @@ describe("CookieBanner", () => {
 
     render(
       <MemoryRouter>
-        <CookieBanner
-          consented={false}
-          onAcceptAll={acceptAll}
-          onRejectAll={vi.fn()}
-          onCustomize={vi.fn()}
-        />
+        <CookieBanner consented={false} onAcceptAll={acceptAll} onRejectAll={vi.fn()} onCustomize={vi.fn()} />
       </MemoryRouter>
     );
-
+    
     const acceptBtn = screen.getByText("Accept All");
     expect(acceptBtn).toBeInTheDocument();
     fireEvent.click(acceptBtn);
@@ -194,12 +176,7 @@ describe("CookiePreferencesDialog", () => {
     const onRejectAll = vi.fn();
     render(
       <MemoryRouter>
-        <CookieBanner
-          consented={false}
-          onAcceptAll={vi.fn()}
-          onRejectAll={onRejectAll}
-          onCustomize={vi.fn()}
-        />
+        <CookieBanner consented={false} onAcceptAll={vi.fn()} onRejectAll={onRejectAll} onCustomize={vi.fn()} />
       </MemoryRouter>
     );
     fireEvent.click(screen.getByText("Reject All"));
@@ -210,12 +187,7 @@ describe("CookiePreferencesDialog", () => {
     const onCustomize = vi.fn();
     render(
       <MemoryRouter>
-        <CookieBanner
-          consented={false}
-          onAcceptAll={vi.fn()}
-          onRejectAll={vi.fn()}
-          onCustomize={onCustomize}
-        />
+        <CookieBanner consented={false} onAcceptAll={vi.fn()} onRejectAll={vi.fn()} onCustomize={onCustomize} />
       </MemoryRouter>
     );
     fireEvent.click(screen.getByText("Customize"));

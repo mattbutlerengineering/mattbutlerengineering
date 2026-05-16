@@ -20,15 +20,13 @@ export const genSpecsRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const parseResult = CreateSpecBodySchema.safeParse(request.body);
       if (!parseResult.success) {
-        return reply
-          .code(400)
-          .send(
-            createProblemDetails(
-              400,
-              "Bad Request",
-              parseResult.error.issues.map((i) => i.message).join(", ")
-            )
-          );
+        return reply.code(400).send(
+          createProblemDetails(
+            400,
+            "Bad Request",
+            parseResult.error.issues.map((i) => i.message).join(", ")
+          )
+        );
       }
 
       const { prompt, spec, rawLines } = parseResult.data;
@@ -57,16 +55,19 @@ export const genSpecsRoutes: FastifyPluginAsync = async (fastify) => {
   );
 
   // GET /api/gen/specs/:id — PUBLIC — no auth required for permalink viewing
-  fastify.get("/api/gen/specs/:id", async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const result = await storedSpecService.getById(id);
+  fastify.get(
+    "/api/gen/specs/:id",
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const result = await storedSpecService.getById(id);
 
-    if (!result) {
-      return reply.code(404).send(createProblemDetails(404, "Not Found", "Spec not found"));
+      if (!result) {
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Spec not found"));
+      }
+
+      return reply.code(200).send({ data: mapStoredSpec(result) });
     }
-
-    return reply.code(200).send({ data: mapStoredSpec(result) });
-  });
+  );
 
   // PATCH /api/gen/specs/:id/favorite — toggle isFavorite for the owner (auth required)
   fastify.patch(

@@ -3,7 +3,6 @@
 Create a Prisma database migration for a service.
 
 ## Steps
-
 1. Edit the schema at `services/<name>/prisma/schema.prisma`
 2. Generate migration: `pnpm --dir services/<name> db:migrate -- --name <description>`
 3. Review the generated SQL in `services/<name>/prisma/migrations/`
@@ -12,7 +11,6 @@ Create a Prisma database migration for a service.
 6. Run tests: `pnpm --dir services/<name> test`
 
 ## Safety checks
-
 - No destructive operations (DROP TABLE, DROP COLUMN) without explicit approval
 - Add columns as nullable or with defaults to avoid breaking existing rows
 - Keep Prisma version in sync between client and migrate Dockerfile

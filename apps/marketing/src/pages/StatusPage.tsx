@@ -174,7 +174,9 @@ export function StatusPage() {
                 {service.status === "loading" ? (
                   <Spinner size="sm" />
                 ) : (
-                  <Badge color={statusColor(service.status)}>{statusLabel(service.status)}</Badge>
+                  <Badge color={statusColor(service.status)}>
+                    {statusLabel(service.status)}
+                  </Badge>
                 )}
               </div>
               {service.latency !== undefined && (
@@ -198,7 +200,9 @@ export function StatusPage() {
                 {site.status === "loading" ? (
                   <Spinner size="sm" />
                 ) : (
-                  <Badge color={statusColor(site.status)}>{statusLabel(site.status)}</Badge>
+                  <Badge color={statusColor(site.status)}>
+                    {statusLabel(site.status)}
+                  </Badge>
                 )}
               </div>
               {site.latency !== undefined && (

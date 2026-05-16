@@ -31,13 +31,7 @@ export async function runEval(task, opts = {}) {
   const t0 = Date.now();
 
   /** @type {import("./score.js").SessionOutcome} */
-  let outcome = {
-    completed: false,
-    verification: "skip",
-    diffSize: 0,
-    touchedFiles: [],
-    calledTools: [],
-  };
+  let outcome = { completed: false, verification: "skip", diffSize: 0, touchedFiles: [], calledTools: [] };
   /** @type {number | undefined} */
   let costUsd;
   /** @type {number | undefined} */
@@ -110,17 +104,12 @@ export async function defaultRunner(task, opts = {}) {
 
   const cli = `${repoPath}/tools/cli/dist/index.js`;
   const args = [
-    "agent",
-    "run",
-    task.prompt,
+    "agent", "run", task.prompt,
     "--no-pr",
     "--verbose",
-    "--model",
-    task.model,
-    "--max-budget",
-    String(task.maxBudgetUsd),
-    "--max-turns",
-    String(task.maxTurns),
+    "--model", task.model,
+    "--max-budget", String(task.maxBudgetUsd),
+    "--max-turns", String(task.maxTurns),
   ];
 
   const TIMEOUT_MS = 600000; // 10 min (increased from 5)
@@ -135,14 +124,9 @@ export async function defaultRunner(task, opts = {}) {
         stdio: ["ignore", "pipe", "pipe"],
       });
 
-      let stdout = "",
-        stderr = "";
-      proc.stdout?.on("data", (d) => {
-        stdout += d;
-      });
-      proc.stderr?.on("data", (d) => {
-        stderr += d;
-      });
+      let stdout = "", stderr = "";
+      proc.stdout?.on("data", (d) => { stdout += d; });
+      proc.stderr?.on("data", (d) => { stderr += d; });
 
       const timer = setTimeout(() => {
         proc.kill("SIGTERM");
@@ -157,17 +141,14 @@ export async function defaultRunner(task, opts = {}) {
 
     lastResult = { stdout, stderr, status };
     const succeeded = /Status:\s+✓ succeeded/.test(stdout);
-
+    
     if (succeeded) break;
 
-    const isRateLimit =
-      /You've hit your limit/.test(stdout) || /You've hit your limit/.test(stderr);
+    const isRateLimit = /You've hit your limit/.test(stdout) || /You've hit your limit/.test(stderr);
     if (isRateLimit && attempt < MAX_ATTEMPTS) {
       const waitTime = attempt * 60000; // 1 min, 2 min...
-      console.log(
-        `  Rate limit hit. Attempt ${attempt}/${MAX_ATTEMPTS} failed. Waiting ${waitTime / 1000}s...`
-      );
-      await new Promise((r) => setTimeout(r, waitTime));
+      console.log(`  Rate limit hit. Attempt ${attempt}/${MAX_ATTEMPTS} failed. Waiting ${waitTime/1000}s...`);
+      await new Promise(r => setTimeout(r, waitTime));
       continue;
     }
 
@@ -187,7 +168,7 @@ export async function defaultRunner(task, opts = {}) {
   // Extract tool calls from verbose output
   // Matches "Tool: name" or "Calling tool: name"
   const toolMatches = stdout.matchAll(/(?:Tool|Calling tool):\s+(\w+)/g);
-  const calledTools = [...new Set([...toolMatches].map((m) => m[1]))];
+  const calledTools = [...new Set([...toolMatches].map(m => m[1]))];
 
   const outcome = {
     completed: true,
@@ -203,27 +184,18 @@ export async function defaultRunner(task, opts = {}) {
 function countDiffLines(worktreePath) {
   try {
     const { execFileSync } = require("node:child_process");
-    const out = execFileSync("git", ["-C", worktreePath, "diff", "--shortstat", "HEAD"], {
-      encoding: "utf-8",
-    });
-    const ins = out.match(/(\d+) insertion/),
-      del = out.match(/(\d+) deletion/);
+    const out = execFileSync("git", ["-C", worktreePath, "diff", "--shortstat", "HEAD"], { encoding: "utf-8" });
+    const ins = out.match(/(\d+) insertion/), del = out.match(/(\d+) deletion/);
     return (ins ? Number(ins[1]) : 0) + (del ? Number(del[1]) : 0);
-  } catch {
-    return 0;
-  }
+  } catch { return 0; }
 }
 
 function listChangedFiles(worktreePath) {
   try {
     const { execFileSync } = require("node:child_process");
-    const out = execFileSync("git", ["-C", worktreePath, "diff", "--name-only", "HEAD"], {
-      encoding: "utf-8",
-    });
+    const out = execFileSync("git", ["-C", worktreePath, "diff", "--name-only", "HEAD"], { encoding: "utf-8" });
     return out.trim().split("\n").filter(Boolean);
-  } catch {
-    return [];
-  }
+  } catch { return []; }
 }
 
 /**

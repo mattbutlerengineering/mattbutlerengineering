@@ -2,12 +2,7 @@ import type { FastifyPluginAsync, RouteHandlerMethod, RawServerDefault } from "f
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { HealthResponse } from "@mbe/types";
 import type { RateLimitMonitor } from "@mbe/observability";
-import {
-  prisma,
-  getSlowQueryStats,
-  getServiceStatus,
-  getPoolMetrics,
-} from "../services/database.js";
+import { prisma, getSlowQueryStats, getServiceStatus, getPoolMetrics } from "../services/database.js";
 import { checkAuth0, checkLatencyAnomaly, recordDbLatency } from "../services/health-checks.js";
 
 type HealthRouteHandler = RouteHandlerMethod<
@@ -132,8 +127,7 @@ const healthHandler: HealthRouteHandler = async (request) => {
     ...(auth0Result.message && { message: auth0Result.message }),
   };
 
-  const rateLimitMonitor = (request.server as unknown as { rateLimitMonitor: RateLimitMonitor })
-    .rateLimitMonitor;
+  const rateLimitMonitor = (request.server as unknown as { rateLimitMonitor: RateLimitMonitor }).rateLimitMonitor;
   const rateLimitSnapshot = rateLimitMonitor.getSnapshot();
   checks.rate_limits = {
     status: rateLimitSnapshot.isDegraded ? "degraded" : "ok",
@@ -168,13 +162,7 @@ const healthHandler: HealthRouteHandler = async (request) => {
     }),
   };
 
-  const hasErrors =
-    dbStatus === "error" ||
-    slowQueryStatus === "degraded" ||
-    auth0Result.status === "degraded" ||
-    rateLimitSnapshot.isDegraded ||
-    poolMetrics.isDegraded ||
-    errorRates.degraded;
+  const hasErrors = dbStatus === "error" || slowQueryStatus === "degraded" || auth0Result.status === "degraded" || rateLimitSnapshot.isDegraded || poolMetrics.isDegraded || errorRates.degraded;
 
   return {
     status: hasErrors ? "degraded" : "ok",
@@ -197,7 +185,7 @@ export const healthRoutes: FastifyPluginAsync = async (fastify) => {
       schema: { ...healthSchema, operationId: "getHealth" },
       config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
     },
-    healthHandler
+    healthHandler,
   );
 
   // /api/health — public path via DO ingress (preservePathPrefix: true, prefix "/api")
@@ -209,7 +197,7 @@ export const healthRoutes: FastifyPluginAsync = async (fastify) => {
       schema: { ...healthSchema, operationId: "getHealthApi" },
       config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
     },
-    healthHandler
+    healthHandler,
   );
 
   // /api/v1/reservations/health — public path via DO ingress (preservePathPrefix: true, prefix "/api/v1/reservations")
@@ -221,6 +209,6 @@ export const healthRoutes: FastifyPluginAsync = async (fastify) => {
       schema: { ...healthSchema, operationId: "getHealthApiReservations" },
       config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
     },
-    healthHandler
+    healthHandler,
   );
 };

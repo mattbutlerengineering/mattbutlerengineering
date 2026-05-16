@@ -68,8 +68,13 @@ function commitsInRange(start, end) {
   try {
     const out = execFileSync(
       "git",
-      ["log", `--since=${iso(start)}`, `--until=${iso(end)}`, "--pretty=format:%h"],
-      { cwd, encoding: "utf-8", stdio: ["ignore", "pipe", "ignore"] }
+      [
+        "log",
+        `--since=${iso(start)}`,
+        `--until=${iso(end)}`,
+        "--pretty=format:%h",
+      ],
+      { cwd, encoding: "utf-8", stdio: ["ignore", "pipe", "ignore"] },
     );
     return out.trim() ? out.trim().split("\n").length : 0;
   } catch {
@@ -129,12 +134,17 @@ function agentSpendInRange(start, end) {
     for (const line of lines) {
       try {
         const entry = JSON.parse(line);
-        const ts = entry.timestamp ?? entry.date ?? entry.completedAt ?? entry.startedAt;
+        const ts =
+          entry.timestamp ??
+          entry.date ??
+          entry.completedAt ??
+          entry.startedAt;
         if (!ts) continue;
         const d = new Date(ts);
         if (d >= start && d < end) {
           runs += 1;
-          const c = entry.cost ?? entry.cost_usd ?? entry.totalCostUsd ?? entry.total_cost_usd ?? 0;
+          const c =
+            entry.cost ?? entry.cost_usd ?? entry.totalCostUsd ?? entry.total_cost_usd ?? 0;
           cost += Number(c) || 0;
         }
       } catch {
@@ -156,10 +166,10 @@ function buildEntry({ start, end }) {
   const spend = agentSpendInRange(start, end);
 
   const auditIssues = issues.filter((i) =>
-    (i.labels ?? []).some((l) => l.name === "audit" || l.name === "acmm")
+    (i.labels ?? []).some((l) => l.name === "audit" || l.name === "acmm"),
   ).length;
   const ciFixIssues = issues.filter((i) =>
-    (i.labels ?? []).some((l) => l.name === "ci-fix")
+    (i.labels ?? []).some((l) => l.name === "ci-fix"),
   ).length;
 
   const body = [];
@@ -177,7 +187,7 @@ function buildEntry({ start, end }) {
   body.push("```");
   body.push("");
   body.push(
-    `_Backfilled from git + GitHub by \`scripts/acmm/backfill-metrics.js\`; progress-tracker will overwrite/extend future entries._`
+    `_Backfilled from git + GitHub by \`scripts/acmm/backfill-metrics.js\`; progress-tracker will overwrite/extend future entries._`,
   );
   body.push("");
 
@@ -188,7 +198,7 @@ function buildEntry({ start, end }) {
 
 const existingBody = existsSync(LOG_PATH) ? readFileSync(LOG_PATH, "utf-8") : "";
 const existingDates = new Set(
-  [...existingBody.matchAll(/^## (\d{4}-\d{2}-\d{2})/gm)].map((m) => m[1])
+  [...existingBody.matchAll(/^## (\d{4}-\d{2}-\d{2})/gm)].map((m) => m[1]),
 );
 
 console.log(`Backfilling up to ${WEEKS} weekly entries from real history…`);
@@ -223,10 +233,14 @@ for (let i = 0; i < lines.length; i++) {
 }
 
 const insertion = entries.map((e) => e.body).join("\n");
-const rebuilt =
-  [lines.slice(0, insertAt).join("\n").trimEnd(), "", insertion, lines.slice(insertAt).join("\n")]
-    .join("\n")
-    .replace(/\n{3,}/g, "\n\n") + (existingBody.endsWith("\n") ? "" : "\n");
+const rebuilt = [
+  lines.slice(0, insertAt).join("\n").trimEnd(),
+  "",
+  insertion,
+  lines.slice(insertAt).join("\n"),
+]
+  .join("\n")
+  .replace(/\n{3,}/g, "\n\n") + (existingBody.endsWith("\n") ? "" : "\n");
 
 if (DRY_RUN) {
   console.log("\n--- DRY RUN — would write ---\n");

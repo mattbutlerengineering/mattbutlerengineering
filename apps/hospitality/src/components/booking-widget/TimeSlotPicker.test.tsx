@@ -7,9 +7,7 @@ import React from "react";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Button: ({ children, onClick, size, variant }: any) => (
-    <button onClick={onClick} data-size={size} data-variant={variant}>
-      {children}
-    </button>
+    <button onClick={onClick} data-size={size} data-variant={variant}>{children}</button>
   ),
   Alert: ({ children, variant, actions }: any) => (
     <div data-testid="alert" data-variant={variant}>
@@ -74,19 +72,28 @@ describe("TimeSlotPicker", () => {
   });
 
   it("renders slots grouped by lunch period", () => {
-    const slots = [makeSlot("2026-05-20T12:00:00"), makeSlot("2026-05-20T12:30:00")];
+    const slots = [
+      makeSlot("2026-05-20T12:00:00"),
+      makeSlot("2026-05-20T12:30:00"),
+    ];
     render(<TimeSlotPicker {...defaultProps} slots={slots} />);
     expect(screen.getByText("Lunch")).toBeDefined();
   });
 
   it("renders slots grouped by dinner period", () => {
-    const slots = [makeSlot("2026-05-20T18:00:00"), makeSlot("2026-05-20T19:00:00")];
+    const slots = [
+      makeSlot("2026-05-20T18:00:00"),
+      makeSlot("2026-05-20T19:00:00"),
+    ];
     render(<TimeSlotPicker {...defaultProps} slots={slots} />);
     expect(screen.getByText("Dinner")).toBeDefined();
   });
 
   it("renders slots grouped by late night period", () => {
-    const slots = [makeSlot("2026-05-20T21:00:00"), makeSlot("2026-05-20T22:00:00")];
+    const slots = [
+      makeSlot("2026-05-20T21:00:00"),
+      makeSlot("2026-05-20T22:00:00"),
+    ];
     render(<TimeSlotPicker {...defaultProps} slots={slots} />);
     expect(screen.getByText("Late Night")).toBeDefined();
   });

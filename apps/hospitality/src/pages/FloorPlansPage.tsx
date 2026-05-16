@@ -2,14 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
-import {
-  Badge,
-  Button,
-  EmptyState,
-  Skeleton,
-  SkeletonGroup,
-  Text,
-} from "@mattbutlerengineering/rialto";
+import { Badge, Button, EmptyState, Skeleton, SkeletonGroup, Text } from "@mattbutlerengineering/rialto";
 import type { FloorPlan } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";
 import { PageHeader } from "../components/PageHeader";
@@ -123,16 +116,7 @@ export function FloorPlansPage() {
         role="status"
         aria-live="polite"
         aria-atomic="true"
-        style={{
-          position: "absolute",
-          width: "1px",
-          height: "1px",
-          padding: 0,
-          overflow: "hidden",
-          clip: "rect(0,0,0,0)",
-          whiteSpace: "nowrap",
-          border: 0,
-        }}
+        style={{ position: "absolute", width: "1px", height: "1px", padding: 0, overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap", border: 0 }}
       >
         {liveMessage}
       </div>

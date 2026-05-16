@@ -13,18 +13,14 @@ export function isEnabled(flags: FeatureFlagMap | null, flagName: string): boole
   return false;
 }
 
-export function isEnabledForSeed(
-  flags: FeatureFlagMap | null,
-  flagName: string,
-  seed: string
-): boolean {
+export function isEnabledForSeed(flags: FeatureFlagMap | null, flagName: string, seed: string): boolean {
   if (!flags || !flags[flagName]) return false;
   const flag = flags[flagName];
   if (!flag.enabled) return false;
   if (!flag.percentage || flag.percentage >= 100) return true;
   if (!seed) return false;
   const hash = hashCode(seed);
-  return hash % 100 < flag.percentage;
+  return (hash % 100) < flag.percentage;
 }
 
 function hashCode(str: string): number {

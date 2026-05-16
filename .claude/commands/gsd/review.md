@@ -26,12 +26,11 @@ planning via /gsd:plan-phase --reviews.
 Phase number: extracted from $ARGUMENTS (required)
 
 **Flags:**
-
 - `--gemini` — Include Gemini CLI review
 - `--claude` — Include Claude CLI review (uses separate session)
 - `--codex` — Include Codex CLI review
 - `--all` — Include all available CLIs
-  </context>
+</context>
 
 <process>
 Execute the review workflow from @${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/workflows/review.md end-to-end.

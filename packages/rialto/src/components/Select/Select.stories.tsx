@@ -1,24 +1,24 @@
-import type { Meta, StoryObj } from "@storybook/react-vite";
-import { Select } from "./Select";
+import type { Meta, StoryObj } from '@storybook/react-vite';
+import { Select } from './Select';
 
 const COUNTRY_OPTIONS = [
-  { value: "us", label: "United States" },
-  { value: "ca", label: "Canada" },
-  { value: "gb", label: "United Kingdom" },
-  { value: "au", label: "Australia" },
-  { value: "de", label: "Germany" },
+  { value: 'us', label: 'United States' },
+  { value: 'ca', label: 'Canada' },
+  { value: 'gb', label: 'United Kingdom' },
+  { value: 'au', label: 'Australia' },
+  { value: 'de', label: 'Germany' },
 ];
 
 const meta: Meta<typeof Select> = {
-  title: "Forms/Select",
+  title: 'Forms/Select',
   component: Select,
   parameters: {
-    layout: "centered",
+    layout: 'centered',
   },
-  tags: ["autodocs"],
+  tags: ['autodocs'],
   argTypes: {
-    onChange: { action: "changed" },
-    disabled: { control: "boolean" },
+    onChange: { action: 'changed' },
+    disabled: { control: 'boolean' },
   },
 };
 
@@ -27,46 +27,46 @@ type Story = StoryObj<typeof Select>;
 
 export const Default: Story = {
   args: {
-    label: "Country",
-    placeholder: "Select a country…",
+    label: 'Country',
+    placeholder: 'Select a country…',
     options: COUNTRY_OPTIONS,
   },
 };
 
 export const WithOptions: Story = {
   args: {
-    label: "Country",
+    label: 'Country',
     options: COUNTRY_OPTIONS,
-    value: "ca",
+    value: 'ca',
   },
 };
 
 export const WithDisabledOption: Story = {
   args: {
-    label: "Plan",
+    label: 'Plan',
     options: [
-      { value: "free", label: "Free" },
-      { value: "pro", label: "Pro" },
-      { value: "enterprise", label: "Enterprise", disabled: true },
+      { value: 'free', label: 'Free' },
+      { value: 'pro', label: 'Pro' },
+      { value: 'enterprise', label: 'Enterprise', disabled: true },
     ],
-    value: "free",
+    value: 'free',
   },
 };
 
 export const Disabled: Story = {
   args: {
-    label: "Region",
+    label: 'Region',
     options: COUNTRY_OPTIONS,
-    value: "us",
+    value: 'us',
     disabled: true,
-    disabledReason: "Region cannot be changed after account creation.",
+    disabledReason: 'Region cannot be changed after account creation.',
   },
 };
 
 export const ErrorState: Story = {
   args: {
-    label: "Category",
+    label: 'Category',
     options: COUNTRY_OPTIONS,
-    placeholder: "Select a category…",
+    placeholder: 'Select a category…',
   },
 };

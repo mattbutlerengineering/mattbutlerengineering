@@ -2,7 +2,7 @@
   "id": "add-readme-to-acmm",
   "prompt": "The plugins/acmm/README.md is missing a 'Quick Start' section. Add a '## Quick Start' section after the first paragraph with three numbered steps: 1) Run a dry-run audit: `node plugins/acmm/scripts/audit.js`, 2) Apply findings and update badge: `node plugins/acmm/scripts/audit.js --apply --badge`, 3) View trend history: `node plugins/acmm/scripts/audit.js --trend`. Do not modify any other files.",
   "model": "claude-sonnet-4-6",
-  "maxBudgetUsd": 0.5,
+  "maxBudgetUsd": 0.50,
   "maxTurns": 20,
   "rubric": {
     "mustPass": ["lint"],

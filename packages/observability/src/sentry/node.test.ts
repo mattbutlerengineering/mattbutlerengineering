@@ -6,7 +6,7 @@ const { mockSentryInit, mockWithScope, mockCaptureException, mockCaptureMessage 
     mockWithScope: vi.fn(),
     mockCaptureException: vi.fn(),
     mockCaptureMessage: vi.fn(),
-  })
+  }),
 );
 
 vi.mock("@sentry/node", () => ({
@@ -24,7 +24,7 @@ vi.mock("@mbe/types", () => ({
       detail: message,
       type,
       instance,
-    })
+    }),
   ),
 }));
 
@@ -238,9 +238,7 @@ describe("sentryFastifyPlugin", () => {
       const fakeFastify = await setupPlugin("https://key@sentry.io/123");
       const errorHandler = fakeFastify.getErrorHandler()!;
 
-      mockWithScope.mockImplementation((fn: (scope: unknown) => void) =>
-        fn({ setTag: vi.fn(), setUser: vi.fn() })
-      );
+      mockWithScope.mockImplementation((fn: (scope: unknown) => void) => fn({ setTag: vi.fn(), setUser: vi.fn() }));
 
       const error = Object.assign(new Error("Boom"), { statusCode: 500 });
       const request = buildFakeRequest();
@@ -255,9 +253,7 @@ describe("sentryFastifyPlugin", () => {
       const fakeFastify = await setupPlugin("https://key@sentry.io/123");
       const errorHandler = fakeFastify.getErrorHandler()!;
 
-      mockWithScope.mockImplementation((fn: (scope: unknown) => void) =>
-        fn({ setTag: vi.fn(), setUser: vi.fn() })
-      );
+      mockWithScope.mockImplementation((fn: (scope: unknown) => void) => fn({ setTag: vi.fn(), setUser: vi.fn() }));
 
       const error = Object.assign(new Error("DB connection failed"), { statusCode: 500 });
       const request = buildFakeRequest();
@@ -275,9 +271,7 @@ describe("sentryFastifyPlugin", () => {
       const fakeFastify = await setupPlugin("https://key@sentry.io/123");
       const errorHandler = fakeFastify.getErrorHandler()!;
 
-      mockWithScope.mockImplementation((fn: (scope: unknown) => void) =>
-        fn({ setTag: vi.fn(), setUser: vi.fn() })
-      );
+      mockWithScope.mockImplementation((fn: (scope: unknown) => void) => fn({ setTag: vi.fn(), setUser: vi.fn() }));
 
       const error = Object.assign(new Error("Resource not found"), {
         statusCode: 404,
@@ -297,9 +291,7 @@ describe("sentryFastifyPlugin", () => {
       const fakeFastify = await setupPlugin("https://key@sentry.io/123");
       const errorHandler = fakeFastify.getErrorHandler()!;
 
-      mockWithScope.mockImplementation((fn: (scope: unknown) => void) =>
-        fn({ setTag: vi.fn(), setUser: vi.fn() })
-      );
+      mockWithScope.mockImplementation((fn: (scope: unknown) => void) => fn({ setTag: vi.fn(), setUser: vi.fn() }));
 
       const error = new Error("Unexpected");
       const request = buildFakeRequest();

@@ -174,10 +174,7 @@ export function EmptyStatePage() {
       <Section title="Accessibility">
         <DataList
           items={[
-            {
-              label: "Heading",
-              value: "Rendered as <p> with appropriate size — not a heading element",
-            },
+            { label: "Heading", value: "Rendered as <p> with appropriate size — not a heading element" },
             {
               label: "Icon",
               value: "aria-hidden=true — decorative, not conveying meaning",

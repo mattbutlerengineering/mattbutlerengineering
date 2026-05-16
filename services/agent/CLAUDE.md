@@ -11,16 +11,16 @@ Represents an agent task execution.
 ```typescript
 interface AgentSession {
   id: string;
-  task: string; // Task description
-  branchName: string | null; // Git branch for changes
-  model: string; // e.g., "claude-sonnet-4-6"
+  task: string;                // Task description
+  branchName: string | null;   // Git branch for changes
+  model: string;              // e.g., "claude-sonnet-4-6"
   status: SessionStatus;
-  maxTurns: number; // Conversation turn limit
-  maxBudgetUsd: number; // Budget cap
-  totalCostUsd: number; // Actual cost incurred
-  totalTurns: number; // Turns used
-  prUrl: string | null; // Created PR URL
-  prNumber: number | null; // Created PR number
+  maxTurns: number;            // Conversation turn limit
+  maxBudgetUsd: number;        // Budget cap
+  totalCostUsd: number;        // Actual cost incurred
+  totalTurns: number;          // Turns used
+  prUrl: string | null;        // Created PR URL
+  prNumber: number | null;     // Created PR number
   worktreePath: string | null; // Local worktree location
   errorMessage: string | null; // Error if failed
   createdAt: Date;
@@ -28,11 +28,11 @@ interface AgentSession {
   completedAt: Date | null;
 }
 
-type SessionStatus =
-  | "PENDING" // Queued, not started
-  | "RUNNING" // Currently executing
+type SessionStatus = 
+  | "PENDING"    // Queued, not started
+  | "RUNNING"   // Currently executing
   | "SUCCEEDED" // Completed successfully
-  | "FAILED" // Completed with error
+  | "FAILED"    // Completed with error
   | "CANCELLED"; // Manually cancelled
 ```
 
@@ -91,34 +91,34 @@ src/
 
 ### Sessions
 
-| Method | Path                      | Description                 |
-| ------ | ------------------------- | --------------------------- |
-| POST   | `/v1/sessions`            | Create new agent session    |
-| GET    | `/v1/sessions`            | List sessions               |
-| GET    | `/v1/sessions/:id`        | Get session details         |
-| DELETE | `/v1/sessions/:id`        | Cancel session              |
-| GET    | `/v1/sessions/:id/events` | Stream session events (SSE) |
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/v1/sessions` | Create new agent session |
+| GET | `/v1/sessions` | List sessions |
+| GET | `/v1/sessions/:id` | Get session details |
+| DELETE | `/v1/sessions/:id` | Cancel session |
+| GET | `/v1/sessions/:id/events` | Stream session events (SSE) |
 
 ### Orchestration
 
-| Method | Path                  | Description                  |
-| ------ | --------------------- | ---------------------------- |
-| POST   | `/v1/orchestrate`     | Create orchestration session |
-| GET    | `/v1/orchestrate/:id` | Get orchestration status     |
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/v1/orchestrate` | Create orchestration session |
+| GET | `/v1/orchestrate/:id` | Get orchestration status |
 
 ### Gen AI (Streaming)
 
-| Method | Path             | Description                  |
-| ------ | ---------------- | ---------------------------- |
-| POST   | `/api/gen/ui`    | Stream UI generation (JSONL) |
-| POST   | `/api/gen/chat`  | Stream chat responses (SSE)  |
-| POST   | `/api/gen/specs` | Stream spec generation (SSE) |
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/gen/ui` | Stream UI generation (JSONL) |
+| POST | `/api/gen/chat` | Stream chat responses (SSE) |
+| POST | `/api/gen/specs` | Stream spec generation (SSE) |
 
 ### Webhooks
 
-| Method | Path                  | Description             |
-| ------ | --------------------- | ----------------------- |
-| POST   | `/v1/webhooks/github` | GitHub webhook receiver |
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/v1/webhooks/github` | GitHub webhook receiver |
 
 ## Session Lifecycle
 
@@ -138,7 +138,6 @@ Content-Type: application/json
 ```
 
 **Response:**
-
 ```json
 {
   "data": {
@@ -177,7 +176,7 @@ The actual agent execution happens in `@mbe/agent-core` package.
 
 ```typescript
 // From @mbe/agent-core
-import {
+import { 
   createSessionRunner,
   createWorktreeManager,
   createPromptBuilder,
@@ -249,14 +248,14 @@ CLI (mbe agent run) ──> POST /sessions ──> Agent Core
 
 ### Error Codes
 
-| Code                 | HTTP | Description                     |
-| -------------------- | ---- | ------------------------------- |
-| `SESSION_NOT_FOUND`  | 404  | Session doesn't exist           |
-| `SESSION_RUNNING`    | 409  | Cannot modify running session   |
-| `BUDGET_EXCEEDED`    | 402  | Cost exceeded maxBudgetUsd      |
-| `MAX_TURNS_EXCEEDED` | 400  | Conversation turn limit reached |
-| `WORKTREE_CONFLICT`  | 409  | Worktree creation failed        |
-| `GITHUB_AUTH_FAILED` | 401  | GitHub token invalid            |
+| Code | HTTP | Description |
+|------|------|-------------|
+| `SESSION_NOT_FOUND` | 404 | Session doesn't exist |
+| `SESSION_RUNNING` | 409 | Cannot modify running session |
+| `BUDGET_EXCEEDED` | 402 | Cost exceeded maxBudgetUsd |
+| `MAX_TURNS_EXCEEDED` | 400 | Conversation turn limit reached |
+| `WORKTREE_CONFLICT` | 409 | Worktree creation failed |
+| `GITHUB_AUTH_FAILED` | 401 | GitHub token invalid |
 
 ### Error Response
 
@@ -267,7 +266,7 @@ CLI (mbe agent run) ──> POST /sessions ──> Agent Core
   "statusCode": 402,
   "details": {
     "totalCostUsd": 1.05,
-    "maxBudgetUsd": 1.0
+    "maxBudgetUsd": 1.00
   }
 }
 ```
@@ -293,7 +292,7 @@ it("creates session and returns id", async () => {
     url: "/v1/sessions",
     payload: {
       task: "Test task",
-      maxBudgetUsd: 0.5,
+      maxBudgetUsd: 0.50,
     },
   });
 
@@ -312,7 +311,7 @@ it("creates session and returns id", async () => {
 ```typescript
 it("streams events as they occur", async () => {
   const events: string[] = [];
-
+  
   const response = await app.inject({
     method: "GET",
     url: "/v1/sessions/test-id/events",
@@ -325,7 +324,7 @@ it("streams events as they occur", async () => {
   // Wait for events
   await delay(100);
 
-  expect(events.some((e) => e.includes("turn:start"))).toBe(true);
+  expect(events.some(e => e.includes("turn:start"))).toBe(true);
 });
 ```
 
@@ -347,16 +346,16 @@ pnpm db:migrate:deploy # Apply migrations (production)
 
 ## Environment Variables
 
-| Variable                  | Required | Description                                     |
-| ------------------------- | -------- | ----------------------------------------------- |
-| `PORT`                    | No       | Service port (default: 3003)                    |
-| `LOG_LEVEL`               | No       | Logging level (default: info)                   |
-| `DATABASE_URL`            | Yes      | Postgres connection                             |
-| `ANTHROPIC_API_KEY`       | Yes      | Claude API key                                  |
-| `DEFAULT_MODEL`           | No       | Default model (default: claude-sonnet-4-6)      |
-| `MAX_CONCURRENT_SESSIONS` | No       | Max parallel sessions (default: 5)              |
-| `GITHUB_WEBHOOK_SECRET`   | No       | HMAC secret for webhooks                        |
-| `AGENT_API_URL`           | No       | Public API URL (default: http://localhost:3003) |
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `PORT` | No | Service port (default: 3003) |
+| `LOG_LEVEL` | No | Logging level (default: info) |
+| `DATABASE_URL` | Yes | Postgres connection |
+| `ANTHROPIC_API_KEY` | Yes | Claude API key |
+| `DEFAULT_MODEL` | No | Default model (default: claude-sonnet-4-6) |
+| `MAX_CONCURRENT_SESSIONS` | No | Max parallel sessions (default: 5) |
+| `GITHUB_WEBHOOK_SECRET` | No | HMAC secret for webhooks |
+| `AGENT_API_URL` | No | Public API URL (default: http://localhost:3003) |
 
 ## Dockerfile gotchas
 

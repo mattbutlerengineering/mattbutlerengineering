@@ -61,7 +61,9 @@ export function VenueProvider({ children }: VenueProviderProps) {
   );
 
   const [venues, setVenues] = useState<readonly Venue[]>([]);
-  const [selectedVenueId, setSelectedVenueId] = useState<string | null>(readStoredVenueId);
+  const [selectedVenueId, setSelectedVenueId] = useState<string | null>(
+    readStoredVenueId
+  );
   const [isLoading, setIsLoading] = useState(true);
   const fetchVersionRef = useRef(0);
 
@@ -136,7 +138,9 @@ export function VenueProvider({ children }: VenueProviderProps) {
     [venues, selectedVenueId, selectedVenue, setVenueId, isLoading, isMultiVenue, fetchVenuesInner]
   );
 
-  return <VenueContext.Provider value={value}>{children}</VenueContext.Provider>;
+  return (
+    <VenueContext.Provider value={value}>{children}</VenueContext.Provider>
+  );
 }
 
 export function useVenue(): VenueContextValue {

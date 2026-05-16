@@ -118,9 +118,7 @@ export const Checkbox = forwardRef<HTMLDivElement, CheckboxProps>(
             <span className={styles.checkboxText}>
               {label}
               {description && (
-                <span id={descId} className={styles.checkboxDescription}>
-                  {description}
-                </span>
+                <span id={descId} className={styles.checkboxDescription}>{description}</span>
               )}
             </span>
             {disabled && disabledReason && (
@@ -214,9 +212,7 @@ export const Radio = forwardRef<HTMLDivElement, RadioProps>(
             <span className={styles.radioText}>
               {label}
               {description && (
-                <span id={descId} className={styles.radioDescription}>
-                  {description}
-                </span>
+                <span id={descId} className={styles.radioDescription}>{description}</span>
               )}
             </span>
             {disabled && disabledReason && (

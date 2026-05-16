@@ -33,7 +33,7 @@ test.describe("CF-7: Guest directory and search", () => {
     await searchInput.fill("zzzzz-no-match-9999");
 
     await expect(
-      authPage.getByText(/no guests found/i).or(authPage.getByText(/no guests yet/i))
+      authPage.getByText(/no guests found/i).or(authPage.getByText(/no guests yet/i)),
     ).toBeVisible();
   });
 

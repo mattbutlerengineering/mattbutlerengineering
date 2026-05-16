@@ -48,9 +48,7 @@ const REVIEW_SCHEMA = {
 
 function buildReviewPrompt(diff: string): string {
   const truncatedDiff =
-    diff.length > MAX_DIFF_LENGTH
-      ? diff.slice(0, MAX_DIFF_LENGTH) + "\n\n... (diff truncated)"
-      : diff;
+    diff.length > MAX_DIFF_LENGTH ? diff.slice(0, MAX_DIFF_LENGTH) + "\n\n... (diff truncated)" : diff;
 
   return [
     "You are a senior code reviewer performing a quick safety check before an auto-merge.",

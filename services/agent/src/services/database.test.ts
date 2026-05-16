@@ -14,9 +14,7 @@ const mockPool = {
 vi.mock("pg", () => {
   return {
     default: {
-      Pool: function () {
-        return mockPool;
-      },
+      Pool: function() { return mockPool; }
     },
   };
 });
@@ -47,7 +45,7 @@ const mockExtends = vi.fn((extension) => {
 
 vi.mock("../generated/prisma/index.js", () => {
   return {
-    PrismaClient: function () {
+    PrismaClient: function() {
       return {
         $extends: mockExtends,
         $disconnect: vi.fn().mockResolvedValue(undefined),
@@ -58,14 +56,17 @@ vi.mock("../generated/prisma/index.js", () => {
 
 vi.mock("@prisma/adapter-pg", () => {
   return {
-    PrismaPg: function () {
-      return {};
-    },
+    PrismaPg: function() { return {}; },
   };
 });
 
-const { getSlowQueryStats, getPoolStats, getPoolMetrics, getServiceStatus, prisma } =
-  await import("./database.js");
+const { 
+  getSlowQueryStats, 
+  getPoolStats, 
+  getPoolMetrics, 
+  getServiceStatus, 
+  prisma 
+} = await import("./database.js");
 
 describe("Database Service", () => {
   beforeEach(() => {
@@ -100,27 +101,27 @@ describe("Database Service", () => {
 
   it("triggers prisma extension hook and records slow queries", async () => {
     const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
+    
     // Simulate a slow query by making mockQuery take some time
     mockQuery.mockImplementationOnce(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 150));
+      await new Promise(resolve => setTimeout(resolve, 150));
       return { id: 1 };
     });
 
     await prisma.session.findUnique({ where: { id: "1" } });
 
     expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("slow_query"));
-
+    
     const stats = getSlowQueryStats();
     expect(stats.count5min).toBeGreaterThan(0);
     expect(stats.slowestMs).toBeGreaterThan(100);
-
+    
     consoleSpy.mockRestore();
   });
 
   it("warns when pool utilization is high", async () => {
     const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
+    
     // Set pool utilization high (4/5 = 0.8)
     (mockPool as unknown as any).activeCount = 4;
     (mockPool as unknown as any).totalCount = 5;
@@ -130,7 +131,7 @@ describe("Database Service", () => {
     expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("pool_alert"));
     expect(getPoolMetrics().isDegraded).toBe(true);
     expect(getServiceStatus()).toBe("degraded");
-
+    
     consoleSpy.mockRestore();
   });
 

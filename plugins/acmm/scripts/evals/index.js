@@ -47,9 +47,7 @@ if (filtered.length === 0) {
   process.exit(1);
 }
 
-console.log(
-  `ACMM evals: running ${filtered.length} task${filtered.length === 1 ? "" : "s"}${DRY_RUN ? " (dry-run)" : ""}`
-);
+console.log(`ACMM evals: running ${filtered.length} task${filtered.length === 1 ? "" : "s"}${DRY_RUN ? " (dry-run)" : ""}`);
 console.log("");
 
 mkdirSync(dirname(OUT_PATH), { recursive: true });
@@ -62,14 +60,10 @@ for (const task of filtered) {
   appendFileSync(OUT_PATH, JSON.stringify(result) + "\n", "utf-8");
   if (result.success) {
     passes++;
-    console.log(
-      `✓ ${result.score.toFixed(2)}${result.error ? ` (error: ${result.error.slice(0, 60)})` : ""}`
-    );
+    console.log(`✓ ${result.score.toFixed(2)}${result.error ? ` (error: ${result.error.slice(0, 60)})` : ""}`);
   } else {
     fails++;
-    console.log(
-      `✗ ${result.score.toFixed(2)}${result.error ? ` (error: ${result.error.slice(0, 60)})` : ""}`
-    );
+    console.log(`✗ ${result.score.toFixed(2)}${result.error ? ` (error: ${result.error.slice(0, 60)})` : ""}`);
   }
 }
 
@@ -102,17 +96,14 @@ function printReport() {
   console.log(`  runs: ${summary.n}`);
   console.log(`  pass rate: ${(summary.passRate * 100).toFixed(0)}%`);
   console.log(`  median score: ${summary.medianScore.toFixed(2)}`);
-  if (summary.medianCostUsd !== null)
-    console.log(`  median cost: $${summary.medianCostUsd.toFixed(2)}`);
+  if (summary.medianCostUsd !== null) console.log(`  median cost: $${summary.medianCostUsd.toFixed(2)}`);
   if (summary.medianTurns !== null) console.log(`  median turns: ${summary.medianTurns}`);
   console.log(`  status: ${summary.status}`);
   if (Object.keys(summary.perModel).length > 1) {
     console.log("");
     console.log("  by model:");
     for (const [model, m] of Object.entries(summary.perModel)) {
-      console.log(
-        `    ${model}: ${(m.passRate * 100).toFixed(0)}% (n=${m.n}, score ${m.medianScore.toFixed(2)})`
-      );
+      console.log(`    ${model}: ${(m.passRate * 100).toFixed(0)}% (n=${m.n}, score ${m.medianScore.toFixed(2)})`);
     }
   }
 }

@@ -83,23 +83,25 @@ describe("runFeedbackLoop", () => {
     vi.clearAllMocks();
 
     // Mock gh repo view for parseOwnerRepo
-    mockExecFile.mockImplementation(async (cmd: unknown, args: unknown, _opts?: unknown) => {
-      const command = cmd as string;
-      const argList = args as string[];
-      if (command === "gh" && argList[0] === "repo") {
-        return {
-          stdout: JSON.stringify({ owner: { login: "owner" }, name: "repo" }),
-        };
-      }
-      if (command === "git" && argList[0] === "diff") {
-        // git diff --cached --quiet throws when there are changes
-        throw new Error("changes exist");
-      }
-      if (command === "git") {
+    mockExecFile.mockImplementation(
+      async (cmd: unknown, args: unknown, _opts?: unknown) => {
+        const command = cmd as string;
+        const argList = args as string[];
+        if (command === "gh" && argList[0] === "repo") {
+          return {
+            stdout: JSON.stringify({ owner: { login: "owner" }, name: "repo" }),
+          };
+        }
+        if (command === "git" && argList[0] === "diff") {
+          // git diff --cached --quiet throws when there are changes
+          throw new Error("changes exist");
+        }
+        if (command === "git") {
+          return { stdout: "" };
+        }
         return { stdout: "" };
       }
-      return { stdout: "" };
-    });
+    );
 
     vi.mocked(createToolPermissionHandler).mockReturnValue(
       vi.fn().mockResolvedValue({ behavior: "allow" })
@@ -108,7 +110,9 @@ describe("runFeedbackLoop", () => {
     vi.mocked(buildReviewFixPrompt).mockReturnValue("Fix the issues");
 
     vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([{ type: "result", subtype: "success" }]) as ReturnType<typeof query>
+      mockQueryGenerator([
+        { type: "result", subtype: "success" },
+      ]) as ReturnType<typeof query>
     );
   });
 
@@ -195,7 +199,9 @@ describe("runFeedbackLoop", () => {
     });
 
     // First poll: CI feedback found; remaining polls: no feedback
-    vi.mocked(pollForFeedback).mockResolvedValueOnce(feedbackWithCI).mockResolvedValue(null);
+    vi.mocked(pollForFeedback)
+      .mockResolvedValueOnce(feedbackWithCI)
+      .mockResolvedValue(null);
 
     const result = await runFeedbackLoop(BASE_PARAMS);
 

@@ -14,7 +14,6 @@ The marketing site Hero section is premium and animated (spring stagger, atmosph
 A Framer Motion hook that triggers `staggerReveal` variants when an element scrolls into the viewport.
 
 **API:**
-
 ```tsx
 const { ref, controls } = useScrollReveal({ margin?: string, once?: boolean });
 ```
@@ -27,19 +26,16 @@ const { ref, controls } = useScrollReveal({ margin?: string, once?: boolean });
 **Implementation:** Uses `useInView` from Framer Motion + `useAnimationControls`. When `inView` becomes true, fires `controls.start("visible")`.
 
 **Usage:**
-
 ```tsx
 import { useScrollReveal, staggerReveal } from "@mattbutlerengineering/rialto";
 
 const { ref, controls } = useScrollReveal();
 
 <motion.div ref={ref} variants={staggerReveal.container} initial="hidden" animate={controls}>
-  {items.map((item) => (
-    <motion.div key={item.id} variants={staggerReveal.item}>
-      {item}
-    </motion.div>
+  {items.map(item => (
+    <motion.div key={item.id} variants={staggerReveal.item}>{item}</motion.div>
   ))}
-</motion.div>;
+</motion.div>
 ```
 
 **File:** `packages/rialto/src/hooks/useScrollReveal.ts`
@@ -50,18 +46,16 @@ const { ref, controls } = useScrollReveal();
 Horizontal sticky top bar with glass surface.
 
 **Props:**
-
 ```tsx
 interface AppBarProps extends HTMLAttributes<HTMLElement> {
   logo?: ReactNode;
   actions?: ReactNode;
-  glass?: boolean; // default true
-  height?: string; // default "56px"
+  glass?: boolean;       // default true
+  height?: string;       // default "56px"
 }
 ```
 
 **Styling:**
-
 - Composes `.glass` from `surfaces.module.css` when `glass` is true
 - `position: sticky; top: 0; z-index: var(--rialto-z-sticky)`
 - Flexbox: `justify-content: space-between; align-items: center`
@@ -70,7 +64,6 @@ interface AppBarProps extends HTMLAttributes<HTMLElement> {
 - Entrance animation: fade + slide-down from -8px on mount (springGentle)
 
 **Files:**
-
 - `packages/rialto/src/components/AppBar/AppBar.tsx`
 - `packages/rialto/src/components/AppBar/AppBar.module.css`
 - `packages/rialto/src/components/AppBar/index.ts`
@@ -78,12 +71,12 @@ interface AppBarProps extends HTMLAttributes<HTMLElement> {
 
 ### 3. Marketing site motion polish (apps/marketing)
 
-| Section            | Change                                                                                                         |
-| ------------------ | -------------------------------------------------------------------------------------------------------------- |
-| Navbar             | Replace custom `Navbar.tsx` + `Navbar.module.css` with `<AppBar>` from Rialto                                  |
-| Projects           | Wrap card grid in `useScrollReveal` with `staggerReveal` variants                                              |
-| About              | Wrap paragraphs in `useScrollReveal` — text fades up sequentially                                              |
-| Contact            | Wrap links in `useScrollReveal` + add `boop` hover scale to link buttons                                       |
+| Section | Change |
+|---------|--------|
+| Navbar | Replace custom `Navbar.tsx` + `Navbar.module.css` with `<AppBar>` from Rialto |
+| Projects | Wrap card grid in `useScrollReveal` with `staggerReveal` variants |
+| About | Wrap paragraphs in `useScrollReveal` — text fades up sequentially |
+| Contact | Wrap links in `useScrollReveal` + add `boop` hover scale to link buttons |
 | Section separators | Add machined accent edge lines between sections (reuse Hero `::after` gradient pattern via a shared CSS class) |
 
 ### 4. Out of scope (YAGNI)

@@ -57,7 +57,6 @@ export function GuestsPage() {
 ```
 
 **Constraints:**
-
 - Every page must have a `LoadingSkeleton` component that mirrors the page layout
 - Use `PageHeader` from `../components/PageHeader` for the title/description
 - Section comments use `/* -- label --- */` format
@@ -117,7 +116,6 @@ useEffect(() => {
 ```
 
 **Constraints:**
-
 - Never use raw `fetch` -- always use `createApiClient` from `@mbe/api-client`
 - Always memoize the API client: `useMemo(() => createApiClient(...), [accessToken])`
 - Wrap fetch functions in `useCallback` so they can be called from effects and event handlers
@@ -184,7 +182,6 @@ export function useDashboardStats(): UseDashboardStatsResult {
 ```
 
 **Constraints:**
-
 - Export both the hook and its result type interface
 - Use `readonly` arrays in state: `useState<readonly Reservation[]>([])`
 - Extract pure computation into standalone functions above the hook (not inside it)
@@ -229,7 +226,9 @@ export function ReservationList({ reservations, isLoading }: ReservationListProp
     );
   }
 
-  const active = reservations.filter((r) => r.status !== "CANCELLED" && r.status !== "NO_SHOW");
+  const active = reservations.filter(
+    (r) => r.status !== "CANCELLED" && r.status !== "NO_SHOW"
+  );
 
   if (active.length === 0) {
     return (
@@ -258,7 +257,6 @@ export function ReservationList({ reservations, isLoading }: ReservationListProp
 ```
 
 **Constraints:**
-
 - Sub-components handle their own loading/empty states -- the parent just passes data
 - Props interface uses `readonly` modifier on the interface and `readonly` arrays
 - Sort/filter creates new arrays (`[...active].sort(...)`) -- never mutate props
@@ -320,7 +318,9 @@ export function VenueProvider({ children }: VenueProviderProps) {
     [venues, selectedVenueId, selectedVenue, setVenueId, isLoading, isMultiVenue]
   );
 
-  return <VenueContext.Provider value={value}>{children}</VenueContext.Provider>;
+  return (
+    <VenueContext.Provider value={value}>{children}</VenueContext.Provider>
+  );
 }
 
 export function useVenue(): VenueContextValue {
@@ -333,7 +333,6 @@ export function useVenue(): VenueContextValue {
 ```
 
 **Constraints:**
-
 - Context default is `null`, not a fake default -- the consumer hook throws if used outside the provider
 - `useMemo` the context value object to prevent unnecessary re-renders
 - Wrap localStorage in try/catch -- storage can be unavailable (private browsing, quota exceeded)
@@ -393,14 +392,15 @@ useReservationEvents({
     setReservations((prev) => [...prev, reservation]);
   },
   onReservationUpdated: (reservation) => {
-    setReservations((prev) => prev.map((r) => (r.id === reservation.id ? reservation : r)));
+    setReservations((prev) =>
+      prev.map((r) => (r.id === reservation.id ? reservation : r))
+    );
   },
   enabled: !!selectedVenueId,
 });
 ```
 
 **Constraints:**
-
 - Never pass inline arrow callbacks that depend on state -- the hook uses refs internally, but the page-side callbacks should use state updater functions (`setPrev((prev) => ...)`) to avoid stale closures
 - Always pass `enabled: !!selectedVenueId` to prevent connecting before venue selection
 - The hook manages its own reconnection with exponential backoff (1s, 2s, 4s, ... capped at 30s)
@@ -441,35 +441,22 @@ function AddGuestDialog({ open, onClose, onSubmit, isSubmitting, error }: AddGue
   }, [name, email, phone, notes, onSubmit]);
 
   return (
-    <Dialog
-      open={open}
-      onClose={handleClose}
-      title="Add Guest"
+    <Dialog open={open} onClose={handleClose} title="Add Guest"
       footer={
         <Stack direction="row" gap="sm" justify="end">
           <Button variant="ghost" onClick={handleClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button
-            variant="primary"
-            onClick={handleSubmit}
-            disabled={isSubmitting || name.trim().length === 0}
-          >
+          <Button variant="primary" onClick={handleSubmit}
+            disabled={isSubmitting || name.trim().length === 0}>
             {isSubmitting ? "Adding..." : "Add Guest"}
           </Button>
         </Stack>
-      }
-    >
+      }>
       <Stack gap="md">
         {error && <Alert variant="error">{error}</Alert>}
-        <Input
-          label="Name"
-          type="text"
-          placeholder="Full name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-        />
+        <Input label="Name" type="text" placeholder="Full name"
+          value={name} onChange={(e) => setName(e.target.value)} required />
         {/* ... more inputs ... */}
       </Stack>
     </Dialog>
@@ -502,7 +489,6 @@ const updatePreference = useCallback(
 ```
 
 **Constraints:**
-
 - Use individual `useState` per field -- no form library, no single state object
 - Reset all fields on dialog close and after successful submit
 - Show `isSubmitting` state on the submit button (text changes: "Add Guest" -> "Adding...")
@@ -575,7 +561,6 @@ Each page has a co-located `.module.css` file. All values use Rialto design toke
 ```
 
 **Constraints:**
-
 - Never hardcode colors -- use `var(--rialto-*)` tokens for colors, spacing, radii, shadows, typography, and easing
 - Use logical properties: `margin-block-end` not `margin-bottom`, `padding-inline-start` not `padding-left`
 - Breakpoints: `768px` for tablet, `480px` for mobile
@@ -602,34 +587,32 @@ if (isLoading && guests.length === 0) {
 }
 
 // 2. Inside the main return, show error alert (dismissible)
-{
-  error && (
-    <Alert variant="error" dismissible onDismiss={() => setError(null)}>
-      {error}
-    </Alert>
-  );
-}
+{error && (
+  <Alert variant="error" dismissible onDismiss={() => setError(null)}>
+    {error}
+  </Alert>
+)}
 
 // 3. Empty state -- only show when not loading and no error
-{
-  !isLoading && !error && guests.length === 0 && (
-    <div aria-live="polite" role="status">
-      <EmptyState
-        heading={searchQuery ? "No guests found" : "No guests yet"}
-        description={
-          searchQuery
-            ? "Try adjusting your search query."
-            : "Guests will appear here once they make a reservation."
-        }
-      />
-    </div>
-  );
-}
+{!isLoading && !error && guests.length === 0 && (
+  <div aria-live="polite" role="status">
+    <EmptyState
+      heading={searchQuery ? "No guests found" : "No guests yet"}
+      description={
+        searchQuery
+          ? "Try adjusting your search query."
+          : "Guests will appear here once they make a reservation."
+      }
+    />
+  </div>
+)}
 
 // 4. Content -- only show when not loading and no error and data exists
-{
-  !isLoading && !error && guests.length > 0 && <>{/* ... table/cards ... */}</>;
-}
+{!isLoading && !error && guests.length > 0 && (
+  <>
+    {/* ... table/cards ... */}
+  </>
+)}
 ```
 
 **From `ReservationList.tsx` (sub-component level):**
@@ -655,7 +638,6 @@ if (active.length === 0) {
 ```
 
 **Constraints:**
-
 - Loading skeletons must match the shape of the actual content (same widths, approximate heights)
 - Error alerts are dismissible with `onDismiss={() => setError(null)}`
 - Empty states differentiate between "no data" and "no results for search"
@@ -729,7 +711,6 @@ test.describe("Authentication -- authenticated", () => {
 ```
 
 **Constraints:**
-
 - Always import `test` and `expect` from `./fixtures.js` for authenticated tests
 - Use `authPage` fixture -- it handles Auth0 ROPC login automatically
 - For unauthenticated tests, import `test as base` from `@playwright/test` and create a fresh browser context
@@ -753,15 +734,7 @@ import { useAuth } from "@mbe/auth/react";
 import { createApiClient } from "@mbe/api-client";
 
 // UI components (always from Rialto)
-import {
-  Button,
-  Card,
-  Alert,
-  Text,
-  Stack,
-  Skeleton,
-  SkeletonGroup,
-} from "@mattbutlerengineering/rialto";
+import { Button, Card, Alert, Text, Stack, Skeleton, SkeletonGroup } from "@mattbutlerengineering/rialto";
 
 // Types (use `import type`)
 import type { Reservation, Venue, Guest } from "@mbe/types";
@@ -786,11 +759,11 @@ import styles from "./MyPage.module.css";
 
 The app targets three primary breakpoints:
 
-| Breakpoint | Width          | Target Devices                 |
-| ---------- | -------------- | ------------------------------ |
-| Desktop    | 1440px+        | Large monitors, admin stations |
-| Tablet     | 768px - 1439px | iPads, smaller laptops         |
-| Mobile     | < 768px        | Phones, small tablets          |
+| Breakpoint | Width | Target Devices |
+|------------|-------|----------------|
+| Desktop | 1440px+ | Large monitors, admin stations |
+| Tablet | 768px - 1439px | iPads, smaller laptops |
+| Mobile | < 768px | Phones, small tablets |
 
 ### CSS Breakpoint Tokens
 
@@ -823,19 +796,16 @@ Use these CSS custom properties defined in the design system:
 ### Layout Changes by Breakpoint
 
 **Timeline Page:**
-
 - **Desktop:** Full timeline grid with sidebar showing reservation details
 - **Tablet:** Timeline grid with bottom sheet for details
 - **Mobile:** List view instead of timeline grid
 
 **Reservations Page:**
-
 - **Desktop:** Data table with filters
 - **Tablet:** Card grid with horizontal scroll
 - **Mobile:** Vertical card list, accordion for details
 
 **Floor Plan Editor:**
-
 - **Desktop:** Side-by-side floor plan and table list
 - **Tablet:** Tabbed view (floor plan | tables)
 - **Mobile:** Floor plan only with floating action button for adding tables
@@ -849,22 +819,27 @@ export function FloorPlansPage() {
   return (
     <div className={styles.container}>
       <PageHeader title="Floor Plans" description="Manage your restaurant layouts" />
-
+      
       {/* Desktop: Side-by-side layout */}
       <div className={styles.desktopLayout}>
-        <div className={styles.floorPlanPreview}>{/* Floor plan visualization */}</div>
-        <div className={styles.tableList}>{/* Table configuration */}</div>
+        <div className={styles.floorPlanPreview}>
+          {/* Floor plan visualization */}
+        </div>
+        <div className={styles.tableList}>
+          {/* Table configuration */}
+        </div>
       </div>
-
+      
       {/* Mobile: Stacked layout */}
-      <div className={styles.mobileLayout}>{/* ... */}</div>
+      <div className={styles.mobileLayout}>
+        {/* ... */}
+      </div>
     </div>
   );
 }
 ```
 
 **Constraints:**
-
 - Use Rialto `Stack` and `Grid` components for responsive layouts
 - Test at 1440px, 768px, and 375px widths
 - Never use `position: fixed` for primary content — use flexbox/grid
@@ -880,31 +855,27 @@ export function FloorPlansPage() {
 ### Keyboard Navigation
 
 **Timeline:**
-
 - Arrow keys navigate between time slots
 - Enter/Space opens reservation details
 - Escape closes dialogs/drawers
 - Tab moves between major regions (sidebar, timeline, actions)
 
 **Dialogs (Command Palette, Edit Drawer):**
-
 ```tsx
 function EditReservationDrawer({ open, onClose }: EditReservationDrawerProps) {
   const firstFocusableRef = useRef<HTMLInputElement>(null);
-
+  
   useEffect(() => {
     if (open && firstFocusableRef.current) {
       firstFocusableRef.current.focus();
     }
   }, [open]);
-
+  
   return (
     <Drawer open={open} onClose={onClose}>
-      <form
-        onKeyDown={(e) => {
-          if (e.key === "Escape") onClose();
-        }}
-      >
+      <form onKeyDown={(e) => {
+        if (e.key === "Escape") onClose();
+      }}>
         <input ref={firstFocusableRef} />
         {/* ... */}
       </form>
@@ -914,7 +885,6 @@ function EditReservationDrawer({ open, onClose }: EditReservationDrawerProps) {
 ```
 
 **Command Palette:**
-
 - `/` opens command palette (global)
 - Escape closes
 - Arrow keys navigate commands
@@ -926,21 +896,25 @@ function EditReservationDrawer({ open, onClose }: EditReservationDrawerProps) {
 
 ```tsx
 <div aria-live="polite" aria-atomic="true">
-  {statusMessage && <span role="status">{statusMessage}</span>}
+  {statusMessage && (
+    <span role="status">{statusMessage}</span>
+  )}
 </div>
 ```
 
 **Dialog/Modal:**
 
 ```tsx
-<Dialog
-  open={isOpen}
+<Dialog 
+  open={isOpen} 
   onClose={onClose}
   aria-labelledby="dialog-title"
   aria-describedby="dialog-description"
 >
   <h2 id="dialog-title">Confirm Reservation</h2>
-  <p id="dialog-description">This will confirm the reservation for {guestName}.</p>
+  <p id="dialog-description">
+    This will confirm the reservation for {guestName}.
+  </p>
   {/* ... */}
 </Dialog>
 ```
@@ -948,11 +922,20 @@ function EditReservationDrawer({ open, onClose }: EditReservationDrawerProps) {
 **Data Tables with Sorting:**
 
 ```tsx
-<table aria-label="Reservations" role="grid">
+<table 
+  aria-label="Reservations"
+  role="grid"
+>
   <thead>
     <tr>
-      <th scope="col" aria-sort={sortColumn === "time" ? sortDirection : "none"}>
-        <button onClick={() => toggleSort("time")} aria-label="Sort by time">
+      <th 
+        scope="col"
+        aria-sort={sortColumn === "time" ? sortDirection : "none"}
+      >
+        <button 
+          onClick={() => toggleSort("time")}
+          aria-label="Sort by time"
+        >
           Time
         </button>
       </th>
@@ -964,7 +947,11 @@ function EditReservationDrawer({ open, onClose }: EditReservationDrawerProps) {
 **Status Badges:**
 
 ```tsx
-<Badge variant={statusVariants[status]} role="status" aria-label={`Reservation status: ${status}`}>
+<Badge 
+  variant={statusVariants[status]}
+  role="status"
+  aria-label={`Reservation status: ${status}`}
+>
   {status}
 </Badge>
 ```
@@ -1006,7 +993,7 @@ function App() {
 ```tsx
 function ReservationDrawer({ reservation, onClose }: ReservationDrawerProps) {
   const previousFocusRef = useRef<HTMLElement | null>(null);
-
+  
   useEffect(() => {
     if (reservation) {
       // Store the previously focused element
@@ -1016,7 +1003,7 @@ function ReservationDrawer({ reservation, onClose }: ReservationDrawerProps) {
       previousFocusRef.current?.focus();
     }
   }, [reservation]);
-
+  
   return (
     <Drawer open={!!reservation} onClose={onClose}>
       {/* ... */}
@@ -1026,7 +1013,6 @@ function ReservationDrawer({ reservation, onClose }: ReservationDrawerProps) {
 ```
 
 **Constraints:**
-
 - All interactive elements must be keyboard accessible
 - Focus must be visible (use `var(--rialto-shadow-focus)`)
 - Modal dialogs trap focus within the dialog
@@ -1049,12 +1035,12 @@ function ReservationDrawer({ reservation, onClose }: ReservationDrawerProps) {
 
 ### ARIA Reference
 
-| Pattern         | ARIA Attributes                           |
-| --------------- | ----------------------------------------- |
-| Live region     | `aria-live="polite"`                      |
-| Dialog          | `aria-labelledby`, `aria-describedby`     |
-| Loading         | `role="status"`, `aria-busy="true"`       |
+| Pattern | ARIA Attributes |
+|---------|-----------------|
+| Live region | `aria-live="polite"` |
+| Dialog | `aria-labelledby`, `aria-describedby` |
+| Loading | `role="status"`, `aria-busy="true"` |
 | Sortable column | `aria-sort="ascending\|descending\|none"` |
-| Hidden label    | `aria-label`                              |
-| Expanded state  | `aria-expanded`                           |
-| Error message   | `aria-describedby` on input               |
+| Hidden label | `aria-label` |
+| Expanded state | `aria-expanded` |
+| Error message | `aria-describedby` on input |

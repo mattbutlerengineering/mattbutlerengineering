@@ -164,11 +164,7 @@
   font-size: 10px;
   line-height: 1.5;
   color: var(--rialto-text-tertiary);
-  background-color: color-mix(
-    in srgb,
-    var(--rialto-surface-sunken) 80%,
-    var(--rialto-surface-default)
-  );
+  background-color: color-mix(in srgb, var(--rialto-surface-sunken) 80%, var(--rialto-surface-default));
   user-select: none;
 }
 

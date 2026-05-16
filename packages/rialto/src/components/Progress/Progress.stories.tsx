@@ -1,20 +1,20 @@
-import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, within } from "storybook/test";
-import { Progress, Spinner } from "./Progress";
+import type { Meta, StoryObj } from '@storybook/react-vite';
+import { expect, within } from 'storybook/test';
+import { Progress, Spinner } from './Progress';
 
 const meta: Meta<typeof Progress> = {
-  title: "Feedback/Progress",
+  title: 'Feedback/Progress',
   component: Progress,
-  tags: ["autodocs"],
+  tags: ['autodocs'],
   argTypes: {
     value: {
-      control: { type: "range", min: 0, max: 100, step: 1 },
+      control: { type: 'range', min: 0, max: 100, step: 1 },
     },
     size: {
-      control: { type: "select" },
-      options: ["sm", "md", "lg"],
+      control: { type: 'select' },
+      options: ['sm', 'md', 'lg'],
     },
-    showValue: { control: "boolean" },
+    showValue: { control: 'boolean' },
   },
 };
 
@@ -24,21 +24,21 @@ type Story = StoryObj<typeof Progress>;
 export const Default: Story = {
   args: {
     value: 65,
-    label: "Uploading files",
+    label: 'Uploading files',
     showValue: true,
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const progressbar = canvas.getByRole("progressbar");
+    const progressbar = canvas.getByRole('progressbar');
     await expect(progressbar).toBeInTheDocument();
-    await expect(progressbar).toHaveAttribute("aria-valuenow", "65");
+    await expect(progressbar).toHaveAttribute('aria-valuenow', '65');
   },
 };
 
 export const Empty: Story = {
   args: {
     value: 0,
-    label: "Starting upload",
+    label: 'Starting upload',
     showValue: true,
   },
 };
@@ -46,7 +46,7 @@ export const Empty: Story = {
 export const HalfComplete: Story = {
   args: {
     value: 50,
-    label: "Processing",
+    label: 'Processing',
     showValue: true,
   },
 };
@@ -54,36 +54,36 @@ export const HalfComplete: Story = {
 export const Complete: Story = {
   args: {
     value: 100,
-    label: "Upload complete",
+    label: 'Upload complete',
     showValue: true,
   },
 };
 
 export const Indeterminate: Story = {
   args: {
-    label: "Loading...",
+    label: 'Loading...',
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const progressbar = canvas.getByRole("progressbar");
+    const progressbar = canvas.getByRole('progressbar');
     await expect(progressbar).toBeInTheDocument();
-    await expect(progressbar).not.toHaveAttribute("aria-valuenow");
+    await expect(progressbar).not.toHaveAttribute('aria-valuenow');
   },
 };
 
 export const SmallSize: Story = {
   args: {
     value: 40,
-    size: "sm",
-    label: "Syncing",
+    size: 'sm',
+    label: 'Syncing',
   },
 };
 
 export const LargeSize: Story = {
   args: {
     value: 75,
-    size: "lg",
-    label: "Importing data",
+    size: 'lg',
+    label: 'Importing data',
     showValue: true,
   },
 };
@@ -91,7 +91,7 @@ export const LargeSize: Story = {
 export const NoLabel: Story = {
   args: {
     value: 30,
-    "aria-label": "File upload progress",
+    'aria-label': 'File upload progress',
   },
 };
 
@@ -100,9 +100,9 @@ export const SpinnerDefault: Story = {
   render: () => <Spinner />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const spinner = canvas.getByRole("status");
+    const spinner = canvas.getByRole('status');
     await expect(spinner).toBeInTheDocument();
-    await expect(spinner).toHaveAttribute("aria-label", "Loading");
+    await expect(spinner).toHaveAttribute('aria-label', 'Loading');
   },
 };
 

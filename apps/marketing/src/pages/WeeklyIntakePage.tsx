@@ -8,14 +8,14 @@ const sourceColors: Record<WeeklyResource["source"], "yellow" | "blue" | "purple
   "js-weekly": "yellow",
   "react-weekly": "blue",
   "ai-weekly": "purple",
-  other: "neutral",
+  "other": "neutral",
 };
 
 const sourceLabels: Record<WeeklyResource["source"], string> = {
   "js-weekly": "JS Weekly",
   "react-weekly": "React Weekly",
   "ai-weekly": "AI Weekly",
-  other: "Other",
+  "other": "Other",
 };
 
 function ResourceCard({ resource }: { readonly resource: WeeklyResource }) {
@@ -23,9 +23,7 @@ function ResourceCard({ resource }: { readonly resource: WeeklyResource }) {
     <Card className={styles.card}>
       <div className={styles.cardHeader}>
         <a href={resource.url} target="_blank" rel="noopener noreferrer" className={styles.link}>
-          <Heading level={2} className={styles.title}>
-            {resource.title}
-          </Heading>
+          <Heading level={2} className={styles.title}>{resource.title}</Heading>
         </a>
         <Badge color={sourceColors[resource.source]} size="sm">
           {sourceLabels[resource.source]}
@@ -42,9 +40,7 @@ function ResourceCard({ resource }: { readonly resource: WeeklyResource }) {
         </time>
         <div className={styles.tags}>
           {resource.tags.map((tag) => (
-            <Badge key={tag} color="neutral" size="sm">
-              {tag}
-            </Badge>
+            <Badge key={tag} color="neutral" size="sm">{tag}</Badge>
           ))}
         </div>
       </div>
@@ -72,9 +68,7 @@ export function WeeklyIntakePage() {
 
   return (
     <section className={styles.container}>
-      <Heading level={1} className={styles.heading}>
-        Weekly Information Intake
-      </Heading>
+      <Heading level={1} className={styles.heading}>Weekly Information Intake</Heading>
       <Text className={styles.subtitle}>
         Curated resources from the best weekly newsletters to keep you up to date.
       </Text>

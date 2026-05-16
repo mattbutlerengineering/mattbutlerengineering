@@ -92,8 +92,17 @@ export const GenCopilot = forwardRef<HTMLDivElement, GenCopilotProps>(function G
   return (
     <Drawer ref={ref} open={true} onClose={onClose} title="Gen Copilot" side="right">
       <div className={styles.body}>
-        <CopilotPreview spec={spec} isStreaming={isStreaming} error={error} registry={registry} />
-        <CopilotPromptBar onSubmit={send} onStop={stop} isStreaming={isStreaming} />
+        <CopilotPreview
+          spec={spec}
+          isStreaming={isStreaming}
+          error={error}
+          registry={registry}
+        />
+        <CopilotPromptBar
+          onSubmit={send}
+          onStop={stop}
+          isStreaming={isStreaming}
+        />
       </div>
     </Drawer>
   );

@@ -85,9 +85,9 @@ describe("reservationService", () => {
 
   describe("list", () => {
     it("returns paginated reservations", async () => {
-      vi.mocked(prisma.reservation.findMany).mockResolvedValueOnce([
-        makePrismaReservation(),
-      ] as never);
+      vi.mocked(prisma.reservation.findMany).mockResolvedValueOnce(
+        [makePrismaReservation()] as never
+      );
       vi.mocked(prisma.reservation.count).mockResolvedValueOnce(1 as never);
 
       const result = await reservationService.list({
@@ -176,9 +176,9 @@ describe("reservationService", () => {
 
   describe("listByUserId", () => {
     it("returns user reservations sorted by date descending", async () => {
-      vi.mocked(prisma.reservation.findMany).mockResolvedValueOnce([
-        makePrismaReservation(),
-      ] as never);
+      vi.mocked(prisma.reservation.findMany).mockResolvedValueOnce(
+        [makePrismaReservation()] as never
+      );
       vi.mocked(prisma.reservation.count).mockResolvedValueOnce(1 as never);
 
       const result = await reservationService.listByUserId("user-1", 1, 10);
@@ -215,7 +215,9 @@ describe("reservationService", () => {
 
   describe("create", () => {
     it("creates reservation with all fields", async () => {
-      vi.mocked(prisma.reservation.create).mockResolvedValueOnce(makePrismaReservation() as never);
+      vi.mocked(prisma.reservation.create).mockResolvedValueOnce(
+        makePrismaReservation() as never
+      );
 
       const result = await reservationService.create(
         {
@@ -350,7 +352,9 @@ describe("reservationService", () => {
       vi.mocked(availabilityService.checkConflict).mockResolvedValueOnce({
         hasConflict: false,
       } as never);
-      vi.mocked(prisma.reservation.create).mockResolvedValueOnce(makePrismaReservation() as never);
+      vi.mocked(prisma.reservation.create).mockResolvedValueOnce(
+        makePrismaReservation() as never
+      );
 
       const result = await reservationService.createWithConflictCheck({
         date: "2026-05-05",
@@ -379,15 +383,21 @@ describe("reservationService", () => {
     });
 
     it("returns null for P2025", async () => {
-      vi.mocked(prisma.reservation.update).mockRejectedValueOnce({ code: "P2025" } as never);
+      vi.mocked(prisma.reservation.update).mockRejectedValueOnce(
+        { code: "P2025" } as never
+      );
 
       expect(await reservationService.update("missing", { notes: "X" })).toBeNull();
     });
 
     it("re-throws non-P2025 errors", async () => {
-      vi.mocked(prisma.reservation.update).mockRejectedValueOnce(new Error("DB error") as never);
+      vi.mocked(prisma.reservation.update).mockRejectedValueOnce(
+        new Error("DB error") as never
+      );
 
-      await expect(reservationService.update("res-1", { notes: "X" })).rejects.toThrow("DB error");
+      await expect(
+        reservationService.update("res-1", { notes: "X" })
+      ).rejects.toThrow("DB error");
     });
 
     it("updates status to CONFIRMED", async () => {
@@ -516,7 +526,9 @@ describe("reservationService", () => {
       vi.mocked(availabilityService.checkConflict).mockResolvedValueOnce({
         hasConflict: false,
       } as never);
-      vi.mocked(prisma.reservation.update).mockResolvedValueOnce(makePrismaReservation() as never);
+      vi.mocked(prisma.reservation.update).mockResolvedValueOnce(
+        makePrismaReservation() as never
+      );
 
       await reservationService.updateWithConflictCheck("res-1", {
         date: "2026-05-06",
@@ -735,13 +747,17 @@ describe("reservationService", () => {
     });
 
     it("returns null for P2025 (not found)", async () => {
-      vi.mocked(prisma.reservation.update).mockRejectedValueOnce({ code: "P2025" } as never);
+      vi.mocked(prisma.reservation.update).mockRejectedValueOnce(
+        { code: "P2025" } as never
+      );
 
       expect(await reservationService.cancel("missing")).toBeNull();
     });
 
     it("re-throws non-P2025 errors", async () => {
-      vi.mocked(prisma.reservation.update).mockRejectedValueOnce(new Error("DB error") as never);
+      vi.mocked(prisma.reservation.update).mockRejectedValueOnce(
+        new Error("DB error") as never
+      );
 
       await expect(reservationService.cancel("res-1")).rejects.toThrow("DB error");
     });

@@ -44,22 +44,8 @@ test("loadLatestColdStart: malformed JSON → null (non-fatal)", () => {
 test("loadLatestColdStart: returns most recent record (last in array)", () => {
   const fx = tmpDir();
   const records = [
-    {
-      ts: "2026-04-01T06:00:00Z",
-      install_seconds: 30,
-      test_seconds: 60,
-      total_seconds: 90,
-      test_passed: true,
-      commit: "old",
-    },
-    {
-      ts: "2026-04-08T06:00:00Z",
-      install_seconds: 45,
-      test_seconds: 120,
-      total_seconds: 165,
-      test_passed: true,
-      commit: "new",
-    },
+    { ts: "2026-04-01T06:00:00Z", install_seconds: 30, test_seconds: 60, total_seconds: 90, test_passed: true, commit: "old" },
+    { ts: "2026-04-08T06:00:00Z", install_seconds: 45, test_seconds: 120, total_seconds: 165, test_passed: true, commit: "new" },
   ];
   fx.write("metrics/acmm-cold-start.json", JSON.stringify(records));
   const r = loadLatestColdStart(fx.root);
@@ -80,25 +66,43 @@ test("scoreColdStart: null → unknown", () => {
 });
 
 test("scoreColdStart: test failed → broken regardless of timing", () => {
-  assert.equal(scoreColdStart({ total_seconds: 60, test_passed: false }), "broken");
+  assert.equal(
+    scoreColdStart({ total_seconds: 60, test_passed: false }),
+    "broken",
+  );
 });
 
 test("scoreColdStart: total <5min and tests pass → healthy", () => {
-  assert.equal(scoreColdStart({ total_seconds: 4 * 60, test_passed: true }), "healthy");
+  assert.equal(
+    scoreColdStart({ total_seconds: 4 * 60, test_passed: true }),
+    "healthy",
+  );
 });
 
 test("scoreColdStart: total 5–15min → watch", () => {
-  assert.equal(scoreColdStart({ total_seconds: 10 * 60, test_passed: true }), "watch");
+  assert.equal(
+    scoreColdStart({ total_seconds: 10 * 60, test_passed: true }),
+    "watch",
+  );
 });
 
 test("scoreColdStart: total >15min → broken", () => {
-  assert.equal(scoreColdStart({ total_seconds: 20 * 60, test_passed: true }), "broken");
+  assert.equal(
+    scoreColdStart({ total_seconds: 20 * 60, test_passed: true }),
+    "broken",
+  );
 });
 
 test("scoreColdStart: boundary at exactly 5min → healthy", () => {
-  assert.equal(scoreColdStart({ total_seconds: 5 * 60, test_passed: true }), "healthy");
+  assert.equal(
+    scoreColdStart({ total_seconds: 5 * 60, test_passed: true }),
+    "healthy",
+  );
 });
 
 test("scoreColdStart: boundary at exactly 15min → watch", () => {
-  assert.equal(scoreColdStart({ total_seconds: 15 * 60, test_passed: true }), "watch");
+  assert.equal(
+    scoreColdStart({ total_seconds: 15 * 60, test_passed: true }),
+    "watch",
+  );
 });

@@ -21,11 +21,15 @@ const MOCK_SECTIONS: NavSection[] = [
   },
   {
     label: "Tokens",
-    items: [{ id: "motion", label: "Motion", path: "/components/motion", comingSoon: true }],
+    items: [
+      { id: "motion", label: "Motion", path: "/components/motion", comingSoon: true },
+    ],
   },
 ];
 
-const MOCK_DEMO_PAGES: NavItem[] = [{ id: "sign-in", label: "Sign In", path: "/demos/login" }];
+const MOCK_DEMO_PAGES: NavItem[] = [
+  { id: "sign-in", label: "Sign In", path: "/demos/login" },
+];
 
 function renderSidebar(props: Partial<React.ComponentProps<typeof ShowcaseSidebar>> = {}) {
   const defaultProps = {

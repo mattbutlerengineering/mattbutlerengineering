@@ -41,9 +41,7 @@ export function measureEvals(cwd, opts = {}) {
   if (!existsSync(path)) return emptySummary(windowDays);
 
   const cutoff = now.getTime() - windowDays * 24 * 60 * 60 * 1000;
-  const lines = readFileSync(path, "utf-8")
-    .split("\n")
-    .filter((l) => l.trim().length > 0);
+  const lines = readFileSync(path, "utf-8").split("\n").filter((l) => l.trim().length > 0);
 
   /** @type {import("./evals/schema.js").EvalResult[]} */
   const runs = [];
@@ -67,7 +65,7 @@ export function measureEvals(cwd, opts = {}) {
   const turns = runs.map((r) => r.numTurns).filter((t) => typeof t === "number");
   const lastRun = runs.reduce(
     (latest, r) => (r.timestamp > latest ? r.timestamp : latest),
-    /** @type {string} */ (runs[0].timestamp)
+    /** @type {string} */ (runs[0].timestamp),
   );
 
   /** @type {Record<string, import("./evals/schema.js").EvalResult[]>} */
@@ -83,7 +81,7 @@ export function measureEvals(cwd, opts = {}) {
         passRate: round4(rs.filter((r) => r.success).length / rs.length),
         medianScore: round4(median(rs.map((r) => r.score))),
       },
-    ])
+    ]),
   );
 
   return {

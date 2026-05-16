@@ -1,13 +1,5 @@
 import { useState } from "react";
-import {
-  Button,
-  Card,
-  Checkbox,
-  DataList,
-  Select,
-  Stack,
-  Text,
-} from "@mattbutlerengineering/rialto";
+import { Button, Card, Checkbox, DataList, Select, Stack, Text } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";
@@ -40,11 +32,7 @@ function SelectPlayground() {
         />
       </Card>
       <div className={styles.row}>
-        <Checkbox
-          label="Show placeholder"
-          checked={hasPlaceholder}
-          onCheckedChange={setHasPlaceholder}
-        />
+        <Checkbox label="Show placeholder" checked={hasPlaceholder} onCheckedChange={setHasPlaceholder} />
         <Checkbox label="Disabled" checked={disabled} onCheckedChange={setDisabled} />
       </div>
       {value && (

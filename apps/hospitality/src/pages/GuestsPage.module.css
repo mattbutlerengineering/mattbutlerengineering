@@ -138,8 +138,7 @@
   text-align: start;
   font: inherit;
   color: inherit;
-  transition:
-    background-color 150ms var(--rialto-ease-precision),
+  transition: background-color 150ms var(--rialto-ease-precision),
     box-shadow 150ms var(--rialto-ease-precision);
 }
 

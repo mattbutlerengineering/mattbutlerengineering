@@ -30,12 +30,12 @@ export { default } from "@mbe/config/prettier";
 
 ## Presets
 
-| Preset             | Use Case                                               |
-| ------------------ | ------------------------------------------------------ |
-| `typescript/base`  | Shared packages and libraries                          |
-| `typescript/react` | React frontend apps                                    |
-| `typescript/node`  | Node.js backend services                               |
-| `eslint/base`      | Base linting rules                                     |
-| `eslint/react`     | React-specific rules (JSX a11y, hooks)                 |
-| `eslint/node`      | Node.js-specific rules                                 |
-| `prettier`         | Formatting (double quotes, semicolons, 2-space indent) |
+| Preset | Use Case |
+|--------|----------|
+| `typescript/base` | Shared packages and libraries |
+| `typescript/react` | React frontend apps |
+| `typescript/node` | Node.js backend services |
+| `eslint/base` | Base linting rules |
+| `eslint/react` | React-specific rules (JSX a11y, hooks) |
+| `eslint/node` | Node.js-specific rules |
+| `prettier` | Formatting (double quotes, semicolons, 2-space indent) |

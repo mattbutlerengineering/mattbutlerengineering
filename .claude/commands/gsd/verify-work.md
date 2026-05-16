@@ -11,7 +11,6 @@ allowed-tools:
   - Write
   - Task
 ---
-
 <objective>
 Validate built features through conversational testing with persistent state.
 

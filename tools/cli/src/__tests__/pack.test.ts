@@ -86,7 +86,9 @@ describe("pack command", () => {
 
       await runPack(["services/missing"]);
 
-      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Path not found"));
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Path not found")
+      );
     });
 
     it("writes llms.txt and llms-full.txt when target path exists", async () => {
@@ -132,7 +134,9 @@ describe("pack command", () => {
 
   describe("pack-changed", () => {
     it("logs message when no relevant changes detected", async () => {
-      mockExistsSync.mockImplementation((p: unknown) => String(p).endsWith("pnpm-workspace.yaml"));
+      mockExistsSync.mockImplementation((p: unknown) =>
+        String(p).endsWith("pnpm-workspace.yaml")
+      );
       mockExecSync.mockReturnValue("README.md\nsome-file.json\n" as never);
 
       await runPackChanged();
@@ -157,7 +161,9 @@ describe("pack command", () => {
     });
 
     it("handles git diff errors gracefully", async () => {
-      mockExistsSync.mockImplementation((p: unknown) => String(p).endsWith("pnpm-workspace.yaml"));
+      mockExistsSync.mockImplementation((p: unknown) =>
+        String(p).endsWith("pnpm-workspace.yaml")
+      );
       mockExecSync.mockImplementation(() => {
         throw new Error("git error");
       });
@@ -169,7 +175,9 @@ describe("pack command", () => {
     });
 
     it("uses checkout mode diff when --mode checkout is passed", async () => {
-      mockExistsSync.mockImplementation((p: unknown) => String(p).endsWith("pnpm-workspace.yaml"));
+      mockExistsSync.mockImplementation((p: unknown) =>
+        String(p).endsWith("pnpm-workspace.yaml")
+      );
       mockExecSync.mockReturnValue("" as never);
 
       await runPackChanged(["--mode", "checkout"]);

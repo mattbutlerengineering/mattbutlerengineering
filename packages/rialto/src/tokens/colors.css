@@ -71,7 +71,7 @@
   /* ── Text ──────────────────────────────────── */
   --rialto-text-primary: rgb(253 252 250 / 0.92);
   --rialto-text-secondary: rgb(253 252 250 / 0.6);
-  --rialto-text-tertiary: rgb(253 252 250 / 0.5);
+  --rialto-text-tertiary: rgb(253 252 250 / 0.50);
   --rialto-text-on-accent: #1a1918;
 
   /* ── Borders ───────────────────────────────── */

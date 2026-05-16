@@ -1,14 +1,5 @@
 import { useState } from "react";
-import {
-  Button,
-  Card,
-  Checkbox,
-  DataList,
-  Select,
-  Stack,
-  Text,
-  TextArea,
-} from "@mattbutlerengineering/rialto";
+import { Button, Card, Checkbox, DataList, Select, Stack, Text, TextArea } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";
@@ -97,11 +88,7 @@ export function TextAreaPage() {
       <Section title="Features">
         <Stack gap="md">
           <div>
-            <Text
-              variant="detail"
-              color="tertiary"
-              style={{ marginBottom: "var(--rialto-space-xs)" }}
-            >
+            <Text variant="detail" color="tertiary" style={{ marginBottom: "var(--rialto-space-xs)" }}>
               Auto-resize — grows as you type
             </Text>
             <TextArea

@@ -20,55 +20,55 @@ Badge (span)
 
 ## States
 
-| State            | Description                      |
-| ---------------- | -------------------------------- | ----------- |
-| Default (no dot) | Text label only                  |
-| With dot         | Status circle prepended to label |
-| Small            | Tighter padding, smaller font    | `size="sm"` |
+| State | Description |
+|-------|-------------|
+| Default (no dot) | Text label only |
+| With dot | Status circle prepended to label |
+| Small | Tighter padding, smaller font | `size="sm"` |
 
 ## Variants
 
-| Variant             | Use Case                                    |
-| ------------------- | ------------------------------------------- |
-| `neutral` (default) | Neutral status, no semantic meaning         |
-| `accent`            | Active, selected, or gold-highlighted state |
-| `success`           | Positive or confirmed state                 |
-| `warning`           | Caution or attention needed                 |
-| `error`             | Error or destructive state                  |
+| Variant | Use Case |
+|---------|----------|
+| `neutral` (default) | Neutral status, no semantic meaning |
+| `accent` | Active, selected, or gold-highlighted state |
+| `success` | Positive or confirmed state |
+| `warning` | Caution or attention needed |
+| `error` | Error or destructive state |
 
 **Note:** There is NO `"info"` variant. Use `"neutral"` for informational or neutral-status items.
 
 ## Design Tokens Used
 
-| Token                       | Purpose                                   |
-| --------------------------- | ----------------------------------------- |
-| `--rialto-radius-sharp`     | Badge border radius (2px — small element) |
-| `--rialto-shadow-xs`        | Neutral variant shadow                    |
-| `--rialto-border`           | Neutral variant border                    |
-| `--rialto-surface-elevated` | Neutral variant background                |
-| `--rialto-text-secondary`   | Neutral variant text color                |
-| `--rialto-accent`           | Accent variant text and dot color         |
-| `--rialto-success`          | Success variant text and dot color        |
-| `--rialto-warning`          | Warning variant text and dot color        |
-| `--rialto-error`            | Error variant text and dot color          |
-| `--rialto-space-xs`         | Badge horizontal padding                  |
-| `--rialto-space-2xs`        | Dot gap and small padding                 |
-| `--rialto-text-xs`          | Badge font size                           |
-| `--rialto-weight-medium`    | Badge font weight                         |
-| `--rialto-tracking-wide`    | Letter spacing                            |
-| `--rialto-leading-tight`    | Line height                               |
-| `--rialto-radius-round`     | Dot border radius                         |
+| Token | Purpose |
+|-------|---------|
+| `--rialto-radius-sharp` | Badge border radius (2px — small element) |
+| `--rialto-shadow-xs` | Neutral variant shadow |
+| `--rialto-border` | Neutral variant border |
+| `--rialto-surface-elevated` | Neutral variant background |
+| `--rialto-text-secondary` | Neutral variant text color |
+| `--rialto-accent` | Accent variant text and dot color |
+| `--rialto-success` | Success variant text and dot color |
+| `--rialto-warning` | Warning variant text and dot color |
+| `--rialto-error` | Error variant text and dot color |
+| `--rialto-space-xs` | Badge horizontal padding |
+| `--rialto-space-2xs` | Dot gap and small padding |
+| `--rialto-text-xs` | Badge font size |
+| `--rialto-weight-medium` | Badge font weight |
+| `--rialto-tracking-wide` | Letter spacing |
+| `--rialto-leading-tight` | Line height |
+| `--rialto-radius-round` | Dot border radius |
 
 ## Props
 
 > See `registry.json` for authoritative prop types.
 
-| Prop       | Type                                                         | Default     | Required | Description                        |
-| ---------- | ------------------------------------------------------------ | ----------- | -------- | ---------------------------------- |
-| `children` | `ReactNode`                                                  | —           | Yes      | Label text                         |
-| `variant`  | `"neutral" \| "accent" \| "success" \| "warning" \| "error"` | `"neutral"` | No       | Color variant — no "info" variant  |
-| `size`     | `"sm" \| "md"`                                               | `"md"`      | No       | Compact or default size            |
-| `dot`      | `boolean`                                                    | `undefined` | No       | Show a status dot before the label |
+| Prop | Type | Default | Required | Description |
+|------|------|---------|----------|-------------|
+| `children` | `ReactNode` | — | Yes | Label text |
+| `variant` | `"neutral" \| "accent" \| "success" \| "warning" \| "error"` | `"neutral"` | No | Color variant — no "info" variant |
+| `size` | `"sm" \| "md"` | `"md"` | No | Compact or default size |
+| `dot` | `boolean` | `undefined` | No | Show a status dot before the label |
 
 ## Accessibility
 

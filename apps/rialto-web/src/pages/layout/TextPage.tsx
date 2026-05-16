@@ -25,8 +25,8 @@ export function TextPage() {
         <Stack gap="sm">
           <Text variant="display">1:24.892</Text>
           <Text variant="body">
-            The default body text. Regular weight, primary color, relaxed line height for
-            comfortable reading.
+            The default body text. Regular weight, primary color, relaxed line height for comfortable
+            reading.
           </Text>
           <Text variant="caption">
             Caption text — smaller, secondary color. Ideal for supplementary information beneath a
@@ -179,12 +179,10 @@ export function TextPage() {
           items={[
             {
               label: "Semantic HTML",
-              value: "Use the `as` prop for correct element semantics (h1-h6 for headings)",
+              value:
+                "Use the `as` prop for correct element semantics (h1-h6 for headings)",
             },
-            {
-              label: "Color contrast",
-              value: "All color tokens meet WCAG AA on surface backgrounds",
-            },
+            { label: "Color contrast", value: "All color tokens meet WCAG AA on surface backgrounds" },
             {
               label: "Truncation",
               value: "Truncated text should have a title attribute or tooltip with full content",

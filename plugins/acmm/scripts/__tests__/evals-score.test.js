@@ -9,7 +9,7 @@ function baseTask(overrides = {}) {
     id: "t",
     prompt: "do a thing",
     model: "claude-sonnet-4-6",
-    maxBudgetUsd: 0.1,
+    maxBudgetUsd: 0.10,
     maxTurns: 5,
     rubric: {
       mustPass: ["lint"],
@@ -129,7 +129,7 @@ test("parseTask: rejects unknown gate", () => {
         maxTurns: 1,
         rubric: { mustPass: ["typecheck"], diffSizeMax: 1, mustTouch: ["x"] },
       }),
-    /unknown gate/
+    /unknown gate/,
   );
 });
 

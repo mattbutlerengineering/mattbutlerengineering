@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { buildOrchestratorPrompt, DEFAULT_ORCHESTRATOR_CONFIG } from "../task-decomposer.js";
+import {
+  buildOrchestratorPrompt,
+  DEFAULT_ORCHESTRATOR_CONFIG,
+} from "../task-decomposer.js";
 import type { OrchestratorConfig } from "../task-decomposer.js";
 
 describe("buildOrchestratorPrompt", () => {

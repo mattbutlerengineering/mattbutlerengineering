@@ -41,8 +41,8 @@ export function TabsPage() {
               label: "Interior",
               content: (
                 <Text variant="caption" color="secondary">
-                  Anodized aluminum surfaces, Gorilla Glass instrument panel, physical controls with
-                  tactile feedback.
+                  Anodized aluminum surfaces, Gorilla Glass instrument panel, physical controls
+                  with tactile feedback.
                 </Text>
               ),
             },
@@ -60,51 +60,11 @@ export function TabsPage() {
       <Section title="More Tabs">
         <Tabs
           tabs={[
-            {
-              id: "overview",
-              label: "Overview",
-              content: (
-                <Text variant="caption" color="secondary">
-                  Session overview content.
-                </Text>
-              ),
-            },
-            {
-              id: "telemetry",
-              label: "Telemetry",
-              content: (
-                <Text variant="caption" color="secondary">
-                  Live telemetry data.
-                </Text>
-              ),
-            },
-            {
-              id: "analysis",
-              label: "Analysis",
-              content: (
-                <Text variant="caption" color="secondary">
-                  Lap analysis and sector breakdowns.
-                </Text>
-              ),
-            },
-            {
-              id: "setup",
-              label: "Setup",
-              content: (
-                <Text variant="caption" color="secondary">
-                  Vehicle configuration and setup sheet.
-                </Text>
-              ),
-            },
-            {
-              id: "weather",
-              label: "Weather",
-              content: (
-                <Text variant="caption" color="secondary">
-                  Track weather and conditions.
-                </Text>
-              ),
-            },
+            { id: "overview", label: "Overview", content: <Text variant="caption" color="secondary">Session overview content.</Text> },
+            { id: "telemetry", label: "Telemetry", content: <Text variant="caption" color="secondary">Live telemetry data.</Text> },
+            { id: "analysis", label: "Analysis", content: <Text variant="caption" color="secondary">Lap analysis and sector breakdowns.</Text> },
+            { id: "setup", label: "Setup", content: <Text variant="caption" color="secondary">Vehicle configuration and setup sheet.</Text> },
+            { id: "weather", label: "Weather", content: <Text variant="caption" color="secondary">Track weather and conditions.</Text> },
           ]}
           defaultTab="overview"
         />

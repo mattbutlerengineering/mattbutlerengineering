@@ -50,7 +50,9 @@ function buildCommitMessage(task: string): string {
   const maxSubject = 72;
   const prefix = "feat: ";
   const available = maxSubject - prefix.length;
-  const subject = task.length > available ? task.slice(0, available - 3) + "..." : task;
+  const subject = task.length > available
+    ? task.slice(0, available - 3) + "..."
+    : task;
   return `${prefix}${subject}`;
 }
 
@@ -89,7 +91,7 @@ export class OpenCodeAdapter implements AgentAdapter {
     const { stdout, stderr, exitedSuccessfully } = await this.spawnOpenCode(
       args,
       config.worktreePath,
-      timeout
+      timeout,
     );
 
     const combinedOutput = `${stdout}\n${stderr}`;
@@ -110,9 +112,7 @@ export class OpenCodeAdapter implements AgentAdapter {
       hasChanges,
       durationMs,
       rateLimited,
-      ...(exitedSuccessfully
-        ? {}
-        : { error: stderr || "OpenCode CLI exited with non-zero status" }),
+      ...(exitedSuccessfully ? {} : { error: stderr || "OpenCode CLI exited with non-zero status" }),
     };
   }
 
@@ -123,7 +123,7 @@ export class OpenCodeAdapter implements AgentAdapter {
   private async spawnOpenCode(
     args: readonly string[],
     cwd: string,
-    timeout: number
+    timeout: number,
   ): Promise<{ stdout: string; stderr: string; exitedSuccessfully: boolean }> {
     try {
       const result = await execFileAsync("opencode", [...args], {
@@ -169,7 +169,7 @@ export class OpenCodeAdapter implements AgentAdapter {
     await execFileAsync(
       "git",
       ["-C", worktreePath, "commit", "-m", buildCommitMessage(task)],
-      gitOpts
+      gitOpts,
     );
   }
 }

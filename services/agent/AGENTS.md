@@ -20,11 +20,11 @@ Budget enforcement: session stops when totalCostUsd >= maxBudgetUsd
 
 ## Model Routing Rules
 
-| Tier   | Model  | Use Case                                 | Budget        |
-| ------ | ------ | ---------------------------------------- | ------------- |
-| Tier 1 | Haiku  | Lint, typos, dependency bumps            | < $0.05       |
+| Tier | Model | Use Case | Budget |
+|------|-------|----------|--------|
+| Tier 1 | Haiku | Lint, typos, dependency bumps | < $0.05 |
 | Tier 2 | Sonnet | Standard features, refactors, unit tests | $0.05 - $0.50 |
-| Tier 3 | Opus   | Architecture, migrations, cross-cutting  | > $0.50       |
+| Tier 3 | Opus | Architecture, migrations, cross-cutting | > $0.50 |
 
 Escalation: on failure, attempt one model tier upgrade before giving up.
 
@@ -70,13 +70,13 @@ DigitalOcean App Platform — component name: `agent-service`
 
 ## API Routes
 
-| Method | Path                      | Description                  |
-| ------ | ------------------------- | ---------------------------- |
-| POST   | `/v1/sessions`            | Create new agent session     |
-| GET    | `/v1/sessions`            | List sessions                |
-| GET    | `/v1/sessions/:id`        | Get session details          |
-| DELETE | `/v1/sessions/:id`        | Cancel session               |
-| GET    | `/v1/sessions/:id/events` | Stream session events (SSE)  |
-| POST   | `/v1/orchestrate`         | Create orchestration session |
-| POST   | `/api/gen/ui`             | Stream UI generation (JSONL) |
-| POST   | `/api/gen/chat`           | Stream chat responses (SSE)  |
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/v1/sessions` | Create new agent session |
+| GET | `/v1/sessions` | List sessions |
+| GET | `/v1/sessions/:id` | Get session details |
+| DELETE | `/v1/sessions/:id` | Cancel session |
+| GET | `/v1/sessions/:id/events` | Stream session events (SSE) |
+| POST | `/v1/orchestrate` | Create orchestration session |
+| POST | `/api/gen/ui` | Stream UI generation (JSONL) |
+| POST | `/api/gen/chat` | Stream chat responses (SSE) |

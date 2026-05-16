@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Use vi.hoisted so variables are available inside the vi.mock factory (which is hoisted)
-const { mockSetBaggage, mockGetBaggage, mockCreateBaggage, mockContextActive } = vi.hoisted(() => ({
-  mockSetBaggage: vi.fn(),
-  mockGetBaggage: vi.fn(),
-  mockCreateBaggage: vi.fn(),
-  mockContextActive: vi.fn(),
-}));
+const { mockSetBaggage, mockGetBaggage, mockCreateBaggage, mockContextActive } = vi.hoisted(
+  () => ({
+    mockSetBaggage: vi.fn(),
+    mockGetBaggage: vi.fn(),
+    mockCreateBaggage: vi.fn(),
+    mockContextActive: vi.fn(),
+  }),
+);
 
 vi.mock("@opentelemetry/api", () => {
   return {
@@ -21,7 +23,11 @@ vi.mock("@opentelemetry/api", () => {
   };
 });
 
-import { createBaggageContext, extractAgentBaggage, BAGGAGE_KEYS } from "./baggage.js";
+import {
+  createBaggageContext,
+  extractAgentBaggage,
+  BAGGAGE_KEYS,
+} from "./baggage.js";
 
 describe("BAGGAGE_KEYS", () => {
   it("exposes expected key constants", () => {
@@ -55,7 +61,7 @@ describe("createBaggageContext", () => {
     expect(mockCreateBaggage).toHaveBeenCalledWith(
       expect.objectContaining({
         [BAGGAGE_KEYS.SESSION_ID]: { value: "sess-123" },
-      })
+      }),
     );
   });
 
@@ -65,7 +71,7 @@ describe("createBaggageContext", () => {
     expect(mockCreateBaggage).toHaveBeenCalledWith(
       expect.objectContaining({
         [BAGGAGE_KEYS.PR_NUMBER]: { value: "42" },
-      })
+      }),
     );
   });
 
@@ -75,7 +81,7 @@ describe("createBaggageContext", () => {
     expect(mockCreateBaggage).toHaveBeenCalledWith(
       expect.objectContaining({
         [BAGGAGE_KEYS.ISSUE_NUMBER]: { value: "99" },
-      })
+      }),
     );
   });
 
@@ -85,7 +91,7 @@ describe("createBaggageContext", () => {
     expect(mockCreateBaggage).toHaveBeenCalledWith(
       expect.objectContaining({
         [BAGGAGE_KEYS.DEPLOY_SHA]: { value: "deadbeef" },
-      })
+      }),
     );
   });
 

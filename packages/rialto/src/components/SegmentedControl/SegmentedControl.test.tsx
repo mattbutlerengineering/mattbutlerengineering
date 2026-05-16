@@ -137,7 +137,11 @@ describe("SegmentedControl", () => {
   describe("accessibility", () => {
     it("has no a11y violations", async () => {
       const { container } = render(
-        <SegmentedControl segments={segments} value="day" onChange={() => {}} />
+        <SegmentedControl
+          segments={segments}
+          value="day"
+          onChange={() => {}}
+        />
       );
       expect(
         await axe(container, { rules: { "color-contrast": { enabled: false } } })

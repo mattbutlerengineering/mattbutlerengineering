@@ -19,9 +19,9 @@ We use a **two-tier health check architecture**: per-service simple checks and a
 
 Every Fastify service exposes identical health routes:
 
-| Path                       | Purpose                                                   |
-| -------------------------- | --------------------------------------------------------- |
-| `/health`                  | Internal probe (DO App Platform container health)         |
+| Path | Purpose |
+|------|---------|
+| `/health` | Internal probe (DO App Platform container health) |
 | `/api/v1/<service>/health` | Public path through DO ingress (post-deploy verification) |
 
 Both return the same `HealthResponse`:

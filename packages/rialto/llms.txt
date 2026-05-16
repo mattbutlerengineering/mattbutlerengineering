@@ -54,15 +54,6 @@
   </file>
   </section>
   <section priority="medium" role="hooks">
-  <file path="src/hooks/useBoop.ts">
-    <item priority="high">
-      export function useBoop(): {
-        style: MotionStyle;
-        onMouseEnter: () => void;
-        onMouseLeave: () => void;
-      } { /* ... */ }
-    </item>
-  </file>
   <file path="src/hooks/useDirection.ts">
     <item priority="high">
       type Direction = "ltr" | "rtl";
@@ -263,7 +254,7 @@
       type ResolvedStrings = Required<
         Omit<
           TapeChartStrings,
-          | "reservatio...;
+          "reservationA...;
     </item>
     <item priority="high">
       export const DEFAULT_STRINGS: ResolvedStrings;
@@ -288,11 +279,7 @@
       }
     </item>
     <item priority="high">
-      export function useTapeChartI18n(
-        locale?: string,
-        timeZone?: string,
-        defaultCurrency?: string
-      ): TapeChartFormatters { /* ... */ }
+      export function useTapeChartI18n(locale?: string, timeZone?: string, defaultCurrency?: string): TapeChartFormatters { /* ... */ }
     </item>
   </file>
   <file path="src/components/TapeChart/useTapeChartLayout.ts">
@@ -304,7 +291,7 @@
         reservations: TapeChartReservation[],
         rooms: TapeChartRoom[],
         startDate: string,
-        endDate: string
+        endDate: string,
       ): TapeChartLayout { /* ... */ }
     </item>
   </file>

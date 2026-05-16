@@ -44,11 +44,11 @@ Health and docs paths are excluded from token verification entirely.
 
 ### Environment Configuration
 
-| Variable              | Context  | Purpose                     |
-| --------------------- | -------- | --------------------------- |
-| `AUTH_AUTHORITY`      | Backend  | OIDC issuer URL             |
-| `AUTH_AUDIENCE`       | Backend  | Expected JWT audience       |
-| `VITE_AUTH_AUTHORITY` | Frontend | Same, via build-time env    |
+| Variable | Context | Purpose |
+|----------|---------|---------|
+| `AUTH_AUTHORITY` | Backend | OIDC issuer URL |
+| `AUTH_AUDIENCE` | Backend | Expected JWT audience |
+| `VITE_AUTH_AUTHORITY` | Frontend | Same, via build-time env |
 | `VITE_AUTH_CLIENT_ID` | Frontend | Auth0 application client ID |
 
 Auth0 resources (applications, API) are managed via Pulumi using `@pulumi/auth0`, keeping infrastructure as code.

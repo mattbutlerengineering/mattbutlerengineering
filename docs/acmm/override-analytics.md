@@ -2,13 +2,13 @@
 
 ## Purpose
 
-When humans correct AI suggestions, the correction itself is valuable data. But a raw count of overrides tells you nothing about _why_ the AI was wrong. Override analytics adds a taxonomy to human corrections so teams can distinguish "the AI was factually wrong" from "the AI was right but the user preferred a different style" and identify systemic weaknesses that instruction updates can fix.
+When humans correct AI suggestions, the correction itself is valuable data. But a raw count of overrides tells you nothing about *why* the AI was wrong. Override analytics adds a taxonomy to human corrections so teams can distinguish "the AI was factually wrong" from "the AI was right but the user preferred a different style" and identify systemic weaknesses that instruction updates can fix.
 
 ## Current State
 
 Claude Reflect captures corrections during sessions and can persist them to CLAUDE.md or memory files. However, corrections are stored as unstructured text with no categorization. This means:
 
-- You can see _that_ corrections happened, but not _why_
+- You can see *that* corrections happened, but not *why*
 - Recurring patterns (e.g., "AI keeps using the wrong auth pattern") are invisible without manual review
 - There is no way to prioritize which instruction gaps to fix first
 
@@ -18,14 +18,14 @@ This document adds the taxonomy and trending guidance needed to turn raw correct
 
 Every human correction of an AI suggestion falls into one of six categories:
 
-| Category             | Code | Description                                                                                                  | Example                                                     |
-| -------------------- | ---- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
-| **Safety**           | `S`  | AI proposed something that could cause harm: security vulnerabilities, data exposure, destructive operations | "Don't use `git push --force` on main"                      |
-| **Correctness**      | `C`  | AI was factually wrong: incorrect logic, wrong API usage, broken code                                        | "That function returns a Promise, not a value"              |
-| **Style**            | `T`  | AI produced working code that violated project conventions or preferences                                    | "We use `const` not `let` for immutable bindings"           |
-| **Scope**            | `O`  | AI did too much or too little: overreached beyond the task, or missed part of it                             | "I only asked you to fix the test, not refactor the module" |
-| **Performance**      | `P`  | AI produced correct code with unacceptable performance characteristics                                       | "Don't load all records into memory; use pagination"        |
-| **Misunderstanding** | `M`  | AI misinterpreted the intent of the request                                                                  | "I meant the login page, not the signup page"               |
+| Category | Code | Description | Example |
+|----------|------|-------------|---------|
+| **Safety** | `S` | AI proposed something that could cause harm: security vulnerabilities, data exposure, destructive operations | "Don't use `git push --force` on main" |
+| **Correctness** | `C` | AI was factually wrong: incorrect logic, wrong API usage, broken code | "That function returns a Promise, not a value" |
+| **Style** | `T` | AI produced working code that violated project conventions or preferences | "We use `const` not `let` for immutable bindings" |
+| **Scope** | `O` | AI did too much or too little: overreached beyond the task, or missed part of it | "I only asked you to fix the test, not refactor the module" |
+| **Performance** | `P` | AI produced correct code with unacceptable performance characteristics | "Don't load all records into memory; use pagination" |
+| **Misunderstanding** | `M` | AI misinterpreted the intent of the request | "I meant the login page, not the signup page" |
 
 ### Category Priority
 
@@ -105,7 +105,7 @@ A single override is noise. Recurring overrides in the same category reveal syst
 ### Example Trend Analysis
 
 | Week | Safety | Correctness | Style | Scope | Performance | Misunderstanding |
-| ---- | ------ | ----------- | ----- | ----- | ----------- | ---------------- |
+|------|--------|-------------|-------|-------|-------------|------------------|
 | W1   | 0      | 3           | 5     | 1     | 0           | 2                |
 | W2   | 1      | 4           | 3     | 2     | 1           | 1                |
 | W3   | 0      | 1           | 4     | 0     | 0           | 0                |
@@ -115,11 +115,11 @@ Reading: W1-W2 shows a correctness spike. Investigation reveals the AI was using
 
 ### Action Thresholds
 
-| Signal                                       | Action                                                     |
-| -------------------------------------------- | ---------------------------------------------------------- |
-| 3+ overrides in same category in one week    | Investigate root cause                                     |
-| Safety override (any count)                  | Immediate instruction or hook update                       |
-| Declining overrides after instruction update | Instruction is working; no action needed                   |
+| Signal | Action |
+|--------|--------|
+| 3+ overrides in same category in one week | Investigate root cause |
+| Safety override (any count) | Immediate instruction or hook update |
+| Declining overrides after instruction update | Instruction is working; no action needed |
 | Category stays high after instruction update | Instruction is insufficient; escalate to hook or deny rule |
 
 ## Example Overrides with Categories

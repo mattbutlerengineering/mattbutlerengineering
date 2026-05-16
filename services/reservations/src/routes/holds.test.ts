@@ -369,10 +369,14 @@ describe("Hold Routes", () => {
       expect(body.data.id).toEqual(mockReservation.id);
       expect(body.data.status).toEqual("CONFIRMED");
       expect(body.data.guestName).toEqual("John Doe");
-      expect(holdService.convertToReservation).toHaveBeenCalledWith("hold-123", "session-abc", {
-        guestName: "John Doe",
-        guestEmail: "john@example.com",
-      });
+      expect(holdService.convertToReservation).toHaveBeenCalledWith(
+        "hold-123",
+        "session-abc",
+        {
+          guestName: "John Doe",
+          guestEmail: "john@example.com",
+        }
+      );
     });
 
     it("should return 400 without session ID", async () => {

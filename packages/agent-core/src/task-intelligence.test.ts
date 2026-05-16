@@ -1,12 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi } from "vitest";
-import {
-  resolveSourceFiles,
-  resolveBudget,
-  resolveModel,
-  formatPrExamples,
-  fetchRecentPrExamples,
-} from "./task-intelligence.js";
+import { resolveSourceFiles, resolveBudget, resolveModel, formatPrExamples, fetchRecentPrExamples } from "./task-intelligence.js";
 import { existsSync } from "node:fs";
 import { execFile } from "node:child_process";
 

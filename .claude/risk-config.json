@@ -50,6 +50,10 @@
     "owner": "@mattbutlerengineering",
     "reviewed": "2026-04-25",
     "review_cadence": "quarterly",
-    "feeds_back_into": ["docs/ai-ops-runbook.md", "docs/acmm.md", "CLAUDE.md"]
+    "feeds_back_into": [
+      "docs/ai-ops-runbook.md",
+      "docs/acmm.md",
+      "CLAUDE.md"
+    ]
   }
 }

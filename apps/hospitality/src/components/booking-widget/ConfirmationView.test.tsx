@@ -6,18 +6,8 @@ import type { Reservation } from "@mbe/types";
 import React from "react";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Button: ({
-    children,
-    onClick,
-    variant,
-  }: {
-    children: React.ReactNode;
-    onClick?: () => void;
-    variant?: string;
-  }) => (
-    <button onClick={onClick} data-variant={variant}>
-      {children}
-    </button>
+  Button: ({ children, onClick, variant }: { children: React.ReactNode; onClick?: () => void; variant?: string }) => (
+    <button onClick={onClick} data-variant={variant}>{children}</button>
   ),
   Text: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
 }));
@@ -50,52 +40,44 @@ describe("ConfirmationView", () => {
   const mockOnNewBooking = vi.fn();
 
   it("renders reservation confirmed heading", () => {
-    render(<ConfirmationView reservation={makeReservation()} onNewBooking={mockOnNewBooking} />);
+    render(
+      <ConfirmationView reservation={makeReservation()} onNewBooking={mockOnNewBooking} />
+    );
     expect(screen.getByText("Reservation Confirmed!")).toBeDefined();
   });
 
   it("displays the confirmation number from the reservation id", () => {
-    render(<ConfirmationView reservation={makeReservation()} onNewBooking={mockOnNewBooking} />);
+    render(
+      <ConfirmationView reservation={makeReservation()} onNewBooking={mockOnNewBooking} />
+    );
     // Last 8 chars of "res-abcd1234" uppercased = "BCD1234" ... actually "ABCD1234"
     expect(screen.getByText("ABCD1234")).toBeDefined();
   });
 
   it("displays party size with correct pluralization", () => {
     render(
-      <ConfirmationView
-        reservation={makeReservation({ partySize: 4 })}
-        onNewBooking={mockOnNewBooking}
-      />
+      <ConfirmationView reservation={makeReservation({ partySize: 4 })} onNewBooking={mockOnNewBooking} />
     );
     expect(screen.getByText("4 guests")).toBeDefined();
   });
 
   it("uses singular 'guest' for party size of 1", () => {
     render(
-      <ConfirmationView
-        reservation={makeReservation({ partySize: 1 })}
-        onNewBooking={mockOnNewBooking}
-      />
+      <ConfirmationView reservation={makeReservation({ partySize: 1 })} onNewBooking={mockOnNewBooking} />
     );
     expect(screen.getByText("1 guest")).toBeDefined();
   });
 
   it("displays guest name when present", () => {
     render(
-      <ConfirmationView
-        reservation={makeReservation({ guestName: "Jane Smith" })}
-        onNewBooking={mockOnNewBooking}
-      />
+      <ConfirmationView reservation={makeReservation({ guestName: "Jane Smith" })} onNewBooking={mockOnNewBooking} />
     );
     expect(screen.getByText("Jane Smith")).toBeDefined();
   });
 
   it("does not display name row when guestName is null", () => {
     render(
-      <ConfirmationView
-        reservation={makeReservation({ guestName: null })}
-        onNewBooking={mockOnNewBooking}
-      />
+      <ConfirmationView reservation={makeReservation({ guestName: null })} onNewBooking={mockOnNewBooking} />
     );
     expect(screen.queryByText("Name")).toBeNull();
   });
@@ -132,7 +114,9 @@ describe("ConfirmationView", () => {
   });
 
   it("calls onNewBooking when 'Make Another Reservation' is clicked", () => {
-    render(<ConfirmationView reservation={makeReservation()} onNewBooking={mockOnNewBooking} />);
+    render(
+      <ConfirmationView reservation={makeReservation()} onNewBooking={mockOnNewBooking} />
+    );
     fireEvent.click(screen.getByText("Make Another Reservation"));
     expect(mockOnNewBooking).toHaveBeenCalled();
   });
@@ -181,7 +165,9 @@ describe("ConfirmationView", () => {
   });
 
   it("does not show cancel button when neither cancellationUrl nor onCancellation is provided", () => {
-    render(<ConfirmationView reservation={makeReservation()} onNewBooking={mockOnNewBooking} />);
+    render(
+      <ConfirmationView reservation={makeReservation()} onNewBooking={mockOnNewBooking} />
+    );
     expect(screen.queryByText("Cancel Reservation")).toBeNull();
   });
 
@@ -191,7 +177,9 @@ describe("ConfirmationView", () => {
       table: { id: "t1", name: "Patio 1", tableNumber: "T1" },
     } as any;
 
-    render(<ConfirmationView reservation={resWithTable} onNewBooking={mockOnNewBooking} />);
+    render(
+      <ConfirmationView reservation={resWithTable} onNewBooking={mockOnNewBooking} />
+    );
     expect(screen.getByText("T1")).toBeDefined();
   });
 
@@ -201,7 +189,9 @@ describe("ConfirmationView", () => {
       table: { id: "t1", name: "Patio Corner", tableNumber: "" },
     } as any;
 
-    render(<ConfirmationView reservation={resWithTable} onNewBooking={mockOnNewBooking} />);
+    render(
+      <ConfirmationView reservation={resWithTable} onNewBooking={mockOnNewBooking} />
+    );
     expect(screen.getByText("Patio Corner")).toBeDefined();
   });
 });

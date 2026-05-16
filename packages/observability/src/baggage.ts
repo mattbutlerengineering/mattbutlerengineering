@@ -1,4 +1,9 @@
-import { propagation, context, type Baggage, type BaggageEntry } from "@opentelemetry/api";
+import {
+  propagation,
+  context,
+  type Baggage,
+  type BaggageEntry,
+} from "@opentelemetry/api";
 
 export const BAGGAGE_KEYS = {
   SESSION_ID: "agent.session_id",

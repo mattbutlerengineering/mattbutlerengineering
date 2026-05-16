@@ -17,31 +17,17 @@ function Typography() {
       <Text variant="display">Display text</Text>
       <Text variant="body">Body text — the standard for readable paragraphs.</Text>
       <Text variant="label">Label text</Text>
-      <Text variant="caption" color="secondary">
-        Caption text (secondary)
-      </Text>
-      <Text variant="detail" color="tertiary">
-        Detail text (tertiary)
-      </Text>
-      <Text variant="body" color="accent">
-        Accent colored text
-      </Text>
-      <Text variant="body" color="error">
-        Error colored text
-      </Text>
-      <Text variant="body" color="success">
-        Success colored text
-      </Text>
-      <Text variant="body" mono>
-        Monospace text
-      </Text>
+      <Text variant="caption" color="secondary">Caption text (secondary)</Text>
+      <Text variant="detail" color="tertiary">Detail text (tertiary)</Text>
+      <Text variant="body" color="accent">Accent colored text</Text>
+      <Text variant="body" color="error">Error colored text</Text>
+      <Text variant="body" color="success">Success colored text</Text>
+      <Text variant="body" mono>Monospace text</Text>
       <Divider />
       <div className={css.row}>
         <Kbd>Cmd</Kbd>
         <Kbd>K</Kbd>
-        <Text variant="caption" color="secondary">
-          Keyboard shortcut display
-        </Text>
+        <Text variant="caption" color="secondary">Keyboard shortcut display</Text>
       </div>
     </div>
   );
@@ -52,11 +38,7 @@ function Buttons() {
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--rialto-space-lg)" }}>
       {BUTTON_VARIANTS.map((variant) => (
         <div key={variant}>
-          <Text
-            variant="caption"
-            color="secondary"
-            style={{ marginBlockEnd: "var(--rialto-space-xs)" }}
-          >
+          <Text variant="caption" color="secondary" style={{ marginBlockEnd: "var(--rialto-space-xs)" }}>
             {variant}
           </Text>
           <div className={css.row}>
@@ -82,70 +64,44 @@ function Badges() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--rialto-space-lg)" }}>
       <div>
-        <Text
-          variant="caption"
-          color="secondary"
-          style={{ marginBlockEnd: "var(--rialto-space-xs)" }}
-        >
+        <Text variant="caption" color="secondary" style={{ marginBlockEnd: "var(--rialto-space-xs)" }}>
           Badge variants
         </Text>
         <div className={css.row}>
           {BADGE_VARIANTS.map((v) => (
-            <Badge key={v} variant={v}>
-              {v}
-            </Badge>
+            <Badge key={v} variant={v}>{v}</Badge>
           ))}
         </div>
       </div>
       <div>
-        <Text
-          variant="caption"
-          color="secondary"
-          style={{ marginBlockEnd: "var(--rialto-space-xs)" }}
-        >
+        <Text variant="caption" color="secondary" style={{ marginBlockEnd: "var(--rialto-space-xs)" }}>
           Badges with dot
         </Text>
         <div className={css.row}>
           {BADGE_VARIANTS.map((v) => (
-            <Badge key={v} variant={v} dot>
-              {v}
-            </Badge>
+            <Badge key={v} variant={v} dot>{v}</Badge>
           ))}
         </div>
       </div>
       <div>
-        <Text
-          variant="caption"
-          color="secondary"
-          style={{ marginBlockEnd: "var(--rialto-space-xs)" }}
-        >
+        <Text variant="caption" color="secondary" style={{ marginBlockEnd: "var(--rialto-space-xs)" }}>
           Small badges
         </Text>
         <div className={css.row}>
           {BADGE_VARIANTS.map((v) => (
-            <Badge key={v} variant={v} size="sm">
-              {v}
-            </Badge>
+            <Badge key={v} variant={v} size="sm">{v}</Badge>
           ))}
         </div>
       </div>
       <div>
-        <Text
-          variant="caption"
-          color="secondary"
-          style={{ marginBlockEnd: "var(--rialto-space-xs)" }}
-        >
+        <Text variant="caption" color="secondary" style={{ marginBlockEnd: "var(--rialto-space-xs)" }}>
           Tags
         </Text>
         <div className={css.row}>
           {BADGE_VARIANTS.map((v) => (
-            <Tag key={v} variant={v}>
-              {v}
-            </Tag>
+            <Tag key={v} variant={v}>{v}</Tag>
           ))}
-          <Tag variant="neutral" removable onRemove={() => {}}>
-            Removable
-          </Tag>
+          <Tag variant="neutral" removable onRemove={() => {}}>Removable</Tag>
         </div>
       </div>
     </div>
@@ -162,19 +118,11 @@ function Avatars() {
   );
 }
 
-export function FoundationSection({
-  which,
-}: {
-  which: "typography" | "buttons" | "badges" | "avatars";
-}) {
+export function FoundationSection({ which }: { which: "typography" | "buttons" | "badges" | "avatars" }) {
   switch (which) {
-    case "typography":
-      return <Typography />;
-    case "buttons":
-      return <Buttons />;
-    case "badges":
-      return <Badges />;
-    case "avatars":
-      return <Avatars />;
+    case "typography": return <Typography />;
+    case "buttons": return <Buttons />;
+    case "badges": return <Badges />;
+    case "avatars": return <Avatars />;
   }
 }

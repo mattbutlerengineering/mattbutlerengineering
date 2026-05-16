@@ -42,7 +42,7 @@ describe("useTapeChartLayout", () => {
   it("positions a simple reservation at the right offset and span", () => {
     const reservations = [buildReservation({ start: "2026-04-22", end: "2026-04-25" })];
     const { result } = renderHook(() =>
-      useTapeChartLayout(reservations, ROOMS, "2026-04-20", "2026-04-27")
+      useTapeChartLayout(reservations, ROOMS, "2026-04-20", "2026-04-27"),
     );
     const bars = result.current.barsByRoom.get("r1")!;
     expect(bars).toHaveLength(1);
@@ -55,7 +55,7 @@ describe("useTapeChartLayout", () => {
   it("clips reservations that extend before startDate", () => {
     const reservations = [buildReservation({ start: "2026-04-18", end: "2026-04-23" })];
     const { result } = renderHook(() =>
-      useTapeChartLayout(reservations, ROOMS, "2026-04-20", "2026-04-27")
+      useTapeChartLayout(reservations, ROOMS, "2026-04-20", "2026-04-27"),
     );
     const bars = result.current.barsByRoom.get("r1")!;
     expect(bars[0]!.startOffset).toBe(0);
@@ -66,7 +66,7 @@ describe("useTapeChartLayout", () => {
   it("clips reservations that extend past endDate", () => {
     const reservations = [buildReservation({ start: "2026-04-25", end: "2026-04-30" })];
     const { result } = renderHook(() =>
-      useTapeChartLayout(reservations, ROOMS, "2026-04-20", "2026-04-27")
+      useTapeChartLayout(reservations, ROOMS, "2026-04-20", "2026-04-27"),
     );
     const bars = result.current.barsByRoom.get("r1")!;
     expect(bars[0]!.startOffset).toBe(5);
@@ -81,7 +81,7 @@ describe("useTapeChartLayout", () => {
       buildReservation({ id: "c", status: "confirmed" }),
     ];
     const { result } = renderHook(() =>
-      useTapeChartLayout(reservations, ROOMS, "2026-04-20", "2026-04-27")
+      useTapeChartLayout(reservations, ROOMS, "2026-04-20", "2026-04-27"),
     );
     expect(result.current.barsByRoom.get("r1")).toHaveLength(1);
     expect(result.current.barsByRoom.get("r1")![0]!.reservation.id).toBe("c");
@@ -93,7 +93,7 @@ describe("useTapeChartLayout", () => {
       buildReservation({ id: "b", start: "2026-04-22", end: "2026-04-26" }),
     ];
     const { result } = renderHook(() =>
-      useTapeChartLayout(reservations, ROOMS, "2026-04-20", "2026-04-27")
+      useTapeChartLayout(reservations, ROOMS, "2026-04-20", "2026-04-27"),
     );
     const bars = result.current.barsByRoom.get("r1")!;
     const lanes = bars.map((b) => b.lane).sort();
@@ -107,7 +107,7 @@ describe("useTapeChartLayout", () => {
       buildReservation({ id: "b", roomId: "r2", start: "2026-04-21", end: "2026-04-24" }),
     ];
     const { result } = renderHook(() =>
-      useTapeChartLayout(reservations, ROOMS, "2026-04-20", "2026-04-25")
+      useTapeChartLayout(reservations, ROOMS, "2026-04-20", "2026-04-25"),
     );
     const day0 = result.current.dailyCounts[0]!; // Apr 20
     expect(day0.arrivals).toBe(1);
@@ -198,9 +198,7 @@ describe("<TapeChart /> rendering", () => {
     const user = userEvent.setup();
     const onClick = vi.fn();
     render(<TapeChart {...BASE} onReservationClick={onClick} />);
-    const bar = screen
-      .getAllByRole("button")
-      .find((b) => b.getAttribute("aria-label")?.includes("Jane Doe"));
+    const bar = screen.getAllByRole("button").find((b) => b.getAttribute("aria-label")?.includes("Jane Doe"));
     expect(bar).toBeDefined();
     await user.click(bar!);
     expect(onClick).toHaveBeenCalled();
@@ -215,7 +213,7 @@ describe("<TapeChart /> rendering", () => {
           regionLabel: "予約テープチャート",
           roomsColumnLabel: "部屋",
         }}
-      />
+      />,
     );
     expect(screen.getByRole("region", { name: /予約テープチャート/i })).toBeInTheDocument();
   });

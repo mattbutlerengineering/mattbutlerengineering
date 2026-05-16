@@ -38,12 +38,7 @@ export function TapeChartListView(props: TapeChartListViewProps) {
 
   const days = useMemo(() => {
     const count = Math.max(0, daysBetween(startDate, endDate));
-    const out: Array<{
-      iso: string;
-      arrivals: TapeChartReservation[];
-      departures: TapeChartReservation[];
-      inHouse: TapeChartReservation[];
-    }> = [];
+    const out: Array<{ iso: string; arrivals: TapeChartReservation[]; departures: TapeChartReservation[]; inHouse: TapeChartReservation[] }> = [];
     for (let i = 0; i < count; i++) {
       const iso = addDays(startDate, i);
       out.push({ iso, arrivals: [], departures: [], inHouse: [] });
@@ -52,9 +47,7 @@ export function TapeChartListView(props: TapeChartListViewProps) {
   }, [startDate, endDate]);
 
   const populatedDays = useMemo(() => {
-    const next = days.map(
-      (d) => ({ ...d, arrivals: [], departures: [], inHouse: [] }) as (typeof days)[number]
-    );
+    const next = days.map((d) => ({ ...d, arrivals: [], departures: [], inHouse: [] }) as typeof days[number]);
     for (const r of reservations) {
       if (r.status === "cancelled" || r.status === "noShow") continue;
       const startIdx = daysBetween(startDate, r.start);
@@ -87,8 +80,7 @@ export function TapeChartListView(props: TapeChartListViewProps) {
     const room = roomNameById.get(r.roomId) ?? r.roomId;
     const nights = daysBetween(r.start, r.end);
     const status = strings.statusLabels[r.status] ?? r.status;
-    const price =
-      r.ratePerNight != null ? formatters.currency(r.ratePerNight * nights, r.currency) : null;
+    const price = r.ratePerNight != null ? formatters.currency(r.ratePerNight * nights, r.currency) : null;
     return (
       <div
         key={r.id}
@@ -102,9 +94,7 @@ export function TapeChartListView(props: TapeChartListViewProps) {
         onKeyDown={(e) => onKey(e, r)}
       >
         <div className={styles.listRowGuest}>
-          <span className={styles.listRowGuestName}>
-            {r.guestName ?? r.blockedReason ?? status}
-          </span>
+          <span className={styles.listRowGuestName}>{r.guestName ?? r.blockedReason ?? status}</span>
           <span className={styles.listRowMeta}>
             {room} · {strings.nightsLabel(nights)}
             {r.source ? ` · ${r.source}` : ""}
@@ -125,15 +115,8 @@ export function TapeChartListView(props: TapeChartListViewProps) {
         const anything = d.arrivals.length || d.departures.length || d.inHouse.length;
         if (!anything) return null;
         return (
-          <section
-            key={d.iso}
-            className={styles.listSection}
-            aria-label={formatters.dayLong(d.iso)}
-          >
-            <header
-              className={styles.listDayHeader}
-              data-today={d.iso === todayISO ? "true" : undefined}
-            >
+          <section key={d.iso} className={styles.listSection} aria-label={formatters.dayLong(d.iso)}>
+            <header className={styles.listDayHeader} data-today={d.iso === todayISO ? "true" : undefined}>
               <span>{formatters.dayLong(d.iso)}</span>
               <span className={styles.listRowMeta}>
                 {strings.arrivalsLabel}: {formatters.number(d.arrivals.length)} ·{" "}

@@ -16,14 +16,12 @@ Template for `.planning/codebase/CONCERNS.md` - captures known issues and areas 
 ## Tech Debt
 
 **[Area/Component]:**
-
 - Issue: [What's the shortcut/workaround]
 - Why: [Why it was done this way]
 - Impact: [What breaks or degrades because of it]
 - Fix approach: [How to properly address it]
 
 **[Area/Component]:**
-
 - Issue: [What's the shortcut/workaround]
 - Why: [Why it was done this way]
 - Impact: [What breaks or degrades because of it]
@@ -32,7 +30,6 @@ Template for `.planning/codebase/CONCERNS.md` - captures known issues and areas 
 ## Known Bugs
 
 **[Bug description]:**
-
 - Symptoms: [What happens]
 - Trigger: [How to reproduce]
 - Workaround: [Temporary mitigation if any]
@@ -40,7 +37,6 @@ Template for `.planning/codebase/CONCERNS.md` - captures known issues and areas 
 - Blocked by: [If waiting on something]
 
 **[Bug description]:**
-
 - Symptoms: [What happens]
 - Trigger: [How to reproduce]
 - Workaround: [Temporary mitigation if any]
@@ -49,13 +45,11 @@ Template for `.planning/codebase/CONCERNS.md` - captures known issues and areas 
 ## Security Considerations
 
 **[Area requiring security care]:**
-
 - Risk: [What could go wrong]
 - Current mitigation: [What's in place now]
 - Recommendations: [What should be added]
 
 **[Area requiring security care]:**
-
 - Risk: [What could go wrong]
 - Current mitigation: [What's in place now]
 - Recommendations: [What should be added]
@@ -63,14 +57,12 @@ Template for `.planning/codebase/CONCERNS.md` - captures known issues and areas 
 ## Performance Bottlenecks
 
 **[Slow operation/endpoint]:**
-
 - Problem: [What's slow]
 - Measurement: [Actual numbers: "500ms p95", "2s load time"]
 - Cause: [Why it's slow]
 - Improvement path: [How to speed it up]
 
 **[Slow operation/endpoint]:**
-
 - Problem: [What's slow]
 - Measurement: [Actual numbers]
 - Cause: [Why it's slow]
@@ -79,14 +71,12 @@ Template for `.planning/codebase/CONCERNS.md` - captures known issues and areas 
 ## Fragile Areas
 
 **[Component/Module]:**
-
 - Why fragile: [What makes it break easily]
 - Common failures: [What typically goes wrong]
 - Safe modification: [How to change it without breaking]
 - Test coverage: [Is it tested? Gaps?]
 
 **[Component/Module]:**
-
 - Why fragile: [What makes it break easily]
 - Common failures: [What typically goes wrong]
 - Safe modification: [How to change it without breaking]
@@ -95,7 +85,6 @@ Template for `.planning/codebase/CONCERNS.md` - captures known issues and areas 
 ## Scaling Limits
 
 **[Resource/System]:**
-
 - Current capacity: [Numbers: "100 req/sec", "10k users"]
 - Limit: [Where it breaks]
 - Symptoms at limit: [What happens]
@@ -104,7 +93,6 @@ Template for `.planning/codebase/CONCERNS.md` - captures known issues and areas 
 ## Dependencies at Risk
 
 **[Package/Service]:**
-
 - Risk: [e.g., "deprecated", "unmaintained", "breaking changes coming"]
 - Impact: [What breaks if it fails]
 - Migration plan: [Alternative or upgrade path]
@@ -112,7 +100,6 @@ Template for `.planning/codebase/CONCERNS.md` - captures known issues and areas 
 ## Missing Critical Features
 
 **[Feature gap]:**
-
 - Problem: [What's missing]
 - Current workaround: [How users cope]
 - Blocks: [What can't be done without it]
@@ -121,7 +108,6 @@ Template for `.planning/codebase/CONCERNS.md` - captures known issues and areas 
 ## Test Coverage Gaps
 
 **[Untested area]:**
-
 - What's not tested: [Specific functionality]
 - Risk: [What could break unnoticed]
 - Priority: [High/Medium/Low]
@@ -129,12 +115,11 @@ Template for `.planning/codebase/CONCERNS.md` - captures known issues and areas 
 
 ---
 
-_Concerns audit: [date]_
-_Update as issues are fixed or new ones discovered_
+*Concerns audit: [date]*
+*Update as issues are fixed or new ones discovered*
 ```
 
 <good_examples>
-
 ```markdown
 # Codebase Concerns
 
@@ -143,7 +128,6 @@ _Update as issues are fixed or new ones discovered_
 ## Tech Debt
 
 **Database queries in React components:**
-
 - Issue: Direct Supabase queries in 15+ page components instead of server actions
 - Files: `app/dashboard/page.tsx`, `app/profile/page.tsx`, `app/courses/[id]/page.tsx`, `app/settings/page.tsx` (and 11 more in `app/`)
 - Why: Rapid prototyping during MVP phase
@@ -151,7 +135,6 @@ _Update as issues are fixed or new ones discovered_
 - Fix approach: Move all queries to server actions in `app/actions/`, add proper RLS policies
 
 **Manual webhook signature validation:**
-
 - Issue: Copy-pasted Stripe webhook verification code in 3 different endpoints
 - Files: `app/api/webhooks/stripe/route.ts`, `app/api/webhooks/checkout/route.ts`, `app/api/webhooks/subscription/route.ts`
 - Why: Each webhook added ad-hoc without abstraction
@@ -161,7 +144,6 @@ _Update as issues are fixed or new ones discovered_
 ## Known Bugs
 
 **Race condition in subscription updates:**
-
 - Symptoms: User shows as "free" tier for 5-10 seconds after successful payment
 - Trigger: Fast navigation after Stripe checkout redirect, before webhook processes
 - Files: `app/checkout/success/page.tsx` (redirect handler), `app/api/webhooks/stripe/route.ts` (webhook)
@@ -170,7 +152,6 @@ _Update as issues are fixed or new ones discovered_
 - Fix: Add polling in `app/checkout/success/page.tsx` after redirect
 
 **Inconsistent session state after logout:**
-
 - Symptoms: User redirected to /dashboard after logout instead of /login
 - Trigger: Logout via button in mobile nav (desktop works fine)
 - File: `components/MobileNav.tsx` (line ~45, logout handler)
@@ -181,23 +162,20 @@ _Update as issues are fixed or new ones discovered_
 ## Security Considerations
 
 **Admin role check client-side only:**
-
 - Risk: Admin dashboard pages check isAdmin from Supabase client, no server verification
 - Files: `app/admin/page.tsx`, `app/admin/users/page.tsx`, `components/AdminGuard.tsx`
 - Current mitigation: None (relying on UI hiding)
 - Recommendations: Add middleware to admin routes in `middleware.ts`, verify role server-side
 
 **Unvalidated file uploads:**
-
 - Risk: Users can upload any file type to avatar bucket (no size/type validation)
 - File: `components/AvatarUpload.tsx` (upload handler)
 - Current mitigation: Supabase bucket limits to 2MB (configured in dashboard)
-- Recommendations: Add file type validation (image/\* only) in `lib/storage/validate.ts`
+- Recommendations: Add file type validation (image/* only) in `lib/storage/validate.ts`
 
 ## Performance Bottlenecks
 
 **/api/courses endpoint:**
-
 - Problem: Fetching all courses with nested lessons and authors
 - File: `app/api/courses/route.ts`
 - Measurement: 1.2s p95 response time with 50+ courses
@@ -205,7 +183,6 @@ _Update as issues are fixed or new ones discovered_
 - Improvement path: Use Prisma include to eager-load lessons in `lib/db/courses.ts`, add Redis caching
 
 **Dashboard initial load:**
-
 - Problem: Waterfall of 5 serial API calls on mount
 - File: `app/dashboard/page.tsx`
 - Measurement: 3.5s until interactive on slow 3G
@@ -215,7 +192,6 @@ _Update as issues are fixed or new ones discovered_
 ## Fragile Areas
 
 **Authentication middleware chain:**
-
 - File: `middleware.ts`
 - Why fragile: 4 different middleware functions run in specific order (auth -> role -> subscription -> logging)
 - Common failures: Middleware order change breaks everything, hard to debug
@@ -223,7 +199,6 @@ _Update as issues are fixed or new ones discovered_
 - Test coverage: No integration tests for middleware chain (only unit tests)
 
 **Stripe webhook event handling:**
-
 - File: `app/api/webhooks/stripe/route.ts`
 - Why fragile: Giant switch statement with 12 event types, shared transaction logic
 - Common failures: New event type added without handling, partial DB updates on error
@@ -233,14 +208,12 @@ _Update as issues are fixed or new ones discovered_
 ## Scaling Limits
 
 **Supabase Free Tier:**
-
 - Current capacity: 500MB database, 1GB file storage, 2GB bandwidth/month
 - Limit: ~5000 users estimated before hitting limits
 - Symptoms at limit: 429 rate limit errors, DB writes fail
 - Scaling path: Upgrade to Pro ($25/mo) extends to 8GB DB, 100GB storage
 
 **Server-side render blocking:**
-
 - Current capacity: ~50 concurrent users before slowdown
 - Limit: Vercel Hobby plan (10s function timeout, 100GB-hrs/mo)
 - Symptoms at limit: 504 gateway timeouts on course pages
@@ -249,7 +222,6 @@ _Update as issues are fixed or new ones discovered_
 ## Dependencies at Risk
 
 **react-hot-toast:**
-
 - Risk: Unmaintained (last update 18 months ago), React 19 compatibility unknown
 - Impact: Toast notifications break, no graceful degradation
 - Migration plan: Switch to sonner (actively maintained, similar API)
@@ -257,14 +229,12 @@ _Update as issues are fixed or new ones discovered_
 ## Missing Critical Features
 
 **Payment failure handling:**
-
 - Problem: No retry mechanism or user notification when subscription payment fails
 - Current workaround: Users manually re-enter payment info (if they notice)
 - Blocks: Can't retain users with expired cards, no dunning process
 - Implementation complexity: Medium (Stripe webhooks + email flow + UI)
 
 **Course progress tracking:**
-
 - Problem: No persistent state for which lessons completed
 - Current workaround: Users manually track progress
 - Blocks: Can't show completion percentage, can't recommend next lesson
@@ -273,14 +243,12 @@ _Update as issues are fixed or new ones discovered_
 ## Test Coverage Gaps
 
 **Payment flow end-to-end:**
-
 - What's not tested: Full Stripe checkout -> webhook -> subscription activation flow
 - Risk: Payment processing could break silently (has happened twice)
 - Priority: High
 - Difficulty to test: Need Stripe test fixtures and webhook simulation setup
 
 **Error boundary behavior:**
-
 - What's not tested: How app behaves when components throw errors
 - Risk: White screen of death for users, no error reporting
 - Priority: Medium
@@ -288,10 +256,9 @@ _Update as issues are fixed or new ones discovered_
 
 ---
 
-_Concerns audit: 2025-01-20_
-_Update as issues are fixed or new ones discovered_
+*Concerns audit: 2025-01-20*
+*Update as issues are fixed or new ones discovered*
 ```
-
 </good_examples>
 
 <guidelines>
@@ -307,7 +274,6 @@ _Update as issues are fixed or new ones discovered_
 - Test coverage gaps
 
 **What does NOT belong here:**
-
 - Opinions without evidence ("code is messy")
 - Complaints without solutions ("auth sucks")
 - Future feature ideas (that's for product planning)
@@ -316,7 +282,6 @@ _Update as issues are fixed or new ones discovered_
 - Minor code style issues
 
 **When filling this template:**
-
 - **Always include file paths** - Concerns without locations are not actionable. Use backticks: `src/file.ts`
 - Be specific with measurements ("500ms p95" not "slow")
 - Include reproduction steps for bugs
@@ -327,14 +292,12 @@ _Update as issues are fixed or new ones discovered_
 - Add new concerns as discovered
 
 **Tone guidelines:**
-
 - Professional, not emotional ("N+1 query pattern" not "terrible queries")
 - Solution-oriented ("Fix: add index" not "needs fixing")
 - Risk-focused ("Could expose user data" not "security is bad")
 - Factual ("3.5s load time" not "really slow")
 
 **Useful for phase planning when:**
-
 - Deciding what to work on next
 - Estimating risk of changes
 - Understanding where to be careful

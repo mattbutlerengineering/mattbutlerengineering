@@ -12,10 +12,10 @@ describe("resolveTheme", () => {
   });
 
   it("returns 'dark' for system when prefers-color-scheme is dark", () => {
-    Object.defineProperty(window, "matchMedia", {
+    Object.defineProperty(window, 'matchMedia', {
       writable: true,
-      value: vi.fn().mockImplementation((query) => ({
-        matches: query === "(prefers-color-scheme: dark)",
+      value: vi.fn().mockImplementation(query => ({
+        matches: query === '(prefers-color-scheme: dark)',
         media: query,
         onchange: null,
         addListener: vi.fn(),
@@ -43,7 +43,7 @@ describe("useThemeState", () => {
 
   it("persists theme preference to localStorage", () => {
     const { result } = renderHook(() => useThemeState());
-
+    
     act(() => {
       result.current.setTheme("dark");
     });
@@ -54,10 +54,10 @@ describe("useThemeState", () => {
 
   it("toggles theme between light and dark", () => {
     const { result } = renderHook(() => useThemeState());
-
+    
     // Default system might be light/dark, but toggle should switch it
     const initialTheme = result.current.theme;
-
+    
     act(() => {
       result.current.toggleTheme();
     });

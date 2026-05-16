@@ -62,10 +62,7 @@ export function ActivityFeed({ events, isConnected }: ActivityFeedProps) {
     <Card title="Live Activity">
       <ul className={styles.activityFeed} aria-live="polite" role="status">
         {events.map((event) => (
-          <li
-            key={`${event.type}-${event.venueId}-${event.timestamp}`}
-            className={styles.activityItem}
-          >
+          <li key={`${event.type}-${event.venueId}-${event.timestamp}`} className={styles.activityItem}>
             <Text className={styles.activityDot} />
             <div className={styles.activityContent}>
               <div className={styles.activityMessage}>{describeEvent(event)}</div>

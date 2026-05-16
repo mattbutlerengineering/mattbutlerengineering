@@ -48,9 +48,11 @@ function delay(ms: number): Promise<void> {
 }
 
 async function parseOwnerRepo(repoPath: string): Promise<{ owner: string; repo: string }> {
-  const { stdout } = await execFileAsync("gh", ["repo", "view", "--json", "owner,name"], {
-    cwd: repoPath,
-  });
+  const { stdout } = await execFileAsync(
+    "gh",
+    ["repo", "view", "--json", "owner,name"],
+    { cwd: repoPath }
+  );
   const parsed = JSON.parse(stdout) as { owner: { login: string }; name: string };
   return { owner: parsed.owner.login, repo: parsed.name };
 }
@@ -146,8 +148,7 @@ export async function runFeedbackLoop(
         systemPrompt: {
           type: "preset",
           preset: "claude_code",
-          append:
-            "You are fixing feedback on an existing PR. Work in the current branch. Do NOT create a new branch or PR.",
+          append: "You are fixing feedback on an existing PR. Work in the current branch. Do NOT create a new branch or PR.",
         },
         canUseTool: async (toolName, input) => canUseTool(toolName, input),
       },
@@ -159,7 +160,10 @@ export async function runFeedbackLoop(
     }
 
     // Commit and push the fixes
-    await commitAndPush(config.repoPath, `fix: address PR feedback (attempt ${attempt + 1})`);
+    await commitAndPush(
+      config.repoPath,
+      `fix: address PR feedback (attempt ${attempt + 1})`
+    );
 
     emitEvent(onEvent, "session:message", {
       message: `Feedback loop: fix session complete, pushed changes (attempt ${attempt + 1})`,

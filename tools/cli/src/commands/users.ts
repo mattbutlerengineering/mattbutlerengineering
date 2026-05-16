@@ -3,7 +3,8 @@ import { isAuthenticated } from "../config.js";
 import { apiRequest } from "../api.js";
 import type { ApiResponse, PaginatedResponse, User } from "@mbe/types";
 
-export const usersCommand = new Command("users").description("User management commands");
+export const usersCommand = new Command("users")
+  .description("User management commands");
 
 usersCommand
   .command("list")

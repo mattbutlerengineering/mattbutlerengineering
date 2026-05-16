@@ -8,9 +8,6 @@ export async function pulumiStackOutputs(): Promise<string> {
     });
     return output;
   } catch (error) {
-    return JSON.stringify({
-      error: "Failed to get Pulumi outputs",
-      message: error instanceof Error ? error.message : String(error),
-    });
+    return JSON.stringify({ error: "Failed to get Pulumi outputs", message: error instanceof Error ? error.message : String(error) });
   }
 }

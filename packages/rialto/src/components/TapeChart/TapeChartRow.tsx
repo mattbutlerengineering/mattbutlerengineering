@@ -47,7 +47,11 @@ function TapeChartRowImpl(props: TapeChartRowProps) {
       <div role="rowheader" className={styles.roomHeader}>
         <strong>
           {room.status && (
-            <span className={styles.roomStatusDot} data-status={room.status} aria-hidden="true" />
+            <span
+              className={styles.roomStatusDot}
+              data-status={room.status}
+              aria-hidden="true"
+            />
           )}
           {room.name}
           {room.status && (

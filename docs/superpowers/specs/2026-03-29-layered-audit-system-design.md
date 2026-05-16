@@ -34,15 +34,14 @@ The current `/site-audit` skill checks the same 3 routes (`/`, `/hospitality`, `
 **Trigger:** Scheduled cron or manual `/site-audit scout`
 **Scope:** Entire project (codebase analysis, not live site checks)
 **Analysis:**
-
 - Lighthouse score trends from inventory history
 - Recently closed issue patterns (recurring problem areas)
 - Dependency freshness (`npm outdated`, security advisories)
 - Codebase TODOs/FIXMEs
 - Bundle size analysis
 - Comparison with common best practices
-  **Issue creation:** Max 3 `feature` or `meta-improvement` issues per run
-  **Parallelism:** Not needed (single AI analysis pass)
+**Issue creation:** Max 3 `feature` or `meta-improvement` issues per run
+**Parallelism:** Not needed (single AI analysis pass)
 
 ## Data Model
 
@@ -56,15 +55,15 @@ interface AuditInventory {
 }
 
 interface AuditSurface {
-  id: string; // "hospitality:timeline", "api:reservations:list"
+  id: string;                      // "hospitality:timeline", "api:reservations:list"
   zone: Zone;
   type: "page" | "api_endpoint";
-  url: string; // full URL
-  sourceFiles: string[]; // files that map to this surface
+  url: string;                     // full URL
+  sourceFiles: string[];           // files that map to this surface
   auth: "none" | "auth0";
-  lastChecked: string | null; // ISO timestamp
+  lastChecked: string | null;      // ISO timestamp
   lastScore: LighthouseScores | null;
-  checkHistory: ScoreEntry[]; // last 10 scores for trend detection
+  checkHistory: ScoreEntry[];      // last 10 scores for trend detection
   checkCount: number;
 }
 
@@ -94,15 +93,15 @@ type Zone =
 
 Derived from codebase conventions:
 
-| File Pattern                      | Surface                                       |
-| --------------------------------- | --------------------------------------------- |
-| `apps/<app>/src/pages/<Page>.tsx` | `<app>:<kebab-page>` → `/<app>/<kebab-page>`  |
-| `apps/<app>/src/components/**`    | All surfaces in that app's zone               |
-| `apps/<app>/src/App.tsx`          | All surfaces in that app's zone               |
-| `packages/rialto/src/**`          | All surfaces in all frontend zones            |
-| `services/<svc>/src/routes/**`    | All API surfaces in that service's zone       |
-| `services/<svc>/src/app.ts`       | All API surfaces in that service's zone       |
-| `infrastructure/worker/**`        | All surfaces (edge router affects everything) |
+| File Pattern | Surface |
+|-------------|---------|
+| `apps/<app>/src/pages/<Page>.tsx` | `<app>:<kebab-page>` → `/<app>/<kebab-page>` |
+| `apps/<app>/src/components/**` | All surfaces in that app's zone |
+| `apps/<app>/src/App.tsx` | All surfaces in that app's zone |
+| `packages/rialto/src/**` | All surfaces in all frontend zones |
+| `services/<svc>/src/routes/**` | All API surfaces in that service's zone |
+| `services/<svc>/src/app.ts` | All API surfaces in that service's zone |
+| `infrastructure/worker/**` | All surfaces (edge router affects everything) |
 
 When a file doesn't match any app/service pattern (e.g., root configs, CI files, docs), it is ignored for smoke mode targeting. Only files within `apps/`, `services/`, `packages/`, or `infrastructure/` trigger surface checks. This avoids noisy smoke runs for documentation or config changes.
 
@@ -155,7 +154,6 @@ collect results → update inventory → create issues
 ```
 
 Each subagent is a self-contained audit worker that:
-
 1. Navigates to the URL (Playwright or curl for APIs)
 2. Runs the configured checks
 3. Returns structured results (scores, errors, screenshots)
@@ -180,7 +178,6 @@ Sweep and Scout run independently on their own schedules, not as part of the shi
 ## Regression Detection
 
 A regression is detected when:
-
 - **Lighthouse score drops >0.05** from `lastScore` on any category
 - **New console errors** appear that weren't in previous check
 - **API health endpoint** returns non-`ok` status
@@ -191,7 +188,6 @@ Regressions create issues with `ci-fix` + `audit` labels (high priority in ship-
 ## Score Trending (Scout Mode)
 
 The `checkHistory` array (last 10 entries) enables trend analysis:
-
 - **Degrading:** Score declining over 3+ checks → create issue even if still above threshold
 - **Improving:** Score rising → note in Scout report as positive signal
 - **Stable low:** Score consistently below threshold → escalate priority
@@ -199,7 +195,6 @@ The `checkHistory` array (last 10 entries) enables trend analysis:
 ## Coverage Reporting
 
 The inventory enables coverage queries:
-
 - "X of Y surfaces checked in the last 30 days"
 - "Zone Z has not been checked in N days"
 - "These 5 surfaces have never been checked"
@@ -208,17 +203,16 @@ This feeds into the `/progress-tracker` skill for overall health metrics.
 
 ## New Files
 
-| File                                                        | Action | Purpose                                                      |
-| ----------------------------------------------------------- | ------ | ------------------------------------------------------------ |
-| `.audit-state/inventory.json`                               | CREATE | Surface inventory with scores and timestamps                 |
-| `packages/agent-core/src/audit-inventory.ts`                | CREATE | Inventory builder, file-to-surface mapper, staleness queries |
-| `packages/agent-core/src/__tests__/audit-inventory.test.ts` | CREATE | Tests for inventory logic                                    |
-| `.claude/skills/site-audit/SKILL.md`                        | MODIFY | Add 3 modes, parallel dispatch, inventory integration        |
+| File | Action | Purpose |
+|------|--------|---------|
+| `.audit-state/inventory.json` | CREATE | Surface inventory with scores and timestamps |
+| `packages/agent-core/src/audit-inventory.ts` | CREATE | Inventory builder, file-to-surface mapper, staleness queries |
+| `packages/agent-core/src/__tests__/audit-inventory.test.ts` | CREATE | Tests for inventory logic |
+| `.claude/skills/site-audit/SKILL.md` | MODIFY | Add 3 modes, parallel dispatch, inventory integration |
 
 ## Verification
 
 After implementation:
-
 ```bash
 # Unit tests
 cd packages/agent-core && pnpm test

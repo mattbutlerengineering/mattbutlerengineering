@@ -193,10 +193,7 @@ export function SpinnerPage() {
           items={[
             { label: "Role", value: "role=status" },
             { label: "Label", value: "aria-label provided via the label prop" },
-            {
-              label: "Reduced motion",
-              value: "Spin animation disabled via prefers-reduced-motion",
-            },
+            { label: "Reduced motion", value: "Spin animation disabled via prefers-reduced-motion" },
             { label: "Screen reader", value: "Announces loading state when rendered" },
           ]}
         />

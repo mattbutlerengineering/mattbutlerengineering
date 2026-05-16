@@ -158,12 +158,7 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
         {label && (
           <label htmlFor={inputId} className={styles.label}>
             {label}
-            {required && (
-              <span className={styles.required} aria-hidden="true">
-                {" "}
-                *
-              </span>
-            )}
+            {required && <span className={styles.required} aria-hidden="true"> *</span>}
             {showOptional && !required && <span className={styles.optional}> (optional)</span>}
           </label>
         )}
@@ -248,11 +243,7 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
           )}
         </AnimatePresence>
 
-        {hint && (
-          <span id={hintId} className={styles.hint}>
-            {hint}
-          </span>
-        )}
+        {hint && <span id={hintId} className={styles.hint}>{hint}</span>}
       </div>
     );
   }

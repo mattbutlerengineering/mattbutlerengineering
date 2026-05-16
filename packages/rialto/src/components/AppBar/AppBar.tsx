@@ -14,10 +14,7 @@ import styles from "./AppBar.module.css";
  *   actions={<ThemeToggle />}
  * />
  */
-export interface AppBarProps extends Pick<
-  HTMLAttributes<HTMLElement>,
-  "id" | "aria-label" | "className" | "style"
-> {
+export interface AppBarProps extends Pick<HTMLAttributes<HTMLElement>, "id" | "aria-label" | "className" | "style"> {
   /** Left-aligned brand element. */
   logo?: ReactNode;
   /** Right-aligned action slot (theme toggle, links, etc.). */
@@ -32,7 +29,9 @@ export const AppBar = forwardRef<HTMLElement, AppBarProps>(
   ({ logo, actions, glass = true, height = "56px", className, style, ...props }, ref) => {
     const shouldReduceMotion = useReducedMotion();
 
-    const classes = [styles.appBar, glass ? styles.glass : "", className].filter(Boolean).join(" ");
+    const classes = [styles.appBar, glass ? styles.glass : "", className]
+      .filter(Boolean)
+      .join(" ");
 
     return (
       <motion.header

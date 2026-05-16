@@ -96,9 +96,7 @@ export const statsCommand = new Command("stats")
     console.log(`Avg Research Turns:     ${avgResearch.toFixed(2)}`);
     console.log(`Avg Execution Turns:    ${avgExecution.toFixed(2)}`);
     console.log(`First-Pass Success:     ${successRate.toFixed(1)}%`);
-    console.log(
-      `Human Interventions:    ${totalInterventions} (${(totalInterventions / total).toFixed(2)} per session)`
-    );
+    console.log(`Human Interventions:    ${totalInterventions} (${(totalInterventions/total).toFixed(2)} per session)`);
     console.log(`Total Cost (Est):       $${totalCost.toFixed(2)}`);
     console.log("");
   });
@@ -125,38 +123,37 @@ export const auditPerfCommand = new Command("audit-perf")
     const improvements: { id: string; msg: string; action: string; priority: number }[] = [];
 
     // 1. Check for high research turns (Discovery issues)
-    const highResearch = records.filter((r) => r.researchTurns > 5);
+    const highResearch = records.filter(r => r.researchTurns > 5);
     if (highResearch.length > 0) {
       const avg = highResearch.reduce((sum, r) => sum + r.researchTurns, 0) / highResearch.length;
       improvements.push({
         id: "discovery",
         msg: `High Research Turns detected (Avg: ${avg.toFixed(1)})`,
         action: "Run 'mbe pack <directory>' on frequently touched directories to compress context.",
-        priority: avg > 8 ? 1 : 2,
+        priority: avg > 8 ? 1 : 2
       });
     }
 
     // 2. Check for low first-pass success (Guardrail issues)
-    const failures = records.filter((r) => !r.firstPassSuccess);
+    const failures = records.filter(r => !r.firstPassSuccess);
     if (failures.length > 0) {
       const rate = (failures.length / records.length) * 100;
       improvements.push({
         id: "guardrails",
         msg: `${rate.toFixed(1)}% of tasks failed on first pass`,
         action: "Identify the failure pattern and implement a new Custom ESLint Rule (Phase 27).",
-        priority: rate > 20 ? 1 : 2,
+        priority: rate > 20 ? 1 : 2
       });
     }
 
     // 3. Check for human interventions (Guideline issues)
-    const interventions = records.filter((r) => r.humanInterventions > 0);
+    const interventions = records.filter(r => r.humanInterventions > 0);
     if (interventions.length > 0) {
       improvements.push({
         id: "guidelines",
         msg: `Human interventions detected in ${interventions.length} sessions`,
-        action:
-          "Update AGENTS.md with specific naming or architectural guidelines to eliminate ambiguity.",
-        priority: 1,
+        action: "Update AGENTS.md with specific naming or architectural guidelines to eliminate ambiguity.",
+        priority: 1
       });
     }
 
@@ -172,24 +169,21 @@ export const auditPerfCommand = new Command("audit-perf")
     improvements.forEach((imp, i) => console.log(`${i + 1}. ${imp.msg}. ACTION: ${imp.action}`));
 
     // Save findings for recursion detection
-    writeFileSync(
-      lastAuditFile,
-      JSON.stringify({ timestamp: new Date().toISOString(), improvements }, null, 2)
-    );
+    writeFileSync(lastAuditFile, JSON.stringify({ timestamp: new Date().toISOString(), improvements }, null, 2));
 
     // Auto-plan generation
     if (options.autoPlan && improvements.length > 0) {
       const top = improvements[0];
       const quickDir = join(root, ".planning/quick");
       const planPath = join(quickDir, "AUTO-PERF-OPTIMIZATION.md");
-
+      
       if (!existsSync(quickDir)) mkdirSync(quickDir, { recursive: true });
 
       const planContent = `# Auto-Generated Performance Optimization: ${top.id}\n\n**Source**: mbe audit-perf\n**Detected Issue**: ${top.msg}\n\n## Objective\n${top.action}\n\n## Implementation Steps\n1. Analyze the last 5 sessions in \`docs/logs/agent-perf.jsonl\` to find specific files.\n2. Apply the recommended optimization.\n3. Verify improvement by running \`mbe stats\`.\n`;
-
+      
       writeFileSync(planPath, planContent);
       console.log(`\n🚀 Created autonomous optimization plan at: ${planPath}`);
     }
-
+    
     console.log("");
   });

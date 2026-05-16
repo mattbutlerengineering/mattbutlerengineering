@@ -5,14 +5,14 @@ on:
     branches:
       - main
     paths:
-      - "packages/rialto/**"
-      - ".github/workflows/storybook.yml"
+      - 'packages/rialto/**'
+      - '.github/workflows/storybook.yml'
   pull_request:
     branches:
       - main
     paths:
-      - "packages/rialto/**"
-      - ".github/workflows/storybook.yml"
+      - 'packages/rialto/**'
+      - '.github/workflows/storybook.yml'
   workflow_dispatch:
 
 permissions:
@@ -37,8 +37,8 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "pnpm"
+          node-version: '22'
+          cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

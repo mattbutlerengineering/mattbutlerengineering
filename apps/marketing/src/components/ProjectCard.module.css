@@ -35,9 +35,7 @@
   font-weight: var(--rialto-weight-medium);
   line-height: 1;
   cursor: pointer;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .buttonLink:hover {

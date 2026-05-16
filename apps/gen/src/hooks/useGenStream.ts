@@ -75,12 +75,8 @@ export function useGenStream({
   const onCompleteRef = useRef(onComplete);
   const onErrorRef = useRef(onError);
 
-  useEffect(() => {
-    onCompleteRef.current = onComplete;
-  }, [onComplete]);
-  useEffect(() => {
-    onErrorRef.current = onError;
-  }, [onError]);
+  useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
+  useEffect(() => { onErrorRef.current = onError; }, [onError]);
 
   const send = useCallback(
     async (prompt: string, context?: Record<string, unknown>): Promise<void> => {

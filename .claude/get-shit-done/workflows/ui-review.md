@@ -8,9 +8,8 @@ Retroactive 6-pillar visual audit of implemented frontend code. Standalone comma
 
 <available_agent_types>
 Valid GSD subagent types (use exact names — do not fall back to 'general-purpose'):
-
 - gsd-ui-auditor — Audits UI against design requirements
-  </available_agent_types>
+</available_agent_types>
 
 <process>
 
@@ -29,7 +28,6 @@ UI_AUDITOR_MODEL=$(node "${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.clau
 ```
 
 Display banner:
-
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  GSD ► UI AUDIT — PHASE {N}: {name}
@@ -47,7 +45,6 @@ UI_REVIEW_FILE=$(ls "${PHASE_DIR}"/*-UI-REVIEW.md 2>/dev/null | head -1)
 **If `SUMMARY_FILES` empty:** Exit — "Phase {N} not executed. Run /gsd:execute-phase {N} first."
 
 **If `UI_REVIEW_FILE` non-empty:** Use AskUserQuestion:
-
 - header: "Existing UI Review"
 - question: "UI-REVIEW.md already exists for Phase {N}."
 - options:
@@ -60,7 +57,6 @@ If "Re-audit": continue.
 ## 2. Gather Context Paths
 
 Build file list for auditor:
-
 - All SUMMARY.md files in phase dir
 - All PLAN.md files in phase dir
 - UI-SPEC.md (if exists — audit baseline)
@@ -84,12 +80,11 @@ Conduct 6-pillar visual audit of Phase {phase_number}: {phase_name}
 </objective>
 
 <files_to_read>
-
 - {summary_paths} (Execution summaries)
 - {plan_paths} (Execution plans — what was intended)
 - {ui_spec_path} (UI Design Contract — audit baseline, if exists)
 - {context_path} (User decisions, if exists)
-  </files_to_read>
+</files_to_read>
 
 ${AGENT_SKILLS_UI_REVIEWER}
 
@@ -160,7 +155,6 @@ node "${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/bi
 </process>
 
 <success_criteria>
-
 - [ ] Phase validated
 - [ ] SUMMARY.md files found (execution completed)
 - [ ] Existing review handled (re-audit/view)
@@ -168,4 +162,4 @@ node "${PROJECT_ROOT:-$(git rev-parse --show-toplevel)}/.claude/get-shit-done/bi
 - [ ] UI-REVIEW.md created in phase directory
 - [ ] Score summary displayed to user
 - [ ] Next steps presented
-      </success_criteria>
+</success_criteria>

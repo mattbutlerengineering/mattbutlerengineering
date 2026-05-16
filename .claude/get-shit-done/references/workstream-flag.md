@@ -15,7 +15,6 @@ parallel milestone work by multiple Claude Code instances on the same codebase.
 ## Routing Propagation
 
 All workflow routing commands include `${GSD_WS}` which:
-
 - Expands to `--ws <name>` when a workstream is active
 - Expands to empty string in flat mode (backward compatible)
 

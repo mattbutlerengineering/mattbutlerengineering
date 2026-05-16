@@ -6,23 +6,22 @@ Monitor the health of the AI agent system itself — not just the code it produc
 
 ## Key Metrics
 
-| Metric               | Source                      | Healthy | Warning     | Critical |
-| -------------------- | --------------------------- | ------- | ----------- | -------- |
-| Session success rate | Langfuse `success` score    | >90%    | 70-90%      | <70%     |
-| Avg session duration | Langfuse trace duration     | <5min   | 5-15min     | >15min   |
-| Stuck rate           | Langfuse `stuck` score      | <5%     | 5-15%       | >15%     |
-| API error rate       | Langfuse generation errors  | <1%     | 1-5%        | >5%      |
-| Cost per session     | Langfuse `cost_usd` score   | <$0.50  | $0.50-$2.00 | >$2.00   |
-| Turns per session    | Langfuse `num_turns` score  | <20     | 20-40       | >40      |
-| CI pass rate         | GitHub Actions              | >80%    | 60-80%      | <60%     |
-| Failed agent issues  | GitHub `agent-failed` label | 0-2     | 3-5         | >5       |
+| Metric | Source | Healthy | Warning | Critical |
+|--------|--------|---------|---------|----------|
+| Session success rate | Langfuse `success` score | >90% | 70-90% | <70% |
+| Avg session duration | Langfuse trace duration | <5min | 5-15min | >15min |
+| Stuck rate | Langfuse `stuck` score | <5% | 5-15% | >15% |
+| API error rate | Langfuse generation errors | <1% | 1-5% | >5% |
+| Cost per session | Langfuse `cost_usd` score | <$0.50 | $0.50-$2.00 | >$2.00 |
+| Turns per session | Langfuse `num_turns` score | <20 | 20-40 | >40 |
+| CI pass rate | GitHub Actions | >80% | 60-80% | <60% |
+| Failed agent issues | GitHub `agent-failed` label | 0-2 | 3-5 | >5 |
 
 ## Data Sources
 
 ### Langfuse
 
 All agent sessions are traced to [Langfuse Cloud](https://cloud.langfuse.com):
-
 - **Session traces** — one per `runSession()` call
 - **Generation spans** — per-turn with token usage
 - **Scores** — `success`, `cost_usd`, `num_turns`, `stuck`, `evaluation_confidence`
@@ -45,13 +44,13 @@ The script works without Langfuse credentials by computing metrics from GitHub d
 
 ## Alerting
 
-| Condition                       | Duration  | Action                                             |
-| ------------------------------- | --------- | -------------------------------------------------- |
-| Success rate <70%               | 24h       | Create GitHub issue with `agent-health` label      |
-| Stuck rate >15%                 | 24h       | Create GitHub issue with `agent-health` label      |
-| 3+ consecutive session failures | Immediate | Create GitHub issue with `agent-health` label      |
-| Cost spike (>3x daily average)  | Immediate | Create `cost-alert` issue (see cost-governance.md) |
-| CI pass rate <60%               | 24h       | Investigate via `/ci-monitor`                      |
+| Condition | Duration | Action |
+|-----------|----------|--------|
+| Success rate <70% | 24h | Create GitHub issue with `agent-health` label |
+| Stuck rate >15% | 24h | Create GitHub issue with `agent-health` label |
+| 3+ consecutive session failures | Immediate | Create GitHub issue with `agent-health` label |
+| Cost spike (>3x daily average) | Immediate | Create `cost-alert` issue (see cost-governance.md) |
+| CI pass rate <60% | 24h | Investigate via `/ci-monitor` |
 
 ## Investigating Health Issues
 

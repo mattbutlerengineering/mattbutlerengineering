@@ -76,7 +76,11 @@ export function ToastPage() {
       {/* ── Without Description ───────────────────────────────────── */}
       <Section title="Title Only">
         <div className={styles.row} style={{ flexWrap: "wrap" }}>
-          <Button variant="secondary" size="sm" onClick={() => toast({ title: "Lap recorded" })}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => toast({ title: "Lap recorded" })}
+          >
             Title only
           </Button>
           <Button
@@ -134,7 +138,7 @@ export function ToastPage() {
           }}
         >
           <pre style={{ margin: 0 }}>
-            {`// 1. RialtoProvider already includes ToastProvider
+{`// 1. RialtoProvider already includes ToastProvider
 // 2. Import and use the hook:
 import { useToast } from '@mattbutlerengineering/rialto';
 

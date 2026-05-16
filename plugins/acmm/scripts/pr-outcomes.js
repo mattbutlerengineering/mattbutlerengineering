@@ -26,7 +26,12 @@
 
 import { execFileSync } from "node:child_process";
 
-const AGENT_BRANCH_PREFIXES = ["worktree-agent-", "agent-", "fix/agent-", "feat/agent-"];
+const AGENT_BRANCH_PREFIXES = [
+  "worktree-agent-",
+  "agent-",
+  "fix/agent-",
+  "feat/agent-",
+];
 const AGENT_LABEL = "has-pr";
 const WINDOW_DAYS = 30;
 const REVERT_WINDOW_DAYS = 7;
@@ -152,7 +157,7 @@ export function fetchAgentPrs(opts = {}) {
         "--json",
         "number,title,headRefName,state,createdAt,mergedAt,labels,author",
       ],
-      { encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] }
+      { encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] },
     );
     allPrs = JSON.parse(stdout);
   } catch {
@@ -190,11 +195,13 @@ export function fetchAgentPrs(opts = {}) {
 
 function fetchRevertedPrNumbers({ sinceDays }) {
   try {
-    const since = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const since = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
     const stdout = execFileSync(
       "git",
       ["log", "--since=" + since, "--grep=^Revert ", "--pretty=format:%s%n%b%n---END---"],
-      { encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] }
+      { encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] },
     );
     const reverted = new Set();
     for (const block of stdout.split("---END---")) {
@@ -210,10 +217,11 @@ function fetchRevertedPrNumbers({ sinceDays }) {
 
 function prHasNonAuthorCommit(ghBin, prNumber, author) {
   try {
-    const stdout = execFileSync(ghBin, ["pr", "view", String(prNumber), "--json", "commits"], {
-      encoding: "utf-8",
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    const stdout = execFileSync(
+      ghBin,
+      ["pr", "view", String(prNumber), "--json", "commits"],
+      { encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] },
+    );
     const data = JSON.parse(stdout);
     const commits = Array.isArray(data?.commits) ? data.commits : [];
     return commits.some((c) => {

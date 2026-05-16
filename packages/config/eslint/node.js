@@ -24,8 +24,7 @@ export default [
             },
             {
               group: ["@mbe/observability/sentry/react"],
-              message:
-                "Frontend entrypoint. Use @mbe/observability/sentry/node in backend services.",
+              message: "Frontend entrypoint. Use @mbe/observability/sentry/node in backend services.",
             },
           ],
         },
@@ -36,13 +35,7 @@ export default [
   // Health routes are exempt since they need direct DB access for connectivity checks.
   {
     files: ["**/routes/**/*.ts"],
-    ignores: [
-      "**/routes/health.ts",
-      "**/routes/health.test.ts",
-      "**/routes/ready.ts",
-      "**/routes/ready.test.ts",
-      "**/routes/**/*.test.ts",
-    ],
+    ignores: ["**/routes/health.ts", "**/routes/health.test.ts", "**/routes/ready.ts", "**/routes/ready.test.ts", "**/routes/**/*.test.ts"],
     rules: {
       "no-restricted-imports": [
         "error",
@@ -62,8 +55,7 @@ export default [
             },
             {
               group: ["@mbe/observability/sentry/react"],
-              message:
-                "Frontend entrypoint. Use @mbe/observability/sentry/node in backend services.",
+              message: "Frontend entrypoint. Use @mbe/observability/sentry/node in backend services.",
             },
             {
               group: ["**/services/database", "**/services/database.js"],
@@ -72,7 +64,8 @@ export default [
             },
             {
               group: ["@prisma/client", "@prisma/client/*"],
-              message: "Routes must not import Prisma directly. Use the service layer instead.",
+              message:
+                "Routes must not import Prisma directly. Use the service layer instead.",
             },
           ],
         },

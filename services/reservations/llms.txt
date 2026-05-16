@@ -102,7 +102,10 @@
       }
     </item>
     <item priority="high">
-      export function estimateDuration(partySize: number, venueSettings?: VenueSettings | null): number { /* ... */ }
+      export function estimateDuration(
+        partySize: number,
+        venueSettings?: VenueSettings | null
+      ): number { /* ... */ }
     </item>
   </file>
   <file path="src/services/database.ts">

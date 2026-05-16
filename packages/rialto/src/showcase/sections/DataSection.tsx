@@ -32,60 +32,22 @@ const COLUMNS: ReadonlyArray<ColumnDef<SampleRow>> = [
 ];
 
 const TAB_ITEMS = [
-  {
-    value: "overview",
-    label: "Overview",
-    content: <Text variant="body">Overview content goes here.</Text>,
-  },
-  {
-    value: "details",
-    label: "Details",
-    content: <Text variant="body">Detailed information and settings.</Text>,
-  },
-  {
-    value: "history",
-    label: "History",
-    content: <Text variant="body">Activity history and logs.</Text>,
-  },
+  { value: "overview", label: "Overview", content: <Text variant="body">Overview content goes here.</Text> },
+  { value: "details", label: "Details", content: <Text variant="body">Detailed information and settings.</Text> },
+  { value: "history", label: "History", content: <Text variant="body">Activity history and logs.</Text> },
 ];
 
 const ACCORDION_ITEMS = [
-  {
-    value: "q1",
-    title: "What is Rialto?",
-    content: "Rialto is a React component library built with material honesty principles.",
-  },
-  {
-    value: "q2",
-    title: "How do vibes work?",
-    content:
-      "Vibes are CSS custom property override presets that shift the design language to match user intent.",
-  },
-  {
-    value: "q3",
-    title: "Is Rialto accessible?",
-    content:
-      "Yes. All interactive components meet WCAG AA standards with keyboard navigation and screen reader support.",
-  },
+  { value: "q1", title: "What is Rialto?", content: "Rialto is a React component library built with material honesty principles." },
+  { value: "q2", title: "How do vibes work?", content: "Vibes are CSS custom property override presets that shift the design language to match user intent." },
+  { value: "q3", title: "Is Rialto accessible?", content: "Yes. All interactive components meet WCAG AA standards with keyboard navigation and screen reader support." },
 ];
 
 const TIMELINE_EVENTS = [
   { title: "Project created", description: "Initial repository setup", date: "Jan 15, 2026" },
-  {
-    title: "Design tokens defined",
-    description: "Colors, typography, spacing, radius, shadows",
-    date: "Feb 1, 2026",
-  },
-  {
-    title: "Core components shipped",
-    description: "Button, Input, Card, Dialog, Table",
-    date: "Mar 10, 2026",
-  },
-  {
-    title: "Figma migration started",
-    description: "Token extraction and component showcase",
-    date: "Apr 14, 2026",
-  },
+  { title: "Design tokens defined", description: "Colors, typography, spacing, radius, shadows", date: "Feb 1, 2026" },
+  { title: "Core components shipped", description: "Button, Input, Card, Dialog, Table", date: "Mar 10, 2026" },
+  { title: "Figma migration started", description: "Token extraction and component showcase", date: "Apr 14, 2026" },
 ];
 
 export function DataSection() {
@@ -95,11 +57,7 @@ export function DataSection() {
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--rialto-space-xl)" }}>
       {/* Stats */}
       <div>
-        <Text
-          variant="caption"
-          color="secondary"
-          style={{ marginBlockEnd: "var(--rialto-space-xs)" }}
-        >
+        <Text variant="caption" color="secondary" style={{ marginBlockEnd: "var(--rialto-space-xs)" }}>
           Stats
         </Text>
         <div className={css.gridLayout}>
@@ -112,11 +70,7 @@ export function DataSection() {
 
       {/* Table */}
       <div>
-        <Text
-          variant="caption"
-          color="secondary"
-          style={{ marginBlockEnd: "var(--rialto-space-xs)" }}
-        >
+        <Text variant="caption" color="secondary" style={{ marginBlockEnd: "var(--rialto-space-xs)" }}>
           Table
         </Text>
         <Table data={SAMPLE_DATA} columns={COLUMNS} />
@@ -124,11 +78,7 @@ export function DataSection() {
 
       {/* DataList */}
       <div>
-        <Text
-          variant="caption"
-          color="secondary"
-          style={{ marginBlockEnd: "var(--rialto-space-xs)" }}
-        >
+        <Text variant="caption" color="secondary" style={{ marginBlockEnd: "var(--rialto-space-xs)" }}>
           Data List
         </Text>
         <Card style={{ maxWidth: 400 }}>
@@ -145,11 +95,7 @@ export function DataSection() {
 
       {/* Breadcrumb */}
       <div>
-        <Text
-          variant="caption"
-          color="secondary"
-          style={{ marginBlockEnd: "var(--rialto-space-xs)" }}
-        >
+        <Text variant="caption" color="secondary" style={{ marginBlockEnd: "var(--rialto-space-xs)" }}>
           Breadcrumb
         </Text>
         <Breadcrumb
@@ -163,11 +109,7 @@ export function DataSection() {
 
       {/* Tabs */}
       <div>
-        <Text
-          variant="caption"
-          color="secondary"
-          style={{ marginBlockEnd: "var(--rialto-space-xs)" }}
-        >
+        <Text variant="caption" color="secondary" style={{ marginBlockEnd: "var(--rialto-space-xs)" }}>
           Tabs
         </Text>
         <Tabs items={TAB_ITEMS} defaultValue="overview" />
@@ -175,11 +117,7 @@ export function DataSection() {
 
       {/* Accordion */}
       <div>
-        <Text
-          variant="caption"
-          color="secondary"
-          style={{ marginBlockEnd: "var(--rialto-space-xs)" }}
-        >
+        <Text variant="caption" color="secondary" style={{ marginBlockEnd: "var(--rialto-space-xs)" }}>
           Accordion
         </Text>
         <Accordion items={ACCORDION_ITEMS} />
@@ -187,11 +125,7 @@ export function DataSection() {
 
       {/* Timeline */}
       <div>
-        <Text
-          variant="caption"
-          color="secondary"
-          style={{ marginBlockEnd: "var(--rialto-space-xs)" }}
-        >
+        <Text variant="caption" color="secondary" style={{ marginBlockEnd: "var(--rialto-space-xs)" }}>
           Timeline
         </Text>
         <Timeline events={TIMELINE_EVENTS} />
@@ -199,11 +133,7 @@ export function DataSection() {
 
       {/* Pagination */}
       <div>
-        <Text
-          variant="caption"
-          color="secondary"
-          style={{ marginBlockEnd: "var(--rialto-space-xs)" }}
-        >
+        <Text variant="caption" color="secondary" style={{ marginBlockEnd: "var(--rialto-space-xs)" }}>
           Pagination
         </Text>
         <Pagination currentPage={page} totalPages={10} onPageChange={setPage} />

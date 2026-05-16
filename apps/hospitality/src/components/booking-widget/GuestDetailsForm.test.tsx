@@ -15,26 +15,9 @@ const mockHold: ReservationHold = {
 };
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Input: ({
-    label,
-    required,
-    value,
-    onChange,
-    placeholder,
-    type,
-  }: {
-    label?: string;
-    required?: boolean;
-    value?: string;
-    onChange?: (e: any) => void;
-    placeholder?: string;
-    type?: string;
-  }) => (
+  Input: ({ label, required, value, onChange, placeholder, type }: { label?: string; required?: boolean; value?: string; onChange?: (e: any) => void; placeholder?: string; type?: string }) => (
     <div data-testid="input-wrapper">
-      <label>
-        {label}
-        {required && "*"}
-      </label>
+      <label>{label}{required && "*"}</label>
       <input
         data-testid={label?.toLowerCase().replace(/\s/g, "-")}
         type={type || "text"}
@@ -44,19 +27,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       />
     </div>
   ),
-  TextArea: ({
-    label,
-    value,
-    onChange,
-    rows,
-    placeholder,
-  }: {
-    label?: string;
-    value?: string;
-    onChange?: (e: any) => void;
-    rows?: number;
-    placeholder?: string;
-  }) => (
+  TextArea: ({ label, value, onChange, rows, placeholder }: { label?: string; value?: string; onChange?: (e: any) => void; rows?: number; placeholder?: string }) => (
     <div data-testid="textarea-wrapper">
       <label>{label}</label>
       <textarea
@@ -68,21 +39,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       />
     </div>
   ),
-  Button: ({
-    children,
-    variant,
-    size,
-    disabled,
-    onClick,
-    type,
-  }: {
-    children?: React.ReactNode;
-    variant?: string;
-    size?: string;
-    disabled?: boolean;
-    onClick?: () => void;
-    type?: string;
-  }) => (
+  Button: ({ children, variant, size, disabled, onClick, type }: { children?: React.ReactNode; variant?: string; size?: string; disabled?: boolean; onClick?: () => void; type?: string }) => (
     <button
       data-testid={variant === "ghost" ? "back-button" : "submit-button"}
       data-variant={variant}
@@ -95,14 +52,10 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     </button>
   ),
   Alert: ({ children, variant }: { children?: React.ReactNode; variant?: string }) => (
-    <div data-testid="alert" data-variant={variant}>
-      {children}
-    </div>
+    <div data-testid="alert" data-variant={variant}>{children}</div>
   ),
   Text: ({ children, className }: { children?: React.ReactNode; className?: string }) => (
-    <div data-testid="text" className={className}>
-      {children}
-    </div>
+    <div data-testid="text" className={className}>{children}</div>
   ),
 }));
 

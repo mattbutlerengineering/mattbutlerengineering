@@ -13,7 +13,14 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync } from "node:fs";
+import {
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  existsSync,
+  readdirSync,
+  statSync,
+} from "node:fs";
 import { dirname, resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -90,9 +97,10 @@ function collectPrMetrics() {
   const data = safe(() => readJson(metricsPath));
   if (!data) return { available: false };
 
-  const entries = Array.isArray(data) ? data : (data.entries ?? []);
+  const entries = Array.isArray(data) ? data : data.entries ?? [];
   const latest = entries[entries.length - 1];
-  const previous = entries.length > 1 ? entries[entries.length - 2] : null;
+  const previous =
+    entries.length > 1 ? entries[entries.length - 2] : null;
 
   return {
     available: true,
@@ -107,11 +115,21 @@ function collectAgentCost() {
   const entries = readJsonl(spendPath);
   if (entries.length === 0) return { available: false };
 
-  const sevenDayEntries = entries.filter((e) => new Date(e.date || e.timestamp) >= sevenDaysAgo);
-  const totalSpend7d = sevenDayEntries.reduce((sum, e) => sum + (e.costUsd ?? e.cost_usd ?? 0), 0);
+  const sevenDayEntries = entries.filter(
+    (e) => new Date(e.date || e.timestamp) >= sevenDaysAgo,
+  );
+  const totalSpend7d = sevenDayEntries.reduce(
+    (sum, e) => sum + (e.costUsd ?? e.cost_usd ?? 0),
+    0,
+  );
   const todayStr = now.toISOString().slice(0, 10);
-  const todayEntries = entries.filter((e) => (e.date || e.timestamp || "").startsWith(todayStr));
-  const todaySpend = todayEntries.reduce((sum, e) => sum + (e.costUsd ?? e.cost_usd ?? 0), 0);
+  const todayEntries = entries.filter(
+    (e) => (e.date || e.timestamp || "").startsWith(todayStr),
+  );
+  const todaySpend = todayEntries.reduce(
+    (sum, e) => sum + (e.costUsd ?? e.cost_usd ?? 0),
+    0,
+  );
 
   return {
     available: true,
@@ -127,7 +145,14 @@ function collectAgentCost() {
 
 function collectCiHealth() {
   const raw = safe(() =>
-    gh("run", "list", "--limit", "30", "--json", "status,conclusion,createdAt,name")
+    gh(
+      "run",
+      "list",
+      "--limit",
+      "30",
+      "--json",
+      "status,conclusion,createdAt,name",
+    ),
   );
   if (!raw) return { available: false };
 
@@ -138,7 +163,9 @@ function collectCiHealth() {
   const passed = completed.filter((r) => r.conclusion === "success");
   const failed = completed.filter((r) => r.conclusion === "failure");
   const passRate =
-    completed.length > 0 ? Math.round((passed.length / completed.length) * 100) : 100;
+    completed.length > 0
+      ? Math.round((passed.length / completed.length) * 100)
+      : 100;
 
   return {
     available: true,
@@ -157,9 +184,12 @@ function collectLighthouse() {
   if (!inv) return { available: false };
 
   const surfaces = inv.surfaces ?? inv;
-  if (!Array.isArray(surfaces) && typeof surfaces !== "object") return { available: false };
+  if (!Array.isArray(surfaces) && typeof surfaces !== "object")
+    return { available: false };
 
-  const entries = Array.isArray(surfaces) ? surfaces : Object.values(surfaces);
+  const entries = Array.isArray(surfaces)
+    ? surfaces
+    : Object.values(surfaces);
   const scored = entries.filter((s) => s.scores || s.lighthouse);
 
   return {
@@ -184,19 +214,27 @@ function collectGitHubIssues() {
       "--limit",
       "50",
       "--json",
-      "number,state,labels,createdAt,closedAt"
-    )
+      "number,state,labels,createdAt,closedAt",
+    ),
   );
   if (!raw) return { available: false };
 
   const issues = safe(() => JSON.parse(raw), []);
-  const recentIssues = issues.filter((i) => new Date(i.createdAt) >= sevenDaysAgo);
-  const recentClosed = issues.filter((i) => i.closedAt && new Date(i.closedAt) >= sevenDaysAgo);
+  const recentIssues = issues.filter(
+    (i) => new Date(i.createdAt) >= sevenDaysAgo,
+  );
+  const recentClosed = issues.filter(
+    (i) => i.closedAt && new Date(i.closedAt) >= sevenDaysAgo,
+  );
   const openReady = issues.filter(
-    (i) => i.state === "OPEN" && (i.labels ?? []).some((l) => l.name === "ready")
+    (i) =>
+      i.state === "OPEN" &&
+      (i.labels ?? []).some((l) => l.name === "ready"),
   );
   const agentFailed = issues.filter(
-    (i) => i.state === "OPEN" && (i.labels ?? []).some((l) => l.name === "agent-failed")
+    (i) =>
+      i.state === "OPEN" &&
+      (i.labels ?? []).some((l) => l.name === "agent-failed"),
   );
 
   return {
@@ -204,7 +242,9 @@ function collectGitHubIssues() {
     created_7d: recentIssues.length,
     closed_7d: recentClosed.length,
     closure_rate:
-      recentIssues.length > 0 ? Math.round((recentClosed.length / recentIssues.length) * 100) : 100,
+      recentIssues.length > 0
+        ? Math.round((recentClosed.length / recentIssues.length) * 100)
+        : 100,
     queue_depth: openReady.length,
     agent_failed: agentFailed.length,
   };
@@ -215,17 +255,25 @@ function collectSessionLogs() {
   if (!existsSync(logDir)) return { available: false };
 
   const files = safe(
-    () => readdirSync(logDir).filter((f) => f.endsWith(".json") && f !== ".gitkeep"),
-    []
+    () =>
+      readdirSync(logDir).filter(
+        (f) => f.endsWith(".json") && f !== ".gitkeep",
+      ),
+    [],
   );
   const recentFiles = files.filter((f) => {
     const fstat = safe(() => statSync(join(logDir, f)));
     return fstat && fstat.mtime >= sevenDaysAgo;
   });
 
-  const sessions = recentFiles.map((f) => safe(() => readJson(join(logDir, f)))).filter(Boolean);
+  const sessions = recentFiles
+    .map((f) => safe(() => readJson(join(logDir, f))))
+    .filter(Boolean);
 
-  const totalCommits = sessions.reduce((sum, s) => sum + (s.commit_count ?? 0), 0);
+  const totalCommits = sessions.reduce(
+    (sum, s) => sum + (s.commit_count ?? 0),
+    0,
+  );
   const branches = [...new Set(sessions.map((s) => s.branch).filter(Boolean))];
 
   return {
@@ -244,7 +292,8 @@ function detectRegressions(current, previous) {
   const regressions = [];
 
   if (current.ciHealth?.available && previous?.ciHealth?.available) {
-    const delta = current.ciHealth.pass_rate_pct - previous.ciHealth.pass_rate_pct;
+    const delta =
+      current.ciHealth.pass_rate_pct - previous.ciHealth.pass_rate_pct;
     if (delta < -THRESHOLDS.ci_pass_rate_drop) {
       regressions.push({
         sensor: "ciHealth",
@@ -259,7 +308,9 @@ function detectRegressions(current, previous) {
 
   if (current.lighthouse?.available && previous?.lighthouse?.available) {
     for (const surface of current.lighthouse.surfaces ?? []) {
-      const prevSurface = (previous.lighthouse.surfaces ?? []).find((s) => s.url === surface.url);
+      const prevSurface = (previous.lighthouse.surfaces ?? []).find(
+        (s) => s.url === surface.url,
+      );
       if (!prevSurface) continue;
 
       for (const [category, score] of Object.entries(surface.scores)) {
@@ -281,7 +332,10 @@ function detectRegressions(current, previous) {
   }
 
   if (current.issues?.available && previous?.issues?.available) {
-    if (current.issues.closure_rate < 50 && previous.issues.closure_rate >= 50) {
+    if (
+      current.issues.closure_rate < 50 &&
+      previous.issues.closure_rate >= 50
+    ) {
       regressions.push({
         sensor: "issues",
         metric: "closure_rate",
@@ -320,7 +374,9 @@ const report = {
 const previousReport = safe(() => readJson(REPORT_PATH));
 report.regressions = detectRegressions(report.sensors, previousReport?.sensors);
 
-const availableCount = Object.values(report.sensors).filter((s) => s.available).length;
+const availableCount = Object.values(report.sensors).filter(
+  (s) => s.available,
+).length;
 const totalSensors = Object.keys(report.sensors).length;
 const regressedCount = report.regressions.length;
 
@@ -334,10 +390,12 @@ report.summary = {
 if (JSON_ONLY) {
   process.stdout.write(JSON.stringify(report, null, 2) + "\n");
 } else {
-  console.log(`\n📊 Sensor Report — ${report.period.start} to ${report.period.end}`);
+  console.log(
+    `\n📊 Sensor Report — ${report.period.start} to ${report.period.end}`,
+  );
   console.log(`   Sensors: ${availableCount}/${totalSensors} available`);
   console.log(
-    `   Status:  ${regressedCount > 0 ? `⚠️  ${regressedCount} regression(s)` : "✅ Healthy"}`
+    `   Status:  ${regressedCount > 0 ? `⚠️  ${regressedCount} regression(s)` : "✅ Healthy"}`,
   );
   console.log();
 
@@ -350,26 +408,28 @@ if (JSON_ONLY) {
     switch (name) {
       case "acmm":
         console.log(
-          `   ${name}: L${data.level} (${data.criteria_met}/${data.criteria_total} criteria)`
+          `   ${name}: L${data.level} (${data.criteria_met}/${data.criteria_total} criteria)`,
         );
         break;
       case "ciHealth":
         console.log(
-          `   ${name}: ${data.pass_rate_pct}% pass rate (${data.passed}/${data.completed})`
+          `   ${name}: ${data.pass_rate_pct}% pass rate (${data.passed}/${data.completed})`,
         );
         break;
       case "agentCost":
         console.log(
-          `   ${name}: $${data.spend_7d_usd} (7d), $${data.spend_today_usd} (today), ${data.sessions_7d} sessions`
+          `   ${name}: $${data.spend_7d_usd} (7d), $${data.spend_today_usd} (today), ${data.sessions_7d} sessions`,
         );
         break;
       case "issues":
         console.log(
-          `   ${name}: ${data.created_7d} created, ${data.closed_7d} closed, ${data.queue_depth} ready`
+          `   ${name}: ${data.created_7d} created, ${data.closed_7d} closed, ${data.queue_depth} ready`,
         );
         break;
       case "sessionLogs":
-        console.log(`   ${name}: ${data.logs_7d} sessions (7d), ${data.total_commits_7d} commits`);
+        console.log(
+          `   ${name}: ${data.logs_7d} sessions (7d), ${data.total_commits_7d} commits`,
+        );
         break;
       case "lighthouse":
         console.log(`   ${name}: ${data.scored_count} surfaces scored`);
@@ -386,7 +446,7 @@ if (JSON_ONLY) {
     console.log("\n   Regressions:");
     for (const r of report.regressions) {
       console.log(
-        `   ⚠️  ${r.sensor}.${r.metric}: ${r.previous} → ${r.current} (${r.delta > 0 ? "+" : ""}${r.delta}) [${r.severity}]`
+        `   ⚠️  ${r.sensor}.${r.metric}: ${r.previous} → ${r.current} (${r.delta > 0 ? "+" : ""}${r.delta}) [${r.severity}]`,
       );
     }
   }

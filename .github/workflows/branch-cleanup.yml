@@ -2,7 +2,7 @@ name: Branch Cleanup
 
 on:
   schedule:
-    - cron: "0 2 * * 0" # Sunday 2am UTC
+    - cron: "0 2 * * 0"  # Sunday 2am UTC
   workflow_dispatch:
     inputs:
       dry_run:
@@ -30,13 +30,13 @@ jobs:
         run: |
           # Get default branch name
           DEFAULT_BRANCH=$(git remote show origin | grep "HEAD branch" | sed 's/.*: //')
-
+          
           # Protected branches to exclude
           PROTECTED_BRANCHES="main production release/ develop development"
-
+          
           # Find branches merged into main (that are not protected)
           MERGED_BRANCHES=$(git branch --merged main | grep -v "$DEFAULT_BRANCH" | grep -vE "(^\*|main|production|release/)" || true)
-
+          
           for branch in $MERGED_BRANCHES; do
             # Skip current branch
             [[ "$branch" == "*" ]] && continue

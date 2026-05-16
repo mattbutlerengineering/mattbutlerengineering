@@ -46,7 +46,9 @@ describe("UsersClient", () => {
     });
 
     it("passes custom page and limit", async () => {
-      mockFetch.mockResolvedValueOnce(jsonResponse({ data: [], total: 0, page: 2, limit: 5 }));
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ data: [], total: 0, page: 2, limit: 5 })
+      );
 
       await makeClient().list(2, 5);
 

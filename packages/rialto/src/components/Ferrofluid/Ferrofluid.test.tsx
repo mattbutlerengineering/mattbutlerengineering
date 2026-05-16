@@ -60,8 +60,12 @@ describe("Ferrofluid", () => {
     it("produces the same blob positions across renders for the same count", () => {
       const { container: a } = render(<Ferrofluid blobCount={3} />);
       const { container: b } = render(<Ferrofluid blobCount={3} />);
-      const positionsA = Array.from(a.querySelectorAll("circle")).map((c) => c.getAttribute("r"));
-      const positionsB = Array.from(b.querySelectorAll("circle")).map((c) => c.getAttribute("r"));
+      const positionsA = Array.from(a.querySelectorAll("circle")).map((c) =>
+        c.getAttribute("r")
+      );
+      const positionsB = Array.from(b.querySelectorAll("circle")).map((c) =>
+        c.getAttribute("r")
+      );
       expect(positionsA).toEqual(positionsB);
     });
   });

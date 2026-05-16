@@ -37,7 +37,10 @@ function ColorRow({ tokens }: { tokens: ReadonlyArray<{ name: string; label: str
     <div className={css.row} style={{ marginBlockEnd: "var(--rialto-space-sm)" }}>
       {tokens.map((t) => (
         <div key={t.name} className={css.colorSwatch}>
-          <div className={css.swatchCircle} style={{ background: `var(${t.name})` }} />
+          <div
+            className={css.swatchCircle}
+            style={{ background: `var(${t.name})` }}
+          />
           <span className={css.swatchLabel}>{t.label}</span>
         </div>
       ))}

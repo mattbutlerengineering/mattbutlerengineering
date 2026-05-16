@@ -20,7 +20,6 @@ Follow these 7 steps for every UI generation task:
 ### Step 1: Parse Requirements
 
 Extract from the user's request:
-
 - **Primary purpose** (data display, form, navigation, dashboard, etc.)
 - **Key entities** (users, orders, settings, etc.)
 - **Actions needed** (create, edit, delete, search, filter, etc.)
@@ -31,17 +30,14 @@ Extract from the user's request:
 Use the decision trees to choose components. Never guess — follow the trees:
 
 **Form inputs:**
-
 - Text → Input | TextArea | PinInput
 - Number → NumberInput (exact) | Slider (range)
 - Choice: On/off → Toggle (immediate) | Checkbox (form). Few options → SegmentedControl | RadioGroup | Select. Many options → Select | CommandPalette. Multiple → Checkbox group
 
 **Overlays:**
-
 - Form in modal → Dialog. Yes/no → ConfirmDialog. Settings panel → Drawer. Positioned → Popover. Help text → Tooltip. Preview → HoverCard. Actions menu → DropdownMenu. Right-click → ContextMenu
 
 **Feedback (by priority — stop at first match):**
-
 - P1 Destructive → ConfirmDialog
 - P2 Must act → Dialog/Drawer
 - P3 Page-wide → Banner
@@ -50,11 +46,9 @@ Use the decision trees to choose components. Never guess — follow the trees:
 - P6 Supplemental → Tooltip/HoverCard
 
 **Navigation:**
-
 - Switch panels → Tabs. Path trail → Breadcrumb. Wizard → Steps. Pages → Pagination. App nav → Sidebar | Navbar
 
 **Data:**
-
 - Tabular → Table. Key-value → DataList. Metric → Stat. Events → Timeline. Hierarchy → Tree. Container → Card. Status label → Badge. Selectable label → Tag
 
 ### Step 3: Compose Layout
@@ -98,7 +92,6 @@ All values from CSS custom properties. Never hardcode.
 ### Step 7: Generate Code
 
 **Constraints:**
-
 - Import from `"rialto"` barrel only (never subpaths)
 - Import `"rialto/tokens"` for CSS tokens
 - CSS Modules for custom styles (`.module.css`)
@@ -112,18 +105,8 @@ All values from CSS custom properties. Never hardcode.
 ```tsx
 import { useState } from "react";
 import {
-  Stack,
-  Card,
-  Table,
-  Pagination,
-  Button,
-  Input,
-  Badge,
-  Dialog,
-  Toast,
-  EmptyState,
-  Spinner,
-  Alert,
+  Stack, Card, Table, Pagination, Button, Input,
+  Badge, Dialog, Toast, EmptyState, Spinner, Alert
 } from "rialto";
 import { useToast } from "rialto";
 import { useReducedMotion } from "framer-motion";
@@ -141,12 +124,7 @@ export function PageName() {
   if (loading) return <Spinner label="Loading..." />;
 
   // Error state
-  if (error)
-    return (
-      <Alert variant="error" title="Error">
-        {error}
-      </Alert>
-    );
+  if (error) return <Alert variant="error" title="Error">{error}</Alert>;
 
   // Empty state
   if (data.length === 0) {
@@ -154,11 +132,7 @@ export function PageName() {
       <EmptyState
         title="No items yet"
         description="Create your first item to get started."
-        action={
-          <Button variant="primary">
-            <Plus size={16} /> Create
-          </Button>
-        }
+        action={<Button variant="primary"><Plus size={16} /> Create</Button>}
       />
     );
   }

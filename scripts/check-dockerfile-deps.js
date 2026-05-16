@@ -37,7 +37,10 @@ function getWorkspacePackages(deps) {
 function getPackageDir(pkgName) {
   const shortName = pkgName.replace("@mbe/", "");
   // Check packages/ first, then other locations
-  const candidates = [join(root, "packages", shortName), join(root, "tools", shortName)];
+  const candidates = [
+    join(root, "packages", shortName),
+    join(root, "tools", shortName),
+  ];
   for (const dir of candidates) {
     if (existsSync(join(dir, "package.json"))) {
       return `packages/${shortName}`;
@@ -67,13 +70,19 @@ function checkService(serviceName) {
     const pkgDir = getPackageDir(dep.name);
 
     // Check that the package.json is COPYed (for pnpm install)
-    const copyPkgPattern = new RegExp(`COPY\\s+${pkgDir}/package\\.json`);
+    const copyPkgPattern = new RegExp(
+      `COPY\\s+${pkgDir}/package\\.json`
+    );
     if (!copyPkgPattern.test(dockerfile)) {
-      errors.push(`${dep.name}: missing COPY ${pkgDir}/package.json in builder stage`);
+      errors.push(
+        `${dep.name}: missing COPY ${pkgDir}/package.json in builder stage`
+      );
     }
 
     // Check that the source is COPYed (for building)
-    const copySrcPattern = new RegExp(`COPY\\s+${pkgDir}(/src)?\\s+`);
+    const copySrcPattern = new RegExp(
+      `COPY\\s+${pkgDir}(/src)?\\s+`
+    );
     if (!copySrcPattern.test(dockerfile)) {
       errors.push(`${dep.name}: missing COPY ${pkgDir} in builder stage`);
     }

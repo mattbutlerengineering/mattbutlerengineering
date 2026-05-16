@@ -101,10 +101,7 @@ describe("createEmptyMatrix", () => {
 describe("mergeMatrices", () => {
   it("overlays source onto target at offset", () => {
     const target = createEmptyMatrix(5, 5);
-    const source = [
-      [true, true],
-      [true, true],
-    ];
+    const source = [[true, true], [true, true]];
     const result = mergeMatrices(target, source, 1, 1);
 
     expect(result[1]![1]).toBe(true);

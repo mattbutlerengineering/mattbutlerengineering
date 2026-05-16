@@ -11,21 +11,12 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Stack: ({ children }: any) => <div>{children}</div>,
   GlobalNav: () => <nav data-testid="global-nav" />,
   Footer: () => <footer data-testid="footer" />,
-  PageHeader: ({ title, description }: any) => (
-    <header data-testid="page-header">
-      {title}
-      {description}
-    </header>
-  ),
+  PageHeader: ({ title, description }: any) => <header data-testid="page-header">{title}{description}</header>,
   Card: ({ children }: any) => <div>{children}</div>,
   Badge: ({ children }: any) => <span>{children}</span>,
   Icon: () => <div />,
   Table: ({ children }: any) => <table>{children}</table>,
-  Stat: ({ label, value }: any) => (
-    <div data-testid="stat">
-      {label} {value}
-    </div>
-  ),
+  Stat: ({ label, value }: any) => <div data-testid="stat">{label} {value}</div>,
   Banner: () => <div data-testid="banner" />,
   Dialog: ({ children }: any) => <div data-testid="dialog">{children}</div>,
   Toggle: () => <input type="checkbox" data-testid="toggle" />,
@@ -35,9 +26,9 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   resolveTheme: vi.fn((t) => t),
 }));
 
-Object.defineProperty(window, "matchMedia", {
+Object.defineProperty(window, 'matchMedia', {
   writable: true,
-  value: vi.fn().mockImplementation((query) => ({
+  value: vi.fn().mockImplementation(query => ({
     matches: false,
     media: query,
     onchange: null,

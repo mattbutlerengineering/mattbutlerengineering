@@ -50,7 +50,9 @@ describe("ReservationsClient", () => {
     });
 
     it("appends filter query params", async () => {
-      mockFetch.mockResolvedValueOnce(jsonResponse({ data: [], total: 0, page: 1, limit: 10 }));
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ data: [], total: 0, page: 1, limit: 10 })
+      );
 
       await makeClient().list({ venueId: "v1", date: "2026-06-01", status: "CONFIRMED" });
 
@@ -72,7 +74,9 @@ describe("ReservationsClient", () => {
 
   describe("me", () => {
     it("requests /api/v1/reservations/me with pagination", async () => {
-      mockFetch.mockResolvedValueOnce(jsonResponse({ data: [], total: 0, page: 1, limit: 10 }));
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ data: [], total: 0, page: 1, limit: 10 })
+      );
 
       await makeClient().me();
 
@@ -81,7 +85,9 @@ describe("ReservationsClient", () => {
     });
 
     it("passes custom page and limit", async () => {
-      mockFetch.mockResolvedValueOnce(jsonResponse({ data: [], total: 0, page: 3, limit: 5 }));
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ data: [], total: 0, page: 3, limit: 5 })
+      );
 
       await makeClient().me(3, 5);
 

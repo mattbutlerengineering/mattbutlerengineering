@@ -17,7 +17,9 @@ for (const { name, path } of PAGES_TO_AUDIT) {
     await page.goto(path);
     await page.waitForLoadState("networkidle");
 
-    const results = await new AxeBuilder({ page }).disableRules(["color-contrast"]).analyze();
+    const results = await new AxeBuilder({ page })
+      .disableRules(["color-contrast"])
+      .analyze();
 
     const critical = results.violations.filter(
       (v) => v.impact === "critical" || v.impact === "serious"

@@ -43,25 +43,25 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/audit.js --trend
 
 ## The 6 levels
 
-| L   | Name                  | Role        | Characteristic                                        |
-| --- | --------------------- | ----------- | ----------------------------------------------------- |
-| 1   | Assisted / Ad Hoc     | Executor    | AI used opportunistically; no project-specific config |
-| 2   | Instructed            | Rule-writer | AI receives project context through committed files   |
-| 3   | Measured / Enforced   | Analyst     | Rules mechanically enforced; AI loop instrumented     |
-| 4   | Adaptive / Structured | Governor    | Workflows are structured and environment-aware        |
-| 5   | Semi-Automated        | Operator    | System detects + proposes; humans approve             |
-| 6   | Fully Autonomous      | Strategist  | System acts; humans audit after the fact              |
+| L | Name | Role | Characteristic |
+|---|---|---|---|
+| 1 | Assisted / Ad Hoc | Executor | AI used opportunistically; no project-specific config |
+| 2 | Instructed | Rule-writer | AI receives project context through committed files |
+| 3 | Measured / Enforced | Analyst | Rules mechanically enforced; AI loop instrumented |
+| 4 | Adaptive / Structured | Governor | Workflows are structured and environment-aware |
+| 5 | Semi-Automated | Operator | System detects + proposes; humans approve |
+| 6 | Fully Autonomous | Strategist | System acts; humans audit after the fact |
 
 L0 (Prerequisites) is a **soft indicator** — basic engineering hygiene (test suite, CI/CD, contributing guide, etc.) — not part of the threshold walk.
 
 ## Source frameworks
 
-| Source                                                                                              | Criteria | Citation                                                                |
-| --------------------------------------------------------------------------------------------------- | -------- | ----------------------------------------------------------------------- |
-| **[ACMM](https://github.com/kubestellar/console)**                                                  | 65       | The 6-level model (L0 prereqs + L1–L6)                                  |
-| **[Fullsend](https://github.com/fullsend-ai/fullsend)**                                             | 8        | Readiness + autonomy criteria (test coverage, CI/CD, auto-merge policy) |
-| **[Agentic Engineering Framework](https://github.com/DimitriGeelen/agentic-engineering-framework)** | 6        | Governance criteria (task traceability, structural gates)               |
-| **[Claude Reflect](https://github.com/BayramAnnakov/claude-reflect)**                               | 6        | Self-tuning criteria (correction capture, CLAUDE.md auto-sync)          |
+| Source | Criteria | Citation |
+|---|---|---|
+| **[ACMM](https://github.com/kubestellar/console)** | 65 | The 6-level model (L0 prereqs + L1–L6) |
+| **[Fullsend](https://github.com/fullsend-ai/fullsend)** | 8 | Readiness + autonomy criteria (test coverage, CI/CD, auto-merge policy) |
+| **[Agentic Engineering Framework](https://github.com/DimitriGeelen/agentic-engineering-framework)** | 6 | Governance criteria (task traceability, structural gates) |
+| **[Claude Reflect](https://github.com/BayramAnnakov/claude-reflect)** | 6 | Self-tuning criteria (correction capture, CLAUDE.md auto-sync) |
 
 ## Categories
 

@@ -3,7 +3,6 @@
 These tasks are derived from the ACMM audit performed on 2026-05-05. The codebase is currently Level 6 (Fully Autonomous) by detection markers, but "soft" behavioral metrics and evaluation scores indicate areas for improvement.
 
 ## 🔴 High Priority: Agent Evaluation & Pipeline Fixes
-
 Goal: Achieve >80% pass rate on frozen task fixtures and ensure infrastructure is robust.
 
 - [x] **Audit existing issues**: Created #1067, #1068, #1069, #1070, #1071, #1072.
@@ -14,7 +13,6 @@ Goal: Achieve >80% pass rate on frozen task fixtures and ensure infrastructure i
 - [ ] **Expand Eval Tasks**: Add 3-5 more complex tasks to the eval suite that involve multi-file changes or architectural adherence.
 
 ## 🟡 Medium Priority: Behavioral & Implementation Gaps
-
 Goal: Reduce human intervention and bridge the gap between "Skeleton" and "Functional" systems.
 
 - [x] **Analyze Human-Touch Ratio**: Investigate why 100% of agent-authored PRs have non-author (human) commits (#1068).
@@ -25,7 +23,6 @@ Goal: Reduce human intervention and bridge the gap between "Skeleton" and "Funct
 - [ ] **Automate Auto-QA Tuning**: Schedule or trigger `node plugins/acmm/scripts/auto-qa-tune.js` periodically (#1069).
 
 ## 🟢 Low Priority: Documentation & Traceability
-
 Goal: Improve the quality of "detected" markers and audit skeletons.
 
 - [ ] **Verify "Detected" Items**: Perform a manual check of items marked "Detected" in the ACMM report to ensure they aren't just empty files or placeholders (#1072).

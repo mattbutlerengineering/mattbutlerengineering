@@ -91,13 +91,26 @@ export const DEFAULT_SESSION_CONFIG: Omit<SessionConfig, "taskDescription" | "re
   model: "claude-sonnet-4-6",
   maxTurns: 50,
   maxBudgetUsd: 1.0,
-  allowedTools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "NotebookEdit"],
+  allowedTools: [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash",
+    "NotebookEdit",
+  ],
   createPr: true,
 };
 
 // ── Session result ───────────────────────────────────────────────────
 
-export type SessionStatus = "pending" | "running" | "succeeded" | "failed" | "cancelled";
+export type SessionStatus =
+  | "pending"
+  | "running"
+  | "succeeded"
+  | "failed"
+  | "cancelled";
 
 export interface TokenUsage {
   readonly inputTokens: number;

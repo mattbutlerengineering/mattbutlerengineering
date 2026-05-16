@@ -284,9 +284,7 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
                   aria-label="Search commands"
                   aria-expanded={true}
                   aria-controls="cmd-palette-listbox"
-                  aria-activedescendant={
-                    flatItems[activeIndex] ? `cmd-item-${flatItems[activeIndex].id}` : undefined
-                  }
+                  aria-activedescendant={flatItems[activeIndex] ? `cmd-item-${flatItems[activeIndex].id}` : undefined}
                   placeholder={placeholder}
                   value={query}
                   onChange={(e) => {
@@ -299,13 +297,7 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
               </div>
 
               {/* Results */}
-              <div
-                className={styles.results}
-                ref={listRef}
-                id="cmd-palette-listbox"
-                role="listbox"
-                aria-label="Command results"
-              >
+              <div className={styles.results} ref={listRef} id="cmd-palette-listbox" role="listbox" aria-label="Command results">
                 {flatItems.length === 0 ? (
                   <div className={styles.empty}>
                     <svg className={styles.emptyIcon} viewBox="0 0 32 32" aria-hidden="true">

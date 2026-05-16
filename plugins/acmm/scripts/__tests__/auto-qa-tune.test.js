@@ -1,7 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { latestSnapshot, computeAdjustments, buildHistoryEntry } from "../auto-qa-tune.js";
+import {
+  latestSnapshot,
+  computeAdjustments,
+  buildHistoryEntry,
+} from "../auto-qa-tune.js";
 
 // ---------------------------------------------------------------------------
 // latestSnapshot

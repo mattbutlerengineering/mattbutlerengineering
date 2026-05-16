@@ -1,5 +1,4 @@
-import type { ElementType, HTMLAttributes, ReactNode } from "react";
-import { forwardRef } from "react";
+import { forwardRef, type ElementType, type HTMLAttributes, type ReactNode } from "react";
 import styles from "./Text.module.css";
 
 /* ── Types ───────────────────────────────────── */

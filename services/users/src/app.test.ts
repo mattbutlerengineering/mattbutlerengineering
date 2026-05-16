@@ -59,7 +59,9 @@ describe("app.ts — CORS validation", () => {
     await app.ready();
 
     // Should have warned about rejected origins
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("[CORS] Rejected invalid origin"));
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[CORS] Rejected invalid origin")
+    );
     // Should have warned about falling back to defaults
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining("[CORS] All CORS_ORIGINS were rejected")
@@ -95,7 +97,9 @@ describe("app.ts — CORS validation", () => {
     const app = await buildApp({ logger: false });
     await app.ready();
 
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("[CORS] Rejected invalid origin"));
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[CORS] Rejected invalid origin")
+    );
 
     await app.close();
     warnSpy.mockRestore();
@@ -124,7 +128,9 @@ describe("app.ts — CORS validation", () => {
     await app.ready();
 
     // Should warn about the rejected one
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("evil.com"));
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("evil.com")
+    );
     // But should NOT warn about fallback (at least one valid origin)
     const fallbackCalls = warnSpy.mock.calls.filter(
       (call) => typeof call[0] === "string" && call[0].includes("falling back")

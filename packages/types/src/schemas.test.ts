@@ -1,7 +1,17 @@
 import { describe, it, expect } from "vitest";
-import { UserSchema, UserPreferencesSchema, UserProfileSchema } from "./schemas/user.js";
-import { GuestSchema, GuestSegmentSchema } from "./schemas/guest.js";
-import { PaginationSchema, ErrorResponseSchema } from "./schemas/common.js";
+import {
+  UserSchema,
+  UserPreferencesSchema,
+  UserProfileSchema,
+} from "./schemas/user.js";
+import {
+  GuestSchema,
+  GuestSegmentSchema,
+} from "./schemas/guest.js";
+import {
+  PaginationSchema,
+  ErrorResponseSchema,
+} from "./schemas/common.js";
 import { ProblemDetailsSchema } from "./schemas/api.js";
 
 // ── UserPreferencesSchema ──────────────────────────────────────────
@@ -92,9 +102,7 @@ describe("UserSchema", () => {
 
 describe("UserProfileSchema", () => {
   it("accepts a valid profile", () => {
-    expect(UserProfileSchema.safeParse({ id: "u1", name: "Alice", picture: "url" }).success).toBe(
-      true
-    );
+    expect(UserProfileSchema.safeParse({ id: "u1", name: "Alice", picture: "url" }).success).toBe(true);
   });
 
   it("accepts profile with null name and picture", () => {
@@ -174,9 +182,7 @@ describe("GuestSegmentSchema", () => {
   });
 
   it("rejects non-number count", () => {
-    expect(
-      GuestSegmentSchema.safeParse({ name: "VIP", description: "x", count: "42" }).success
-    ).toBe(false);
+    expect(GuestSegmentSchema.safeParse({ name: "VIP", description: "x", count: "42" }).success).toBe(false);
   });
 });
 
@@ -200,14 +206,7 @@ describe("PaginationSchema", () => {
   });
 
   it("rejects non-number page/limit", () => {
-    const pagination = {
-      page: "1",
-      limit: 20,
-      total: 100,
-      totalPages: 5,
-      hasNext: true,
-      hasPrev: false,
-    };
+    const pagination = { page: "1", limit: 20, total: 100, totalPages: 5, hasNext: true, hasPrev: false };
     expect(PaginationSchema.safeParse(pagination).success).toBe(false);
   });
 
@@ -230,9 +229,7 @@ describe("ErrorResponseSchema", () => {
   });
 
   it("rejects non-number statusCode", () => {
-    expect(
-      ErrorResponseSchema.safeParse({ error: "E", message: "m", statusCode: "404" }).success
-    ).toBe(false);
+    expect(ErrorResponseSchema.safeParse({ error: "E", message: "m", statusCode: "404" }).success).toBe(false);
   });
 });
 
@@ -283,38 +280,23 @@ describe("ProblemDetailsSchema", () => {
 
   it("rejects status outside valid HTTP range", () => {
     expect(
-      ProblemDetailsSchema.safeParse({ type: "about:blank", title: "X", status: 99, detail: "d" })
-        .success
+      ProblemDetailsSchema.safeParse({ type: "about:blank", title: "X", status: 99, detail: "d" }).success
     ).toBe(false);
     expect(
-      ProblemDetailsSchema.safeParse({ type: "about:blank", title: "X", status: 600, detail: "d" })
-        .success
+      ProblemDetailsSchema.safeParse({ type: "about:blank", title: "X", status: 600, detail: "d" }).success
     ).toBe(false);
   });
 
   it("rejects non-integer status", () => {
     expect(
-      ProblemDetailsSchema.safeParse({
-        type: "about:blank",
-        title: "X",
-        status: 404.5,
-        detail: "d",
-      }).success
+      ProblemDetailsSchema.safeParse({ type: "about:blank", title: "X", status: 404.5, detail: "d" }).success
     ).toBe(false);
   });
 
   it("rejects missing required fields", () => {
-    expect(ProblemDetailsSchema.safeParse({ title: "X", status: 400, detail: "d" }).success).toBe(
-      false
-    );
-    expect(
-      ProblemDetailsSchema.safeParse({ type: "about:blank", status: 400, detail: "d" }).success
-    ).toBe(false);
-    expect(
-      ProblemDetailsSchema.safeParse({ type: "about:blank", title: "X", detail: "d" }).success
-    ).toBe(false);
-    expect(
-      ProblemDetailsSchema.safeParse({ type: "about:blank", title: "X", status: 400 }).success
-    ).toBe(false);
+    expect(ProblemDetailsSchema.safeParse({ title: "X", status: 400, detail: "d" }).success).toBe(false);
+    expect(ProblemDetailsSchema.safeParse({ type: "about:blank", status: 400, detail: "d" }).success).toBe(false);
+    expect(ProblemDetailsSchema.safeParse({ type: "about:blank", title: "X", detail: "d" }).success).toBe(false);
+    expect(ProblemDetailsSchema.safeParse({ type: "about:blank", title: "X", status: 400 }).success).toBe(false);
   });
 });

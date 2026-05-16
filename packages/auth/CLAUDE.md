@@ -38,11 +38,11 @@ Wraps the app with OIDC context. Cleans callback params from URL after sign-in.
 
 ### Hooks
 
-| Hook               | Returns                                                                                   | Purpose                                    |
-| ------------------ | ----------------------------------------------------------------------------------------- | ------------------------------------------ |
-| `useAuth()`        | `{ isLoading, isAuthenticated, user, accessToken, signIn, signOut, signInSilent, error }` | Full auth state and methods                |
-| `useAccessToken()` | `string \| null`                                                                          | Just the access token (for API calls)      |
-| `useRequireAuth()` | Same as `useAuth()`                                                                       | Auto-redirects to login if unauthenticated |
+| Hook | Returns | Purpose |
+|------|---------|---------|
+| `useAuth()` | `{ isLoading, isAuthenticated, user, accessToken, signIn, signOut, signInSilent, error }` | Full auth state and methods |
+| `useAccessToken()` | `string \| null` | Just the access token (for API calls) |
+| `useRequireAuth()` | Same as `useAuth()` | Auto-redirects to login if unauthenticated |
 
 The `user` object is typed as `AuthUser`: `{ id, email?, name?, picture?, emailVerified?, raw: JWTPayload }`.
 
@@ -82,10 +82,10 @@ Reads `AUTH_AUTHORITY` and `AUTH_AUDIENCE` from env, throws if missing. Excludes
 
 ## Environment Variables
 
-| Variable         | Required      | Description                                             |
-| ---------------- | ------------- | ------------------------------------------------------- |
+| Variable | Required | Description |
+|----------|----------|-------------|
 | `AUTH_AUTHORITY` | Yes (backend) | OIDC issuer URL (e.g., `https://your-tenant.auth0.com`) |
-| `AUTH_AUDIENCE`  | Yes (backend) | Expected JWT audience                                   |
+| `AUTH_AUDIENCE` | Yes (backend) | Expected JWT audience |
 
 Frontend config is passed via `AuthProvider` props (typically from build-time env vars).
 

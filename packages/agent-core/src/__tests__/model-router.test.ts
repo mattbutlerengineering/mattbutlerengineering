@@ -260,9 +260,7 @@ describe("haiku tier — new lightweight title patterns", () => {
   });
 
   it("routes test: title to haiku", () => {
-    expect(routeModel(makeIssue({ title: "test: add coverage for auth edge cases" }))).toBe(
-      "haiku"
-    );
+    expect(routeModel(makeIssue({ title: "test: add coverage for auth edge cases" }))).toBe("haiku");
   });
 
   it("routes chore(lint): title to haiku", () => {
@@ -408,19 +406,19 @@ describe("RoutingContext — budget-aware downgrade", () => {
   });
 
   it("does not downgrade opus when budget is exactly $0.30 (boundary)", () => {
-    const ctx: RoutingContext = { remainingBudgetUsd: 0.3 };
+    const ctx: RoutingContext = { remainingBudgetUsd: 0.30 };
     const issue = makeIssue({ labels: ["feature"], title: "Redesign auth architecture" });
     expect(routeModel(issue, ctx)).toBe("opus");
   });
 
   it("does not downgrade opus when budget is above $0.30", () => {
-    const ctx: RoutingContext = { remainingBudgetUsd: 1.5 };
+    const ctx: RoutingContext = { remainingBudgetUsd: 1.50 };
     const issue = makeIssue({ labels: ["feature"], title: "Redesign auth architecture" });
     expect(routeModel(issue, ctx)).toBe("opus");
   });
 
   it("does not downgrade sonnet when budget is low", () => {
-    const ctx: RoutingContext = { remainingBudgetUsd: 0.1 };
+    const ctx: RoutingContext = { remainingBudgetUsd: 0.10 };
     const issue = makeIssue({ title: "Fix login redirect" });
     expect(routeModel(issue, ctx)).toBe("sonnet");
   });

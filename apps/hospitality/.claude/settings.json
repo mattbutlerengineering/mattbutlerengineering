@@ -11,6 +11,10 @@
       "Bash(wrangler --config apps/hospitality/wrangler.canary.toml deploy)",
       "Bash(node plugins/acmm/scripts/audit.js --project apps/hospitality)"
     ],
-    "deny": ["Bash(**drop**)", "Bash(**TRUNCATE**)", "Bash(**DELETE FROM**)"]
+    "deny": [
+      "Bash(**drop**)",
+      "Bash(**TRUNCATE**)",
+      "Bash(**DELETE FROM**)"
+    ]
   }
 }

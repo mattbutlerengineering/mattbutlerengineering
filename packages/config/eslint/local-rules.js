@@ -17,8 +17,7 @@ export default {
               if (tailwindPatterns.test(node.value.value)) {
                 context.report({
                   node,
-                  message:
-                    "Tailwind utility classes are prohibited. Use @mattbutlerengineering/rialto components or CSS Modules. See ADR-001.",
+                  message: "Tailwind utility classes are prohibited. Use @mattbutlerengineering/rialto components or CSS Modules. See ADR-001.",
                 });
               }
             }
@@ -54,8 +53,7 @@ export default {
               const parent = callee.object;
               if (
                 parent.type === "CallExpression" &&
-                (parent.callee.property?.name === "code" ||
-                  parent.callee.property?.name === "status")
+                (parent.callee.property?.name === "code" || parent.callee.property?.name === "status")
               ) {
                 if (isErrorStatus(parent.arguments[0])) {
                   const payload = node.arguments[0];
@@ -81,8 +79,7 @@ export default {
       meta: {
         type: "suggestion",
         docs: {
-          description:
-            "Encourage use of @mattbutlerengineering/rialto components over native HTML elements",
+          description: "Encourage use of @mattbutlerengineering/rialto components over native HTML elements",
         },
         fixable: "code",
         schema: [],
@@ -122,8 +119,8 @@ export default {
                   // Only auto-fix simple identifiers (not components with namespaced names or members)
                   if (node.name.type === "JSXIdentifier") {
                     return [
-                      fixer.replaceText(node.name, rialtoName),
-                      // Note: closing tag fix is handled by the JSXClosingElement visitor
+                        fixer.replaceText(node.name, rialtoName),
+                        // Note: closing tag fix is handled by the JSXClosingElement visitor
                     ];
                   }
                   return null;
@@ -141,7 +138,7 @@ export default {
                 node,
                 message: `</${name}> is prohibited. Use </${rialtoName}> from @mattbutlerengineering/rialto instead.`,
                 fix(fixer) {
-                  return fixer.replaceText(node.name, rialtoName);
+                    return fixer.replaceText(node.name, rialtoName);
                 },
               });
             }

@@ -32,7 +32,7 @@ async function* asyncGen<T>(items: T[]): AsyncGenerator<T> {
 }
 
 async function* asyncGenError(msg: string): AsyncGenerator<never> {
-  yield* [] as never[]; // satisfy require-yield
+  yield* ([] as never[]); // satisfy require-yield
   throw new Error(msg);
 }
 
@@ -40,7 +40,9 @@ describe("useGenStream", () => {
   it("sends POST with prompt and auth header via streamNDJSON", async () => {
     mockStreamNDJSON.mockReturnValue(asyncGen([]));
 
-    const { result } = renderHook(() => useGenStream({ api: "/api/gen" }));
+    const { result } = renderHook(() =>
+      useGenStream({ api: "/api/gen" })
+    );
 
     await act(async () => {
       await result.current.send("Hello world");
@@ -62,7 +64,9 @@ describe("useGenStream", () => {
     ];
     mockStreamNDJSON.mockReturnValue(asyncGen(elements));
 
-    const { result } = renderHook(() => useGenStream({ api: "/api/gen" }));
+    const { result } = renderHook(() =>
+      useGenStream({ api: "/api/gen" })
+    );
 
     await act(async () => {
       await result.current.send("Generate something");
@@ -74,11 +78,15 @@ describe("useGenStream", () => {
   });
 
   it("calls onComplete with final spec and raw lines", async () => {
-    const elements = [{ type: "text", props: { children: "Hello" }, id: "1" }];
+    const elements = [
+      { type: "text", props: { children: "Hello" }, id: "1" },
+    ];
     mockStreamNDJSON.mockReturnValue(asyncGen(elements));
 
     const onComplete = vi.fn();
-    const { result } = renderHook(() => useGenStream({ api: "/api/gen", onComplete }));
+    const { result } = renderHook(() =>
+      useGenStream({ api: "/api/gen", onComplete })
+    );
 
     await act(async () => {
       await result.current.send("Test prompt");
@@ -94,14 +102,16 @@ describe("useGenStream", () => {
     const abortError = Object.assign(new Error("Aborted"), { name: "AbortError" });
     mockStreamNDJSON.mockImplementation(() => {
       async function* gen(): AsyncGenerator<never> {
-        yield* [] as never[]; // satisfy require-yield
+        yield* ([] as never[]); // satisfy require-yield
         throw abortError;
       }
       return gen();
     });
 
     const onError = vi.fn();
-    const { result } = renderHook(() => useGenStream({ api: "/api/gen", onError }));
+    const { result } = renderHook(() =>
+      useGenStream({ api: "/api/gen", onError })
+    );
 
     await act(async () => {
       await result.current.send("Abort test");
@@ -116,7 +126,9 @@ describe("useGenStream", () => {
     mockStreamNDJSON.mockReturnValue(asyncGenError("Server error"));
 
     const onError = vi.fn();
-    const { result } = renderHook(() => useGenStream({ api: "/api/gen", onError }));
+    const { result } = renderHook(() =>
+      useGenStream({ api: "/api/gen", onError })
+    );
 
     await act(async () => {
       await result.current.send("Fail test");

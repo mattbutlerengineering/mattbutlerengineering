@@ -10,20 +10,20 @@ All services use HTTP header-based API versioning. When a new API version is rel
 
 All API responses include the following headers:
 
-| Header        | Description                             | Example                                    |
-| ------------- | --------------------------------------- | ------------------------------------------ |
-| `API-Version` | Current API version                     | `v1`, `v2`                                 |
-| `Link`        | Successor version URL (when applicable) | `</api/v2/users>; rel="successor-version"` |
+| Header | Description | Example |
+|--------|-------------|---------|
+| `API-Version` | Current API version | `v1`, `v2` |
+| `Link` | Successor version URL (when applicable) | `</api/v2/users>; rel="successor-version"` |
 
 ### Deprecation Headers
 
 When an API version is deprecated, responses include:
 
-| Header        | Description                                    | Example                                    |
-| ------------- | ---------------------------------------------- | ------------------------------------------ |
-| `Deprecation` | Indicates deprecated version                   | `true`                                     |
-| `Sunset`      | RFC 7231 date when version will be unavailable | `Sat, 01 Jan 2027 00:00:00 GMT`            |
-| `Link`        | Successor version URL                          | `</api/v2/users>; rel="successor-version"` |
+| Header | Description | Example |
+|--------|-------------|---------|
+| `Deprecation` | Indicates deprecated version | `true` |
+| `Sunset` | RFC 7231 date when version will be unavailable | `Sat, 01 Jan 2027 00:00:00 GMT` |
+| `Link` | Successor version URL | `</api/v2/users>; rel="successor-version"` |
 
 ## Version Lifecycle
 

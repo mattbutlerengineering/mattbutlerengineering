@@ -9,7 +9,7 @@
 
 ## Common Fixes
 
-### Cloudflare Workers (apps/\*)
+### Cloudflare Workers (apps/*)
 
 ```bash
 # Deploy
@@ -50,14 +50,12 @@ See `.claude/skills/prisma-migrations/SKILL.md`.
 4. **"404 on assets"**: Run `pnpm build` before deploy
 
 ### Files to Check
-
 - `infrastructure/` - Pulumi code
 - `apps/*/wrangler.toml` - Worker config
 - `services/*/Dockerfile` - DO service builds
 - `CLAUDE.md` in each service/app
 
 ### Anti-patterns
-
 - ❌ Don't hardcode credentials (use env vars)
 - ❌ Don't skip health checks
 - ❌ Don't deploy without testing locally first

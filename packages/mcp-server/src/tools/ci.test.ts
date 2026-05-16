@@ -51,6 +51,7 @@ describe("ciRunStatus", () => {
 
   it("returns error JSON when non-Error is thrown", async () => {
     vi.mocked(execSync).mockImplementation(() => {
+       
       throw "unexpected string error";
     });
 

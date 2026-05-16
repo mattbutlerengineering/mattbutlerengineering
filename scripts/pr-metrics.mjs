@@ -19,18 +19,18 @@
  *   the earliest signal that something in the loop has regressed.
  */
 
-import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { execFileSync } from 'node:child_process';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const METRICS_PATH = resolve(__dirname, "..", "docs", "metrics", "pr-acceptance.json");
+const METRICS_PATH = resolve(__dirname, '..', 'docs', 'metrics', 'pr-acceptance.json');
 
 const args = process.argv.slice(2);
-const DRY_RUN = args.includes("--dry-run");
-const daysIdx = args.indexOf("--days");
-const DAYS = daysIdx >= 0 ? parseInt(args[daysIdx + 1] ?? "30", 10) : 30;
+const DRY_RUN = args.includes('--dry-run');
+const daysIdx = args.indexOf('--days');
+const DAYS = daysIdx >= 0 ? parseInt(args[daysIdx + 1] ?? '30', 10) : 30;
 
 /* ── 1. Pull PRs from gh CLI ─────────────────────────────── */
 
@@ -40,18 +40,18 @@ const since = new Date(sinceMs).toISOString().slice(0, 10);
 let prsRaw;
 try {
   prsRaw = execFileSync(
-    "gh",
+    'gh',
     [
-      "pr",
-      "list",
-      "--state",
-      "all",
-      "--limit",
-      "300",
-      "--json",
-      "number,title,state,headRefName,createdAt,closedAt,mergedAt,labels",
+      'pr',
+      'list',
+      '--state',
+      'all',
+      '--limit',
+      '300',
+      '--json',
+      'number,title,state,headRefName,createdAt,closedAt,mergedAt,labels',
     ],
-    { encoding: "utf-8" }
+    { encoding: 'utf-8' },
   );
 } catch (err) {
   console.error(`gh pr list failed: ${err.message}`);
@@ -85,7 +85,12 @@ const prs = allPrs.filter((p) => {
 /* ── 2. Identify AI-generated PRs ────────────────────────── */
 
 /** @type {RegExp[]} */
-const AI_BRANCH_PATTERNS = [/^agent-/, /^worktree-agent-/, /^fix\/agent-/, /^feat\/agent-/];
+const AI_BRANCH_PATTERNS = [
+  /^agent-/,
+  /^worktree-agent-/,
+  /^fix\/agent-/,
+  /^feat\/agent-/,
+];
 
 /**
  * A PR is considered AI-generated if its branch name matches one of the
@@ -96,9 +101,9 @@ const AI_BRANCH_PATTERNS = [/^agent-/, /^worktree-agent-/, /^fix\/agent-/, /^fea
  * @returns {boolean}
  */
 function isAiPr(pr) {
-  const branch = pr.headRefName ?? "";
+  const branch = pr.headRefName ?? '';
   if (AI_BRANCH_PATTERNS.some((re) => re.test(branch))) return true;
-  if (pr.labels?.some((l) => l.name === "has-pr")) return true;
+  if (pr.labels?.some((l) => l.name === 'has-pr')) return true;
   return false;
 }
 
@@ -106,7 +111,7 @@ function isAiPr(pr) {
 
 const aiPrs = prs.filter(isAiPr);
 const merged = aiPrs.filter((p) => p.mergedAt !== null);
-const rejected = aiPrs.filter((p) => p.state === "CLOSED" && p.mergedAt === null);
+const rejected = aiPrs.filter((p) => p.state === 'CLOSED' && p.mergedAt === null);
 const totalAiPrs = merged.length + rejected.length;
 const acceptanceRate =
   totalAiPrs === 0 ? null : Math.round((merged.length / totalAiPrs) * 100) / 100;
@@ -126,21 +131,19 @@ const entry = {
 
 /* ── 5. Print summary ────────────────────────────────────── */
 
-console.log("");
+console.log('');
 console.log(`PR acceptance metric — last ${DAYS} days (since ${since})`);
-console.log("");
-console.log(
-  `  Total AI PRs decided: ${totalAiPrs}  (merged: ${merged.length}, rejected: ${rejected.length})`
-);
+console.log('');
+console.log(`  Total AI PRs decided: ${totalAiPrs}  (merged: ${merged.length}, rejected: ${rejected.length})`);
 if (totalAiPrs > 0) {
   console.log(`  Acceptance rate:      ${(acceptanceRate * 100).toFixed(1)}%`);
 }
-console.log("");
+console.log('');
 
 /* ── 6. Persist ──────────────────────────────────────────── */
 
 if (DRY_RUN) {
-  console.log("--dry-run: not writing. Entry would have been:");
+  console.log('--dry-run: not writing. Entry would have been:');
   console.log(JSON.stringify(entry, null, 2));
   process.exit(0);
 }
@@ -149,7 +152,7 @@ if (DRY_RUN) {
 let entries = [];
 if (existsSync(METRICS_PATH)) {
   try {
-    const raw = readFileSync(METRICS_PATH, "utf-8");
+    const raw = readFileSync(METRICS_PATH, 'utf-8');
     entries = JSON.parse(raw);
     if (!Array.isArray(entries)) {
       console.error(`Expected array in ${METRICS_PATH}, got ${typeof entries}. Resetting.`);
@@ -165,7 +168,7 @@ entries.push(entry);
 
 // Ensure directory exists, then write
 mkdirSync(dirname(METRICS_PATH), { recursive: true });
-writeFileSync(METRICS_PATH, JSON.stringify(entries, null, 2) + "\n", "utf-8");
+writeFileSync(METRICS_PATH, JSON.stringify(entries, null, 2) + '\n', 'utf-8');
 
 console.log(`Appended entry to: ${METRICS_PATH}`);
 console.log(`Total entries: ${entries.length}`);

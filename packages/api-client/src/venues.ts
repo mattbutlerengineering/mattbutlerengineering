@@ -16,16 +16,16 @@ export class VenuesClient {
   /**
    * List venues with optional filters
    */
-  async list(
-    params: { page?: number; limit?: number; venueGroupId?: string } = {}
-  ): Promise<PaginatedResponse<Venue>> {
+  async list(params: { page?: number; limit?: number; venueGroupId?: string } = {}): Promise<PaginatedResponse<Venue>> {
     const searchParams = new URLSearchParams();
     if (params.page) searchParams.set("page", String(params.page));
     if (params.limit) searchParams.set("limit", String(params.limit));
     if (params.venueGroupId) searchParams.set("venueGroupId", params.venueGroupId);
 
     const query = searchParams.toString();
-    return this.client.get<PaginatedResponse<Venue>>(`/api/v1/venues${query ? `?${query}` : ""}`);
+    return this.client.get<PaginatedResponse<Venue>>(
+      `/api/v1/venues${query ? `?${query}` : ""}`
+    );
   }
 
   /**
@@ -92,9 +92,7 @@ export class VenueGroupsClient {
    * Get a venue group by slug
    */
   async getBySlug(slug: string): Promise<VenueGroup> {
-    const response = await this.client.get<ApiResponse<VenueGroup>>(
-      `/api/v1/venues/groups/by-slug/${slug}`
-    );
+    const response = await this.client.get<ApiResponse<VenueGroup>>(`/api/v1/venues/groups/by-slug/${slug}`);
     return response.data;
   }
 
@@ -110,10 +108,7 @@ export class VenueGroupsClient {
    * Update a venue group
    */
   async update(id: string, data: UpdateVenueGroupRequest): Promise<VenueGroup> {
-    const response = await this.client.patch<ApiResponse<VenueGroup>>(
-      `/api/v1/venues/groups/${id}`,
-      data
-    );
+    const response = await this.client.patch<ApiResponse<VenueGroup>>(`/api/v1/venues/groups/${id}`, data);
     return response.data;
   }
 

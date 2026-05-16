@@ -5,35 +5,13 @@ import type { Reservation } from "@mbe/types";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Card: ({ title, children }: { title: string; children: React.ReactNode }) => (
-    <div data-testid="card" data-title={title}>
-      {children}
-    </div>
+    <div data-testid="card" data-title={title}>{children}</div>
   ),
-  Text: ({
-    children,
-    variant,
-    color,
-  }: {
-    children?: React.ReactNode;
-    variant?: string;
-    color?: string;
-  }) => (
-    <span data-testid="text" data-variant={variant} data-color={color}>
-      {children}
-    </span>
+  Text: ({ children, variant, color }: { children?: React.ReactNode; variant?: string; color?: string }) => (
+    <span data-testid="text" data-variant={variant} data-color={color}>{children}</span>
   ),
-  Badge: ({
-    children,
-    variant,
-    size,
-  }: {
-    children?: React.ReactNode;
-    variant?: string;
-    size?: string;
-  }) => (
-    <span data-testid="badge" data-variant={variant} data-size={size}>
-      {children}
-    </span>
+  Badge: ({ children, variant, size }: { children?: React.ReactNode; variant?: string; size?: string }) => (
+    <span data-testid="badge" data-variant={variant} data-size={size}>{children}</span>
   ),
   Skeleton: ({ variant, height, width }: { variant?: string; height?: string; width?: string }) => (
     <div data-testid="skeleton" data-variant={variant} data-height={height} data-width={width} />
@@ -54,7 +32,9 @@ const mockReservation = (overrides: Partial<Reservation> = {}): Reservation => (
 
 describe("ReservationList", () => {
   it("should show skeleton when loading", () => {
-    const { container } = render(<ReservationList reservations={[]} isLoading={true} />);
+    const { container } = render(
+      <ReservationList reservations={[]} isLoading={true} />
+    );
     expect(container.querySelector('[data-testid="skeleton"]')).toBeDefined();
   });
 
@@ -70,7 +50,7 @@ describe("ReservationList", () => {
       mockReservation({ id: "res-3", startTime: "18:30", status: "CONFIRMED" }),
     ];
     render(<ReservationList reservations={reservations} isLoading={false} />);
-
+    
     const items = screen.getAllByRole("listitem");
     expect(items.length).toBe(3);
     // Check first item is 5:00pm (17:00)
@@ -85,15 +65,18 @@ describe("ReservationList", () => {
       mockReservation({ guestName: null }),
     ];
     render(<ReservationList reservations={reservations} isLoading={false} />);
-
+    
     expect(screen.getByText("Jane Smith")).toBeDefined();
     expect(screen.getByText("Walk-in")).toBeDefined();
   });
 
   it("should display party size", () => {
-    const reservations = [mockReservation({ partySize: 2 }), mockReservation({ partySize: 6 })];
+    const reservations = [
+      mockReservation({ partySize: 2 }),
+      mockReservation({ partySize: 6 }),
+    ];
     render(<ReservationList reservations={reservations} isLoading={false} />);
-
+    
     expect(screen.getByText("Party of 2")).toBeDefined();
     expect(screen.getByText("Party of 6")).toBeDefined();
   });
@@ -105,7 +88,7 @@ describe("ReservationList", () => {
       mockReservation({ status: "CANCELLED" }),
     ];
     render(<ReservationList reservations={reservations} isLoading={false} />);
-
+    
     expect(screen.getByText("PENDING")).toBeDefined();
     expect(screen.getByText("CONFIRMED")).toBeDefined();
   });
@@ -116,7 +99,7 @@ describe("ReservationList", () => {
       mockReservation({ id: "2", status: "CANCELLED" }),
     ];
     render(<ReservationList reservations={reservations} isLoading={false} />);
-
+    
     expect(screen.queryByText("CANCELLED")).toBeNull();
   });
 
@@ -126,7 +109,7 @@ describe("ReservationList", () => {
       mockReservation({ id: "2", status: "NO_SHOW" }),
     ];
     render(<ReservationList reservations={reservations} isLoading={false} />);
-
+    
     expect(screen.queryByText("NO_SHOW")).toBeNull();
   });
 
@@ -136,7 +119,7 @@ describe("ReservationList", () => {
       mockReservation({ status: "COMPLETED" }),
     ];
     render(<ReservationList reservations={reservations} isLoading={false} />);
-
+    
     expect(screen.getByText("PENDING")).toBeDefined();
     expect(screen.getByText("COMPLETED")).toBeDefined();
   });

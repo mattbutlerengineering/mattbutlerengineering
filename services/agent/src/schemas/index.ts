@@ -1,5 +1,9 @@
 import type { FastifyInstance } from "fastify";
-import { sessionJsonSchema, sessionEventJsonSchema, createSessionBodyJsonSchema } from "@mbe/types";
+import {
+  sessionJsonSchema,
+  sessionEventJsonSchema,
+  createSessionBodyJsonSchema,
+} from "@mbe/types";
 
 // Re-export the derived JSON Schemas so existing imports continue to work.
 export const SessionSchema = sessionJsonSchema;

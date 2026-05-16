@@ -10,8 +10,9 @@ sdk.start();
 initSentry({ serviceName: "agent-api" });
 
 const { buildApp } = await import("./app.js");
-const { startLivenessMonitor, stopLivenessMonitor } =
-  await import("./services/liveness-monitor.js");
+const { startLivenessMonitor, stopLivenessMonitor } = await import(
+  "./services/liveness-monitor.js"
+);
 
 const PORT = parseInt(process.env.PORT ?? "3003", 10);
 const HOST = process.env.HOST ?? "0.0.0.0";

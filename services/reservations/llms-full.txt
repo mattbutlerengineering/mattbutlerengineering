@@ -90,35 +90,17 @@
           // Validate date format
           const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
           if (!dateRegex.test(date)) {
-            return reply
-              .code(400)
-              .send(createProblemDetails(400, "Bad Request", "Invalid date format. Use YYYY-MM-DD."));
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", "Invalid date format. Use YYYY-MM-DD."));
           }
     
           const partySizeNum = parseInt(partySize, 10);
           if (isNaN(partySizeNum) || partySizeNum < 1) {
-            return reply
-              .code(400)
-              .send(
-                createProblemDetails(
-                  400,
-                  "Bad Request",
-                  "Invalid party size. Must be a positive integer."
-                )
-              );
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", "Invalid party size. Must be a positive integer."));
           }
     
           const durationNum = duration ? parseInt(duration, 10) : undefined;
           if (duration && (isNaN(durationNum!) || durationNum! < 15)) {
-            return reply
-              .code(400)
-              .send(
-                createProblemDetails(
-                  400,
-                  "Bad Request",
-                  "Invalid duration. Must be at least 15 minutes."
-                )
-              );
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", "Invalid duration. Must be at least 15 minutes."));
           }
     
           const slots = await availabilityService.generateTimeSlots(
@@ -203,37 +185,19 @@
           // Validate date formats
           const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
           if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
-            return reply
-              .code(400)
-              .send(createProblemDetails(400, "Bad Request", "Invalid date format. Use YYYY-MM-DD."));
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", "Invalid date format. Use YYYY-MM-DD."));
           }
     
           // Validate date range
           const start = new Date(startDate);
           const end = new Date(endDate);
           if (start > end) {
-            return reply
-              .code(400)
-              .send(
-                createProblemDetails(
-                  400,
-                  "Bad Request",
-                  "startDate must be before or equal to endDate."
-                )
-              );
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", "startDate must be before or equal to endDate."));
           }
     
           const partySizeNum = parseInt(partySize, 10);
           if (isNaN(partySizeNum) || partySizeNum < 1) {
-            return reply
-              .code(400)
-              .send(
-                createProblemDetails(
-                  400,
-                  "Bad Request",
-                  "Invalid party size. Must be a positive integer."
-                )
-              );
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", "Invalid party size. Must be a positive integer."));
           }
     
           const dates = await availabilityService.getAvailableDates(
@@ -333,9 +297,7 @@
         async (request, reply) => {
           const floorPlan = await floorPlanService.getActiveByVenueId(request.params.venueId);
           if (!floorPlan) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "No active floor plan found for venue"));
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "No active floor plan found for venue"));
           }
           return { data: floorPlan };
         }
@@ -411,11 +373,7 @@
         }
       );
     
-      fastify.patch<{
-        Params: { id: string };
-        Body: UpdateFloorPlanRequest;
-        Reply: ApiResponse<FloorPlan> | ApiError;
-      }>(
+      fastify.patch<{ Params: { id: string }; Body: UpdateFloorPlanRequest; Reply: ApiResponse<FloorPlan> | ApiError }>(
         "/:id",
         {
           preHandler: requireAuth,
@@ -611,8 +569,7 @@
           schema: {
             summary: "List guests for a venue",
             operationId: "listGuests",
-            description:
-              "Retrieve a paginated list of guests for a specific venue. Requires authentication.",
+            description: "Retrieve a paginated list of guests for a specific venue. Requires authentication.",
             tags: ["Guests"],
             security: [{ bearerAuth: [] }],
             querystring: {
@@ -657,9 +614,7 @@
         async (request, reply) => {
           const { venueId } = request.query;
           if (!venueId) {
-            return reply
-              .code(400)
-              .send(createProblemDetails(400, "Bad Request", "venueId is required"));
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", "venueId is required"));
           }
           const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
           const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "20", 10) || 20));
@@ -730,9 +685,7 @@
         async (request, reply) => {
           const { venueId, query, tags, hasNotVisitedInDays } = request.query;
           if (!venueId) {
-            return reply
-              .code(400)
-              .send(createProblemDetails(400, "Bad Request", "venueId is required"));
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", "venueId is required"));
           }
           return guestService.search({
             venueId,
@@ -788,9 +741,7 @@
         async (request, reply) => {
           const { venueId } = request.query;
           if (!venueId) {
-            return reply
-              .code(400)
-              .send(createProblemDetails(400, "Bad Request", "venueId is required"));
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", "venueId is required"));
           }
           const segments = await guestService.getSegments(venueId);
           return { data: segments };
@@ -915,16 +866,11 @@
             const guest = await guestService.create(request.body);
             return reply.code(201).send({ data: guest });
           } catch (error) {
-            if (error instanceof Error && error.message.includes("Unique constraint")) {
-              return reply
-                .code(400)
-                .send(
-                  createProblemDetails(
-                    400,
-                    "Bad Request",
-                    "A guest with this email or phone already exists at this venue"
-                  )
-                );
+            if (
+              error instanceof Error &&
+              error.message.includes("Unique constraint")
+            ) {
+              return reply.code(400).send(createProblemDetails(400, "Bad Request", "A guest with this email or phone already exists at this venue"));
             }
             throw error;
           }
@@ -942,8 +888,7 @@
           schema: {
             summary: "Find or create guest",
             operationId: "findOrCreateGuest",
-            description:
-              "Find existing guest by email/phone or create new one. Used for identity resolution when booking.",
+            description: "Find existing guest by email/phone or create new one. Used for identity resolution when booking.",
             tags: ["Guests"],
             security: [{ bearerAuth: [] }],
             body: {
@@ -991,9 +936,7 @@
         async (request, reply) => {
           const { venueId, email, phone, name } = request.body;
           if (!email && !phone) {
-            return reply
-              .code(400)
-              .send(createProblemDetails(400, "Bad Request", "Either email or phone is required"));
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", "Either email or phone is required"));
           }
           const guest = await guestService.findOrCreate(venueId, { email, phone, name });
           return { data: guest };
@@ -1128,7 +1071,7 @@
           schema: { ...healthSchema, operationId: "getHealth" },
           config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
         },
-        healthHandler
+        healthHandler,
       );
     
       // /api/health — public path via DO ingress (preservePathPrefix: true, prefix "/api")
@@ -1140,7 +1083,7 @@
           schema: { ...healthSchema, operationId: "getHealthApi" },
           config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
         },
-        healthHandler
+        healthHandler,
       );
     
       // /api/v1/reservations/health — public path via DO ingress (preservePathPrefix: true, prefix "/api/v1/reservations")
@@ -1152,7 +1095,7 @@
           schema: { ...healthSchema, operationId: "getHealthApiReservations" },
           config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
         },
-        healthHandler
+        healthHandler,
       );
     };
   </file>
@@ -1200,7 +1143,8 @@
               properties: {
                 [SESSION_ID_HEADER]: {
                   type: "string",
-                  description: "Session identifier. If not provided, one will be generated.",
+                  description:
+                    "Session identifier. If not provided, one will be generated.",
                 },
               },
             },
@@ -1219,23 +1163,16 @@
                   format: "date-time",
                   description: "Start time in ISO 8601 format",
                 },
-                partySize: {
-                  type: "integer",
-                  minimum: 1,
-                  maximum: 20,
-                  description: "Number of guests",
-                },
+                partySize: { type: "integer", minimum: 1, maximum: 20, description: "Number of guests" },
                 tableId: {
                   type: "string",
-                  description:
-                    "Optional specific table to hold. If not provided, best available table is assigned.",
+                  description: "Optional specific table to hold. If not provided, best available table is assigned.",
                 },
                 holdDurationMinutes: {
                   type: "integer",
                   minimum: 1,
                   maximum: 60,
-                  description:
-                    "Override hold duration in minutes. Defaults to venue setting or 10 minutes.",
+                  description: "Override hold duration in minutes. Defaults to venue setting or 10 minutes.",
                 },
               },
             },
@@ -1258,9 +1195,7 @@
           if (!result.success) {
             const statusCode = result.error?.includes("not found") ? 404 : 409;
             const title = statusCode === 404 ? "Not Found" : "Conflict";
-            return reply
-              .code(statusCode)
-              .send(createProblemDetails(statusCode, title, result.error ?? "Failed to create hold"));
+            return reply.code(statusCode).send(createProblemDetails(statusCode, title, result.error ?? "Failed to create hold"));
           }
     
           // Set the session ID header in response
@@ -1303,9 +1238,7 @@
           const hold = await holdService.getById(request.params.id);
     
           if (!hold) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Hold not found or expired"));
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Hold not found or expired"));
           }
     
           return { data: hold };
@@ -1358,19 +1291,13 @@
           const sessionId = request.headers[SESSION_ID_HEADER];
     
           if (typeof sessionId !== "string" || sessionId.length === 0) {
-            return reply
-              .code(401)
-              .send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
+            return reply.code(401).send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
           }
     
           const released = await holdService.release(request.params.id, sessionId);
     
           if (!released) {
-            return reply
-              .code(404)
-              .send(
-                createProblemDetails(404, "Not Found", "Hold not found or not owned by this session")
-              );
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Hold not found or not owned by this session"));
           }
     
           return { success: true };
@@ -1447,9 +1374,7 @@
           const sessionId = request.headers[SESSION_ID_HEADER];
     
           if (typeof sessionId !== "string" || sessionId.length === 0) {
-            return reply
-              .code(401)
-              .send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
+            return reply.code(401).send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
           }
     
           const result = await holdService.convertToReservation(
@@ -1502,7 +1427,7 @@
             })),
           };
           return reply.status(snapshot.ready ? 200 : 503).send(response);
-        }
+        },
       );
     };
   </file>
@@ -1588,16 +1513,9 @@
         async (request, reply) => {
           const authUser = request.user;
           const adminAccess = isAdmin(authUser);
-    
+          
           if (!adminAccess) {
-            reply.code(403);
-            return reply.send(
-              createProblemDetails(
-                403,
-                "Forbidden",
-                "Admin access required to list all reservations"
-              ) as never
-            );
+            reply.code(403); return reply.send(createProblemDetails(403, "Forbidden", "Admin access required to list all reservations") as never);
           }
     
           const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
@@ -1624,7 +1542,8 @@
           schema: {
             summary: "Get current user's reservations",
             operationId: "getMyReservations",
-            description: "Retrieve reservations for the currently authenticated user.",
+            description:
+              "Retrieve reservations for the currently authenticated user.",
             tags: ["Reservations"],
             security: [{ bearerAuth: [] }],
             querystring: {
@@ -1668,9 +1587,7 @@
         async (request, reply) => {
           const authUser = request.user;
           if (!authUser) {
-            return reply
-              .code(401)
-              .send(createProblemDetails(401, "Unauthorized", "Authentication required"));
+            return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Authentication required"));
           }
     
           const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
@@ -1750,9 +1667,7 @@
           const userId = request.user?.id;
           const result = await reservationService.createWalkIn(request.body, userId);
           if (!result.success || !result.reservation) {
-            return reply
-              .code(409)
-              .send(createProblemDetails(409, "Conflict", result.error ?? "Table is not available"));
+            return reply.code(409).send(createProblemDetails(409, "Conflict", result.error ?? "Table is not available"));
           }
           const updatedTable = await tableService.updateStatus(request.body.tableId, "OCCUPIED");
           emitReservationCreated(result.reservation);
@@ -1808,22 +1723,17 @@
         async (request, reply) => {
           const reservation = await reservationService.getById(request.params.id);
           if (!reservation) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Reservation not found"));
           }
-    
+          
           const authUser = request.user;
           const adminAccess = isAdmin(authUser);
           const isOwner = reservation.guestEmail === authUser?.email;
-    
+          
           if (!adminAccess && !isOwner) {
-            reply.code(403);
-            return reply.send(
-              createProblemDetails(403, "Forbidden", "You can only view your own reservations") as never
-            );
+            reply.code(403); return reply.send(createProblemDetails(403, "Forbidden", "You can only view your own reservations") as never);
           }
-    
+          
           return { data: reservation };
         }
       );
@@ -1931,27 +1841,18 @@
           const useEnhancedValidation = isEnabled(flags, "enhanced-validation");
     
           if (useEnhancedValidation && request.body.partySize > 20) {
-            return reply
-              .code(400)
-              .send(
-                createProblemDetails(
-                  400,
-                  "Bad Request",
-                  "Party size exceeds limit for enhanced validation"
-                )
-              );
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", "Party size exceeds limit for enhanced validation"));
           }
     
-          const result = await reservationService.createWithConflictCheck(request.body, userId);
+          const result = await reservationService.createWithConflictCheck(
+            request.body,
+            userId
+          );
     
           if (!result.success) {
             const statusCode = result.conflict?.hasConflict ? 409 : 400;
             const title = statusCode === 409 ? "Conflict" : "Bad Request";
-            return reply
-              .code(statusCode)
-              .send(
-                createProblemDetails(statusCode, title, result.error ?? "Failed to create reservation")
-              );
+            return reply.code(statusCode).send(createProblemDetails(statusCode, title, result.error ?? "Failed to create reservation"));
           }
     
           return reply.code(201).send({ data: result.reservation! });
@@ -1970,7 +1871,8 @@
           schema: {
             summary: "Update a reservation",
             operationId: "updateReservation",
-            description: "Update an existing reservation. Only provided fields will be updated.",
+            description:
+              "Update an existing reservation. Only provided fields will be updated.",
             tags: ["Reservations"],
             params: {
               type: "object",
@@ -2059,9 +1961,7 @@
         async (request, reply) => {
           const reservation = await reservationService.getById(request.params.id);
           if (!reservation) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Reservation not found"));
           }
     
           const authUser = request.user;
@@ -2069,14 +1969,7 @@
           const isOwner = authUser?.email && reservation.guestEmail === authUser.email;
     
           if (!adminAccess && !isOwner) {
-            reply.code(403);
-            return reply.send(
-              createProblemDetails(
-                403,
-                "Forbidden",
-                "You can only update your own reservations"
-              ) as never
-            );
+            reply.code(403); return reply.send(createProblemDetails(403, "Forbidden", "You can only update your own reservations") as never);
           }
     
           if (request.body.status === "CANCELLED") {
@@ -2087,9 +1980,7 @@
             );
     
             if (!reservation) {
-              return reply
-                .code(404)
-                .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+              return reply.code(404).send(createProblemDetails(404, "Not Found", "Reservation not found"));
             }
     
             emitReservationCancelled(reservation);
@@ -2103,24 +1994,14 @@
     
           if (!result.success) {
             if (result.error === "Reservation not found") {
-              return reply
-                .code(404)
-                .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+              return reply.code(404).send(createProblemDetails(404, "Not Found", "Reservation not found"));
             }
     
             if (result.conflict?.hasConflict) {
-              return reply
-                .code(409)
-                .send(
-                  createProblemDetails(409, "Conflict", result.error ?? "Time slot has a conflict")
-                );
+              return reply.code(409).send(createProblemDetails(409, "Conflict", result.error ?? "Time slot has a conflict"));
             }
     
-            return reply
-              .code(400)
-              .send(
-                createProblemDetails(400, "Bad Request", result.error ?? "Failed to update reservation")
-              );
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", result.error ?? "Failed to update reservation"));
           }
     
           return { data: result.reservation! };
@@ -2173,9 +2054,7 @@
         async (request, reply) => {
           const reservation = await reservationService.getById(request.params.id);
           if (!reservation) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Reservation not found"));
           }
     
           const authUser = request.user;
@@ -2183,21 +2062,12 @@
           const isOwner = authUser?.email && reservation.guestEmail === authUser.email;
     
           if (!adminAccess && !isOwner) {
-            reply.code(403);
-            return reply.send(
-              createProblemDetails(
-                403,
-                "Forbidden",
-                "You can only cancel your own reservations"
-              ) as never
-            );
+            reply.code(403); return reply.send(createProblemDetails(403, "Forbidden", "You can only cancel your own reservations") as never);
           }
     
           const cancelled = await reservationService.cancel(request.params.id);
           if (!cancelled) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Reservation not found"));
           }
           return { data: cancelled };
         }
@@ -2383,12 +2253,11 @@
             const table = await tableService.create(request.body);
             return reply.code(201).send({ data: table });
           } catch (error) {
-            if (error instanceof Error && error.message.includes("Unique constraint")) {
-              return reply
-                .code(400)
-                .send(
-                  createProblemDetails(400, "Bad Request", "A table with this name already exists")
-                );
+            if (
+              error instanceof Error &&
+              error.message.includes("Unique constraint")
+            ) {
+              return reply.code(400).send(createProblemDetails(400, "Bad Request", "A table with this name already exists"));
             }
             throw error;
           }
@@ -2706,9 +2575,7 @@
         async (request, reply) => {
           const group = await venueGroupService.getById(request.params.id);
           if (!group) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Venue group not found"));
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue group not found"));
           }
           return { data: group };
         }
@@ -2771,16 +2638,11 @@
             const group = await venueGroupService.create(request.body);
             return reply.code(201).send({ data: group });
           } catch (error) {
-            if (error instanceof Error && error.message.includes("Unique constraint")) {
-              return reply
-                .code(400)
-                .send(
-                  createProblemDetails(
-                    400,
-                    "Bad Request",
-                    "A venue group with this slug already exists"
-                  )
-                );
+            if (
+              error instanceof Error &&
+              error.message.includes("Unique constraint")
+            ) {
+              return reply.code(400).send(createProblemDetails(400, "Bad Request", "A venue group with this slug already exists"));
             }
             throw error;
           }
@@ -2844,9 +2706,7 @@
         async (request, reply) => {
           const group = await venueGroupService.update(request.params.id, request.body);
           if (!group) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Venue group not found"));
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue group not found"));
           }
           return { data: group };
         }
@@ -2899,9 +2759,7 @@
         async (request, reply) => {
           const deleted = await venueGroupService.delete(request.params.id);
           if (!deleted) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Venue group not found"));
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue group not found"));
           }
           return reply.code(204).send();
         }
@@ -2919,7 +2777,8 @@
           schema: {
             summary: "List all venues",
             operationId: "listVenues",
-            description: "Retrieve a paginated list of all venues. Optionally filter by venue group.",
+            description:
+              "Retrieve a paginated list of all venues. Optionally filter by venue group.",
             tags: ["Venues"],
             querystring: {
               type: "object",
@@ -3022,8 +2881,7 @@
           schema: {
             summary: "Get venue by slug",
             operationId: "getVenueBySlug",
-            description:
-              "Retrieve a single venue by its URL-friendly slug. Used for public booking URLs.",
+            description: "Retrieve a single venue by its URL-friendly slug. Used for public booking URLs.",
             tags: ["Venues"],
             params: {
               type: "object",
@@ -3133,12 +2991,11 @@
             const venue = await venueService.create(request.body);
             return reply.code(201).send({ data: venue });
           } catch (error) {
-            if (error instanceof Error && error.message.includes("Unique constraint")) {
-              return reply
-                .code(400)
-                .send(
-                  createProblemDetails(400, "Bad Request", "A venue with this slug already exists")
-                );
+            if (
+              error instanceof Error &&
+              error.message.includes("Unique constraint")
+            ) {
+              return reply.code(400).send(createProblemDetails(400, "Bad Request", "A venue with this slug already exists"));
             }
             throw error;
           }
@@ -3283,12 +3140,17 @@
       settings: VenueSettings | null;
       operatingHours: OperatingHours | null;
     }
-    export function estimateDuration(partySize: number, venueSettings?: VenueSettings | null): number {
+    export function estimateDuration(
+      partySize: number,
+      venueSettings?: VenueSettings | null
+    ): number {
       // Use venue-specific rules if available
       const rules = venueSettings?.durationRules ?? DEFAULT_DURATION_RULES;
     
       // Find the matching rule
-      const rule = rules.find((r) => partySize >= r.minPartySize && partySize <= r.maxPartySize);
+      const rule = rules.find(
+        (r) => partySize >= r.minPartySize && partySize <= r.maxPartySize
+      );
     
       if (rule) {
         return rule.durationMinutes;
@@ -3300,7 +3162,9 @@
       }
     
       // For parties larger than rules cover, use the largest rule + 15min per additional 2 guests
-      const largestRule = rules.reduce((max, r) => (r.maxPartySize > max.maxPartySize ? r : max));
+      const largestRule = rules.reduce((max, r) =>
+        r.maxPartySize > max.maxPartySize ? r : max
+      );
       const extraGuests = partySize - largestRule.maxPartySize;
       const extraTime = Math.ceil(extraGuests / 2) * 15;
       return largestRule.durationMinutes + extraTime;
@@ -3315,14 +3179,11 @@
     export function getSlowQueryStats(): { count5min: number; slowestMs: number } {
       const now = Date.now();
       const windowStart = now - SLOW_QUERY_WINDOW_MS;
-    
+      
       slowQueryStats.queries = slowQueryStats.queries.filter((q) => q.timestamp > windowStart);
       slowQueryStats.count5min = slowQueryStats.queries.length;
-      slowQueryStats.slowestMs = slowQueryStats.queries.reduce(
-        (max, q) => Math.max(max, q.duration),
-        0
-      );
-    
+      slowQueryStats.slowestMs = slowQueryStats.queries.reduce((max, q) => Math.max(max, q.duration), 0);
+      
       return {
         count5min: slowQueryStats.count5min,
         slowestMs: slowQueryStats.slowestMs,
@@ -3555,7 +3416,9 @@
     function validateCorsOrigins(origins: string[]): string[] {
       const validPatterns = [
         /^https:\/\/([a-z-]+\.)?mattbutlerengineering\.com$/,
-        ...(process.env.NODE_ENV === "development" ? [/^http:\/\/localhost:\d+$/] : []),
+        ...(process.env.NODE_ENV === "development"
+          ? [/^http:\/\/localhost:\d+$/]
+          : []),
       ];
     
       const validated: string[] = [];

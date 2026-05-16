@@ -11,7 +11,6 @@ The profile section is managed exclusively by `generate-claude-profile`.
 ## Section Templates
 
 ### Project Section
-
 ```
 <!-- GSD:project-start source:PROJECT.md -->
 ## Project
@@ -21,13 +20,11 @@ The profile section is managed exclusively by `generate-claude-profile`.
 ```
 
 **Fallback text:**
-
 ```
 Project not yet initialized. Run /gsd:new-project to set up.
 ```
 
 ### Stack Section
-
 ```
 <!-- GSD:stack-start source:STACK.md -->
 ## Technology Stack
@@ -37,13 +34,11 @@ Project not yet initialized. Run /gsd:new-project to set up.
 ```
 
 **Fallback text:**
-
 ```
 Technology stack not yet documented. Will populate after codebase mapping or first phase.
 ```
 
 ### Conventions Section
-
 ```
 <!-- GSD:conventions-start source:CONVENTIONS.md -->
 ## Conventions
@@ -53,13 +48,11 @@ Technology stack not yet documented. Will populate after codebase mapping or fir
 ```
 
 **Fallback text:**
-
 ```
 Conventions not yet established. Will populate as patterns emerge during development.
 ```
 
 ### Architecture Section
-
 ```
 <!-- GSD:architecture-start source:ARCHITECTURE.md -->
 ## Architecture
@@ -69,13 +62,11 @@ Conventions not yet established. Will populate as patterns emerge during develop
 ```
 
 **Fallback text:**
-
 ```
 Architecture not yet mapped. Follow existing patterns found in the codebase.
 ```
 
 ### Workflow Enforcement Section
-
 ```
 <!-- GSD:workflow-start source:GSD defaults -->
 ## GSD Workflow Enforcement
@@ -92,7 +83,6 @@ Do not make direct repo edits outside a GSD workflow unless the user explicitly 
 ```
 
 ### Profile Section (Placeholder Only)
-
 ```
 <!-- GSD:profile-start -->
 ## Developer Profile
@@ -127,7 +117,6 @@ CLAUDE.md file and no profile section exists yet.
 ## Fallback Behavior
 
 When a source file is missing, fallback text provides Claude-actionable guidance:
-
 - Guides Claude's behavior in the absence of data
 - Not placeholder ads or "missing" notices
 - Each fallback tells Claude what to do, not just what's absent

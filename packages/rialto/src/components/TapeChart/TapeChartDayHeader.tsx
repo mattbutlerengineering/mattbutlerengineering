@@ -16,7 +16,9 @@ export interface TapeChartDayHeaderProps {
   leadingHeader?: ReactNode;
 }
 
-export const TapeChartDayHeader = memo(function TapeChartDayHeader(props: TapeChartDayHeaderProps) {
+export const TapeChartDayHeader = memo(function TapeChartDayHeader(
+  props: TapeChartDayHeaderProps,
+) {
   const { startDate, dayCount, formatters, todayISO, dailyCounts, strings, leadingHeader } = props;
 
   const cells = [];
@@ -38,9 +40,7 @@ export const TapeChartDayHeader = memo(function TapeChartDayHeader(props: TapeCh
         data-today={isToday ? "true" : undefined}
         aria-current={isToday ? "date" : undefined}
         aria-label={`${formatters.dayLong(iso)}${isToday ? ", " + strings.todayLabel : ""}${
-          counts
-            ? `, ${counts.arrivals} ${strings.arrivalsLabel.toLowerCase()}, ${counts.departures} ${strings.departuresLabel.toLowerCase()}`
-            : ""
+          counts ? `, ${counts.arrivals} ${strings.arrivalsLabel.toLowerCase()}, ${counts.departures} ${strings.departuresLabel.toLowerCase()}` : ""
         }`}
       >
         <span className={styles.dayHeaderWeekday}>{formatters.dayWeekdayShort(iso)}</span>
@@ -59,7 +59,7 @@ export const TapeChartDayHeader = memo(function TapeChartDayHeader(props: TapeCh
             )}
           </span>
         )}
-      </div>
+      </div>,
     );
   }
 

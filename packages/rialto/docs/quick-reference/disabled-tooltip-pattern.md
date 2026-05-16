@@ -1,6 +1,6 @@
 # DisabledTooltip — Quick Reference
 
-Pattern for explaining _why_ a field is disabled without hiding the disabled state itself.
+Pattern for explaining *why* a field is disabled without hiding the disabled state itself.
 
 ---
 
@@ -20,16 +20,16 @@ Pattern for explaining _why_ a field is disabled without hiding the disabled sta
 
 All form components in Rialto route their disabled state through `DisabledTooltip`:
 
-| Component       | Source                                       | Spec                                             |
-| --------------- | -------------------------------------------- | ------------------------------------------------ |
-| **Checkbox**    | `src/components/Checkbox/Checkbox.tsx`       | [checkbox.spec.md](../../specs/checkbox.spec.md) |
-| **Input**       | `src/components/Input/Input.tsx`             | [input.spec.md](../../specs/input.spec.md)       |
-| **NumberInput** | `src/components/NumberInput/NumberInput.tsx` | _(no spec file)_                                 |
-| **PinInput**    | `src/components/PinInput/PinInput.tsx`       | _(no spec file)_                                 |
-| **Select**      | `src/components/Select/Select.tsx`           | [select.spec.md](../../specs/select.spec.md)     |
-| **Slider**      | `src/components/Slider/Slider.tsx`           | _(no spec file)_                                 |
-| **TextArea**    | `src/components/TextArea/TextArea.tsx`       | _(no spec file)_                                 |
-| **Toggle**      | `src/components/Toggle/Toggle.tsx`           | [toggle.spec.md](../../specs/toggle.spec.md)     |
+| Component | Source | Spec |
+|-----------|--------|------|
+| **Checkbox** | `src/components/Checkbox/Checkbox.tsx` | [checkbox.spec.md](../../specs/checkbox.spec.md) |
+| **Input** | `src/components/Input/Input.tsx` | [input.spec.md](../../specs/input.spec.md) |
+| **NumberInput** | `src/components/NumberInput/NumberInput.tsx` | *(no spec file)* |
+| **PinInput** | `src/components/PinInput/PinInput.tsx` | *(no spec file)* |
+| **Select** | `src/components/Select/Select.tsx` | [select.spec.md](../../specs/select.spec.md) |
+| **Slider** | `src/components/Slider/Slider.tsx` | *(no spec file)* |
+| **TextArea** | `src/components/TextArea/TextArea.tsx` | *(no spec file)* |
+| **Toggle** | `src/components/Toggle/Toggle.tsx` | [toggle.spec.md](../../specs/toggle.spec.md) |
 
 `src/components/accessibility.test.tsx` runs axe-core across all of them with the disabled state set, so any regression to the pattern trips the accessibility suite.
 
@@ -37,11 +37,11 @@ All form components in Rialto route their disabled state through `DisabledToolti
 
 ## Props contract
 
-| Prop             | Type        | Required | Description                             |
-| ---------------- | ----------- | -------- | --------------------------------------- |
-| `disabled`       | `boolean`   | No       | Whether the wrapped control is disabled |
-| `disabledReason` | `string`    | No       | Tooltip content shown when disabled     |
-| `children`       | `ReactNode` | Yes      | The wrapped form control                |
+| Prop | Type | Required | Description |
+|------|------|----------|-------------|
+| `disabled` | `boolean` | No | Whether the wrapped control is disabled |
+| `disabledReason` | `string` | No | Tooltip content shown when disabled |
+| `children` | `ReactNode` | Yes | The wrapped form control |
 
 Tooltip renders **only** when both `disabled && disabledReason` are truthy. Otherwise the component returns its children unchanged.
 
@@ -49,7 +49,7 @@ Tooltip renders **only** when both `disabled && disabledReason` are truthy. Othe
 
 ## Known a11y limitation
 
-`DisabledTooltip` passes `showOnFocus={false}` to its inner `Tooltip`. Keyboard-only users — the population most likely to need to know _why_ an action is unavailable — cannot see the reason. Flagged in [`docs/ui-audit.md`](../ui-audit.md) at `src/components/DisabledTooltip/DisabledTooltip.tsx:13`. When authoring a new form component, route through `DisabledTooltip` rather than duplicating its limitation in a custom wrapper.
+`DisabledTooltip` passes `showOnFocus={false}` to its inner `Tooltip`. Keyboard-only users — the population most likely to need to know *why* an action is unavailable — cannot see the reason. Flagged in [`docs/ui-audit.md`](../ui-audit.md) at `src/components/DisabledTooltip/DisabledTooltip.tsx:13`. When authoring a new form component, route through `DisabledTooltip` rather than duplicating its limitation in a custom wrapper.
 
 ---
 

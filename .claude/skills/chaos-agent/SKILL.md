@@ -36,13 +36,11 @@ Pick a non-breaking but auditable bug type:
 ### Phase 2: Create a PR
 
 1. Create a new branch:
-
 ```bash
 git checkout -b chaos/synthetic-bug-test-$(date +%Y%m%d%H%M%S)
 ```
 
 2. Seed the bug:
-
 ```bash
 mkdir -p apps/marketing/src/utils
 cat > apps/marketing/src/utils/test-lint.ts <<'EOF'
@@ -56,7 +54,6 @@ EOF
 ```
 
 3. Commit and push:
-
 ```bash
 git add apps/marketing/src/utils/test-lint.ts
 git commit -m "test(chaos): seed synthetic lint violation for audit verification"
@@ -64,7 +61,6 @@ git push origin chaos/synthetic-bug-test-$(date +%Y%m%d%H%M%S)
 ```
 
 4. Create PR (mark as test):
-
 ```bash
 gh pr create \
   --title "test(chaos): synthetic bug for audit loop verification" \
@@ -92,14 +88,12 @@ This PR should be closed immediately after verification. The synthetic bug is in
 Wait for the autonomous audit loop (site-audit or lint-monitor) to run. Expected behavior:
 
 **Within ~5 minutes (if on smoke audit cycle):**
-
 - ESLint job fails on the branch
 - CI reports lint failure
 - Audit loop creates an issue with label `audit` + `ci-fix`
 - Issue title matches the violation: "ESLint: no-unused-vars in apps/marketing/src/utils/test-lint.ts"
 
 **Check:**
-
 ```bash
 # Query for recently created issues
 gh issue list --label "audit" --state open --json number,title,createdAt --limit 5
@@ -111,27 +105,23 @@ If an issue was filed referencing the lint violation, the audit loop is working!
 ### Phase 4: Close and Document
 
 1. **Close the draft PR** (don't merge):
-
 ```bash
 gh pr close <pr_number>
 ```
 
 2. **Close the audit-filed issue** (mark as verified):
-
 ```bash
 gh issue close <issue_number>
 gh issue comment <issue_number> --body "Verified: Synthetic bug was correctly detected and filed by audit loop. Closing as verification complete. (chaos-agent run: $(date -u +%Y-%m-%dT%H:%M:%SZ))"
 ```
 
 3. **Clean up the branch:**
-
 ```bash
 git branch -D chaos/synthetic-bug-test-*
 git push origin --delete chaos/synthetic-bug-test-*
 ```
 
 4. **Log result to state file:**
-
 ```bash
 mkdir -p .claude/state
 echo "{\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"bug_type\":\"lint_violation\",\"verified\":true,\"issue_number\":$ISSUE_NUM}" >> .claude/state/chaos-runs.jsonl
@@ -150,7 +140,6 @@ Set up in [claude.ai/code/scheduled](https://claude.ai/code/scheduled):
 ## Success Criteria
 
 A successful chaos-agent run achieves:
-
 1. ✅ Lint violation is seeded without breaking the build
 2. ✅ Audit loop detects the violation within expected time
 3. ✅ GitHub issue is filed with appropriate labels
@@ -160,12 +149,12 @@ A successful chaos-agent run achieves:
 
 ## Troubleshooting
 
-| Issue                       | Cause                                  | Fix                                                    |
-| --------------------------- | -------------------------------------- | ------------------------------------------------------ |
-| Lint violation not detected | Audit loop didn't run                  | Check `/site-audit smoke` or `/ci-monitor` was invoked |
-| No issue filed              | Audit loop ran but didn't create issue | Check progress-tracker for audit loop health           |
-| PR won't close              | Issue still linked                     | Unlink issue from PR before closing                    |
-| Branch cleanup fails        | Remote branch protected                | Use `git push --force-with-lease` or manual cleanup    |
+| Issue | Cause | Fix |
+|-------|-------|-----|
+| Lint violation not detected | Audit loop didn't run | Check `/site-audit smoke` or `/ci-monitor` was invoked |
+| No issue filed | Audit loop ran but didn't create issue | Check progress-tracker for audit loop health |
+| PR won't close | Issue still linked | Unlink issue from PR before closing |
+| Branch cleanup fails | Remote branch protected | Use `git push --force-with-lease` or manual cleanup |
 
 ## Integration with Learning Loop
 

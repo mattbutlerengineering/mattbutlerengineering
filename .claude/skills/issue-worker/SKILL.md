@@ -95,7 +95,6 @@ This prevents other worker sessions from picking up the same issue.
 ### Step 3: Analyze the Issue
 
 Read the full issue body and labels to understand:
-
 - What needs to be fixed/built
 - Which area of the codebase is affected
 - What the acceptance criteria are
@@ -106,7 +105,6 @@ Build a clear, actionable task description from the issue content. If the issue 
 ### Step 3b: Determine Budget
 
 Use the issue labels and description to set the right budget:
-
 - `ci-fix` or simple issues (lint, typo, config): `--max-budget 0.50`
 - `feature` or standard issues: `--max-budget 1.50`
 - Complex issues (multi-file, new service, architecture): `--max-budget 2.00`
@@ -120,7 +118,6 @@ mbe agent run "<task description synthesized from issue>" --max-budget <budget f
 ```
 
 The `mbe agent run` command will:
-
 1. Create a git worktree (isolated branch)
 2. Spawn a Claude Code session to implement the fix
 3. Commit changes

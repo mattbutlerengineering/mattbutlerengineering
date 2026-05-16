@@ -90,19 +90,14 @@
 .gridBody {
   display: flex;
   flex-direction: column;
-  min-inline-size: calc(
-    var(--tapechart-room-col-width) + var(--tapechart-day-width) * var(--tapechart-day-count, 7)
-  );
+  min-inline-size: calc(var(--tapechart-room-col-width) + var(--tapechart-day-width) * var(--tapechart-day-count, 7));
 }
 
 /* ── Day header row ─────────────────────────── */
 
 .dayHeader {
   display: grid;
-  grid-template-columns: var(--tapechart-room-col-width) repeat(
-      var(--tapechart-day-count, 7),
-      var(--tapechart-day-width)
-    );
+  grid-template-columns: var(--tapechart-room-col-width) repeat(var(--tapechart-day-count, 7), var(--tapechart-day-width));
   position: sticky;
   inset-block-start: 0;
   background: var(--rialto-surface-elevated);
@@ -210,18 +205,10 @@
   vertical-align: middle;
 }
 
-.roomStatusDot[data-status="ready"] {
-  background: var(--rialto-success);
-}
-.roomStatusDot[data-status="dirty"] {
-  background: var(--rialto-warning);
-}
-.roomStatusDot[data-status="outOfOrder"] {
-  background: var(--rialto-text-tertiary);
-}
-.roomStatusDot[data-status="occupied"] {
-  background: var(--rialto-accent);
-}
+.roomStatusDot[data-status="ready"] { background: var(--rialto-success); }
+.roomStatusDot[data-status="dirty"] { background: var(--rialto-warning); }
+.roomStatusDot[data-status="outOfOrder"] { background: var(--rialto-text-tertiary); }
+.roomStatusDot[data-status="occupied"] { background: var(--rialto-accent); }
 
 /* ── Reservation row lane ───────────────────── */
 
@@ -237,13 +224,14 @@
 .lane {
   position: relative;
   min-block-size: var(--tapechart-row-height);
-  background: repeating-linear-gradient(
-    to right,
-    transparent 0,
-    transparent calc(var(--tapechart-day-width) - 1px),
-    var(--rialto-border) calc(var(--tapechart-day-width) - 1px),
-    var(--rialto-border) var(--tapechart-day-width)
-  );
+  background:
+    repeating-linear-gradient(
+      to right,
+      transparent 0,
+      transparent calc(var(--tapechart-day-width) - 1px),
+      var(--rialto-border) calc(var(--tapechart-day-width) - 1px),
+      var(--rialto-border) var(--tapechart-day-width)
+    );
 }
 
 /* ── Today indicator ────────────────────────── */
@@ -264,12 +252,8 @@
   position: absolute;
   inset-block-start: var(--tapechart-bar-inset);
   inset-block-end: var(--tapechart-bar-inset);
-  inset-inline-start: calc(
-    var(--tapechart-bar-start) * var(--tapechart-day-width) + var(--tapechart-bar-gap)
-  );
-  inline-size: calc(
-    var(--tapechart-bar-span) * var(--tapechart-day-width) - var(--tapechart-bar-gap) * 2
-  );
+  inset-inline-start: calc(var(--tapechart-bar-start) * var(--tapechart-day-width) + var(--tapechart-bar-gap));
+  inline-size: calc(var(--tapechart-bar-span) * var(--tapechart-day-width) - var(--tapechart-bar-gap) * 2);
   display: flex;
   align-items: center;
   gap: var(--rialto-space-2xs);
@@ -310,11 +294,12 @@
   color: var(--rialto-text-secondary);
 }
 .bar[data-blocked="true"] {
-  background: repeating-linear-gradient(
-    -45deg,
-    var(--rialto-surface-recessed) 0 6px,
-    color-mix(in srgb, var(--rialto-text-tertiary) 10%, transparent) 6px 12px
-  );
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      var(--rialto-surface-recessed) 0 6px,
+      color-mix(in srgb, var(--rialto-text-tertiary) 10%, transparent) 6px 12px
+    );
   border-color: var(--rialto-border);
   color: var(--rialto-text-secondary);
   font-style: italic;
@@ -338,9 +323,7 @@
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  .bar {
-    transition: none;
-  }
+  .bar { transition: none; }
 }
 
 /* ── List view ──────────────────────────────── */

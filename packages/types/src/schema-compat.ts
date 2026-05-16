@@ -76,12 +76,16 @@ export function compareSchema(
   // Required constraint changes on existing fields
   for (const req of currRequired) {
     if (!baseRequired.has(req) && req in baseProps) {
-      breaking.push(`${schemaId}: property "${req}" became required (was optional)`);
+      breaking.push(
+        `${schemaId}: property "${req}" became required (was optional)`
+      );
     }
   }
   for (const req of baseRequired) {
     if (!currRequired.has(req) && req in currProps) {
-      nonBreaking.push(`${schemaId}: property "${req}" became optional (was required)`);
+      nonBreaking.push(
+        `${schemaId}: property "${req}" became optional (was required)`
+      );
     }
   }
 
@@ -106,10 +110,14 @@ export function compareSchema(
       const added = [...currSet].filter((v) => !baseSet.has(v));
 
       if (removed.length > 0) {
-        breaking.push(`${schemaId}: property "${prop}" enum values removed: ${removed.join(", ")}`);
+        breaking.push(
+          `${schemaId}: property "${prop}" enum values removed: ${removed.join(", ")}`
+        );
       }
       if (added.length > 0) {
-        nonBreaking.push(`${schemaId}: property "${prop}" enum values added: ${added.join(", ")}`);
+        nonBreaking.push(
+          `${schemaId}: property "${prop}" enum values added: ${added.join(", ")}`
+        );
       }
     }
 

@@ -39,7 +39,6 @@ node scripts/verify-fixes.mjs
 ```
 
 This finds issues closed in the last 48 hours with sensor labels (`ci-fix`, `audit`, `acmm`, `sentry`, `bug`), queries the originating sensor, and:
-
 - Comments on the issue with verification evidence
 - Reopens issues where the fix didn't improve the metric
 
@@ -50,7 +49,6 @@ Note any reopened issues for the summary.
 Read the sensor report from `metrics/sensor-report.json`. For each regression in the `regressions` array:
 
 1. **Check for duplicates** — search open issues for the same sensor + metric combination:
-
    ```bash
    gh issue list --state open --search "<sensor> <metric>" --json number,title --limit 5
    ```
@@ -58,7 +56,6 @@ Read the sensor report from `metrics/sensor-report.json`. For each regression in
 2. **Skip if duplicate exists** — don't create noise.
 
 3. **Create issue** if novel — use this format:
-
    ```bash
    gh issue create \
      --title "fix(<sensor>): <metric> regressed (<delta>)" \
@@ -115,20 +112,20 @@ Print a summary to stdout.
 
 ## Sensor Label Map
 
-| Sensor     | Issue Label | What It Checks               |
-| ---------- | ----------- | ---------------------------- |
-| CI Health  | `ci-fix`    | Pass rate on main branch     |
-| ACMM       | `acmm`      | Maturity criteria met        |
-| Lighthouse | `audit`     | Performance/a11y scores      |
-| Sentry     | `sentry`    | Error rates (needs MCP auth) |
-| General    | `bug`       | CI pass after fix            |
+| Sensor | Issue Label | What It Checks |
+|--------|------------|----------------|
+| CI Health | `ci-fix` | Pass rate on main branch |
+| ACMM | `acmm` | Maturity criteria met |
+| Lighthouse | `audit` | Performance/a11y scores |
+| Sentry | `sentry` | Error rates (needs MCP auth) |
+| General | `bug` | CI pass after fix |
 
 ## Scheduling
 
 This skill is designed to run daily. Add a RemoteTrigger:
 
-| Trigger             | Schedule         | Notes                   |
-| ------------------- | ---------------- | ----------------------- |
+| Trigger | Schedule | Notes |
+|---------|----------|-------|
 | `mbe-learning-loop` | Daily 11:00am PT | After ACMM audit (10am) |
 
 Or invoke manually: `/learning-loop`

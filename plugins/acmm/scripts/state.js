@@ -77,9 +77,7 @@ export function loadState(cwd) {
     const parsed = JSON.parse(readFileSync(p, "utf-8"));
     // Merge to forward-compat fields
     return { ...emptyState(), ...parsed };
-  } catch {
-    return emptyState();
-  }
+  } catch { return emptyState(); }
 }
 
 /**

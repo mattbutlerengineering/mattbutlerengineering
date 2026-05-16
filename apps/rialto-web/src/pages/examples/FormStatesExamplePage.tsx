@@ -104,8 +104,8 @@ const compositionNotes = (
     </CompositionNote>
     <CompositionNote>
       Loading state is shown via Spinner adjacent to a disabled Button — Button has no loading prop,
-      so the spinner is placed inline using Stack direction=&ldquo;row&rdquo; to communicate the
-      in-flight request without mutating the button itself.
+      so the spinner is placed inline using Stack direction=&ldquo;row&rdquo; to communicate the in-flight
+      request without mutating the button itself.
     </CompositionNote>
   </Stack>
 );
@@ -167,7 +167,12 @@ export function FormStatesExamplePage() {
             <Stack gap="md">
               <Input label="Guest Name" value="Elena Marchetti" disabled />
               <Input label="Email Address" value="e.marchetti@resort.com" disabled />
-              <Select label="Room Type" options={ROOM_TYPE_OPTIONS} value="suite" disabled />
+              <Select
+                label="Room Type"
+                options={ROOM_TYPE_OPTIONS}
+                value="suite"
+                disabled
+              />
               <Stack direction="row" justify="end">
                 <Button variant="primary" disabled>
                   Submit Reservation
@@ -183,7 +188,12 @@ export function FormStatesExamplePage() {
             <Stack gap="md">
               <Input label="Guest Name" value="Sophie Laurent" readOnly />
               <Input label="Email Address" value="s.laurent@grandlake.com" readOnly />
-              <Select label="Room Type" options={ROOM_TYPE_OPTIONS} value="deluxe" disabled />
+              <Select
+                label="Room Type"
+                options={ROOM_TYPE_OPTIONS}
+                value="deluxe"
+                disabled
+              />
               <Stack direction="row" align="center" gap="sm" justify="end">
                 <Spinner size="sm" label="Submitting\u2026" />
                 <Button variant="primary" disabled>

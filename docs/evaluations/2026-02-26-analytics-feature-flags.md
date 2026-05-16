@@ -2,12 +2,12 @@
 
 ## Current State
 
-| Dimension             | Value                   |
-| --------------------- | ----------------------- |
-| **Product analytics** | None                    |
-| **Feature flags**     | None                    |
-| **User tracking**     | Auth0 login events only |
-| **A/B testing**       | None                    |
+| Dimension | Value |
+|-----------|-------|
+| **Product analytics** | None |
+| **Feature flags** | None |
+| **User tracking** | Auth0 login events only |
+| **A/B testing** | None |
 
 ### Why These Are Combined
 
@@ -26,19 +26,19 @@ PostHog provides both product analytics and feature flags in a single platform w
 
 ### Provider Comparison
 
-| Dimension           | PostHog                                          | Plausible                        | Mixpanel                                 |
-| ------------------- | ------------------------------------------------ | -------------------------------- | ---------------------------------------- |
-| **Type**            | Product analytics (full)                         | Web analytics (pageviews)        | Product analytics (full)                 |
-| **Free tier**       | 1M events/month                                  | None ($9/month min)              | 1M events/month                          |
-| **Event tracking**  | Custom events, properties, user identification   | Pageviews, goals, referrers      | Custom events, properties, user profiles |
-| **Funnels**         | Yes                                              | Business plan only ($19/mo)      | Yes                                      |
-| **Session replay**  | Yes (5,000/month free)                           | No                               | No                                       |
-| **Feature flags**   | Yes (1M requests/month free)                     | No                               | Limited (experimental)                   |
-| **A/B testing**     | Yes (1M requests/month free)                     | No                               | Yes                                      |
-| **Self-hosted**     | Yes (Docker, free)                               | Yes (Docker, free)               | No                                       |
-| **Open source**     | Yes (MIT)                                        | Yes (AGPL)                       | No                                       |
-| **Privacy-focused** | Configurable                                     | Yes (no cookies, GDPR-compliant) | No                                       |
-| **SDK**             | `posthog-js` (browser) + `posthog-node` (server) | Script tag (no SDK needed)       | `mixpanel-browser` + `mixpanel` (server) |
+| Dimension | PostHog | Plausible | Mixpanel |
+|-----------|---------|-----------|---------|
+| **Type** | Product analytics (full) | Web analytics (pageviews) | Product analytics (full) |
+| **Free tier** | 1M events/month | None ($9/month min) | 1M events/month |
+| **Event tracking** | Custom events, properties, user identification | Pageviews, goals, referrers | Custom events, properties, user profiles |
+| **Funnels** | Yes | Business plan only ($19/mo) | Yes |
+| **Session replay** | Yes (5,000/month free) | No | No |
+| **Feature flags** | Yes (1M requests/month free) | No | Limited (experimental) |
+| **A/B testing** | Yes (1M requests/month free) | No | Yes |
+| **Self-hosted** | Yes (Docker, free) | Yes (Docker, free) | No |
+| **Open source** | Yes (MIT) | Yes (AGPL) | No |
+| **Privacy-focused** | Configurable | Yes (no cookies, GDPR-compliant) | No |
+| **SDK** | `posthog-js` (browser) + `posthog-node` (server) | Script tag (no SDK needed) | `mixpanel-browser` + `mixpanel` (server) |
 
 **Plausible eliminated:** Web analytics only (pageviews, referrers). No custom event tracking, no funnels, no user identification. Good for a marketing site but insufficient for product analytics on a dashboard application.
 
@@ -57,15 +57,15 @@ PostHog provides both product analytics and feature flags in a single platform w
 
 ### Provider Comparison
 
-| Dimension                 | PostHog                       | LaunchDarkly                      | Flagsmith               |
-| ------------------------- | ----------------------------- | --------------------------------- | ----------------------- |
-| **Free tier**             | 1M requests/month             | Free (limited MAU)                | 50K requests/month      |
-| **Paid**                  | $0.0001/request after 1M      | $10/seat/month + MAU charges      | $45/month (1M requests) |
-| **SDK**                   | `posthog-js` / `posthog-node` | `launchdarkly-node-server-sdk`    | `flagsmith`             |
-| **Open source**           | Yes (MIT)                     | No                                | Yes (BSD 3-Clause)      |
-| **Self-hosted**           | Yes                           | No                                | Yes                     |
-| **A/B testing**           | Included                      | Included (Experimentation add-on) | Limited                 |
-| **Analytics integration** | Native (same platform)        | Requires separate analytics tool  | Limited                 |
+| Dimension | PostHog | LaunchDarkly | Flagsmith |
+|-----------|---------|-------------|----------|
+| **Free tier** | 1M requests/month | Free (limited MAU) | 50K requests/month |
+| **Paid** | $0.0001/request after 1M | $10/seat/month + MAU charges | $45/month (1M requests) |
+| **SDK** | `posthog-js` / `posthog-node` | `launchdarkly-node-server-sdk` | `flagsmith` |
+| **Open source** | Yes (MIT) | No | Yes (BSD 3-Clause) |
+| **Self-hosted** | Yes | No | Yes |
+| **A/B testing** | Included | Included (Experimentation add-on) | Limited |
+| **Analytics integration** | Native (same platform) | Requires separate analytics tool | Limited |
 
 **LaunchDarkly eliminated:** Per-seat pricing + MAU charges. The free tier is restrictive. Overkill for a solo developer who needs basic feature toggles. LaunchDarkly is built for enterprises with dedicated feature management teams.
 
@@ -77,25 +77,25 @@ PostHog provides both product analytics and feature flags in a single platform w
 
 **PostHog is the right choice — one platform for analytics, feature flags, session replay, and A/B testing.**
 
-| Feature               | Free Tier              | Paid (if needed) |
-| --------------------- | ---------------------- | ---------------- |
-| **Product analytics** | 1M events/month        | $0.000248/event  |
-| **Session replay**    | 5,000 recordings/month | $0.005/recording |
-| **Feature flags**     | 1M requests/month      | $0.0001/request  |
-| **A/B testing**       | 1M requests/month      | $0.0001/request  |
-| **Surveys**           | 250 responses/month    | $0.20/response   |
+| Feature | Free Tier | Paid (if needed) |
+|---------|-----------|-------------------|
+| **Product analytics** | 1M events/month | $0.000248/event |
+| **Session replay** | 5,000 recordings/month | $0.005/recording |
+| **Feature flags** | 1M requests/month | $0.0001/request |
+| **A/B testing** | 1M requests/month | $0.0001/request |
+| **Surveys** | 250 responses/month | $0.20/response |
 
 **Free tier math:** A reservation dashboard with 50 daily active users, ~100 events per user per day = ~150,000 events/month. Well within the 1M free tier.
 
 **Implementation:**
 
-| Step | Action                                                             | Effort    |
-| ---- | ------------------------------------------------------------------ | --------- |
-| 1    | Create PostHog account (cloud)                                     | 5 min     |
-| 2    | Add `posthog-js` to hospitality app                                | 30 min    |
-| 3    | Add `posthog-node` to Fastify services (server-side feature flags) | 1 hour    |
-| 4    | Define initial feature flags                                       | 30 min    |
-| 5    | Add custom events for key user actions                             | 2-4 hours |
+| Step | Action | Effort |
+|------|--------|--------|
+| 1 | Create PostHog account (cloud) | 5 min |
+| 2 | Add `posthog-js` to hospitality app | 30 min |
+| 3 | Add `posthog-node` to Fastify services (server-side feature flags) | 1 hour |
+| 4 | Define initial feature flags | 30 min |
+| 5 | Add custom events for key user actions | 2-4 hours |
 
 **Total:** ~4-6 hours. $0/month.
 

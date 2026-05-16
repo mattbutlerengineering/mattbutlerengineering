@@ -11,9 +11,7 @@ vi.mock("@mbe/auth/react", () => ({
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Badge: ({ children, color }: { children: React.ReactNode; color?: string }) => (
-    <span data-testid="badge" data-color={color}>
-      {children}
-    </span>
+    <span data-testid="badge" data-color={color}>{children}</span>
   ),
   Popover: ({ trigger, children }: { trigger: React.ReactNode; children: React.ReactNode }) => (
     <div data-testid="popover">

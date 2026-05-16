@@ -93,13 +93,19 @@ export function ProfilePage() {
     return () => clearTimeout(timer);
   }, [saveSuccess]);
 
-  const handleNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({ ...prev, name: e.target.value }));
-  }, []);
+  const handleNameChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setFormData((prev) => ({ ...prev, name: e.target.value }));
+    },
+    []
+  );
 
-  const handlePictureChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({ ...prev, picture: e.target.value }));
-  }, []);
+  const handlePictureChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setFormData((prev) => ({ ...prev, picture: e.target.value }));
+    },
+    []
+  );
 
   async function handleSave() {
     if (!accessToken || !user) return;
@@ -210,12 +216,7 @@ export function ProfilePage() {
 
       <Stack gap="lg">
         {saveSuccess && (
-          <Alert
-            variant="success"
-            title="Profile updated"
-            dismissible
-            onDismiss={() => setSaveSuccess(false)}
-          >
+          <Alert variant="success" title="Profile updated" dismissible onDismiss={() => setSaveSuccess(false)}>
             Your changes have been saved successfully.
           </Alert>
         )}
@@ -230,7 +231,12 @@ export function ProfilePage() {
         <Card>
           <div className={styles.hero}>
             <div className={styles.heroAvatar}>
-              <Avatar src={avatarSrc} name={displayName} size="xl" className={styles.avatarRing} />
+              <Avatar
+                src={avatarSrc}
+                name={displayName}
+                size="xl"
+                className={styles.avatarRing}
+              />
             </div>
 
             <div className={styles.heroInfo}>
@@ -281,7 +287,11 @@ export function ProfilePage() {
                 />
                 <Divider spacing="compact" />
                 <Stack gap="sm" direction="row">
-                  <Button variant="primary" onClick={handleSave} disabled={isSaving || isNameEmpty}>
+                  <Button
+                    variant="primary"
+                    onClick={handleSave}
+                    disabled={isSaving || isNameEmpty}
+                  >
                     {isSaving ? "Saving..." : "Save Changes"}
                   </Button>
                   <Button variant="secondary" onClick={handleCancel} disabled={isSaving}>

@@ -139,7 +139,10 @@ export function BookingWidgetDemoPage() {
     fetchVenues();
   }, [api]);
 
-  const venueOptions = useMemo(() => venues.map((v) => ({ value: v.id, label: v.name })), [venues]);
+  const venueOptions = useMemo(
+    () => venues.map((v) => ({ value: v.id, label: v.name })),
+    [venues]
+  );
 
   const selectedVenue = useMemo(
     () => venues.find((v) => v.id === selectedVenueId) ?? null,

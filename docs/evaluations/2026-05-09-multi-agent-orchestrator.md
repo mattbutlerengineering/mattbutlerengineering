@@ -20,21 +20,20 @@ We run three AI coding CLIs (Claude Code, Gemini CLI, OpenCode) on subscription 
 
 ### Scoring (1-5 scale)
 
-| Criterion            | Claude Squad | Bernstein | MCO    | Conductor | Agent of Empires | amux   | Composio AO |
-| -------------------- | ------------ | --------- | ------ | --------- | ---------------- | ------ | ----------- |
-| Multi-tool support   | 3            | 5         | 4      | 1         | 5                | 1      | 4           |
-| Rate-limit awareness | 1            | 3         | 4      | 1         | 1                | 1      | 1           |
-| GitHub integration   | 1            | 4         | 1      | 1         | 1                | 1      | 5           |
-| Worktree isolation   | 5            | 5         | 1      | 4         | 5                | 2      | 5           |
-| Subscription auth    | 5            | 5         | 5      | 5         | 5                | 5      | 5           |
-| Maturity             | 4            | 2         | 2      | 3         | 4                | 1      | 4           |
-| Setup effort         | 4            | 4         | 3      | 5         | 4                | 2      | 3           |
-| **Weighted Total**   | **23**       | **28**    | **20** | **20**    | **25**           | **13** | **27**      |
+| Criterion | Claude Squad | Bernstein | MCO | Conductor | Agent of Empires | amux | Composio AO |
+|---|---|---|---|---|---|---|---|
+| Multi-tool support | 3 | 5 | 4 | 1 | 5 | 1 | 4 |
+| Rate-limit awareness | 1 | 3 | 4 | 1 | 1 | 1 | 1 |
+| GitHub integration | 1 | 4 | 1 | 1 | 1 | 1 | 5 |
+| Worktree isolation | 5 | 5 | 1 | 4 | 5 | 2 | 5 |
+| Subscription auth | 5 | 5 | 5 | 5 | 5 | 5 | 5 |
+| Maturity | 4 | 2 | 2 | 3 | 4 | 1 | 4 |
+| Setup effort | 4 | 4 | 3 | 5 | 4 | 2 | 3 |
+| **Weighted Total** | **23** | **28** | **20** | **20** | **25** | **13** | **27** |
 
 ### Detailed Assessments
 
 #### 1. Claude Squad (smtg-ai/claude-squad)
-
 - **Stars:** 7,393 | **Language:** Go | **License:** AGPL-3.0
 - **Install:** `brew install claude-squad`
 - **Supports:** Claude Code, Codex, Gemini, Aider (4 tools)
@@ -43,7 +42,6 @@ We run three AI coding CLIs (Claude Code, Gemini CLI, OpenCode) on subscription 
 - **Verdict:** Good for watching parallel sessions. Not useful for automated dispatch.
 
 #### 2. Bernstein (sipyourdrink-ltd/bernstein)
-
 - **Stars:** 305 | **Language:** Python | **License:** Apache-2.0
 - **Install:** `pipx install bernstein` or `brew install bernstein`
 - **Supports:** 43 CLI agents (Claude, Codex, Gemini, OpenCode, Copilot, Aider, and 37 more)
@@ -52,7 +50,6 @@ We run three AI coding CLIs (Claude Code, Gemini CLI, OpenCode) on subscription 
 - **Verdict:** Most feature-complete by far. The ticket ingestion + CI autofix + quality gates match our ship-loop pattern closely. Risk is maturity — solo maintainer, early stage.
 
 #### 3. MCO (mco-org/mco)
-
 - **Stars:** 335 | **Language:** Python | **License:** MIT
 - **Install:** `npm i -g @tt-a1i/mco`
 - **Supports:** Claude Code, Codex, Gemini, OpenCode, Qwen (5+ custom)
@@ -61,7 +58,6 @@ We run three AI coding CLIs (Claude Code, Gemini CLI, OpenCode) on subscription 
 - **Verdict:** Useful as a review layer on top of another orchestrator. Not standalone.
 
 #### 4. Conductor (conductor.build)
-
 - **Stars:** N/A (closed source) | **License:** Proprietary | **Platform:** macOS only
 - **Install:** Download .app from conductor.build
 - **Supports:** Claude Code and Codex only (2 tools)
@@ -70,7 +66,6 @@ We run three AI coding CLIs (Claude Code, Gemini CLI, OpenCode) on subscription 
 - **Verdict:** Nice visual layer for manual parallel work. Not suitable for automation.
 
 #### 5. Agent of Empires (njbrake/agent-of-empires)
-
 - **Stars:** 2,136 | **Language:** Rust | **License:** MIT
 - **Install:** `brew install aoe`
 - **Supports:** 11 agents (Claude, OpenCode, Gemini, Codex, Copilot, Mistral, Pi, etc.)
@@ -79,7 +74,6 @@ We run three AI coding CLIs (Claude Code, Gemini CLI, OpenCode) on subscription 
 - **Verdict:** Best TUI/web experience. Good for supervision, not automation.
 
 #### 6. amux (mixpeek/amux)
-
 - **Stars:** 171 | **Language:** Python | **License:** MIT + Commons Clause
 - **Install:** `git clone` + `./install.sh`
 - **Supports:** Claude Code only (1 tool)
@@ -88,7 +82,6 @@ We run three AI coding CLIs (Claude Code, Gemini CLI, OpenCode) on subscription 
 - **Verdict:** Niche tool for overnight Claude fleets. Not suitable for multi-tool orchestration.
 
 #### 7. Composio Agent Orchestrator (ComposioHQ/agent-orchestrator)
-
 - **Stars:** 6,912 | **Language:** TypeScript | **License:** MIT
 - **Install:** `npm install -g @aoagents/ao`
 - **Supports:** Claude Code, Codex, Aider, Cursor, OpenCode, KimiCode (6 tools)
@@ -135,7 +128,6 @@ We run three AI coding CLIs (Claude Code, Gemini CLI, OpenCode) on subscription 
 ## ACMM Pipeline Fit Analysis
 
 ### Our Existing Pipeline
-
 ```
 /acmm-audit --apply → GitHub issues (ready label)
 → /issue-worker picks up → in-progress → mbe agent run (worktree)
@@ -145,30 +137,30 @@ We run three AI coding CLIs (Claude Code, Gemini CLI, OpenCode) on subscription 
 
 ### Integration Approach Comparison
 
-| Concern              | Composio AO                                                          | Bernstein                                                       |
-| -------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------- |
-| **Architecture**     | Replaces our pipeline — owns tracker, dispatch, PR lifecycle         | Wraps our pipeline — adds multi-tool dispatch on top            |
-| **Label scheme**     | Own state machine — requires migration from ready/in-progress/has-pr | Can consume our labels via `from-ticket` with label inference   |
-| **Issue creation**   | Reads existing issues                                                | Reads existing issues via `from-ticket`                         |
-| **mbe agent run**    | Would replace with its own dispatch                                  | Can wrap as custom adapter via generic `--prompt`               |
-| **RemoteTriggers**   | Not compatible — uses its own scheduler                              | Compatible — Bernstein wraps what we already run                |
-| **Auto-QA tuning**   | No equivalent                                                        | Bandit router is analogous — learns optimal model per task type |
-| **Quality gates**    | CI-based (relies on our CI)                                          | Built-in lint/types/tests/PII scan before commit                |
-| **Audit trail**      | Dashboard logs                                                       | HMAC-SHA256 chained audit log                                   |
-| **Eval harness**     | No integration                                                       | Could orchestrate eval tasks as a Bernstein plan                |
-| **Migration effort** | High — replace label lifecycle, dispatch, CI monitoring              | Low — add as a dispatch layer, keep everything else             |
+| Concern | Composio AO | Bernstein |
+|---|---|---|
+| **Architecture** | Replaces our pipeline — owns tracker, dispatch, PR lifecycle | Wraps our pipeline — adds multi-tool dispatch on top |
+| **Label scheme** | Own state machine — requires migration from ready/in-progress/has-pr | Can consume our labels via `from-ticket` with label inference |
+| **Issue creation** | Reads existing issues | Reads existing issues via `from-ticket` |
+| **mbe agent run** | Would replace with its own dispatch | Can wrap as custom adapter via generic `--prompt` |
+| **RemoteTriggers** | Not compatible — uses its own scheduler | Compatible — Bernstein wraps what we already run |
+| **Auto-QA tuning** | No equivalent | Bandit router is analogous — learns optimal model per task type |
+| **Quality gates** | CI-based (relies on our CI) | Built-in lint/types/tests/PII scan before commit |
+| **Audit trail** | Dashboard logs | HMAC-SHA256 chained audit log |
+| **Eval harness** | No integration | Could orchestrate eval tasks as a Bernstein plan |
+| **Migration effort** | High — replace label lifecycle, dispatch, CI monitoring | Low — add as a dispatch layer, keep everything else |
 
 ### ACMM Criteria Impact
 
-| ACMM Criterion                | Composio AO                  | Bernstein                        |
-| ----------------------------- | ---------------------------- | -------------------------------- |
-| L3: Quality dashboard         | Web dashboard ✓              | No dashboard                     |
-| L4: Task traceability         | Own state machine            | HMAC audit trail ✓               |
-| L4: Auto-QA tuning            | No                           | Bandit router (analogous)        |
-| L4: Structured workflows      | Reactions config             | YAML plan files ✓                |
-| L5: Auto-QA self-tuning       | No                           | Bandit learning ✓                |
-| L5: GitHub Actions AI         | Would replace our GH Actions | Works alongside our GH Actions ✓ |
-| L6: Multi-agent orchestration | ✓ Full orchestration         | ✓ Full orchestration             |
+| ACMM Criterion | Composio AO | Bernstein |
+|---|---|---|
+| L3: Quality dashboard | Web dashboard ✓ | No dashboard |
+| L4: Task traceability | Own state machine | HMAC audit trail ✓ |
+| L4: Auto-QA tuning | No | Bandit router (analogous) |
+| L4: Structured workflows | Reactions config | YAML plan files ✓ |
+| L5: Auto-QA self-tuning | No | Bandit learning ✓ |
+| L5: GitHub Actions AI | Would replace our GH Actions | Works alongside our GH Actions ✓ |
+| L6: Multi-agent orchestration | ✓ Full orchestration | ✓ Full orchestration |
 
 ## Updated Recommendation
 
@@ -182,20 +174,16 @@ We run three AI coding CLIs (Claude Code, Gemini CLI, OpenCode) on subscription 
 4. **Lower migration risk** — no label scheme conflict, no tracker replacement, no dashboard migration.
 
 **Why not Composio AO:**
-
 - Would require replacing our label lifecycle, which is deeply integrated into /issue-worker, /ci-monitor, merge-queue.yml, and /ship-loop.
 - Higher migration effort with more ACMM criteria disruption during the transition.
 - Better suited for greenfield projects that haven't built their own pipeline yet.
 
 ### Complementary tools:
-
 - **Claude Squad** — use alongside Bernstein for visual session management (TUI to watch parallel agents)
 - **MCO** — layer on top for multi-agent PR review consensus
 
 ### Maturity mitigation:
-
 Bernstein is solo-maintained (305 stars). Mitigate by:
-
 - Pinning to a specific version
 - Keeping our pipeline fully functional without Bernstein (fallback to manual dispatch)
 - Contributing fixes upstream if we hit issues
@@ -213,44 +201,39 @@ Fresh research across the entire multi-agent CLI orchestrator landscape. 42+ too
 The ecosystem splits into distinct categories with very different value propositions:
 
 #### Full Pipeline Replacements (own issue tracking)
-
 - **Gastown** (15,050 stars, Steve Yegge, MIT) — replaces your entire dev workflow with its own issue tracker, dispatch, and CI loop
 - **Composio AO** (6,912 stars, YC-backed, MIT) — GitHub/Linear tracker integration, feature decomposition, agent assignment
 - **Superset** (10,538 stars, ELv2) — enterprise orchestration platform with its own task management
 
 #### Pipeline Wrappers
-
 - **Bernstein** (305 stars, solo dev, Apache 2.0) — wraps existing pipelines, adds multi-tool dispatch on top
 - **CAO / AWS Labs** (558 stars, 23 contributors, Apache 2.0) — lightweight wrapper for AWS-centric workflows
 
 #### Session Managers
-
 - **Claude Squad** (7,393 stars, AGPL-3.0) — TUI for watching parallel Claude/Gemini/Codex sessions
 - **AGTX** (1,032 stars, Apache 2.0) — session management with web dashboard
 
 #### Rate-Limit Focused
-
 - **Hydra** (14 stars, MIT, prototype) — rate-limit detection and routing (proof of concept stage)
 - **FrankenTerm** (79 stars, MIT + anti-Anthropic rider) — terminal multiplexer with rate-limit awareness
 
 #### Multi-Model
-
 - **Kodo** (93 stars, MIT) — multi-model routing for coding tasks
 
 ### Updated Scoring Matrix
 
 Criteria weighted by importance to our pipeline. Scale 1-5, weights in parentheses.
 
-| Criterion (weight)         | Gastown | Composio AO | Bernstein | CAO    | AGTX   | Claude Squad |
-| -------------------------- | ------- | ----------- | --------- | ------ | ------ | ------------ |
-| Multi-tool support (5)     | 3       | 4           | 5         | 5      | 4      | 4            |
-| Rate-limit failover (5)    | 1       | 1           | 3         | 1      | 1      | 1            |
-| GitHub integration (5)     | 2       | 5           | 4         | 2      | 2      | 1            |
-| Worktree isolation (4)     | 5       | 5           | 5         | 3      | 5      | 5            |
-| Subscription auth (4)      | 5       | 5           | 5         | 5      | 5      | 5            |
-| Pipeline compatibility (5) | 2       | 2           | 5         | 3      | 3      | 3            |
-| Maturity (4)               | 5       | 4           | 1         | 4      | 3      | 4            |
-| **Weighted Total (/160)**  | **98**  | **109**     | **118**   | **98** | **96** | **93**       |
+| Criterion (weight) | Gastown | Composio AO | Bernstein | CAO | AGTX | Claude Squad |
+|---|---|---|---|---|---|---|
+| Multi-tool support (5) | 3 | 4 | 5 | 5 | 4 | 4 |
+| Rate-limit failover (5) | 1 | 1 | 3 | 1 | 1 | 1 |
+| GitHub integration (5) | 2 | 5 | 4 | 2 | 2 | 1 |
+| Worktree isolation (4) | 5 | 5 | 5 | 3 | 5 | 5 |
+| Subscription auth (4) | 5 | 5 | 5 | 5 | 5 | 5 |
+| Pipeline compatibility (5) | 2 | 2 | 5 | 3 | 3 | 3 |
+| Maturity (4) | 5 | 4 | 1 | 4 | 3 | 4 |
+| **Weighted Total (/160)** | **98** | **109** | **118** | **98** | **96** | **93** |
 
 ### Key Findings
 

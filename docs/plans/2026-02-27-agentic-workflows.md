@@ -144,27 +144,27 @@ sequenceDiagram
 
 ### Security Model
 
-| Layer              | Mechanism                  | Details                                                                          |
-| ------------------ | -------------------------- | -------------------------------------------------------------------------------- |
-| Tool blocking      | `BLOCKED_TOOLS` set        | WebSearch, WebFetch, AskUserQuestion, EnterPlanMode, EnterWorktree               |
-| Bash filtering     | `BLOCKED_BASH_PATTERNS`    | `rm -rf`, `sudo`, `curl\|bash`, `git push`, `npm publish`                        |
+| Layer | Mechanism | Details |
+|-------|-----------|---------|
+| Tool blocking | `BLOCKED_TOOLS` set | WebSearch, WebFetch, AskUserQuestion, EnterPlanMode, EnterWorktree |
+| Bash filtering | `BLOCKED_BASH_PATTERNS` | `rm -rf`, `sudo`, `curl\|bash`, `git push`, `npm publish` |
 | Filesystem sandbox | `resolve()` + prefix check | Writes restricted to worktree; path traversal (`../`) resolved before comparison |
-| Cost cap           | `maxBudgetUsd`             | SDK enforces hard budget limit per session                                       |
-| Turn limit         | `maxTurns`                 | Prevents infinite loops (default 50)                                             |
-| Permission mode    | `acceptEdits`              | File edits auto-approve; `canUseTool` still enforces security boundary           |
+| Cost cap | `maxBudgetUsd` | SDK enforces hard budget limit per session |
+| Turn limit | `maxTurns` | Prevents infinite loops (default 50) |
+| Permission mode | `acceptEdits` | File edits auto-approve; `canUseTool` still enforces security boundary |
 
 ### Key Types
 
 ```typescript
 interface SessionConfig {
-  taskDescription: string; // What the agent should do
-  repoPath: string; // Absolute path to repo root
-  baseBranch: string; // Branch to create worktree from
-  model: string; // Claude model ID
-  maxTurns: number; // Hard turn limit
-  maxBudgetUsd: number; // Hard cost cap in USD
-  allowedTools: string[]; // SDK tools the agent can use
-  createPr: boolean; // Whether to push + create PR
+  taskDescription: string;      // What the agent should do
+  repoPath: string;             // Absolute path to repo root
+  baseBranch: string;           // Branch to create worktree from
+  model: string;                // Claude model ID
+  maxTurns: number;             // Hard turn limit
+  maxBudgetUsd: number;         // Hard cost cap in USD
+  allowedTools: string[];       // SDK tools the agent can use
+  createPr: boolean;            // Whether to push + create PR
 }
 
 interface SessionResult {
@@ -271,15 +271,15 @@ erDiagram
 
 ### API Routes
 
-| Method   | Path                      | Description                            |
-| -------- | ------------------------- | -------------------------------------- |
-| `POST`   | `/v1/sessions`            | Create + start session                 |
-| `GET`    | `/v1/sessions`            | List (paginated, filterable by status) |
-| `GET`    | `/v1/sessions/:id`        | Get details                            |
-| `POST`   | `/v1/sessions/:id/cancel` | Cancel running session                 |
-| `DELETE` | `/v1/sessions/:id`        | Delete + cleanup worktree              |
-| `GET`    | `/v1/sessions/:id/events` | SSE stream                             |
-| `POST`   | `/v1/sessions/:id/prompt` | Multi-turn follow-up                   |
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/v1/sessions` | Create + start session |
+| `GET` | `/v1/sessions` | List (paginated, filterable by status) |
+| `GET` | `/v1/sessions/:id` | Get details |
+| `POST` | `/v1/sessions/:id/cancel` | Cancel running session |
+| `DELETE` | `/v1/sessions/:id` | Delete + cleanup worktree |
+| `GET` | `/v1/sessions/:id/events` | SSE stream |
+| `POST` | `/v1/sessions/:id/prompt` | Multi-turn follow-up |
 
 ### CLI Extensions
 
@@ -337,12 +337,12 @@ flowchart LR
 
 ### MCP Tools for Orchestrator
 
-| Tool             | Maps To                        | Purpose                  |
-| ---------------- | ------------------------------ | ------------------------ |
-| `create_session` | `POST /v1/sessions`            | Spawn a sub-task session |
-| `check_session`  | `GET /v1/sessions/:id`         | Poll for completion      |
-| `cancel_session` | `POST /v1/sessions/:id/cancel` | Abort a stuck session    |
-| `list_sessions`  | `GET /v1/sessions`             | Check overall progress   |
+| Tool | Maps To | Purpose |
+|------|---------|---------|
+| `create_session` | `POST /v1/sessions` | Spawn a sub-task session |
+| `check_session` | `GET /v1/sessions/:id` | Poll for completion |
+| `cancel_session` | `POST /v1/sessions/:id/cancel` | Abort a stuck session |
+| `list_sessions` | `GET /v1/sessions` | Check overall progress |
 
 ### CLI Command
 
@@ -426,12 +426,12 @@ GH Action: ✅ .github/workflows/agent-task.yml (workflow_dispatch)
 
 ## Final Test Summary
 
-| Package              | Lint | Typecheck | Tests               |
-| -------------------- | ---- | --------- | ------------------- |
-| `@mbe/agent-core`    | ✅   | ✅        | 84 passed (8 files) |
-| `@mbe/agent-service` | ✅   | ✅        | 29 passed (3 files) |
-| `@mbe/cli`           | ✅   | ✅        | —                   |
-| `@mbe/types`         | ✅   | ✅        | —                   |
+| Package | Lint | Typecheck | Tests |
+|---------|------|-----------|-------|
+| `@mbe/agent-core` | ✅ | ✅ | 84 passed (8 files) |
+| `@mbe/agent-service` | ✅ | ✅ | 29 passed (3 files) |
+| `@mbe/cli` | ✅ | ✅ | — |
+| `@mbe/types` | ✅ | ✅ | — |
 
 **Total: 113 tests, 0 failures.**
 
@@ -439,21 +439,21 @@ GH Action: ✅ .github/workflows/agent-task.yml (workflow_dispatch)
 
 ## Dependencies
 
-| Dependency                       | Version   | Purpose                                   |
-| -------------------------------- | --------- | ----------------------------------------- |
-| `@anthropic-ai/claude-agent-sdk` | `^0.1.0`  | Claude Code programmatic API              |
-| `zod`                            | `^3.23.0` | Schema validation (gh output, API inputs) |
-| `commander`                      | `^12.0.0` | CLI framework (existing)                  |
-| `fastify`                        | `^5.0.0`  | API framework (Phase 2)                   |
-| `@prisma/client`                 | `^6.0.0`  | Database ORM (Phase 2)                    |
+| Dependency | Version | Purpose |
+|------------|---------|---------|
+| `@anthropic-ai/claude-agent-sdk` | `^0.1.0` | Claude Code programmatic API |
+| `zod` | `^3.23.0` | Schema validation (gh output, API inputs) |
+| `commander` | `^12.0.0` | CLI framework (existing) |
+| `fastify` | `^5.0.0` | API framework (Phase 2) |
+| `@prisma/client` | `^6.0.0` | Database ORM (Phase 2) |
 
 ---
 
 ## Cost Controls
 
-| Control         | Default             | Scope                        |
-| --------------- | ------------------- | ---------------------------- |
-| `maxBudgetUsd`  | $1.00               | Per session                  |
-| `maxTurns`      | 50                  | Per session                  |
-| Rate limit      | 5 concurrent        | Per API instance (Phase 2)   |
+| Control | Default | Scope |
+|---------|---------|-------|
+| `maxBudgetUsd` | $1.00 | Per session |
+| `maxTurns` | 50 | Per session |
+| Rate limit | 5 concurrent | Per API instance (Phase 2) |
 | Model selection | `claude-sonnet-4-6` | Balances capability vs. cost |

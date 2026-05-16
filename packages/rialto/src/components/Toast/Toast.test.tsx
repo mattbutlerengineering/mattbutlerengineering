@@ -18,7 +18,11 @@ function ToastTrigger({
 }) {
   const { toast } = useToast();
   return (
-    <button onClick={() => toast({ title, variant, description, duration })}>Show Toast</button>
+    <button
+      onClick={() => toast({ title, variant, description, duration })}
+    >
+      Show Toast
+    </button>
   );
 }
 
@@ -52,9 +56,10 @@ describe("ToastProvider", () => {
         </ToastProvider>
       );
       await user.click(screen.getByRole("button", { name: "Show Toast" }));
-      await waitFor(() => expect(screen.getByText("File saved!")).toBeInTheDocument(), {
-        timeout: 3000,
-      });
+      await waitFor(
+        () => expect(screen.getByText("File saved!")).toBeInTheDocument(),
+        { timeout: 3000 }
+      );
     });
 
     it("shows toast with description", async () => {
@@ -65,13 +70,10 @@ describe("ToastProvider", () => {
         </ToastProvider>
       );
       await user.click(screen.getByRole("button", { name: "Show Toast" }));
-      await waitFor(
-        () => {
-          expect(screen.getByText("Saved")).toBeInTheDocument();
-          expect(screen.getByText("Changes saved successfully.")).toBeInTheDocument();
-        },
-        { timeout: 3000 }
-      );
+      await waitFor(() => {
+        expect(screen.getByText("Saved")).toBeInTheDocument();
+        expect(screen.getByText("Changes saved successfully.")).toBeInTheDocument();
+      }, { timeout: 3000 });
     });
 
     it("shows multiple toasts", async () => {
@@ -83,12 +85,9 @@ describe("ToastProvider", () => {
       );
       await user.click(screen.getByRole("button", { name: "Show Toast" }));
       await user.click(screen.getByRole("button", { name: "Show Toast" }));
-      await waitFor(
-        () => {
-          expect(screen.getAllByText("First toast")).toHaveLength(2);
-        },
-        { timeout: 3000 }
-      );
+      await waitFor(() => {
+        expect(screen.getAllByText("First toast")).toHaveLength(2);
+      }, { timeout: 3000 });
     });
   });
 
@@ -101,19 +100,23 @@ describe("ToastProvider", () => {
         </ToastProvider>
       );
       await user.click(screen.getByRole("button", { name: "Show Toast" }));
-      await waitFor(() => expect(screen.getByText("Dismissible toast")).toBeInTheDocument(), {
-        timeout: 3000,
-      });
+      await waitFor(
+        () => expect(screen.getByText("Dismissible toast")).toBeInTheDocument(),
+        { timeout: 3000 }
+      );
       await user.click(screen.getByRole("button", { name: "Dismiss" }));
-      await waitFor(() => expect(screen.queryByText("Dismissible toast")).not.toBeInTheDocument(), {
-        timeout: 3000,
-      });
+      await waitFor(
+        () => expect(screen.queryByText("Dismissible toast")).not.toBeInTheDocument(),
+        { timeout: 3000 }
+      );
     });
   });
 
   describe("useToast hook", () => {
     it("throws when used outside ToastProvider", () => {
-      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const consoleSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
       expect(() => {
         render(<ToastTrigger title="Outside" />);
       }).toThrow("useToast must be used within <ToastProvider>");
@@ -130,9 +133,10 @@ describe("ToastProvider", () => {
         </ToastProvider>
       );
       await user.click(screen.getByRole("button", { name: "Show Toast" }));
-      await waitFor(() => expect(screen.getByText("Success message")).toBeInTheDocument(), {
-        timeout: 3000,
-      });
+      await waitFor(
+        () => expect(screen.getByText("Success message")).toBeInTheDocument(),
+        { timeout: 3000 }
+      );
     });
 
     it("renders error variant toast", async () => {
@@ -143,9 +147,10 @@ describe("ToastProvider", () => {
         </ToastProvider>
       );
       await user.click(screen.getByRole("button", { name: "Show Toast" }));
-      await waitFor(() => expect(screen.getByText("Error message")).toBeInTheDocument(), {
-        timeout: 3000,
-      });
+      await waitFor(
+        () => expect(screen.getByText("Error message")).toBeInTheDocument(),
+        { timeout: 3000 }
+      );
     });
   });
 
@@ -170,9 +175,10 @@ describe("ToastProvider", () => {
         </ToastProvider>
       );
       await user.click(screen.getByRole("button", { name: "Show Toast" }));
-      await waitFor(() => expect(screen.getByText("Saved!")).toBeInTheDocument(), {
-        timeout: 3000,
-      });
+      await waitFor(
+        () => expect(screen.getByText("Saved!")).toBeInTheDocument(),
+        { timeout: 3000 }
+      );
       const results = await axe(container, {
         rules: { "color-contrast": { enabled: false } },
       });

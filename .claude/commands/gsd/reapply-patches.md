@@ -38,14 +38,12 @@ fi
 Read `backup-meta.json` from the patches directory.
 
 **If no patches found:**
-
 ```
 No local patches found. Nothing to reapply.
 
 Local patches are automatically saved when you run /gsd:update
 after modifying any GSD workflow, command, or agent files.
 ```
-
 Exit.
 
 ## Step 2: Show patch summary
@@ -70,6 +68,7 @@ For each file in `backup-meta.json`:
 1. **Read the backed-up version** (user's modified copy from `gsd-local-patches/`)
 2. **Read the newly installed version** (current file after update)
 3. **Compare and merge:**
+
    - If the new file is identical to the backed-up file: skip (modification was incorporated upstream)
    - If the new file differs: identify the user's modifications and apply them to the new version
 
@@ -97,7 +96,6 @@ After reapplying, regenerate the file manifest so future updates correctly detec
 ## Step 5: Cleanup option
 
 Ask user:
-
 - "Keep patch backups for reference?" → preserve `gsd-local-patches/`
 - "Clean up patch backups?" → remove `gsd-local-patches/` directory
 
@@ -118,9 +116,8 @@ Ask user:
 </process>
 
 <success_criteria>
-
 - [ ] All backed-up patches processed
 - [ ] User modifications merged into new version
 - [ ] Conflicts resolved with user input
 - [ ] Status reported for each file
-      </success_criteria>
+</success_criteria>

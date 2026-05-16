@@ -38,7 +38,9 @@ describe("visual command", () => {
     errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     exitSpy = vi.spyOn(process, "exit").mockImplementation((() => {}) as never);
     vi.spyOn(process, "cwd").mockReturnValue("/repo");
-    mockExistsSync.mockImplementation((p: unknown) => String(p).endsWith("pnpm-workspace.yaml"));
+    mockExistsSync.mockImplementation((p: unknown) =>
+      String(p).endsWith("pnpm-workspace.yaml")
+    );
     mockSpawn.mockReturnValue(makeFakeProcess(0) as ChildProcess);
   });
 

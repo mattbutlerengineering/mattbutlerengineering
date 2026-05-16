@@ -12,12 +12,12 @@ Machine-readable encoding of the rules in [`docs/SECURITY-AI.md`](../../docs/SEC
 
 ## Files
 
-| File                     | Domain                                       | Source of truth                                |
-| ------------------------ | -------------------------------------------- | ---------------------------------------------- |
-| `secrets.yaml`           | Never-commit patterns; secret-handling rules | `docs/SECURITY-AI.md § Secrets`                |
-| `destructive-ops.yaml`   | Git, database, infrastructure prohibitions   | `docs/SECURITY-AI.md § Destructive ops`        |
-| `network-allowlist.yaml` | Outbound domain allowlist for agents         | `docs/SECURITY-AI.md § Network & exfiltration` |
-| `change-tiers.yaml`      | Risk-tier classification rules               | `docs/change-tiers.md`                         |
+| File | Domain | Source of truth |
+|---|---|---|
+| `secrets.yaml` | Never-commit patterns; secret-handling rules | `docs/SECURITY-AI.md § Secrets` |
+| `destructive-ops.yaml` | Git, database, infrastructure prohibitions | `docs/SECURITY-AI.md § Destructive ops` |
+| `network-allowlist.yaml` | Outbound domain allowlist for agents | `docs/SECURITY-AI.md § Network & exfiltration` |
+| `change-tiers.yaml` | Risk-tier classification rules | `docs/change-tiers.md` |
 
 ## How agents apply these policies
 

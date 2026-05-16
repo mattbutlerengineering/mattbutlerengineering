@@ -1,7 +1,13 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "model": "anthropic/claude-sonnet-4-6",
-  "instructions": ["AGENTS.md", "CLAUDE.md", "GEMINI.md", ".cursorrules", ".codex/config.toml"],
+  "instructions": [
+    "AGENTS.md",
+    "CLAUDE.md",
+    "GEMINI.md",
+    ".cursorrules",
+    ".codex/config.toml"
+  ],
   "permission": {
     "read": {
       "*": "allow",
@@ -37,7 +43,12 @@
   "mcp": {
     "filesystem": {
       "type": "local",
-      "command": ["npx", "-y", "@modelcontextprotocol/server-filesystem", "."]
+      "command": [
+        "npx",
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "."
+      ]
     }
   }
 }

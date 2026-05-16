@@ -201,7 +201,9 @@ describe("Edge Router", () => {
         const response = await edgeRouter.fetch(makeRequest("/api/v1/users"), env);
         expect(globalThis.fetch).toHaveBeenCalled();
         const calledRequest = globalThis.fetch.mock.calls[0][0];
-        expect(calledRequest.url).toBe("https://api.mattbutlerengineering.com/api/v1/users");
+        expect(calledRequest.url).toBe(
+          "https://api.mattbutlerengineering.com/api/v1/users"
+        );
         // API routes should NOT go through any static binding
         expect(env.MARKETING.fetch).not.toHaveBeenCalled();
       } finally {
@@ -211,7 +213,7 @@ describe("Edge Router", () => {
 
     it("proxies /api (without trailing slash)", async () => {
       const originalFetch = globalThis.fetch;
-      globalThis.fetch = vi.fn(async () => new Response("{}", { status: 200 }));
+      globalThis.fetch = vi.fn(async () => new Response('{}', { status: 200 }));
 
       try {
         await edgeRouter.fetch(makeRequest("/api"), env);
@@ -301,7 +303,9 @@ describe("Edge Router", () => {
 
     it("adds Referrer-Policy", async () => {
       const response = await edgeRouter.fetch(makeRequest("/"), env);
-      expect(response.headers.get("Referrer-Policy")).toBe("strict-origin-when-cross-origin");
+      expect(response.headers.get("Referrer-Policy")).toBe(
+        "strict-origin-when-cross-origin"
+      );
     });
 
     it("adds Permissions-Policy", async () => {
@@ -358,10 +362,7 @@ describe("Edge Router", () => {
     });
 
     it("blocks .css.map files with 404", async () => {
-      const response = await edgeRouter.fetch(
-        makeRequest("/hospitality/assets/style.css.map"),
-        env
-      );
+      const response = await edgeRouter.fetch(makeRequest("/hospitality/assets/style.css.map"), env);
       expect(response.status).toBe(404);
       expect(env.HOSPITALITY.fetch).not.toHaveBeenCalled();
     });
@@ -370,7 +371,9 @@ describe("Edge Router", () => {
   describe("Cache headers", () => {
     it("sets must-revalidate for HTML responses", async () => {
       const response = await edgeRouter.fetch(makeRequest("/"), env);
-      expect(response.headers.get("Cache-Control")).toBe("public, max-age=0, must-revalidate");
+      expect(response.headers.get("Cache-Control")).toBe(
+        "public, max-age=0, must-revalidate"
+      );
     });
 
     it("sets immutable cache for /assets/ paths", async () => {
@@ -381,7 +384,9 @@ describe("Edge Router", () => {
         })
       );
       const response = await edgeRouter.fetch(makeRequest("/assets/main.abc123.css"), env);
-      expect(response.headers.get("Cache-Control")).toBe("public, max-age=31536000, immutable");
+      expect(response.headers.get("Cache-Control")).toBe(
+        "public, max-age=31536000, immutable"
+      );
     });
   });
 
@@ -558,7 +563,10 @@ describe("Edge Router", () => {
       };
 
       // Without audit token, /health/system is rate-limited (limit=10)
-      const blockedResponse = await edgeRouter.fetch(makeRequest("/health/system"), auditEnv);
+      const blockedResponse = await edgeRouter.fetch(
+        makeRequest("/health/system"),
+        auditEnv
+      );
       expect(blockedResponse.status).toBe(429);
 
       // With valid audit token, rate limiting is bypassed

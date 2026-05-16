@@ -114,11 +114,7 @@ export const TextArea = forwardRef<HTMLDivElement, TextAreaProps>(
           </div>
           {(hint || maxLength != null) && (
             <div className={styles.footer}>
-              {hint && (
-                <span id={`${id}-hint`} className={styles.hint}>
-                  {hint}
-                </span>
-              )}
+              {hint && <span id={`${id}-hint`} className={styles.hint}>{hint}</span>}
               {maxLength != null && (
                 <span className={`${styles.counter} ${isOver ? styles.counterOver : ""}`}>
                   {currentLength}/{maxLength}

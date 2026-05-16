@@ -27,8 +27,16 @@ export interface ChalkboardProps extends HTMLAttributes<HTMLElement> {
 }
 
 export const Chalkboard = forwardRef<HTMLElement, ChalkboardProps>(
-  ({ title, subtitle, children, variant = "slate", framed = false, className, ...rest }, ref) => {
-    const classes = [styles.board, styles[`variant-${variant}`], framed && styles.framed, className]
+  (
+    { title, subtitle, children, variant = "slate", framed = false, className, ...rest },
+    ref
+  ) => {
+    const classes = [
+      styles.board,
+      styles[`variant-${variant}`],
+      framed && styles.framed,
+      className,
+    ]
       .filter(Boolean)
       .join(" ");
 
@@ -87,7 +95,12 @@ export interface ChalkboardItemProps {
   soldOut?: boolean;
 }
 
-export function ChalkboardItem({ name, price, description, soldOut = false }: ChalkboardItemProps) {
+export function ChalkboardItem({
+  name,
+  price,
+  description,
+  soldOut = false,
+}: ChalkboardItemProps) {
   const classes = [styles.item, soldOut && styles.soldOut].filter(Boolean).join(" ");
 
   return (

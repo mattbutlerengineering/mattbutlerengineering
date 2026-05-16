@@ -1,13 +1,5 @@
 import { useState } from "react";
-import {
-  Button,
-  Card,
-  Checkbox,
-  DataList,
-  Stack,
-  Text,
-  Toggle,
-} from "@mattbutlerengineering/rialto";
+import { Button, Card, Checkbox, DataList, Stack, Text, Toggle } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";
@@ -35,7 +27,11 @@ function TogglePlayground() {
       <div className={styles.row}>
         <Checkbox label="Checked" checked={checked} onCheckedChange={setChecked} />
         <Checkbox label="Disabled" checked={disabled} onCheckedChange={setDisabled} />
-        <Checkbox label="Show disabled reason" checked={hasReason} onCheckedChange={setHasReason} />
+        <Checkbox
+          label="Show disabled reason"
+          checked={hasReason}
+          onCheckedChange={setHasReason}
+        />
       </div>
     </Stack>
   );
@@ -69,11 +65,7 @@ export function TogglePage() {
           <Toggle label="Default on" defaultChecked />
           <Toggle label="Disabled off" disabled />
           <Toggle label="Disabled on" disabled checked />
-          <Toggle
-            label="Locked (with reason)"
-            disabled
-            disabledReason="Feature requires enterprise plan"
-          />
+          <Toggle label="Locked (with reason)" disabled disabledReason="Feature requires enterprise plan" />
         </div>
       </Section>
 
@@ -91,11 +83,7 @@ export function TogglePage() {
               <Toggle label="Traction control" defaultChecked />
               <Toggle label="ABS" defaultChecked />
               <Toggle label="Active suspension" defaultChecked />
-              <Toggle
-                label="DRS automatic"
-                disabled
-                disabledReason="Only available during race mode"
-              />
+              <Toggle label="DRS automatic" disabled disabledReason="Only available during race mode" />
             </div>
             <Stack direction="row" gap="sm" align="center" justify="end" wrap>
               <Button variant="primary" size="sm">

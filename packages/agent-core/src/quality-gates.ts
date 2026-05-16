@@ -42,9 +42,9 @@ export async function runQualityGates(
 
     const errorViolations = staticResult.violations.filter((v) => v.severity === "error");
     if (errorViolations.length > 0) {
-      const formatted = errorViolations
-        .map((v) => `${v.file}:${v.line} [${v.rule}] ${v.message}`)
-        .join("; ");
+      const formatted = errorViolations.map(
+        (v) => `${v.file}:${v.line} [${v.rule}] ${v.message}`
+      ).join("; ");
       result.errors.push(`Static analysis errors: ${formatted}`);
       emitEvent(onEvent, "session:verification", {
         message: `Static analysis: ${errorViolations.length} error(s) — ${formatted}`,

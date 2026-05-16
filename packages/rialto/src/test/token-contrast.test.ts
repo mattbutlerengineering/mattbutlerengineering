@@ -18,7 +18,7 @@ const DARK = {
   surfaceElevated: "#2a2725",
   textPrimaryOpacity: 0.92,
   textSecondaryOpacity: 0.6,
-  textTertiaryOpacity: 0.5,
+  textTertiaryOpacity: 0.50,
   textOnBase: "#fdfcfa", // base before alpha blend
   accent: "#d4a23a",
   textOnAccent: "#1a1918",

@@ -49,9 +49,7 @@ export function TapeChartMobileStack(props: TapeChartMobileStackProps) {
       for (let i = from; i < to; i++) result[i]!.residents.push(r);
     }
     for (const d of result) {
-      d.residents.sort((a, b) =>
-        formatters.compare(roomNameById.get(a.roomId) ?? "", roomNameById.get(b.roomId) ?? "")
-      );
+      d.residents.sort((a, b) => formatters.compare(roomNameById.get(a.roomId) ?? "", roomNameById.get(b.roomId) ?? ""));
     }
     return result;
   }, [reservations, startDate, endDate, formatters, roomNameById]);
@@ -98,9 +96,7 @@ export function TapeChartMobileStack(props: TapeChartMobileStackProps) {
                   onKeyDown={(e) => onKey(e, r)}
                 >
                   <div className={styles.listRowGuest}>
-                    <span className={styles.listRowGuestName}>
-                      {r.guestName ?? r.blockedReason ?? status}
-                    </span>
+                    <span className={styles.listRowGuestName}>{r.guestName ?? r.blockedReason ?? status}</span>
                     <span className={styles.listRowMeta}>
                       {room} · {strings.nightsLabel(nights)}
                     </span>

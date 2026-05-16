@@ -182,7 +182,6 @@ All 4 phases shipped
 
 ```markdown
 ### Phase 2: Authentication
-
 **Goal**: JWT login flow with refresh tokens
 ```
 
@@ -192,7 +191,6 @@ Extract: `**Phase 2: Authentication** — JWT login flow with refresh tokens`
 
 ```markdown
 Plans:
-
 - [ ] 02-03: Add refresh token rotation
 ```
 
@@ -243,13 +241,9 @@ Sounds like an afterthought. Use "Also available:" instead.
 ### Don't: Fenced code blocks for commands
 
 ```
-
 ```
-
 /gsd:plan-phase 3
-
 ```
-
 ```
 
 Fenced blocks inside templates create nesting ambiguity. Use inline backticks instead.

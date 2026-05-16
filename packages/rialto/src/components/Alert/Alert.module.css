@@ -23,11 +23,7 @@
 
 .warning {
   border-inline-start-color: var(--rialto-warning);
-  background: linear-gradient(
-    90deg,
-    var(--rialto-warning-muted) 0%,
-    var(--rialto-surface-elevated) 40%
-  );
+  background: linear-gradient(90deg, var(--rialto-warning-muted) 0%, var(--rialto-surface-elevated) 40%);
 }
 
 .error {

@@ -84,7 +84,11 @@ function mapPrismaFloorPlan(floorPlan: PrismaFloorPlan): FloorPlan {
 }
 
 export const floorPlanService = {
-  async list(page: number, limit: number, venueId?: string): Promise<PaginatedResponse<FloorPlan>> {
+  async list(
+    page: number,
+    limit: number,
+    venueId?: string
+  ): Promise<PaginatedResponse<FloorPlan>> {
     const skip = (page - 1) * limit;
     const where = venueId ? { venueId } : {};
 

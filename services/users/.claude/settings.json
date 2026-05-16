@@ -18,6 +18,10 @@
       "Bash(pnpm --dir services/users db:studio)",
       "Bash(node plugins/acmm/scripts/audit.js --project services/users)"
     ],
-    "deny": ["Bash(**drop**)", "Bash(**TRUNCATE**)", "Bash(**DELETE FROM**)"]
+    "deny": [
+      "Bash(**drop**)",
+      "Bash(**TRUNCATE**)",
+      "Bash(**DELETE FROM**)"
+    ]
   }
 }

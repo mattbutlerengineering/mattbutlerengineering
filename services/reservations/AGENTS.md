@@ -20,12 +20,12 @@ Terminal states: `COMPLETED`, `CANCELLED`, `NO_SHOW`, `READY`
 
 ## SSE Event Contract
 
-| Event Type              | Payload     | Trigger                             |
-| ----------------------- | ----------- | ----------------------------------- |
-| `reservation:created`   | Reservation | POST /api/v1/reservations           |
-| `reservation:updated`   | Reservation | PUT /api/v1/reservations/:id        |
+| Event Type | Payload | Trigger |
+|-----------|---------|--------|
+| `reservation:created` | Reservation | POST /api/v1/reservations |
+| `reservation:updated` | Reservation | PUT /api/v1/reservations/:id |
 | `reservation:cancelled` | Reservation | PUT /api/v1/reservations/:id/cancel |
-| `table:updated`         | Table       | PUT /api/v1/tables/:id/status       |
+| `table:updated` | Table | PUT /api/v1/tables/:id/status |
 
 Fan-out: all clients subscribed to `venueId` receive the event.
 
@@ -40,10 +40,10 @@ Guest: id, venueGroupId, email, phone, name, visitCount, preferences
 
 ## Health Endpoints
 
-| Path                          | Purpose                    | Checks                                         |
-| ----------------------------- | -------------------------- | ---------------------------------------------- |
-| `/health`                     | Liveness (DO App Platform) | None — always returns ok                       |
-| `/api/v1/reservations/health` | Readiness + DB             | Touches Postgres, returns `degraded` when dead |
+| Path | Purpose | Checks |
+|------|---------|--------|
+| `/health` | Liveness (DO App Platform) | None — always returns ok |
+| `/api/v1/reservations/health` | Readiness + DB | Touches Postgres, returns `degraded` when dead |
 
 ## Critical Rules
 

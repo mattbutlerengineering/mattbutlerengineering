@@ -21,12 +21,12 @@ Infrastructure Model Context Protocol (MCP) server for the mattbutlerengineering
 
 ## Available Tools
 
-| Category           | Tools                                   |
-| ------------------ | --------------------------------------- |
+| Category | Tools |
+|----------|-------|
 | **Infrastructure** | `pulumi_stack_outputs`, `deploy_status` |
-| **Database**       | `db_list_tables`, `db_migration_status` |
-| **CI/CD**          | `ci_run_status`, `git_workflow_status`  |
-| **Health**         | `service_health_check`                  |
+| **Database** | `db_list_tables`, `db_migration_status` |
+| **CI/CD** | `ci_run_status`, `git_workflow_status` |
+| **Health** | `service_health_check` |
 
 ## Usage with Claude Code
 

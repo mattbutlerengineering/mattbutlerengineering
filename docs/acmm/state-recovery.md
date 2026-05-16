@@ -7,19 +7,16 @@ Weekly snapshots are stored in `.claude/acmm/backups/` by the `acmm-state-backup
 ## Recovery Steps
 
 1. **Identify the last good backup:**
-
    ```bash
    ls -la .claude/acmm/backups/state-*.json
    ```
 
 2. **Restore state:**
-
    ```bash
    cp .claude/acmm/backups/state-YYYY-MM-DD.json .claude/acmm/state.json
    ```
 
 3. **Re-run the audit to regenerate the report:**
-
    ```bash
    node plugins/acmm/scripts/audit.js
    ```

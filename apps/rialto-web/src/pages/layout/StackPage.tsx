@@ -47,11 +47,18 @@ export function StackPage() {
       {/* ── Row with Wrap ─────────────────────────────────────────── */}
       <Section title="Row with Wrap">
         <Stack direction="row" gap="xs" wrap>
-          {["Fiorano", "Monza", "Mugello", "Imola", "Spa", "Silverstone", "Suzuka", "Monaco"].map(
-            (track) => (
-              <Tag key={track}>{track}</Tag>
-            )
-          )}
+          {[
+            "Fiorano",
+            "Monza",
+            "Mugello",
+            "Imola",
+            "Spa",
+            "Silverstone",
+            "Suzuka",
+            "Monaco",
+          ].map((track) => (
+            <Tag key={track}>{track}</Tag>
+          ))}
         </Stack>
       </Section>
 

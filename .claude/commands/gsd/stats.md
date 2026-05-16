@@ -5,7 +5,6 @@ allowed-tools:
   - Read
   - Bash
 ---
-
 <objective>
 Display comprehensive project statistics including phase progress, plan execution metrics, requirements completion, git history stats, and project timeline.
 </objective>

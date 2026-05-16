@@ -117,7 +117,11 @@ describe("Rate Limiter", () => {
     it("increments counter in KV", async () => {
       const kv = createMockKv();
       await checkRateLimit(kv, "/health/system", "1.2.3.4", Date.now());
-      expect(kv.put).toHaveBeenCalledWith(expect.any(String), "1", { expirationTtl: 60 });
+      expect(kv.put).toHaveBeenCalledWith(
+        expect.any(String),
+        "1",
+        { expirationTtl: 60 }
+      );
     });
 
     it("blocks requests that exceed the limit", async () => {
@@ -131,9 +135,7 @@ describe("Rate Limiter", () => {
 
     it("fails open on KV read error", async () => {
       const kv = {
-        get: vi.fn(async () => {
-          throw new Error("KV down");
-        }),
+        get: vi.fn(async () => { throw new Error("KV down"); }),
         put: vi.fn(async () => {}),
       };
       const result = await checkRateLimit(kv, "/health/system", "1.2.3.4", Date.now());

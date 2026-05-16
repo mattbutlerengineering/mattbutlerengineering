@@ -108,10 +108,7 @@ export const generateCommand = new Command("generate")
 generateCommand
   .command("component <name>")
   .description("Scaffold a new React component")
-  .option(
-    "-t, --target <path>",
-    "Target directory relative to root (e.g., packages/rialto/src/components)"
-  )
+  .option("-t, --target <path>", "Target directory relative to root (e.g., packages/rialto/src/components)")
   .action(async (name: string, options: { target?: string }) => {
     if (!options.target) {
       console.error("Error: --target path is required.");

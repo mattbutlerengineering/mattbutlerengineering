@@ -63,6 +63,7 @@ describe("deployStatus", () => {
 
   it("returns error JSON when non-Error is thrown", async () => {
     vi.mocked(execSync).mockImplementation(() => {
+       
       throw "auth expired";
     });
 

@@ -93,8 +93,8 @@ describe("new command", () => {
     await runNew(["my-app", "--port", "4000"]);
 
     expect(exitSpy).not.toHaveBeenCalled();
-    const viteConfigCall = mockWriteFileSync.mock.calls.find(([path]) =>
-      String(path).endsWith("vite.config.ts")
+    const viteConfigCall = mockWriteFileSync.mock.calls.find(
+      ([path]) => String(path).endsWith("vite.config.ts")
     );
     expect(viteConfigCall).toBeDefined();
     expect(String(viteConfigCall![1])).toContain("4000");
@@ -112,7 +112,9 @@ describe("new command", () => {
     const { readFileSync } = await import("node:fs");
     const mockReadFileSync = vi.mocked(readFileSync);
 
-    mockReaddirSync.mockReturnValue([{ name: "existing-app", isDirectory: () => true }] as never);
+    mockReaddirSync.mockReturnValue([
+      { name: "existing-app", isDirectory: () => true },
+    ] as never);
     mockExistsSync.mockImplementation((p: unknown) => {
       const path = String(p);
       if (path.endsWith("pnpm-workspace.yaml")) return true;
@@ -126,8 +128,8 @@ describe("new command", () => {
 
     expect(exitSpy).not.toHaveBeenCalled();
     // Port 3005 is taken, so 3006 should be used
-    const viteConfigCall = mockWriteFileSync.mock.calls.find(([path]) =>
-      String(path).endsWith("vite.config.ts")
+    const viteConfigCall = mockWriteFileSync.mock.calls.find(
+      ([path]) => String(path).endsWith("vite.config.ts")
     );
     expect(viteConfigCall).toBeDefined();
     expect(String(viteConfigCall![1])).toContain("3006");

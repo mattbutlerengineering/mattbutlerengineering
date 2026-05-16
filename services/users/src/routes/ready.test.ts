@@ -88,7 +88,7 @@ describe("GET /ready", () => {
       expect.arrayContaining([
         expect.objectContaining({ name: "database", status: "ok" }),
         expect.objectContaining({ name: "auth", status: "ok" }),
-      ])
+      ]),
     );
   });
 
@@ -111,7 +111,7 @@ describe("GET /ready", () => {
           status: "error",
           message: "Connection refused",
         }),
-      ])
+      ]),
     );
   });
 
@@ -133,7 +133,7 @@ describe("GET /ready", () => {
           status: "error",
           message: expect.stringContaining("JWKS returned 500"),
         }),
-      ])
+      ]),
     );
   });
 

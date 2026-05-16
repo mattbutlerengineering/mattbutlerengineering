@@ -31,48 +31,16 @@ const HEART: boolean[][] = [
 // ── Props table data ─────────────────────────
 
 const PROPS = [
-  {
-    name: "matrix",
-    type: "boolean[][]",
-    description: "2D grid \u2014 true = on (bright), false = off (dark)",
-  },
-  {
-    name: "cols",
-    type: "number",
-    description: "Override column count. Pads/truncates matrix to fit.",
-  },
-  {
-    name: "rows",
-    type: "number",
-    description: "Override row count. Pads/truncates matrix to fit.",
-  },
+  { name: "matrix", type: "boolean[][]", description: "2D grid \u2014 true = on (bright), false = off (dark)" },
+  { name: "cols", type: "number", description: "Override column count. Pads/truncates matrix to fit." },
+  { name: "rows", type: "number", description: "Override row count. Pads/truncates matrix to fit." },
   { name: "dotSize", type: "number", default: "8", description: "Dot diameter in pixels" },
   { name: "dotGap", type: "number", default: "3", description: "Gap between dots in pixels" },
-  {
-    name: "enableSound",
-    type: "boolean",
-    default: "false",
-    description: "Enable mechanical click sound via Web Audio API",
-  },
+  { name: "enableSound", type: "boolean", default: "false", description: "Enable mechanical click sound via Web Audio API" },
   { name: "soundVolume", type: "number", default: "0.3", description: "Sound volume (0\u20131)" },
-  {
-    name: "staggerDelay",
-    type: "number",
-    default: "8",
-    description: "Base delay between dots in ms",
-  },
-  {
-    name: "staggerJitter",
-    type: "number",
-    default: "0.4",
-    description: "Random jitter factor (0\u20131)",
-  },
-  {
-    name: "staggerDirection",
-    type: '"left-to-right" | "top-to-bottom" | "center-out" | "random"',
-    default: '"left-to-right"',
-    description: "Direction of the flip cascade",
-  },
+  { name: "staggerDelay", type: "number", default: "8", description: "Base delay between dots in ms" },
+  { name: "staggerJitter", type: "number", default: "0.4", description: "Random jitter factor (0\u20131)" },
+  { name: "staggerDirection", type: '"left-to-right" | "top-to-bottom" | "center-out" | "random"', default: '"left-to-right"', description: "Direction of the flip cascade" },
 ];
 
 // ── Static text demo ─────────────────────────
@@ -219,7 +187,12 @@ function SoundDemo() {
 
 // ── Stagger directions demo ──────────────────
 
-const DIRECTIONS: StaggerDirection[] = ["left-to-right", "top-to-bottom", "center-out", "random"];
+const DIRECTIONS: StaggerDirection[] = [
+  "left-to-right",
+  "top-to-bottom",
+  "center-out",
+  "random",
+];
 
 function StaggerDemo() {
   const [key, setKey] = useState(0);

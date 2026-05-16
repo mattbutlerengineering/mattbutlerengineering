@@ -29,7 +29,7 @@ const PLATFORM_VARS = new Set([
 
 function collectEnvVars(packageDir) {
   const vars = new Set();
-
+  
   const files = globSync("**/*.{ts,tsx,js,jsx}", {
     cwd: packageDir,
     ignore: [
@@ -43,7 +43,7 @@ function collectEnvVars(packageDir) {
 
   for (const file of files) {
     const content = readFileSync(join(packageDir, file), "utf-8");
-
+    
     // Match process.env.VAR
     const processRe = /process\.env\.(\w+)/g;
     let m;

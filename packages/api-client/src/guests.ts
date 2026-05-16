@@ -39,7 +39,9 @@ export class GuestsClient {
     if (params.page) searchParams.set("page", String(params.page));
     if (params.limit) searchParams.set("limit", String(params.limit));
 
-    return this.client.get<PaginatedResponse<Guest>>(`/api/v1/guests?${searchParams.toString()}`);
+    return this.client.get<PaginatedResponse<Guest>>(
+      `/api/v1/guests?${searchParams.toString()}`
+    );
   }
 
   /**

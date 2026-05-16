@@ -201,7 +201,7 @@ function cssNameToPath(name: string): readonly string[] {
 function setNestedValue(
   obj: TokenGroup,
   pathSegments: readonly string[],
-  value: DtcgToken
+  value: DtcgToken,
 ): TokenGroup {
   if (pathSegments.length === 0) return obj;
   if (pathSegments.length === 1) {

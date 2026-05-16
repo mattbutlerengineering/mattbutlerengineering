@@ -12,7 +12,6 @@ allowed-tools:
   - Task
   - AskUserQuestion
 ---
-
 <objective>
 Audit Nyquist validation coverage for a completed phase. Three states:
 - (A) VALIDATION.md exists — audit and fill gaps

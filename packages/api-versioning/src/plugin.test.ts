@@ -2,14 +2,11 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import Fastify from "fastify";
 import { getSunsetDate } from "../src/fastify.js";
 
-const createApiVersioningPlugin = async (
-  fastify: ReturnType<typeof Fastify>,
-  options: {
-    currentVersion: string;
-    successorVersion?: string;
-    sunsetMonthsFromNow?: number;
-  }
-) => {
+const createApiVersioningPlugin = async (fastify: ReturnType<typeof Fastify>, options: {
+  currentVersion: string;
+  successorVersion?: string;
+  sunsetMonthsFromNow?: number;
+}) => {
   const { currentVersion, successorVersion, sunsetMonthsFromNow = 6 } = options;
 
   const sunsetDate = getSunsetDate(sunsetMonthsFromNow);
@@ -55,7 +52,7 @@ describe("apiVersioning", () => {
     });
 
     expect(response.headers["api-version"]).toBe("v1");
-    expect(response.headers["link"]).toBe('</v2/test>; rel="successor-version"');
+    expect(response.headers["link"]).toBe("</v2/test>; rel=\"successor-version\"");
   });
 
   it("decorates fastify with apiVersion, successorVersion, and sunsetDate", async () => {

@@ -4,16 +4,16 @@
   "description": "Cost governance policy for AI agent operations",
   "limits": {
     "perTask": {
-      "maxBudgetUsd": 1.0,
+      "maxBudgetUsd": 1.00,
       "maxTurns": 50,
       "description": "Default limits for mbe agent run"
     },
     "perDay": {
-      "maxBudgetUsd": 25.0,
+      "maxBudgetUsd": 25.00,
       "description": "Aggregate daily spend limit across all agent sessions"
     },
     "perWeek": {
-      "maxBudgetUsd": 100.0,
+      "maxBudgetUsd": 100.00,
       "description": "Weekly aggregate spend limit"
     }
   },

@@ -5,7 +5,7 @@ import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
 import { RialtoProvider, ErrorBoundary, ToastProvider } from "@mattbutlerengineering/rialto";
 import { AuthProvider } from "@mbe/auth/react";
-import { initSentry, handleErrorBoundary } from "@mbe/observability/sentry/react";
+import { initSentry, handleErrorBoundary } from "@mbe/observability/sentry/react";  
 import { ThemeContext, useThemeState, resolveTheme } from "./hooks/use-theme";
 import { App, CallbackRedirect } from "./App";
 import { AuthConfigError } from "./components/AuthConfigError";
@@ -24,7 +24,9 @@ const DashboardLayout = lazy(() =>
 const TimelinePage = lazy(() =>
   import("./pages/TimelinePage.js").then((m) => ({ default: m.TimelinePage }))
 );
-const HomePage = lazy(() => import("./pages/HomePage.js").then((m) => ({ default: m.HomePage })));
+const HomePage = lazy(() =>
+  import("./pages/HomePage.js").then((m) => ({ default: m.HomePage }))
+);
 const ReservationsPage = lazy(() =>
   import("./pages/ReservationsPage.js").then((m) => ({ default: m.ReservationsPage }))
 );

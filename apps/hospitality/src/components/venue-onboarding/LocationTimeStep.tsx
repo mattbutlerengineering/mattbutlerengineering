@@ -134,12 +134,12 @@ export function LocationTimeStep({ data, errors, onChange, onValidate }: Locatio
 
   const autocompleteOptions: AutocompleteOption[] = useMemo(
     () => TIMEZONE_OPTIONS.map((tz) => ({ value: tz.value, label: tz.label })),
-    []
+    [],
   );
 
   const currencySelectOptions = useMemo(
     () => CURRENCY_OPTIONS.map((c) => ({ value: c.value, label: c.label })),
-    []
+    [],
   );
 
   return (
@@ -166,7 +166,9 @@ export function LocationTimeStep({ data, errors, onChange, onValidate }: Locatio
             emptyText="No matching timezones"
             required
           />
-          {errors.ianaTimezone && <span className={styles.errorText}>{errors.ianaTimezone}</span>}
+          {errors.ianaTimezone && (
+            <span className={styles.errorText}>{errors.ianaTimezone}</span>
+          )}
           <Text variant="caption" color="secondary">
             IANA timezone used for scheduling and availability
           </Text>
@@ -183,7 +185,9 @@ export function LocationTimeStep({ data, errors, onChange, onValidate }: Locatio
             }}
             placeholder="Select a currency..."
           />
-          {errors.currencyCode && <span className={styles.errorText}>{errors.currencyCode}</span>}
+          {errors.currencyCode && (
+            <span className={styles.errorText}>{errors.currencyCode}</span>
+          )}
         </div>
       </Stack>
     </div>

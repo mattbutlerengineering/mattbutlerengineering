@@ -23,7 +23,9 @@ describe("prime command", () => {
     logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     vi.spyOn(process, "cwd").mockReturnValue("/repo");
-    mockExistsSync.mockImplementation((p: unknown) => String(p).endsWith("pnpm-workspace.yaml"));
+    mockExistsSync.mockImplementation((p: unknown) =>
+      String(p).endsWith("pnpm-workspace.yaml")
+    );
     mockExecSync.mockReturnValue("" as never);
   });
 

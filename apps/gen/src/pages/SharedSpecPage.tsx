@@ -245,7 +245,11 @@ export function SharedSpecPage() {
             <main className={styles.previewWrapper}>
               <Card variant="elevated" className={styles.previewCard}>
                 <JSONUIProvider registry={registry}>
-                  <Renderer spec={storedSpec.spec as Spec} registry={registry} loading={false} />
+                  <Renderer
+                    spec={storedSpec.spec as Spec}
+                    registry={registry}
+                    loading={false}
+                  />
                 </JSONUIProvider>
               </Card>
             </main>

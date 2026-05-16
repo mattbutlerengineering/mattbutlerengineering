@@ -11,17 +11,8 @@
 }
 
 body {
-  font-family: var(
-    --rialto-font-sans,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    Roboto,
-    "Helvetica Neue",
-    Arial,
-    sans-serif
-  );
+  font-family: var(--rialto-font-sans, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif);
   background-color: var(--color-background);
   color: var(--color-foreground);
 }

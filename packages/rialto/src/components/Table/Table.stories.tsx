@@ -1,6 +1,6 @@
-import type { Meta, StoryObj } from "@storybook/react-vite";
-import { fn, expect, userEvent, within } from "storybook/test";
-import { Table } from "./Table";
+import type { Meta, StoryObj } from '@storybook/react-vite';
+import { fn, expect, userEvent, within } from 'storybook/test';
+import { Table } from './Table';
 
 interface Driver {
   name: string;
@@ -10,24 +10,24 @@ interface Driver {
 }
 
 const drivers: Driver[] = [
-  { name: "Max Verstappen", team: "Red Bull Racing", points: 575, wins: 19 },
-  { name: "Sergio Perez", team: "Red Bull Racing", points: 285, wins: 2 },
-  { name: "Lewis Hamilton", team: "Mercedes", points: 234, wins: 0 },
-  { name: "Carlos Sainz", team: "Ferrari", points: 200, wins: 1 },
-  { name: "Fernando Alonso", team: "Aston Martin", points: 206, wins: 0 },
+  { name: 'Max Verstappen', team: 'Red Bull Racing', points: 575, wins: 19 },
+  { name: 'Sergio Perez', team: 'Red Bull Racing', points: 285, wins: 2 },
+  { name: 'Lewis Hamilton', team: 'Mercedes', points: 234, wins: 0 },
+  { name: 'Carlos Sainz', team: 'Ferrari', points: 200, wins: 1 },
+  { name: 'Fernando Alonso', team: 'Aston Martin', points: 206, wins: 0 },
 ];
 
 const columns = [
-  { key: "name", header: "Driver", sortable: true },
-  { key: "team", header: "Team", sortable: true },
-  { key: "points", header: "Points", sortable: true, align: "right" as const },
-  { key: "wins", header: "Wins", sortable: true, align: "right" as const },
+  { key: 'name', header: 'Driver', sortable: true },
+  { key: 'team', header: 'Team', sortable: true },
+  { key: 'points', header: 'Points', sortable: true, align: 'right' as const },
+  { key: 'wins', header: 'Wins', sortable: true, align: 'right' as const },
 ];
 
 const meta: Meta<typeof Table> = {
-  title: "Data Display/Table",
+  title: 'Data Display/Table',
   component: Table,
-  tags: ["autodocs"],
+  tags: ['autodocs'],
   args: {
     onRowClick: fn(),
   },
@@ -44,10 +44,10 @@ export const Default: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const pointsHeader = canvas.getByRole("columnheader", { name: /Points/i });
+    const pointsHeader = canvas.getByRole('columnheader', { name: /Points/i });
     await expect(pointsHeader).toBeInTheDocument();
     await userEvent.click(pointsHeader);
-    const firstCell = canvas.getAllByRole("cell")[2];
+    const firstCell = canvas.getAllByRole('cell')[2];
     await expect(firstCell).toBeInTheDocument();
   },
 };
@@ -66,7 +66,7 @@ export const Compact: Story = {
     columns,
     data: drivers,
     rowKey: (row) => (row as Driver).name,
-    density: "compact",
+    density: 'compact',
   },
 };
 
@@ -75,7 +75,7 @@ export const Spacious: Story = {
     columns,
     data: drivers,
     rowKey: (row) => (row as Driver).name,
-    density: "spacious",
+    density: 'spacious',
   },
 };
 
@@ -84,11 +84,11 @@ export const Empty: Story = {
     columns,
     data: [],
     rowKey: (row) => (row as Driver).name,
-    emptyMessage: "No drivers found for this season.",
+    emptyMessage: 'No drivers found for this season.',
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const emptyCell = canvas.getByText("No drivers found for this season.");
+    const emptyCell = canvas.getByText('No drivers found for this season.');
     await expect(emptyCell).toBeInTheDocument();
   },
 };
@@ -102,10 +102,10 @@ export const SortedByPoints: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const pointsHeader = canvas.getByRole("columnheader", { name: /Points/i });
+    const pointsHeader = canvas.getByRole('columnheader', { name: /Points/i });
     await userEvent.click(pointsHeader);
-    await expect(pointsHeader).toHaveAttribute("aria-sort", "ascending");
+    await expect(pointsHeader).toHaveAttribute('aria-sort', 'ascending');
     await userEvent.click(pointsHeader);
-    await expect(pointsHeader).toHaveAttribute("aria-sort", "descending");
+    await expect(pointsHeader).toHaveAttribute('aria-sort', 'descending');
   },
 };

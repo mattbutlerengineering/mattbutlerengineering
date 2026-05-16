@@ -1,7 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { computePrOutcomes, isAgentPr, extractRevertedPrNumbers } from "../pr-outcomes.js";
+import {
+  computePrOutcomes,
+  isAgentPr,
+  extractRevertedPrNumbers,
+} from "../pr-outcomes.js";
 
 const NOW = new Date("2026-04-26T12:00:00Z");
 const WITHIN_WINDOW = "2026-04-25T12:00:00Z";
@@ -66,7 +70,7 @@ test("computePrOutcomes: all-merged → 100% acceptance", () => {
 
 test("computePrOutcomes: all-closed-unmerged → 0% acceptance", () => {
   const prs = Array.from({ length: 5 }, (_, i) =>
-    pr({ number: i + 1, state: "CLOSED", mergedAt: null })
+    pr({ number: i + 1, state: "CLOSED", mergedAt: null }),
   );
   const r = computePrOutcomes(prs, { now: NOW });
   assert.equal(r.merged_count, 0);

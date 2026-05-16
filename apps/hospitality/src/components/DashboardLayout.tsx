@@ -1,17 +1,7 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
-import {
-  Breadcrumb,
-  CommandPalette,
-  ErrorBoundary,
-  GenCopilot,
-  Kbd,
-  Button,
-  Stack,
-  Text,
-  Heading,
-} from "@mattbutlerengineering/rialto";
+import { Breadcrumb, CommandPalette, ErrorBoundary, GenCopilot, Kbd, Button, Stack, Text, Heading } from "@mattbutlerengineering/rialto";
 import type { BreadcrumbItem } from "@mattbutlerengineering/rialto";
 import { registry } from "@mbe/rialto-catalog";
 import { HOSPITALITY_DOMAIN_CONTEXT } from "../constants/copilotContext.js";
@@ -29,18 +19,18 @@ import styles from "./DashboardLayout.module.css";
 
 const ROUTE_LABELS: Record<string, string> = {
   "": "Timeline",
-  timeline: "Timeline",
-  reservations: "Reservations",
-  guests: "Guests",
+  "timeline": "Timeline",
+  "reservations": "Reservations",
+  "guests": "Guests",
   "floor-plans": "Floor Plans",
   "booking-widget": "Booking Widget",
-  onboarding: "New Venue",
-  profile: "Profile",
-  settings: "Settings",
-  admin: "Admin",
-  dashboard: "Dashboard",
-  setup: "Setup",
-  hours: "Operating Hours",
+  "onboarding": "New Venue",
+  "profile": "Profile",
+  "settings": "Settings",
+  "admin": "Admin",
+  "dashboard": "Dashboard",
+  "setup": "Setup",
+  "hours": "Operating Hours",
 };
 
 /** Operational pages that should redirect to /setup when not yet ready */
@@ -72,9 +62,7 @@ function DashboardLayoutInner() {
     }
 
     if (readiness.status === "setup") {
-      const isOperationalPage = OPERATIONAL_ONLY_PATHS.some(
-        (p) => path === p || path.startsWith(p + "/")
-      );
+      const isOperationalPage = OPERATIONAL_ONLY_PATHS.some((p) => path === p || path.startsWith(p + "/"));
       if (isOperationalPage) {
         navigate("/setup", { replace: true });
       }
@@ -112,7 +100,9 @@ function DashboardLayoutInner() {
   // Build extra items to inject into named sections (immutable map)
   const extraItems = useMemo(() => {
     const map = new Map<string, readonly NavItem[]>();
-    map.set("Account", [{ id: "signout", label: "Sign Out", path: "/__signout__" }]);
+    map.set("Account", [
+      { id: "signout", label: "Sign Out", path: "/__signout__" },
+    ]);
     return map;
   }, []);
 
@@ -181,7 +171,9 @@ function DashboardLayoutInner() {
     }
 
     // Always start with a clickable Timeline (new home)
-    const items: BreadcrumbItem[] = [{ label: "Timeline", onClick: () => navigate("/timeline") }];
+    const items: BreadcrumbItem[] = [
+      { label: "Timeline", onClick: () => navigate("/timeline") },
+    ];
 
     // Build intermediate + final crumbs
     let accumulated = "";
@@ -250,7 +242,9 @@ function DashboardLayoutInner() {
             extraItems={extraItems}
             isMobileOpen={isMobileMenuOpen}
             onMobileClose={handleMobileClose}
-            headerSlot={<VenueSwitcher onNavigate={handleNavigate} />}
+            headerSlot={
+              <VenueSwitcher onNavigate={handleNavigate} />
+            }
           />
           <button
             type="button"
@@ -264,12 +258,7 @@ function DashboardLayoutInner() {
           </button>
         </div>
 
-        <main
-          id="main-content"
-          tabIndex={-1}
-          className={styles.content}
-          style={{ outline: "none" }}
-        >
+        <main id="main-content" tabIndex={-1} className={styles.content} style={{ outline: "none" }}>
           <div className={styles.breadcrumbBar}>
             <Breadcrumb items={breadcrumbs} />
             <SystemHealthBadge />
@@ -280,14 +269,12 @@ function DashboardLayoutInner() {
                 align="center"
                 justify="center"
                 gap="md"
-                style={{
-                  padding: "var(--rialto-space-xl)",
-                  textAlign: "center",
-                  minHeight: "400px",
-                }}
+                style={{ padding: "var(--rialto-space-xl)", textAlign: "center", minHeight: "400px" }}
               >
                 <Heading level={2}>Something went wrong</Heading>
-                <Text color="secondary">An unexpected error occurred in this page.</Text>
+                <Text color="secondary">
+                  An unexpected error occurred in this page.
+                </Text>
                 <Button variant="secondary" onClick={() => window.location.reload()}>
                   Reload
                 </Button>

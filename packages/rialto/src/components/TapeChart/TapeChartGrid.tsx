@@ -3,7 +3,11 @@ import styles from "./TapeChart.module.css";
 import { daysBetween } from "./dateMath";
 import { TapeChartDayHeader } from "./TapeChartDayHeader";
 import { TapeChartRow } from "./TapeChartRow";
-import type { TapeChartLayout, TapeChartReservation, TapeChartRoom } from "./types";
+import type {
+  TapeChartLayout,
+  TapeChartReservation,
+  TapeChartRoom,
+} from "./types";
 import type { TapeChartFormatters } from "./useTapeChartI18n";
 import type { ResolvedStrings } from "./defaultStrings";
 
@@ -45,7 +49,12 @@ export function TapeChartGrid(props: TapeChartGridProps) {
   };
 
   return (
-    <div className={styles.scroller} style={rootStyle} role="grid" aria-label={strings.regionLabel}>
+    <div
+      className={styles.scroller}
+      style={rootStyle}
+      role="grid"
+      aria-label={strings.regionLabel}
+    >
       {/* Day header — spans full grid width (after the room column) */}
       <div
         className={styles.gridBody}

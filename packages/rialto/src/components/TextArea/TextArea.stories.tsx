@@ -1,16 +1,16 @@
-import type { Meta, StoryObj } from "@storybook/react-vite";
-import { within, userEvent, expect } from "@storybook/test";
-import { TextArea } from "./TextArea";
+import type { Meta, StoryObj } from '@storybook/react-vite';
+import { within, userEvent, expect } from '@storybook/test';
+import { TextArea } from './TextArea';
 
 const meta: Meta<typeof TextArea> = {
-  title: "Form/TextArea",
+  title: 'Form/TextArea',
   component: TextArea,
-  tags: ["autodocs"],
+  tags: ['autodocs'],
   argTypes: {
-    error: { control: "boolean" },
-    autoResize: { control: "boolean" },
-    disabled: { control: "boolean" },
-    required: { control: "boolean" },
+    error: { control: 'boolean' },
+    autoResize: { control: 'boolean' },
+    disabled: { control: 'boolean' },
+    required: { control: 'boolean' },
   },
 };
 
@@ -19,48 +19,48 @@ type Story = StoryObj<typeof TextArea>;
 
 export const Default: Story = {
   args: {
-    label: "Description",
-    placeholder: "Enter details...",
+    label: 'Description',
+    placeholder: 'Enter details...',
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const textarea = canvas.getByPlaceholderText("Enter details...");
+    const textarea = canvas.getByPlaceholderText('Enter details...');
     await expect(textarea).toBeInTheDocument();
-    await userEvent.type(textarea, "Hello World");
-    await expect(textarea).toHaveValue("Hello World");
+    await userEvent.type(textarea, 'Hello World');
+    await expect(textarea).toHaveValue('Hello World');
   },
 };
 
 export const WithHint: Story = {
   args: {
-    label: "Bio",
-    hint: "Tell us a bit about yourself.",
-    placeholder: "I am a software engineer...",
+    label: 'Bio',
+    hint: 'Tell us a bit about yourself.',
+    placeholder: 'I am a software engineer...',
   },
 };
 
 export const WithCharacterCounter: Story = {
   args: {
-    label: "Comment",
+    label: 'Comment',
     maxLength: 100,
-    placeholder: "Keep it short...",
+    placeholder: 'Keep it short...',
   },
 };
 
 export const ErrorState: Story = {
   args: {
-    label: "Feedback",
+    label: 'Feedback',
     error: true,
-    hint: "This field is required.",
-    value: "",
+    hint: 'This field is required.',
+    value: '',
   },
 };
 
 export const AutoResize: Story = {
   args: {
-    label: "Long Note",
+    label: 'Long Note',
     autoResize: true,
-    placeholder: "Type a lot of text and see it grow...",
+    placeholder: 'Type a lot of text and see it grow...',
     rows: 1,
   },
 };

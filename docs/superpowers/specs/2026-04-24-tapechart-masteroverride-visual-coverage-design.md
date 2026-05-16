@@ -17,31 +17,26 @@ Today's TapeChart layout bug (rooms rendered 2-per-row, day header wrapping) was
 Five new sections — three for TapeChart, two for MasterOverride.
 
 #### TapeChart — `tape-chart-default` (light)
-
 Baseline configuration. 8 rooms × 7 days, ~10 reservations covering a mix of confirmed/checked-in/blocked statuses. Density `comfortable`, English locale. Renders the full grid view.
 
 **Why:** small footprint baseline that diffs cleanly across machines.
 
 #### TapeChart — `tape-chart-stress` (light)
-
 Goal-backward configuration. **24 rooms × 14 days**, ~30 reservations. Density `comfortable`, English locale.
 
-**Why:** this is the _exact_ configuration that exposed the 0.1.11 → 0.1.12 layout bug. Without this section the regression class isn't covered. Generates a tall screenshot (estimated ~1500-2000 px tall, ~150 KB PNG); acceptable cost for the leaf-case coverage it provides.
+**Why:** this is the *exact* configuration that exposed the 0.1.11 → 0.1.12 layout bug. Without this section the regression class isn't covered. Generates a tall screenshot (estimated ~1500-2000 px tall, ~150 KB PNG); acceptable cost for the leaf-case coverage it provides.
 
 #### TapeChart — `dark-tape-chart` (dark)
-
 8 rooms × 7 days, dark theme. Mirrors the existing `dark-buttons` / `dark-inputs` / etc. parity pattern.
 
 **Why:** the design system's dark-mode token swap is a real risk surface (e.g. recent `bar[data-status="checkedOut"]` uses `var(--rialto-surface-recessed)` which has different contrast in dark mode). Catches token-binding regressions.
 
 #### MasterOverride — `master-override-variants` (light)
-
 A 3 × 3 grid: 3 sizes (`sm`, `md`, `lg`) × 3 variants (`default`, `warning`, `danger`). All components in `cover-closed` resting state. 9 components total.
 
 **Why:** the existing 3 × 3 size/variant matrix has been visually stable but never had a screenshot baseline. Without it, a future change to bezel gradient, stripe color, or lever metallics could regress silently. The "states" dimension (cover-closed / cover-open / engaged) is intentionally not covered here — `cover-closed` is the highest-traffic visual, and the open / engaged states are exercised by the `master-override-requireHold-splitflap` section below plus the existing jsdom interaction tests.
 
 #### MasterOverride — `master-override-requireHold-splitflap` (light)
-
 One component with `requireHold` + `labelTransition="splitflap"` + `idleLabel="OFFLINE"` + `activeLabel="ONLINE"`. Cover open. Switch in `off` state (no in-progress hold — that would require timing the screenshot to a fractional moment of the gold ring fill, brittle).
 
 **Why:** the 0.1.11 features (progress ring affordance, SplitFlap label) ship with no visual baseline. A regression to the ring's conic-gradient mask, the `--mo-hold-progress` custom property wiring, or the splitflap cell sizing inside the bezel would not be caught by the existing 388 jsdom tests.
@@ -57,12 +52,10 @@ Decision: **screenshot the visible viewport, not the full scroll content.** Same
 `apps/rialto-web/src/pages/visual-test/VisualTest.tsx` gets five new `<Section>` blocks. Each provides its own deterministic data — no random seeds, no wallclock dates. Use a fixed pseudo-`startDate` like `"2026-01-15"` and a fixed reservation list defined inline (not via the existing fixtures' RNG).
 
 `apps/rialto-web/e2e/visual.spec.ts` gets:
-
 - `lightSections` array gains: `"tape-chart-default"`, `"tape-chart-stress"`, `"master-override-variants"`, `"master-override-requireHold-splitflap"`
 - `darkSections` array gains: `"dark-tape-chart"`
 
 `apps/rialto-web/e2e/screenshots/` gains 5 PNG baselines:
-
 - `light-tape-chart-default.png`
 - `light-tape-chart-stress.png`
 - `dark-dark-tape-chart.png` (note the existing `dark-dark-*` naming pattern)
@@ -91,12 +84,10 @@ For the stress section specifically, ~1500×1280 = ~1.9M pixels × 0.01 = ~19,00
 ### Goal-backward verification
 
 Does this design prevent today's bug? Yes:
-
 - `tape-chart-stress` at 24×14 with the broken CSS would have rendered the 2-rooms-per-row layout. The screenshot would diff far above the 1% threshold against the correct stacked layout.
 - `tape-chart-default` at 8×7 might or might not have caught it (the bug is content-density-dependent — fewer rooms might still stack into 2 cols but visibly weird). Stress is the real coverage here.
 
 Does it prevent the next class of MasterOverride bug? Yes:
-
 - `master-override-variants` would catch any change to bezel/lever/stripe rendering that crosses the 1% pixel threshold.
 - `master-override-requireHold-splitflap` would catch progress-ring or splitflap-cell rendering changes.
 
@@ -117,12 +108,12 @@ The risk: developers update baselines without inspecting the diff, defeating the
 
 ## Risks
 
-| Risk                                                                            | Mitigation                                                                                                                                                        |
-| ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Stress baseline diffs across machines due to font rendering at scale            | 1% threshold provides ~19K pixels of slack on a 1.9M pixel image. If diffs spike, tune `maxDiffPixelRatio` for that one test.                                     |
-| Backdated `startDate` becomes confusing after year rollover                     | Revisit when 2027 lands. If still using dates from January 2026, add a `todayISO` prop to `TapeChart` and use a frozen-in-2026 date with explicit today override. |
-| Five new baselines bloat the repo                                               | Five PNG files at ~50-150KB each = ~500KB. Repo is already ~5MB of screenshots. Acceptable.                                                                       |
-| Update-snapshot workflow gets abused (developers approve diffs without looking) | Pre-existing risk, applies to all 41 existing baselines. Code review discipline.                                                                                  |
+| Risk | Mitigation |
+|---|---|
+| Stress baseline diffs across machines due to font rendering at scale | 1% threshold provides ~19K pixels of slack on a 1.9M pixel image. If diffs spike, tune `maxDiffPixelRatio` for that one test. |
+| Backdated `startDate` becomes confusing after year rollover | Revisit when 2027 lands. If still using dates from January 2026, add a `todayISO` prop to `TapeChart` and use a frozen-in-2026 date with explicit today override. |
+| Five new baselines bloat the repo | Five PNG files at ~50-150KB each = ~500KB. Repo is already ~5MB of screenshots. Acceptable. |
+| Update-snapshot workflow gets abused (developers approve diffs without looking) | Pre-existing risk, applies to all 41 existing baselines. Code review discipline. |
 
 ## Delivery
 

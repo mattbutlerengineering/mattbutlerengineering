@@ -29,9 +29,9 @@ describe("isLowRiskPR — test files", () => {
   });
 
   it("returns true for multiple test files", () => {
-    expect(isLowRiskPR(["src/routes.test.ts", "src/utils.spec.ts", "src/Button.test.tsx"])).toBe(
-      true
-    );
+    expect(
+      isLowRiskPR(["src/routes.test.ts", "src/utils.spec.ts", "src/Button.test.tsx"])
+    ).toBe(true);
   });
 });
 

@@ -5,13 +5,12 @@ import "@testing-library/jest-dom";
 import React from "react";
 
 // Capture OIDCProvider props for inspection
-const mockOIDCProvider = vi.fn(({ children }: { children: React.ReactNode }) => (
-  <div>{children}</div>
-));
+const mockOIDCProvider = vi.fn(
+  ({ children }: { children: React.ReactNode }) => <div>{children}</div>
+);
 
 vi.mock("react-oidc-context", () => ({
-  AuthProvider: (props: Record<string, unknown> & { children: React.ReactNode }) =>
-    mockOIDCProvider(props),
+  AuthProvider: (props: Record<string, unknown> & { children: React.ReactNode }) => mockOIDCProvider(props),
 }));
 
 import { AuthProvider } from "./provider.js";
@@ -39,11 +38,7 @@ describe("AuthProvider", () => {
   });
 
   it("passes authority, client_id, and redirect_uri to OIDCProvider", () => {
-    render(
-      <AuthProvider config={baseConfig}>
-        <div />
-      </AuthProvider>
-    );
+    render(<AuthProvider config={baseConfig}><div /></AuthProvider>);
 
     const props = mockOIDCProvider.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(props.authority).toBe("https://test.auth0.com");
@@ -52,11 +47,7 @@ describe("AuthProvider", () => {
   });
 
   it("uses redirectUri as post_logout_redirect_uri when postLogoutRedirectUri is not provided", () => {
-    render(
-      <AuthProvider config={baseConfig}>
-        <div />
-      </AuthProvider>
-    );
+    render(<AuthProvider config={baseConfig}><div /></AuthProvider>);
 
     const props = mockOIDCProvider.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(props.post_logout_redirect_uri).toBe("https://app.example.com/callback");
@@ -68,22 +59,14 @@ describe("AuthProvider", () => {
       postLogoutRedirectUri: "https://app.example.com/logout",
     };
 
-    render(
-      <AuthProvider config={config}>
-        <div />
-      </AuthProvider>
-    );
+    render(<AuthProvider config={config}><div /></AuthProvider>);
 
     const props = mockOIDCProvider.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(props.post_logout_redirect_uri).toBe("https://app.example.com/logout");
   });
 
   it("defaults scope to 'openid profile email' when not provided", () => {
-    render(
-      <AuthProvider config={baseConfig}>
-        <div />
-      </AuthProvider>
-    );
+    render(<AuthProvider config={baseConfig}><div /></AuthProvider>);
 
     const props = mockOIDCProvider.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(props.scope).toBe("openid profile email");
@@ -92,11 +75,7 @@ describe("AuthProvider", () => {
   it("uses custom scope when provided", () => {
     const config: OIDCConfig = { ...baseConfig, scope: "openid email" };
 
-    render(
-      <AuthProvider config={config}>
-        <div />
-      </AuthProvider>
-    );
+    render(<AuthProvider config={config}><div /></AuthProvider>);
 
     const props = mockOIDCProvider.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(props.scope).toBe("openid email");
@@ -108,22 +87,14 @@ describe("AuthProvider", () => {
       audience: "https://api.example.com",
     };
 
-    render(
-      <AuthProvider config={config}>
-        <div />
-      </AuthProvider>
-    );
+    render(<AuthProvider config={config}><div /></AuthProvider>);
 
     const props = mockOIDCProvider.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(props.extraQueryParams).toEqual({ audience: "https://api.example.com" });
   });
 
   it("does not pass extraQueryParams when audience is not provided", () => {
-    render(
-      <AuthProvider config={baseConfig}>
-        <div />
-      </AuthProvider>
-    );
+    render(<AuthProvider config={baseConfig}><div /></AuthProvider>);
 
     const props = mockOIDCProvider.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(props.extraQueryParams).toBeUndefined();
@@ -132,11 +103,7 @@ describe("AuthProvider", () => {
   it("cleans up URL after sign-in callback", () => {
     const replaceStateSpy = vi.spyOn(window.history, "replaceState");
 
-    render(
-      <AuthProvider config={baseConfig}>
-        <div />
-      </AuthProvider>
-    );
+    render(<AuthProvider config={baseConfig}><div /></AuthProvider>);
 
     const props = mockOIDCProvider.mock.calls[0]?.[0] as Record<string, unknown>;
     const onSigninCallback = props.onSigninCallback as () => void;
@@ -144,7 +111,11 @@ describe("AuthProvider", () => {
     // Invoke the callback as OIDC library would
     onSigninCallback();
 
-    expect(replaceStateSpy).toHaveBeenCalledWith({}, document.title, window.location.pathname);
+    expect(replaceStateSpy).toHaveBeenCalledWith(
+      {},
+      document.title,
+      window.location.pathname
+    );
   });
 
   it("calls onSigninCallback prop after sign-in", () => {
@@ -165,11 +136,7 @@ describe("AuthProvider", () => {
   });
 
   it("does not throw when onSigninCallback prop is not provided", () => {
-    render(
-      <AuthProvider config={baseConfig}>
-        <div />
-      </AuthProvider>
-    );
+    render(<AuthProvider config={baseConfig}><div /></AuthProvider>);
 
     const props = mockOIDCProvider.mock.calls[0]?.[0] as Record<string, unknown>;
     const oidcCallback = props.onSigninCallback as () => void;

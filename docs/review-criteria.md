@@ -2,7 +2,7 @@
 
 The committed rubric Claude reviewers (and humans) follow when evaluating a pull request in this monorepo.
 
-> **Why this exists.** ACMM L3 ("Measured / Enforced") gates on a written-down rubric: "the quality criteria for _is this PR ok_ are now in source control, not in someone's head." This file is that rubric. It's referenced by:
+> **Why this exists.** ACMM L3 ("Measured / Enforced") gates on a written-down rubric: "the quality criteria for *is this PR ok* are now in source control, not in someone's head." This file is that rubric. It's referenced by:
 >
 > - `pr-review-toolkit` plugin → `code-reviewer` agent
 > - `.claude/agents/adr-compliance-reviewer.md`
@@ -23,7 +23,7 @@ These warrant a `request changes` review. If you find one, name it specifically 
 
 1. **Bugs and broken behavior** — Logic errors, off-by-one, mutation where immutability is expected, async/await footguns, wrong type narrowing, dead conditionals.
 2. **Security** — Hardcoded secrets, SQL injection vectors, unvalidated user input crossing a trust boundary, missing authorization checks, XSS-prone JSX, runtime evaluation of attacker-controlled strings.
-3. **ADR violations** — A change that contradicts an active ADR in `docs/adr/`. The `adr-compliance-reviewer` agent goes beyond the regex `scripts/check-adr.js` enforces — flag _semantic_ violations (e.g., introducing `fetch` directly when an ADR mandates `@mbe/api-client`).
+3. **ADR violations** — A change that contradicts an active ADR in `docs/adr/`. The `adr-compliance-reviewer` agent goes beyond the regex `scripts/check-adr.js` enforces — flag *semantic* violations (e.g., introducing `fetch` directly when an ADR mandates `@mbe/api-client`).
 4. **Destructive or scope-creeping migrations** — A Prisma migration that drops columns/tables, renames without backfill, or whose SQL doesn't match the accompanying code change. Use `migration-reviewer` agent and check `scripts/check-destructive-migrations.js`.
 5. **Silent failures** — `try { ... } catch {}`, default-fallback values that mask errors, retry loops without a circuit breaker, "graceful degradation" that hides legitimate breakage.
 6. **Broken contracts** — Public API shape changes without a version bump, breaking changes to `@mattbutlerengineering/rialto` exports without a changeset, missing entry in `packages/*/CHANGELOG.md` for a versioned package.
@@ -47,24 +47,24 @@ These are preferences, not gates. If you bring them up, mark them `nit:` so the 
 
 ## Cross-cutting rules
 
-- **Trust the pre-commit hook.** It runs `eslint --fix` + `check-adr` + `pack-changed`. If a PR's tests pass and ADR check passes, the _style_ is fine — focus on substance.
+- **Trust the pre-commit hook.** It runs `eslint --fix` + `check-adr` + `pack-changed`. If a PR's tests pass and ADR check passes, the *style* is fine — focus on substance.
 - **GH Actions runs on every PR.** If CI is red, investigate — it's a real failure unless it's a known baseline issue on `main` (see `.claude/rules/gotchas.md` for current baseline failures). Don't dismiss CI failures without checking `gh run list --limit 5`.
-- **Agent-authored PRs** (commits with `Co-Authored-By: Claude`) get the _same_ rubric as human PRs. The author field doesn't lower or raise the bar.
+- **Agent-authored PRs** (commits with `Co-Authored-By: Claude`) get the *same* rubric as human PRs. The author field doesn't lower or raise the bar.
 - **Surface the why.** "Bug at line 42: `arr[i]` reads past `arr.length` when `i === arr.length`" beats "fix bounds check". Quote the symbol; explain the failure mode.
 
 ## Per-area emphasis
 
 Different areas of the monorepo have different failure modes. Lean on these in addition to the rubric.
 
-| Area                    | Typical failure modes worth a closer look                                                                                                                                                     |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `services/*` (Fastify)  | Missing auth on a new route, error responses leaking stack traces, request validation gaps (Zod), incorrect Prisma transaction boundaries, missing test for the new endpoint                  |
-| `packages/rialto`       | Breaking export-map changes without changeset, `setState` inside `useEffect` body (banned), missing `displayName` on exported components, accessibility regressions on interactive primitives |
-| `apps/*` (web)          | Bundle bloat from accidental heavy imports, broken SSR/CSR parity, hydration mismatches, env vars not in the right `.env.*`                                                                   |
-| `packages/auth`         | Authorization checks added at the route, not the data layer; JWT verification skipped or bypassed                                                                                             |
-| `infrastructure/pulumi` | `pulumi up` would change shared state without an ADR; secrets in plaintext outputs                                                                                                            |
-| `prisma/migrations`     | Drop column or table, rename without backfill, schema field added without `@default` (forces NOT NULL on existing rows)                                                                       |
-| `.github/workflows`     | New workflow with `permissions: write-all` instead of scoped per-job permissions; skipping `--no-verify` on commits                                                                           |
+| Area | Typical failure modes worth a closer look |
+|---|---|
+| `services/*` (Fastify) | Missing auth on a new route, error responses leaking stack traces, request validation gaps (Zod), incorrect Prisma transaction boundaries, missing test for the new endpoint |
+| `packages/rialto` | Breaking export-map changes without changeset, `setState` inside `useEffect` body (banned), missing `displayName` on exported components, accessibility regressions on interactive primitives |
+| `apps/*` (web) | Bundle bloat from accidental heavy imports, broken SSR/CSR parity, hydration mismatches, env vars not in the right `.env.*` |
+| `packages/auth` | Authorization checks added at the route, not the data layer; JWT verification skipped or bypassed |
+| `infrastructure/pulumi` | `pulumi up` would change shared state without an ADR; secrets in plaintext outputs |
+| `prisma/migrations` | Drop column or table, rename without backfill, schema field added without `@default` (forces NOT NULL on existing rows) |
+| `.github/workflows` | New workflow with `permissions: write-all` instead of scoped per-job permissions; skipping `--no-verify` on commits |
 
 ## How agents apply this rubric
 

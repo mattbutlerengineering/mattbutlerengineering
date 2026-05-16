@@ -8,21 +8,21 @@ Review burden tracking measures human review fatigue and ensures sustainable rev
 
 ## Metrics
 
-| Metric                    | Description                                                      | Source                                                            |
-| ------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------- |
-| PRs per reviewer per week | Volume of PRs assigned to or reviewed by each person             | `gh pr list --search "reviewed-by:USERNAME"`                      |
-| Average review time       | Time between PR creation and first review comment/approval       | PR timeline events via GitHub API                                 |
-| Review-to-merge latency   | Time between first review and merge                              | PR timeline events via GitHub API                                 |
-| Auto-merge ratio          | Percentage of PRs merged via auto-merge vs human-initiated merge | `gh pr list --search "label:auto-merged"` or merge event metadata |
-| Review depth              | Number of review comments per PR (proxy for thoroughness)        | `gh api repos/{owner}/{repo}/pulls/{number}/comments`             |
+| Metric | Description | Source |
+|--------|-------------|--------|
+| PRs per reviewer per week | Volume of PRs assigned to or reviewed by each person | `gh pr list --search "reviewed-by:USERNAME"` |
+| Average review time | Time between PR creation and first review comment/approval | PR timeline events via GitHub API |
+| Review-to-merge latency | Time between first review and merge | PR timeline events via GitHub API |
+| Auto-merge ratio | Percentage of PRs merged via auto-merge vs human-initiated merge | `gh pr list --search "label:auto-merged"` or merge event metadata |
+| Review depth | Number of review comments per PR (proxy for thoroughness) | `gh api repos/{owner}/{repo}/pulls/{number}/comments` |
 
 ## Warning Thresholds
 
-| Load     | PRs / Reviewer / Week | Action                                              |
-| -------- | --------------------- | --------------------------------------------------- |
-| Healthy  | < 5                   | No action needed                                    |
-| Warning  | 5 - 10                | Reduce agent output frequency or distribute reviews |
-| Critical | > 10                  | Pause autonomous PR creation until backlog clears   |
+| Load | PRs / Reviewer / Week | Action |
+|------|-----------------------|--------|
+| Healthy | < 5 | No action needed |
+| Warning | 5 - 10 | Reduce agent output frequency or distribute reviews |
+| Critical | > 10 | Pause autonomous PR creation until backlog clears |
 
 ## Measurement
 
@@ -62,12 +62,12 @@ Auto-merge reduces the mechanical burden of clicking "merge" but does not reduce
 
 ### Signals to watch
 
-| Signal                                   | Interpretation                   |
-| ---------------------------------------- | -------------------------------- |
-| Average review time dropping             | Reviewers may be rubber-stamping |
-| Review comments per PR dropping          | Less thorough reviews            |
-| PRs merged with zero comments increasing | Reviews are being skipped        |
-| Auto-merge ratio > 90%                   | Human gate may be decorative     |
+| Signal | Interpretation |
+|--------|---------------|
+| Average review time dropping | Reviewers may be rubber-stamping |
+| Review comments per PR dropping | Less thorough reviews |
+| PRs merged with zero comments increasing | Reviews are being skipped |
+| Auto-merge ratio > 90% | Human gate may be decorative |
 
 ## Sustainable Review Load
 

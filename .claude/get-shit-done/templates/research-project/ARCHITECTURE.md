@@ -14,28 +14,27 @@ Template for `.planning/research/ARCHITECTURE.md` — system structure patterns 
 ## Standard Architecture
 
 ### System Overview
+
 ```
-
 ┌─────────────────────────────────────────────────────────────┐
-│ [Layer Name] │
+│                        [Layer Name]                          │
 ├─────────────────────────────────────────────────────────────┤
-│ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ │
-│ │ [Comp] │ │ [Comp] │ │ [Comp] │ │ [Comp] │ │
-│ └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ │
-│ │ │ │ │ │
+│  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐        │
+│  │ [Comp]  │  │ [Comp]  │  │ [Comp]  │  │ [Comp]  │        │
+│  └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘        │
+│       │            │            │            │              │
 ├───────┴────────────┴────────────┴────────────┴──────────────┤
-│ [Layer Name] │
+│                        [Layer Name]                          │
 ├─────────────────────────────────────────────────────────────┤
-│ ┌─────────────────────────────────────────────────────┐ │
-│ │ [Component] │ │
-│ └─────────────────────────────────────────────────────┘ │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │                    [Component]                       │    │
+│  └─────────────────────────────────────────────────────┘    │
 ├─────────────────────────────────────────────────────────────┤
-│ [Layer Name] │
-│ ┌──────────┐ ┌──────────┐ ┌──────────┐ │
-│ │ [Store] │ │ [Store] │ │ [Store] │ │
-│ └──────────┘ └──────────┘ └──────────┘ │
+│                        [Layer Name]                          │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐                   │
+│  │ [Store]  │  │ [Store]  │  │ [Store]  │                   │
+│  └──────────┘  └──────────┘  └──────────┘                   │
 └─────────────────────────────────────────────────────────────┘
-
 ```
 
 ### Component Responsibilities
@@ -49,18 +48,16 @@ Template for `.planning/research/ARCHITECTURE.md` — system structure patterns 
 ## Recommended Project Structure
 
 ```
-
 src/
-├── [folder]/ # [purpose]
-│ ├── [subfolder]/ # [purpose]
-│ └── [file].ts # [purpose]
-├── [folder]/ # [purpose]
-│ ├── [subfolder]/ # [purpose]
-│ └── [file].ts # [purpose]
-├── [folder]/ # [purpose]
-└── [folder]/ # [purpose]
-
-````
+├── [folder]/           # [purpose]
+│   ├── [subfolder]/    # [purpose]
+│   └── [file].ts       # [purpose]
+├── [folder]/           # [purpose]
+│   ├── [subfolder]/    # [purpose]
+│   └── [file].ts       # [purpose]
+├── [folder]/           # [purpose]
+└── [folder]/           # [purpose]
+```
 
 ### Structure Rationale
 
@@ -78,7 +75,7 @@ src/
 **Example:**
 ```typescript
 // [Brief code example showing the pattern]
-````
+```
 
 ### Pattern 2: [Pattern Name]
 
@@ -87,7 +84,6 @@ src/
 **Trade-offs:** [pros and cons]
 
 **Example:**
-
 ```typescript
 // [Brief code example showing the pattern]
 ```
@@ -125,11 +121,11 @@ src/
 
 ## Scaling Considerations
 
-| Scale         | Architecture Adjustments                |
-| ------------- | --------------------------------------- |
-| 0-1k users    | [approach — usually monolith is fine]   |
-| 1k-100k users | [approach — what to optimize first]     |
-| 100k+ users   | [approach — when to consider splitting] |
+| Scale | Architecture Adjustments |
+|-------|--------------------------|
+| 0-1k users | [approach — usually monolith is fine] |
+| 1k-100k users | [approach — what to optimize first] |
+| 100k+ users | [approach — when to consider splitting] |
 
 ### Scaling Priorities
 
@@ -154,15 +150,15 @@ src/
 
 ### External Services
 
-| Service   | Integration Pattern | Notes     |
-| --------- | ------------------- | --------- |
-| [service] | [how to connect]    | [gotchas] |
-| [service] | [how to connect]    | [gotchas] |
+| Service | Integration Pattern | Notes |
+|---------|---------------------|-------|
+| [service] | [how to connect] | [gotchas] |
+| [service] | [how to connect] | [gotchas] |
 
 ### Internal Boundaries
 
-| Boundary              | Communication       | Notes            |
-| --------------------- | ------------------- | ---------------- |
+| Boundary | Communication | Notes |
+|----------|---------------|-------|
 | [module A ↔ module B] | [API/events/direct] | [considerations] |
 
 ## Sources
@@ -172,10 +168,8 @@ src/
 - [Case studies]
 
 ---
-
-_Architecture research for: [domain]_
-_Researched: [date]_
-
+*Architecture research for: [domain]*
+*Researched: [date]*
 ```
 
 </template>
@@ -208,4 +202,3 @@ _Researched: [date]_
 - Helps prevent common mistakes during implementation
 
 </guidelines>
-```

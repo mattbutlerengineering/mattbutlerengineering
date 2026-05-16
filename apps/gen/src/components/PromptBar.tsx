@@ -1,11 +1,4 @@
-import {
-  useState,
-  useRef,
-  useCallback,
-  useEffect,
-  type KeyboardEvent,
-  type ChangeEvent,
-} from "react";
+import { useState, useRef, useCallback, useEffect, type KeyboardEvent, type ChangeEvent } from "react";
 import { Button } from "@mattbutlerengineering/rialto";
 import styles from "./PromptBar.module.css";
 
@@ -47,7 +40,9 @@ export function PromptBar({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isRefineMode = mode === "refine";
-  const placeholder = isRefineMode ? "Refine this UI..." : "Describe the UI you want to build...";
+  const placeholder = isRefineMode
+    ? "Refine this UI..."
+    : "Describe the UI you want to build...";
   const submitLabel = isRefineMode ? "Refine" : "Generate";
 
   const charCount = value.length;
@@ -80,12 +75,15 @@ export function PromptBar({
     setValue("");
   }, [value, disabled, onSubmit]);
 
-  const handleChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>) => {
-    const next = e.target.value;
-    if (next.length > MAX_CHARS) return;
-    setValue(next);
-    setHistoryIndex(-1);
-  }, []);
+  const handleChange = useCallback(
+    (e: ChangeEvent<HTMLTextAreaElement>) => {
+      const next = e.target.value;
+      if (next.length > MAX_CHARS) return;
+      setValue(next);
+      setHistoryIndex(-1);
+    },
+    []
+  );
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -124,7 +122,12 @@ export function PromptBar({
     <div className={styles.bar}>
       <div className={styles.inputRow}>
         {isRefineMode && onExitRefinement && (
-          <Button variant="ghost" size="md" onClick={onExitRefinement} disabled={isStreaming}>
+          <Button
+            variant="ghost"
+            size="md"
+            onClick={onExitRefinement}
+            disabled={isStreaming}
+          >
             New
           </Button>
         )}

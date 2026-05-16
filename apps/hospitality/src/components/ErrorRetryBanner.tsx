@@ -10,7 +10,11 @@ export interface ErrorRetryBannerProps {
 
 /* ── Component ───────────────────────────────── */
 
-export function ErrorRetryBanner({ error, onRetry, onDismiss }: ErrorRetryBannerProps) {
+export function ErrorRetryBanner({
+  error,
+  onRetry,
+  onDismiss,
+}: ErrorRetryBannerProps) {
   return (
     <Alert
       variant="error"

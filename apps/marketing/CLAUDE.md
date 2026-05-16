@@ -4,13 +4,13 @@ Public marketing site for mattbutlerengineering.com. React + Vite SPA. Port **30
 
 ## Pages
 
-| Page             | Route      | Description                                                      |
-| ---------------- | ---------- | ---------------------------------------------------------------- |
-| HomePage         | `/`        | Landing: hero, projects, tech stack, about, contact + weekly CTA |
-| StatusPage       | `/status`  | Real-time health dashboard for APIs and static sites             |
-| WeeklyIntakePage | `/weekly`  | Curated newsletter resources with source filtering               |
-| MetricsPage      | `/metrics` | ACMM quality metrics dashboard                                   |
-| NotFoundPage     | `*`        | 404 with suggested links                                         |
+| Page | Route | Description |
+|------|-------|-------------|
+| HomePage | `/` | Landing: hero, projects, tech stack, about, contact + weekly CTA |
+| StatusPage | `/status` | Real-time health dashboard for APIs and static sites |
+| WeeklyIntakePage | `/weekly` | Curated newsletter resources with source filtering |
+| MetricsPage | `/metrics` | ACMM quality metrics dashboard |
+| NotFoundPage | `*` | 404 with suggested links |
 
 Fallback redirects: `/rialto/*` and `/hospitality/*` redirect to their respective apps (safety net for edge router failures).
 
@@ -38,17 +38,16 @@ All UI primitives come from `@mattbutlerengineering/rialto` (`Footer`, `GlobalNa
 ## Build Size Limits
 
 Enforced by `size-limit`:
-
 - JS: 750 kB max
 - CSS: 50 kB max
 
 ## Environment Variables
 
-| Variable            | Required   | Description                       |
-| ------------------- | ---------- | --------------------------------- |
-| `VITE_SENTRY_DSN`   | No         | Sentry DSN for error tracking     |
-| `SENTRY_ORG`        | No (build) | Sentry org for source map upload  |
-| `SENTRY_PROJECT`    | No (build) | Sentry project name               |
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `VITE_SENTRY_DSN` | No | Sentry DSN for error tracking |
+| `SENTRY_ORG` | No (build) | Sentry org for source map upload |
+| `SENTRY_PROJECT` | No (build) | Sentry project name |
 | `SENTRY_AUTH_TOKEN` | No (build) | Sentry auth for source map upload |
 
 ## Commands
@@ -72,11 +71,11 @@ pnpm dlx wrangler@latest deploy
 
 Playwright tests in `e2e/`:
 
-| Test                 | Validates                 |
-| -------------------- | ------------------------- |
-| `a11y.test.ts`       | Accessibility (axe-core)  |
-| `navigation.spec.ts` | Navigation flows          |
-| `not-found.spec.ts`  | 404 handling              |
-| `seo.spec.ts`        | SEO structure (headings)  |
-| `status.spec.ts`     | Status page health checks |
-| `weekly.spec.ts`     | Weekly intake page        |
+| Test | Validates |
+|------|-----------|
+| `a11y.test.ts` | Accessibility (axe-core) |
+| `navigation.spec.ts` | Navigation flows |
+| `not-found.spec.ts` | 404 handling |
+| `seo.spec.ts` | SEO structure (headings) |
+| `status.spec.ts` | Status page health checks |
+| `weekly.spec.ts` | Weekly intake page |

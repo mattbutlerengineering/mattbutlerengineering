@@ -25,9 +25,9 @@ import { createApiClient } from "@mbe/api-client";
 
 const api = createApiClient({
   baseUrl: "https://api.example.com",
-  getAccessToken: () => authToken, // sync or async
-  timeout: 30_000, // default: 30s
-  maxRetries: 3, // default: 3
+  getAccessToken: () => authToken,  // sync or async
+  timeout: 30_000,                  // default: 30s
+  maxRetries: 3,                    // default: 3
 });
 
 const user = await api.users.me();
@@ -37,17 +37,17 @@ const slots = await api.availability.getTimeSlots({ venueId, date, partySize: 4 
 
 ## Service Clients
 
-| Client         | Key Methods                                                                                                                                              |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `users`        | `me()`, `list()`, `get(id)`, `create()`, `update()`, `delete()`, `updatePreferences()`                                                                   |
-| `reservations` | `list(params)`, `me()`, `get(id)`, `create()`, `update()`, `cancel()`, `cancelWithReason()`, `walkIn()`                                                  |
-| `venues`       | `list()`, `get(id)`, `getBySlug()`, `create()`, `update()`, `delete()`                                                                                   |
-| `venueGroups`  | `list()`, `get(id)`, `getBySlug()`, `create()`, `update()`, `delete()`                                                                                   |
-| `tables`       | `list(params)`, `get(id)`, `create()`, `update()`, `delete()`, `updateStatus()`                                                                          |
-| `guests`       | `list(params)`, `search(params)`, `getSegments(venueId)`, `get(id)`, `create()`, `findOrCreate()`, `update()`, `delete()`                                |
-| `floorPlans`   | `list()`, `get(id)`, `getActiveByVenueId()`, `create()`, `update()`, `activate()`, `delete()`, `bulkUpdatePositions()`, `assignTable()`, `removeTable()` |
-| `availability` | `getTimeSlots(params)`, `getDates(params)`                                                                                                               |
-| `holds`        | `create(data)`, `get(id)`, `release(id)`, `confirm(id, details)` — requires `setSessionId()`                                                             |
+| Client | Key Methods |
+|--------|-------------|
+| `users` | `me()`, `list()`, `get(id)`, `create()`, `update()`, `delete()`, `updatePreferences()` |
+| `reservations` | `list(params)`, `me()`, `get(id)`, `create()`, `update()`, `cancel()`, `cancelWithReason()`, `walkIn()` |
+| `venues` | `list()`, `get(id)`, `getBySlug()`, `create()`, `update()`, `delete()` |
+| `venueGroups` | `list()`, `get(id)`, `getBySlug()`, `create()`, `update()`, `delete()` |
+| `tables` | `list(params)`, `get(id)`, `create()`, `update()`, `delete()`, `updateStatus()` |
+| `guests` | `list(params)`, `search(params)`, `getSegments(venueId)`, `get(id)`, `create()`, `findOrCreate()`, `update()`, `delete()` |
+| `floorPlans` | `list()`, `get(id)`, `getActiveByVenueId()`, `create()`, `update()`, `activate()`, `delete()`, `bulkUpdatePositions()`, `assignTable()`, `removeTable()` |
+| `availability` | `getTimeSlots(params)`, `getDates(params)` |
+| `holds` | `create(data)`, `get(id)`, `release(id)`, `confirm(id, details)` — requires `setSessionId()` |
 
 ## Auth Token Injection
 
@@ -76,10 +76,10 @@ try {
   await api.users.get("bad-id");
 } catch (error) {
   if (error instanceof ApiClientError) {
-    error.statusCode; // 404
-    error.method; // "GET"
-    error.path; // "/api/v1/users/bad-id"
-    error.response; // Full ApiError object (RFC 9457)
+    error.statusCode;   // 404
+    error.method;       // "GET"
+    error.path;         // "/api/v1/users/bad-id"
+    error.response;     // Full ApiError object (RFC 9457)
   }
 }
 ```

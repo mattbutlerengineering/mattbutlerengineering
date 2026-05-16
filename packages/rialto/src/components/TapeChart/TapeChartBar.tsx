@@ -22,14 +22,18 @@ function buildFormattedParts(
   bar: TapeChartPositionedBar,
   roomName: string,
   formatters: TapeChartFormatters,
-  strings: ResolvedStrings
+  strings: ResolvedStrings,
 ): TapeChartFormattedParts {
   const r = bar.reservation;
   const nights = bar.span;
   const priceTotal =
-    r.ratePerNight != null ? formatters.currency(r.ratePerNight * nights, r.currency) : undefined;
-  const partySize = r.partySize != null ? strings.partySizeLabel(r.partySize) : undefined;
-  const statusLabel = strings.statusLabels[r.status] ?? DEFAULT_STRINGS.statusLabels[r.status];
+    r.ratePerNight != null
+      ? formatters.currency(r.ratePerNight * nights, r.currency)
+      : undefined;
+  const partySize =
+    r.partySize != null ? strings.partySizeLabel(r.partySize) : undefined;
+  const statusLabel =
+    strings.statusLabels[r.status] ?? DEFAULT_STRINGS.statusLabels[r.status];
   return {
     startLong: formatters.dayLong(r.start),
     endLong: formatters.dayLong(r.end),
@@ -62,10 +66,9 @@ export const TapeChartBar = forwardRef<HTMLButtonElement, TapeChartBarProps>(
     };
 
     const title = r.guestName ?? r.blockedReason ?? parts.statusLabel;
-    const priceShort =
-      r.ratePerNight != null
-        ? formatters.currency(r.ratePerNight * bar.span, r.currency)
-        : undefined;
+    const priceShort = r.ratePerNight != null
+      ? formatters.currency(r.ratePerNight * bar.span, r.currency)
+      : undefined;
 
     return (
       <button
@@ -86,5 +89,5 @@ export const TapeChartBar = forwardRef<HTMLButtonElement, TapeChartBarProps>(
         {priceShort && <span className={styles.barMeta}>{priceShort}</span>}
       </button>
     );
-  }
+  },
 );

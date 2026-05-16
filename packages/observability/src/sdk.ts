@@ -24,7 +24,11 @@ export interface OtelConfig {
  * Paths that generate trace spam with no diagnostic value.
  * Swagger UI (/docs), Scalar API Reference (/reference), and health checks.
  */
-const IGNORED_PATH_PREFIXES: readonly string[] = ["/health", "/docs", "/reference"] as const;
+const IGNORED_PATH_PREFIXES: readonly string[] = [
+  "/health",
+  "/docs",
+  "/reference",
+] as const;
 
 /**
  * Returns true when the incoming request URL matches a path that should
@@ -32,7 +36,9 @@ const IGNORED_PATH_PREFIXES: readonly string[] = ["/health", "/docs", "/referenc
  */
 export function shouldIgnoreRequest(req: IncomingMessage): boolean {
   const url = req.url ?? "";
-  return IGNORED_PATH_PREFIXES.some((prefix) => url === prefix || url.startsWith(`${prefix}/`));
+  return IGNORED_PATH_PREFIXES.some(
+    (prefix) => url === prefix || url.startsWith(`${prefix}/`),
+  );
 }
 
 /**

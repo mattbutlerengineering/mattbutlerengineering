@@ -14,18 +14,30 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync, mkdirSync, existsSync, appendFileSync } from "node:fs";
+import {
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  existsSync,
+  appendFileSync,
+} from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
-const LOG_PATH = resolve(ROOT, ".claude", "improvement-loop", "verifications.jsonl");
+const LOG_PATH = resolve(
+  ROOT,
+  ".claude",
+  "improvement-loop",
+  "verifications.jsonl",
+);
 
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes("--dry-run");
 const hoursIdx = args.indexOf("--hours");
-const LOOKBACK_HOURS = hoursIdx >= 0 ? parseInt(args[hoursIdx + 1] ?? "48", 10) : 48;
+const LOOKBACK_HOURS =
+  hoursIdx >= 0 ? parseInt(args[hoursIdx + 1] ?? "48", 10) : 48;
 const MAX_VERIFICATIONS = 5;
 
 const SENSOR_LABELS = ["ci-fix", "audit", "acmm", "sentry", "bug"];
@@ -63,8 +75,8 @@ function findClosedIssuesWithSensorLabels() {
       "--limit",
       "30",
       "--json",
-      "number,title,labels,closedAt,body"
-    )
+      "number,title,labels,closedAt,body",
+    ),
   );
   if (!raw) return [];
 
@@ -84,14 +96,26 @@ function findClosedIssuesWithSensorLabels() {
 
 function verifyCiFix() {
   const raw = safe(() =>
-    gh("run", "list", "--limit", "10", "--branch", "main", "--json", "status,conclusion,createdAt")
+    gh(
+      "run",
+      "list",
+      "--limit",
+      "10",
+      "--branch",
+      "main",
+      "--json",
+      "status,conclusion,createdAt",
+    ),
   );
   if (!raw) return { verified: false, reason: "Could not query CI runs" };
 
   const runs = safe(() => JSON.parse(raw), []);
   const completed = runs.filter((r) => r.status === "completed");
   const passed = completed.filter((r) => r.conclusion === "success");
-  const passRate = completed.length > 0 ? Math.round((passed.length / completed.length) * 100) : 0;
+  const passRate =
+    completed.length > 0
+      ? Math.round((passed.length / completed.length) * 100)
+      : 0;
 
   if (passRate >= 90) {
     return {
@@ -148,10 +172,12 @@ function verifyAudit(issueTitle, issueBody) {
     };
   }
 
-  const urlMatch = (issueBody ?? "").match(/https?:\/\/[^\s)]+/);
+  const urlMatch = (issueBody ?? "").match(
+    /https?:\/\/[^\s)]+/,
+  );
   if (urlMatch) {
     const surfaces = Array.isArray(inv.surfaces ?? inv)
-      ? (inv.surfaces ?? inv)
+      ? inv.surfaces ?? inv
       : Object.values(inv.surfaces ?? inv);
     const surface = surfaces.find((s) => s.url === urlMatch[0]);
     if (surface?.scores) {
@@ -183,9 +209,19 @@ function verifySentry() {
 
 function verifyBug() {
   const raw = safe(() =>
-    gh("run", "list", "--limit", "5", "--branch", "main", "--json", "status,conclusion")
+    gh(
+      "run",
+      "list",
+      "--limit",
+      "5",
+      "--branch",
+      "main",
+      "--json",
+      "status,conclusion",
+    ),
   );
-  if (!raw) return { verified: false, reason: "Could not verify — CI unavailable" };
+  if (!raw)
+    return { verified: false, reason: "Could not verify — CI unavailable" };
 
   const runs = safe(() => JSON.parse(raw), []);
   const latestCompleted = runs.find((r) => r.status === "completed");
@@ -211,7 +247,8 @@ function verifyIssue(issue) {
 
   if (labelNames.includes("ci-fix")) return verifyCiFix();
   if (labelNames.includes("acmm")) return verifyAcmm(issue.title);
-  if (labelNames.includes("audit")) return verifyAudit(issue.title, issue.body);
+  if (labelNames.includes("audit"))
+    return verifyAudit(issue.title, issue.body);
   if (labelNames.includes("sentry")) return verifySentry();
   if (labelNames.includes("bug")) return verifyBug();
 
@@ -223,12 +260,14 @@ function verifyIssue(issue) {
 const issues = findClosedIssuesWithSensorLabels();
 
 if (issues.length === 0) {
-  console.log(`\n✅ No sensor-labeled issues closed in the last ${LOOKBACK_HOURS}h to verify.\n`);
+  console.log(
+    `\n✅ No sensor-labeled issues closed in the last ${LOOKBACK_HOURS}h to verify.\n`,
+  );
   process.exit(0);
 }
 
 console.log(
-  `\n🔍 Verifying ${issues.length} recently-closed issues (${LOOKBACK_HOURS}h window):\n`
+  `\n🔍 Verifying ${issues.length} recently-closed issues (${LOOKBACK_HOURS}h window):\n`,
 );
 
 const results = [];
@@ -248,7 +287,11 @@ for (const issue of issues) {
 
   results.push(entry);
 
-  const icon = result.verified ? "✅" : result.confidence === "skip" ? "⏭ " : "❌";
+  const icon = result.verified
+    ? "✅"
+    : result.confidence === "skip"
+      ? "⏭ "
+      : "❌";
   console.log(`  ${icon} #${issue.number}: ${issue.title}`);
   console.log(`     ${result.reason}`);
   console.log();
@@ -269,8 +312,8 @@ for (const issue of issues) {
           "--remove-label",
           "has-pr",
           "--add-label",
-          "ready"
-        )
+          "ready",
+        ),
       );
       safe(() => gh("issue", "reopen", String(issue.number)));
       console.log(`     ↻ Reopened #${issue.number} for re-triage\n`);
@@ -287,9 +330,12 @@ if (!DRY_RUN) {
 }
 
 const verified = results.filter((r) => r.verified).length;
-const failed = results.filter((r) => !r.verified && r.confidence !== "skip").length;
+const failed = results.filter((r) => !r.verified && r.confidence !== "skip")
+  .length;
 const skipped = results.filter((r) => r.confidence === "skip").length;
 
-console.log(`Summary: ${verified} verified, ${failed} failed, ${skipped} skipped\n`);
+console.log(
+  `Summary: ${verified} verified, ${failed} failed, ${skipped} skipped\n`,
+);
 
 process.exit(failed > 0 ? 1 : 0);

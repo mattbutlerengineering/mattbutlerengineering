@@ -107,9 +107,7 @@ function MasterOverridePlayground() {
         <Checkbox label="Auto Re-close" checked={autoReclose} onCheckedChange={setAutoReclose} />
       </div>
       <Stack gap="sm">
-        <Text variant="caption" color="secondary">
-          Size
-        </Text>
+        <Text variant="caption" color="secondary">Size</Text>
         <SegmentedControl
           value={size}
           onChange={(v) => setSize(v as "sm" | "md" | "lg")}
@@ -121,9 +119,7 @@ function MasterOverridePlayground() {
         />
       </Stack>
       <Stack gap="sm">
-        <Text variant="caption" color="secondary">
-          Variant
-        </Text>
+        <Text variant="caption" color="secondary">Variant</Text>
         <SegmentedControl
           value={variant}
           onChange={(v) => setVariant(v as "default" | "warning" | "danger")}
@@ -135,9 +131,7 @@ function MasterOverridePlayground() {
         />
       </Stack>
       <Stack gap="sm">
-        <Text variant="caption" color="secondary">
-          Feedback
-        </Text>
+        <Text variant="caption" color="secondary">Feedback</Text>
         <SegmentedControl
           value={feedback}
           onChange={(v) => setFeedback(v as "none" | "click" | "haptic" | "both")}
@@ -193,18 +187,46 @@ export function MasterOverridePage() {
       {/* ── Sizes ─────────────────────────────────────────────────── */}
       <Section title="Sizes">
         <Stack direction="row" gap="xl" align="end" wrap>
-          <MasterOverride label="Small" on={false} onChange={() => {}} size="sm" />
-          <MasterOverride label="Medium" on={false} onChange={() => {}} size="md" />
-          <MasterOverride label="Large" on={false} onChange={() => {}} size="lg" />
+          <MasterOverride
+            label="Small"
+            on={false}
+            onChange={() => {}}
+            size="sm"
+          />
+          <MasterOverride
+            label="Medium"
+            on={false}
+            onChange={() => {}}
+            size="md"
+          />
+          <MasterOverride
+            label="Large"
+            on={false}
+            onChange={() => {}}
+            size="lg"
+          />
         </Stack>
       </Section>
 
       {/* ── States ────────────────────────────────────────────────── */}
       <Section title="States">
         <Stack direction="row" gap="xl" wrap>
-          <MasterOverride label="Disarmed" on={false} onChange={() => {}} />
-          <MasterOverride label="Engaged" on={true} onChange={() => {}} />
-          <MasterOverride label="Disabled" on={false} onChange={() => {}} disabled />
+          <MasterOverride
+            label="Disarmed"
+            on={false}
+            onChange={() => {}}
+          />
+          <MasterOverride
+            label="Engaged"
+            on={true}
+            onChange={() => {}}
+          />
+          <MasterOverride
+            label="Disabled"
+            on={false}
+            onChange={() => {}}
+            disabled
+          />
         </Stack>
       </Section>
 
@@ -245,93 +267,21 @@ export function MasterOverridePage() {
       <Section title="Props">
         <PropsTable
           props={[
-            {
-              name: "label",
-              type: "string",
-              description: "Accessible name for the switch. Also rendered above the bezel.",
-            },
-            {
-              name: "on",
-              type: "boolean",
-              description: "Controlled switch position — true is engaged.",
-            },
-            {
-              name: "onChange",
-              type: "(on: boolean) => void",
-              description: "Fires when the switch is flipped (only when the cover is open).",
-            },
-            {
-              name: "description",
-              type: "ReactNode",
-              description: "Supporting context rendered beneath the bezel.",
-            },
-            {
-              name: "idleLabel",
-              type: "string",
-              default: '"STANDBY"',
-              description: "Text rendered on the switch face when off.",
-            },
-            {
-              name: "activeLabel",
-              type: "string",
-              default: '"ENGAGED"',
-              description: "Text rendered on the switch face when on.",
-            },
-            {
-              name: "coverLabel",
-              type: "string",
-              default: '"LIFT TO ARM"',
-              description: "Text on the safety cover.",
-            },
-            {
-              name: "size",
-              type: '"sm" | "md" | "lg"',
-              default: '"md"',
-              description: "Overall component scale.",
-            },
-            {
-              name: "variant",
-              type: '"default" | "warning" | "danger"',
-              default: '"warning"',
-              description: "Colors the stripe on the safety cover.",
-            },
-            {
-              name: "disabled",
-              type: "boolean",
-              default: "false",
-              description: "Prevents all interaction.",
-            },
-            {
-              name: "requireHold",
-              type: "boolean | number",
-              default: "false",
-              description:
-                "Requires pressing and holding the switch to engage. Number specifies delay in ms.",
-            },
-            {
-              name: "labelTransition",
-              type: '"fade" | "splitflap"',
-              default: '"fade"',
-              description: "The animation used to swap status labels.",
-            },
-            {
-              name: "feedback",
-              type: '"none" | "click" | "haptic" | "both"',
-              default: '"none"',
-              description: "Optional audio/haptic feedback on engagement.",
-            },
-            {
-              name: "autoReclose",
-              type: "boolean",
-              default: "false",
-              description: "Automatically closes the cover after engagement.",
-            },
-            {
-              name: "autoRecloseMs",
-              type: "number",
-              default: "800",
-              description: "Delay before auto-closing.",
-            },
+            { name: "label", type: "string", description: "Accessible name for the switch. Also rendered above the bezel." },
+            { name: "on", type: "boolean", description: "Controlled switch position — true is engaged." },
+            { name: "onChange", type: "(on: boolean) => void", description: "Fires when the switch is flipped (only when the cover is open)." },
+            { name: "description", type: "ReactNode", description: "Supporting context rendered beneath the bezel." },
+            { name: "idleLabel", type: "string", default: '"STANDBY"', description: "Text rendered on the switch face when off." },
+            { name: "activeLabel", type: "string", default: '"ENGAGED"', description: "Text rendered on the switch face when on." },
+            { name: "coverLabel", type: "string", default: '"LIFT TO ARM"', description: "Text on the safety cover." },
+            { name: "size", type: '"sm" | "md" | "lg"', default: '"md"', description: "Overall component scale." },
+            { name: "variant", type: '"default" | "warning" | "danger"', default: '"warning"', description: "Colors the stripe on the safety cover." },
+            { name: "disabled", type: "boolean", default: "false", description: "Prevents all interaction." },
+            { name: "requireHold", type: "boolean | number", default: "false", description: "Requires pressing and holding the switch to engage. Number specifies delay in ms." },
+            { name: "labelTransition", type: '"fade" | "splitflap"', default: '"fade"', description: "The animation used to swap status labels." },
+            { name: "feedback", type: '"none" | "click" | "haptic" | "both"', default: '"none"', description: "Optional audio/haptic feedback on engagement." },
+            { name: "autoReclose", type: "boolean", default: "false", description: "Automatically closes the cover after engagement." },
+            { name: "autoRecloseMs", type: "number", default: "800", description: "Delay before auto-closing." },
           ]}
         />
       </Section>
@@ -340,29 +290,13 @@ export function MasterOverridePage() {
       <Section title="Accessibility">
         <DataList
           items={[
-            { label: "Cover role", value: "button with aria-expanded / aria-controls" },
+            { label: "Cover role", value: 'button with aria-expanded / aria-controls' },
             { label: "Switch role", value: "role=switch, aria-checked" },
-            {
-              label: "Keyboard",
-              value: "Enter/Space on cover toggles cover; Space on switch toggles state",
-            },
-            {
-              label: "Focus transfer",
-              value: "Cover→switch on lift; switch→cover on close — via user action only",
-            },
-            {
-              label: "Disabled switch",
-              value:
-                "Native disabled while cover is closed — unreachable by Tab and inert to clicks",
-            },
-            {
-              label: "Live region",
-              value: "Polite aria-live announces cover + switch state in one combined message",
-            },
-            {
-              label: "Reduced motion",
-              value: "Cover flip and lever glide collapse to instant transitions",
-            },
+            { label: "Keyboard", value: "Enter/Space on cover toggles cover; Space on switch toggles state" },
+            { label: "Focus transfer", value: "Cover→switch on lift; switch→cover on close — via user action only" },
+            { label: "Disabled switch", value: "Native disabled while cover is closed — unreachable by Tab and inert to clicks" },
+            { label: "Live region", value: "Polite aria-live announces cover + switch state in one combined message" },
+            { label: "Reduced motion", value: "Cover flip and lever glide collapse to instant transitions" },
           ]}
         />
       </Section>

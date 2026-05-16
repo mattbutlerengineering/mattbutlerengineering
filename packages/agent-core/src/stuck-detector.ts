@@ -69,23 +69,29 @@ function fingerprintToolUse(block: { name: string; input: unknown }): string {
   return `tool:${block.name}:${JSON.stringify(block.input)}`;
 }
 
-function fingerprintAssistantText(contentBlocks: Array<{ type: string; text?: string }>): string {
-  const texts = contentBlocks.filter((b) => b.type === "text" && b.text).map((b) => b.text!);
+function fingerprintAssistantText(
+  contentBlocks: Array<{ type: string; text?: string }>
+): string {
+  const texts = contentBlocks
+    .filter((b) => b.type === "text" && b.text)
+    .map((b) => b.text!);
   return texts.length > 0 ? `text:${texts.join("\n")}` : "";
 }
 
-function extractAssistantTextLength(contentBlocks: Array<{ type: string; text?: string }>): number {
+function extractAssistantTextLength(
+  contentBlocks: Array<{ type: string; text?: string }>
+): number {
   return contentBlocks
     .filter((b) => b.type === "text" && b.text)
     .reduce((sum, b) => sum + b.text!.length, 0);
 }
 
-function extractToolUseFingerprints(message: SDKMessage): readonly string[] {
+function extractToolUseFingerprints(
+  message: SDKMessage
+): readonly string[] {
   if (message.type !== "assistant") return [];
 
-  const content = (
-    message as { message: { content: Array<{ type: string; name?: string; input?: unknown }> } }
-  ).message.content;
+  const content = (message as { message: { content: Array<{ type: string; name?: string; input?: unknown }> } }).message.content;
 
   return content
     .filter((b) => b.type === "tool_use" && b.name && b.input !== undefined)
@@ -95,10 +101,11 @@ function extractToolUseFingerprints(message: SDKMessage): readonly string[] {
 function extractToolNames(message: SDKMessage): readonly string[] {
   if (message.type !== "assistant") return [];
 
-  const content = (message as { message: { content: Array<{ type: string; name?: string }> } })
-    .message.content;
+  const content = (message as { message: { content: Array<{ type: string; name?: string }> } }).message.content;
 
-  return content.filter((b) => b.type === "tool_use" && b.name).map((b) => b.name!);
+  return content
+    .filter((b) => b.type === "tool_use" && b.name)
+    .map((b) => b.name!);
 }
 
 function extractObservationFingerprint(message: SDKMessage): string | null {
@@ -119,7 +126,9 @@ function extractObservationFingerprint(message: SDKMessage): string | null {
 function isErrorObservation(message: SDKMessage): boolean {
   if (message.type !== "user") return false;
 
-  const content = JSON.stringify((message as { message: { content: unknown } }).message.content);
+  const content = JSON.stringify(
+    (message as { message: { content: unknown } }).message.content
+  );
 
   return (
     content.includes("is_error") ||
@@ -137,7 +146,9 @@ function isFileModifyingTool(toolName: string): boolean {
 
 // ── Detector ────────────────────────────────────────────────────────
 
-export function createStuckDetector(configOverrides?: Partial<StuckDetectorConfig>): StuckDetector {
+export function createStuckDetector(
+  configOverrides?: Partial<StuckDetectorConfig>
+): StuckDetector {
   const config = { ...DEFAULT_STUCK_CONFIG, ...configOverrides };
 
   // Rolling history windows
@@ -175,7 +186,9 @@ export function createStuckDetector(configOverrides?: Partial<StuckDetectorConfi
     // (indicating the agent fixed something and is legitimately retrying)
     if (observationAtAction.length >= n) {
       const contextObs = observationAtAction.slice(-n);
-      const contextChanged = contextObs.some((o, i) => i > 0 && o !== contextObs[0]);
+      const contextChanged = contextObs.some((o, i) =>
+        i > 0 && o !== contextObs[0]
+      );
       if (contextChanged) return null;
     }
 
@@ -218,7 +231,9 @@ export function createStuckDetector(configOverrides?: Partial<StuckDetectorConfi
 
     if (a === b) return null; // Not alternating if they're the same
 
-    const isAlternating = recent.every((fp, i) => fp === (i % 2 === 0 ? a : b));
+    const isAlternating = recent.every(
+      (fp, i) => fp === (i % 2 === 0 ? a : b)
+    );
 
     if (isAlternating) {
       return {
@@ -347,11 +362,9 @@ export function createStuckDetector(configOverrides?: Partial<StuckDetectorConfi
           turnsSinceLastToolUse = 0;
         } else {
           // Agent sent text only — check for self-message loop
-          const content = (
-            message as {
-              message: { content: Array<{ type: string; text?: string }> };
-            }
-          ).message.content;
+          const content = (message as {
+            message: { content: Array<{ type: string; text?: string }> };
+          }).message.content;
           const textFp = fingerprintAssistantText(content);
           lastTextOutputLength = extractAssistantTextLength(content);
           textFingerprints.push(textFp);
@@ -386,8 +399,9 @@ export function createStuckDetector(configOverrides?: Partial<StuckDetectorConfi
         recentToolSuccess.push(!isError);
         if (!isError) {
           // Check if the last tool was file-modifying
-          const lastToolName =
-            recentToolNames.length > 0 ? recentToolNames[recentToolNames.length - 1] : null;
+          const lastToolName = recentToolNames.length > 0
+            ? recentToolNames[recentToolNames.length - 1]
+            : null;
           if (lastToolName && isFileModifyingTool(lastToolName)) {
             turnsSinceFileModification = 0;
           } else {

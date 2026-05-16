@@ -60,6 +60,7 @@ describe("pulumiStackOutputs", () => {
 
   it("returns error JSON when non-Error is thrown", async () => {
     vi.mocked(execSync).mockImplementation(() => {
+       
       throw "exit code 1";
     });
 

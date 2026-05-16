@@ -47,7 +47,6 @@ User opens app
 ```
 
 **Key files:**
-
 - `src/App.tsx` — auth gate, callback route
 - `src/main.tsx` — AuthProvider setup, route definitions
 - `src/constants/auth.ts` — env var validation (fails fast if missing)
@@ -64,14 +63,10 @@ Most pages follow this pattern:
 
 ```typescript
 // 1. Create API client (memoized on accessToken)
-const api = useMemo(
-  () =>
-    createApiClient({
-      baseUrl: import.meta.env.VITE_API_URL ?? "",
-      getAccessToken: () => accessToken,
-    }),
-  [accessToken]
-);
+const api = useMemo(() => createApiClient({
+  baseUrl: import.meta.env.VITE_API_URL ?? "",
+  getAccessToken: () => accessToken,
+}), [accessToken]);
 
 // 2. Fetch on mount or dependency change
 useEffect(() => {
@@ -98,14 +93,18 @@ Used for real-time feel (table status toggle, reservation edit):
 
 ```typescript
 // 1. Update local state immediately
-setTables((prev) => prev.map((t) => (t.id === tableId ? { ...t, status: nextStatus } : t)));
+setTables(prev => prev.map(t =>
+  t.id === tableId ? { ...t, status: nextStatus } : t
+));
 
 // 2. Call API
 try {
   await api.tables.updateStatus(tableId, nextStatus);
 } catch {
   // 3. Revert on failure
-  setTables((prev) => prev.map((t) => (t.id === tableId ? { ...t, status: previousStatus } : t)));
+  setTables(prev => prev.map(t =>
+    t.id === tableId ? { ...t, status: previousStatus } : t
+  ));
 }
 ```
 
@@ -145,7 +144,6 @@ reconnectTimeoutRef.current = setTimeout(() => {
 ```
 
 **Reconnection Flow:**
-
 1. Connection drops → `onerror` fires
 2. Wait `delay` ms (1s, 2s, 4s, ... 30s max)
 3. Attempt reconnection
@@ -164,7 +162,6 @@ The SSE stream provides **at-least-once delivery** with the following guarantees
 - Client uses `Last-Event-ID` header for reconnection resumption
 
 **Sequence Diagram:**
-
 ```
 Client connects      →  EventSource with Last-Event-ID: 100
 Server sends         ←  id:101, event: reservation:created
@@ -184,7 +181,6 @@ After reconnection, **duplicates may occur**:
 3. Client must deduplicate by `id`
 
 **Deduplication Pattern:**
-
 ```typescript
 const processedIds = useRef(new Set<string>());
 
@@ -193,14 +189,16 @@ function handleEvent(event: ReservationEvent) {
     return; // Skip duplicate
   }
   processedIds.current.add(event.id);
-
+  
   // Process the event
   switch (event.type) {
     case "reservation:created":
-      setReservations((prev) => [...prev, event.data]);
+      setReservations(prev => [...prev, event.data]);
       break;
     case "reservation:updated":
-      setReservations((prev) => prev.map((r) => (r.id === event.data.id ? event.data : r)));
+      setReservations(prev =>
+        prev.map(r => r.id === event.data.id ? event.data : r)
+      );
       break;
   }
 }
@@ -216,7 +214,6 @@ When the reservations service restarts:
 4. **Client deduplicates**: Already-processed events are skipped
 
 **Health Check Recovery:**
-
 ```typescript
 // Server sends heartbeat every 30s to detect stale connections
 // If no heartbeat for 60s, client triggers reconnect
@@ -225,15 +222,15 @@ const heartbeatTimeout = 60000;
 
 ### Event Types Reference
 
-| Event Type              | Payload           | Client Action          |
-| ----------------------- | ----------------- | ---------------------- |
-| `reservation:created`   | `Reservation`     | Add to list            |
-| `reservation:updated`   | `Reservation`     | Update in list         |
-| `reservation:cancelled` | `Reservation`     | Remove from list       |
-| `table:updated`         | `Table`           | Update table state     |
-| `hold:created`          | `ReservationHold` | Add hold indicator     |
-| `hold:released`         | `ReservationHold` | Remove hold indicator  |
-| `hold:confirmed`        | `Reservation`     | Convert to reservation |
+| Event Type | Payload | Client Action |
+|------------|---------|---------------|
+| `reservation:created` | `Reservation` | Add to list |
+| `reservation:updated` | `Reservation` | Update in list |
+| `reservation:cancelled` | `Reservation` | Remove from list |
+| `table:updated` | `Table` | Update table state |
+| `hold:created` | `ReservationHold` | Add hold indicator |
+| `hold:released` | `ReservationHold` | Remove hold indicator |
+| `hold:confirmed` | `Reservation` | Convert to reservation |
 
 ---
 
@@ -262,13 +259,13 @@ const heartbeatTimeout = 60000;
 
 ### Component Groups
 
-| Group               | Location                           | Purpose                                                                                       |
-| ------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------- |
-| `timeline/`         | `src/components/timeline/`         | TimelineGrid, ReservationBlock, CancelDialog, EditDrawer, WalkInDialog                        |
-| `booking-widget/`   | `src/components/booking-widget/`   | BookingWidget (4-step), DatePartySelector, TimeSlotPicker, GuestDetailsForm, ConfirmationView |
-| `floor-plan/`       | `src/components/floor-plan/`       | FloorPlanCanvas (Konva.js), TableShape, NewFloorPlanDialog, AddTableDialog                    |
-| `venue-onboarding/` | `src/components/venue-onboarding/` | 5-step wizard: BasicInfo, Location, Hours, Settings, Confirmation                             |
-| `dashboard/`        | `src/components/dashboard/`        | ReservationList, ActivityFeed (used by HomePage)                                              |
+| Group | Location | Purpose |
+|-------|----------|---------|
+| `timeline/` | `src/components/timeline/` | TimelineGrid, ReservationBlock, CancelDialog, EditDrawer, WalkInDialog |
+| `booking-widget/` | `src/components/booking-widget/` | BookingWidget (4-step), DatePartySelector, TimeSlotPicker, GuestDetailsForm, ConfirmationView |
+| `floor-plan/` | `src/components/floor-plan/` | FloorPlanCanvas (Konva.js), TableShape, NewFloorPlanDialog, AddTableDialog |
+| `venue-onboarding/` | `src/components/venue-onboarding/` | 5-step wizard: BasicInfo, Location, Hours, Settings, Confirmation |
+| `dashboard/` | `src/components/dashboard/` | ReservationList, ActivityFeed (used by HomePage) |
 
 ### Styling Rules
 
@@ -283,62 +280,55 @@ const heartbeatTimeout = 60000;
 ## API Surface
 
 ### Reservations
-
-| Method | Endpoint                                     | Used By                                  |
-| ------ | -------------------------------------------- | ---------------------------------------- |
-| `GET`  | `/api/v1/reservations?date=&venueId=&limit=` | HomePage, TimelinePage, ReservationsPage |
-| `POST` | `/api/v1/reservations`                       | WalkInDialog                             |
-| `PUT`  | `/api/v1/reservations/:id`                   | EditReservationDrawer                    |
-| `PUT`  | `/api/v1/reservations/:id/cancel`            | CancelReservationDialog                  |
-| `PUT`  | `/api/v1/reservations/:id/seat`              | TimelinePage (seat action)               |
+| Method | Endpoint | Used By |
+|--------|----------|---------|
+| `GET` | `/api/v1/reservations?date=&venueId=&limit=` | HomePage, TimelinePage, ReservationsPage |
+| `POST` | `/api/v1/reservations` | WalkInDialog |
+| `PUT` | `/api/v1/reservations/:id` | EditReservationDrawer |
+| `PUT` | `/api/v1/reservations/:id/cancel` | CancelReservationDialog |
+| `PUT` | `/api/v1/reservations/:id/seat` | TimelinePage (seat action) |
 
 ### Tables
-
-| Method   | Endpoint                         | Used By                                           |
-| -------- | -------------------------------- | ------------------------------------------------- |
-| `GET`    | `/api/v1/tables?venueId=&limit=` | TimelinePage, HomePage                            |
-| `POST`   | `/api/v1/tables`                 | AddTableDialog                                    |
-| `PUT`    | `/api/v1/tables/:id`             | FloorPlanCanvas (position), TimelinePage (status) |
-| `DELETE` | `/api/v1/tables/:id`             | FloorPlanEditorPage                               |
+| Method | Endpoint | Used By |
+|--------|----------|---------|
+| `GET` | `/api/v1/tables?venueId=&limit=` | TimelinePage, HomePage |
+| `POST` | `/api/v1/tables` | AddTableDialog |
+| `PUT` | `/api/v1/tables/:id` | FloorPlanCanvas (position), TimelinePage (status) |
+| `DELETE` | `/api/v1/tables/:id` | FloorPlanEditorPage |
 
 ### Venues
-
-| Method | Endpoint                | Used By                                         |
-| ------ | ----------------------- | ----------------------------------------------- |
-| `GET`  | `/api/v1/venues?limit=` | TimelinePage, GuestsPage, BookingWidgetDemoPage |
-| `POST` | `/api/v1/venues`        | VenueOnboardingPage                             |
+| Method | Endpoint | Used By |
+|--------|----------|---------|
+| `GET` | `/api/v1/venues?limit=` | TimelinePage, GuestsPage, BookingWidgetDemoPage |
+| `POST` | `/api/v1/venues` | VenueOnboardingPage |
 
 ### Guests
-
-| Method | Endpoint                                | Used By                |
-| ------ | --------------------------------------- | ---------------------- |
-| `GET`  | `/api/v1/guests?venueId=&limit=`        | GuestsPage             |
-| `GET`  | `/api/v1/guests/search?venueId=&query=` | GuestsPage             |
-| `GET`  | `/api/v1/guests/segments?venueId=`      | GuestsPage             |
-| `POST` | `/api/v1/guests/find-or-create`         | GuestsPage (Add Guest) |
+| Method | Endpoint | Used By |
+|--------|----------|---------|
+| `GET` | `/api/v1/guests?venueId=&limit=` | GuestsPage |
+| `GET` | `/api/v1/guests/search?venueId=&query=` | GuestsPage |
+| `GET` | `/api/v1/guests/segments?venueId=` | GuestsPage |
+| `POST` | `/api/v1/guests/find-or-create` | GuestsPage (Add Guest) |
 
 ### Floor Plans
-
-| Method | Endpoint                           | Used By             |
-| ------ | ---------------------------------- | ------------------- |
-| `GET`  | `/api/v1/floor-plans?limit=`       | FloorPlansPage      |
-| `GET`  | `/api/v1/floor-plans/:id`          | FloorPlanEditorPage |
-| `POST` | `/api/v1/floor-plans`              | NewFloorPlanDialog  |
-| `PUT`  | `/api/v1/floor-plans/:id/activate` | FloorPlanEditorPage |
+| Method | Endpoint | Used By |
+|--------|----------|---------|
+| `GET` | `/api/v1/floor-plans?limit=` | FloorPlansPage |
+| `GET` | `/api/v1/floor-plans/:id` | FloorPlanEditorPage |
+| `POST` | `/api/v1/floor-plans` | NewFloorPlanDialog |
+| `PUT` | `/api/v1/floor-plans/:id/activate` | FloorPlanEditorPage |
 
 ### Users
-
-| Method | Endpoint                        | Used By                   |
-| ------ | ------------------------------- | ------------------------- |
-| `GET`  | `/api/v1/users/me`              | ProfilePage, SettingsPage |
-| `GET`  | `/api/v1/users?page=&limit=`    | AdminPage                 |
-| `PUT`  | `/api/v1/users/:id`             | ProfilePage               |
-| `PUT`  | `/api/v1/users/:id/preferences` | SettingsPage              |
+| Method | Endpoint | Used By |
+|--------|----------|---------|
+| `GET` | `/api/v1/users/me` | ProfilePage, SettingsPage |
+| `GET` | `/api/v1/users?page=&limit=` | AdminPage |
+| `PUT` | `/api/v1/users/:id` | ProfilePage |
+| `PUT` | `/api/v1/users/:id/preferences` | SettingsPage |
 
 ### Events
-
-| Method      | Endpoint                         | Used By                   |
-| ----------- | -------------------------------- | ------------------------- |
+| Method | Endpoint | Used By |
+|--------|----------|---------|
 | `GET` (SSE) | `/api/v1/events/stream?venueId=` | useReservationEvents hook |
 
 ---

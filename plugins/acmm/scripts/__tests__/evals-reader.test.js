@@ -15,7 +15,7 @@ function fixture() {
       writeFileSync(
         join(root, "metrics/acmm-evals.jsonl"),
         rows.map((r) => JSON.stringify(r)).join("\n") + "\n",
-        "utf-8"
+        "utf-8",
       );
     },
     cleanup() {
@@ -138,12 +138,10 @@ test("measureEvals: skips malformed JSONL lines", () => {
     mkdirSync(join(fx.root, "metrics"), { recursive: true });
     writeFileSync(
       join(fx.root, "metrics/acmm-evals.jsonl"),
-      JSON.stringify(run({ success: true, score: 1 })) +
-        "\n" +
+      JSON.stringify(run({ success: true, score: 1 })) + "\n" +
         "not json\n" +
-        JSON.stringify(run({ success: true, score: 0.9 })) +
-        "\n",
-      "utf-8"
+        JSON.stringify(run({ success: true, score: 0.9 })) + "\n",
+      "utf-8",
     );
     const s = measureEvals(fx.root);
     assert.equal(s.n, 2);

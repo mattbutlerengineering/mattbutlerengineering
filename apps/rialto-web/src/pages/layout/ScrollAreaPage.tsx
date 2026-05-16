@@ -71,9 +71,7 @@ export function ScrollAreaPage() {
       <Section title="Horizontal Scroll">
         <Card>
           <ScrollArea>
-            <div
-              style={{ display: "flex", gap: "var(--rialto-space-sm)", minWidth: "max-content" }}
-            >
+            <div style={{ display: "flex", gap: "var(--rialto-space-sm)", minWidth: "max-content" }}>
               {["FP1", "FP2", "FP3", "Quali", "Sprint", "Race"].map((session) => (
                 <div
                   key={session}
@@ -138,7 +136,8 @@ export function ScrollAreaPage() {
                         width: 6,
                         height: 6,
                         borderRadius: "50%",
-                        background: i < 3 ? "var(--rialto-success)" : "var(--rialto-text-tertiary)",
+                        background:
+                          i < 3 ? "var(--rialto-success)" : "var(--rialto-text-tertiary)",
                         flexShrink: 0,
                       }}
                     />

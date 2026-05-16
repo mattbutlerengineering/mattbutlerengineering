@@ -13,7 +13,6 @@ allowed-tools:
   - AskUserQuestion
   - mcp__context7__*
 ---
-
 <objective>
 Create a UI design contract (UI-SPEC.md) for a frontend phase.
 Orchestrates gsd-ui-researcher and gsd-ui-checker.

@@ -34,7 +34,11 @@ export interface TurnMetricsEvent {
   readonly modelId: string;
 }
 
-export type MappedEvent = ToolUseEvent | ToolResultEvent | AssistantTextEvent | TurnMetricsEvent;
+export type MappedEvent =
+  | ToolUseEvent
+  | ToolResultEvent
+  | AssistantTextEvent
+  | TurnMetricsEvent;
 
 // ── Content block types ─────────────────────────────────────────────
 
@@ -126,7 +130,9 @@ function mapAssistantMessage(
   return events;
 }
 
-function mapUserMessage(content: unknown): readonly MappedEvent[] {
+function mapUserMessage(
+  content: unknown
+): readonly MappedEvent[] {
   if (!Array.isArray(content)) return [];
 
   const events: MappedEvent[] = [];
@@ -155,7 +161,10 @@ function mapUserMessage(content: unknown): readonly MappedEvent[] {
  *
  * Returns an empty array for message types with no relevant events.
  */
-export function mapSdkMessage(message: SDKMessage, turnIndex = 0): readonly MappedEvent[] {
+export function mapSdkMessage(
+  message: SDKMessage,
+  turnIndex = 0
+): readonly MappedEvent[] {
   if (message.type === "assistant") {
     const assistantMsg = message as {
       message: AssistantInnerMessage;

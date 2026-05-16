@@ -53,7 +53,9 @@ export function ExamplePageLayout({
 
       <Divider />
 
-      {compositionNotes != null && <div className={styles.notes}>{compositionNotes}</div>}
+      {compositionNotes != null && (
+        <div className={styles.notes}>{compositionNotes}</div>
+      )}
 
       <div className={styles.content}>{children}</div>
     </div>

@@ -94,22 +94,15 @@ describe("mergeInventory", () => {
   it("preserves check data for existing surfaces", () => {
     const fresh = buildInventory();
     const existing: AuditInventory = {
-      surfaces: [
-        {
-          id: "marketing:home",
-          zone: "marketing",
-          type: "page",
-          url: "https://mattbutlerengineering.com/",
-          sourceFiles: [],
-          auth: "none",
-          lastChecked: "2026-03-28T10:00:00Z",
-          lastScore: { performance: 0.95, accessibility: 0.98, bestPractices: 0.92, seo: 0.97 },
-          checkHistory: [],
-          checkCount: 5,
-        },
-      ],
-      lastUpdated: "2026-03-28T10:00:00Z",
-      version: 1,
+      surfaces: [{
+        id: "marketing:home", zone: "marketing", type: "page",
+        url: "https://mattbutlerengineering.com/",
+        sourceFiles: [], auth: "none",
+        lastChecked: "2026-03-28T10:00:00Z",
+        lastScore: { performance: 0.95, accessibility: 0.98, bestPractices: 0.92, seo: 0.97 },
+        checkHistory: [], checkCount: 5,
+      }],
+      lastUpdated: "2026-03-28T10:00:00Z", version: 1,
     };
 
     const merged = mergeInventory(fresh, existing);
@@ -122,22 +115,13 @@ describe("mergeInventory", () => {
   it("drops surfaces that no longer exist", () => {
     const fresh = buildInventory();
     const existing: AuditInventory = {
-      surfaces: [
-        {
-          id: "deleted:page",
-          zone: "marketing",
-          type: "page",
-          url: "https://example.com/deleted",
-          sourceFiles: [],
-          auth: "none",
-          lastChecked: "2026-03-28T10:00:00Z",
-          lastScore: null,
-          checkHistory: [],
-          checkCount: 1,
-        },
-      ],
-      lastUpdated: "2026-03-28T10:00:00Z",
-      version: 1,
+      surfaces: [{
+        id: "deleted:page", zone: "marketing", type: "page",
+        url: "https://example.com/deleted", sourceFiles: [], auth: "none",
+        lastChecked: "2026-03-28T10:00:00Z", lastScore: null,
+        checkHistory: [], checkCount: 1,
+      }],
+      lastUpdated: "2026-03-28T10:00:00Z", version: 1,
     };
 
     const merged = mergeInventory(fresh, existing);
@@ -148,9 +132,7 @@ describe("mergeInventory", () => {
 // ── loadInventory / saveInventory ───────────────────────────────────
 
 describe("loadInventory", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
+  beforeEach(() => { vi.clearAllMocks(); });
 
   it("returns fresh inventory when file does not exist", async () => {
     vi.mocked(readFile).mockRejectedValue(new Error("ENOENT"));
@@ -161,22 +143,14 @@ describe("loadInventory", () => {
 
   it("merges with existing inventory", async () => {
     const existing: AuditInventory = {
-      surfaces: [
-        {
-          id: "marketing:home",
-          zone: "marketing",
-          type: "page",
-          url: "https://mattbutlerengineering.com/",
-          sourceFiles: [],
-          auth: "none",
-          lastChecked: "2026-03-28T10:00:00Z",
-          lastScore: { performance: 0.95, accessibility: 0.98, bestPractices: 0.92, seo: 0.97 },
-          checkHistory: [],
-          checkCount: 1,
-        },
-      ],
-      lastUpdated: "2026-03-28T10:00:00Z",
-      version: 1,
+      surfaces: [{
+        id: "marketing:home", zone: "marketing", type: "page",
+        url: "https://mattbutlerengineering.com/", sourceFiles: [],
+        auth: "none", lastChecked: "2026-03-28T10:00:00Z",
+        lastScore: { performance: 0.95, accessibility: 0.98, bestPractices: 0.92, seo: 0.97 },
+        checkHistory: [], checkCount: 1,
+      }],
+      lastUpdated: "2026-03-28T10:00:00Z", version: 1,
     };
     vi.mocked(readFile).mockResolvedValue(JSON.stringify(existing));
 
@@ -262,19 +236,20 @@ describe("isNonAuditableFile", () => {
 
 describe("allFilesNonAuditable", () => {
   it("returns true when all files are non-auditable", () => {
-    expect(
-      allFilesNonAuditable([
-        "docs/guide.md",
-        ".github/workflows/ci.yml",
-        "src/utils.test.ts",
-        ".gitignore",
-        "turbo.json",
-      ])
-    ).toBe(true);
+    expect(allFilesNonAuditable([
+      "docs/guide.md",
+      ".github/workflows/ci.yml",
+      "src/utils.test.ts",
+      ".gitignore",
+      "turbo.json",
+    ])).toBe(true);
   });
 
   it("returns false when any file is auditable", () => {
-    expect(allFilesNonAuditable(["docs/guide.md", "apps/marketing/src/App.tsx"])).toBe(false);
+    expect(allFilesNonAuditable([
+      "docs/guide.md",
+      "apps/marketing/src/App.tsx",
+    ])).toBe(false);
   });
 
   it("returns false for empty list", () => {
@@ -290,14 +265,12 @@ describe("allFilesNonAuditable", () => {
   });
 
   it("returns true for a mix of docs and CI changes", () => {
-    expect(
-      allFilesNonAuditable([
-        "docs/evaluations/2026-03-29-database.md",
-        ".claude/skills/site-audit/SKILL.md",
-        ".github/workflows/deploy-static.yml",
-        "services/users/src/routes/users.test.ts",
-      ])
-    ).toBe(true);
+    expect(allFilesNonAuditable([
+      "docs/evaluations/2026-03-29-database.md",
+      ".claude/skills/site-audit/SKILL.md",
+      ".github/workflows/deploy-static.yml",
+      "services/users/src/routes/users.test.ts",
+    ])).toBe(true);
   });
 });
 
@@ -312,9 +285,7 @@ describe("mapFilesToSurfaces", () => {
 
   it("maps shared component file to all zone surfaces", () => {
     const inv = buildInventory();
-    const surfaces = mapFilesToSurfaces(inv, [
-      "apps/hospitality/src/components/DashboardLayout.tsx",
-    ]);
+    const surfaces = mapFilesToSurfaces(inv, ["apps/hospitality/src/components/DashboardLayout.tsx"]);
     expect(surfaces.filter((s) => s.zone === "hospitality").length).toBeGreaterThan(1);
   });
 
@@ -378,12 +349,7 @@ describe("findStalestZone", () => {
 // ── updateSurfaceScore ──────────────────────────────────────────────
 
 describe("updateSurfaceScore", () => {
-  const scores: LighthouseScores = {
-    performance: 0.95,
-    accessibility: 0.98,
-    bestPractices: 0.92,
-    seo: 0.97,
-  };
+  const scores: LighthouseScores = { performance: 0.95, accessibility: 0.98, bestPractices: 0.92, seo: 0.97 };
 
   it("updates lastChecked, lastScore, and appends to checkHistory", () => {
     const updated = updateSurfaceScore(buildInventory().surfaces[0], scores);
@@ -405,14 +371,9 @@ describe("updateSurfaceScore", () => {
 
 describe("detectRegression", () => {
   it("returns null when no previous score", () => {
-    expect(
-      detectRegression(buildInventory().surfaces[0], {
-        performance: 0.95,
-        accessibility: 0.98,
-        bestPractices: 0.92,
-        seo: 0.97,
-      })
-    ).toBeNull();
+    expect(detectRegression(buildInventory().surfaces[0], {
+      performance: 0.95, accessibility: 0.98, bestPractices: 0.92, seo: 0.97,
+    })).toBeNull();
   });
 
   it("detects regression when score drops >0.05", () => {
@@ -420,15 +381,10 @@ describe("detectRegression", () => {
       ...buildInventory().surfaces[0],
       lastScore: { performance: 0.95, accessibility: 0.98, bestPractices: 0.92, seo: 0.97 },
     };
-    const reg = detectRegression(s, {
-      performance: 0.85,
-      accessibility: 0.98,
-      bestPractices: 0.92,
-      seo: 0.97,
-    });
+    const reg = detectRegression(s, { performance: 0.85, accessibility: 0.98, bestPractices: 0.92, seo: 0.97 });
     expect(reg).not.toBeNull();
     expect(reg!.category).toBe("performance");
-    expect(reg!.drop).toBeCloseTo(0.1);
+    expect(reg!.drop).toBeCloseTo(0.10);
   });
 
   it("returns null when drop <=0.05", () => {
@@ -436,14 +392,9 @@ describe("detectRegression", () => {
       ...buildInventory().surfaces[0],
       lastScore: { performance: 0.95, accessibility: 0.98, bestPractices: 0.92, seo: 0.97 },
     };
-    expect(
-      detectRegression(s, {
-        performance: 0.92,
-        accessibility: 0.98,
-        bestPractices: 0.92,
-        seo: 0.97,
-      })
-    ).toBeNull();
+    expect(detectRegression(s, {
+      performance: 0.92, accessibility: 0.98, bestPractices: 0.92, seo: 0.97,
+    })).toBeNull();
   });
 
   it("reports worst regression across categories", () => {
@@ -451,12 +402,7 @@ describe("detectRegression", () => {
       ...buildInventory().surfaces[0],
       lastScore: { performance: 0.95, accessibility: 0.95, bestPractices: 0.95, seo: 0.95 },
     };
-    const reg = detectRegression(s, {
-      performance: 0.8,
-      accessibility: 0.85,
-      bestPractices: 0.95,
-      seo: 0.95,
-    });
+    const reg = detectRegression(s, { performance: 0.80, accessibility: 0.85, bestPractices: 0.95, seo: 0.95 });
     expect(reg!.category).toBe("performance");
     expect(reg!.drop).toBeCloseTo(0.15);
   });

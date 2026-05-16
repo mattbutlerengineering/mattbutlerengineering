@@ -4,15 +4,9 @@ const store = new Map<string, unknown>();
 
 vi.mock("conf", () => ({
   default: class MockConf {
-    get(key: string) {
-      return store.get(key);
-    }
-    set(key: string, value: unknown) {
-      store.set(key, value);
-    }
-    delete(key: string) {
-      store.delete(key);
-    }
+    get(key: string) { return store.get(key); }
+    set(key: string, value: unknown) { store.set(key, value); }
+    delete(key: string) { store.delete(key); }
   },
 }));
 

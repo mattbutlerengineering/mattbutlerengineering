@@ -15,10 +15,10 @@ describe("resolveTheme", () => {
   });
 
   it("returns 'dark' for system when prefers-color-scheme is dark", () => {
-    Object.defineProperty(window, "matchMedia", {
+    Object.defineProperty(window, 'matchMedia', {
       writable: true,
-      value: vi.fn().mockImplementation((query) => ({
-        matches: query === "(prefers-color-scheme: dark)",
+      value: vi.fn().mockImplementation(query => ({
+        matches: query === '(prefers-color-scheme: dark)',
         media: query,
         onchange: null,
         addListener: vi.fn(),
@@ -33,9 +33,9 @@ describe("resolveTheme", () => {
   });
 
   it("returns 'light' for system when prefers-color-scheme is light", () => {
-    Object.defineProperty(window, "matchMedia", {
+    Object.defineProperty(window, 'matchMedia', {
       writable: true,
-      value: vi.fn().mockImplementation((query) => ({
+      value: vi.fn().mockImplementation(query => ({
         matches: false,
         media: query,
         onchange: null,

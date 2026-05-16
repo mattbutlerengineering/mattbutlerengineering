@@ -31,12 +31,18 @@
         "type": "string"
       }
     },
-    "required": ["taskDescription"]
+    "required": [
+      "taskDescription"
+    ]
   },
   "AgentError": {
     "$id": "AgentError",
     "type": "object",
-    "required": ["error", "message", "statusCode"],
+    "required": [
+      "error",
+      "message",
+      "statusCode"
+    ],
     "properties": {
       "error": {
         "type": "string",
@@ -55,7 +61,14 @@
   "AgentPagination": {
     "$id": "AgentPagination",
     "type": "object",
-    "required": ["page", "limit", "total", "totalPages", "hasNext", "hasPrev"],
+    "required": [
+      "page",
+      "limit",
+      "total",
+      "totalPages",
+      "hasNext",
+      "hasPrev"
+    ],
     "properties": {
       "page": {
         "type": "number",
@@ -106,7 +119,12 @@
         "type": "string"
       }
     },
-    "required": ["id", "sessionId", "type", "createdAt"]
+    "required": [
+      "id",
+      "sessionId",
+      "type",
+      "createdAt"
+    ]
   },
   "Session": {
     "$id": "Session",
@@ -117,7 +135,13 @@
       },
       "status": {
         "type": "string",
-        "enum": ["PENDING", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED"]
+        "enum": [
+          "PENDING",
+          "RUNNING",
+          "SUCCEEDED",
+          "FAILED",
+          "CANCELLED"
+        ]
       },
       "taskDescription": {
         "type": "string"

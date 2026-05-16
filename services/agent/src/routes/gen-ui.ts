@@ -43,15 +43,13 @@ export const genUiRoutes: FastifyPluginAsync = async (fastify) => {
       // Validate request body
       const parseResult = GenUiBodySchema.safeParse(request.body);
       if (!parseResult.success) {
-        return reply
-          .code(400)
-          .send(
-            createProblemDetails(
-              400,
-              "Bad Request",
-              parseResult.error.issues.map((i) => i.message).join(", ")
-            )
-          );
+        return reply.code(400).send(
+          createProblemDetails(
+            400,
+            "Bad Request",
+            parseResult.error.issues.map((i) => i.message).join(", ")
+          )
+        );
       }
 
       const { prompt, model: modelHint } = parseResult.data;

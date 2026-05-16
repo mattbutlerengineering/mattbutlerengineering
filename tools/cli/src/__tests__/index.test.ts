@@ -28,9 +28,7 @@ vi.mock("../commands/generate.js", () => ({ generateCommand: { _name: "generate"
 vi.mock("../commands/visual.js", () => ({ visualCommand: { _name: "visual" } }));
 vi.mock("../commands/prime.js", () => ({ primeCommand: { _name: "prime" } }));
 vi.mock("../commands/check-deps.js", () => ({ checkDepsCommand: { _name: "check-deps" } }));
-vi.mock("../commands/cleanup-worktrees.js", () => ({
-  cleanupWorktreesCommand: { _name: "cleanup-worktrees" },
-}));
+vi.mock("../commands/cleanup-worktrees.js", () => ({ cleanupWorktreesCommand: { _name: "cleanup-worktrees" } }));
 vi.mock("../commands/health.js", () => ({ healthCommand: { _name: "health" } }));
 vi.mock("../commands/mcp.js", () => ({ mcpCommand: { _name: "mcp" } }));
 
@@ -48,29 +46,17 @@ vi.mock("commander", () => {
         this._name = n;
         return this;
       }
-      description() {
-        return this;
-      }
-      version() {
-        return this;
-      }
-      option() {
-        return this;
-      }
-      action() {
-        return this;
-      }
-      command() {
-        return this;
-      }
+      description() { return this; }
+      version() { return this; }
+      option() { return this; }
+      action() { return this; }
+      command() { return this; }
       addCommand(cmd: { _name: string }) {
         addedCommands.push(cmd._name);
         return this;
       }
       parse() {}
-      parseAsync() {
-        return Promise.resolve();
-      }
+      parseAsync() { return Promise.resolve(); }
     },
   };
 });

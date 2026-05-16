@@ -1,15 +1,5 @@
 import { useState } from "react";
-import {
-  Button,
-  Card,
-  Checkbox,
-  DataList,
-  PinInput,
-  Select,
-  Stack,
-  Text,
-  useToast,
-} from "@mattbutlerengineering/rialto";
+import { Button, Card, Checkbox, DataList, PinInput, Select, Stack, Text, useToast } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";

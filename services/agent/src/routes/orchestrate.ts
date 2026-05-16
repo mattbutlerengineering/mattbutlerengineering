@@ -101,7 +101,8 @@ export const orchestrateRoutes: FastifyPluginAsync = async (fastify) => {
 
       // Resolve the API base URL — the orchestrator calls back into this service
       const port = process.env.PORT ?? "3003";
-      const apiBaseUrl = process.env.AGENT_API_URL ?? `http://localhost:${port}`;
+      const apiBaseUrl =
+        process.env.AGENT_API_URL ?? `http://localhost:${port}`;
 
       // Create a parent session to track the orchestration
       const parentSession = await sessionService.create({
@@ -110,8 +111,7 @@ export const orchestrateRoutes: FastifyPluginAsync = async (fastify) => {
         maxTurns: 200,
         maxBudgetUsd:
           (overrides.maxBudgetPerSession ?? DEFAULT_ORCHESTRATOR_CONFIG.maxBudgetPerSession) *
-          (overrides.maxConcurrentSessions ?? DEFAULT_ORCHESTRATOR_CONFIG.maxConcurrentSessions) *
-          2,
+          (overrides.maxConcurrentSessions ?? DEFAULT_ORCHESTRATOR_CONFIG.maxConcurrentSessions) * 2,
       });
 
       await sessionService.updateStatus(parentSession.id, "RUNNING");

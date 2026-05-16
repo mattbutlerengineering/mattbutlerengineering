@@ -95,8 +95,8 @@ export function ConfirmDialogPage() {
             }}
           >
             Use <strong>default</strong> variant for confirmations where the action is reversible.
-            Use <strong>destructive</strong> when the action is permanent — the cancel button
-            receives initial focus to prevent accidental confirmation.
+            Use <strong>destructive</strong> when the action is permanent — the cancel button receives
+            initial focus to prevent accidental confirmation.
           </p>
         </Stack>
       </Section>
@@ -157,10 +157,7 @@ export function ConfirmDialogPage() {
       <Section title="Accessibility">
         <DataList
           items={[
-            {
-              label: "Focus",
-              value: "Default: confirm button focused. Destructive: cancel focused",
-            },
+            { label: "Focus", value: "Default: confirm button focused. Destructive: cancel focused" },
             { label: "Escape", value: "Closes dialog, equivalent to cancel" },
             { label: "Role", value: "Inherits Dialog accessibility (role=dialog, aria-modal)" },
             { label: "Label", value: "aria-labelledby and aria-describedby on the dialog" },

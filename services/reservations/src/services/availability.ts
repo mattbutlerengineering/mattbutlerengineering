@@ -37,12 +37,17 @@ interface VenueWithSettings {
 /**
  * Estimates the duration of a reservation based on party size and venue rules.
  */
-export function estimateDuration(partySize: number, venueSettings?: VenueSettings | null): number {
+export function estimateDuration(
+  partySize: number,
+  venueSettings?: VenueSettings | null
+): number {
   // Use venue-specific rules if available
   const rules = venueSettings?.durationRules ?? DEFAULT_DURATION_RULES;
 
   // Find the matching rule
-  const rule = rules.find((r) => partySize >= r.minPartySize && partySize <= r.maxPartySize);
+  const rule = rules.find(
+    (r) => partySize >= r.minPartySize && partySize <= r.maxPartySize
+  );
 
   if (rule) {
     return rule.durationMinutes;
@@ -54,7 +59,9 @@ export function estimateDuration(partySize: number, venueSettings?: VenueSetting
   }
 
   // For parties larger than rules cover, use the largest rule + 15min per additional 2 guests
-  const largestRule = rules.reduce((max, r) => (r.maxPartySize > max.maxPartySize ? r : max));
+  const largestRule = rules.reduce((max, r) =>
+    r.maxPartySize > max.maxPartySize ? r : max
+  );
   const extraGuests = partySize - largestRule.maxPartySize;
   const extraTime = Math.ceil(extraGuests / 2) * 15;
   return largestRule.durationMinutes + extraTime;
@@ -63,7 +70,10 @@ export function estimateDuration(partySize: number, venueSettings?: VenueSetting
 /**
  * Gets the operating hours for a specific day of the week.
  */
-function getDaySchedule(operatingHours: OperatingHours | null, date: Date): DaySchedule | null {
+function getDaySchedule(
+  operatingHours: OperatingHours | null,
+  date: Date
+): DaySchedule | null {
   if (!operatingHours) return null;
 
   const dayNames = [
@@ -127,7 +137,8 @@ export async function generateTimeSlots(
 
   // Get slot configuration
   const slotInterval = settings?.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
-  const lastSeatingBuffer = settings?.lastSeatingBuffer ?? DEFAULT_LAST_SEATING_BUFFER;
+  const lastSeatingBuffer =
+    settings?.lastSeatingBuffer ?? DEFAULT_LAST_SEATING_BUFFER;
   const duration = durationOverride ?? estimateDuration(partySize, settings);
 
   // Parse operating hours
@@ -151,7 +162,11 @@ export async function generateTimeSlots(
   // Generate slots
   const slots: TimeSlot[] = [];
 
-  for (let minutes = openMinutes; minutes <= lastSeatingMinutes; minutes += slotInterval) {
+  for (
+    let minutes = openMinutes;
+    minutes <= lastSeatingMinutes;
+    minutes += slotInterval
+  ) {
     const slotStart = createDateTimeFromMinutes(date, minutes, venue.ianaTimezone);
     const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000);
 
@@ -159,7 +174,13 @@ export async function generateTimeSlots(
     const availableTables: AvailableTable[] = [];
 
     for (const table of suitableTables) {
-      const hasConflict = checkTableConflict(table.id, slotStart, slotEnd, reservations, holds);
+      const hasConflict = checkTableConflict(
+        table.id,
+        slotStart,
+        slotEnd,
+        reservations,
+        holds
+      );
 
       if (!hasConflict) {
         availableTables.push({
@@ -206,8 +227,12 @@ export async function getAvailableDates(
 
   // Limit range to 60 days
   const maxDays = 60;
-  const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-  const actualEnd = new Date(start.getTime() + Math.min(daysDiff, maxDays) * 24 * 60 * 60 * 1000);
+  const daysDiff = Math.ceil(
+    (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
+  );
+  const actualEnd = new Date(
+    start.getTime() + Math.min(daysDiff, maxDays) * 24 * 60 * 60 * 1000
+  );
 
   // Hoist venue + tables queries outside the loop (same for every date)
   const [prismaVenue, suitableTables] = await Promise.all([
@@ -249,14 +274,7 @@ export async function getAvailableDates(
         date: { gte: start, lte: actualEnd },
         expiresAt: { gt: new Date() },
       },
-      select: {
-        id: true,
-        tableId: true,
-        startTime: true,
-        endTime: true,
-        partySize: true,
-        expiresAt: true,
-      },
+      select: { id: true, tableId: true, startTime: true, endTime: true, partySize: true, expiresAt: true },
     }),
   ]);
 
@@ -277,8 +295,12 @@ export async function getAvailableDates(
     }
 
     // Filter reservations and holds for this specific date
-    const dateReservations = allReservations.filter((r) => toDateString(r.startTime) === dateStr);
-    const dateHolds = allHolds.filter((h) => toDateString(h.startTime) === dateStr);
+    const dateReservations = allReservations.filter(
+      (r) => toDateString(r.startTime) === dateStr
+    );
+    const dateHolds = allHolds.filter(
+      (h) => toDateString(h.startTime) === dateStr
+    );
 
     const openMinutes = parseTimeToMinutes(schedule.open);
     const closeMinutes = parseTimeToMinutes(schedule.close);
@@ -339,7 +361,13 @@ export async function findBestTable(
 
   // Find first table without conflicts
   for (const table of tables) {
-    const hasConflict = checkTableConflict(table.id, startTime, endTime, reservations, holds);
+    const hasConflict = checkTableConflict(
+      table.id,
+      startTime,
+      endTime,
+      reservations,
+      holds
+    );
 
     if (!hasConflict) {
       return table;
@@ -367,7 +395,10 @@ export async function checkConflict(
       date: new Date(date),
       status: { notIn: ["CANCELLED", "NO_SHOW"] },
       id: excludeReservationId ? { not: excludeReservationId } : undefined,
-      AND: [{ startTime: { lt: endTime } }, { endTime: { gt: startTime } }],
+      AND: [
+        { startTime: { lt: endTime } },
+        { endTime: { gt: startTime } },
+      ],
     },
     select: { id: true },
   });
@@ -386,7 +417,10 @@ export async function checkConflict(
       date: new Date(date),
       expiresAt: { gt: new Date() },
       id: excludeHoldId ? { not: excludeHoldId } : undefined,
-      AND: [{ startTime: { lt: endTime } }, { endTime: { gt: startTime } }],
+      AND: [
+        { startTime: { lt: endTime } },
+        { endTime: { gt: startTime } },
+      ],
     },
     select: { id: true },
   });
@@ -419,8 +453,7 @@ export async function checkPacing(
 
   // Use the first pacing rule (could extend to support multiple rules)
   const rule = pacingRules[0];
-  const windowMinutes =
-    rule.timeWindowMinutes ?? settings?.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
+  const windowMinutes = rule.timeWindowMinutes ?? settings?.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
 
   // Define the time window
   const windowStart = startTime;
@@ -449,7 +482,8 @@ export async function checkPacing(
     _sum: { partySize: true },
   });
 
-  const currentCovers = (reservationCovers._sum.partySize ?? 0) + (holdCovers._sum.partySize ?? 0);
+  const currentCovers =
+    (reservationCovers._sum.partySize ?? 0) + (holdCovers._sum.partySize ?? 0);
   const totalAfterBooking = currentCovers + partySize;
 
   return {
@@ -461,7 +495,10 @@ export async function checkPacing(
 
 // --- Helper functions ---
 
-async function findSuitableTables(venueId: string, partySize: number): Promise<Table[]> {
+async function findSuitableTables(
+  venueId: string,
+  partySize: number
+): Promise<Table[]> {
   return prisma.table.findMany({
     where: {
       venueId,
@@ -490,7 +527,10 @@ interface HoldSlim {
   expiresAt: Date;
 }
 
-async function getReservationsForDate(venueId: string, date: string): Promise<ReservationSlim[]> {
+async function getReservationsForDate(
+  venueId: string,
+  date: string
+): Promise<ReservationSlim[]> {
   return prisma.reservation.findMany({
     where: {
       venueId,
@@ -507,7 +547,10 @@ async function getReservationsForDate(venueId: string, date: string): Promise<Re
   });
 }
 
-async function getHoldsForDate(venueId: string, date: string): Promise<HoldSlim[]> {
+async function getHoldsForDate(
+  venueId: string,
+  date: string
+): Promise<HoldSlim[]> {
   return prisma.reservationHold.findMany({
     where: {
       venueId,
@@ -534,7 +577,10 @@ function checkTableConflict(
 ): boolean {
   // Check reservations
   const hasReservationConflict = reservations.some(
-    (r) => r.tableId === tableId && r.startTime < endTime && r.endTime > startTime
+    (r) =>
+      r.tableId === tableId &&
+      r.startTime < endTime &&
+      r.endTime > startTime
   );
 
   if (hasReservationConflict) return true;
@@ -566,8 +612,7 @@ function checkPacingForSlot(
   }
 
   const rule = pacingRules[0];
-  const windowMinutes =
-    rule.timeWindowMinutes ?? settings?.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
+  const windowMinutes = rule.timeWindowMinutes ?? settings?.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
   const windowEnd = new Date(startTime.getTime() + windowMinutes * 60 * 1000);
 
   // Count covers starting in this window
@@ -576,7 +621,12 @@ function checkPacingForSlot(
     .reduce((sum, r) => sum + r.partySize, 0);
 
   const holdCovers = holds
-    .filter((h) => h.expiresAt > new Date() && h.startTime >= startTime && h.startTime < windowEnd)
+    .filter(
+      (h) =>
+        h.expiresAt > new Date() &&
+        h.startTime >= startTime &&
+        h.startTime < windowEnd
+    )
     .reduce((sum, h) => sum + h.partySize, 0);
 
   const totalCovers = reservationCovers + holdCovers + partySize;
@@ -590,7 +640,11 @@ function checkPacingForSlot(
  * Create a Date representing a local time in the venue's timezone.
  * Uses Intl.DateTimeFormat to compute the UTC offset, avoiding external libraries.
  */
-function createDateTimeFromMinutes(dateStr: string, minutes: number, timezone: string): Date {
+function createDateTimeFromMinutes(
+  dateStr: string,
+  minutes: number,
+  timezone: string
+): Date {
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
   const localIso = `${dateStr}T${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}:00`;

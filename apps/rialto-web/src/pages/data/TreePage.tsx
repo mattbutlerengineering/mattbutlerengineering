@@ -153,10 +153,7 @@ export function TreePage() {
           items={[
             { label: "Role", value: "role=tree with role=treeitem for each node" },
             { label: "State", value: "aria-expanded on branch nodes, aria-selected on selection" },
-            {
-              label: "Keyboard",
-              value: "Arrow Up/Down to navigate, Right to expand, Left to collapse",
-            },
+            { label: "Keyboard", value: "Arrow Up/Down to navigate, Right to expand, Left to collapse" },
             { label: "Keyboard", value: "Home/End jump to first/last visible node" },
             { label: "Focus", value: "Gold glow ring on focused node" },
             {

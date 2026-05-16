@@ -84,8 +84,8 @@ describe("sync-rules command", () => {
     await runSyncRules();
 
     // Should write to GEMINI.md since it doesn't contain AGENTS.md reference
-    const geminiWrite = mockWriteFileSync.mock.calls.find(([path]) =>
-      String(path).endsWith("GEMINI.md")
+    const geminiWrite = mockWriteFileSync.mock.calls.find(
+      ([path]) => String(path).endsWith("GEMINI.md")
     );
     expect(geminiWrite).toBeDefined();
     expect(String(geminiWrite![1])).toContain("AGENTS.md");
@@ -113,8 +113,8 @@ describe("sync-rules command", () => {
     await runSyncRules();
 
     // GEMINI.md should NOT be rewritten since it already has the reference
-    const geminiWrite = mockWriteFileSync.mock.calls.find(([path]) =>
-      String(path).endsWith("GEMINI.md")
+    const geminiWrite = mockWriteFileSync.mock.calls.find(
+      ([path]) => String(path).endsWith("GEMINI.md")
     );
     expect(geminiWrite).toBeUndefined();
   });

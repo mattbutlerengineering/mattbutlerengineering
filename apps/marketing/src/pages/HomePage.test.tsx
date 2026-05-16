@@ -5,22 +5,22 @@ import { HomePage } from "./HomePage.js";
 
 // Mock internal components to test page layout structure
 vi.mock("../components/HeroSection.js", () => ({
-  HeroSection: () => <div data-testid="hero-section" />,
+  HeroSection: () => <div data-testid="hero-section" />
 }));
 vi.mock("../components/AboutSection.js", () => ({
-  AboutSection: () => <div data-testid="about-section" />,
+  AboutSection: () => <div data-testid="about-section" />
 }));
 vi.mock("../components/ProjectsSection.js", () => ({
-  ProjectsSection: () => <div data-testid="projects-section" />,
+  ProjectsSection: () => <div data-testid="projects-section" />
 }));
 vi.mock("../components/TechStackSection.js", () => ({
-  TechStackSection: () => <div data-testid="tech-stack-section" />,
+  TechStackSection: () => <div data-testid="tech-stack-section" />
 }));
 vi.mock("../components/ContactSection.js", () => ({
-  ContactSection: () => <div data-testid="contact-section" />,
+  ContactSection: () => <div data-testid="contact-section" />
 }));
 vi.mock("../components/Navbar.js", () => ({
-  Navbar: () => <nav data-testid="navbar" />,
+  Navbar: () => <nav data-testid="navbar" />
 }));
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Footer: ({ children }: any) => <footer>{children}</footer>,

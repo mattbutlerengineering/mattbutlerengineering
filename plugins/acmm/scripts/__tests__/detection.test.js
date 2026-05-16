@@ -12,9 +12,7 @@ function fixture() {
     root,
     file(rel, body = "") {
       const p = join(root, rel);
-      mkdirSync(join(p, "..").endsWith("..") ? root : p.slice(0, p.lastIndexOf("/")), {
-        recursive: true,
-      });
+      mkdirSync(join(p, "..").endsWith("..") ? root : p.slice(0, p.lastIndexOf("/")), { recursive: true });
       writeFileSync(p, body);
     },
     dir(rel) {
@@ -89,10 +87,7 @@ test("detect: mcp-server-config — .mcp.json present", () => {
   fx.file(".mcp.json", "{}");
   const c = {
     id: "acmm:mcp-server-config",
-    detection: {
-      type: "any-of",
-      pattern: [".mcp.json", ".claude/mcp.json", ".cursor/mcp.json", "mcp.json"],
-    },
+    detection: { type: "any-of", pattern: [".mcp.json", ".claude/mcp.json", ".cursor/mcp.json", "mcp.json"] },
   };
   assert.equal(detect(fx.root, c), true);
   fx.cleanup();
@@ -102,10 +97,7 @@ test("detect: mcp-server-config — no MCP config present", () => {
   const fx = fixture();
   const c = {
     id: "acmm:mcp-server-config",
-    detection: {
-      type: "any-of",
-      pattern: [".mcp.json", ".claude/mcp.json", ".cursor/mcp.json", "mcp.json"],
-    },
+    detection: { type: "any-of", pattern: [".mcp.json", ".claude/mcp.json", ".cursor/mcp.json", "mcp.json"] },
   };
   assert.equal(detect(fx.root, c), false);
   fx.cleanup();
@@ -116,22 +108,7 @@ test("detect: code-graph — llms.txt present", () => {
   fx.file("llms.txt", "# index");
   const c = {
     id: "acmm:code-graph",
-    detection: {
-      type: "any-of",
-      pattern: [
-        ".vscode/settings.json",
-        "tags",
-        "TAGS",
-        ".ctags",
-        ".tree-sitter/",
-        "llms.txt",
-        "llms-full.txt",
-        "tsconfig.json",
-        ".clangd",
-        "pyrightconfig.json",
-        ".claude/plugins/",
-      ],
-    },
+    detection: { type: "any-of", pattern: [".vscode/settings.json", "tags", "TAGS", ".ctags", ".tree-sitter/", "llms.txt", "llms-full.txt", "tsconfig.json", ".clangd", "pyrightconfig.json", ".claude/plugins/"] },
   };
   assert.equal(detect(fx.root, c), true);
   fx.cleanup();
@@ -142,22 +119,7 @@ test("detect: code-graph — tsconfig.json present (TypeScript LSP)", () => {
   fx.file("tsconfig.json", '{"compilerOptions":{}}');
   const c = {
     id: "acmm:code-graph",
-    detection: {
-      type: "any-of",
-      pattern: [
-        ".vscode/settings.json",
-        "tags",
-        "TAGS",
-        ".ctags",
-        ".tree-sitter/",
-        "llms.txt",
-        "llms-full.txt",
-        "tsconfig.json",
-        ".clangd",
-        "pyrightconfig.json",
-        ".claude/plugins/",
-      ],
-    },
+    detection: { type: "any-of", pattern: [".vscode/settings.json", "tags", "TAGS", ".ctags", ".tree-sitter/", "llms.txt", "llms-full.txt", "tsconfig.json", ".clangd", "pyrightconfig.json", ".claude/plugins/"] },
   };
   assert.equal(detect(fx.root, c), true);
   fx.cleanup();
@@ -168,22 +130,7 @@ test("detect: code-graph — .claude/plugins/ directory present (tree-sitter via
   fx.dir(".claude/plugins");
   const c = {
     id: "acmm:code-graph",
-    detection: {
-      type: "any-of",
-      pattern: [
-        ".vscode/settings.json",
-        "tags",
-        "TAGS",
-        ".ctags",
-        ".tree-sitter/",
-        "llms.txt",
-        "llms-full.txt",
-        "tsconfig.json",
-        ".clangd",
-        "pyrightconfig.json",
-        ".claude/plugins/",
-      ],
-    },
+    detection: { type: "any-of", pattern: [".vscode/settings.json", "tags", "TAGS", ".ctags", ".tree-sitter/", "llms.txt", "llms-full.txt", "tsconfig.json", ".clangd", "pyrightconfig.json", ".claude/plugins/"] },
   };
   assert.equal(detect(fx.root, c), true);
   fx.cleanup();
@@ -193,22 +140,7 @@ test("detect: code-graph — no code intelligence files present", () => {
   const fx = fixture();
   const c = {
     id: "acmm:code-graph",
-    detection: {
-      type: "any-of",
-      pattern: [
-        ".vscode/settings.json",
-        "tags",
-        "TAGS",
-        ".ctags",
-        ".tree-sitter/",
-        "llms.txt",
-        "llms-full.txt",
-        "tsconfig.json",
-        ".clangd",
-        "pyrightconfig.json",
-        ".claude/plugins/",
-      ],
-    },
+    detection: { type: "any-of", pattern: [".vscode/settings.json", "tags", "TAGS", ".ctags", ".tree-sitter/", "llms.txt", "llms-full.txt", "tsconfig.json", ".clangd", "pyrightconfig.json", ".claude/plugins/"] },
   };
   assert.equal(detect(fx.root, c), false);
   fx.cleanup();
@@ -308,12 +240,12 @@ test("detectAll: active type — meta includes degraded status", () => {
 
 function recentRunOutput(daysAgo = 1) {
   const d = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
-  return JSON.stringify([{ conclusion: "success", updatedAt: d.toISOString() }]);
+  return JSON.stringify([{ conclusion: 'success', updatedAt: d.toISOString() }]);
 }
 
 function staleRunOutput(daysAgo) {
   const d = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
-  return JSON.stringify([{ conclusion: "success", updatedAt: d.toISOString() }]);
+  return JSON.stringify([{ conclusion: 'success', updatedAt: d.toISOString() }]);
 }
 
 test("detect: active type — file present AND recent gh run → true", () => {
