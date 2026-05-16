@@ -17,9 +17,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       {children}
     </span>
   ),
-  Shortcut: ({ keys }: { keys: string[] }) => (
-    <span data-testid="shortcut">{keys.join("+")}</span>
-  ),
+  Shortcut: ({ keys }: { keys: string[] }) => <span data-testid="shortcut">{keys.join("+")}</span>,
 }));
 
 vi.mock("./TemplateGallery.module.css", () => ({

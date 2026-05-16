@@ -18,9 +18,7 @@ vi.mock("@mbe/rialto-catalog", () => ({
 }));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Alert: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="alert">{children}</div>
-  ),
+  Alert: ({ children }: { children: React.ReactNode }) => <div data-testid="alert">{children}</div>,
   Button: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => (
     <button onClick={onClick}>{children}</button>
   ),
@@ -101,7 +99,9 @@ describe("PreviewPane", () => {
   it("renders empty state when spec is null and not streaming", () => {
     render(<PreviewPane {...defaultProps} />);
     expect(screen.getByText("What would you like to build?")).toBeDefined();
-    expect(screen.getByText("Describe a UI component or layout and watch it come to life")).toBeDefined();
+    expect(
+      screen.getByText("Describe a UI component or layout and watch it come to life")
+    ).toBeDefined();
   });
 
   it("renders suggestion cards in empty state", () => {
@@ -158,7 +158,9 @@ describe("PreviewPane", () => {
 
   it("shows Refining text when isRefinementMode is true", () => {
     const spec = { type: "Box" } as unknown as Spec;
-    render(<PreviewPane {...defaultProps} spec={spec} activeSpecId="spec-1" isRefinementMode={true} />);
+    render(
+      <PreviewPane {...defaultProps} spec={spec} activeSpecId="spec-1" isRefinementMode={true} />
+    );
     expect(screen.getByText("Refining...")).toBeDefined();
   });
 
