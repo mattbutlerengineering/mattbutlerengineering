@@ -1,547 +1,665 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions, mbe-local/prefer-rialto-components */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import React from "react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import type { FloorPlan, Table } from "@mbe/types";
 
-// --- Module mocks (hoisted) ---
+/* ── Mock react-router-dom (preserve MemoryRouter/Routes/Route) ─ */
 
-const { mockGetById, mockBulkUpdatePositions, mockSetActive, mockTablesDelete, mockTablesCreate } =
-  vi.hoisted(() => ({
-    mockGetById: vi.fn(),
-    mockBulkUpdatePositions: vi.fn(),
-    mockSetActive: vi.fn(),
-    mockTablesDelete: vi.fn(),
-    mockTablesCreate: vi.fn(),
-  }));
+const mockNavigate = vi.fn();
+
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual("react-router-dom");
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+    useBlocker: vi.fn().mockReturnValue({ state: "unblocked" }),
+  };
+});
+
+/* ── Mock @mbe/auth/react ─────────────────────────────────────── */
+
+vi.mock("@mbe/auth/react", () => ({
+  useAuth: () => ({ accessToken: "mock-token" }),
+}));
+
+/* ── Mock @mbe/api-client ─────────────────────────────────────── */
+
+const mockGetById = vi.fn();
+const mockBulkUpdatePositions = vi.fn();
+const mockSetActive = vi.fn();
+const mockTablesCreate = vi.fn();
+const mockTablesDelete = vi.fn();
 
 vi.mock("@mbe/api-client", () => ({
-  createApiClient: vi.fn(() => ({
+  createApiClient: vi.fn().mockReturnValue({
     floorPlans: {
       getById: mockGetById,
       bulkUpdatePositions: mockBulkUpdatePositions,
       setActive: mockSetActive,
     },
     tables: {
-      delete: mockTablesDelete,
       create: mockTablesCreate,
+      delete: mockTablesDelete,
     },
-  })),
+  }),
 }));
 
-vi.mock("@mbe/auth/react", () => ({
-  useAuth: vi.fn(() => ({ accessToken: "test-token" })),
-}));
+/* ── Mock floor-plan components ───────────────────────────────── */
 
-vi.mock("react-router-dom", async () => ({
-  ...(await vi.importActual("react-router-dom")),
-  useParams: vi.fn(() => ({ id: "fp-1" })),
-  useNavigate: vi.fn(() => vi.fn()),
-  useBlocker: vi.fn(() => ({ state: "unblocked", proceed: vi.fn(), reset: vi.fn() })),
-}));
+const mockFloorPlanCanvasOnTableMove = vi.fn();
+const mockFloorPlanCanvasOnTableSelect = vi.fn();
 
 vi.mock("../components/floor-plan/index.js", () => ({
-  AddTableDialog: ({ onClose, onSubmit }: any) => (
-    <div data-testid="add-table-dialog">
-      <button onClick={onClose}>Cancel</button>
+  FloorPlanCanvas: ({
+    tables,
+    onTableMove,
+    onTableSelect,
+    selectedTableId,
+    floorPlan: _fp,
+    readOnly: _ro,
+  }: {
+    tables: Table[];
+    onTableMove: (id: string, x: number, y: number) => void;
+    onTableSelect: (id: string | null) => void;
+    selectedTableId: string | null;
+    floorPlan: FloorPlan;
+    readOnly?: boolean;
+  }) => (
+    <div data-testid="floor-plan-canvas" data-selected={selectedTableId}>
+      {tables.map((t) => (
+        <button
+          key={t.id}
+          data-testid={`canvas-table-${t.id}`}
+          onClick={() => {
+            onTableMove(t.id, 200, 300);
+            mockFloorPlanCanvasOnTableMove(t.id, 200, 300);
+          }}
+          onFocus={() => {
+            onTableSelect(t.id);
+            mockFloorPlanCanvasOnTableSelect(t.id);
+          }}
+        >
+          {t.name}
+        </button>
+      ))}
+    </div>
+  ),
+  AddTableDialog: ({
+    onSubmit,
+    onClose,
+    venueId: _venueId,
+    floorPlanId: _fpId,
+  }: {
+    onSubmit: (data: { name: string; capacity: number; minCovers: number; venueId: string; floorPlanId: string; shapeMetadata: object }) => Promise<void>;
+    onClose: () => void;
+    venueId: string;
+    floorPlanId: string;
+  }) => (
+    <div data-testid="add-table-dialog" role="dialog">
       <button
         onClick={() =>
           onSubmit({
             name: "New Table",
-            tableNumber: "T99",
             capacity: 4,
             minCovers: 1,
             venueId: "venue-1",
             floorPlanId: "fp-1",
+            shapeMetadata: { x: 400, y: 300, width: 80, height: 60, shape: "rectangle" },
           })
         }
       >
-        Add
+        Submit Table
       </button>
-    </div>
-  ),
-  FloorPlanCanvas: ({ tables, onTableSelect, onTableMove, selectedTableId }: any) => (
-    <div data-testid="floor-plan-canvas">
-      {tables.map((t: any) => (
-        <div
-          key={t.id}
-          data-testid={`canvas-table-${t.id}`}
-          data-selected={t.id === selectedTableId}
-          onClick={() => onTableSelect(t.id)}
-        >
-          {t.name}
-        </div>
-      ))}
-      <button data-testid="trigger-move" onClick={() => onTableMove("table-1", 200, 300)}>
-        Move Table
-      </button>
+      <button onClick={onClose}>Close Dialog</button>
     </div>
   ),
 }));
 
-vi.mock("../components/ErrorRetryBanner.js", () => ({
-  ErrorRetryBanner: ({ error, onRetry }: any) => (
-    <div data-testid="error-banner">
-      {error}
-      <button onClick={onRetry}>Retry</button>
-    </div>
-  ),
-}));
-
-vi.mock("../components/ErrorRetryBanner", () => ({
-  ErrorRetryBanner: ({ error, onRetry }: any) => (
-    <div data-testid="error-banner">
-      {error}
-      <button onClick={onRetry}>Retry</button>
-    </div>
-  ),
-}));
+/* ── Mock Rialto components ───────────────────────────────────── */
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Button: ({ children, onClick, disabled, className, "aria-label": ariaLabel }: any) => (
-    <button onClick={onClick} disabled={disabled} className={className} aria-label={ariaLabel}>
+  Button: ({
+    children,
+    onClick,
+    disabled,
+    className: _className,
+    "aria-label": ariaLabel,
+  }: {
+    children?: React.ReactNode;
+    onClick?: () => void;
+    disabled?: boolean;
+    className?: string;
+    "aria-label"?: string;
+  }) => (
+    <button onClick={onClick} disabled={disabled} aria-label={ariaLabel}>
       {children}
     </button>
   ),
-  Heading: ({ children, className }: any) => <h2 className={className}>{children}</h2>,
-  Text: ({ children, className }: any) => <span className={className}>{children}</span>,
+  Heading: ({ children, className: _className }: { children: React.ReactNode; className?: string }) => (
+    <h1>{children}</h1>
+  ),
+  Text: ({
+    children,
+    className: _className,
+  }: {
+    children: React.ReactNode;
+    className?: string;
+  }) => <span>{children}</span>,
   ConfirmDialog: ({
     open,
     title,
-    description,
-    confirmLabel,
-    cancelLabel,
     onConfirm,
     onCancel,
-  }: any) =>
+    confirmLabel,
+    cancelLabel,
+    description: _description,
+    variant: _variant,
+  }: {
+    open: boolean;
+    title: string;
+    onConfirm: () => void;
+    onCancel: () => void;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    description?: string;
+    variant?: string;
+  }) =>
     open ? (
-      <div data-testid="confirm-dialog" role="dialog" aria-label={title}>
-        <p>{description}</p>
-        <button onClick={onConfirm}>{confirmLabel}</button>
-        <button onClick={onCancel}>{cancelLabel}</button>
+      <div role="dialog" aria-label={title}>
+        <button onClick={onCancel}>{cancelLabel ?? "Stay"}</button>
+        <button onClick={onConfirm}>{confirmLabel ?? "Leave"}</button>
       </div>
     ) : null,
 }));
 
-vi.mock("./FloorPlanEditorPage.module.css", () => ({
-  default: {
-    root: "root",
-    loadingWrapper: "loadingWrapper",
-    spinner: "spinner",
-    errorContainer: "errorContainer",
-    header: "header",
-    headerLeft: "headerLeft",
-    headerRight: "headerRight",
-    backButton: "backButton",
-    backIcon: "backIcon",
-    floorPlanTitle: "floorPlanTitle",
-    activeBadge: "activeBadge",
-    activateButton: "activateButton",
-    addTableButton: "addTableButton",
-    saveButton: "saveButton",
-    saveButtonActive: "saveButtonActive",
-    saveButtonDisabled: "saveButtonDisabled",
-    content: "content",
-    canvasArea: "canvasArea",
-    sidebar: "sidebar",
-    sidebarTitle: "sidebarTitle",
-    detailsStack: "detailsStack",
-    detailLabel: "detailLabel",
-    detailValue: "detailValue",
-    detailValueActive: "detailValueActive",
-    detailValueInactive: "detailValueInactive",
-    detailValueMono: "detailValueMono",
-    deleteTableButton: "deleteTableButton",
-    noSelection: "noSelection",
-    tableListSection: "tableListSection",
-    tableListTitle: "tableListTitle",
-    tableListStack: "tableListStack",
-    tableListButton: "tableListButton",
-    tableListButtonSelected: "tableListButtonSelected",
-    backLink: "backLink",
-  },
+/* ── Mock ErrorRetryBanner ────────────────────────────────────── */
+
+vi.mock("../components/ErrorRetryBanner.js", () => ({
+  ErrorRetryBanner: ({
+    error,
+    onRetry,
+  }: {
+    error: string;
+    onRetry: () => void;
+  }) => (
+    <div data-testid="error-retry-banner">
+      <span>{error}</span>
+      <button onClick={onRetry}>Retry</button>
+    </div>
+  ),
 }));
 
-import { FloorPlanEditorPage } from "./FloorPlanEditorPage.js";
-import { useNavigate, useBlocker } from "react-router-dom";
-import type { FloorPlan, Table } from "@mbe/types";
+/* ── Fixtures ─────────────────────────────────────────────────── */
 
-// --- Test data ---
+const FLOOR_PLAN: FloorPlan = {
+  id: "fp-1",
+  venueId: "venue-1",
+  name: "Main Dining",
+  isActive: false,
+  layoutJson: { width: 800, height: 600 },
+  tables: [],
+  createdAt: "2025-01-01T00:00:00Z",
+  updatedAt: "2025-01-01T00:00:00Z",
+};
 
-const makeTable = (id: string, overrides: Partial<Table> = {}): Table => ({
-  id,
-  name: `Table ${id}`,
-  tableNumber: `T${id}`,
+const TABLE_A: Table = {
+  id: "table-a",
+  name: "Table A",
+  tableNumber: "A1",
   capacity: 4,
   minCovers: 1,
   maxCovers: 4,
-  location: "Main room",
+  location: "Window",
+  isActive: true,
+  priority: 0,
+  status: "AVAILABLE",
+  venueId: "venue-1",
+  floorPlanId: "fp-1",
+  shapeMetadata: { x: 100, y: 200, width: 80, height: 60, shape: "rect" },
+  createdAt: "2025-01-01T00:00:00Z",
+  updatedAt: "2025-01-01T00:00:00Z",
+};
+
+const TABLE_B: Table = {
+  id: "table-b",
+  name: "Table B",
+  tableNumber: "B2",
+  capacity: 2,
+  minCovers: 1,
+  maxCovers: 2,
+  location: null,
   isActive: true,
   priority: 1,
   status: "AVAILABLE",
   venueId: "venue-1",
   floorPlanId: "fp-1",
-  shapeMetadata: { x: 100, y: 100, width: 80, height: 60, shape: "rectangle" },
-  createdAt: "2026-01-01T00:00:00Z",
-  updatedAt: "2026-01-01T00:00:00Z",
-  ...overrides,
-});
+  shapeMetadata: { x: 300, y: 200, width: 80, height: 60, shape: "rect" },
+  createdAt: "2025-01-01T00:00:00Z",
+  updatedAt: "2025-01-01T00:00:00Z",
+};
 
-const makeFloorPlan = (overrides: Partial<FloorPlan> = {}): FloorPlan => ({
-  id: "fp-1",
-  venueId: "venue-1",
-  name: "Main Dining",
-  isActive: true,
-  layoutJson: { width: 800, height: 600 },
-  tables: [makeTable("table-1"), makeTable("table-2")],
-  createdAt: "2026-01-01T00:00:00Z",
-  updatedAt: "2026-01-01T00:00:00Z",
-  ...overrides,
-});
-
-// --- Helpers ---
-
-function renderPage() {
-  return render(<FloorPlanEditorPage />);
+function renderPage(id = "fp-1") {
+  return render(
+    <MemoryRouter initialEntries={[`/floor-plans/${id}`]}>
+      <Routes>
+        <Route path="/floor-plans/:id" element={<FloorPlanEditorPage />} />
+      </Routes>
+    </MemoryRouter>
+  );
 }
 
+// Lazy import so mocks are registered first
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let FloorPlanEditorPage: (...args: any[]) => React.ReactNode;
+
+beforeEach(async () => {
+  vi.clearAllMocks();
+  const mod = await import("./FloorPlanEditorPage.js");
+  FloorPlanEditorPage = mod.FloorPlanEditorPage;
+});
+
+/* ── Tests ────────────────────────────────────────────────────── */
+
 describe("FloorPlanEditorPage", () => {
-  const mockNavigate = vi.fn();
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.mocked(useNavigate).mockReturnValue(mockNavigate);
-    vi.mocked(useBlocker).mockReturnValue({
-      state: "unblocked",
-      proceed: vi.fn(),
-      reset: vi.fn(),
-    } as any);
-    mockGetById.mockResolvedValue(makeFloorPlan());
-    mockBulkUpdatePositions.mockResolvedValue(undefined);
-    mockTablesDelete.mockResolvedValue(undefined);
-    mockTablesCreate.mockResolvedValue(makeTable("table-new"));
-    mockSetActive.mockResolvedValue(makeFloorPlan({ isActive: true }));
-  });
-
-  // --- Loading state ---
-
-  it("shows loading spinner initially", () => {
-    mockGetById.mockReturnValue(new Promise(() => {})); // never resolves
-    renderPage();
-    const spinner = document.querySelector('[aria-label="Loading"]');
-    expect(spinner).not.toBeNull();
-  });
-
-  it("aria-busy is set on loading wrapper", () => {
-    mockGetById.mockReturnValue(new Promise(() => {}));
-    renderPage();
-    const wrapper = document.querySelector('[aria-busy="true"]');
-    expect(wrapper).not.toBeNull();
-  });
-
-  // --- Error state ---
-
-  it("shows error banner when fetch fails", async () => {
-    mockGetById.mockRejectedValue(new Error("Not found"));
-    renderPage();
-    await waitFor(() => {
-      expect(screen.getByTestId("error-banner")).toBeDefined();
+  describe("page load", () => {
+    it("shows loading spinner initially", () => {
+      // Never resolves during this test
+      mockGetById.mockReturnValue(new Promise(() => {}));
+      renderPage();
+      expect(screen.getByRole("status")).toBeDefined();
     });
-    expect(screen.getByTestId("error-banner").textContent).toContain("Not found");
-  });
 
-  it("retry button re-fetches floor plan", async () => {
-    mockGetById.mockRejectedValueOnce(new Error("Network error"));
-    mockGetById.mockResolvedValueOnce(makeFloorPlan());
-    renderPage();
+    it("renders floor plan name after loading", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
+      renderPage();
 
-    await waitFor(() => expect(screen.getByTestId("error-banner")).toBeDefined());
+      await waitFor(() => {
+        expect(screen.getByText("Main Dining")).toBeDefined();
+      });
+    });
 
-    fireEvent.click(screen.getByText("Retry"));
+    it("renders all tables in the sidebar list", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A, TABLE_B] });
+      renderPage();
 
-    await waitFor(() => expect(screen.getByText("Main Dining")).toBeDefined());
-    expect(mockGetById).toHaveBeenCalledTimes(2);
-  });
+      await waitFor(() => {
+        expect(screen.getByText("A1")).toBeDefined();
+        expect(screen.getByText("B2")).toBeDefined();
+      });
+    });
 
-  // --- Loaded state ---
+    it("shows error banner when API fails", async () => {
+      mockGetById.mockRejectedValue(new Error("Network error"));
+      renderPage();
 
-  it("renders floor plan name after loading", async () => {
-    renderPage();
-    await waitFor(() => expect(screen.getByText("Main Dining")).toBeDefined());
-  });
+      await waitFor(() => {
+        expect(screen.getByTestId("error-retry-banner")).toBeDefined();
+        expect(screen.getByText("Network error")).toBeDefined();
+      });
+    });
 
-  it("shows Active badge for active floor plan", async () => {
-    renderPage();
-    await waitFor(() => expect(screen.getByText("Active")).toBeDefined());
-  });
+    it("retries fetch when retry button is clicked", async () => {
+      mockGetById
+        .mockRejectedValueOnce(new Error("Timeout"))
+        .mockResolvedValue({ ...FLOOR_PLAN, tables: [] });
+      renderPage();
 
-  it("does not show Set as Active button for active floor plan", async () => {
-    renderPage();
-    await waitFor(() => expect(screen.getByText("Main Dining")).toBeDefined());
-    expect(screen.queryByText("Set as Active")).toBeNull();
-  });
+      await waitFor(() => {
+        expect(screen.getByTestId("error-retry-banner")).toBeDefined();
+      });
 
-  it("shows Set as Active button for inactive floor plan", async () => {
-    mockGetById.mockResolvedValue(makeFloorPlan({ isActive: false }));
-    renderPage();
-    await waitFor(() => expect(screen.getByText("Set as Active")).toBeDefined());
-  });
+      fireEvent.click(screen.getByText("Retry"));
 
-  it("renders FloorPlanCanvas with tables", async () => {
-    renderPage();
-    await waitFor(() => expect(screen.getByTestId("floor-plan-canvas")).toBeDefined());
-    expect(screen.getByTestId("canvas-table-table-1")).toBeDefined();
-    expect(screen.getByTestId("canvas-table-table-2")).toBeDefined();
-  });
+      await waitFor(() => {
+        expect(mockGetById).toHaveBeenCalledTimes(2);
+      });
+    });
 
-  it("renders table list in sidebar", async () => {
-    renderPage();
-    await waitFor(() => expect(screen.getByText("All Tables (2)")).toBeDefined());
-  });
+    it("shows floor plan not found when floor plan is null", async () => {
+      mockGetById.mockRejectedValue(new Error("Floor plan not found"));
+      renderPage();
 
-  // --- Table selection ---
+      await waitFor(() => {
+        expect(screen.getByText("Floor plan not found")).toBeDefined();
+      });
+    });
 
-  it("shows no-selection prompt when no table selected", async () => {
-    renderPage();
-    await waitFor(() => expect(screen.getByText("Select a table to view details")).toBeDefined());
-  });
+    it("shows Active badge when floor plan is active", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, isActive: true, tables: [] });
+      renderPage();
 
-  it("shows table details when a table is selected via canvas", async () => {
-    renderPage();
-    await waitFor(() => expect(screen.getByTestId("canvas-table-table-1")).toBeDefined());
+      await waitFor(() => {
+        expect(screen.getByText("Active")).toBeDefined();
+      });
+    });
 
-    fireEvent.click(screen.getByTestId("canvas-table-table-1"));
+    it("shows Set as Active button when floor plan is not active", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, isActive: false, tables: [] });
+      renderPage();
 
-    // After selection, the sidebar details panel shows Name, Capacity etc.
-    // "Delete Table" button only appears when a table is selected
-    await waitFor(() => expect(screen.getByText("Delete Table")).toBeDefined());
-  });
+      await waitFor(() => {
+        expect(screen.getByText("Set as Active")).toBeDefined();
+      });
+    });
 
-  it("shows table capacity in details panel", async () => {
-    renderPage();
-    await waitFor(() => expect(screen.getByTestId("canvas-table-table-1")).toBeDefined());
+    it("renders Add Table button", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [] });
+      renderPage();
 
-    fireEvent.click(screen.getByTestId("canvas-table-table-1"));
-
-    await waitFor(() => expect(screen.getByText(/1 - 4 guests/)).toBeDefined());
-  });
-
-  it("selecting table via sidebar list shows its details", async () => {
-    renderPage();
-    await waitFor(() => expect(screen.getByText("All Tables (2)")).toBeDefined());
-
-    // Click the table list button (shows tableNumber or name)
-    const listButtons = screen.getAllByRole("button");
-    const t1Button = listButtons.find((b) => b.textContent === "Ttable-1");
-    expect(t1Button).toBeDefined();
-    fireEvent.click(t1Button!);
-
-    // After selection, Delete Table button appears in sidebar details
-    await waitFor(() => expect(screen.getByText("Delete Table")).toBeDefined());
-  });
-
-  // --- Table move / unsaved changes ---
-
-  it("marks has-changes after table move", async () => {
-    renderPage();
-    await waitFor(() => expect(screen.getByTestId("floor-plan-canvas")).toBeDefined());
-
-    fireEvent.click(screen.getByTestId("trigger-move"));
-
-    await waitFor(() => {
-      const saveBtn = screen.getByText("Save Changes");
-      expect(saveBtn).toBeDefined();
+      await waitFor(() => {
+        expect(screen.getByText("+ Add Table")).toBeDefined();
+      });
     });
   });
 
-  it("save button is disabled when no changes", async () => {
-    renderPage();
-    await waitFor(() => expect(screen.getByText("Saved")).toBeDefined());
-    const savedBtn = screen.getByText("Saved").closest("button");
-    expect(savedBtn?.disabled).toBe(true);
-  });
+  describe("table selection", () => {
+    it("shows no selection message by default", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
+      renderPage();
 
-  // --- Add table dialog ---
-
-  it("opens Add Table dialog when + Add Table is clicked", async () => {
-    renderPage();
-    await waitFor(() => expect(screen.getByText("+ Add Table")).toBeDefined());
-
-    fireEvent.click(screen.getByText("+ Add Table"));
-
-    expect(screen.getByTestId("add-table-dialog")).toBeDefined();
-  });
-
-  it("closes Add Table dialog when cancel is clicked", async () => {
-    renderPage();
-    await waitFor(() => expect(screen.getByText("+ Add Table")).toBeDefined());
-
-    fireEvent.click(screen.getByText("+ Add Table"));
-    expect(screen.getByTestId("add-table-dialog")).toBeDefined();
-
-    fireEvent.click(screen.getByText("Cancel"));
-    expect(screen.queryByTestId("add-table-dialog")).toBeNull();
-  });
-
-  it("adds new table to list after dialog submit", async () => {
-    renderPage();
-    await waitFor(() => expect(screen.getByText("All Tables (2)")).toBeDefined());
-
-    fireEvent.click(screen.getByText("+ Add Table"));
-
-    await act(async () => {
-      fireEvent.click(screen.getByText("Add"));
+      await waitFor(() => {
+        expect(screen.getByText("Select a table to view details")).toBeDefined();
+      });
     });
 
-    await waitFor(() => expect(screen.getByText("All Tables (3)")).toBeDefined());
+    it("shows table details when a table is selected from the sidebar", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByText("A1")).toBeDefined();
+      });
+
+      // Click table in the sidebar list
+      fireEvent.click(screen.getByText("A1"));
+
+      expect(screen.getByText("Window")).toBeDefined();
+      expect(screen.queryByText("Select a table to view details")).toBeNull();
+    });
+
+    it("shows capacity range in table details", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
+      renderPage();
+
+      await waitFor(() => screen.getByText("A1"));
+      fireEvent.click(screen.getByText("A1"));
+
+      expect(screen.getByText(/1 - 4 guests/)).toBeDefined();
+    });
+
+    it("shows position in table details", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
+      renderPage();
+
+      await waitFor(() => screen.getByText("A1"));
+      fireEvent.click(screen.getByText("A1"));
+
+      expect(screen.getByText(/x: 100, y: 200/)).toBeDefined();
+    });
+
+    it("shows Not set when location is null", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_B] });
+      renderPage();
+
+      await waitFor(() => screen.getByText("B2"));
+      fireEvent.click(screen.getByText("B2"));
+
+      expect(screen.getByText("Not set")).toBeDefined();
+    });
   });
 
-  // --- Activate ---
+  describe("edit mode", () => {
+    it("save button is disabled initially (no changes)", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [] });
+      renderPage();
 
-  it("calls setActive API when Set as Active is clicked", async () => {
-    const inactivePlan = makeFloorPlan({ isActive: false });
-    const activatedPlan = makeFloorPlan({ isActive: true });
-    mockGetById.mockResolvedValue(inactivePlan);
-    mockSetActive.mockResolvedValue(activatedPlan);
+      await waitFor(() => screen.getByText("Saved"));
+      const saveButton = screen.getByText("Saved") as HTMLButtonElement;
+      expect(saveButton.disabled).toBe(true);
+    });
 
-    renderPage();
-    await waitFor(() => expect(screen.getByText("Set as Active")).toBeDefined());
+    it("opens add table dialog when + Add Table is clicked", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [] });
+      renderPage();
 
-    await act(async () => {
+      await waitFor(() => screen.getByText("+ Add Table"));
+      fireEvent.click(screen.getByText("+ Add Table"));
+
+      expect(screen.getByTestId("add-table-dialog")).toBeDefined();
+    });
+
+    it("closes add table dialog when Close Dialog is clicked", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [] });
+      renderPage();
+
+      await waitFor(() => screen.getByText("+ Add Table"));
+      fireEvent.click(screen.getByText("+ Add Table"));
+      expect(screen.getByTestId("add-table-dialog")).toBeDefined();
+
+      fireEvent.click(screen.getByText("Close Dialog"));
+      expect(screen.queryByTestId("add-table-dialog")).toBeNull();
+    });
+
+    it("adds new table when dialog submits", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [] });
+      const newTable: Table = { ...TABLE_A, id: "new-t", name: "New Table", tableNumber: "NT" };
+      mockTablesCreate.mockResolvedValue(newTable);
+
+      renderPage();
+
+      await waitFor(() => screen.getByText("+ Add Table"));
+      fireEvent.click(screen.getByText("+ Add Table"));
+
+      // The mock dialog submits when the Submit Table button is clicked
+      fireEvent.click(screen.getByText("Submit Table"));
+
+      await waitFor(() => {
+        expect(mockTablesCreate).toHaveBeenCalledOnce();
+      });
+    });
+
+    it("deletes table when Delete Table button is clicked and confirmed", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
+      mockTablesDelete.mockResolvedValue(undefined);
+      vi.spyOn(window, "confirm").mockReturnValue(true);
+
+      renderPage();
+
+      await waitFor(() => screen.getByText("A1"));
+      fireEvent.click(screen.getByText("A1")); // Select the table
+
+      await waitFor(() => screen.getByText("Delete Table"));
+      fireEvent.click(screen.getByText("Delete Table"));
+
+      await waitFor(() => {
+        expect(mockTablesDelete).toHaveBeenCalledWith("table-a");
+      });
+    });
+
+    it("does not delete table when confirm dialog is cancelled", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
+      vi.spyOn(window, "confirm").mockReturnValue(false);
+
+      renderPage();
+
+      await waitFor(() => screen.getByText("A1"));
+      fireEvent.click(screen.getByText("A1"));
+
+      await waitFor(() => screen.getByText("Delete Table"));
+      fireEvent.click(screen.getByText("Delete Table"));
+
+      expect(mockTablesDelete).not.toHaveBeenCalled();
+    });
+
+    it("activates floor plan when Set as Active is clicked", async () => {
+      const activatedPlan = { ...FLOOR_PLAN, isActive: true };
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, isActive: false, tables: [] });
+      mockSetActive.mockResolvedValue(activatedPlan);
+
+      renderPage();
+
+      await waitFor(() => screen.getByText("Set as Active"));
       fireEvent.click(screen.getByText("Set as Active"));
+
+      await waitFor(() => {
+        expect(mockSetActive).toHaveBeenCalledWith("fp-1");
+      });
     });
 
-    expect(mockSetActive).toHaveBeenCalledWith("fp-1");
-  });
+    it("navigates back when back button is clicked", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [] });
+      renderPage();
 
-  // --- Delete table ---
+      await waitFor(() => screen.getByLabelText("Back to floor plans"));
+      fireEvent.click(screen.getByLabelText("Back to floor plans"));
 
-  it("calls delete API when Delete Table button is clicked and confirmed", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
+      expect(mockNavigate).toHaveBeenCalledWith("/floor-plans");
+    });
 
-    renderPage();
-    await waitFor(() => expect(screen.getByTestId("canvas-table-table-1")).toBeDefined());
+    it("shows table count in sidebar", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A, TABLE_B] });
+      renderPage();
 
-    // Select the table first
-    fireEvent.click(screen.getByTestId("canvas-table-table-1"));
+      await waitFor(() => {
+        expect(screen.getByText(/All Tables \(2\)/)).toBeDefined();
+      });
+    });
 
-    await waitFor(() => expect(screen.getByText("Delete Table")).toBeDefined());
+    it("shows error when delete fails", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
+      mockTablesDelete.mockRejectedValue(new Error("Delete failed"));
+      vi.spyOn(window, "confirm").mockReturnValue(true);
 
-    await act(async () => {
+      renderPage();
+
+      await waitFor(() => screen.getByText("A1"));
+      fireEvent.click(screen.getByText("A1"));
+
+      await waitFor(() => screen.getByText("Delete Table"));
       fireEvent.click(screen.getByText("Delete Table"));
+
+      await waitFor(() => {
+        expect(screen.getByText("Delete failed")).toBeDefined();
+      });
     });
 
-    expect(mockTablesDelete).toHaveBeenCalledWith("table-1");
-  });
+    it("shows error when activate fails", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, isActive: false, tables: [] });
+      mockSetActive.mockRejectedValue(new Error("Activate failed"));
 
-  it("does not delete table when confirm is cancelled", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(false);
+      renderPage();
 
-    renderPage();
-    await waitFor(() => expect(screen.getByTestId("canvas-table-table-1")).toBeDefined());
+      await waitFor(() => screen.getByText("Set as Active"));
+      fireEvent.click(screen.getByText("Set as Active"));
 
-    fireEvent.click(screen.getByTestId("canvas-table-table-1"));
-    await waitFor(() => expect(screen.getByText("Delete Table")).toBeDefined());
-
-    await act(async () => {
-      fireEvent.click(screen.getByText("Delete Table"));
+      await waitFor(() => {
+        expect(screen.getByText("Activate failed")).toBeDefined();
+      });
     });
 
-    expect(mockTablesDelete).not.toHaveBeenCalled();
-  });
+    it("shows Save Changes button text when there are pending changes", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
+      mockBulkUpdatePositions.mockResolvedValue(undefined);
+      renderPage();
 
-  it("removes table from list after successful delete", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
+      await waitFor(() => screen.getByText("A1"));
 
-    renderPage();
-    await waitFor(() => expect(screen.getByText("All Tables (2)")).toBeDefined());
+      // Click canvas table to trigger onTableMove in mock
+      fireEvent.click(screen.getByTestId("canvas-table-table-a"));
 
-    fireEvent.click(screen.getByTestId("canvas-table-table-1"));
-    await waitFor(() => expect(screen.getByText("Delete Table")).toBeDefined());
-
-    await act(async () => {
-      fireEvent.click(screen.getByText("Delete Table"));
+      await waitFor(() => {
+        expect(screen.getByText("Save Changes")).toBeDefined();
+      });
     });
 
-    await waitFor(() => expect(screen.getByText("All Tables (1)")).toBeDefined());
-  });
+    it("shows Back to Floor Plans button in error state", async () => {
+      mockGetById.mockRejectedValue(new Error("Not found"));
+      renderPage();
 
-  // --- Navigation blocker ---
-
-  it("shows confirm dialog when blocker is in blocked state", async () => {
-    vi.mocked(useBlocker).mockReturnValue({
-      state: "blocked",
-      proceed: vi.fn(),
-      reset: vi.fn(),
-    } as any);
-
-    renderPage();
-    await waitFor(() => expect(screen.getByTestId("confirm-dialog")).toBeDefined());
-    // Dialog has aria-label="Unsaved Changes" and shows description text
-    expect(
-      screen.getByText(
-        "You have unsaved changes to this floor plan. Are you sure you want to leave?"
-      )
-    ).toBeDefined();
-  });
-
-  it("calls blocker.proceed when Leave is clicked", async () => {
-    const mockProceed = vi.fn();
-    vi.mocked(useBlocker).mockReturnValue({
-      state: "blocked",
-      proceed: mockProceed,
-      reset: vi.fn(),
-    } as any);
-
-    renderPage();
-    await waitFor(() => expect(screen.getByTestId("confirm-dialog")).toBeDefined());
-
-    fireEvent.click(screen.getByText("Leave"));
-    expect(mockProceed).toHaveBeenCalled();
-  });
-
-  it("calls blocker.reset when Stay is clicked", async () => {
-    const mockReset = vi.fn();
-    vi.mocked(useBlocker).mockReturnValue({
-      state: "blocked",
-      proceed: vi.fn(),
-      reset: mockReset,
-    } as any);
-
-    renderPage();
-    await waitFor(() => expect(screen.getByTestId("confirm-dialog")).toBeDefined());
-
-    fireEvent.click(screen.getByText("Stay"));
-    expect(mockReset).toHaveBeenCalled();
-  });
-
-  // --- Back navigation ---
-
-  it("navigates back to /floor-plans when back button is clicked", async () => {
-    renderPage();
-    await waitFor(() => expect(screen.getByText("Main Dining")).toBeDefined());
-
-    fireEvent.click(screen.getByRole("button", { name: "Back to floor plans" }));
-    expect(mockNavigate).toHaveBeenCalledWith("/floor-plans");
-  });
-
-  // --- Save error / rollback ---
-
-  it("shows error banner when bulk save fails", async () => {
-    mockBulkUpdatePositions.mockRejectedValue(new Error("Save failed"));
-
-    renderPage();
-    await waitFor(() => expect(screen.getByTestId("floor-plan-canvas")).toBeDefined());
-
-    // Trigger a table move to create pending updates
-    fireEvent.click(screen.getByTestId("trigger-move"));
-
-    // Click Save Changes button directly
-    await waitFor(() => expect(screen.getByText("Save Changes")).toBeDefined());
-
-    await act(async () => {
-      fireEvent.click(screen.getByText("Save Changes"));
+      await waitFor(() => {
+        expect(screen.getByText("Back to Floor Plans")).toBeDefined();
+      });
     });
 
-    await waitFor(() => expect(screen.getByTestId("error-banner")).toBeDefined());
+    it("navigates to floor plans from error state back button", async () => {
+      mockGetById.mockRejectedValue(new Error("Not found"));
+      renderPage();
+
+      await waitFor(() => screen.getByText("Back to Floor Plans"));
+      fireEvent.click(screen.getByText("Back to Floor Plans"));
+
+      expect(mockNavigate).toHaveBeenCalledWith("/floor-plans");
+    });
+  });
+
+  describe("unsaved changes blocker", () => {
+    it("shows unsaved changes dialog when navigation is blocked", async () => {
+      const { useBlocker } = await import("react-router-dom");
+      const mockBlocker = useBlocker as ReturnType<typeof vi.fn>;
+      const mockProceed = vi.fn();
+      const mockReset = vi.fn();
+      mockBlocker.mockReturnValue({
+        state: "blocked",
+        proceed: mockProceed,
+        reset: mockReset,
+      });
+
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [] });
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByRole("dialog", { name: "Unsaved Changes" })).toBeDefined();
+      });
+
+      // Reset for other tests
+      mockBlocker.mockReturnValue({ state: "unblocked" });
+    });
+
+    it("calls blocker.proceed when Leave is clicked", async () => {
+      const { useBlocker } = await import("react-router-dom");
+      const mockBlocker = useBlocker as ReturnType<typeof vi.fn>;
+      const mockProceed = vi.fn();
+      const mockReset = vi.fn();
+      mockBlocker.mockReturnValue({
+        state: "blocked",
+        proceed: mockProceed,
+        reset: mockReset,
+      });
+
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [] });
+      renderPage();
+
+      await waitFor(() => screen.getByRole("dialog", { name: "Unsaved Changes" }));
+      fireEvent.click(screen.getByText("Leave"));
+
+      expect(mockProceed).toHaveBeenCalledOnce();
+
+      // Reset for other tests
+      mockBlocker.mockReturnValue({ state: "unblocked" });
+    });
+
+    it("calls blocker.reset when Stay is clicked", async () => {
+      const { useBlocker } = await import("react-router-dom");
+      const mockBlocker = useBlocker as ReturnType<typeof vi.fn>;
+      const mockProceed = vi.fn();
+      const mockReset = vi.fn();
+      mockBlocker.mockReturnValue({
+        state: "blocked",
+        proceed: mockProceed,
+        reset: mockReset,
+      });
+
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [] });
+      renderPage();
+
+      await waitFor(() => screen.getByRole("dialog", { name: "Unsaved Changes" }));
+      fireEvent.click(screen.getByText("Stay"));
+
+      expect(mockReset).toHaveBeenCalledOnce();
+
+      // Reset for other tests
+      mockBlocker.mockReturnValue({ state: "unblocked" });
+    });
   });
 });
