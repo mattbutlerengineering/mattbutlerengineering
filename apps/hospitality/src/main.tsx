@@ -58,6 +58,9 @@ const SetupPage = lazy(() =>
 const SetupHoursPage = lazy(() =>
   import("./pages/SetupHoursPage.js").then((m) => ({ default: m.SetupHoursPage }))
 );
+const PublicBookingPage = lazy(() =>
+  import("./pages/PublicBookingPage.js").then((m) => ({ default: m.PublicBookingPage }))
+);
 
 // Validate auth config at startup — fail fast with a user-friendly error
 const authConfigResult = validateAuthConfig();
@@ -81,6 +84,14 @@ const authConfigResult = validateAuthConfig();
  */
 const router = createBrowserRouter(
   [
+    {
+      path: "book/:venueSlug",
+      element: (
+        <Suspense fallback={<LoadingPage />}>
+          <PublicBookingPage />
+        </Suspense>
+      ),
+    },
     {
       element: <App />,
       children: [
