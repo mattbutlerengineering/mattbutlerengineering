@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-05-13T02:39:31.236Z",
+  "lastRun": "2026-05-16T17:00:31.993Z",
   "currentLevel": 3,
   "checks": {
     "acmm:prereq-test-suite": {
@@ -7,8 +7,8 @@
       "evidence": "detected at one of: vitest.config.ts, vitest.config.js, jest.config.js, jest.config.ts, go.mod, pytest.ini, pyproject.toml"
     },
     "acmm:prereq-e2e": {
-      "passed": true,
-      "evidence": "detected at one of: playwright.config.ts, playwright.config.js, cypress.config.ts, cypress.config.js, e2e/, tests/e2e/"
+      "passed": false,
+      "evidence": "none of: playwright.config.ts, playwright.config.js, cypress.config.ts, cypress.config.js, e2e/, tests/e2e/"
     },
     "acmm:prereq-cicd": {
       "passed": true,
@@ -187,16 +187,16 @@
       "evidence": "detected at one of: .github/workflows/"
     },
     "acmm:instruction-sync-gate": {
-      "passed": false,
-      "evidence": "file present but no recent successful run: .github/workflows/ci.yml"
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/ci.yml"
     },
     "acmm:component-registry-integrity": {
-      "passed": false,
-      "evidence": "file present but no recent successful run: .github/workflows/ci.yml"
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/ci.yml"
     },
     "acmm:instruction-rot-detection": {
-      "passed": false,
-      "evidence": "file present but no recent successful run: .github/workflows/ci.yml"
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/ci.yml"
     },
     "acmm:feedback-loops": {
       "passed": true,
@@ -299,8 +299,8 @@
       "evidence": "detected at one of: docs/acmm/review-burden.md"
     },
     "acmm:auto-issue-gen": {
-      "passed": false,
-      "evidence": "file present but no recent successful run: .github/workflows/auto-issue.yml"
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/auto-issue.yml, .github/workflows/issue-gen.yml, .github/workflows/auto-generate-issues.yml"
     },
     "acmm:multi-agent-orchestration": {
       "passed": true,
@@ -347,8 +347,8 @@
       "evidence": "detected at one of: .github/workflows/ci.yml (contains: pnpm --dir packages/rialto vitest .* accessibility)"
     },
     "acmm:auto-rollback": {
-      "passed": false,
-      "evidence": "file present but no recent successful run: .github/workflows/auto-rollback.yml"
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/auto-rollback.yml, docs/acmm/auto-rollback.md"
     },
     "acmm:multi-repo-orchestration": {
       "passed": true,
@@ -501,6 +501,12 @@
       "level": 3,
       "detected": 103,
       "total": 108
+    },
+    {
+      "date": "2026-05-16",
+      "level": 3,
+      "detected": 107,
+      "total": 108
     }
   ],
   "issuesCreated": {
@@ -514,7 +520,6 @@
   "role": "Strategist",
   "detectedIds": [
     "acmm:prereq-test-suite",
-    "acmm:prereq-e2e",
     "acmm:prereq-cicd",
     "acmm:prereq-pr-template",
     "acmm:prereq-issue-template",
@@ -559,6 +564,9 @@
     "acmm:cross-session-knowledge",
     "acmm:cross-repo-skills",
     "acmm:github-coordination",
+    "acmm:instruction-sync-gate",
+    "acmm:component-registry-integrity",
+    "acmm:instruction-rot-detection",
     "acmm:feedback-loops",
     "acmm:claude-md-auto-sync",
     "acmm:preference-index",
@@ -584,6 +592,7 @@
     "acmm:override-analytics",
     "acmm:ai-compliance-doc",
     "acmm:review-burden",
+    "acmm:auto-issue-gen",
     "acmm:multi-agent-orchestration",
     "acmm:merge-queue",
     "acmm:strategic-dashboard",
@@ -595,6 +604,7 @@
     "acmm:budget-policy",
     "acmm:token-tracking",
     "acmm:accessibility-ai-check",
+    "acmm:auto-rollback",
     "acmm:multi-repo-orchestration",
     "fullsend:test-coverage",
     "fullsend:ci-cd-maturity",
@@ -625,10 +635,10 @@
     "characteristic": "The system acts on what it finds — generates issues, merges PRs, rolls back failures. Humans set policy and audit after the fact.",
     "detectedByLevel": {
       "2": 3,
-      "3": 5,
-      "4": 14,
+      "3": 6,
+      "4": 16,
       "5": 16,
-      "6": 6
+      "6": 8
     },
     "requiredByLevel": {
       "2": 3,
@@ -641,7 +651,7 @@
     "nextTransitionTrigger": null,
     "antiPattern": "Mistaking autonomy for abandonment: an autonomous codebase still needs a strategist to set direction, or it drifts toward local optima.",
     "prerequisites": {
-      "met": 8,
+      "met": 7,
       "total": 8
     },
     "crossCutting": {
@@ -738,11 +748,11 @@
         }
       },
       "status": "green",
-      "measured_at": "2026-05-13T02:39:31.234Z"
+      "measured_at": "2026-05-16T17:00:31.991Z"
     },
     "auto_qa_tuning": {
       "history_count": 2,
-      "measured_at": "2026-05-13T02:39:31.234Z"
+      "measured_at": "2026-05-16T17:00:31.992Z"
     }
   },
   "honestAuditNote": "Critical Audit 2026-05-13: Re-capped to L3. While scannable criteria (files) are present for L4-L6, deep verification reveals gaps: (1) Strategic Dashboard is a static metrics viewer, not an activity audit tool. (2) Auto-rollback loop is implemented but has no record of successful recovery. (3) L3 integrity (llms.txt) was fragile/platform-dependent until today. L6 requires these loops to be battle-tested and documentation to be truly deterministic.",
