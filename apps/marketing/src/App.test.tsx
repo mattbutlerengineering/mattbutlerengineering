@@ -7,7 +7,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   RialtoProvider: ({ children }: any) => <div data-testid="rialto-provider">{children}</div>,
   GlobalNav: () => <nav data-testid="global-nav" />,
   Footer: () => <footer data-testid="footer" />,
-  Text: ({ children }: any) => <Text>{children}</Text>,
+  Text: ({ children }: any) => <span data-testid="text">{children}</span>,
 }));
 
 describe("App", () => {
