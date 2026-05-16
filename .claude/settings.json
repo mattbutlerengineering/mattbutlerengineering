@@ -114,6 +114,17 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/session-archive.sh",
+            "timeout": 5000
+          }
+        ]
+      }
     ]
   },
   "statusLine": {

@@ -1,39 +1,103 @@
 {
-  "schema": "acmm/v1",
-  "generatedAt": "2026-05-10T00:27:24.154Z",
-  "level": 6,
+  "schema": "acmm-metrics/v1",
+  "generatedAt": "2026-05-16T22:03:05.072Z",
+  "level": 3,
   "levelName": "Fully Autonomous",
   "role": "Strategist",
   "summary": {
-    "detected": 105,
-    "total": 105,
-    "coverage": 1.0
+    "detected": 107,
+    "total": 108,
+    "coverage": 0.9907407407407407
   },
   "prerequisites": {
-    "met": 8,
+    "met": 7,
     "total": 8
   },
   "behavioral": {
     "ciFlakeRate": 0,
-    "agentPrAcceptanceRate": 0.9565,
+    "agentPrAcceptanceRate": 0.9655172413793104,
     "agentPrRevertRate": 0,
-    "evalPassRate": 0.8095,
-    "evalMedianScore": 0.8333
+    "evalPassRate": 0.8649,
+    "evalMedianScore": 1
   },
   "history": [
-    { "date": "2026-04-30", "level": 6, "detected": 54, "total": 85 },
-    { "date": "2026-05-01", "level": 6, "detected": 85, "total": 85 },
-    { "date": "2026-05-02", "level": 6, "detected": 104, "total": 104 },
-    { "date": "2026-05-03", "level": 6, "detected": 105, "total": 105 },
-    { "date": "2026-05-05", "level": 6, "detected": 105, "total": 105 },
-    { "date": "2026-05-08", "level": 6, "detected": 104, "total": 105 },
-    { "date": "2026-05-09", "level": 6, "detected": 104, "total": 105 },
-    { "date": "2026-05-10", "level": 6, "detected": 105, "total": 105 }
+    {
+      "date": "2026-04-30",
+      "level": 6,
+      "detected": 54,
+      "total": 85
+    },
+    {
+      "date": "2026-05-01",
+      "level": 6,
+      "detected": 85,
+      "total": 85
+    },
+    {
+      "date": "2026-05-02",
+      "level": 6,
+      "detected": 104,
+      "total": 104
+    },
+    {
+      "date": "2026-05-03",
+      "level": 6,
+      "detected": 105,
+      "total": 105
+    },
+    {
+      "date": "2026-05-05",
+      "level": 6,
+      "detected": 105,
+      "total": 105
+    },
+    {
+      "date": "2026-05-08",
+      "level": 6,
+      "detected": 104,
+      "total": 105
+    },
+    {
+      "date": "2026-05-09",
+      "level": 6,
+      "detected": 104,
+      "total": 105
+    },
+    {
+      "date": "2026-05-10",
+      "level": 3,
+      "detected": 106,
+      "total": 108
+    },
+    {
+      "date": "2026-05-11",
+      "level": 2,
+      "detected": 92,
+      "total": 108
+    },
+    {
+      "date": "2026-05-12",
+      "level": 3,
+      "detected": 103,
+      "total": 108
+    },
+    {
+      "date": "2026-05-13",
+      "level": 3,
+      "detected": 103,
+      "total": 108
+    },
+    {
+      "date": "2026-05-16",
+      "level": 3,
+      "detected": 107,
+      "total": 108
+    }
   ],
   "detectedByLevel": {
     "2": 3,
-    "3": 5,
-    "4": 14,
+    "3": 6,
+    "4": 16,
     "5": 16,
     "6": 8
   },
@@ -49,7 +113,7 @@
       "level": 4,
       "name": "agent-pr-acceptance",
       "passed": true,
-      "value": 0.9565,
+      "value": 0.9655172413793104,
       "threshold": 0.5
     },
     {
