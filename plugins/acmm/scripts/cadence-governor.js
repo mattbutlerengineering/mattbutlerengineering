@@ -117,6 +117,32 @@ export function saveState(state, statePath = DEFAULT_STATE_PATH) {
 }
 
 /**
+ * Build fallback state when gh CLI is unavailable.
+ * Persists a history entry so state accumulates even without metrics.
+ * @param {object} previousState
+ * @param {number} [now] - current time in ms (for testing)
+ * @returns {object} fallback state
+ */
+export function buildFallbackState(previousState, now = Date.now()) {
+  const timestamp = new Date(now).toISOString();
+  return {
+    ...previousState,
+    lastCheck: timestamp,
+    shouldExecute: true,
+    history: [
+      ...previousState.history.slice(-(MAX_HISTORY - 1)),
+      {
+        date: timestamp,
+        mode: previousState.mode ?? "UNKNOWN",
+        readyCount: null,
+        executed: true,
+        reason: "gh-unavailable",
+      },
+    ],
+  };
+}
+
+/**
  * Build updated state from current inputs.
  * @param {object} params
  * @param {number} params.readyCount
@@ -160,6 +186,9 @@ function main() {
   const readyCount = getReadyCount();
   if (readyCount === null) {
     console.log("Governor: gh CLI unavailable, defaulting to execute");
+    const previousState = loadState(statePath);
+    const fallbackState = buildFallbackState(previousState);
+    saveState(fallbackState, statePath);
     process.exit(0);
   }
 
