@@ -83,4 +83,10 @@ export default [
       ],
     },
   },
+  {
+    files: ["**/*.test.{ts,tsx}", "**/*.spec.{ts,tsx}"],
+    rules: {
+      "mbe-local/prefer-rialto-components": "off",
+    },
+  },
 ];
