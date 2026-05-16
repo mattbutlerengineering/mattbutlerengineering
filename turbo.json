@@ -61,11 +61,11 @@
       "outputs": []
     },
     "test": {
-      "dependsOn": ["build"],
+      "dependsOn": ["^build"],
       "inputs": ["src/**", "package.json", "vitest.config.ts"]
     },
     "test:contract": {
-      "dependsOn": ["build"],
+      "dependsOn": ["^build"],
       "inputs": [
         "src/**",
         "package.json",
@@ -74,7 +74,7 @@
       ]
     },
     "test:coverage": {
-      "dependsOn": ["build"],
+      "dependsOn": ["^build"],
       "outputs": ["coverage/**"],
       "passThroughEnv": ["DATABASE_URL"]
     },
