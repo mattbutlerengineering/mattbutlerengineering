@@ -27,6 +27,7 @@ flowchart TD
     config["config"]
     feature_flags["feature-flags"]
     mcp_server["mcp-server"]
+    notifications["notifications"]
     observability["observability"]
     @mattbutlerengineering/rialto["rialto"]
     rialto_catalog["rialto-catalog"]
@@ -83,6 +84,7 @@ flowchart TD
   auth --> config
   feature_flags --> config
   mcp_server --> config
+  notifications --> config
   observability --> types
   observability --> config
   @mattbutlerengineering/rialto --> api_client
@@ -113,6 +115,7 @@ flowchart TD
   class config shared
   class feature_flags shared
   class mcp_server shared
+  class notifications shared
   class observability shared
   class @mattbutlerengineering/rialto shared
   class rialto_catalog shared
@@ -123,9 +126,9 @@ flowchart TD
 
 ## Legend
 
-| Color  | Category                        |
-| ------ | ------------------------------- |
-| Blue   | Frontend Apps (`apps/*`)        |
-| Amber  | Backend Services (`services/*`) |
-| Indigo | Shared Packages (`packages/*`)  |
-| Green  | Developer Tools (`tools/*`)     |
+| Color | Category |
+|-------|----------|
+| Blue | Frontend Apps (`apps/*`) |
+| Amber | Backend Services (`services/*`) |
+| Indigo | Shared Packages (`packages/*`) |
+| Green | Developer Tools (`tools/*`) |

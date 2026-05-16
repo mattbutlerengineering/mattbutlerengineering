@@ -76,6 +76,11 @@
       "path": "packages/mcp-server"
     },
     {
+      "name": "@mbe/notifications",
+      "type": "package",
+      "path": "packages/notifications"
+    },
+    {
       "name": "@mbe/observability",
       "type": "package",
       "path": "packages/observability"
@@ -339,6 +344,11 @@
     },
     {
       "from": "@mbe/mcp-server",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/notifications",
       "to": "@mbe/config",
       "type": "devDependency"
     },
