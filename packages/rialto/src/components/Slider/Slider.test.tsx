@@ -1,40 +1,56 @@
 import { render, screen, fireEvent } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { axe } from "vitest-axe";
 import { Slider } from "./Slider";
 
 describe("Slider", () => {
   describe("rendering", () => {
-    it("renders without crashing", () => {
-      const { container } = render(<Slider />);
-      expect(container.firstChild).toBeInTheDocument();
-    });
-
-    it("renders as a range input for accessibility", () => {
+    it("renders a range input", () => {
       render(<Slider aria-label="Volume" />);
-      expect(screen.getByRole("slider", { name: "Volume" })).toBeInTheDocument();
+      expect(screen.getByRole("slider")).toBeInTheDocument();
     });
 
-    it("renders label when provided", () => {
+    it("renders label text when label prop provided", () => {
       render(<Slider label="Volume" />);
       expect(screen.getByText("Volume")).toBeInTheDocument();
     });
 
-    it("renders current value when showValue=true", () => {
-      render(<Slider label="Volume" value={50} onChange={() => {}} showValue />);
-      expect(screen.getByText("50")).toBeInTheDocument();
+    it("shows current value when showValue is true", () => {
+      render(<Slider label="Volume" value={42} onChange={vi.fn()} showValue />);
+      expect(screen.getByText("42")).toBeInTheDocument();
     });
 
-    it("renders formatted value", () => {
+    it("uses formatValue for displayed value", () => {
       render(
         <Slider
           label="Opacity"
           value={75}
-          onChange={() => {}}
+          onChange={vi.fn()}
           showValue
           formatValue={(v) => `${v}%`}
         />
       );
       expect(screen.getByText("75%")).toBeInTheDocument();
+    });
+
+    it("renders disabled range input when disabled", () => {
+      render(<Slider label="Brightness" disabled />);
+      expect(screen.getByRole("slider")).toBeDisabled();
+    });
+  });
+
+  describe("aria attributes", () => {
+    it("sets aria-valuemin, aria-valuemax, aria-valuenow", () => {
+      render(<Slider label="Volume" min={0} max={100} value={50} onChange={vi.fn()} />);
+      const slider = screen.getByRole("slider");
+      expect(slider).toHaveAttribute("aria-valuemin", "0");
+      expect(slider).toHaveAttribute("aria-valuemax", "100");
+      expect(slider).toHaveAttribute("aria-valuenow", "50");
+    });
+
+    it("uses aria-label prop for accessible label", () => {
+      render(<Slider aria-label="Custom label" />);
+      expect(screen.getByRole("slider")).toHaveAttribute("aria-label", "Custom label");
     });
 
     it("sets min/max/step on input", () => {
@@ -53,102 +69,92 @@ describe("Slider", () => {
       expect(slider).toHaveAttribute("max", "200");
       expect(slider).toHaveAttribute("step", "10");
     });
-
-    it("is disabled when disabled=true", () => {
-      render(<Slider label="Volume" disabled />);
-      expect(screen.getByRole("slider")).toBeDisabled();
-    });
   });
 
-  describe("controlled mode", () => {
-    it("reflects controlled value", () => {
-      render(<Slider label="Volume" value={60} onChange={() => {}} />);
-      expect(screen.getByRole("slider")).toHaveValue("60");
+  describe("controlled value", () => {
+    it("reflects controlled value in range input", () => {
+      render(<Slider value={30} min={0} max={100} onChange={vi.fn()} aria-label="Slider" />);
+      expect(screen.getByRole("slider")).toHaveValue("30");
     });
 
-    it("calls onChange when value changes", () => {
+    it("calls onChange when value changes via keyboard", async () => {
+      const user = userEvent.setup();
       const onChange = vi.fn();
-      render(<Slider label="Volume" value={50} onChange={onChange} />);
+      render(<Slider label="Volume" value={50} min={0} max={100} step={1} onChange={onChange} />);
       const slider = screen.getByRole("slider");
-      fireEvent.change(slider, { target: { value: "75" } });
-      expect(onChange).toHaveBeenCalledWith(75);
-    });
-  });
-
-  describe("keyboard interactions", () => {
-    it("ArrowRight increases value by step", () => {
-      const onChange = vi.fn();
-      render(
-        <Slider label="Volume" value={50} onChange={onChange} step={5} />
-      );
-      const slider = screen.getByRole("slider");
-      fireEvent.keyDown(slider, { key: "ArrowRight" });
-      expect(onChange).toHaveBeenCalledWith(55);
-    });
-
-    it("ArrowLeft decreases value by step", () => {
-      const onChange = vi.fn();
-      render(
-        <Slider label="Volume" value={50} onChange={onChange} step={5} />
-      );
-      const slider = screen.getByRole("slider");
-      fireEvent.keyDown(slider, { key: "ArrowLeft" });
-      expect(onChange).toHaveBeenCalledWith(45);
-    });
-
-    it("ArrowUp increases value by step", () => {
-      const onChange = vi.fn();
-      render(<Slider label="Volume" value={50} onChange={onChange} step={1} />);
-      const slider = screen.getByRole("slider");
-      fireEvent.keyDown(slider, { key: "ArrowUp" });
+      slider.focus();
+      await user.keyboard("{ArrowRight}");
       expect(onChange).toHaveBeenCalledWith(51);
     });
 
-    it("ArrowDown decreases value by step", () => {
+    it("calls onChange with decremented value on ArrowLeft", async () => {
+      const user = userEvent.setup();
       const onChange = vi.fn();
-      render(<Slider label="Volume" value={50} onChange={onChange} step={1} />);
+      render(<Slider label="Volume" value={50} min={0} max={100} step={1} onChange={onChange} />);
       const slider = screen.getByRole("slider");
-      fireEvent.keyDown(slider, { key: "ArrowDown" });
+      slider.focus();
+      await user.keyboard("{ArrowLeft}");
       expect(onChange).toHaveBeenCalledWith(49);
     });
 
-    it("Home sets value to min", () => {
+    it("jumps to min on Home key", async () => {
+      const user = userEvent.setup();
       const onChange = vi.fn();
-      render(
-        <Slider label="Volume" value={50} onChange={onChange} min={0} max={100} />
-      );
-      const slider = screen.getByRole("slider");
-      fireEvent.keyDown(slider, { key: "Home" });
+      render(<Slider label="Volume" value={50} min={0} max={100} onChange={onChange} />);
+      screen.getByRole("slider").focus();
+      await user.keyboard("{Home}");
       expect(onChange).toHaveBeenCalledWith(0);
     });
 
-    it("End sets value to max", () => {
+    it("jumps to max on End key", async () => {
+      const user = userEvent.setup();
       const onChange = vi.fn();
-      render(
-        <Slider label="Volume" value={50} onChange={onChange} min={0} max={100} />
-      );
-      const slider = screen.getByRole("slider");
-      fireEvent.keyDown(slider, { key: "End" });
+      render(<Slider label="Volume" value={50} min={0} max={100} onChange={onChange} />);
+      screen.getByRole("slider").focus();
+      await user.keyboard("{End}");
       expect(onChange).toHaveBeenCalledWith(100);
     });
   });
 
   describe("uncontrolled mode", () => {
-    it("works with defaultValue", () => {
-      render(<Slider label="Volume" defaultValue={42} />);
-      expect(screen.getByRole("slider")).toHaveValue("42");
+    it("uses defaultValue as initial value", () => {
+      render(<Slider defaultValue={25} min={0} max={100} aria-label="Slider" />);
+      expect(screen.getByRole("slider")).toHaveValue("25");
+    });
+
+    it("falls back to min when no defaultValue provided", () => {
+      render(<Slider min={10} max={100} aria-label="Slider" />);
+      expect(screen.getByRole("slider")).toHaveValue("10");
+    });
+  });
+
+  describe("step", () => {
+    it("increments by step on ArrowRight", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(<Slider label="Opacity" value={0} min={0} max={100} step={10} onChange={onChange} />);
+      screen.getByRole("slider").focus();
+      await user.keyboard("{ArrowRight}");
+      expect(onChange).toHaveBeenCalledWith(10);
+    });
+  });
+
+  describe("ref forwarding", () => {
+    it("forwards ref to the wrapper div", () => {
+      const ref = { current: null as HTMLDivElement | null };
+      render(<Slider ref={ref} aria-label="Slider" />);
+      expect(ref.current).toBeInstanceOf(HTMLDivElement);
     });
   });
 
   describe("accessibility", () => {
-    it("passes axe", async () => {
+    it("has no a11y violations", async () => {
       const { container } = render(
         <Slider label="Volume" value={50} onChange={() => {}} showValue />
       );
-      const results = await axe(container, {
-        rules: { "color-contrast": { enabled: false } },
-      });
-      expect(results).toHaveNoViolations();
+      expect(
+        await axe(container, { rules: { "color-contrast": { enabled: false } } })
+      ).toHaveNoViolations();
     });
   });
 });

@@ -23,21 +23,14 @@ describe("ConfirmDialog", () => {
           open
           onConfirm={() => {}}
           onCancel={() => {}}
-          title="Delete?"
+          title="Delete item?"
         />
       );
       expect(screen.getByRole("dialog")).toBeInTheDocument();
     });
 
-    it("renders title", () => {
-      render(
-        <ConfirmDialog
-          open
-          onConfirm={() => {}}
-          onCancel={() => {}}
-          title="Delete item?"
-        />
-      );
+    it("renders title text", () => {
+      render(<ConfirmDialog open onConfirm={() => {}} onCancel={() => {}} title="Delete item?" />);
       expect(screen.getByText("Delete item?")).toBeInTheDocument();
     });
 
@@ -48,10 +41,10 @@ describe("ConfirmDialog", () => {
           onConfirm={() => {}}
           onCancel={() => {}}
           title="Delete?"
-          description="This cannot be undone."
+          description="This action cannot be undone."
         />
       );
-      expect(screen.getByText("This cannot be undone.")).toBeInTheDocument();
+      expect(screen.getByText("This action cannot be undone.")).toBeInTheDocument();
     });
 
     it("renders confirm and cancel buttons with default labels", () => {
@@ -63,11 +56,11 @@ describe("ConfirmDialog", () => {
           title="Delete?"
         />
       );
-      expect(screen.getByRole("button", { name: "Confirm" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /confirm/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /cancel/i })).toBeInTheDocument();
     });
 
-    it("renders custom confirm/cancel labels", () => {
+    it("renders custom button labels", () => {
       render(
         <ConfirmDialog
           open
@@ -75,11 +68,11 @@ describe("ConfirmDialog", () => {
           onCancel={() => {}}
           title="Delete?"
           confirmLabel="Yes, delete"
-          cancelLabel="No, keep it"
+          cancelLabel="No, keep"
         />
       );
-      expect(screen.getByRole("button", { name: "Yes, delete" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "No, keep it" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /yes, delete/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /no, keep/i })).toBeInTheDocument();
     });
   });
 
@@ -95,8 +88,8 @@ describe("ConfirmDialog", () => {
           title="Delete?"
         />
       );
-      await user.click(screen.getByRole("button", { name: "Confirm" }));
-      expect(onConfirm).toHaveBeenCalledOnce();
+      await user.click(screen.getByRole("button", { name: /confirm/i }));
+      expect(onConfirm).toHaveBeenCalledTimes(1);
     });
 
     it("calls onCancel when cancel button is clicked", async () => {
@@ -110,8 +103,8 @@ describe("ConfirmDialog", () => {
           title="Delete?"
         />
       );
-      await user.click(screen.getByRole("button", { name: "Cancel" }));
-      expect(onCancel).toHaveBeenCalledOnce();
+      await user.click(screen.getByRole("button", { name: /cancel/i }));
+      expect(onCancel).toHaveBeenCalledTimes(1);
     });
 
     it("calls onCancel when Escape is pressed", async () => {
@@ -126,11 +119,11 @@ describe("ConfirmDialog", () => {
         />
       );
       await user.keyboard("{Escape}");
-      expect(onCancel).toHaveBeenCalledOnce();
+      expect(onCancel).toHaveBeenCalledTimes(1);
     });
   });
 
-  describe("variants", () => {
+  describe("variant", () => {
     it("renders default variant", () => {
       render(
         <ConfirmDialog
@@ -155,26 +148,37 @@ describe("ConfirmDialog", () => {
         />
       );
       expect(screen.getByRole("dialog")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /confirm/i })).toBeInTheDocument();
+    });
+  });
+
+  describe("ref forwarding", () => {
+    it("forwards ref to the panel element", () => {
+      const ref = { current: null as HTMLDivElement | null };
+      render(
+        <ConfirmDialog ref={ref} open onConfirm={() => {}} onCancel={() => {}} title="Test" />
+      );
+      expect(ref.current).toBeInstanceOf(HTMLDivElement);
     });
   });
 
   describe("accessibility", () => {
-    it("passes axe for default variant", async () => {
+    it("has no a11y violations for default variant", async () => {
       const { container } = render(
         <ConfirmDialog
           open
           onConfirm={() => {}}
           onCancel={() => {}}
-          title="Confirm?"
+          title="Confirm action?"
+          description="Are you sure you want to proceed?"
         />
       );
-      const results = await axe(container, {
-        rules: { "color-contrast": { enabled: false } },
-      });
-      expect(results).toHaveNoViolations();
+      expect(
+        await axe(container, { rules: { "color-contrast": { enabled: false } } })
+      ).toHaveNoViolations();
     });
 
-    it("passes axe for destructive variant", async () => {
+    it("has no a11y violations for destructive variant", async () => {
       const { container } = render(
         <ConfirmDialog
           open
@@ -184,10 +188,9 @@ describe("ConfirmDialog", () => {
           variant="destructive"
         />
       );
-      const results = await axe(container, {
-        rules: { "color-contrast": { enabled: false } },
-      });
-      expect(results).toHaveNoViolations();
+      expect(
+        await axe(container, { rules: { "color-contrast": { enabled: false } } })
+      ).toHaveNoViolations();
     });
   });
 });

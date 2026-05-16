@@ -1,6 +1,7 @@
 # Matt Butler Engineering
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](./LICENSE)
+[![codecov](https://codecov.io/gh/mattbutlerengineering/mattbutlerengineering/graph/badge.svg)](https://codecov.io/gh/mattbutlerengineering/mattbutlerengineering)
 
 <!-- acmm:begin -->![ACMM Level 3](https://img.shields.io/badge/ACMM-Level%203-7a5a36?style=flat-square)<!-- acmm:end -->
 

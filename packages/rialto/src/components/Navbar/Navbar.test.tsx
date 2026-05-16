@@ -1,43 +1,46 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "vitest-axe";
-import { Navbar } from "./Navbar";
-import type { NavbarLink } from "./Navbar";
+import { Navbar, type NavbarLink } from "./Navbar";
 
 const links: NavbarLink[] = [
   { id: "home", label: "Home", href: "/" },
   { id: "settings", label: "Settings", href: "/settings" },
+  { id: "docs", label: "Documentation", href: "/docs", badge: 3 },
+];
+
+const nestedLinks: NavbarLink[] = [
   {
-    id: "docs",
-    label: "Documentation",
-    href: "/docs",
+    id: "products",
+    label: "Products",
+    href: "/products",
     children: [
-      { id: "docs-start", label: "Getting Started", href: "/docs/start" },
-      { id: "docs-api", label: "API Reference", href: "/docs/api" },
+      { id: "widgets", label: "Widgets", href: "/widgets" },
+      { id: "gadgets", label: "Gadgets", href: "/gadgets" },
     ],
   },
+  { id: "about", label: "About", href: "/about" },
 ];
 
 describe("Navbar", () => {
   describe("rendering", () => {
-    it("renders as nav element", () => {
+    it("renders a nav element", () => {
       render(<Navbar links={links} />);
       expect(screen.getByRole("navigation")).toBeInTheDocument();
     });
 
-    it("renders all top-level link labels", () => {
+    it("renders all top-level links", () => {
       render(<Navbar links={links} />);
-      expect(screen.getByText("Home")).toBeInTheDocument();
-      expect(screen.getByText("Settings")).toBeInTheDocument();
-      expect(screen.getByText("Documentation")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Home" })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: /Settings/ })).toBeInTheDocument();
     });
 
     it("renders logo when provided", () => {
-      render(<Navbar links={links} logo={<img src="/logo.svg" alt="Logo" />} />);
+      render(<Navbar links={links} logo={<img src="/logo.png" alt="Logo" />} />);
       expect(screen.getByAltText("Logo")).toBeInTheDocument();
     });
 
-    it("renders user info when provided", () => {
+    it("renders user name when user prop provided", () => {
       render(
         <Navbar
           links={links}
@@ -48,98 +51,90 @@ describe("Navbar", () => {
       expect(screen.getByText("alice@example.com")).toBeInTheDocument();
     });
 
-    it("renders user avatar fallback (first letter)", () => {
+    it("renders user initial as avatar fallback", () => {
       render(<Navbar links={links} user={{ name: "Bob" }} />);
       expect(screen.getByText("B")).toBeInTheDocument();
     });
 
-    it("renders custom avatar", () => {
-      render(
-        <Navbar
-          links={links}
-          user={{ name: "Charlie", avatar: <img src="/avatar.jpg" alt="avatar" /> }}
-        />
-      );
-      expect(screen.getByAltText("avatar")).toBeInTheDocument();
+    it("renders badge count on link with badge prop", () => {
+      render(<Navbar links={links} />);
+      expect(screen.getByText("3")).toBeInTheDocument();
     });
 
-    it("renders search input when search prop is provided", () => {
-      render(
-        <Navbar
-          links={links}
-          search={{ placeholder: "Search...", onSearch: vi.fn() }}
-        />
-      );
-      expect(screen.getByPlaceholderText("Search...")).toBeInTheDocument();
+    it("renders search input when search prop provided", () => {
+      render(<Navbar links={links} search={{ placeholder: "Find…" }} />);
+      expect(screen.getByPlaceholderText("Find…")).toBeInTheDocument();
     });
 
-    it("renders footer content", () => {
-      render(<Navbar links={links} footer={<p>v1.0.0</p>} />);
-      expect(screen.getByText("v1.0.0")).toBeInTheDocument();
-    });
-
-    it("renders badge on link", () => {
-      const linksWithBadge: NavbarLink[] = [
-        { id: "notifications", label: "Notifications", href: "/n", badge: 5 },
-      ];
-      render(<Navbar links={linksWithBadge} />);
-      expect(screen.getByText("5")).toBeInTheDocument();
+    it("renders footer content when footer prop provided", () => {
+      render(<Navbar links={links} footer={<span>v1.0</span>} />);
+      expect(screen.getByText("v1.0")).toBeInTheDocument();
     });
   });
 
-  describe("interactions", () => {
-    it("shows submenu toggle button for links with children", () => {
-      render(<Navbar links={links} />);
-      expect(
-        screen.getByRole("button", { name: /toggle submenu/i })
-      ).toBeInTheDocument();
-    });
-
-    it("toggles submenu open on chevron click", async () => {
-      const user = userEvent.setup();
-      render(<Navbar links={links} />);
-      expect(screen.queryByText("Getting Started")).not.toBeInTheDocument();
-      await user.click(screen.getByRole("button", { name: /toggle submenu/i }));
-      expect(screen.getByText("Getting Started")).toBeInTheDocument();
-      expect(screen.getByText("API Reference")).toBeInTheDocument();
-    });
-
-    it("toggles submenu closed on second chevron click", async () => {
-      const user = userEvent.setup();
-      render(<Navbar links={links} />);
-      const toggle = screen.getByRole("button", { name: /toggle submenu/i });
-      await user.click(toggle);
-      expect(screen.getByText("Getting Started")).toBeInTheDocument();
-      await user.click(toggle);
-      expect(screen.queryByText("Getting Started")).not.toBeInTheDocument();
-    });
-
-    it("calls onSearch callback when search input changes", async () => {
+  describe("search interaction", () => {
+    it("calls onSearch callback on input change", async () => {
       const user = userEvent.setup();
       const onSearch = vi.fn();
-      render(
-        <Navbar
-          links={links}
-          search={{ placeholder: "Search...", onSearch }}
-        />
-      );
-      await user.type(screen.getByPlaceholderText("Search..."), "home");
-      expect(onSearch).toHaveBeenCalled();
+      render(<Navbar links={links} search={{ onSearch }} />);
+      await user.type(screen.getByRole("textbox"), "foo");
+      expect(onSearch).toHaveBeenCalledWith(expect.stringContaining("f"));
+    });
+  });
+
+  describe("nested links (sub-menu)", () => {
+    it("does not render child links before toggle is clicked", () => {
+      render(<Navbar links={nestedLinks} />);
+      expect(screen.queryByRole("link", { name: "Widgets" })).not.toBeInTheDocument();
+    });
+
+    it("renders child links after toggle button is clicked", async () => {
+      const user = userEvent.setup();
+      render(<Navbar links={nestedLinks} />);
+      const toggle = screen.getByRole("button", { name: /toggle submenu/i });
+      await user.click(toggle);
+      expect(screen.getByRole("link", { name: "Widgets" })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Gadgets" })).toBeInTheDocument();
+    });
+
+    it("sets aria-expanded on toggle button", async () => {
+      const user = userEvent.setup();
+      render(<Navbar links={nestedLinks} />);
+      const toggle = screen.getByRole("button", { name: /toggle submenu/i });
+      expect(toggle).toHaveAttribute("aria-expanded", "false");
+      await user.click(toggle);
+      expect(toggle).toHaveAttribute("aria-expanded", "true");
+    });
+
+    it("collapses sub-menu on second click", async () => {
+      const user = userEvent.setup();
+      render(<Navbar links={nestedLinks} />);
+      const toggle = screen.getByRole("button", { name: /toggle submenu/i });
+      await user.click(toggle);
+      await user.click(toggle);
+      expect(screen.queryByRole("link", { name: "Widgets" })).not.toBeInTheDocument();
+    });
+  });
+
+  describe("ref forwarding", () => {
+    it("forwards ref to the nav element", () => {
+      const ref = { current: null as HTMLElement | null };
+      render(<Navbar ref={ref} links={links} />);
+      expect(ref.current).toBeInstanceOf(HTMLElement);
     });
   });
 
   describe("accessibility", () => {
-    it("passes axe", async () => {
+    it("has no a11y violations", async () => {
       const { container } = render(
         <Navbar
           links={links}
           user={{ name: "Alice", email: "alice@example.com" }}
         />
       );
-      const results = await axe(container, {
-        rules: { "color-contrast": { enabled: false } },
-      });
-      expect(results).toHaveNoViolations();
+      expect(
+        await axe(container, { rules: { "color-contrast": { enabled: false } } })
+      ).toHaveNoViolations();
     });
   });
 });

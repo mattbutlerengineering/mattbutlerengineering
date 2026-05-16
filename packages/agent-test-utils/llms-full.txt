@@ -1,0 +1,74 @@
+<codebase path="packages/agent-test-utils">
+  <section priority="medium" role="src">
+  <file path="src/cost-estimator.ts">
+    export interface ModelPricing {
+      readonly model: string;
+      /** Cost per 1M input tokens in USD */
+      readonly inputCostPer1MTokens: number;
+      /** Cost per 1M output tokens in USD */
+      readonly outputCostPer1MTokens: number;
+      /** Cost per 1M cache-write tokens in USD */
+      readonly cacheWritePer1MTokens?: number;
+      /** Cost per 1M cache-read tokens in USD */
+      readonly cacheReadPer1MTokens?: number;
+    }
+    export const MODEL_PRICING: Record<string, ModelPricing> = {
+      "claude-sonnet-4-6": {
+        model: "claude-sonnet-4-6",
+        inputCostPer1MTokens: 3.0,
+        outputCostPer1MTokens: 15.0,
+        cacheWritePer1MTokens: 3.75,
+        cacheReadPer1MTokens: 0.3,
+      },
+      "claude-haiku-4-5": {
+        model: "claude-haiku-4-5",
+        inputCostPer1MTokens: 0.8,
+        outputCostPer1MTokens: 4.0,
+        cacheWritePer1MTokens: 1.0,
+        cacheReadPer1MTokens: 0.08,
+      },
+      "claude-opus-4-5": {
+        model: "claude-opus-4-5",
+        inputCostPer1MTokens: 15.0,
+        outputCostPer1MTokens: 75.0,
+        cacheWritePer1MTokens: 18.75,
+        cacheReadPer1MTokens: 1.5,
+      },
+    } as const;
+  </file>
+  <file path="src/mock-claude-client.ts">
+    export type MockMode = "replay" | "deterministic";
+    export interface MockTokenUsage {
+      readonly input_tokens: number;
+      readonly output_tokens: number;
+      readonly cache_creation_input_tokens: number;
+      readonly cache_read_input_tokens: number;
+    }
+  </file>
+  <file path="src/session-fixtures.ts">
+    export interface ToolCallRecord {
+      readonly toolName: string;
+      readonly input: Record<string, unknown>;
+      readonly output?: string;
+    }
+    export interface FixtureOptions {
+      readonly sessionId?: string;
+      readonly numTurns?: number;
+      readonly costUsd?: number;
+      readonly inputTokens?: number;
+      readonly outputTokens?: number;
+      readonly durationMs?: number;
+      readonly resultText?: string;
+      readonly toolCalls?: readonly ToolCallRecord[];
+    }
+  </file>
+  <file path="src/worktree-simulator.ts">
+    export type RepoState = "clean" | "dirty" | "conflicted";
+    export interface SimulatedFile {
+      readonly path: string;
+      readonly content: string;
+      readonly status?: "modified" | "added" | "deleted" | "conflicted";
+    }
+  </file>
+  </section>
+</codebase>

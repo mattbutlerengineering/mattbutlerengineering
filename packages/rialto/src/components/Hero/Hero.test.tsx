@@ -4,64 +4,42 @@ import { Hero } from "./Hero";
 
 describe("Hero", () => {
   describe("rendering", () => {
-    it("renders without crashing", () => {
-      render(<Hero title="Welcome" />);
-      expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
+    it("renders the title", () => {
+      render(<Hero title="Welcome to Rialto" />);
+      expect(screen.getByRole("heading", { name: /welcome to rialto/i })).toBeInTheDocument();
     });
 
-    it("renders title text", () => {
-      render(<Hero title="Precision meets warmth" />);
-      expect(screen.getByText("Precision meets warmth")).toBeInTheDocument();
-    });
-
-    it("renders eyebrow when provided", () => {
-      render(<Hero title="Title" eyebrow="Design System" />);
+    it("renders eyebrow text when provided", () => {
+      render(<Hero title="Hello" eyebrow="Design System" />);
       expect(screen.getByText("Design System")).toBeInTheDocument();
     });
 
     it("does not render eyebrow when not provided", () => {
-      render(<Hero title="Title" />);
-      expect(screen.queryByText("Design System")).not.toBeInTheDocument();
+      const { container } = render(<Hero title="Hello" />);
+      expect(container.querySelector("p")).not.toBeInTheDocument();
     });
 
     it("renders subtitle when provided", () => {
-      render(
-        <Hero
-          title="Title"
-          subtitle="A premium component library."
-        />
-      );
-      expect(screen.getByText("A premium component library.")).toBeInTheDocument();
+      render(<Hero title="Hello" subtitle="A premium design library." />);
+      expect(screen.getByText("A premium design library.")).toBeInTheDocument();
     });
 
-    it("renders actions when provided", () => {
-      render(
-        <Hero title="Title" actions={<button>Get Started</button>} />
-      );
-      expect(screen.getByRole("button", { name: "Get Started" })).toBeInTheDocument();
-    });
-
-    it("renders as a section element", () => {
-      const { container } = render(<Hero title="Title" />);
-      expect(container.querySelector("section")).toBeInTheDocument();
+    it("renders actions slot when provided", () => {
+      render(<Hero title="Hello" actions={<button type="button">Get started</button>} />);
+      expect(screen.getByRole("button", { name: /get started/i })).toBeInTheDocument();
     });
 
     it("renders divider by default", () => {
-      const { container } = render(<Hero title="Title" />);
+      const { container } = render(<Hero title="Hello" />);
       expect(container.querySelector("hr")).toBeInTheDocument();
     });
 
     it("hides divider when showDivider=false", () => {
-      const { container } = render(<Hero title="Title" showDivider={false} />);
+      const { container } = render(<Hero title="Hello" showDivider={false} />);
       expect(container.querySelector("hr")).not.toBeInTheDocument();
     });
 
-    it("applies custom className", () => {
-      const { container } = render(<Hero title="Title" className="custom-hero" />);
-      expect(container.querySelector(".custom-hero")).toBeInTheDocument();
-    });
-
-    it("renders ReactNode title (with accent span)", () => {
+    it("renders title as ReactNode with accent span", () => {
       render(
         <Hero
           title={
@@ -75,27 +53,49 @@ describe("Hero", () => {
     });
   });
 
-  describe("accessibility", () => {
-    it("passes axe", async () => {
-      const { container } = render(
-        <Hero
-          eyebrow="Design System"
-          title="Precision meets warmth"
-          subtitle="A component library."
-          actions={<button>Get started</button>}
-        />
-      );
-      const results = await axe(container, {
-        rules: { "color-contrast": { enabled: false } },
-      });
-      expect(results).toHaveNoViolations();
+  describe("layout and props", () => {
+    it("renders as a section element", () => {
+      const { container } = render(<Hero title="Hello" />);
+      expect(container.querySelector("section")).toBeInTheDocument();
     });
 
-    it("forwards aria-label to section", () => {
-      render(<Hero title="Title" aria-label="Hero section" />);
+    it("applies custom className", () => {
+      const { container } = render(<Hero title="Hello" className="custom-hero" />);
+      expect(container.firstChild).toHaveClass("custom-hero");
+    });
+
+    it("applies aria-label when provided", () => {
+      const { container } = render(<Hero title="Hello" aria-label="Page hero section" />);
+      const section = container.querySelector("section");
+      expect(section).toHaveAttribute("aria-label", "Page hero section");
+    });
+
+    it("applies custom minHeight style", () => {
+      const { container } = render(<Hero title="Hello" minHeight="50vh" />);
+      const section = container.firstChild as HTMLElement;
+      expect(section.style.minHeight).toBe("50vh");
+    });
+
+    it("forwards ref to section element", () => {
+      const ref = { current: null as HTMLElement | null };
+      render(<Hero ref={ref} title="Hello" />);
+      expect(ref.current).toBeInstanceOf(HTMLElement);
+    });
+  });
+
+  describe("accessibility", () => {
+    it("has no a11y violations", async () => {
+      const { container } = render(
+        <Hero
+          title="Welcome"
+          eyebrow="Design System"
+          subtitle="A library for premium products."
+          actions={<button type="button">Get started</button>}
+        />
+      );
       expect(
-        screen.getByRole("region", { name: "Hero section" })
-      ).toBeInTheDocument();
+        await axe(container, { rules: { "color-contrast": { enabled: false } } })
+      ).toHaveNoViolations();
     });
   });
 });

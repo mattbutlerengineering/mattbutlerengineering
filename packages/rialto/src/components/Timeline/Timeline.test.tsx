@@ -1,49 +1,55 @@
 import { render, screen } from "@testing-library/react";
 import { axe } from "vitest-axe";
-import { Timeline } from "./Timeline";
-import type { TimelineEvent } from "./Timeline";
+import { Timeline, type TimelineEvent } from "./Timeline";
 
 const events: TimelineEvent[] = [
-  { title: "Race Start", status: "completed", timestamp: "12:00" },
-  { title: "Pit Window", status: "active", description: "Optimal window" },
-  { title: "Finish", status: "upcoming" },
-  { title: "Safety Car", status: "error", description: "Incident on track" },
+  { title: "Race Start", timestamp: "14:00", status: "completed" },
+  {
+    title: "Pit Window",
+    timestamp: "14:24",
+    status: "active",
+    description: "Undercut window open",
+  },
+  { title: "Safety Car", timestamp: "14:38", status: "error" },
+  { title: "Finish", timestamp: "15:01", status: "upcoming" },
 ];
 
 describe("Timeline", () => {
   describe("rendering", () => {
-    it("renders without crashing", () => {
-      const { container } = render(<Timeline events={events} />);
-      expect(container.firstChild).toBeInTheDocument();
-    });
-
-    it("renders with role=list and aria-label", () => {
+    it("renders a list container", () => {
       render(<Timeline events={events} />);
       expect(screen.getByRole("list", { name: "Timeline" })).toBeInTheDocument();
     });
 
-    it("renders all event titles", () => {
+    it("renders all event items", () => {
+      render(<Timeline events={events} />);
+      const items = screen.getAllByRole("listitem");
+      expect(items).toHaveLength(4);
+    });
+
+    it("renders event titles", () => {
       render(<Timeline events={events} />);
       expect(screen.getByText("Race Start")).toBeInTheDocument();
       expect(screen.getByText("Pit Window")).toBeInTheDocument();
-      expect(screen.getByText("Finish")).toBeInTheDocument();
       expect(screen.getByText("Safety Car")).toBeInTheDocument();
+      expect(screen.getByText("Finish")).toBeInTheDocument();
     });
 
-    it("renders event descriptions when provided", () => {
+    it("renders event description when provided", () => {
       render(<Timeline events={events} />);
-      expect(screen.getByText("Optimal window")).toBeInTheDocument();
-      expect(screen.getByText("Incident on track")).toBeInTheDocument();
+      expect(screen.getByText("Undercut window open")).toBeInTheDocument();
     });
 
-    it("renders timestamps when provided", () => {
-      render(<Timeline events={events} />);
-      expect(screen.getByText("12:00")).toBeInTheDocument();
+    it("does not render description element when not provided", () => {
+      render(<Timeline events={[{ title: "No Desc", status: "upcoming" }]} />);
+      const item = screen.getByRole("listitem");
+      expect(item.querySelectorAll("[class*='description']")).toHaveLength(0);
     });
 
-    it("renders events as listitems", () => {
+    it("renders timestamps", () => {
       render(<Timeline events={events} />);
-      expect(screen.getAllByRole("listitem")).toHaveLength(events.length);
+      expect(screen.getByText("14:00")).toBeInTheDocument();
+      expect(screen.getByText("14:24")).toBeInTheDocument();
     });
 
     it("renders empty events array gracefully", () => {
@@ -52,37 +58,41 @@ describe("Timeline", () => {
     });
   });
 
-  describe("status variants", () => {
-    it("renders completed status", () => {
+  describe("status classes", () => {
+    it("applies completed class for completed status", () => {
       render(<Timeline events={[{ title: "Done", status: "completed" }]} />);
-      expect(screen.getByText("Done")).toBeInTheDocument();
+      const item = screen.getByRole("listitem");
+      expect(item.className).toMatch(/completed/);
     });
 
-    it("renders active status", () => {
+    it("applies active class for active status", () => {
       render(<Timeline events={[{ title: "Active", status: "active" }]} />);
-      expect(screen.getByText("Active")).toBeInTheDocument();
+      const item = screen.getByRole("listitem");
+      expect(item.className).toMatch(/active/);
     });
 
-    it("renders upcoming status (default)", () => {
-      render(<Timeline events={[{ title: "Next" }]} />);
-      expect(screen.getByText("Next")).toBeInTheDocument();
-    });
-
-    it("renders error status", () => {
+    it("applies error class for error status", () => {
       render(<Timeline events={[{ title: "Error", status: "error" }]} />);
-      expect(screen.getByText("Error")).toBeInTheDocument();
+      const item = screen.getByRole("listitem");
+      expect(item.className).toMatch(/error/);
+    });
+
+    it("defaults to upcoming when no status specified", () => {
+      render(<Timeline events={[{ title: "Upcoming" }]} />);
+      const item = screen.getByRole("listitem");
+      expect(item.className).not.toMatch(/completed|active|error/);
     });
   });
 
-  describe("compact mode", () => {
-    it("renders compact=true without crashing", () => {
-      const { container } = render(<Timeline events={events} compact />);
-      expect(container.firstChild).toBeInTheDocument();
+  describe("compact prop", () => {
+    it("renders without error in compact mode", () => {
+      render(<Timeline events={events} compact />);
+      expect(screen.getAllByRole("listitem")).toHaveLength(4);
     });
   });
 
   describe("ref forwarding", () => {
-    it("forwards ref to container div", () => {
+    it("forwards ref to the container div", () => {
       const ref = { current: null as HTMLDivElement | null };
       render(<Timeline ref={ref} events={events} />);
       expect(ref.current).toBeInstanceOf(HTMLDivElement);
@@ -90,12 +100,11 @@ describe("Timeline", () => {
   });
 
   describe("accessibility", () => {
-    it("passes axe", async () => {
+    it("has no a11y violations", async () => {
       const { container } = render(<Timeline events={events} />);
-      const results = await axe(container, {
-        rules: { "color-contrast": { enabled: false } },
-      });
-      expect(results).toHaveNoViolations();
+      expect(
+        await axe(container, { rules: { "color-contrast": { enabled: false } } })
+      ).toHaveNoViolations();
     });
   });
 });

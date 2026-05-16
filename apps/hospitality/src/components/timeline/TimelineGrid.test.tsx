@@ -26,7 +26,7 @@ vi.mock("./TimelineGrid.module.css", () => ({
   },
 }));
 
-// Mock child components
+/* eslint-disable mbe-local/prefer-rialto-components */
 vi.mock("./ReservationBlock", () => ({
   ReservationBlock: ({
     reservation,

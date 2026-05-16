@@ -13,25 +13,13 @@ describe("ScrollArea", () => {
       expect(screen.getByText("Scrollable content")).toBeInTheDocument();
     });
 
-    it("has role=region", () => {
+    it("renders with role=region and accessible label", () => {
       render(
         <ScrollArea>
           <p>Content</p>
         </ScrollArea>
       );
-      expect(screen.getByRole("region")).toBeInTheDocument();
-    });
-
-    it("has aria-label", () => {
-      render(
-        <ScrollArea>
-          <p>Content</p>
-        </ScrollArea>
-      );
-      expect(screen.getByRole("region")).toHaveAttribute(
-        "aria-label",
-        "Scrollable content"
-      );
+      expect(screen.getByRole("region", { name: "Scrollable content" })).toBeInTheDocument();
     });
 
     it("is keyboard focusable (tabIndex=0)", () => {
@@ -40,10 +28,12 @@ describe("ScrollArea", () => {
           <p>Content</p>
         </ScrollArea>
       );
-      expect(screen.getByRole("region")).toHaveAttribute("tabIndex", "0");
+      expect(screen.getByRole("region")).toHaveAttribute("tabindex", "0");
     });
+  });
 
-    it("applies maxHeight as a number", () => {
+  describe("maxHeight prop", () => {
+    it("applies numeric maxHeight as px style", () => {
       render(
         <ScrollArea maxHeight={240}>
           <p>Content</p>
@@ -52,7 +42,7 @@ describe("ScrollArea", () => {
       expect(screen.getByRole("region")).toHaveStyle({ maxHeight: "240px" });
     });
 
-    it("applies maxHeight as a string", () => {
+    it("applies string maxHeight directly", () => {
       render(
         <ScrollArea maxHeight="50vh">
           <p>Content</p>
@@ -61,27 +51,30 @@ describe("ScrollArea", () => {
       expect(screen.getByRole("region")).toHaveStyle({ maxHeight: "50vh" });
     });
 
-    it("applies custom className", () => {
-      const { container } = render(
-        <ScrollArea className="custom-scroll">
-          <p>Content</p>
-        </ScrollArea>
-      );
-      expect(container.querySelector(".custom-scroll")).toBeInTheDocument();
-    });
-
-    it("forwards additional props", () => {
+    it("renders without maxHeight (no inline style constraint)", () => {
       render(
-        <ScrollArea data-testid="scroll-area">
+        <ScrollArea>
           <p>Content</p>
         </ScrollArea>
       );
-      expect(screen.getByTestId("scroll-area")).toBeInTheDocument();
+      const el = screen.getByRole("region");
+      expect(el.style.maxHeight).toBe("");
+    });
+  });
+
+  describe("className passthrough", () => {
+    it("merges className with root class", () => {
+      render(
+        <ScrollArea className="my-scroll">
+          <p>Content</p>
+        </ScrollArea>
+      );
+      expect(screen.getByRole("region")).toHaveClass("my-scroll");
     });
   });
 
   describe("ref forwarding", () => {
-    it("forwards ref to root div", () => {
+    it("forwards ref to the div element", () => {
       const ref = { current: null as HTMLDivElement | null };
       render(
         <ScrollArea ref={ref}>
@@ -99,10 +92,9 @@ describe("ScrollArea", () => {
           <p>Long scrollable content goes here.</p>
         </ScrollArea>
       );
-      const results = await axe(container, {
-        rules: { "color-contrast": { enabled: false } },
-      });
-      expect(results).toHaveNoViolations();
+      expect(
+        await axe(container, { rules: { "color-contrast": { enabled: false } } })
+      ).toHaveNoViolations();
     });
   });
 });

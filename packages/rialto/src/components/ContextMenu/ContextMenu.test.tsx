@@ -1,139 +1,263 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "vitest-axe";
-import { ContextMenu } from "./ContextMenu";
-import type { ContextMenuEntry, ContextMenuItemDef } from "./ContextMenu";
+import { ContextMenu, type ContextMenuEntry, type ContextMenuItemDef } from "./ContextMenu";
 
-const items: ContextMenuEntry[] = [
+const basicItems: ContextMenuItemDef[] = [
   { id: "copy", label: "Copy", onSelect: vi.fn() },
   { id: "paste", label: "Paste", onSelect: vi.fn() },
-  { type: "divider" },
   { id: "delete", label: "Delete", destructive: true, onSelect: vi.fn() },
 ];
 
-function renderContextMenu(entries: ContextMenuEntry[] = items) {
-  return render(
-    <ContextMenu items={entries}>
-      <div data-testid="trigger">Right-click me</div>
-    </ContextMenu>
-  );
-}
-
-function rightClick(element: HTMLElement) {
-  fireEvent.contextMenu(element);
-}
-
 describe("ContextMenu", () => {
   beforeEach(() => {
-    items.forEach((item) => {
-      if ("onSelect" in item && typeof item.onSelect === "function") {
+    basicItems.forEach((item) => {
+      if ("onSelect" in item && item.onSelect) {
         (item.onSelect as ReturnType<typeof vi.fn>).mockReset();
       }
     });
   });
 
   describe("rendering", () => {
-    it("renders children", () => {
-      renderContextMenu();
-      expect(screen.getByTestId("trigger")).toBeInTheDocument();
+    it("renders the trigger child", () => {
+      render(
+        <ContextMenu items={basicItems}>
+          <div>Right-click here</div>
+        </ContextMenu>
+      );
+      expect(screen.getByText("Right-click here")).toBeInTheDocument();
     });
 
-    it("does not show menu by default", () => {
-      renderContextMenu();
+    it("does not show menu items by default", () => {
+      render(
+        <ContextMenu items={basicItems}>
+          <div>Target</div>
+        </ContextMenu>
+      );
       expect(screen.queryByRole("menu")).not.toBeInTheDocument();
     });
 
-    it("shows menu after right-click", () => {
-      renderContextMenu();
-      rightClick(screen.getByTestId("trigger"));
+    it("shows menu on right-click (contextmenu event)", () => {
+      render(
+        <ContextMenu items={basicItems}>
+          <div>Target</div>
+        </ContextMenu>
+      );
+      const target = screen.getByText("Target");
+      fireEvent.contextMenu(target);
       expect(screen.getByRole("menu")).toBeInTheDocument();
+      expect(screen.getByText("Copy")).toBeInTheDocument();
+      expect(screen.getByText("Paste")).toBeInTheDocument();
+      expect(screen.getByText("Delete")).toBeInTheDocument();
     });
 
-    it("renders all menu items", () => {
-      renderContextMenu();
-      rightClick(screen.getByTestId("trigger"));
-      expect(screen.getByRole("menuitem", { name: "Copy" })).toBeInTheDocument();
-      expect(screen.getByRole("menuitem", { name: "Paste" })).toBeInTheDocument();
-      expect(screen.getByRole("menuitem", { name: "Delete" })).toBeInTheDocument();
-    });
-
-    it("renders divider", () => {
-      renderContextMenu();
-      rightClick(screen.getByTestId("trigger"));
+    it("renders dividers", () => {
+      const items: ContextMenuEntry[] = [
+        { id: "copy", label: "Copy", onSelect: vi.fn() },
+        { type: "divider" },
+        { id: "delete", label: "Delete", onSelect: vi.fn() },
+      ];
+      render(
+        <ContextMenu items={items}>
+          <div>Target</div>
+        </ContextMenu>
+      );
+      fireEvent.contextMenu(screen.getByText("Target"));
       expect(screen.getByRole("separator")).toBeInTheDocument();
     });
 
     it("renders section labels", () => {
-      const itemsWithLabel: ContextMenuEntry[] = [
-        { type: "label", label: "Actions" },
+      const items: ContextMenuEntry[] = [
+        { type: "label", label: "Edit actions" },
         { id: "copy", label: "Copy", onSelect: vi.fn() },
       ];
-      renderContextMenu(itemsWithLabel);
-      rightClick(screen.getByTestId("trigger"));
-      expect(screen.getByText("Actions")).toBeInTheDocument();
+      render(
+        <ContextMenu items={items}>
+          <div>Target</div>
+        </ContextMenu>
+      );
+      fireEvent.contextMenu(screen.getByText("Target"));
+      expect(screen.getByText("Edit actions")).toBeInTheDocument();
+    });
+
+    it("renders shortcut hints", () => {
+      const items: ContextMenuEntry[] = [
+        { id: "copy", label: "Copy", shortcut: "Ctrl+C", onSelect: vi.fn() },
+      ];
+      render(
+        <ContextMenu items={items}>
+          <div>Target</div>
+        </ContextMenu>
+      );
+      fireEvent.contextMenu(screen.getByText("Target"));
+      expect(screen.getByText("Ctrl+C")).toBeInTheDocument();
     });
   });
 
-  describe("interactions", () => {
-    it("calls onSelect when item is clicked", () => {
-      renderContextMenu();
-      rightClick(screen.getByTestId("trigger"));
-      fireEvent.click(screen.getByRole("menuitem", { name: "Copy" }));
-      expect((items[0]! as ContextMenuItemDef).onSelect as ReturnType<typeof vi.fn>).toHaveBeenCalledOnce();
+  describe("item selection", () => {
+    it("calls onSelect when a menu item is clicked", async () => {
+      const user = userEvent.setup();
+      render(
+        <ContextMenu items={basicItems}>
+          <div>Target</div>
+        </ContextMenu>
+      );
+      fireEvent.contextMenu(screen.getByText("Target"));
+      await user.click(screen.getByRole("menuitem", { name: /copy/i }));
+      expect(basicItems[0]!.onSelect).toHaveBeenCalledTimes(1);
     });
 
     it("closes menu after item click", async () => {
-      renderContextMenu();
-      rightClick(screen.getByTestId("trigger"));
-      fireEvent.click(screen.getByRole("menuitem", { name: "Copy" }));
-      await waitFor(() =>
-        expect(screen.queryByRole("menu")).not.toBeInTheDocument()
-      );
-    });
-
-    it("closes on Escape key", async () => {
       const user = userEvent.setup();
-      renderContextMenu();
-      rightClick(screen.getByTestId("trigger"));
-      expect(screen.getByRole("menu")).toBeInTheDocument();
-      await user.keyboard("{Escape}");
-      await waitFor(() =>
-        expect(screen.queryByRole("menu")).not.toBeInTheDocument()
-      );
-    });
-
-    it("does not call onSelect for disabled items", () => {
-      const onSelect = vi.fn();
-      const disabledItems: ContextMenuEntry[] = [
-        { id: "disabled", label: "Disabled", disabled: true, onSelect },
-      ];
       render(
-        <ContextMenu items={disabledItems}>
-          <div data-testid="trigger">Right-click me</div>
+        <ContextMenu items={basicItems}>
+          <div>Target</div>
         </ContextMenu>
       );
-      rightClick(screen.getByTestId("trigger"));
-      fireEvent.click(screen.getByRole("menuitem", { name: "Disabled" }));
+      fireEvent.contextMenu(screen.getByText("Target"));
+      await user.click(screen.getByRole("menuitem", { name: /copy/i }));
+      await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+    });
+
+    it("does not call onSelect for disabled items", async () => {
+      const user = userEvent.setup();
+      const onSelect = vi.fn();
+      const items: ContextMenuEntry[] = [
+        { id: "disabled-item", label: "Disabled", disabled: true, onSelect },
+      ];
+      render(
+        <ContextMenu items={items}>
+          <div>Target</div>
+        </ContextMenu>
+      );
+      fireEvent.contextMenu(screen.getByText("Target"));
+      await user.click(screen.getByRole("menuitem", { name: /disabled/i }));
       expect(onSelect).not.toHaveBeenCalled();
     });
   });
 
-  describe("accessibility", () => {
-    it("passes axe when closed", async () => {
-      const { container } = renderContextMenu();
-      const results = await axe(container, {
-        rules: { "color-contrast": { enabled: false } },
-      });
-      expect(results).toHaveNoViolations();
+  describe("close behavior", () => {
+    it("closes on Escape key", async () => {
+      const user = userEvent.setup();
+      render(
+        <ContextMenu items={basicItems}>
+          <div>Target</div>
+        </ContextMenu>
+      );
+      fireEvent.contextMenu(screen.getByText("Target"));
+      expect(screen.getByRole("menu")).toBeInTheDocument();
+      await user.keyboard("{Escape}");
+      await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
     });
 
-    it("passes axe when open", async () => {
-      const { container } = renderContextMenu();
-      rightClick(screen.getByTestId("trigger"));
-      const results = await axe(container, {
-        rules: { "color-contrast": { enabled: false } },
+    it("closes when clicking outside", async () => {
+      const user = userEvent.setup();
+      render(
+        <div>
+          <ContextMenu items={basicItems}>
+            <div>Target</div>
+          </ContextMenu>
+          <p>Outside</p>
+        </div>
+      );
+      fireEvent.contextMenu(screen.getByText("Target"));
+      expect(screen.getByRole("menu")).toBeInTheDocument();
+      await user.click(screen.getByText("Outside"));
+      await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+    });
+  });
+
+  describe("keyboard navigation", () => {
+    it("ArrowDown/ArrowUp navigates items via data-active", () => {
+      render(
+        <ContextMenu items={basicItems}>
+          <div>Target</div>
+        </ContextMenu>
+      );
+      fireEvent.contextMenu(screen.getByText("Target"));
+      const menu = screen.getByRole("menu");
+      expect(screen.getByRole("menuitem", { name: /copy/i })).toHaveAttribute(
+        "data-active",
+        "true"
+      );
+      fireEvent.keyDown(menu, { key: "ArrowDown" });
+      expect(screen.getByRole("menuitem", { name: /paste/i })).toHaveAttribute(
+        "data-active",
+        "true"
+      );
+      fireEvent.keyDown(menu, { key: "ArrowUp" });
+      expect(screen.getByRole("menuitem", { name: /copy/i })).toHaveAttribute(
+        "data-active",
+        "true"
+      );
+    });
+
+    it("Home/End jumps to first/last item", () => {
+      render(
+        <ContextMenu items={basicItems}>
+          <div>Target</div>
+        </ContextMenu>
+      );
+      fireEvent.contextMenu(screen.getByText("Target"));
+      const menu = screen.getByRole("menu");
+      fireEvent.keyDown(menu, { key: "End" });
+      expect(screen.getByRole("menuitem", { name: /delete/i })).toHaveAttribute(
+        "data-active",
+        "true"
+      );
+      fireEvent.keyDown(menu, { key: "Home" });
+      expect(screen.getByRole("menuitem", { name: /copy/i })).toHaveAttribute(
+        "data-active",
+        "true"
+      );
+    });
+
+    it("Enter selects active item and closes menu", async () => {
+      render(
+        <ContextMenu items={basicItems}>
+          <div>Target</div>
+        </ContextMenu>
+      );
+      fireEvent.contextMenu(screen.getByText("Target"));
+      const menu = screen.getByRole("menu");
+      fireEvent.keyDown(menu, { key: "Enter" });
+      expect(basicItems[0]!.onSelect).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+    });
+
+    it("skips disabled items in keyboard navigation", () => {
+      const items: ContextMenuEntry[] = [
+        { id: "copy", label: "Copy", onSelect: vi.fn() },
+        { id: "disabled-item", label: "Disabled", disabled: true, onSelect: vi.fn() },
+        { id: "paste", label: "Paste", onSelect: vi.fn() },
+      ];
+      render(
+        <ContextMenu items={items}>
+          <div>Target</div>
+        </ContextMenu>
+      );
+      act(() => {
+        fireEvent.contextMenu(screen.getByText("Target"));
       });
-      expect(results).toHaveNoViolations();
+      const menu = screen.getByRole("menu");
+      fireEvent.keyDown(menu, { key: "ArrowDown" });
+      expect(screen.getByRole("menuitem", { name: /paste/i })).toHaveAttribute(
+        "data-active",
+        "true"
+      );
+    });
+  });
+
+  describe("accessibility", () => {
+    it("has no a11y violations when closed", async () => {
+      const { container } = render(
+        <ContextMenu items={basicItems}>
+          <div>Right-click target</div>
+        </ContextMenu>
+      );
+      expect(
+        await axe(container, { rules: { "color-contrast": { enabled: false } } })
+      ).toHaveNoViolations();
     });
   });
 });

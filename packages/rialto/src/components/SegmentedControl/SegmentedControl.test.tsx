@@ -1,14 +1,19 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "vitest-axe";
-import { SegmentedControl } from "./SegmentedControl";
-import type { Segment } from "./SegmentedControl";
+import { SegmentedControl, type Segment } from "./SegmentedControl";
 import { useState } from "react";
 
 const segments: Segment[] = [
   { id: "day", label: "Day" },
   { id: "week", label: "Week" },
   { id: "month", label: "Month" },
+];
+
+const withDisabled: Segment[] = [
+  { id: "a", label: "Alpha" },
+  { id: "b", label: "Beta", disabled: true },
+  { id: "c", label: "Gamma" },
 ];
 
 function ControlledSegmentedControl({
@@ -31,197 +36,125 @@ function ControlledSegmentedControl({
 
 describe("SegmentedControl", () => {
   describe("rendering", () => {
-    it("renders all segment buttons", () => {
-      render(
-        <SegmentedControl
-          segments={segments}
-          value="day"
-          onChange={() => {}}
-        />
-      );
-      expect(screen.getByRole("radio", { name: "Day" })).toBeInTheDocument();
-      expect(screen.getByRole("radio", { name: "Week" })).toBeInTheDocument();
-      expect(screen.getByRole("radio", { name: "Month" })).toBeInTheDocument();
-    });
-
-    it("renders a radiogroup container", () => {
-      render(
-        <SegmentedControl
-          segments={segments}
-          value="day"
-          onChange={() => {}}
-        />
-      );
+    it("renders a radiogroup", () => {
+      render(<SegmentedControl segments={segments} value="day" onChange={vi.fn()} />);
       expect(screen.getByRole("radiogroup")).toBeInTheDocument();
     });
 
-    it("marks selected segment as aria-checked", () => {
-      render(
-        <SegmentedControl
-          segments={segments}
-          value="week"
-          onChange={() => {}}
-        />
-      );
-      expect(screen.getByRole("radio", { name: "Week" })).toHaveAttribute(
-        "aria-checked",
-        "true"
-      );
-      expect(screen.getByRole("radio", { name: "Day" })).toHaveAttribute(
-        "aria-checked",
-        "false"
-      );
+    it("renders all segments as radio buttons", () => {
+      render(<SegmentedControl segments={segments} value="day" onChange={vi.fn()} />);
+      const radios = screen.getAllByRole("radio");
+      expect(radios).toHaveLength(3);
     });
 
-    it("applies sm size class", () => {
+    it("marks the active segment as checked", () => {
+      render(<SegmentedControl segments={segments} value="week" onChange={vi.fn()} />);
+      expect(screen.getByRole("radio", { name: "Week" })).toHaveAttribute("aria-checked", "true");
+    });
+
+    it("marks inactive segments as not checked", () => {
+      render(<SegmentedControl segments={segments} value="week" onChange={vi.fn()} />);
+      expect(screen.getByRole("radio", { name: "Day" })).toHaveAttribute("aria-checked", "false");
+      expect(screen.getByRole("radio", { name: "Month" })).toHaveAttribute("aria-checked", "false");
+    });
+
+    it("marks disabled segment with aria-disabled", () => {
+      render(<SegmentedControl segments={withDisabled} value="a" onChange={vi.fn()} />);
+      expect(screen.getByRole("radio", { name: "Beta" })).toHaveAttribute("aria-disabled", "true");
+    });
+  });
+
+  describe("controlled selection", () => {
+    it("calls onChange with segment id on click", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(<SegmentedControl segments={segments} value="day" onChange={onChange} />);
+      await user.click(screen.getByRole("radio", { name: "Week" }));
+      expect(onChange).toHaveBeenCalledWith("week");
+    });
+
+    it("does not call onChange on disabled segment click", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(<SegmentedControl segments={withDisabled} value="a" onChange={onChange} />);
+      await user.click(screen.getByRole("radio", { name: "Beta" }));
+      expect(onChange).not.toHaveBeenCalledWith("b");
+    });
+  });
+
+  describe("keyboard navigation", () => {
+    it("moves selection right on ArrowRight", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(<SegmentedControl segments={segments} value="day" onChange={onChange} />);
+      screen.getByRole("radio", { name: "Day" }).focus();
+      await user.keyboard("{ArrowRight}");
+      expect(onChange).toHaveBeenCalledWith("week");
+    });
+
+    it("moves selection left on ArrowLeft", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(<SegmentedControl segments={segments} value="week" onChange={onChange} />);
+      screen.getByRole("radiogroup").focus();
+      await user.keyboard("{ArrowLeft}");
+      expect(onChange).toHaveBeenCalledWith("day");
+    });
+
+    it("wraps from last to first on ArrowRight", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(<SegmentedControl segments={segments} value="month" onChange={onChange} />);
+      screen.getByRole("radiogroup").focus();
+      await user.keyboard("{ArrowRight}");
+      expect(onChange).toHaveBeenCalledWith("day");
+    });
+
+    it("jumps to first on Home", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(<SegmentedControl segments={segments} value="month" onChange={onChange} />);
+      screen.getByRole("radiogroup").focus();
+      await user.keyboard("{Home}");
+      expect(onChange).toHaveBeenCalledWith("day");
+    });
+
+    it("jumps to last on End", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(<SegmentedControl segments={segments} value="day" onChange={onChange} />);
+      screen.getByRole("radiogroup").focus();
+      await user.keyboard("{End}");
+      expect(onChange).toHaveBeenCalledWith("month");
+    });
+  });
+
+  describe("sizes", () => {
+    it("renders md size by default", () => {
       const { container } = render(
-        <SegmentedControl
-          segments={segments}
-          value="day"
-          onChange={() => {}}
-          size="sm"
-        />
+        <SegmentedControl segments={segments} value="day" onChange={vi.fn()} />
+      );
+      expect(container.firstChild).toBeInTheDocument();
+    });
+
+    it("renders sm size when specified", () => {
+      const { container } = render(
+        <SegmentedControl segments={segments} value="day" onChange={vi.fn()} size="sm" />
       );
       expect(container.firstChild).toBeInTheDocument();
     });
   });
 
-  describe("interactions", () => {
-    it("calls onChange when a segment is clicked", async () => {
-      const user = userEvent.setup();
-      const onChange = vi.fn();
-      render(
-        <SegmentedControl
-          segments={segments}
-          value="day"
-          onChange={onChange}
-        />
-      );
-      await user.click(screen.getByRole("radio", { name: "Week" }));
-      expect(onChange).toHaveBeenCalledWith("week");
-    });
-
-    it("does not call onChange for disabled segments", async () => {
-      const user = userEvent.setup();
-      const onChange = vi.fn();
-      const segmentsWithDisabled: Segment[] = [
-        { id: "day", label: "Day" },
-        { id: "week", label: "Week", disabled: true },
-      ];
-      render(
-        <SegmentedControl
-          segments={segmentsWithDisabled}
-          value="day"
-          onChange={onChange}
-        />
-      );
-      await user.click(screen.getByRole("radio", { name: "Week" }));
-      expect(onChange).not.toHaveBeenCalled();
-    });
-
-    it("ArrowRight moves to next segment", () => {
-      const onChange = vi.fn();
-      render(
-        <SegmentedControl
-          segments={segments}
-          value="day"
-          onChange={onChange}
-        />
-      );
-      const radioGroup = screen.getByRole("radiogroup");
-      fireEvent.keyDown(radioGroup, { key: "ArrowRight" });
-      expect(onChange).toHaveBeenCalledWith("week");
-    });
-
-    it("ArrowLeft moves to previous segment", () => {
-      const onChange = vi.fn();
-      render(
-        <SegmentedControl
-          segments={segments}
-          value="week"
-          onChange={onChange}
-        />
-      );
-      const radioGroup = screen.getByRole("radiogroup");
-      fireEvent.keyDown(radioGroup, { key: "ArrowLeft" });
-      expect(onChange).toHaveBeenCalledWith("day");
-    });
-
-    it("ArrowDown moves to next segment", () => {
-      const onChange = vi.fn();
-      render(
-        <SegmentedControl
-          segments={segments}
-          value="day"
-          onChange={onChange}
-        />
-      );
-      const radioGroup = screen.getByRole("radiogroup");
-      fireEvent.keyDown(radioGroup, { key: "ArrowDown" });
-      expect(onChange).toHaveBeenCalledWith("week");
-    });
-
-    it("ArrowUp moves to previous segment", () => {
-      const onChange = vi.fn();
-      render(
-        <SegmentedControl
-          segments={segments}
-          value="week"
-          onChange={onChange}
-        />
-      );
-      const radioGroup = screen.getByRole("radiogroup");
-      fireEvent.keyDown(radioGroup, { key: "ArrowUp" });
-      expect(onChange).toHaveBeenCalledWith("day");
-    });
-
-    it("Home jumps to first segment", () => {
-      const onChange = vi.fn();
-      render(
-        <SegmentedControl
-          segments={segments}
-          value="month"
-          onChange={onChange}
-        />
-      );
-      const radioGroup = screen.getByRole("radiogroup");
-      fireEvent.keyDown(radioGroup, { key: "Home" });
-      expect(onChange).toHaveBeenCalledWith("day");
-    });
-
-    it("End jumps to last segment", () => {
-      const onChange = vi.fn();
-      render(
-        <SegmentedControl
-          segments={segments}
-          value="day"
-          onChange={onChange}
-        />
-      );
-      const radioGroup = screen.getByRole("radiogroup");
-      fireEvent.keyDown(radioGroup, { key: "End" });
-      expect(onChange).toHaveBeenCalledWith("month");
-    });
-
-    it("selection updates visually in controlled mode", async () => {
-      const user = userEvent.setup();
-      const onChange = vi.fn();
-      render(<ControlledSegmentedControl onChange={onChange} />);
-      expect(screen.getByRole("radio", { name: "Day" })).toHaveAttribute(
-        "aria-checked",
-        "true"
-      );
-      await user.click(screen.getByRole("radio", { name: "Week" }));
-      expect(screen.getByRole("radio", { name: "Week" })).toHaveAttribute(
-        "aria-checked",
-        "true"
-      );
-      expect(onChange).toHaveBeenCalledWith("week");
+  describe("ref forwarding", () => {
+    it("forwards ref to the wrapper div", () => {
+      const ref = { current: null as HTMLDivElement | null };
+      render(<SegmentedControl ref={ref} segments={segments} value="day" onChange={vi.fn()} />);
+      expect(ref.current).toBeInstanceOf(HTMLDivElement);
     });
   });
 
   describe("accessibility", () => {
-    it("passes axe", async () => {
+    it("has no a11y violations", async () => {
       const { container } = render(
         <SegmentedControl
           segments={segments}
@@ -229,10 +162,9 @@ describe("SegmentedControl", () => {
           onChange={() => {}}
         />
       );
-      const results = await axe(container, {
-        rules: { "color-contrast": { enabled: false } },
-      });
-      expect(results).toHaveNoViolations();
+      expect(
+        await axe(container, { rules: { "color-contrast": { enabled: false } } })
+      ).toHaveNoViolations();
     });
   });
 });

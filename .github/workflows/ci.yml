@@ -331,10 +331,12 @@ jobs:
         run: |
           for pkg in packages/* apps/* services/*; do
             if [ -f "$pkg/llms.txt" ]; then
-              echo "Checking $pkg..."
-              node tools/cli/dist/index.js pack "$pkg" --check
+              echo "Regenerating $pkg..."
+              node tools/cli/dist/index.js pack "$pkg"
             fi
           done
+          git diff --exit-code -- '*/llms.txt' '*/llms-full.txt' || \
+            (echo "ERROR: llms.txt files are out of sync. Run 'pnpm pack-changed' locally and commit." && exit 1)
 
       - name: Check for instruction rot
         run: node scripts/detect-instruction-rot.mjs
@@ -504,7 +506,8 @@ jobs:
       - name: Upload coverage reports
         uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6
         with:
-          files: ./packages/auth/coverage/coverage-final.json,./services/users/coverage/coverage-final.json,./packages/agent-core/coverage/coverage-final.json
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./packages/auth/coverage/coverage-final.json,./packages/agent-core/coverage/coverage-final.json,./packages/rialto/coverage/coverage-final.json,./packages/rialto-catalog/coverage/coverage-final.json,./services/users/coverage/coverage-final.json,./services/reservations/coverage/coverage-final.json,./services/agent/coverage/coverage-final.json,./apps/hospitality/coverage/coverage-final.json,./infrastructure/pulumi/coverage/coverage-final.json
           fail_ci_if_error: false
           verbose: true
 
