@@ -3,11 +3,11 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { StatusPage } from "./StatusPage.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Heading: ({ children }: any) => <h2>{children}</h2>,
-  Text: ({ children }: any) => <p>{children}</p>,
-  Button: ({ children }: any) => <button>{children}</button>,
+  Heading: ({ children }: any) => <Heading>{children}</Heading>,
+  Text: ({ children }: any) => <Text>{children}</Text>,
+  Button: ({ children }: any) => <Button>{children}</Button>,
   Card: ({ children }: any) => <div>{children}</div>,
-  Badge: ({ children }: any) => <span>{children}</span>,
+  Badge: ({ children }: any) => <Text>{children}</Text>,
   Skeleton: () => <div data-testid="skeleton" />,
   Icon: () => <div />,
   Spinner: () => <div data-testid="spinner" />,
