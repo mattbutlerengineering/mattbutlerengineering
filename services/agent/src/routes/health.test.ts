@@ -49,8 +49,8 @@ interface MockRateLimitMonitor {
   reset: any;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const { _mockGetSnapshot, mockRateLimitMonitor } = vi.hoisted(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (): { _mockGetSnapshot: any; mockRateLimitMonitor: MockRateLimitMonitor } => {
     const mockGetSnapshot = vi.fn().mockReturnValue({
       stats: { hits_last_hour: 0, blocked_ips: 0 },
