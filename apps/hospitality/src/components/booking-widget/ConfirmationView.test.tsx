@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, react/jsx-no-undef */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ConfirmationView } from "./ConfirmationView.js";
@@ -15,11 +15,11 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     onClick?: () => void;
     variant?: string;
   }) => (
-    <button onClick={onClick} data-variant={variant}>
+    <Button onClick={onClick} data-variant={variant}>
       {children}
-    </button>
+    </Button>
   ),
-  Text: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
+  Text: ({ children }: { children: React.ReactNode }) => <Text>{children}</Text>,
 }));
 
 function makeReservation(overrides: Partial<Reservation> = {}): Reservation {

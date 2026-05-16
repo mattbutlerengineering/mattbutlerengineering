@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, react/jsx-no-undef, @eslint-react/no-array-index-key */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -15,8 +15,8 @@ vi.mock("../contexts/VenueContext.js", () => ({ useVenue: vi.fn() }));
 vi.mock("../components/PageHeader", () => ({
   PageHeader: ({ title, description }: any) => (
     <div data-testid="page-header">
-      <h1>{title}</h1>
-      <p>{description}</p>
+      <Heading>{title}</Heading>
+      <Text>{description}</Text>
     </div>
   ),
 }));
@@ -27,11 +27,11 @@ vi.mock("../components/ErrorRetryBanner", () => ({
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Alert: ({ children }: any) => <div data-testid="alert">{children}</div>,
-  Badge: ({ children }: any) => <span data-testid="badge">{children}</span>,
+  Badge: ({ children }: any) => <Text data-testid="badge">{children}</Text>,
   Button: ({ children, onClick, disabled }: any) => (
-    <button onClick={onClick} disabled={disabled}>
+    <Button onClick={onClick} disabled={disabled}>
       {children}
-    </button>
+    </Button>
   ),
   Card: ({ children, title }: any) => (
     <div data-testid="card">
@@ -53,7 +53,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Dialog: ({ children, open, title, footer }: any) =>
     open ? (
       <div data-testid="dialog">
-        <h2>{title}</h2>
+        <Heading>{title}</Heading>
         {children}
         {footer}
       </div>
@@ -68,8 +68,8 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     ) : null,
   EmptyState: ({ heading, description }: any) => (
     <div data-testid="empty-state">
-      <span>{heading}</span>
-      <span>{description}</span>
+      <Text>{heading}</Text>
+      <Text>{description}</Text>
     </div>
   ),
   Input: (props: any) => {
@@ -77,7 +77,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     return (
       <div>
         <label htmlFor={id}>{props.label}</label>
-        <input
+        <Input
           id={id}
           value={props.value ?? ""}
           onChange={props.onChange}
@@ -104,14 +104,14 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Stack: ({ children }: any) => <div>{children}</div>,
   Stat: ({ label, value }: any) => (
     <div data-testid="stat">
-      <span>{label}</span>
-      <span>{value}</span>
+      <Text>{label}</Text>
+      <Text>{value}</Text>
     </div>
   ),
-  Tag: ({ children }: any) => <span data-testid="tag">{children}</span>,
-  Text: ({ children }: any) => <span>{children}</span>,
+  Tag: ({ children }: any) => <Text data-testid="tag">{children}</Text>,
+  Text: ({ children }: any) => <Text>{children}</Text>,
   TextArea: (props: any) => (
-    <textarea data-testid="textarea" value={props.value} onChange={(e) => props.onChange?.(e)} />
+    <TextArea data-testid="textarea" value={props.value} onChange={(e) => props.onChange?.(e)} />
   ),
 }));
 

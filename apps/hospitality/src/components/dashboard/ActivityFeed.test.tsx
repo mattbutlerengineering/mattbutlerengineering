@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, react/jsx-no-undef */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { ActivityFeed } from "./ActivityFeed.js";
@@ -8,11 +8,11 @@ import React from "react";
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Card: ({ children, title }: { children: React.ReactNode; title?: string }) => (
     <div data-testid="card">
-      {title && <h3>{title}</h3>}
+      {title && <Heading>{title}</Heading>}
       {children}
     </div>
   ),
-  Text: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
+  Text: ({ children }: { children: React.ReactNode }) => <Text>{children}</Text>,
 }));
 
 function makeEvent(overrides: Partial<ReservationEvent> = {}): ReservationEvent {

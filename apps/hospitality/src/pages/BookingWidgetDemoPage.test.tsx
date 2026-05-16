@@ -1,4 +1,4 @@
-/* eslint-disable react/jsx-no-undef, @typescript-eslint/no-explicit-any, @eslint-react/no-array-index-key */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import { BookingWidgetDemoPage } from "./BookingWidgetDemoPage.js";
@@ -53,31 +53,31 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     <div data-testid="alert" data-variant={variant}>
       {children}
       {dismissible && (
-        <button onClick={onDismiss} data-testid="alert-dismiss">
+        <Button onClick={onDismiss} data-testid="alert-dismiss">
           Dismiss
-        </button>
+        </Button>
       )}
     </div>
   ),
-  Badge: ({ children }: any) => <span data-testid="badge">{children}</span>,
+  Badge: ({ children }: any) => <Text data-testid="badge">{children}</Text>,
   Button: ({ children, onClick, variant, size }: any) => (
-    <button onClick={onClick} data-variant={variant} data-size={size}>
+    <Button onClick={onClick} data-variant={variant} data-size={size}>
       {children}
-    </button>
+    </Button>
   ),
   Card: ({ children }: any) => <div data-testid="card">{children}</div>,
   Divider: () => <hr data-testid="divider" />,
   SegmentedControl: ({ segments, value, onChange }: any) => (
     <div data-testid="segmented-control">
       {segments?.map((s: any) => (
-        <button
+        <Button
           key={s.id}
           data-testid={`segment-${s.id}`}
           data-active={s.id === value}
           onClick={() => onChange?.(s.id)}
         >
           {s.label}
-        </button>
+        </Button>
       ))}
     </div>
   ),
@@ -97,7 +97,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Skeleton: () => <div data-testid="skeleton" />,
   SkeletonGroup: ({ children }: any) => <div data-testid="skeleton-group">{children}</div>,
   Stack: ({ children }: any) => <div>{children}</div>,
-  Text: ({ children }: any) => <span>{children}</span>,
+  Text: ({ children }: any) => <Text>{children}</Text>,
 }));
 
 /* ── Clipboard mock ────────────────────────────, @eslint-react/no-array-index-key */

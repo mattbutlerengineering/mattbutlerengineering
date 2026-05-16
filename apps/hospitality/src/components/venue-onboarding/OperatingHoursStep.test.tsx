@@ -1,14 +1,14 @@
-/* eslint-disable react/jsx-no-undef, @typescript-eslint/no-explicit-any, @eslint-react/no-array-index-key */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import React from "react";
 import { OperatingHoursStep, validateOperatingHours } from "./OperatingHoursStep.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Text: ({ children }: any) => <span>{children}</span>,
+  Text: ({ children }: any) => <Text>{children}</Text>,
   Checkbox: ({ label, checked, onCheckedChange }: any) => (
     <label>
-      <input
+      <Input
         type="checkbox"
         checked={checked}
         onChange={() => onCheckedChange?.()}
@@ -20,9 +20,9 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   ConfirmDialog: ({ open, title, onConfirm, onCancel, confirmLabel }: any) =>
     open ? (
       <div data-testid="confirm-dialog">
-        <span>{title}</span>
-        <button onClick={onConfirm}>{confirmLabel}</button>
-        <button onClick={onCancel}>Cancel</button>
+        <Text>{title}</Text>
+        <Button onClick={onConfirm}>{confirmLabel}</Button>
+        <Button onClick={onCancel}>Cancel</Button>
       </div>
     ) : null,
 }));

@@ -1,4 +1,4 @@
-/* eslint-disable react/jsx-no-undef, @typescript-eslint/no-explicit-any, @eslint-react/no-array-index-key */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
@@ -36,22 +36,22 @@ vi.mock("../components/ErrorRetryBanner", () => ({
   ErrorRetryBanner: ({ error, onRetry, onDismiss }: any) => (
     <div data-testid="error-banner">
       {error}
-      <button onClick={onRetry}>Retry</button>
-      <button onClick={onDismiss}>Dismiss</button>
+      <Button onClick={onRetry}>Retry</Button>
+      <Button onClick={onDismiss}>Dismiss</Button>
     </div>
   ),
 }));
 vi.mock("../components/floor-plan", () => ({
   NewFloorPlanDialog: ({ onClose, onCreated, onCreate }: any) => (
     <div data-testid="new-dialog">
-      <button onClick={onClose}>Close</button>
-      <button
+      <Button onClick={onClose}>Close</Button>
+      <Button
         onClick={() => {
           onCreate({ name: "Test Plan", venueId: "v1" }).then((fp: any) => onCreated(fp));
         }}
       >
         Create
-      </button>
+      </Button>
     </div>
   ),
 }));
@@ -72,9 +72,9 @@ vi.mock("./FloorPlansPage.module.css", () => ({
 }));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Badge: ({ children }: any) => <span data-testid="badge">{children}</span>,
+  Badge: ({ children }: any) => <Text data-testid="badge">{children}</Text>,
   Button: ({ children, onClick, disabled, variant, size, ...rest }: any) => (
-    <button
+    <Button
       onClick={onClick}
       disabled={disabled}
       data-variant={variant}
@@ -82,17 +82,17 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       aria-label={rest["aria-label"]}
     >
       {children}
-    </button>
+    </Button>
   ),
   EmptyState: ({ heading, description }: any) => (
     <div data-testid="empty-state">
-      <span>{heading}</span>
-      <span>{description}</span>
+      <Text>{heading}</Text>
+      <Text>{description}</Text>
     </div>
   ),
   Skeleton: () => <div data-testid="skeleton" />,
   SkeletonGroup: ({ children }: any) => <div data-testid="skeleton-group">{children}</div>,
-  Text: ({ children }: any) => <span>{children}</span>,
+  Text: ({ children }: any) => <Text>{children}</Text>,
 }));
 
 /* ── Test data ─────────────────────────────────, @eslint-react/no-array-index-key */

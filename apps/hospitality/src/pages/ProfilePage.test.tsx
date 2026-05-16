@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, react/jsx-no-undef, @eslint-react/no-array-index-key */
+/* eslint-disable @typescript-eslint/no-explicit-any, @eslint-react/no-array-index-key */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -21,8 +21,8 @@ vi.mock("@mbe/api-client", () => ({
 vi.mock("../components/PageHeader", () => ({
   PageHeader: ({ title, description }: any) => (
     <div data-testid="page-header">
-      <h1>{title}</h1>
-      <p>{description}</p>
+      <Heading>{title}</Heading>
+      <Text>{description}</Text>
     </div>
   ),
 }));
@@ -51,15 +51,15 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     <div data-testid={`alert-${variant}`} role="alert">
       <strong>{title}</strong>
       {children}
-      {dismissible && <button onClick={onDismiss}>Dismiss</button>}
+      {dismissible && <Button onClick={onDismiss}>Dismiss</Button>}
     </div>
   ),
   Avatar: ({ name, src: _src }: any) => <div data-testid="avatar">{name}</div>,
-  Badge: ({ children, variant }: any) => <span data-testid={`badge-${variant}`}>{children}</span>,
+  Badge: ({ children, variant }: any) => <Text data-testid={`badge-${variant}`}>{children}</Text>,
   Button: ({ children, onClick, disabled, variant }: any) => (
-    <button onClick={onClick} disabled={disabled} data-variant={variant}>
+    <Button onClick={onClick} disabled={disabled} data-variant={variant}>
       {children}
-    </button>
+    </Button>
   ),
   Card: ({ children }: any) => <div data-testid="card">{children}</div>,
   DataList: ({ items }: any) => (
@@ -89,7 +89,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
         {label}
         {showOptional && " (optional)"}
       </label>
-      <input
+      <Input
         value={value}
         onChange={onChange}
         placeholder={placeholder}
@@ -97,13 +97,13 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
         type={type || "text"}
         required={required}
       />
-      {hint && <span data-testid="hint">{hint}</span>}
+      {hint && <Text data-testid="hint">{hint}</Text>}
     </div>
   ),
   Skeleton: ({ variant }: any) => <div data-testid={`skeleton-${variant}`} />,
   SkeletonGroup: ({ children }: any) => <div data-testid="skeleton-group">{children}</div>,
   Stack: ({ children }: any) => <div>{children}</div>,
-  Text: ({ children }: any) => <span>{children}</span>,
+  Text: ({ children }: any) => <Text>{children}</Text>,
 }));
 
 import { useAuth } from "@mbe/auth/react";

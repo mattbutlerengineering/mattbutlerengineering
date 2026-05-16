@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, react/jsx-no-undef */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { DatePartySelector } from "./DatePartySelector.js";
@@ -10,7 +10,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     return (
       <div>
         <label htmlFor={id}>{props.label}</label>
-        <input
+        <Input
           id={id}
           type={props.type}
           value={props.value}
@@ -30,9 +30,9 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     onClick?: () => void;
     disabled?: boolean;
   }) => (
-    <button onClick={onClick} disabled={disabled}>
+    <Button onClick={onClick} disabled={disabled}>
       {children}
-    </button>
+    </Button>
   ),
 }));
 

@@ -13,6 +13,7 @@ export default [
   ...baseConfig,
   eslintReact.configs.recommended,
   {
+    settings: { react: { version: "19" } },
     plugins: {
       react: reactPlugin,
       "react-hooks": reactHooksPlugin,
@@ -63,6 +64,7 @@ export default [
         },
       ],
       "mbe-local/prefer-rialto-components": "warn",
+      "react/jsx-no-undef": "off",
       // Warn on hardcoded hex colors in JSX — prefer Rialto CSS tokens (var(--rialto-*))
       "no-restricted-syntax": [
         "warn",

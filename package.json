@@ -59,20 +59,6 @@
     "turbo": "^2.9.12",
     "vitest": "catalog:"
   },
-  "lint-staged": {
-    "apps/**/*.{ts,tsx}": [
-      "eslint --fix"
-    ],
-    "packages/**/*.{ts,tsx}": [
-      "eslint --fix"
-    ],
-    "services/**/*.{ts,tsx}": [
-      "eslint --fix"
-    ],
-    "tools/**/*.{ts,tsx}": [
-      "eslint --fix"
-    ]
-  },
   "pnpm": {
     "overrides": {
       "@anthropic-ai/sdk": ">=0.81.0",

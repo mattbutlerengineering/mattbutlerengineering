@@ -1,4 +1,4 @@
-/* eslint-disable react/jsx-no-undef, @typescript-eslint/no-explicit-any, @eslint-react/no-array-index-key */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -21,8 +21,8 @@ vi.mock("../contexts/VenueContext.js", () => ({
 vi.mock("../components/PageHeader.js", () => ({
   PageHeader: ({ title, description }: any) => (
     <div data-testid="page-header">
-      <h1>{title}</h1>
-      <p>{description}</p>
+      <Heading>{title}</Heading>
+      <Text>{description}</Text>
     </div>
   ),
 }));

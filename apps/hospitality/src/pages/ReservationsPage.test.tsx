@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, react/jsx-no-undef, @eslint-react/no-array-index-key */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
@@ -22,16 +22,16 @@ vi.mock("../components/PageHeader", () => ({
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Alert: ({ children }: any) => <div data-testid="alert">{children}</div>,
-  Badge: ({ children }: any) => <span data-testid="badge">{children}</span>,
+  Badge: ({ children }: any) => <Text data-testid="badge">{children}</Text>,
   Card: ({ children }: any) => <div data-testid="card">{children}</div>,
   EmptyState: ({ heading, description }: any) => (
     <div data-testid="empty-state">
-      <span>{heading}</span>
-      <span>{description}</span>
+      <Text>{heading}</Text>
+      <Text>{description}</Text>
     </div>
   ),
   Input: (props: any) => (
-    <input
+    <Input
       data-testid={props.type === "date" ? "date-input" : "search-input"}
       type={props.type}
       placeholder={props.placeholder}
@@ -42,9 +42,9 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   SegmentedControl: ({ segments, value: _value, onChange }: any) => (
     <div data-testid="segmented-control">
       {segments?.map((s: any) => (
-        <button key={s.id} data-testid={`segment-${s.id}`} onClick={() => onChange?.(s.id)}>
+        <Button key={s.id} data-testid={`segment-${s.id}`} onClick={() => onChange?.(s.id)}>
           {s.label}
-        </button>
+        </Button>
       ))}
     </div>
   ),
@@ -52,11 +52,11 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   SkeletonGroup: ({ children }: any) => <div data-testid="skeleton-group">{children}</div>,
   Stat: ({ label, value }: any) => (
     <div data-testid="stat">
-      <span>{label}</span>
-      <span>{value}</span>
+      <Text>{label}</Text>
+      <Text>{value}</Text>
     </div>
   ),
-  Text: ({ children }: any) => <span>{children}</span>,
+  Text: ({ children }: any) => <Text>{children}</Text>,
 }));
 
 describe("ReservationsPage", () => {

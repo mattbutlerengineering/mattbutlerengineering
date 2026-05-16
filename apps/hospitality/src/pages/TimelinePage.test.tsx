@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, react/jsx-no-undef, @eslint-react/no-array-index-key */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
@@ -21,21 +21,21 @@ vi.mock("../components/PageHeader", () => ({
 vi.mock("../components/timeline", () => ({
   TimelineGrid: ({ tables, reservations, onReservationClick, onTableStatusChange }: any) => (
     <div data-testid="timeline-grid">
-      <span data-testid="table-count">{tables?.length ?? 0}</span>
-      <span data-testid="res-count">{reservations?.length ?? 0}</span>
+      <Text data-testid="table-count">{tables?.length ?? 0}</Text>
+      <Text data-testid="res-count">{reservations?.length ?? 0}</Text>
       {reservations?.map((r: any) => (
-        <button key={r.id} data-testid={`res-${r.id}`} onClick={() => onReservationClick?.(r)}>
+        <Button key={r.id} data-testid={`res-${r.id}`} onClick={() => onReservationClick?.(r)}>
           {r.guestName}
-        </button>
+        </Button>
       ))}
       {tables?.map((t: any) => (
-        <button
+        <Button
           key={t.id}
           data-testid={`table-status-${t.id}`}
           onClick={() => onTableStatusChange?.(t.id, "OCCUPIED")}
         >
           Change {t.name}
-        </button>
+        </Button>
       ))}
     </div>
   ),
@@ -44,12 +44,12 @@ vi.mock("../components/timeline", () => ({
 vi.mock("../components/timeline/CancelReservationDialog", () => ({
   CancelReservationDialog: ({ onConfirm, onClose }: any) => (
     <div data-testid="cancel-dialog">
-      <button data-testid="cancel-confirm" onClick={() => onConfirm("no_show", "test note")}>
+      <Button data-testid="cancel-confirm" onClick={() => onConfirm("no_show", "test note")}>
         Confirm Cancel
-      </button>
-      <button data-testid="cancel-close" onClick={onClose}>
+      </Button>
+      <Button data-testid="cancel-close" onClick={onClose}>
         Close Cancel
-      </button>
+      </Button>
     </div>
   ),
 }));
@@ -57,13 +57,13 @@ vi.mock("../components/timeline/CancelReservationDialog", () => ({
 vi.mock("../components/timeline/EditReservationDrawer", () => ({
   EditReservationDrawer: ({ reservation, onSave, onClose }: any) => (
     <div data-testid="edit-drawer">
-      <span data-testid="edit-guest">{reservation.guestName}</span>
-      <button data-testid="edit-save" onClick={() => onSave(reservation.id, { partySize: 6 })}>
+      <Text data-testid="edit-guest">{reservation.guestName}</Text>
+      <Button data-testid="edit-save" onClick={() => onSave(reservation.id, { partySize: 6 })}>
         Save
-      </button>
-      <button data-testid="edit-close" onClick={onClose}>
+      </Button>
+      <Button data-testid="edit-close" onClick={onClose}>
         Close Edit
-      </button>
+      </Button>
     </div>
   ),
 }));
@@ -71,7 +71,7 @@ vi.mock("../components/timeline/EditReservationDrawer", () => ({
 vi.mock("../components/timeline/WalkInDialog", () => ({
   WalkInDialog: ({ tables, venueId, onConfirm, onClose }: any) => (
     <div data-testid="walkin-dialog">
-      <button
+      <Button
         data-testid="walkin-confirm"
         onClick={() =>
           onConfirm({
@@ -83,10 +83,10 @@ vi.mock("../components/timeline/WalkInDialog", () => ({
         }
       >
         Confirm Walk-in
-      </button>
-      <button data-testid="walkin-close" onClick={onClose}>
+      </Button>
+      <Button data-testid="walkin-close" onClick={onClose}>
         Close Walk-in
-      </button>
+      </Button>
     </div>
   ),
 }));
@@ -94,12 +94,12 @@ vi.mock("../components/timeline/WalkInDialog", () => ({
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Drawer: ({ children, open }: any) => (open ? <div data-testid="drawer">{children}</div> : null),
   Button: ({ children, onClick, disabled, ...rest }: any) => (
-    <button onClick={onClick} disabled={disabled} aria-label={rest["aria-label"]}>
+    <Button onClick={onClick} disabled={disabled} aria-label={rest["aria-label"]}>
       {children}
-    </button>
+    </Button>
   ),
   Stack: ({ children }: any) => <div>{children}</div>,
-  Text: ({ children, className }: any) => <span className={className}>{children}</span>,
+  Text: ({ children, className }: any) => <Text className={className}>{children}</Text>,
   Card: ({ children, title, variant }: any) => (
     <div data-variant={variant}>
       {title}

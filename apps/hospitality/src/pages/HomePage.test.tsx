@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, react/jsx-no-undef, @eslint-react/no-array-index-key */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
@@ -23,17 +23,17 @@ vi.mock("../hooks/useDashboardStats.js", () => ({
 vi.mock("../components/PageHeader", () => ({
   PageHeader: ({ title, description }: { title: string; description: string }) => (
     <div data-testid="page-header">
-      <h1>{title}</h1>
-      <p>{description}</p>
+      <Heading>{title}</Heading>
+      <Text>{description}</Text>
     </div>
   ),
 }));
 
 vi.mock("../components/ErrorRetryBanner", () => ({
   ErrorRetryBanner: ({ error, onRetry }: { error: string; onRetry: () => void }) => (
-    <button data-testid="error-banner" onClick={onRetry}>
+    <Button data-testid="error-banner" onClick={onRetry}>
       {error}
-    </button>
+    </Button>
   ),
 }));
 
@@ -53,12 +53,12 @@ vi.mock("../components/dashboard", () => ({
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Stat: ({ label, value }: { label: string; value: string | number }) => (
     <div data-testid="stat">
-      <span>{label}</span>
-      <span>{value}</span>
+      <Text>{label}</Text>
+      <Text>{value}</Text>
     </div>
   ),
   Button: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => (
-    <button onClick={onClick}>{children}</button>
+    <Button onClick={onClick}>{children}</Button>
   ),
   Skeleton: ({ className }: any) => <div data-testid="skeleton" className={className} />,
 }));

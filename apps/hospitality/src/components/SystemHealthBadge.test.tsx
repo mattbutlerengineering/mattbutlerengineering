@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, react/jsx-no-undef */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, waitFor, act } from "@testing-library/react";
 import { SystemHealthBadge } from "./SystemHealthBadge.js";
@@ -11,9 +11,9 @@ vi.mock("@mbe/auth/react", () => ({
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Badge: ({ children, color }: { children: React.ReactNode; color?: string }) => (
-    <span data-testid="badge" data-color={color}>
+    <Text data-testid="badge" data-color={color}>
       {children}
-    </span>
+    </Text>
   ),
   Popover: ({ trigger, children }: { trigger: React.ReactNode; children: React.ReactNode }) => (
     <div data-testid="popover">

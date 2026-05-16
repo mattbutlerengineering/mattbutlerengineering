@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, react/jsx-no-undef, @eslint-react/no-array-index-key */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -27,14 +27,14 @@ vi.mock("../contexts/VenueContext.js", () => ({
 vi.mock("../components/venue-onboarding/OperatingHoursStep.js", () => ({
   OperatingHoursStep: ({ data, errors, onChange }: any) => (
     <div data-testid="operating-hours-step">
-      <span data-testid="hours-data">{JSON.stringify(data)}</span>
-      {errors && <span data-testid="hours-errors">{JSON.stringify(errors)}</span>}
-      <button
+      <Text data-testid="hours-data">{JSON.stringify(data)}</Text>
+      {errors && <Text data-testid="hours-errors">{JSON.stringify(errors)}</Text>}
+      <Button
         data-testid="change-hours"
         onClick={() => onChange({ monday: { open: "09:00", close: "17:00" } })}
       >
         Change
-      </button>
+      </Button>
     </div>
   ),
   validateOperatingHours: (...args: any[]) => mockValidateOperatingHours(...args),
@@ -43,8 +43,8 @@ vi.mock("../components/venue-onboarding/OperatingHoursStep.js", () => ({
 vi.mock("../components/PageHeader.js", () => ({
   PageHeader: ({ title, description }: any) => (
     <div data-testid="page-header">
-      <h1>{title}</h1>
-      <p>{description}</p>
+      <Heading>{title}</Heading>
+      <Text>{description}</Text>
     </div>
   ),
 }));
@@ -53,12 +53,12 @@ vi.mock("./SetupHoursPage.module.css", () => ({ default: {} }));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Button: ({ children, onClick, disabled }: any) => (
-    <button onClick={onClick} disabled={disabled}>
+    <Button onClick={onClick} disabled={disabled}>
       {children}
-    </button>
+    </Button>
   ),
   Stack: ({ children }: any) => <div>{children}</div>,
-  Text: ({ children }: any) => <span>{children}</span>,
+  Text: ({ children }: any) => <Text>{children}</Text>,
 }));
 
 import { SetupHoursPage } from "./SetupHoursPage.js";

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, react/jsx-no-undef, @eslint-react/no-array-index-key */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { SettingsPage } from "./SettingsPage.js";
@@ -25,8 +25,8 @@ vi.mock("@mbe/api-client", () => ({
 vi.mock("../components/PageHeader", () => ({
   PageHeader: ({ title, description }: any) => (
     <div data-testid="page-header">
-      <h1>{title}</h1>
-      <p>{description}</p>
+      <Heading>{title}</Heading>
+      <Text>{description}</Text>
     </div>
   ),
 }));
@@ -36,20 +36,20 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     <div data-testid="alert" data-variant={variant}>
       {children}
       {onDismiss && (
-        <button data-testid="alert-dismiss" onClick={onDismiss}>
+        <Button data-testid="alert-dismiss" onClick={onDismiss}>
           Dismiss
-        </button>
+        </Button>
       )}
     </div>
   ),
   Button: ({ children, onClick, disabled }: any) => (
-    <button onClick={onClick} disabled={disabled}>
+    <Button onClick={onClick} disabled={disabled}>
       {children}
-    </button>
+    </Button>
   ),
   Card: ({ children, title }: any) => (
     <div data-testid="card">
-      <h3>{title}</h3>
+      <Heading>{title}</Heading>
       {children}
     </div>
   ),
@@ -73,11 +73,11 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Skeleton: () => <div data-testid="skeleton" />,
   SkeletonGroup: ({ children }: any) => <div data-testid="skeleton-group">{children}</div>,
   Stack: ({ children }: any) => <div>{children}</div>,
-  Text: ({ children }: any) => <span>{children}</span>,
+  Text: ({ children }: any) => <Text>{children}</Text>,
   Toggle: ({ label, checked, onCheckedChange }: any) => (
     <div>
       <label>{label}</label>
-      <input
+      <Input
         type="checkbox"
         data-testid={`toggle-${label}`}
         checked={checked}

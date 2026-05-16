@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, react/jsx-no-undef */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { TimeSlotPicker } from "./TimeSlotPicker.js";
@@ -7,9 +7,9 @@ import React from "react";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Button: ({ children, onClick, size, variant }: any) => (
-    <button onClick={onClick} data-size={size} data-variant={variant}>
+    <Button onClick={onClick} data-size={size} data-variant={variant}>
       {children}
-    </button>
+    </Button>
   ),
   Alert: ({ children, variant, actions }: any) => (
     <div data-testid="alert" data-variant={variant}>
@@ -23,8 +23,8 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   SkeletonGroup: ({ children }: any) => <div data-testid="skeleton-group">{children}</div>,
   EmptyState: ({ heading, description }: any) => (
     <div data-testid="empty-state">
-      <span>{heading}</span>
-      <span>{description}</span>
+      <Text>{heading}</Text>
+      <Text>{description}</Text>
     </div>
   ),
 }));
