@@ -35,13 +35,15 @@
     });
   </file>
   <file path="src/schemas/api.ts">
-    export const ProblemDetailsSchema = z.object({
-      type: z.string().url().or(z.literal("about:blank")),
-      title: z.string(),
-      status: z.number().int().min(100).max(599),
-      detail: z.string(),
-      instance: z.string().optional(),
-    }).catchall(z.unknown());
+    export const ProblemDetailsSchema = z
+      .object({
+        type: z.string().url().or(z.literal("about:blank")),
+        title: z.string(),
+        status: z.number().int().min(100).max(599),
+        detail: z.string(),
+        instance: z.string().optional(),
+      })
+      .catchall(z.unknown());
   </file>
   <file path="src/schemas/common.ts">
     export const PaginationSchema = z.object({
@@ -108,7 +110,7 @@
           result[key] = value.map((item) =>
             item !== null && typeof item === "object" && !Array.isArray(item)
               ? stripAdditionalProperties(item as Record<string, unknown>)
-              : item,
+              : item
           );
         } else {
           result[key] = value;
@@ -190,12 +192,7 @@
   </section>
   <section priority="medium" role="src">
   <file path="src/agent.ts">
-    export type AgentSessionStatus =
-      | "pending"
-      | "running"
-      | "succeeded"
-      | "failed"
-      | "cancelled";
+    export type AgentSessionStatus = "pending" | "running" | "succeeded" | "failed" | "cancelled";
     export interface AgentSession {
       id: string;
       status: AgentSessionStatus;
@@ -296,12 +293,7 @@
     }
   </file>
   <file path="src/reservation.ts">
-    export type ReservationStatus =
-      | "PENDING"
-      | "CONFIRMED"
-      | "CANCELLED"
-      | "COMPLETED"
-      | "NO_SHOW";
+    export type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
     export type TableStatus = "AVAILABLE" | "OCCUPIED" | "DIRTY" | "READY";
   </file>
   <file path="src/schema-compat.ts">

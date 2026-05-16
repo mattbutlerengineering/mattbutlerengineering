@@ -38,9 +38,27 @@
       await prisma.sessionEvent.createMany({
         data: [
           { sessionId: session1.id, type: "turn:start", data: { turn: 1 }, createdAt: oneHourAgo },
-          { sessionId: session1.id, type: "file:modified", data: { path: "apps/hospitality/src/components/LoginButton.tsx" }, createdAt: new Date(oneHourAgo.getTime() + 10_000) },
-          { sessionId: session1.id, type: "turn:end", data: { turn: 8, costUsd: 0.42 }, createdAt: thirtyMinAgo },
-          { sessionId: session1.id, type: "pr:created", data: { prUrl: "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/400", prNumber: 400 }, createdAt: thirtyMinAgo },
+          {
+            sessionId: session1.id,
+            type: "file:modified",
+            data: { path: "apps/hospitality/src/components/LoginButton.tsx" },
+            createdAt: new Date(oneHourAgo.getTime() + 10_000),
+          },
+          {
+            sessionId: session1.id,
+            type: "turn:end",
+            data: { turn: 8, costUsd: 0.42 },
+            createdAt: thirtyMinAgo,
+          },
+          {
+            sessionId: session1.id,
+            type: "pr:created",
+            data: {
+              prUrl: "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/400",
+              prNumber: 400,
+            },
+            createdAt: thirtyMinAgo,
+          },
         ],
       });
     
@@ -72,10 +90,33 @@
       await prisma.sessionEvent.createMany({
         data: [
           { sessionId: session2.id, type: "turn:start", data: { turn: 1 }, createdAt: thirtyMinAgo },
-          { sessionId: session2.id, type: "file:created", data: { path: "packages/rialto/src/components/Tooltip.tsx" }, createdAt: new Date(thirtyMinAgo.getTime() + 20_000) },
-          { sessionId: session2.id, type: "file:created", data: { path: "packages/rialto/src/components/Tooltip.test.tsx" }, createdAt: new Date(thirtyMinAgo.getTime() + 40_000) },
-          { sessionId: session2.id, type: "turn:end", data: { turn: 14, costUsd: 0.78 }, createdAt: fiveMinAgo },
-          { sessionId: session2.id, type: "pr:created", data: { prUrl: "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/405", prNumber: 405 }, createdAt: fiveMinAgo },
+          {
+            sessionId: session2.id,
+            type: "file:created",
+            data: { path: "packages/rialto/src/components/Tooltip.tsx" },
+            createdAt: new Date(thirtyMinAgo.getTime() + 20_000),
+          },
+          {
+            sessionId: session2.id,
+            type: "file:created",
+            data: { path: "packages/rialto/src/components/Tooltip.test.tsx" },
+            createdAt: new Date(thirtyMinAgo.getTime() + 40_000),
+          },
+          {
+            sessionId: session2.id,
+            type: "turn:end",
+            data: { turn: 14, costUsd: 0.78 },
+            createdAt: fiveMinAgo,
+          },
+          {
+            sessionId: session2.id,
+            type: "pr:created",
+            data: {
+              prUrl: "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/405",
+              prNumber: 405,
+            },
+            createdAt: fiveMinAgo,
+          },
         ],
       });
     
@@ -105,8 +146,18 @@
       await prisma.sessionEvent.createMany({
         data: [
           { sessionId: session3.id, type: "turn:start", data: { turn: 1 }, createdAt: oneHourAgo },
-          { sessionId: session3.id, type: "file:modified", data: { path: "services/users/prisma/schema.prisma" }, createdAt: new Date(oneHourAgo.getTime() + 15_000) },
-          { sessionId: session3.id, type: "error", data: { message: "Budget exceeded", turn: 50 }, createdAt: tenMinAgo },
+          {
+            sessionId: session3.id,
+            type: "file:modified",
+            data: { path: "services/users/prisma/schema.prisma" },
+            createdAt: new Date(oneHourAgo.getTime() + 15_000),
+          },
+          {
+            sessionId: session3.id,
+            type: "error",
+            data: { message: "Budget exceeded", turn: 50 },
+            createdAt: tenMinAgo,
+          },
         ],
       });
     
@@ -137,13 +188,15 @@
           // Validate request body
           const parseResult = GenChatBodySchema.safeParse(request.body);
           if (!parseResult.success) {
-            return reply.code(400).send(
-              createProblemDetails(
-                400,
-                "Bad Request",
-                parseResult.error.issues.map((i) => i.message).join(", ")
-              )
-            );
+            return reply
+              .code(400)
+              .send(
+                createProblemDetails(
+                  400,
+                  "Bad Request",
+                  parseResult.error.issues.map((i) => i.message).join(", ")
+                )
+              );
           }
     
           const { messages } = parseResult.data;
@@ -207,13 +260,15 @@
         async (request, reply) => {
           const parseResult = CreateSpecBodySchema.safeParse(request.body);
           if (!parseResult.success) {
-            return reply.code(400).send(
-              createProblemDetails(
-                400,
-                "Bad Request",
-                parseResult.error.issues.map((i) => i.message).join(", ")
-              )
-            );
+            return reply
+              .code(400)
+              .send(
+                createProblemDetails(
+                  400,
+                  "Bad Request",
+                  parseResult.error.issues.map((i) => i.message).join(", ")
+                )
+              );
           }
     
           const { prompt, spec, rawLines } = parseResult.data;
@@ -242,19 +297,16 @@
       );
     
       // GET /api/gen/specs/:id — PUBLIC — no auth required for permalink viewing
-      fastify.get(
-        "/api/gen/specs/:id",
-        async (request, reply) => {
-          const { id } = request.params as { id: string };
-          const result = await storedSpecService.getById(id);
+      fastify.get("/api/gen/specs/:id", async (request, reply) => {
+        const { id } = request.params as { id: string };
+        const result = await storedSpecService.getById(id);
     
-          if (!result) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Spec not found"));
-          }
-    
-          return reply.code(200).send({ data: mapStoredSpec(result) });
+        if (!result) {
+          return reply.code(404).send(createProblemDetails(404, "Not Found", "Spec not found"));
         }
-      );
+    
+        return reply.code(200).send({ data: mapStoredSpec(result) });
+      });
     
       // PATCH /api/gen/specs/:id/favorite — toggle isFavorite for the owner (auth required)
       fastify.patch(
@@ -318,13 +370,15 @@
           // Validate request body
           const parseResult = GenUiBodySchema.safeParse(request.body);
           if (!parseResult.success) {
-            return reply.code(400).send(
-              createProblemDetails(
-                400,
-                "Bad Request",
-                parseResult.error.issues.map((i) => i.message).join(", ")
-              )
-            );
+            return reply
+              .code(400)
+              .send(
+                createProblemDetails(
+                  400,
+                  "Bad Request",
+                  parseResult.error.issues.map((i) => i.message).join(", ")
+                )
+              );
           }
     
           const { prompt, model: modelHint } = parseResult.data;
@@ -475,7 +529,8 @@
           ...(auth0Result.message && { message: auth0Result.message }),
         };
     
-        const rateLimitMonitor = (request.server as unknown as { rateLimitMonitor: RateLimitMonitor }).rateLimitMonitor;
+        const rateLimitMonitor = (request.server as unknown as { rateLimitMonitor: RateLimitMonitor })
+          .rateLimitMonitor;
         const rateLimitSnapshot = rateLimitMonitor.getSnapshot();
         checks.rate_limits = {
           status: rateLimitSnapshot.isDegraded ? "degraded" : "ok",
@@ -589,7 +644,7 @@
             })),
           };
           return reply.status(snapshot.ready ? 200 : 503).send(response);
-        },
+        }
       );
     };
   </file>
@@ -978,11 +1033,14 @@
     export function getSlowQueryStats(): { count5min: number; slowestMs: number } {
       const now = Date.now();
       const windowStart = now - SLOW_QUERY_WINDOW_MS;
-      
+    
       slowQueryStats.queries = slowQueryStats.queries.filter((q) => q.timestamp > windowStart);
       slowQueryStats.count5min = slowQueryStats.queries.length;
-      slowQueryStats.slowestMs = slowQueryStats.queries.reduce((max, q) => Math.max(max, q.duration), 0);
-      
+      slowQueryStats.slowestMs = slowQueryStats.queries.reduce(
+        (max, q) => Math.max(max, q.duration),
+        0
+      );
+    
       return {
         count5min: slowQueryStats.count5min,
         slowestMs: slowQueryStats.slowestMs,
@@ -1069,7 +1127,9 @@
       if (typeof content === "string") return content;
       if (!Array.isArray(content)) return "";
       return content
-        .filter((block: Record<string, unknown>) => block.type === "text" && typeof block.text === "string")
+        .filter(
+          (block: Record<string, unknown>) => block.type === "text" && typeof block.text === "string"
+        )
         .map((block: Record<string, unknown>) => block.text as string)
         .join("\n");
     }
@@ -1140,9 +1200,7 @@
     function validateCorsOrigins(origins: string[]): string[] {
       const validPatterns = [
         /^https:\/\/([a-z-]+\.)?mattbutlerengineering\.com$/,
-        ...(process.env.NODE_ENV === "development"
-          ? [/^http:\/\/localhost:\d+$/]
-          : []),
+        ...(process.env.NODE_ENV === "development" ? [/^http:\/\/localhost:\d+$/] : []),
       ];
     
       const validated: string[] = [];

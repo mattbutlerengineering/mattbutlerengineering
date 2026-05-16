@@ -30,11 +30,13 @@
     export class FloorPlansClient {
       constructor(private client: ApiClient) {}
     
-      async list(params: {
-        venueId?: string;
-        page?: number;
-        limit?: number;
-      } = {}): Promise<PaginatedResponse<FloorPlan>> {
+      async list(
+        params: {
+          venueId?: string;
+          page?: number;
+          limit?: number;
+        } = {}
+      ): Promise<PaginatedResponse<FloorPlan>> {
         const searchParams = new URLSearchParams();
         if (params.venueId) searchParams.set("venueId", params.venueId);
         if (params.page) searchParams.set("page", String(params.page));
@@ -62,7 +64,10 @@
       }
     
       async update(id: string, data: UpdateFloorPlanRequest): Promise<FloorPlan> {
-        const response = await this.client.patch<{ data: FloorPlan }>(`/api/v1/floor-plans/${id}`, data);
+        const response = await this.client.patch<{ data: FloorPlan }>(
+          `/api/v1/floor-plans/${id}`,
+          data
+        );
         return response.data;
       }
     
@@ -71,7 +76,10 @@
       }
     
       async setActive(id: string): Promise<FloorPlan> {
-        const response = await this.client.post<{ data: FloorPlan }>(`/api/v1/floor-plans/${id}/active`, undefined);
+        const response = await this.client.post<{ data: FloorPlan }>(
+          `/api/v1/floor-plans/${id}/active`,
+          undefined
+        );
         return response.data;
       }
     
@@ -92,7 +100,10 @@
       }
     
       async clone(id: string): Promise<FloorPlan> {
-        const response = await this.client.post<{ data: FloorPlan }>(`/api/v1/floor-plans/${id}/clone`, undefined);
+        const response = await this.client.post<{ data: FloorPlan }>(
+          `/api/v1/floor-plans/${id}/clone`,
+          undefined
+        );
         return response.data;
       }
     }
@@ -185,9 +196,7 @@
        * Get a reservation by ID
        */
       async get(id: string): Promise<Reservation> {
-        const response = await this.client.get<ApiResponse<Reservation>>(
-          `/api/v1/reservations/${id}`
-        );
+        const response = await this.client.get<ApiResponse<Reservation>>(`/api/v1/reservations/${id}`);
         return response.data;
       }
     
@@ -195,10 +204,7 @@
        * Create a new reservation
        */
       async create(data: CreateReservationRequest): Promise<Reservation> {
-        const response = await this.client.post<ApiResponse<Reservation>>(
-          "/api/v1/reservations",
-          data
-        );
+        const response = await this.client.post<ApiResponse<Reservation>>("/api/v1/reservations", data);
         return response.data;
       }
     
@@ -217,7 +223,10 @@
        * Cancel a reservation
        */
       async cancel(id: string): Promise<Reservation> {
-        const response = await this.client.request<ApiResponse<Reservation>>(`/api/v1/reservations/${id}`, { method: "DELETE" });
+        const response = await this.client.request<ApiResponse<Reservation>>(
+          `/api/v1/reservations/${id}`,
+          { method: "DELETE" }
+        );
         return response.data;
       }
     
@@ -278,9 +287,10 @@
         let detail = response.statusText || `HTTP ${response.status}`;
         try {
           const body = await response.json();
-          detail = (body as Record<string, unknown>).detail as string
-            ?? (body as Record<string, unknown>).message as string
-            ?? detail;
+          detail =
+            ((body as Record<string, unknown>).detail as string) ??
+            ((body as Record<string, unknown>).message as string) ??
+            detail;
         } catch {
           // Response body is not JSON — use status text
         }
@@ -358,9 +368,7 @@
         if (params.activeOnly !== undefined) searchParams.set("activeOnly", String(params.activeOnly));
     
         const query = searchParams.toString();
-        return this.client.get<PaginatedResponse<Table>>(
-          `/api/v1/tables${query ? `?${query}` : ""}`
-        );
+        return this.client.get<PaginatedResponse<Table>>(`/api/v1/tables${query ? `?${query}` : ""}`);
       }
     
       /**
@@ -398,10 +406,9 @@
        * Update the status of a table
        */
       async updateStatus(id: string, status: string): Promise<Table> {
-        const response = await this.client.patch<ApiResponse<Table>>(
-          `/api/v1/tables/${id}/status`,
-          { status }
-        );
+        const response = await this.client.patch<ApiResponse<Table>>(`/api/v1/tables/${id}/status`, {
+          status,
+        });
         return response.data;
       }
     }
@@ -414,9 +421,7 @@
        * List all users with pagination
        */
       async list(page = 1, limit = 10): Promise<PaginatedResponse<User>> {
-        return this.client.get<PaginatedResponse<User>>(
-          `/api/v1/users?page=${page}&limit=${limit}`
-        );
+        return this.client.get<PaginatedResponse<User>>(`/api/v1/users?page=${page}&limit=${limit}`);
       }
     
       /**
@@ -447,10 +452,7 @@
        * Update a user
        */
       async update(id: string, data: UpdateUserRequest): Promise<User> {
-        const response = await this.client.patch<ApiResponse<User>>(
-          `/api/v1/users/${id}`,
-          data
-        );
+        const response = await this.client.patch<ApiResponse<User>>(`/api/v1/users/${id}`, data);
         return response.data;
       }
     
@@ -480,16 +482,16 @@
       /**
        * List venues with optional filters
        */
-      async list(params: { page?: number; limit?: number; venueGroupId?: string } = {}): Promise<PaginatedResponse<Venue>> {
+      async list(
+        params: { page?: number; limit?: number; venueGroupId?: string } = {}
+      ): Promise<PaginatedResponse<Venue>> {
         const searchParams = new URLSearchParams();
         if (params.page) searchParams.set("page", String(params.page));
         if (params.limit) searchParams.set("limit", String(params.limit));
         if (params.venueGroupId) searchParams.set("venueGroupId", params.venueGroupId);
     
         const query = searchParams.toString();
-        return this.client.get<PaginatedResponse<Venue>>(
-          `/api/v1/venues${query ? `?${query}` : ""}`
-        );
+        return this.client.get<PaginatedResponse<Venue>>(`/api/v1/venues${query ? `?${query}` : ""}`);
       }
     
       /**
@@ -555,7 +557,9 @@
        * Get a venue group by slug
        */
       async getBySlug(slug: string): Promise<VenueGroup> {
-        const response = await this.client.get<ApiResponse<VenueGroup>>(`/api/v1/venues/groups/by-slug/${slug}`);
+        const response = await this.client.get<ApiResponse<VenueGroup>>(
+          `/api/v1/venues/groups/by-slug/${slug}`
+        );
         return response.data;
       }
     
@@ -571,7 +575,10 @@
        * Update a venue group
        */
       async update(id: string, data: UpdateVenueGroupRequest): Promise<VenueGroup> {
-        const response = await this.client.patch<ApiResponse<VenueGroup>>(`/api/v1/venues/groups/${id}`, data);
+        const response = await this.client.patch<ApiResponse<VenueGroup>>(
+          `/api/v1/venues/groups/${id}`,
+          data
+        );
         return response.data;
       }
     

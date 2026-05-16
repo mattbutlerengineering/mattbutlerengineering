@@ -73,7 +73,8 @@
               status: {
                 type: "string",
                 enum: ["ok", "degraded", "error"],
-                description: "Overall service status: ok (all checks pass), degraded (some checks failing), error (critical failure)",
+                description:
+                  "Overall service status: ok (all checks pass), degraded (some checks failing), error (critical failure)",
                 example: "ok",
               },
               version: {
@@ -190,7 +191,8 @@
           ...(auth0Result.message && { message: auth0Result.message }),
         };
     
-        const rateLimitMonitor = (request.server as unknown as { rateLimitMonitor: RateLimitMonitor }).rateLimitMonitor;
+        const rateLimitMonitor = (request.server as unknown as { rateLimitMonitor: RateLimitMonitor })
+          .rateLimitMonitor;
         const rateLimitSnapshot = rateLimitMonitor.getSnapshot();
         checks.rate_limits = {
           status: rateLimitSnapshot.isDegraded ? "degraded" : "ok",
@@ -218,7 +220,13 @@
         const errorRates = fastify.getErrorRates();
         const degradedEndpoints = errorRates.endpoints.filter((e) => e.rate > 0.1 && e.total >= 5);
     
-        const hasErrors = dbStatus === "error" || slowQueryStatus === "degraded" || auth0Result.status === "degraded" || rateLimitSnapshot.isDegraded || poolMetrics.isDegraded || errorRates.degraded;
+        const hasErrors =
+          dbStatus === "error" ||
+          slowQueryStatus === "degraded" ||
+          auth0Result.status === "degraded" ||
+          rateLimitSnapshot.isDegraded ||
+          poolMetrics.isDegraded ||
+          errorRates.degraded;
     
         return {
           status: hasErrors ? "degraded" : "ok",
@@ -243,7 +251,7 @@
           schema: { ...healthSchema, operationId: "getHealth" },
           config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
         },
-        healthHandler,
+        healthHandler
       );
     
       // /api/v1/users/health — public path via DO ingress (preservePathPrefix: true, prefix "/api/v1/users")
@@ -254,7 +262,7 @@
           schema: { ...healthSchema, operationId: "getHealthApiUsers" },
           config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
         },
-        healthHandler,
+        healthHandler
       );
     };
   </file>
@@ -278,13 +286,14 @@
             })),
           };
           return reply.status(snapshot.ready ? 200 : 503).send(response);
-        },
+        }
       );
     };
   </file>
   <file path="src/routes/users.ts">
     function isAdmin(user: AuthUser | undefined): boolean {
-      const permissions = user?.raw?.permissions; return Array.isArray(permissions) && permissions.includes("admin");
+      const permissions = user?.raw?.permissions;
+      return Array.isArray(permissions) && permissions.includes("admin");
     }
     export const userRoutes: FastifyPluginAsync = async (fastify) => {
       // List users
@@ -337,7 +346,10 @@
         },
         async (request, reply) => {
           if (!isAdmin(request.user)) {
-            reply.code(403); return reply.send(createProblemDetails(403, "Forbidden", "Admin access required to list all users") as never);
+            reply.code(403);
+            return reply.send(
+              createProblemDetails(403, "Forbidden", "Admin access required to list all users") as never
+            );
           }
           const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
           const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "10", 10) || 10));
@@ -393,11 +405,15 @@
     
           if (!isAdmin(authUser)) {
             if (!authUser?.email) {
-              return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Authentication required"));
+              return reply
+                .code(401)
+                .send(createProblemDetails(401, "Unauthorized", "Authentication required"));
             }
             const requestingUser = await userService.getByEmail(authUser.email);
             if (!requestingUser || requestingUser.id !== requestedId) {
-              return reply.code(403).send(createProblemDetails(403, "Forbidden", "You can only access your own profile"));
+              return reply
+                .code(403)
+                .send(createProblemDetails(403, "Forbidden", "You can only access your own profile"));
             }
           }
     
@@ -426,8 +442,7 @@
           schema: {
             summary: "Create a new user",
             operationId: "createUser",
-            description:
-              "Create a new user account. Email must be unique across the system.",
+            description: "Create a new user account. Email must be unique across the system.",
             tags: ["Users"],
             body: {
               type: "object",
@@ -540,11 +555,15 @@
     
           if (!isAdmin(authUser)) {
             if (!authUser?.email) {
-              return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Authentication required"));
+              return reply
+                .code(401)
+                .send(createProblemDetails(401, "Unauthorized", "Authentication required"));
             }
             const requestingUser = await userService.getByEmail(authUser.email);
             if (!requestingUser || requestingUser.id !== requestedId) {
-              return reply.code(403).send(createProblemDetails(403, "Forbidden", "You can only update your own profile"));
+              return reply
+                .code(403)
+                .send(createProblemDetails(403, "Forbidden", "You can only update your own profile"));
             }
           }
     
@@ -566,8 +585,7 @@
           schema: {
             summary: "Delete a user",
             operationId: "deleteUser",
-            description:
-              "Permanently delete a user account. This action cannot be undone.",
+            description: "Permanently delete a user account. This action cannot be undone.",
             tags: ["Users"],
             params: {
               type: "object",
@@ -601,11 +619,15 @@
     
           if (!isAdmin(authUser)) {
             if (!authUser?.email) {
-              return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Authentication required"));
+              return reply
+                .code(401)
+                .send(createProblemDetails(401, "Unauthorized", "Authentication required"));
             }
             const requestingUser = await userService.getByEmail(authUser.email);
             if (!requestingUser || requestingUser.id !== requestedId) {
-              return reply.code(403).send(createProblemDetails(403, "Forbidden", "You can only delete your own profile"));
+              return reply
+                .code(403)
+                .send(createProblemDetails(403, "Forbidden", "You can only delete your own profile"));
             }
           }
     
@@ -653,7 +675,9 @@
         async (request, reply) => {
           const authUser = request.user;
           if (!authUser || !authUser.email) {
-            return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Authentication required"));
+            return reply
+              .code(401)
+              .send(createProblemDetails(401, "Unauthorized", "Authentication required"));
           }
     
           // Use findOrCreate (upsert) to prevent race conditions when two
@@ -727,7 +751,9 @@
         async (request, reply) => {
           const authUser = request.user;
           if (!authUser || !authUser.email) {
-            return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Authentication required"));
+            return reply
+              .code(401)
+              .send(createProblemDetails(401, "Unauthorized", "Authentication required"));
           }
     
           const existingUser = await userService.getByEmail(authUser.email);
@@ -735,12 +761,11 @@
             return reply.code(404).send(createProblemDetails(404, "Not Found", "User not found"));
           }
     
-          const user = await userService.updatePreferences(
-            existingUser.id,
-            request.body
-          );
+          const user = await userService.updatePreferences(existingUser.id, request.body);
           if (!user) {
-            return reply.code(500).send(createProblemDetails(500, "Internal Server Error", "Failed to update preferences"));
+            return reply
+              .code(500)
+              .send(createProblemDetails(500, "Internal Server Error", "Failed to update preferences"));
           }
           return { data: user };
         }
@@ -764,11 +789,14 @@
     export function getSlowQueryStats(): { count5min: number; slowestMs: number } {
       const now = Date.now();
       const windowStart = now - SLOW_QUERY_WINDOW_MS;
-      
+    
       slowQueryStats.queries = slowQueryStats.queries.filter((q) => q.timestamp > windowStart);
       slowQueryStats.count5min = slowQueryStats.queries.length;
-      slowQueryStats.slowestMs = slowQueryStats.queries.reduce((max, q) => Math.max(max, q.duration), 0);
-      
+      slowQueryStats.slowestMs = slowQueryStats.queries.reduce(
+        (max, q) => Math.max(max, q.duration),
+        0
+      );
+    
       return {
         count5min: slowQueryStats.count5min,
         slowestMs: slowQueryStats.slowestMs,
@@ -834,9 +862,7 @@
     function validateCorsOrigins(origins: string[]): string[] {
       const validPatterns = [
         /^https:\/\/([a-z-]+\.)?mattbutlerengineering\.com$/,
-        ...(process.env.NODE_ENV === "development"
-          ? [/^http:\/\/localhost:\d+$/]
-          : []),
+        ...(process.env.NODE_ENV === "development" ? [/^http:\/\/localhost:\d+$/] : []),
       ];
     
       const validated: string[] = [];
