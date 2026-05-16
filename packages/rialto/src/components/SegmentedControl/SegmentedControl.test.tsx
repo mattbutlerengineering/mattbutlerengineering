@@ -1,8 +1,7 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "vitest-axe";
 import { SegmentedControl, type Segment } from "./SegmentedControl";
-import { useState } from "react";
 
 const segments: Segment[] = [
   { id: "day", label: "Day" },
@@ -15,24 +14,6 @@ const withDisabled: Segment[] = [
   { id: "b", label: "Beta", disabled: true },
   { id: "c", label: "Gamma" },
 ];
-
-function ControlledSegmentedControl({
-  onChange,
-}: {
-  onChange?: (id: string) => void;
-}) {
-  const [value, setValue] = useState("day");
-  return (
-    <SegmentedControl
-      segments={segments}
-      value={value}
-      onChange={(id) => {
-        setValue(id);
-        onChange?.(id);
-      }}
-    />
-  );
-}
 
 describe("SegmentedControl", () => {
   describe("rendering", () => {
