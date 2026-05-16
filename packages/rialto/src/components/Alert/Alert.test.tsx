@@ -15,9 +15,7 @@ describe("Alert", () => {
     });
 
     it("renders actions when provided", () => {
-      render(
-        <Alert actions={<button>Retry</button>}>Try again.</Alert>
-      );
+      render(<Alert actions={<button>Retry</button>}>Try again.</Alert>);
       expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
     });
   });
@@ -80,7 +78,11 @@ describe("Alert", () => {
     it("hides the alert after clicking dismiss", async () => {
       const user = userEvent.setup();
       const onDismiss = vi.fn();
-      render(<Alert dismissible onDismiss={onDismiss}>Visible content here</Alert>);
+      render(
+        <Alert dismissible onDismiss={onDismiss}>
+          Visible content here
+        </Alert>
+      );
       // Before dismiss — button is present
       expect(screen.getByRole("button", { name: /dismiss/i })).toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: /dismiss/i }));
@@ -92,7 +94,11 @@ describe("Alert", () => {
     it("calls onDismiss callback when dismissed", async () => {
       const user = userEvent.setup();
       const onDismiss = vi.fn();
-      render(<Alert dismissible onDismiss={onDismiss}>Alert</Alert>);
+      render(
+        <Alert dismissible onDismiss={onDismiss}>
+          Alert
+        </Alert>
+      );
       await user.click(screen.getByRole("button", { name: /dismiss/i }));
       expect(onDismiss).toHaveBeenCalledTimes(1);
     });
@@ -102,9 +108,7 @@ describe("Alert", () => {
     it("renders an icon element for each variant", () => {
       const variants = ["info", "success", "warning", "error"] as const;
       for (const variant of variants) {
-        const { container, unmount } = render(
-          <Alert variant={variant}>Test</Alert>
-        );
+        const { container, unmount } = render(<Alert variant={variant}>Test</Alert>);
         const icon = container.querySelector('[class*="icon"]');
         expect(icon).toBeInTheDocument();
         unmount();
@@ -117,6 +121,37 @@ describe("Alert", () => {
       const ref = { current: null as HTMLDivElement | null };
       render(<Alert ref={ref}>Ref test</Alert>);
       expect(ref.current).toBeInstanceOf(HTMLDivElement);
+    });
+  });
+
+  describe("className passthrough", () => {
+    it("appends custom className to the alert element", () => {
+      const { container } = render(<Alert className="my-custom-alert">Content</Alert>);
+      expect(container.querySelector('[class*="my-custom-alert"]')).toBeInTheDocument();
+    });
+  });
+
+  describe("no title rendered when omitted", () => {
+    it("does not render a title paragraph when title is not provided", () => {
+      const { container } = render(<Alert>No title here</Alert>);
+      expect(container.querySelector('[class*="title"]')).not.toBeInTheDocument();
+    });
+  });
+
+  describe("no actions rendered when omitted", () => {
+    it("does not render actions slot when actions not provided", () => {
+      const { container } = render(<Alert>No actions</Alert>);
+      expect(container.querySelector('[class*="actions"]')).not.toBeInTheDocument();
+    });
+  });
+
+  describe("dismissible without onDismiss", () => {
+    it("does not throw when dismissible is true but onDismiss is not provided", async () => {
+      const user = userEvent.setup();
+      render(<Alert dismissible>Dismiss me</Alert>);
+      await expect(
+        user.click(screen.getByRole("button", { name: /dismiss/i }))
+      ).resolves.not.toThrow();
     });
   });
 });

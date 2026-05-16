@@ -138,4 +138,32 @@ describe("Meter", () => {
       ).toHaveNoViolations();
     });
   });
+
+  describe("additional coverage", () => {
+    it("forwards custom className to wrapper", () => {
+      const { container } = render(<Meter value={50} className="my-meter" />);
+      expect(container.firstElementChild?.className).toMatch(/my-meter/);
+    });
+
+    it("renders both label and value when both are provided", () => {
+      render(<Meter value={80} label="Charge" showValue />);
+      expect(screen.getByText("Charge")).toBeInTheDocument();
+      expect(screen.getByText("80%")).toBeInTheDocument();
+    });
+
+    it("renders label row when only showValue is true (no label)", () => {
+      render(<Meter value={50} showValue />);
+      expect(screen.getByText("50%")).toBeInTheDocument();
+    });
+
+    it("does not set aria-label when label is absent", () => {
+      render(<Meter value={50} />);
+      expect(screen.getByRole("meter")).not.toHaveAttribute("aria-label");
+    });
+
+    it("sets aria-valuenow to the raw value (not clamped percent)", () => {
+      render(<Meter value={5} min={0} max={10} />);
+      expect(screen.getByRole("meter")).toHaveAttribute("aria-valuenow", "5");
+    });
+  });
 });

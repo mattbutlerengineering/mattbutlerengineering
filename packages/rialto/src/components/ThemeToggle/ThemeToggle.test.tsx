@@ -55,4 +55,28 @@ describe("ThemeToggle", () => {
       expect(ref.current).toBeInstanceOf(HTMLButtonElement);
     });
   });
+
+  describe("icon path differences", () => {
+    it("renders circle element in dark mode (sun icon has a center circle)", () => {
+      const { container } = render(<ThemeToggle theme="dark" onToggle={() => {}} />);
+      // Sun icon uses a circle element for the center
+      expect(container.querySelector("circle")).toBeInTheDocument();
+    });
+
+    it("renders path element in light mode (moon icon uses a path)", () => {
+      const { container } = render(<ThemeToggle theme="light" onToggle={() => {}} />);
+      // Moon icon uses only a path, no circle
+      expect(container.querySelector("path")).toBeInTheDocument();
+    });
+
+    it("renders line elements only in dark mode (sun icon has rays)", () => {
+      const { container: darkContainer } = render(<ThemeToggle theme="dark" onToggle={() => {}} />);
+      const { container: lightContainer } = render(
+        <ThemeToggle theme="light" onToggle={() => {}} />
+      );
+      // Sun icon has line elements for rays; moon does not
+      expect(darkContainer.querySelectorAll("line").length).toBeGreaterThan(0);
+      expect(lightContainer.querySelectorAll("line").length).toBe(0);
+    });
+  });
 });

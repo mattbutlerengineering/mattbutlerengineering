@@ -78,4 +78,30 @@ describe("DataList", () => {
       expect(ref.current).toBeInstanceOf(HTMLDListElement);
     });
   });
+
+  describe("edge cases", () => {
+    it("renders nothing when items is empty", () => {
+      const { container } = render(<DataList items={[]} />);
+      expect(container.querySelectorAll("dt")).toHaveLength(0);
+      expect(container.querySelectorAll("dd")).toHaveLength(0);
+    });
+
+    it("forwards HTML attributes like id", () => {
+      const { container } = render(<DataList items={items} id="spec-list" />);
+      expect(container.querySelector("dl")?.id).toBe("spec-list");
+    });
+
+    it("renders a single item", () => {
+      render(<DataList items={[{ label: "Solo", value: "Only" }]} />);
+      expect(screen.getByText("Solo")).toBeInTheDocument();
+      expect(screen.getByText("Only")).toBeInTheDocument();
+    });
+
+    it("applies striped and vertical classes together", () => {
+      const { container } = render(<DataList items={items} orientation="vertical" striped />);
+      const cls = container.querySelector("dl")?.className ?? "";
+      expect(cls).toMatch(/vertical/);
+      expect(cls).toMatch(/striped/);
+    });
+  });
 });

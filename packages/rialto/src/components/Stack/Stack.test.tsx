@@ -114,4 +114,82 @@ describe("Stack", () => {
       expect(ref.current).toBeInstanceOf(HTMLElement);
     });
   });
+
+  describe("all gap values", () => {
+    it("applies gap2xs class for gap=2xs", () => {
+      const { container } = render(<Stack gap="2xs">c</Stack>);
+      expect(container.firstElementChild?.className).toMatch(/gap2xs/);
+    });
+
+    it("applies gapXs class for gap=xs", () => {
+      const { container } = render(<Stack gap="xs">c</Stack>);
+      expect(container.firstElementChild?.className).toMatch(/gapXs/);
+    });
+
+    it("applies gapLg class for gap=lg", () => {
+      const { container } = render(<Stack gap="lg">c</Stack>);
+      expect(container.firstElementChild?.className).toMatch(/gapLg/);
+    });
+
+    it("applies gap2xl class for gap=2xl", () => {
+      const { container } = render(<Stack gap="2xl">c</Stack>);
+      expect(container.firstElementChild?.className).toMatch(/gap2xl/);
+    });
+
+    it("applies gap3xl class for gap=3xl", () => {
+      const { container } = render(<Stack gap="3xl">c</Stack>);
+      expect(container.firstElementChild?.className).toMatch(/gap3xl/);
+    });
+
+    it("does not apply any gap class when gap is omitted", () => {
+      const { container } = render(<Stack>c</Stack>);
+      expect(container.firstElementChild?.className).not.toMatch(/gap/);
+    });
+  });
+
+  describe("all align values", () => {
+    it("applies alignStart class", () => {
+      const { container } = render(<Stack align="start">c</Stack>);
+      expect(container.firstElementChild?.className).toMatch(/alignStart/);
+    });
+
+    it("applies alignStretch class", () => {
+      const { container } = render(<Stack align="stretch">c</Stack>);
+      expect(container.firstElementChild?.className).toMatch(/alignStretch/);
+    });
+
+    it("applies alignBaseline class", () => {
+      const { container } = render(<Stack align="baseline">c</Stack>);
+      expect(container.firstElementChild?.className).toMatch(/alignBaseline/);
+    });
+
+    it("does not apply any align class when align is omitted", () => {
+      const { container } = render(<Stack>c</Stack>);
+      expect(container.firstElementChild?.className).not.toMatch(/align/);
+    });
+  });
+
+  describe("all justify values", () => {
+    it("applies justifyStart class", () => {
+      const { container } = render(<Stack justify="start">c</Stack>);
+      expect(container.firstElementChild?.className).toMatch(/justifyStart/);
+    });
+
+    it("applies justifyEnd class", () => {
+      const { container } = render(<Stack justify="end">c</Stack>);
+      expect(container.firstElementChild?.className).toMatch(/justifyEnd/);
+    });
+
+    it("does not apply any justify class when justify is omitted", () => {
+      const { container } = render(<Stack>c</Stack>);
+      expect(container.firstElementChild?.className).not.toMatch(/justify/);
+    });
+  });
+
+  describe("HTML attribute forwarding", () => {
+    it("forwards data-testid", () => {
+      render(<Stack data-testid="my-stack">c</Stack>);
+      expect(screen.getByTestId("my-stack")).toBeInTheDocument();
+    });
+  });
 });
