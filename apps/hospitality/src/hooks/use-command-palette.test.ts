@@ -19,9 +19,7 @@ describe("useCommandPalette", () => {
     },
     {
       label: "Settings",
-      items: [
-        { id: "profile", label: "Profile", path: "/profile" },
-      ],
+      items: [{ id: "profile", label: "Profile", path: "/profile" }],
     },
   ];
 
@@ -126,9 +124,7 @@ describe("useCommandPalette", () => {
   });
 
   it("uses 'Navigation' as group name for sections without label", () => {
-    const sectionsNoLabel: NavSection[] = [
-      { items: [{ id: "home", label: "Home", path: "/" }] },
-    ];
+    const sectionsNoLabel: NavSection[] = [{ items: [{ id: "home", label: "Home", path: "/" }] }];
 
     const { result } = renderHook(() =>
       useCommandPalette({ ...defaultOptions, sections: sectionsNoLabel })

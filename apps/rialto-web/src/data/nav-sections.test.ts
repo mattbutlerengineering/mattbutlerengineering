@@ -40,9 +40,7 @@ describe("nav-sections data", () => {
 
   it("nav item paths follow /components/{id} pattern", () => {
     const allItems = NAV_SECTIONS.flatMap((s: NavSection) => s.items);
-    const componentItems = allItems.filter(
-      (item: NavItem) => item.path.startsWith("/components/")
-    );
+    const componentItems = allItems.filter((item: NavItem) => item.path.startsWith("/components/"));
     for (const item of componentItems) {
       expect(item.path).toBe(`/components/${item.id}`);
     }

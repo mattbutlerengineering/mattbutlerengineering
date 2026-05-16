@@ -1,9 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { 
-  recordDbLatency, 
-  checkLatencyAnomaly, 
-  checkAuth0 
-} from "./health-checks.js";
+import { recordDbLatency, checkLatencyAnomaly, checkAuth0 } from "./health-checks.js";
 
 describe("Health Checks Service", () => {
   beforeEach(() => {
@@ -25,7 +21,7 @@ describe("Health Checks Service", () => {
     it("detects anomalies with sufficient data", () => {
       // Add 5 points: avg = 10
       for (let i = 0; i < 5; i++) recordDbLatency(10);
-      
+
       const result = checkLatencyAnomaly(40); // 4x avg, threshold is 3x
       expect(result.isAnomaly).toBe(true);
       expect(result.rollingAvg).toBe(10);
@@ -58,7 +54,7 @@ describe("Health Checks Service", () => {
         error.name = "AbortError";
         return Promise.reject(error);
       });
-      
+
       const result = await checkAuth0();
       expect(result.status).toBe("degraded");
       expect(result.message).toContain("timeout");

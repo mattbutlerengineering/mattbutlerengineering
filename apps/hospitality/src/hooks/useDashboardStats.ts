@@ -47,14 +47,10 @@ function computeUpcoming(reservations: readonly Reservation[]): number {
 export function computeStats(reservations: readonly Reservation[]): DashboardStats {
   if (reservations.length === 0) return FALLBACK_STATS;
 
-  const active = reservations.filter(
-    (r) => r.status !== "CANCELLED" && r.status !== "NO_SHOW"
-  );
+  const active = reservations.filter((r) => r.status !== "CANCELLED" && r.status !== "NO_SHOW");
   const cancelled = reservations.filter((r) => r.status === "CANCELLED");
   const rate =
-    reservations.length > 0
-      ? Math.round((cancelled.length / reservations.length) * 100)
-      : 0;
+    reservations.length > 0 ? Math.round((cancelled.length / reservations.length) * 100) : 0;
 
   return {
     totalReservations: active.length,
@@ -93,9 +89,7 @@ export function useDashboardStats(): UseDashboardStatsResult {
       });
       setReservations(response.data);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to load reservations"
-      );
+      setError(err instanceof Error ? err.message : "Failed to load reservations");
       setReservations([]);
     } finally {
       setIsLoading(false);

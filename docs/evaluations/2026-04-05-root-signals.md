@@ -2,14 +2,14 @@
 
 ## Current State
 
-| Dimension | Value |
-|-----------|-------|
-| **Agent evaluation** | `success-evaluator.ts` — LLM-as-a-judge (Claude Haiku), pass/fail + confidence + reasoning |
-| **Failure learning** | `failure-memory.ts` — local JSON store, word-overlap similarity search, 100-record rolling window |
-| **Tracing / observability** | Langfuse (added in #351) — traces, prompt management, datasets, LLM-as-a-judge scoring |
-| **Evaluation granularity** | Binary pass/fail with a confidence score. No multi-dimensional rubrics. |
-| **Agent pipeline** | `session-runner.ts` → `success-evaluator.ts` → `failure-memory.ts` → `pr-creator.ts` |
-| **Monthly AI eval cost** | ~$0.05 max per session (Haiku, capped in `EvaluationConfig`) |
+| Dimension                   | Value                                                                                             |
+| --------------------------- | ------------------------------------------------------------------------------------------------- |
+| **Agent evaluation**        | `success-evaluator.ts` — LLM-as-a-judge (Claude Haiku), pass/fail + confidence + reasoning        |
+| **Failure learning**        | `failure-memory.ts` — local JSON store, word-overlap similarity search, 100-record rolling window |
+| **Tracing / observability** | Langfuse (added in #351) — traces, prompt management, datasets, LLM-as-a-judge scoring            |
+| **Evaluation granularity**  | Binary pass/fail with a confidence score. No multi-dimensional rubrics.                           |
+| **Agent pipeline**          | `session-runner.ts` → `success-evaluator.ts` → `failure-memory.ts` → `pr-creator.ts`              |
+| **Monthly AI eval cost**    | ~$0.05 max per session (Haiku, capped in `EvaluationConfig`)                                      |
 
 ### What the Existing Evaluator Does Well
 
@@ -34,15 +34,15 @@ Root Signals (now rebranding as Scorable) is a Helsinki-based LLM evaluation pla
 
 ### Core Platform
 
-| Feature | Details |
-|---------|---------|
-| **Built-in evaluators** | 30+ off-the-shelf evaluators: relevance, faithfulness, conciseness, toxicity, PII detection, instruction following, hallucination detection |
-| **Custom evaluators** | Define criteria in natural language; calibrate against your own labeled examples |
-| **Judges (composite)** | Combine multiple evaluators into a single judge — an LLM-as-a-judge that returns a bundle of scores in one call |
-| **RAG evaluation** | Dedicated faithfulness-to-context and retrieval relevance evaluators for RAG pipelines |
-| **Coding policy adherence** | Evaluator that reads policy documents (CLAUDE.md, coding-style.md, etc.) and scores adherence |
-| **Production monitoring** | Continuous evaluation of live interactions; alerts on quality degradation |
-| **Root Judge LLM** | Fine-tuned Llama-3.3-70B trained on millions of evaluation examples. Claims SOTA on hallucination detection benchmarks, outperforming GPT-4o and Claude Sonnet 3.5 on HaluBench at fraction of cost |
+| Feature                     | Details                                                                                                                                                                                             |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Built-in evaluators**     | 30+ off-the-shelf evaluators: relevance, faithfulness, conciseness, toxicity, PII detection, instruction following, hallucination detection                                                         |
+| **Custom evaluators**       | Define criteria in natural language; calibrate against your own labeled examples                                                                                                                    |
+| **Judges (composite)**      | Combine multiple evaluators into a single judge — an LLM-as-a-judge that returns a bundle of scores in one call                                                                                     |
+| **RAG evaluation**          | Dedicated faithfulness-to-context and retrieval relevance evaluators for RAG pipelines                                                                                                              |
+| **Coding policy adherence** | Evaluator that reads policy documents (CLAUDE.md, coding-style.md, etc.) and scores adherence                                                                                                       |
+| **Production monitoring**   | Continuous evaluation of live interactions; alerts on quality degradation                                                                                                                           |
+| **Root Judge LLM**          | Fine-tuned Llama-3.3-70B trained on millions of evaluation examples. Claims SOTA on hallucination detection benchmarks, outperforming GPT-4o and Claude Sonnet 3.5 on HaluBench at fraction of cost |
 
 ### MCP Server (`root-signals/root-signals-mcp`)
 
@@ -50,14 +50,14 @@ The MCP server exposes the Root Signals API as tools callable by any MCP-compati
 
 **Exposed tools:**
 
-| Tool | What It Does |
-|------|-------------|
-| `list_evaluators` | Enumerate all evaluators in the account |
-| `run_evaluation` | Score a (request, response) pair against a specific evaluator by ID |
-| `run_evaluation_by_name` | Same, but look up evaluator by name |
-| `list_judges` | Enumerate composite judges |
-| `run_judge` | Run a composite judge (multi-evaluator bundle) on a pair |
-| `run_coding_policy_adherence` | Evaluate a code diff against policy docs (rules files) |
+| Tool                          | What It Does                                                        |
+| ----------------------------- | ------------------------------------------------------------------- |
+| `list_evaluators`             | Enumerate all evaluators in the account                             |
+| `run_evaluation`              | Score a (request, response) pair against a specific evaluator by ID |
+| `run_evaluation_by_name`      | Same, but look up evaluator by name                                 |
+| `list_judges`                 | Enumerate composite judges                                          |
+| `run_judge`                   | Run a composite judge (multi-evaluator bundle) on a pair            |
+| `run_coding_policy_adherence` | Evaluate a code diff against policy docs (rules files)              |
 
 The MCP use case is "AI agent self-evaluation": an agent can invoke `run_evaluation` mid-session to score its own output, detect quality issues, and revise before submitting. For Claude Code agents, this would slot in after generating a diff but before committing.
 
@@ -67,11 +67,11 @@ Root Signals has a first-class Langfuse integration (`docs.scorable.ai/integrati
 
 ### Pricing
 
-| Plan | Price | Evaluations | Notes |
-|------|-------|-------------|-------|
-| **Free** | $0/mo | 100/day | 1 seat, custom + built-in evaluators, 6-month data retention, Intercom support |
-| **Team** | $19/seat/mo | 5,000/mo + $20 per additional 5K | Up to 5 seats, custom models, unlimited retention |
-| **Enterprise** | Custom | 100,000+/mo | Unlimited seats, on-premise, SLA, Slack support, SAML/Okta, RBAC |
+| Plan           | Price       | Evaluations                      | Notes                                                                          |
+| -------------- | ----------- | -------------------------------- | ------------------------------------------------------------------------------ |
+| **Free**       | $0/mo       | 100/day                          | 1 seat, custom + built-in evaluators, 6-month data retention, Intercom support |
+| **Team**       | $19/seat/mo | 5,000/mo + $20 per additional 5K | Up to 5 seats, custom models, unlimited retention                              |
+| **Enterprise** | Custom      | 100,000+/mo                      | Unlimited seats, on-premise, SLA, Slack support, SAML/Okta, RBAC               |
 
 100 evaluations/day free is approximately 3,000/month — sufficient for a solo developer agent pipeline if evaluations run per PR rather than per agent turn.
 
@@ -79,19 +79,19 @@ Root Signals has a first-class Langfuse integration (`docs.scorable.ai/integrati
 
 ## Evaluation Against Our Needs
 
-| Need | Current Stack | Root Signals |
-|------|--------------|-------------|
-| **Pass/fail evaluation** | `success-evaluator.ts` — solid, zero-cost | Redundant — would add cost without benefit for basic pass/fail |
-| **Multi-dimensional rubric scoring** | Not available | Strong — 30+ built-in, custom rubrics configurable |
-| **Coding policy adherence** | Not available | `run_coding_policy_adherence` reads our rules files directly |
-| **Hallucination detection** | Not available | Root Judge claims SOTA on HaluBench vs GPT-4o/Sonnet 3.5 |
-| **Production monitoring** | Not available | Built-in continuous evaluation with alerting |
-| **Agent self-improvement loop** | `failure-memory.ts` (local JSON, word-overlap) | MCP self-evaluation tools, calibration, trend dashboards |
-| **Tracing + evaluation storage** | Langfuse (tracing) | Integrates with Langfuse — writes scores back as Langfuse objects |
-| **Cost** | ~$0.05/session (Haiku) | Free tier covers ~3K evals/mo; paid at $19/mo |
-| **Integration complexity** | Internal — no external API | Requires `ROOT_SIGNALS_API_KEY`; Docker or npx for MCP server |
-| **Self-hosted option** | N/A | Not available — SaaS only |
-| **Vendor risk** | None | Seed-stage startup ($2.8M, 2024); no self-hosted fallback |
+| Need                                 | Current Stack                                  | Root Signals                                                      |
+| ------------------------------------ | ---------------------------------------------- | ----------------------------------------------------------------- |
+| **Pass/fail evaluation**             | `success-evaluator.ts` — solid, zero-cost      | Redundant — would add cost without benefit for basic pass/fail    |
+| **Multi-dimensional rubric scoring** | Not available                                  | Strong — 30+ built-in, custom rubrics configurable                |
+| **Coding policy adherence**          | Not available                                  | `run_coding_policy_adherence` reads our rules files directly      |
+| **Hallucination detection**          | Not available                                  | Root Judge claims SOTA on HaluBench vs GPT-4o/Sonnet 3.5          |
+| **Production monitoring**            | Not available                                  | Built-in continuous evaluation with alerting                      |
+| **Agent self-improvement loop**      | `failure-memory.ts` (local JSON, word-overlap) | MCP self-evaluation tools, calibration, trend dashboards          |
+| **Tracing + evaluation storage**     | Langfuse (tracing)                             | Integrates with Langfuse — writes scores back as Langfuse objects |
+| **Cost**                             | ~$0.05/session (Haiku)                         | Free tier covers ~3K evals/mo; paid at $19/mo                     |
+| **Integration complexity**           | Internal — no external API                     | Requires `ROOT_SIGNALS_API_KEY`; Docker or npx for MCP server     |
+| **Self-hosted option**               | N/A                                            | Not available — SaaS only                                         |
+| **Vendor risk**                      | None                                           | Seed-stage startup ($2.8M, 2024); no self-hosted fallback         |
 
 ### Differentiated Value Analysis
 
@@ -149,12 +149,12 @@ Root Signals is a seed-stage startup (2024, $2.8M raised). There is meaningful r
 
 If Root Signals stops working or pricing becomes unfavorable:
 
-| Alternative | Notes |
-|------------|-------|
-| **Langfuse LLM-as-a-judge** | Already integrated; supports custom evaluation prompts; less specialized for coding policy |
-| **Deepeval** | Open-source, self-hosted, 20+ metrics including G-Eval and DAG evaluators |
-| **PromptFoo** | Open-source evaluation framework; config-driven; strong for regression testing datasets |
-| **In-house rubric expansion** | Extend `success-evaluator.ts` with structured criteria; stays zero-dependency |
+| Alternative                   | Notes                                                                                      |
+| ----------------------------- | ------------------------------------------------------------------------------------------ |
+| **Langfuse LLM-as-a-judge**   | Already integrated; supports custom evaluation prompts; less specialized for coding policy |
+| **Deepeval**                  | Open-source, self-hosted, 20+ metrics including G-Eval and DAG evaluators                  |
+| **PromptFoo**                 | Open-source evaluation framework; config-driven; strong for regression testing datasets    |
+| **In-house rubric expansion** | Extend `success-evaluator.ts` with structured criteria; stays zero-dependency              |
 
 ---
 
@@ -163,6 +163,7 @@ If Root Signals stops working or pricing becomes unfavorable:
 The Root Signals MCP server is added to `.mcp.json` alongside the existing Langfuse MCP server.
 
 **Installation:**
+
 ```bash
 # Via Docker (persistent daemon)
 docker run -e ROOT_SIGNALS_API_KEY=<your_key> -p 0.0.0.0:9090:9090 --name=rs-mcp -d ghcr.io/root-signals/root-signals-mcp:latest
@@ -174,6 +175,7 @@ ROOT_SIGNALS_API_KEY=<your_key> uvx --from git+https://github.com/root-signals/r
 **Example agent self-evaluation (within a Claude Code session):**
 
 An agent generating a diff can invoke:
+
 ```
 run_coding_policy_adherence(
   request="Implement the auth token refresh hook",
@@ -189,9 +191,9 @@ This gives per-session policy scoring that currently requires manual code review
 
 ## Decision
 
-| Decision | Rationale |
-|----------|-----------|
-| Add Root Signals MCP to `.mcp.json` | Zero cost, zero infrastructure; immediately useful in Claude Code sessions |
-| Keep `success-evaluator.ts` unchanged | Already works; replacement would add cost and complexity for no gain |
-| Defer Phase 2 pipeline integration | Wait until Langfuse baseline reveals specific quality gaps worth targeting |
-| Revisit at 6-month mark | Reassess vendor stability and whether free tier limits are hit |
+| Decision                              | Rationale                                                                  |
+| ------------------------------------- | -------------------------------------------------------------------------- |
+| Add Root Signals MCP to `.mcp.json`   | Zero cost, zero infrastructure; immediately useful in Claude Code sessions |
+| Keep `success-evaluator.ts` unchanged | Already works; replacement would add cost and complexity for no gain       |
+| Defer Phase 2 pipeline integration    | Wait until Langfuse baseline reveals specific quality gaps worth targeting |
+| Revisit at 6-month mark               | Reassess vendor stability and whether free tier limits are hit             |

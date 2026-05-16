@@ -72,9 +72,7 @@ function findCycles(packages) {
         const cycleStart = path.indexOf(name);
         const cycle = [...path.slice(cycleStart), name];
         // Normalize: start from the lexically smallest package to deduplicate
-        const minIdx = cycle.indexOf(
-          cycle.slice(0, -1).reduce((a, b) => (a < b ? a : b))
-        );
+        const minIdx = cycle.indexOf(cycle.slice(0, -1).reduce((a, b) => (a < b ? a : b)));
         const normalized = [
           ...cycle.slice(minIdx, -1),
           ...cycle.slice(0, minIdx),

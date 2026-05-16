@@ -205,9 +205,7 @@ export function createMockClaudeClient(options: MockClientOptions = {}): MockCla
       }
 
       // Track cost from result message if present
-      const resultMsg = sequence.find(
-        (m): m is SDKResultMessage => m.type === "result"
-      );
+      const resultMsg = sequence.find((m): m is SDKResultMessage => m.type === "result");
       const cost = (resultMsg as SDKResultMessage | undefined)?.total_cost_usd ?? 0;
       const inputTokens = (resultMsg as SDKResultMessage | undefined)?.usage?.input_tokens ?? 0;
       const outputTokens = (resultMsg as SDKResultMessage | undefined)?.usage?.output_tokens ?? 0;

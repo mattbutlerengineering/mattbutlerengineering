@@ -36,7 +36,7 @@ const MODEL_IDS: Record<ModelTier, string> = {
 } as const;
 
 /** Budget threshold below which an opus routing is downgraded to sonnet. */
-const OPUS_MIN_BUDGET_USD = 0.30;
+const OPUS_MIN_BUDGET_USD = 0.3;
 
 /** Source file count above which a feature task is upgraded to opus. */
 const LARGE_CHANGE_FILE_THRESHOLD = 15;
@@ -116,10 +116,7 @@ export function routeModel(issue: IssueInput, ctx?: RoutingContext): ModelTier {
  * Same as `routeModel` but also returns the model ID and the reason
  * for the routing decision. Useful for logging and observability.
  */
-export function routeModelWithReason(
-  issue: IssueInput,
-  ctx?: RoutingContext
-): ModelRoutingResult {
+export function routeModelWithReason(issue: IssueInput, ctx?: RoutingContext): ModelRoutingResult {
   const labels = issue.labels.map((l) => l.toLowerCase());
   const titleLower = issue.title.toLowerCase();
   const bodyLower = issue.body.toLowerCase();

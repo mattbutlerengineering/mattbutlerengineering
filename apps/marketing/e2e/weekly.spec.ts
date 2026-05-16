@@ -4,9 +4,7 @@ test.describe("Weekly intake page", () => {
   test("loads with heading and subtitle", async ({ page }) => {
     await page.goto("/weekly");
 
-    await expect(
-      page.getByRole("heading", { name: "Weekly Information Intake" })
-    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Weekly Information Intake" })).toBeVisible();
     await expect(
       page.getByText("Curated resources from the best weekly newsletters")
     ).toBeVisible();

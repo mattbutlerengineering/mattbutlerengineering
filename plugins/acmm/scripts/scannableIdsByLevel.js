@@ -17,20 +17,20 @@
  * are not part of the threshold walk.
  */
 
-import { acmmSource } from './sources/acmm.js'
+import { acmmSource } from "./sources/acmm.js";
 
 /** IDs of the individual instruction-file criteria that form the L2 OR-group. */
 export const AGENT_INSTRUCTION_FILE_IDS = new Set([
-  'acmm:claude-md',
-  'acmm:copilot-instructions',
-  'acmm:agents-md',
-  'acmm:cursor-rules',
-])
+  "acmm:claude-md",
+  "acmm:copilot-instructions",
+  "acmm:agents-md",
+  "acmm:cursor-rules",
+]);
 
 /** Minimum level included in the threshold walk. */
-const WALK_MIN_LEVEL = 2
+const WALK_MIN_LEVEL = 2;
 /** Maximum level included in the threshold walk. */
-const WALK_MAX_LEVEL = 6
+const WALK_MAX_LEVEL = 6;
 
 /**
  * Build the canonical map of scannable criterion IDs per level.
@@ -40,24 +40,23 @@ const WALK_MAX_LEVEL = 6
  * the denominator.
  */
 function buildScannableIdsByLevel() {
-  const result = {}
+  const result = {};
 
   for (let n = WALK_MIN_LEVEL; n <= WALK_MAX_LEVEL; n++) {
-    const scannable = acmmSource.criteria
-      .filter((c) => c.source === 'acmm' && c.level === n && c.scannable !== false)
+    const scannable = acmmSource.criteria.filter(
+      (c) => c.source === "acmm" && c.level === n && c.scannable !== false
+    );
 
     if (n === 2) {
       // Replace individual instruction-file entries with the virtual OR-group
-      const rest = scannable
-        .filter((c) => !AGENT_INSTRUCTION_FILE_IDS.has(c.id))
-        .map((c) => c.id)
-      result[n] = ['acmm:agent-instructions', ...rest]
+      const rest = scannable.filter((c) => !AGENT_INSTRUCTION_FILE_IDS.has(c.id)).map((c) => c.id);
+      result[n] = ["acmm:agent-instructions", ...rest];
     } else {
-      result[n] = scannable.map((c) => c.id)
+      result[n] = scannable.map((c) => c.id);
     }
   }
 
-  return result
+  return result;
 }
 
 /**
@@ -66,4 +65,4 @@ function buildScannableIdsByLevel() {
  * Consumed by both the frontend `computeLevel` and the Netlify badge function
  * to ensure identical level calculations.
  */
-export const SCANNABLE_IDS_BY_LEVEL= buildScannableIdsByLevel()
+export const SCANNABLE_IDS_BY_LEVEL = buildScannableIdsByLevel();

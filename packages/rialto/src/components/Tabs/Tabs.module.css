@@ -30,11 +30,7 @@
 
 .tab:hover {
   color: var(--rialto-text-primary);
-  background: linear-gradient(
-    180deg,
-    rgb(196 146 42 / 0.08) 0%,
-    rgb(196 146 42 / 0.04) 100%
-  );
+  background: linear-gradient(180deg, rgb(196 146 42 / 0.08) 0%, rgb(196 146 42 / 0.04) 100%);
 }
 
 .tabActive {

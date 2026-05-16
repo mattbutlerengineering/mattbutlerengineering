@@ -18,13 +18,7 @@ function StatPlayground() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--rialto-space-lg)" }}>
       <div style={{ maxWidth: 200 }}>
-        <Stat
-          value="1:25.410"
-          label="Lap Time"
-          delta="-0.342"
-          trend={trend}
-          size={size}
-        />
+        <Stat value="1:25.410" label="Lap Time" delta="-0.342" trend={trend} size={size} />
       </div>
       <div className={styles.row} style={{ flexWrap: "wrap" }}>
         <Select

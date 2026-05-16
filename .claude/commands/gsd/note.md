@@ -8,10 +8,12 @@ allowed-tools:
   - Glob
   - Grep
 ---
+
 <objective>
 Zero-friction idea capture — one Write call, one confirmation line.
 
 Three subcommands:
+
 - **append** (default): Save a timestamped note file. No questions, no formatting.
 - **list**: Show all notes from project and global scopes.
 - **promote**: Convert a note into a structured todo.

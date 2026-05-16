@@ -56,7 +56,9 @@ export function App() {
     setTheme(resolved === "dark" ? "light" : "dark");
   };
 
-  const nav = <GlobalNav currentApp="hospitality" theme={resolved} onThemeToggle={handleThemeToggle} />;
+  const nav = (
+    <GlobalNav currentApp="hospitality" theme={resolved} onThemeToggle={handleThemeToggle} />
+  );
 
   if (isLoading) {
     return (

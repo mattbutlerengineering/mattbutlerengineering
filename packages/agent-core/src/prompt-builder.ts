@@ -14,7 +14,9 @@ const QUALITY_CHECKLIST = [
   "Use double quotes, semicolons, 2-space indentation (Prettier)",
   "Follow conventional commit message format for any commits",
   "If the issue includes a verification command (curl, test assertion), run it to confirm your fix works",
-].map((item, i) => `${i + 1}. ${item}`).join("\n");
+]
+  .map((item, i) => `${i + 1}. ${item}`)
+  .join("\n");
 
 export interface SourceFileEntry {
   readonly path: string;
@@ -52,9 +54,7 @@ export async function loadSourceFiles(
 
 function formatSourceFileSection(entries: readonly SourceFileEntry[]): string {
   if (entries.length === 0) return "";
-  const blocks = entries.map(
-    (e) => `### \`${e.path}\`\n\n\`\`\`\n${e.content}\n\`\`\``
-  );
+  const blocks = entries.map((e) => `### \`${e.path}\`\n\n\`\`\`\n${e.content}\n\`\`\``);
   return [
     "",
     "",
@@ -68,15 +68,17 @@ function formatSourceFileSection(entries: readonly SourceFileEntry[]): string {
 
 function formatLlmsContext(filePaths: readonly string[]): string {
   if (filePaths.length === 0) return "";
-  const sections = filePaths.map((filePath) => {
-    if (!existsSync(filePath)) return null;
-    try {
-      const content = readFile(filePath, "utf-8");
-      return `### ${filePath}\n\n${content}\n`;
-    } catch {
-      return null;
-    }
-  }).filter(Boolean);
+  const sections = filePaths
+    .map((filePath) => {
+      if (!existsSync(filePath)) return null;
+      try {
+        const content = readFile(filePath, "utf-8");
+        return `### ${filePath}\n\n${content}\n`;
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
 
   if (sections.length === 0) return "";
   return [
@@ -92,24 +94,12 @@ function formatLlmsContext(filePaths: readonly string[]): string {
 
 function formatIssueContext(issueContext: string): string {
   if (!issueContext) return "";
-  return [
-    "",
-    "",
-    "## GitHub Issue Context",
-    "",
-    issueContext,
-  ].join("\n");
+  return ["", "", "## GitHub Issue Context", "", issueContext].join("\n");
 }
 
 function formatFailureContext(failureContext: string): string {
   if (!failureContext) return "";
-  return [
-    "",
-    "",
-    "## Past Failure Context",
-    "",
-    failureContext,
-  ].join("\n");
+  return ["", "", "## Past Failure Context", "", failureContext].join("\n");
 }
 
 function formatModelConstraints(model?: string): string {

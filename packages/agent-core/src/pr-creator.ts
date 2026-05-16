@@ -40,9 +40,8 @@ export async function createPullRequest(options: PrOptions): Promise<PrResult> {
 
 export function buildPrTitle(taskDescription: string): string {
   const prefix = "feat";
-  const description = taskDescription.length > 60
-    ? taskDescription.slice(0, 57) + "..."
-    : taskDescription;
+  const description =
+    taskDescription.length > 60 ? taskDescription.slice(0, 57) + "..." : taskDescription;
   return `${prefix}: ${description}`;
 }
 

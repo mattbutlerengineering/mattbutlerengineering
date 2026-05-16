@@ -64,10 +64,7 @@ export function estimateTokenCount(text: string): number {
 /**
  * Estimates input tokens for a typical agent prompt including system prompt overhead.
  */
-export function estimatePromptTokens(
-  taskDescription: string,
-  systemPromptOverhead = 2000
-): number {
+export function estimatePromptTokens(taskDescription: string, systemPromptOverhead = 2000): number {
   return estimateTokenCount(taskDescription) + systemPromptOverhead;
 }
 
@@ -92,10 +89,7 @@ export interface CostBreakdown {
 /**
  * Calculates the cost for a given token usage without any API calls.
  */
-export function calculateCost(
-  usage: TokenUsageInput,
-  model = DEFAULT_MODEL
-): CostBreakdown {
+export function calculateCost(usage: TokenUsageInput, model = DEFAULT_MODEL): CostBreakdown {
   const pricing = MODEL_PRICING[model] ?? MODEL_PRICING[DEFAULT_MODEL];
 
   const inputCostUsd = (usage.inputTokens / 1_000_000) * pricing.inputCostPer1MTokens;

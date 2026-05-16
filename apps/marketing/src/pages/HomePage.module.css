@@ -50,7 +50,9 @@
   padding-inline: var(--rialto-space-sm);
   border: 1px solid var(--rialto-border);
   border-radius: var(--rialto-radius-default);
-  transition: color 150ms ease, border-color 150ms ease;
+  transition:
+    color 150ms ease,
+    border-color 150ms ease;
 }
 
 .contactLink:hover {
@@ -75,8 +77,9 @@
   border: 1px solid var(--rialto-border);
   border-radius: var(--rialto-radius-default);
   cursor: pointer;
-  transition: color 150ms var(--rialto-ease-precision),
-              border-color 150ms var(--rialto-ease-precision);
+  transition:
+    color 150ms var(--rialto-ease-precision),
+    border-color 150ms var(--rialto-ease-precision);
 }
 
 .copyEmailButton:hover {

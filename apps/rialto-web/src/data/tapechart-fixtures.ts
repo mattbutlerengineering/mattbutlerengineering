@@ -24,12 +24,44 @@ function addDaysISO(iso: string, n: number): string {
 }
 
 const FIRST_NAMES = [
-  "Alison", "Ronith", "Tyrion", "Prakash", "Bri", "Hideo", "Anika", "Liam", "Yuki", "Noa",
-  "Kenji", "Sofía", "Daniil", "Ingrid", "Mateo", "Priya", "Amir", "Clara", "Dmitri", "Fatima",
+  "Alison",
+  "Ronith",
+  "Tyrion",
+  "Prakash",
+  "Bri",
+  "Hideo",
+  "Anika",
+  "Liam",
+  "Yuki",
+  "Noa",
+  "Kenji",
+  "Sofía",
+  "Daniil",
+  "Ingrid",
+  "Mateo",
+  "Priya",
+  "Amir",
+  "Clara",
+  "Dmitri",
+  "Fatima",
 ];
 const LAST_NAMES = [
-  "Woods", "NJ", "Lannister", "Mohankumar", "Chen", "Tanaka", "Patel", "O'Neill",
-  "García", "Okonkwo", "Fischer", "Singh", "Rossi", "Hernández", "Bauer", "Suzuki",
+  "Woods",
+  "NJ",
+  "Lannister",
+  "Mohankumar",
+  "Chen",
+  "Tanaka",
+  "Patel",
+  "O'Neill",
+  "García",
+  "Okonkwo",
+  "Fischer",
+  "Singh",
+  "Rossi",
+  "Hernández",
+  "Bauer",
+  "Suzuki",
 ];
 const SOURCES = ["Direct", "Booking.com", "Expedia", "Go ibibo", "Make my Trip", "Agoda"];
 const ROOM_STATUSES: TapeChartRoomStatus[] = ["ready", "dirty", "outOfOrder", "occupied"];
@@ -56,7 +88,7 @@ export function makeReservations(
   rooms: TapeChartRoom[],
   startDate: string,
   endDate: string,
-  density = 0.6,
+  density = 0.6
 ): TapeChartReservation[] {
   const rnd = mulberry32(7);
   const reservations: TapeChartReservation[] = [];
@@ -65,7 +97,8 @@ export function makeReservations(
     const [by, bm, bd] = b.split("-").map(Number);
     return Math.round(
       (Date.UTC(by ?? 1970, (bm ?? 1) - 1, bd ?? 1) -
-        Date.UTC(ay ?? 1970, (am ?? 1) - 1, ad ?? 1)) / 86400000,
+        Date.UTC(ay ?? 1970, (am ?? 1) - 1, ad ?? 1)) /
+        86400000
     );
   };
   const rangeDays = daysBetween(startDate, endDate);
@@ -86,7 +119,13 @@ export function makeReservations(
       const guestName = `${FIRST_NAMES[Math.floor(rnd() * FIRST_NAMES.length)]} ${LAST_NAMES[Math.floor(rnd() * LAST_NAMES.length)]}`;
       const source = SOURCES[Math.floor(rnd() * SOURCES.length)];
       const status: TapeChartStatus =
-        cursor < rangeDays / 2 ? (rnd() < 0.7 ? "confirmed" : "checkedIn") : rnd() < 0.3 ? "tentative" : "confirmed";
+        cursor < rangeDays / 2
+          ? rnd() < 0.7
+            ? "confirmed"
+            : "checkedIn"
+          : rnd() < 0.3
+            ? "tentative"
+            : "confirmed";
       reservations.push({
         id: `res-${room.id}-${cursor}`,
         roomId: room.id,

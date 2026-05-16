@@ -11,7 +11,17 @@ const STORAGE_KEY = "rialto-showcase-collapsed";
 
 function SearchIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <circle cx="11" cy="11" r="8" />
       <line x1="21" y1="21" x2="16.65" y2="16.65" />
     </svg>
@@ -20,7 +30,17 @@ function SearchIcon() {
 
 function ChevronIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <polyline points="9 18 15 12 9 6" />
     </svg>
   );
@@ -28,7 +48,17 @@ function ChevronIcon() {
 
 function ClearIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <line x1="18" y1="6" x2="6" y2="18" />
       <line x1="6" y1="6" x2="18" y2="18" />
     </svg>
@@ -148,10 +178,7 @@ export function ShowcaseSidebar({
 
   // All sections including demos
   const allSections: NavSection[] = useMemo(
-    () => [
-      ...sections,
-      { label: "Demos", items: [...demoPages] },
-    ],
+    () => [...sections, { label: "Demos", items: [...demoPages] }],
     [sections, demoPages]
   );
 
@@ -162,9 +189,7 @@ export function ShowcaseSidebar({
     return allSections
       .map((section) => ({
         ...section,
-        items: section.items.filter((item) =>
-          item.label.toLowerCase().includes(normalizedFilter)
-        ),
+        items: section.items.filter((item) => item.label.toLowerCase().includes(normalizedFilter)),
       }))
       .filter((section) => section.items.length > 0);
   }, [allSections, isFiltering, normalizedFilter]);
@@ -192,109 +217,99 @@ export function ShowcaseSidebar({
     <>
       {/* ── Mobile backdrop ────────────────── */}
       {isMobileOpen && (
-        <div
-          className={styles.backdrop}
-          onClick={onMobileClose}
-          aria-hidden="true"
-        />
+        <div className={styles.backdrop} onClick={onMobileClose} aria-hidden="true" />
       )}
 
-      <nav
-        ref={sidebarRef}
-        className={rootClassName}
-        aria-label="Component navigation"
-      >
-      {/* ── Search ──────────────────────────── */}
-      <div className={styles.searchWrapper}>
-        <div className={styles.searchInputWrapper}>
-          <span className={styles.searchIcon}>
-            <SearchIcon />
-          </span>
-          <input
-            ref={inputRef}
-            type="text"
-            className={styles.searchInput}
-            placeholder="Filter components…"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            aria-label="Filter components"
-          />
-          {isFiltering && (
-            <button
-              className={styles.clearButton}
-              onClick={clearFilter}
-              aria-label="Clear filter"
-              type="button"
-            >
-              <ClearIcon />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* ── Sections ───────────────────────── */}
-      <div className={styles.sections}>
-        {visibleSections.length === 0 && (
-          <div className={styles.emptyState}>No components match &quot;{filter}&quot;</div>
-        )}
-
-        {visibleSections.map((section) => {
-          const isExpanded = isFiltering || !collapsed.has(section.label);
-          const sectionId = `sidebar-section-${section.label.toLowerCase().replace(/\s+/g, "-")}`;
-
-          return (
-            <div key={section.label} className={styles.section}>
+      <nav ref={sidebarRef} className={rootClassName} aria-label="Component navigation">
+        {/* ── Search ──────────────────────────── */}
+        <div className={styles.searchWrapper}>
+          <div className={styles.searchInputWrapper}>
+            <span className={styles.searchIcon}>
+              <SearchIcon />
+            </span>
+            <input
+              ref={inputRef}
+              type="text"
+              className={styles.searchInput}
+              placeholder="Filter components…"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              aria-label="Filter components"
+            />
+            {isFiltering && (
               <button
-                className={styles.sectionHeader}
-                onClick={() => toggleSection(section.label)}
-                aria-expanded={isExpanded}
-                aria-controls={sectionId}
+                className={styles.clearButton}
+                onClick={clearFilter}
+                aria-label="Clear filter"
                 type="button"
               >
-                <span
-                  className={`${styles.chevron} ${isExpanded ? styles.chevronExpanded : ""}`}
-                >
-                  <ChevronIcon />
-                </span>
-                <span className={styles.sectionLabel}>{section.label}</span>
-                <span className={styles.sectionCount}>{section.items.length}</span>
+                <ClearIcon />
               </button>
+            )}
+          </div>
+        </div>
 
-              {isExpanded && (
-                <ul id={sectionId} className={styles.sectionItems}>
-                  {section.items.map((item) => {
-                    const isComingSoon = item.comingSoon === true;
+        {/* ── Sections ───────────────────────── */}
+        <div className={styles.sections}>
+          {visibleSections.length === 0 && (
+            <div className={styles.emptyState}>No components match &quot;{filter}&quot;</div>
+          )}
 
-                    return (
-                      <li key={item.id} className={styles.navItem}>
-                        {isComingSoon ? (
-                          <span className={`${styles.navLink} ${styles.navLinkComingSoon}`}>
-                            {item.label}
-                            <span className={styles.comingSoonBadge}>coming soon</span>
-                          </span>
-                        ) : (
-                          <NavLink
-                            to={item.path}
-                            className={({ isActive }) =>
-                              [styles.navLink, isActive ? styles.navLinkActive : ""]
-                                .filter(Boolean)
-                                .join(" ")
-                            }
-                            onClick={() => onMobileClose?.()}
-                          >
-                            {item.label}
-                          </NavLink>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </nav>
+          {visibleSections.map((section) => {
+            const isExpanded = isFiltering || !collapsed.has(section.label);
+            const sectionId = `sidebar-section-${section.label.toLowerCase().replace(/\s+/g, "-")}`;
+
+            return (
+              <div key={section.label} className={styles.section}>
+                <button
+                  className={styles.sectionHeader}
+                  onClick={() => toggleSection(section.label)}
+                  aria-expanded={isExpanded}
+                  aria-controls={sectionId}
+                  type="button"
+                >
+                  <span className={`${styles.chevron} ${isExpanded ? styles.chevronExpanded : ""}`}>
+                    <ChevronIcon />
+                  </span>
+                  <span className={styles.sectionLabel}>{section.label}</span>
+                  <span className={styles.sectionCount}>{section.items.length}</span>
+                </button>
+
+                {isExpanded && (
+                  <ul id={sectionId} className={styles.sectionItems}>
+                    {section.items.map((item) => {
+                      const isComingSoon = item.comingSoon === true;
+
+                      return (
+                        <li key={item.id} className={styles.navItem}>
+                          {isComingSoon ? (
+                            <span className={`${styles.navLink} ${styles.navLinkComingSoon}`}>
+                              {item.label}
+                              <span className={styles.comingSoonBadge}>coming soon</span>
+                            </span>
+                          ) : (
+                            <NavLink
+                              to={item.path}
+                              className={({ isActive }) =>
+                                [styles.navLink, isActive ? styles.navLinkActive : ""]
+                                  .filter(Boolean)
+                                  .join(" ")
+                              }
+                              onClick={() => onMobileClose?.()}
+                            >
+                              {item.label}
+                            </NavLink>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </nav>
     </>
   );
 }

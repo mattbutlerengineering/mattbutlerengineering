@@ -70,9 +70,7 @@ export async function measureAppBundleSize(
   };
 }
 
-export async function measureAllBundles(
-  rootDir: string
-): Promise<readonly BundleSizeEntry[]> {
+export async function measureAllBundles(rootDir: string): Promise<readonly BundleSizeEntry[]> {
   const appsDir = join(rootDir, "apps");
   const appDirs = await readdir(appsDir);
 
@@ -93,9 +91,7 @@ export async function measureAllBundles(
   return [...entries].sort((a, b) => a.app.localeCompare(b.app));
 }
 
-export async function loadBaseline(
-  baselinePath: string
-): Promise<BundleSizeBaseline | null> {
+export async function loadBaseline(baselinePath: string): Promise<BundleSizeBaseline | null> {
   try {
     const raw = await readFile(baselinePath, "utf-8");
     const parsed = JSON.parse(raw) as BundleSizeBaseline;
@@ -157,7 +153,10 @@ export function compareWithBaseline(
   const lines: string[] = [];
   for (const c of comparisons) {
     const prev = baselineMap.has(c.app) ? formatKB(c.previousBytes) : "new";
-    const delta = c.previousBytes === 0 ? "new" : `${c.deltaPercent >= 0 ? "+" : ""}${c.deltaPercent.toFixed(1)}%`;
+    const delta =
+      c.previousBytes === 0
+        ? "new"
+        : `${c.deltaPercent >= 0 ? "+" : ""}${c.deltaPercent.toFixed(1)}%`;
     const status = c.regression ? "REGRESSION" : "ok";
     lines.push(`${c.app}: ${prev} → ${formatKB(c.currentBytes)} (${delta}) ${status}`);
   }
@@ -175,7 +174,8 @@ export function formatReport(report: BundleSizeReport): string {
 
   const rows = report.comparisons.map((c) => {
     const app = c.app.padEnd(20);
-    const before = c.previousBytes === 0 ? "—".padStart(10) : formatKB(c.previousBytes).padStart(10);
+    const before =
+      c.previousBytes === 0 ? "—".padStart(10) : formatKB(c.previousBytes).padStart(10);
     const after = formatKB(c.currentBytes).padStart(10);
     const delta =
       c.previousBytes === 0

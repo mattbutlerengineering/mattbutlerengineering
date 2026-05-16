@@ -52,8 +52,10 @@ export class ClaudeAdapter implements AgentAdapter {
    * The Claude SDK adapter is available when the ANTHROPIC_API_KEY env var is set.
    */
   async isAvailable(): Promise<boolean> {
-    return typeof process.env["ANTHROPIC_API_KEY"] === "string"
-      && process.env["ANTHROPIC_API_KEY"].length > 0;
+    return (
+      typeof process.env["ANTHROPIC_API_KEY"] === "string" &&
+      process.env["ANTHROPIC_API_KEY"].length > 0
+    );
   }
 
   /**

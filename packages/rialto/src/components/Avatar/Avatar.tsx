@@ -122,7 +122,15 @@ export const Avatar = forwardRef<HTMLDivElement, AvatarProps>(
         )}
         {status && (
           <StatusLED
-            variant={status === "offline" ? "off" : status === "busy" ? "danger" : status === "away" ? "accent" : "success"}
+            variant={
+              status === "offline"
+                ? "off"
+                : status === "busy"
+                  ? "danger"
+                  : status === "away"
+                    ? "accent"
+                    : "success"
+            }
             size={size}
             pulse={status !== "offline"}
             label={status}
@@ -207,7 +215,9 @@ export const AvatarGroup = forwardRef<HTMLDivElement, AvatarGroupProps>(
       <div ref={ref} className={[styles.group, className].filter(Boolean).join(" ")}>
         {overflow > 0 && (
           <div className={`${styles.overflow} ${styles[size]}`} aria-label={`${overflow} more`}>
-            <span className={styles.overflowText} aria-hidden="true">+{overflow}</span>
+            <span className={styles.overflowText} aria-hidden="true">
+              +{overflow}
+            </span>
           </div>
         )}
         {[...visible].reverse().map((avatar, i) => (

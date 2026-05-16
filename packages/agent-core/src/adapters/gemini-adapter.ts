@@ -50,9 +50,7 @@ function buildCommitMessage(task: string): string {
   const maxSubject = 72;
   const prefix = "feat: ";
   const available = maxSubject - prefix.length;
-  const subject = task.length > available
-    ? task.slice(0, available - 3) + "..."
-    : task;
+  const subject = task.length > available ? task.slice(0, available - 3) + "..." : task;
   return `${prefix}${subject}`;
 }
 
@@ -88,7 +86,7 @@ export class GeminiCliAdapter implements AgentAdapter {
     const { stdout, stderr, exitedSuccessfully } = await this.spawnGemini(
       args,
       config.worktreePath,
-      timeout,
+      timeout
     );
 
     const combinedOutput = `${stdout}\n${stderr}`;
@@ -120,7 +118,7 @@ export class GeminiCliAdapter implements AgentAdapter {
   private async spawnGemini(
     args: readonly string[],
     cwd: string,
-    timeout: number,
+    timeout: number
   ): Promise<{ stdout: string; stderr: string; exitedSuccessfully: boolean }> {
     try {
       const result = await execFileAsync("gemini", [...args], {
@@ -166,7 +164,7 @@ export class GeminiCliAdapter implements AgentAdapter {
     await execFileAsync(
       "git",
       ["-C", worktreePath, "commit", "-m", buildCommitMessage(task)],
-      gitOpts,
+      gitOpts
     );
   }
 }

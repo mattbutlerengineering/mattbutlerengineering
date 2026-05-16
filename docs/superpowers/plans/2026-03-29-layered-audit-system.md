@@ -12,18 +12,19 @@
 
 ## File Structure
 
-| File | Responsibility |
-|------|---------------|
-| `packages/agent-core/src/audit-inventory.ts` | Types, inventory build/load/save, file-to-surface mapping, zone staleness, regression detection |
-| `packages/agent-core/src/__tests__/audit-inventory.test.ts` | Unit tests for all inventory logic |
-| `.claude/skills/site-audit/SKILL.md` | Rewritten skill with 3 modes, parallel dispatch, inventory integration |
-| `.claude/skills/ship-loop/SKILL.md` | Add A2.5 Smoke Audit step |
+| File                                                        | Responsibility                                                                                  |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `packages/agent-core/src/audit-inventory.ts`                | Types, inventory build/load/save, file-to-surface mapping, zone staleness, regression detection |
+| `packages/agent-core/src/__tests__/audit-inventory.test.ts` | Unit tests for all inventory logic                                                              |
+| `.claude/skills/site-audit/SKILL.md`                        | Rewritten skill with 3 modes, parallel dispatch, inventory integration                          |
+| `.claude/skills/ship-loop/SKILL.md`                         | Add A2.5 Smoke Audit step                                                                       |
 
 ---
 
 ### Task 1: Audit Inventory Types and Constants
 
 **Files:**
+
 - Create: `packages/agent-core/src/audit-inventory.ts`
 
 - [ ] **Step 1: Write the failing test — types and constants exist**
@@ -144,6 +145,7 @@ git commit -m "feat: add audit inventory types and constants"
 Rather than parsing route files (fragile, multiple router patterns), define the full surface registry as a constant. This is rebuilt when routes change — but routes change infrequently enough that a hardcoded registry with a `sourceFiles` mapping is more reliable than AST parsing.
 
 **Files:**
+
 - Modify: `packages/agent-core/src/audit-inventory.ts`
 - Modify: `packages/agent-core/src/__tests__/audit-inventory.test.ts`
 
@@ -226,10 +228,7 @@ function surface(
   sourceFiles: readonly string[],
   auth: "none" | "auth0" = "none"
 ): AuditSurface {
-  const url =
-    type === "api_endpoint"
-      ? `${BASE_URL}${path}`
-      : `${BASE_URL}${path}`;
+  const url = type === "api_endpoint" ? `${BASE_URL}${path}` : `${BASE_URL}${path}`;
 
   return {
     id,
@@ -253,36 +252,86 @@ const SURFACE_REGISTRY: readonly AuditSurface[] = [
   ]),
 
   // ── Hospitality ─────────────────────────────────────────────────
-  surface("hospitality:home", "hospitality", "page", "/hospitality", [
-    "apps/hospitality/src/pages/HomePage.tsx",
-  ], "auth0"),
-  surface("hospitality:reservations", "hospitality", "page", "/hospitality/reservations", [
-    "apps/hospitality/src/pages/ReservationsPage.tsx",
-  ], "auth0"),
-  surface("hospitality:timeline", "hospitality", "page", "/hospitality/timeline", [
-    "apps/hospitality/src/pages/TimelinePage.tsx",
-  ], "auth0"),
-  surface("hospitality:guests", "hospitality", "page", "/hospitality/guests", [
-    "apps/hospitality/src/pages/GuestsPage.tsx",
-  ], "auth0"),
-  surface("hospitality:floor-plans", "hospitality", "page", "/hospitality/floor-plans", [
-    "apps/hospitality/src/pages/FloorPlansPage.tsx",
-  ], "auth0"),
-  surface("hospitality:booking-widget", "hospitality", "page", "/hospitality/booking-widget", [
-    "apps/hospitality/src/pages/BookingWidgetDemoPage.tsx",
-  ], "auth0"),
-  surface("hospitality:onboarding", "hospitality", "page", "/hospitality/onboarding", [
-    "apps/hospitality/src/pages/VenueOnboardingPage.tsx",
-  ], "auth0"),
-  surface("hospitality:profile", "hospitality", "page", "/hospitality/profile", [
-    "apps/hospitality/src/pages/ProfilePage.tsx",
-  ], "auth0"),
-  surface("hospitality:settings", "hospitality", "page", "/hospitality/settings", [
-    "apps/hospitality/src/pages/SettingsPage.tsx",
-  ], "auth0"),
-  surface("hospitality:admin", "hospitality", "page", "/hospitality/admin", [
-    "apps/hospitality/src/pages/AdminPage.tsx",
-  ], "auth0"),
+  surface(
+    "hospitality:home",
+    "hospitality",
+    "page",
+    "/hospitality",
+    ["apps/hospitality/src/pages/HomePage.tsx"],
+    "auth0"
+  ),
+  surface(
+    "hospitality:reservations",
+    "hospitality",
+    "page",
+    "/hospitality/reservations",
+    ["apps/hospitality/src/pages/ReservationsPage.tsx"],
+    "auth0"
+  ),
+  surface(
+    "hospitality:timeline",
+    "hospitality",
+    "page",
+    "/hospitality/timeline",
+    ["apps/hospitality/src/pages/TimelinePage.tsx"],
+    "auth0"
+  ),
+  surface(
+    "hospitality:guests",
+    "hospitality",
+    "page",
+    "/hospitality/guests",
+    ["apps/hospitality/src/pages/GuestsPage.tsx"],
+    "auth0"
+  ),
+  surface(
+    "hospitality:floor-plans",
+    "hospitality",
+    "page",
+    "/hospitality/floor-plans",
+    ["apps/hospitality/src/pages/FloorPlansPage.tsx"],
+    "auth0"
+  ),
+  surface(
+    "hospitality:booking-widget",
+    "hospitality",
+    "page",
+    "/hospitality/booking-widget",
+    ["apps/hospitality/src/pages/BookingWidgetDemoPage.tsx"],
+    "auth0"
+  ),
+  surface(
+    "hospitality:onboarding",
+    "hospitality",
+    "page",
+    "/hospitality/onboarding",
+    ["apps/hospitality/src/pages/VenueOnboardingPage.tsx"],
+    "auth0"
+  ),
+  surface(
+    "hospitality:profile",
+    "hospitality",
+    "page",
+    "/hospitality/profile",
+    ["apps/hospitality/src/pages/ProfilePage.tsx"],
+    "auth0"
+  ),
+  surface(
+    "hospitality:settings",
+    "hospitality",
+    "page",
+    "/hospitality/settings",
+    ["apps/hospitality/src/pages/SettingsPage.tsx"],
+    "auth0"
+  ),
+  surface(
+    "hospitality:admin",
+    "hospitality",
+    "page",
+    "/hospitality/admin",
+    ["apps/hospitality/src/pages/AdminPage.tsx"],
+    "auth0"
+  ),
 
   // ── Rialto Web (sample of key pages — not all 60+) ─────────────
   surface("rialto:overview", "rialto", "page", "/rialto", [
@@ -312,9 +361,14 @@ const SURFACE_REGISTRY: readonly AuditSurface[] = [
   ]),
 
   // ── Gen ─────────────────────────────────────────────────────────
-  surface("gen:playground", "gen", "page", "/gen", [
-    "apps/gen/src/pages/PlaygroundPage.tsx",
-  ], "auth0"),
+  surface(
+    "gen:playground",
+    "gen",
+    "page",
+    "/gen",
+    ["apps/gen/src/pages/PlaygroundPage.tsx"],
+    "auth0"
+  ),
 
   // ── API Health Endpoints ────────────────────────────────────────
   surface("api:users:health", "api:users", "api_endpoint", "/api/v1/users/health", [
@@ -359,6 +413,7 @@ git commit -m "feat: add audit surface registry and buildInventory"
 ### Task 3: Inventory Load/Save and Merge
 
 **Files:**
+
 - Modify: `packages/agent-core/src/audit-inventory.ts`
 - Modify: `packages/agent-core/src/__tests__/audit-inventory.test.ts`
 
@@ -377,7 +432,9 @@ vi.mock("node:fs/promises", () => ({
 }));
 
 describe("loadInventory", () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it("returns fresh inventory when file does not exist", async () => {
     vi.mocked(readFile).mockRejectedValue(new Error("ENOENT"));
@@ -390,18 +447,25 @@ describe("loadInventory", () => {
 
   it("loads and merges with existing inventory", async () => {
     const existing: AuditInventory = {
-      surfaces: [{
-        id: "marketing:home",
-        zone: "marketing",
-        type: "page",
-        url: "https://mattbutlerengineering.com/",
-        sourceFiles: ["apps/marketing/src/pages/HomePage.tsx"],
-        auth: "none",
-        lastChecked: "2026-03-28T10:00:00Z",
-        lastScore: { performance: 0.95, accessibility: 0.98, bestPractices: 0.92, seo: 0.97 },
-        checkHistory: [{ timestamp: "2026-03-28T10:00:00Z", scores: { performance: 0.95, accessibility: 0.98, bestPractices: 0.92, seo: 0.97 } }],
-        checkCount: 1,
-      }],
+      surfaces: [
+        {
+          id: "marketing:home",
+          zone: "marketing",
+          type: "page",
+          url: "https://mattbutlerengineering.com/",
+          sourceFiles: ["apps/marketing/src/pages/HomePage.tsx"],
+          auth: "none",
+          lastChecked: "2026-03-28T10:00:00Z",
+          lastScore: { performance: 0.95, accessibility: 0.98, bestPractices: 0.92, seo: 0.97 },
+          checkHistory: [
+            {
+              timestamp: "2026-03-28T10:00:00Z",
+              scores: { performance: 0.95, accessibility: 0.98, bestPractices: 0.92, seo: 0.97 },
+            },
+          ],
+          checkCount: 1,
+        },
+      ],
       lastUpdated: "2026-03-28T10:00:00Z",
       version: 1,
     };
@@ -417,7 +481,11 @@ describe("loadInventory", () => {
 });
 
 describe("saveInventory", () => {
-  beforeEach(() => { vi.clearAllMocks(); vi.mocked(mkdir).mockResolvedValue(undefined); vi.mocked(writeFile).mockResolvedValue(undefined); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(mkdir).mockResolvedValue(undefined);
+    vi.mocked(writeFile).mockResolvedValue(undefined);
+  });
 
   it("writes inventory to .audit-state/inventory.json", async () => {
     const inventory = buildInventory();
@@ -435,18 +503,20 @@ describe("mergeInventory", () => {
   it("preserves check data for existing surfaces", () => {
     const fresh = buildInventory();
     const existing: AuditInventory = {
-      surfaces: [{
-        id: "marketing:home",
-        zone: "marketing",
-        type: "page",
-        url: "https://mattbutlerengineering.com/",
-        sourceFiles: [],
-        auth: "none",
-        lastChecked: "2026-03-28T10:00:00Z",
-        lastScore: { performance: 0.95, accessibility: 0.98, bestPractices: 0.92, seo: 0.97 },
-        checkHistory: [],
-        checkCount: 5,
-      }],
+      surfaces: [
+        {
+          id: "marketing:home",
+          zone: "marketing",
+          type: "page",
+          url: "https://mattbutlerengineering.com/",
+          sourceFiles: [],
+          auth: "none",
+          lastChecked: "2026-03-28T10:00:00Z",
+          lastScore: { performance: 0.95, accessibility: 0.98, bestPractices: 0.92, seo: 0.97 },
+          checkHistory: [],
+          checkCount: 5,
+        },
+      ],
       lastUpdated: "2026-03-28T10:00:00Z",
       version: 1,
     };
@@ -462,18 +532,20 @@ describe("mergeInventory", () => {
   it("drops surfaces that no longer exist in fresh", () => {
     const fresh = buildInventory();
     const existing: AuditInventory = {
-      surfaces: [{
-        id: "deleted:page",
-        zone: "marketing",
-        type: "page",
-        url: "https://example.com/deleted",
-        sourceFiles: [],
-        auth: "none",
-        lastChecked: "2026-03-28T10:00:00Z",
-        lastScore: null,
-        checkHistory: [],
-        checkCount: 1,
-      }],
+      surfaces: [
+        {
+          id: "deleted:page",
+          zone: "marketing",
+          type: "page",
+          url: "https://example.com/deleted",
+          sourceFiles: [],
+          auth: "none",
+          lastChecked: "2026-03-28T10:00:00Z",
+          lastScore: null,
+          checkHistory: [],
+          checkCount: 1,
+        },
+      ],
       lastUpdated: "2026-03-28T10:00:00Z",
       version: 1,
     };
@@ -500,13 +572,8 @@ import { join, dirname } from "node:path";
 
 const INVENTORY_PATH = ".audit-state/inventory.json";
 
-export function mergeInventory(
-  fresh: AuditInventory,
-  existing: AuditInventory
-): AuditInventory {
-  const existingMap = new Map(
-    existing.surfaces.map((s) => [s.id, s])
-  );
+export function mergeInventory(fresh: AuditInventory, existing: AuditInventory): AuditInventory {
+  const existingMap = new Map(existing.surfaces.map((s) => [s.id, s]));
 
   const merged = fresh.surfaces.map((freshSurface) => {
     const prev = existingMap.get(freshSurface.id);
@@ -541,10 +608,7 @@ export async function loadInventory(repoPath: string): Promise<AuditInventory> {
   }
 }
 
-export async function saveInventory(
-  repoPath: string,
-  inventory: AuditInventory
-): Promise<void> {
+export async function saveInventory(repoPath: string, inventory: AuditInventory): Promise<void> {
   const filePath = join(repoPath, INVENTORY_PATH);
   await mkdir(dirname(filePath), { recursive: true });
   await writeFile(filePath, JSON.stringify(inventory, null, 2));
@@ -568,6 +632,7 @@ git commit -m "feat: add audit inventory load, save, and merge"
 ### Task 4: File-to-Surface Mapping and Zone Staleness
 
 **Files:**
+
 - Modify: `packages/agent-core/src/audit-inventory.ts`
 - Modify: `packages/agent-core/src/__tests__/audit-inventory.test.ts`
 
@@ -581,9 +646,7 @@ import { mapFilesToSurfaces, findStalestZone, updateSurfaceScore } from "../audi
 describe("mapFilesToSurfaces", () => {
   it("maps a page file to its specific surface", () => {
     const inventory = buildInventory();
-    const surfaces = mapFilesToSurfaces(inventory, [
-      "apps/hospitality/src/pages/TimelinePage.tsx",
-    ]);
+    const surfaces = mapFilesToSurfaces(inventory, ["apps/hospitality/src/pages/TimelinePage.tsx"]);
 
     expect(surfaces.some((s) => s.id === "hospitality:timeline")).toBe(true);
   });
@@ -612,28 +675,21 @@ describe("mapFilesToSurfaces", () => {
 
   it("maps service route files to API surfaces", () => {
     const inventory = buildInventory();
-    const surfaces = mapFilesToSurfaces(inventory, [
-      "services/users/src/routes/users.ts",
-    ]);
+    const surfaces = mapFilesToSurfaces(inventory, ["services/users/src/routes/users.ts"]);
 
     expect(surfaces.some((s) => s.zone === "api:users")).toBe(true);
   });
 
   it("maps infrastructure changes to all surfaces", () => {
     const inventory = buildInventory();
-    const surfaces = mapFilesToSurfaces(inventory, [
-      "infrastructure/worker/edge-router.js",
-    ]);
+    const surfaces = mapFilesToSurfaces(inventory, ["infrastructure/worker/edge-router.js"]);
 
     expect(surfaces.length).toBe(inventory.surfaces.length);
   });
 
   it("ignores files outside apps/services/packages/infrastructure", () => {
     const inventory = buildInventory();
-    const surfaces = mapFilesToSurfaces(inventory, [
-      "docs/README.md",
-      ".github/workflows/ci.yml",
-    ]);
+    const surfaces = mapFilesToSurfaces(inventory, ["docs/README.md", ".github/workflows/ci.yml"]);
 
     expect(surfaces).toHaveLength(0);
   });
@@ -665,9 +721,7 @@ describe("findStalestZone", () => {
     const updated: AuditInventory = {
       ...inventory,
       surfaces: inventory.surfaces.map((s) =>
-        s.zone === "marketing"
-          ? { ...s, lastChecked: new Date().toISOString() }
-          : s
+        s.zone === "marketing" ? { ...s, lastChecked: new Date().toISOString() } : s
       ),
     };
 
@@ -696,7 +750,12 @@ describe("updateSurfaceScore", () => {
 
   it("caps checkHistory at 10 entries", () => {
     let surface = buildInventory().surfaces[0];
-    const scores: LighthouseScores = { performance: 0.9, accessibility: 0.9, bestPractices: 0.9, seo: 0.9 };
+    const scores: LighthouseScores = {
+      performance: 0.9,
+      accessibility: 0.9,
+      bestPractices: 0.9,
+      seo: 0.9,
+    };
 
     for (let i = 0; i < 12; i++) {
       surface = updateSurfaceScore(surface, scores);
@@ -831,10 +890,7 @@ export function findStalestZone(inventory: AuditInventory): Zone {
 
 const MAX_HISTORY = 10;
 
-export function updateSurfaceScore(
-  surface: AuditSurface,
-  scores: LighthouseScores
-): AuditSurface {
+export function updateSurfaceScore(surface: AuditSurface, scores: LighthouseScores): AuditSurface {
   const entry: ScoreEntry = {
     timestamp: new Date().toISOString(),
     scores,
@@ -869,6 +925,7 @@ git commit -m "feat: add file-to-surface mapping, zone staleness, and score trac
 ### Task 5: Regression Detection
 
 **Files:**
+
 - Modify: `packages/agent-core/src/audit-inventory.ts`
 - Modify: `packages/agent-core/src/__tests__/audit-inventory.test.ts`
 
@@ -882,7 +939,12 @@ import { detectRegression } from "../audit-inventory.js";
 describe("detectRegression", () => {
   it("returns null when no previous score exists", () => {
     const surface = buildInventory().surfaces[0];
-    const newScores: LighthouseScores = { performance: 0.95, accessibility: 0.98, bestPractices: 0.92, seo: 0.97 };
+    const newScores: LighthouseScores = {
+      performance: 0.95,
+      accessibility: 0.98,
+      bestPractices: 0.92,
+      seo: 0.97,
+    };
 
     const regression = detectRegression(surface, newScores);
     expect(regression).toBeNull();
@@ -893,7 +955,12 @@ describe("detectRegression", () => {
       ...buildInventory().surfaces[0],
       lastScore: { performance: 0.95, accessibility: 0.98, bestPractices: 0.92, seo: 0.97 },
     };
-    const newScores: LighthouseScores = { performance: 0.85, accessibility: 0.98, bestPractices: 0.92, seo: 0.97 };
+    const newScores: LighthouseScores = {
+      performance: 0.85,
+      accessibility: 0.98,
+      bestPractices: 0.92,
+      seo: 0.97,
+    };
 
     const regression = detectRegression(surface, newScores);
 
@@ -908,7 +975,12 @@ describe("detectRegression", () => {
       ...buildInventory().surfaces[0],
       lastScore: { performance: 0.95, accessibility: 0.98, bestPractices: 0.92, seo: 0.97 },
     };
-    const newScores: LighthouseScores = { performance: 0.92, accessibility: 0.98, bestPractices: 0.92, seo: 0.97 };
+    const newScores: LighthouseScores = {
+      performance: 0.92,
+      accessibility: 0.98,
+      bestPractices: 0.92,
+      seo: 0.97,
+    };
 
     const regression = detectRegression(surface, newScores);
     expect(regression).toBeNull();
@@ -919,7 +991,12 @@ describe("detectRegression", () => {
       ...buildInventory().surfaces[0],
       lastScore: { performance: 0.95, accessibility: 0.95, bestPractices: 0.95, seo: 0.95 },
     };
-    const newScores: LighthouseScores = { performance: 0.80, accessibility: 0.85, bestPractices: 0.95, seo: 0.95 };
+    const newScores: LighthouseScores = {
+      performance: 0.8,
+      accessibility: 0.85,
+      bestPractices: 0.95,
+      seo: 0.95,
+    };
 
     const regression = detectRegression(surface, newScores);
 
@@ -1000,6 +1077,7 @@ git commit -m "feat: add audit regression detection"
 ### Task 6: Export from agent-core index
 
 **Files:**
+
 - Modify: `packages/agent-core/src/index.ts`
 
 - [ ] **Step 1: Add exports**
@@ -1048,11 +1126,13 @@ git commit -m "feat: export audit inventory from agent-core"
 ### Task 7: Rewrite site-audit skill with 3 modes
 
 **Files:**
+
 - Modify: `.claude/skills/site-audit/SKILL.md`
 
 - [ ] **Step 1: Rewrite the skill**
 
 Replace the contents of `.claude/skills/site-audit/SKILL.md` with the full 3-mode skill definition. The new skill:
+
 - Parses the argument for mode: `smoke`, `sweep`, `scout`, or defaults to `smoke`
 - **Smoke mode:** Runs `git diff HEAD~1 --name-only`, maps to surfaces, dispatches parallel subagents per surface, detects regressions, creates issues
 - **Sweep mode:** Loads inventory, finds stalest zone, dispatches parallel subagents (waves of 5), updates inventory scores, creates issues for below-threshold scores
@@ -1062,6 +1142,7 @@ Replace the contents of `.claude/skills/site-audit/SKILL.md` with the full 3-mod
 - Preserves existing issue format and labels
 
 The skill should instruct the executor to:
+
 1. Load inventory via `cat .audit-state/inventory.json` (or build fresh if missing)
 2. Run the mode-specific logic
 3. Save updated inventory back to `.audit-state/inventory.json`
@@ -1083,13 +1164,14 @@ git commit -m "feat: rewrite site-audit skill with smoke/sweep/scout modes"
 ### Task 8: Add A2.5 Smoke Audit to ship-loop
 
 **Files:**
+
 - Modify: `.claude/skills/ship-loop/SKILL.md`
 
 - [ ] **Step 1: Add the smoke audit step**
 
 Add between A2 (Security Audit) and A3 (Gather Issues) in the ship-loop skill:
 
-```markdown
+````markdown
 ### A2.5. Smoke Audit
 
 After merging a PR, run a targeted audit on affected surfaces:
@@ -1098,28 +1180,32 @@ After merging a PR, run a targeted audit on affected surfaces:
 # Get files changed in the last merge
 CHANGED=$(git diff HEAD~1 --name-only)
 ```
+````
 
 Then invoke `/site-audit smoke` which will:
+
 1. Map changed files to affected surfaces
 2. Run Lighthouse + console checks in parallel
 3. Detect regressions against stored scores
 4. Create `ci-fix` + `audit` issues for any regressions found
 
 If no files in `apps/`, `services/`, `packages/`, or `infrastructure/` changed, skip this step.
-```
+
+````
 
 - [ ] **Step 2: Commit**
 
 ```bash
 git add .claude/skills/ship-loop/SKILL.md
 git commit -m "feat: add smoke audit step to ship-loop Phase A"
-```
+````
 
 ---
 
 ### Task 9: Add .audit-state to .gitignore
 
 **Files:**
+
 - Modify: `.gitignore`
 
 - [ ] **Step 1: Add .audit-state to .gitignore**

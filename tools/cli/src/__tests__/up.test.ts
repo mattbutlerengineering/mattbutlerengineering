@@ -83,11 +83,7 @@ describe("up command", () => {
     const execCalls = mockExecSync.mock.calls.map(([cmd]) => String(cmd));
     expect(execCalls.some((cmd) => cmd.includes("docker compose"))).toBe(true);
     // Should have spawned pnpm dev
-    expect(mockSpawn).toHaveBeenCalledWith(
-      "pnpm",
-      ["dev"],
-      expect.any(Object)
-    );
+    expect(mockSpawn).toHaveBeenCalledWith("pnpm", ["dev"], expect.any(Object));
   });
 
   it("skips infra when --skip-infra is passed", async () => {

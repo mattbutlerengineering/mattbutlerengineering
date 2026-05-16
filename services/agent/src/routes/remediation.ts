@@ -89,11 +89,7 @@ export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
         return reply
           .code(401)
           .send(
-            createProblemDetails(
-              401,
-              "Unauthorized",
-              "Remediation webhook secret not configured"
-            )
+            createProblemDetails(401, "Unauthorized", "Remediation webhook secret not configured")
           );
       }
 
@@ -178,10 +174,7 @@ export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
         .then(() => recordRemediationOutcome(true))
         .catch((err) => {
           recordRemediationOutcome(false);
-          fastify.log.error(
-            { sessionId: session.id, err },
-            "Remediation session failed"
-          );
+          fastify.log.error({ sessionId: session.id, err }, "Remediation session failed");
         });
 
       return { sessionId: session.id };

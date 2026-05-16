@@ -21,8 +21,9 @@ function findMonorepoRoot(startDir: string): string {
 
 // ── Command ───────────────────────────────────────────────────────────────
 
-export const mcpCommand = new Command("mcp")
-  .description("Model Context Protocol (MCP) server management");
+export const mcpCommand = new Command("mcp").description(
+  "Model Context Protocol (MCP) server management"
+);
 
 mcpCommand
   .command("start")

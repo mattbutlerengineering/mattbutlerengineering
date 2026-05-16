@@ -134,12 +134,9 @@ export async function injectAuth0Session(page: Page): Promise<void> {
 
   // Navigate to the app first so sessionStorage is on the correct origin
   await page.goto("/");
-  await page.evaluate(
-    ({ key, value }) => {
-      sessionStorage.setItem(key, value);
-    },
-    entry
-  );
+  await page.evaluate(({ key, value }) => {
+    sessionStorage.setItem(key, value);
+  }, entry);
 
   // Reload so AuthProvider picks up the injected session
   await page.reload();

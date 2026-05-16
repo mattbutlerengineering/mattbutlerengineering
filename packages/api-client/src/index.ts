@@ -5,9 +5,19 @@ export { UsersClient } from "./users.js";
 export { ReservationsClient, type ListReservationsParams } from "./reservations.js";
 export { VenuesClient, VenueGroupsClient } from "./venues.js";
 export { TablesClient, type ListTablesParams } from "./tables.js";
-export { GuestsClient, type ListGuestsParams, type SearchGuestsParams, type FindOrCreateGuestRequest } from "./guests.js";
+export {
+  GuestsClient,
+  type ListGuestsParams,
+  type SearchGuestsParams,
+  type FindOrCreateGuestRequest,
+} from "./guests.js";
 export { FloorPlansClient } from "./floor-plans.js";
-export { AvailabilityClient, HoldsClient, type GetTimeSlotsParams, type GetDatesParams } from "./availability.js";
+export {
+  AvailabilityClient,
+  HoldsClient,
+  type GetTimeSlotsParams,
+  type GetDatesParams,
+} from "./availability.js";
 export { streamNDJSON, type StreamConfig } from "./streaming.js";
 
 import { ApiClient } from "./client.js";

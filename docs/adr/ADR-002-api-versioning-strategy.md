@@ -27,11 +27,11 @@ Each service owns a versioned path prefix on the shared API origin:
 
 When a version is superseded, all responses include:
 
-| Header | Purpose |
-|--------|---------|
-| `Deprecation: true` | Machine-readable flag |
-| `Sunset: <RFC 7231 date>` | Date the version becomes unavailable |
-| `Link: </api/v2/...>; rel="successor-version"` | URL of the replacement |
+| Header                                         | Purpose                              |
+| ---------------------------------------------- | ------------------------------------ |
+| `Deprecation: true`                            | Machine-readable flag                |
+| `Sunset: <RFC 7231 date>`                      | Date the version becomes unavailable |
+| `Link: </api/v2/...>; rel="successor-version"` | URL of the replacement               |
 
 ### Sunset Policy
 

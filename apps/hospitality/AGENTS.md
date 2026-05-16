@@ -31,12 +31,12 @@ pnpm typecheck       # TypeScript
 
 ## Context Files
 
-| Document | Purpose |
-|----------|---------|
-| [CLAUDE.md](./CLAUDE.md) | Full developer context, components, patterns |
-| [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | Data flow, API surface, SSE patterns |
-| [docs/USER-FLOWS.md](./docs/USER-FLOWS.md) | 10 critical user flows |
-| [docs/E2E-TEST-PLAN.md](./docs/E2E-TEST-PLAN.md) | Playwright test specs |
+| Document                                         | Purpose                                      |
+| ------------------------------------------------ | -------------------------------------------- |
+| [CLAUDE.md](./CLAUDE.md)                         | Full developer context, components, patterns |
+| [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)   | Data flow, API surface, SSE patterns         |
+| [docs/USER-FLOWS.md](./docs/USER-FLOWS.md)       | 10 critical user flows                       |
+| [docs/E2E-TEST-PLAN.md](./docs/E2E-TEST-PLAN.md) | Playwright test specs                        |
 
 ## Technology Stack
 

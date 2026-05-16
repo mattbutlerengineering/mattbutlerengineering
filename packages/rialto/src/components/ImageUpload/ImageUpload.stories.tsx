@@ -1,11 +1,11 @@
-import type { Meta, StoryObj } from '@storybook/react-vite';
-import { within, expect } from '@storybook/test';
-import { ImageUpload } from './ImageUpload';
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import { within, expect } from "@storybook/test";
+import { ImageUpload } from "./ImageUpload";
 
 const meta: Meta<typeof ImageUpload> = {
-  title: 'Specialty/ImageUpload',
+  title: "Specialty/ImageUpload",
   component: ImageUpload,
-  tags: ['autodocs'],
+  tags: ["autodocs"],
 };
 
 export default meta;
@@ -30,7 +30,7 @@ export const WithProgress: Story = {
 
 export const WithExistingImage: Story = {
   args: {
-    value: 'https://placehold.co/400x300/f8f6f3/1a1918?text=Preview',
+    value: "https://placehold.co/400x300/f8f6f3/1a1918?text=Preview",
     onChange: () => {},
   },
 };

@@ -87,11 +87,16 @@ export async function fetchUnresolvedComments(
     const { stdout } = await execFileAsync(
       "gh",
       [
-        "api", "graphql",
-        "-f", `query=${REVIEW_THREADS_QUERY}`,
-        "-f", `owner=${owner}`,
-        "-f", `name=${repo}`,
-        "-F", `number=${prNumber}`,
+        "api",
+        "graphql",
+        "-f",
+        `query=${REVIEW_THREADS_QUERY}`,
+        "-f",
+        `owner=${owner}`,
+        "-f",
+        `name=${repo}`,
+        "-F",
+        `number=${prNumber}`,
       ],
       { cwd: repoPath }
     );
@@ -196,7 +201,10 @@ export async function pollForFeedback(
   lastFingerprint: string
 ): Promise<PollResult | null> {
   const { comments, reviewDecision } = await fetchUnresolvedComments(
-    owner, repo, prNumber, repoPath
+    owner,
+    repo,
+    prNumber,
+    repoPath
   );
 
   const ciFailures = await fetchCIFailures(prNumber, repoPath);

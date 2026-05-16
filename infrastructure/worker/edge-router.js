@@ -140,15 +140,13 @@ function addHeaders(response, pathname, nonce) {
   const contentType = headers.get("Content-Type") || "";
   if (contentType.includes("text/html")) {
     // Use HTMLRewriter to inject nonce into all <script> tags
-    const rewritten = new HTMLRewriter()
-      .on("script", new NonceInjector(nonce))
-      .transform(
-        new Response(response.body, {
-          status: response.status,
-          statusText: response.statusText,
-          headers,
-        })
-      );
+    const rewritten = new HTMLRewriter().on("script", new NonceInjector(nonce)).transform(
+      new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers,
+      })
+    );
     return rewritten;
   }
 
@@ -376,7 +374,7 @@ function evaluateFlag(flag, seed) {
   if (!flag.percentage || flag.percentage >= 100) return true;
   if (!seed) return false;
   const hash = hashCode(seed);
-  return (hash % 100) < flag.percentage;
+  return hash % 100 < flag.percentage;
 }
 
 /**
@@ -689,7 +687,10 @@ async function handleHealthUptime(env) {
       periodDays: days,
       subsystems,
     }),
-    { status: 200, headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=300" } }
+    {
+      status: 200,
+      headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=300" },
+    }
   );
 }
 
@@ -722,9 +723,7 @@ async function handleHealthPerformance(env) {
   const samples = [];
   for (let i = 0; i < keys.length; i += 50) {
     const batch = keys.slice(i, i + 50);
-    const results = await Promise.all(
-      batch.map((key) => env.HEALTH_STATE.get(key, "json"))
-    );
+    const results = await Promise.all(batch.map((key) => env.HEALTH_STATE.get(key, "json")));
     for (const r of results) {
       if (r) samples.push(r);
     }
@@ -769,8 +768,7 @@ async function handleHealthPerformance(env) {
     const recentP95 = recentSorted[recentP95Index] ?? recentSorted[recentSorted.length - 1];
 
     const trend =
-      recentP95 > avg * 1.5 ? "degrading" :
-      recentP95 < avg * 0.8 ? "improving" : "stable";
+      recentP95 > avg * 1.5 ? "degrading" : recentP95 < avg * 0.8 ? "improving" : "stable";
 
     serviceStats[name] = {
       avgMs: Math.round(avg),
@@ -781,7 +779,9 @@ async function handleHealthPerformance(env) {
     };
 
     if (trend === "degrading") {
-      alerts.push(`${name}: p95 ${Math.round(recentP95)}ms exceeds 1.5x average (${Math.round(avg)}ms)`);
+      alerts.push(
+        `${name}: p95 ${Math.round(recentP95)}ms exceeds 1.5x average (${Math.round(avg)}ms)`
+      );
     }
   }
 
@@ -847,11 +847,12 @@ async function handleHealthLighthouse(env) {
   for (const [app, appScores] of Object.entries(byApp)) {
     const sorted = appScores.sort((a, b) => a.date.localeCompare(b.date));
     const latest = sorted[sorted.length - 1];
-    const twoWeeksAgo = sorted.find((s) => {
-      const d = new Date(s.date);
-      const cutoff = new Date(Date.now() - 14 * 86400_000);
-      return d <= cutoff;
-    }) ?? sorted[0];
+    const twoWeeksAgo =
+      sorted.find((s) => {
+        const d = new Date(s.date);
+        const cutoff = new Date(Date.now() - 14 * 86400_000);
+        return d <= cutoff;
+      }) ?? sorted[0];
 
     const appStats = { latest: {}, trend: {}, dataPoints: sorted.length };
 
@@ -870,16 +871,13 @@ async function handleHealthLighthouse(env) {
     apps[app] = appStats;
   }
 
-  return new Response(
-    JSON.stringify({ periodDays: 30, apps, alerts }),
-    {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Cache-Control": "public, max-age=3600",
-      },
-    }
-  );
+  return new Response(JSON.stringify({ periodDays: 30, apps, alerts }), {
+    status: 200,
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": "public, max-age=3600",
+    },
+  });
 }
 
 /**
@@ -903,7 +901,7 @@ function handleHealthDeps(request) {
 async function handleFeatureFlags(request, env, url) {
   const flagName = url.pathname.replace("/api/flags/", "");
   const authHeader = request.headers.get("Authorization");
-  
+
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
@@ -1017,10 +1015,7 @@ export default {
     if (url.hostname.startsWith("www.")) {
       const bare = url.hostname.slice(4);
       return addHeaders(
-        Response.redirect(
-          `https://${bare}${url.pathname}${url.search}`,
-          301
-        ),
+        Response.redirect(`https://${bare}${url.pathname}${url.search}`, 301),
         url.pathname,
         nonce
       );
@@ -1030,10 +1025,7 @@ export default {
     if (url.pathname.startsWith("/dashboard")) {
       const rest = url.pathname.slice("/dashboard".length);
       return addHeaders(
-        Response.redirect(
-          `https://${url.hostname}/hospitality${rest}`,
-          301
-        ),
+        Response.redirect(`https://${url.hostname}/hospitality${rest}`, 301),
         url.pathname,
         nonce
       );
@@ -1115,10 +1107,7 @@ export default {
     // normalizes to "/" and causes React Router catch-all confusion.
     if (url.pathname === "/rialto" || url.pathname === "/hospitality" || url.pathname === "/gen") {
       return addHeaders(
-        Response.redirect(
-          `https://${url.hostname}${url.pathname}/${url.search}`,
-          301
-        ),
+        Response.redirect(`https://${url.hostname}${url.pathname}/${url.search}`, 301),
         url.pathname,
         nonce
       );
@@ -1187,7 +1176,7 @@ export default {
     // Strip path prefix before forwarding to the app Worker.
     // Each app is built with base: "/<name>/" in Vite, but the Worker
     // serves from root — so /hospitality/foo → /foo on the app Worker.
-    const strippedPath = prefix ? (url.pathname.slice(prefix.length) || "/") : url.pathname;
+    const strippedPath = prefix ? url.pathname.slice(prefix.length) || "/" : url.pathname;
     const appUrl = new URL(strippedPath + url.search, bindingOrigin);
     const appHeaders = new Headers(request.headers);
     appHeaders.set("X-Request-ID", requestId);
@@ -1218,10 +1207,7 @@ export default {
         const loc = new URL(location, url.origin);
         if (loc.pathname !== url.pathname) {
           const rewritten = new Headers(response.headers);
-          rewritten.set(
-            "Location",
-            `https://${url.host}${prefix}${loc.pathname}${loc.search}`
-          );
+          rewritten.set("Location", `https://${url.host}${prefix}${loc.pathname}${loc.search}`);
           return addHeaders(
             new Response(response.body, {
               status: response.status,

@@ -22,10 +22,7 @@ describe("Pagination", () => {
 
   it("marks current page with aria-current=page", () => {
     render(<Pagination page={3} totalPages={5} onChange={vi.fn()} />);
-    expect(screen.getByRole("button", { name: /page 3/i })).toHaveAttribute(
-      "aria-current",
-      "page"
-    );
+    expect(screen.getByRole("button", { name: /page 3/i })).toHaveAttribute("aria-current", "page");
   });
 
   it("does not mark other pages as current", () => {

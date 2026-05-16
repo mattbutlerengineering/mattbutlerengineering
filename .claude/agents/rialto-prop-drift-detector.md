@@ -15,6 +15,7 @@ That fix took ~30 minutes to triage. With this agent, the same drift would have 
 ## Input
 
 You are spawned with either:
+
 - A list of changed files (typically `git diff --name-only origin/main...HEAD`), or
 - A specific path under `packages/rialto/`.
 
@@ -29,6 +30,7 @@ ls packages/rialto/src/components/ | head -50
 ```
 
 For each component folder (e.g. `AppBar/`):
+
 - Read `<Name>.tsx` (the implementation file).
 - Extract the exported `*Props` interface — the `export interface FooProps extends ...` or `export type FooProps = ...` declaration.
 - Note: rialto extends native HTML attributes via `Pick<>` patterns (e.g. `Pick<HTMLAttributes<HTMLElement>, "id" | "aria-label" | "className" | "style">`). Read these expansions carefully — `label`/`title`/`brand` are **not** native HTML attrs, so they must be explicitly declared in the props interface to be valid.
@@ -44,6 +46,7 @@ For each test file, grep for JSX usage of components: `<ComponentName ...>`. Use
 ### 3. Diff usage against declared props
 
 For each `<Component prop="...">` usage:
+
 - Extract the prop names being passed.
 - Compare against the component's `*Props` interface.
 - Flag any prop **passed in test but absent from `*Props`** as drift.
@@ -52,16 +55,16 @@ For each `<Component prop="...">` usage:
 
 ### 4. Specific gotchas to remember
 
-| Component | Common drift pattern |
-|---|---|
-| `InputGroup` | `InputGroupProps = HTMLAttributes<HTMLDivElement>` — no `label` prop. Tests passing `label="..."` are wrong; should use `aria-label`. |
-| `NumberInput` | "Always controlled" per JSDoc — `value` and `onChange` are required. Tests omitting them are wrong. |
-| `AppBar` | Takes `logo` (ReactNode) + `actions`, NOT `title`. |
-| `Navbar` | Takes `logo` (ReactNode), NOT `brand`. |
-| `Tooltip` | Takes `content`, NOT `label`. |
-| `HoverCard` | `content={card}>{trigger}` — NOT `trigger={btn}>{card}`. |
-| `ConfirmDialog` | Takes `description="..."`, NOT children. |
-| `DropdownMenu`/`ContextMenu` items | Use `MenuItemDef` shape: `{id, label, onSelect, ...}` — NOT `{label, onClick}`. |
+| Component                          | Common drift pattern                                                                                                                  |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `InputGroup`                       | `InputGroupProps = HTMLAttributes<HTMLDivElement>` — no `label` prop. Tests passing `label="..."` are wrong; should use `aria-label`. |
+| `NumberInput`                      | "Always controlled" per JSDoc — `value` and `onChange` are required. Tests omitting them are wrong.                                   |
+| `AppBar`                           | Takes `logo` (ReactNode) + `actions`, NOT `title`.                                                                                    |
+| `Navbar`                           | Takes `logo` (ReactNode), NOT `brand`.                                                                                                |
+| `Tooltip`                          | Takes `content`, NOT `label`.                                                                                                         |
+| `HoverCard`                        | `content={card}>{trigger}` — NOT `trigger={btn}>{card}`.                                                                              |
+| `ConfirmDialog`                    | Takes `description="..."`, NOT children.                                                                                              |
+| `DropdownMenu`/`ContextMenu` items | Use `MenuItemDef` shape: `{id, label, onSelect, ...}` — NOT `{label, onClick}`.                                                       |
 
 ### 5. Output
 

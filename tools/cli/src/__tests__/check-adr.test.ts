@@ -52,7 +52,9 @@ describe("check-adr command", () => {
   });
 
   it("skips ADRs with non-active status", async () => {
-    mockReaddirSync.mockReturnValue(["001-deprecated.md"] as unknown as ReturnType<typeof readdirSync>);
+    mockReaddirSync.mockReturnValue(["001-deprecated.md"] as unknown as ReturnType<
+      typeof readdirSync
+    >);
     mockReadFileSync.mockReturnValue(
       `---\nid: ADR-001\ntitle: Old Decision\nstatus: deprecated\nprohibited_patterns:\n  - 'console\\.log'\n---\nContent here`
     );
@@ -64,7 +66,9 @@ describe("check-adr command", () => {
   });
 
   it("detects prohibited pattern violations", async () => {
-    mockReaddirSync.mockReturnValue(["001-no-console.md"] as unknown as ReturnType<typeof readdirSync>);
+    mockReaddirSync.mockReturnValue(["001-no-console.md"] as unknown as ReturnType<
+      typeof readdirSync
+    >);
 
     mockReadFileSync.mockImplementation((filePath: unknown) => {
       const path = String(filePath);
@@ -83,7 +87,9 @@ describe("check-adr command", () => {
   });
 
   it("passes when no violations are found", async () => {
-    mockReaddirSync.mockReturnValue(["001-no-eval.md"] as unknown as ReturnType<typeof readdirSync>);
+    mockReaddirSync.mockReturnValue(["001-no-eval.md"] as unknown as ReturnType<
+      typeof readdirSync
+    >);
 
     mockReadFileSync.mockImplementation((filePath: unknown) => {
       const path = String(filePath);
@@ -102,7 +108,9 @@ describe("check-adr command", () => {
   });
 
   it("skips ADRs without prohibited_patterns", async () => {
-    mockReaddirSync.mockReturnValue(["001-info-only.md"] as unknown as ReturnType<typeof readdirSync>);
+    mockReaddirSync.mockReturnValue(["001-info-only.md"] as unknown as ReturnType<
+      typeof readdirSync
+    >);
     mockReadFileSync.mockReturnValue(
       `---\nid: ADR-001\ntitle: Info Only\nstatus: active\n---\nJust an informational ADR.`
     );
@@ -115,9 +123,7 @@ describe("check-adr command", () => {
 
   it("handles malformed YAML frontmatter gracefully", async () => {
     mockReaddirSync.mockReturnValue(["001-bad.md"] as unknown as ReturnType<typeof readdirSync>);
-    mockReadFileSync.mockReturnValue(
-      `---\n  bad: yaml: [broken\n---\nContent`
-    );
+    mockReadFileSync.mockReturnValue(`---\n  bad: yaml: [broken\n---\nContent`);
     mockGlob.mockResolvedValue([] as never);
 
     await runCheckAdr();

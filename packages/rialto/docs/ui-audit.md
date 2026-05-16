@@ -113,7 +113,7 @@ src/components/Dialog/Dialog.tsx:125 — "Close dialog" label ✓ specific (good
 
 ### src/components/DisabledTooltip/DisabledTooltip.tsx
 
-src/components/DisabledTooltip/DisabledTooltip.tsx:13 — `showOnFocus={false}` hides the disabled-reason from keyboard users who can't hover; keyboard users are the population most likely to need to know *why* an action is disabled
+src/components/DisabledTooltip/DisabledTooltip.tsx:13 — `showOnFocus={false}` hides the disabled-reason from keyboard users who can't hover; keyboard users are the population most likely to need to know _why_ an action is disabled
 
 ### src/components/Divider/Divider.tsx
 
@@ -141,7 +141,7 @@ src/components/EmptyState/EmptyState.tsx:39 — user-supplied `icon?` not enforc
 ### src/components/ErrorBoundary/ErrorBoundary.tsx
 
 src/components/ErrorBoundary/ErrorBoundary.tsx:52 — hardcoded `<h1>` inside fallback — misplaces document outline when boundary wraps mid-page region; should accept `headingLevel` prop
-src/components/ErrorBoundary/ErrorBoundary.tsx:36 — `console.error` for error reporting; project rule: "No console.* in production code — use proper logging libraries" (use the `onError` prop exclusively, or an injected logger)
+src/components/ErrorBoundary/ErrorBoundary.tsx:36 — `console.error` for error reporting; project rule: "No console.\* in production code — use proper logging libraries" (use the `onError` prop exclusively, or an injected logger)
 src/components/ErrorBoundary/ErrorBoundary.tsx:41 — `window.location.reload()` loses unsaved work without warning; consumers may want `resetErrorBoundary()` style retry instead of hard reload
 
 ---
@@ -354,7 +354,7 @@ src/components/TextArea/TextArea.tsx:78-83 — `autoResize` on every change trig
 ### src/components/ThemeToggle/ThemeToggle.tsx
 
 src/components/ThemeToggle/ThemeToggle.tsx:20-26 — toggle button missing `aria-pressed={isDark}` → toggle state not announced; consider `role="switch"` + `aria-checked` alternative
-src/components/ThemeToggle/ThemeToggle.tsx:24 — aria-label text changes on every toggle — works but "Switch to light/dark mode" announces the *future* state, which some screen readers read as current state. Use `aria-pressed` + static label "Dark mode" instead
+src/components/ThemeToggle/ThemeToggle.tsx:24 — aria-label text changes on every toggle — works but "Switch to light/dark mode" announces the _future_ state, which some screen readers read as current state. Use `aria-pressed` + static label "Dark mode" instead
 
 ### src/components/Timeline/Timeline.tsx
 
@@ -383,7 +383,7 @@ src/components/Tooltip/Tooltip.tsx:35 — `show` timeout not cleared in `hide` b
 
 src/components/Tree/Tree.tsx:186-192 — toggle `<span role="presentation">` with `onClick` nested inside `<button>` (treeitem) — click-inside-button; event ordering relies on `stopPropagation` (line 151); works but fragile
 src/components/Tree/Tree.tsx:176 — left indent via inline `paddingInlineStart` calculation — fine, RTL-aware via logical prop ✓
-src/components/Tree/Tree.tsx:358-368 — Enter/Space both selects *and* toggles — WAI-ARIA Tree pattern: Enter selects, Space toggles expansion (separate). Current collapses both into one action
+src/components/Tree/Tree.tsx:358-368 — Enter/Space both selects _and_ toggles — WAI-ARIA Tree pattern: Enter selects, Space toggles expansion (separate). Current collapses both into one action
 src/components/Tree/Tree.tsx:244-245,374-393 — type-ahead timer ref uninitialized at first use; `clearTimeout(undefined)` safe but declare typed correctly
 
 ---
@@ -415,4 +415,3 @@ ImageUpload has 7 findings — should fix before ship. Hasn't been through the a
 ### Reference implementations
 
 Cleanest: Pagination, Progress, Toast, Skeleton. Model other components on these.
-

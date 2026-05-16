@@ -89,9 +89,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ],
+      "slots": ["children"],
       "characterLimits": [
         {
           "prop": "title",
@@ -1668,9 +1666,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ]
+      "slots": ["children"]
     },
     {
       "name": "AuthMascot",
@@ -3306,9 +3302,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ]
+      "slots": ["children"]
     },
     {
       "name": "AutocompleteOption",
@@ -4858,9 +4852,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ],
+      "slots": ["children"],
       "characterLimits": [
         {
           "prop": "children",
@@ -6338,9 +6330,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ],
+      "slots": ["children"],
       "characterLimits": [
         {
           "prop": "title",
@@ -7911,9 +7901,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ],
+      "slots": ["children"],
       "characterLimits": [
         {
           "prop": "children",
@@ -9384,9 +9372,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ],
+      "slots": ["children"],
       "characterLimits": [
         {
           "prop": "title",
@@ -10864,9 +10850,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ]
+      "slots": ["children"]
     },
     {
       "name": "ChalkboardItem",
@@ -12349,9 +12333,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ]
+      "slots": ["children"]
     },
     {
       "name": "CharsetName",
@@ -12473,9 +12455,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ],
+      "slots": ["children"],
       "characterLimits": [
         {
           "prop": "label",
@@ -14107,9 +14087,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ]
+      "slots": ["children"]
     },
     {
       "name": "DataListItem",
@@ -14155,9 +14133,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ],
+      "slots": ["children"],
       "characterLimits": [
         {
           "prop": "title",
@@ -14186,9 +14162,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ]
+      "slots": ["children"]
     },
     {
       "name": "Divider",
@@ -14285,9 +14259,7 @@
           "description": "Panel width/height"
         }
       ],
-      "slots": [
-        "children"
-      ],
+      "slots": ["children"],
       "characterLimits": [
         {
           "prop": "title",
@@ -15803,9 +15775,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ],
+      "slots": ["children"],
       "characterLimits": [
         {
           "prop": "title",
@@ -15837,9 +15807,7 @@
           "description": "Optional callback invoked when an error is caught. Use to report errors to external services."
         }
       ],
-      "slots": [
-        "children"
-      ]
+      "slots": ["children"]
     },
     {
       "name": "Ferrofluid",
@@ -17305,9 +17273,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ]
+      "slots": ["children"]
     },
     {
       "name": "FlipDot",
@@ -18813,9 +18779,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ]
+      "slots": ["children"]
     },
     {
       "name": "FlipDotAnimationMode",
@@ -20291,9 +20255,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ]
+      "slots": ["children"]
     },
     {
       "name": "FooterColumn",
@@ -21868,9 +21830,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ]
+      "slots": ["children"]
     },
     {
       "name": "HeadingLevel",
@@ -23360,9 +23320,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ]
+      "slots": ["children"]
     },
     {
       "name": "HoverCard",
@@ -25123,9 +25081,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ],
+      "slots": ["children"],
       "characterLimits": [
         {
           "prop": "label",
@@ -26589,9 +26545,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ]
+      "slots": ["children"]
     },
     {
       "name": "Kbd",
@@ -28212,9 +28166,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ],
+      "slots": ["children"],
       "characterLimits": [
         {
           "prop": "label",
@@ -29696,9 +29648,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ]
+      "slots": ["children"]
     },
     {
       "name": "NavbarLink",
@@ -31157,9 +31107,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ]
+      "slots": ["children"]
     },
     {
       "name": "NavItem",
@@ -31284,9 +31232,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ]
+      "slots": ["children"]
     },
     {
       "name": "PageHeader",
@@ -32752,9 +32698,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ]
+      "slots": ["children"]
     },
     {
       "name": "Pagination",
@@ -32914,9 +32858,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ]
+      "slots": ["children"]
     },
     {
       "name": "Progress",
@@ -34385,9 +34327,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ]
+      "slots": ["children"]
     },
     {
       "name": "Radio",
@@ -34485,9 +34425,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ],
+      "slots": ["children"],
       "characterLimits": [
         {
           "prop": "label",
@@ -34520,9 +34458,7 @@
           "description": "Theme mode. `'system'` follows the OS color scheme. Defaults to `'system'`."
         }
       ],
-      "slots": [
-        "children"
-      ]
+      "slots": ["children"]
     },
     {
       "name": "ScrollArea",
@@ -35975,9 +35911,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ]
+      "slots": ["children"]
     },
     {
       "name": "Segment",
@@ -37448,9 +37382,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ],
+      "slots": ["children"],
       "characterLimits": [
         {
           "prop": "segments[].label",
@@ -39004,9 +38936,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ]
+      "slots": ["children"]
     },
     {
       "name": "SidebarItem",
@@ -39076,9 +39006,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ]
+      "slots": ["children"]
     },
     {
       "name": "Slider",
@@ -40618,9 +40546,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ]
+      "slots": ["children"]
     },
     {
       "name": "SplitFlap",
@@ -42103,9 +42029,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ]
+      "slots": ["children"]
     },
     {
       "name": "SplitScreenExit",
@@ -42136,9 +42060,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ]
+      "slots": ["children"]
     },
     {
       "name": "Stack",
@@ -43621,9 +43543,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ]
+      "slots": ["children"]
     },
     {
       "name": "StaggerDirection",
@@ -45106,9 +45026,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ],
+      "slots": ["children"],
       "characterLimits": [
         {
           "prop": "label",
@@ -46815,9 +46733,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ]
+      "slots": ["children"]
     },
     {
       "name": "TapeChart",
@@ -48497,9 +48413,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ]
+      "slots": ["children"]
     },
     {
       "name": "TextArea",
@@ -50046,9 +49960,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ],
+      "slots": ["children"],
       "characterLimits": [
         {
           "prop": "label",
@@ -51731,9 +51643,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ],
+      "slots": ["children"],
       "characterLimits": [
         {
           "prop": "label",
@@ -51776,9 +51686,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ],
+      "slots": ["children"],
       "characterLimits": [
         {
           "prop": "content",
@@ -53271,9 +53179,7 @@
           "required": false
         }
       ],
-      "slots": [
-        "children"
-      ]
+      "slots": ["children"]
     },
     {
       "name": "TreeNode",

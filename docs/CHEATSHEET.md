@@ -11,8 +11,8 @@ A simple sliding window rate limiter using Redis. Apply selectively to sensitive
 ### Implementation
 
 ```typescript
-import { Request, Response, NextFunction } from 'express';
-import { createClient } from 'redis';
+import { Request, Response, NextFunction } from "express";
+import { createClient } from "redis";
 
 const redisClient = createClient();
 redisClient.connect();
@@ -36,8 +36,8 @@ export const rateLimiter = async (req: Request, res: Response, next: NextFunctio
     // 3. Check if they've crossed the line
     if (currentCount > MAX_REQUESTS) {
       return res.status(429).json({
-        error: 'Too many requests. Please try again in a minute.',
-        retryAfter: await redisClient.ttl(key) // Tell them exactly how long to wait
+        error: "Too many requests. Please try again in a minute.",
+        retryAfter: await redisClient.ttl(key), // Tell them exactly how long to wait
       });
     }
 
@@ -46,7 +46,7 @@ export const rateLimiter = async (req: Request, res: Response, next: NextFunctio
   } catch (err) {
     // If Redis is down, we usually "fail open" (let the request through)
     // so the app doesn't break for everyone.
-    console.error('Redis Rate Limiter Error:', err);
+    console.error("Redis Rate Limiter Error:", err);
     next();
   }
 };
@@ -58,12 +58,12 @@ Apply selectively to sensitive routes (login, signup, password reset):
 
 ```typescript
 // Apply it ONLY to sensitive routes (like login)
-app.post('/api/login', rateLimiter, (req, res) => {
+app.post("/api/login", rateLimiter, (req, res) => {
   res.send("Authenticated!");
 });
 
 // Public routes stay fast and don't hit Redis
-app.get('/api/blog', (req, res) => {
+app.get("/api/blog", (req, res) => {
   res.send("Public content");
 });
 ```
@@ -84,7 +84,7 @@ Prevents cascading failures by stopping calls to failing services. Uses the [opo
 ### Implementation
 
 ```typescript
-import CircuitBreaker from 'opossum';
+import CircuitBreaker from "opossum";
 
 // 1. The "Protected" Function
 // This represents your call to a service or a slow DB query
@@ -98,7 +98,7 @@ async function callExternalService(data: any) {
 const options = {
   timeout: 3000, // If the function takes > 3s, count it as a failure
   errorThresholdPercentage: 50, // Trip if 50% of requests fail
-  resetTimeout: 30000 // Wait 30s before trying again (Half-Open state)
+  resetTimeout: 30000, // Wait 30s before trying again (Half-Open state)
 };
 
 // 3. Initialize the Breaker
@@ -115,7 +115,7 @@ export const protectedRoute = async (req: Request, res: Response) => {
     if (breaker.opened) {
       return res.status(503).json({
         error: "Service temporarily unavailable. Circuit is Open.",
-        hint: "We stopped trying to hit the failing service to save resources."
+        hint: "We stopped trying to hit the failing service to save resources.",
       });
     }
 
@@ -124,9 +124,9 @@ export const protectedRoute = async (req: Request, res: Response) => {
 };
 
 // 5. Monitoring (Crucial for Operational Excellence)
-breaker.on('open', () => console.warn('ALERT: Circuit to ExternalService is OPEN!'));
-breaker.on('halfOpen', () => console.info('Circuit is checking for recovery...'));
-breaker.on('close', () => console.info('Circuit is CLOSED. Normal operations resumed.'));
+breaker.on("open", () => console.warn("ALERT: Circuit to ExternalService is OPEN!"));
+breaker.on("halfOpen", () => console.info("Circuit is checking for recovery..."));
+breaker.on("close", () => console.info("Circuit is CLOSED. Normal operations resumed."));
 ```
 
 ### Circuit States
@@ -159,8 +159,8 @@ Combines circuit breaker with exponential backoff retry. Retries transient failu
 ### Implementation
 
 ```typescript
-import CircuitBreaker from 'opossum';
-import retry from 'async-retry';
+import CircuitBreaker from "opossum";
+import retry from "async-retry";
 
 async function callExternalService(data: any) {
   // Your actual API/DB call logic
@@ -170,7 +170,7 @@ async function callExternalService(data: any) {
 const breakerOptions = {
   timeout: 5000,
   errorThresholdPercentage: 50,
-  resetTimeout: 30000
+  resetTimeout: 30000,
 };
 
 // We wrap the function to include retry logic
@@ -194,7 +194,7 @@ const functionWithRetry = async (data: any) => {
       minTimeout: 1000, // Wait 1s, then 2s, then 4s...
       onRetry: (error, attempt) => {
         console.warn(`Retry attempt ${attempt} failed: ${error.message}`);
-      }
+      },
     }
   );
 };

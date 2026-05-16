@@ -8,6 +8,7 @@ allowed-tools:
   - Glob
   - SlashCommand
 ---
+
 <objective>
 Detect the current project state and automatically invoke the next logical GSD workflow step.
 No arguments needed — reads STATE.md, ROADMAP.md, and phase directories to determine what comes next.

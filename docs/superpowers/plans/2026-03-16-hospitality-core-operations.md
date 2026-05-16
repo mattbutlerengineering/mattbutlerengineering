@@ -17,6 +17,7 @@
 ### Task 1: Prisma Schema Migration
 
 **Files:**
+
 - Modify: `services/reservations/prisma/schema.prisma`
 
 - [ ] **Step 1: Add TableStatus enum and fields to schema**
@@ -48,6 +49,7 @@ Add cancellation fields to `Reservation` model (after line 122, the `notes` fiel
 - [ ] **Step 2: Generate and apply migration**
 
 Run from `services/reservations/`:
+
 ```bash
 npx prisma migrate dev --name add_table_status_and_cancellation_fields
 ```
@@ -69,6 +71,7 @@ git commit -m "feat: add TableStatus enum and cancellation fields to schema"
 ### Task 2: Update Shared Types
 
 **Files:**
+
 - Modify: `packages/types/src/reservation.ts`
 
 - [ ] **Step 1: Add TableStatus type and update Table interface**
@@ -82,14 +85,14 @@ export type TableStatus = "AVAILABLE" | "OCCUPIED" | "DIRTY" | "READY";
 Add `status` field to the `Table` interface (after line 19, the `priority` field):
 
 ```typescript
-  status: TableStatus;
+status: TableStatus;
 ```
 
 Add cancellation fields to the `Reservation` interface (after line 34, the `notes` field):
 
 ```typescript
-  cancellationReason: string | null;
-  cancellationNote: string | null;
+cancellationReason: string | null;
+cancellationNote: string | null;
 ```
 
 Add `cancellationReason` and `cancellationNote` to `UpdateReservationRequest` (after line 68, the `notes` field):
@@ -138,6 +141,7 @@ git commit -m "feat: add TableStatus, cancellation, and walk-in types"
 ### Task 3: Update Table Service for Status
 
 **Files:**
+
 - Modify: `services/reservations/src/services/table.ts`
 - Test: `services/reservations/src/routes/tables.test.ts`
 
@@ -228,64 +232,64 @@ In the `mapPrismaTable` function, add `status` to the returned object (it should
 In `services/reservations/src/routes/tables.ts`, add before the delete route (before line 351):
 
 ```typescript
-  // Update table status
-  fastify.patch<{
-    Params: { id: string };
-    Body: { status: string };
-    Reply: ApiResponse<Table> | ApiError;
-  }>(
-    "/:id/status",
-    {
-      preHandler: verifyAuth,
-      schema: {
-        summary: "Update table status",
-        operationId: "updateTableStatus",
-        description: "Update the operational status of a table (AVAILABLE, OCCUPIED, DIRTY, READY).",
-        tags: ["Tables"],
-        security: [{ bearerAuth: [] }],
-        params: {
+// Update table status
+fastify.patch<{
+  Params: { id: string };
+  Body: { status: string };
+  Reply: ApiResponse<Table> | ApiError;
+}>(
+  "/:id/status",
+  {
+    preHandler: verifyAuth,
+    schema: {
+      summary: "Update table status",
+      operationId: "updateTableStatus",
+      description: "Update the operational status of a table (AVAILABLE, OCCUPIED, DIRTY, READY).",
+      tags: ["Tables"],
+      security: [{ bearerAuth: [] }],
+      params: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "Table ID" },
+        },
+        required: ["id"],
+      },
+      body: {
+        type: "object",
+        properties: {
+          status: {
+            type: "string",
+            enum: ["AVAILABLE", "OCCUPIED", "DIRTY", "READY"],
+            description: "New table status",
+          },
+        },
+        required: ["status"],
+      },
+      response: {
+        200: {
+          description: "Status updated",
           type: "object",
-          properties: {
-            id: { type: "string", description: "Table ID" },
-          },
-          required: ["id"],
+          properties: { data: { $ref: "Table#" } },
         },
-        body: {
-          type: "object",
-          properties: {
-            status: {
-              type: "string",
-              enum: ["AVAILABLE", "OCCUPIED", "DIRTY", "READY"],
-              description: "New table status",
-            },
-          },
-          required: ["status"],
-        },
-        response: {
-          200: {
-            description: "Status updated",
-            type: "object",
-            properties: { data: { $ref: "Table#" } },
-          },
-          400: { description: "Invalid status", $ref: "Error#" },
-          401: { description: "Auth required", $ref: "Error#" },
-          404: { description: "Table not found", $ref: "Error#" },
-        },
+        400: { description: "Invalid status", $ref: "Error#" },
+        401: { description: "Auth required", $ref: "Error#" },
+        404: { description: "Table not found", $ref: "Error#" },
       },
     },
-    async (request, reply) => {
-      const table = await tableService.updateStatus(request.params.id, request.body.status);
-      if (!table) {
-        return reply.code(404).send({
-          error: "Not Found",
-          message: "Table not found or invalid status",
-          statusCode: 404,
-        });
-      }
-      emitTableUpdated(table);
-      return { data: table };
+  },
+  async (request, reply) => {
+    const table = await tableService.updateStatus(request.params.id, request.body.status);
+    if (!table) {
+      return reply.code(404).send({
+        error: "Not Found",
+        message: "Table not found or invalid status",
+        statusCode: 404,
+      });
     }
-  );
+    emitTableUpdated(table);
+    return { data: table };
+  }
+);
 ```
 
 Import `emitTableUpdated` from `../services/events.js` at the top.
@@ -305,6 +309,7 @@ git commit -m "feat: add table status update endpoint"
 ### Task 4: Update Reservation Cancel with Reason
 
 **Files:**
+
 - Modify: `services/reservations/src/services/reservation.ts`
 - Modify: `services/reservations/src/routes/reservations.ts`
 - Test: `services/reservations/src/routes/reservations.test.ts`
@@ -431,6 +436,7 @@ git commit -m "feat: add cancellation reason and note to reservation cancel"
 ### Task 5: Walk-in Endpoint
 
 **Files:**
+
 - Modify: `services/reservations/src/services/reservation.ts`
 - Modify: `services/reservations/src/routes/reservations.ts`
 - Test: `services/reservations/src/routes/reservations.test.ts`
@@ -525,56 +531,60 @@ In `services/reservations/src/services/reservation.ts`, add:
 In `services/reservations/src/routes/reservations.ts`, add before the GET `/:id` route:
 
 ```typescript
-  // Walk-in (requires auth)
-  fastify.post<{
-    Body: {
-      partySize: number;
-      tableId: string;
-      venueId: string;
-      guestName?: string;
-      durationMinutes?: number;
-    };
-    Reply: ApiResponse<Reservation> | ApiError;
-  }>(
-    "/walk-in",
-    {
-      preHandler: verifyAuth,
-      schema: {
-        summary: "Create walk-in reservation",
-        operationId: "createWalkIn",
-        description: "Instantly seat a walk-in guest. Creates a reservation with COMPLETED status.",
-        tags: ["Reservations"],
-        security: [{ bearerAuth: [] }],
-        body: {
+// Walk-in (requires auth)
+fastify.post<{
+  Body: {
+    partySize: number;
+    tableId: string;
+    venueId: string;
+    guestName?: string;
+    durationMinutes?: number;
+  };
+  Reply: ApiResponse<Reservation> | ApiError;
+}>(
+  "/walk-in",
+  {
+    preHandler: verifyAuth,
+    schema: {
+      summary: "Create walk-in reservation",
+      operationId: "createWalkIn",
+      description: "Instantly seat a walk-in guest. Creates a reservation with COMPLETED status.",
+      tags: ["Reservations"],
+      security: [{ bearerAuth: [] }],
+      body: {
+        type: "object",
+        properties: {
+          partySize: { type: "integer", minimum: 1, description: "Number of guests" },
+          tableId: { type: "string", description: "Table to seat at" },
+          venueId: { type: "string", description: "Venue ID" },
+          guestName: { type: "string", description: "Guest name (optional)" },
+          durationMinutes: {
+            type: "integer",
+            minimum: 15,
+            description: "Expected duration in minutes",
+          },
+        },
+        required: ["partySize", "tableId", "venueId"],
+      },
+      response: {
+        201: {
+          description: "Walk-in seated",
           type: "object",
-          properties: {
-            partySize: { type: "integer", minimum: 1, description: "Number of guests" },
-            tableId: { type: "string", description: "Table to seat at" },
-            venueId: { type: "string", description: "Venue ID" },
-            guestName: { type: "string", description: "Guest name (optional)" },
-            durationMinutes: { type: "integer", minimum: 15, description: "Expected duration in minutes" },
-          },
-          required: ["partySize", "tableId", "venueId"],
+          properties: { data: { $ref: "Reservation#" } },
         },
-        response: {
-          201: {
-            description: "Walk-in seated",
-            type: "object",
-            properties: { data: { $ref: "Reservation#" } },
-          },
-          401: { description: "Auth required", $ref: "Error#" },
-        },
+        401: { description: "Auth required", $ref: "Error#" },
       },
     },
-    async (request, reply) => {
-      const reservation = await reservationService.createWalkIn(request.body);
-      await tableService.updateStatus(request.body.tableId, "OCCUPIED");
-      const table = await tableService.getById(request.body.tableId);
-      if (table) emitTableUpdated(table);
-      emitReservationCreated(reservation);
-      return reply.code(201).send({ data: reservation });
-    }
-  );
+  },
+  async (request, reply) => {
+    const reservation = await reservationService.createWalkIn(request.body);
+    await tableService.updateStatus(request.body.tableId, "OCCUPIED");
+    const table = await tableService.getById(request.body.tableId);
+    if (table) emitTableUpdated(table);
+    emitReservationCreated(reservation);
+    return reply.code(201).send({ data: reservation });
+  }
+);
 ```
 
 Import `tableService` from `../services/table.js` and `emitTableUpdated` from `../services/events.js`.
@@ -605,6 +615,7 @@ git commit -m "feat: add walk-in reservation endpoint"
 ### Task 6: Update API Client
 
 **Files:**
+
 - Modify: `packages/api-client/src/tables.ts`
 - Modify: `packages/api-client/src/reservations.ts`
 
@@ -686,6 +697,7 @@ git commit -m "feat: add table status, cancel with reason, and walk-in to API cl
 ### Task 7: Add Table Dialog Component
 
 **Files:**
+
 - Create: `apps/hospitality/src/components/floor-plan/AddTableDialog.tsx`
 - Create: `apps/hospitality/src/components/floor-plan/AddTableDialog.module.css`
 
@@ -825,6 +837,7 @@ git commit -m "feat: add AddTableDialog component"
 ### Task 8: Wire Add/Delete Table into Floor Plan Editor
 
 **Files:**
+
 - Modify: `apps/hospitality/src/pages/FloorPlanEditorPage.tsx`
 
 - [ ] **Step 1: Add "Add Table" button and dialog state**
@@ -859,10 +872,7 @@ const handleDeleteTable = async (tableId: string) => {
 In the header section (around line 147), add an "Add Table" button next to the "Save" button:
 
 ```tsx
-<button
-  className={styles.addTableBtn}
-  onClick={() => setShowAddDialog(true)}
->
+<button className={styles.addTableBtn} onClick={() => setShowAddDialog(true)}>
   + Add Table
 </button>
 ```
@@ -889,14 +899,16 @@ In the sidebar where selected table details are shown (around line 200), add a d
 At the end of the component return, add:
 
 ```tsx
-{showAddDialog && floorPlan && (
-  <AddTableDialog
-    venueId={floorPlan.venueId}
-    floorPlanId={floorPlan.id}
-    onSubmit={handleAddTable}
-    onClose={() => setShowAddDialog(false)}
-  />
-)}
+{
+  showAddDialog && floorPlan && (
+    <AddTableDialog
+      venueId={floorPlan.venueId}
+      floorPlanId={floorPlan.id}
+      onSubmit={handleAddTable}
+      onClose={() => setShowAddDialog(false)}
+    />
+  );
+}
 ```
 
 - [ ] **Step 5: Verify the page builds**
@@ -918,6 +930,7 @@ git commit -m "feat: wire add/delete table into floor plan editor"
 ### Task 9: Cancel Reservation Dialog
 
 **Files:**
+
 - Create: `apps/hospitality/src/components/timeline/CancelReservationDialog.tsx`
 - Create: `apps/hospitality/src/components/timeline/CancelReservationDialog.module.css`
 
@@ -1015,6 +1028,7 @@ git commit -m "feat: add CancelReservationDialog component"
 ### Task 10: Edit Reservation Drawer
 
 **Files:**
+
 - Create: `apps/hospitality/src/components/timeline/EditReservationDrawer.tsx`
 - Create: `apps/hospitality/src/components/timeline/EditReservationDrawer.module.css`
 
@@ -1023,6 +1037,7 @@ git commit -m "feat: add CancelReservationDialog component"
 A slide-out panel with editable fields: time, party size, table assignment, notes. Uses `onSave` callback that calls `api.reservations.update()`.
 
 Key fields:
+
 - Start time (input type="time")
 - End time (input type="time")
 - Party size (number input)
@@ -1151,6 +1166,7 @@ git commit -m "feat: add EditReservationDrawer component"
 ### Task 11: Walk-in Dialog
 
 **Files:**
+
 - Create: `apps/hospitality/src/components/timeline/WalkInDialog.tsx`
 - Create: `apps/hospitality/src/components/timeline/WalkInDialog.module.css`
 
@@ -1298,6 +1314,7 @@ git commit -m "feat: add WalkInDialog component"
 ### Task 12: Wire Actions into Timeline Page
 
 **Files:**
+
 - Modify: `apps/hospitality/src/pages/TimelinePage.tsx`
 
 This is the main integration task. Wire up the Seat/Edit/Cancel buttons and add the Walk-in button.
@@ -1332,9 +1349,7 @@ const handleCancel = async (reason: string, note: string) => {
     cancellationNote: note,
   });
   setReservations((prev) =>
-    prev.map((r) =>
-      r.id === selectedReservation.id ? { ...r, status: "CANCELLED" } : r
-    )
+    prev.map((r) => (r.id === selectedReservation.id ? { ...r, status: "CANCELLED" } : r))
   );
   setSelectedReservation(null);
 };
@@ -1353,9 +1368,7 @@ const handleWalkIn = async (data: {
 }) => {
   const reservation = await api.reservations.walkIn(data);
   setReservations((prev) => [...prev, reservation]);
-  setTables((prev) =>
-    prev.map((t) => (t.id === data.tableId ? { ...t, status: "OCCUPIED" } : t))
-  );
+  setTables((prev) => prev.map((t) => (t.id === data.tableId ? { ...t, status: "OCCUPIED" } : t)));
 };
 ```
 
@@ -1384,30 +1397,36 @@ In the header area next to the date navigation (around line 240), add:
 At the end of the component return:
 
 ```tsx
-{showCancelDialog && selectedReservation && (
-  <CancelReservationDialog
-    reservationId={selectedReservation.id}
-    guestName={selectedReservation.guestName}
-    onConfirm={handleCancel}
-    onClose={() => setShowCancelDialog(false)}
-  />
-)}
-{showEditDrawer && selectedReservation && (
-  <EditReservationDrawer
-    reservation={selectedReservation}
-    tables={tables}
-    onSave={handleEdit}
-    onClose={() => setShowEditDrawer(false)}
-  />
-)}
-{showWalkInDialog && selectedVenueId && (
-  <WalkInDialog
-    tables={tables}
-    venueId={selectedVenueId}
-    onConfirm={handleWalkIn}
-    onClose={() => setShowWalkInDialog(false)}
-  />
-)}
+{
+  showCancelDialog && selectedReservation && (
+    <CancelReservationDialog
+      reservationId={selectedReservation.id}
+      guestName={selectedReservation.guestName}
+      onConfirm={handleCancel}
+      onClose={() => setShowCancelDialog(false)}
+    />
+  );
+}
+{
+  showEditDrawer && selectedReservation && (
+    <EditReservationDrawer
+      reservation={selectedReservation}
+      tables={tables}
+      onSave={handleEdit}
+      onClose={() => setShowEditDrawer(false)}
+    />
+  );
+}
+{
+  showWalkInDialog && selectedVenueId && (
+    <WalkInDialog
+      tables={tables}
+      venueId={selectedVenueId}
+      onConfirm={handleWalkIn}
+      onClose={() => setShowWalkInDialog(false)}
+    />
+  );
+}
 ```
 
 - [ ] **Step 6: Add table status handler to SSE hook**
@@ -1439,6 +1458,7 @@ git commit -m "feat: wire timeline actions — seat, edit, cancel, walk-in"
 ### Task 13: Table Status Badge Component
 
 **Files:**
+
 - Create: `apps/hospitality/src/components/TableStatusBadge.tsx`
 - Create: `apps/hospitality/src/components/TableStatusBadge.module.css`
 
@@ -1472,6 +1492,7 @@ export function TableStatusBadge({ status, size = "sm" }: TableStatusBadgeProps)
 - [ ] **Step 2: Create CSS module**
 
 Colors:
+
 - AVAILABLE: green (#dcfce7 bg, #166534 text)
 - OCCUPIED: blue (#dbeafe bg, #1e40af text)
 - DIRTY: amber (#fef3c7 bg, #92400e text)
@@ -1487,6 +1508,7 @@ git commit -m "feat: add TableStatusBadge component"
 ### Task 14: Show Status in Timeline Grid
 
 **Files:**
+
 - Modify: `apps/hospitality/src/components/timeline/TimelineGrid.tsx`
 - Modify: `apps/hospitality/src/components/timeline/TimelineGrid.module.css`
 
@@ -1522,9 +1544,7 @@ Pass the handler from TimelinePage:
 ```typescript
 const handleTableStatusChange = async (tableId: string, status: TableStatus) => {
   await api.tables.updateStatus(tableId, status);
-  setTables((prev) =>
-    prev.map((t) => (t.id === tableId ? { ...t, status } : t))
-  );
+  setTables((prev) => prev.map((t) => (t.id === tableId ? { ...t, status } : t)));
 };
 ```
 

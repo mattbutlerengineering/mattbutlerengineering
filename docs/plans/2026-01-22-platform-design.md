@@ -13,21 +13,21 @@ A monorepo platform for hosting multiple full-stack applications under a single 
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| Monorepo | Turborepo + pnpm |
-| Frontend | React + shadcn/ui + Tailwind CSS |
-| Backend | Fastify (default, flexible per service) |
-| Database | PostgreSQL + Prisma |
-| Auth | Auth0 (OIDC, portable to Keycloak) |
-| API Spec | OpenAPI/Swagger |
-| Testing | Vitest |
-| CLI | Commander.js |
-| Reverse Proxy | Traefik |
-| Containers | Docker + Docker Compose |
-| CI/CD | GitHub Actions |
-| Domain/CDN | Cloudflare |
-| Hosting | TBD (Docker-first design) |
+| Layer         | Technology                              |
+| ------------- | --------------------------------------- |
+| Monorepo      | Turborepo + pnpm                        |
+| Frontend      | React + shadcn/ui + Tailwind CSS        |
+| Backend       | Fastify (default, flexible per service) |
+| Database      | PostgreSQL + Prisma                     |
+| Auth          | Auth0 (OIDC, portable to Keycloak)      |
+| API Spec      | OpenAPI/Swagger                         |
+| Testing       | Vitest                                  |
+| CLI           | Commander.js                            |
+| Reverse Proxy | Traefik                                 |
+| Containers    | Docker + Docker Compose                 |
+| CI/CD         | GitHub Actions                          |
+| Domain/CDN    | Cloudflare                              |
+| Hosting       | TBD (Docker-first design)               |
 
 ---
 
@@ -70,20 +70,24 @@ mattbutlerengineering/
 ## URL & Routing Strategy
 
 ### Environments (Subdomains)
+
 - `dev.mattbutlerengineering.com` → Development
 - `staging.mattbutlerengineering.com` → Staging
 - `mattbutlerengineering.com` → Production
 
 ### Applications (Paths)
+
 - `/` → Landing/marketing site (apps/marketing)
 - `/hospitality` → Hospitality app (apps/hospitality)
 - `/docs` → Documentation (apps/docs)
 
 ### APIs (Versioned Paths)
+
 - `/api/v1/users` → Users service
 - `/api/v1/[service]` → Future services
 
 ### Routing Flow
+
 ```
 *.mattbutlerengineering.com
         │
@@ -99,6 +103,7 @@ mattbutlerengineering/
 ## Authentication Architecture
 
 ### Flow
+
 ```
                     ┌─────────────┐
                     │   Auth0     │
@@ -114,16 +119,19 @@ mattbutlerengineering/
 ```
 
 ### Implementation
+
 - **Frontend:** `react-oidc-context` for OIDC client
 - **Backend:** JWT validation middleware (shared in `packages/auth`)
 - **CLI:** Device authorization flow with local token storage
 
 ### Design Principles
+
 - Use standard OIDC libraries (not Auth0-specific SDKs)
 - Store auth config in environment variables
 - Enables migration to Keycloak if needed
 
 ### Future Options
+
 - MFA (TOTP, push notifications)
 - Passkeys/biometrics
 - All configurable in Auth0 dashboard
@@ -133,6 +141,7 @@ mattbutlerengineering/
 ## API Design
 
 ### Service Structure
+
 ```
 services/users/
 ├── src/
@@ -148,6 +157,7 @@ services/users/
 ```
 
 ### OpenAPI Workflow
+
 1. Define API in `openapi.yaml` (design-first)
 2. Generate TypeScript types from spec
 3. Fastify validates requests against schema
@@ -155,6 +165,7 @@ services/users/
 5. Swagger UI served at `/api/v1/[service]/docs`
 
 ### Versioning
+
 - URL path versioning: `/api/v1/*`
 - Major version in path, minor/patch changes backwards compatible
 
@@ -165,12 +176,14 @@ services/users/
 ### Local Development Options
 
 **Single app development (fastest):**
+
 ```bash
 cd apps/hospitality
 pnpm dev              # Vite dev server with hot reload
 ```
 
 **With database dependency:**
+
 ```bash
 docker compose up postgres -d    # Start just postgres
 cd services/users
@@ -178,6 +191,7 @@ pnpm dev                         # Run service natively
 ```
 
 **Full stack:**
+
 ```bash
 pnpm dev              # Turborepo runs all apps/services
 # OR
@@ -185,6 +199,7 @@ docker compose up     # Everything in containers
 ```
 
 ### API Proxying
+
 - Vite proxy in dev: `/api/*` → `http://localhost:3000`
 - Production: Same-origin via Traefik
 - Code uses relative URLs (`/api/v1/users`)
@@ -234,11 +249,13 @@ jobs:
 ```
 
 ### Deployment Method
+
 - SSH to server + `docker compose pull && docker compose up -d`
 - Images tagged with commit SHA + `latest`
 - Rollback: pin to previous image tag
 
 ### Secrets Management
+
 - CI secrets: GitHub Secrets
 - Runtime secrets: Server `.env` files (gitignored)
 - `.env.example` committed with placeholder values
@@ -248,10 +265,12 @@ jobs:
 ## Design System
 
 ### Foundation
+
 - **Base:** shadcn/ui (Radix primitives + Tailwind)
 - **Tokens:** CSS custom properties for theming
 
 ### Theming
+
 ```css
 :root {
   --color-primary: ...;
@@ -264,6 +283,7 @@ jobs:
 ```
 
 ### Accessibility
+
 - Radix primitives handle keyboard navigation, focus management, ARIA
 - Color contrast compliance (WCAG AA minimum)
 - Screen reader support built-in
@@ -272,26 +292,28 @@ jobs:
 
 ## Included from Day One
 
-| Item | Implementation |
-|------|----------------|
-| Database backups | Cron job with pg_dump |
-| Dependency updates | Dependabot enabled |
-| Health checks | `/health` endpoint on each service |
-| WAF/DDoS protection | Cloudflare free tier |
-| Accessibility | Radix primitives + semantic HTML |
-| Linting/Formatting | ESLint + Prettier (shared config in packages/config) |
+| Item                | Implementation                                       |
+| ------------------- | ---------------------------------------------------- |
+| Database backups    | Cron job with pg_dump                                |
+| Dependency updates  | Dependabot enabled                                   |
+| Health checks       | `/health` endpoint on each service                   |
+| WAF/DDoS protection | Cloudflare free tier                                 |
+| Accessibility       | Radix primitives + semantic HTML                     |
+| Linting/Formatting  | ESLint + Prettier (shared config in packages/config) |
 
 ---
 
 ## Future Considerations
 
 ### Operations (add when needed)
+
 - **Monitoring:** Grafana + Prometheus
 - **Logging:** Loki or Papertrail
 - **Error tracking:** Sentry
 - **Alerting:** Discord webhooks or PagerDuty
 
 ### Features (add when needed)
+
 - **Email:** Resend or SendGrid
 - **Analytics:** Plausible (privacy-friendly)
 - **Payments:** Stripe
@@ -300,11 +322,13 @@ jobs:
 - **Caching:** Redis
 
 ### Scaling (add when needed)
+
 - **Container orchestration:** Docker Swarm or Kubernetes
 - **Message queue:** RabbitMQ or Redis pub/sub
 - **Load balancing:** Multiple servers behind Traefik
 
 ### Compliance (add when needed)
+
 - **i18n:** Multiple language support
 - **GDPR:** Data export/deletion
 - **Legal:** Privacy policy, terms of service
@@ -314,6 +338,7 @@ jobs:
 ## Implementation Phases
 
 ### Phase 1: Foundation
+
 - [x] Initialize monorepo with Turborepo + pnpm
 - [x] Set up shared configs (TypeScript, ESLint, Prettier)
 - [x] Create packages/ui with shadcn/ui components
@@ -322,6 +347,7 @@ jobs:
 - [x] Create packages/types for shared TypeScript types
 
 ### Phase 2: First App + Service
+
 - [x] Create apps/marketing (landing page)
 - [x] Create services/users with Fastify
 - [x] Set up PostgreSQL + Prisma
@@ -329,12 +355,14 @@ jobs:
 - [ ] Implement authentication flow
 
 ### Phase 3: Infrastructure
+
 - [x] Configure Traefik routing
 - [x] Set up GitHub Actions CI/CD
 - [ ] Configure Cloudflare domain + DNS
 - [ ] Deploy to staging environment
 
 ### Phase 4: Expand
+
 - [x] Create apps/hospitality
 - [x] Create packages/shared-layout
 - [x] Create tools/cli

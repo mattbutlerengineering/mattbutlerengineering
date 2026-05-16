@@ -43,9 +43,7 @@ export class FailoverRouter {
       throw new Error("FailoverRouter requires at least one adapter");
     }
     this.adapters = adapters;
-    this.detector = detector ?? new RateLimitDetector(
-      adapters.map((a) => a.name),
-    );
+    this.detector = detector ?? new RateLimitDetector(adapters.map((a) => a.name));
   }
 
   /**

@@ -15,9 +15,7 @@ test.describe("Homepage", () => {
     await page.getByRole("link", { name: "View Weekly Reads" }).click();
 
     await expect(page).toHaveURL("/weekly");
-    await expect(
-      page.getByRole("heading", { name: "Weekly Information Intake" })
-    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Weekly Information Intake" })).toBeVisible();
   });
 
   test("skip-to-main link is present", async ({ page }) => {

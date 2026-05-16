@@ -71,23 +71,14 @@ interface GitHubCheckRunEvent {
 
 // ── Signature verification ───────────────────────────────────────────
 
-function verifySignature(
-  payload: Buffer,
-  signature: string | undefined,
-  secret: string
-): boolean {
+function verifySignature(payload: Buffer, signature: string | undefined, secret: string): boolean {
   if (!signature) return false;
 
-  const expected = `sha256=${createHmac("sha256", secret)
-    .update(payload)
-    .digest("hex")}`;
+  const expected = `sha256=${createHmac("sha256", secret).update(payload).digest("hex")}`;
 
   if (expected.length !== signature.length) return false;
 
-  return timingSafeEqual(
-    Buffer.from(expected),
-    Buffer.from(signature)
-  );
+  return timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
 }
 
 // ── Constants ────────────────────────────────────────────────────────
@@ -221,7 +212,11 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
           break;
 
         case "issue_comment":
-          await handleIssueCommentEvent(fastify, request.body as GitHubIssueCommentEvent, githubToken);
+          await handleIssueCommentEvent(
+            fastify,
+            request.body as GitHubIssueCommentEvent,
+            githubToken
+          );
           break;
 
         case "check_run":
@@ -240,7 +235,13 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
 // ── Event handlers ───────────────────────────────────────────────────
 
 async function handleIssueEvent(
-  fastify: { log: { info: (...args: unknown[]) => void; warn: (...args: unknown[]) => void; error: (...args: unknown[]) => void } },
+  fastify: {
+    log: {
+      info: (...args: unknown[]) => void;
+      warn: (...args: unknown[]) => void;
+      error: (...args: unknown[]) => void;
+    };
+  },
   event: GitHubIssueEvent,
   githubToken: string
 ): Promise<void> {
@@ -299,7 +300,13 @@ async function handleIssueEvent(
 }
 
 async function handleIssueCommentEvent(
-  fastify: { log: { info: (...args: unknown[]) => void; warn: (...args: unknown[]) => void; error: (...args: unknown[]) => void } },
+  fastify: {
+    log: {
+      info: (...args: unknown[]) => void;
+      warn: (...args: unknown[]) => void;
+      error: (...args: unknown[]) => void;
+    };
+  },
   event: GitHubIssueCommentEvent,
   githubToken: string
 ): Promise<void> {
@@ -361,16 +368,11 @@ async function handleCheckRunEvent(
   // Check how many retry sessions already exist for this branch
   const existing = await sessionService.list({ page: 1, limit: 100 });
   const retries = existing.data.filter(
-    (s) =>
-      s.branchName === branch &&
-      s.taskDescription.includes("[CI Retry")
+    (s) => s.branchName === branch && s.taskDescription.includes("[CI Retry")
   );
 
   if (retries.length >= MAX_CI_RETRIES) {
-    fastify.log.info(
-      { branch, retries: retries.length },
-      "Max CI retries reached — skipping"
-    );
+    fastify.log.info({ branch, retries: retries.length }, "Max CI retries reached — skipping");
     return;
   }
 
@@ -380,10 +382,7 @@ async function handleCheckRunEvent(
     `Check run "${event.check_run.name}" failed at commit ${event.check_run.head_sha}.\n` +
     `Review the CI output and fix the failing tests or build errors.`;
 
-  fastify.log.info(
-    { branch, attempt: retries.length + 1 },
-    "Creating CI retry session"
-  );
+  fastify.log.info({ branch, attempt: retries.length + 1 }, "Creating CI retry session");
 
   const session = await sessionService.create({
     taskDescription: `<task>\n${taskDescription}\n</task>`,

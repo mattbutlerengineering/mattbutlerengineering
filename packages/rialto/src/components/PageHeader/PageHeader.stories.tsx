@@ -40,10 +40,7 @@ export const WithBreadcrumb: Story = {
 export const WithActions: Story = {
   args: {
     title: "Account Settings",
-    breadcrumbs: [
-      { label: "Home", href: "/" },
-      { label: "Account Settings" },
-    ],
+    breadcrumbs: [{ label: "Home", href: "/" }, { label: "Account Settings" }],
     actions: "Save Changes",
   },
 };
@@ -51,10 +48,7 @@ export const WithActions: Story = {
 export const WithMeta: Story = {
   args: {
     title: "Reservations",
-    breadcrumbs: [
-      { label: "Home", href: "/" },
-      { label: "Reservations" },
-    ],
+    breadcrumbs: [{ label: "Home", href: "/" }, { label: "Reservations" }],
     meta: "42 total",
     actions: "New Reservation",
   },

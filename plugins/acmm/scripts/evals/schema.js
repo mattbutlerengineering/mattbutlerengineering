@@ -70,8 +70,10 @@ export function parseTask(raw) {
     if (t[k] === undefined) throw new Error(`task: missing required field "${k}"`);
   }
   if (typeof t.id !== "string" || !t.id) throw new Error("task.id: must be non-empty string");
-  if (typeof t.prompt !== "string" || !t.prompt) throw new Error("task.prompt: must be non-empty string");
-  if (typeof t.model !== "string" || !t.model) throw new Error("task.model: must be non-empty string");
+  if (typeof t.prompt !== "string" || !t.prompt)
+    throw new Error("task.prompt: must be non-empty string");
+  if (typeof t.model !== "string" || !t.model)
+    throw new Error("task.model: must be non-empty string");
   if (typeof t.maxBudgetUsd !== "number" || t.maxBudgetUsd <= 0) {
     throw new Error("task.maxBudgetUsd: must be positive number");
   }
@@ -104,7 +106,9 @@ function parseRubric(raw) {
   for (const g of r.mustPass) {
     if (typeof g !== "string") throw new Error("task.rubric.mustPass: items must be strings");
     if (!["build", "tests", "lint", "typecheck"].includes(g)) {
-      throw new Error(`task.rubric.mustPass: unknown gate "${g}" (allowed: build, tests, lint, typecheck)`);
+      throw new Error(
+        `task.rubric.mustPass: unknown gate "${g}" (allowed: build, tests, lint, typecheck)`
+      );
     }
   }
   if (typeof r.diffSizeMax !== "number" || r.diffSizeMax < 0) {
@@ -130,6 +134,9 @@ function parseRubric(raw) {
     mustNotTouch: Array.isArray(r.mustNotTouch) ? /** @type {string[]} */ (r.mustNotTouch) : [],
     mustCall: Array.isArray(r.mustCall) ? /** @type {string[]} */ (r.mustCall) : [],
     mustNotCall: Array.isArray(r.mustNotCall) ? /** @type {string[]} */ (r.mustNotCall) : [],
-    weights: r.weights && typeof r.weights === "object" ? /** @type {Record<string, number>} */ (r.weights) : undefined,
+    weights:
+      r.weights && typeof r.weights === "object"
+        ? /** @type {Record<string, number>} */ (r.weights)
+        : undefined,
   };
 }

@@ -30,9 +30,10 @@ describe("NavigationMenu", () => {
 
     it("renders parent item as a button with aria-haspopup=menu", () => {
       render(<NavigationMenu items={items} />);
-      expect(
-        screen.getByRole("button", { name: /products/i })
-      ).toHaveAttribute("aria-haspopup", "menu");
+      expect(screen.getByRole("button", { name: /products/i })).toHaveAttribute(
+        "aria-haspopup",
+        "menu"
+      );
     });
 
     it("does not show dropdown by default", () => {
@@ -47,10 +48,7 @@ describe("NavigationMenu", () => {
       const trigger = screen.getByRole("button", { name: /products/i });
       // onFocus triggers startOpen with OPEN_DELAY = 200ms
       fireEvent.focus(trigger);
-      await waitFor(
-        () => expect(screen.getByRole("menu")).toBeInTheDocument(),
-        { timeout: 1000 }
-      );
+      await waitFor(() => expect(screen.getByRole("menu")).toBeInTheDocument(), { timeout: 1000 });
       expect(screen.getByRole("menuitem", { name: "Widgets" })).toBeInTheDocument();
       expect(screen.getByRole("menuitem", { name: "Gadgets" })).toBeInTheDocument();
     });
@@ -59,25 +57,22 @@ describe("NavigationMenu", () => {
       render(<NavigationMenu items={items} />);
       const trigger = screen.getByRole("button", { name: /products/i });
       fireEvent.focus(trigger);
-      await waitFor(
-        () => expect(screen.getByRole("menu")).toBeInTheDocument(),
-        { timeout: 1000 }
-      );
+      await waitFor(() => expect(screen.getByRole("menu")).toBeInTheDocument(), { timeout: 1000 });
 
       fireEvent.blur(trigger);
-      await waitFor(
-        () => expect(screen.queryByRole("menu")).not.toBeInTheDocument(),
-        { timeout: 1000 }
-      );
+      await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument(), {
+        timeout: 1000,
+      });
     });
   });
 
   describe("aria attributes", () => {
     it("sets aria-expanded=false initially", () => {
       render(<NavigationMenu items={items} />);
-      expect(
-        screen.getByRole("button", { name: /products/i })
-      ).toHaveAttribute("aria-expanded", "false");
+      expect(screen.getByRole("button", { name: /products/i })).toHaveAttribute(
+        "aria-expanded",
+        "false"
+      );
     });
 
     it("sets aria-expanded=true when open", async () => {
@@ -86,9 +81,10 @@ describe("NavigationMenu", () => {
       fireEvent.focus(trigger);
       await waitFor(
         () =>
-          expect(
-            screen.getByRole("button", { name: /products/i })
-          ).toHaveAttribute("aria-expanded", "true"),
+          expect(screen.getByRole("button", { name: /products/i })).toHaveAttribute(
+            "aria-expanded",
+            "true"
+          ),
         { timeout: 1000 }
       );
     });

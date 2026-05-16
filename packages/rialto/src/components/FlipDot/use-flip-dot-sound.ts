@@ -97,7 +97,7 @@ export function useFlipDotSound({
         osc.stop(now + duration + 0.01);
       }
     },
-    [enabled, getContext],
+    [enabled, getContext]
   );
 
   return { playClick, playBatchClick };

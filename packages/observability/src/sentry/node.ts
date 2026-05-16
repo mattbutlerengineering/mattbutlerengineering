@@ -84,34 +84,26 @@ export const sentryFastifyPlugin = fp(
     }
 
     // 1. Explicit Error Handler
-    fastify.setErrorHandler(
-      (error: FastifyError, request: FastifyRequest, reply: FastifyReply) => {
-        Sentry.withScope((scope) => {
-          setSentryContext(scope, request);
-          scope.setTag("handled", "true");
-          Sentry.captureException(error);
-        });
+    fastify.setErrorHandler((error: FastifyError, request: FastifyRequest, reply: FastifyReply) => {
+      Sentry.withScope((scope) => {
+        setSentryContext(scope, request);
+        scope.setTag("handled", "true");
+        Sentry.captureException(error);
+      });
 
-        // Flag reply so onResponse hook doesn't double-capture this error
-        (reply as unknown as Record<string, unknown>).__sentryErrorCaptured = true;
+      // Flag reply so onResponse hook doesn't double-capture this error
+      (reply as unknown as Record<string, unknown>).__sentryErrorCaptured = true;
 
-        const statusCode = error.statusCode ?? 500;
-        
-        // If it's a 500, we obscure the message for the client but log the real one
-        const title = error.name || "Internal Server Error";
-        const message = statusCode >= 500 ? "Internal Server Error" : error.message;
+      const statusCode = error.statusCode ?? 500;
 
-        reply.status(statusCode).send(
-          createProblemDetails(
-            statusCode,
-            title,
-            message,
-            "about:blank",
-            request.url
-          )
-        );
-      }
-    );
+      // If it's a 500, we obscure the message for the client but log the real one
+      const title = error.name || "Internal Server Error";
+      const message = statusCode >= 500 ? "Internal Server Error" : error.message;
+
+      reply
+        .status(statusCode)
+        .send(createProblemDetails(statusCode, title, message, "about:blank", request.url));
+    });
 
     // 4xx statuses that indicate unexpected server-side issues worth tracking
     const NOTABLE_4XX = new Set([409, 422, 429]);

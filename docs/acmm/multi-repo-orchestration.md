@@ -21,8 +21,8 @@ Because of this structure, the vast majority of cross-package changes are alread
 
 Published packages have downstream consumers outside this monorepo:
 
-| Package | Registry | Known Consumers |
-|---------|----------|-----------------|
+| Package                         | Registry        | Known Consumers                           |
+| ------------------------------- | --------------- | ----------------------------------------- |
 | `@mattbutlerengineering/rialto` | GitHub Packages | External projects using the design system |
 
 When a published package ships a breaking change, external consumers must update their dependency and adapt to the new API. Without coordination, they discover the breakage only when they next run `npm install` or their CI fails on a seemingly unrelated update.
@@ -75,10 +75,12 @@ node scripts/orchestrate-multi.mjs --repo <url> --task "<description>" [options]
 ```
 
 Required:
+
 - `--repo <url>` — GitHub repository URL (e.g. `https://github.com/org/repo`)
 - `--task "<desc>"` — PR title and commit message describing the change
 
 Options:
+
 - `--branch <name>` — Feature branch name (default: `orchestrate-<timestamp>`)
 - `--script <path>` — Path to a script to run inside the cloned repo to apply changes
 - `--dry-run` — Print what would be done without making changes

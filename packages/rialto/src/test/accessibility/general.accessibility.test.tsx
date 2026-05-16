@@ -111,9 +111,7 @@ describe("Accessibility — General Components", () => {
   });
 
   it("EmptyState", async () => {
-    const { container } = render(
-      <EmptyState heading="No results" />
-    );
+    const { container } = render(<EmptyState heading="No results" />);
     expect(await axe(container)).toHaveNoViolations();
   });
 

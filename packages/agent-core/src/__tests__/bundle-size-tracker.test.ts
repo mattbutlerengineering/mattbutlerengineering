@@ -11,10 +11,7 @@ import {
   compareWithBaseline,
   formatReport,
 } from "../bundle-size-tracker.js";
-import type {
-  BundleSizeBaseline,
-  BundleSizeEntry,
-} from "../bundle-size-tracker.js";
+import type { BundleSizeBaseline, BundleSizeEntry } from "../bundle-size-tracker.js";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -275,10 +272,7 @@ describe("compareWithBaseline", () => {
       makeCurrent("hospitality", 100000),
       makeCurrent("marketing", 50000),
     ]);
-    const current = [
-      makeCurrent("hospitality", 120000),
-      makeCurrent("marketing", 51000),
-    ];
+    const current = [makeCurrent("hospitality", 120000), makeCurrent("marketing", 51000)];
 
     const report = compareWithBaseline(current, baseline);
 

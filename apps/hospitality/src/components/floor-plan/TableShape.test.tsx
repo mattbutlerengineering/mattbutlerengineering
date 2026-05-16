@@ -129,12 +129,7 @@ vi.mock("react-konva", () => {
       width?: number;
       opacity?: number;
     }) => (
-      <span
-        data-testid="konva-text"
-        data-text={text}
-        data-font-size={fontSize}
-        data-fill={fill}
-      />
+      <span data-testid="konva-text" data-text={text} data-font-size={fontSize} data-fill={fill} />
     ),
   };
 });

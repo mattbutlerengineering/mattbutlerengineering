@@ -1,4 +1,12 @@
-import { Button, DataList, Dialog, Input, Select, Stack, Text } from "@mattbutlerengineering/rialto";
+import {
+  Button,
+  DataList,
+  Dialog,
+  Input,
+  Select,
+  Stack,
+  Text,
+} from "@mattbutlerengineering/rialto";
 import { useState } from "react";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
@@ -111,7 +119,11 @@ export function DialogPage() {
           <Stack gap="sm">
             {Array.from({ length: 8 }, (_, i) => (
               <div key={i}>
-                <Text variant="label" color="primary" style={{ marginBottom: "var(--rialto-space-xs)" }}>
+                <Text
+                  variant="label"
+                  color="primary"
+                  style={{ marginBottom: "var(--rialto-space-xs)" }}
+                >
                   Article {i + 1}
                 </Text>
                 <Text variant="body" color="secondary">

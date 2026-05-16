@@ -19,7 +19,9 @@ export function NotFoundPage() {
 
   return (
     <div className={styles.container}>
-      <Heading level={1} className={styles.heading}>404</Heading>
+      <Heading level={1} className={styles.heading}>
+        404
+      </Heading>
       <Text variant="body" color="secondary" className={styles.message}>
         This page doesn&apos;t exist. It may have been moved or removed.
       </Text>

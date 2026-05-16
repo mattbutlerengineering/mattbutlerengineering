@@ -109,7 +109,9 @@ describe("AgentSessionSchema", () => {
 
   it("rejects wrong types for numeric fields", () => {
     expect(AgentSessionSchema.safeParse({ ...validSession, maxTurns: "50" }).success).toBe(false);
-    expect(AgentSessionSchema.safeParse({ ...validSession, maxBudgetUsd: "1.0" }).success).toBe(false);
+    expect(AgentSessionSchema.safeParse({ ...validSession, maxBudgetUsd: "1.0" }).success).toBe(
+      false
+    );
   });
 
   it("rejects non-array errors field", () => {
@@ -168,10 +170,18 @@ describe("AgentSessionEventSchema", () => {
   });
 
   it("rejects missing required fields", () => {
-    expect(AgentSessionEventSchema.safeParse({ sessionId: "s1", type: "X", createdAt: "t" }).success).toBe(false);
-    expect(AgentSessionEventSchema.safeParse({ id: "e1", type: "X", createdAt: "t" }).success).toBe(false);
-    expect(AgentSessionEventSchema.safeParse({ id: "e1", sessionId: "s1", createdAt: "t" }).success).toBe(false);
-    expect(AgentSessionEventSchema.safeParse({ id: "e1", sessionId: "s1", type: "X" }).success).toBe(false);
+    expect(
+      AgentSessionEventSchema.safeParse({ sessionId: "s1", type: "X", createdAt: "t" }).success
+    ).toBe(false);
+    expect(AgentSessionEventSchema.safeParse({ id: "e1", type: "X", createdAt: "t" }).success).toBe(
+      false
+    );
+    expect(
+      AgentSessionEventSchema.safeParse({ id: "e1", sessionId: "s1", createdAt: "t" }).success
+    ).toBe(false);
+    expect(
+      AgentSessionEventSchema.safeParse({ id: "e1", sessionId: "s1", type: "X" }).success
+    ).toBe(false);
   });
 
   it("rejects non-string id", () => {
@@ -228,8 +238,12 @@ describe("CreateAgentSessionRequestSchema", () => {
   });
 
   it("accepts maxTurns at boundaries", () => {
-    expect(CreateAgentSessionRequestSchema.safeParse({ taskDescription: "t", maxTurns: 1 }).success).toBe(true);
-    expect(CreateAgentSessionRequestSchema.safeParse({ taskDescription: "t", maxTurns: 200 }).success).toBe(true);
+    expect(
+      CreateAgentSessionRequestSchema.safeParse({ taskDescription: "t", maxTurns: 1 }).success
+    ).toBe(true);
+    expect(
+      CreateAgentSessionRequestSchema.safeParse({ taskDescription: "t", maxTurns: 200 }).success
+    ).toBe(true);
   });
 
   it("rejects maxBudgetUsd below minimum (0.01)", () => {
@@ -243,8 +257,14 @@ describe("CreateAgentSessionRequestSchema", () => {
   });
 
   it("accepts maxBudgetUsd at boundaries", () => {
-    expect(CreateAgentSessionRequestSchema.safeParse({ taskDescription: "t", maxBudgetUsd: 0.01 }).success).toBe(true);
-    expect(CreateAgentSessionRequestSchema.safeParse({ taskDescription: "t", maxBudgetUsd: 10.0 }).success).toBe(true);
+    expect(
+      CreateAgentSessionRequestSchema.safeParse({ taskDescription: "t", maxBudgetUsd: 0.01 })
+        .success
+    ).toBe(true);
+    expect(
+      CreateAgentSessionRequestSchema.safeParse({ taskDescription: "t", maxBudgetUsd: 10.0 })
+        .success
+    ).toBe(true);
   });
 
   it("rejects missing taskDescription", () => {
