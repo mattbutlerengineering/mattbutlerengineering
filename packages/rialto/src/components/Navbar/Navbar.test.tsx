@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { axe } from "vitest-axe";
 import { Navbar, type NavbarLink } from "./Navbar";
 
 const links: NavbarLink[] = [
@@ -40,7 +41,12 @@ describe("Navbar", () => {
     });
 
     it("renders user name when user prop provided", () => {
-      render(<Navbar links={links} user={{ name: "Alice", email: "alice@example.com" }} />);
+      render(
+        <Navbar
+          links={links}
+          user={{ name: "Alice", email: "alice@example.com" }}
+        />
+      );
       expect(screen.getByText("Alice")).toBeInTheDocument();
       expect(screen.getByText("alice@example.com")).toBeInTheDocument();
     });
@@ -116,4 +122,19 @@ describe("Navbar", () => {
       render(<Navbar ref={ref} links={links} />);
       expect(ref.current).toBeInstanceOf(HTMLElement);
     });
-  });});
+  });
+
+  describe("accessibility", () => {
+    it("has no a11y violations", async () => {
+      const { container } = render(
+        <Navbar
+          links={links}
+          user={{ name: "Alice", email: "alice@example.com" }}
+        />
+      );
+      expect(
+        await axe(container, { rules: { "color-contrast": { enabled: false } } })
+      ).toHaveNoViolations();
+    });
+  });
+});

@@ -1,3 +1,4 @@
+/* eslint-disable */
 // AUTO-GENERATED -- do not edit. Run: pnpm --filter @mbe/rialto-catalog generate
 import { z } from "zod";
 

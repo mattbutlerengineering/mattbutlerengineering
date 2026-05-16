@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { axe } from "vitest-axe";
 import { ScrollArea } from "./ScrollArea";
 
 describe("ScrollArea", () => {
@@ -122,8 +123,6 @@ describe("ScrollArea", () => {
           <p>Content</p>
         </ScrollArea>
       );
-      // The component spreads ...props which includes aria-label, but default is set on the element
-      // The spread comes after, so the prop should win
       expect(screen.getByRole("region")).toBeInTheDocument();
     });
   });
@@ -136,6 +135,19 @@ describe("ScrollArea", () => {
         </ScrollArea>
       );
       expect(screen.getByRole("region").className).toMatch(/root/);
+    });
+  });
+
+  describe("accessibility", () => {
+    it("passes axe", async () => {
+      const { container } = render(
+        <ScrollArea maxHeight={200}>
+          <p>Long scrollable content goes here.</p>
+        </ScrollArea>
+      );
+      expect(
+        await axe(container, { rules: { "color-contrast": { enabled: false } } })
+      ).toHaveNoViolations();
     });
   });
 });

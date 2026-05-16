@@ -19,7 +19,7 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/* ── Curated component set ───────────────────── */
+/* ── Curated component set ───────────────────────── */
 
 const CURATED_COMPONENTS = new Set([
   "Stack",
@@ -56,7 +56,7 @@ const COMPONENT_ALIAS: Record<string, string> = {
   Toast: "ToastInput",
 };
 
-/* ── Character limits ────────────────────────── */
+/* ── Character limits ────────────────────────────── */
 
 interface CharacterLimit {
   component: string;
@@ -91,7 +91,7 @@ const CHARACTER_LIMITS: CharacterLimit[] = [
   { component: "Table", prop: "emptyMessage", max: 60 },
 ];
 
-/* ── Type-to-Zod mapping ─────────────────────── */
+/* ── Type-to-Zod mapping ─────────────────────────── */
 
 /**
  * Strip " | undefined" from a type string and return {innerType, wasOptional}.
@@ -179,7 +179,7 @@ function mapTypeToZod(
       (p) => (p.startsWith('"') && p.endsWith('"')) || (p.startsWith("'") && p.endsWith("'"))
     )
   ) {
-    const values = unionParts.map((p) => `"${p.replace(/^['"]|['"]$/g, "")}"`);
+    const values = unionParts.map((p) => `"${p.replace(/^['"]/, "").replace(/['"]$/, "")}"`);
     const schema = `z.enum([${values.join(", ")}])`;
     return optional ? `${schema}.optional()` : schema;
   }
@@ -191,7 +191,7 @@ function mapTypeToZod(
   return null;
 }
 
-/* ── Prop info ────────────────────────────────── */
+/* ── Prop info ────────────────────────────────────── */
 
 interface PropSchema {
   propName: string;
@@ -360,10 +360,11 @@ const HARDCODED_SCHEMA_LINES: Record<string, string[]> = {
   ],
 };
 
-/* ── Output formatting ───────────────────────── */
+/* ── Output formatting ───────────────────────────── */
 
 function formatGeneratedSchemas(componentSchemas: Map<string, PropSchema[]>): string {
   const lines: string[] = [
+    "/* eslint-disable */",
     "// AUTO-GENERATED -- do not edit. Run: pnpm --filter @mbe/rialto-catalog generate",
     'import { z } from "zod";',
     "",
@@ -404,7 +405,7 @@ function formatGeneratedSchemas(componentSchemas: Map<string, PropSchema[]>): st
   return lines.join("\n");
 }
 
-/* ── Main ────────────────────────────────────── */
+/* ── Main ────────────────────────────────────────── */
 
 function main() {
   // Resolve paths relative to packages/rialto-catalog root

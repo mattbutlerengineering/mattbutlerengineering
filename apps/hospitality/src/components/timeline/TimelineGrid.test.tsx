@@ -1,4 +1,4 @@
- 
+/* eslint-disable mbe-local/prefer-rialto-components */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import "@testing-library/jest-dom";
@@ -67,7 +67,9 @@ vi.mock("../TableStatusBadge.js", () => ({
       tabIndex={0}
       data-testid={`status-badge-${status}`}
       onClick={onClick}
-      onKeyDown={onClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onClick?.();
+      }}
     >
       {status}
     </span>
