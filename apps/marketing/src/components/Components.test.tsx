@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, mbe-local/prefer-rialto-components */
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
