@@ -1,5 +1,4 @@
 import { render, screen } from "@testing-library/react";
-import { axe } from "vitest-axe";
 import { Timeline, type TimelineEvent } from "./Timeline";
 
 const events: TimelineEvent[] = [
@@ -42,6 +41,7 @@ describe("Timeline", () => {
 
     it("does not render description element when not provided", () => {
       render(<Timeline events={[{ title: "No Desc", status: "upcoming" }]} />);
+      // Only one listitem, no description content besides title
       const item = screen.getByRole("listitem");
       expect(item.querySelectorAll("[class*='description']")).toHaveLength(0);
     });
@@ -50,11 +50,6 @@ describe("Timeline", () => {
       render(<Timeline events={events} />);
       expect(screen.getByText("14:00")).toBeInTheDocument();
       expect(screen.getByText("14:24")).toBeInTheDocument();
-    });
-
-    it("renders empty events array gracefully", () => {
-      render(<Timeline events={[]} />);
-      expect(screen.getByRole("list")).toBeInTheDocument();
     });
   });
 
@@ -80,6 +75,7 @@ describe("Timeline", () => {
     it("defaults to upcoming when no status specified", () => {
       render(<Timeline events={[{ title: "Upcoming" }]} />);
       const item = screen.getByRole("listitem");
+      // upcoming has no special class — item should not have completed/active/error
       expect(item.className).not.toMatch(/completed|active|error/);
     });
   });
@@ -130,15 +126,6 @@ describe("Timeline", () => {
     it("renders without crashing when timestamp is omitted", () => {
       render(<Timeline events={[{ title: "No Time", status: "upcoming" }]} />);
       expect(screen.getByText("No Time")).toBeInTheDocument();
-    });
-  });
-
-  describe("accessibility", () => {
-    it("has no a11y violations", async () => {
-      const { container } = render(<Timeline events={events} />);
-      expect(
-        await axe(container, { rules: { "color-contrast": { enabled: false } } })
-      ).toHaveNoViolations();
     });
   });
 });

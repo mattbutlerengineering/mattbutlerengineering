@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "vitest-axe";
 import { ContextMenu, type ContextMenuEntry, type ContextMenuItemDef } from "./ContextMenu";
@@ -176,6 +176,7 @@ describe("ContextMenu", () => {
       );
       fireEvent.contextMenu(screen.getByText("Target"));
       const menu = screen.getByRole("menu");
+      // First focusable item should be active after open
       expect(screen.getByRole("menuitem", { name: /copy/i })).toHaveAttribute(
         "data-active",
         "true"
@@ -220,6 +221,7 @@ describe("ContextMenu", () => {
       );
       fireEvent.contextMenu(screen.getByText("Target"));
       const menu = screen.getByRole("menu");
+      // Copy is active (first item)
       fireEvent.keyDown(menu, { key: "Enter" });
       expect(basicItems[0]!.onSelect).toHaveBeenCalledTimes(1);
       await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
@@ -241,6 +243,7 @@ describe("ContextMenu", () => {
       });
       const menu = screen.getByRole("menu");
       fireEvent.keyDown(menu, { key: "ArrowDown" });
+      // Should skip Disabled and land on Paste
       expect(screen.getByRole("menuitem", { name: /paste/i })).toHaveAttribute(
         "data-active",
         "true"

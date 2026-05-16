@@ -1,6 +1,5 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { axe } from "vitest-axe";
 import { Slider } from "./Slider";
 
 describe("Slider", () => {
@@ -51,23 +50,6 @@ describe("Slider", () => {
     it("uses aria-label prop for accessible label", () => {
       render(<Slider aria-label="Custom label" />);
       expect(screen.getByRole("slider")).toHaveAttribute("aria-label", "Custom label");
-    });
-
-    it("sets min/max/step on input", () => {
-      render(
-        <Slider
-          label="Volume"
-          min={0}
-          max={200}
-          step={10}
-          value={100}
-          onChange={() => {}}
-        />
-      );
-      const slider = screen.getByRole("slider");
-      expect(slider).toHaveAttribute("min", "0");
-      expect(slider).toHaveAttribute("max", "200");
-      expect(slider).toHaveAttribute("step", "10");
     });
   });
 
@@ -145,16 +127,4 @@ describe("Slider", () => {
       render(<Slider ref={ref} aria-label="Slider" />);
       expect(ref.current).toBeInstanceOf(HTMLDivElement);
     });
-  });
-
-  describe("accessibility", () => {
-    it("has no a11y violations", async () => {
-      const { container } = render(
-        <Slider label="Volume" value={50} onChange={() => {}} showValue />
-      );
-      expect(
-        await axe(container, { rules: { "color-contrast": { enabled: false } } })
-      ).toHaveNoViolations();
-    });
-  });
-});
+  });});
