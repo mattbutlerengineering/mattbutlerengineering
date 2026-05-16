@@ -1,5 +1,6 @@
 import { useCallback } from "react";
-import { useMotionValue, useSpring, useReducedMotion, type MotionStyle } from "framer-motion";
+import type { MotionStyle } from "framer-motion";
+import { useMotionValue, useSpring, useReducedMotion } from "framer-motion";
 import { boop } from "../tokens/motion";
 
 const NOOP_STYLE: MotionStyle = {};
