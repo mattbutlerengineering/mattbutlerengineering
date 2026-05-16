@@ -10,6 +10,7 @@ import {
   loadState,
   saveState,
   buildNextState,
+  buildFallbackState,
 } from "../cadence-governor.js";
 
 // ── determineMode ───────────────────────────────────────────────
@@ -200,6 +201,66 @@ test("buildNextState: caps history at MAX_HISTORY (100)", () => {
 
   const result = buildNextState({ readyCount: 7, previousState, now });
   assert.equal(result.history.length, 100);
+});
+
+// ── buildFallbackState ──────────────────────────────────────────
+
+test("buildFallbackState: writes history entry with gh-unavailable reason", () => {
+  const now = Date.parse("2026-05-16T10:00:00.000Z");
+  const previousState = {
+    mode: "BUSY",
+    readyCount: 5,
+    lastCheck: "2026-05-16T09:00:00.000Z",
+    lastExecution: "2026-05-16T09:00:00.000Z",
+    shouldExecute: true,
+    history: [],
+  };
+
+  const result = buildFallbackState(previousState, now);
+  assert.equal(result.lastCheck, "2026-05-16T10:00:00.000Z");
+  assert.equal(result.shouldExecute, true);
+  assert.equal(result.history.length, 1);
+  assert.equal(result.history[0].reason, "gh-unavailable");
+  assert.equal(result.history[0].readyCount, null);
+  assert.equal(result.history[0].executed, true);
+  assert.equal(result.history[0].mode, "BUSY");
+});
+
+test("buildFallbackState: mode defaults to UNKNOWN when no prior mode", () => {
+  const now = Date.parse("2026-05-16T10:00:00.000Z");
+  const previousState = {
+    mode: null,
+    readyCount: 0,
+    lastCheck: null,
+    lastExecution: null,
+    shouldExecute: true,
+    history: [],
+  };
+
+  const result = buildFallbackState(previousState, now);
+  assert.equal(result.history[0].mode, "UNKNOWN");
+});
+
+test("buildFallbackState: preserves lastExecution, caps history at 100", () => {
+  const now = Date.parse("2026-05-16T10:00:00.000Z");
+  const longHistory = Array.from({ length: 150 }, (_, i) => ({
+    date: new Date(now - (150 - i) * 60 * 1000).toISOString(),
+    mode: "BUSY",
+    readyCount: 5,
+    executed: true,
+  }));
+  const previousState = {
+    mode: "BUSY",
+    readyCount: 5,
+    lastCheck: null,
+    lastExecution: "2026-05-16T08:00:00.000Z",
+    shouldExecute: true,
+    history: longHistory,
+  };
+
+  const result = buildFallbackState(previousState, now);
+  assert.equal(result.history.length, 100);
+  assert.equal(result.lastExecution, "2026-05-16T08:00:00.000Z");
 });
 
 test("buildNextState: IDLE → skip even with no prior execution", () => {
