@@ -259,6 +259,41 @@
       );
     };
   </file>
+  <file path="src/routes/confirm-attendance.ts">
+    export const confirmAttendanceRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.patch<{ Querystring: { token?: string } }>(
+        "/public/v1/reservations/confirm",
+        async (request, reply) => {
+          const { token } = request.query;
+    
+          if (!token) {
+            return reply.status(401).type("text/html").send(invalidHtml);
+          }
+    
+          const result = verifyManageToken(token);
+    
+          if (!result.valid && result.expired) {
+            return reply.status(410).type("text/html").send(expiredHtml);
+          }
+    
+          if (!result.valid) {
+            return reply.status(401).type("text/html").send(invalidHtml);
+          }
+    
+          const reservation = await reservationService.getById(result.reservationId!);
+          if (!reservation) {
+            return reply.status(401).type("text/html").send(invalidHtml);
+          }
+    
+          if (reservation.status === "PENDING") {
+            await reservationService.update(result.reservationId!, { status: "CONFIRMED" });
+          }
+    
+          return reply.status(200).type("text/html").send(successHtml);
+        }
+      );
+    };
+  </file>
   <file path="src/routes/events.ts">
     class EventBuffer {
       private readonly maxSize: number;
@@ -1645,6 +1680,7 @@
     }
     export function verifyManageToken(token: string): {
       valid: boolean;
+      expired?: boolean;
       reservationId?: string;
       guestEmail?: string;
     } {
@@ -1661,7 +1697,7 @@
         if (signature !== expected) return { valid: false };
     
         const expiry = parseInt(expiryStr, 10);
-        if (Date.now() > expiry) return { valid: false };
+        if (Date.now() > expiry) return { valid: false, expired: true };
     
         return { valid: true, reservationId, guestEmail };
       } catch {
@@ -3677,6 +3713,26 @@
       success: boolean;
       hold?: ReservationHold;
       error?: string;
+    }
+  </file>
+  <file path="src/services/reminder.ts">
+    export async function findReservationsNeedingReminder() {
+      const now = new Date();
+      const windowStart = new Date(now.getTime() + 23 * 60 * 60 * 1000);
+      const windowEnd = new Date(now.getTime() + 25 * 60 * 60 * 1000);
+    
+      return prisma.reservation.findMany({
+        where: {
+          startTime: {
+            gte: windowStart,
+            lte: windowEnd,
+          },
+          status: { in: ["PENDING", "CONFIRMED"] },
+          reminderSentAt: null,
+          guestEmail: { not: null },
+        },
+        include: { venue: true },
+      });
     }
   </file>
   <file path="src/services/reservation.ts">
