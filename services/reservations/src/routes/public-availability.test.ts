@@ -23,7 +23,7 @@ vi.mock("../services/venue.js", () => ({
 
 vi.mock("../services/availability.js", () => ({
   availabilityService: {
-    getTimeSlots: vi.fn(),
+    generateTimeSlots: vi.fn(),
     getDateAvailability: vi.fn(),
   },
 }));
