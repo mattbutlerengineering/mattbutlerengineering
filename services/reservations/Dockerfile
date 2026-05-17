@@ -17,6 +17,7 @@ COPY packages/observability/package.json ./packages/observability/
 COPY packages/feature-flags/package.json ./packages/feature-flags/
 COPY packages/sentry/package.json ./packages/sentry/
 COPY packages/database/package.json ./packages/database/
+COPY packages/notifications/package.json ./packages/notifications/
 COPY services/reservations/package.json ./services/reservations/
 
 # Install all dependencies
@@ -31,6 +32,7 @@ COPY packages/observability/tsconfig.json ./packages/observability/
 COPY packages/feature-flags/tsconfig.json ./packages/feature-flags/
 COPY packages/sentry/tsconfig.json ./packages/sentry/
 COPY packages/database/tsconfig.json ./packages/database/
+COPY packages/notifications/tsconfig.json ./packages/notifications/
 COPY services/reservations/tsconfig.json ./services/reservations/
 
 # Copy Prisma schema (needed for db:generate)
@@ -44,6 +46,7 @@ COPY packages/observability/src ./packages/observability/src
 COPY packages/feature-flags/src ./packages/feature-flags/src
 COPY packages/sentry/src ./packages/sentry/src
 COPY packages/database/src ./packages/database/src
+COPY packages/notifications/src ./packages/notifications/src
 COPY services/reservations/src ./services/reservations/src
 
 # Build workspace packages and service in a single layer
@@ -80,6 +83,7 @@ COPY packages/observability/package.json ./packages/observability/
 COPY packages/feature-flags/package.json ./packages/feature-flags/
 COPY packages/sentry/package.json ./packages/sentry/
 COPY packages/database/package.json ./packages/database/
+COPY packages/notifications/package.json ./packages/notifications/
 COPY services/reservations/package.json ./services/reservations/
 
 # Install production dependencies only (Prisma client is copied from builder)
@@ -94,6 +98,7 @@ COPY --from=builder /app/packages/observability/dist ./packages/observability/di
 COPY --from=builder /app/packages/feature-flags/dist ./packages/feature-flags/dist
 COPY --from=builder /app/packages/sentry/dist ./packages/sentry/dist
 COPY --from=builder /app/packages/database/dist ./packages/database/dist
+COPY --from=builder /app/packages/notifications/src ./packages/notifications/src
 
 # Copy built reservations service
 COPY --from=builder /app/services/reservations/dist ./services/reservations/dist
