@@ -36,7 +36,8 @@
     "@mbe/rialto-catalog": "workspace:*",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "react-router-dom": "catalog:"
+    "react-router-dom": "catalog:",
+    "@mbe/sentry": "workspace:*"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.3",

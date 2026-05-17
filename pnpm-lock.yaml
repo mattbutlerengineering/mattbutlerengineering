@@ -163,6 +163,9 @@ importers:
       '@mbe/rialto-catalog':
         specifier: workspace:*
         version: link:../../packages/rialto-catalog
+      '@mbe/sentry':
+        specifier: workspace:*
+        version: link:../../packages/sentry
       react:
         specifier: 'catalog:'
         version: 19.2.6
@@ -233,6 +236,9 @@ importers:
       '@mbe/rialto-catalog':
         specifier: workspace:*
         version: link:../../packages/rialto-catalog
+      '@mbe/sentry':
+        specifier: workspace:*
+        version: link:../../packages/sentry
       '@mbe/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -306,6 +312,9 @@ importers:
       '@mbe/observability':
         specifier: workspace:^
         version: link:../../packages/observability
+      '@mbe/sentry':
+        specifier: workspace:*
+        version: link:../../packages/sentry
       framer-motion:
         specifier: 'catalog:'
         version: 12.38.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -376,6 +385,9 @@ importers:
       '@mbe/observability':
         specifier: workspace:^
         version: link:../../packages/observability
+      '@mbe/sentry':
+        specifier: workspace:*
+        version: link:../../packages/sentry
       framer-motion:
         specifier: ^12.38.0
         version: 12.38.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
