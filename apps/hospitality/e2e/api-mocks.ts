@@ -42,7 +42,9 @@ export async function mockApi(page: Page): Promise<void> {
       ? jsonResponse(route, "user-me")
       : jsonResponse(route, "user-me")
   );
-  await page.route("**/api/v1/users/me/preferences", (route) => jsonResponse(route, "user-me"));
+  await page.route("**/api/v1/users/me/preferences", (route) =>
+    jsonResponse(route, "user-me")
+  );
   await page.route("**/api/v1/users?*", (route) => {
     const fixture = JSON.parse(loadFixture("user-me"));
     return route.fulfill({
@@ -56,7 +58,9 @@ export async function mockApi(page: Page): Promise<void> {
   });
 
   // Venues
-  await page.route("**/api/v1/venues?*", (route) => jsonResponse(route, "venues-list"));
+  await page.route("**/api/v1/venues?*", (route) =>
+    jsonResponse(route, "venues-list")
+  );
   await page.route("**/api/v1/venues/by-slug/*", (route) => {
     const venues = JSON.parse(loadFixture("venues-list"));
     return jsonOk(route, venues.data[0]);
@@ -74,7 +78,9 @@ export async function mockApi(page: Page): Promise<void> {
   await page.route("**/api/v1/venues/groups*", (route) => emptyPaginated(route));
 
   // Tables
-  await page.route("**/api/v1/tables?*", (route) => jsonResponse(route, "tables-list"));
+  await page.route("**/api/v1/tables?*", (route) =>
+    jsonResponse(route, "tables-list")
+  );
   await page.route(/\/api\/v1\/tables\/[^/?]+\/status$/, (route) => {
     const tables = JSON.parse(loadFixture("tables-list"));
     return jsonOk(route, { ...tables.data[0], status: "OCCUPIED" });
@@ -97,7 +103,9 @@ export async function mockApi(page: Page): Promise<void> {
   await page.route("**/api/v1/reservations/me*", (route) =>
     jsonResponse(route, "reservations-list")
   );
-  await page.route("**/api/v1/reservations?*", (route) => jsonResponse(route, "reservations-list"));
+  await page.route("**/api/v1/reservations?*", (route) =>
+    jsonResponse(route, "reservations-list")
+  );
   await page.route(/\/api\/v1\/reservations\/[^/?]+$/, (route) => {
     const method = route.request().method();
     const reservations = JSON.parse(loadFixture("reservations-list"));
@@ -111,20 +119,28 @@ export async function mockApi(page: Page): Promise<void> {
   });
 
   // Guests
-  await page.route("**/api/v1/guests/search*", (route) => jsonResponse(route, "guests-list"));
-  await page.route("**/api/v1/guests/segments*", (route) => jsonResponse(route, "guest-segments"));
+  await page.route("**/api/v1/guests/search*", (route) =>
+    jsonResponse(route, "guests-list")
+  );
+  await page.route("**/api/v1/guests/segments*", (route) =>
+    jsonResponse(route, "guest-segments")
+  );
   await page.route("**/api/v1/guests/find-or-create", (route) => {
     const guests = JSON.parse(loadFixture("guests-list"));
     return jsonOk(route, guests.data[0]);
   });
-  await page.route("**/api/v1/guests?*", (route) => jsonResponse(route, "guests-list"));
+  await page.route("**/api/v1/guests?*", (route) =>
+    jsonResponse(route, "guests-list")
+  );
   await page.route(/\/api\/v1\/guests\/[^/?]+$/, (route) => {
     const guests = JSON.parse(loadFixture("guests-list"));
     return jsonOk(route, guests.data[0]);
   });
 
   // Floor Plans
-  await page.route("**/api/v1/floor-plans?*", (route) => jsonResponse(route, "floor-plans-list"));
+  await page.route("**/api/v1/floor-plans?*", (route) =>
+    jsonResponse(route, "floor-plans-list")
+  );
   await page.route(/\/api\/v1\/floor-plans\/[^/?]+\/bulk-update-positions$/, (route) => {
     const tables = JSON.parse(loadFixture("tables-list"));
     return jsonOk(route, tables.data);
@@ -207,7 +223,7 @@ export async function mockApi(page: Page): Promise<void> {
     route.fulfill({
       status: 200,
       contentType: "text/event-stream",
-      body: 'data: {"type":"connected"}\n\n',
+      body: "data: {\"type\":\"connected\"}\n\n",
     })
   );
 
