@@ -74,6 +74,11 @@
       export const holdRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="src/routes/manage-reservation.ts">
+    <item priority="high">
+      export const manageReservationRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="src/routes/public-availability.ts">
     <item priority="high">
       export const publicAvailabilityRoutes: FastifyPluginAsync;

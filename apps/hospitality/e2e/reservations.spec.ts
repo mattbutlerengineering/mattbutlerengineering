@@ -36,7 +36,9 @@ test.describe("CF-6: Reservations page with filtering", () => {
     const searchInput = mockedPage.getByRole("textbox");
     await searchInput.fill("Test");
 
-    const resultCount = mockedPage.locator('[aria-live="polite"]', { hasText: /reservation/ }).last();
+    const resultCount = mockedPage
+      .locator('[aria-live="polite"]', { hasText: /reservation/ })
+      .last();
     await expect(resultCount).toBeVisible();
   });
 

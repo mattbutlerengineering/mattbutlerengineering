@@ -22,12 +22,12 @@ test("description", async ({ authPage }) => {
 
 ### Dedicated E2E User
 
-| Field | Value |
-|-------|-------|
-| Email | `e2e-test@mattbutlerengineering.com` |
-| Connection | `Username-Password-Authentication` |
-| MFA | Disabled |
-| Role | Standard (no admin) |
+| Field       | Value                                                       |
+| ----------- | ----------------------------------------------------------- |
+| Email       | `e2e-test@mattbutlerengineering.com`                        |
+| Connection  | `Username-Password-Authentication`                          |
+| MFA         | Disabled                                                    |
+| Role        | Standard (no admin)                                         |
 | Managed via | Auth0 dashboard + Pulumi (`infrastructure/pulumi/auth0.ts`) |
 
 Credentials stored as GitHub repo secrets (`E2E_AUTH*`). Auth uses ROPC with `password-realm` grant type and explicit realm parameter.
