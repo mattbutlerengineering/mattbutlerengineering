@@ -35,7 +35,7 @@ vi.mock("@mbe/auth/fastify", () => ({
   requireAuth: vi.fn().mockImplementation(async () => {}),
 }));
 
-vi.mock("@mbe/observability/sentry/node", () => ({
+vi.mock("@mbe/sentry/node", () => ({
   sentryFastifyPlugin: vi.fn().mockImplementation(async () => {}),
 }));
 
