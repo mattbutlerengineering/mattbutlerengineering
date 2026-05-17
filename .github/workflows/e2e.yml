@@ -1,0 +1,72 @@
+name: E2E Tests
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "apps/hospitality/**"
+      - "packages/rialto/**"
+      - "services/reservations/**"
+      - "packages/database/**"
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  hospitality-e2e:
+    name: Hospitality E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Install pnpm
+        run: npm install -g pnpm@9
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Start dev server
+        run: pnpm --dir apps/hospitality dev &
+        env:
+          VITE_AUTH_AUTHORITY: https://${{ secrets.E2E_AUTH0_DOMAIN }}
+          VITE_AUTH_CLIENT_ID: ${{ secrets.E2E_AUTH0_CLIENT_ID }}
+          VITE_AUTH_AUDIENCE: ${{ secrets.E2E_AUTH0_AUDIENCE }}
+          VITE_AUTH_REDIRECT_URI: http://localhost:3002/hospitality/callback
+          VITE_API_URL: http://localhost:3002
+
+      - name: Wait for dev server
+        run: npx wait-on http://localhost:3002/hospitality/ --timeout 60000
+
+      - name: Run E2E tests
+        run: pnpm --dir apps/hospitality test:e2e
+        env:
+          E2E_AUTH0_DOMAIN: ${{ secrets.E2E_AUTH0_DOMAIN }}
+          E2E_AUTH0_CLIENT_ID: ${{ secrets.E2E_AUTH0_CLIENT_ID }}
+          E2E_AUTH0_AUDIENCE: ${{ secrets.E2E_AUTH0_AUDIENCE }}
+          E2E_AUTH_EMAIL: ${{ secrets.E2E_AUTH_EMAIL }}
+          E2E_AUTH_PASSWORD: ${{ secrets.E2E_AUTH_PASSWORD }}
+
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: e2e-test-results
+          path: |
+            apps/hospitality/e2e/test-results/
+            apps/hospitality/playwright-report/
+          retention-days: 7

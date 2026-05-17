@@ -31,7 +31,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/hooks/gsd-prompt-guard.js",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/gsd-prompt-guard.js\"",
             "timeout": 5
           }
         ]
@@ -41,7 +41,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/pre-push-typecheck.sh",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/pre-push-typecheck.sh\"",
             "timeout": 120
           }
         ]
@@ -71,7 +71,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/check-changeset.sh \"$CLAUDE_FILE_PATH\""
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-changeset.sh\" \"$CLAUDE_FILE_PATH\""
           }
         ]
       },
@@ -80,7 +80,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/run-related-tests.sh \"$CLAUDE_FILE_PATH\"",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/run-related-tests.sh\" \"$CLAUDE_FILE_PATH\"",
             "timeout": 30000
           }
         ]
@@ -89,7 +89,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/hooks/gsd-context-monitor.js",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/gsd-context-monitor.js\"",
             "timeout": 10
           }
         ],
@@ -101,7 +101,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/hooks/gsd-check-update.js"
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/gsd-check-update.js\""
           }
         ]
       },
@@ -109,7 +109,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/session-log-rotate.sh",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-log-rotate.sh\"",
             "timeout": 3000
           }
         ]
@@ -120,7 +120,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/session-archive.sh",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-archive.sh\"",
             "timeout": 5000
           }
         ]
@@ -129,6 +129,6 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "node .claude/hooks/gsd-statusline.js"
+    "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/gsd-statusline.js\""
   }
 }

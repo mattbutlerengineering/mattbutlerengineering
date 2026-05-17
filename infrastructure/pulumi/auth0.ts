@@ -58,7 +58,7 @@ export const hospitalityApp = new auth0.Client("mattbutlerengineering-hospitalit
     alg: "RS256",
     lifetimeInSeconds: 36000,
   },
-  grantTypes: ["authorization_code", "refresh_token"],
+  grantTypes: ["authorization_code", "refresh_token", "password"],
   refreshToken: {
     rotationType: "rotating",
     expirationType: "expiring",
@@ -80,8 +80,20 @@ export const hospitalityApiGrant = new auth0.ClientGrant(
   }
 );
 
+// Dedicated E2E test user (ROPC auth, no MFA)
+const e2ePassword = config.requireSecret("e2eUserPassword");
+
+export const e2eUser = new auth0.User("e2e-test-user", {
+  connectionName: "Username-Password-Authentication",
+  email: "e2e-test@mattbutlerengineering.com",
+  password: e2ePassword,
+  emailVerified: true,
+  name: "E2E Test User",
+});
+
 // Exports for use in other files and .env generation
 export const auth0Outputs = {
   apiIdentifier: api.identifier,
   hospitalityClientId: hospitalityApp.clientId,
+  e2eUserEmail: e2eUser.email,
 };

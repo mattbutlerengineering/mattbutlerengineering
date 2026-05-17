@@ -17,21 +17,21 @@ base.describe("Authentication — unauthenticated", () => {
 });
 
 test.describe("Authentication — authenticated", () => {
-  test("programmatic login loads dashboard", async ({ authPage }) => {
-    await expect(authPage.getByTestId("dashboard-layout")).toBeVisible();
-    await expect(authPage.getByRole("button", { name: "Sign In" })).not.toBeVisible();
+  test("programmatic login loads dashboard", async ({ mockedPage }) => {
+    await expect(mockedPage.getByTestId("dashboard-layout")).toBeVisible();
+    await expect(mockedPage.getByRole("button", { name: "Sign In" })).not.toBeVisible();
   });
 
-  test("authenticated session persists across navigation", async ({ authPage }) => {
+  test("authenticated session persists across navigation", async ({ mockedPage }) => {
     // Use client-side navigation via the sidebar
-    await authPage
+    await mockedPage
       .getByRole("button", { name: "Reservations" })
-      .or(authPage.getByText("Reservations"))
+      .or(mockedPage.getByText("Reservations"))
       .first()
       .click();
 
     // Should still be authenticated
-    await expect(authPage.getByTestId("dashboard-layout")).toBeVisible();
-    await expect(authPage.getByRole("button", { name: "Sign In" })).not.toBeVisible();
+    await expect(mockedPage.getByTestId("dashboard-layout")).toBeVisible();
+    await expect(mockedPage.getByRole("button", { name: "Sign In" })).not.toBeVisible();
   });
 });

@@ -1,0 +1,11 @@
+{
+  "data": [
+    { "time": "2026-05-17T17:00:00.000Z", "available": true, "tables": [{ "id": "tbl_e2e_001", "name": "Table 1", "capacity": 4, "minCovers": 1, "maxCovers": 4 }] },
+    { "time": "2026-05-17T17:15:00.000Z", "available": true, "tables": [{ "id": "tbl_e2e_003", "name": "Table 3", "capacity": 2, "minCovers": 1, "maxCovers": 2 }] },
+    { "time": "2026-05-17T17:30:00.000Z", "available": true, "tables": [{ "id": "tbl_e2e_001", "name": "Table 1", "capacity": 4, "minCovers": 1, "maxCovers": 4 }, { "id": "tbl_e2e_004", "name": "Table 4", "capacity": 8, "minCovers": 4, "maxCovers": 8 }] },
+    { "time": "2026-05-17T17:45:00.000Z", "available": false },
+    { "time": "2026-05-17T18:00:00.000Z", "available": false },
+    { "time": "2026-05-17T18:15:00.000Z", "available": true, "tables": [{ "id": "tbl_e2e_003", "name": "Table 3", "capacity": 2, "minCovers": 1, "maxCovers": 2 }] },
+    { "time": "2026-05-17T18:30:00.000Z", "available": true, "tables": [{ "id": "tbl_e2e_004", "name": "Table 4", "capacity": 8, "minCovers": 4, "maxCovers": 8 }] }
+  ]
+}

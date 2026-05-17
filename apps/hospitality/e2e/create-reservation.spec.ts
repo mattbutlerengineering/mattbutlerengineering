@@ -1,37 +1,37 @@
 import { test, expect } from "./fixtures.js";
 
 test.describe("CF-4: Reservation edit flow", () => {
-  test("opens reservation detail sidebar", async ({ authPage }) => {
-    await authPage.goto("/timeline");
+  test("opens reservation detail sidebar", async ({ mockedPage }) => {
+    await mockedPage.goto("/timeline");
 
     // Click a reservation block
-    const reservationBlock = authPage.getByTestId(/^reservation-block-/).first();
+    const reservationBlock = mockedPage.getByTestId(/^reservation-block-/).first();
     await expect(reservationBlock).toBeVisible();
     await reservationBlock.click();
 
     // Detail sidebar opens
-    const sidebar = authPage.getByTestId("reservation-detail-sidebar");
+    const sidebar = mockedPage.getByTestId("reservation-detail-sidebar");
     await expect(sidebar).toBeVisible();
 
     // Shows reservation info
     await expect(sidebar.getByText(/guest|party/i)).toBeVisible();
   });
 
-  test("opens edit drawer and shows current values", async ({ authPage }) => {
-    await authPage.goto("/timeline");
+  test("opens edit drawer and shows current values", async ({ mockedPage }) => {
+    await mockedPage.goto("/timeline");
 
     // Click a reservation block
-    const reservationBlock = authPage.getByTestId(/^reservation-block-/).first();
+    const reservationBlock = mockedPage.getByTestId(/^reservation-block-/).first();
     await reservationBlock.click();
 
-    const sidebar = authPage.getByTestId("reservation-detail-sidebar");
+    const sidebar = mockedPage.getByTestId("reservation-detail-sidebar");
     await expect(sidebar).toBeVisible();
 
     // Click "Edit"
     await sidebar.getByRole("button", { name: /edit/i }).click();
 
     // EditReservationDrawer opens
-    const drawer = authPage.getByTestId("edit-reservation-drawer");
+    const drawer = mockedPage.getByTestId("edit-reservation-drawer");
     await expect(drawer).toBeVisible();
 
     // Party size field is editable
@@ -40,17 +40,17 @@ test.describe("CF-4: Reservation edit flow", () => {
     await expect(partySizeInput).not.toBeDisabled();
   });
 
-  test("saves edited party size and verifies update", async ({ authPage }) => {
-    await authPage.goto("/timeline");
+  test("saves edited party size and verifies update", async ({ mockedPage }) => {
+    await mockedPage.goto("/timeline");
 
     // Click a reservation block
-    const reservationBlock = authPage.getByTestId(/^reservation-block-/).first();
+    const reservationBlock = mockedPage.getByTestId(/^reservation-block-/).first();
     await reservationBlock.click();
 
-    const sidebar = authPage.getByTestId("reservation-detail-sidebar");
+    const sidebar = mockedPage.getByTestId("reservation-detail-sidebar");
     await sidebar.getByRole("button", { name: /edit/i }).click();
 
-    const drawer = authPage.getByTestId("edit-reservation-drawer");
+    const drawer = mockedPage.getByTestId("edit-reservation-drawer");
     await expect(drawer).toBeVisible();
 
     // Change party size to a different value
@@ -69,16 +69,16 @@ test.describe("CF-4: Reservation edit flow", () => {
     await expect(sidebar.getByText(newValue)).toBeVisible();
   });
 
-  test("cancels edit without saving", async ({ authPage }) => {
-    await authPage.goto("/timeline");
+  test("cancels edit without saving", async ({ mockedPage }) => {
+    await mockedPage.goto("/timeline");
 
-    const reservationBlock = authPage.getByTestId(/^reservation-block-/).first();
+    const reservationBlock = mockedPage.getByTestId(/^reservation-block-/).first();
     await reservationBlock.click();
 
-    const sidebar = authPage.getByTestId("reservation-detail-sidebar");
+    const sidebar = mockedPage.getByTestId("reservation-detail-sidebar");
     await sidebar.getByRole("button", { name: /edit/i }).click();
 
-    const drawer = authPage.getByTestId("edit-reservation-drawer");
+    const drawer = mockedPage.getByTestId("edit-reservation-drawer");
     await expect(drawer).toBeVisible();
 
     // Click cancel

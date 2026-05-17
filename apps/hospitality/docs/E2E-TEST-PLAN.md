@@ -20,6 +20,20 @@ test("description", async ({ authPage }) => {
 
 **Env vars required:** `E2E_AUTH0_DOMAIN`, `E2E_AUTH0_CLIENT_ID`, `E2E_AUTH0_AUDIENCE`, `E2E_AUTH_EMAIL`, `E2E_AUTH_PASSWORD`
 
+### Dedicated E2E User
+
+| Field | Value |
+|-------|-------|
+| Email | `e2e-test@mattbutlerengineering.com` |
+| Connection | `Username-Password-Authentication` |
+| MFA | Disabled |
+| Role | Standard (no admin) |
+| Managed via | Auth0 dashboard + Pulumi (`infrastructure/pulumi/auth0.ts`) |
+
+Credentials stored as GitHub repo secrets (`E2E_AUTH*`). Auth uses ROPC with `password-realm` grant type and explicit realm parameter.
+
+To rotate the password: update in Auth0 dashboard (User Management → Users → E2E Test User → Actions → Change Password), then update the `E2E_AUTH_PASSWORD` GitHub secret.
+
 ---
 
 ## Critical Flow Tests

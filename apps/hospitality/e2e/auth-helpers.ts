@@ -53,12 +53,13 @@ async function fetchAuth0Tokens(config: Auth0Config): Promise<TokenResponse> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      grant_type: "password",
+      grant_type: "http://auth0.com/oauth/grant-type/password-realm",
       username: config.email,
       password: config.password,
       audience: config.audience,
       client_id: config.clientId,
       scope: "openid profile email",
+      realm: "Username-Password-Authentication",
     }),
   });
 

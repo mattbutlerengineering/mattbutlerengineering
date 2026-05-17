@@ -1,0 +1,47 @@
+{
+  "data": [
+    {
+      "id": "ven_e2e_001",
+      "venueGroupId": "vg_e2e_001",
+      "venueGroup": {
+        "id": "vg_e2e_001",
+        "name": "E2E Restaurant Group",
+        "slug": "e2e-group",
+        "settings": null,
+        "createdAt": "2026-01-01T00:00:00.000Z"
+      },
+      "name": "E2E Test Bistro",
+      "slug": "e2e-test-bistro",
+      "ianaTimezone": "America/New_York",
+      "currencyCode": "USD",
+      "operatingHours": {
+        "monday": { "open": "11:00", "close": "22:00" },
+        "tuesday": { "open": "11:00", "close": "22:00" },
+        "wednesday": { "open": "11:00", "close": "22:00" },
+        "thursday": { "open": "11:00", "close": "22:00" },
+        "friday": { "open": "11:00", "close": "23:00" },
+        "saturday": { "open": "10:00", "close": "23:00" },
+        "sunday": { "open": "10:00", "close": "21:00", "closed": false }
+      },
+      "settings": {
+        "defaultReservationDuration": 90,
+        "maxPartySize": 12,
+        "minAdvanceBooking": 1,
+        "maxAdvanceBooking": 30,
+        "requireEmail": true,
+        "slotIntervalMinutes": 15,
+        "holdDurationMinutes": 10
+      },
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 25,
+    "total": 1,
+    "totalPages": 1,
+    "hasNext": false,
+    "hasPrev": false
+  }
+}
