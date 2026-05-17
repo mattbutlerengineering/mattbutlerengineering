@@ -161,7 +161,6 @@ describe("compound – uncovered branches", () => {
   it("handles non-Error exception thrown by execSync (String branch)", async () => {
     // Throw a non-Error value to exercise the String(error) branch in the catch
     mockExecSync.mockImplementation(() => {
-       
       throw "plain string error from execSync";
     });
 
