@@ -367,6 +367,27 @@ export const holdService = {
     };
   },
 
+  async confirm(
+    holdId: string,
+    guestDetails: ConfirmHoldRequest,
+    _source: string
+  ): Promise<ConfirmHoldResult> {
+    const hold = await prisma.reservationHold.findUnique({
+      where: { id: holdId },
+    });
+
+    if (!hold) {
+      return { success: false, error: "Hold not found" };
+    }
+
+    if (hold.expiresAt < new Date()) {
+      await prisma.reservationHold.delete({ where: { id: holdId } }).catch(() => {});
+      return { success: false, error: "Hold has expired" };
+    }
+
+    return this.convertToReservation(holdId, hold.sessionId, guestDetails, undefined);
+  },
+
   /**
    * Cleans up expired holds.
    * Called opportunistically on ~1% of requests.

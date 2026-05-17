@@ -99,6 +99,8 @@ Managed at https://claude.ai/code/scheduled
 
 When spawning subagents with `isolation: "worktree"`, always include `pnpm install --frozen-lockfile` as the first step in the agent prompt. Worktrees are bare checkouts without `node_modules` — without this, every `vitest`/`pnpm test`/`pnpm build` call fails with `command not found`. The retry cost of a failed agent (wasted tokens + time) far exceeds the 15s install step.
 
+**Agents must run `pnpm typecheck` on affected packages before declaring done.** Vitest does not typecheck — tests can pass with completely wrong mock shapes (wrong property names, missing required fields). This has broken CI on main repeatedly. Always include typecheck verification in agent prompts.
+
 ---
 
 ## Before Committing
