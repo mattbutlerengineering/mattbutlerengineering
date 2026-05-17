@@ -28,7 +28,9 @@
     "@fastify/swagger-ui": "^5.2.6",
     "@mbe/api-versioning": "workspace:*",
     "@mbe/auth": "workspace:*",
+    "@mbe/database": "workspace:*",
     "@mbe/feature-flags": "workspace:*",
+    "@mbe/notifications": "workspace:^",
     "@mbe/observability": "workspace:*",
     "@mbe/sentry": "workspace:*",
     "@mbe/types": "workspace:*",
@@ -39,8 +41,7 @@
     "fastify": "catalog:",
     "jose": "^6.2.3",
     "pg": "^8.20.0",
-    "zod": "catalog:",
-    "@mbe/database": "workspace:*"
+    "zod": "catalog:"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
