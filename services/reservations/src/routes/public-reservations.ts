@@ -17,6 +17,7 @@ export function generateManageToken(reservationId: string, guestEmail: string): 
 
 export function verifyManageToken(token: string): {
   valid: boolean;
+  expired?: boolean;
   reservationId?: string;
   guestEmail?: string;
 } {
@@ -33,7 +34,7 @@ export function verifyManageToken(token: string): {
     if (signature !== expected) return { valid: false };
 
     const expiry = parseInt(expiryStr, 10);
-    if (Date.now() > expiry) return { valid: false };
+    if (Date.now() > expiry) return { valid: false, expired: true };
 
     return { valid: true, reservationId, guestEmail };
   } catch {
