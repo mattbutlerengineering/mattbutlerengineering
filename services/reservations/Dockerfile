@@ -14,6 +14,8 @@ COPY packages/auth/package.json ./packages/auth/
 COPY packages/api-versioning/package.json ./packages/api-versioning/
 COPY packages/config/package.json ./packages/config/
 COPY packages/observability/package.json ./packages/observability/
+COPY packages/sentry/package.json ./packages/sentry/
+COPY packages/database/package.json ./packages/database/
 COPY packages/feature-flags/package.json ./packages/feature-flags/
 COPY services/reservations/package.json ./services/reservations/
 
@@ -26,6 +28,8 @@ COPY packages/auth/tsconfig.json ./packages/auth/
 COPY packages/api-versioning/tsconfig.json ./packages/api-versioning/
 COPY packages/config/typescript ./packages/config/typescript
 COPY packages/observability/tsconfig.json ./packages/observability/
+COPY packages/sentry/tsconfig.json ./packages/sentry/
+COPY packages/database/tsconfig.json ./packages/database/
 COPY packages/feature-flags/tsconfig.json ./packages/feature-flags/
 COPY services/reservations/tsconfig.json ./services/reservations/
 
@@ -37,6 +41,8 @@ COPY packages/types/src ./packages/types/src
 COPY packages/auth/src ./packages/auth/src
 COPY packages/api-versioning/src ./packages/api-versioning/src
 COPY packages/observability/src ./packages/observability/src
+COPY packages/sentry/src ./packages/sentry/src
+COPY packages/database/src ./packages/database/src
 COPY packages/feature-flags/src ./packages/feature-flags/src
 COPY services/reservations/src ./services/reservations/src
 
@@ -45,6 +51,8 @@ RUN pnpm --filter @mbe/types build && \
     pnpm --filter @mbe/auth build && \
     pnpm --filter @mbe/api-versioning build && \
     pnpm --filter @mbe/observability build && \
+    pnpm --filter @mbe/sentry build && \
+    pnpm --filter @mbe/database build && \
     pnpm --filter @mbe/feature-flags build && \
     pnpm --filter @mbe/reservations-service db:generate && \
     pnpm --filter @mbe/reservations-service build
@@ -69,6 +77,8 @@ COPY packages/auth/package.json ./packages/auth/
 COPY packages/api-versioning/package.json ./packages/api-versioning/
 COPY packages/config/package.json ./packages/config/
 COPY packages/observability/package.json ./packages/observability/
+COPY packages/sentry/package.json ./packages/sentry/
+COPY packages/database/package.json ./packages/database/
 COPY packages/feature-flags/package.json ./packages/feature-flags/
 COPY services/reservations/package.json ./services/reservations/
 
@@ -81,6 +91,8 @@ COPY --from=builder /app/packages/types/dist ./packages/types/dist
 COPY --from=builder /app/packages/auth/dist ./packages/auth/dist
 COPY --from=builder /app/packages/api-versioning/dist ./packages/api-versioning/dist
 COPY --from=builder /app/packages/observability/dist ./packages/observability/dist
+COPY --from=builder /app/packages/sentry/dist ./packages/sentry/dist
+COPY --from=builder /app/packages/database/dist ./packages/database/dist
 COPY --from=builder /app/packages/feature-flags/dist ./packages/feature-flags/dist
 
 # Copy built reservations service
