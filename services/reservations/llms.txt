@@ -1,4 +1,17 @@
 <codebase path="services/reservations">
+  <section priority="medium" role="middleware">
+  <file path="src/middleware/public-rate-limit.ts">
+    <item priority="high">
+      interface RateLimitEntry {
+        count: number;
+        resetAt: number;
+      }
+    </item>
+    <item priority="medium">
+      function getKey(ip: string, venueSlug: string): string { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="prisma">
   <file path="prisma/seed.ts">
     <item priority="medium">
@@ -56,6 +69,42 @@
       export const holdRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="src/routes/public-availability.ts">
+    <item priority="high">
+      export const publicAvailabilityRoutes: FastifyPluginAsync;
+    </item>
+  </file>
+  <file path="src/routes/public-holds.ts">
+    <item priority="high">
+      export const publicHoldRoutes: FastifyPluginAsync;
+    </item>
+  </file>
+  <file path="src/routes/public-reservations.ts">
+    <item priority="high">
+      export function generateManageToken(reservationId: string, guestEmail: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function verifyManageToken(token: string): {
+        valid: boolean;
+        reservationId?: string;
+        guestEmail?: string;
+      } { /* ... */ }
+    </item>
+  </file>
+  <file path="src/routes/public-venues.ts">
+    <item priority="high">
+      interface PublicVenueResponse {
+        name: string;
+        slug: string;
+        ianaTimezone: string;
+        currencyCode: string;
+        operatingHours: unknown;
+      }
+    </item>
+    <item priority="high">
+      export const publicVenueRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="src/routes/ready.ts">
     <item priority="high">
       export const readinessRoutes: FastifyPluginAsync;
@@ -107,14 +156,10 @@
   </file>
   <file path="src/services/database.ts">
     <item priority="high">
-      interface SlowQueryStats {
-        count5min: number;
-        slowestMs: number;
-        queries: { model: string; operation: string; duration: number; tim...;
-      }
+      export const prisma: unknown;
     </item>
     <item priority="high">
-      export function getSlowQueryStats(): { count5min: number; slowestMs: number } { /* ... */ }
+      export const getSlowQueryStats: unknown;
     </item>
   </file>
   <file path="src/services/events.ts">
