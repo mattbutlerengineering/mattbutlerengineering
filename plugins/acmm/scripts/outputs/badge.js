@@ -39,7 +39,7 @@ function colorFor(level) {
 function badgeMarkdown(level) {
   const label = level === 0 ? "ACMM-not%20scored" : `ACMM-Level%20${level}`;
   const color = colorFor(level);
-  return `![ACMM Level ${level}](https://img.shields.io/badge/${label}-${color}?style=flat-square)`;
+  return `[![ACMM Level ${level}](https://img.shields.io/badge/${label}-${color}?style=flat-square)](docs/acmm.md)`;
 }
 
 /**
