@@ -28,6 +28,11 @@
       export const availabilityRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="src/routes/confirm-attendance.ts">
+    <item priority="high">
+      export const confirmAttendanceRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="src/routes/events.ts">
     <item priority="medium">
       class EventBuffer {
@@ -86,6 +91,7 @@
     <item priority="high">
       export function verifyManageToken(token: string): {
         valid: boolean;
+        expired?: boolean;
         reservationId?: string;
         guestEmail?: string;
       } { /* ... */ }
@@ -229,6 +235,11 @@
         hold?: ReservationHold;
         error?: string;
       }
+    </item>
+  </file>
+  <file path="src/services/reminder.ts">
+    <item priority="high">
+      export async function findReservationsNeedingReminder() { /* ... */ }
     </item>
   </file>
   <file path="src/services/reservation.ts">
