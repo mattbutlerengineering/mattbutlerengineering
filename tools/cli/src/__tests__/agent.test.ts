@@ -853,14 +853,13 @@ describe("agent orchestrate subcommand", () => {
 });
 
 describe("agent run – invalid adapter and non-default option branches", () => {
-  let _logSpy: ReturnType<typeof vi.spyOn>;
   let errorSpy: ReturnType<typeof vi.spyOn>;
   let exitSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     vi.resetModules();
     vi.resetAllMocks();
-    _logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "log").mockImplementation(() => {});
     errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     exitSpy = vi.spyOn(process, "exit").mockImplementation((() => {}) as never);
     vi.spyOn(process, "cwd").mockReturnValue("/repo");
@@ -880,12 +879,16 @@ describe("agent run – invalid adapter and non-default option branches", () => 
   it("uses non-default model when --model is explicitly provided", async () => {
     const { runSession } = await import("@mbe/agent-core");
     vi.mocked(runSession).mockResolvedValue({
-      success: true,
+      sessionId: "test",
+      status: "succeeded",
+      branchName: "test-branch",
+      prUrl: null,
       costUsd: 0.1,
+      tokenUsage: { inputTokens: 100, outputTokens: 50 },
+      durationMs: 1000,
       numTurns: 2,
-      stuck: false,
-      evaluationConfidence: 1,
-      outputs: [],
+      resultText: "",
+      errors: [],
     });
 
     const { agentCommand } = await import("../commands/agent.js");
@@ -901,12 +904,16 @@ describe("agent run – invalid adapter and non-default option branches", () => 
   it("uses non-default budget when --max-budget is explicitly provided", async () => {
     const { runSession } = await import("@mbe/agent-core");
     vi.mocked(runSession).mockResolvedValue({
-      success: true,
+      sessionId: "test",
+      status: "succeeded",
+      branchName: "test-branch",
+      prUrl: null,
       costUsd: 0.5,
+      tokenUsage: { inputTokens: 100, outputTokens: 50 },
+      durationMs: 1000,
       numTurns: 3,
-      stuck: false,
-      evaluationConfidence: 1,
-      outputs: [],
+      resultText: "",
+      errors: [],
     });
 
     const { agentCommand } = await import("../commands/agent.js");
@@ -922,12 +929,16 @@ describe("agent run – invalid adapter and non-default option branches", () => 
   it("uses non-default maxTurns when --max-turns is explicitly provided", async () => {
     const { runSession } = await import("@mbe/agent-core");
     vi.mocked(runSession).mockResolvedValue({
-      success: true,
+      sessionId: "test",
+      status: "succeeded",
+      branchName: "test-branch",
+      prUrl: null,
       costUsd: 0.1,
+      tokenUsage: { inputTokens: 100, outputTokens: 50 },
+      durationMs: 1000,
       numTurns: 1,
-      stuck: false,
-      evaluationConfidence: 1,
-      outputs: [],
+      resultText: "",
+      errors: [],
     });
 
     const { agentCommand } = await import("../commands/agent.js");

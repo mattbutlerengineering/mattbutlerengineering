@@ -7,6 +7,11 @@ Project-specific traps that have bitten me before. Read these before diving into
 - Pre-commit hook runs `eslint --fix` + `check-adr` + `pack-changed` (the last one regenerates `llms.txt` / `llms-full.txt` in affected packages — expect them to appear in `git status` after your commit lands)
 - JSX strings with `'` fail `react/no-unescaped-entities` at commit time — use `&apos;`
 
+## Pre-push / typecheck
+
+- **Vitest does NOT typecheck** — tests can pass with completely wrong types. Pre-push hook now runs `turbo typecheck` before `turbo test`. If you add test mocks, they must match the actual interface shape (e.g. `SessionResult` needs `status`/`sessionId`/`branchName`, not `success`/`stuck`/`outputs`)
+- **Worktree agents must run `pnpm typecheck` before declaring done.** Agents that only run `pnpm test` will miss type errors that break CI. This is the #2 recurring CI failure pattern after the missing `pnpm install` pattern
+
 ## Build / pnpm / turbo
 
 - Run `pnpm` from inside a package directory, not the monorepo root — turbo filter errors out at the root for `test`/`typecheck`/`build` in most packages
