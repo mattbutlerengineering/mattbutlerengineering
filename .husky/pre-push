@@ -27,7 +27,7 @@ else
 fi
 
 # Check if any packages are affected by changes since the compare ref
-affected=$(pnpm turbo test --filter="...[$compare_ref]" --dry-run=json 2>/dev/null | grep -c '"taskId"')
+affected=$(pnpm turbo test --filter="...[$compare_ref]" --dry-run=json 2>/dev/null | grep -c '"taskId"' || true)
 
 if [ "$affected" -gt 0 ] 2>/dev/null; then
   echo ""
