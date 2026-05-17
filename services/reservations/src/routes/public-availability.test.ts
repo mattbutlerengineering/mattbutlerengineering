@@ -112,7 +112,7 @@ describe("GET /public/v1/venues/:slug/availability", () => {
 
   it("returns available time slots for a venue", async () => {
     vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
-    vi.mocked(availabilityService.getTimeSlots).mockResolvedValueOnce([
+    vi.mocked(availabilityService.generateTimeSlots).mockResolvedValueOnce([
       {
         time: "2026-06-15T19:00:00",
         available: true,
@@ -150,7 +150,7 @@ describe("GET /public/v1/venues/:slug/availability", () => {
 
   it("returns empty array when no slots available", async () => {
     vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
-    vi.mocked(availabilityService.getTimeSlots).mockResolvedValueOnce([
+    vi.mocked(availabilityService.generateTimeSlots).mockResolvedValueOnce([
       { time: "2026-06-15T19:00:00", available: false, tables: [] },
     ]);
 

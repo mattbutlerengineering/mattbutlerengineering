@@ -55,8 +55,8 @@ export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
         } as never);
       }
 
-      const slots = await availabilityService.getTimeSlots(venue.id, date, parsedPartySize);
-      const availableOnly = slots.filter((s) => s.available);
+      const slots = await availabilityService.generateTimeSlots(venue.id, date, parsedPartySize);
+      const availableOnly = slots.filter((s: TimeSlot) => s.available);
 
       return reply.send({ data: availableOnly });
     }
