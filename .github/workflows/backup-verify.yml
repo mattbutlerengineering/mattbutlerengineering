@@ -33,9 +33,15 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
 
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Validate schema via Prisma migrations
         env:
@@ -45,18 +51,12 @@ jobs:
           PGPASSWORD: verify_test_only
           PGDATABASE: verify_restore
         run: |
-          npm install -g prisma@7
-          # Set NODE_PATH dynamically so "prisma/config" is resolvable from any
-          # service directory regardless of whether Node is nvm-managed or system.
-          # Hardcoding /usr/local/lib/node_modules breaks when setup-node uses nvm.
-          export NODE_PATH="$(npm root -g)"
-
           for SERVICE in users reservations agent; do
             if [ -f "services/$SERVICE/prisma.config.ts" ]; then
               (
                 cd "services/$SERVICE"
                 DATABASE_URL="postgresql://verify:verify_test_only@localhost:5432/verify_restore" \
-                  prisma db push --skip-generate --accept-data-loss 2>&1
+                  pnpm exec prisma db push --skip-generate --accept-data-loss 2>&1
               ) || {
                 echo "::error::Schema push failed for $SERVICE"
                 exit 1
