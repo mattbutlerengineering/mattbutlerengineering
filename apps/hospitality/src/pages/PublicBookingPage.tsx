@@ -1,122 +1,133 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useParams } from "react-router-dom";
-import { Stack, Text, Card } from "@mattbutlerengineering/rialto";
-import { LoadingPage } from "./LoadingPage";
+import { createApiClient } from "@mbe/api-client";
+import type { Venue } from "@mbe/types";
+import { Stack, Text, Button, Card } from "@mattbutlerengineering/rialto";
+import { BookingWidget } from "../components/booking-widget/index.js";
+import styles from "./PublicBookingPage.module.css";
 
-interface PublicVenueInfo {
-  name: string;
-  slug: string;
-  ianaTimezone: string;
-  currencyCode: string;
-  operatingHours: Record<
-    string,
-    { open: string; close: string; closed?: boolean } | undefined
-  > | null;
-  settings: {
-    defaultReservationDuration?: number;
-    maxPartySize?: number;
-    maxAdvanceBooking?: number;
-    slotIntervalMinutes?: number;
-  };
-}
-
-const API_BASE = import.meta.env.VITE_API_URL || "";
+const BASE_URL = import.meta.env.VITE_API_URL ?? "";
 
 export function PublicBookingPage() {
   const { venueSlug } = useParams<{ venueSlug: string }>();
-  const [venue, setVenue] = useState<PublicVenueInfo | null>(null);
+
+  const [venue, setVenue] = useState<Venue | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+
+  const activeHoldIdRef = useRef<string | null>(null);
+
+  const api = useMemo(
+    () =>
+      createApiClient({
+        baseUrl: BASE_URL,
+        getAccessToken: () => null,
+        maxRetries: 0,
+      }),
+    []
+  );
 
   useEffect(() => {
-    if (!venueSlug) return;
+    if (!venueSlug) {
+      setError("No venue specified.");
+      setIsLoading(false);
+      return;
+    }
 
-    const controller = new AbortController();
+    let cancelled = false;
 
-    fetch(`${API_BASE}/public/v1/venues/${venueSlug}`, {
-      signal: controller.signal,
-    })
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error(res.status === 404 ? "Venue not found" : "Failed to load venue");
+    async function fetchVenue() {
+      try {
+        const result = await api.venues.getBySlug(venueSlug!);
+        if (!cancelled) {
+          setVenue(result);
         }
-        return res.json();
-      })
-      .then((json) => {
-        setVenue(json.data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        if (err.name !== "AbortError") {
-          setError(err.message);
-          setLoading(false);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Venue not found.");
         }
-      });
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    }
 
-    return () => controller.abort();
-  }, [venueSlug]);
+    fetchVenue();
+    return () => {
+      cancelled = true;
+    };
+  }, [api, venueSlug]);
 
-  if (loading) return <LoadingPage />;
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const holdId = activeHoldIdRef.current;
+      if (!holdId) return;
+      navigator.sendBeacon(`${BASE_URL}/api/v1/holds/${holdId}`);
+    };
 
-  if (error || !venue) {
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
+
+  if (isLoading) {
     return (
-      <Stack align="center" justify="center" style={{ minHeight: "100vh", padding: "2rem" }}>
-        <Text as="h1" variant="display">
-          {error === "Venue not found" ? "Venue Not Found" : "Something went wrong"}
-        </Text>
-        <Text variant="body" color="secondary">
-          {error === "Venue not found"
-            ? "The venue you're looking for doesn't exist."
-            : "Please try again later."}
-        </Text>
-      </Stack>
+      <div className={styles.page}>
+        <div className={styles.loadingCenter}>
+          <Text variant="body" color="secondary">
+            Loading venue...
+          </Text>
+        </div>
+      </div>
     );
   }
 
-  const days = [
-    "monday",
-    "tuesday",
-    "wednesday",
-    "thursday",
-    "friday",
-    "saturday",
-    "sunday",
-  ] as const;
-
-  return (
-    <Stack align="center" style={{ minHeight: "100vh", padding: "2rem" }}>
-      <Stack gap="lg" style={{ maxWidth: 600, width: "100%" }}>
-        <Text as="h1" variant="display">
-          {venue.name}
-        </Text>
-
-        <Card>
-          <Stack gap="sm" style={{ padding: "1.5rem" }}>
-            <Text as="h2" variant="label">
-              Hours
+  if (error || !venue) {
+    return (
+      <div className={styles.page}>
+        <Card variant="flat" className={styles.errorCard}>
+          <Stack gap="md" align="center">
+            <Text variant="display" as="h1" color="primary">
+              Venue Not Found
             </Text>
-            {venue.operatingHours &&
-              days.map((day) => {
-                const schedule = venue.operatingHours?.[day];
-                if (!schedule || schedule.closed) return null;
-                return (
-                  <Stack key={day} direction="row" justify="between">
-                    <Text variant="body" style={{ textTransform: "capitalize" }}>
-                      {day}
-                    </Text>
-                    <Text variant="body" color="secondary">
-                      {schedule.open} – {schedule.close}
-                    </Text>
-                  </Stack>
-                );
-              })}
+            <Text variant="body" color="secondary">
+              {error ?? "This booking page is no longer available."}
+            </Text>
+            <Button variant="primary" onClick={() => window.history.back()}>
+              Go Back
+            </Button>
           </Stack>
         </Card>
+      </div>
+    );
+  }
 
-        <Text variant="body" color="secondary">
-          Booking coming soon — max party size {venue.settings.maxPartySize ?? 10}
+  return (
+    <div className={styles.page}>
+      <div className={styles.header}>
+        <Text variant="display" as="h1" align="center" color="primary">
+          {venue.name}
         </Text>
-      </Stack>
-    </Stack>
+        <Text variant="body" color="secondary" align="center">
+          Reserve your table online
+        </Text>
+      </div>
+
+      <div className={styles.widgetWrapper}>
+        <BookingWidget
+          venueId={venue.id}
+          apiBaseUrl={BASE_URL}
+          onCancellation={() => {
+            activeHoldIdRef.current = null;
+          }}
+        />
+      </div>
+
+      <footer className={styles.footer}>
+        <Text variant="caption" color="tertiary" align="center">
+          Powered by Matt Butler Engineering
+        </Text>
+      </footer>
+    </div>
   );
 }
