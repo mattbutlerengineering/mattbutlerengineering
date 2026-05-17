@@ -1,7 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { Stack, Text, Card } from "@mattbutlerengineering/rialto";
-import { LoadingPage } from "./LoadingPage";
+import { toDateString } from "@mbe/types";
+import type { TimeSlot } from "@mbe/types";
+import { DatePartySelector } from "../components/booking-widget/DatePartySelector.js";
+import { TimeSlotPicker } from "../components/booking-widget/TimeSlotPicker.js";
+import { LoadingPage } from "./LoadingPage.js";
 
 interface PublicVenueInfo {
   name: string;
@@ -20,14 +24,30 @@ interface PublicVenueInfo {
   };
 }
 
+type BookingStep = "date-party" | "time-slot";
+
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
 export function PublicBookingPage() {
   const { venueSlug } = useParams<{ venueSlug: string }>();
-  const [venue, setVenue] = useState<PublicVenueInfo | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
 
+  // Venue loading
+  const [venue, setVenue] = useState<PublicVenueInfo | null>(null);
+  const [venueError, setVenueError] = useState<string | null>(null);
+  const [venueLoading, setVenueLoading] = useState(true);
+
+  // Booking state
+  const [step, setStep] = useState<BookingStep>("date-party");
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [partySize, setPartySize] = useState(2);
+
+  // Slot state
+  const [slots, setSlots] = useState<TimeSlot[]>([]);
+  const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [slotsError, setSlotsError] = useState<string | null>(null);
+
+  // Fetch venue info
   useEffect(() => {
     if (!venueSlug) return;
 
@@ -44,44 +64,89 @@ export function PublicBookingPage() {
       })
       .then((json) => {
         setVenue(json.data);
-        setLoading(false);
+        setVenueLoading(false);
       })
-      .catch((err) => {
+      .catch((err: Error) => {
         if (err.name !== "AbortError") {
-          setError(err.message);
-          setLoading(false);
+          setVenueError(err.message);
+          setVenueLoading(false);
         }
       });
 
     return () => controller.abort();
   }, [venueSlug]);
 
-  if (loading) return <LoadingPage />;
+  // Fetch availability slots
+  const fetchSlots = useCallback(
+    async (date: string, size: number) => {
+      if (!venueSlug) return;
 
-  if (error || !venue) {
+      setSlotsLoading(true);
+      setSlotsError(null);
+      setSlots([]);
+
+      try {
+        const params = new URLSearchParams({ date, partySize: String(size) });
+        const res = await fetch(
+          `${API_BASE}/public/v1/venues/${venueSlug}/availability?${params.toString()}`
+        );
+
+        if (!res.ok) {
+          throw new Error("Failed to load available times");
+        }
+
+        const json = (await res.json()) as { data: TimeSlot[] };
+        setSlots(json.data ?? []);
+      } catch (err) {
+        setSlotsError(err instanceof Error ? err.message : "Failed to load availability");
+      } finally {
+        setSlotsLoading(false);
+      }
+    },
+    [venueSlug]
+  );
+
+  const handleFindTimes = useCallback(() => {
+    if (!selectedDate) return;
+    setStep("time-slot");
+    void fetchSlots(selectedDate, partySize);
+  }, [selectedDate, partySize, fetchSlots]);
+
+  const handleBack = useCallback(() => {
+    setStep("date-party");
+    setSelectedSlot(null);
+    setSlots([]);
+    setSlotsError(null);
+  }, []);
+
+  const handleSelectSlot = useCallback((slot: TimeSlot) => {
+    setSelectedSlot(slot);
+    // TODO: wire to public holds → confirmation flow
+  }, []);
+
+  if (venueLoading) return <LoadingPage />;
+
+  if (venueError || !venue) {
     return (
       <Stack align="center" justify="center" style={{ minHeight: "100vh", padding: "2rem" }}>
         <Text as="h1" variant="display">
-          {error === "Venue not found" ? "Venue Not Found" : "Something went wrong"}
+          {venueError === "Venue not found" ? "Venue Not Found" : "Something went wrong"}
         </Text>
         <Text variant="body" color="secondary">
-          {error === "Venue not found"
-            ? "The venue you're looking for doesn't exist."
+          {venueError === "Venue not found"
+            ? "The venue you&apos;re looking for doesn&apos;t exist."
             : "Please try again later."}
         </Text>
       </Stack>
     );
   }
 
-  const days = [
-    "monday",
-    "tuesday",
-    "wednesday",
-    "thursday",
-    "friday",
-    "saturday",
-    "sunday",
-  ] as const;
+  const today = toDateString(new Date());
+  const maxAdvanceDays = venue.settings.maxAdvanceBooking ?? 30;
+  const maxBookingDate = new Date();
+  maxBookingDate.setDate(maxBookingDate.getDate() + maxAdvanceDays);
+  const maxDate = toDateString(maxBookingDate);
+  const maxPartySize = venue.settings.maxPartySize ?? 10;
 
   return (
     <Stack align="center" style={{ minHeight: "100vh", padding: "2rem" }}>
@@ -91,31 +156,34 @@ export function PublicBookingPage() {
         </Text>
 
         <Card>
-          <Stack gap="sm" style={{ padding: "1.5rem" }}>
-            <Text as="h2" variant="label">
-              Hours
-            </Text>
-            {venue.operatingHours &&
-              days.map((day) => {
-                const schedule = venue.operatingHours?.[day];
-                if (!schedule || schedule.closed) return null;
-                return (
-                  <Stack key={day} direction="row" justify="between">
-                    <Text variant="body" style={{ textTransform: "capitalize" }}>
-                      {day}
-                    </Text>
-                    <Text variant="body" color="secondary">
-                      {schedule.open} – {schedule.close}
-                    </Text>
-                  </Stack>
-                );
-              })}
+          <Stack gap="md" style={{ padding: "1.5rem" }}>
+            {step === "date-party" && (
+              <DatePartySelector
+                selectedDate={selectedDate}
+                partySize={partySize}
+                onDateChange={setSelectedDate}
+                onPartySizeChange={setPartySize}
+                onNext={handleFindTimes}
+                minDate={today}
+                maxDate={maxDate}
+                maxPartySize={maxPartySize}
+              />
+            )}
+
+            {step === "time-slot" && selectedDate && (
+              <TimeSlotPicker
+                slots={slots}
+                selectedSlot={selectedSlot}
+                isLoading={slotsLoading}
+                error={slotsError}
+                onSelectSlot={handleSelectSlot}
+                onBack={handleBack}
+                date={selectedDate}
+                partySize={partySize}
+              />
+            )}
           </Stack>
         </Card>
-
-        <Text variant="body" color="secondary">
-          Booking coming soon — max party size {venue.settings.maxPartySize ?? 10}
-        </Text>
       </Stack>
     </Stack>
   );

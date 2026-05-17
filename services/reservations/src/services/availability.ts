@@ -628,6 +628,8 @@ function createDateTimeFromMinutes(dateStr: string, minutes: number, timezone: s
 
 export const availabilityService = {
   generateTimeSlots,
+  // Alias used by public-availability route
+  getTimeSlots: generateTimeSlots,
   getAvailableDates,
   findBestTable,
   checkConflict,
