@@ -698,6 +698,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.7.0
+      '@types/pg':
+        specifier: ^8.20.0
+        version: 8.20.0
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.1.6(@vitest/browser@4.1.6)(vitest@4.1.6)
