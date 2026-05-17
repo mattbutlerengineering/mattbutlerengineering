@@ -179,14 +179,13 @@ describe("health command", () => {
 
 describe("health command – additional branch coverage", () => {
   let logSpy: ReturnType<typeof vi.spyOn>;
-  let _errorSpy: ReturnType<typeof vi.spyOn>;
   let exitSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     vi.resetModules();
     vi.resetAllMocks();
     logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-    _errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     exitSpy = vi.spyOn(process, "exit").mockImplementation((() => {}) as never);
   });
 
