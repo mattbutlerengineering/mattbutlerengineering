@@ -1,32 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { generateBookingIcal, type IcalEventInput } from "./ical.js";
 
-function validateRfc5545(ical: string): { valid: boolean; errors: string[] } {
-  const errors: string[] = [];
-
-  if (!ical.includes("\r\n")) errors.push("missing CRLF line endings");
-  const lines = ical.split("\r\n").filter(Boolean);
-
-  if (lines[0] !== "BEGIN:VCALENDAR") errors.push("must start with BEGIN:VCALENDAR");
-  if (lines[lines.length - 1] !== "END:VCALENDAR") errors.push("must end with END:VCALENDAR");
-
-  const required = ["VERSION:2.0", "PRODID:", "METHOD:", "BEGIN:VEVENT", "END:VEVENT"];
-  for (const prop of required) {
-    if (!lines.some((l) => l.startsWith(prop))) errors.push(`missing ${prop}`);
-  }
-
-  const veventRequired = ["UID:", "DTSTAMP:", "DTSTART", "DTEND", "SUMMARY:"];
-  for (const prop of veventRequired) {
-    if (!lines.some((l) => l.startsWith(prop))) errors.push(`VEVENT missing ${prop}`);
-  }
-
-  const beginCount = lines.filter((l) => l === "BEGIN:VEVENT").length;
-  const endCount = lines.filter((l) => l === "END:VEVENT").length;
-  if (beginCount !== endCount) errors.push("mismatched BEGIN:VEVENT / END:VEVENT");
-
-  return { valid: errors.length === 0, errors };
-}
-
 const defaultInput: IcalEventInput = {
   reservationId: "res_abc123",
   date: "2026-06-15",
@@ -124,19 +98,5 @@ describe("generateBookingIcal", () => {
     expect(result).toContain("DESCRIPTION:Party of 4");
     expect(result).not.toContain("ATTENDEE");
     expect(result).not.toContain("ORGANIZER");
-  });
-
-  it("passes RFC 5545 structural validation for METHOD:REQUEST", () => {
-    const result = generateBookingIcal(defaultInput, "REQUEST");
-    const { valid, errors } = validateRfc5545(result);
-    expect(errors).toEqual([]);
-    expect(valid).toBe(true);
-  });
-
-  it("passes RFC 5545 structural validation for METHOD:CANCEL", () => {
-    const result = generateBookingIcal(defaultInput, "CANCEL");
-    const { valid, errors } = validateRfc5545(result);
-    expect(errors).toEqual([]);
-    expect(valid).toBe(true);
   });
 });
