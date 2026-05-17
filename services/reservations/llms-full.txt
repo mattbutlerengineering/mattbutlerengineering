@@ -1574,9 +1574,7 @@
             });
           }
     
-          const venue = reservation.venueId
-            ? await venueService.getById(reservation.venueId)
-            : null;
+          const venue = reservation.venueId ? await venueService.getById(reservation.venueId) : null;
     
           return reply.status(200).send({
             data: {
