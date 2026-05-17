@@ -84,6 +84,7 @@ const authConfigResult = validateAuthConfig();
  */
 const router = createBrowserRouter(
   [
+    // Public booking page — no auth, accessible without login
     {
       path: "book/:venueSlug",
       element: (
