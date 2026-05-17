@@ -21,7 +21,24 @@ vi.mock("../services/venue.js", () => ({
   },
 }));
 vi.mock("../services/hold.js", () => ({
-  holdService: { create: vi.fn(), release: vi.fn(), confirm: vi.fn(), getById: vi.fn() },
+  holdService: {
+    create: vi.fn(),
+    release: vi.fn(),
+    releasePublic: vi.fn(),
+    confirmPublic: vi.fn(),
+    getById: vi.fn(),
+  },
+}));
+vi.mock("../services/events.js", () => ({
+  emitHoldCreated: vi.fn(),
+  emitHoldReleased: vi.fn(),
+  emitHoldConfirmed: vi.fn(),
+  emitReservationCreated: vi.fn(),
+  emitReservationUpdated: vi.fn(),
+  emitReservationCancelled: vi.fn(),
+  emitTableUpdated: vi.fn(),
+  emitFloorPlanCreated: vi.fn(),
+  reservationEvents: { onChange: vi.fn(), offChange: vi.fn(), getConnectionCount: vi.fn() },
 }));
 vi.mock("../services/availability.js", () => ({
   availabilityService: { getTimeSlots: vi.fn(), getDateAvailability: vi.fn() },
@@ -80,6 +97,7 @@ vi.mock("jose", () => ({
 
 import { venueService } from "../services/venue.js";
 import { holdService } from "../services/hold.js";
+import { emitHoldCreated } from "../services/events.js";
 import { resetRateLimitState } from "../middleware/public-rate-limit.js";
 
 const mockVenue = {
@@ -123,6 +141,7 @@ describe("POST /public/v1/venues/:slug/holds", () => {
   });
 
   beforeEach(() => {
+    vi.clearAllMocks();
     resetRateLimitState();
   });
 
@@ -133,11 +152,40 @@ describe("POST /public/v1/venues/:slug/holds", () => {
     const response = await app.inject({
       method: "POST",
       url: "/public/v1/venues/the-oak-table/holds",
-      payload: { date: "2026-06-15", startTime: "19:00", endTime: "21:00", partySize: 4 },
+      payload: { date: "2026-06-15", time: "2026-06-15T19:00:00Z", partySize: 4 },
     });
 
     expect(response.statusCode).toBe(201);
     expect(response.json().data.id).toBe("hold_1");
+  });
+
+  it("fires SSE hold:created event on successful hold", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(holdService.create).mockResolvedValueOnce({ success: true, hold: mockHold });
+
+    await app.inject({
+      method: "POST",
+      url: "/public/v1/venues/the-oak-table/holds",
+      payload: { date: "2026-06-15", time: "2026-06-15T19:00:00Z", partySize: 4 },
+    });
+
+    expect(emitHoldCreated).toHaveBeenCalledWith(mockHold);
+  });
+
+  it("does not fire SSE event when hold creation fails", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(holdService.create).mockResolvedValueOnce({
+      success: false,
+      error: "No tables available",
+    });
+
+    await app.inject({
+      method: "POST",
+      url: "/public/v1/venues/the-oak-table/holds",
+      payload: { date: "2026-06-15", time: "2026-06-15T19:00:00Z", partySize: 4 },
+    });
+
+    expect(emitHoldCreated).not.toHaveBeenCalled();
   });
 
   it("returns 409 when slot is unavailable", async () => {
@@ -150,7 +198,7 @@ describe("POST /public/v1/venues/:slug/holds", () => {
     const response = await app.inject({
       method: "POST",
       url: "/public/v1/venues/the-oak-table/holds",
-      payload: { date: "2026-06-15", startTime: "19:00", endTime: "21:00", partySize: 4 },
+      payload: { date: "2026-06-15", time: "2026-06-15T19:00:00Z", partySize: 4 },
     });
 
     expect(response.statusCode).toBe(409);
@@ -162,7 +210,7 @@ describe("POST /public/v1/venues/:slug/holds", () => {
     const response = await app.inject({
       method: "POST",
       url: "/public/v1/venues/fake/holds",
-      payload: { date: "2026-06-15", startTime: "19:00", endTime: "21:00", partySize: 4 },
+      payload: { date: "2026-06-15", time: "2026-06-15T19:00:00Z", partySize: 4 },
     });
 
     expect(response.statusCode).toBe(404);
@@ -184,7 +232,7 @@ describe("DELETE /public/v1/venues/:slug/holds/:holdId", () => {
   });
 
   it("releases a hold and returns 204", async () => {
-    vi.mocked(holdService.release).mockResolvedValueOnce(true);
+    vi.mocked(holdService.releasePublic).mockResolvedValueOnce(true);
 
     const response = await app.inject({
       method: "DELETE",

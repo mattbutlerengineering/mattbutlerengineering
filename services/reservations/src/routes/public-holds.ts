@@ -3,6 +3,7 @@ import type { ApiResponse, ReservationHold } from "@mbe/types";
 import { randomUUID } from "crypto";
 import { venueService } from "../services/venue.js";
 import { holdService } from "../services/hold.js";
+import { emitHoldCreated } from "../services/events.js";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
 import {
   getActiveHoldCount,
@@ -14,7 +15,7 @@ import {
 export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{
     Params: { slug: string };
-    Body: { date: string; startTime: string; endTime: string; partySize: number };
+    Body: { date: string; time: string; partySize: number };
     Reply: ApiResponse<ReservationHold>;
   }>(
     "/:slug/holds",
@@ -23,11 +24,24 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         summary: "Create a reservation hold (public)",
         tags: ["Public"],
+        body: {
+          type: "object",
+          required: ["date", "time", "partySize"],
+          properties: {
+            date: { type: "string", format: "date", description: "Reservation date (YYYY-MM-DD)" },
+            time: {
+              type: "string",
+              format: "date-time",
+              description: "Start time in ISO 8601 format",
+            },
+            partySize: { type: "integer", minimum: 1, maximum: 20 },
+          },
+        },
       },
     },
     async (request, reply) => {
       const { slug } = request.params;
-      const { date, startTime, endTime, partySize } = request.body;
+      const { date, time, partySize } = request.body;
       const ip = request.ip;
 
       if (getActiveHoldCount(ip) >= MAX_ACTIVE_HOLDS) {
@@ -51,7 +65,7 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
 
       const sessionId = randomUUID();
       const result = await holdService.create(
-        { venueId: venue.id, date, startTime, endTime, partySize },
+        { venueId: venue.id, date, time, partySize },
         sessionId
       );
 
@@ -65,7 +79,11 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       incrementHoldCount(ip);
-      return reply.status(201).send({ data: result.hold });
+
+      // Fire SSE event for staff timeline visibility
+      emitHoldCreated(result.hold!);
+
+      return reply.status(201).send({ data: result.hold! });
     }
   );
 
@@ -83,7 +101,7 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
       const { holdId } = request.params;
       const ip = request.ip;
 
-      const released = await holdService.release(holdId, "public");
+      const released = await holdService.releasePublic(holdId);
       if (released) {
         decrementHoldCount(ip);
       }

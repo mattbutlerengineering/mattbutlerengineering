@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("./database.js", () => ({
   prisma: {
@@ -685,5 +685,99 @@ describe("availabilityService.checkPacing", () => {
     };
     const windowEnd = reservationCall.where.startTime.lt;
     expect(windowEnd.getTime() - new Date("2026-05-05T18:00:00Z").getTime()).toBe(30 * 60 * 1000);
+  });
+});
+
+describe("Hold → Availability integration", () => {
+  const NOW = new Date("2026-05-05T18:00:00Z");
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.clearAllMocks();
+  });
+
+  function makeVenue() {
+    return makePrismaVenue({
+      ianaTimezone: "America/New_York",
+      operatingHours: {
+        monday: { open: "11:00", close: "22:00" },
+        tuesday: { open: "11:00", close: "22:00" },
+        wednesday: { open: "11:00", close: "22:00" },
+        thursday: { open: "11:00", close: "22:00" },
+        friday: { open: "11:00", close: "23:00" },
+        saturday: { open: "10:00", close: "23:00" },
+        sunday: { open: "10:00", close: "21:00" },
+      },
+    });
+  }
+
+  function makeTable() {
+    return makePrismaTable();
+  }
+
+  it("active hold reduces slot availability for concurrent guests", async () => {
+    vi.mocked(prisma.venue.findUnique).mockResolvedValue(makeVenue() as never);
+    vi.mocked(prisma.table.findMany).mockResolvedValue([makeTable()] as never);
+    vi.mocked(prisma.reservation.findMany).mockResolvedValue([] as never);
+
+    // Active hold on table-1 for the 13:00 slot (expires in 10 min)
+    const activeHold = {
+      id: "hold-1",
+      tableId: "table-1",
+      startTime: new Date("2026-05-05T17:00:00Z"), // 13:00 ET
+      endTime: new Date("2026-05-05T18:30:00Z"),
+      partySize: 4,
+      expiresAt: new Date(NOW.getTime() + 10 * 60 * 1000), // 10 min from now
+    };
+    vi.mocked(prisma.reservationHold.findMany).mockResolvedValue([activeHold] as never);
+
+    const slots = await availabilityService.generateTimeSlots(VENUE_ID, "2026-05-05", 4);
+
+    // Find the 13:00 ET slot (≈17:00 UTC for Eastern)
+    const slot1300 = slots.find(
+      (s) =>
+        s.time >= "2026-05-05T17:00:00.000Z" && s.time < "2026-05-05T17:15:00.000Z"
+    );
+
+    // Slot should be unavailable because the active hold occupies the only table
+    expect(slot1300).toBeDefined();
+    expect(slot1300!.available).toBe(false);
+  });
+
+  it("expired hold does not reduce slot availability", async () => {
+    vi.mocked(prisma.venue.findUnique).mockResolvedValue(makeVenue() as never);
+    vi.mocked(prisma.table.findMany).mockResolvedValue([makeTable()] as never);
+    vi.mocked(prisma.reservation.findMany).mockResolvedValue([] as never);
+
+    // Expired hold — expiresAt is in the past
+    // getHoldsForDate filters expiresAt > now, so this hold won't be returned
+    vi.mocked(prisma.reservationHold.findMany).mockResolvedValue([] as never);
+
+    const slots = await availabilityService.generateTimeSlots(VENUE_ID, "2026-05-05", 4);
+
+    // At least some slots should be available (no holds, no reservations)
+    const availableSlots = slots.filter((s) => s.available);
+    expect(availableSlots.length).toBeGreaterThan(0);
+  });
+
+  it("getHoldsForDate only fetches holds with expiresAt > now (auto-expiry filter)", async () => {
+    vi.mocked(prisma.venue.findUnique).mockResolvedValue(makeVenue() as never);
+    vi.mocked(prisma.table.findMany).mockResolvedValue([makeTable()] as never);
+    vi.mocked(prisma.reservation.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.reservationHold.findMany).mockResolvedValue([] as never);
+
+    await availabilityService.generateTimeSlots(VENUE_ID, "2026-05-05", 2);
+
+    // Verify the holds query filters by expiresAt > now
+    const holdsCall = vi.mocked(prisma.reservationHold.findMany).mock.calls[0][0] as {
+      where: { expiresAt: { gt: Date } };
+    };
+    expect(holdsCall.where.expiresAt.gt).toBeInstanceOf(Date);
+    expect(holdsCall.where.expiresAt.gt.getTime()).toBeCloseTo(NOW.getTime(), -3);
   });
 });

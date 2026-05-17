@@ -227,6 +227,38 @@ export const holdService = {
   },
 
   /**
+   * Releases a hold without session ID check (for public routes).
+   * Deletes by ID only — no session ownership verification.
+   */
+  async releasePublic(id: string): Promise<boolean> {
+    try {
+      const result = await prisma.reservationHold.deleteMany({
+        where: { id },
+      });
+      return result.count > 0;
+    } catch {
+      return false;
+    }
+  },
+
+  /**
+   * Confirms a hold and creates a reservation without session ID check (for public routes).
+   * Looks up the hold's sessionId internally to call convertToReservation.
+   */
+  async confirmPublic(
+    holdId: string,
+    guestDetails: ConfirmHoldRequest
+  ): Promise<ConfirmHoldResult> {
+    const hold = await prisma.reservationHold.findUnique({ where: { id: holdId } });
+    if (!hold) return { success: false, error: "Hold not found" };
+    if (hold.expiresAt < new Date()) {
+      await prisma.reservationHold.delete({ where: { id: holdId } }).catch(() => {});
+      return { success: false, error: "Hold has expired" };
+    }
+    return this.convertToReservation(holdId, hold.sessionId, guestDetails);
+  },
+
+  /**
    * Converts a hold to a reservation.
    */
   async convertToReservation(

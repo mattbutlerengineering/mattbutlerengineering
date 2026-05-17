@@ -81,11 +81,12 @@ export const publicReservationRoutes: FastifyPluginAsync = async (fastify) => {
         } as never);
       }
 
-      const result = await holdService.confirm(
-        holdId,
-        { guestName, guestEmail, guestPhone, notes: specialRequests },
-        "public"
-      );
+      const result = await holdService.confirmPublic(holdId, {
+        guestName,
+        guestEmail,
+        guestPhone,
+        notes: specialRequests,
+      });
 
       if (!result.success || !result.reservation) {
         const status = result.error?.includes("expired") ? 410 : 409;

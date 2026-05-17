@@ -22,7 +22,13 @@ vi.mock("../services/venue.js", () => ({
   },
 }));
 vi.mock("../services/hold.js", () => ({
-  holdService: { create: vi.fn(), release: vi.fn(), confirm: vi.fn(), getById: vi.fn() },
+  holdService: {
+    create: vi.fn(),
+    release: vi.fn(),
+    releasePublic: vi.fn(),
+    confirmPublic: vi.fn(),
+    getById: vi.fn(),
+  },
 }));
 vi.mock("../services/availability.js", () => ({
   availabilityService: { getTimeSlots: vi.fn(), getDateAvailability: vi.fn() },
@@ -132,7 +138,7 @@ describe("POST /public/v1/venues/:slug/reservations", () => {
 
   it("creates reservation from hold and returns 201 with manage token", async () => {
     vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
-    vi.mocked(holdService.confirm).mockResolvedValueOnce({
+    vi.mocked(holdService.confirmPublic).mockResolvedValueOnce({
       success: true,
       reservation: mockReservation,
     });
@@ -152,7 +158,10 @@ describe("POST /public/v1/venues/:slug/reservations", () => {
 
   it("returns 410 when hold is expired", async () => {
     vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
-    vi.mocked(holdService.confirm).mockResolvedValueOnce({ success: false, error: "Hold expired" });
+    vi.mocked(holdService.confirmPublic).mockResolvedValueOnce({
+      success: false,
+      error: "Hold expired",
+    });
 
     const response = await app.inject({
       method: "POST",
@@ -165,7 +174,7 @@ describe("POST /public/v1/venues/:slug/reservations", () => {
 
   it("returns 409 when hold confirmation fails for other reasons", async () => {
     vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
-    vi.mocked(holdService.confirm).mockResolvedValueOnce({
+    vi.mocked(holdService.confirmPublic).mockResolvedValueOnce({
       success: false,
       error: "Table conflict",
     });
