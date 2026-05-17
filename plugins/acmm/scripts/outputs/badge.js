@@ -11,6 +11,8 @@ import { join } from "node:path";
 
 const BEGIN = "<!-- acmm:begin -->";
 const END = "<!-- acmm:end -->";
+const BADGE_RE =
+  /\[!\[ACMM Level \d+\]\(https:\/\/img\.shields\.io\/badge\/ACMM-Level%20\d+-[0-9a-f]+\?style=flat-square\)\]\(docs\/acmm\.md\)/;
 
 /** L1 red → L6 gold, matches rialto --rialto-accent (#d4a030). */
 function colorFor(level) {
@@ -57,14 +59,22 @@ export function updateBadge(cwd, level) {
   if (!existsSync(readmePath)) return "no-readme";
 
   const original = readFileSync(readmePath, "utf-8");
+
+  // Try fenced approach first (<!-- acmm:begin/end -->), fall back to regex
   const beginIdx = original.indexOf(BEGIN);
   const endIdx = original.indexOf(END);
-  if (beginIdx < 0 || endIdx < 0 || endIdx < beginIdx) return "no-fence";
+  if (beginIdx >= 0 && endIdx > beginIdx) {
+    const before = original.slice(0, beginIdx + BEGIN.length);
+    const after = original.slice(endIdx);
+    const updated = before + badgeMarkdown(level) + after;
+    if (updated === original) return "no-change";
+    writeFileSync(readmePath, updated, "utf-8");
+    return "updated";
+  }
 
-  const before = original.slice(0, beginIdx + BEGIN.length);
-  const after = original.slice(endIdx);
-  const updated = before + badgeMarkdown(level) + after;
-
+  // Fence-free: find existing badge by regex and replace in-place
+  if (!BADGE_RE.test(original)) return "no-fence";
+  const updated = original.replace(BADGE_RE, badgeMarkdown(level));
   if (updated === original) return "no-change";
   writeFileSync(readmePath, updated, "utf-8");
   return "updated";
