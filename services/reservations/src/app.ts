@@ -26,6 +26,7 @@ import { guestRoutes } from "./routes/guests.js";
 import { publicVenueRoutes } from "./routes/public-venues.js";
 import { publicAvailabilityRoutes } from "./routes/public-availability.js";
 import { publicHoldRoutes } from "./routes/public-holds.js";
+import { publicReservationRoutes } from "./routes/public-reservations.js";
 
 /**
  * Validates CORS origins from the CORS_ORIGINS env var against an allowlist.
@@ -193,6 +194,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   await fastify.register(publicVenueRoutes, { prefix: "/public/v1/venues" });
   await fastify.register(publicAvailabilityRoutes, { prefix: "/public/v1/venues" });
   await fastify.register(publicHoldRoutes, { prefix: "/public/v1/venues" });
+  await fastify.register(publicReservationRoutes, { prefix: "/public/v1/venues" });
 
   return fastify;
 }
