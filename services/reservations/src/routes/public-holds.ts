@@ -27,7 +27,7 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request, reply) => {
       const { slug } = request.params;
-      const { date, startTime, endTime, partySize } = request.body;
+      const { date, startTime, partySize } = request.body;
       const ip = request.ip;
 
       if (getActiveHoldCount(ip) >= MAX_ACTIVE_HOLDS) {
@@ -51,7 +51,7 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
 
       const sessionId = randomUUID();
       const result = await holdService.create(
-        { venueId: venue.id, date, startTime, endTime, partySize },
+        { venueId: venue.id, date, time: startTime, partySize },
         sessionId
       );
 
@@ -65,7 +65,7 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       incrementHoldCount(ip);
-      return reply.status(201).send({ data: result.hold });
+      return reply.status(201).send({ data: result.hold! });
     }
   );
 
