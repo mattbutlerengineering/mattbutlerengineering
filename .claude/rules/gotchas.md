@@ -21,6 +21,7 @@ Project-specific traps that have bitten me before. Read these before diving into
 - **Coverage Check failures may be baseline, not PR-caused.** Before adding tests to fix a coverage CI failure, check if the failing package's coverage is also below threshold on `main`. If the PR branch was based on an older commit, rebasing onto current `main` may resolve it. Close the issue and document rather than writing unnecessary tests
 - **Architecture Audit only needs CLI deps built.** The job uses `pnpm build --filter @mbe/cli...` (turbo `...` = transitive deps). Never use bare `pnpm build` here — unrelated packages with TS errors (e.g. agent-service test files) would fail the entire job even though they have nothing to do with ADR/dep checks
 - **ACMM scanner checks file/dir existence, not contents.** Criteria marked `scannable: false` (correction-capture, positive-reinforcement, session-summary, etc.) pass detection when the directory exists — even if it's empty. Always audit substance (file count, entry quality) separately when evaluating maturity level
+- **Adding/changing packages requires `pnpm generate:dep-graph`** — CI's Build job regenerates the dependency graph and fails if the committed `infrastructure/worker/dep-graph.json` doesn't match. The pre-commit hook doesn't run this, so you must do it manually after adding a new workspace package or changing `dependencies`/`devDependencies`
 
 ## Dependencies
 
