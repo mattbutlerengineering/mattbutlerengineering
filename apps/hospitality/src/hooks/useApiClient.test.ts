@@ -118,8 +118,7 @@ describe("reportToSentry via onError", () => {
   });
 
   it("calls captureMessage for 401 auth errors", async () => {
-    const { captureMessage, captureException, addBreadcrumb } =
-      await import("@mbe/sentry/react");
+    const { captureMessage, captureException, addBreadcrumb } = await import("@mbe/sentry/react");
 
     const onError = getOnError();
     const error = {
@@ -165,8 +164,7 @@ describe("reportToSentry via onError", () => {
   });
 
   it("calls addBreadcrumb but not captureException or captureMessage for 4xx client errors", async () => {
-    const { captureException, captureMessage, addBreadcrumb } =
-      await import("@mbe/sentry/react");
+    const { captureException, captureMessage, addBreadcrumb } = await import("@mbe/sentry/react");
 
     const onError = getOnError();
     const error = {
