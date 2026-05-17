@@ -10,7 +10,7 @@ import {
   errorRatePlugin_,
   createRateLimitMonitor,
 } from "@mbe/observability";
-import { sentryFastifyPlugin } from "@mbe/observability/sentry/node";
+import { sentryFastifyPlugin } from "@mbe/sentry/node";
 import { apiVersioningPlugin } from "@mbe/api-versioning/fastify";
 import { registerSchemas } from "./schemas/index.js";
 import { healthRoutes } from "./routes/health.js";

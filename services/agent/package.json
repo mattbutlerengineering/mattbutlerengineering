@@ -30,6 +30,7 @@
     "@mbe/api-versioning": "workspace:*",
     "@mbe/auth": "workspace:^",
     "@mbe/observability": "workspace:*",
+    "@mbe/sentry": "workspace:*",
     "@mbe/rialto-catalog": "workspace:^",
     "@mbe/types": "workspace:*",
     "@prisma/adapter-pg": "^7.8.0",
@@ -39,7 +40,8 @@
     "ai": "^6.0.177",
     "fastify": "catalog:",
     "pg": "^8.20.0",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@mbe/database": "workspace:*"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

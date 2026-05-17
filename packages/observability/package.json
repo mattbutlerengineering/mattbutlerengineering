@@ -13,21 +13,6 @@
       "types": "./src/baggage.ts",
       "production": "./dist/baggage.js",
       "default": "./src/baggage.ts"
-    },
-    "./sentry": {
-      "types": "./src/sentry/index.ts",
-      "production": "./dist/sentry/index.js",
-      "default": "./src/sentry/index.ts"
-    },
-    "./sentry/node": {
-      "types": "./src/sentry/node.ts",
-      "production": "./dist/sentry/node.js",
-      "default": "./src/sentry/node.ts"
-    },
-    "./sentry/react": {
-      "types": "./src/sentry/react.ts",
-      "production": "./dist/sentry/react.js",
-      "default": "./src/sentry/react.ts"
     }
   },
   "scripts": {
@@ -38,14 +23,10 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "fastify": "catalog:",
-    "react": "catalog:"
+    "fastify": "catalog:"
   },
   "peerDependenciesMeta": {
     "fastify": {
-      "optional": true
-    },
-    "react": {
       "optional": true
     }
   },
@@ -63,16 +44,12 @@
     "@opentelemetry/sdk-node": "^0.217.0",
     "@opentelemetry/sdk-trace-base": "^2.7.1",
     "@opentelemetry/semantic-conventions": "^1.40.0",
-    "@sentry/node": "^10.52.0",
-    "@sentry/react": "^10.52.0",
     "fastify": "catalog:",
     "fastify-plugin": "^5.0.0",
     "langfuse": "^3.38.20"
   },
   "devDependencies": {
     "@mbe/config": "workspace:*",
-    "@types/react": "catalog:",
-    "react": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },

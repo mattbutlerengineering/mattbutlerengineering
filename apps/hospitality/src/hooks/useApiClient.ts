@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { createApiClient, type ApiClientError } from "@mbe/api-client";
 import { useAuth } from "@mbe/auth/react";
-import { captureException, captureMessage, addBreadcrumb } from "@mbe/observability/sentry/react";
+import { captureException, captureMessage, addBreadcrumb } from "@mbe/sentry/react";
 
 function reportToSentry(error: ApiClientError) {
   const code = error.statusCode;

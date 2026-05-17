@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { resolve } from "node:path";
-import type { SessionConfig, SessionEvent, AdapterConfig, AdapterResult } from "@mbe/agent-core";
+import type { SessionConfig, SessionEvent } from "@mbe/agent-core";
 import {
   runSession,
   DEFAULT_SESSION_CONFIG,
@@ -8,12 +8,6 @@ import {
   resolveBudget,
   resolveModel,
   routeModelWithReason,
-  FailoverRouter,
-  AllAdaptersUnavailableError,
-  ClaudeAdapter,
-  GeminiCliAdapter,
-  OpenCodeAdapter,
-  RateLimitDetector,
   createWorktree,
   removeWorktree,
   runVerification,
@@ -22,6 +16,12 @@ import {
   buildPrTitle,
   buildPrBody,
 } from "@mbe/agent-core";
+import type { AdapterConfig, AdapterResult } from "../adapters/cli-adapter.js";
+import { ClaudeAdapter } from "../adapters/claude-adapter.js";
+import { GeminiCliAdapter } from "../adapters/gemini-adapter.js";
+import { OpenCodeAdapter } from "../adapters/opencode-adapter.js";
+import { RateLimitDetector } from "../adapters/rate-limit-detector.js";
+import { FailoverRouter, AllAdaptersUnavailableError } from "../adapters/failover-router.js";
 import type { AgentSession, ApiResponse, PaginatedResponse, AgentSessionEvent } from "@mbe/types";
 
 // ── Helpers ──────────────────────────────────────────────────────────────

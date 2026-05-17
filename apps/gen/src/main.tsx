@@ -5,7 +5,7 @@ import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
 import { ErrorBoundary, RialtoProvider, Text, ToastProvider } from "@mattbutlerengineering/rialto";
 import { AuthProvider } from "@mbe/auth/react";
-import { initSentry, handleErrorBoundary } from "@mbe/observability/sentry/react";
+import { initSentry, handleErrorBoundary } from "@mbe/sentry/react";
 import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
 import { App, CallbackRedirect } from "./App";
 

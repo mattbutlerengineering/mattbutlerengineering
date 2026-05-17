@@ -242,20 +242,6 @@ export type { QaTuningThresholds, QaTuningConfig } from "./qa-tuning-loader.js";
 // Output sanitization (XSS prevention for AI-generated content)
 export { escapeHtml, sanitizeStreamChunk, createSanitizedStream } from "./sanitize-output.js";
 
-// CLI adapter interface (multi-backend dispatch)
-export type { AdapterConfig, AdapterResult, AdapterState, AgentAdapter } from "./cli-adapter.js";
-
-// CLI adapters (multi-backend dispatch)
-export { ClaudeAdapter } from "./adapters/claude-adapter.js";
-export { GeminiCliAdapter } from "./adapters/gemini-adapter.js";
-export { OpenCodeAdapter } from "./adapters/opencode-adapter.js";
-
-// Rate-limit detection and cooldown management
-export { RateLimitDetector, scanForRateLimitPatterns } from "./rate-limit-detector.js";
-
-// Failover router (priority-cascade multi-CLI dispatch)
-export { FailoverRouter, AllAdaptersUnavailableError } from "./failover-router.js";
-export type { RoutedAdapterResult } from "./failover-router.js";
 // Bundle size tracking
 export {
   measureAppBundleSize,

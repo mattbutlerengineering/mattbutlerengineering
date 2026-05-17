@@ -12,7 +12,7 @@ import {
   useThemeState,
 } from "@mattbutlerengineering/rialto";
 
-import { initSentry, handleErrorBoundary } from "@mbe/observability/sentry/react";
+import { initSentry, handleErrorBoundary } from "@mbe/sentry/react";
 import { ThemeContext } from "./ThemeContext";
 import { routeTree } from "./routes";
 
