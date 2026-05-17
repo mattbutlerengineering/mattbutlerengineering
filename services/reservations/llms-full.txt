@@ -1,4 +1,15 @@
 <codebase path="services/reservations">
+  <section priority="medium" role="middleware">
+  <file path="src/middleware/public-rate-limit.ts">
+    interface RateLimitEntry {
+      count: number;
+      resetAt: number;
+    }
+    function getKey(ip: string, venueSlug: string): string {
+      return `${ip}:${venueSlug}`;
+    }
+  </file>
+  </section>
   <section priority="medium" role="prisma">
   <file path="prisma/seed.ts">
     function todayAt(hours: number, minutes: number): Date {
@@ -1478,6 +1489,245 @@
           }
     
           return reply.code(201).send({ data: result.reservation! });
+        }
+      );
+    };
+  </file>
+  <file path="src/routes/public-availability.ts">
+    export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.get<{
+        Params: { slug: string };
+        Querystring: { date: string; partySize: string };
+        Reply: ApiResponse<TimeSlot[]>;
+      }>(
+        "/:slug/availability",
+        {
+          preHandler: publicRateLimitHook,
+          schema: {
+            summary: "Get available time slots (public)",
+            tags: ["Public"],
+            params: {
+              type: "object",
+              properties: { slug: { type: "string" } },
+              required: ["slug"],
+            },
+            querystring: {
+              type: "object",
+              properties: {
+                date: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+                partySize: { type: "string" },
+              },
+              required: ["date", "partySize"],
+            },
+          },
+        },
+        async (request, reply) => {
+          const { slug } = request.params;
+          const { date, partySize } = request.query;
+    
+          const venue = await venueService.getBySlug(slug);
+          if (!venue) {
+            return reply.status(404).send({
+              type: "https://httpproblems.com/http-status/404",
+              title: "Venue Not Found",
+              status: 404,
+              detail: `No venue found with slug '${slug}'.`,
+            } as never);
+          }
+    
+          const parsedPartySize = parseInt(partySize, 10);
+          if (isNaN(parsedPartySize) || parsedPartySize < 1) {
+            return reply.status(400).send({
+              type: "https://httpproblems.com/http-status/400",
+              title: "Invalid Party Size",
+              status: 400,
+              detail: "partySize must be a positive integer.",
+            } as never);
+          }
+    
+          const slots = await availabilityService.generateTimeSlots(venue.id, date, parsedPartySize);
+          const availableOnly = slots.filter((s: TimeSlot) => s.available);
+    
+          return reply.send({ data: availableOnly });
+        }
+      );
+    };
+  </file>
+  <file path="src/routes/public-holds.ts">
+    export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.post<{
+        Params: { slug: string };
+        Body: { date: string; startTime: string; endTime: string; partySize: number };
+        Reply: ApiResponse<ReservationHold>;
+      }>(
+        "/:slug/holds",
+        {
+          preHandler: publicRateLimitHook,
+          schema: {
+            summary: "Create a reservation hold (public)",
+            tags: ["Public"],
+          },
+        },
+        async (request, reply) => {
+          const { slug } = request.params;
+          const { date, startTime, partySize } = request.body;
+          const ip = request.ip;
+    
+          if (getActiveHoldCount(ip) >= MAX_ACTIVE_HOLDS) {
+            return reply.status(429).send({
+              type: "https://httpproblems.com/http-status/429",
+              title: "Too Many Holds",
+              status: 429,
+              detail: `Maximum ${MAX_ACTIVE_HOLDS} active holds per session.`,
+            } as never);
+          }
+    
+          const venue = await venueService.getBySlug(slug);
+          if (!venue) {
+            return reply.status(404).send({
+              type: "https://httpproblems.com/http-status/404",
+              title: "Venue Not Found",
+              status: 404,
+              detail: `No venue found with slug '${slug}'.`,
+            } as never);
+          }
+    
+          const sessionId = randomUUID();
+          const result = await holdService.create(
+            { venueId: venue.id, date, time: startTime, partySize },
+            sessionId
+          );
+    
+          if (!result.success) {
+            return reply.status(409).send({
+              type: "https://httpproblems.com/http-status/409",
+              title: "Slot Unavailable",
+              status: 409,
+              detail: result.error ?? "The requested time slot is no longer available.",
+            } as never);
+          }
+    
+          incrementHoldCount(ip);
+          return reply.status(201).send({ data: result.hold! });
+        }
+      );
+    
+      fastify.delete<{
+        Params: { slug: string; holdId: string };
+      }>(
+        "/:slug/holds/:holdId",
+        {
+          schema: {
+            summary: "Release a reservation hold (public)",
+            tags: ["Public"],
+          },
+        },
+        async (request, reply) => {
+          const { holdId } = request.params;
+          const ip = request.ip;
+    
+          const released = await holdService.release(holdId, "public");
+          if (released) {
+            decrementHoldCount(ip);
+          }
+    
+          return reply.status(204).send();
+        }
+      );
+    };
+  </file>
+  <file path="src/routes/public-reservations.ts">
+    export function generateManageToken(reservationId: string, guestEmail: string): string {
+      const expiry = Date.now() + 7 * 24 * 60 * 60 * 1000;
+      const payload = `${reservationId}:${guestEmail}:${expiry}`;
+      const signature = createHmac("sha256", TOKEN_SECRET).update(payload).digest("hex");
+      return Buffer.from(`${payload}:${signature}`).toString("base64url");
+    }
+    export function verifyManageToken(token: string): {
+      valid: boolean;
+      reservationId?: string;
+      guestEmail?: string;
+    } {
+      try {
+        const decoded = Buffer.from(token, "base64url").toString();
+        const parts = decoded.split(":");
+        if (parts.length < 4) return { valid: false };
+    
+        const signature = parts.pop()!;
+        const payload = parts.join(":");
+        const [reservationId, guestEmail, expiryStr] = parts;
+    
+        const expected = createHmac("sha256", TOKEN_SECRET).update(payload).digest("hex");
+        if (signature !== expected) return { valid: false };
+    
+        const expiry = parseInt(expiryStr, 10);
+        if (Date.now() > expiry) return { valid: false };
+    
+        return { valid: true, reservationId, guestEmail };
+      } catch {
+        return { valid: false };
+      }
+    }
+  </file>
+  <file path="src/routes/public-venues.ts">
+    interface PublicVenueResponse {
+      name: string;
+      slug: string;
+      ianaTimezone: string;
+      currencyCode: string;
+      operatingHours: unknown;
+      settings: {
+        defaultReservationDuration?: number;
+        maxPartySize?: number;
+        maxAdvanceBooking?: number;
+        slotIntervalMinutes?: number;
+      };
+    }
+    export const publicVenueRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.get<{
+        Params: { slug: string };
+        Reply: ApiResponse<PublicVenueResponse>;
+      }>(
+        "/:slug",
+        {
+          schema: {
+            summary: "Get public venue info by slug",
+            tags: ["Public"],
+            params: {
+              type: "object",
+              properties: {
+                slug: { type: "string" },
+              },
+              required: ["slug"],
+            },
+          },
+        },
+        async (request, reply) => {
+          const { slug } = request.params;
+          const venue = await venueService.getBySlug(slug);
+    
+          if (!venue) {
+            return reply.status(404).send({
+              success: false,
+              error: "Venue not found",
+            } as never);
+          }
+    
+          const publicVenue: PublicVenueResponse = {
+            name: venue.name,
+            slug: venue.slug,
+            ianaTimezone: venue.ianaTimezone,
+            currencyCode: venue.currencyCode,
+            operatingHours: venue.operatingHours,
+            settings: {
+              defaultReservationDuration: venue.settings?.defaultReservationDuration,
+              maxPartySize: venue.settings?.maxPartySize,
+              maxAdvanceBooking: venue.settings?.maxAdvanceBooking,
+              slotIntervalMinutes: venue.settings?.slotIntervalMinutes,
+            },
+          };
+    
+          return reply.send({ data: publicVenue });
         }
       );
     };
@@ -3307,27 +3557,8 @@
     }
   </file>
   <file path="src/services/database.ts">
-    interface SlowQueryStats {
-      count5min: number;
-      slowestMs: number;
-      queries: { model: string; operation: string; duration: number; timestamp: number }[];
-    }
-    export function getSlowQueryStats(): { count5min: number; slowestMs: number } {
-      const now = Date.now();
-      const windowStart = now - SLOW_QUERY_WINDOW_MS;
-    
-      slowQueryStats.queries = slowQueryStats.queries.filter((q) => q.timestamp > windowStart);
-      slowQueryStats.count5min = slowQueryStats.queries.length;
-      slowQueryStats.slowestMs = slowQueryStats.queries.reduce(
-        (max, q) => Math.max(max, q.duration),
-        0
-      );
-    
-      return {
-        count5min: slowQueryStats.count5min,
-        slowestMs: slowQueryStats.slowestMs,
-      };
-    }
+    export const prisma = db.prisma as unknown as PrismaClient;
+    export const getSlowQueryStats = db.getSlowQueryStats;
   </file>
   <file path="src/services/events.ts">
     export type ReservationEventType =

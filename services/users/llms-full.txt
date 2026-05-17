@@ -781,27 +781,8 @@
   </section>
   <section priority="medium" role="services">
   <file path="src/services/database.ts">
-    interface SlowQueryStats {
-      count5min: number;
-      slowestMs: number;
-      queries: { model: string; operation: string; duration: number; timestamp: number }[];
-    }
-    export function getSlowQueryStats(): { count5min: number; slowestMs: number } {
-      const now = Date.now();
-      const windowStart = now - SLOW_QUERY_WINDOW_MS;
-    
-      slowQueryStats.queries = slowQueryStats.queries.filter((q) => q.timestamp > windowStart);
-      slowQueryStats.count5min = slowQueryStats.queries.length;
-      slowQueryStats.slowestMs = slowQueryStats.queries.reduce(
-        (max, q) => Math.max(max, q.duration),
-        0
-      );
-    
-      return {
-        count5min: slowQueryStats.count5min,
-        slowestMs: slowQueryStats.slowestMs,
-      };
-    }
+    export const prisma = db.prisma as unknown as PrismaClient;
+    export const getSlowQueryStats = db.getSlowQueryStats;
   </file>
   <file path="src/services/health-checks.ts">
     export function recordDbLatency(ms: number): void {

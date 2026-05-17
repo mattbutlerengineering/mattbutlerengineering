@@ -44,14 +44,10 @@
   <section priority="medium" role="services">
   <file path="src/services/database.ts">
     <item priority="high">
-      interface SlowQueryStats {
-        count5min: number;
-        slowestMs: number;
-        queries: { model: string; operation: string; duration: number; tim...;
-      }
+      export const prisma: unknown;
     </item>
     <item priority="high">
-      export function getSlowQueryStats(): { count5min: number; slowestMs: number } { /* ... */ }
+      export const getSlowQueryStats: unknown;
     </item>
   </file>
   <file path="src/services/health-checks.ts">
