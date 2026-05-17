@@ -22,7 +22,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "case \"$CLAUDE_FILE_PATH\" in *.env|*.env.*) echo 'BLOCK: Do not edit .env files — use environment variables via vercel env or service .env.example files instead' >&2; exit 2;; *pnpm-lock.yaml) echo 'BLOCK: Never edit pnpm-lock.yaml directly — run pnpm install instead' >&2; exit 2;; esac"
+            "command": "case \"$CLAUDE_FILE_PATH\" in *.env|*.env.*) echo 'BLOCK: Do not edit .env files — use environment variables via vercel env or service .env.example files instead' >&2; exit 2;; *pnpm-lock.yaml) echo 'BLOCK: Never edit pnpm-lock.yaml directly — run pnpm install instead' >&2; exit 2;; */prisma/migrations/*/migration.sql) echo 'BLOCK: Do not edit existing migrations — create a new migration with prisma migrate dev instead' >&2; exit 2;; */infrastructure/pulumi/Pulumi.prod.yaml) echo 'BLOCK: Production Pulumi config requires manual review' >&2; exit 2;; esac"
           }
         ]
       },

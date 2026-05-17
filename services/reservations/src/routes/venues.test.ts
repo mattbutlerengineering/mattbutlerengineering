@@ -229,6 +229,50 @@ describe("Venue Routes", () => {
         expect(body.data.name).toBe("Downtown Restaurant Group");
       });
 
+      it("returns 400 when slug is already taken (Unique constraint)", async () => {
+        vi.mocked(jwtVerify).mockResolvedValueOnce({
+          payload: mockJWTPayload,
+          protectedHeader: { alg: "RS256" },
+        } as never);
+        vi.mocked(venueGroupService.create).mockRejectedValueOnce(
+          new Error("Unique constraint failed on the fields: (`slug`)")
+        );
+
+        const response = await app.inject({
+          method: "POST",
+          url: "/api/v1/venues/groups",
+          headers: { "x-auth-bypass": "true" },
+          payload: {
+            name: "Downtown Restaurant Group",
+            slug: "downtown-restaurant-group",
+          },
+        });
+
+        expect(response.statusCode).toBe(400);
+        const body = JSON.parse(response.body);
+        expect(body.error).toBe("Bad Request");
+      });
+
+      it("re-throws non-unique-constraint errors from venue group create", async () => {
+        vi.mocked(jwtVerify).mockResolvedValueOnce({
+          payload: mockJWTPayload,
+          protectedHeader: { alg: "RS256" },
+        } as never);
+        vi.mocked(venueGroupService.create).mockRejectedValueOnce(new Error("Unexpected DB error"));
+
+        const response = await app.inject({
+          method: "POST",
+          url: "/api/v1/venues/groups",
+          headers: { "x-auth-bypass": "true" },
+          payload: {
+            name: "Downtown Restaurant Group",
+            slug: "downtown-restaurant-group",
+          },
+        });
+
+        expect(response.statusCode).toBe(500);
+      });
+
       it("returns 401 without auth", async () => {
         const response = await app.inject({
           method: "POST",
@@ -459,6 +503,52 @@ describe("Venue Routes", () => {
         const body = JSON.parse(response.body);
         expect(body.data.name).toBe("Chez Panisse");
         expect(body.data.ianaTimezone).toBe("America/Los_Angeles");
+      });
+
+      it("returns 400 when venue slug is already taken (Unique constraint)", async () => {
+        vi.mocked(jwtVerify).mockResolvedValueOnce({
+          payload: mockJWTPayload,
+          protectedHeader: { alg: "RS256" },
+        } as never);
+        vi.mocked(venueService.create).mockRejectedValueOnce(
+          new Error("Unique constraint failed on the fields: (`slug`)")
+        );
+
+        const response = await app.inject({
+          method: "POST",
+          url: "/api/v1/venues",
+          headers: { "x-auth-bypass": "true" },
+          payload: {
+            name: "Chez Panisse",
+            slug: "chez-panisse",
+            ianaTimezone: "America/Los_Angeles",
+          },
+        });
+
+        expect(response.statusCode).toBe(400);
+        const body = JSON.parse(response.body);
+        expect(body.error).toBe("Bad Request");
+      });
+
+      it("re-throws non-unique-constraint errors from venue create", async () => {
+        vi.mocked(jwtVerify).mockResolvedValueOnce({
+          payload: mockJWTPayload,
+          protectedHeader: { alg: "RS256" },
+        } as never);
+        vi.mocked(venueService.create).mockRejectedValueOnce(new Error("Unexpected DB error"));
+
+        const response = await app.inject({
+          method: "POST",
+          url: "/api/v1/venues",
+          headers: { "x-auth-bypass": "true" },
+          payload: {
+            name: "Chez Panisse",
+            slug: "chez-panisse",
+            ianaTimezone: "America/Los_Angeles",
+          },
+        });
+
+        expect(response.statusCode).toBe(500);
       });
 
       it("returns 401 without auth", async () => {
