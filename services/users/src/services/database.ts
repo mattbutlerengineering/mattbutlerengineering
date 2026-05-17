@@ -3,7 +3,7 @@ import { PrismaClient } from "../generated/prisma/index.js";
 
 const db = createDatabase(PrismaClient as never);
 
-export const prisma = db.prisma;
+export const prisma = db.prisma as unknown as PrismaClient;
 export const getSlowQueryStats = db.getSlowQueryStats;
 export const getPoolStats = db.getPoolStats;
 export const getPoolMetrics = db.getPoolMetrics;
