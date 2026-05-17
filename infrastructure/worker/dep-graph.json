@@ -66,6 +66,11 @@
       "path": "packages/config"
     },
     {
+      "name": "@mbe/database",
+      "type": "package",
+      "path": "packages/database"
+    },
+    {
       "name": "@mbe/feature-flags",
       "type": "package",
       "path": "packages/feature-flags"
@@ -99,6 +104,11 @@
       "name": "@mbe/rialto-plugin",
       "type": "package",
       "path": "packages/rialto-plugin"
+    },
+    {
+      "name": "@mbe/sentry",
+      "type": "package",
+      "path": "packages/sentry"
     },
     {
       "name": "@mbe/types",
@@ -139,6 +149,11 @@
     },
     {
       "from": "@mbe/gen",
+      "to": "@mbe/sentry",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/gen",
       "to": "@mbe/config",
       "type": "devDependency"
     },
@@ -169,6 +184,11 @@
     },
     {
       "from": "@mbe/hospitality",
+      "to": "@mbe/sentry",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/hospitality",
       "to": "@mbe/config",
       "type": "devDependency"
     },
@@ -179,12 +199,22 @@
     },
     {
       "from": "@mbe/marketing",
+      "to": "@mbe/sentry",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/marketing",
       "to": "@mbe/config",
       "type": "devDependency"
     },
     {
       "from": "@mbe/rialto-web",
       "to": "@mbe/observability",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/rialto-web",
+      "to": "@mbe/sentry",
       "type": "dependency"
     },
     {
@@ -214,12 +244,22 @@
     },
     {
       "from": "@mbe/agent-service",
+      "to": "@mbe/sentry",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/agent-service",
       "to": "@mbe/rialto-catalog",
       "type": "dependency"
     },
     {
       "from": "@mbe/agent-service",
       "to": "@mbe/types",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/agent-service",
+      "to": "@mbe/database",
       "type": "dependency"
     },
     {
@@ -254,7 +294,17 @@
     },
     {
       "from": "@mbe/reservations-service",
+      "to": "@mbe/sentry",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/reservations-service",
       "to": "@mbe/types",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/reservations-service",
+      "to": "@mbe/database",
       "type": "dependency"
     },
     {
@@ -279,7 +329,17 @@
     },
     {
       "from": "@mbe/users-service",
+      "to": "@mbe/sentry",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/users-service",
       "to": "@mbe/types",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/users-service",
+      "to": "@mbe/database",
       "type": "dependency"
     },
     {
@@ -338,6 +398,11 @@
       "type": "devDependency"
     },
     {
+      "from": "@mbe/database",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
       "from": "@mbe/feature-flags",
       "to": "@mbe/config",
       "type": "devDependency"
@@ -379,6 +444,16 @@
     },
     {
       "from": "@mbe/rialto-plugin",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/sentry",
+      "to": "@mbe/types",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/sentry",
       "to": "@mbe/config",
       "type": "devDependency"
     },
