@@ -18,6 +18,8 @@ COPY packages/agent-core/package.json ./packages/agent-core/
 COPY packages/observability/package.json ./packages/observability/
 COPY packages/rialto/package.json ./packages/rialto/
 COPY packages/rialto-catalog/package.json ./packages/rialto-catalog/
+COPY packages/sentry/package.json ./packages/sentry/
+COPY packages/database/package.json ./packages/database/
 COPY services/agent/package.json ./services/agent/
 
 # Install all dependencies
@@ -33,6 +35,8 @@ COPY packages/agent-core/tsconfig.json ./packages/agent-core/
 COPY packages/observability/tsconfig.json ./packages/observability/
 COPY packages/rialto/tsconfig.json packages/rialto/tsconfig.lib.json ./packages/rialto/
 COPY packages/rialto-catalog/tsconfig.json packages/rialto-catalog/tsconfig.build.json ./packages/rialto-catalog/
+COPY packages/sentry/tsconfig.json ./packages/sentry/
+COPY packages/database/tsconfig.json ./packages/database/
 COPY services/agent/tsconfig.json ./services/agent/
 
 # Copy Prisma schema (needed for db:generate)
@@ -49,6 +53,8 @@ COPY packages/rialto/src ./packages/rialto/src
 COPY packages/rialto/scripts ./packages/rialto/scripts
 COPY packages/rialto/vite.config.lib.ts ./packages/rialto/vite.config.lib.ts
 COPY packages/rialto-catalog/src ./packages/rialto-catalog/src
+COPY packages/sentry/src ./packages/sentry/src
+COPY packages/database/src ./packages/database/src
 COPY services/agent/src ./services/agent/src
 # Build workspace packages and service in a single layer
 RUN pnpm --filter @mbe/types build && \
@@ -59,6 +65,8 @@ RUN pnpm --filter @mbe/types build && \
     pnpm --filter @mbe/api-client build && \
     pnpm --filter @mattbutlerengineering/rialto build && \
     pnpm --filter @mbe/rialto-catalog build && \
+    pnpm --filter @mbe/sentry build && \
+    pnpm --filter @mbe/database build && \
     pnpm --filter @mbe/agent-service db:generate && \
     pnpm --filter @mbe/agent-service build
 
@@ -86,6 +94,8 @@ COPY packages/agent-core/package.json ./packages/agent-core/
 COPY packages/observability/package.json ./packages/observability/
 COPY packages/rialto/package.json ./packages/rialto/
 COPY packages/rialto-catalog/package.json ./packages/rialto-catalog/
+COPY packages/sentry/package.json ./packages/sentry/
+COPY packages/database/package.json ./packages/database/
 COPY services/agent/package.json ./services/agent/
 
 # Install production dependencies only (Prisma client is copied from builder)
@@ -101,6 +111,8 @@ COPY --from=builder /app/packages/agent-core/dist ./packages/agent-core/dist
 COPY --from=builder /app/packages/api-client/src ./packages/api-client/src
 COPY --from=builder /app/packages/rialto/dist ./packages/rialto/dist
 COPY --from=builder /app/packages/rialto-catalog/dist ./packages/rialto-catalog/dist
+COPY --from=builder /app/packages/sentry/dist ./packages/sentry/dist
+COPY --from=builder /app/packages/database/dist ./packages/database/dist
 
 # Copy built agent service
 COPY --from=builder /app/services/agent/dist ./services/agent/dist
