@@ -28,6 +28,11 @@
       export const availabilityRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="src/routes/cancel-reservation.ts">
+    <item priority="high">
+      export const cancelReservationRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="src/routes/confirm-attendance.ts">
     <item priority="high">
       export const confirmAttendanceRoutes: FastifyPluginAsync;
