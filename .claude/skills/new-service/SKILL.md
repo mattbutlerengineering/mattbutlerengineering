@@ -65,22 +65,22 @@ services/<name>/
     "db:studio": "prisma studio"
   },
   "dependencies": {
-    "@fastify/cors": "^10.0.0",
+    "@fastify/cors": "^11.0.0",
     "@fastify/swagger": "^9.0.0",
     "@mbe/types": "workspace:*",
-    "@prisma/client": "^6.0.0",
-    "@scalar/fastify-api-reference": "^1.44.1",
-    "fastify": "^5.8.1",
+    "@prisma/client": "^7.0.0",
+    "@scalar/fastify-api-reference": "^1.55.0",
+    "fastify": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@mbe/config": "workspace:*",
     "@types/node": "^22.0.0",
-    "@vitest/coverage-v8": "^4.0.18",
-    "prisma": "^6.0.0",
+    "@vitest/coverage-v8": "catalog:",
+    "prisma": "^7.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.3",
-    "vitest": "^4.0.18"
+    "vitest": "catalog:"
   }
 }
 ```

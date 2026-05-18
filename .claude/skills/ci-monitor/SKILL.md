@@ -128,16 +128,20 @@ If everything is green, exit with: "CI is healthy. All recent runs passing, no P
 
 The CI pipeline (`.github/workflows/ci.yml`) has these jobs:
 
-| Job              | What It Checks                                               |
-| ---------------- | ------------------------------------------------------------ |
-| `lint-typecheck` | ESLint, TypeScript compilation, Prisma client generation     |
-| `build`          | Full monorepo build, registry.json validation, catalog drift |
-| `test`           | Vitest test suite with coverage                              |
-| `migrations`     | Prisma migrations against test PostgreSQL database           |
+| Job                  | What It Checks                                               |
+| -------------------- | ------------------------------------------------------------ |
+| `lint`               | ESLint across all packages                                   |
+| `typecheck`          | TypeScript compilation, Prisma client generation             |
+| `architecture-audit` | ADR compliance and dependency checks via `@mbe/cli`          |
+| `build`              | Full monorepo build, registry.json validation, catalog drift |
+| `test`               | Vitest test suite with coverage                              |
+| `migrations`         | Prisma migrations against test PostgreSQL database           |
 
 Common failure patterns:
 
-- **lint-typecheck**: Usually a missing `import type`, unused variable, or formatting issue
+- **lint**: Usually a missing `import type`, unused variable, or formatting issue
+- **typecheck**: Type errors, missing imports, wrong types
+- **architecture-audit**: ADR violations or forbidden dependency patterns
 - **build**: Often a missing export, broken dependency chain, or stale generated file
 - **test**: Snapshot mismatches, assertion failures from behavior changes, mock drift
 - **migrations**: Schema drift, migration ordering issues, SQL syntax errors

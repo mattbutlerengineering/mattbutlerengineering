@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # /new-adr — create an Architecture Decision Record
 
-Scaffolds a new ADR in `docs/adr/` following the format enforced by `scripts/check-adr.js` (run by the pre-commit hook).
+Scaffolds a new ADR in `docs/adr/` following the format enforced by `pnpm --filter @mbe/cli start check-adr` (run by the pre-commit hook).
 
 ## Steps
 
