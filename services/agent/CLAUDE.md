@@ -177,12 +177,10 @@ The actual agent execution happens in `@mbe/agent-core` package.
 
 ```typescript
 // From @mbe/agent-core
-import {
-  createSessionRunner,
-  createWorktreeManager,
-  createPromptBuilder,
-  createSuccessEvaluator,
-} from "@mbe/agent-core";
+import { runSession } from "@mbe/agent-core";
+import { createWorktree, removeWorktree } from "@mbe/agent-core";
+import { buildSystemPrompt } from "@mbe/agent-core";
+import { evaluateSuccess } from "@mbe/agent-core";
 ```
 
 ### Session Runner
@@ -190,23 +188,15 @@ import {
 Manages the conversation loop with Claude API.
 
 ```typescript
-const runner = createSessionRunner({
+const result = await runSession({
+  taskDescription: session.task,
+  repoPath: session.worktreePath,
   model: session.model,
   maxTurns: session.maxTurns,
-  maxBudget: session.maxBudgetUsd,
-  onEvent: (event) => {
-    // Emit SSE event to client
-    emitter.emit(event.type, event);
-  },
-});
-
-await runner.run({
-  task: session.task,
-  worktree: session.worktreePath,
-  context: {
-    repoUrl: "https://github.com/mattbutlerengineering/mattbutlerengineering",
-    baseBranch: "main",
-  },
+  maxBudgetUsd: session.maxBudgetUsd,
+}, (event) => {
+  // Emit SSE event to client
+  emitter.emit(event.type, event);
 });
 ```
 
@@ -215,16 +205,15 @@ await runner.run({
 Creates isolated Git worktrees for each session.
 
 ```typescript
-const worktreeManager = createWorktreeManager({
-  basePath: "/tmp/agent-worktrees",
-});
-
-const worktree = await worktreeManager.create({
+const worktree = await createWorktree({
+  repoPath: "/path/to/repo",
   sessionId: session.id,
   baseBranch: "main",
 });
 
-// Returns: { path: "/tmp/agent-worktrees/session-abc123", branch: "agent/session-abc123" }
+// Returns: { path: "/path/to/repo/.worktrees/session-abc123", branch: "agent/session-abc123" }
+
+await removeWorktree(worktree.path);
 ```
 
 ## Integration Points
@@ -347,16 +336,26 @@ pnpm db:migrate:deploy # Apply migrations (production)
 
 ## Environment Variables
 
-| Variable                  | Required | Description                                     |
-| ------------------------- | -------- | ----------------------------------------------- |
-| `PORT`                    | No       | Service port (default: 3003)                    |
-| `LOG_LEVEL`               | No       | Logging level (default: info)                   |
-| `DATABASE_URL`            | Yes      | Postgres connection                             |
-| `ANTHROPIC_API_KEY`       | Yes      | Claude API key                                  |
-| `DEFAULT_MODEL`           | No       | Default model (default: claude-sonnet-4-6)      |
-| `MAX_CONCURRENT_SESSIONS` | No       | Max parallel sessions (default: 5)              |
-| `GITHUB_WEBHOOK_SECRET`   | No       | HMAC secret for webhooks                        |
-| `AGENT_API_URL`           | No       | Public API URL (default: http://localhost:3003) |
+| Variable                     | Required | Description                                     |
+| ---------------------------- | -------- | ----------------------------------------------- |
+| `PORT`                       | No       | Service port (default: 3003)                    |
+| `LOG_LEVEL`                  | No       | Logging level (default: info)                   |
+| `CORS_ORIGINS`               | No       | Comma-separated allowed origins                 |
+| `DATABASE_URL`               | Yes      | Postgres connection                             |
+| `ANTHROPIC_API_KEY`          | Yes      | Claude API key                                  |
+| `DEFAULT_MODEL`              | No       | Default model (default: claude-sonnet-4-6)      |
+| `DEFAULT_MAX_TURNS`          | No       | Default max turns per session (default: 50)     |
+| `DEFAULT_MAX_BUDGET_USD`     | No       | Default budget cap per session (default: 1.00)  |
+| `MAX_CONCURRENT_SESSIONS`    | No       | Max parallel sessions (default: 5)              |
+| `GITHUB_TOKEN`               | Yes      | GitHub PAT for PR creation                      |
+| `GITHUB_WEBHOOK_SECRET`      | No       | HMAC secret for GitHub webhooks                 |
+| `REMEDIATION_WEBHOOK_SECRET` | No       | HMAC secret for remediation webhooks            |
+| `REPO_PATH`                  | No       | Repo URL for agent context                      |
+| `AGENT_API_URL`              | No       | Public API URL (default: http://localhost:3003) |
+| `API_BASE_URL`               | No       | Base URL for the platform (default: localhost)  |
+| `SENTRY_DSN`                 | No       | Sentry DSN for error tracking                   |
+| `AUTH_AUTHORITY`             | Yes (prod)| Auth0 domain URL                               |
+| `AUTH_AUDIENCE`              | Yes (prod)| Auth0 API identifier                           |
 
 ## Dockerfile gotchas
 
