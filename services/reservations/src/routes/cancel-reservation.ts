@@ -1,11 +1,20 @@
 import type { FastifyPluginAsync } from "fastify";
+import { Resend } from "resend";
 import { verifyManageToken } from "./public-reservations.js";
 import { reservationService } from "../services/reservation.js";
 import { venueService } from "../services/venue.js";
 import { ResendNotificationAdapter } from "@mbe/notifications";
 
+const resendClient = process.env.RESEND_API_KEY
+  ? (new Resend(process.env.RESEND_API_KEY) as unknown as {
+      emails: {
+        send(payload: Record<string, unknown>): Promise<{ id: string }>;
+      };
+    })
+  : null;
+
 const notificationAdapter = new ResendNotificationAdapter({
-  resend: null,
+  resend: resendClient,
   fromAddress:
     process.env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
   manageBaseUrl:
@@ -81,6 +90,15 @@ export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
         status: "CANCELLED",
       });
 
+      if (!updated) {
+        return reply.status(500).send({
+          type: "about:blank",
+          title: "Update Failed",
+          status: 500,
+          detail: "Failed to cancel reservation",
+        });
+      }
+
       const venue = reservation.venueId
         ? await venueService.getById(reservation.venueId)
         : null;
@@ -97,14 +115,14 @@ export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
           guestPhone: reservation.guestPhone ?? null,
           specialRequests: reservation.notes ?? null,
           venueName: venue.name,
-          venueTimezone: venue.ianaTimezone ?? "America/Los_Angeles",
+          venueTimezone: venue.ianaTimezone,
           venueAddress: null,
           manageToken: token,
         });
       }
 
       return reply.status(200).send({
-        data: { status: updated?.status ?? "CANCELLED" },
+        data: { status: updated.status },
       });
     }
   );
