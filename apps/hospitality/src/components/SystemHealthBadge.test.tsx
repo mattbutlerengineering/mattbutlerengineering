@@ -1,12 +1,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, waitFor, act } from "@testing-library/react";
 import { SystemHealthBadge } from "./SystemHealthBadge.js";
 import { useAuth } from "@mbe/auth/react";
+import { useApiClient } from "../hooks/useApiClient.js";
 import React from "react";
 
 vi.mock("@mbe/auth/react", () => ({
   useAuth: vi.fn(),
+}));
+
+vi.mock("../hooks/useApiClient.js", () => ({
+  useApiClient: vi.fn(),
 }));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
@@ -15,13 +20,31 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       {children}
     </span>
   ),
+  Button: ({
+    children,
+    ...props
+  }: { children: React.ReactNode } & React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button {...props}>{children}</button>
+  ),
   Popover: ({ trigger, children }: { trigger: React.ReactNode; children: React.ReactNode }) => (
     <div data-testid="popover">
       {trigger}
       <div data-testid="popover-content">{children}</div>
     </div>
   ),
+  Text: ({ children, className }: { children: React.ReactNode; className?: string }) => (
+    <span className={className}>{children}</span>
+  ),
 }));
+
+function makeApiClient(overrides: Record<string, unknown> = {}) {
+  return {
+    health: {
+      getSystemHealth: vi.fn(),
+    },
+    ...overrides,
+  };
+}
 
 describe("SystemHealthBadge", () => {
   afterEach(() => {
@@ -32,6 +55,7 @@ describe("SystemHealthBadge", () => {
     vi.mocked(useAuth).mockReturnValue({
       user: { raw: { permissions: [] } },
     } as any);
+    vi.mocked(useApiClient).mockReturnValue(makeApiClient() as any);
 
     const { container } = render(<SystemHealthBadge />);
     expect(container.innerHTML).toBe("");
@@ -41,6 +65,7 @@ describe("SystemHealthBadge", () => {
     vi.mocked(useAuth).mockReturnValue({
       user: { raw: {} },
     } as any);
+    vi.mocked(useApiClient).mockReturnValue(makeApiClient() as any);
 
     const { container } = render(<SystemHealthBadge />);
     expect(container.innerHTML).toBe("");
@@ -50,9 +75,35 @@ describe("SystemHealthBadge", () => {
     vi.mocked(useAuth).mockReturnValue({
       user: null,
     } as any);
+    vi.mocked(useApiClient).mockReturnValue(makeApiClient() as any);
 
     const { container } = render(<SystemHealthBadge />);
     expect(container.innerHTML).toBe("");
+  });
+
+  it("uses useApiClient hook instead of raw fetch", async () => {
+    vi.mocked(useAuth).mockReturnValue({
+      user: { raw: { permissions: ["admin"] } },
+    } as any);
+
+    const mockGetSystemHealth = vi.fn().mockResolvedValue({
+      status: "healthy",
+      timestamp: "2026-01-15T12:00:00Z",
+    });
+    vi.mocked(useApiClient).mockReturnValue(
+      makeApiClient({ health: { getSystemHealth: mockGetSystemHealth } }) as any
+    );
+
+    await act(async () => {
+      render(<SystemHealthBadge />);
+    });
+
+    await waitFor(() => {
+      expect(mockGetSystemHealth).toHaveBeenCalled();
+    });
+
+    // Verify useApiClient hook was called (not raw fetch)
+    expect(useApiClient).toHaveBeenCalled();
   });
 
   it("fetches health data for admin users and renders badge", async () => {
@@ -71,10 +122,10 @@ describe("SystemHealthBadge", () => {
       deploy: { status: "healthy" },
     };
 
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(healthData),
-    });
+    const mockGetSystemHealth = vi.fn().mockResolvedValue(healthData);
+    vi.mocked(useApiClient).mockReturnValue(
+      makeApiClient({ health: { getSystemHealth: mockGetSystemHealth } }) as any
+    );
 
     await act(async () => {
       render(<SystemHealthBadge />);
@@ -100,7 +151,10 @@ describe("SystemHealthBadge", () => {
       user: { raw: { permissions: ["admin"] } },
     } as any);
 
-    global.fetch = vi.fn().mockRejectedValue(new Error("Network error"));
+    const mockGetSystemHealth = vi.fn().mockRejectedValue(new Error("Network error"));
+    vi.mocked(useApiClient).mockReturnValue(
+      makeApiClient({ health: { getSystemHealth: mockGetSystemHealth } }) as any
+    );
 
     await act(async () => {
       render(<SystemHealthBadge />);
@@ -110,15 +164,17 @@ describe("SystemHealthBadge", () => {
     expect(screen.queryByTestId("popover")).toBeNull();
   });
 
-  it("handles non-ok response silently", async () => {
+  it("handles API error silently", async () => {
     vi.mocked(useAuth).mockReturnValue({
       user: { raw: { permissions: ["admin"] } },
     } as any);
 
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 500,
-    });
+    const mockGetSystemHealth = vi
+      .fn()
+      .mockRejectedValue(Object.assign(new Error("500 Service Unavailable"), { statusCode: 500 }));
+    vi.mocked(useApiClient).mockReturnValue(
+      makeApiClient({ health: { getSystemHealth: mockGetSystemHealth } }) as any
+    );
 
     await act(async () => {
       render(<SystemHealthBadge />);
@@ -137,10 +193,10 @@ describe("SystemHealthBadge", () => {
       timestamp: "2026-01-15T12:00:00Z",
     };
 
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(healthData),
-    });
+    const mockGetSystemHealth = vi.fn().mockResolvedValue(healthData);
+    vi.mocked(useApiClient).mockReturnValue(
+      makeApiClient({ health: { getSystemHealth: mockGetSystemHealth } }) as any
+    );
 
     await act(async () => {
       render(<SystemHealthBadge />);
@@ -152,5 +208,42 @@ describe("SystemHealthBadge", () => {
 
     expect(screen.queryByText("CI")).toBeNull();
     expect(screen.queryByText("Deploys")).toBeNull();
+  });
+});
+
+describe("SystemHealthBadge — polling", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("polls health every 60 seconds", async () => {
+    vi.mocked(useAuth).mockReturnValue({
+      user: { raw: { permissions: ["admin"] } },
+    } as any);
+
+    const mockGetSystemHealth = vi.fn().mockResolvedValue({
+      status: "healthy",
+      timestamp: "2026-01-15T12:00:00Z",
+    });
+    vi.mocked(useApiClient).mockReturnValue(
+      makeApiClient({ health: { getSystemHealth: mockGetSystemHealth } }) as any
+    );
+
+    await act(async () => {
+      render(<SystemHealthBadge />);
+    });
+
+    const initialCalls = mockGetSystemHealth.mock.calls.length;
+
+    await act(async () => {
+      vi.advanceTimersByTime(60_000);
+    });
+
+    expect(mockGetSystemHealth.mock.calls.length).toBeGreaterThan(initialCalls);
   });
 });
