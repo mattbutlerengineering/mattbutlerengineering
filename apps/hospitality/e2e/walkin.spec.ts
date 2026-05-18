@@ -1,4 +1,5 @@
 import { test, expect } from "./fixtures.js";
+// Screenshots saved to e2e/screenshots/{spec}-{state}.png on test run
 
 test.describe("CF-3: Walk-in creation", () => {
   test("opens walk-in dialog and lists available tables", async ({ mockedPage }) => {
@@ -19,6 +20,7 @@ test.describe("CF-3: Walk-in creation", () => {
     // Available tables are listed
     const tableList = dialog.getByTestId(/^table-list-/);
     await expect(tableList.first()).toBeVisible();
+    await mockedPage.screenshot({ path: "e2e/screenshots/walkin-dialog.png", fullPage: true });
   });
 
   test("creates walk-in and verifies timeline update", async ({ mockedPage }) => {
@@ -70,5 +72,6 @@ test.describe("CF-3: Walk-in creation", () => {
 
     // Dialog closes, no reservation created
     await expect(dialog).not.toBeVisible();
+    await mockedPage.screenshot({ path: "e2e/screenshots/walkin-cancelled.png", fullPage: true });
   });
 });

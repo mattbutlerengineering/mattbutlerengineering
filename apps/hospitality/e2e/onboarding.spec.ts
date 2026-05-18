@@ -1,4 +1,5 @@
 import { test, expect } from "./fixtures.js";
+// Screenshots saved to e2e/screenshots/{spec}-{state}.png on test run
 
 test.describe("Venue onboarding wizard", () => {
   test("page loads with heading and step 1 (Basic Info)", async ({ mockedPage }) => {
@@ -7,6 +8,7 @@ test.describe("Venue onboarding wizard", () => {
     await expect(mockedPage.getByRole("heading", { name: "New Venue" })).toBeVisible();
     await expect(mockedPage.getByLabel("Venue Name")).toBeVisible();
     await expect(mockedPage.getByLabel("Slug")).toBeVisible();
+    await mockedPage.screenshot({ path: "e2e/screenshots/onboarding-step1.png", fullPage: true });
   });
 
   test("step 1 requires venue name before advancing", async ({ mockedPage }) => {
@@ -35,6 +37,7 @@ test.describe("Venue onboarding wizard", () => {
 
     await expect(mockedPage.getByLabel("Timezone")).toBeVisible();
     await expect(mockedPage.getByLabel("Currency")).toBeVisible();
+    await mockedPage.screenshot({ path: "e2e/screenshots/onboarding-step2.png", fullPage: true });
   });
 
   test("Back button returns to previous step", async ({ mockedPage }) => {
@@ -70,5 +73,9 @@ test.describe("Venue onboarding wizard", () => {
 
     await expect(mockedPage.getByRole("button", { name: /create venue/i })).toBeVisible();
     await expect(mockedPage.getByText("Basic Information")).toBeVisible();
+    await mockedPage.screenshot({
+      path: "e2e/screenshots/onboarding-complete.png",
+      fullPage: true,
+    });
   });
 });

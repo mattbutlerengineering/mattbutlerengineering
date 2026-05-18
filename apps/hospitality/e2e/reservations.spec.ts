@@ -1,4 +1,5 @@
 import { test, expect } from "./fixtures.js";
+// Screenshots saved to e2e/screenshots/{spec}-{state}.png on test run
 
 test.describe("CF-6: Reservations page with filtering", () => {
   test("page loads with header and stats row", async ({ mockedPage }) => {
@@ -8,6 +9,7 @@ test.describe("CF-6: Reservations page with filtering", () => {
 
     const statsRow = mockedPage.locator('[role="status"]').first();
     await expect(statsRow).toBeVisible();
+    await mockedPage.screenshot({ path: "e2e/screenshots/reservations-list.png", fullPage: true });
   });
 
   test("displays status filter segments and search input", async ({ mockedPage }) => {
@@ -20,6 +22,10 @@ test.describe("CF-6: Reservations page with filtering", () => {
 
     const searchInput = mockedPage.getByRole("textbox");
     await expect(searchInput).toBeVisible();
+    await mockedPage.screenshot({
+      path: "e2e/screenshots/reservations-filters.png",
+      fullPage: true,
+    });
   });
 
   test("status filter updates list when Confirmed is selected", async ({ mockedPage }) => {
@@ -57,5 +63,6 @@ test.describe("CF-6: Reservations page with filtering", () => {
     await searchInput.fill("zzzzz-no-match-9999");
 
     await expect(mockedPage.getByText("No reservations")).toBeVisible();
+    await mockedPage.screenshot({ path: "e2e/screenshots/reservations-empty.png", fullPage: true });
   });
 });
