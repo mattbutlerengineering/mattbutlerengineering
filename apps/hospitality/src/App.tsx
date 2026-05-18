@@ -106,12 +106,12 @@ export function App() {
   }
 
   return (
-    <>
+    <div className={styles.authLayout} data-testid="auth-layout">
       {nav}
       <Suspense fallback={<LoadingPage />}>
         <Outlet />
       </Suspense>
-    </>
+    </div>
   );
 }
 

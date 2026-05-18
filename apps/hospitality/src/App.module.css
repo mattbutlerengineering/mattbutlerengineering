@@ -36,6 +36,15 @@
   outline: none;
 }
 
+/* ── Authenticated layout (nav pinned, content scrolls) ── */
+
+.authLayout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
 /* ── Footer ──────────────────────────────────── */
 
 .footer {
