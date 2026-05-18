@@ -21,12 +21,15 @@ Project-specific traps that have bitten me before. Read these before diving into
 ## CI
 
 - **GH Actions is paid and runs on every PR** — verify state with `gh run list --limit 5` before claiming CI is broken. (The earlier "intentionally unpaid" note was true pre-OSS-launch and is now stale)
-- **Baseline checks fail on `main`:** `Typecheck`, `Coverage Check`, and `Accessibility AI Attribution` currently fail on every PR because `main` itself fails them. Don't file `ci-fix` issues for these — they're not regressions from the PR. Admin-merge unrelated PRs through, and tackle the baseline failures in a dedicated fix-up PR
+- **Baseline checks fail on `main`:** `Typecheck`, `Coverage Check`, `Integrity`, and `Accessibility AI Attribution` currently fail on every PR because `main` itself fails them. Don't file `ci-fix` issues for these — they're not regressions from the PR. Admin-merge unrelated PRs through, and tackle the baseline failures in a dedicated fix-up PR
+- **Integrity fails due to Node 20/22 ts-morph formatting diff** — the `pack` command's `getText()` output differs between Node 20 (local) and Node 22 (CI), causing llms-full.txt line-wrapping differences. This is a baseline issue on main, not a PR regression
 - **`Accessibility AI Attribution` fails with "Results file not found: a11y-results.json"** — the processing step expects an artifact from an upstream a11y scan step that doesn't produce it. This is a workflow config issue, not a code issue
 - **Coverage Check failures may be baseline, not PR-caused.** Before adding tests to fix a coverage CI failure, check if the failing package's coverage is also below threshold on `main`. If the PR branch was based on an older commit, rebasing onto current `main` may resolve it. Close the issue and document rather than writing unnecessary tests
 - **Architecture Audit only needs CLI deps built.** The job uses `pnpm build --filter @mbe/cli...` (turbo `...` = transitive deps). Never use bare `pnpm build` here — unrelated packages with TS errors (e.g. agent-service test files) would fail the entire job even though they have nothing to do with ADR/dep checks
 - **ACMM scanner checks file/dir existence, not contents.** Criteria marked `scannable: false` (correction-capture, positive-reinforcement, session-summary, etc.) pass detection when the directory exists — even if it's empty. Always audit substance (file count, entry quality) separately when evaluating maturity level
 - **Adding/changing packages requires `pnpm generate:dep-graph`** — CI's Build job regenerates the dependency graph and fails if the committed `infrastructure/worker/dep-graph.json` doesn't match. The pre-commit hook doesn't run this, so you must do it manually after adding a new workspace package or changing `dependencies`/`devDependencies`
+
+- **Local `generated-schemas.ts` modifications pollute drift-check** — if `packages/rialto-catalog/src/generated-schemas.ts` has uncommitted changes (e.g. from running the generator with different rialto dist), the drift-check test reads the modified file and fails. Fix: `git checkout -- packages/rialto-catalog/src/generated-schemas.ts` before push
 
 ## Dependencies
 

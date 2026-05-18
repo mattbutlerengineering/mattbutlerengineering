@@ -103,6 +103,10 @@ When spawning subagents with `isolation: "worktree"`, always include `pnpm insta
 
 ---
 
+## Feature Implementation
+
+Always use TDD (test-driven development) for feature work. Write tests FIRST, verify they fail, then implement. Never write implementation code before having a failing test. Use `/tdd` skill for the workflow.
+
 ## Before Committing
 
 Always perform the **Zero-Touch Audit** defined in [AGENTS.md](./AGENTS.md) before committing. This includes running `pnpm lint`, `pnpm typecheck`, and `pnpm test`, scanning for conflict markers, verifying imports, and updating generated files.
