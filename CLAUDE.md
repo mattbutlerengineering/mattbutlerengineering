@@ -84,14 +84,15 @@ mbe up                                           # Start dev servers
 
 Managed at https://claude.ai/code/scheduled
 
-| Trigger                | Schedule (PT)                                                     |
-| ---------------------- | ----------------------------------------------------------------- |
-| `mbe-deep-audit`       | Mon 8:23am                                                        |
-| `mbe-light-audit`      | Tue-Sun 9:41am                                                    |
-| `mbe-issue-worker`     | Every 2h (includes CI monitoring)                                 |
-| `mbe-progress-tracker` | Daily 5:11pm                                                      |
-| `mbe-acmm-audit`       | Daily 10:00am (runs `/acmm-audit --apply --badge`)                |
-| `mbe-learning-loop`    | Daily 11:00am (sensor report → verify fixes → triage regressions) |
+| Trigger             | Schedule (PT)                                                     |
+| ------------------- | ----------------------------------------------------------------- |
+| `mbe-deep-audit`    | Mon 8:23am (weekly full site audit)                               |
+| `mbe-morning`       | Daily 9:03am (light audit + ACMM audit + issue-worker)            |
+| `mbe-midday`        | Daily 1:07pm (issue-worker + CI monitor)                          |
+| `mbe-evening`       | Daily 5:11pm (issue-worker + progress-tracker)                    |
+| `mbe-learning-loop` | Daily 11:00am (sensor report → verify fixes → triage regressions) |
+
+> **Max 5x plan**: 5 scheduled runs/day. The above fits exactly. `mbe-deep-audit` only fires Mon so Tue-Sun has 4 daily runs + headroom.
 
 ---
 
