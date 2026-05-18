@@ -395,9 +395,7 @@
           }
     
           if (reservation.status === "PENDING") {
-            await reservationService.update(result.reservationId!, {
-              status: "CONFIRMED",
-            });
+            await reservationService.update(result.reservationId!, { status: "CONFIRMED" });
           }
     
           return reply.status(200).type("text/html").send(successHtml);
@@ -474,10 +472,7 @@
         }
       );
     
-      fastify.get<{
-        Params: { venueId: string };
-        Reply: ApiResponse<FloorPlan> | ApiError;
-      }>(
+      fastify.get<{ Params: { venueId: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
         "/venue/:venueId/active",
         {
           schema: {
@@ -501,10 +496,7 @@
         }
       );
     
-      fastify.get<{
-        Params: { id: string };
-        Reply: ApiResponse<FloorPlan> | ApiError;
-      }>(
+      fastify.get<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
         "/:id",
         {
           schema: {
@@ -526,10 +518,7 @@
         }
       );
     
-      fastify.post<{
-        Body: CreateFloorPlanRequest;
-        Reply: ApiResponse<FloorPlan> | ApiError;
-      }>(
+      fastify.post<{ Body: CreateFloorPlanRequest; Reply: ApiResponse<FloorPlan> | ApiError }>(
         "/",
         {
           preHandler: requireAuth,
@@ -553,10 +542,7 @@
         }
       );
     
-      fastify.post<{
-        Params: { id: string };
-        Reply: ApiResponse<FloorPlan> | ApiError;
-      }>(
+      fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
         "/:id/clone",
         {
           preHandler: requireAuth,
@@ -615,10 +601,7 @@
         }
       );
     
-      fastify.post<{
-        Params: { id: string };
-        Reply: ApiResponse<FloorPlan> | ApiError;
-      }>(
+      fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
         "/:id/activate",
         {
           preHandler: requireAuth,
@@ -723,10 +706,7 @@
         }
       );
     
-      fastify.post<{
-        Params: { tableId: string };
-        Reply: { data: Table } | ApiError;
-      }>(
+      fastify.post<{ Params: { tableId: string }; Reply: { data: Table } | ApiError }>(
         "/tables/:tableId/remove",
         {
           preHandler: requireAuth,
@@ -1170,11 +1150,7 @@
               .code(400)
               .send(createProblemDetails(400, "Bad Request", "Either email or phone is required"));
           }
-          const guest = await guestService.findOrCreate(venueId, {
-            email,
-            phone,
-            name,
-          });
+          const guest = await guestService.findOrCreate(venueId, { email, phone, name });
           return { data: guest };
         }
       );
@@ -1724,12 +1700,7 @@
                 notes: reservation.notes,
               },
               venue: venue
-                ? {
-                    id: venue.id,
-                    name: venue.name,
-                    slug: venue.slug,
-                    ianaTimezone: venue.ianaTimezone,
-                  }
+                ? { id: venue.id, name: venue.name, slug: venue.slug, ianaTimezone: venue.ianaTimezone }
                 : null,
             },
           });
@@ -1801,12 +1772,7 @@
     export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.post<{
         Params: { slug: string };
-        Body: {
-          date: string;
-          startTime: string;
-          endTime: string;
-          partySize: number;
-        };
+        Body: { date: string; startTime: string; endTime: string; partySize: number };
         Reply: ApiResponse<ReservationHold>;
       }>(
         "/:slug/holds",
@@ -4056,7 +4022,9 @@
     function validateCorsOrigins(origins: string[]): string[] {
       const validPatterns = [
         /^https:\/\/([a-z-]+\.)?mattbutlerengineering\.com$/,
-        ...(process.env.NODE_ENV === "development" ? [/^http:\/\/localhost:\d+$/] : []),
+        ...(process.env.NODE_ENV === "development"
+          ? [/^http:\/\/localhost:\d+$/]
+          : []),
       ];
     
       const validated: string[] = [];
@@ -4065,7 +4033,9 @@
         if (validPatterns.some((p) => p.test(trimmed))) {
           validated.push(trimmed);
         } else {
-          console.warn(`[CORS] Rejected invalid origin from CORS_ORIGINS: ${trimmed}`);
+          console.warn(
+            `[CORS] Rejected invalid origin from CORS_ORIGINS: ${trimmed}`
+          );
         }
       }
       return validated;
