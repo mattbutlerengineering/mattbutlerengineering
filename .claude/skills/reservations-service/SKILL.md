@@ -13,19 +13,25 @@ This skill provides patterns and workflows for developing the Reservations Servi
 **Framework**: Fastify v5 with TypeScript
 **Database**: PostgreSQL via Prisma
 **Auth**: Auth0 JWT verification with jose
-**Port**: 3002 (API docs at http://localhost:3002/docs)
+**Port**: 3004 (API docs at http://localhost:3004/docs)
 
 ### Key Files
 
-| File                          | Purpose                                           |
-| ----------------------------- | ------------------------------------------------- |
-| `src/app.ts`                  | Fastify app setup, plugin registration            |
-| `src/routes/tables.ts`        | Table CRUD endpoints (create/update require auth) |
-| `src/routes/reservations.ts`  | Reservation CRUD endpoints                        |
-| `src/services/table.ts`       | Table business logic (Prisma operations)          |
-| `src/services/reservation.ts` | Reservation business logic                        |
-| `src/schemas/index.ts`        | OpenAPI schema definitions                        |
-| `prisma/schema.prisma`        | Database schema                                   |
+| File                               | Purpose                                           |
+| ---------------------------------- | ------------------------------------------------- |
+| `src/app.ts`                       | Fastify app setup, plugin registration            |
+| `src/routes/tables.ts`             | Table CRUD endpoints (create/update require auth) |
+| `src/routes/reservations.ts`       | Reservation CRUD endpoints                        |
+| `src/routes/venues.ts`             | Venue CRUD endpoints                              |
+| `src/routes/floor-plans.ts`        | Floor plan CRUD endpoints                         |
+| `src/routes/guests.ts`             | Guest management endpoints                        |
+| `src/routes/availability.ts`       | Availability check endpoints                      |
+| `src/routes/holds.ts`              | Reservation hold endpoints                        |
+| `src/routes/cancel-reservation.ts` | Self-service cancellation endpoint                |
+| `src/services/table.ts`            | Table business logic (Prisma operations)          |
+| `src/services/reservation.ts`      | Reservation business logic                        |
+| `src/schemas/index.ts`             | OpenAPI schema definitions                        |
+| `prisma/schema.prisma`             | Database schema                                   |
 
 ## Adding New Endpoints
 
@@ -42,7 +48,7 @@ fastify.get<{
 }>(
   "/endpoint-path",
   {
-    preHandler: verifyAuth, // Add for protected routes
+    preHandler: requireAuth, // Add for protected routes
     schema: {
       summary: "Short action description",
       operationId: "uniqueOperationName",
@@ -83,7 +89,7 @@ This service uses two auth patterns:
 fastify.post<{ Body: CreateTableRequest; Reply: ApiResponse<Table> | ApiError }>(
   "/",
   {
-    preHandler: verifyAuth, // Requires valid JWT
+    preHandler: requireAuth, // Requires valid JWT
     schema: {
       security: [{ bearerAuth: [] }],
       // ...
@@ -166,7 +172,7 @@ pnpm test                              # Run all tests
 pnpm test:watch                        # Watch mode
 pnpm test:coverage                     # Coverage report
 npx vitest run src/routes/tables.test.ts  # Single file
-npx vitest --grep "POST /v1/tables"    # Match pattern
+npx vitest --grep "POST /api/v1/tables"    # Match pattern
 ```
 
 ### Test Structure Pattern
@@ -249,7 +255,7 @@ describe("Table Routes", () => {
 
     const response = await app.inject({
       method: "POST",
-      url: "/v1/tables",
+      url: "/api/v1/tables",
       headers: { authorization: "Bearer valid-token" },
       payload: { name: "Table 1", capacity: 4 },
     });
@@ -312,24 +318,24 @@ For schema changes, use the `prisma-migrations` skill.
 
 ### Tables
 
-| Method | Path             | Auth | Description                                   |
-| ------ | ---------------- | ---- | --------------------------------------------- |
-| GET    | `/v1/tables`     | No   | List tables (paginated, filter by activeOnly) |
-| GET    | `/v1/tables/:id` | No   | Get table by ID                               |
-| POST   | `/v1/tables`     | Yes  | Create table                                  |
-| PATCH  | `/v1/tables/:id` | Yes  | Update table                                  |
-| DELETE | `/v1/tables/:id` | Yes  | Delete table                                  |
+| Method | Path                 | Auth | Description                                   |
+| ------ | -------------------- | ---- | --------------------------------------------- |
+| GET    | `/api/v1/tables`     | No   | List tables (paginated, filter by activeOnly) |
+| GET    | `/api/v1/tables/:id` | No   | Get table by ID                               |
+| POST   | `/api/v1/tables`     | Yes  | Create table                                  |
+| PATCH  | `/api/v1/tables/:id` | Yes  | Update table                                  |
+| DELETE | `/api/v1/tables/:id` | Yes  | Delete table                                  |
 
 ### Reservations
 
-| Method | Path                   | Auth     | Description                                               |
-| ------ | ---------------------- | -------- | --------------------------------------------------------- |
-| GET    | `/v1/reservations`     | No       | List reservations (filter by date/status/tableId/venueId) |
-| GET    | `/v1/reservations/me`  | Yes      | Get current user's reservations                           |
-| GET    | `/v1/reservations/:id` | No       | Get reservation by ID                                     |
-| POST   | `/v1/reservations`     | Optional | Create reservation (guest or user)                        |
-| PATCH  | `/v1/reservations/:id` | No       | Update reservation                                        |
-| DELETE | `/v1/reservations/:id` | No       | Cancel reservation (sets status to CANCELLED)             |
+| Method | Path                       | Auth     | Description                                               |
+| ------ | -------------------------- | -------- | --------------------------------------------------------- |
+| GET    | `/api/v1/reservations`     | No       | List reservations (filter by date/status/tableId/venueId) |
+| GET    | `/api/v1/reservations/me`  | Yes      | Get current user's reservations                           |
+| GET    | `/api/v1/reservations/:id` | No       | Get reservation by ID                                     |
+| POST   | `/api/v1/reservations`     | Optional | Create reservation (guest or user)                        |
+| PATCH  | `/api/v1/reservations/:id` | No       | Update reservation                                        |
+| DELETE | `/api/v1/reservations/:id` | No       | Cancel reservation (sets status to CANCELLED)             |
 
 ### Health
 
@@ -355,7 +361,7 @@ pnpm typecheck # TypeScript
 
 ### Open API Docs
 
-Navigate to http://localhost:3002/docs for interactive Scalar API documentation.
+Navigate to http://localhost:3004/docs for interactive Scalar API documentation.
 
 ### Database Operations
 
@@ -415,7 +421,7 @@ All errors follow this structure:
 
 1. [ ] Add TypeScript types for Params/Body/Reply
 2. [ ] Include OpenAPI schema with summary, description, tags
-3. [ ] Add `preHandler: verifyAuth` or `optionalAuth` as needed
+3. [ ] Add `preHandler: requireAuth` or `optionalAuth` as needed
 4. [ ] Add `security: [{ bearerAuth: [] }]` if auth required
 5. [ ] Handle all error cases (400, 401, 404, 500)
 6. [ ] Add service method if new business logic needed

@@ -35,7 +35,7 @@ Push to main
 
 ### 2. API Services (`deploy-services.yml`)
 
-**Trigger paths**: `services/users/**`, `services/reservations/**`, `services/agent/**`, `packages/types/**`, `packages/auth/**`, `packages/agent-core/**`
+**Trigger paths**: `services/users/**`, `services/reservations/**`, `services/agent/**`, `packages/types/**`, `packages/auth/**`, `packages/agent-core/**`, `packages/observability/**`
 
 **Mechanism**: Installs `doctl`, finds the `mattbutlerengineering-api` app by name, triggers `doctl apps create-deployment --wait`.
 

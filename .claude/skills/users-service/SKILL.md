@@ -40,7 +40,7 @@ fastify.get<{
 }>(
   "/endpoint-path",
   {
-    preHandler: verifyAuth, // Add for protected routes
+    preHandler: requireAuth, // Add for protected routes
     schema: {
       summary: "Short action description",
       operationId: "uniqueOperationName",
@@ -73,13 +73,13 @@ fastify.get<{
 
 ### Adding a Protected Endpoint
 
-Protected endpoints require JWT authentication. Add `preHandler: verifyAuth` and `security` schema:
+Protected endpoints require JWT authentication. Add `preHandler: requireAuth` and `security` schema:
 
 ```typescript
 fastify.get<{ Reply: ApiResponse<User> }>(
   "/me/profile",
   {
-    preHandler: verifyAuth, // JWT verification
+    preHandler: requireAuth, // JWT verification
     schema: {
       summary: "Get extended profile",
       operationId: "getExtendedProfile",
@@ -146,7 +146,7 @@ pnpm test                          # Run all tests
 pnpm test:watch                    # Watch mode
 pnpm test:coverage                 # Coverage report
 npx vitest run src/routes/users.test.ts  # Single file
-npx vitest --grep "GET /v1/users"  # Match pattern
+npx vitest --grep "GET /api/v1/users"  # Match pattern
 ```
 
 ### Test Structure Pattern
@@ -181,7 +181,7 @@ describe("User Routes", () => {
     vi.clearAllMocks();
   });
 
-  describe("GET /v1/users", () => {
+  describe("GET /api/v1/users", () => {
     it("should return paginated users", async () => {
       const mockUsers = [{ id: "1", email: "test@example.com" /* ... */ }];
 
@@ -192,7 +192,7 @@ describe("User Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/v1/users",
+        url: "/api/v1/users",
       });
 
       expect(response.statusCode).toBe(200);
@@ -213,7 +213,7 @@ Mock the auth layer or test 401 responses:
 it("should return 401 without auth header", async () => {
   const response = await app.inject({
     method: "GET",
-    url: "/v1/users/me",
+    url: "/api/v1/users/me",
   });
 
   expect(response.statusCode).toBe(401);
@@ -233,7 +233,7 @@ AUTH_AUDIENCE=https://api.mattbutlerengineering.com
 
 1. Client gets JWT from Auth0
 2. Client sends `Authorization: Bearer <token>` header
-3. `verifyAuth` preHandler validates token via JWKS
+3. `requireAuth` preHandler validates token via JWKS
 4. `request.user` populated with user info from JWT claims
 
 ### JWT Payload Structure
@@ -281,16 +281,16 @@ For schema changes, use the `prisma-migrations` skill.
 
 ## API Endpoints Reference
 
-| Method | Path                       | Auth | Description                     |
-| ------ | -------------------------- | ---- | ------------------------------- |
-| GET    | `/v1/users`                | No   | List users (paginated)          |
-| GET    | `/v1/users/:id`            | No   | Get user by ID                  |
-| POST   | `/v1/users`                | No   | Create user                     |
-| PATCH  | `/v1/users/:id`            | No   | Update user                     |
-| DELETE | `/v1/users/:id`            | No   | Delete user                     |
-| GET    | `/v1/users/me`             | Yes  | Get current user (auto-creates) |
-| PATCH  | `/v1/users/me/preferences` | Yes  | Update preferences              |
-| GET    | `/health`                  | No   | Health check                    |
+| Method | Path                           | Auth | Description                     |
+| ------ | ------------------------------ | ---- | ------------------------------- |
+| GET    | `/api/v1/users`                | No   | List users (paginated)          |
+| GET    | `/api/v1/users/:id`            | No   | Get user by ID                  |
+| POST   | `/api/v1/users`                | No   | Create user                     |
+| PATCH  | `/api/v1/users/:id`            | No   | Update user                     |
+| DELETE | `/api/v1/users/:id`            | No   | Delete user                     |
+| GET    | `/api/v1/users/me`             | Yes  | Get current user (auto-creates) |
+| PATCH  | `/api/v1/users/me/preferences` | Yes  | Update preferences              |
+| GET    | `/health`                      | No   | Health check                    |
 
 ## Common Development Tasks
 
@@ -336,7 +336,7 @@ All errors follow this structure:
 
 1. [ ] Add TypeScript types for Params/Body/Reply
 2. [ ] Include OpenAPI schema with summary, description, tags
-3. [ ] Add `preHandler: verifyAuth` if protected
+3. [ ] Add `preHandler: requireAuth` if protected
 4. [ ] Add `security: [{ bearerAuth: [] }]` if protected
 5. [ ] Handle all error cases (400, 401, 404, 500)
 6. [ ] Add service method if new business logic needed

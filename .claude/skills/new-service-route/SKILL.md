@@ -30,7 +30,7 @@ fastify.post<{
 }>(
   "/:id/clone",
   {
-    preHandler: [fastify.requireAuth],
+    preHandler: requireAuth,
     schema: {
       summary: "Clone a floor plan",
       operationId: "cloneFloorPlan",
