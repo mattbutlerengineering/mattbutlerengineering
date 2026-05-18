@@ -23,6 +23,7 @@ import { webhookRoutes } from "./routes/webhooks.js";
 import { genUiRoutes } from "./routes/gen-ui.js";
 import { genChatRoutes } from "./routes/gen-chat.js";
 import { genSpecsRoutes } from "./routes/gen-specs.js";
+import { genAgentRoutes } from "./routes/gen-agent.js";
 
 /**
  * Validates CORS origins from the CORS_ORIGINS env var against an allowlist.
@@ -185,6 +186,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   await fastify.register(genUiRoutes);
   await fastify.register(genChatRoutes);
   await fastify.register(genSpecsRoutes);
+  await fastify.register(genAgentRoutes);
 
   return fastify;
 }
