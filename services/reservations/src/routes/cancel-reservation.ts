@@ -15,15 +15,18 @@ const resendClient = process.env.RESEND_API_KEY
 
 const notificationAdapter = new ResendNotificationAdapter({
   resend: resendClient,
-  fromAddress:
-    process.env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
-  manageBaseUrl:
-    process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
+  fromAddress: process.env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
+  manageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
 });
 
 export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.delete<{ Querystring: { token?: string } }>(
     "/public/v1/reservations/manage",
+    {
+      config: {
+        rateLimit: { max: 10, timeWindow: "1 minute" },
+      },
+    },
     async (request, reply) => {
       const { token } = request.query;
 
@@ -56,9 +59,7 @@ export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      const reservation = await reservationService.getById(
-        result.reservationId!
-      );
+      const reservation = await reservationService.getById(result.reservationId!);
       if (!reservation) {
         return reply.status(404).send({
           type: "about:blank",
@@ -99,9 +100,7 @@ export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      const venue = reservation.venueId
-        ? await venueService.getById(reservation.venueId)
-        : null;
+      const venue = reservation.venueId ? await venueService.getById(reservation.venueId) : null;
 
       if (reservation.guestEmail && venue) {
         await notificationAdapter.sendBookingCancelled({
