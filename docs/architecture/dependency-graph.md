@@ -71,12 +71,11 @@ flowchart TD
   agent_service --> config
   reservations_service --> api_versioning
   reservations_service --> auth
-  reservations_service --> database
   reservations_service --> feature_flags
-  reservations_service --> notifications
   reservations_service --> observability
   reservations_service --> sentry
   reservations_service --> types
+  reservations_service --> database
   reservations_service --> config
   users_service --> api_versioning
   users_service --> auth

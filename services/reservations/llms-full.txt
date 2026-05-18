@@ -259,115 +259,6 @@
       );
     };
   </file>
-  <file path="src/routes/cancel-reservation.ts">
-    export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
-      fastify.delete<{ Querystring: { token?: string } }>(
-        "/public/v1/reservations/manage",
-        {
-          config: {
-            rateLimit: { max: 10, timeWindow: "1 minute" },
-          },
-        },
-        async (request, reply) => {
-          const { token } = request.query;
-    
-          if (!token) {
-            return reply.status(400).send({
-              type: "about:blank",
-              title: "Missing Token",
-              status: 400,
-              detail: "Token query parameter is required",
-            });
-          }
-    
-          const result = verifyManageToken(token);
-    
-          if (!result.valid && result.expired) {
-            return reply.status(410).send({
-              type: "about:blank",
-              title: "Token Expired",
-              status: 410,
-              detail: "This manage link has expired",
-            });
-          }
-    
-          if (!result.valid) {
-            return reply.status(401).send({
-              type: "about:blank",
-              title: "Invalid Token",
-              status: 401,
-              detail: "Invalid or malformed token",
-            });
-          }
-    
-          const reservation = await reservationService.getById(result.reservationId!);
-          if (!reservation) {
-            return reply.status(404).send({
-              type: "about:blank",
-              title: "Reservation Not Found",
-              status: 404,
-              detail: "Reservation not found",
-            });
-          }
-    
-          if (reservation.status === "CANCELLED") {
-            return reply.status(409).send({
-              type: "about:blank",
-              title: "Already Cancelled",
-              status: 409,
-              detail: "This reservation is already cancelled",
-            });
-          }
-    
-          if (reservation.status === "COMPLETED") {
-            return reply.status(409).send({
-              type: "about:blank",
-              title: "Cannot Cancel",
-              status: 409,
-              detail: "Cannot cancel a completed reservation",
-            });
-          }
-    
-          const updated = await reservationService.update(reservation.id, {
-            status: "CANCELLED",
-          });
-    
-          if (!updated) {
-            return reply.status(500).send({
-              type: "about:blank",
-              title: "Update Failed",
-              status: 500,
-              detail: "Failed to cancel reservation",
-            });
-          }
-    
-          const venue = reservation.venueId ? await venueService.getById(reservation.venueId) : null;
-    
-          if (reservation.guestEmail && venue) {
-            await notificationAdapter.sendBookingCancelled({
-              reservationId: reservation.id,
-              date: reservation.date,
-              startTime: reservation.startTime,
-              endTime: reservation.endTime,
-              partySize: reservation.partySize,
-              guestName: reservation.guestName,
-              guestEmail: reservation.guestEmail,
-              guestPhone: reservation.guestPhone ?? null,
-              specialRequests: reservation.notes ?? null,
-              venueName: venue.name,
-              venueTimezone: venue.ianaTimezone,
-              venueAddress: null,
-              manageToken: token,
-            });
-          }
-    
-          return reply.status(200).send({
-            data: { status: updated.status },
-          });
-        }
-      );
-    };
-  </file>
   <file path="src/routes/confirm-attendance.ts">
     export const confirmAttendanceRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.patch<{ Querystring: { token?: string } }>(
@@ -395,9 +286,7 @@
           }
     
           if (reservation.status === "PENDING") {
-            await reservationService.update(result.reservationId!, {
-              status: "CONFIRMED",
-            });
+            await reservationService.update(result.reservationId!, { status: "CONFIRMED" });
           }
     
           return reply.status(200).type("text/html").send(successHtml);
@@ -474,10 +363,7 @@
         }
       );
     
-      fastify.get<{
-        Params: { venueId: string };
-        Reply: ApiResponse<FloorPlan> | ApiError;
-      }>(
+      fastify.get<{ Params: { venueId: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
         "/venue/:venueId/active",
         {
           schema: {
@@ -501,10 +387,7 @@
         }
       );
     
-      fastify.get<{
-        Params: { id: string };
-        Reply: ApiResponse<FloorPlan> | ApiError;
-      }>(
+      fastify.get<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
         "/:id",
         {
           schema: {
@@ -526,10 +409,7 @@
         }
       );
     
-      fastify.post<{
-        Body: CreateFloorPlanRequest;
-        Reply: ApiResponse<FloorPlan> | ApiError;
-      }>(
+      fastify.post<{ Body: CreateFloorPlanRequest; Reply: ApiResponse<FloorPlan> | ApiError }>(
         "/",
         {
           preHandler: requireAuth,
@@ -553,10 +433,7 @@
         }
       );
     
-      fastify.post<{
-        Params: { id: string };
-        Reply: ApiResponse<FloorPlan> | ApiError;
-      }>(
+      fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
         "/:id/clone",
         {
           preHandler: requireAuth,
@@ -615,10 +492,7 @@
         }
       );
     
-      fastify.post<{
-        Params: { id: string };
-        Reply: ApiResponse<FloorPlan> | ApiError;
-      }>(
+      fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
         "/:id/activate",
         {
           preHandler: requireAuth,
@@ -723,10 +597,7 @@
         }
       );
     
-      fastify.post<{
-        Params: { tableId: string };
-        Reply: { data: Table } | ApiError;
-      }>(
+      fastify.post<{ Params: { tableId: string }; Reply: { data: Table } | ApiError }>(
         "/tables/:tableId/remove",
         {
           preHandler: requireAuth,
@@ -1170,11 +1041,7 @@
               .code(400)
               .send(createProblemDetails(400, "Bad Request", "Either email or phone is required"));
           }
-          const guest = await guestService.findOrCreate(venueId, {
-            email,
-            phone,
-            name,
-          });
+          const guest = await guestService.findOrCreate(venueId, { email, phone, name });
           return { data: guest };
         }
       );
@@ -1724,12 +1591,7 @@
                 notes: reservation.notes,
               },
               venue: venue
-                ? {
-                    id: venue.id,
-                    name: venue.name,
-                    slug: venue.slug,
-                    ianaTimezone: venue.ianaTimezone,
-                  }
+                ? { id: venue.id, name: venue.name, slug: venue.slug, ianaTimezone: venue.ianaTimezone }
                 : null,
             },
           });
@@ -1801,12 +1663,7 @@
     export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.post<{
         Params: { slug: string };
-        Body: {
-          date: string;
-          startTime: string;
-          endTime: string;
-          partySize: number;
-        };
+        Body: { date: string; startTime: string; endTime: string; partySize: number };
         Reply: ApiResponse<ReservationHold>;
       }>(
         "/:slug/holds",
