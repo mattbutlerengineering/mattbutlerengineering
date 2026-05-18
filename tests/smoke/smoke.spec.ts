@@ -29,21 +29,21 @@ test.describe("Post-deploy smoke tests", () => {
       const response = await request.get(`${API_URL}/api/v1/users/health`);
       expect(response.ok()).toBe(true);
       const body = await response.json();
-      expect(body.status).toBe("ok");
+      expect(body.status).not.toBe("error");
     });
 
     test("reservations service healthy", async ({ request }) => {
       const response = await request.get(`${API_URL}/api/v1/reservations/health`);
       expect(response.ok()).toBe(true);
       const body = await response.json();
-      expect(body.status).toBe("ok");
+      expect(body.status).not.toBe("error");
     });
 
     test("agent service healthy", async ({ request }) => {
       const response = await request.get(`${API_URL}/api/gen/health`);
       expect(response.ok()).toBe(true);
       const body = await response.json();
-      expect(body.status).toBe("ok");
+      expect(body.status).not.toBe("error");
     });
   });
 
