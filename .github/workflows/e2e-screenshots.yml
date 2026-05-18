@@ -24,8 +24,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Install Playwright browsers
         run: pnpm --dir apps/hospitality exec playwright install --with-deps chromium
-      - name: Build hospitality app
-        run: pnpm --dir apps/hospitality build
+      - name: Build hospitality and dependencies
+        run: pnpm build --filter @mbe/hospitality...
       - name: Start preview server
         run: pnpm --dir apps/hospitality preview --port 3002 &
       - name: Wait for server
