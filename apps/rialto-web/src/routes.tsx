@@ -36,9 +36,6 @@ const VisualTest = lazy(() =>
 const LayoutDemo = lazy(() =>
   import("./pages/layouts/LayoutDemo").then((m) => ({ default: m.LayoutDemo }))
 );
-const AcmmDashboard = lazy(() =>
-  import("./pages/dashboard/AcmmDashboard").then((m) => ({ default: m.AcmmDashboard }))
-);
 const DemoLayout = lazy(() =>
   import("./layouts/DemoLayout").then((m) => ({ default: m.DemoLayout }))
 );
@@ -382,11 +379,7 @@ export const routeTree: RouteObject[] = [
   // Showcase shell (sidebar + header) — eagerly imported to avoid double lazy-load waterfall on /rialto
   {
     element: <ShowcaseLayout />,
-    children: [
-      { index: true, element: <OverviewPage /> },
-      { path: "dashboard", element: suspended(AcmmDashboard) },
-      ...componentRoutes,
-    ],
+    children: [{ index: true, element: <OverviewPage /> }, ...componentRoutes],
   },
   // Demo pages — explicit "demos" path prefix avoids pathless layout ambiguity
   {
