@@ -299,10 +299,11 @@ vi.mock("@mbe/auth/fastify", () => ({
 | ---------------- | ---------- | ------- | -------------------------- |
 | `PORT`           | No         | 3001    | Service port               |
 | `LOG_LEVEL`      | No         | info    | Logging level              |
-| `CORS_ORIGIN`    | No         | `*`     | Allowed CORS origins       |
+| `CORS_ORIGINS`   | No         | `*`     | Comma-separated allowed CORS origins |
 | `AUTH_AUTHORITY` | Yes (prod) | —       | Auth0 domain URL           |
 | `AUTH_AUDIENCE`  | Yes (prod) | —       | Auth0 API identifier       |
 | `DATABASE_URL`   | Yes        | —       | Postgres connection string |
+| `SENTRY_DSN`     | No         | —       | Sentry DSN for error tracking |
 
 ## Commands
 
@@ -331,6 +332,6 @@ Both return the same structure including database connectivity status.
 
 ## Related Documentation
 
-- [Auth Package Skill](../packages/auth/SKILL.md)
+- [Auth Package](../packages/auth/CLAUDE.md)
 - [API Versioning](../docs/API-VERSIONING.md)
 - [Cross-Service Flows](../docs/CROSS-SERVICE-FLOWS.md)
