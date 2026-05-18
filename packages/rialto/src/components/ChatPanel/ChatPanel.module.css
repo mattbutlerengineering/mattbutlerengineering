@@ -1,0 +1,78 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--rialto-space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+}
+
+.emptyState {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--rialto-space-xl);
+  text-align: center;
+}
+
+.userMessage {
+  align-self: flex-end;
+  background: var(--rialto-accent);
+  color: #fff;
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  border-radius: var(--rialto-radius-soft);
+  max-width: 80%;
+}
+
+.assistantMessage {
+  align-self: flex-start;
+  background: var(--rialto-surface-elevated);
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  border-radius: var(--rialto-radius-soft);
+  max-width: 80%;
+}
+
+.loadingIndicator {
+  align-self: flex-start;
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+}
+
+.inputBar {
+  display: flex;
+  gap: var(--rialto-space-sm);
+  padding: var(--rialto-space-md);
+  border-block-start: 1px solid var(--rialto-border);
+  align-items: flex-end;
+}
+
+.input {
+  flex: 1;
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-primary);
+  background: var(--rialto-surface-recessed);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  padding: var(--rialto-space-sm);
+  resize: none;
+  outline: none;
+  transition: border-color 150ms var(--rialto-ease-precision);
+}
+
+.input:focus {
+  border-color: var(--rialto-accent);
+  box-shadow: var(--rialto-shadow-focus);
+}
+
+.input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

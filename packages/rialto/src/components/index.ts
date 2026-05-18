@@ -70,6 +70,7 @@ export * from "./Text";
 
 // ── Generative AI ───────────────────────────────
 export * from "./GenCopilot";
+export * from "./ChatPanel";
 
 // ── Media ──────────────────────────────────────
 export * from "./ImageUpload";
