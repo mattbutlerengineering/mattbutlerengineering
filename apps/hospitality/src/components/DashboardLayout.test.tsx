@@ -32,6 +32,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   CommandPalette: () => <div data-testid="command-palette" />,
   ErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   GenCopilot: () => <div data-testid="copilot" />,
+  ChatPanel: () => <div data-testid="chat-panel" />,
   Kbd: () => <div />,
   Button: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => (
     <button onClick={onClick}>{children}</button>

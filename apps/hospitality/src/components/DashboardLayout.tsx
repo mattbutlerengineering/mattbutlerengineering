@@ -6,6 +6,7 @@ import {
   CommandPalette,
   ErrorBoundary,
   GenCopilot,
+  ChatPanel,
   Kbd,
   Button,
   Stack,
@@ -58,6 +59,7 @@ function DashboardLayoutInner() {
   const readiness = useVenueReadiness();
 
   const [copilotOpen, setCopilotOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Readiness-based redirect guard
@@ -128,7 +130,7 @@ function DashboardLayoutInner() {
     [navigate, signOut]
   );
 
-  // Build dynamic nav sections from readiness state + copilot tool
+  // Build dynamic nav sections from readiness state + copilot + chat tools
   const sectionsWithCopilot = useMemo(
     () => [
       ...buildNavSections(readiness),
@@ -139,6 +141,11 @@ function DashboardLayoutInner() {
             id: "copilot",
             label: "Copilot",
             path: "/__copilot__",
+          },
+          {
+            id: "chat",
+            label: "Staff Chat",
+            path: "/__chat__",
           },
         ],
       },
@@ -154,11 +161,15 @@ function DashboardLayoutInner() {
     groups: paletteGroups,
   } = useCommandPalette({ sections: sectionsWithCopilot, navigate, toggleTheme, signOut });
 
-  // Custom navigate that handles copilot toggle
+  // Custom navigate that handles copilot + chat toggle
   const handleNavigateWithCopilot = useCallback(
     (path: string) => {
       if (path === "/__copilot__") {
         setCopilotOpen((prev) => !prev);
+        return;
+      }
+      if (path === "/__chat__") {
+        setChatOpen((prev) => !prev);
         return;
       }
       handleNavigate(path);
@@ -217,7 +228,7 @@ function DashboardLayoutInner() {
       />
 
       {/* ── Mobile sidebar toggle (visible < 768px only) ── */}
-      <button
+      <Button
         className={styles.mobileSidebarToggle}
         onClick={handleMobileToggle}
         aria-label={isMobileMenuOpen ? "Close sidebar" : "Open sidebar"}
@@ -239,7 +250,7 @@ function DashboardLayoutInner() {
           <line x1="3" y1="12" x2="21" y2="12" />
           <line x1="3" y1="18" x2="21" y2="18" />
         </svg>
-      </button>
+      </Button>
 
       <div className={styles.body}>
         <div className={styles.sidebarColumn}>
@@ -252,7 +263,7 @@ function DashboardLayoutInner() {
             onMobileClose={handleMobileClose}
             headerSlot={<VenueSwitcher onNavigate={handleNavigate} />}
           />
-          <button
+          <Button
             type="button"
             className={styles.commandHint}
             onClick={() => setPaletteOpen(true)}
@@ -260,8 +271,8 @@ function DashboardLayoutInner() {
           >
             <Kbd>{navigator.platform?.includes("Mac") ? "\u2318" : "Ctrl"}</Kbd>
             <Kbd>K</Kbd>
-            <span className={styles.commandHintLabel}>Search</span>
-          </button>
+            <Text className={styles.commandHintLabel}>Search</Text>
+          </Button>
         </div>
 
         <main
@@ -307,6 +318,15 @@ function DashboardLayoutInner() {
           domainContext={HOSPITALITY_DOMAIN_CONTEXT}
           getAccessToken={getAccessToken}
           registry={registry}
+        />
+      )}
+
+      {/* Conditionally mount ChatPanel — destroying it on close resets chat history */}
+      {chatOpen && (
+        <ChatPanel
+          onClose={() => setChatOpen(false)}
+          api="/api/gen/agent"
+          getAccessToken={getAccessToken}
         />
       )}
     </div>
