@@ -79,4 +79,15 @@ describe("App", () => {
     const { container } = renderApp();
     expect(container.querySelector("footer")).toBeNull();
   });
+
+  it("wraps authenticated view in a flex column layout for scroll containment", () => {
+    vi.mocked(useAuth).mockReturnValue({
+      isLoading: false,
+      isAuthenticated: true,
+    } as any);
+    renderApp();
+    const wrapper = screen.getByTestId("auth-layout");
+    expect(wrapper).toBeDefined();
+    expect(wrapper.className).toContain("authLayout");
+  });
 });
