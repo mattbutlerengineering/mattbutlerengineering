@@ -30,6 +30,7 @@ import { publicReservationRoutes } from "./routes/public-reservations.js";
 import { confirmAttendanceRoutes } from "./routes/confirm-attendance.js";
 import { manageReservationRoutes } from "./routes/manage-reservation.js";
 import { cancelReservationRoutes } from "./routes/cancel-reservation.js";
+import { modifyReservationRoutes } from "./routes/modify-reservation.js";
 
 /**
  * Validates CORS origins from the CORS_ORIGINS env var against an allowlist.
@@ -39,9 +40,7 @@ import { cancelReservationRoutes } from "./routes/cancel-reservation.js";
 function validateCorsOrigins(origins: string[]): string[] {
   const validPatterns = [
     /^https:\/\/([a-z-]+\.)?mattbutlerengineering\.com$/,
-    ...(process.env.NODE_ENV === "development"
-      ? [/^http:\/\/localhost:\d+$/]
-      : []),
+    ...(process.env.NODE_ENV === "development" ? [/^http:\/\/localhost:\d+$/] : []),
   ];
 
   const validated: string[] = [];
@@ -50,9 +49,7 @@ function validateCorsOrigins(origins: string[]): string[] {
     if (validPatterns.some((p) => p.test(trimmed))) {
       validated.push(trimmed);
     } else {
-      console.warn(
-        `[CORS] Rejected invalid origin from CORS_ORIGINS: ${trimmed}`
-      );
+      console.warn(`[CORS] Rejected invalid origin from CORS_ORIGINS: ${trimmed}`);
     }
   }
   return validated;
@@ -65,9 +62,7 @@ export interface AppOptions {
 /**
  * Creates the Fastify application instance.
  */
-export async function buildApp(
-  options: AppOptions = {}
-): Promise<FastifyInstance> {
+export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
   const fastify = Fastify({
     logger: options.logger ?? true,
     disableRequestLogging: true,
@@ -101,13 +96,10 @@ export async function buildApp(
   const validatedEnv = envOrigins ? validateCorsOrigins(envOrigins) : null;
 
   if (validatedEnv && validatedEnv.length === 0) {
-    console.warn(
-      "[CORS] All CORS_ORIGINS were rejected; falling back to defaults"
-    );
+    console.warn("[CORS] All CORS_ORIGINS were rejected; falling back to defaults");
   }
 
-  const corsOrigins =
-    validatedEnv && validatedEnv.length > 0 ? validatedEnv : defaultOrigins;
+  const corsOrigins = validatedEnv && validatedEnv.length > 0 ? validatedEnv : defaultOrigins;
 
   await fastify.register(cors, {
     origin: corsOrigins,
@@ -132,10 +124,7 @@ export async function buildApp(
       const ip = req.ip;
       const endpoint = req.url;
       rateLimitMonitor.recordHit(ip, endpoint);
-      req.log.warn(
-        { ip, endpoint, timestamp: new Date().toISOString() },
-        "Rate limit exceeded"
-      );
+      req.log.warn({ ip, endpoint, timestamp: new Date().toISOString() }, "Rate limit exceeded");
     },
   });
 
@@ -178,9 +167,7 @@ export async function buildApp(
   if (process.env.AUTH_AUTHORITY && process.env.AUTH_AUDIENCE) {
     await fastify.register(authPlugin, getAuthPluginOptionsFromEnv());
   } else if (process.env.NODE_ENV === "production") {
-    throw new Error(
-      "Fail-closed: AUTH_AUTHORITY and AUTH_AUDIENCE are required in production"
-    );
+    throw new Error("Fail-closed: AUTH_AUTHORITY and AUTH_AUDIENCE are required in production");
   } else {
     fastify.log.warn("Skipping Auth0 plugin registration (dev/test mode)");
   }
@@ -221,6 +208,7 @@ export async function buildApp(
   await fastify.register(confirmAttendanceRoutes);
   await fastify.register(manageReservationRoutes);
   await fastify.register(cancelReservationRoutes);
+  await fastify.register(modifyReservationRoutes);
 
   return fastify;
 }

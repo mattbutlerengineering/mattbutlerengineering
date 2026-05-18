@@ -395,9 +395,7 @@
           }
     
           if (reservation.status === "PENDING") {
-            await reservationService.update(result.reservationId!, {
-              status: "CONFIRMED",
-            });
+            await reservationService.update(result.reservationId!, { status: "CONFIRMED" });
           }
     
           return reply.status(200).type("text/html").send(successHtml);
@@ -474,10 +472,7 @@
         }
       );
     
-      fastify.get<{
-        Params: { venueId: string };
-        Reply: ApiResponse<FloorPlan> | ApiError;
-      }>(
+      fastify.get<{ Params: { venueId: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
         "/venue/:venueId/active",
         {
           schema: {
@@ -501,10 +496,7 @@
         }
       );
     
-      fastify.get<{
-        Params: { id: string };
-        Reply: ApiResponse<FloorPlan> | ApiError;
-      }>(
+      fastify.get<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
         "/:id",
         {
           schema: {
@@ -526,10 +518,7 @@
         }
       );
     
-      fastify.post<{
-        Body: CreateFloorPlanRequest;
-        Reply: ApiResponse<FloorPlan> | ApiError;
-      }>(
+      fastify.post<{ Body: CreateFloorPlanRequest; Reply: ApiResponse<FloorPlan> | ApiError }>(
         "/",
         {
           preHandler: requireAuth,
@@ -553,10 +542,7 @@
         }
       );
     
-      fastify.post<{
-        Params: { id: string };
-        Reply: ApiResponse<FloorPlan> | ApiError;
-      }>(
+      fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
         "/:id/clone",
         {
           preHandler: requireAuth,
@@ -615,10 +601,7 @@
         }
       );
     
-      fastify.post<{
-        Params: { id: string };
-        Reply: ApiResponse<FloorPlan> | ApiError;
-      }>(
+      fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
         "/:id/activate",
         {
           preHandler: requireAuth,
@@ -723,10 +706,7 @@
         }
       );
     
-      fastify.post<{
-        Params: { tableId: string };
-        Reply: { data: Table } | ApiError;
-      }>(
+      fastify.post<{ Params: { tableId: string }; Reply: { data: Table } | ApiError }>(
         "/tables/:tableId/remove",
         {
           preHandler: requireAuth,
@@ -1170,11 +1150,7 @@
               .code(400)
               .send(createProblemDetails(400, "Bad Request", "Either email or phone is required"));
           }
-          const guest = await guestService.findOrCreate(venueId, {
-            email,
-            phone,
-            name,
-          });
+          const guest = await guestService.findOrCreate(venueId, { email, phone, name });
           return { data: guest };
         }
       );
@@ -1724,13 +1700,174 @@
                 notes: reservation.notes,
               },
               venue: venue
-                ? {
-                    id: venue.id,
-                    name: venue.name,
-                    slug: venue.slug,
-                    ianaTimezone: venue.ianaTimezone,
-                  }
+                ? { id: venue.id, name: venue.name, slug: venue.slug, ianaTimezone: venue.ianaTimezone }
                 : null,
+            },
+          });
+        }
+      );
+    };
+  </file>
+  <file path="src/routes/modify-reservation.ts">
+    interface ModifyBody {
+      date?: string;
+      startTime?: string;
+      endTime?: string;
+      partySize?: number;
+      specialRequests?: string;
+    }
+    export const modifyReservationRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.patch<{ Querystring: { token?: string }; Body: ModifyBody }>(
+        "/public/v1/reservations/manage",
+        {
+          config: {
+            rateLimit: { max: 10, timeWindow: "1 minute" },
+          },
+        },
+        async (request, reply) => {
+          const { token } = request.query;
+    
+          if (!token) {
+            return reply.status(400).send({
+              type: "about:blank",
+              title: "Missing Token",
+              status: 400,
+              detail: "Token query parameter is required",
+            });
+          }
+    
+          const result = verifyManageToken(token);
+    
+          if (!result.valid && result.expired) {
+            return reply.status(410).send({
+              type: "about:blank",
+              title: "Token Expired",
+              status: 410,
+              detail: "This manage link has expired",
+            });
+          }
+    
+          if (!result.valid) {
+            return reply.status(401).send({
+              type: "about:blank",
+              title: "Invalid Token",
+              status: 401,
+              detail: "Invalid or malformed token",
+            });
+          }
+    
+          const reservation = await reservationService.getById(result.reservationId!);
+          if (!reservation) {
+            return reply.status(404).send({
+              type: "about:blank",
+              title: "Reservation Not Found",
+              status: 404,
+              detail: "Reservation not found",
+            });
+          }
+    
+          if (reservation.status === "CANCELLED") {
+            return reply.status(409).send({
+              type: "about:blank",
+              title: "Cannot Modify",
+              status: 409,
+              detail: "Cannot modify a cancelled reservation",
+            });
+          }
+    
+          if (reservation.status === "COMPLETED") {
+            return reply.status(409).send({
+              type: "about:blank",
+              title: "Cannot Modify",
+              status: 409,
+              detail: "Cannot modify a completed reservation",
+            });
+          }
+    
+          const body = request.body ?? {};
+          const { date, startTime, endTime, partySize, specialRequests } = body;
+    
+          const hasChanges =
+            date !== undefined ||
+            startTime !== undefined ||
+            endTime !== undefined ||
+            partySize !== undefined ||
+            specialRequests !== undefined;
+    
+          if (!hasChanges) {
+            return reply.status(400).send({
+              type: "about:blank",
+              title: "No Changes",
+              status: 400,
+              detail: "At least one field must be provided to modify",
+            });
+          }
+    
+          const updateData = {
+            ...(date !== undefined && { date }),
+            ...(startTime !== undefined && { startTime }),
+            ...(endTime !== undefined && { endTime }),
+            ...(partySize !== undefined && { partySize }),
+            ...(specialRequests !== undefined && { notes: specialRequests }),
+          };
+    
+          const updateResult = await reservationService.updateWithConflictCheck(
+            reservation.id,
+            updateData
+          );
+    
+          if (!updateResult.success) {
+            if (updateResult.conflict) {
+              return reply.status(409).send({
+                type: "about:blank",
+                title: "Slot Unavailable",
+                status: 409,
+                detail: updateResult.error,
+              });
+            }
+            return reply.status(500).send({
+              type: "about:blank",
+              title: "Update Failed",
+              status: 500,
+              detail: updateResult.error ?? "Failed to modify reservation",
+            });
+          }
+    
+          const updated = updateResult.reservation!;
+          const venue = updated.venueId ? await venueService.getById(updated.venueId) : null;
+    
+          if (updated.guestEmail && venue) {
+            await notificationAdapter.sendBookingModified({
+              reservationId: updated.id,
+              date: updated.date,
+              startTime: updated.startTime,
+              endTime: updated.endTime,
+              partySize: updated.partySize,
+              guestName: updated.guestName,
+              guestEmail: updated.guestEmail,
+              guestPhone: updated.guestPhone ?? null,
+              specialRequests: updated.notes ?? null,
+              venueName: venue.name,
+              venueTimezone: venue.ianaTimezone,
+              venueAddress: null,
+              manageToken: token,
+              sequence: 2,
+            });
+          }
+    
+          return reply.status(200).send({
+            data: {
+              reservation: {
+                id: updated.id,
+                date: updated.date,
+                startTime: updated.startTime,
+                endTime: updated.endTime,
+                partySize: updated.partySize,
+                guestName: updated.guestName,
+                guestEmail: updated.guestEmail,
+                status: updated.status,
+                notes: updated.notes,
+              },
             },
           });
         }
@@ -1801,12 +1938,7 @@
     export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.post<{
         Params: { slug: string };
-        Body: {
-          date: string;
-          startTime: string;
-          endTime: string;
-          partySize: number;
-        };
+        Body: { date: string; startTime: string; endTime: string; partySize: number };
         Reply: ApiResponse<ReservationHold>;
       }>(
         "/:slug/holds",

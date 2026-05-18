@@ -84,6 +84,20 @@
       export const manageReservationRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="src/routes/modify-reservation.ts">
+    <item priority="high">
+      interface ModifyBody {
+        date?: string;
+        startTime?: string;
+        endTime?: string;
+        partySize?: number;
+        specialRequests?: string;
+      }
+    </item>
+    <item priority="high">
+      export const modifyReservationRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="src/routes/public-availability.ts">
     <item priority="high">
       export const publicAvailabilityRoutes: FastifyPluginAsync;
