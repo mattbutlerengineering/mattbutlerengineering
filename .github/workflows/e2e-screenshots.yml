@@ -26,10 +26,6 @@ jobs:
         run: pnpm --dir apps/hospitality exec playwright install --with-deps chromium
       - name: Build hospitality and dependencies
         run: pnpm build --filter @mbe/hospitality...
-      - name: Start preview server
-        run: pnpm --dir apps/hospitality preview --port 3002 &
-      - name: Wait for server
-        run: npx wait-on http://localhost:3002 --timeout 30000
       - name: Run E2E tests
         env:
           E2E_AUTH0_DOMAIN: ${{ secrets.E2E_AUTH0_DOMAIN }}
