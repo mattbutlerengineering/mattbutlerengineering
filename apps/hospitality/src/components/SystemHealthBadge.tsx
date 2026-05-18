@@ -1,9 +1,22 @@
 import { useState, useEffect, useCallback } from "react";
-import { Badge, Button, Popover, Text } from "@mattbutlerengineering/rialto";
+import { Badge, Popover } from "@mattbutlerengineering/rialto";
 import { useAuth } from "@mbe/auth/react";
-import type { SystemHealth } from "@mbe/api-client";
-import { useApiClient } from "../hooks/useApiClient.js";
 import styles from "./SystemHealthBadge.module.css";
+
+interface ServiceHealth {
+  readonly status: string;
+  readonly version?: string;
+  readonly latency?: number;
+}
+
+interface SystemHealth {
+  readonly status: string;
+  readonly timestamp: string;
+  readonly services?: Record<string, ServiceHealth>;
+  readonly staticSites?: Record<string, { status: string }>;
+  readonly ci?: { status: string };
+  readonly deploy?: { status: string };
+}
 
 const POLL_INTERVAL_MS = 60_000;
 
@@ -33,7 +46,7 @@ function StatusDot({ status }: { readonly status: string }) {
   const color = colorMap[status] ?? "var(--rialto-text-tertiary)";
 
   return (
-    <Text
+    <span
       className={styles.dot}
       style={{ backgroundColor: color }}
       aria-label={`System ${status}`}
@@ -43,7 +56,6 @@ function StatusDot({ status }: { readonly status: string }) {
 
 export function SystemHealthBadge() {
   const { user } = useAuth();
-  const api = useApiClient();
   const [health, setHealth] = useState<SystemHealth | null>(null);
 
   // Only show to admin users — permissions live in the raw JWT claims
@@ -52,12 +64,16 @@ export function SystemHealthBadge() {
 
   const fetchHealth = useCallback(async () => {
     try {
-      const data = await api.health.getSystemHealth();
-      setHealth(data);
+      const response = await fetch("/api/health/system", {
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (response.ok) {
+        setHealth(await response.json());
+      }
     } catch {
       // Silent failure — badge just shows stale data
     }
-  }, [api]);
+  }, []);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -70,16 +86,16 @@ export function SystemHealthBadge() {
   if (!isAdmin || !health) return null;
 
   const trigger = (
-    <Button type="button" className={styles.trigger} aria-label={`System health: ${health.status}`}>
+    <button type="button" className={styles.trigger} aria-label={`System health: ${health.status}`}>
       <StatusDot status={health.status} />
-    </Button>
+    </button>
   );
 
   return (
     <Popover trigger={trigger} placement="bottom">
       <div className={styles.panel}>
         <div className={styles.header}>
-          <Text className={styles.title}>System Health</Text>
+          <span className={styles.title}>System Health</span>
           <Badge color={statusColor(health.status)} size="sm">
             {health.status}
           </Badge>
@@ -87,12 +103,12 @@ export function SystemHealthBadge() {
 
         {health.services && (
           <div className={styles.section}>
-            <Text className={styles.sectionLabel}>Services</Text>
+            <span className={styles.sectionLabel}>Services</span>
             {Object.entries(health.services).map(([name, svc]) => (
               <div key={name} className={styles.row}>
                 <StatusDot status={svc.status} />
-                <Text className={styles.name}>{name}</Text>
-                {svc.latency != null && <Text className={styles.meta}>{svc.latency}ms</Text>}
+                <span className={styles.name}>{name}</span>
+                {svc.latency != null && <span className={styles.meta}>{svc.latency}ms</span>}
               </div>
             ))}
           </div>
@@ -101,21 +117,21 @@ export function SystemHealthBadge() {
         {health.ci && (
           <div className={styles.row}>
             <StatusDot status={health.ci.status} />
-            <Text className={styles.name}>CI</Text>
+            <span className={styles.name}>CI</span>
           </div>
         )}
 
         {health.deploy && (
           <div className={styles.row}>
             <StatusDot status={health.deploy.status} />
-            <Text className={styles.name}>Deploys</Text>
+            <span className={styles.name}>Deploys</span>
           </div>
         )}
 
         <div className={styles.footer}>
-          <Text className={styles.meta}>
+          <span className={styles.meta}>
             Updated {new Date(health.timestamp).toLocaleTimeString()}
-          </Text>
+          </span>
         </div>
       </div>
     </Popover>
