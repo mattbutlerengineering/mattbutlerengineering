@@ -1,4 +1,5 @@
 import { test, expect } from "./fixtures.js";
+// Screenshots saved to e2e/screenshots/{spec}-{state}.png on test run
 
 test.describe("CF-7: Guest directory and search", () => {
   test("page loads with header and search input", async ({ mockedPage }) => {
@@ -8,6 +9,7 @@ test.describe("CF-7: Guest directory and search", () => {
 
     const searchInput = mockedPage.getByPlaceholder("Search guests...");
     await expect(searchInput).toBeVisible();
+    await mockedPage.screenshot({ path: "e2e/screenshots/guests-list.png", fullPage: true });
   });
 
   test("Add Guest button is visible", async ({ mockedPage }) => {
@@ -35,6 +37,10 @@ test.describe("CF-7: Guest directory and search", () => {
     await expect(
       mockedPage.getByText(/no guests found/i).or(mockedPage.getByText(/no guests yet/i))
     ).toBeVisible();
+    await mockedPage.screenshot({
+      path: "e2e/screenshots/guests-empty-search.png",
+      fullPage: true,
+    });
   });
 
   test("Add Guest dialog opens with required fields", async ({ mockedPage }) => {
@@ -47,6 +53,7 @@ test.describe("CF-7: Guest directory and search", () => {
 
     await expect(dialog.getByPlaceholder("Full name")).toBeVisible();
     await expect(dialog.getByPlaceholder("guest@example.com")).toBeVisible();
+    await mockedPage.screenshot({ path: "e2e/screenshots/guests-add-dialog.png", fullPage: true });
   });
 
   test("Add Guest dialog can be dismissed", async ({ mockedPage }) => {

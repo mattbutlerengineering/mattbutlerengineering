@@ -1,0 +1,42 @@
+name: E2E Screenshots
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/hospitality/**"
+  pull_request:
+    paths:
+      - "apps/hospitality/**"
+
+jobs:
+  screenshots:
+    name: Capture E2E Screenshots
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: pnpm/action-setup@a3252b7022e168dedd98d7f75d888cb28b5ea0c4 # v3
+        with:
+          version: 10
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "20"
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Playwright browsers
+        run: pnpm --dir apps/hospitality exec playwright install --with-deps chromium
+      - name: Build hospitality app
+        run: pnpm --dir apps/hospitality build
+      - name: Start preview server
+        run: pnpm --dir apps/hospitality preview --port 3002 &
+      - name: Wait for server
+        run: npx wait-on http://localhost:3002 --timeout 30000
+      - name: Run E2E tests
+        run: pnpm --dir apps/hospitality test:e2e
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: e2e-screenshots
+          path: apps/hospitality/e2e/screenshots/
+          retention-days: 30

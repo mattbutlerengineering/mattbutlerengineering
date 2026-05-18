@@ -1,4 +1,5 @@
 import { test, expect } from "./fixtures.js";
+// Screenshots saved to e2e/screenshots/{spec}-{state}.png on test run
 
 test.describe("CF-2: Timeline loads and displays reservations", () => {
   test("loads timeline with reservation grid", async ({ mockedPage }) => {
@@ -17,6 +18,10 @@ test.describe("CF-2: Timeline loads and displays reservations", () => {
     // Table rows are visible in the grid
     const tableRows = mockedPage.getByTestId(/^table-row-/);
     await expect(tableRows.first()).toBeVisible();
+    await mockedPage.screenshot({
+      path: "e2e/screenshots/timeline-interaction-grid.png",
+      fullPage: true,
+    });
   });
 
   test("venue selector visible for multi-venue", async ({ mockedPage }) => {
@@ -35,6 +40,10 @@ test.describe("CF-2: Timeline loads and displays reservations", () => {
     // Date navigation shows today's date
     const dateNav = mockedPage.getByTestId("date-navigation");
     await expect(dateNav).toBeVisible();
+    await mockedPage.screenshot({
+      path: "e2e/screenshots/timeline-interaction-date-nav.png",
+      fullPage: true,
+    });
   });
 
   test("reservation blocks are color-coded by status", async ({ mockedPage }) => {

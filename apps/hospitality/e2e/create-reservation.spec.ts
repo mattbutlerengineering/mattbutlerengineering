@@ -1,4 +1,5 @@
 import { test, expect } from "./fixtures.js";
+// Screenshots saved to e2e/screenshots/{spec}-{state}.png on test run
 
 test.describe("CF-4: Reservation edit flow", () => {
   test("opens reservation detail sidebar", async ({ mockedPage }) => {
@@ -15,6 +16,10 @@ test.describe("CF-4: Reservation edit flow", () => {
 
     // Shows reservation info
     await expect(sidebar.getByText(/guest|party/i)).toBeVisible();
+    await mockedPage.screenshot({
+      path: "e2e/screenshots/create-reservation-sidebar.png",
+      fullPage: true,
+    });
   });
 
   test("opens edit drawer and shows current values", async ({ mockedPage }) => {
@@ -38,6 +43,10 @@ test.describe("CF-4: Reservation edit flow", () => {
     const partySizeInput = drawer.getByLabel(/party size/i);
     await expect(partySizeInput).toBeVisible();
     await expect(partySizeInput).not.toBeDisabled();
+    await mockedPage.screenshot({
+      path: "e2e/screenshots/create-reservation-drawer.png",
+      fullPage: true,
+    });
   });
 
   test("saves edited party size and verifies update", async ({ mockedPage }) => {
@@ -86,5 +95,9 @@ test.describe("CF-4: Reservation edit flow", () => {
 
     // Drawer closes without saving
     await expect(drawer).not.toBeVisible();
+    await mockedPage.screenshot({
+      path: "e2e/screenshots/create-reservation-cancelled.png",
+      fullPage: true,
+    });
   });
 });
