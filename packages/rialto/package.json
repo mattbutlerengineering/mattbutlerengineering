@@ -74,6 +74,10 @@
       "types": "./dist/lib/components/Chalkboard/index.d.ts",
       "import": "./dist/lib/components/Chalkboard/index.js"
     },
+    "./ChatPanel": {
+      "types": "./dist/lib/components/ChatPanel/index.d.ts",
+      "import": "./dist/lib/components/ChatPanel/index.js"
+    },
     "./Checkbox": {
       "types": "./dist/lib/components/Checkbox/index.d.ts",
       "import": "./dist/lib/components/Checkbox/index.js"

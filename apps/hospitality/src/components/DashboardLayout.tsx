@@ -5,6 +5,7 @@ import {
   Breadcrumb,
   CommandPalette,
   ErrorBoundary,
+  ChatPanel,
   GenCopilot,
   Kbd,
   Button,
@@ -58,6 +59,8 @@ function DashboardLayoutInner() {
   const readiness = useVenueReadiness();
 
   const [copilotOpen, setCopilotOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMounted, setChatMounted] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Readiness-based redirect guard
@@ -136,6 +139,11 @@ function DashboardLayoutInner() {
         label: "Tools" as const,
         items: [
           {
+            id: "chat",
+            label: "Chat",
+            path: "/__chat__",
+          },
+          {
             id: "copilot",
             label: "Copilot",
             path: "/__copilot__",
@@ -157,6 +165,11 @@ function DashboardLayoutInner() {
   // Custom navigate that handles copilot toggle
   const handleNavigateWithCopilot = useCallback(
     (path: string) => {
+      if (path === "/__chat__") {
+        setChatMounted(true);
+        setChatOpen((prev) => !prev);
+        return;
+      }
       if (path === "/__copilot__") {
         setCopilotOpen((prev) => !prev);
         return;
@@ -217,7 +230,7 @@ function DashboardLayoutInner() {
       />
 
       {/* ── Mobile sidebar toggle (visible < 768px only) ── */}
-      <button
+      <Button
         className={styles.mobileSidebarToggle}
         onClick={handleMobileToggle}
         aria-label={isMobileMenuOpen ? "Close sidebar" : "Open sidebar"}
@@ -239,7 +252,7 @@ function DashboardLayoutInner() {
           <line x1="3" y1="12" x2="21" y2="12" />
           <line x1="3" y1="18" x2="21" y2="18" />
         </svg>
-      </button>
+      </Button>
 
       <div className={styles.body}>
         <div className={styles.sidebarColumn}>
@@ -252,7 +265,7 @@ function DashboardLayoutInner() {
             onMobileClose={handleMobileClose}
             headerSlot={<VenueSwitcher onNavigate={handleNavigate} />}
           />
-          <button
+          <Button
             type="button"
             className={styles.commandHint}
             onClick={() => setPaletteOpen(true)}
@@ -260,8 +273,8 @@ function DashboardLayoutInner() {
           >
             <Kbd>{navigator.platform?.includes("Mac") ? "\u2318" : "Ctrl"}</Kbd>
             <Kbd>K</Kbd>
-            <span className={styles.commandHintLabel}>Search</span>
-          </button>
+            <Text className={styles.commandHintLabel}>Search</Text>
+          </Button>
         </div>
 
         <main
@@ -298,6 +311,17 @@ function DashboardLayoutInner() {
           </ErrorBoundary>
         </main>
       </div>
+
+      {chatMounted && (
+        <div data-chat-wrapper="" style={{ display: chatOpen ? undefined : "none" }}>
+          <ChatPanel
+            onClose={() => setChatOpen(false)}
+            api="/api/gen/agent"
+            domainContext={HOSPITALITY_DOMAIN_CONTEXT}
+            getAccessToken={getAccessToken}
+          />
+        </div>
+      )}
 
       {/* Conditionally mount GenCopilot — destroying it on close resets all streaming state */}
       {copilotOpen && (

@@ -1,5 +1,7 @@
+import "@testing-library/jest-dom";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { useVenueReadiness } from "../hooks/useVenueReadiness.js";
@@ -31,6 +33,12 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Breadcrumb: () => <div data-testid="breadcrumb" />,
   CommandPalette: () => <div data-testid="command-palette" />,
   ErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  ChatPanel: (props: { onClose: () => void }) => (
+    <div data-testid="chat-panel">
+      <button onClick={props.onClose}>Close chat</button>
+      Chat Panel Content
+    </div>
+  ),
   GenCopilot: () => <div data-testid="copilot" />,
   Kbd: () => <div />,
   Button: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => (
@@ -110,5 +118,27 @@ describe("DashboardLayout", () => {
     expect(screen.getByTestId("breadcrumb")).toBeDefined();
     // DashboardSidebar is rendered but we mocked its internals or it's rendering labels
     expect(screen.getByText("Timeline")).toBeDefined();
+  });
+
+  it("keeps ChatPanel mounted after closing to preserve session state", async () => {
+    vi.mocked(useVenueReadiness).mockReturnValue({
+      status: "operational",
+      isLoading: false,
+      completedSteps: ["hours", "tables", "publish"],
+      nextStep: null,
+    } as any);
+    renderLayout("/");
+
+    const chatNav = screen.getByText("Chat");
+    const user = userEvent.setup();
+
+    await user.click(chatNav);
+    expect(screen.getByTestId("chat-panel")).toBeInTheDocument();
+
+    await user.click(screen.getByText("Close chat"));
+
+    expect(screen.getByTestId("chat-panel")).toBeInTheDocument();
+    const wrapper = screen.getByTestId("chat-panel").closest("[data-chat-wrapper]");
+    expect(wrapper).toHaveStyle({ display: "none" });
   });
 });

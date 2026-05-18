@@ -64,6 +64,7 @@ const PublicBookingPage = lazy(() =>
 const ManageReservationPage = lazy(() =>
   import("./pages/ManageReservationPage.js").then((m) => ({ default: m.ManageReservationPage }))
 );
+const ChatPage = lazy(() => import("./pages/ChatPage.js").then((m) => ({ default: m.ChatPage })));
 
 // Validate auth config at startup — fail fast with a user-friendly error
 const authConfigResult = validateAuthConfig();
@@ -108,6 +109,14 @@ const router = createBrowserRouter(
       element: <App />,
       children: [
         { path: "callback", element: <CallbackRedirect /> },
+        {
+          path: "chat",
+          element: (
+            <Suspense fallback={<LoadingPage />}>
+              <ChatPage />
+            </Suspense>
+          ),
+        },
         {
           element: (
             <Suspense fallback={<LoadingPage />}>

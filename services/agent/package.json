@@ -27,11 +27,13 @@
     "@fastify/swagger": "^9.7.0",
     "@fastify/swagger-ui": "^5.2.6",
     "@mbe/agent-core": "workspace:*",
+    "@mbe/api-client": "workspace:^",
     "@mbe/api-versioning": "workspace:*",
     "@mbe/auth": "workspace:^",
+    "@mbe/database": "workspace:*",
     "@mbe/observability": "workspace:*",
-    "@mbe/sentry": "workspace:*",
     "@mbe/rialto-catalog": "workspace:^",
+    "@mbe/sentry": "workspace:*",
     "@mbe/types": "workspace:*",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
@@ -40,8 +42,7 @@
     "ai": "^6.0.177",
     "fastify": "catalog:",
     "pg": "^8.20.0",
-    "zod": "catalog:",
-    "@mbe/database": "workspace:*"
+    "zod": "catalog:"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
