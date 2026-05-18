@@ -31,7 +31,7 @@ Use sub-agents (`codebase_investigator`, `generalist`, `gsd-executor`) aggressiv
 A task is not complete until it satisfies the original requirements and passes all automated tests. Always perform the **Zero-Touch Audit** (defined in [AGENTS.md](./AGENTS.md)) before committing:
 
 - **Verifications:** Run `pnpm lint`, `pnpm typecheck`, and `pnpm test`.
-- **Update Generated Files:** Run `pnpm build && mbe pack` and `pnpm --dir tools/mbe generate-dep-graph` if needed.
+- **Update Generated Files:** Run `pnpm build && mbe pack` and `pnpm generate:dep-graph` if needed.
 
 ### 6. Performance Logging
 

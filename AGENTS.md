@@ -75,7 +75,7 @@ The system includes a **Chaos Agent** and **Revert RCA Loop** to ensure high sig
 - **Revert RCA Loop:** Automatic trigger (`scripts/revert-rca.mjs`) that fires when an AI PR is reverted. It creates a critical RCA issue tasked for an agent to perform a Root Cause Analysis and update `.claude/rules/gotchas.md`.
 
 `mbe` CLI subcommands (real binary):
-`agent`, `stats`, `up`, `pack`, `prime`, `new`, `generate`, `check-adr`, `check-deps`, `check-model`, `cleanup-worktrees`, `health`, `compound`, `loop`, `wave`, `visual`, `users`, `login`/`logout`/`whoami`, `sync-rules`. Run `mbe --help` for current list.
+`agent`, `stats`, `up`, `pack`, `prime`, `new`, `generate`, `check-adr`, `check-deps`, `check-model`, `cleanup-worktrees`, `health`, `loop`, `wave`, `visual`, `users`, `login`/`logout`/`whoami`, `sync-rules`. Run `mbe --help` for current list.
 
 ---
 
@@ -90,7 +90,7 @@ To minimize human intervention and maintain a low human-touch ratio, agents must
 - [ ] **Stale Generated Files:** If you modify schemas, dependencies, or Rialto components, run the relevant regeneration scripts:
   - `pnpm build` (to update dist/exports)
   - `mbe pack` (to update AI context skeletons)
-  - `pnpm --dir tools/mbe generate-dep-graph` (if package dependencies changed)
+  - `pnpm generate:dep-graph` (if package dependencies changed)
 - [ ] **Synchronize Infrastructure:** If service dependencies (`package.json`) change, update the corresponding `Dockerfile` and `infrastructure/pulumi` if necessary.
 - [ ] **No Linting Hacks:** Do NOT use `eslint-disable` or `@ts-ignore` to "fix" violations. Resolve the root cause.
 - [ ] **No Silent TDD:** Do not skip the Red-Green-Refactor cycle. A change is not "done" until a failing test has been made to pass.
