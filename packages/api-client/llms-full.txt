@@ -121,6 +121,21 @@
       venueId: string;
     }
   </file>
+  <file path="src/health.ts">
+    export interface ServiceHealth {
+      readonly status: string;
+      readonly version?: string;
+      readonly latency?: number;
+    }
+    export interface SystemHealth {
+      readonly status: string;
+      readonly timestamp: string;
+      readonly services?: Record<string, ServiceHealth>;
+      readonly staticSites?: Record<string, { status: string }>;
+      readonly ci?: { status: string };
+      readonly deploy?: { status: string };
+    }
+  </file>
   <file path="src/index.ts">
     export function createApiClient(config: {
       baseUrl?: string;
@@ -148,6 +163,7 @@
         floorPlans: new FloorPlansClient(client),
         availability: new AvailabilityClient(client),
         holds: new HoldsClient(client),
+        health: new HealthClient(client),
       };
     }
   </file>

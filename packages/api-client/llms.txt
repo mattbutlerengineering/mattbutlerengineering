@@ -61,6 +61,24 @@
       }
     </item>
   </file>
+  <file path="src/health.ts">
+    <item priority="low">
+      interface ServiceHealth {
+        status: string;
+        version?: string;
+        latency?: number;
+      }
+    </item>
+    <item priority="low">
+      interface SystemHealth {
+        status: string;
+        timestamp: string;
+        services?: Record<string, ServiceHealth>;
+        staticSites?: Record<string, { status: string }>;
+        ci?: { status: string };
+      }
+    </item>
+  </file>
   <file path="src/index.ts">
     <item priority="high">
       export function createApiClient(config: {

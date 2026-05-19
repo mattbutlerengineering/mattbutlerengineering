@@ -2139,10 +2139,6 @@
     };
   </file>
   <file path="src/routes/reservations.ts">
-    function isAdmin(user: AuthUser | undefined): boolean {
-      const permissions = user?.raw?.permissions;
-      return Array.isArray(permissions) && permissions.includes("admin");
-    }
     export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       // List reservations
       fastify.get<{
@@ -2219,7 +2215,7 @@
         },
         async (request, reply) => {
           const authUser = request.user;
-          const adminAccess = isAdmin(authUser);
+          const adminAccess = hasPermission(authUser, "admin");
     
           if (!adminAccess) {
             reply.code(403);
@@ -2446,7 +2442,7 @@
           }
     
           const authUser = request.user;
-          const adminAccess = isAdmin(authUser);
+          const adminAccess = hasPermission(authUser, "admin");
           const isOwner = reservation.guestEmail === authUser?.email;
     
           if (!adminAccess && !isOwner) {
@@ -2697,7 +2693,7 @@
           }
     
           const authUser = request.user;
-          const adminAccess = isAdmin(authUser);
+          const adminAccess = hasPermission(authUser, "admin");
           const isOwner = authUser?.email && reservation.guestEmail === authUser.email;
     
           if (!adminAccess && !isOwner) {
@@ -2811,7 +2807,7 @@
           }
     
           const authUser = request.user;
-          const adminAccess = isAdmin(authUser);
+          const adminAccess = hasPermission(authUser, "admin");
           const isOwner = authUser?.email && reservation.guestEmail === authUser.email;
     
           if (!adminAccess && !isOwner) {

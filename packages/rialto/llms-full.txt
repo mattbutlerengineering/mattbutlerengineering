@@ -1,5 +1,26 @@
 <codebase path="packages/rialto">
   <section priority="medium" role="ChatPanel">
+  <file path="src/components/ChatPanel/sanitize.ts">
+    export function sanitizeElementProps(props: Record<string, unknown>): Record<string, unknown> {
+      const safe: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(props)) {
+        if (BLOCKED_KEYS.has(key)) continue;
+        if (key.startsWith("on") && key.length > 2 && key[2] === key[2]!.toUpperCase()) continue;
+        safe[key] = value;
+      }
+      return safe;
+    }
+  </file>
+  <file path="src/components/ChatPanel/types.ts">
+    export interface DomainContextSchema {
+      name: string;
+      description: string;
+      fields: string;
+    }
+    export interface DomainContext {
+      schemas: DomainContextSchema[];
+    }
+  </file>
   <file path="src/components/ChatPanel/useChatStream.ts">
     export interface ChatMessageElement {
       id: string;
@@ -65,18 +86,6 @@
       playClick: () => void;
       /** Play a composite click for multiple simultaneous flips. */
       playBatchClick: (count: number) => void;
-    }
-  </file>
-  </section>
-  <section priority="medium" role="GenCopilot">
-  <file path="src/components/GenCopilot/useGenCopilotStream.ts">
-    type FlatElement = Parameters<typeof flatToTree>[0][number];
-    export interface UseGenCopilotStreamOptions {
-      api: string;
-      domainContext: DomainContext;
-      getAccessToken: () => string | null | Promise<string | null>;
-      onComplete?: (spec: Spec) => void;
-      onError?: (error: Error) => void;
     }
   </file>
   </section>

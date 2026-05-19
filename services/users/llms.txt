@@ -23,9 +23,6 @@
     </item>
   </file>
   <file path="src/routes/users.ts">
-    <item priority="medium">
-      function isAdmin(user: AuthUser | undefined): boolean { /* ... */ }
-    </item>
     <item priority="high">
       export const userRoutes: FastifyPluginAsync;
     </item>

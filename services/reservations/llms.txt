@@ -141,9 +141,6 @@
     </item>
   </file>
   <file path="src/routes/reservations.ts">
-    <item priority="medium">
-      function isAdmin(user: AuthUser | undefined): boolean { /* ... */ }
-    </item>
     <item priority="high">
       export const reservationRoutes: FastifyPluginAsync;
     </item>

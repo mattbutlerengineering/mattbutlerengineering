@@ -30,11 +30,6 @@
       export const genSpecsRoutes: FastifyPluginAsync;
     </item>
   </file>
-  <file path="src/routes/gen-ui.ts">
-    <item priority="high">
-      export const genUiRoutes: FastifyPluginAsync;
-    </item>
-  </file>
   <file path="src/routes/health.ts">
     <item priority="high">
       export const healthRoutes: FastifyPluginAsync;

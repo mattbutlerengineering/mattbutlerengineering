@@ -8,8 +8,8 @@
         excludePaths?: string[];
       }
     </item>
-    <item priority="medium">
-      function createProblemDetails(status: number, title: string, detail: string) { /* ... */ }
+    <item priority="low">
+      async function authPluginImpl(fastify: FastifyInstance, options: AuthPluginOptions) { /* ... */ }
     </item>
   </file>
   </section>
