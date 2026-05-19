@@ -30,7 +30,11 @@ Project-specific traps that have bitten me before. Read these before diving into
 - **ACMM scanner checks file/dir existence, not contents.** Criteria marked `scannable: false` (correction-capture, positive-reinforcement, session-summary, etc.) pass detection when the directory exists — even if it's empty. Always audit substance (file count, entry quality) separately when evaluating maturity level
 - **Adding/changing packages requires `pnpm generate:dep-graph`** — CI's Build job regenerates the dependency graph and fails if the committed `infrastructure/worker/dep-graph.json` doesn't match. The pre-commit hook doesn't run this, so you must do it manually after adding a new workspace package or changing `dependencies`/`devDependencies`
 - **Verify CI failures are truly baseline before admin-merging** — don't assume a failing check is "known baseline" without confirming the same failure exists on `main`. Admin-merging PRs with real failures creates broken-main issues that ci-monitor files as CRITICAL
+- **Revert watchdog creates false-positive CRITICAL issues for baseline CI failures** — every commit to main triggers the watchdog, which files a CRITICAL issue if any workflow fails. Since Integrity/Coverage/A11y checks fail on every commit (baseline), this creates noise. Close these with "baseline CI failure" comment, don't treat as regressions
+- **E2E workflow requires rialto built** — `@mattbutlerengineering/rialto/styles` export points to `dist/lib/styles.css` (a build artifact). Without `pnpm build --filter @mattbutlerengineering/rialto` before E2E tests, Vite can't resolve any rialto imports
 - **Worktree agent PRs may target wrong base branch** — `isolation: "worktree"` agents branch from whatever commit the worktree was created at. If spawned from a feature branch, the PR targets that branch (not `main`). After agent completes, verify the PR's base ref is `main` — if not, close and recreate from a rebased branch
+
+- **pnpm-lock.yaml quote style diffs are formatting noise** — different pnpm versions use single vs double quotes for keys. These are not real changes. Revert with `git checkout -- pnpm-lock.yaml` rather than committing formatting-only lockfile diffs
 
 - **Local `generated-schemas.ts` modifications pollute drift-check** — if `packages/rialto-catalog/src/generated-schemas.ts` has uncommitted changes (e.g. from running the generator with different rialto dist), the drift-check test reads the modified file and fails. Fix: `git checkout -- packages/rialto-catalog/src/generated-schemas.ts` before push
 
@@ -49,6 +53,11 @@ Project-specific traps that have bitten me before. Read these before diving into
 ## Tooling artifacts
 
 - **`graphify-out/` is not gitignored** and accumulates wherever `/graphify` was invoked (repo root or package subdirs). Either `rm -rf graphify-out/` after use or add `graphify-out/` to `.gitignore`
+
+## Auth0 / E2E
+
+- **Auth0 ROPC grant requires SPA or Regular Web Application** — Machine to Machine (M2M) apps return `401 access_denied` even with Password grant enabled. The `E2E_AUTH0_CLIENT_ID` must point to a SPA or Regular Web App, not M2M. Current E2E client: `mattbutlerengineering-hospitality` (SPA)
+- **`gh secret set` without `--body` sets empty value** — when stdin is empty (non-interactive), the secret silently gets set to `""`. Always use `gh secret set NAME --body "value"`. An empty `E2E_AUTH0_CLIENT_ID` causes "Missing required E2E auth env vars" instead of the expected auth error
 
 ## Prisma + DO migrate
 
