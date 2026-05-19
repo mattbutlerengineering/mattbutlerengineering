@@ -30,8 +30,7 @@ export class FloorPlansClient {
   }
 
   async getById(id: string): Promise<FloorPlan> {
-    const response = await this.client.get<{ data: FloorPlan }>(`/api/v1/floor-plans/${id}`);
-    return response.data;
+    return this.client.getOne<FloorPlan>(`/api/v1/floor-plans/${id}`);
   }
 
   /** Alias for getById */
@@ -40,16 +39,11 @@ export class FloorPlansClient {
   }
 
   async create(data: CreateFloorPlanRequest): Promise<FloorPlan> {
-    const response = await this.client.post<{ data: FloorPlan }>("/api/v1/floor-plans", data);
-    return response.data;
+    return this.client.postOne<FloorPlan>("/api/v1/floor-plans", data);
   }
 
   async update(id: string, data: UpdateFloorPlanRequest): Promise<FloorPlan> {
-    const response = await this.client.patch<{ data: FloorPlan }>(
-      `/api/v1/floor-plans/${id}`,
-      data
-    );
-    return response.data;
+    return this.client.patchOne<FloorPlan>(`/api/v1/floor-plans/${id}`, data);
   }
 
   async delete(id: string): Promise<void> {
@@ -57,11 +51,7 @@ export class FloorPlansClient {
   }
 
   async setActive(id: string): Promise<FloorPlan> {
-    const response = await this.client.post<{ data: FloorPlan }>(
-      `/api/v1/floor-plans/${id}/active`,
-      undefined
-    );
-    return response.data;
+    return this.client.postOne<FloorPlan>(`/api/v1/floor-plans/${id}/active`, undefined);
   }
 
   /** Alias for setActive */
@@ -73,18 +63,13 @@ export class FloorPlansClient {
     floorPlanId: string,
     positions: UpdateTablePositionRequest[]
   ): Promise<Table[]> {
-    const response = await this.client.post<{ data: Table[] }>(
+    return this.client.postOne<Table[]>(
       `/api/v1/floor-plans/${floorPlanId}/bulk-update-positions`,
       positions
     );
-    return response.data;
   }
 
   async clone(id: string): Promise<FloorPlan> {
-    const response = await this.client.post<{ data: FloorPlan }>(
-      `/api/v1/floor-plans/${id}/clone`,
-      undefined
-    );
-    return response.data;
+    return this.client.postOne<FloorPlan>(`/api/v1/floor-plans/${id}/clone`, undefined);
   }
 }

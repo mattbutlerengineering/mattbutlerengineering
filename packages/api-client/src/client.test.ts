@@ -290,6 +290,202 @@ describe("ApiClient", () => {
     });
   });
 
+  describe("error categorization", () => {
+    it("should categorize 400 as 'badRequest'", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ error: "Bad Request", message: "Invalid input", statusCode: 400 }, 400)
+      );
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
+
+      try {
+        await client.get("/users");
+        expect.unreachable("Should have thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(ApiClientError);
+        expect((error as ApiClientError).category).toBe("badRequest");
+      }
+    });
+
+    it("should categorize 401 as 'unauthorized'", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ error: "Unauthorized", message: "No token", statusCode: 401 }, 401)
+      );
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
+
+      try {
+        await client.get("/users");
+        expect.unreachable("Should have thrown");
+      } catch (error) {
+        expect((error as ApiClientError).category).toBe("unauthorized");
+      }
+    });
+
+    it("should categorize 403 as 'forbidden'", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ error: "Forbidden", message: "No access", statusCode: 403 }, 403)
+      );
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
+
+      try {
+        await client.get("/users");
+        expect.unreachable("Should have thrown");
+      } catch (error) {
+        expect((error as ApiClientError).category).toBe("forbidden");
+      }
+    });
+
+    it("should categorize 404 as 'notFound'", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ error: "Not Found", message: "Not found", statusCode: 404 }, 404)
+      );
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
+
+      try {
+        await client.get("/users/999");
+        expect.unreachable("Should have thrown");
+      } catch (error) {
+        expect((error as ApiClientError).category).toBe("notFound");
+      }
+    });
+
+    it("should categorize 409 as 'conflict'", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ error: "Conflict", message: "Already exists", statusCode: 409 }, 409)
+      );
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
+
+      try {
+        await client.post("/users", { name: "test" });
+        expect.unreachable("Should have thrown");
+      } catch (error) {
+        expect((error as ApiClientError).category).toBe("conflict");
+      }
+    });
+
+    it("should categorize 422 as 'validationError'", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ error: "Unprocessable", message: "Bad data", statusCode: 422 }, 422)
+      );
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
+
+      try {
+        await client.post("/users", {});
+        expect.unreachable("Should have thrown");
+      } catch (error) {
+        expect((error as ApiClientError).category).toBe("validationError");
+      }
+    });
+
+    it("should categorize 429 as 'rateLimited'", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ error: "Too Many", message: "Rate limited", statusCode: 429 }, 429)
+      );
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
+
+      try {
+        await client.get("/users");
+        expect.unreachable("Should have thrown");
+      } catch (error) {
+        expect((error as ApiClientError).category).toBe("rateLimited");
+      }
+    });
+
+    it("should categorize 500 as 'serverError'", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ error: "Internal", message: "Server error", statusCode: 500 }, 500)
+      );
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
+
+      try {
+        await client.get("/users");
+        expect.unreachable("Should have thrown");
+      } catch (error) {
+        expect((error as ApiClientError).category).toBe("serverError");
+      }
+    });
+
+    it("should categorize 502/503/504 as 'serverError'", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ error: "Bad Gateway", message: "Bad gateway", statusCode: 502 }, 502)
+      );
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
+
+      try {
+        await client.get("/users");
+        expect.unreachable("Should have thrown");
+      } catch (error) {
+        expect((error as ApiClientError).category).toBe("serverError");
+      }
+    });
+
+    it("should categorize unknown status codes as 'unknown'", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ error: "Teapot", message: "I'm a teapot", statusCode: 418 }, 418)
+      );
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
+
+      try {
+        await client.get("/users");
+        expect.unreachable("Should have thrown");
+      } catch (error) {
+        expect((error as ApiClientError).category).toBe("unknown");
+      }
+    });
+  });
+
+  describe("unwrap helpers", () => {
+    it("getOne should fetch and unwrap .data from ApiResponse", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "1", name: "Alice" } }));
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
+      const result = await client.getOne<{ id: string; name: string }>("/api/v1/users/1");
+
+      expect(result).toEqual({ id: "1", name: "Alice" });
+    });
+
+    it("postOne should post and unwrap .data from ApiResponse", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "1", name: "Alice" } }));
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
+      const result = await client.postOne<{ id: string; name: string }>("/api/v1/users", {
+        name: "Alice",
+      });
+
+      expect(result).toEqual({ id: "1", name: "Alice" });
+    });
+
+    it("patchOne should patch and unwrap .data from ApiResponse", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "1", name: "Bob" } }));
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
+      const result = await client.patchOne<{ id: string; name: string }>("/api/v1/users/1", {
+        name: "Bob",
+      });
+
+      expect(result).toEqual({ id: "1", name: "Bob" });
+    });
+
+    it("unwrap helpers should throw ApiClientError on non-ok response", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ error: "Not Found", message: "Not found", statusCode: 404 }, 404)
+      );
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
+
+      await expect(client.getOne("/api/v1/users/999")).rejects.toThrow(ApiClientError);
+    });
+  });
+
   describe("configuration defaults", () => {
     it("should use default timeout of 30000ms", async () => {
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: "ok" }));

@@ -1,5 +1,5 @@
 export { ApiClient, ApiClientError } from "./client.js";
-export type { ClientConfig } from "./client.js";
+export type { ClientConfig, ErrorCategory } from "./client.js";
 
 export { UsersClient } from "./users.js";
 export { ReservationsClient, type ListReservationsParams } from "./reservations.js";

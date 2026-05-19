@@ -1,5 +1,4 @@
 import type {
-  ApiResponse,
   PaginatedResponse,
   Guest,
   GuestSegment,
@@ -62,45 +61,35 @@ export class GuestsClient {
    * Get guest segments for a venue
    */
   async getSegments(venueId: string): Promise<GuestSegment[]> {
-    const response = await this.client.get<ApiResponse<GuestSegment[]>>(
-      `/api/v1/guests/segments?venueId=${venueId}`
-    );
-    return response.data;
+    return this.client.getOne<GuestSegment[]>(`/api/v1/guests/segments?venueId=${venueId}`);
   }
 
   /**
    * Get a guest by ID
    */
   async get(id: string): Promise<Guest> {
-    const response = await this.client.get<ApiResponse<Guest>>(`/api/v1/guests/${id}`);
-    return response.data;
+    return this.client.getOne<Guest>(`/api/v1/guests/${id}`);
   }
 
   /**
    * Create a new guest
    */
   async create(data: CreateGuestRequest): Promise<Guest> {
-    const response = await this.client.post<ApiResponse<Guest>>("/api/v1/guests", data);
-    return response.data;
+    return this.client.postOne<Guest>("/api/v1/guests", data);
   }
 
   /**
    * Find or create a guest by email/phone
    */
   async findOrCreate(data: FindOrCreateGuestRequest): Promise<Guest> {
-    const response = await this.client.post<ApiResponse<Guest>>(
-      "/api/v1/guests/find-or-create",
-      data
-    );
-    return response.data;
+    return this.client.postOne<Guest>("/api/v1/guests/find-or-create", data);
   }
 
   /**
    * Update a guest
    */
   async update(id: string, data: UpdateGuestRequest): Promise<Guest> {
-    const response = await this.client.patch<ApiResponse<Guest>>(`/api/v1/guests/${id}`, data);
-    return response.data;
+    return this.client.patchOne<Guest>(`/api/v1/guests/${id}`, data);
   }
 
   /**

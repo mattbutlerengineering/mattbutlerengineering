@@ -121,6 +121,69 @@ export class ApiClient {
   delete(path: string): Promise<void> {
     return this.request<void>(path, { method: "DELETE" });
   }
+
+  /**
+   * GET + unwrap `.data` from ApiResponse envelope.
+   * Use for single-resource endpoints that return `{ data: T }`.
+   */
+  async getOne<T>(path: string): Promise<T> {
+    const response = await this.get<{ data: T }>(path);
+    return response.data;
+  }
+
+  /**
+   * POST + unwrap `.data` from ApiResponse envelope.
+   * Use for create endpoints that return `{ data: T }`.
+   */
+  async postOne<T>(path: string, body: unknown): Promise<T> {
+    const response = await this.post<{ data: T }>(path, body);
+    return response.data;
+  }
+
+  /**
+   * PATCH + unwrap `.data` from ApiResponse envelope.
+   * Use for update endpoints that return `{ data: T }`.
+   */
+  async patchOne<T>(path: string, body: unknown): Promise<T> {
+    const response = await this.patch<{ data: T }>(path, body);
+    return response.data;
+  }
+}
+
+/**
+ * Error categories callers can switch on instead of raw status codes.
+ */
+export type ErrorCategory =
+  | "badRequest"
+  | "unauthorized"
+  | "forbidden"
+  | "notFound"
+  | "conflict"
+  | "validationError"
+  | "rateLimited"
+  | "serverError"
+  | "unknown";
+
+function categorizeStatus(code: number): ErrorCategory {
+  switch (code) {
+    case 400:
+      return "badRequest";
+    case 401:
+      return "unauthorized";
+    case 403:
+      return "forbidden";
+    case 404:
+      return "notFound";
+    case 409:
+      return "conflict";
+    case 422:
+      return "validationError";
+    case 429:
+      return "rateLimited";
+    default:
+      if (code >= 500) return "serverError";
+      return "unknown";
+  }
 }
 
 export class ApiClientError extends Error {
@@ -138,6 +201,14 @@ export class ApiClientError extends Error {
 
   get statusCode(): number {
     return this.response.status ?? this.response.statusCode;
+  }
+
+  /**
+   * Semantic error category derived from HTTP status code.
+   * Callers can switch on this instead of raw status codes.
+   */
+  get category(): ErrorCategory {
+    return categorizeStatus(this.statusCode);
   }
 }
 
