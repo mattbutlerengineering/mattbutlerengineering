@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { existsSync } from "node:fs";
+import { resolveModelId } from "./model-router.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -135,10 +136,10 @@ export function resolveBudget(taskDescription: string): BudgetConfig {
 // Choose the right model based on task type.
 
 const MODEL_MAP = {
-  simple: "claude-haiku-4-5-20251001",
-  standard: "claude-sonnet-4-6",
-  complex: "claude-sonnet-4-6",
-} as const;
+  simple: resolveModelId("haiku"),
+  standard: resolveModelId("sonnet"),
+  complex: resolveModelId("sonnet"),
+};
 
 /**
  * Select model based on task complexity.

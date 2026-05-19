@@ -184,7 +184,7 @@ describe("evaluateSuccess", () => {
     expect(query).toHaveBeenCalledWith(
       expect.objectContaining({
         options: expect.objectContaining({
-          model: "claude-haiku-4-5-20250929",
+          model: "claude-haiku-4-5-20251001",
         }),
       })
     );
