@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { trace } from "@opentelemetry/api";
+import { resolveModelId } from "./model-router.js";
 
 const tracer = trace.getTracer("@mbe/agent-core");
 
@@ -122,7 +123,7 @@ export async function extractIssueIntent(
     const client = new sdkModule.default();
 
     const response = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
+      model: resolveModelId("haiku"),
       max_tokens: 1024,
       system:
         "You extract structured task intent from GitHub issues for an autonomous coding agent. " +

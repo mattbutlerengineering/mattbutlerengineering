@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import type { SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
+import { resolveModelId } from "./model-router.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -20,7 +21,7 @@ export interface EvaluationConfig {
 }
 
 export const DEFAULT_EVALUATION_CONFIG: EvaluationConfig = {
-  model: "claude-haiku-4-5-20250929",
+  model: resolveModelId("haiku"),
   maxBudgetUsd: 0.05,
 };
 

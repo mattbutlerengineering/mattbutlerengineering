@@ -6,6 +6,8 @@
  * instructs the orchestrator on how to decompose tasks effectively.
  */
 
+import { resolveModelId } from "./model-router.js";
+
 export interface OrchestratorConfig {
   readonly taskDescription: string;
   readonly apiBaseUrl: string;
@@ -20,8 +22,8 @@ export interface OrchestratorConfig {
 
 export const DEFAULT_ORCHESTRATOR_CONFIG: Omit<OrchestratorConfig, "taskDescription"> = {
   apiBaseUrl: "http://localhost:3003",
-  model: "claude-sonnet-4-6",
-  sessionModel: "claude-sonnet-4-6",
+  model: resolveModelId("sonnet"),
+  sessionModel: resolveModelId("sonnet"),
   maxBudgetPerSession: 1.0,
   maxTurnsPerSession: 50,
   baseBranch: "main",

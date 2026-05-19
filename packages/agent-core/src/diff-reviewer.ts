@@ -1,5 +1,6 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import type { SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
+import { resolveModelId } from "./model-router.js";
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -14,7 +15,7 @@ export interface ReviewConfig {
 }
 
 export const DEFAULT_REVIEW_CONFIG: ReviewConfig = {
-  model: "claude-haiku-4-5-20250929",
+  model: resolveModelId("haiku"),
   maxBudgetUsd: 0.05,
 };
 
