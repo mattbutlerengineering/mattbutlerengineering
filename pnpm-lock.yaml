@@ -700,9 +700,36 @@ importers:
 
   packages/database:
     dependencies:
+      '@fastify/cors':
+        specifier: ^11.2.0
+        version: 11.2.0
+      '@fastify/rate-limit':
+        specifier: ^10.3.0
+        version: 10.3.0
+      '@fastify/swagger':
+        specifier: ^9.7.0
+        version: 9.7.0
+      '@fastify/swagger-ui':
+        specifier: ^5.2.6
+        version: 5.2.6
+      '@mbe/api-versioning':
+        specifier: workspace:*
+        version: link:../api-versioning
+      '@mbe/auth':
+        specifier: workspace:*
+        version: link:../auth
+      '@mbe/observability':
+        specifier: workspace:*
+        version: link:../observability
+      '@mbe/sentry':
+        specifier: workspace:*
+        version: link:../sentry
       '@prisma/adapter-pg':
         specifier: ^7.8.0
         version: 7.8.0
+      '@scalar/fastify-api-reference':
+        specifier: ^1.55.3
+        version: 1.55.3
       fastify-plugin:
         specifier: ^5.0.0
         version: 5.1.0
@@ -713,9 +740,6 @@ importers:
       '@mbe/config':
         specifier: workspace:*
         version: link:../config
-      '@mbe/observability':
-        specifier: workspace:*
-        version: link:../observability
       '@mbe/types':
         specifier: workspace:*
         version: link:../types

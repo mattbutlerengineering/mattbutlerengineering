@@ -409,12 +409,27 @@
     },
     {
       "from": "@mbe/database",
-      "to": "@mbe/config",
-      "type": "devDependency"
+      "to": "@mbe/api-versioning",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/database",
+      "to": "@mbe/auth",
+      "type": "dependency"
     },
     {
       "from": "@mbe/database",
       "to": "@mbe/observability",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/database",
+      "to": "@mbe/sentry",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/database",
+      "to": "@mbe/config",
       "type": "devDependency"
     },
     {
