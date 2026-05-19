@@ -26,6 +26,45 @@
       readonly rate: number;
     }
   </file>
+  <file path="src/health-checks.ts">
+    export function recordDbLatency(ms: number): void {
+      dbLatencyHistory.push(ms);
+      if (dbLatencyHistory.length > LATENCY_WINDOW) {
+        dbLatencyHistory.shift();
+      }
+    }
+    export function checkLatencyAnomaly(currentMs: number): {
+      isAnomaly: boolean;
+      rollingAvg: number;
+    } {
+      if (dbLatencyHistory.length < 5) {
+        return { isAnomaly: false, rollingAvg: 0 };
+      }
+      const sum = dbLatencyHistory.reduce((a, b) => a + b, 0);
+      const rollingAvg = sum / dbLatencyHistory.length;
+      return {
+        isAnomaly: rollingAvg > 0 && currentMs > LATENCY_ANOMALY_THRESHOLD * rollingAvg,
+        rollingAvg: Math.round(rollingAvg),
+      };
+    }
+  </file>
+  <file path="src/health-routes.ts">
+    export interface PrismaLike {
+      $queryRaw: (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown>;
+    }
+    export interface DbStatFunctions {
+      getSlowQueryStats: () => { count5min: number; slowestMs: number };
+      getPoolMetrics: () => {
+        active: number;
+        idle: number;
+        busy: number;
+        size: number;
+        utilization: number;
+        isDegraded: boolean;
+      };
+      getServiceStatus: () => string;
+    }
+  </file>
   <file path="src/rate-limit-monitor.ts">
     export interface RateLimitHit {
       readonly ip: string;

@@ -29,6 +29,34 @@
       }
     </item>
   </file>
+  <file path="src/health-checks.ts">
+    <item priority="high">
+      export function recordDbLatency(ms: number): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function checkLatencyAnomaly(currentMs: number): {
+        isAnomaly: boolean;
+        rollingAvg: number;
+      } { /* ... */ }
+    </item>
+  </file>
+  <file path="src/health-routes.ts">
+    <item priority="low">
+      interface PrismaLike {
+        $queryRaw: (strings: TemplateStringsArray, ...values: unknown[]) => ...;
+      }
+    </item>
+    <item priority="low">
+      interface DbStatFunctions {
+        getSlowQueryStats: () => { count5min: number; slowestMs: number };
+        getPoolMetrics: () => {
+          active: number;
+          idle: number;
+          busy: n...;
+        getServiceStatus: () => string;
+      }
+    </item>
+  </file>
   <file path="src/rate-limit-monitor.ts">
     <item priority="low">
       interface RateLimitHit {

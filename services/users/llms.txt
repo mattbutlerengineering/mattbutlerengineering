@@ -9,12 +9,7 @@
   <section priority="medium" role="routes">
   <file path="src/routes/health.ts">
     <item priority="high">
-      type HealthRouteHandler = RouteHandlerMethod<
-        RawServerDefault,
-        IncomingMessage...;
-    </item>
-    <item priority="high">
-      export const healthRoutes: FastifyPluginAsync;
+      export async function healthRoutes(fastify: FastifyInstance): Promise<void> { /* ... */ }
     </item>
   </file>
   <file path="src/routes/ready.ts">
@@ -45,17 +40,6 @@
     </item>
     <item priority="high">
       export const getSlowQueryStats: unknown;
-    </item>
-  </file>
-  <file path="src/services/health-checks.ts">
-    <item priority="high">
-      export function recordDbLatency(ms: number): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function checkLatencyAnomaly(currentMs: number): {
-        isAnomaly: boolean;
-        rollingAvg: number;
-      } { /* ... */ }
     </item>
   </file>
   <file path="src/services/user.ts">

@@ -1268,48 +1268,28 @@
     };
   </file>
   <file path="src/routes/health.ts">
-    type HealthRouteHandler = RouteHandlerMethod<
-      RawServerDefault,
-      IncomingMessage,
-      ServerResponse,
-      { Reply: HealthResponse }
-    >;
-    export const healthRoutes: FastifyPluginAsync = async (fastify) => {
-      // /api/health — used by DO App Platform internal health checks (direct container access)
-      // github[js/missing-rate-limiting] — restrictive limit for DB-intensive health check
-      fastify.get(
-        "/health",
-        {
-          schema: { ...healthSchema, operationId: "getHealth" },
-          config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
-        },
-        healthHandler
-      );
-    
-      // /api/health — public path via DO ingress (preservePathPrefix: true, prefix "/api")
-      // Required for post-deploy verification workflow hitting api.mattbutlerengineering.com/api/health
-      // github[js/missing-rate-limiting] — restrictive limit for public health check
-      fastify.get(
-        "/api/health",
-        {
-          schema: { ...healthSchema, operationId: "getHealthApi" },
-          config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
-        },
-        healthHandler
-      );
-    
-      // /api/v1/reservations/health — public path via DO ingress (preservePathPrefix: true, prefix "/api/v1/reservations")
-      // Must be registered here (not in reservationRoutes) to avoid falling through to /:id param route
-      // github[js/missing-rate-limiting] — restrictive limit for public health check
-      fastify.get(
-        "/api/v1/reservations/health",
-        {
-          schema: { ...healthSchema, operationId: "getHealthApiReservations" },
-          config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
-        },
-        healthHandler
-      );
-    };
+    export async function healthRoutes(fastify: FastifyInstance): Promise<void> {
+      await registerHealthRoutes(fastify, {
+        prisma,
+        db: { getSlowQueryStats, getServiceStatus, getPoolMetrics },
+        checkAuth0,
+        checkLatencyAnomaly,
+        recordDbLatency,
+        routes: [
+          // /health — used by DO App Platform internal health checks (direct container access)
+          // github[js/missing-rate-limiting] — restrictive limit for DB-intensive health check
+          { path: "/health", operationId: "getHealth" },
+          // /api/health — public path via DO ingress (preservePathPrefix: true, prefix "/api")
+          // Required for post-deploy verification workflow hitting api.mattbutlerengineering.com/api/health
+          // github[js/missing-rate-limiting] — restrictive limit for public health check
+          { path: "/api/health", operationId: "getHealthApi" },
+          // /api/v1/reservations/health — public path via DO ingress (preservePathPrefix: true, prefix "/api/v1/reservations")
+          // Must be registered here (not in reservationRoutes) to avoid falling through to /:id param route
+          // github[js/missing-rate-limiting] — restrictive limit for public health check
+          { path: "/api/v1/reservations/health", operationId: "getHealthApiReservations" },
+        ],
+      });
+    }
   </file>
   <file path="src/routes/holds.ts">
     function getSessionId(request: FastifyRequest): string {
@@ -4011,28 +3991,6 @@
         tags: guest.tags as string[] | null,
         createdAt: guest.createdAt.toISOString(),
         updatedAt: guest.updatedAt.toISOString(),
-      };
-    }
-  </file>
-  <file path="src/services/health-checks.ts">
-    export function recordDbLatency(ms: number): void {
-      dbLatencyHistory.push(ms);
-      if (dbLatencyHistory.length > LATENCY_WINDOW) {
-        dbLatencyHistory.shift();
-      }
-    }
-    export function checkLatencyAnomaly(currentMs: number): {
-      isAnomaly: boolean;
-      rollingAvg: number;
-    } {
-      if (dbLatencyHistory.length < 5) {
-        return { isAnomaly: false, rollingAvg: 0 };
-      }
-      const sum = dbLatencyHistory.reduce((a, b) => a + b, 0);
-      const rollingAvg = sum / dbLatencyHistory.length;
-      return {
-        isAnomaly: rollingAvg > 0 && currentMs > LATENCY_ANOMALY_THRESHOLD * rollingAvg,
-        rollingAvg: Math.round(rollingAvg),
       };
     }
   </file>
