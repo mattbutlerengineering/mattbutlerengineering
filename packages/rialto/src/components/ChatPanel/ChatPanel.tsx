@@ -16,11 +16,13 @@ export const ChatPanel = forwardRef<HTMLDivElement, ChatPanelProps>(function Cha
   { onClose, api, domainContext, getAccessToken, standalone },
   ref
 ) {
-  const { messages, isStreaming, pendingAction, send, confirmAction, cancelAction } = useChatStream({
-    api,
-    domainContext,
-    getAccessToken,
-  });
+  const { messages, isStreaming, pendingAction, send, confirmAction, cancelAction } = useChatStream(
+    {
+      api,
+      domainContext,
+      getAccessToken,
+    }
+  );
 
   const [inputValue, setInputValue] = useState("");
 
@@ -69,9 +71,7 @@ export const ChatPanel = forwardRef<HTMLDivElement, ChatPanelProps>(function Cha
       </div>
       {pendingAction && (
         <div className={styles.confirmBar} role="alert">
-          <div className={styles.confirmLabel}>
-            {pendingAction.toolName.replace(/_/g, " ")}
-          </div>
+          <div className={styles.confirmLabel}>{pendingAction.toolName.replace(/_/g, " ")}</div>
           <div className={styles.confirmDetails}>
             {Object.entries(pendingAction.toolInput).map(([key, value]) => (
               <span key={key} className={styles.confirmDetail}>

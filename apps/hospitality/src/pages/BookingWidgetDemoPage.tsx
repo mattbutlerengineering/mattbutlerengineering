@@ -260,8 +260,8 @@ export function BookingWidgetDemoPage() {
           <Card variant="flat" className={styles.codeCard} data-testid="embed-coming-soon">
             <Stack gap="md">
               <Alert variant="info">
-                The embeddable widget is currently in development. Embed code will be available
-                here once the widget is released.
+                The embeddable widget is currently in development. Embed code will be available here
+                once the widget is released.
               </Alert>
               <div className={styles.codeHeader}>
                 <Text variant="caption" color="tertiary">
@@ -280,8 +280,8 @@ export function BookingWidgetDemoPage() {
           </Card>
 
           <Text variant="caption" color="secondary">
-            The embeddable widget will allow guests to book directly from your website. Styles
-            will be self-contained and will not conflict with your existing CSS.
+            The embeddable widget will allow guests to book directly from your website. Styles will
+            be self-contained and will not conflict with your existing CSS.
           </Text>
         </Stack>
       </section>
