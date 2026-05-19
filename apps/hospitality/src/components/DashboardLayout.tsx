@@ -6,7 +6,6 @@ import {
   CommandPalette,
   ErrorBoundary,
   ChatPanel,
-  GenCopilot,
   Kbd,
   Button,
   Stack,
@@ -14,7 +13,6 @@ import {
   Heading,
 } from "@mattbutlerengineering/rialto";
 import type { BreadcrumbItem } from "@mattbutlerengineering/rialto";
-import { registry } from "@mbe/rialto-catalog";
 import { HOSPITALITY_DOMAIN_CONTEXT } from "../constants/copilotContext.js";
 import { useCommandPalette } from "../hooks/use-command-palette.js";
 import { useTheme, resolveTheme } from "../hooks/use-theme.js";
@@ -58,7 +56,6 @@ function DashboardLayoutInner() {
   const { theme, setTheme } = useTheme();
   const readiness = useVenueReadiness();
 
-  const [copilotOpen, setCopilotOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMounted, setChatMounted] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -101,7 +98,7 @@ function DashboardLayoutInner() {
     setTheme(resolved === "light" ? "dark" : "light");
   }, [theme, setTheme]);
 
-  // Stable token getter — passes latest token to GenCopilot without recreating on every render
+  // Stable token getter — passes latest token without recreating on every render
   const getAccessToken = useCallback(() => accessToken, [accessToken]);
 
   const handleMobileClose = useCallback(() => {
@@ -131,8 +128,7 @@ function DashboardLayoutInner() {
     [navigate, signOut]
   );
 
-  // Build dynamic nav sections from readiness state + copilot tool
-  const sectionsWithCopilot = useMemo(
+  const sections = useMemo(
     () => [
       ...buildNavSections(readiness),
       {
@@ -142,11 +138,6 @@ function DashboardLayoutInner() {
             id: "chat",
             label: "Chat",
             path: "/__chat__",
-          },
-          {
-            id: "copilot",
-            label: "Copilot",
-            path: "/__copilot__",
           },
         ],
       },
@@ -160,18 +151,13 @@ function DashboardLayoutInner() {
     setOpen: setPaletteOpen,
     items: paletteItems,
     groups: paletteGroups,
-  } = useCommandPalette({ sections: sectionsWithCopilot, navigate, toggleTheme, signOut });
+  } = useCommandPalette({ sections, navigate, toggleTheme, signOut });
 
-  // Custom navigate that handles copilot toggle
-  const handleNavigateWithCopilot = useCallback(
+  const handleNavigateWithChat = useCallback(
     (path: string) => {
       if (path === "/__chat__") {
         setChatMounted(true);
         setChatOpen((prev) => !prev);
-        return;
-      }
-      if (path === "/__copilot__") {
-        setCopilotOpen((prev) => !prev);
         return;
       }
       handleNavigate(path);
@@ -257,9 +243,9 @@ function DashboardLayoutInner() {
       <div className={styles.body}>
         <div className={styles.sidebarColumn}>
           <DashboardSidebar
-            sections={sectionsWithCopilot}
+            sections={sections}
             activePath={activePath}
-            onNavigate={handleNavigateWithCopilot}
+            onNavigate={handleNavigateWithChat}
             extraItems={extraItems}
             isMobileOpen={isMobileMenuOpen}
             onMobileClose={handleMobileClose}
@@ -321,17 +307,6 @@ function DashboardLayoutInner() {
             getAccessToken={getAccessToken}
           />
         </div>
-      )}
-
-      {/* Conditionally mount GenCopilot — destroying it on close resets all streaming state */}
-      {copilotOpen && (
-        <GenCopilot
-          onClose={() => setCopilotOpen(false)}
-          api="/api/gen/ui"
-          domainContext={HOSPITALITY_DOMAIN_CONTEXT}
-          getAccessToken={getAccessToken}
-          registry={registry}
-        />
       )}
     </div>
   );

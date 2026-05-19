@@ -20,7 +20,6 @@ import { sessionEventsRoutes } from "./routes/session-events.js";
 import { orchestrateRoutes } from "./routes/orchestrate.js";
 import { remediationRoutes } from "./routes/remediation.js";
 import { webhookRoutes } from "./routes/webhooks.js";
-import { genUiRoutes } from "./routes/gen-ui.js";
 import { genChatRoutes } from "./routes/gen-chat.js";
 import { genSpecsRoutes } from "./routes/gen-specs.js";
 import { genAgentRoutes } from "./routes/gen-agent.js";
@@ -183,7 +182,6 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   await fastify.register(orchestrateRoutes, { prefix: "/v1/orchestrate" });
   await fastify.register(webhookRoutes, { prefix: "/v1/webhooks" });
   await fastify.register(remediationRoutes, { prefix: "/v1/webhooks" });
-  await fastify.register(genUiRoutes);
   await fastify.register(genChatRoutes);
   await fastify.register(genSpecsRoutes);
   await fastify.register(genAgentRoutes);

@@ -3,7 +3,7 @@
  *
  * Handles raw fetch with ReadableStream, newline-delimited JSON parsing with
  * buffer for incomplete chunks, and proper error propagation. Used by both
- * useGenStream (apps/gen) and useGenCopilotStream (packages/rialto).
+ * useGenStream (apps/gen) and useChatStream (packages/rialto).
  */
 
 export interface StreamConfig {

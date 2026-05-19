@@ -39,7 +39,6 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       Chat Panel Content
     </div>
   ),
-  GenCopilot: () => <div data-testid="copilot" />,
   Kbd: () => <div />,
   Button: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => (
     <button onClick={onClick}>{children}</button>
@@ -118,6 +117,17 @@ describe("DashboardLayout", () => {
     expect(screen.getByTestId("breadcrumb")).toBeDefined();
     // DashboardSidebar is rendered but we mocked its internals or it's rendering labels
     expect(screen.getByText("Timeline")).toBeDefined();
+  });
+
+  it("has no Copilot nav item in sidebar", () => {
+    vi.mocked(useVenueReadiness).mockReturnValue({
+      status: "operational",
+      isLoading: false,
+      completedSteps: ["hours", "tables", "publish"],
+      nextStep: null,
+    } as any);
+    renderLayout("/timeline");
+    expect(screen.queryByText("Copilot")).not.toBeInTheDocument();
   });
 
   it("keeps ChatPanel mounted after closing to preserve session state", async () => {

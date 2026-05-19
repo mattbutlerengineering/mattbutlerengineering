@@ -6,3 +6,4 @@ export type {
   PendingAction,
   UseChatStreamReturn,
 } from "./useChatStream.js";
+export type { DomainContext, DomainContextSchema } from "./types.js";

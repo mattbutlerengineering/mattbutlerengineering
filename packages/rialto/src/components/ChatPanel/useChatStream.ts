@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { streamNDJSON } from "@mbe/api-client/streaming";
-import type { DomainContext } from "../GenCopilot/GenCopilot.js";
+import type { DomainContext } from "./types.js";
 
 export interface ChatMessageElement {
   id: string;

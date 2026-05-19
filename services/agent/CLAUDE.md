@@ -77,7 +77,6 @@ src/
 │   ├── orchestrate.ts  # Multi-session orchestration
 │   ├── webhooks.ts    # GitHub webhook handlers
 │   ├── remediation.ts # Auto-remediation endpoints
-│   ├── gen-ui.ts      # Gen UI streaming endpoint
 │   ├── gen-chat.ts    # Gen chat streaming endpoint
 │   └── gen-specs.ts   # Gen specs streaming endpoint
 ├── schemas/            # JSON Schema definitions
@@ -110,7 +109,6 @@ src/
 
 | Method | Path             | Description                  |
 | ------ | ---------------- | ---------------------------- |
-| POST   | `/api/gen/ui`    | Stream UI generation (JSONL) |
 | POST   | `/api/gen/chat`  | Stream chat responses (SSE)  |
 | POST   | `/api/gen/specs` | Stream spec generation (SSE) |
 

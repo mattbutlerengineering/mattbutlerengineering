@@ -1,7 +1,7 @@
 import { forwardRef, useState, useCallback, type KeyboardEvent } from "react";
 import { Drawer } from "../Drawer/Drawer.js";
 import { useChatStream } from "./useChatStream.js";
-import type { DomainContext } from "../GenCopilot/GenCopilot.js";
+import type { DomainContext } from "./types.js";
 import styles from "./ChatPanel.module.css";
 
 export interface ChatPanelProps {

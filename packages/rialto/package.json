@@ -142,10 +142,6 @@
       "types": "./dist/lib/components/Footer/index.d.ts",
       "import": "./dist/lib/components/Footer/index.js"
     },
-    "./GenCopilot": {
-      "types": "./dist/lib/components/GenCopilot/index.d.ts",
-      "import": "./dist/lib/components/GenCopilot/index.js"
-    },
     "./GlobalNav": {
       "types": "./dist/lib/components/GlobalNav/index.d.ts",
       "import": "./dist/lib/components/GlobalNav/index.js"
