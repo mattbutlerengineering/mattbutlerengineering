@@ -229,6 +229,11 @@
     },
     {
       "from": "@mbe/agent-service",
+      "to": "@mbe/api-client",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/agent-service",
       "to": "@mbe/api-versioning",
       "type": "dependency"
     },
@@ -239,12 +244,12 @@
     },
     {
       "from": "@mbe/agent-service",
-      "to": "@mbe/observability",
+      "to": "@mbe/database",
       "type": "dependency"
     },
     {
       "from": "@mbe/agent-service",
-      "to": "@mbe/sentry",
+      "to": "@mbe/observability",
       "type": "dependency"
     },
     {
@@ -254,12 +259,12 @@
     },
     {
       "from": "@mbe/agent-service",
-      "to": "@mbe/types",
+      "to": "@mbe/sentry",
       "type": "dependency"
     },
     {
       "from": "@mbe/agent-service",
-      "to": "@mbe/database",
+      "to": "@mbe/types",
       "type": "dependency"
     },
     {
