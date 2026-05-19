@@ -37,6 +37,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build rialto (styles export requires dist/)
+        run: pnpm build --filter @mattbutlerengineering/rialto
+
       - name: Install Playwright
         run: npx playwright install --with-deps chromium
 
