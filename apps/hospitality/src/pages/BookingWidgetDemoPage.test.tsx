@@ -284,7 +284,7 @@ describe("BookingWidgetDemoPage", () => {
     render(<BookingWidgetDemoPage />);
 
     await waitFor(() => {
-      expect(screen.queryByText("Copy")).toBeDefined();
+      expect(screen.getByText("Copy")).toBeDefined();
     });
 
     expect(screen.getByTestId("embed-coming-soon")).toBeDefined();
@@ -294,7 +294,7 @@ describe("BookingWidgetDemoPage", () => {
     render(<BookingWidgetDemoPage />);
 
     await waitFor(() => {
-      expect(screen.queryByText("Copy")).toBeDefined();
+      expect(screen.getByText("Copy")).toBeDefined();
     });
 
     expect(document.body.innerHTML).not.toContain("widget.js");
@@ -304,7 +304,7 @@ describe("BookingWidgetDemoPage", () => {
     render(<BookingWidgetDemoPage />);
 
     await waitFor(() => {
-      expect(screen.getByTestId("page-header")).toBeDefined();
+      expect(screen.getByTestId("embed-coming-soon")).toBeDefined();
     });
 
     expect(screen.getByTestId("embed-coming-soon")).toBeDefined();
