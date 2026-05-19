@@ -703,6 +703,9 @@ importers:
       '@prisma/adapter-pg':
         specifier: ^7.8.0
         version: 7.8.0
+      fastify-plugin:
+        specifier: ^5.0.0
+        version: 5.1.0
       pg:
         specifier: ^8.20.0
         version: 8.20.0
@@ -710,6 +713,12 @@ importers:
       '@mbe/config':
         specifier: workspace:*
         version: link:../config
+      '@mbe/observability':
+        specifier: workspace:*
+        version: link:../observability
+      '@mbe/types':
+        specifier: workspace:*
+        version: link:../types
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.0
@@ -719,6 +728,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.1.6(@vitest/browser@4.1.6)(vitest@4.1.6)
+      fastify:
+        specifier: 'catalog:'
+        version: 5.8.5
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
@@ -11127,7 +11139,7 @@ snapshots:
       lru-cache: 11.3.6
       npm-pick-manifest: 11.0.3
       proc-log: 6.1.0
-      semver: 7.7.4
+      semver: 7.8.0
       which: 6.0.1
 
   '@npmcli/installed-package-contents@4.0.0':
@@ -14869,7 +14881,7 @@ snapshots:
       process-warning: 5.0.0
       rfdc: 1.4.1
       secure-json-parse: 4.1.0
-      semver: 7.7.4
+      semver: 7.8.0
       toad-cache: 3.7.0
 
   fastq@1.20.1:
@@ -16166,7 +16178,7 @@ snapshots:
       graceful-fs: 4.2.11
       nopt: 9.0.0
       proc-log: 6.1.0
-      semver: 7.7.4
+      semver: 7.8.0
       tar: 7.5.13
       tinyglobby: 0.2.16
       undici: 7.25.0

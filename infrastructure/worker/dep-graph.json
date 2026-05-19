@@ -413,6 +413,16 @@
       "type": "devDependency"
     },
     {
+      "from": "@mbe/database",
+      "to": "@mbe/observability",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/database",
+      "to": "@mbe/types",
+      "type": "devDependency"
+    },
+    {
       "from": "@mbe/feature-flags",
       "to": "@mbe/config",
       "type": "devDependency"

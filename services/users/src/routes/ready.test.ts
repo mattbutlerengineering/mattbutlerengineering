@@ -23,12 +23,6 @@ vi.mock("../services/database.js", () => ({
   }),
 }));
 
-vi.mock("../services/health-checks.js", () => ({
-  checkAuth0: vi.fn().mockResolvedValue({ status: "ok", latency: 10 }),
-  checkLatencyAnomaly: vi.fn().mockReturnValue({ isAnomaly: false, rollingAvg: 5 }),
-  recordDbLatency: vi.fn(),
-}));
-
 vi.mock("@mbe/auth/fastify", () => ({
   authPlugin: vi.fn().mockImplementation(async () => {}),
   getAuthPluginOptionsFromEnv: () => ({}),

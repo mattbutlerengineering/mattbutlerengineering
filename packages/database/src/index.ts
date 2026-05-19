@@ -1,6 +1,11 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 
+export { createLatencyTracker, checkAuth0 } from "./health.js";
+export type { LatencyTracker, LatencyAnomalyResult, Auth0CheckResult } from "./health.js";
+export { registerHealthRoutes } from "./health-routes.js";
+export type { HealthRoutesOptions, HealthRouteConfig } from "./health-routes.js";
+
 const SLOW_QUERY_THRESHOLD_MS = 100;
 const SLOW_QUERY_WINDOW_MS = 5 * 60 * 1000;
 const MAX_SLOW_QUERIES = 10;

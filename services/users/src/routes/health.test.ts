@@ -19,12 +19,18 @@ vi.mock("../services/database.js", () => ({
   }),
 }));
 
-// Mock health checks
-vi.mock("../services/health-checks.js", () => ({
-  checkAuth0: vi.fn().mockResolvedValue({ status: "ok", latency: 50 }),
-  checkLatencyAnomaly: vi.fn().mockReturnValue({ isAnomaly: false, rollingAvg: 0 }),
-  recordDbLatency: vi.fn(),
-}));
+// Mock @mbe/database health exports (createLatencyTracker, checkAuth0, registerHealthRoutes)
+vi.mock("@mbe/database", async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    createLatencyTracker: vi.fn().mockReturnValue({
+      record: vi.fn(),
+      checkAnomaly: vi.fn().mockReturnValue({ isAnomaly: false, rollingAvg: 0 }),
+    }),
+    checkAuth0: vi.fn().mockResolvedValue({ status: "ok", latency: 50 }),
+  };
+});
 
 vi.mock("jose", () => ({
   createRemoteJWKSet: vi.fn(() => "mock-jwks"),
