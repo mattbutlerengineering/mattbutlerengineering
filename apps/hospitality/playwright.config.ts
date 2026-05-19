@@ -35,7 +35,7 @@ export default defineConfig({
   webServer: {
     command: "pnpm --filter @mbe/hospitality dev -- --port 3002 --strictPort",
     url: "http://localhost:3002/hospitality/",
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: true,
     timeout: 60_000,
   },
 });
