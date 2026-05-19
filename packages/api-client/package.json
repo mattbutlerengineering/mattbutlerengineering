@@ -4,11 +4,24 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./users": "./src/users.ts",
-    "./streaming": "./src/streaming.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "production": "./dist/index.js",
+      "default": "./src/index.ts"
+    },
+    "./users": {
+      "types": "./src/users.ts",
+      "production": "./dist/users.js",
+      "default": "./src/users.ts"
+    },
+    "./streaming": {
+      "types": "./src/streaming.ts",
+      "production": "./dist/streaming.js",
+      "default": "./src/streaming.ts"
+    }
   },
   "scripts": {
+    "build": "tsc",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit -p tsconfig.test.json",
     "test": "vitest run",

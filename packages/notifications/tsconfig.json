@@ -1,8 +1,9 @@
 {
-  "extends": "@mbe/config/typescript/base",
+  "extends": "@mbe/config/typescript/node",
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src"
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts"]
 }
