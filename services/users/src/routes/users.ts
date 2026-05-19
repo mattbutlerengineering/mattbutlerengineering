@@ -9,13 +9,8 @@ import {
   type PaginatedResponse,
   createProblemDetails,
 } from "@mbe/types";
-import { requireAuth, type AuthUser } from "@mbe/auth/fastify";
+import { requireAuth, hasPermission } from "@mbe/auth/fastify";
 import { userService } from "../services/user.js";
-
-function isAdmin(user: AuthUser | undefined): boolean {
-  const permissions = user?.raw?.permissions;
-  return Array.isArray(permissions) && permissions.includes("admin");
-}
 
 export const userRoutes: FastifyPluginAsync = async (fastify) => {
   // List users
@@ -67,7 +62,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      if (!isAdmin(request.user)) {
+      if (!hasPermission(request.user, "admin")) {
         reply.code(403);
         return reply.send(
           createProblemDetails(403, "Forbidden", "Admin access required to list all users") as never
@@ -125,7 +120,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
       const authUser = request.user;
       const requestedId = request.params.id;
 
-      if (!isAdmin(authUser)) {
+      if (!hasPermission(authUser, "admin")) {
         if (!authUser?.email) {
           return reply
             .code(401)
@@ -275,7 +270,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
       const authUser = request.user;
       const requestedId = request.params.id;
 
-      if (!isAdmin(authUser)) {
+      if (!hasPermission(authUser, "admin")) {
         if (!authUser?.email) {
           return reply
             .code(401)
@@ -339,7 +334,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
       const authUser = request.user;
       const requestedId = request.params.id;
 
-      if (!isAdmin(authUser)) {
+      if (!hasPermission(authUser, "admin")) {
         if (!authUser?.email) {
           return reply
             .code(401)

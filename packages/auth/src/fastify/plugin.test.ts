@@ -327,6 +327,46 @@ describe("Auth Plugin", () => {
     });
   });
 
+  describe("hasPermission", () => {
+    it("returns false when user is undefined", async () => {
+      const { hasPermission } = await import("./plugin.js");
+      expect(hasPermission(undefined, "admin")).toBe(false);
+    });
+
+    it("returns false when user has no permissions array", async () => {
+      const { hasPermission } = await import("./plugin.js");
+      const user = { id: "u1", raw: { sub: "u1", iss: "", aud: "", exp: 0, iat: 0 } };
+      expect(hasPermission(user as any, "admin")).toBe(false);
+    });
+
+    it("returns false when permissions is not an array", async () => {
+      const { hasPermission } = await import("./plugin.js");
+      const user = {
+        id: "u1",
+        raw: { sub: "u1", iss: "", aud: "", exp: 0, iat: 0, permissions: "admin" },
+      };
+      expect(hasPermission(user as any, "admin")).toBe(false);
+    });
+
+    it("returns false when permission not in array", async () => {
+      const { hasPermission } = await import("./plugin.js");
+      const user = {
+        id: "u1",
+        raw: { sub: "u1", iss: "", aud: "", exp: 0, iat: 0, permissions: ["read"] },
+      };
+      expect(hasPermission(user as any, "admin")).toBe(false);
+    });
+
+    it("returns true when permission is in array", async () => {
+      const { hasPermission } = await import("./plugin.js");
+      const user = {
+        id: "u1",
+        raw: { sub: "u1", iss: "", aud: "", exp: 0, iat: 0, permissions: ["admin", "read"] },
+      };
+      expect(hasPermission(user as any, "admin")).toBe(true);
+    });
+  });
+
   describe("rate-limit registration check", () => {
     it("logs a warning when rateLimit decorator is missing", async () => {
       const warnSpy = vi.fn();
