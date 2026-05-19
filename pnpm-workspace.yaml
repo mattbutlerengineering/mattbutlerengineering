@@ -10,7 +10,7 @@ catalog:
   vitest: "^4.1.6"
   "@vitest/coverage-v8": "^4.1.6"
   typescript: "^6.0.3"
-  "@types/node": "^25.9.0"
+  "@types/node": "^25.7.0"
   fastify: "^5.8.5"
   react: "^19.2.6"
   react-dom: "^19.2.6"
