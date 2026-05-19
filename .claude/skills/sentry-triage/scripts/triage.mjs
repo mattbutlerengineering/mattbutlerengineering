@@ -6,6 +6,7 @@ if (!SENTRY_TOKEN) {
 }
 const GITHUB_TOKEN = process.env.GH_TOKEN || "";
 const ORG_SLUG = "mattbutlerengineering";
+const REPO = "mattbutlerengineering/mattbutlerengineering";
 const SEVERITY_THRESHOLD = 5;
 
 async function sentryApi(endpoint) {
@@ -29,11 +30,14 @@ async function ghApi(endpoint, options = {}) {
 }
 
 async function searchExistingIssues(query) {
-  return ghApi(`/search/issues?q=${encodeURIComponent(query)}+is:issue+state:open`);
+  return ghApi(`/search/issues?q=${encodeURIComponent(query)}+repo:${REPO}+is:issue+state:open`);
 }
 
 async function createIssue(title, body, labels) {
-  return ghApi("/issues", { method: "POST", body: JSON.stringify({ title, body, labels }) });
+  return ghApi(`/repos/${REPO}/issues`, {
+    method: "POST",
+    body: JSON.stringify({ title, body, labels }),
+  });
 }
 
 async function triage() {

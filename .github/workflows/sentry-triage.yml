@@ -1,0 +1,58 @@
+name: Sentry Triage
+
+on:
+  schedule:
+    # 14:00 UTC daily (= 07:00 PT)
+    - cron: "0 14 * * *"
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why are you triggering this manually?"
+        required: false
+        default: "On-demand triage"
+
+permissions:
+  issues: write
+  contents: read
+
+concurrency:
+  group: sentry-triage
+  cancel-in-progress: false
+
+jobs:
+  triage:
+    name: Triage Sentry errors into GitHub issues
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SENTRY_ACCESS_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+
+      - name: Run sentry triage
+        run: node .claude/skills/sentry-triage/scripts/triage.mjs
+
+      - name: Summary
+        if: always()
+        env:
+          TRIGGER_EVENT: ${{ github.event_name }}
+          MANUAL_REASON: ${{ github.event.inputs.reason }}
+        run: |
+          {
+            echo "## Sentry triage — $(date -u +%Y-%m-%dT%H:%MZ)"
+            echo ""
+            if [ "$TRIGGER_EVENT" = "schedule" ]; then
+              echo "Trigger: scheduled (daily 14:00 UTC)"
+            else
+              echo "Trigger: manual"
+              printf 'Reason: %s\n' "$MANUAL_REASON"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
