@@ -10,9 +10,14 @@ import type {
   PaginatedResponse,
 } from "@mbe/types";
 import { createProblemDetails } from "@mbe/types";
-import { requireAuth, optionalAuth, hasPermission } from "@mbe/auth/fastify";
+import { requireAuth, optionalAuth, type AuthUser } from "@mbe/auth/fastify";
 import { parseFeatureFlags, isEnabled } from "@mbe/feature-flags";
 import { reservationService } from "../services/reservation.js";
+
+function isAdmin(user: AuthUser | undefined): boolean {
+  const permissions = user?.raw?.permissions;
+  return Array.isArray(permissions) && permissions.includes("admin");
+}
 import {
   emitReservationCancelled,
   emitReservationCreated,
@@ -96,7 +101,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request, reply) => {
       const authUser = request.user;
-      const adminAccess = hasPermission(authUser, "admin");
+      const adminAccess = isAdmin(authUser);
 
       if (!adminAccess) {
         reply.code(403);
@@ -323,7 +328,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       const authUser = request.user;
-      const adminAccess = hasPermission(authUser, "admin");
+      const adminAccess = isAdmin(authUser);
       const isOwner = reservation.guestEmail === authUser?.email;
 
       if (!adminAccess && !isOwner) {
@@ -574,7 +579,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       const authUser = request.user;
-      const adminAccess = hasPermission(authUser, "admin");
+      const adminAccess = isAdmin(authUser);
       const isOwner = authUser?.email && reservation.guestEmail === authUser.email;
 
       if (!adminAccess && !isOwner) {
@@ -688,7 +693,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       const authUser = request.user;
-      const adminAccess = hasPermission(authUser, "admin");
+      const adminAccess = isAdmin(authUser);
       const isOwner = authUser?.email && reservation.guestEmail === authUser.email;
 
       if (!adminAccess && !isOwner) {

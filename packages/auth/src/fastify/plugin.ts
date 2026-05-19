@@ -161,12 +161,6 @@ export const authPlugin: FastifyPluginAsync<AuthPluginOptions> = fp(authPluginIm
   fastify: "5.x",
 });
 
-export function hasPermission(user: AuthUser | undefined, permission: string): boolean {
-  const permissions = user?.raw?.permissions;
-  if (!Array.isArray(permissions)) return false;
-  return permissions.includes(permission);
-}
-
 export async function requireAuth(request: FastifyRequest, reply: FastifyReply) {
   const isBypassed =
     process.env.AUTH_BYPASS_IN_TESTS === "true" && request.headers["x-auth-bypass"] === "true";
