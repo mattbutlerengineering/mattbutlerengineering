@@ -25,3 +25,13 @@ export type {
   RateLimitHealthStats,
   RateLimitSnapshot,
 } from "./rate-limit-monitor.js";
+
+export { checkAuth0, checkLatencyAnomaly, recordDbLatency } from "./health-checks.js";
+
+export { registerHealthRoutes } from "./health-routes.js";
+export type {
+  HealthRouteOptions,
+  HealthRouteEntry,
+  DbStatFunctions,
+  PrismaLike,
+} from "./health-routes.js";

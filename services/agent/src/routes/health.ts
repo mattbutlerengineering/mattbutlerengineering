@@ -1,180 +1,32 @@
-import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from "fastify";
-import type { HealthResponse } from "@mbe/types";
-import type { RateLimitMonitor } from "@mbe/observability";
+import type { FastifyInstance } from "fastify";
+import { registerHealthRoutes } from "@mbe/observability";
 import {
   prisma,
   getSlowQueryStats,
   getServiceStatus,
   getPoolMetrics,
 } from "../services/database.js";
-import { checkAuth0, checkLatencyAnomaly, recordDbLatency } from "../services/health-checks.js";
+import {
+  checkAuth0,
+  checkLatencyAnomaly,
+  recordDbLatency,
+} from "../services/health-checks.js";
 
-export const healthRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
-  const healthSchema = {
-    summary: "Service health check",
-    description: "Check agent service health and database connectivity.",
-    tags: ["Health"],
-    response: {
-      200: {
-        description: "Service health status",
-        type: "object",
-        properties: {
-          status: { type: "string", enum: ["ok", "degraded", "error"] },
-          version: { type: "string" },
-          timestamp: { type: "string", format: "date-time" },
-          checks: {
-            type: "object",
-            additionalProperties: {
-              type: "object",
-              additionalProperties: true,
-              properties: {
-                status: { type: "string", enum: ["ok", "error", "degraded"] },
-                message: { type: "string" },
-                latency: { type: "number" },
-              },
-            },
-          },
-          error_rates: {
-            type: "object",
-            properties: {
-              degraded: { type: "boolean" },
-              endpoints: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    endpoint: { type: "string" },
-                    total: { type: "number" },
-                    errors: { type: "number" },
-                    rate: { type: "number" },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-  };
-
-  const healthHandler = async (request: FastifyRequest): Promise<HealthResponse> => {
-    const checks: Record<string, { status: string; latency?: number; message?: string }> = {};
-    const { apiVersion, successorVersion, sunsetDate } = request.server as unknown as {
-      apiVersion: string;
-      successorVersion?: string;
-      sunsetDate: string;
-    };
-
-    const dbStart = Date.now();
-    try {
-      await prisma.$queryRaw`SELECT 1`;
-      const dbLatency = Date.now() - dbStart;
-      const anomaly = checkLatencyAnomaly(dbLatency);
-      recordDbLatency(dbLatency);
-      checks.database = {
-        status: anomaly.isAnomaly ? "error" : "ok",
-        latency: dbLatency,
-        ...(anomaly.isAnomaly && {
-          message: `Latency anomaly: ${dbLatency}ms vs rolling avg ${anomaly.rollingAvg}ms`,
-        }),
-      };
-    } catch (error) {
-      checks.database = {
-        status: "error",
-        message: error instanceof Error ? error.message : "Database connection failed",
-        latency: Date.now() - dbStart,
-      };
-    }
-
-    const slowQueries = getSlowQueryStats();
-    const dbStatus = checks.database?.status ?? "ok";
-    const slowQueryStatus = getServiceStatus();
-
-    checks.slow_queries = {
-      status: slowQueryStatus,
-      message: `${slowQueries.count5min} slow queries in last 5min (slowest: ${slowQueries.slowestMs}ms)`,
-      latency: slowQueries.slowestMs,
-    };
-
-    const auth0Result = await checkAuth0();
-    checks.auth0 = {
-      status: auth0Result.status,
-      latency: auth0Result.latency,
-      ...(auth0Result.message && { message: auth0Result.message }),
-    };
-
-    const rateLimitMonitor = (request.server as unknown as { rateLimitMonitor: RateLimitMonitor })
-      .rateLimitMonitor;
-    const rateLimitSnapshot = rateLimitMonitor.getSnapshot();
-    checks.rate_limits = {
-      status: rateLimitSnapshot.isDegraded ? "degraded" : "ok",
-      ...rateLimitSnapshot.stats,
-      ...(rateLimitSnapshot.isDegraded && {
-        message: `High rate limit activity: ${rateLimitSnapshot.stats.hits_last_hour} hits from ${rateLimitSnapshot.stats.blocked_ips} IPs`,
-      }),
-    };
-
-    const poolMetrics = getPoolMetrics();
-    checks.pool = {
-      status: poolMetrics.isDegraded ? "degraded" : "ok",
-      ...(poolMetrics.isDegraded && {
-        message: `Pool utilization high: ${Math.round(poolMetrics.utilization * 100)}% (${poolMetrics.busy}/${poolMetrics.size} busy)`,
-      }),
-      ...{
-        active: poolMetrics.active,
-        idle: poolMetrics.idle,
-        busy: poolMetrics.busy,
-        size: poolMetrics.size,
-        utilization: poolMetrics.utilization,
-      },
-    };
-
-    const errorRates = fastify.getErrorRates();
-    const degradedEndpoints = errorRates.endpoints.filter((e) => e.rate > 0.1 && e.total >= 5);
-
-    const hasErrors =
-      dbStatus === "error" ||
-      slowQueryStatus === "degraded" ||
-      auth0Result.status === "degraded" ||
-      rateLimitSnapshot.isDegraded ||
-      poolMetrics.isDegraded ||
-      errorRates.degraded;
-
-    return {
-      status: hasErrors ? "degraded" : "ok",
-      version: "1.0.0",
-      apiVersion,
-      successorVersion,
-      sunsetDate,
-      timestamp: new Date().toISOString(),
-      checks,
-      error_rates: errorRates,
-      ...(errorRates.degraded && {
-        message: `High error rate on: ${degradedEndpoints.map((e) => `${e.endpoint} (${Math.round(e.rate * 100)}%)`).join(", ")}`,
-      }),
-    };
-  };
-
-  // /health — used by DO App Platform internal health checks (direct container access)
-  // github[js/missing-rate-limiting] — restrictive limit for DB-intensive health check
-  fastify.get<{ Reply: HealthResponse }>(
-    "/health",
-    {
-      schema: { ...healthSchema, operationId: "getAgentHealth" },
-      config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
-    },
-    healthHandler
-  );
-
-  // /api/gen/health — public path via DO ingress (preservePathPrefix: true, prefix "/api/gen")
-  // Required for synthetic monitoring hitting api.mattbutlerengineering.com/api/gen/health
-  // github[js/missing-rate-limiting] — restrictive limit for public health check
-  fastify.get<{ Reply: HealthResponse }>(
-    "/api/gen/health",
-    {
-      schema: { ...healthSchema, operationId: "getAgentHealthApiGen" },
-      config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
-    },
-    healthHandler
-  );
-};
+export async function healthRoutes(fastify: FastifyInstance): Promise<void> {
+  await registerHealthRoutes(fastify, {
+    prisma,
+    db: { getSlowQueryStats, getServiceStatus, getPoolMetrics },
+    checkAuth0,
+    checkLatencyAnomaly,
+    recordDbLatency,
+    routes: [
+      // /health — used by DO App Platform internal health checks (direct container access)
+      // github[js/missing-rate-limiting] — restrictive limit for DB-intensive health check
+      { path: "/health", operationId: "getAgentHealth" },
+      // /api/gen/health — public path via DO ingress (preservePathPrefix: true, prefix "/api/gen")
+      // Required for synthetic monitoring hitting api.mattbutlerengineering.com/api/gen/health
+      // github[js/missing-rate-limiting] — restrictive limit for public health check
+      { path: "/api/gen/health", operationId: "getAgentHealthApiGen" },
+    ],
+  });
+}

@@ -9,6 +9,13 @@ import { buildMinimalSuccessFixture } from "@mbe/agent-test-utils";
  * endpoint — content-type headers, event structure, and JSON data lines.
  */
 
+
+vi.mock("../services/health-checks.js", () => ({
+  checkAuth0: vi.fn().mockResolvedValue({ status: "ok", latency: 50 }),
+  checkLatencyAnomaly: vi.fn().mockReturnValue({ isAnomaly: false, rollingAvg: 0 }),
+  recordDbLatency: vi.fn(),
+}));
+
 vi.mock("jose", () => ({
   createRemoteJWKSet: vi.fn(() => "mock-jwks"),
   jwtVerify: vi.fn().mockResolvedValue({
@@ -41,6 +48,16 @@ vi.mock("../services/database.js", () => ({
       findUnique: vi.fn(),
     },
   },
+  getSlowQueryStats: vi.fn().mockReturnValue({ count5min: 0, slowestMs: 0 }),
+  getServiceStatus: vi.fn().mockReturnValue("ok"),
+  getPoolMetrics: vi.fn().mockReturnValue({
+    active: 1,
+    idle: 4,
+    busy: 1,
+    size: 5,
+    utilization: 0.2,
+    isDegraded: false,
+  }),
 }));
 
 vi.mock("../services/session-executor.js", () => ({

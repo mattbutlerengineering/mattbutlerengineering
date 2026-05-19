@@ -35,6 +35,13 @@ vi.mock("../services/venue.js", () => ({
   },
 }));
 
+
+vi.mock("../services/health-checks.js", () => ({
+  checkAuth0: vi.fn().mockResolvedValue({ status: "ok", latency: 50 }),
+  checkLatencyAnomaly: vi.fn().mockReturnValue({ isAnomaly: false, rollingAvg: 0 }),
+  recordDbLatency: vi.fn(),
+}));
+
 vi.mock("jose", () => ({
   jwtVerify: vi.fn(),
   createRemoteJWKSet: vi.fn(() => vi.fn()),
