@@ -27,7 +27,7 @@ jobs:
       blocked: ${{ steps.check.outputs.blocked }}
     steps:
       - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4/v5
         with:
           sparse-checkout: |
             .github/circuit-breaker-state
@@ -59,7 +59,7 @@ jobs:
       hospitality: ${{ steps.result.outputs.hospitality }}
       rialto-web: ${{ steps.result.outputs.rialto-web }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4/v5
       - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4
         id: filter
         if: github.event_name == 'push'
@@ -104,7 +104,7 @@ jobs:
     if: needs.detect-changes.outputs.marketing == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4/v5
 
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
@@ -129,7 +129,7 @@ jobs:
     if: needs.detect-changes.outputs.hospitality == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4/v5
 
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
@@ -165,7 +165,7 @@ jobs:
     if: needs.detect-changes.outputs.rialto-web == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4/v5
 
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
