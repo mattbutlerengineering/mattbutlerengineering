@@ -102,7 +102,74 @@ describe("ChatPanel", () => {
     expect(screen.getByText("hi there")).toBeInTheDocument();
   });
 
-  it("renders element placeholders when message has elements", () => {
+  it("renders elements via json-render when registry is provided", () => {
+    const TestCard = ({ title }: { title: string }) => (
+      <div data-testid="rendered-card">{title}</div>
+    );
+    const registry = { Card: TestCard };
+
+    mockHookReturn = {
+      ...mockHookReturn,
+      messages: [
+        {
+          role: "assistant",
+          content: "Here are your slots:",
+          elements: [{ id: "el-1", type: "Card", props: { title: "7pm Slot" } }],
+        },
+      ],
+    };
+
+    render(<ChatPanel {...defaultProps} registry={registry} />);
+
+    expect(screen.getByTestId("rendered-card")).toBeInTheDocument();
+    expect(screen.getByText("7pm Slot")).toBeInTheDocument();
+  });
+
+  it("strips dangerous props from element specs", () => {
+    const Spy = (props: Record<string, unknown>) => (
+      <div
+        data-testid="spy"
+        data-has-dangerous={String("dangerouslySetInnerHTML" in props)}
+        data-has-onclick={String("onClick" in props)}
+        data-has-ref={String("ref" in props)}
+      >
+        {String(props.title ?? "")}
+      </div>
+    );
+    const registry = { Alert: Spy };
+
+    mockHookReturn = {
+      ...mockHookReturn,
+      messages: [
+        {
+          role: "assistant",
+          content: "",
+          elements: [
+            {
+              id: "xss-1",
+              type: "Alert",
+              props: {
+                title: "safe",
+                dangerouslySetInnerHTML: { __html: "<script>alert(1)</script>" },
+                onClick: "alert(2)",
+                ref: "steal-ref",
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    render(<ChatPanel {...defaultProps} registry={registry} />);
+
+    const spy = screen.getByTestId("spy");
+    expect(spy).toHaveAttribute("data-has-dangerous", "false");
+    expect(spy).toHaveAttribute("data-has-onclick", "false");
+    expect(spy).toHaveAttribute("data-has-ref", "false");
+    expect(spy).toHaveTextContent("safe");
+  });
+
+  it("falls back to type label when no registry is provided", () => {
     mockHookReturn = {
       ...mockHookReturn,
       messages: [

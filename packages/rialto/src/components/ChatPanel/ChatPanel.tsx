@@ -2,7 +2,25 @@ import { forwardRef, useState, useCallback, type KeyboardEvent } from "react";
 import { Drawer } from "../Drawer/Drawer.js";
 import { useChatStream } from "./useChatStream.js";
 import type { DomainContext } from "./types.js";
+import type { ChatMessageElement } from "./useChatStream.js";
+import { sanitizeElementProps } from "./sanitize.js";
 import styles from "./ChatPanel.module.css";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type ComponentRegistry = Record<string, React.ComponentType<any>>;
+
+function renderElement(el: ChatMessageElement, registry?: ComponentRegistry) {
+  const Component = registry?.[el.type];
+  if (Component) {
+    const safeProps = sanitizeElementProps(el.props ?? {});
+    return <Component key={el.id} {...safeProps} />;
+  }
+  return (
+    <div key={el.id} className={styles.elementCard} data-element-type={el.type}>
+      {el.props?.title ? String(el.props.title) : el.type}
+    </div>
+  );
+}
 
 export interface ChatPanelProps {
   onClose: () => void;
@@ -10,10 +28,11 @@ export interface ChatPanelProps {
   domainContext: DomainContext;
   getAccessToken: () => string | null | Promise<string | null>;
   standalone?: boolean;
+  registry?: ComponentRegistry;
 }
 
 export const ChatPanel = forwardRef<HTMLDivElement, ChatPanelProps>(function ChatPanel(
-  { onClose, api, domainContext, getAccessToken, standalone },
+  { onClose, api, domainContext, getAccessToken, standalone, registry },
   ref
 ) {
   const { messages, isStreaming, pendingAction, send, confirmAction, cancelAction } = useChatStream(
@@ -54,11 +73,7 @@ export const ChatPanel = forwardRef<HTMLDivElement, ChatPanelProps>(function Cha
             {msg.content}
             {msg.elements && msg.elements.length > 0 && (
               <div className={styles.elements} data-testid="chat-elements">
-                {msg.elements.map((el) => (
-                  <div key={el.id} className={styles.elementCard} data-element-type={el.type}>
-                    {el.props?.title ? String(el.props.title) : el.type}
-                  </div>
-                ))}
+                {msg.elements.map((el) => renderElement(el, registry))}
               </div>
             )}
           </div>

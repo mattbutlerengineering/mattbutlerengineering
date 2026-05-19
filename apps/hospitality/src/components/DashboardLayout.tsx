@@ -13,6 +13,7 @@ import {
   Heading,
 } from "@mattbutlerengineering/rialto";
 import type { BreadcrumbItem } from "@mattbutlerengineering/rialto";
+import { registry } from "@mbe/rialto-catalog";
 import { HOSPITALITY_DOMAIN_CONTEXT } from "../constants/copilotContext.js";
 import { useCommandPalette } from "../hooks/use-command-palette.js";
 import { useTheme, resolveTheme } from "../hooks/use-theme.js";
@@ -305,6 +306,7 @@ function DashboardLayoutInner() {
             api="/api/gen/agent"
             domainContext={HOSPITALITY_DOMAIN_CONTEXT}
             getAccessToken={getAccessToken}
+            registry={registry}
           />
         </div>
       )}
