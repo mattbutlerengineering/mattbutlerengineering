@@ -57,6 +57,7 @@ RUN pnpm --filter @mbe/types build && \
     pnpm --filter @mbe/feature-flags build && \
     pnpm --filter @mbe/sentry build && \
     pnpm --filter @mbe/database build && \
+    pnpm --filter @mbe/notifications build && \
     pnpm --filter @mbe/reservations-service db:generate && \
     pnpm --filter @mbe/reservations-service build
 
@@ -98,7 +99,7 @@ COPY --from=builder /app/packages/observability/dist ./packages/observability/di
 COPY --from=builder /app/packages/feature-flags/dist ./packages/feature-flags/dist
 COPY --from=builder /app/packages/sentry/dist ./packages/sentry/dist
 COPY --from=builder /app/packages/database/dist ./packages/database/dist
-COPY --from=builder /app/packages/notifications/src ./packages/notifications/src
+COPY --from=builder /app/packages/notifications/dist ./packages/notifications/dist
 
 # Copy built reservations service
 COPY --from=builder /app/services/reservations/dist ./services/reservations/dist

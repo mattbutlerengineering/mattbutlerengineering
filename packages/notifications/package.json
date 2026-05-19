@@ -4,10 +4,19 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./ical": "./src/ical.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "production": "./dist/index.js",
+      "default": "./src/index.ts"
+    },
+    "./ical": {
+      "types": "./src/ical.ts",
+      "production": "./dist/ical.js",
+      "default": "./src/ical.ts"
+    }
   },
   "scripts": {
+    "build": "tsc",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
