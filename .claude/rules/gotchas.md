@@ -11,6 +11,7 @@ Project-specific traps that have bitten me before. Read these before diving into
 
 - **Vitest does NOT typecheck** — tests can pass with completely wrong types. Pre-push hook now runs `turbo typecheck` before `turbo test`. If you add test mocks, they must match the actual interface shape (e.g. `SessionResult` needs `status`/`sessionId`/`branchName`, not `success`/`stuck`/`outputs`)
 - **Worktree agents must run `pnpm typecheck` before declaring done.** Agents that only run `pnpm test` will miss type errors that break CI. This is the #2 recurring CI failure pattern after the missing `pnpm install` pattern
+- **Hospitality tests need `import "@testing-library/jest-dom"` per file** — no global setup file registers the matchers. Without the import, `toBeInTheDocument()` throws `Invalid Chai property`. Other packages (rialto) have a setup.ts that handles this globally
 
 ## Build / pnpm / turbo
 
@@ -36,6 +37,8 @@ Project-specific traps that have bitten me before. Read these before diving into
 ## Dependencies
 
 - **pnpm.overrides for CVEs: use the scoped pattern** `"pkg@<patched": "^patched"`, not `"pkg": ">=patched"` — the open range resolves to the latest satisfying version and can pull major bumps (e.g. `protobufjs@>=7.5.5` → 8.0.1)
+- **Zod 4 `z.record()` requires 2 args** — `z.record(z.unknown())` fails; use `z.record(z.string(), z.unknown())`. Zod 3 accepted 1 arg, Zod 4 does not
+- **AI SDK v6 API renames** — `streamText` uses `stopWhen: stepCountIs(N)` (not `maxSteps`), `tool()` uses `inputSchema` (not `parameters`), fullStream text-delta events have `.text` (not `.textDelta`), and tool-call events have `.input` (not `.args`). The old names don't exist — TypeScript will catch it but only at typecheck, not at test time
 
 ## Releases (changesets / rialto)
 

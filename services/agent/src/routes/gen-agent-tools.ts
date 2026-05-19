@@ -212,7 +212,9 @@ export function createAgentTools(log: FastifyBaseLogger, api: ApiClient) {
         log.info({ reservationId }, "cancel_reservation tool called");
         try {
           if (!reservationId) {
-            return { error: "Reservation ID is required to cancel. Please look up the reservation first." };
+            return {
+              error: "Reservation ID is required to cancel. Please look up the reservation first.",
+            };
           }
           const reservation = await api.reservations.cancel(reservationId);
           return { reservation };
@@ -239,7 +241,9 @@ export function createAgentTools(log: FastifyBaseLogger, api: ApiClient) {
         log.info({ venueId, partySize, tableId, guestName }, "seat_walk_in tool called");
         try {
           if (!tableId) {
-            return { error: "A table must be specified for walk-ins. Check available tables first." };
+            return {
+              error: "A table must be specified for walk-ins. Check available tables first.",
+            };
           }
           const reservation = await api.reservations.walkIn({
             venueId,
@@ -267,9 +271,7 @@ export function createAgentTools(log: FastifyBaseLogger, api: ApiClient) {
         log.info({ venueId, tableNumber, newStatus }, "update_table_status tool called");
         try {
           const tablesResult = await api.tables.list({ venueId });
-          const table = tablesResult.data.find(
-            (t) => t.tableNumber === String(tableNumber)
-          );
+          const table = tablesResult.data.find((t) => t.tableNumber === String(tableNumber));
           if (!table) {
             return { error: `Table ${tableNumber} not found in this venue.` };
           }

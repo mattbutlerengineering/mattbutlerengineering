@@ -7,6 +7,19 @@
   </file>
   </section>
   <section priority="medium" role="routes">
+  <file path="src/routes/gen-agent-tools.ts">
+    <item priority="high">
+      type ApiClient = ReturnType<typeof createApiClient>;
+    </item>
+    <item priority="high">
+      export const WRITE_TOOLS: unknown;
+    </item>
+  </file>
+  <file path="src/routes/gen-agent.ts">
+    <item priority="high">
+      export const genAgentRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="src/routes/gen-chat.ts">
     <item priority="high">
       export const genChatRoutes: FastifyPluginAsync;

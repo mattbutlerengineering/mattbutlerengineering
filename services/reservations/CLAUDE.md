@@ -184,17 +184,17 @@ interface Guest {
 
 ### Public Booking Widget (no auth)
 
-| Method | Path                                      | Description                                      |
-| ------ | ----------------------------------------- | ------------------------------------------------ |
-| GET    | `/public/v1/venues/:slug`                 | Get public venue info                            |
-| GET    | `/public/v1/venues/:slug/availability`    | Get available slots (public)                     |
-| POST   | `/public/v1/venues/:slug/holds`           | Create hold (public)                             |
-| DELETE | `/public/v1/venues/:slug/holds/:holdId`   | Release hold (public)                            |
-| POST   | `/public/v1/venues/:slug/reservations`    | Confirm hold → reservation (public)              |
-| GET    | `/public/v1/reservations/manage`          | Get reservation via manage token                 |
-| PATCH  | `/public/v1/reservations/manage`          | Modify reservation via manage token              |
-| DELETE | `/public/v1/reservations/manage`          | Cancel reservation via manage token              |
-| GET    | `/public/v1/reservations/confirm`         | Confirm attendance via token                     |
+| Method | Path                                    | Description                         |
+| ------ | --------------------------------------- | ----------------------------------- |
+| GET    | `/public/v1/venues/:slug`               | Get public venue info               |
+| GET    | `/public/v1/venues/:slug/availability`  | Get available slots (public)        |
+| POST   | `/public/v1/venues/:slug/holds`         | Create hold (public)                |
+| DELETE | `/public/v1/venues/:slug/holds/:holdId` | Release hold (public)               |
+| POST   | `/public/v1/venues/:slug/reservations`  | Confirm hold → reservation (public) |
+| GET    | `/public/v1/reservations/manage`        | Get reservation via manage token    |
+| PATCH  | `/public/v1/reservations/manage`        | Modify reservation via manage token |
+| DELETE | `/public/v1/reservations/manage`        | Cancel reservation via manage token |
+| GET    | `/public/v1/reservations/confirm`       | Confirm attendance via token        |
 
 ### Events (SSE)
 
@@ -378,19 +378,19 @@ pnpm db:migrate:deploy # Apply migrations (production)
 
 ## Environment Variables
 
-| Variable               | Required   | Description                                                    |
-| ---------------------- | ---------- | -------------------------------------------------------------- |
-| `PORT`                 | No         | Service port (default: 3004)                                   |
-| `LOG_LEVEL`            | No         | Logging level (default: info)                                  |
-| `CORS_ORIGINS`         | No         | Comma-separated allowed origins                                |
-| `AUTH_AUTHORITY`       | Yes (prod) | Auth0 domain                                                   |
-| `AUTH_AUDIENCE`        | Yes (prod) | Auth0 API identifier                                           |
-| `DATABASE_URL`         | Yes        | Postgres connection                                            |
-| `MANAGE_TOKEN_SECRET`  | Yes (prod) | HMAC secret for self-service manage/cancel tokens              |
-| `RESEND_API_KEY`       | No         | Resend API key — enables email notifications when set          |
-| `EMAIL_FROM`           | No         | From address for emails (default: reservations@m...com)        |
-| `MANAGE_BASE_URL`      | No         | Base URL for manage/cancel links in emails                     |
-| `SENTRY_DSN`           | No         | Sentry DSN for error tracking                                  |
+| Variable              | Required   | Description                                             |
+| --------------------- | ---------- | ------------------------------------------------------- |
+| `PORT`                | No         | Service port (default: 3004)                            |
+| `LOG_LEVEL`           | No         | Logging level (default: info)                           |
+| `CORS_ORIGINS`        | No         | Comma-separated allowed origins                         |
+| `AUTH_AUTHORITY`      | Yes (prod) | Auth0 domain                                            |
+| `AUTH_AUDIENCE`       | Yes (prod) | Auth0 API identifier                                    |
+| `DATABASE_URL`        | Yes        | Postgres connection                                     |
+| `MANAGE_TOKEN_SECRET` | Yes (prod) | HMAC secret for self-service manage/cancel tokens       |
+| `RESEND_API_KEY`      | No         | Resend API key — enables email notifications when set   |
+| `EMAIL_FROM`          | No         | From address for emails (default: reservations@m...com) |
+| `MANAGE_BASE_URL`     | No         | Base URL for manage/cancel links in emails              |
+| `SENTRY_DSN`          | No         | Sentry DSN for error tracking                           |
 
 ## Related Documentation
 

@@ -295,15 +295,15 @@ vi.mock("@mbe/auth/fastify", () => ({
 
 ## Environment Variables
 
-| Variable         | Required   | Default | Description                |
-| ---------------- | ---------- | ------- | -------------------------- |
-| `PORT`           | No         | 3001    | Service port               |
-| `LOG_LEVEL`      | No         | info    | Logging level              |
+| Variable         | Required   | Default | Description                          |
+| ---------------- | ---------- | ------- | ------------------------------------ |
+| `PORT`           | No         | 3001    | Service port                         |
+| `LOG_LEVEL`      | No         | info    | Logging level                        |
 | `CORS_ORIGINS`   | No         | `*`     | Comma-separated allowed CORS origins |
-| `AUTH_AUTHORITY` | Yes (prod) | —       | Auth0 domain URL           |
-| `AUTH_AUDIENCE`  | Yes (prod) | —       | Auth0 API identifier       |
-| `DATABASE_URL`   | Yes        | —       | Postgres connection string |
-| `SENTRY_DSN`     | No         | —       | Sentry DSN for error tracking |
+| `AUTH_AUTHORITY` | Yes (prod) | —       | Auth0 domain URL                     |
+| `AUTH_AUDIENCE`  | Yes (prod) | —       | Auth0 API identifier                 |
+| `DATABASE_URL`   | Yes        | —       | Postgres connection string           |
+| `SENTRY_DSN`     | No         | —       | Sentry DSN for error tracking        |
 
 ## Commands
 
