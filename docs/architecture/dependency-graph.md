@@ -60,13 +60,14 @@ flowchart TD
   rialto_web --> sentry
   rialto_web --> config
   agent_service --> agent_core
+  agent_service --> api_client
   agent_service --> api_versioning
   agent_service --> auth
-  agent_service --> observability
-  agent_service --> sentry
-  agent_service --> rialto_catalog
-  agent_service --> types
   agent_service --> database
+  agent_service --> observability
+  agent_service --> rialto_catalog
+  agent_service --> sentry
+  agent_service --> types
   agent_service --> agent_test_utils
   agent_service --> config
   reservations_service --> api_versioning
@@ -144,9 +145,9 @@ flowchart TD
 
 ## Legend
 
-| Color  | Category                        |
-| ------ | ------------------------------- |
-| Blue   | Frontend Apps (`apps/*`)        |
-| Amber  | Backend Services (`services/*`) |
-| Indigo | Shared Packages (`packages/*`)  |
-| Green  | Developer Tools (`tools/*`)     |
+| Color | Category |
+|-------|----------|
+| Blue | Frontend Apps (`apps/*`) |
+| Amber | Backend Services (`services/*`) |
+| Indigo | Shared Packages (`packages/*`) |
+| Green | Developer Tools (`tools/*`) |
