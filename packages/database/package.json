@@ -18,7 +18,16 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@fastify/cors": "^11.2.0",
+    "@fastify/rate-limit": "^10.3.0",
+    "@fastify/swagger": "^9.7.0",
+    "@fastify/swagger-ui": "^5.2.6",
+    "@mbe/api-versioning": "workspace:*",
+    "@mbe/auth": "workspace:*",
+    "@mbe/observability": "workspace:*",
+    "@mbe/sentry": "workspace:*",
     "@prisma/adapter-pg": "^7.8.0",
+    "@scalar/fastify-api-reference": "^1.55.3",
     "fastify-plugin": "^5.0.0",
     "pg": "^8.20.0"
   },
@@ -32,7 +41,6 @@
   },
   "devDependencies": {
     "@mbe/config": "workspace:*",
-    "@mbe/observability": "workspace:*",
     "@mbe/types": "workspace:*",
     "@types/node": "catalog:",
     "@types/pg": "^8.20.0",
