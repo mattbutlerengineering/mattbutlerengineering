@@ -34,10 +34,10 @@
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@prisma/client-runtime-utils": "^7.8.0",
-    "@scalar/fastify-api-reference": "^1.55.3",
+    "@scalar/fastify-api-reference": "^1.57.2",
     "fastify": "catalog:",
     "jose": "^6.2.3",
-    "pg": "^8.20.0",
+    "pg": "^8.21.0",
     "zod": "catalog:",
     "@mbe/database": "workspace:*"
   },
@@ -50,7 +50,7 @@
     "@types/pg": "^8.20.0",
     "@vitest/coverage-v8": "catalog:",
     "prisma": "^7.8.0",
-    "tsx": "^4.19.0",
+    "tsx": "^4.22.2",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },
