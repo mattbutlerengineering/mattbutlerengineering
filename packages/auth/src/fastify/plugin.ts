@@ -2,6 +2,7 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 import fp from "fastify-plugin";
 import type { FastifyInstance, FastifyRequest, FastifyReply, FastifyPluginAsync } from "fastify";
 import type { JWTPayload, AuthUser } from "../types/index.js";
+import { createProblemDetails } from "@mbe/types";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -16,18 +17,6 @@ export interface AuthPluginOptions {
   audience: string;
   /** Routes to exclude from token verification (e.g., ["/health"]) */
   excludePaths?: string[];
-}
-
-function createProblemDetails(status: number, title: string, detail: string) {
-  return {
-    type: `https://httpstatuses.com/${status}`,
-    title,
-    status,
-    detail,
-    error: title,
-    message: detail,
-    statusCode: status,
-  };
 }
 
 /**
