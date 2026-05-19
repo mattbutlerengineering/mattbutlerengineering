@@ -40,21 +40,14 @@ jobs:
       - name: Install Playwright
         run: npx playwright install --with-deps chromium
 
-      - name: Start dev server
-        run: pnpm --dir apps/hospitality dev &
+      - name: Run E2E tests
+        run: pnpm --dir apps/hospitality test:e2e
         env:
           VITE_AUTH_AUTHORITY: https://${{ secrets.E2E_AUTH0_DOMAIN }}
           VITE_AUTH_CLIENT_ID: ${{ secrets.E2E_AUTH0_CLIENT_ID }}
           VITE_AUTH_AUDIENCE: ${{ secrets.E2E_AUTH0_AUDIENCE }}
           VITE_AUTH_REDIRECT_URI: http://localhost:3002/hospitality/callback
           VITE_API_URL: http://localhost:3002
-
-      - name: Wait for dev server
-        run: npx wait-on http://localhost:3002/hospitality/ --timeout 60000
-
-      - name: Run E2E tests
-        run: pnpm --dir apps/hospitality test:e2e
-        env:
           E2E_AUTH0_DOMAIN: ${{ secrets.E2E_AUTH0_DOMAIN }}
           E2E_AUTH0_CLIENT_ID: ${{ secrets.E2E_AUTH0_CLIENT_ID }}
           E2E_AUTH0_AUDIENCE: ${{ secrets.E2E_AUTH0_AUDIENCE }}
