@@ -122,6 +122,8 @@ export function createDatabase<T extends PrismaLike>(
     return "ok";
   }
 
+  let isShutDown = false;
+
   const adapter = new PrismaPg(pool);
   const basePrisma = new PrismaClient({ adapter });
 
@@ -183,6 +185,8 @@ export function createDatabase<T extends PrismaLike>(
   }) as T;
 
   async function shutdown() {
+    if (isShutDown) return;
+    isShutDown = true;
     await basePrisma.$disconnect();
     await pool.end();
   }
