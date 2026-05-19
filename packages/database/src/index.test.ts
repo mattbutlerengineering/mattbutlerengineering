@@ -247,6 +247,23 @@ describe("createDatabase", () => {
     expect(stats.utilization).toBe(0);
   });
 
+  it("shutdown is idempotent — calling it twice does not call pool.end() twice", async () => {
+    const { createDatabase } = await import("./index.js");
+    const MockPrisma = createMockPrismaClient();
+    const db = createDatabase(MockPrisma as never);
+
+    // Clear any calls from prior tests or beforeExit registrations
+    mockPoolInstance.end.mockClear();
+
+    // First shutdown should call pool.end() exactly once
+    await db.shutdown();
+    expect(mockPoolInstance.end).toHaveBeenCalledTimes(1);
+
+    // Second shutdown should be a no-op (idempotent guard)
+    await db.shutdown();
+    expect(mockPoolInstance.end).toHaveBeenCalledTimes(1);
+  });
+
   it("$allOperations handles undefined model and operation in slow query", async () => {
     const { createDatabase } = await import("./index.js");
     createDatabase(createMockPrismaClient() as never);
