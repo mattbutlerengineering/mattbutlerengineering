@@ -96,9 +96,7 @@ describe("DELETE /public/v1/reservations/manage", () => {
   it("cancels reservation and returns 200 for valid token", async () => {
     const token = generateManageToken("res_1", "jane@example.com");
 
-    vi.mocked(reservationService.getById).mockResolvedValueOnce(
-      mockReservation as never
-    );
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(reservationService.update).mockResolvedValueOnce({
       ...mockReservation,
       status: "CANCELLED",
@@ -118,9 +116,7 @@ describe("DELETE /public/v1/reservations/manage", () => {
   it("sends cancellation email with iCal METHOD:CANCEL", async () => {
     const token = generateManageToken("res_1", "jane@example.com");
 
-    vi.mocked(reservationService.getById).mockResolvedValueOnce(
-      mockReservation as never
-    );
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(reservationService.update).mockResolvedValueOnce({
       ...mockReservation,
       status: "CANCELLED",
