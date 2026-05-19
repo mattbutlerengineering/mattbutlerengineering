@@ -63,7 +63,7 @@ jobs:
 
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 22
           cache: "pnpm"
@@ -118,7 +118,7 @@ jobs:
 
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 22
           cache: "pnpm"
@@ -187,7 +187,7 @@ jobs:
 
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 22
           cache: "pnpm"
@@ -222,7 +222,7 @@ jobs:
 
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 22
           cache: "pnpm"
@@ -266,7 +266,7 @@ jobs:
 
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 22
           cache: "pnpm"
@@ -305,7 +305,7 @@ jobs:
 
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 22
           cache: "pnpm"
@@ -357,7 +357,7 @@ jobs:
 
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 22
           cache: "pnpm"
@@ -425,7 +425,7 @@ jobs:
 
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 22
           cache: "pnpm"
@@ -469,7 +469,7 @@ jobs:
 
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: ${{ matrix.node-version }}
           cache: "pnpm"
@@ -504,7 +504,7 @@ jobs:
         run: pnpm turbo test:coverage
 
       - name: Upload coverage reports
-        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6
+        uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354 # v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./packages/auth/coverage/coverage-final.json,./packages/agent-core/coverage/coverage-final.json,./packages/rialto/coverage/coverage-final.json,./packages/rialto-catalog/coverage/coverage-final.json,./packages/api-client/coverage/coverage-final.json,./packages/feature-flags/coverage/coverage-final.json,./packages/observability/coverage/coverage-final.json,./packages/mcp-server/coverage/coverage-final.json,./services/users/coverage/coverage-final.json,./services/reservations/coverage/coverage-final.json,./services/agent/coverage/coverage-final.json,./apps/hospitality/coverage/coverage-final.json,./tools/cli/coverage/coverage-final.json,./infrastructure/pulumi/coverage/coverage-final.json
@@ -564,7 +564,7 @@ jobs:
 
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 22
           cache: "pnpm"
