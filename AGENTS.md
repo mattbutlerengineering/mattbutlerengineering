@@ -79,6 +79,15 @@ The system includes a **Chaos Agent** and **Revert RCA Loop** to ensure high sig
 
 ---
 
+## CI Policy (Green Main)
+
+Main must always be green. All PRs require **CI Gate** to pass before merge.
+
+- **No admin-merge through red checks.** Emergency revert is the only exception.
+- **If main breaks, fix is top priority.** Drop current work and restore green.
+- **Node 22 is pinned via `.nvmrc`.** Run `nvm use` before generating llms.txt files.
+- **Revert watchdog** monitors every commit to main and files CRITICAL issues if CI fails.
+
 ## Zero-Touch Audit (Quality Mandate)
 
 To minimize human intervention and maintain a low human-touch ratio, agents must perform a **Zero-Touch Audit** before finalizing any PR.
