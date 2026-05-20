@@ -94,21 +94,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
-      const authUser = request.user;
-      const adminAccess = hasPermission(authUser, "admin");
-
-      if (!adminAccess) {
-        reply.code(403);
-        return reply.send(
-          createProblemDetails(
-            403,
-            "Forbidden",
-            "Admin access required to list all reservations"
-          ) as never
-        );
-      }
-
+    async (request, _reply) => {
       const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
       const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "10", 10) || 10));
       return reservationService.list({
