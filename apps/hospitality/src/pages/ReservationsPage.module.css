@@ -1,5 +1,5 @@
 .container {
-  padding: var(--rialto-space-lg);
+  /* Padding provided by DashboardLayout .content — no extra wrapper padding needed */
 }
 
 /* Live indicator */

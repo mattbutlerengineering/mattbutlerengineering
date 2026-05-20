@@ -1,3 +1,4 @@
 .header {
+  margin-block-start: var(--rialto-space-lg);
   margin-block-end: var(--rialto-space-lg);
 }
