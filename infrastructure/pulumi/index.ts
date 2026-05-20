@@ -36,11 +36,15 @@ export const auth0ClientId = auth0Outputs.hospitalityClientId;
 // Bucket for storing Pulumi state backend (S3-compatible).
 // Note: Pulumi is pre-configured to use this bucket via AWS_ACCESS_KEY_ID
 // and AWS_SECRET_ACCESS_KEY env vars pointing to R2's S3 API.
-const pulumiStateBucket = new cloudflare.R2Bucket("mattbutlerengineering-pulumi-state", {
-  accountId: cloudflareAccountId,
-  name: "mattbutlerengineering-pulumi-state",
-  location: "enam",
-});
+const pulumiStateBucket = new cloudflare.R2Bucket(
+  "mattbutlerengineering-pulumi-state",
+  {
+    accountId: cloudflareAccountId,
+    name: "mattbutlerengineering-pulumi-state",
+    location: "enam",
+  },
+  { import: `${cloudflareAccountId}/mattbutlerengineering-pulumi-state` }
+);
 
 // ── Cloudflare KV Namespaces ──────────────────────────────────────────
 // Additional KV namespaces beyond the health-state namespace.
