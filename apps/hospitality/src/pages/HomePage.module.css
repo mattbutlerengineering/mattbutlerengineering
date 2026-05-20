@@ -50,7 +50,7 @@
 .reservationTime {
   font-family: var(--rialto-font-sans);
   font-size: var(--rialto-text-sm);
-  font-weight: 500;
+  font-weight: var(--rialto-weight-medium);
   color: var(--rialto-text-primary);
   min-inline-size: 5ch;
   flex-shrink: 0;

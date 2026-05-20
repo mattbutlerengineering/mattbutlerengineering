@@ -1,5 +1,5 @@
 .container {
-  padding: var(--rialto-space-lg);
+  /* Padding provided by DashboardLayout .content — no extra wrapper padding needed */
 }
 
 .header {
@@ -206,10 +206,6 @@
 }
 
 @media (max-width: 480px) {
-  .container {
-    padding: var(--rialto-space-md);
-  }
-
   .segmentsGrid {
     grid-template-columns: repeat(2, 1fr);
   }
