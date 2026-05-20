@@ -30,6 +30,9 @@ Project-specific traps that have bitten me before. Read these before diving into
 - **E2E workflow requires rialto built** — `@mattbutlerengineering/rialto/styles` export points to `dist/lib/styles.css` (a build artifact). Without `pnpm build --filter @mattbutlerengineering/rialto` before E2E tests, Vite can't resolve any rialto imports
 - **Worktree agent PRs may target wrong base branch** — `isolation: "worktree"` agents branch from whatever commit the worktree was created at. If spawned from a feature branch, the PR targets that branch (not `main`). After agent completes, verify the PR's base ref is `main` — if not, close and recreate from a rebased branch
 
+- **Pulumi Deploy "success" can be a skipped run** — the workflow reports `success` even when `Deploy Infrastructure` job was skipped (triggered by failed static deploy). Check the job-level conclusion, not workflow-level, to determine if Pulumi actually ran
+- **DO + Pulumi dual-deploy race** — `deploy-services.yml` (doctl) and `pulumi-up.yml` both manage the same DO App Platform resource. Every `doctl apps create-deployment` triggers a paired "app spec updated" deployment that gets CANCELED. If Pulumi detects spec drift from doctl, `pulumi up` can hang waiting for DO deployment to complete
+
 - **pnpm-lock.yaml quote style diffs are formatting noise** — different pnpm versions use single vs double quotes for keys. These are not real changes. Revert with `git checkout -- pnpm-lock.yaml` rather than committing formatting-only lockfile diffs
 
 - **Local `generated-schemas.ts` modifications pollute drift-check** — if `packages/rialto-catalog/src/generated-schemas.ts` has uncommitted changes (e.g. from running the generator with different rialto dist), the drift-check test reads the modified file and fails. Fix: `git checkout -- packages/rialto-catalog/src/generated-schemas.ts` before push

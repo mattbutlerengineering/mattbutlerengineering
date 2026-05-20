@@ -289,18 +289,6 @@ const workerScript = new cloudflare.WorkersScript("mattbutlerengineering-edge-ro
     { name: "HOSPITALITY", service: "mattbutlerengineering-hospitality", type: "service" },
     { name: "RIALTO", service: "mattbutlerengineering-rialto-web", type: "service" },
     { name: "GEN", service: "mattbutlerengineering-gen", type: "service" },
-    {
-      name: "MARKETING_CANARY",
-      service: "mattbutlerengineering-marketing-canary",
-      type: "service",
-    },
-    {
-      name: "HOSPITALITY_CANARY",
-      service: "mattbutlerengineering-hospitality-canary",
-      type: "service",
-    },
-    { name: "RIALTO_CANARY", service: "mattbutlerengineering-rialto-web-canary", type: "service" },
-    { name: "GEN_CANARY", service: "mattbutlerengineering-gen-canary", type: "service" },
     { name: "HEALTH_STATE", namespaceId: healthKv.id, type: "kv_namespace" },
   ],
 });
