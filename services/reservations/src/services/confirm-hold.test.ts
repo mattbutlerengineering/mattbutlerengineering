@@ -137,9 +137,7 @@ describe("confirmHold", () => {
       }
 
       expect(emitHoldConfirmed).toHaveBeenCalledTimes(1);
-      expect(emitHoldConfirmed).toHaveBeenCalledWith(
-        expect.objectContaining({ id: "res-1" })
-      );
+      expect(emitHoldConfirmed).toHaveBeenCalledWith(expect.objectContaining({ id: "res-1" }));
     });
   });
 
@@ -186,9 +184,7 @@ describe("confirmHold", () => {
 
   describe("Slice 4: Session mismatch", () => {
     it("returns SESSION_MISMATCH when sessionId does not match", async () => {
-      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(
-        makePrismaHold() as never
-      );
+      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(makePrismaHold() as never);
 
       const result = await confirmHold({
         holdId: "hold-1",
