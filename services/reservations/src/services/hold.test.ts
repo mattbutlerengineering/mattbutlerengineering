@@ -687,8 +687,9 @@ describe("holdService", () => {
       );
 
       expect(result.success).toBe(true);
-      expect(result.reservation!.status).toBe("CONFIRMED");
-      expect(result.reservation!.guestName).toBe("Jane Doe");
+      const r = result as { success: true; reservation: { status: string; guestName: string } };
+      expect(r.reservation.status).toBe("CONFIRMED");
+      expect(r.reservation.guestName).toBe("Jane Doe");
     });
 
     it("returns error when hold not found", async () => {
@@ -697,7 +698,7 @@ describe("holdService", () => {
       const result = await holdService.convertToReservation("missing", "session-abc", {});
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe("Hold not found");
+      expect((result as { error: string }).error).toBe("Hold not found");
     });
 
     it("returns error when hold has expired", async () => {
@@ -709,7 +710,7 @@ describe("holdService", () => {
       const result = await holdService.convertToReservation("hold-1", "session-abc", {});
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe("Hold has expired");
+      expect((result as { error: string }).error).toBe("Hold has expired");
     });
 
     it("returns error when session ID does not match", async () => {
@@ -718,7 +719,7 @@ describe("holdService", () => {
       const result = await holdService.convertToReservation("hold-1", "wrong-session", {});
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe("Session ID does not match the hold");
+      expect((result as { error: string }).error).toBe("Session ID does not match the hold");
     });
 
     it("returns error when conflicting reservation found in transaction", async () => {
@@ -743,7 +744,7 @@ describe("holdService", () => {
       const result = await holdService.convertToReservation("hold-1", "session-abc", {});
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe("Time slot is no longer available");
+      expect((result as { error: string }).error).toBe("Time slot is no longer available");
     });
 
     it("returns error when conflicting hold found in transaction", async () => {
@@ -768,7 +769,7 @@ describe("holdService", () => {
       const result = await holdService.convertToReservation("hold-1", "session-abc", {});
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe("Time slot is no longer available");
+      expect((result as { error: string }).error).toBe("Time slot is no longer available");
     });
   });
 

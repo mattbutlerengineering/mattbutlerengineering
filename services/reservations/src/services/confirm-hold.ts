@@ -2,10 +2,10 @@ import {
   toDateString,
   type ConfirmHoldRequest,
   type Reservation,
+  type ReservationStatus,
   type Table,
   type TableShapeMetadata,
 } from "@mbe/types";
-import type { ReservationHold as PrismaHold } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { emitHoldConfirmed } from "./events.js";
 
@@ -65,7 +65,7 @@ function mapReservationResult(result: {
     startTime: result.startTime.toISOString(),
     endTime: result.endTime.toISOString(),
     partySize: result.partySize,
-    status: result.status,
+    status: result.status as ReservationStatus,
     notes: result.notes,
     cancellationReason: result.cancellationReason,
     cancellationNote: result.cancellationNote,

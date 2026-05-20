@@ -1,16 +1,17 @@
 import {
   toDateString,
+  type ConfirmHoldRequest,
   type ReservationHold,
   type CreateHoldRequest,
-  type ConfirmHoldRequest,
-  type Reservation,
+  type ReservationStatus,
   type Table,
-  type VenueSettings,
   type TableShapeMetadata,
+  type VenueSettings,
 } from "@mbe/types";
 import type { ReservationHold as PrismaHold } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { availabilityService } from "./availability.js";
+import type { ConfirmHoldResult } from "./confirm-hold.js";
 
 // Default hold duration in minutes
 const DEFAULT_HOLD_DURATION = 10;
@@ -33,12 +34,6 @@ function mapPrismaHold(hold: PrismaHold): ReservationHold {
 export interface CreateHoldResult {
   success: boolean;
   hold?: ReservationHold;
-  error?: string;
-}
-
-export interface ConfirmHoldResult {
-  success: boolean;
-  reservation?: Reservation;
   error?: string;
 }
 
@@ -241,17 +236,17 @@ export const holdService = {
     });
 
     if (!hold) {
-      return { success: false, error: "Hold not found" };
+      return { success: false, error: "Hold not found", errorCode: "NOT_FOUND" };
     }
 
     if (hold.expiresAt < new Date()) {
       // Clean up the expired hold
       await prisma.reservationHold.delete({ where: { id: holdId } }).catch(() => {});
-      return { success: false, error: "Hold has expired" };
+      return { success: false, error: "Hold has expired", errorCode: "EXPIRED" };
     }
 
     if (hold.sessionId !== sessionId) {
-      return { success: false, error: "Session ID does not match the hold" };
+      return { success: false, error: "Session ID does not match the hold", errorCode: "SESSION_MISMATCH" };
     }
 
     // Check conflict + create reservation + delete hold atomically in a transaction
@@ -319,7 +314,7 @@ export const holdService = {
     });
 
     if (txResult.conflict) {
-      return { success: false, error: "Time slot is no longer available" };
+      return { success: false, error: "Time slot is no longer available", errorCode: "CONFLICT" };
     }
 
     const result = txResult.reservation;
@@ -331,7 +326,7 @@ export const holdService = {
         startTime: result.startTime.toISOString(),
         endTime: result.endTime.toISOString(),
         partySize: result.partySize,
-        status: result.status,
+        status: result.status as ReservationStatus,
         notes: result.notes,
         cancellationReason: result.cancellationReason,
         cancellationNote: result.cancellationNote,
@@ -377,12 +372,12 @@ export const holdService = {
     });
 
     if (!hold) {
-      return { success: false, error: "Hold not found" };
+      return { success: false, error: "Hold not found", errorCode: "NOT_FOUND" };
     }
 
     if (hold.expiresAt < new Date()) {
       await prisma.reservationHold.delete({ where: { id: holdId } }).catch(() => {});
-      return { success: false, error: "Hold has expired" };
+      return { success: false, error: "Hold has expired", errorCode: "EXPIRED" };
     }
 
     return this.convertToReservation(holdId, hold.sessionId, guestDetails, undefined);
