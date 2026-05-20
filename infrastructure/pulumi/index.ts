@@ -43,7 +43,7 @@ const pulumiStateBucket = new cloudflare.R2Bucket(
     name: "mattbutlerengineering-pulumi-state",
     location: "enam",
   },
-  { import: `${cloudflareAccountId}/mattbutlerengineering-pulumi-state` }
+  { import: `${cloudflareAccountId}/mattbutlerengineering-pulumi-state/enam` }
 );
 
 // ── Cloudflare KV Namespaces ──────────────────────────────────────────
