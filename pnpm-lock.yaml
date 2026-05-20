@@ -730,6 +730,9 @@ importers:
       '@scalar/fastify-api-reference':
         specifier: ^1.55.3
         version: 1.55.3
+      fastify:
+        specifier: 'catalog:'
+        version: 5.8.5
       fastify-plugin:
         specifier: ^5.0.0
         version: 5.1.0
@@ -752,9 +755,6 @@ importers:
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.1.6(@vitest/browser@4.1.6)(vitest@4.1.6)
-      fastify:
-        specifier: 'catalog:'
-        version: 5.8.5
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
